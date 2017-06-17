@@ -25,12 +25,12 @@ def test_log_det_backward():
         [0, 0, 2],
     ])
     b = torch.ones(3, 3).fill_(2)
-    actual_grad = (a).inverse()
+    actual_grad = (a).inverse() * 2
 
     a_var = Variable(a, requires_grad=True)
     out_var = a_var.mul(Variable(b))
-    out_var = LogDet()(out_var)
-    out_var = out_var
+    out_var = LogDet()(out_var) 
+    out_var = out_var * 2
     out_var.backward()
     res = a_var.grad.data
 
