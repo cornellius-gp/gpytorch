@@ -9,6 +9,9 @@ class RBFFunction(Function):
         self.x1 = x1
         self.x2 = x2
 
+    # Assumes log_lengthscale is a constant matrix (filled with
+    # the parameter log_lengthscale) which is the size of the
+    # resulting kernel matrix
     def forward(self, log_lengthscale):
         n, d = tuple(self.x1.size())
         m, _ = tuple(self.x2.size())
@@ -22,9 +25,7 @@ class RBFFunction(Function):
         x2_squared = x2_squared.view(1, m).expand(n, m)
         res.add_(-1, x1_squared).add_(-1, x2_squared) # res = -(x - z)^2
 
-        scaled_distance_matrix = res.mul(-1).div_(log_lengthscale.expand(n,m).exp())
-
-        res.div_(log_lengthscale.expand(n, m).exp()) # res = -(x - z)^2 / lengthscale
+        res.div_(log_lengthscale.exp()) # res = -(x - z)^2 / lengthscale
         res.exp_()
 
         self.save_for_backward(res)
@@ -35,7 +36,7 @@ class RBFFunction(Function):
         kernel, = self.saved_tensors
         grad = kernel.log().mul_(-1).mul_(kernel)
         grad.mul_(grad_output.transpose(0, 1))
-        return torch.Tensor([torch.sum(grad)])
+        return grad
 
 
 class RBFKernel(Kernel):
@@ -45,4 +46,6 @@ class RBFKernel(Kernel):
 
 
     def forward(self, x1, x2):
-        return RBFFunction(x1, x2)(self.log_lengthscale)
+        n, _ = x1.size()
+        m, _ = x2.size()
+        return RBFFunction(x1, x2)(self.log_lengthscale.expand(n, m))
