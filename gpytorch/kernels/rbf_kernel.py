@@ -2,7 +2,7 @@ import torch
 from torch.nn import Parameter
 from torch.autograd import Function
 from .kernel import Kernel
-import pdb
+
 
 class RBFFunction(Function):
     def __init__(self, x1, x2):
