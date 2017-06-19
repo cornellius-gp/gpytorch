@@ -15,7 +15,10 @@ class LogDet(Function):
         grad_output_val = grad_output[0] # Make grad output a scalar
         chol_matrix, = self.saved_tensors
 
+        # Create a buffer for the gradients
         self.grad = self.prev_grad.potrs(chol_matrix).mul_(grad_output_val)
+
+        # Return a fake gradient
         return grad_output.resize_(chol_matrix.size()).zero_()
 
 
@@ -34,8 +37,6 @@ class LogDet(Function):
         detached_input_var.diag().sum().backward()
         self.prev_grad = detached_input_var.grad.data
 
-        # Create a buffer for the gradients
-        self.grad = input_var.data.new().resize_(input_var.data.size())
         # The backward pass here is going to return zero, so nothing
         # will be accumulated in the original tensor
         # We will then add a hook to add the buffer's grad to input var
