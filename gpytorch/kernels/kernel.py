@@ -2,7 +2,7 @@ import torch
 from torch.nn import Module
 
 class Kernel(Module):
-    def set_parameters(self, **kwargs):
+    def initialize(self, **kwargs):
         for param_name, param_value in kwargs.items():
             if hasattr(self, param_name):
                 if isinstance(param_value, torch.Tensor):
@@ -11,6 +11,7 @@ class Kernel(Module):
                     getattr(self, param_name).data.fill_(param_value)
             else:
                 raise Exception('%s has no parameter %s' % (self.__class__.__name__, param_name))
+        return self
 
 
     def forward(self, x1, x2):
