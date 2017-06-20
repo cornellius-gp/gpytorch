@@ -20,7 +20,7 @@ class RBFFunction(Function):
         n, d = tuple(self.x1.size())
         m, _ = tuple(self.x2.size())
 
-        res = torch.zeros(m,n)
+        res = torch.zeros(n, m)
         res.addmm_(1, 2, self.x1, self.x2.transpose(0, 1)) # res = 2 x1 x2^T
 
         x1_squared = torch.bmm(self.x1.view(n, 1, d), self.x1.view(n, d, 1))

@@ -7,6 +7,7 @@ from gpytorch.kernels import RBFKernel
 from gpytorch.math.modules import Bias, Identity
 from gpytorch.distributions import GPDistribution
 from gpytorch.distributions.likelihoods import GaussianLikelihood
+from gpytorch.inference import ExactGPInference
 
 
 # Simple training data: let's try to learn a sine function
@@ -33,3 +34,25 @@ def test_gp_prior_and_likelihood():
     # The covariance between the furthest apart points should be 1/e
     least_covar = function_predictions.covar().data[0, -1]
     assert(math.fabs(least_covar - math.exp(-1)) < 1e-6)
+
+
+def test_posterior_latent_gp_and_likelihood_without_optimization():
+    # We're manually going to set the hyperparameters to be ridiculous
+    prior.covar_module.initialize(log_lengthscale=-10) # This should fit every point exactly
+    prior.mean_module.initialize(bias=0) # Let's have a mean of 0
+    likelihood.initialize(noise=1e-10)
+
+    # Compute posterior distribution
+    infer = ExactGPInference(likelihood)
+    posterior_latent_distribution = infer.run(prior, train_x, train_y)
+
+    # Let's see how our model does, conditioned with weird hyperparams
+    # The posterior should fit all the data
+    function_predictions = posterior_latent_distribution(train_x)
+    assert(torch.norm(function_predictions.mean().data - train_y.data) < 1e-5)
+    assert(torch.norm(function_predictions.var().data) < 1e-5)
+
+    # It shouldn't fit much else though
+    test_function_predictions = posterior_latent_distribution(Variable(torch.Tensor([1.1])))
+    assert(torch.norm(test_function_predictions.mean().data - 0) < 1e-5)
+    assert(torch.norm(test_function_predictions.var().data - 1) < 1e-5)
