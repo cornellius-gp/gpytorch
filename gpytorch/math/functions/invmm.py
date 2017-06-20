@@ -23,12 +23,9 @@ class Invmm(Function):
             grad_input_1 = torch.mm(grad_output, grad_input_1.t())
 
 
-        # Create a buffer for the input_2 gradients
-        # Return a fake input_2 gradient
+        # input_2 gradient
         if self.needs_input_grad[1]:
-            self.input_2_grad = self.prev_grad.potrs(chol_matrix, out=self.prev_grad)
-            self.input_2_grad = torch.mm(self.input_2_grad.t(), grad_output)
-            grad_input_2 = self.input_2_grad.new().resize_as_(self.input_2_grad).zero_()
+            grad_input_2 = grad_output.potrs(chol_matrix)
 
         return grad_input_1, grad_input_2
 
@@ -41,18 +38,6 @@ class Invmm(Function):
         orig_data = input_1_var.data
         input_1_var.data = input_1_var.chol_data
         res = super(Invmm, self).__call__(input_1_var, input_2_var)
-
-        # Get the previous variable's gradient, and store it
-        detached_input_2_var = input_2_var.detach()
-        detached_input_2_var.requires_grad = True
-        detached_input_2_var.diag().sum().backward()
-        self.prev_grad = detached_input_2_var.grad.data
-
-        # The backward pass here is going to return zero, so nothing
-        # will be accumulated in the original tensor
-        # We will then add a hook to add the buffer's grad to input var
-        if input_2_var.requires_grad:
-            input_2_var.register_hook(lambda grad: grad + Variable(self.input_2_grad))
 
         # Revert back to original data
         input_1_var.data = orig_data
