@@ -1,11 +1,15 @@
 import torch
 from torch.nn import Parameter
-from torch.autograd import Function
+from torch.autograd import Function, Variable
 from .kernel import Kernel
 
 
 class RBFFunction(Function):
     def __init__(self, x1, x2):
+        if isinstance(x1, Variable):
+            x1 = x1.data
+        if isinstance(x2, Variable):
+            x2 = x2.data
         self.x1 = x1
         self.x2 = x2
 

@@ -16,7 +16,7 @@ def test_computes_radial_basis_function():
         [64, 36, 36],
     ]).mul_(-1).div_(lengthscale).exp()
 
-    res = kernel(a, b).data
+    res = kernel(Variable(a), Variable(b)).data
     assert(torch.norm(res - actual) < 1e-5)
 
 
@@ -33,7 +33,7 @@ def test_computes_radial_basis_function_gradient():
     actual_output.backward(torch.eye(3))
     actual_param_grad = param.grad.data.sum()
 
-    output = kernel(a, b)
+    output = kernel(Variable(a), Variable(b))
     output.backward(gradient=torch.eye(3))
     res = kernel.log_lengthscale.grad.data
     assert(torch.norm(res - actual_param_grad) < 1e-5)
