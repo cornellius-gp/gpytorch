@@ -5,10 +5,10 @@ class Inference(object):
         self.likelihood = likelihood
 
     
-    def run_(self, latent_distribution, train_x, train_y):
+    def run_(self, latent_distribution, train_x, train_y, **kwargs):
         raise NotImplementedError
 
 
-    def run(self, latent_distribution, train_x, train_y):
+    def run(self, latent_distribution, train_x, train_y, **kwargs):
         latent_distribution = deepcopy(latent_distribution)
-        return self.run_(latent_distribution, train_x, train_y)
+        return self.run_(latent_distribution, train_x, train_y, **kwargs)
