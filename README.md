@@ -1,9 +1,9 @@
 # GPyTorch
 GPyTorch is a Gaussian Process library, implemented using PyTorch.
-It is designed for creating flexible an modular Gaussian Process models,
+It is designed for creating flexible and modular Gaussian Process models with ease,
 so that you don't have to be an expert to use GPs.
 
-Soem things you can do right now:
+Some things you can do right now:
 
 - Simple GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_gp_regression.ipynb))
 
