@@ -7,7 +7,8 @@ class Diag(Function):
 
     
     def forward(self, input):
-        assert(input.numel() == 1, 'Input must be a single-element tensor')
+        if input.numel() != 1:
+            raise RuntimeError('Input must be a single-element tensor')
         val = input.squeeze()[0]
         res = torch.eye(self.size).type_as(input)
         res.mul_(val)
