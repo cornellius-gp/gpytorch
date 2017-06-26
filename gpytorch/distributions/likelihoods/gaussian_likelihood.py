@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Variable
 from torch.nn import Parameter
-from gpytorch.math.functions import Diag
+from gpytorch.math.functions import AddDiag
 from gpytorch.distributions import Distribution
 from gpytorch.random_variables import GaussianRandomVariable
 
@@ -21,6 +21,6 @@ class GaussianLikelihood(Distribution):
     def forward(self, input):
         assert(isinstance(input, GaussianRandomVariable))
         mean, covar = input.representation()
-        noise = Diag(covar.size(0))(self.log_noise.exp())
+        noise = AddDiag()(covar, self.log_noise.exp())
         return GaussianRandomVariable(mean, covar + noise)
 

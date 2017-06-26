@@ -4,7 +4,7 @@ from itertools import chain
 from gpytorch.utils import pd_catcher, LBFGS
 from torch.autograd import Variable
 from .inference import Inference
-from gpytorch.math.functions import Diag, Invmv
+from gpytorch.math.functions import AddDiag, Invmv
 from gpytorch.math.modules import ExactGPMarginalLogLikelihood
 from gpytorch.distributions import GPDistribution
 from gpytorch.distributions.likelihoods import GaussianLikelihood
@@ -38,7 +38,7 @@ class ExactGPInference(Inference):
                 optimizer.n_iter += 1
 
                 train_covar = latent_distribution.forward_covar(train_x, train_x)
-                train_covar = train_covar + Diag(len(train_x))(likelihood.log_noise.exp())
+                train_covar = AddDiag()(train_covar, likelihood.log_noise.exp())
                 mean = latent_distribution.forward_mean(train_x)
                 loss = -marginal_log_likelihood(train_covar, train_y - mean)
                 loss.backward()
@@ -50,7 +50,7 @@ class ExactGPInference(Inference):
             optimizer.step(step_closure)
 
         train_covar = latent_distribution.forward_covar(train_x, train_x)
-        train_covar.add_(Diag(len(train_x))(self.likelihood.log_noise.exp()))
+        train_covar = AddDiag()(train_covar, self.likelihood.log_noise.exp())
 
         
         # First, update the train_x buffer of latent_distribution
