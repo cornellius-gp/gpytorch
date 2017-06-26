@@ -33,7 +33,10 @@ def test_backward():
         ])
         b = torch.ones(3, 3).fill_(2)
         c = torch.randn(3, n_cols)
-        actual_a_grad = torch.eye(3, n_cols).mm((-(a.inverse() / 2).mm(a.inverse() / 2).mm(c)).t()) * 2 * 2
+        actual_a_grad = -torch.mm(
+            a.inverse().mul_(0.5).mm(torch.eye(3, n_cols)),
+            a.inverse().mul_(0.5).mm(c).t()
+        ) * 2 * 2
         actual_c_grad = (a.inverse() / 2).t().mm(torch.eye(3, n_cols)) * 2
 
         a_var = Variable(a, requires_grad=True)

@@ -17,10 +17,9 @@ class Invmv(Function):
 
         # matrix gradient
         if self.needs_input_grad[0]:
-            grad_matrix = matrix_t_vector
-            grad_matrix = grad_matrix.view(-1, 1).potrs(chol_matrix, out=grad_matrix).view(-1)
+            grad_matrix = torch.ger(grad_output, matrix_t_vector)
+            grad_matrix = grad_matrix.potrs(chol_matrix, out=grad_matrix)
             grad_matrix = grad_matrix.mul_(-1)
-            grad_matrix = torch.ger(grad_output, grad_matrix)
 
         # vector gradient
         if self.needs_input_grad[1]:

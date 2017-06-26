@@ -17,11 +17,9 @@ class Invmm(Function):
 
         # input_1 gradient
         if self.needs_input_grad[0]:
-            grad_input_1 = input_1_t_input_2
+            grad_input_1 = torch.mm(grad_output, input_1_t_input_2.t())
             grad_input_1 = grad_input_1.potrs(chol_matrix, out=grad_input_1)
             grad_input_1 = grad_input_1.mul_(-1)
-            grad_input_1 = torch.mm(grad_output, grad_input_1.t())
-
 
         # input_2 gradient
         if self.needs_input_grad[1]:
