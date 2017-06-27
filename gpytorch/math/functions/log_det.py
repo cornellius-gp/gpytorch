@@ -15,11 +15,9 @@ class LogDet(Function):
         grad_output_val = grad_output[0] # Make grad output a scalar
         chol_matrix, = self.saved_tensors
 
-        # Create a buffer for the gradients
-        self.grad = self.prev_grad.potrs(chol_matrix).mul_(grad_output_val)
-
-        # Return a fake gradient
-        return grad_output.resize_(chol_matrix.size()).zero_()
+        grad = torch.eye(*chol_matrix.size()).type_as(chol_matrix)
+        grad.potrs(chol_matrix, out=grad).mul_(grad_output_val)
+        return grad
 
 
     def __call__(self, input_var):
@@ -31,11 +29,10 @@ class LogDet(Function):
         input_var.data = input_var.chol_data
         res = super(LogDet, self).__call__(input_var)
 
-        # Get the previous variable's gradient, and store it
-        detached_input_var = input_var.detach()
-        detached_input_var.requires_grad = True
-        detached_input_var.diag().sum().backward()
-        self.prev_grad = detached_input_var.grad.data
+        # Revert back to original data
+        input_var.data = orig_data
+        return res
+
 
         # The backward pass here is going to return zero, so nothing
         # will be accumulated in the original tensor

@@ -61,7 +61,7 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
 def test_posterior_latent_gp_and_likelihood_with_optimization():
     # We're manually going to set the hyperparameters to something they shouldn't be
     prior.covar_module.initialize(log_lengthscale=1)
-    prior.mean_module.initialize(bias=0.1)
+    prior.mean_module.initialize(bias=0)
     likelihood.initialize(log_noise=1)
 
     # Compute posterior distribution

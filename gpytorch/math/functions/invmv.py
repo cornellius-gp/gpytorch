@@ -1,4 +1,4 @@
-from gpytorch.math.functions import Invmm
+from .invmm import Invmm
 
 # Returns matrix^{-1} vector
 class Invmv(Invmm):
