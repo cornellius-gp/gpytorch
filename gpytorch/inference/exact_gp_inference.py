@@ -6,27 +6,31 @@ from torch.autograd import Variable
 from .inference import Inference
 from gpytorch.math.functions import AddDiag, Invmv
 from gpytorch.math.modules import ExactGPMarginalLogLikelihood
-from gpytorch.distributions import GPDistribution
-from gpytorch.distributions.likelihoods import GaussianLikelihood
+from gpytorch.latent_distributions import GPDistribution
+from gpytorch.likelihoods import GaussianLikelihood
 
 
 class ExactGPInference(Inference):
-    def __init__(self, likelihood):
-        if not isinstance(likelihood, GaussianLikelihood):
-            raise RuntimeError('Exact GP inference is only defined for GaussianLikelihoood')
-        super(ExactGPInference, self).__init__(likelihood)
+    def __init__(self, observation_model):
+        if not isinstance(observation_model.observation_model, GaussianLikelihood):
+            raise RuntimeError('Exact GP inference is only defined for observation models of type GaussianLikelihoood')
+
+        if not isinstance(observation_model.latent_distribution, GPDistribution):
+            raise RuntimeError('Exact GP inference is only defined for latent distributions of type GPDistribution')
+
+        super(ExactGPInference, self).__init__(observation_model)
 
 
-    def run_(self, latent_distribution, train_x, train_y, optimize=True, log_function=None, **optim_kwargs):
-        likelihood = self.likelihood
-        if not isinstance(latent_distribution, GPDistribution):
-            raise RuntimeError('Exact GP inference is only defined for GPDistribution')
+    def run_(self, train_x, train_y, optimize=True, log_function=None, **optim_kwargs):
+        
+        likelihood = self.observation_model.observation_model
+        latent_distribution = self.observation_model.latent_distribution
 
         # Optimize the latent distribution/likelihood hyperparameters
         # w.r.t. the marginal likelihood
         if optimize:
             marginal_log_likelihood = ExactGPMarginalLogLikelihood()
-            parameters = list(chain(latent_distribution.parameters(), self.likelihood.parameters()))
+            parameters = list(chain(latent_distribution.parameters(), likelihood.parameters()))
             optimizer = LBFGS(parameters, line_search_fn='backtracking', **optim_kwargs)
             optimizer.n_iter = 0
 
@@ -37,10 +41,8 @@ class ExactGPInference(Inference):
                 likelihood.zero_grad()
                 optimizer.n_iter += 1
 
-                train_covar = latent_distribution.forward_covar(train_x, train_x)
-                train_covar = AddDiag()(train_covar, likelihood.log_noise.exp())
-                mean = latent_distribution.forward_mean(train_x)
-                loss = -marginal_log_likelihood(train_covar, train_y - mean)
+                output = self.observation_model.forward(train_x)
+                loss = -marginal_log_likelihood(output.covar(), train_y - output.mean())
                 loss.backward()
 
                 if log_function is not None:
@@ -50,7 +52,7 @@ class ExactGPInference(Inference):
             optimizer.step(step_closure)
 
         train_covar = latent_distribution.forward_covar(train_x, train_x)
-        train_covar = AddDiag()(train_covar, self.likelihood.log_noise.exp())
+        train_covar = AddDiag()(train_covar, likelihood.log_noise.exp())
 
         
         # First, update the train_x buffer of latent_distribution
@@ -70,4 +72,4 @@ class ExactGPInference(Inference):
         # Throw cholesky decomposition on the latent distribution, for efficiency
         latent_distribution.train_covar_var.chol_data = train_covar.chol_data
 
-        return latent_distribution
+        return self.observation_model

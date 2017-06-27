@@ -1,7 +1,7 @@
 import torch
 from torch.nn import Parameter
 from torch.autograd import Variable
-from .distribution import Distribution
+from gpytorch import Distribution
 from gpytorch.math.functions import Invmm
 from gpytorch.random_variables import RandomVariable, GaussianRandomVariable
 

@@ -37,6 +37,8 @@ class GaussianRandomVariable(RandomVariable):
         self._mean = mean
         self._var = var
 
+    def __repr__(self):
+        return repr(self.representation())
 
     def __len__(self):
         return self._mean.__len__()

@@ -1,2 +1,0 @@
-from distribution import Distribution
-from gp_distribution import GPDistribution

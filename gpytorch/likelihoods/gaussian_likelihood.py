@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Variable
 from torch.nn import Parameter
 from gpytorch.math.functions import AddDiag
-from gpytorch.distributions import Distribution
+from gpytorch import Distribution
 from gpytorch.random_variables import GaussianRandomVariable
 
 
@@ -22,5 +22,5 @@ class GaussianLikelihood(Distribution):
         assert(isinstance(input, GaussianRandomVariable))
         mean, covar = input.representation()
         noise = AddDiag()(covar, self.log_noise.exp())
-        return GaussianRandomVariable(mean, covar + noise)
+        return GaussianRandomVariable(mean, noise)
 
