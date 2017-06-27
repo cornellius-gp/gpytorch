@@ -1,9 +1,9 @@
 import torch
 from torch.autograd import Variable
-from gpytorch.math.functions import AddDiag, Invmm
 from gpytorch import Distribution
+from gpytorch.math.functions import AddDiag, Invmv
 
-class Kernel(Distribution):
+class Mean(Distribution):
     def initialize(self, **kwargs):
         for param_name, param_value in kwargs.items():
             if hasattr(self, param_name):
@@ -16,47 +16,38 @@ class Kernel(Distribution):
         return self
 
 
-    def forward(self, x1, x2):
+    def forward(self, x):
         raise NotImplementedError()
 
 
-    def __call__(self, x1, x2=None):
-        if x2 is None:
-            x2 = x1
-        if x1.data.ndimension() == 1:
-            x1 = x1.view(-1, 1)
-        if x2.data.ndimension() == 1:
-            x2 = x2.view(-1, 1)
-        assert(x1.size(1) == x2.size(1))
-        return super(Kernel, self).__call__(x1, x2)
-
-
-class PosteriorKernel(Kernel):
-    def __init__(self,kernel,train_x,log_noise=None):
-        super(PosteriorKernel, self).__init__()
+class PosteriorMean(Mean):
+    def __init__(self,mean,kernel,train_x,train_y,log_noise=None):
+        super(PosteriorMean, self).__init__()
+        self.mean = mean
         self.kernel = kernel
         self.log_noise = log_noise
 
         # Buffers for conditioning on data
         if isinstance(train_x, Variable):
             train_x = train_x.data
+        if isinstance(train_y, Variable):
+            train_y = train_y.data
         self.register_buffer('train_x', train_x)
-
+        self.register_buffer('train_y', train_y)
 
     def forward(self, input):
         train_x_var = Variable(self.train_x)
-        test_test_covar = self.kernel(input, input)
+        train_y_var = Variable(self.train_y)
+
+        test_mean = self.mean(input)
+
         train_test_covar = self.kernel(input, train_x_var)
         
-        train_train_covar = self.kernel(train_x_var, train_x_var)
+        train_train_covar = self.kernel(train_x_var,train_x_var)
         train_train_covar = AddDiag()(train_train_covar, self.log_noise.exp())
 
-        test_test_covar = test_test_covar.sub(
-            torch.mm(train_test_covar, Invmm()(train_train_covar, train_test_covar.t()))
-        )
+        alpha = Invmv()(train_train_covar, train_y_var - self.mean(train_x_var))
 
-        return test_test_covar
+        test_mean = test_mean.add(torch.mv(train_test_covar, alpha))
 
-
-    def __call__(self, x1):
-        return Distribution.__call__(self, x1)
+        return test_mean
