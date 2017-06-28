@@ -1,2 +1,2 @@
-from .mean import Mean, PosteriorMean
+from .mean import Mean
 from .constant_mean import ConstantMean

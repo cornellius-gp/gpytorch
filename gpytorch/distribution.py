@@ -14,7 +14,7 @@ class Distribution(Module):
             assert(isinstance(input, Distribution) or isinstance(input, Variable),
                     'Input must be a Distribution or RandomVariable, was a %s' % \
                     input.__class__.__name__)
-        outputs = self.forward(*inputs)
+        outputs = self.forward(*inputs, **kwargs)
         if isinstance(outputs, Variable) or isinstance(outputs, RandomVariable):
             return outputs
 
