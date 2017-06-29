@@ -17,7 +17,7 @@ class Inference(object):
             self.observation_model_inference = None
 
 
-    def run_(self, train_x, train_y, **kwargs):
+    def run_(self, train_x, train_y, optimize=True, **kwargs):
         if isinstance(self.observation_model, Likelihood):
             raise RuntimeError('Likelihood should not have an inference engine')
 
@@ -35,19 +35,20 @@ class Inference(object):
         else:
             raise RuntimeError('Inference for likelihoods other than Gaussian not yet supported.')
 
-        # Define a function to get the marginal log likelihood of the model, given data/parameter values
-        def log_likelihood_closure():
-            self.observation_model.zero_grad()
-            output = self.observation_model(train_x)
-            return likelihood.marginal_log_likelihood(output, train_y)
+        if optimize:
+            # Define a function to get the marginal log likelihood of the model, given data/parameter values
+            def log_likelihood_closure():
+                self.observation_model.zero_grad()
+                output = self.observation_model(train_x)
+                return likelihood.marginal_log_likelihood(output, train_y)
 
-        # Update all parameter groups
-        param_groups = list(self.observation_model.parameter_groups())
-        if len(param_groups) > 1:
-            raise RuntimeError('Inference for multiple parameter groups not yet supported.')
+            # Update all parameter groups
+            param_groups = list(self.observation_model.parameter_groups())
+            if len(param_groups) > 1:
+                raise RuntimeError('Inference for multiple parameter groups not yet supported.')
 
-        for param_group in param_groups:
-            param_group.update(log_likelihood_closure)
+            for param_group in param_groups:
+                param_group.update(log_likelihood_closure)
 
         # Add the data
         self.observation_model.train_x.resize_as_(train_x.data).copy_(train_x.data)
@@ -56,10 +57,10 @@ class Inference(object):
         return self.observation_model
 
 
-    def run(self, train_x, train_y, **kwargs):
+    def run(self, train_x, train_y, optimize=True, **kwargs):
         orig_observation_model = self.observation_model
         self.observation_model = deepcopy(self.observation_model)
-        new_observation_model  = self.run_(train_x, train_y, **kwargs)
+        new_observation_model  = self.run_(train_x, train_y, optimize=optimize, **kwargs)
         self.observation_model = orig_observation_model
         return new_observation_model
 

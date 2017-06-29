@@ -42,10 +42,11 @@ class Distribution(Module):
 
 
     def __getattr__(self, name):
-        if name in self._parameter_groups:
-            return self._parameter_groups[name]
-        else:
-            return super(Distribution, self).__getattr__(name)
+        for group_name, param_group in self.named_parameter_groups():
+            if group_name == name:
+                return param_group
+
+        return super(Distribution, self).__getattr__(name)
 
 
     def parameter_groups(self):
