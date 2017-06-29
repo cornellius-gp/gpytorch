@@ -1,1 +1,2 @@
+from likelihood import Likelihood
 from gaussian_likelihood import GaussianLikelihood

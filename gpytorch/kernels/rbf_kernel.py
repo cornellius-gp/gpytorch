@@ -44,12 +44,7 @@ class RBFFunction(Function):
 
 
 class RBFKernel(Kernel):
-    def __init__(self):
-        super(RBFKernel, self).__init__()
-        self.log_lengthscale = Parameter(torch.zeros(1, 1))
-
-
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, log_lengthscale):
         n, _ = x1.size()
         m, _ = x2.size()
-        return RBFFunction(x1, x2)(self.log_lengthscale.expand(n, m))
+        return RBFFunction(x1, x2)(log_lengthscale.expand(n, m))

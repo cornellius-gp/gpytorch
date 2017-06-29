@@ -1,1 +1,1 @@
-from exact_gp_inference import ExactGPInference
+from inference import Inference
