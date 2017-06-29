@@ -18,13 +18,16 @@ class Inference(object):
 
 
     def run_(self, train_x, train_y, optimize=True, **kwargs):
+        if isinstance(train_x,Variable):
+            train_x = (train_x,)
+
         if isinstance(self.observation_model, Likelihood):
             raise RuntimeError('Likelihood should not have an inference engine')
 
         # Replace observation models with posterior versions
         likelihood = self.observation_model.observation_model
         if isinstance(likelihood, GaussianLikelihood):
-            output = self.observation_model.forward(train_x, **kwargs)
+            output = self.observation_model.forward(*train_x, **kwargs)
             if len(output) == 2 and isinstance(output[0], GaussianRandomVariable):
                 if not isinstance(self.observation_model,_ExactGPPosterior):
                     self.observation_model = _ExactGPPosterior(self.observation_model)
@@ -39,7 +42,7 @@ class Inference(object):
             # Define a function to get the marginal log likelihood of the model, given data/parameter values
             def log_likelihood_closure():
                 self.observation_model.zero_grad()
-                output = self.observation_model(train_x)
+                output = self.observation_model(*train_x)
                 return likelihood.marginal_log_likelihood(output, train_y)
 
             # Update all parameter groups
@@ -51,8 +54,7 @@ class Inference(object):
                 param_group.update(log_likelihood_closure)
 
         # Add the data
-        self.observation_model.train_x.resize_as_(train_x.data).copy_(train_x.data)
-        self.observation_model.train_y.resize_as_(train_y.data).copy_(train_y.data)
+        self.observation_model.update_data(train_x,train_y)
 
         return self.observation_model
 

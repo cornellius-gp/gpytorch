@@ -12,35 +12,46 @@ from gpytorch.random_variables import GaussianRandomVariable
 
 
 class _ExactGPPosterior(ObservationModel):
-    def __init__(self, gp_observation_model, train_x=None, train_y=None):
+    def __init__(self, gp_observation_model, train_xs=None, train_y=None):
         super(_ExactGPPosterior, self).__init__(gp_observation_model.observation_model)
         self.gp_observation_model = gp_observation_model
 
         # Buffers for conditioning on data
-        train_x = train_x or torch.Tensor()
-        train_y = train_y or torch.Tensor()
-        if isinstance(train_x, Variable):
-            train_x = train_x.data
-        if isinstance(train_y, Variable):
-            train_y = train_y.data
-        self.register_buffer('train_x', train_x)
-        self.register_buffer('train_y', train_y)
+        if train_xs is not None and train_y is not None:
+            self.update_data(train_xs, train_y)
+
+    def update_data(self, train_xs, train_y):
+        if isinstance(train_xs, Variable) or isinstance(train_xs, torch._TensorBase):
+            train_xs = (train_xs,)
+        train_xs = [input.data if isinstance(input, Variable) else input for input in train_xs]
+        train_y = train_y.data if isinstance(train_y, Variable) else train_y
+
+        self.train_xs = []
+        for i, train_x in enumerate(train_xs):
+            if hasattr(self, 'train_x_%d' % i):
+                getattr(self, 'train_x_%d').resize_as_(train_x).copy_(train_x)
+            else:
+                self.register_buffer('train_x_%d' % i, train_x)
+            self.train_xs.append(getattr(self, 'train_x_%d' % i))
+
+        if hasattr(self, 'train_y'):
+            self.train_y.resize_as_(train_y).copy_(train_y)
+        else:
+            self.register_buffer('train_y', train_y)
+        return self
 
 
-    def forward(self, input, **params):
-        n = len(self.train_x)
-        m = len(input)
-
-        # Wrap train x and train y in variables
-        train_x_var = Variable(self.train_x)
-        train_y_var = Variable(self.train_y)
+    def forward(self, *inputs, **params):
+        n = len(self.train_xs[0]) if hasattr(self, 'train_xs') else 0
+        m = len(inputs[0])
 
         # Compute mean and full data (train/test) covar
         if n:
-            full_input = torch.cat([train_x_var, input])
+            train_x_vars = [Variable(train_x) for train_x in self.train_xs]
+            full_inputs = [torch.cat([train_x_var, input]) for train_x_var, input in zip(train_x_vars, inputs)]
         else:
-            full_input = input
-        gaussian_rv_output, log_noise = self.gp_observation_model.forward(full_input, **params)
+            full_inputs = inputs
+        gaussian_rv_output, log_noise = self.gp_observation_model.forward(*full_inputs, **params)
         full_mean, full_covar = gaussian_rv_output.representation()
 
         # Get mean/covar components
@@ -49,6 +60,7 @@ class _ExactGPPosterior(ObservationModel):
 
         # If there's data, use it
         if n:
+            train_y_var = Variable(self.train_y)
             train_mean = full_mean[:n]
             train_train_covar = AddDiag()(full_covar[:n, :n], log_noise.exp())
             test_train_covar = full_covar[n:, :n]
