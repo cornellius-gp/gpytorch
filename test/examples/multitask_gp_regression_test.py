@@ -31,26 +31,28 @@ class MultitaskGPModel(gpytorch.ObservationModel):
         self.mean_module = ConstantMean()
         self.covar_module = RBFKernel()
         self.task_covar_module = IndexKernel()
-        self.params = MLEParameterGroup(
-            constant_mean=Parameter(torch.zeros(1)),
-            log_lengthscale=Parameter(torch.zeros(1)),
+        self.model_params = MLEParameterGroup(
+            constant_mean=Parameter(torch.randn(1)),
+            log_noise=Parameter(torch.randn(1)),
+            log_lengthscale=Parameter(torch.randn(1)),
+        )
+        self.task_params = MLEParameterGroup(
             task_matrix=Parameter(torch.randn(2,1)),
-            task_log_vars=Parameter(torch.zeros(2)),
-	    log_noise=Parameter(torch.zeros(1)),
+            task_log_vars=Parameter(torch.randn(2)),
         )
 
     def forward(self,x,i):
-        mean_x = self.mean_module(x, constant=self.params.constant_mean)
+        mean_x = self.mean_module(x, constant=self.model_params.constant_mean)
 
-        covar_x = self.covar_module(x, log_lengthscale=self.params.log_lengthscale)
+        covar_x = self.covar_module(x, log_lengthscale=self.model_params.log_lengthscale)
         covar_i = self.task_covar_module(i,
-                                         index_covar_factor=self.params.task_matrix,
-                                         index_log_var=self.params.task_log_vars)
+                                         index_covar_factor=self.task_params.task_matrix,
+                                         index_log_var=self.task_params.task_log_vars)
 
         covar_xi = covar_x.mul(covar_i)
 
         latent_pred = GaussianRandomVariable(mean_x, covar_xi)
-        return latent_pred, self.params.log_noise 
+        return latent_pred, self.model_params.log_noise
 
 def test_multitask_gp_mean_squared_error():
     prior_observation_model = MultitaskGPModel()

@@ -6,7 +6,7 @@ class ParameterGroup(object):
     def __init__(self, **kwargs):
         for name, param in kwargs.items():
             setattr(self, name, param)
-        self._update_options = {}
+        self._options = {}
 
 
     def initialize(self, **kwargs):
@@ -21,12 +21,15 @@ class ParameterGroup(object):
         return self
 
 
-    def update_options(self, **kwargs):
+    def set_options(self, **kwargs):
         for name, val in kwargs.items():
-            self._update_options[name] = val
+            self._options[name] = val
 
 
     def update(self,loss_closure):
+        raise NotImplementedError
+
+    def has_converged(self,loss_closure):
         raise NotImplementedError
 
     def __len__(self):

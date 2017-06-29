@@ -17,7 +17,7 @@ class Inference(object):
             self.observation_model_inference = None
 
 
-    def run_(self, train_x, train_y, optimize=True, **kwargs):
+    def run_(self, train_x, train_y, optimize=True, max_inference_steps=100, **kwargs):
         if isinstance(train_x,Variable):
             train_x = (train_x,)
 
@@ -47,11 +47,17 @@ class Inference(object):
 
             # Update all parameter groups
             param_groups = list(self.observation_model.parameter_groups())
-            if len(param_groups) > 1:
-                raise RuntimeError('Inference for multiple parameter groups not yet supported.')
 
-            for param_group in param_groups:
-                param_group.update(log_likelihood_closure)
+            has_converged = False
+            for i in xrange(max_inference_steps):
+                for param_group in param_groups:
+                    param_group.update(log_likelihood_closure)
+
+                has_converged = all([param_group.has_converged(log_likelihood_closure) for param_group in param_groups])
+                if has_converged:
+                    break
+
+
 
         # Add the data
         self.observation_model.update_data(train_x,train_y)
