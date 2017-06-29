@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Function, Variable
-
+from gpytorch.utils import pd_catcher
 
 # Returns input_1^{-1} input_2
 class Invmm(Function):
@@ -30,7 +30,19 @@ class Invmm(Function):
 
     def __call__(self, input_1_var, input_2_var):
         if not hasattr(input_1_var, 'chol_data'):
-            input_1_var.chol_data = input_1_var.data.potrf()
+            def add_jitter():
+                print('Matrix not positive definite. Adding jitter:')
+                input_1_var.add_(Variable(torch.eye(*input_1_var.size()) * 1e-5))
+                return False
+
+            @pd_catcher(catch_function=add_jitter)
+            def chol_data_closure():
+                input_1_var.chol_data = input_1_var.data.potrf()
+                return True
+
+            has_completed = False
+            while not has_completed:
+                has_completed = chol_data_closure()
 
         # Switch the variable data with cholesky data, for computation
         orig_data = input_1_var.data
