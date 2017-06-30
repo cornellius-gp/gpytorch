@@ -18,6 +18,10 @@ class RandomVariable(object):
         raise NotImplementedError
 
 
+    def log_probability(self, x):
+        raise NotImplementedError
+
+
     def sample(self, n_samples=1):
         raise NotImplementedError
 
@@ -31,6 +35,29 @@ class RandomVariable(object):
         mean = self.mean()
         return mean.sub(std2), mean.add(std2)
 
+class CategoricalRandomVariable(RandomVariable):
+    def __init__(self, mass_function):
+        self.mass_function = mass_function
+        self._cumulative_mass_function = self.mass_function.cumsum()
+
+    def representation(self):
+        return self.mass_function
+
+    def log_probability(self, i):
+        if i > len(self.mass_function):
+            raise RuntimeError('Attempted to access a Categorical mass function with a category number larger than the total number of categories: %d'.format(i))
+
+        return math.log(self.mass_function[i])
+
+    def sample(self):
+        p = random.random()
+        cmf_lt = self._cumulative_mass_function.ge(p)
+        for i,v in enumerate(cmf_lt):
+            if v == 1:
+                return i
+
+    def num_categories(self):
+        return len(self.mass_function)
 
 class GaussianRandomVariable(RandomVariable):
     def __init__(self, mean, var):

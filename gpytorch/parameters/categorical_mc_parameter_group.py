@@ -1,6 +1,6 @@
 import torch
 from .mc_parameter_group import MCParameterGroup
-from priors import CategoricalPrior
+from ..random_variables import CategoricalRandomVariable
 
 class CategoricalMCParameterGroup(MCParameterGroup):
     def __init__():
@@ -9,8 +9,8 @@ class CategoricalMCParameterGroup(MCParameterGroup):
 
         for name, param in kwargs.items():
             var, prior = param
-            if not isinstance(prior, CategoricalPrior):
-                raise RuntimeError('All parameters in an MCParameterGroup must have CategoricalPriors')
+            if not isinstance(prior, CategoricalRandomVariable):
+                raise RuntimeError('All parameters in an MCParameterGroup must have priors of type CategoricalRandomVariable')
 
             if not isinstance(var, Variable):
                 raise RuntimeError('All parameters in an MCParameterGroup must have an associated Variable')
@@ -56,7 +56,7 @@ class CategoricalMCParameterGroup(MCParameterGroup):
                     # get log posteriors for each possible category
                     for k in range(num_categories):
                         param_value.data[j] = k
-                        log_posts[k] = log_likelihood_closure() + prior(k)
+                        log_posts[k] = log_likelihood_closure() + prior.log_probability(k)
 
                     # get posterior probabilities
                     posts = log_posts.exp().div_(log_posts.sum())

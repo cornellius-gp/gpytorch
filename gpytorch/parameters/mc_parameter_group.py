@@ -1,6 +1,6 @@
 from torch.autograd import Variable
 from .parameter_group import ParameterGroup
-from priors import Prior
+from ..random_variables import RandomVariable
 
 class MCParameterGroup(ParameterGroup):
     def __init__():
@@ -10,8 +10,8 @@ class MCParameterGroup(ParameterGroup):
 
         for name, param in kwargs.items():
             var, prior = param
-            if not isinstance(prior, Prior):
-                raise RuntimeError('All parameters in an MCParameterGroup must have Priors')
+            if not isinstance(prior, RandomVariable):
+                raise RuntimeError('All parameters in an MCParameterGroup must have a prior specified by a RandomVariable')
 
             if not isinstance(var, Variable):
                 raise RuntimeError('All parameters in an MCParameterGroup must have an associated Variable')
@@ -23,6 +23,7 @@ class MCParameterGroup(ParameterGroup):
 
     def sample(self):
         raise NotImplementedError
+
 
     def has_converged(self,loss_closure):
         return True
