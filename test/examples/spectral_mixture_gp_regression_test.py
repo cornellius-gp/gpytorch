@@ -16,6 +16,7 @@ from gpytorch.random_variables import GaussianRandomVariable
 train_x = Variable(torch.linspace(0, 0.75, 11))
 train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
 
+# Spectral mixture kernel should be able to train on data up to x=0.75, but test on data up to x=2
 test_x = Variable(torch.linspace(0, 2, 51))
 test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
