@@ -1,11 +1,10 @@
-from torch.nn import Parameter
+from torch.nn import Parameter, Module
 from torch.autograd import Variable
 
 
-class ParameterGroup(object):
-    def __init__(self, **kwargs):
-        for name, param in kwargs.items():
-            setattr(self, name, param)
+class ParameterGroup(Module):
+    def __init__(self):
+        super(ParameterGroup,self).__init__()
         self._options = {}
         self._training = True
 
@@ -35,13 +34,3 @@ class ParameterGroup(object):
 
     def toggle_training(self):
         self._training = not self._training
-
-    def __len__(self):
-        return len(self.param_dict())
-
-    def __iter__(self):
-        for name in self.__dict__:
-            value = getattr(self, name)
-            if isinstance(value, Variable):
-                yield name, value
-

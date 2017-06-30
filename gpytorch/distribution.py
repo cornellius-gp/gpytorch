@@ -33,12 +33,11 @@ class Distribution(Module):
         return outputs
 
     def __setattr__(self,name,value):
+        if isinstance(value,Parameter):
+            raise RuntimeError('Observation Models expect ParameterGroups, not Parameters directly.')
         if isinstance(value,ParameterGroup):
             self._parameter_groups[name] = value
-        elif isinstance(value,Parameter):
-            raise RuntimeError('Observation Models expect ParameterGroups, not Parameters directly.')
-        else:
-            super(Distribution, self).__setattr__(name, value)
+        super(Distribution, self).__setattr__(name, value)
 
 
     def __getattr__(self, name):

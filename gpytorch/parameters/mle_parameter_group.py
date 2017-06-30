@@ -1,12 +1,13 @@
 import math
 import torch
 from .parameter_group import ParameterGroup
-from torch.nn import Parameter
+from torch.nn import Parameter, Module
 from torch.autograd import Variable
 from ..utils import pd_catcher, LBFGS
 
 class MLEParameterGroup(ParameterGroup):
     def __init__(self, **kwargs):
+        super(MLEParameterGroup, self).__init__()
         for name, param in kwargs.items():
             if not isinstance(param, Parameter):
                 raise RuntimeError('All parameters in an MLEParameterGroup must be Parameters')
@@ -21,7 +22,7 @@ class MLEParameterGroup(ParameterGroup):
 
 
     def update(self, log_likelihood_closure):
-        _, parameters = zip(*self)
+        parameters = list(self.parameters())
         optim_options = self._options['optim_options']
         optimizer = LBFGS(parameters, line_search_fn='backtracking', **optim_options)
         optimizer.n_iter = 0
@@ -40,7 +41,7 @@ class MLEParameterGroup(ParameterGroup):
     def has_converged(self, log_likelihood_closure):
         loss = -log_likelihood_closure()
         loss.backward()
-        names, parameters = zip(*self)
+        parameters = list(self.parameters())
         relative_loss_difference = math.fabs(loss.data.squeeze()[0] - self.previous_loss) / self.previous_loss
 
         grad_tolerance_satisfied = all([torch.norm(param.grad.data) < self._options['grad_tolerance'] for param in parameters])
