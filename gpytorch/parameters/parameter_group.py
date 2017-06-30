@@ -7,6 +7,7 @@ class ParameterGroup(object):
         for name, param in kwargs.items():
             setattr(self, name, param)
         self._options = {}
+        self._training = True
 
 
     def initialize(self, **kwargs):
@@ -32,12 +33,15 @@ class ParameterGroup(object):
     def has_converged(self,loss_closure):
         raise NotImplementedError
 
+    def toggle_training(self):
+        self._training = not self._training
+
     def __len__(self):
         return len(self.param_dict())
-
 
     def __iter__(self):
         for name in self.__dict__:
             value = getattr(self, name)
             if isinstance(value, Variable):
                 yield name, value
+
