@@ -54,7 +54,7 @@ class MultitaskGPModel(gpytorch.ObservationModel):
         latent_pred = GaussianRandomVariable(mean_x, covar_xi)
         return latent_pred, self.model_params.log_noise
 
-def test_multitask_gp_mean_squared_error():
+def test_multitask_gp_mean_abs_error():
     prior_observation_model = MultitaskGPModel()
 
     # Compute posterior distribution
