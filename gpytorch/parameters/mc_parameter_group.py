@@ -15,11 +15,6 @@ class MCParameterGroup(ParameterGroup):
 
         self._options['num_samples'] = 20
 
-
-    def sample(self):
-        raise NotImplementedError
-
-
     def has_converged(self,loss_closure):
         return True
 

@@ -2,7 +2,8 @@ import torch
 import random
 from collections import namedtuple
 from .mc_parameter_group import MCParameterGroup
-from ..random_variables import CategoricalRandomVariable, BatchRandomVariables
+from ..random_variables import CategoricalRandomVariable, BatchRandomVariables, ConstantRandomVariable, SamplesRandomVariable
+from torch.autograd import Variable
 
 class CategoricalMCParameterGroup(MCParameterGroup):
     def __init__(self, **kwargs):
@@ -11,13 +12,14 @@ class CategoricalMCParameterGroup(MCParameterGroup):
             if isinstance(prior,BatchRandomVariables) and not all([isinstance(sub_prior, CategoricalRandomVariable) for sub_prior in prior]):
                 raise RuntimeError('All priors over a single parameter must be CategoricalRandomVariables')
 
-            if not isinstance(prior, CategoricalRandomVariable):
+            if not isinstance(prior, BatchRandomVariables) and not isinstance(prior, CategoricalRandomVariable):
                 raise RuntimeError('All parameters in an MCParameterGroup must have priors of type CategoricalRandomVariable')
 
             self._update_buffer[name] = Variable(torch.zeros(len(prior)))
             self._priors[name] = prior
 
     def update(self, log_likelihood_closure):
+        num_samples = self._options['num_samples']
         self._training = False
 
         for name, rv in self:
@@ -26,14 +28,14 @@ class CategoricalMCParameterGroup(MCParameterGroup):
         self._training = True
 
         for name, prior in self._priors.items():
-            if name not in self._posterior.keys():
+            if name not in self._posteriors.keys():
                 size = (num_samples,) if isinstance(prior, CategoricalRandomVariable) else (num_samples, len(prior))
-                sample_buffer = torch.zeros(*size)
+                sample_buffer = torch.zeros(*size).long()
                 self.register_buffer('%s_samples' % name, sample_buffer)
-                self._posterior[name] = SamplesRandomVariable(sample_buffer)
+                self._posteriors[name] = SamplesRandomVariable(sample_buffer)
 
         # Draw samples
-        for i in range(self._options['num_samples'])
+        for i in range(num_samples):
             # Do a single round of Gibbs sampling for each parameter in turn
             for name, prior in self._priors.items():
                 if isinstance(prior, CategoricalRandomVariable):
@@ -44,23 +46,26 @@ class CategoricalMCParameterGroup(MCParameterGroup):
 
                 # Do Gibbs sampling for the elements of this parameter
                 for j in range(param_length):
-                    log_posts = torch.zeros(num_categories)
+                    log_posts = Variable(torch.zeros(num_categories))
 
                     # get log posteriors for each possible category
                     for k in range(num_categories):
                         self._update_buffer[name][j] = k
+                        loglik = log_likelihood_closure()
                         log_posts[k] = log_likelihood_closure() + prior.log_probability(k)
 
                     # get posterior probabilities
-                    posts = log_posts.exp().div_(log_posts.sum())
+                    posts = log_posts.exp()
+                    normalization_constant = posts.sum()
+                    posts = posts.div(normalization_constant.expand_as(log_posts))
 
                     # Sample from posterior, set parameter value
                     post_sample = CategoricalRandomVariable(posts).sample()
 
                     self._update_buffer[name][j] = post_sample
                     if param_length > 1:
-                        self._posterior[name][i,j] = post_sample
+                        self._posteriors[name][i,j] = post_sample[0]
                     else:
-                        self._posterior[name][i] = post_sample
+                        self._posteriors[name][i] = post_sample[0]
 
         self._training = False

@@ -1,5 +1,7 @@
 import torch
-
+from torch.autograd import Variable
+import random
+import math
 
 class RandomVariable(object):
     def representation(self):
@@ -37,8 +39,11 @@ class RandomVariable(object):
 
 class CategoricalRandomVariable(RandomVariable):
     def __init__(self, mass_function):
+        if isinstance(mass_function, Variable):
+            mass_function = mass_function.data
+
         self.mass_function = mass_function
-        self._cumulative_mass_function = self.mass_function.cumsum()
+        self._cumulative_mass_function = self.mass_function.cumsum(0)
 
     def representation(self):
         return self.mass_function
@@ -54,20 +59,20 @@ class CategoricalRandomVariable(RandomVariable):
         cmf_lt = self._cumulative_mass_function.ge(p)
         for i,v in enumerate(cmf_lt):
             if v == 1:
-                return i
+                return torch.LongTensor([i])
 
     def num_categories(self):
         return len(self.mass_function)
 
-class IndependentRandomVariables(RandomVariable):
-    def __init__(self, random_variable_list):
-        self.random_variable_list = random_variable_list
-
-    def log_probability(self, x):
-        return sum([rv.log_probability() for rv in self.random_variable_list])
+class BatchRandomVariables(RandomVariable):
+    def __init__(self, random_variable, count):
+        self.random_variable_list = [random_variable]*count
 
     def sample(self):
-        return [rv.sample() for rv in self.random_variable_list]
+        return Variable(torch.cat([rv.sample().unsqueeze(0) for rv in self.random_variable_list]))
+
+    def log_probability(self, x):
+        return Variable(torch.Tensor([self.random_variable_list[0].log_probability(x)]))
 
     def __len__(self):
         return len(self.random_variable_list)
@@ -79,46 +84,32 @@ class IndependentRandomVariables(RandomVariable):
     def __getitem__(self,i):
         return self.random_variable_list[i]
 
-
-class BatchRandomVariables(IndependentRandomVariables):
-    def __init__(self, random_variable, count):
-        self.random_variable_list = [random_variable]*count
-
-    def sample(self):
-        return torch.cat([rv.sample().unsqueeze(0) for rv in self.random_variable_list])
-
 class SamplesRandomVariable(RandomVariable):
     def __init__(self, sample_list):
         self._sample_list = sample_list
 
     def sample(self):
-        ix = random.randint(0,len(self._sample_list))
-        return self._sample_list[ix]
+        ix = random.randrange(len(self._sample_list))
+        return Variable(self._sample_list[ix])
 
-class CategoricalRandomVariable(RandomVariable):
-    def __init__(self, mass_function):
-        self.mass_function = mass_function
-        self._cumulative_mass_function = self.mass_function.cumsum()
+    def __setitem__(self, key, value):
+        self._sample_list[key] = value
 
-    def representation(self):
-        return self.mass_function
+    def __getitem__(self,key):
+        return self._sample_list[key]
 
-    def log_probability(self, i):
-        if i > len(self.mass_function):
-            raise RuntimeError('Attempted to access a Categorical mass function with a category number larger than the total number of categories: %d'.format(i))
-
-        return math.log(self.mass_function[i])
+class ConstantRandomVariable(RandomVariable):
+    def __init__(self, value):
+        self._value = value
 
     def sample(self):
-        p = random.random()
-        cmf_lt = self._cumulative_mass_function.ge(p)
-        for i,v in enumerate(cmf_lt):
-            if v == 1:
-                return i
+        return self._value
 
-    def num_categories(self):
-        return len(self.mass_function)
+    def __setitem__(self, key, value):
+        self._value[key] = value
 
+    def __getitem__(self, key):
+        return self._value[key]
 
 class GaussianRandomVariable(RandomVariable):
     def __init__(self, mean, var):
