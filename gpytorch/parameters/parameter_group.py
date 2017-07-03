@@ -6,6 +6,7 @@ class ParameterGroup(Module):
     def __init__(self):
         super(ParameterGroup,self).__init__()
         self._options = {}
+        self._training = True
 
 
     def initialize(self, **kwargs):
@@ -30,3 +31,6 @@ class ParameterGroup(Module):
 
     def has_converged(self,loss_closure):
         raise NotImplementedError
+
+    def toggle_training(self):
+        self._training = not self._training
