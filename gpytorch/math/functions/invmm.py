@@ -31,7 +31,6 @@ class Invmm(Function):
     def __call__(self, input_1_var, input_2_var):
         if not hasattr(input_1_var, 'chol_data'):
             def add_jitter():
-                print('Matrix not positive definite. Adding jitter:')
                 input_1_var.add_(Variable(torch.eye(*input_1_var.size()) * 1e-5))
                 return False
 
