@@ -7,6 +7,7 @@ Some things you can do right now:
 
 - Simple GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_gp_regression.ipynb))
 - Multitask GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/multitask_gp_regression.ipynb))
+- Multitask GP regression, but the model learns to group some tasks together ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/latent_multitask_gp_regression.ipynb))
 - Extrapolation using the spectral mixture kernel ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/spectral_mixture_gp_regression.ipynb))
 ## Installation
 
