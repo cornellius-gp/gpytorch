@@ -31,7 +31,7 @@ class Invmm(Function):
     def __call__(self, input_1_var, input_2_var):
         if not hasattr(input_1_var, 'chol_data'):
             def add_jitter():
-                input_1_var.add_(Variable(torch.eye(*input_1_var.size()) * 1e-5))
+                input_1_var.data.add_(torch.eye(*input_1_var.size()) * 1e-4)
                 return False
 
             @pd_catcher(catch_function=add_jitter)

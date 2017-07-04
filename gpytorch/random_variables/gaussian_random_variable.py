@@ -35,6 +35,5 @@ class GaussianRandomVariable(RandomVariable):
     def covar(self):
         return self._var
 
-
     def var(self):
         return self.covar().diag()
