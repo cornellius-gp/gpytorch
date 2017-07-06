@@ -9,6 +9,9 @@ class SpectralMixtureKernel(Kernel):
         n, d = x1.size()
         m, _ = x2.size()
 
+        if d > 1:
+            raise RuntimeError('The spectral mixture kernel can only be applied to a single dimension at a time. To use on multi-dimensional data, use a product of SM kernels, one for each dimension.')
+
         mixture_weights = log_mixture_weights.exp()
         mixture_means = log_mixture_means.exp()
         mixture_scales = log_mixture_scales.mul(2).exp_()

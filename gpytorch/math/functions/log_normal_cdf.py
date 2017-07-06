@@ -15,7 +15,7 @@ class LogNormalCDF(Function):
         						2.9788656263939928886 ])
 
 		self.q = torch.Tensor([ 2.260528520767326969592,  9.3960340162350541504,
-       							12.048951927855129036034, 17.081440747466004316, 
+       							12.048951927855129036034, 17.081440747466004316,
         						9.608965327192787870698,  3.3690752069827527677 ])
 
 	def forward(self, z):
@@ -23,7 +23,7 @@ class LogNormalCDF(Function):
 
 		# Three cases to handle: An entry of z is near zero, an entry of z is small, or an entry of z neither of these.
 		z_near_zero = z.pow(2).lt(0.0492)
-		z_is_small = z.lt(-5)
+		z_is_small = z.lt(-3)
 		z_is_ordinary = (1 - z_near_zero).mul(1 - z_is_small)
 
 		# Case 1: Entries of z that are near zero
@@ -36,7 +36,7 @@ class LogNormalCDF(Function):
 
 			log_phi_z[z_near_zero] = f.mul(-2).sub_(math.log(2))
 
-		
+
 		# Case 2: Entries of z that are very small
 		if z_is_small.sum() > 0:
 			numerator = torch.Tensor([0.5641895835477550741]).expand_as(z[z_is_small])
@@ -64,13 +64,13 @@ class LogNormalCDF(Function):
 		z, log_phi_z = self.saved_tensors
 		log_phi_z_grad = torch.zeros(z.size())
 
-		z_is_small = z.lt(-11.3137)
+		z_is_small = z.lt(-3)
 		z_is_not_small = 1 - z_is_small
 
 		if z_is_small.sum() > 0:
 			log_phi_z_grad[z_is_small] = torch.abs(self.denominator.div(self.numerator)).mul(math.sqrt(2/math.pi))
 
-		log_phi_z_grad[z_is_not_small] = torch.exp(-z[z_is_not_small].pow(2).div(2).sub(log_phi_z[z_is_not_small])).div(math.sqrt(2*math.pi))
+		log_phi_z_grad[z_is_not_small] = torch.exp(z[z_is_not_small].pow(2).div(-2).sub(log_phi_z[z_is_not_small]).add(math.log(0.5))).mul(math.sqrt(2/math.pi))
 
 		return log_phi_z_grad.mul(grad_output)
 

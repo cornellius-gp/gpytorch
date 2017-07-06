@@ -8,7 +8,9 @@ from .likelihood import Likelihood
 
 class BernoulliLikelihood(Likelihood):
     def forward(self, input):
-        assert(isinstance(input, GaussianRandomVariable))
+        if not isinstance(input, GaussianRandomVariable):
+            raise RuntimeError('BernoulliLikelihood expects a Gaussian distributed latent function to make predictions')
+
         mean = input.mean()
         var = input.var()
 
