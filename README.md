@@ -6,6 +6,8 @@ so that you don't have to be an expert to use GPs.
 Some things you can do right now:
 
 - Simple GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_gp_regression.ipynb))
+- Simple GP classification ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/variational_inference/examples/simple_gp_classification.ipynb)
+- Simple GP regression with hyperparameter priors using MAP ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_map_gp_regression.ipynb))
 - Multitask GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/multitask_gp_regression.ipynb))
 - Multitask GP regression, but the model learns to group some tasks together ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/latent_multitask_gp_regression.ipynb))
 - Extrapolation using the spectral mixture kernel ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/spectral_mixture_gp_regression.ipynb))

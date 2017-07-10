@@ -119,14 +119,18 @@ class _VariationalGPPosterior(_GPPosterior):
         # Negate each row with a negative diagonal (the Cholesky decomposition of a matrix requires that the diagonal elements be positive).
         chol_var_covar = chol_var_covar.mul(chol_var_covar.diag().sign().unsqueeze(1).expand_as(chol_var_covar).triu())
 
+
+
         inducing_mean, inducing_covar = output.representation()
         num_inducing = len(inducing_mean)
+
         epsilon = Variable(torch.randn(num_inducing,num_samples))
         samples = chol_var_covar.mm(epsilon)
         samples = samples + self.variational_parameters.variational_mean.unsqueeze(1).expand_as(samples)
         log_likelihood = self.observation_model.log_probability(samples, train_y)
 
         kl_divergence = MVNKLDivergence()(self.variational_parameters.variational_mean, chol_var_covar, inducing_mean, inducing_covar)
+
 #        pdb.set_trace()
         return log_likelihood.squeeze() - kl_divergence
 

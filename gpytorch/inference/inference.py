@@ -63,7 +63,7 @@ class Inference(object):
 
             has_converged = False
             for i in xrange(max_inference_steps):
-                print i, log_likelihood_closure()
+                print i, log_likelihood_closure().data.squeeze()[0]
                 for param_group in param_groups:
                     param_group.update(log_likelihood_closure)
 
