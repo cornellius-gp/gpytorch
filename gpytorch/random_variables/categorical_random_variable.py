@@ -10,7 +10,6 @@ class CategoricalRandomVariable(RandomVariable):
             mass_function = mass_function.data
 
         self.mass_function = mass_function
-        self._cumulative_mass_function = self.mass_function.cumsum(0)
 
     def representation(self):
         return self.mass_function
@@ -22,11 +21,7 @@ class CategoricalRandomVariable(RandomVariable):
         return math.log(self.mass_function[i])
 
     def sample(self):
-        p = random.random()
-        cmf_lt = self._cumulative_mass_function.ge(p)
-        for i,v in enumerate(cmf_lt):
-            if v == 1:
-                return torch.LongTensor([i])
+        return torch.multinomial(self.mass_function, 1)
 
     def num_categories(self):
         return len(self.mass_function)
