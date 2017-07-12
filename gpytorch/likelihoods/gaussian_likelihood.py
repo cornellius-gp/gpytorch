@@ -13,7 +13,4 @@ class GaussianLikelihood(Likelihood):
         noise = AddDiag()(covar, log_noise.exp())
         return GaussianRandomVariable(mean, noise)
 
-    def marginal_log_likelihood(self, output, train_y):
-        mean, covar = output.representation()
-        return ExactGPMarginalLogLikelihood()(covar, train_y - mean)
 

@@ -24,7 +24,7 @@ class MLEParameterGroup(ParameterGroup):
     def update(self, log_likelihood_closure):
         parameters = list(self.parameters())
         optim_options = self._options['optim_options']
-        optimizer = LBFGS(parameters, line_search_fn='backtracking', **optim_options)
+        optimizer = LBFGS(parameters, lr=0.1, line_search_fn='backtracking', **optim_options)
         optimizer.n_iter = 0
 
         @pd_catcher(catch_function=lambda: Variable(torch.Tensor([10000])))
@@ -36,7 +36,10 @@ class MLEParameterGroup(ParameterGroup):
             return loss
 
         loss = optimizer.step(step_closure)
-        self.previous_loss = loss.data.squeeze()[0]
+        if isinstance(loss, Variable):
+            self.previous_loss = loss.data.squeeze()[0]
+        else:
+            self.previous_loss = loss
 
     def has_converged(self, log_likelihood_closure):
         loss = -log_likelihood_closure()
