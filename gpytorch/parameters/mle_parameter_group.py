@@ -4,15 +4,21 @@ from .parameter_group import ParameterGroup
 from torch.nn import Parameter
 from torch.autograd import Variable
 from ..utils import pd_catcher, LBFGS
+from .bounded_parameter import BoundedParameter
+
+import pdb
 
 
 class MLEParameterGroup(ParameterGroup):
     def __init__(self, **kwargs):
         super(MLEParameterGroup, self).__init__()
+        self._bounds = {}
+
         for name, param in kwargs.items():
-            if not isinstance(param, Parameter):
-                raise RuntimeError('All parameters in an MLEParameterGroup must be Parameters')
-            setattr(self, name, param)
+            if not isinstance(param, BoundedParameter):
+                raise RuntimeError('All parameters in an MLEParameterGroup must be BoundedParameters')
+            setattr(self, name, param.param)
+            self._bounds[name] = torch.Tensor([param.lower_bound, param.upper_bound]).unsqueeze_(1).t_()
         self._options = {
             'grad_tolerance': 1e-5,
             'relative_loss_tolerance': 1e-3,
@@ -21,10 +27,18 @@ class MLEParameterGroup(ParameterGroup):
             },
         }
 
+    def __repr__(self):
+        string = 'MLEParameterGroup(\n'
+        for name,param in self.named_parameters():
+            string += '\t - ' + name + ' - ' + str(param.data) + '\n'
+        string += ')'
+        return string
+
     def update(self, log_likelihood_closure):
         parameters = list(self.parameters())
+        bounds = torch.cat([self._bounds[name] for name, _ in self.named_parameters()])
         optim_options = self._options['optim_options']
-        optimizer = LBFGS(parameters, lr=0.1, line_search_fn='backtracking', **optim_options)
+        optimizer = LBFGS(parameters, line_search_fn='goldstein', lr=0.001, bounds=bounds, **optim_options)
         optimizer.n_iter = 0
 
         @pd_catcher(catch_function=lambda: Variable(torch.Tensor([10000])))

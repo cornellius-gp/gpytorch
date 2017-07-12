@@ -1,5 +1,7 @@
 import logging
 from .lbfgs import LBFGS
+from .lincg import LinearCG
+from .krylov_logdet import LanczosLogDet
 
 
 class pd_catcher(object):
@@ -20,18 +22,15 @@ class pd_catcher(object):
             try:
                 result = function(*args, **kwargs)
                 self.n_trials = 0
-
-            except RuntimeError as e:
-                if 'not positive definite' in str(e) and self.n_trials < self.max_trials:
+            except (ZeroDivisionError,RuntimeError) as e:
+                if self.n_trials < self.max_trials:
                     if self.catch_function:
                         result = self.catch_function(*args, **kwargs)
                     self.n_trials += 1
                     if self.n_trials % self.log_interval == 0:
                         logging.warning('Not PD matrix: %d more attempts' % (self.max_trials - self.n_trials))
-
                 else:
                     raise e
-
             return result
         return wrapped_function
 

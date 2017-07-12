@@ -4,7 +4,7 @@ import gpytorch
 
 from torch.autograd import Variable
 from torch.nn import Parameter
-from gpytorch.parameters import MLEParameterGroup
+from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 from gpytorch.kernels import RBFKernel, IndexKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
@@ -32,13 +32,11 @@ class MultitaskGPModel(gpytorch.ObservationModel):
         self.covar_module = RBFKernel()
         self.task_covar_module = IndexKernel()
         self.model_params = MLEParameterGroup(
-            constant_mean=Parameter(torch.randn(1)),
-            log_noise=Parameter(torch.randn(1)),
-            log_lengthscale=Parameter(torch.randn(1)),
-        )
-        self.task_params = MLEParameterGroup(
-            task_matrix=Parameter(torch.randn(2, 1)),
-            task_log_vars=Parameter(torch.randn(2)),
+            constant_mean=BoundedParameter(torch.randn(1),-1,1),
+            log_noise=BoundedParameter(torch.randn(1),-6,6),
+            log_lengthscale=BoundedParameter(torch.randn(1),-6,6),
+            task_matrix=BoundedParameter(torch.randn(2,1),-6,6),
+            task_log_vars=BoundedParameter(torch.randn(2),-6,6),
         )
 
     def forward(self, x, i):
@@ -46,12 +44,12 @@ class MultitaskGPModel(gpytorch.ObservationModel):
 
         covar_x = self.covar_module(x, log_lengthscale=self.model_params.log_lengthscale)
         covar_i = self.task_covar_module(i,
-                                         index_covar_factor=self.task_params.task_matrix,
-                                         index_log_var=self.task_params.task_log_vars)
+                                         index_covar_factor=self.model_params.task_matrix,
+                                         index_log_var=self.model_params.task_log_vars)
 
         covar_xi = covar_x.mul(covar_i)
 
-        latent_pred = GaussianRandomVariable(mean_x, covar_xi)
+	latent_pred = GaussianRandomVariable(mean_x, covar_xi)
         return latent_pred, self.model_params.log_noise
 
 

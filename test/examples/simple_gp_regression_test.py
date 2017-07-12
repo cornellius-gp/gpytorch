@@ -3,8 +3,7 @@ import torch
 import gpytorch
 
 from torch.autograd import Variable
-from torch.nn import Parameter
-from gpytorch.parameters import MLEParameterGroup
+from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 from gpytorch.kernels import RBFKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
@@ -15,6 +14,8 @@ from gpytorch.random_variables import GaussianRandomVariable
 train_x = Variable(torch.linspace(0, 1, 11))
 train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
 
+test_x = Variable(torch.linspace(0, 1, 51))
+test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 class ExactGPObservationModel(gpytorch.ObservationModel):
     def __init__(self):
@@ -22,9 +23,9 @@ class ExactGPObservationModel(gpytorch.ObservationModel):
         self.mean_module = ConstantMean()
         self.covar_module = RBFKernel()
         self.params = MLEParameterGroup(
-            constant_mean=Parameter(torch.Tensor([0])),
-            log_noise=Parameter(torch.Tensor([0])),
-            log_lengthscale=Parameter(torch.Tensor([0])),
+            constant_mean=BoundedParameter(torch.Tensor([0]),-1,1),
+            log_noise=BoundedParameter(torch.Tensor([0]),-5,5),
+            log_lengthscale=BoundedParameter(torch.Tensor([0]),-5,5),
         )
 
     def forward(self, x):
@@ -85,18 +86,6 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
     # Compute posterior distribution
     infer = Inference(prior_observation_model)
     posterior_observation_model = infer.run(train_x, train_y, optimize=True)
-
-    # We should learn optimal hyperparmaters
-    # bias should be near 0
-    params = dict(posterior_observation_model.named_parameter_groups())['params']
-    constant_value = params.constant_mean.data.squeeze()[0]
-    assert(math.fabs(constant_value) < .05)
-
-    # log_lengthscale should be near -1.4
-    log_lengthscale_value = params.log_lengthscale.data.squeeze()[0]
-    assert(log_lengthscale_value < -1.1)
-    assert(log_lengthscale_value > -1.8)
-
-    # log_noise should be very small
-    log_noise_value = params.log_noise.data.squeeze()[0]
-    assert(log_noise_value < -8)
+    test_function_predictions = posterior_observation_model(test_x)
+    mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean()))
+    assert(mean_abs_error.data.squeeze()[0] < 0.01)

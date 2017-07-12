@@ -20,9 +20,9 @@ def test_forward():
 
     covarvar = Variable(covar)
     yvar = Variable(y)
+    
     res = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar)
     assert(torch.norm(actual - res.data) < 1e-4)
-
 
 def test_backward():
     covarvar = Variable(covar, requires_grad=True)

@@ -1,5 +1,7 @@
 import torch
-import gpytorch
+import logging
+from itertools import chain
+from gpytorch.utils import pd_catcher
 from torch.autograd import Variable
 from torch.nn import Parameter
 from gpytorch import ObservationModel
