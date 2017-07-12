@@ -54,10 +54,13 @@ class CategoricalMCParameterGroup(MCParameterGroup):
                         loglik = log_likelihood_closure()
                         log_posts[k] = log_likelihood_closure() + prior.log_probability(k)
 
+                    a_max = torch.max(log_posts)
+                    log_posts_offset = log_posts - a_max.expand_as(log_posts)
+                    norm_constant = a_max + log_posts_offset.exp().sum().log()
+                    log_posts = log_posts - norm_constant.expand_as(log_posts)
+
                     # get posterior probabilities
                     posts = log_posts.exp()
-                    normalization_constant = posts.sum()
-                    posts = posts.div(normalization_constant.expand_as(log_posts))
 
                     # Sample from posterior, set parameter value
                     post_sample = CategoricalRandomVariable(posts).sample()
