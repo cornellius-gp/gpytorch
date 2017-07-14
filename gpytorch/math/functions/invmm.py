@@ -1,14 +1,16 @@
 import torch
-from torch.autograd import Function, Variable
+from torch.autograd import Function
 from gpytorch.utils import pd_catcher
 
-# Returns input_1^{-1} input_2
+
 class Invmm(Function):
+    """
+    Returns input_1^{-1} input_2
+    """
     def forward(self, chol_matrix, input_2):
         res = input_2.potrs(chol_matrix)
         self.save_for_backward(chol_matrix, input_2, res)
         return res
-
 
     def backward(self, grad_output):
         chol_matrix, input_2, input_1_t_input_2 = self.saved_tensors
@@ -26,7 +28,6 @@ class Invmm(Function):
             grad_input_2 = grad_output.potrs(chol_matrix)
 
         return grad_input_1, grad_input_2
-
 
     def __call__(self, input_1_var, input_2_var):
         if not hasattr(input_1_var, 'chol_data'):

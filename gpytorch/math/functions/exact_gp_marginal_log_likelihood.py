@@ -1,21 +1,19 @@
 import math
 import torch
-from torch.autograd import Variable, Function
 from .invmv import Invmv
 
 
 class ExactGPMarginalLogLikelihood(Invmv):
     def forward(self, chol_mat, y):
         mat_inv_y = y.potrs(chol_mat)
-        res = mat_inv_y.dot(y) # Inverse quad
-        res += chol_mat.diag().log_().sum() * 2 # Log determinant
+        res = mat_inv_y.dot(y)  # Inverse quad
+        res += chol_mat.diag().log_().sum() * 2  # Log determinant
         res += math.log(2 * math.pi) * len(y)
         res *= -0.5
 
         self.save_for_backward(chol_mat, y)
         self.mat_inv_y = mat_inv_y
         return chol_mat.new().resize_(1).fill_(res)
-
 
     def backward(self, grad_output):
         grad_output_value = grad_output.squeeze()[0]

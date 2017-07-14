@@ -1,6 +1,7 @@
 import torch
 from torch.autograd import Function
 
+
 class AddDiag(Function):
     def forward(self, input, diag):
         if diag.numel() != 1:
@@ -8,7 +9,6 @@ class AddDiag(Function):
         val = diag.squeeze()[0]
 
         return torch.eye(*input.size()).mul_(val).add_(input)
-
 
     def backward(self, grad_output):
         input_grad = None
