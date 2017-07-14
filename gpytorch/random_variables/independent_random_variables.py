@@ -2,6 +2,7 @@ from .random_variable import RandomVariable
 import torch
 from torch.autograd import Variable
 
+
 class IndependentRandomVariables(RandomVariable):
     def __init__(self, random_variable_list):
         self.random_variable_list = random_variable_list
@@ -22,5 +23,5 @@ class IndependentRandomVariables(RandomVariable):
         for random_variable in self.random_variable_list:
             yield random_variable
 
-    def __getitem__(self,i):
+    def __getitem__(self, i):
         return self.random_variable_list[i]

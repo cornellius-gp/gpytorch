@@ -4,19 +4,16 @@ from lbfgs import LBFGS
 
 class pd_catcher(object):
     '''
-        A decorator to deal with non-positive definite matrices (useful during optimization)
-        If an error due to non-psotiive definiteness occurs when calling the function, we
-        retry the function call a certain number of times.
-        After a certain number of trials, it fails.
+    A decorator to deal with non-positive definite matrices (useful during optimization)
+    If an error due to non-psotiive definiteness occurs when calling the function, we
+    retry the function call a certain number of times.
+    After a certain number of trials, it fails.
     '''
-
-
     def __init__(self, catch_function=None, max_trials=20, log_interval=5):
         self.catch_function = catch_function
         self.n_trials = 0
         self.max_trials = max_trials
         self.log_interval = log_interval
-
 
     def __call__(self, function):
         def wrapped_function(*args, **kwargs):
@@ -37,3 +34,6 @@ class pd_catcher(object):
 
             return result
         return wrapped_function
+
+
+__all__ = [LBFGS, pd_catcher]

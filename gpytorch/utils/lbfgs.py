@@ -33,18 +33,18 @@ class LBFGS(Optimizer):
     """
 
     def __init__(self, params, lr=1, max_iter=20, max_eval=None,
-            tolerance_grad=1e-5, tolerance_change=1e-9, history_size=100,
-            line_search_fn=None):
+                 tolerance_grad=1e-5, tolerance_change=1e-9, history_size=100,
+                 line_search_fn=None):
         if max_eval is None:
             max_eval = max_iter * 5 // 4
         defaults = dict(lr=lr, max_iter=max_iter, max_eval=max_eval,
-                tolerance_grad=tolerance_grad, tolerance_change=tolerance_change,
-                history_size=history_size, line_search_fn=line_search_fn)
+                        tolerance_grad=tolerance_grad, tolerance_change=tolerance_change,
+                        history_size=history_size, line_search_fn=line_search_fn)
         super(LBFGS, self).__init__(params, defaults)
 
         if len(self.param_groups) != 1:
-            raise ValueError("LBFGS doesn't support per-parameter options "
-                    "(parameter groups)")
+            raise ValueError("LBFGS doesn't support per-parameter options " +
+                             "(parameter groups)")
 
         self._params = self.param_groups[0]['params']
         self._numel_cache = None
@@ -261,7 +261,6 @@ class LBFGS(Optimizer):
 
         return orig_loss
 
-
     def _copy_param(self):
         original_param_data_list = []
         for p in self._params:
@@ -270,20 +269,17 @@ class LBFGS(Optimizer):
             original_param_data_list.append(param_data)
         return original_param_data_list
 
-
     def _set_param(self, param_data_list):
         for i in range(len(param_data_list)):
             self._params[i].data.copy_(param_data_list[i])
-
 
     def _set_param_incremental(self, alpha, d):
         offset = 0
         for p in self._params:
             numel = p.numel()
-            p.data.copy_(p.data + alpha*d[offset:offset + numel].resize_(p.size()))
+            p.data.copy_(p.data + alpha * d[offset:offset + numel].resize_(p.size()))
             offset += numel
         assert offset == self._numel()
-
 
     def _directional_derivative(self, d):
         deriv = 0.0
@@ -294,7 +290,6 @@ class LBFGS(Optimizer):
             offset += numel
         assert offset == self._numel()
         return deriv
-
 
     def _backtracking(self, closure, d):
         # 0 < rho < 0.5 and 0 < w < 1

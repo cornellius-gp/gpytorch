@@ -1,13 +1,12 @@
-from torch.nn import Parameter, Module
-from torch.autograd import Variable
+import torch
+from torch.nn import Module
 
 
 class ParameterGroup(Module):
     def __init__(self):
-        super(ParameterGroup,self).__init__()
+        super(ParameterGroup, self).__init__()
         self._options = {}
         self._training = True
-
 
     def initialize(self, **kwargs):
         for param_name, param_value in kwargs.items():
@@ -20,16 +19,14 @@ class ParameterGroup(Module):
                 raise Exception('%s has no parameter %s' % (self.__class__.__name__, param_name))
         return self
 
-
     def set_options(self, **kwargs):
         for name, val in kwargs.items():
             self._options[name] = val
 
-
-    def update(self,loss_closure):
+    def update(self, loss_closure):
         raise NotImplementedError
 
-    def has_converged(self,loss_closure):
+    def has_converged(self, loss_closure):
         raise NotImplementedError
 
     def toggle_training(self):

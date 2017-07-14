@@ -1,5 +1,6 @@
 from .random_variable import RandomVariable
 
+
 class ConstantRandomVariable(RandomVariable):
     def __init__(self, value):
         self._value = value
@@ -12,4 +13,3 @@ class ConstantRandomVariable(RandomVariable):
 
     def __getitem__(self, key):
         return self._value[key]
-

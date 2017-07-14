@@ -1,8 +1,8 @@
 import torch
 from torch.autograd import Variable
-import random
 import math
 from .random_variable import RandomVariable
+
 
 class CategoricalRandomVariable(RandomVariable):
     def __init__(self, mass_function):
@@ -16,8 +16,10 @@ class CategoricalRandomVariable(RandomVariable):
 
     def log_probability(self, i):
         if i > len(self.mass_function):
-            raise RuntimeError('Attempted to access a Categorical mass function with a category number larger than the total number of categories: %d'.format(i))
-
+            raise RuntimeError(' '.join([
+                'Attempted to access a Categorical mass function with a',
+                'category number larger than the total number of categories: %d'.format(i)
+            ]))
         return math.log(self.mass_function[i])
 
     def sample(self):

@@ -1,4 +1,3 @@
-import math
 import torch
 from torch.autograd import Variable
 from gpytorch.math.functions import Invmv
@@ -35,7 +34,7 @@ def test_backward():
     a_var = Variable(a, requires_grad=True)
     c_var = Variable(c, requires_grad=True)
     out_var = a_var.mul(Variable(b))
-    out_var = Invmv()(out_var, c_var) 
+    out_var = Invmv()(out_var, c_var)
     out_var = out_var.sum() * 2
     out_var.backward()
     a_res = a_var.grad.data

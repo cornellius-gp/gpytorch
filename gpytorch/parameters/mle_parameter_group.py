@@ -1,9 +1,10 @@
 import math
 import torch
 from .parameter_group import ParameterGroup
-from torch.nn import Parameter, Module
+from torch.nn import Parameter
 from torch.autograd import Variable
 from ..utils import pd_catcher, LBFGS
+
 
 class MLEParameterGroup(ParameterGroup):
     def __init__(self, **kwargs):
@@ -16,10 +17,9 @@ class MLEParameterGroup(ParameterGroup):
             'grad_tolerance': 1e-5,
             'relative_loss_tolerance': 1e-3,
             'optim_options': {
-                'max_iter':50
+                'max_iter': 50
             },
         }
-
 
     def update(self, log_likelihood_closure):
         parameters = list(self.parameters())
@@ -47,8 +47,8 @@ class MLEParameterGroup(ParameterGroup):
         parameters = list(self.parameters())
         relative_loss_difference = math.fabs(loss.data.squeeze()[0] - self.previous_loss) / self.previous_loss
 
-        grad_tolerance_satisfied = all([torch.norm(param.grad.data) < self._options['grad_tolerance'] for param in parameters])
+        grad_tolerance_satisfied = all([torch.norm(param.grad.data) < self._options['grad_tolerance']
+                                        for param in parameters])
         loss_tolerance_satisfied = relative_loss_difference < self._options['relative_loss_tolerance']
 
         return grad_tolerance_satisfied or loss_tolerance_satisfied
-

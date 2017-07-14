@@ -30,10 +30,10 @@ def test_backward():
     actual_mat_grad = torch.ger(covar.inverse().mv(y), covar.inverse().mv(y))
     actual_mat_grad -= covar.inverse()
     actual_mat_grad *= 0.5
-    actual_mat_grad *= 3 # For grad output
+    actual_mat_grad *= 3  # For grad output
 
     actual_y_grad = -covar.inverse().mv(y)
-    actual_y_grad *= 3 # For grad output
+    actual_y_grad *= 3  # For grad output
 
     covarvar = Variable(covar, requires_grad=True)
     yvar = Variable(y, requires_grad=True)

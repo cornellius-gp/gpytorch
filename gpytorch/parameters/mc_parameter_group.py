@@ -1,6 +1,4 @@
-from torch.autograd import Variable
 from .parameter_group import ParameterGroup
-from ..random_variables import RandomVariable
 from collections import OrderedDict
 
 
@@ -15,11 +13,10 @@ class MCParameterGroup(ParameterGroup):
 
         self._options['num_samples'] = 20
 
-    def has_converged(self,loss_closure):
+    def has_converged(self, loss_closure):
         return True
 
-
-    def __getattr__(self,name):
+    def __getattr__(self, name):
         if self._training and name in self._update_buffer:
             return self._update_buffer[name]
         elif name in self._posteriors.keys():
@@ -27,10 +24,8 @@ class MCParameterGroup(ParameterGroup):
         elif name in self._priors.keys():
             return self._priors[name]
         else:
-            super(MCParameterGroup,self).__getattr__(name)
-
+            super(MCParameterGroup, self).__getattr__(name)
 
     def __iter__(self):
         for name in self._priors.keys():
-            yield name, getattr(self,name)
-
+            yield name, getattr(self, name)

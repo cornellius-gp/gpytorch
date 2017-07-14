@@ -2,9 +2,9 @@ import math
 import torch
 from .parameter_group import ParameterGroup
 from .parameter_with_prior import ParameterWithPrior
-from torch.nn import Parameter, Module
 from torch.autograd import Variable
 from ..utils import pd_catcher, LBFGS
+
 
 class MAPParameterGroup(ParameterGroup):
     def __init__(self, **kwargs):
@@ -22,7 +22,7 @@ class MAPParameterGroup(ParameterGroup):
             'grad_tolerance': 1e-5,
             'relative_loss_tolerance': 1e-3,
             'optim_options': {
-                'max_iter':50
+                'max_iter': 50
             },
         }
 
@@ -39,7 +39,7 @@ class MAPParameterGroup(ParameterGroup):
             optimizer.zero_grad()
             optimizer.n_iter += 1
             loss = -log_likelihood_closure()
-            for name, parameter in zip(names,parameters):
+            for name, parameter in zip(names, parameters):
                 loss -= self._priors[name].log_probability(parameter)
             loss.backward()
             return loss
@@ -53,8 +53,8 @@ class MAPParameterGroup(ParameterGroup):
         parameters = list(self.parameters())
         relative_loss_difference = math.fabs(loss.data.squeeze()[0] - self.previous_loss) / self.previous_loss
 
-        grad_tolerance_satisfied = all([torch.norm(param.grad.data) < self._options['grad_tolerance'] for param in parameters])
+        grad_tolerance_satisfied = all([torch.norm(param.grad.data) < self._options['grad_tolerance']
+                                        for param in parameters])
         loss_tolerance_satisfied = relative_loss_difference < self._options['relative_loss_tolerance']
 
         return grad_tolerance_satisfied or loss_tolerance_satisfied
-

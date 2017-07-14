@@ -2,9 +2,10 @@ from torch.autograd import Variable
 from .random_variable import RandomVariable
 import torch
 
+
 class BatchRandomVariables(RandomVariable):
     def __init__(self, random_variable, count):
-        self.random_variable_list = [random_variable]*count
+        self.random_variable_list = [random_variable] * count
 
     def sample(self):
         return Variable(torch.cat([rv.sample().unsqueeze(0) for rv in self.random_variable_list]))
@@ -19,5 +20,5 @@ class BatchRandomVariables(RandomVariable):
         for random_variable in self.random_variable_list:
             yield random_variable
 
-    def __getitem__(self,i):
+    def __getitem__(self, i):
         return self.random_variable_list[i]

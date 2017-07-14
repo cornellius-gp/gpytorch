@@ -4,9 +4,10 @@ from torch.autograd import Variable
 from torch.nn import Parameter
 from gpytorch.math.functions import AddDiag
 
+
 def test_forward():
-    a = Parameter(torch.Tensor([5])) 
-    b = Variable(torch.ones(3, 3)) 
+    a = Parameter(torch.Tensor([5]))
+    b = Variable(torch.ones(3, 3))
     output = AddDiag()(b, a)
 
     actual = torch.Tensor([
@@ -20,8 +21,8 @@ def test_forward():
 def test_backward():
     grad = torch.randn(3, 3)
 
-    a = Parameter(torch.Tensor([3])) 
-    b = Variable(torch.ones(3, 3), requires_grad=True) 
+    a = Parameter(torch.Tensor([3]))
+    b = Variable(torch.ones(3, 3), requires_grad=True)
     output = AddDiag()(b, a)
     output.backward(gradient=grad)
 

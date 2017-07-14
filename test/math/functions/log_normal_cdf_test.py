@@ -4,6 +4,7 @@ from torch.autograd import Variable
 from torch.nn import Parameter
 from gpytorch.math.functions import LogNormalCDF
 
+
 def test_forward():
     inputs = torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5])
     output = LogNormalCDF()(Variable(inputs)).data
@@ -20,6 +21,7 @@ def test_forward():
     assert(math.fabs(output[6] + 0.00135081) < 1e-4)
     assert(math.fabs(output[7] + 2.86652e-7) < 1e-4)
 
+
 def test_backward():
     inputs = Parameter(torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5]))
     output = LogNormalCDF()(inputs)
@@ -33,7 +35,3 @@ def test_backward():
 
     # Should be very accurate for larger ones
     assert(all(torch.abs(gradient[3:] - expected_gradient[3:]) < 5e-4))
-
-
-
-

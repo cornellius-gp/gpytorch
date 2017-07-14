@@ -1,7 +1,6 @@
 import torch
-from torch.autograd import Variable
 from gpytorch import Distribution
-from gpytorch.math.functions import AddDiag, Invmv
+
 
 class Mean(Distribution):
     def initialize(self, **kwargs):
@@ -14,7 +13,6 @@ class Mean(Distribution):
             else:
                 raise Exception('%s has no parameter %s' % (self.__class__.__name__, param_name))
         return self
-
 
     def forward(self, x):
         raise NotImplementedError()

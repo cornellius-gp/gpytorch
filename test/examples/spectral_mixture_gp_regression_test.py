@@ -5,11 +5,10 @@ import gpytorch
 from torch.autograd import Variable
 from torch.nn import Parameter
 from gpytorch.parameters import MLEParameterGroup
-from gpytorch.kernels import RBFKernel, SpectralMixtureKernel
+from gpytorch.kernels import SpectralMixtureKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.inference import Inference
-from gpytorch import ObservationModel
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
@@ -20,9 +19,10 @@ train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
 test_x = Variable(torch.linspace(0, 2, 51))
 test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
+
 class SpectralMixtureGPModel(gpytorch.ObservationModel):
     def __init__(self):
-        super(SpectralMixtureGPModel,self).__init__(GaussianLikelihood())
+        super(SpectralMixtureGPModel, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()
         self.covar_module = SpectralMixtureKernel()
         self.params = MLEParameterGroup(
@@ -32,7 +32,7 @@ class SpectralMixtureGPModel(gpytorch.ObservationModel):
             log_mixture_scales=Parameter(torch.zeros(3))
         )
 
-    def forward(self,x):
+    def forward(self, x):
         mean_x = self.mean_module(x, constant=Variable(torch.Tensor([0])))
         covar_x = self.covar_module(x,
                                     log_mixture_weights=self.params.log_mixture_weights,
@@ -42,7 +42,9 @@ class SpectralMixtureGPModel(gpytorch.ObservationModel):
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred, self.params.log_noise
 
+
 prior_observation_model = SpectralMixtureGPModel()
+
 
 def test_spectral_mixture_gp_mean_abs_error():
     prior_observation_model = SpectralMixtureGPModel()

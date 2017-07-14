@@ -1,19 +1,23 @@
 import torch
-import random
-from collections import namedtuple
 from .mc_parameter_group import MCParameterGroup
-from ..random_variables import CategoricalRandomVariable, BatchRandomVariables, ConstantRandomVariable, SamplesRandomVariable
+from ..random_variables import CategoricalRandomVariable, BatchRandomVariables, \
+    ConstantRandomVariable, SamplesRandomVariable
 from torch.autograd import Variable
+
 
 class CategoricalMCParameterGroup(MCParameterGroup):
     def __init__(self, **kwargs):
-        super(CategoricalMCParameterGroup,self).__init__()
+        super(CategoricalMCParameterGroup, self).__init__()
         for name, prior in kwargs.items():
-            if isinstance(prior,BatchRandomVariables) and not all([isinstance(sub_prior, CategoricalRandomVariable) for sub_prior in prior]):
+            if isinstance(prior, BatchRandomVariables) and \
+                    not all([isinstance(sub_prior, CategoricalRandomVariable) for sub_prior in prior]):
                 raise RuntimeError('All priors over a single parameter must be CategoricalRandomVariables')
 
             if not isinstance(prior, BatchRandomVariables) and not isinstance(prior, CategoricalRandomVariable):
-                raise RuntimeError('All parameters in an MCParameterGroup must have priors of type CategoricalRandomVariable')
+                raise RuntimeError(' '.join([
+                    'All parameters in an MCParameterGroup must have priors'
+                    'of type CategoricalRandomVariable'
+                ]))
 
             self._update_buffer[name] = Variable(torch.zeros(len(prior)))
             self._priors[name] = prior
@@ -29,7 +33,7 @@ class CategoricalMCParameterGroup(MCParameterGroup):
 
         for name, prior in self._priors.items():
             if name not in self._posteriors.keys():
-                size = (num_samples,) if isinstance(prior, CategoricalRandomVariable) else (num_samples, len(prior))
+                size = (num_samples, ) if isinstance(prior, CategoricalRandomVariable) else (num_samples, len(prior))
                 sample_buffer = torch.zeros(*size).long()
                 self.register_buffer('%s_samples' % name, sample_buffer)
                 self._posteriors[name] = SamplesRandomVariable(sample_buffer)
@@ -51,7 +55,6 @@ class CategoricalMCParameterGroup(MCParameterGroup):
                     # get log posteriors for each possible category
                     for k in range(num_categories):
                         self._update_buffer[name][j] = k
-                        loglik = log_likelihood_closure()
                         log_posts[k] = log_likelihood_closure() + prior.log_probability(k)
 
                     a_max = torch.max(log_posts)
@@ -67,7 +70,7 @@ class CategoricalMCParameterGroup(MCParameterGroup):
 
                     self._update_buffer[name][j] = post_sample
                     if param_length > 1:
-                        self._posteriors[name][i,j] = post_sample[0]
+                        self._posteriors[name][i, j] = post_sample[0]
                     else:
                         self._posteriors[name][i] = post_sample[0]
 
