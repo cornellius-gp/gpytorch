@@ -1,12 +1,9 @@
-import torch
-from torch.autograd import Variable
-from gpytorch.math.functions import AddDiag, Invmm
 from gpytorch import Distribution
+
 
 class Kernel(Distribution):
     def forward(self, x1, x2, **params):
         raise NotImplementedError()
-
 
     def __call__(self, x1, x2=None, **params):
         if x2 is None:
