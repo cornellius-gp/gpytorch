@@ -5,7 +5,7 @@ from torch.nn import Parameter
 from gpytorch.math.functions import LogNormalCDF
 
 def test_forward():
-    inputs = torch.Tensor([-6,-5,-3,-1,0,1,3,5])
+    inputs = torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5])
     output = LogNormalCDF()(Variable(inputs)).data
 
     # Answers should be reasonable for small values
@@ -21,12 +21,12 @@ def test_forward():
     assert(math.fabs(output[7] + 2.86652e-7) < 1e-4)
 
 def test_backward():
-    inputs = Parameter(torch.Tensor([-6,-5,-3,-1,0,1,3,5]))
+    inputs = Parameter(torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5]))
     output = LogNormalCDF()(inputs)
     output.backward(torch.ones(8))
 
     gradient = inputs.grad.data
-    expected_gradient = torch.Tensor([6.1585,5.1865,3.2831,1.5251,0.7979,0.2876,0.0044,0.0000])
+    expected_gradient = torch.Tensor([6.1585, 5.1865, 3.2831, 1.5251, 0.7979, 0.2876, 0.0044, 0.0000])
 
     # Should be reasonable for small values
     assert(all(torch.abs(gradient[:3] - expected_gradient[:3]) < 5e-1))

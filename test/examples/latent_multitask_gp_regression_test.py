@@ -30,42 +30,42 @@ test_y12 = Variable(torch.sin(test_x.data * (2 * math.pi)))
 test_y2 = Variable(torch.cos(test_x.data * (2 * math.pi)))
 
 class LatentMultitaskGPModel(gpytorch.ObservationModel):
-    def __init__(self,num_task_samples):
-        super(LatentMultitaskGPModel,self).__init__(GaussianLikelihood())
+    def __init__(self, num_task_samples):
+        super(LatentMultitaskGPModel, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()
         self.covar_module = RBFKernel()
         self.task_covar_module = IndexKernel()
 
         self.model_params = MLEParameterGroup(
-            constant_mean=Parameter(torch.randn(1)),
-            log_lengthscale=Parameter(torch.randn(1)),
-            log_noise=Parameter(torch.randn(1)),
+            constant_mean=Parameter(torch.randn(1)), 
+            log_lengthscale=Parameter(torch.randn(1)), 
+            log_noise=Parameter(torch.randn(1)), 
         )
 
         self.task_params = MLEParameterGroup(
-            task_matrix=Parameter(torch.randn(2,1)),
-            task_log_vars=Parameter(torch.randn(2)),
+            task_matrix=Parameter(torch.randn(2, 1)), 
+            task_log_vars=Parameter(torch.randn(2)), 
         )
 
         task_prior = CategoricalRandomVariable(0.5*torch.ones(2))
         self.latent_tasks = CategoricalMCParameterGroup(
-            task_assignments=BatchRandomVariables(task_prior,3),
+            task_assignments=BatchRandomVariables(task_prior, 3), 
         )
 
         self.num_task_samples = num_task_samples
         self.latent_tasks.set_options(num_samples=num_task_samples)
 
-    def forward(self,x,i):
+    def forward(self, x, i):
         n = len(x)
         mean_x = self.mean_module(x, constant=self.model_params.constant_mean)
         covar_x = self.covar_module(x, log_lengthscale=self.model_params.log_lengthscale)
-        covar_i = Variable(torch.zeros(n,n))
+        covar_i = Variable(torch.zeros(n, n))
 
         for j in range(self.num_task_samples):
             task_assignments = self.latent_tasks.task_assignments.sample()
-            task_assignments = task_assignments.index_select(0,i)
-            covar_ji = self.task_covar_module(task_assignments,
-                                             index_covar_factor=self.task_params.task_matrix,
+            task_assignments = task_assignments.index_select(0, i)
+            covar_ji = self.task_covar_module(task_assignments, 
+                                             index_covar_factor=self.task_params.task_matrix, 
                                              index_log_var=self.task_params.task_log_vars)
             covar_i += covar_ji.mul_(1./self.num_task_samples)
 
@@ -78,19 +78,19 @@ def test_latent_multitask_gp_mean_abs_error():
 
     # Compute posterior distribution
     infer = Inference(prior_observation_model)
-    posterior_observation_model = infer.run((torch.cat([train_x,train_x,train_x]),
-                                             torch.cat([y11_inds,y12_inds,y2_inds])),
-                                            torch.cat([train_y11,train_y12,train_y2]),
+    posterior_observation_model = infer.run((torch.cat([train_x, train_x, train_x]), 
+                                             torch.cat([y11_inds, y12_inds, y2_inds])), 
+                                            torch.cat([train_y11, train_y12, train_y2]), 
                                             max_inference_steps=5
                                        )
-    observed_pred_y11 = posterior_observation_model(test_x,y11_inds_test)
+    observed_pred_y11 = posterior_observation_model(test_x, y11_inds_test)
     mean_abs_error_task_11 = torch.mean(torch.abs(test_y11 - observed_pred_y11.mean()))
     assert(mean_abs_error_task_11.data.squeeze()[0] < 0.05)
 
-    observed_pred_y12 = posterior_observation_model(test_x,y12_inds_test)
+    observed_pred_y12 = posterior_observation_model(test_x, y12_inds_test)
     mean_abs_error_task_12 = torch.mean(torch.abs(test_y12 - observed_pred_y12.mean()))
     assert(mean_abs_error_task_12.data.squeeze()[0] < 0.05)
 
-    observed_pred_y2 = posterior_observation_model(test_x,y2_inds_test)
+    observed_pred_y2 = posterior_observation_model(test_x, y2_inds_test)
     mean_abs_error_task_2 = torch.mean(torch.abs(test_y2 - observed_pred_y2.mean()))
     assert(mean_abs_error_task_2.data.squeeze()[0] < 0.01)

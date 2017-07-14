@@ -1,41 +1,42 @@
 import torch
-import logging
-from itertools import chain
-from gpytorch.utils import pd_catcher, LBFGS
 from torch.autograd import Variable
 from torch.nn import Parameter
 from gpytorch.math.functions import AddDiag, Invmv, Invmm, MVNKLDivergence
-from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.kernels import Kernel
-from gpytorch.means import Mean
 from gpytorch import ObservationModel
 from gpytorch.parameters import MLEParameterGroup
 from gpytorch.random_variables import GaussianRandomVariable
-from gpytorch.math.functions import AddDiag, ExactGPMarginalLogLikelihood
+from gpytorch.math.functions import ExactGPMarginalLogLikelihood
+
 
 class _GPPosterior(ObservationModel):
     def update_data(self, train_xs, train_y):
         """
-        Updates this model's training data internally to use the supplied train_xs and train_y.
+        Updates this model's training data internally to use the supplied
+        train_xs and train_y.
 
-        This method is not intended to update the parameters of the model, that is the job of Inference. Only the buffers
-        storing data should be updated here.
+        This method is not intended to update the parameters of the model, that
+        is the job of Inference. Only the buffers storing data should be
+        updated here.
         """
         pass
 
     def forward(self, *inputs, **params):
         """
-        Given a set of inputs x, returns the predictive posterior distribution for the latent function, p(f*|D,x*), where D
-        is the training data as set using update_data.
+        Given a set of inputs x, returns the predictive posterior distribution
+        for the latent function, p(f*|D, x*), where D is the training data as
+        set using update_data.
         """
         pass
 
     def marginal_log_likelihood(self, output, train_y):
         """
-        Returns the log marginal likelihood of the data (for exact inference) or some lower bound on it (for variational inference).
-        Inference uses this function to optimize or perform sampling for all parameters of the model.
+        Returns the log marginal likelihood of the data (for exact inference)
+        or some lower bound on it (for variational inference).  Inference uses
+        this function to optimize or perform sampling for all parameters of the
+        model.
         """
         pass
+
 
 class _VariationalGPPosterior(_GPPosterior):
     def __init__(self, gp_observation_model, inducing_points, train_xs=None, train_y=None):
@@ -48,13 +49,13 @@ class _VariationalGPPosterior(_GPPosterior):
 
         num_inducing = len(self.inducing_points[0])
         self.variational_parameters = MLEParameterGroup(
-                                        variational_mean=Parameter(torch.randn(num_inducing)),
-                                        chol_variational_covar=Parameter(torch.randn(num_inducing,num_inducing).triu_()),
-                                      )
+            variational_mean=Parameter(torch.randn(num_inducing)),
+            chol_variational_covar=Parameter(torch.randn(num_inducing, num_inducing).triu_()),
+        )
 
     def update_data(self, train_xs, train_y):
         if isinstance(train_xs, Variable) or isinstance(train_xs, torch._TensorBase):
-            train_xs = (train_xs,)
+            train_xs = (train_xs, )
         train_xs = [input.data if isinstance(input, Variable) else input for input in train_xs]
         train_y = train_y.data if isinstance(train_y, Variable) else train_y
 
@@ -76,11 +77,11 @@ class _VariationalGPPosterior(_GPPosterior):
         has_posterior = len(self.train_xs[0]) if hasattr(self, 'train_xs') else 0
 
         n = len(self.inducing_points[0])
-        m = len(inputs[0])
 
         if has_posterior:
             inducing_point_vars = [Variable(train_x) for train_x in self.train_xs]
-            full_inputs = [torch.cat([inducing_point_var, input]) for inducing_point_var, input  in zip(inducing_point_vars, inputs)]
+            full_inputs = [torch.cat([inducing_point_var, input])
+                           for inducing_point_var, input in zip(inducing_point_vars, inputs)]
         else:
             full_inputs = inputs
 
@@ -91,14 +92,15 @@ class _VariationalGPPosterior(_GPPosterior):
             test_mean = full_mean
             test_covar = full_covar
         else:
-            train_train_covar = full_covar[:n,:n]
+            train_train_covar = full_covar[:n, :n]
             test_train_covar = full_covar[n:, :n]
             train_test_covar = full_covar[:n, n:]
 
-            alpha = Invmv()(train_train_covar,self.variational_parameters.variational_mean)
+            alpha = Invmv()(train_train_covar, self.variational_parameters.variational_mean)
             test_mean = torch.mv(test_train_covar, alpha)
 
-            variational_covar = self.variational_parameters.chol_variational_covar.t().mm(self.variational_parameters.chol_variational_covar)
+            chol_covar = self.variational_parameters.chol_variational_covar
+            variational_covar = chol_covar.t().mm(chol_covar)
 
             test_covar = variational_covar - train_train_covar
 
@@ -116,23 +118,22 @@ class _VariationalGPPosterior(_GPPosterior):
     def marginal_log_likelihood(self, output, train_y, num_samples=5):
         chol_var_covar = self.variational_parameters.chol_variational_covar.triu()
 
-        # Negate each row with a negative diagonal (the Cholesky decomposition of a matrix requires that the diagonal elements be positive).
+        # Negate each row with a negative diagonal (the Cholesky decomposition
+        # of a matrix requires that the diagonal elements be positive).
         chol_var_covar = chol_var_covar.mul(chol_var_covar.diag().sign().unsqueeze(1).expand_as(chol_var_covar).triu())
-
-
 
         inducing_mean, inducing_covar = output.representation()
         num_inducing = len(inducing_mean)
 
-        epsilon = Variable(torch.randn(num_inducing,num_samples))
+        epsilon = Variable(torch.randn(num_inducing, num_samples))
         samples = chol_var_covar.mm(epsilon)
         samples = samples + self.variational_parameters.variational_mean.unsqueeze(1).expand_as(samples)
         log_likelihood = self.observation_model.log_probability(samples, train_y)
 
-        kl_divergence = MVNKLDivergence()(self.variational_parameters.variational_mean, chol_var_covar, inducing_mean, inducing_covar)
+        kl_divergence = MVNKLDivergence()(self.variational_parameters.variational_mean, chol_var_covar,
+                                          inducing_mean, inducing_covar)
 
         return log_likelihood.squeeze() - kl_divergence
-
 
 
 class _ExactGPPosterior(_GPPosterior):
@@ -146,7 +147,7 @@ class _ExactGPPosterior(_GPPosterior):
 
     def update_data(self, train_xs, train_y):
         if isinstance(train_xs, Variable) or isinstance(train_xs, torch._TensorBase):
-            train_xs = (train_xs,)
+            train_xs = (train_xs, )
         train_xs = [input.data if isinstance(input, Variable) else input for input in train_xs]
         train_y = train_y.data if isinstance(train_y, Variable) else train_y
 
@@ -164,10 +165,8 @@ class _ExactGPPosterior(_GPPosterior):
             self.register_buffer('train_y', train_y)
         return self
 
-
     def forward(self, *inputs, **params):
         n = len(self.train_xs[0]) if hasattr(self, 'train_xs') else 0
-        m = len(inputs[0])
 
         # Compute mean and full data (train/test) covar
         if n:
@@ -199,7 +198,6 @@ class _ExactGPPosterior(_GPPosterior):
             test_test_covar = test_test_covar.sub(test_test_covar_correction)
 
         return GaussianRandomVariable(test_mean, test_test_covar), log_noise
-
 
     def marginal_log_likelihood(self, output, train_y):
         mean, covar = output.representation()

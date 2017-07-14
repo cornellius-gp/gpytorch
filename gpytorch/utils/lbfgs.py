@@ -33,18 +33,18 @@ class LBFGS(Optimizer):
     """
 
     def __init__(self, params, lr=1, max_iter=20, max_eval=None,
-                 tolerance_grad=1e-5, tolerance_change=1e-9, history_size=100,
-                 line_search_fn=None):
+            tolerance_grad=1e-5, tolerance_change=1e-9, history_size=100,
+            line_search_fn=None):
         if max_eval is None:
             max_eval = max_iter * 5 // 4
         defaults = dict(lr=lr, max_iter=max_iter, max_eval=max_eval,
-                        tolerance_grad=tolerance_grad, tolerance_change=tolerance_change,
-                        history_size=history_size, line_search_fn=line_search_fn)
+                tolerance_grad=tolerance_grad, tolerance_change=tolerance_change,
+                history_size=history_size, line_search_fn=line_search_fn)
         super(LBFGS, self).__init__(params, defaults)
 
         if len(self.param_groups) != 1:
             raise ValueError("LBFGS doesn't support per-parameter options "
-                             "(parameter groups)")
+                    "(parameter groups)")
 
         self._params = self.param_groups[0]['params']
         self._numel_cache = None
@@ -228,27 +228,27 @@ class LBFGS(Optimizer):
             # check conditions
             ############################################################
             if n_iter == max_iter:
-		'max iter'
+                'max iter'
                 break
 
             if current_evals >= max_eval:
-		'max evals'
+                'max evals'
                 break
 
             if abs_grad_sum <= tolerance_grad:
-		'grad'
+                'grad'
                 break
 
             if gtd > -tolerance_change:
-		'tol change'
+                'tol change'
                 break
 
             if d.mul(t).abs_().sum() <= tolerance_change:
-		'tol change 2'
+                'tol change 2'
                 break
 
             if abs(loss - prev_loss) < tolerance_change:
-		'tol change 3'
+                'tol change 3'
                 break
 
         state['d'] = d
