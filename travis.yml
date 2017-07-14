@@ -1,0 +1,14 @@
+language: python
+python:
+  - "2.7"
+  - "3.5"
+
+script:
+  - pytest test/
+
+matrix:
+  include:
+    - env: LINT_CHECK
+      python: "2.7"
+      install: pip install flake8
+      script: flake8
