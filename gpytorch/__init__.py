@@ -1,5 +1,5 @@
-from distribution import Distribution
-from observation_model import ObservationModel
+from .distribution import Distribution
+from .observation_model import ObservationModel
 from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
     Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence
 
