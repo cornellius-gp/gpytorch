@@ -1,8 +1,8 @@
 import math
 import torch
+import gpytorch
 import numpy as np
 from torch.autograd import Variable
-from gpytorch.math.functions import ExactGPMarginalLogLikelihood
 
 covar = torch.Tensor([
     [5, -3, 0],
@@ -20,7 +20,7 @@ def test_forward():
 
     covarvar = Variable(covar)
     yvar = Variable(y)
-    res = ExactGPMarginalLogLikelihood()(covarvar, yvar)
+    res = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar)
     assert(torch.norm(actual - res.data) < 1e-4)
 
 
@@ -37,7 +37,7 @@ def test_backward():
 
     covarvar = Variable(covar, requires_grad=True)
     yvar = Variable(y, requires_grad=True)
-    output = ExactGPMarginalLogLikelihood()(covarvar, yvar) * 3
+    output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar) * 3
     output.backward()
 
     print(actual_mat_grad, covarvar.grad.data)

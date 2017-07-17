@@ -1,11 +1,10 @@
 import torch
+import gpytorch
 from torch.autograd import Variable
 from torch.nn import Parameter
-from gpytorch.math.functions import AddDiag, Invmv, Invmm, MVNKLDivergence
 from gpytorch import ObservationModel
 from gpytorch.parameters import MLEParameterGroup
 from gpytorch.random_variables import GaussianRandomVariable
-from gpytorch.math.functions import ExactGPMarginalLogLikelihood
 
 
 class _GPPosterior(ObservationModel):
@@ -96,7 +95,7 @@ class _VariationalGPPosterior(_GPPosterior):
             test_train_covar = full_covar[n:, :n]
             train_test_covar = full_covar[:n, n:]
 
-            alpha = Invmv()(train_train_covar, self.variational_parameters.variational_mean)
+            alpha = gpytorch.invmv(train_train_covar, self.variational_parameters.variational_mean)
             test_mean = torch.mv(test_train_covar, alpha)
 
             chol_covar = self.variational_parameters.chol_variational_covar
@@ -105,10 +104,10 @@ class _VariationalGPPosterior(_GPPosterior):
             test_covar = variational_covar - train_train_covar
 
             # test_covar = K_{mn}K_{nn}^{-1}(S - K_{nn})
-            test_covar = torch.mm(test_train_covar, Invmm()(train_train_covar, test_covar))
+            test_covar = torch.mm(test_train_covar, gpytorch.invmm(train_train_covar, test_covar))
 
             # right_factor = K_{nn}^{-1}K_{nm}
-            right_factor = Invmm()(train_train_covar, train_test_covar)
+            right_factor = gpytorch.invmm(train_train_covar, train_test_covar)
 
             # test_covar = K_{mn}K_{nn}^{-1}(S - K_{nn})K_{nn}^{-1}K_{nm}
             test_covar = full_covar[n:, n:] + test_covar.mm(right_factor)
@@ -130,8 +129,8 @@ class _VariationalGPPosterior(_GPPosterior):
         samples = samples + self.variational_parameters.variational_mean.unsqueeze(1).expand_as(samples)
         log_likelihood = self.observation_model.log_probability(samples, train_y)
 
-        kl_divergence = MVNKLDivergence()(self.variational_parameters.variational_mean, chol_var_covar,
-                                          inducing_mean, inducing_covar)
+        kl_divergence = gpytorch.mvn_kl_divergence(self.variational_parameters.variational_mean,
+                                                   chol_var_covar, inducing_mean, inducing_covar)
 
         return log_likelihood.squeeze() - kl_divergence
 
@@ -185,20 +184,20 @@ class _ExactGPPosterior(_GPPosterior):
         if n:
             train_y_var = Variable(self.train_y)
             train_mean = full_mean[:n]
-            train_train_covar = AddDiag()(full_covar[:n, :n], log_noise.exp())
+            train_train_covar = gpytorch.add_diag(full_covar[:n, :n], log_noise.exp())
             test_train_covar = full_covar[n:, :n]
             train_test_covar = full_covar[:n, n:]
 
             # Update test mean
-            alpha = Invmv()(train_train_covar, train_y_var - train_mean)
+            alpha = gpytorch.invmv(train_train_covar, train_y_var - train_mean)
             test_mean = test_mean.add(torch.mv(test_train_covar, alpha))
 
             # Update test-test covar
-            test_test_covar_correction = torch.mm(test_train_covar, Invmm()(train_train_covar, train_test_covar))
+            test_test_covar_correction = torch.mm(test_train_covar, gpytorch.invmm(train_train_covar, train_test_covar))
             test_test_covar = test_test_covar.sub(test_test_covar_correction)
 
         return GaussianRandomVariable(test_mean, test_test_covar), log_noise
 
     def marginal_log_likelihood(self, output, train_y):
         mean, covar = output.representation()
-        return ExactGPMarginalLogLikelihood()(covar, train_y - mean)
+        return gpytorch.exact_gp_marginal_log_likelihood(covar, train_y - mean)

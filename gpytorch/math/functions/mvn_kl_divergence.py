@@ -1,7 +1,7 @@
 import math
 from torch.autograd import Function
+from .exact_gp_marginal_log_likelihood import ExactGPMarginalLogLikelihood
 from .invmm import Invmm
-from gpytorch.math.functions import ExactGPMarginalLogLikelihood
 
 
 class MVNKLDivergence(Function):

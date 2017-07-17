@@ -1,5 +1,5 @@
+import gpytorch
 from .random_variable import RandomVariable
-from gpytorch.math.functions import ExactGPMarginalLogLikelihood
 from torch.autograd import Variable
 
 
@@ -21,7 +21,7 @@ class GaussianRandomVariable(RandomVariable):
         return self._mean.__len__()
 
     def log_probability(self, x):
-        return ExactGPMarginalLogLikelihood()(self.covar(), x - self.mean())
+        return gpytorch.exact_gp_marginal_log_likelihood(self.covar(), x - self.mean())
 
     def representation(self):
         return self._mean, self._var

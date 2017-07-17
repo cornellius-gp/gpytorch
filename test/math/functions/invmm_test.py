@@ -1,6 +1,6 @@
 import torch
+import gpytorch
 from torch.autograd import Variable
-from gpytorch.math.functions import Invmm
 
 
 def test_forward():
@@ -16,7 +16,7 @@ def test_forward():
 
         a_var = Variable(a)
         b_var = Variable(b)
-        out_var = Invmm()(a_var, b_var)
+        out_var = gpytorch.invmm(a_var, b_var)
         res = out_var.data
 
         assert(torch.norm(actual - res) < 1e-4)
@@ -41,7 +41,7 @@ def test_backward():
         a_var = Variable(a, requires_grad=True)
         c_var = Variable(c, requires_grad=True)
         out_var = a_var.mul(Variable(b))
-        out_var = Invmm()(out_var, c_var)
+        out_var = gpytorch.invmm(out_var, c_var)
         out_var = out_var.mul(Variable(torch.eye(3, n_cols))).sum() * 2
         out_var.backward()
         a_res = a_var.grad.data

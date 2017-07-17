@@ -1,14 +1,14 @@
 import math
 import torch
+import gpytorch
 from torch.autograd import Variable
 from torch.nn import Parameter
-from gpytorch.math.functions import AddDiag
 
 
 def test_forward():
     a = Parameter(torch.Tensor([5]))
     b = Variable(torch.ones(3, 3))
-    output = AddDiag()(b, a)
+    output = gpytorch.add_diag(b, a)
 
     actual = torch.Tensor([
         [6, 1, 1],
@@ -23,7 +23,7 @@ def test_backward():
 
     a = Parameter(torch.Tensor([3]))
     b = Variable(torch.ones(3, 3), requires_grad=True)
-    output = AddDiag()(b, a)
+    output = gpytorch.add_diag(b, a)
     output.backward(gradient=grad)
 
     assert(math.fabs(a.grad.data[0] - grad.trace()) < 1e-6)

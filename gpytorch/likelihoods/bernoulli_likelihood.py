@@ -1,5 +1,5 @@
 import torch
-from gpytorch.math.functions import NormalCDF, LogNormalCDF
+import gpytorch
 from gpytorch.random_variables import GaussianRandomVariable, IndependentRandomVariables, BernoulliRandomVariable
 from .likelihood import Likelihood
 
@@ -38,7 +38,7 @@ class BernoulliLikelihood(Likelihood):
 
         link = mean.div(torch.sqrt(1 + var))
 
-        output_probs = NormalCDF()(link)
+        output_probs = gpytorch.normal_cdf(link)
         return IndependentRandomVariables([BernoulliRandomVariable(output_prob)
                                            for output_prob in output_probs])
 
@@ -48,4 +48,4 @@ class BernoulliLikelihood(Likelihood):
         \Phi(y_{i}f_{i}) is computed by averaging over a set of s samples of
         f_{i} drawn from p(f|x).
         """
-        return LogNormalCDF()(f.mul(y.unsqueeze(1).expand_as(f))).mean(1).sum(0)
+        return gpytorch.log_normal_cdf(f.mul(y.unsqueeze(1).expand_as(f))).mean(1).sum(0)

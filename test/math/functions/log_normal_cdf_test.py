@@ -1,13 +1,13 @@
 import torch
+import gpytorch
 import math
 from torch.autograd import Variable
 from torch.nn import Parameter
-from gpytorch.math.functions import LogNormalCDF
 
 
 def test_forward():
     inputs = torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5])
-    output = LogNormalCDF()(Variable(inputs)).data
+    output = gpytorch.log_normal_cdf(Variable(inputs)).data
 
     # Answers should be reasonable for small values
     assert(math.fabs(output[0] + 20.7368) < 1e-4)
@@ -24,7 +24,7 @@ def test_forward():
 
 def test_backward():
     inputs = Parameter(torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5]))
-    output = LogNormalCDF()(inputs)
+    output = gpytorch.log_normal_cdf(inputs)
     output.backward(torch.ones(8))
 
     gradient = inputs.grad.data
