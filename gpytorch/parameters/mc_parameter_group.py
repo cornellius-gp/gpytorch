@@ -17,14 +17,17 @@ class MCParameterGroup(ParameterGroup):
         return True
 
     def __getattr__(self, name):
-        if self._training and name in self._update_buffer:
+        if name == '__setstate__':
+            # Avoid issues with recursion when attempting deepcopy
+            raise AttributeError
+        elif self._training and name in self._update_buffer:
             return self._update_buffer[name]
         elif name in self._posteriors.keys():
             return self._posteriors[name]
         elif name in self._priors.keys():
             return self._priors[name]
         else:
-            super(MCParameterGroup, self).__getattr__(name)
+            raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, name))
 
     def __iter__(self):
         for name in self._priors.keys():

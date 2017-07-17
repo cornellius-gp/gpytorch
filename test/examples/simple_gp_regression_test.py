@@ -88,14 +88,15 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
 
     # We should learn optimal hyperparmaters
     # bias should be near 0
-    constant_value = posterior_observation_model.params.constant_mean.data.squeeze()[0]
+    params = dict(posterior_observation_model.named_parameter_groups())['params']
+    constant_value = params.constant_mean.data.squeeze()[0]
     assert(math.fabs(constant_value) < .05)
 
     # log_lengthscale should be near -1.4
-    log_lengthscale_value = posterior_observation_model.params.log_lengthscale.data.squeeze()[0]
+    log_lengthscale_value = params.log_lengthscale.data.squeeze()[0]
     assert(log_lengthscale_value < -1.1)
     assert(log_lengthscale_value > -1.8)
 
     # log_noise should be very small
-    log_noise_value = posterior_observation_model.params.log_noise.data.squeeze()[0]
+    log_noise_value = params.log_noise.data.squeeze()[0]
     assert(log_noise_value < -8)

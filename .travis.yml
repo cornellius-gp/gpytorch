@@ -19,6 +19,7 @@ install:
   - source activate test-environment
   - python setup.py install
   - pip install --upgrade pytest
+  - pip install flake8-print
 
 script:
   - python -m pytest

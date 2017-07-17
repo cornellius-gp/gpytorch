@@ -40,6 +40,5 @@ def test_backward():
     output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar) * 3
     output.backward()
 
-    print(actual_mat_grad, covarvar.grad.data)
     assert(torch.norm(actual_mat_grad - covarvar.grad.data) < 1e-4)
     assert(torch.norm(actual_y_grad - yvar.grad.data) < 1e-4)

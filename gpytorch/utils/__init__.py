@@ -1,5 +1,5 @@
 import logging
-from lbfgs import LBFGS
+from .lbfgs import LBFGS
 
 
 class pd_catcher(object):
@@ -22,7 +22,7 @@ class pd_catcher(object):
                 self.n_trials = 0
 
             except RuntimeError as e:
-                if 'not positive definite' in e.message and self.n_trials < self.max_trials:
+                if 'not positive definite' in str(e) and self.n_trials < self.max_trials:
                     if self.catch_function:
                         result = self.catch_function(*args, **kwargs)
                     self.n_trials += 1

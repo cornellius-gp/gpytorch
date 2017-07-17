@@ -15,7 +15,6 @@ class Distribution(Module):
     def __call__(self, *inputs, **kwargs):
         for input in inputs:
             if not(isinstance(input, RandomVariable) or isinstance(input, Variable)):
-                print(type(input))
                 raise RuntimeError('Input must be a RandomVariable or Variable, was a %s' %
                                    input.__class__.__name__)
         outputs = self.forward(*inputs, **kwargs)
@@ -38,9 +37,11 @@ class Distribution(Module):
         super(Distribution, self).__setattr__(name, value)
 
     def __getattr__(self, name):
-        for group_name, param_group in self.named_parameter_groups():
-            if group_name == name:
-                return param_group
+        if name == '__setstate__':
+            # Avoid issues with recursion when attempting deepcopy
+            raise AttributeError
+        elif name in self._parameter_groups.keys():
+            return self._parameter_groups[name]
 
         return super(Distribution, self).__getattr__(name)
 

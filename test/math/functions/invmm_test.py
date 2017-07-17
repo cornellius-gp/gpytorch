@@ -5,7 +5,6 @@ from torch.autograd import Variable
 
 def test_forward():
     for n_cols in [2, 3, 4]:
-        print('ncols', n_cols)
         a = torch.Tensor([
             [5, -3, 0],
             [-3, 5, 0],
@@ -24,7 +23,6 @@ def test_forward():
 
 def test_backward():
     for n_cols in [2, 3, 4]:
-        print('ncols', n_cols)
         a = torch.Tensor([
             [5, -3, 0],
             [-3, 5, 0],
