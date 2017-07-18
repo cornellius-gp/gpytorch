@@ -1,6 +1,8 @@
 import math
 import torch
 from gpytorch.utils import LinearCG, LanczosLogDet
+from torch.autograd import Function
+
 
 class ExactGPMarginalLogLikelihood(Function):
     def forward(self, matrix, y):
