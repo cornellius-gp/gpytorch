@@ -1,12 +1,10 @@
 import math
 import torch
 from .parameter_group import ParameterGroup
-from torch.nn import Parameter
 from torch.autograd import Variable
 from ..utils import pd_catcher, LBFGS
 from .bounded_parameter import BoundedParameter
 
-import pdb
 
 
 class MLEParameterGroup(ParameterGroup):
@@ -29,7 +27,7 @@ class MLEParameterGroup(ParameterGroup):
 
     def __repr__(self):
         string = 'MLEParameterGroup(\n'
-        for name,param in self.named_parameters():
+        for name, param in self.named_parameters():
             string += '\t - ' + name + ' - ' + str(param.data) + '\n'
         string += ')'
         return string

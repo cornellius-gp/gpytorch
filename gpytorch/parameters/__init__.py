@@ -11,6 +11,7 @@ __all__ = [
     MLEParameterGroup,
     MAPParameterGroup,
     ParameterWithPrior,
+    BoundedParameter,
     MCParameterGroup,
     CategoricalMCParameterGroup,
 ]

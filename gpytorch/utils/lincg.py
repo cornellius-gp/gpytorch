@@ -2,6 +2,7 @@ import math
 import torch
 from torch.autograd import Variable
 
+
 class LinearCG(object):
     """
     Implements the linear conjugate gradients method for (approximately) solving systems of the form
@@ -12,42 +13,40 @@ class LinearCG(object):
     preconditioning, which uses M=diag(A) as a preconditioner, and symmetric successive overrelaxation, the form of
     which is described, e.g., at http://netlib.org/linalg/html_templates/node58.html.
     """
-    def __init__(self,max_iter=15,tolerance_resid=1e-5,precondition_closure=None):
+    def __init__(self, max_iter=15, tolerance_resid=1e-5, precondition_closure=None):
         self.max_iter = max_iter
         self.tolerance_resid = tolerance_resid
         self.precondition_closure = precondition_closure
 
-    def _diagonal_preconditioner(self,A,v):
+    def _diagonal_preconditioner(self, A, v):
         if v.ndimension() > 1:
-            return v.mul((1/A.diag()).unsqueeze(1).expand_as(v))
+            return v.mul((1 / A.diag()).unsqueeze(1).expand_as(v))
         else:
-            return v.mul((1/A.diag()).expand_as(v))
+            return v.mul((1 / A.diag()).expand_as(v))
 
-    def _ssor_preconditioner(self,A,v):
+    def _ssor_preconditioner(self, A, v):
         DL = A.tril()
         D = A.diag()
-        upper_part = (1/D).expand_as(DL).mul(DL.t())
-        Minv_times_v = torch.trtrs(torch.trtrs(v,DL,upper=False)[0],upper_part)[0].squeeze()
+        upper_part = (1 / D).expand_as(DL).mul(DL.t())
+        Minv_times_v = torch.trtrs(torch.trtrs(v, DL, upper=False)[0], upper_part)[0].squeeze()
         return Minv_times_v
 
-
-    def solve(self,A,b,x=None):
+    def solve(self, A, b, x=None):
         b = b.squeeze()
-        n = len(A)
 
         if self.precondition_closure is None:
-            self.precondition_closure = lambda v: self._ssor_preconditioner(A,v)
+            self.precondition_closure = lambda v: self._ssor_preconditioner(A, v)
             self._reset_precond = True
         else:
             self._reset_precond = False
 
         if b.ndimension() > 1:
-            return self._solve_batch(A,b,x)
+            return self._solve_batch(A, b, x)
 
-        if isinstance(A,Variable) or isinstance(b,Variable):
+        if isinstance(A, Variable) or isinstance(b, Variable):
             raise RuntimeError('LinearCG is not intended to operate directly on Variables or be used with autograd.')
 
-        if not isinstance(A,torch.Tensor) or not isinstance(b,torch.Tensor):
+        if not isinstance(A, torch.Tensor) or not isinstance(b, torch.Tensor):
             raise RuntimeError('LinearCG is intended to operate on tensors.')
 
         if x is None:
@@ -69,8 +68,8 @@ class LinearCG(object):
             Ap = A.mv(p)
             alpha = r_dot_z / (p.dot(Ap) + 1e-10)
 
-            x = x + alpha*p
-            residual = residual - alpha*Ap
+            x = x + alpha * p
+            residual = residual - alpha * Ap
 
             rtr = residual.dot(residual)
             if math.sqrt(rtr) < self.tolerance_resid:
@@ -82,7 +81,7 @@ class LinearCG(object):
 
             beta = new_r_dot_z / (r_dot_z + 1e-10)
 
-            p = z + beta*p
+            p = z + beta * p
             r_dot_z = new_r_dot_z
 
         if self._reset_precond:
@@ -90,12 +89,12 @@ class LinearCG(object):
 
         return x
 
-    def _solve_batch(self,A,B,X=None):
+    def _solve_batch(self, A, B, X=None):
         n, k = B.size()
-        if isinstance(A,Variable) or isinstance(B,Variable):
+        if isinstance(A, Variable) or isinstance(B, Variable):
             raise RuntimeError('LinearCG is not intended to operate directly on Variables or be used with autograd.')
 
-        if not isinstance(A,torch.Tensor) or not isinstance(B,torch.Tensor):
+        if not isinstance(A, torch.Tensor) or not isinstance(B, torch.Tensor):
             raise RuntimeError('LinearCG is intended to operate on tensors.')
 
         if X is None:
@@ -112,11 +111,11 @@ class LinearCG(object):
         P = z
         r_dot_zs = residuals.mul(z).sum(0)
 
-        for k in range(min(self.max_iter,n)):
+        for k in range(min(self.max_iter, n)):
             AP = A.mm(P)
             PAPs = AP.mul(P).sum(0)
 
-            alphas = r_dot_zs.div(PAPs+1e-10)
+            alphas = r_dot_zs.div(PAPs + 1e-10)
 
             X = X + alphas.expand_as(P).mul(P)
 
@@ -130,7 +129,7 @@ class LinearCG(object):
             z = self.precondition_closure(residuals)
             new_r_dot_zs = residuals.mul(z).sum(0)
 
-            betas = new_r_dot_zs.div(r_dot_zs+1e-10)
+            betas = new_r_dot_zs.div(r_dot_zs + 1e-10)
 
             P = z + betas.expand_as(P).mul(P)
             r_dot_zs = new_r_dot_zs

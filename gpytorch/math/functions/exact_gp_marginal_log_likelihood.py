@@ -1,14 +1,14 @@
 import math
 import torch
-from .invmv import Invmv
-from gpytorch.utils import pd_catcher
 from gpytorch.utils import LinearCG, LanczosLogDet
 
 class ExactGPMarginalLogLikelihood(Function):
     def forward(self, matrix, y):
         mat_inv_y = LinearCG().solve(matrix, y)
-        res = mat_inv_y.dot(y) # Inverse quad
-        res += LanczosLogDet(num_random_probes=10).logdet(matrix) # Log determinant
+        # Inverse quad form
+        res = mat_inv_y.dot(y)
+        # Log determinant
+        res += LanczosLogDet(num_random_probes=10).logdet(matrix)
         res += math.log(2 * math.pi) * len(y)
         res *= -0.5
 

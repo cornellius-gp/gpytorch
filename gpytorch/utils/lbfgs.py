@@ -3,40 +3,39 @@ from functools import reduce
 from torch.optim import Optimizer
 from math import isinf
 
-import pdb
 
 class LBFGS(Optimizer):
     """Implements L-BFGS algorithm.
 
-.. warning::
-    This optimizer doesn't support per-parameter options and parameter
-    groups (there can be only one).
+    .. warning::
+        This optimizer doesn't support per-parameter options and parameter
+        groups (there can be only one).
 
-.. warning::
-    Right now all parameters have to be on a single device. This will be
-    improved in the future.
+    .. warning::
+        Right now all parameters have to be on a single device. This will be
+        improved in the future.
 
-.. note::
-    This is a very memory intensive optimizer (it requires additional
-    ``param_bytes * (history_size + 1)`` bytes). If it doesn't fit in memory
-    try reducing the history size, or use a different algorithm.
+    .. note::
+        This is a very memory intensive optimizer (it requires additional
+        ``param_bytes * (history_size + 1)`` bytes). If it doesn't fit in memory
+        try reducing the history size, or use a different algorithm.
 
-Arguments:
-    lr (float): learning rate (default: 1)
-    max_iter (int): maximal number of iterations per optimization step
-        (default: 20)
-    max_eval (int): maximal number of function evaluations per optimization
-        step (default: max_iter * 1.25).
-    tolerance_grad (float): termination tolerance on first order optimality
-        (default: 1e-5).
-    tolerance_change (float): termination tolerance on function value/parameter
-        changes (default: 1e-9).
-    line_search_fn (str): line search methods, currently available
-        ['backtracking', 'goldstein', 'weak_wolfe']
-    bounds (list of tuples of tensor): bounds[i][0], bounds[i][1] are elementwise
-        lowerbound and upperbound of param[i], respectively
-    history_size (int): update history size (default: 100).
-"""
+    Arguments:
+        lr (float): learning rate (default: 1)
+        max_iter (int): maximal number of iterations per optimization step
+            (default: 20)
+        max_eval (int): maximal number of function evaluations per optimization
+            step (default: max_iter * 1.25).
+        tolerance_grad (float): termination tolerance on first order optimality
+            (default: 1e-5).
+        tolerance_change (float): termination tolerance on function value/parameter
+            changes (default: 1e-9).
+        line_search_fn (str): line search methods, currently available
+            ['backtracking', 'goldstein', 'weak_wolfe']
+        bounds (list of tuples of tensor): bounds[i][0], bounds[i][1] are elementwise
+            lowerbound and upperbound of param[i], respectively
+        history_size (int): update history size (default: 100).
+    """
 
     def __init__(self, params, lr=1, max_iter=20, max_eval=None,
                  tolerance_grad=1e-5, tolerance_change=1e-9, history_size=100,
@@ -290,21 +289,19 @@ Arguments:
         min_l_bnd = float('inf')
         min_u_bnd = float('inf')
         for p, bnd in zip(self._params, self._bounds):
-#            pdb.set_trace()
             numel = p.numel()
             l_bnd, u_bnd = bnd
             p_grad = d[offset:offset + numel].resize_(p.size())
             if l_bnd is not None:
-                from_l_bnd = ((l_bnd-p.data)/p_grad)[p_grad<0]
+                from_l_bnd = ((l_bnd - p.data) / p_grad)[p_grad < 0]
                 min_l_bnd = torch.min(from_l_bnd) if from_l_bnd.numel() > 0 else max_alpha
             if u_bnd is not None:
-                from_u_bnd = ((u_bnd-p.data)/p_grad)[p_grad>0]
+                from_u_bnd = ((u_bnd - p.data) / p_grad)[p_grad > 0]
                 min_u_bnd = torch.min(from_u_bnd) if from_u_bnd.numel() > 0 else max_alpha
             max_alpha = min(max_alpha, min_l_bnd, min_u_bnd)
             offset = offset + numel
 
         return max_alpha
-
 
     def _backtracking(self, closure, d):
         # 0 < rho < 0.5 and 0 < w < 1
@@ -325,7 +322,6 @@ Arguments:
                 alpha_k *= w
         return alpha_k
 
-
     def _goldstein(self, closure, d):
         # 0 < rho < 0.5 and t > 1
         rho = 1e-4
@@ -341,21 +337,20 @@ Arguments:
             self._set_param_incremental(alpha_k, d)
             phi_k = closure().data[0]
             self._set_param(original_param_data_list)
-            if phi_k <= phi_0 + rho*alpha_k*phi_0_prime:
-                if phi_k >= phi_0 + (1-rho)*alpha_k*phi_0_prime:
+            if phi_k <= phi_0 + rho * alpha_k * phi_0_prime:
+                if phi_k >= phi_0 + (1 - rho) * alpha_k * phi_0_prime:
                     break
                 else:
                     a_k = alpha_k
-                    alpha_k = t*alpha_k if isinf(b_k) else (a_k + b_k) / 2.0
+                    alpha_k = t * alpha_k if isinf(b_k) else (a_k + b_k) / 2.0
             else:
                 b_k = alpha_k
-                alpha_k = (a_k + b_k)/2.0
+                alpha_k = (a_k + b_k) / 2.0
             if torch.sum(torch.abs(alpha_k * d)) < self.param_groups[0]['tolerance_grad']:
                 break
-            if abs(b_k-a_k) < 1e-6:
+            if abs(b_k - a_k) < 1e-6:
                 break
         return alpha_k
-
 
     def _weak_wolfe(self, closure, d):
         # 0 < rho < 0.5 and rho < sigma < 1
@@ -373,8 +368,8 @@ Arguments:
             phi_k = closure().data[0]
             phi_k_prime = self._directional_derivative(d)
             self._set_param(original_param_data_list)
-            if phi_k <= phi_0 + rho*alpha_k*phi_0_prime:
-                if phi_k_prime >= sigma*phi_0_prime:
+            if phi_k <= phi_0 + rho * alpha_k * phi_0_prime:
+                if phi_k_prime >= sigma * phi_0_prime:
                     break
                 else:
                     alpha_hat = alpha_k + (alpha_k - a_k) * phi_k_prime / (phi_0_prime - phi_k_prime)
@@ -383,11 +378,11 @@ Arguments:
                     phi_0_prime = phi_k_prime
                     alpha_k = alpha_hat
             else:
-                alpha_hat = a_k + 0.5*(alpha_k-a_k)/(1+(phi_0-phi_k)/((alpha_k-a_k)*phi_0_prime))
+                alpha_hat = a_k + 0.5 * (alpha_k - a_k) / (1 + (phi_0 - phi_k) / ((alpha_k - a_k) * phi_0_prime))
                 b_k = alpha_k
                 alpha_k = alpha_hat
             if torch.sum(torch.abs(alpha_k * d)) < self.param_groups[0]['tolerance_grad']:
                 break
-            if abs(b_k-a_k) < 1e-6:
+            if abs(b_k - a_k) < 1e-6:
                 break
         return alpha_k

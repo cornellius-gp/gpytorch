@@ -17,7 +17,7 @@ class Inference(object):
             self.observation_model_inference = None
 
     def run_(self, train_x, train_y, inducing_points=None, optimize=True, max_inference_steps=20, **kwargs):
-        if isinstance(train_x,Variable):
+        if isinstance(train_x, Variable):
             train_x = (train_x,)
 
         if inducing_points is None:

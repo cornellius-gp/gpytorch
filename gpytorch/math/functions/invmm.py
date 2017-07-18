@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Function
-from gpytorch.utils import pd_catcher
 from gpytorch.utils import LinearCG
+
 
 # Returns input_1^{-1} input_2
 class Invmm(Function):

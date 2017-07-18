@@ -3,6 +3,11 @@ from .lbfgs import LBFGS
 from .lincg import LinearCG
 from .krylov_logdet import LanczosLogDet
 
+__all__ = [
+    LBFGS,
+    LinearCG,
+    LanczosLogDet,
+]
 
 class pd_catcher(object):
     '''
@@ -22,7 +27,7 @@ class pd_catcher(object):
             try:
                 result = function(*args, **kwargs)
                 self.n_trials = 0
-            except (ZeroDivisionError,RuntimeError) as e:
+            except (ZeroDivisionError, RuntimeError) as e:
                 if self.n_trials < self.max_trials:
                     if self.catch_function:
                         result = self.catch_function(*args, **kwargs)
