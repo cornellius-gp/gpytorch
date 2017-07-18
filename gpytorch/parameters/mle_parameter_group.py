@@ -6,7 +6,6 @@ from ..utils import pd_catcher, LBFGS
 from .bounded_parameter import BoundedParameter
 
 
-
 class MLEParameterGroup(ParameterGroup):
     def __init__(self, **kwargs):
         super(MLEParameterGroup, self).__init__()

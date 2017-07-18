@@ -9,6 +9,7 @@ __all__ = [
     LanczosLogDet,
 ]
 
+
 class pd_catcher(object):
     '''
     A decorator to deal with non-positive definite matrices (useful during optimization)

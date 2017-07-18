@@ -1,7 +1,6 @@
 import math
 import torch
 import gpytorch
-
 from torch.autograd import Variable
 from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 from gpytorch.kernels import RBFKernel
@@ -17,15 +16,16 @@ train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
 test_x = Variable(torch.linspace(0, 1, 51))
 test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
+
 class ExactGPObservationModel(gpytorch.ObservationModel):
     def __init__(self):
         super(ExactGPObservationModel, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()
         self.covar_module = RBFKernel()
         self.params = MLEParameterGroup(
-            constant_mean=BoundedParameter(torch.Tensor([0]),-1,1),
-            log_noise=BoundedParameter(torch.Tensor([0]),-5,5),
-            log_lengthscale=BoundedParameter(torch.Tensor([0]),-5,5),
+            constant_mean=BoundedParameter(torch.Tensor([0]), -1, 1),
+            log_noise=BoundedParameter(torch.Tensor([0]), -5, 5),
+            log_lengthscale=BoundedParameter(torch.Tensor([0]), -5, 5),
         )
 
     def forward(self, x):

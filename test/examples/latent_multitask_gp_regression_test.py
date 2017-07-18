@@ -8,7 +8,6 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.inference import Inference
 from gpytorch.random_variables import GaussianRandomVariable, BatchRandomVariables, CategoricalRandomVariable
 from gpytorch.parameters import MLEParameterGroup, CategoricalMCParameterGroup, BoundedParameter
-from torch.nn import Parameter
 
 # Training data with 3 visible tasks, but the model should learn that task 11 and 12 should be grouped together.
 train_x = Variable(torch.linspace(0, 1, 11))
@@ -36,11 +35,11 @@ class LatentMultitaskGPModel(gpytorch.ObservationModel):
         self.task_covar_module = IndexKernel()
 
         self.model_params = MLEParameterGroup(
-            constant_mean=BoundedParameter(torch.randn(1),-1,1),
-            log_noise=BoundedParameter(torch.randn(1),-15,15),
-            log_lengthscale=BoundedParameter(torch.randn(1),-15,15),
-            task_matrix=BoundedParameter(torch.randn(2,1),-15,15),
-            task_log_vars=BoundedParameter(torch.randn(2),-15,15),
+            constant_mean=BoundedParameter(torch.randn(1), -1, 1),
+            log_noise=BoundedParameter(torch.randn(1), -15, 15),
+            log_lengthscale=BoundedParameter(torch.randn(1), -15, 15),
+            task_matrix=BoundedParameter(torch.randn(2, 1), -15, 15),
+            task_log_vars=BoundedParameter(torch.randn(2), -15, 15),
         )
 
         task_prior = CategoricalRandomVariable(0.5 * torch.ones(2))
@@ -60,10 +59,12 @@ class LatentMultitaskGPModel(gpytorch.ObservationModel):
         for j in range(self.num_task_samples):
             task_assignments = self.latent_tasks.task_assignments.sample()
             task_assignments = task_assignments.index_select(0, i)
-            covar_ji = self.task_covar_module(task_assignments,
-                                             index_covar_factor=self.model_params.task_matrix,
-                                             index_log_var=self.model_params.task_log_vars)
-            covar_i += covar_ji.mul_(1./self.num_task_samples)
+            covar_ji = self.task_covar_module(
+                task_assignments,
+                index_covar_factor=self.model_params.task_matrix,
+                index_log_var=self.model_params.task_log_vars
+            )
+            covar_i += covar_ji.mul_(1. / self.num_task_samples)
 
         covar_xi = covar_x.mul(covar_i)
         latent_pred = GaussianRandomVariable(mean_x, covar_xi)
