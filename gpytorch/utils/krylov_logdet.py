@@ -81,6 +81,9 @@ class LanczosLogDet(object):
         return u,v,a,norm_v
 
     def logdet(self,A):
+        if A.numel() == 1:
+            return math.fabs(A.squeeze()[0])
+
         n = len(A)
         jitter = torch.eye(n) * 1e-5
         A = A + jitter
