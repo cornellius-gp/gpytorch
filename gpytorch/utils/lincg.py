@@ -12,7 +12,7 @@ class LinearCG(object):
     preconditioning, which uses M=diag(A) as a preconditioner, and symmetric successive overrelaxation, the form of
     which is described, e.g., at http://netlib.org/linalg/html_templates/node58.html.
     """
-    def __init__(self,max_iter=50,tolerance_resid=1e-5,precondition_closure=None):
+    def __init__(self,max_iter=15,tolerance_resid=1e-5,precondition_closure=None):
         self.max_iter = max_iter
         self.tolerance_resid = tolerance_resid
         self.precondition_closure = precondition_closure

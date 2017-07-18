@@ -306,7 +306,6 @@ Arguments:
         return max_alpha
 
 
->>>>>>> Parameters now require bounds for optimization
     def _backtracking(self, closure, d):
         # 0 < rho < 0.5 and 0 < w < 1
         rho = 1e-4
