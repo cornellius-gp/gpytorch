@@ -88,4 +88,5 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
     posterior_observation_model = infer.run(train_x, train_y, optimize=True)
     test_function_predictions = posterior_observation_model(test_x)
     mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean()))
-    assert(mean_abs_error.data.squeeze()[0] < 0.01)
+
+    assert(mean_abs_error.data.squeeze()[0] < 0.05)

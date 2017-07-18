@@ -65,9 +65,9 @@ def test_multitask_gp_mean_abs_error():
     test_preds_task_1 = posterior_observation_model(test_x, y1_inds_test).mean()
     mean_abs_error_task_1 = torch.mean(torch.abs(test_y1 - test_preds_task_1))
 
-    assert(mean_abs_error_task_1.data.squeeze()[0] < 0.01)
+    assert(mean_abs_error_task_1.data.squeeze()[0] < 0.05)
 
     test_preds_task_2 = posterior_observation_model(test_x, y2_inds_test).mean()
     mean_abs_error_task_2 = torch.mean(torch.abs(test_y2 - test_preds_task_2))
 
-    assert(mean_abs_error_task_2.data.squeeze()[0] < 0.01)
+    assert(mean_abs_error_task_2.data.squeeze()[0] < 0.05)
