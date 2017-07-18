@@ -1,6 +1,6 @@
 import math
 import torch
-from gpytorch.utils import LinearCG, LanczosLogDet
+from gpytorch.utils import LinearCG, SLQLogDet
 from torch.autograd import Function
 
 
@@ -10,7 +10,7 @@ class ExactGPMarginalLogLikelihood(Function):
         # Inverse quad form
         res = mat_inv_y.dot(y)
         # Log determinant
-        res += LanczosLogDet(num_random_probes=10).logdet(matrix)
+        res += SLQLogDet(num_random_probes=10).logdet(matrix)
         res += math.log(2 * math.pi) * len(y)
         res *= -0.5
 

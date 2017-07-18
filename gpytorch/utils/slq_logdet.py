@@ -2,7 +2,7 @@ import torch
 import math
 
 
-class LanczosLogDet(object):
+class SLQLogDet(object):
     """
     Implements an approximate log determinant calculation for symmetric positive definite matrices
     using stochastic Lanczos quadrature as described in Ubaru et al., 2016 here:

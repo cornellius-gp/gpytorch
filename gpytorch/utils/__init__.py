@@ -1,12 +1,12 @@
 import logging
 from .lbfgs import LBFGS
 from .lincg import LinearCG
-from .krylov_logdet import LanczosLogDet
+from .slq_logdet import SLQLogDet
 
 __all__ = [
     LBFGS,
     LinearCG,
-    LanczosLogDet,
+    SLQLogDet,
 ]
 
 
