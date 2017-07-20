@@ -1,9 +1,11 @@
 import logging
+from .interpolation import Interpolation
 from .lbfgs import LBFGS
 from .lincg import LinearCG
 from .slq_logdet import SLQLogDet
 
 __all__ = [
+    Interpolation,
     LBFGS,
     LinearCG,
     SLQLogDet,

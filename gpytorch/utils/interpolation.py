@@ -39,7 +39,7 @@ class Interpolation(object):
 
         grid_delta = x_grid[1] - x_grid[0]
 
-        lower_grid_pt_idxs = torch.floor((x_target - x_grid[0]) / grid_delta)
+        lower_grid_pt_idxs = torch.floor((x_target - x_grid[0]) / grid_delta).squeeze()
         lower_pt_rel_dists = (x_target - x_grid[0]) / grid_delta - lower_grid_pt_idxs
         lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points[-1]
         C = torch.zeros(num_target_points,num_coefficients)
