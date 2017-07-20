@@ -1,4 +1,5 @@
 import torch
+import gpytorch
 import math
 
 
@@ -13,7 +14,7 @@ class SLQLogDet(object):
         self.max_iter = max_iter
         self.num_random_probes = num_random_probes
 
-    def lanczos(self, A, b):
+    def lanczos(self, mv_closure, b):
         """
         Performs self.max_iter (at most n) iterations of the Lanczos iteration to decompose A as:
             AQ = QT
@@ -30,7 +31,7 @@ class SLQLogDet(object):
         Q[:, 0] = b
         u = b
 
-        r = A.mv(u)
+        r = mv_closure(u)
         a = u.dot(r)
         b = r - a * u
 
@@ -41,7 +42,7 @@ class SLQLogDet(object):
         alpha[0] = a
 
         for k in range(1, num_iters):
-            u, b, alpha_k, beta_k = self._lanczos_step(u, b, A, Q[:, :k])
+            u, b, alpha_k, beta_k = self._lanczos_step(u, b, mv_closure, Q[:, :k])
 
             if b.sum() == 0:
                 b = b + 1e-10
@@ -59,7 +60,7 @@ class SLQLogDet(object):
         T = torch.diag(alpha) + torch.diag(beta, 1) + torch.diag(beta, -1)
         return Q, T
 
-    def _lanczos_step(self, u, v, B, Q):
+    def _lanczos_step(self, u, v, mv_closure, Q):
         norm_v = torch.norm(v)
         orig_u = u
 
@@ -72,19 +73,21 @@ class SLQLogDet(object):
 
         u = u / torch.norm(u)
 
-        r = B.mv(u) - norm_v * orig_u
+        r = mv_closure(u) - norm_v * orig_u
 
         a = u.dot(r)
         v = r - a * u
         return u, v, a, norm_v
 
-    def logdet(self, A):
-        if A.numel() == 1:
+    def logdet(self, A, n):
+        if isinstance(A, torch.Tensor) and A.numel() == 1:
             return math.fabs(A.squeeze()[0])
 
-        n = len(A)
-        jitter = torch.eye(n) * 1e-5
-        A = A + jitter
+        if isinstance(A, torch.Tensor):
+            mv_closure = lambda v: A.mv(v)
+        else:
+            mv_closure = A
+
         V = torch.sign(torch.randn(n, self.num_random_probes))
         V.div_(torch.norm(V, 2, 0).expand_as(V))
 
@@ -92,7 +95,7 @@ class SLQLogDet(object):
 
         for j in range(self.num_random_probes):
             vj = V[:, j]
-            Q, T = self.lanczos(A, vj)
+            Q, T = self.lanczos(mv_closure, vj)
 
             # Eigendecomposition of a Tridiagonal matrix
             # O(n^2) time/convergence with QR iteration,

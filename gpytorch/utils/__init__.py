@@ -60,6 +60,7 @@ def index_coef_to_sparse(J, C, num_grid_points):
     W = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points,num_grid_points]))
     return W
 
+
 def toeplitz(c, r):
     """
     Constructs tensor version of toeplitz matrix from column vector

@@ -1,5 +1,6 @@
 from .add_diag import AddDiag
 from .exact_gp_marginal_log_likelihood import ExactGPMarginalLogLikelihood
+from .interpolated_toeplitz_gp_marginal_log_likelihood import InterpolatedToeplitzGPMarginalLogLikelihood
 from .invmm import Invmm
 from .invmv import Invmv
 from .normal_cdf import NormalCDF

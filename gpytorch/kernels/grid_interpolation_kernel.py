@@ -2,6 +2,7 @@ import torch
 from torch.autograd import Variable
 from .kernel import Kernel
 from gpytorch.utils.interpolation import Interpolation
+from gpytorch.lazy import ToeplitzLazyVariable
 
 class GridInterpolationKernel(Kernel):
     def __init__(self, base_kernel_module, grid_size):
@@ -25,12 +26,15 @@ class GridInterpolationKernel(Kernel):
         x2 = (x2 - x2.min(0)[0].expand_as(x2)) / (x2.max(0)[0] - x2.min(0)[0]).expand_as(x2)
 
         # Explicitly compute full, dense interpolated matrix at the moment just for testing.
-        W1 = Variable(Interpolation().interpolate(self.grid.data,x1.data.squeeze()).to_dense()) # Will never need gradients
-        W2 = Variable(Interpolation().interpolate(self.grid.data,x2.data.squeeze()).to_dense()) # same here.
+        J1, C1 = Interpolation().interpolate(self.grid.data,x1.data.squeeze()) # Will never need gradients
+        J2, C2 = Interpolation().interpolate(self.grid.data,x2.data.squeeze()) # same here.
 
-        K_UU = self.base_kernel_module(self.grid, **kwargs)
+        k_UU = self.base_kernel_module(self.grid[0], self.grid, **kwargs).squeeze()
 
-        K_XX = W1.mm(K_UU).mm(W2.t())
+        K_XX = ToeplitzLazyVariable(k_UU, k_UU, J1, C1, J2, C2)
+
+        # K_UU = self.base_kernel_module(self.grid, **kwargs)
+        # K_XX = W1.mm(K_UU).mm(W2.t())
 
         return K_XX
 

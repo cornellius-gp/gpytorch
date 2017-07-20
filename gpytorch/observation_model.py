@@ -1,7 +1,7 @@
 from torch.autograd import Variable
 from .distribution import Distribution
 from .random_variables import RandomVariable
-
+from lazy import LazyVariable
 
 class ObservationModel(Distribution):
     def __init__(self, observation_model):
@@ -14,6 +14,6 @@ class ObservationModel(Distribution):
 
     def __call__(self, *args, **kwargs):
         output = super(ObservationModel, self).__call__(*args, **kwargs)
-        if isinstance(output, Variable) or isinstance(output, RandomVariable):
+        if isinstance(output, Variable) or isinstance(output, RandomVariable) or isinstance(output, LazyVariable):
             output = (output,)
         return self.observation_model(*output)

@@ -5,6 +5,7 @@ from torch.autograd import Variable
 from ..utils import pd_catcher, LBFGS
 from .bounded_parameter import BoundedParameter
 
+import pdb
 
 class MLEParameterGroup(ParameterGroup):
     def __init__(self, **kwargs):

@@ -1,9 +1,11 @@
 from ..likelihoods import Likelihood, GaussianLikelihood
 from ..random_variables import GaussianRandomVariable
-from .posterior_models import _ExactGPPosterior, _VariationalGPPosterior
+from posterior_models import _ExactGPPosterior, _VariationalGPPosterior
 from gpytorch import ObservationModel
 from copy import deepcopy
 from torch.autograd import Variable
+
+import pdb
 
 
 class Inference(object):
@@ -65,6 +67,8 @@ class Inference(object):
                     param_group.update(log_likelihood_closure)
 
                 has_converged = all([param_group.has_converged(log_likelihood_closure) for param_group in param_groups])
+                loss = -log_likelihood_closure()
+                print loss
                 if has_converged:
                     break
 

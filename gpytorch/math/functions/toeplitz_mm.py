@@ -3,7 +3,6 @@ from torch.autograd import Function
 from gpytorch.utils import fft
 from gpytorch import utils
 
-import pdb
 
 class ToeplitzMM(Function):
     """
