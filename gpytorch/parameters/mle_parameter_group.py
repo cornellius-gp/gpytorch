@@ -15,7 +15,21 @@ class MLEParameterGroup(ParameterGroup):
             if not isinstance(param, BoundedParameter):
                 raise RuntimeError('All parameters in an MLEParameterGroup must be BoundedParameters')
             setattr(self, name, param.param)
-            self._bounds[name] = torch.Tensor([param.lower_bound, param.upper_bound]).unsqueeze_(1).t_()
+            if isinstance(param.lower_bound, torch._TensorBase) and isinstance(param.upper_bound, torch._TensorBase):
+                if param.lower_bound.numel() != param.upper_bound.numel() or \
+                        param.lower_bound.numel() != param.param.numel():
+                    raise RuntimeError('Lower bound, upper bound, and param should have the same number of elements')
+                self._bounds[name] = torch.cat([param.lower_bound.view(1, -1), param.upper_bound.view(1, -1)])
+
+            elif (isinstance(param.lower_bound, int) or isinstance(param.lower_bound, float)) and \
+                    (isinstance(param.upper_bound, int) or isinstance(param.upper_bound, float)):
+                numel = param.param.numel()
+                self._bounds[name] = torch.Tensor([param.lower_bound, param.upper_bound]).unsqueeze_(0)
+                self._bounds[name] = self._bounds[name].expand(numel, 2)
+
+            else:
+                raise RuntimeError('Unsupported argument types for parameter %s' % name)
+
         self._options = {
             'grad_tolerance': 1e-5,
             'relative_loss_tolerance': 1e-3,
