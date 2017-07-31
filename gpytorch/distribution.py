@@ -40,8 +40,10 @@ class Distribution(Module):
         if name == '__setstate__':
             # Avoid issues with recursion when attempting deepcopy
             raise AttributeError
-        elif name in self._parameter_groups.keys():
-            return self._parameter_groups[name]
+        else:
+            for param_name, value in self.named_parameter_groups():
+                if name == param_name:
+                    return value
 
         return super(Distribution, self).__getattr__(name)
 
