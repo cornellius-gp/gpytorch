@@ -1,7 +1,8 @@
 from .distribution import Distribution
 from .observation_model import ObservationModel
 from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
-    Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence
+    Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence, ToeplitzMV, ToeplitzMM
+
 
 __all__ = [
     Distribution,
