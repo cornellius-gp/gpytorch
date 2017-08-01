@@ -44,8 +44,8 @@ class ExactGPMarginalLogLikelihood(Function):
             mat_grad = LinearCG().solve(mv_closure, mat_grad)
             mat_grad.mul_(0.5 * grad_output_value)
 
-            return mat_grad, y_grad
-
         if self.needs_input_grad[1]:
             # Need gradient with respect to y
             y_grad = mat_inv_y.mul_(-grad_output_value)
+
+        return mat_grad, y_grad

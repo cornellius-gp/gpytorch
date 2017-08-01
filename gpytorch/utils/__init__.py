@@ -1,3 +1,5 @@
+import torch
+from torch.autograd import Variable
 import logging
 from .interpolation import Interpolation
 from .lbfgs import LBFGS
