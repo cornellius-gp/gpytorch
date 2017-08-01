@@ -1,4 +1,4 @@
-# GPyTorch
+# GPyTorch (Pre-release, under development)
 ![Build status](https://travis-ci.org/jrg365/gpytorch.svg?branch=master)
 
 GPyTorch is a Gaussian Process library, implemented using PyTorch.
