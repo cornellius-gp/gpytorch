@@ -68,7 +68,6 @@ class Inference(object):
 
                 has_converged = all([param_group.has_converged(log_likelihood_closure) for param_group in param_groups])
                 loss = -log_likelihood_closure()
-                print loss
                 if has_converged:
                     break
 
