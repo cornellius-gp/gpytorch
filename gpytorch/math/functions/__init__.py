@@ -13,9 +13,12 @@ from .toeplitz_mm import ToeplitzMM
 __all__ = [
     AddDiag,
     ExactGPMarginalLogLikelihood,
+    InterpolatedToeplitzGPMarginalLogLikelihood,
     Invmm,
     Invmv,
     NormalCDF,
     LogNormalCDF,
     MVNKLDivergence,
+    ToeplitzMV,
+    ToeplitzMM,
 ]

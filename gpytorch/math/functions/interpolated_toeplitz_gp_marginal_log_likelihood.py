@@ -4,7 +4,6 @@ from toeplitz_mv import ToeplitzMV
 from gpytorch.utils import LinearCG, SLQLogDet
 from torch.autograd import Function, Variable
 
-import pdb
 
 class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
     def __init__(self, W_left, W_right):
@@ -44,13 +43,13 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
         res *= -0.5
 
         self.mat_inv_y = mat_inv_y
-        self.mv_closure = mv_closure
         self.tr_inv = tr_inv
         return y.new().resize_(1).fill_(res)
 
     def backward(self, grad_output):
         grad_output_value = grad_output.squeeze()[0]
         c, y, noise_diag = self.saved_tensors
+
         # For the derivative, we swap W_left and W_right
         def deriv_mv_closure(v):
             if v.ndimension() == 1:
@@ -66,7 +65,6 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
 
             return WTWt_v
 
-        mv_closure = self.mv_closure
         mat_inv_y = self.mat_inv_y
 
         mat_grad = None
@@ -94,7 +92,6 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
             y_grad = mat_inv_y.mul_(-grad_output_value)
 
         if self.needs_input_grad[2]:
-            n = len(y)
             quad_form_part = mat_inv_y.dot(mat_inv_y)
             noise_grad = c.new().resize_(1).fill_(quad_form_part - self.tr_inv).mul_(0.5 * grad_output_value)
 

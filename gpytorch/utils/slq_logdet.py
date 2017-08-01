@@ -1,5 +1,4 @@
 import torch
-import gpytorch
 import math
 
 
@@ -86,7 +85,8 @@ class SLQLogDet(object):
             return math.fabs(A.squeeze()[0])
 
         if isinstance(A, torch.Tensor):
-            mv_closure = lambda v: A.mv(v)
+            def mv_closure(v):
+                return A.mv(v)
         else:
             mv_closure = A
 

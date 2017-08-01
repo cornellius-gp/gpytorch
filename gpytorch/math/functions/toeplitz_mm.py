@@ -24,11 +24,12 @@ class ToeplitzMM(Function):
 
         if len(c) != len(M):
             raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with leading \
-                                dimension {}.'.format(len(c),len(c),len(v)))
+                                dimension {}.'.format(len(c), len(c), len(M)))
 
         if c[0] != r[0]:
             raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first element, \
-                                otherwise the value of T[0,0] is ambiguous. Got: c[0]={} and r[0]={}'.format(c[0], r[0]))
+                                otherwise the value of T[0,0] is ambiguous. \
+                                Got: c[0]={} and r[0]={}'.format(c[0], r[0]))
 
         if type(c) != type(r) or type(c) != type(M):
             raise RuntimeError('The types of all inputs to ToeplitzMV must match.')

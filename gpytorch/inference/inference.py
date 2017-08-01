@@ -5,8 +5,6 @@ from gpytorch import ObservationModel
 from copy import deepcopy
 from torch.autograd import Variable
 
-import pdb
-
 
 class Inference(object):
     def __init__(self, observation_model):
@@ -67,7 +65,6 @@ class Inference(object):
                     param_group.update(log_likelihood_closure)
 
                 has_converged = all([param_group.has_converged(log_likelihood_closure) for param_group in param_groups])
-                loss = -log_likelihood_closure()
                 if has_converged:
                     break
 

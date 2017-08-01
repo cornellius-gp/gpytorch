@@ -3,6 +3,7 @@ from torch.autograd import Function
 from gpytorch.utils import fft
 from gpytorch import utils
 
+
 class ToeplitzMV(Function):
     """
     Performs Toeplitz matrix-vector multiplication
@@ -23,11 +24,12 @@ class ToeplitzMV(Function):
 
         if len(c) != len(v):
             raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a length \
-                                {} vector.'.format(len(c),len(c),len(v)))
+                                {} vector.'.format(len(c), len(c), len(v)))
 
         if c[0] != r[0]:
-            raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first element, \
-                                otherwise the value of T[0,0] is ambiguous. Got: c[0]={} and r[0]={}'.format(c[0], r[0]))
+            raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first \
+                                otherwise the value of T[0,0] is ambiguous. \
+                                Got: c[0]={} and r[0]={}'.format(c[0], r[0]))
 
         if type(c) != type(r) or type(c) != type(v):
             raise RuntimeError('The types of all inputs to ToeplitzMV must match.')

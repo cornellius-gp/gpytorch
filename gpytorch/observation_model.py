@@ -3,6 +3,7 @@ from .distribution import Distribution
 from .random_variables import RandomVariable
 from lazy import LazyVariable
 
+
 class ObservationModel(Distribution):
     def __init__(self, observation_model):
         super(ObservationModel, self).__init__()

@@ -4,6 +4,7 @@ from .lbfgs import LBFGS
 from .lincg import LinearCG
 from .slq_logdet import SLQLogDet
 
+
 __all__ = [
     Interpolation,
     LBFGS,
@@ -45,19 +46,19 @@ class pd_catcher(object):
 
 def index_coef_to_sparse(J, C, num_grid_points):
     num_target_points, num_coefficients = C.size()
-    J_list = [[],[]]
+    J_list = [[], []]
     value_list = []
     for i in range(num_target_points):
         for j in range(num_coefficients):
-            if C[i,j] == 0:
+            if C[i, j] == 0:
                 continue
             J_list[0].append(i)
-            J_list[1].append(J[i,j])
-            value_list.append(C[i,j])
+            J_list[1].append(J[i, j])
+            value_list.append(C[i, j])
 
     index_tensor = torch.LongTensor(J_list)
     value_tensor = torch.FloatTensor(value_list)
-    W = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points,num_grid_points]))
+    W = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, num_grid_points]))
     return W
 
 
@@ -79,11 +80,12 @@ def toeplitz(c, r):
     res = torch.Tensor(len(c), len(c)).type_as(c)
     for i, val in enumerate(c):
         for j in range(len(c) - i):
-            res[j+i, j] = val
+            res[j + i, j] = val
     for i, val in list(enumerate(r))[1:]:
         for j in range(len(r) - i):
-            res[j, j+i] = val
+            res[j, j + i] = val
     return res
+
 
 def toeplitz_getitem(c, r, i, j):
     """
@@ -101,6 +103,7 @@ def toeplitz_getitem(c, r, i, j):
         return r[abs(index)]
     else:
         return c[index]
+
 
 def sym_toeplitz(c):
     """

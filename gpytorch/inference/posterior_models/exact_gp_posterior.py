@@ -1,11 +1,9 @@
 import torch
 import gpytorch
 from torch.autograd import Variable
-from torch.nn import Parameter
-from gpytorch import ObservationModel
-from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 from gpytorch.random_variables import GaussianRandomVariable
 from .gp_posterior import _GPPosterior
+
 
 class _ExactGPPosterior(_GPPosterior):
     def __init__(self, gp_observation_model, train_xs=None, train_y=None):
@@ -54,16 +52,17 @@ class _ExactGPPosterior(_GPPosterior):
 
         # If there's data, use it
         if n:
-            train_y_var = Variable(self.train_y)
             train_mean = full_mean[:n]
             train_train_covar = gpytorch.add_diag(full_covar[:n, :n], log_noise.exp())
             train_test_covar = full_covar[:n, n:]
             test_train_covar = full_covar[n:, :n]
 
             if hasattr(self, 'alpha') and self.alpha is not None:
-                GRV, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean, train_train_covar, train_test_covar, test_train_covar, self.alpha)
+                GRV, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
+                                                     train_train_covar, train_test_covar, test_train_covar, self.alpha)
             else:
-                GRV, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean, train_train_covar, train_test_covar, test_train_covar)
+                GRV, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
+                                                     train_train_covar, train_test_covar, test_train_covar)
 
             self.alpha = alpha
         else:

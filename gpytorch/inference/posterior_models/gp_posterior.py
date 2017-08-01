@@ -1,5 +1,6 @@
 from gpytorch import ObservationModel
 
+
 class _GPPosterior(ObservationModel):
     def update_data(self, train_xs, train_y):
         """

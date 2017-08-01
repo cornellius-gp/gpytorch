@@ -1,11 +1,10 @@
 import torch
 import gpytorch
 from torch.autograd import Variable
-from torch.nn import Parameter
-from gpytorch import ObservationModel
 from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 from gpytorch.random_variables import GaussianRandomVariable
 from .gp_posterior import _GPPosterior
+
 
 class _VariationalGPPosterior(_GPPosterior):
     def __init__(self, gp_observation_model, inducing_points, train_xs=None, train_y=None):
@@ -18,8 +17,8 @@ class _VariationalGPPosterior(_GPPosterior):
 
         num_inducing = len(self.inducing_points[0])
         self.variational_parameters = MLEParameterGroup(
-            variational_mean=BoundedParameter(torch.randn(num_inducing),-1e4,1e4),
-            chol_variational_covar=BoundedParameter(torch.randn(num_inducing, num_inducing).triu_(),-100,100),
+            variational_mean=BoundedParameter(torch.randn(num_inducing), -1e4, 1e4),
+            chol_variational_covar=BoundedParameter(torch.randn(num_inducing, num_inducing).triu_(), -100, 100),
         )
 
     def update_data(self, train_xs, train_y):

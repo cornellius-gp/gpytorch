@@ -1,10 +1,8 @@
-import math
 import torch
 from gpytorch.math.functions import ToeplitzMM
 from gpytorch import utils
 from torch.autograd import Variable
 
-import pdb
 
 def test_toeplitz_mm_forward():
     c = Variable(torch.randn(5))
@@ -29,6 +27,7 @@ def test_toeplitz_mm_forward_symmetric():
     res = ToeplitzMM()(c, c, M)
     assert utils.approx_equal(actual, res)
 
+
 def test_toeplitz_mm_backward():
     c = Variable(torch.randn(5), requires_grad=True)
     r = Variable(torch.randn(5), requires_grad=True)
@@ -46,7 +45,7 @@ def test_toeplitz_mm_backward():
 
     res = ToeplitzMM()(c, r, M).sum()
     res.backward()
-    
+
     assert utils.approx_equal(M.grad.data, actual_M_grad)
     assert utils.approx_equal(r.grad.data, actual_cr_grad)
     assert utils.approx_equal(c.grad.data, actual_cr_grad)

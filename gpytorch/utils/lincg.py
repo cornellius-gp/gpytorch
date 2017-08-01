@@ -1,9 +1,7 @@
 import math
 import torch
-import gpytorch
 from torch.autograd import Variable
 
-import pdb
 
 class LinearCG(object):
     """
@@ -46,7 +44,9 @@ class LinearCG(object):
                 self._reset_precond = True
             else:
                 self._reset_precond = False
-            mv_closure = lambda v: A.mv(v)
+
+            def mv_closure(v):
+                return A.mv(v)
         else:
             # Probably fairly difficult to implement a default preconditioner for an arbitrary mv closure.
             if self.precondition_closure is None:
@@ -103,7 +103,9 @@ class LinearCG(object):
             raise RuntimeError('LinearCG is not intended to operate directly on Variables or be used with autograd.')
 
         if isinstance(A, torch.Tensor):
-            mm_closure = lambda M: A.mm(M)
+
+            def mm_closure(M):
+                return A.mm(M)
         else:
             mm_closure = A
 

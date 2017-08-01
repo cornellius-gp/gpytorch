@@ -1,7 +1,5 @@
 import torch
-from torch.nn import Parameter
 from torch.autograd import Variable
-from .utils.gradcheck import gradcheck, get_numerical_jacobian
 import utils
 from lazy import ToeplitzLazyVariable
 from .random_variables import GaussianRandomVariable
@@ -12,7 +10,6 @@ from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
     InterpolatedToeplitzGPMarginalLogLikelihood
 from .utils import LinearCG
 
-import pdb
 
 __all__ = [
     ToeplitzLazyVariable,
@@ -28,36 +25,6 @@ __all__ = [
     ToeplitzMV,
 ]
 
-def mv(matrix, vector):
-    if isinstance(matrix, ToeplitzLazyVariable):
-        if matrix.J_left is not None:
-            W_left = Variable(index_coef_to_sparse(matrix.J_left, matrix.C_left, len(matrix.c)))
-            W_right = Variable(index_coef_to_sparse(matrix.J_right, matrix.C_right, len(matrix.c)))
-            # Get W_{r}^{T}v
-            Wt_times_v = torch.dsmm(W_right.t(), vector)
-            # Get (TW_{r}^{T})v
-            TWt_v = ToeplitzMV()(matrix.c,matrix.r,W_times_v)
-            # Get (W_{l}TW_{r}^{T})v
-            WTWt_v = torch.dsmm(matrix.W_left, TWt_v)
-
-            if matrix.diag is not None:
-                WTWt_v = WTWt_v + matrix.added_diag * vector
-
-            return WTWt_v
-        else:
-            # Get Tv
-            Tv = ToeplitzMV()(matrix.c, matrix.r, vector)
-            if matrix.diag is not None:
-                Tv = Tv + matrix.added_diag * vector
-
-            return Tv
-    else:
-        return torch.mv(matrix, vector)
-
-
-def mm(matrix, vector):
-    return torch.mm(matrix, vector)
-
 
 def add_diag(input, diag):
     # LazyVariables don't typecheck, functions do.
@@ -70,7 +37,8 @@ def add_diag(input, diag):
         else:
             toeplitz_diag = diag.expand_as(input.c)
 
-        return ToeplitzLazyVariable(input.c, input.r, input.J_left, input.C_left, input.J_right, input.C_right, toeplitz_diag)
+        return ToeplitzLazyVariable(input.c, input.r, input.J_left, input.C_left,
+                                    input.J_right, input.C_right, toeplitz_diag)
     else:
         return AddDiag()(input, diag)
 
@@ -84,20 +52,26 @@ def exact_gp_marginal_log_likelihood(covar, target):
     else:
         return ExactGPMarginalLogLikelihood()(covar, target)
 
+
 def invmm(mat1, mat2):
     return Invmm()(mat1, mat2)
+
 
 def invmv(mat, vec):
     return Invmv()(mat, vec)
 
+
 def normal_cdf(x):
     return NormalCDF()(x)
+
 
 def log_normal_cdf(x):
     return LogNormalCDF()(x)
 
+
 def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2):
     return MVNKLDivergence()(mean_1, chol_covar_1, mean_2, covar_2)
+
 
 def interpolated_toeplitz_mul(c, W_left, W_right, v, noise_diag=None):
     noise_term = None
@@ -128,16 +102,29 @@ def interpolated_toeplitz_mul(c, W_left, W_right, v, noise_diag=None):
 
     return WTWt_v
 
-def _exact_predict(test_mean, test_test_covar, train_y, train_mean, train_train_covar, train_test_covar, test_train_covar, alpha=None):
+
+def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
+                   train_train_covar, train_test_covar, test_train_covar, alpha=None):
     if isinstance(train_train_covar, ToeplitzLazyVariable):
-        W_test_left = utils.index_coef_to_sparse(test_train_covar.J_left, test_train_covar.C_left, len(test_train_covar.c))
-        W_test_right = utils.index_coef_to_sparse(test_train_covar.J_right, test_train_covar.C_right, len(test_train_covar.c))
-        W_train_left = utils.index_coef_to_sparse(train_train_covar.J_left, train_train_covar.C_left, len(train_train_covar.c))
-        W_train_right = utils.index_coef_to_sparse(train_train_covar.J_right, train_train_covar.C_right, len(train_train_covar.c))
+        W_test_left = utils.index_coef_to_sparse(test_train_covar.J_left,
+                                                 test_train_covar.C_left,
+                                                 len(test_train_covar.c))
+        W_test_right = utils.index_coef_to_sparse(test_train_covar.J_right,
+                                                  test_train_covar.C_right,
+                                                  len(test_train_covar.c))
+        W_train_left = utils.index_coef_to_sparse(train_train_covar.J_left,
+                                                  train_train_covar.C_left,
+                                                  len(train_train_covar.c))
+        W_train_right = utils.index_coef_to_sparse(train_train_covar.J_right,
+                                                   train_train_covar.C_right,
+                                                   len(train_train_covar.c))
         noise_diag = train_train_covar.added_diag
 
-        train_mul_closure = lambda v: interpolated_toeplitz_mul(train_train_covar.c.data, W_train_left, W_train_right, v, noise_diag.data)
-        test_train_mul_closure = lambda v: interpolated_toeplitz_mul(test_train_covar.c.data, W_test_left, W_test_right, v)
+        def train_mul_closure(v):
+            return interpolated_toeplitz_mul(train_train_covar.c.data, W_train_left, W_train_right, v, noise_diag.data)
+
+        def test_train_mul_closure(v):
+            return interpolated_toeplitz_mul(test_train_covar.c.data, W_test_left, W_test_right, v)
 
         # Update test mean
         if alpha is None:

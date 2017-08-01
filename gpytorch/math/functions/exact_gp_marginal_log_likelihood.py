@@ -1,10 +1,8 @@
 import math
 import torch
-from toeplitz_mv import ToeplitzMV
 from gpytorch.utils import LinearCG, SLQLogDet
 from torch.autograd import Function
 
-import pdb
 
 class ExactGPMarginalLogLikelihood(Function):
     def __init__(self, structure=None):

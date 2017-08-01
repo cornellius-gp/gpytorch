@@ -3,7 +3,6 @@ import torch
 from gpytorch import utils
 from .lazy_variable import LazyVariable
 
-import pdb
 
 class ToeplitzLazyVariable(LazyVariable):
     def __init__(self, c, r, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
@@ -95,7 +94,8 @@ class ToeplitzLazyVariable(LazyVariable):
 
         if self.added_diag is not None:
             if len(self.added_diag) > len(WTW_diag):
-                raise RuntimeError('Additional diagonal component length does not match the rest of this implicit tensor.')
+                raise RuntimeError('Additional diagonal component length does not \
+                                    match the rest of this implicit tensor.')
             WTW_diag = WTW_diag + self.added_diag
 
         return WTW_diag
@@ -113,8 +113,9 @@ class ToeplitzLazyVariable(LazyVariable):
 
                 if self.added_diag is not None:
                     if len(J_left_new) != len(J_right_new):
-                        raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional diagonal component to make \
-                                            it non-square is probably not intended. It is ambiguous which diagonal elements to choose')
+                        raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
+                                            diagonal component to make it non-square is probably not intended.\
+                                            It is ambiguous which diagonal elements to choose')
 
                     diag_new = self.added_diag[i[0]]
                 else:
@@ -129,8 +130,9 @@ class ToeplitzLazyVariable(LazyVariable):
                                         unintended. If that was the intent, use evaluate() and slice the full matrix.')
                 if self.added_diag is not None:
                     if len(J_left_new) != len(J_right_new):
-                        raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional diagonal component to make \
-                                            it non-square is probably not intended. It is ambiguous which diagonal elements to choose')
+                        raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
+                                            diagonal component to make it non-square is probably not intended.\
+                                            It is ambiguous which diagonal elements to choose')
 
                     diag_new = self.added_diag[i[0]]
                 else:
@@ -146,7 +148,8 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(self.c, self.r, J_left_new, C_left_new, self.J_right, self.C_right, diag_new)
+                return ToeplitzLazyVariable(self.c, self.r, J_left_new, C_left_new,
+                                            self.J_right, self.C_right, diag_new)
             else:
-                raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably unintended. \
-                                    If that was the intent, use evaluate() and slice the full matrix.')
+                raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
+                                    unintended. If that was the intent, use evaluate() and slice the full matrix.')

@@ -30,6 +30,7 @@ def test_sym_toeplitz_constructs_tensor_from_vector():
 
     assert torch.equal(res, actual)
 
+
 def test_toeplitz_getitem():
     c = torch.Tensor([1, 6, 4, 5])
     r = torch.Tensor([1, 2, 3, 7])
