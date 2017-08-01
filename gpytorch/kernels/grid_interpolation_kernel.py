@@ -10,8 +10,14 @@ class GridInterpolationKernel(Kernel):
         super(GridInterpolationKernel, self).__init__()
         self.base_kernel_module = base_kernel_module
 
-        self.grid_size = grid_size
-        self.grid = Variable(torch.linspace(0, 1, grid_size))
+        grid_size = grid_size
+        grid = torch.linspace(0, 1, grid_size)
+
+        grid_diff = grid[1] - grid[0]
+
+        self.grid_size = grid_size + 2
+        self.grid = Variable(torch.linspace(0 - grid_diff, 1 + grid_diff, grid_size + 2))
+
 
     def forward(self, x1, x2, **kwargs):
         n, d = x1.size()
