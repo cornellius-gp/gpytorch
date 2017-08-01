@@ -6,9 +6,11 @@ import math
 class SLQLogDet(object):
     """
     Implements an approximate log determinant calculation for symmetric positive definite matrices
-    using stochastic Lanczos quadrature as described in Ubaru et al., 2016 here:
+    using stochastic Lanczos quadrature. For efficient calculation of derivatives, We additionally
+    compute the trace of the inverse using the same probe vector the log determinant was computed
+    with.
 
-                                http://www-users.cs.umn.edu/~saad/PDF/ys-2016-04.pdf
+                        For more details, see Dong et al. 2017 (in submission).
     """
     def __init__(self, max_iter=15, num_random_probes=10):
         self.max_iter = max_iter
@@ -92,6 +94,7 @@ class SLQLogDet(object):
         V.div_(torch.norm(V, 2, 0).expand_as(V))
 
         ld = 0
+        tr_inv = 0
 
         for j in range(self.num_random_probes):
             vj = V[:, j]
@@ -101,6 +104,7 @@ class SLQLogDet(object):
             # O(n^2) time/convergence with QR iteration,
             # or O(n log n) with fast multipole (TODO).
             [f, Y] = T.symeig(eigenvectors=True)
-            ld = ld + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(f.log_()))
+            ld = ld + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(f.log()))
+            tr_inv = tr_inv + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(f.pow(-1)))
 
-        return ld
+        return ld, tr_inv

@@ -38,12 +38,14 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
         # Inverse quad form
         res = mat_inv_y.dot(y)
         # Log determinant
-        res += SLQLogDet(num_random_probes=10).logdet(mv_closure, len(y))
+        ld, tr_inv = SLQLogDet(num_random_probes=10).logdet(mv_closure, len(y))
+        res += ld
         res += math.log(2 * math.pi) * len(y)
         res *= -0.5
 
         self.mat_inv_y = mat_inv_y
         self.mv_closure = mv_closure
+        self.tr_inv = tr_inv
         return y.new().resize_(1).fill_(res)
 
     def backward(self, grad_output):
@@ -94,15 +96,6 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
         if self.needs_input_grad[2]:
             n = len(y)
             quad_form_part = mat_inv_y.dot(mat_inv_y)
-
-            trace = 0
-            zeros = torch.zeros(n)
-            for i in range(n):
-                e_i = zeros.copy()
-                e_i[i] = 1
-                mat_inv_ei = LinearCG().solve(mv_closure, e_i)
-                trace += mat_inv_ei[i]
-
-            noise_grad = quad_form_part - trace
+            noise_grad = c.new().resize_(1).fill_(quad_form_part - self.tr_inv).mul_(0.5 * grad_output_value)
 
         return mat_grad, y_grad, noise_grad

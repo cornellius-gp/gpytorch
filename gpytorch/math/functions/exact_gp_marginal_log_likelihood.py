@@ -20,7 +20,8 @@ class ExactGPMarginalLogLikelihood(Function):
         # Inverse quad form
         res = mat_inv_y.dot(y)
         # Log determinant
-        res += SLQLogDet(num_random_probes=10).logdet(mv_closure, len(y))
+        ld, _ = SLQLogDet(num_random_probes=10).logdet(mv_closure, len(y))
+        res += ld
         res += math.log(2 * math.pi) * len(y)
         res *= -0.5
 
