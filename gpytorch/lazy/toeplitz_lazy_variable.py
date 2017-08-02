@@ -129,11 +129,6 @@ class ToeplitzLazyVariable(LazyVariable):
                     raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
                                         unintended. If that was the intent, use evaluate() and slice the full matrix.')
                 if self.added_diag is not None:
-                    if len(J_left_new) != len(J_right_new):
-                        raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
-                                            diagonal component to make it non-square is probably not intended.\
-                                            It is ambiguous which diagonal elements to choose')
-
                     diag_new = self.added_diag[i[0]]
                 else:
                     diag_new = None
