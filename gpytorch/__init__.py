@@ -136,7 +136,7 @@ def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2):
 def interpolated_toeplitz_mul(c, W_left, W_right, v, noise_diag=None):
     """
     Given a interpolated symmetric Toeplitz matrix W_left*T*W_right, plus possibly an additional
-    diagonal component s*I, compute a matrix-vector product with some vector v.
+    diagonal component s*I, compute a matrix-vector product with some vector or matrix v.
 
     Args:
         - c (vector m) - First column of the symmetric Toeplitz matrix T
