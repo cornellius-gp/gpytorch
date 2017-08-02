@@ -2,6 +2,7 @@ from torch.autograd import Variable
 from torch.nn import Module, Parameter
 from gpytorch.random_variables import RandomVariable
 from gpytorch.parameters import ParameterGroup
+from gpytorch.lazy import LazyVariable
 
 
 class Distribution(Module):
@@ -18,12 +19,14 @@ class Distribution(Module):
                 raise RuntimeError('Input must be a RandomVariable or Variable, was a %s' %
                                    input.__class__.__name__)
         outputs = self.forward(*inputs, **kwargs)
-        if isinstance(outputs, Variable) or isinstance(outputs, RandomVariable):
+        if isinstance(outputs, Variable) or isinstance(outputs, RandomVariable) or isinstance(outputs, LazyVariable):
             return outputs
 
         for output in outputs:
-            if not (isinstance(output, RandomVariable) or isinstance(output, Variable)):
-                raise RuntimeError('Output must be a RandomVariable or Variable, was a %s' %
+            if not (isinstance(output, RandomVariable) or
+                    isinstance(output, Variable) or
+                    isinstance(output, LazyVariable)):
+                raise RuntimeError('Output must be a RandomVariable, Variable, or LazyVariable. Was a %s' %
                                    input.__class__.__name__)
         if len(outputs) == 1:
             outputs = outputs[0]

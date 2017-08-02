@@ -5,15 +5,17 @@ import math
 class SLQLogDet(object):
     """
     Implements an approximate log determinant calculation for symmetric positive definite matrices
-    using stochastic Lanczos quadrature as described in Ubaru et al., 2016 here:
+    using stochastic Lanczos quadrature. For efficient calculation of derivatives, We additionally
+    compute the trace of the inverse using the same probe vector the log determinant was computed
+    with.
 
-                                http://www-users.cs.umn.edu/~saad/PDF/ys-2016-04.pdf
+                        For more details, see Dong et al. 2017 (in submission).
     """
     def __init__(self, max_iter=15, num_random_probes=10):
         self.max_iter = max_iter
         self.num_random_probes = num_random_probes
 
-    def lanczos(self, A, b):
+    def lanczos(self, mv_closure, b):
         """
         Performs self.max_iter (at most n) iterations of the Lanczos iteration to decompose A as:
             AQ = QT
@@ -30,7 +32,7 @@ class SLQLogDet(object):
         Q[:, 0] = b
         u = b
 
-        r = A.mv(u)
+        r = mv_closure(u)
         a = u.dot(r)
         b = r - a * u
 
@@ -41,7 +43,7 @@ class SLQLogDet(object):
         alpha[0] = a
 
         for k in range(1, num_iters):
-            u, b, alpha_k, beta_k = self._lanczos_step(u, b, A, Q[:, :k])
+            u, b, alpha_k, beta_k = self._lanczos_step(u, b, mv_closure, Q[:, :k])
 
             if b.sum() == 0:
                 b = b + 1e-10
@@ -59,7 +61,7 @@ class SLQLogDet(object):
         T = torch.diag(alpha) + torch.diag(beta, 1) + torch.diag(beta, -1)
         return Q, T
 
-    def _lanczos_step(self, u, v, B, Q):
+    def _lanczos_step(self, u, v, mv_closure, Q):
         norm_v = torch.norm(v)
         orig_u = u
 
@@ -72,32 +74,37 @@ class SLQLogDet(object):
 
         u = u / torch.norm(u)
 
-        r = B.mv(u) - norm_v * orig_u
+        r = mv_closure(u) - norm_v * orig_u
 
         a = u.dot(r)
         v = r - a * u
         return u, v, a, norm_v
 
-    def logdet(self, A):
-        if A.numel() == 1:
+    def logdet(self, A, n):
+        if isinstance(A, torch.Tensor) and A.numel() == 1:
             return math.fabs(A.squeeze()[0])
 
-        n = len(A)
-        jitter = torch.eye(n) * 1e-5
-        A = A + jitter
+        if isinstance(A, torch.Tensor):
+            def mv_closure(v):
+                return A.mv(v)
+        else:
+            mv_closure = A
+
         V = torch.sign(torch.randn(n, self.num_random_probes))
         V.div_(torch.norm(V, 2, 0).expand_as(V))
 
         ld = 0
+        tr_inv = 0
 
         for j in range(self.num_random_probes):
             vj = V[:, j]
-            Q, T = self.lanczos(A, vj)
+            Q, T = self.lanczos(mv_closure, vj)
 
             # Eigendecomposition of a Tridiagonal matrix
             # O(n^2) time/convergence with QR iteration,
             # or O(n log n) with fast multipole (TODO).
             [f, Y] = T.symeig(eigenvectors=True)
-            ld = ld + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(f.log_()))
+            ld = ld + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(f.log()))
+            tr_inv = tr_inv + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(f.pow(-1)))
 
-        return ld
+        return ld, tr_inv
