@@ -16,6 +16,30 @@ class Inference(object):
         else:
             self.observation_model_inference = None
 
+    def restore_from_state_dict(self, state_dict):
+        """
+        Restores the posterior model (associated with the supplied prior model) from
+        a previously-saved state.
+
+        state_dict: the state dict for the posterior model
+        """
+        # Get training data from previously saved state
+        train_x_keys = sorted(key for key in state_dict.keys() if 'train_x' in key)
+        train_y_keys = sorted(key for key in state_dict.keys() if 'train_y' in key)
+        if len(train_x_keys) == 0:
+            raise RuntimeError('Cannot find previously saved train_x data')
+        if len(train_y_keys) != 1:
+            raise RuntimeError('Previously saved train_y data is in invalid format')
+
+        # Create posterior model using training data
+        train_x = tuple(Variable(state_dict[key], volatile=True) for key in train_x_keys)
+        train_y = Variable(state_dict[train_y_keys[0]], volatile=True)
+        posterior_model = self.run(train_x, train_y, inducing_points=None, optimize=False)
+
+        # Copy over parameters to posterior model
+        posterior_model.load_state_dict(state_dict)
+        return posterior_model
+
     def run_(self, train_x, train_y, inducing_points=None, optimize=True, max_inference_steps=20, **kwargs):
         if isinstance(train_x, Variable):
             train_x = (train_x,)

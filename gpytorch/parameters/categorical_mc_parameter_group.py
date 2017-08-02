@@ -19,8 +19,15 @@ class CategoricalMCParameterGroup(MCParameterGroup):
                     'of type CategoricalRandomVariable'
                 ]))
 
+            # Generate buffer for collecting samples
+            num_samples = self._options['num_samples']
+            size = (num_samples, ) if isinstance(prior, CategoricalRandomVariable) else (num_samples, len(prior))
+            sample_buffer = torch.zeros(*size).long()
+            self.register_buffer('%s_samples' % name, sample_buffer)
+
             self._update_buffer[name] = Variable(torch.zeros(len(prior)))
             self._priors[name] = prior
+            self._posteriors[name] = SamplesRandomVariable(sample_buffer)
 
     def update(self, log_likelihood_closure):
         num_samples = self._options['num_samples']
@@ -30,13 +37,6 @@ class CategoricalMCParameterGroup(MCParameterGroup):
             self._update_buffer[name] = ConstantRandomVariable(rv.sample())
 
         self._training = True
-
-        for name, prior in self._priors.items():
-            if name not in self._posteriors.keys():
-                size = (num_samples, ) if isinstance(prior, CategoricalRandomVariable) else (num_samples, len(prior))
-                sample_buffer = torch.zeros(*size).long()
-                self.register_buffer('%s_samples' % name, sample_buffer)
-                self._posteriors[name] = SamplesRandomVariable(sample_buffer)
 
         # Draw samples
         for i in range(num_samples):
