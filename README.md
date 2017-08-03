@@ -18,6 +18,8 @@ Some things you can do right now:
 
 Make sure you have PyTorch (>= 0.1.10) installed.
 
+In addition, you will need libfftw3 (>= 3.3.6) installed on your machine. This can be downloaded [here](http://www.fftw.org/download.html).
+
 ```bash
 git clone https://github.com/jrg365/gpytorch.git
 cd gpytorch
