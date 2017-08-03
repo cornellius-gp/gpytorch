@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Variable
-import utils
-from lazy import ToeplitzLazyVariable
+import .utils
+from .lazy import ToeplitzLazyVariable
 from .random_variables import GaussianRandomVariable
 from .distribution import Distribution
 from .observation_model import ObservationModel
