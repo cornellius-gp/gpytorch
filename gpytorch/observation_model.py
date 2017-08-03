@@ -1,7 +1,7 @@
 from torch.autograd import Variable
 from .distribution import Distribution
 from .random_variables import RandomVariable
-from lazy import LazyVariable
+from .lazy import LazyVariable
 
 
 class ObservationModel(Distribution):

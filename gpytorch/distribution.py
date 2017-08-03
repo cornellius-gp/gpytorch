@@ -1,8 +1,8 @@
 from torch.autograd import Variable
 from torch.nn import Module, Parameter
-from gpytorch.random_variables import RandomVariable
-from gpytorch.parameters import ParameterGroup
-from gpytorch.lazy import LazyVariable
+from .random_variables import RandomVariable
+from .parameters import ParameterGroup
+from .lazy import LazyVariable
 
 
 class Distribution(Module):
