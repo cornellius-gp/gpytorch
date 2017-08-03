@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Variable
-import .utils
+import gpytorch.utils as utils
 from .lazy import ToeplitzLazyVariable
 from .random_variables import GaussianRandomVariable
 from .distribution import Distribution
