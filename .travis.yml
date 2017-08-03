@@ -22,7 +22,7 @@ install:
 
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pytorch -c soumith
   - source activate test-environment
-  - python setup.py install
+  - python setup.py build_ext --inplace
   - pip install --upgrade pytest
   - pip install flake8-print
 
