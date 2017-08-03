@@ -5,7 +5,6 @@ from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, IndexKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.inference import Inference
 from gpytorch.random_variables import GaussianRandomVariable, BatchRandomVariables, CategoricalRandomVariable
 from gpytorch.parameters import MLEParameterGroup, CategoricalMCParameterGroup, BoundedParameter
 

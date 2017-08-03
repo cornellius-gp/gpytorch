@@ -4,6 +4,8 @@ from setuptools import setup, find_packages
 
 import build
 
+__all__ = [build]
+
 this_file = os.path.dirname(__file__)
 
 setup(
