@@ -1,6 +1,6 @@
 import math
 import torch
-from toeplitz_mv import ToeplitzMV
+from .toeplitz_mv import ToeplitzMV
 from gpytorch.utils import LinearCG, SLQLogDet
 from torch.autograd import Function, Variable
 
