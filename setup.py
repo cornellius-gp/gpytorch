@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-from setuptools import setup
+import os
+from setuptools import setup, find_packages
+
+import build
+
+this_file = os.path.dirname(__file__)
 
 setup(
     name='gpytorch',
@@ -8,8 +13,11 @@ setup(
     url='https://github.com/jrg365/gpytorch',
     author='Jake Gardner, Geoff Pleiss',
     author_email='jrg365@cornell.edu',
-    install_requires=[],
-    setup_requires=[],
-    packages=['gpytorch'],
-    # packages=find_packages(exclude=['build']),
+    install_requires=['cffi>=1.4.0'],
+    setup_requires=['cffi>=1.4.0'],
+    packages=find_packages(exclude=['build']),
+    ext_package='',
+    cffi_modules=[
+        os.path.join(this_file, 'build.py:ffi')
+    ],
 )
