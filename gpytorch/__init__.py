@@ -202,17 +202,17 @@ def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
     """
     if isinstance(train_train_covar, ToeplitzLazyVariable):
         W_test_left = index_coef_to_sparse(test_train_covar.J_left,
-                                                 test_train_covar.C_left,
-                                                 len(test_train_covar.c))
+                                           test_train_covar.C_left,
+                                           len(test_train_covar.c))
         W_test_right = index_coef_to_sparse(test_train_covar.J_right,
-                                                  test_train_covar.C_right,
-                                                  len(test_train_covar.c))
+                                            test_train_covar.C_right,
+                                            len(test_train_covar.c))
         W_train_left = index_coef_to_sparse(train_train_covar.J_left,
-                                                  train_train_covar.C_left,
-                                                  len(train_train_covar.c))
+                                            train_train_covar.C_left,
+                                            len(train_train_covar.c))
         W_train_right = index_coef_to_sparse(train_train_covar.J_right,
-                                                   train_train_covar.C_right,
-                                                   len(train_train_covar.c))
+                                             train_train_covar.C_right,
+                                             len(train_train_covar.c))
         noise_diag = train_train_covar.added_diag
 
         def train_mul_closure(v):
