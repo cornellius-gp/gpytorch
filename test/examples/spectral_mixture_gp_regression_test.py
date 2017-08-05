@@ -19,7 +19,7 @@ test_x = Variable(torch.linspace(0, 2, 51))
 test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 
-class SpectralMixtureGPModel(gpytorch.ObservationModel):
+class SpectralMixtureGPModel(gpytorch.GPModel):
     def __init__(self):
         super(SpectralMixtureGPModel, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()

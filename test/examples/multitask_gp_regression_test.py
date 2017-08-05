@@ -24,7 +24,7 @@ test_y1 = Variable(torch.sin(test_x.data * (2 * math.pi)))
 test_y2 = Variable(torch.cos(test_x.data * (2 * math.pi)))
 
 
-class MultitaskGPModel(gpytorch.ObservationModel):
+class MultitaskGPModel(gpytorch.GPModel):
     def __init__(self):
         super(MultitaskGPModel, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()

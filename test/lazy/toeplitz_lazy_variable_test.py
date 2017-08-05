@@ -1,17 +1,17 @@
 import torch
+import gpytorch
 from gpytorch import utils
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch import ObservationModel
 from gpytorch.random_variables import GaussianRandomVariable
 from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 
 x = Variable(torch.linspace(0, 1, 51))
 
 
-class Model(ObservationModel):
+class Model(gpytorch.GPModel):
     def __init__(self):
         super(Model, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()
