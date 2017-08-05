@@ -1,7 +1,7 @@
 import gpytorch
 
 
-class Kernel(gpytorch.Distribution):
+class Kernel(gpytorch.Module):
     def forward(self, x1, x2, **params):
         raise NotImplementedError()
 

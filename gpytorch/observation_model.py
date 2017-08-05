@@ -4,7 +4,7 @@ from .random_variables import RandomVariable
 from .lazy import LazyVariable
 
 
-class ObservationModel(gpytorch.Distribution):
+class ObservationModel(gpytorch.Module):
     def __init__(self, observation_model):
         super(ObservationModel, self).__init__()
         self._parameter_groups = {}

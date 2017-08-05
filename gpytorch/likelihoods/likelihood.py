@@ -1,7 +1,7 @@
 import gpytorch
 
 
-class Likelihood(gpytorch.Distribution):
+class Likelihood(gpytorch.Module):
     """
     A Likelihood in GPyTorch specifies the mapping from latent function values
     f to observed labels y.

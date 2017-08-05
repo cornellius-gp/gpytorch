@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Variable
 from .lazy import ToeplitzLazyVariable
 from .random_variables import GaussianRandomVariable
-from .distribution import Distribution
+from .module import Module
 from .observation_model import ObservationModel
 from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
     Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence, ToeplitzMV, ToeplitzMM, \
@@ -12,7 +12,7 @@ from .utils import LinearCG, index_coef_to_sparse
 
 __all__ = [
     ToeplitzLazyVariable,
-    Distribution,
+    Module,
     ObservationModel,
     AddDiag,
     ExactGPMarginalLogLikelihood,

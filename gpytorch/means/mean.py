@@ -2,7 +2,7 @@ import torch
 import gpytorch
 
 
-class Mean(gpytorch.Distribution):
+class Mean(gpytorch.Module):
     def initialize(self, **kwargs):
         for param_name, param_value in kwargs.items():
             if hasattr(self, param_name):
