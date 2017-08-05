@@ -2,7 +2,7 @@ import torch
 import gpytorch
 import math
 from torch.autograd import Variable
-from torch.nn import Parameter
+from torch import nn
 
 
 def test_forward():
@@ -23,7 +23,7 @@ def test_forward():
 
 
 def test_backward():
-    inputs = Parameter(torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5]))
+    inputs = nn.Parameter(torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5]))
     output = gpytorch.log_normal_cdf(inputs)
     output.backward(torch.ones(8))
 

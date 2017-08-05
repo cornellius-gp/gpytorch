@@ -1,10 +1,10 @@
+import gpytorch
 from torch.autograd import Variable
-from .distribution import Distribution
 from .random_variables import RandomVariable
 from .lazy import LazyVariable
 
 
-class ObservationModel(Distribution):
+class ObservationModel(gpytorch.Distribution):
     def __init__(self, observation_model):
         super(ObservationModel, self).__init__()
         self._parameter_groups = {}

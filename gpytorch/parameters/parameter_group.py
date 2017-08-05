@@ -1,8 +1,8 @@
 import torch
-from torch.nn import Module
+from torch import nn
 
 
-class ParameterGroup(Module):
+class ParameterGroup(nn.Module):
     def __init__(self):
         super(ParameterGroup, self).__init__()
         self._options = {}

@@ -1,11 +1,11 @@
+from torch import nn
 from torch.autograd import Variable
-from torch.nn import Module, Parameter
 from .random_variables import RandomVariable
 from .parameters import ParameterGroup
 from .lazy import LazyVariable
 
 
-class Distribution(Module):
+class Distribution(nn.Module):
     def __init__(self):
         super(Distribution, self).__init__()
         self._parameter_groups = {}
@@ -33,8 +33,8 @@ class Distribution(Module):
         return outputs
 
     def __setattr__(self, name, value):
-        if isinstance(value, Parameter):
-            raise RuntimeError('Observation Models expect ParameterGroups, not Parameters directly.')
+        if isinstance(value, nn.Parameter):
+            raise RuntimeError('Observation Models expect ParameterGroups, not nn.Parameters directly.')
         if isinstance(value, ParameterGroup):
             self._parameter_groups[name] = value
         super(Distribution, self).__setattr__(name, value)

@@ -2,11 +2,11 @@ import math
 import torch
 import gpytorch
 from torch.autograd import Variable
-from torch.nn import Parameter
+from torch import nn
 
 
 def test_forward():
-    a = Parameter(torch.Tensor([5]))
+    a = nn.Parameter(torch.Tensor([5]))
     b = Variable(torch.ones(3, 3))
     output = gpytorch.add_diag(b, a)
 
@@ -21,7 +21,7 @@ def test_forward():
 def test_backward():
     grad = torch.randn(3, 3)
 
-    a = Parameter(torch.Tensor([3]))
+    a = nn.Parameter(torch.Tensor([3]))
     b = Variable(torch.ones(3, 3), requires_grad=True)
     output = gpytorch.add_diag(b, a)
     output.backward(gradient=grad)
