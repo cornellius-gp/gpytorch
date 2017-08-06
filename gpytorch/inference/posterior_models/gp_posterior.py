@@ -1,7 +1,7 @@
-from gpytorch import ObservationModel
+import gpytorch
 
 
-class _GPPosterior(ObservationModel):
+class _GPPosterior(gpytorch.GPModel):
     def update_data(self, train_xs, train_y):
         """
         Updates this model's training data internally to use the supplied

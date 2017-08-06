@@ -1,7 +1,7 @@
+import gpytorch
 from ..likelihoods import Likelihood, GaussianLikelihood
 from ..random_variables import GaussianRandomVariable
 from .posterior_models import _ExactGPPosterior, _VariationalGPPosterior
-from gpytorch import ObservationModel
 from copy import deepcopy
 from torch.autograd import Variable
 
@@ -11,7 +11,7 @@ class Inference(object):
         self.observation_model = observation_model
         self.inference_engine = None
 
-        if isinstance(self.observation_model.observation_model, ObservationModel):
+        if isinstance(self.observation_model.observation_model, gpytorch.GPModel):
             self.observation_model_inference = Inference(self.observation_model.observation_model)
         else:
             self.observation_model_inference = None

@@ -18,7 +18,7 @@ test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
-class KissGPModel(gpytorch.ObservationModel):
+class KissGPModel(gpytorch.GPModel):
     def __init__(self):
         super(KissGPModel, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()

@@ -17,9 +17,9 @@ test_x = Variable(torch.linspace(0, 1, 51))
 test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 
-class ExactGPObservationModel(gpytorch.ObservationModel):
+class ExactGPModel(gpytorch.GPModel):
     def __init__(self):
-        super(ExactGPObservationModel, self).__init__(GaussianLikelihood())
+        super(ExactGPModel, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()
         self.covar_module = RBFKernel()
         self.params = MLEParameterGroup(
@@ -36,7 +36,7 @@ class ExactGPObservationModel(gpytorch.ObservationModel):
 
 
 def test_gp_prior_and_likelihood():
-    prior_observation_model = ExactGPObservationModel()
+    prior_observation_model = ExactGPModel()
     prior_observation_model.params.log_lengthscale.data.fill_(0)  # This shouldn't really do anything now
     prior_observation_model.params.constant_mean.data.fill_(1)  # Let's have a mean of 1
     prior_observation_model.params.log_noise.data.fill_(math.log(0.5))
@@ -54,7 +54,7 @@ def test_gp_prior_and_likelihood():
 
 def test_posterior_latent_gp_and_likelihood_without_optimization():
     # We're manually going to set the hyperparameters to be ridiculous
-    prior_observation_model = ExactGPObservationModel()
+    prior_observation_model = ExactGPModel()
     prior_observation_model.params.log_lengthscale.data.fill_(-10)  # This shouldn't really do anything now
     prior_observation_model.params.constant_mean.data.fill_(0)
     prior_observation_model.params.log_noise.data.fill_(-10)
@@ -78,7 +78,7 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
 
 def test_posterior_latent_gp_and_likelihood_with_optimization():
     # We're manually going to set the hyperparameters to something they shouldn't be
-    prior_observation_model = ExactGPObservationModel()
+    prior_observation_model = ExactGPModel()
     prior_observation_model.params.log_lengthscale.data.fill_(1)
     prior_observation_model.params.constant_mean.data.fill_(0)
     prior_observation_model.params.log_noise.data.fill_(1)

@@ -1,13 +1,13 @@
+from torch import nn
 from torch.autograd import Variable
-from torch.nn import Module, Parameter
 from .random_variables import RandomVariable
 from .parameters import ParameterGroup
 from .lazy import LazyVariable
 
 
-class Distribution(Module):
+class Module(nn.Module):
     def __init__(self):
-        super(Distribution, self).__init__()
+        super(Module, self).__init__()
         self._parameter_groups = {}
 
     def forward(self, *inputs, **kwargs):
@@ -33,11 +33,11 @@ class Distribution(Module):
         return outputs
 
     def __setattr__(self, name, value):
-        if isinstance(value, Parameter):
-            raise RuntimeError('Observation Models expect ParameterGroups, not Parameters directly.')
+        if isinstance(value, nn.Parameter):
+            raise RuntimeError('Observation Models expect ParameterGroups, not nn.Parameters directly.')
         if isinstance(value, ParameterGroup):
             self._parameter_groups[name] = value
-        super(Distribution, self).__setattr__(name, value)
+        super(Module, self).__setattr__(name, value)
 
     def __getattr__(self, name):
         if name == '__setstate__':
@@ -48,7 +48,7 @@ class Distribution(Module):
                 if name == param_name:
                     return value
 
-        return super(Distribution, self).__getattr__(name)
+        return super(Module, self).__getattr__(name)
 
     def parameter_groups(self):
         for name, param_group in self.named_parameter_groups():
@@ -59,6 +59,6 @@ class Distribution(Module):
             yield name, param_group
 
         for child in self.children():
-            if isinstance(child, Distribution):
+            if isinstance(child, Module):
                 for name, param_group in child.named_parameter_groups():
                     yield name, param_group
