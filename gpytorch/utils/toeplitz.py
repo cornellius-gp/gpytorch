@@ -45,11 +45,22 @@ def toeplitz(toeplitz_column, toeplitz_row):
     Returns:
         - Matrix (n x n) - matrix representation
     """
-    assert toeplitz_column.ndimension() == 1
-    assert toeplitz_row.ndimension() == 1
-    assert toeplitz_column[0] == toeplitz_row[0]
-    assert len(toeplitz_column) == len(toeplitz_row)
-    assert type(toeplitz_column) == type(toeplitz_row)
+    if toeplitz_column.ndimension() != 1:
+        raise RuntimeError('toeplitz_column must be a vector.')
+
+    if toeplitz_row.ndimension() != 1:
+        raise RuntimeError('toeplitz_row must be a vector.')
+
+    if toeplitz_column[0] != toeplitz_row[0]:
+        raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first \
+                            otherwise the value of T[0,0] is ambiguous. \
+                            Got: c[0]={} and r[0]={}'.format(toeplitz_column[0], toeplitz_row[0]))
+
+    if len(toeplitz_column) != len(toeplitz_row):
+        raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
+
+    if type(toeplitz_column) != type(toeplitz_row):
+        raise RuntimeError('toeplitz_column and toeplitz_row should be the same type.')
 
     res = torch.Tensor(len(toeplitz_column), len(toeplitz_column)).type_as(toeplitz_column)
     for i, val in enumerate(toeplitz_column):
