@@ -2,7 +2,7 @@ from torch.autograd import Variable
 import torch
 from gpytorch import utils
 from .lazy_variable import LazyVariable
-
+from gpytorch.math.functions.lazy_toeplitz import ToeplitzMM, ToeplitzMV, InterpolatedToeplitzGPMarginalLogLikelihood
 
 class ToeplitzLazyVariable(LazyVariable):
     def __init__(self, c, r, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
@@ -99,6 +99,21 @@ class ToeplitzLazyVariable(LazyVariable):
             WTW_diag = WTW_diag + self.added_diag
 
         return WTW_diag
+
+    def gp_marginal_log_likelihood(self, target):
+        W_left = Variable(utils.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
+        W_right = Variable(utils.index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
+        noise_diag = self.added_diag
+        return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right)(self.c, target, noise_diag)
+
+    def add_diag(self, diag):
+        if self.J_left is not None:
+            toeplitz_diag = diag.expand(len(self.J_left))
+        else:
+            toeplitz_diag = diag.expand_as(self.c)
+
+        return ToeplitzLazyVariable(self.c, self.r, self.J_left, self.C_left,
+                                    self.J_right, self.C_right, toeplitz_diag)
 
     def __getitem__(self, i):
         if isinstance(i, tuple):
