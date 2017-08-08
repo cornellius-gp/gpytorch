@@ -3,21 +3,36 @@ import gpytorch.utils.fft as fft
 import gpytorch.utils as utils
 
 
-def index_coef_to_sparse(J, C, num_grid_points):
-    num_target_points, num_coefficients = C.size()
-    J_list = [[], []]
+def index_coef_to_sparse(index_matrix, value_matrix, row_length):
+    """
+    Converts a sparse matrix stored densely in an index matrix and a value matrix
+    to a torch sparse matrix.
+    Args:
+        - index_matrix (Matrix n-by-nz) -- A matrix that describes, for each row of the
+                       sparse matrix W, which elements are nonzero.
+        - value_matrix (Matrix n-by-nz) -- A matrix that describes, for each row of the
+                       sparse matrix W, the values of the nonzero elements. Each value is
+                       placed in the position described by the index matrix (see the
+                       definition of W given below).
+        - row_length (scalar) -- The size of the second dimension of W
+    Returns:
+        - W (Sparse matrix n-by-row_length) - A torch sparse matrix W so that
+            W[i, index_matrix[i, j]] = value_matrix[i, j].
+    """
+    num_target_points, num_coefficients = value_matrix.size()
+    index_list = [[], []]
     value_list = []
     for i in range(num_target_points):
         for j in range(num_coefficients):
-            if C[i, j] == 0:
+            if value_matrix[i, j] == 0:
                 continue
-            J_list[0].append(i)
-            J_list[1].append(J[i, j])
-            value_list.append(C[i, j])
+            index_list[0].append(i)
+            index_list[1].append(index_matrix[i, j])
+            value_list.append(value_matrix[i, j])
 
-    index_tensor = torch.LongTensor(J_list)
+    index_tensor = torch.LongTensor(index_list)
     value_tensor = torch.FloatTensor(value_list)
-    W = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, num_grid_points]))
+    W = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
     return W
 
 
@@ -187,7 +202,7 @@ def toeplitz_mv(toeplitz_column, toeplitz_row, vector):
 def interpolated_toeplitz_mul(toeplitz_column, vector, W_left=None, W_right=None, noise_diag=None):
     """
     Given a interpolated symmetric Toeplitz matrix W_left*T*W_right, plus possibly an additional
-    diagonal component s*I, compute a matrix-vector product with some vector or matrix vector.
+    diagonal component s*I, compute a product with some vector or matrix vector.
 
     Args:
         - toeplitz_column (vector matrix) - First column of the symmetric Toeplitz matrix T
