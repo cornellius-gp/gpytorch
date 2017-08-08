@@ -76,6 +76,15 @@ def toeplitz_getitem(c, r, i, j):
 
 
 def toeplitz_mm(c, r, M):
+    """
+    Performs a matrix-matrix multiplication TM where the matrix T is Toeplitz.
+    Args:
+        - c (vector n) - First column of the Toeplitz matrix T.
+        - r (vector n) - First row of the Toeplitz matrix T.
+        - M (matrix n x p) - Matrix to multiply the Toeplitz matrix with.
+    Returns:
+        - Matrix (n x p) - The result of the matrix-vector multiply TM.
+    """
     if c.ndimension() != 1 or r.ndimension() != 1 or M.ndimension() != 2:
         raise RuntimeError('The first two inputs to ToeplitzMV should be vectors (first column c and row r of the Toeplitz \
                             matrix), and the last input should be a matrix.')
@@ -122,6 +131,15 @@ def toeplitz_mm(c, r, M):
 
 
 def toeplitz_mv(c, r, v):
+    """
+    Performs a matrix-vector multiplication Tv where the matrix T is Toeplitz.
+    Args:
+        - c (vector n) - First column of the Toeplitz matrix T.
+        - r (vector n) - First row of the Toeplitz matrix T.
+        - v (vector n) - Vector to multiply the Toeplitz matrix with.
+    Returns:
+        - vector n - The result of the matrix-vector multiply Tv.
+    """
     if c.ndimension() != 1 or r.ndimension() != 1 or v.ndimension() != 1:
         raise RuntimeError('All inputs to ToeplitzMV should be vectors (first column c and row r of the Toeplitz \
                             matrix plus the target vector v).')
