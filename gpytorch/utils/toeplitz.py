@@ -184,13 +184,13 @@ def toeplitz_mv(toeplitz_column, toeplitz_row, vector):
     return res
 
 
-def interpolated_toeplitz_mul(c, vector, W_left=None, W_right=None, noise_diag=None):
+def interpolated_toeplitz_mul(toeplitz_column, vector, W_left=None, W_right=None, noise_diag=None):
     """
     Given a interpolated symmetric Toeplitz matrix W_left*T*W_right, plus possibly an additional
     diagonal component s*I, compute a matrix-vector product with some vector or matrix vector.
 
     Args:
-        - c (vector matrix) - First column of the symmetric Toeplitz matrix T
+        - toeplitz_column (vector matrix) - First column of the symmetric Toeplitz matrix T
         - W_left (sparse matrix nxm) - Left interpolation matrix
         - W_right (sparse matrix pxm) - Right interpolation matrix
         - vector (matrix pxk) - Vector (k=1) or matrix (k>1) to multiply WTW with
@@ -214,7 +214,7 @@ def interpolated_toeplitz_mul(c, vector, W_left=None, W_right=None, noise_diag=N
         # Get W_{r}^{T}vector
         Wt_times_v = torch.dsmm(W_right.t(), vector)
         # Get (TW_{r}^{T})vector
-        TWt_v = mul_func(c, c, Wt_times_v.squeeze())
+        TWt_v = mul_func(toeplitz_column, toeplitz_column, Wt_times_v.squeeze())
 
         if TWt_v.ndimension() == 1:
             TWt_v.unsqueeze_(1)
@@ -222,7 +222,7 @@ def interpolated_toeplitz_mul(c, vector, W_left=None, W_right=None, noise_diag=N
         # Get (W_{l}TW_{r}^{T})vector
         WTWt_v = torch.dsmm(W_left, TWt_v).squeeze()
     else:
-        WTWt_v = mul_func(c, c, vector)
+        WTWt_v = mul_func(toeplitz_column, toeplitz_column, vector)
 
     if noise_term is not None:
         # Get (W_{l}TW_{r}^{T} + \sigma^{2}I)vector
