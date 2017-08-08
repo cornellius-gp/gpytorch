@@ -1,6 +1,5 @@
 import math
 import torch
-import gpytorch
 from .toeplitz_mv import ToeplitzMV
 from gpytorch.utils import LinearCG, SLQLogDet
 from gpytorch.utils.toeplitz import interpolated_toeplitz_mul

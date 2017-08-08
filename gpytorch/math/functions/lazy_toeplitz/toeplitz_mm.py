@@ -1,4 +1,3 @@
-import torch
 from torch.autograd import Function
 from gpytorch import utils
 

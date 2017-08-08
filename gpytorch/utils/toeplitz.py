@@ -2,6 +2,7 @@ import torch
 import gpytorch.utils.fft as fft
 import gpytorch.utils as utils
 
+
 def index_coef_to_sparse(J, C, num_grid_points):
     num_target_points, num_coefficients = C.size()
     J_list = [[], []]
@@ -118,6 +119,7 @@ def toeplitz_mm(c, r, M):
     M.resize_(orig_size, num_rhs)
     res = res[:orig_size, :]
     return res
+
 
 def toeplitz_mv(c, r, v):
     if c.ndimension() != 1 or r.ndimension() != 1 or v.ndimension() != 1:

@@ -5,11 +5,9 @@ from .random_variables import GaussianRandomVariable
 from .module import Module
 from .gp_model import GPModel
 from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
-     Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence
-from .math.functions.lazy_toeplitz import ToeplitzMV, ToeplitzMM, \
-      InterpolatedToeplitzGPMarginalLogLikelihood
+    Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence
 from .utils import LinearCG
-from .utils.toeplitz import index_coef_to_sparse, interpolated_toeplitz_mul
+from .utils.toeplitz import index_coef_to_sparse, interpolated_toeplitz_mul, toeplitz_mv
 
 
 __all__ = [
@@ -23,7 +21,6 @@ __all__ = [
     NormalCDF,
     LogNormalCDF,
     MVNKLDivergence,
-    ToeplitzMV,
 ]
 
 
@@ -174,7 +171,7 @@ def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
         if alpha is None:
             alpha = LinearCG().solve(train_mul_closure, train_y - train_mean.data).unsqueeze(1)
             alpha = torch.dsmm(W_train_right.t(), alpha).squeeze()
-            alpha = ToeplitzMV().forward(train_train_covar.c.data, train_train_covar.c.data, alpha).unsqueeze(1)
+            alpha = toeplitz_mv(train_train_covar.c.data, train_train_covar.c.data, alpha).unsqueeze(1)
 
         test_mean = Variable(test_mean.data.add(torch.dsmm(W_test_left, alpha).squeeze()))
 
