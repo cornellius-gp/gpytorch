@@ -1,7 +1,9 @@
 import math
 import torch
+import gpytorch
 from .toeplitz_mv import ToeplitzMV
 from gpytorch.utils import LinearCG, SLQLogDet
+from gpytorch.utils.toeplitz import interpolated_toeplitz_mul
 from torch.autograd import Function, Variable
 
 
@@ -19,18 +21,8 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
 
     def forward(self, c, y, noise_diag):
         def mv_closure(v):
-            if v.ndimension() == 1:
-                v = v.unsqueeze(1)
-            # Get W_{r}^{T}v
-            Wt_times_v = torch.dsmm(self.W_right.t(), v)
-            # Get (TW_{r}^{T})v
-            TWt_v = ToeplitzMV().forward(c, c, Wt_times_v.squeeze()).unsqueeze(1)
-            # Get (W_{l}TW_{r}^{T})v
-            WTWt_v = torch.dsmm(self.W_left, TWt_v).squeeze()
-            # Get (W_{l}TW_{r}^{T} + \sigma^{2}I)v
-            WTWt_v = WTWt_v + noise_diag * v.squeeze()
+            return interpolated_toeplitz_mul(c, v, self.W_left, self.W_right, noise_diag)
 
-            return WTWt_v
         self.save_for_backward(c, y, noise_diag)
 
         mat_inv_y = LinearCG().solve(mv_closure, y)

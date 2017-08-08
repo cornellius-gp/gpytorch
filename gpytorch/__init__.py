@@ -9,7 +9,7 @@ from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
 from .math.functions.lazy_toeplitz import ToeplitzMV, ToeplitzMM, \
       InterpolatedToeplitzGPMarginalLogLikelihood
 from .utils import LinearCG
-from .utils.toeplitz import index_coef_to_sparse
+from .utils.toeplitz import index_coef_to_sparse, interpolated_toeplitz_mul
 
 
 __all__ = [
@@ -125,50 +125,6 @@ def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2):
     return MVNKLDivergence()(mean_1, chol_covar_1, mean_2, covar_2)
 
 
-def interpolated_toeplitz_mul(c, W_left, W_right, v, noise_diag=None):
-    """
-    Given a interpolated symmetric Toeplitz matrix W_left*T*W_right, plus possibly an additional
-    diagonal component s*I, compute a matrix-vector product with some vector or matrix v.
-
-    Args:
-        - c (vector m) - First column of the symmetric Toeplitz matrix T
-        - W_left (sparse matrix nxm) - Left interpolation matrix
-        - W_right (sparse matrix pxm) - Right interpolation matrix
-        - v (matrix pxk) - Vector (k=1) or matrix (k>1) to multiply WTW with
-        - noise_diag (vector p) - If not none, add (s*I)v to WTW at the end.
-
-    Returns:
-        - matrix nxk - The result of multiplying (WTW + sI)v if noise_diag exists, or (WTW)v otherwise.
-    """
-    noise_term = None
-    if v.ndimension() == 1:
-        if noise_diag is not None:
-            noise_term = noise_diag.expand_as(v) * v
-        v = v.unsqueeze(1)
-        mul_func = ToeplitzMV()
-    else:
-        if noise_diag is not None:
-            noise_term = noise_diag.unsqueeze(1).expand_as(v) * v
-        mul_func = ToeplitzMM()
-
-    # Get W_{r}^{T}v
-    Wt_times_v = torch.dsmm(W_right.t(), v)
-    # Get (TW_{r}^{T})v
-    TWt_v = mul_func.forward(c, c, Wt_times_v.squeeze())
-
-    if TWt_v.ndimension() == 1:
-        TWt_v.unsqueeze_(1)
-
-    # Get (W_{l}TW_{r}^{T})v
-    WTWt_v = torch.dsmm(W_left, TWt_v).squeeze()
-
-    if noise_term is not None:
-        # Get (W_{l}TW_{r}^{T} + \sigma^{2}I)v
-        WTWt_v = WTWt_v + noise_term
-
-    return WTWt_v
-
-
 def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
                    train_train_covar, train_test_covar, test_train_covar, alpha=None):
     """
@@ -209,10 +165,10 @@ def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
         noise_diag = train_train_covar.added_diag
 
         def train_mul_closure(v):
-            return interpolated_toeplitz_mul(train_train_covar.c.data, W_train_left, W_train_right, v, noise_diag.data)
+            return interpolated_toeplitz_mul(train_train_covar.c.data, v, W_train_left, W_train_right, noise_diag.data)
 
         def test_train_mul_closure(v):
-            return interpolated_toeplitz_mul(test_train_covar.c.data, W_test_left, W_test_right, v)
+            return interpolated_toeplitz_mul(test_train_covar.c.data, v, W_test_left, W_test_right)
 
         # Update test mean
         if alpha is None:

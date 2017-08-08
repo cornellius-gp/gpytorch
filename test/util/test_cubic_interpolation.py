@@ -7,7 +7,7 @@ def test_interpolation():
     x = torch.linspace(0.01, 1, 100)
     grid = torch.linspace(-0.05, 1.05, 50)
     J, C = Interpolation().interpolate(grid, x)
-    W = utils.index_coef_to_sparse(J, C, len(grid))
+    W = utils.toeplitz.index_coef_to_sparse(J, C, len(grid))
     test_func_grid = grid.pow(2)
     test_func_x = x.pow(2)
 

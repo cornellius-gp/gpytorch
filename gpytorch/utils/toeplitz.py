@@ -162,3 +162,50 @@ def toeplitz_mv(c, r, v):
     v.resize_(orig_size)
     res.resize_(orig_size)
     return res
+
+
+def interpolated_toeplitz_mul(c, v, W_left=None, W_right=None, noise_diag=None):
+    """
+    Given a interpolated symmetric Toeplitz matrix W_left*T*W_right, plus possibly an additional
+    diagonal component s*I, compute a matrix-vector product with some vector or matrix v.
+
+    Args:
+        - c (vector m) - First column of the symmetric Toeplitz matrix T
+        - W_left (sparse matrix nxm) - Left interpolation matrix
+        - W_right (sparse matrix pxm) - Right interpolation matrix
+        - v (matrix pxk) - Vector (k=1) or matrix (k>1) to multiply WTW with
+        - noise_diag (vector p) - If not none, add (s*I)v to WTW at the end.
+
+    Returns:
+        - matrix nxk - The result of multiplying (WTW + sI)v if noise_diag exists, or (WTW)v otherwise.
+    """
+    noise_term = None
+    if v.ndimension() == 1:
+        if noise_diag is not None:
+            noise_term = noise_diag.expand_as(v) * v
+        v = v.unsqueeze(1)
+        mul_func = utils.toeplitz.toeplitz_mv
+    else:
+        if noise_diag is not None:
+            noise_term = noise_diag.unsqueeze(1).expand_as(v) * v
+        mul_func = utils.toeplitz.toeplitz_mm
+
+    if W_left is not None:
+        # Get W_{r}^{T}v
+        Wt_times_v = torch.dsmm(W_right.t(), v)
+        # Get (TW_{r}^{T})v
+        TWt_v = mul_func(c, c, Wt_times_v.squeeze())
+
+        if TWt_v.ndimension() == 1:
+            TWt_v.unsqueeze_(1)
+
+        # Get (W_{l}TW_{r}^{T})v
+        WTWt_v = torch.dsmm(W_left, TWt_v).squeeze()
+    else:
+        WTWt_v = mul_func(c, c, v)
+
+    if noise_term is not None:
+        # Get (W_{l}TW_{r}^{T} + \sigma^{2}I)v
+        WTWt_v = WTWt_v + noise_term
+
+    return WTWt_v
