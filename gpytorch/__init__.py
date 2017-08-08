@@ -1,12 +1,13 @@
 import torch
 from torch.autograd import Variable
-from .lazy import ToeplitzLazyVariable
+from .lazy import LazyVariable, ToeplitzLazyVariable
 from .random_variables import GaussianRandomVariable
 from .module import Module
 from .gp_model import GPModel
 from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
-    Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence, ToeplitzMV, ToeplitzMM, \
-    InterpolatedToeplitzGPMarginalLogLikelihood
+     Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence
+from .math.functions.lazy_toeplitz import ToeplitzMV, ToeplitzMM, \
+      InterpolatedToeplitzGPMarginalLogLikelihood
 from .utils import LinearCG, index_coef_to_sparse
 
 
@@ -41,14 +42,8 @@ def add_diag(input, diag):
     if not isinstance(diag, Variable):
         raise RuntimeError('Expected a variable for the diagonal component.')
 
-    if isinstance(input, ToeplitzLazyVariable):
-        if input.J_left is not None:
-            toeplitz_diag = diag.expand(len(input.J_left))
-        else:
-            toeplitz_diag = diag.expand_as(input.c)
-
-        return ToeplitzLazyVariable(input.c, input.r, input.J_left, input.C_left,
-                                    input.J_right, input.C_right, toeplitz_diag)
+    if isinstance(input, LazyVariable):
+        return input.add_diag(diag)
     else:
         return AddDiag()(input, diag)
 
@@ -66,11 +61,8 @@ def exact_gp_marginal_log_likelihood(covar, target):
     Returns:
         - scalar - The marginal log likelihood of the data.
     """
-    if isinstance(covar, ToeplitzLazyVariable):
-        W_left = Variable(index_coef_to_sparse(covar.J_left, covar.C_left, len(covar.c)))
-        W_right = Variable(index_coef_to_sparse(covar.J_right, covar.C_right, len(covar.c)))
-        noise_diag = covar.added_diag
-        return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right)(covar.c, target, noise_diag)
+    if isinstance(covar, LazyVariable):
+        return covar.gp_marginal_log_likelihood(target)
     else:
         return ExactGPMarginalLogLikelihood()(covar, target)
 
