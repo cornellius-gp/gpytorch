@@ -10,7 +10,7 @@ def test_toeplitz_mm_forward():
     r.data[0:1].fill_(c.data[0])
     M = Variable(torch.randn(5, 3))
 
-    T = Variable(utils.toeplitz(c.data, r.data))
+    T = Variable(utils.toeplitz.toeplitz(c.data, r.data))
     actual = torch.mm(T, M)
 
     res = ToeplitzMM()(c, r, M)
@@ -21,7 +21,7 @@ def test_toeplitz_mm_forward_symmetric():
     c = Variable(torch.randn(5))
     M = Variable(torch.randn(5, 3))
 
-    T = Variable(utils.sym_toeplitz(c.data))
+    T = Variable(utils.toeplitz.sym_toeplitz(c.data))
     actual = torch.mm(T, M)
 
     res = ToeplitzMM()(c, c, M)
@@ -34,7 +34,7 @@ def test_toeplitz_mm_backward():
     r.data[0:1].fill_(c.data[0])
     M = Variable(torch.randn(5, 3), requires_grad=True)
 
-    T = Variable(utils.toeplitz(c.data, r.data), requires_grad=True)
+    T = Variable(utils.toeplitz.toeplitz(c.data, r.data), requires_grad=True)
     actual = torch.mm(T, M).sum()
     actual.backward()
 

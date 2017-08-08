@@ -8,7 +8,8 @@ from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
      Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence
 from .math.functions.lazy_toeplitz import ToeplitzMV, ToeplitzMM, \
       InterpolatedToeplitzGPMarginalLogLikelihood
-from .utils import LinearCG, index_coef_to_sparse
+from .utils import LinearCG
+from .utils.toeplitz import index_coef_to_sparse
 
 
 __all__ = [

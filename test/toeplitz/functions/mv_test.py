@@ -10,7 +10,7 @@ def test_mv_performs_toeplitz_matrix_vector_multiplication():
     r.data[0:1].fill_(c.data[0])
     v = Variable(torch.randn(5))
 
-    m = Variable(utils.toeplitz(c.data, r.data))
+    m = Variable(utils.toeplitz.toeplitz(c.data, r.data))
     actual = torch.mv(m, v)
 
     res = ToeplitzMV()(c, r, v)
@@ -21,7 +21,7 @@ def test_sym_mv_performs_toeplitz_matrix_vector_multiplication():
     c = Variable(torch.randn(5))
     v = Variable(torch.randn(5))
 
-    m = Variable(utils.sym_toeplitz(c.data))
+    m = Variable(utils.toeplitz.sym_toeplitz(c.data))
     actual = torch.mv(m, v)
 
     res = ToeplitzMV()(c, c, v)
@@ -34,7 +34,7 @@ def test_mv_backwards_performs_toeplitz_matrix_vector_multiplication():
     r.data[0:1].fill_(c.data[0])
     v = Variable(torch.randn(5), requires_grad=True)
 
-    m = Variable(utils.toeplitz(c.data, r.data), requires_grad=True)
+    m = Variable(utils.toeplitz.toeplitz(c.data, r.data), requires_grad=True)
     actual = torch.mv(m, v).sum()
     actual.backward()
 
