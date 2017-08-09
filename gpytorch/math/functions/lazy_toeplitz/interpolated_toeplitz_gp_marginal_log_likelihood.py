@@ -7,7 +7,7 @@ from torch.autograd import Function, Variable
 
 
 class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
-    def __init__(self, W_left, W_right):
+    def __init__(self, W_left, W_right, num_samples=10):
         if isinstance(W_left, Variable):
             self.W_left = W_left.data
         else:
@@ -17,6 +17,8 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
             self.W_right = W_right.data
         else:
             self.W_right = W_right
+
+        self.num_samples = num_samples
 
     def forward(self, c, y, noise_diag):
         def mv_closure(v):
@@ -54,10 +56,8 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
             W_right_mat_inv_y = torch.dsmm(self.W_right.t(), mat_inv_y.unsqueeze(1))
             quad_form_part = sym_toeplitz_derivative_quadratic_form(y_mat_inv_W_left.squeeze(),
                                                                     W_right_mat_inv_y.squeeze())
-
-            num_samples = 10
             log_det_part = torch.zeros(len(c))
-            sample_matrix = torch.sign(torch.randn(len(y), num_samples))
+            sample_matrix = torch.sign(torch.randn(len(y), self.num_samples))
             sample_matrix.div_(torch.norm(sample_matrix, 2, 0).expand_as(sample_matrix))
 
             left_vectors = torch.dsmm(self.W_left.t(), LinearCG().solve(mv_closure, sample_matrix)).t()
@@ -67,7 +67,7 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
                 log_det_part += sym_toeplitz_derivative_quadratic_form(left_vector,
                                                                        right_vector)
 
-            log_det_part.div_(num_samples)
+            log_det_part.div_(self.num_samples)
 
             mat_grad = quad_form_part - log_det_part
             mat_grad.mul_(0.5 * grad_output_value)

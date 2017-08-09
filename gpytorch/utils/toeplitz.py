@@ -286,5 +286,6 @@ def sym_toeplitz_derivative_quadratic_form(left_vector, right_vector):
     dT_dc_row = utils.reverse(left_vector)
     dT_dc_col[0] = dT_dc_row[0]
     res = res + toeplitz_mv(dT_dc_col, dT_dc_row, utils.reverse(right_vector))
+    res[0] -= left_vector.dot(right_vector)
 
     return res
