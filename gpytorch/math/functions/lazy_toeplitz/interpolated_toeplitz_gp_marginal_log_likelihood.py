@@ -58,7 +58,6 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
                                                                     W_right_mat_inv_y.squeeze())
             log_det_part = torch.zeros(len(c))
             sample_matrix = torch.sign(torch.randn(len(y), self.num_samples))
-            sample_matrix.div_(torch.norm(sample_matrix, 2, 0).expand_as(sample_matrix))
 
             left_vectors = torch.dsmm(self.W_left.t(), LinearCG().solve(mv_closure, sample_matrix)).t()
             right_vectors = torch.dsmm(self.W_right.t(), sample_matrix).t()
