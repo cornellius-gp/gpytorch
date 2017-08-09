@@ -1,8 +1,8 @@
 import math
 import torch
-from .toeplitz_mv import ToeplitzMV
 from gpytorch.utils import LinearCG, SLQLogDet
-from gpytorch.utils.toeplitz import interpolated_toeplitz_mul
+from gpytorch.utils.toeplitz import interpolated_toeplitz_mul, \
+    sym_toeplitz_derivative_quadratic_form
 from torch.autograd import Function, Variable
 
 
@@ -35,47 +35,41 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
 
         self.mat_inv_y = mat_inv_y
         self.tr_inv = tr_inv
+        self.mv_closure = mv_closure
         return y.new().resize_(1).fill_(res)
 
     def backward(self, grad_output):
         grad_output_value = grad_output.squeeze()[0]
         c, y, noise_diag = self.saved_tensors
 
-        # For the derivative, we swap W_left and W_right
-        def deriv_mv_closure(v):
-            if v.ndimension() == 1:
-                v = v.unsqueeze(1)
-            # Get W_{r}^{T}v
-            Wt_times_v = torch.dsmm(self.W_left.t(), v)
-            # Get (TW_{r}^{T})v
-            TWt_v = ToeplitzMV().forward(c, c, Wt_times_v.squeeze()).unsqueeze(1)
-            # Get (W_{l}TW_{r}^{T})v
-            WTWt_v = torch.dsmm(self.W_right, TWt_v).squeeze()
-            # Get (W_{l}TW_{r}^{T} + \sigma^{2}I)v
-            WTWt_v = WTWt_v + noise_diag * v.squeeze()
-
-            return WTWt_v
-
         mat_inv_y = self.mat_inv_y
+        mv_closure = self.mv_closure
 
         mat_grad = None
         y_grad = None
         noise_grad = None
 
         if self.needs_input_grad[0]:
-            # Need gradient with respect to c
-            dT_dc = torch.ones(len(c)).unsqueeze(1)
-            Wdt = torch.dsmm(self.W_right, dT_dc)
-            mat_inv_Wdt = LinearCG().solve(deriv_mv_closure, Wdt)
-            # Log determinant portion -- d/dc log |PTQ'+sI| is P'*inv(QTP'+sI)*Q*(dT/dc)
-            W_mat_inv_Wdt = torch.dsmm(self.W_left.t(), mat_inv_Wdt.unsqueeze(1)).squeeze()
+            y_mat_inv_W_left = torch.dsmm(self.W_left.t(), mat_inv_y.unsqueeze(1)).t()
+            W_right_mat_inv_y = torch.dsmm(self.W_right.t(), mat_inv_y.unsqueeze(1))
+            quad_form_part = sym_toeplitz_derivative_quadratic_form(y_mat_inv_W_left.squeeze(),
+                                                                    W_right_mat_inv_y.squeeze())
 
-            y_scaled = y.dot(mat_inv_Wdt)
-            mat_inv_y_scaled = mat_inv_y * y_scaled
-            # Quadratic form portion -- d/dc y'*inv(PTQ'+sI)*y is P'*inv(QTP'+sI)*y*y'*inv(QTP'+sI)*Q
-            W_mat_inv_y_scaled = torch.dsmm(self.W_left.t(), mat_inv_y_scaled.unsqueeze(1)).squeeze()
+            num_samples = 10
+            log_det_part = torch.zeros(len(c))
+            sample_matrix = torch.sign(torch.randn(len(y), num_samples))
+            sample_matrix.div_(torch.norm(sample_matrix, 2, 0).expand_as(sample_matrix))
 
-            mat_grad = W_mat_inv_y_scaled - W_mat_inv_Wdt
+            left_vectors = torch.dsmm(self.W_left.t(), LinearCG().solve(mv_closure, sample_matrix)).t()
+            right_vectors = torch.dsmm(self.W_right.t(), sample_matrix).t()
+
+            for left_vector, right_vector in zip(left_vectors, right_vectors):
+                log_det_part += sym_toeplitz_derivative_quadratic_form(left_vector,
+                                                                       right_vector)
+
+            log_det_part.div_(num_samples)
+
+            mat_grad = quad_form_part - log_det_part
             mat_grad.mul_(0.5 * grad_output_value)
 
         if self.needs_input_grad[1]:
