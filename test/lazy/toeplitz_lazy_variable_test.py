@@ -33,8 +33,12 @@ prior_observation_model = Model()
 pred = prior_observation_model(x)
 lazy_toeplitz_var = pred.covar()
 T = utils.toeplitz.toeplitz(lazy_toeplitz_var.c.data, lazy_toeplitz_var.r.data)
-W_left = utils.toeplitz.index_coef_to_sparse(lazy_toeplitz_var.J_left, lazy_toeplitz_var.C_left, len(lazy_toeplitz_var.c))
-W_right = utils.toeplitz.index_coef_to_sparse(lazy_toeplitz_var.J_right, lazy_toeplitz_var.C_right, len(lazy_toeplitz_var.c))
+W_left = utils.toeplitz.index_coef_to_sparse(lazy_toeplitz_var.J_left,
+                                             lazy_toeplitz_var.C_left,
+                                             len(lazy_toeplitz_var.c))
+W_right = utils.toeplitz.index_coef_to_sparse(lazy_toeplitz_var.J_right,
+                                              lazy_toeplitz_var.C_right,
+                                              len(lazy_toeplitz_var.c))
 WTW = torch.dsmm(W_right, torch.dsmm(W_left, T).t()) + torch.diag(lazy_toeplitz_var.added_diag.data)
 
 

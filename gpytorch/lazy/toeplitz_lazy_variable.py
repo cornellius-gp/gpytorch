@@ -1,6 +1,6 @@
 from torch.autograd import Variable
 import torch
-from gpytorch import utils
+from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from gpytorch.math.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
 
@@ -32,8 +32,8 @@ class ToeplitzLazyVariable(LazyVariable):
         if self.J_left is not None:
             n_left = len(self.J_left)
             n_right = len(self.J_right)
-            W_left = utils.toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-            W_right = utils.toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
+            W_left = toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
+            W_right = toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
             if n_left <= n_right:
                 W_left_T = self.explicit_interpolate_T(self.J_left, self.C_left).data
                 WTW = torch.dsmm(W_right, W_left_T.t()).t()
@@ -41,7 +41,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 W_right_T = self.explicit_interpolate_T(self.J_right, self.C_right).data
                 WTW = torch.dsmm(W_left, W_right_T.t())
         else:
-            WTW = utils.toeplitz.toeplitz(self.c.data, self.r.data)
+            WTW = toeplitz.toeplitz(self.c.data, self.r.data)
 
         if self.added_diag is not None:
             WTW = WTW + torch.diag(self.added_diag.data)
@@ -70,7 +70,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 entry = 0
                 for k in range(num_coefficients):
                     row = J[i, k]
-                    entry += C[i, k] * utils.toeplitz.toeplitz_getitem(self.c, self.r, row, j)
+                    entry += C[i, k] * toeplitz.toeplitz_getitem(self.c, self.r, row, j)
                 result_matrix[i, j] = entry
 
         return result_matrix
@@ -102,8 +102,8 @@ class ToeplitzLazyVariable(LazyVariable):
         return WTW_diag
 
     def gp_marginal_log_likelihood(self, target):
-        W_left = Variable(utils.toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
-        W_right = Variable(utils.toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
+        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
+        W_right = Variable(toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
         noise_diag = self.added_diag
         return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right)(self.c, target, noise_diag)
 

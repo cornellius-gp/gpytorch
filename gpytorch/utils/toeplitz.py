@@ -255,3 +255,36 @@ def interpolated_toeplitz_mul(toeplitz_column, vector, W_left=None, W_right=None
         WTWt_v = WTWt_v + noise_term
 
     return WTWt_v
+
+
+def sym_toeplitz_derivative_quadratic_form(left_vector, right_vector):
+    """
+    Given a left vector v1 and a right vector v2, computes the quadratic form:
+                                v1'*(dT/dc_i)*v2
+    for all i, where dT/dc_i is the derivative of the Toeplitz matrix with respect to
+    the ith element of its first column. Note that dT/dc_i is the same for any symmetric
+    Toeplitz matrix T, so we do not require it as an argument.
+
+    In particular, dT/dc_i is given by:
+                                [0 0; I_{m-i+1} 0] + [0 I_{m-i+1}; 0 0]
+    where I_{m-i+1} is the (m-i+1) dimensional identity matrix. In other words, dT/dc_i
+    for i=1..m is the matrix with ones on the ith sub- and superdiagonal.
+
+    Args:
+        - left_vector (vector m) - left vector v1 in the quadratic form.
+        - right_vector (vector m) - right vector v2 in the quadratic form.
+    Returns:
+        - vector m - a vector so that the ith element is the result of v1'*(dT/dc_i)*v2
+    """
+    m = len(left_vector)
+    dT_dc_col = torch.zeros(m)
+
+    dT_dc_row = left_vector
+    dT_dc_col[0] = dT_dc_row[0]
+    res = toeplitz_mv(dT_dc_col, dT_dc_row, right_vector)
+
+    dT_dc_row = utils.reverse(left_vector)
+    dT_dc_col[0] = dT_dc_row[0]
+    res = res + toeplitz_mv(dT_dc_col, dT_dc_row, utils.reverse(right_vector))
+
+    return res
