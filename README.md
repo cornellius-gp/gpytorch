@@ -24,6 +24,7 @@ In addition, you will need libfftw3 (>= 3.3.6) installed on your machine. This c
 sudo apt-get install libfftw3-3
 ```
 
+
 ```bash
 git clone https://github.com/jrg365/gpytorch.git
 cd gpytorch
