@@ -7,9 +7,9 @@ from .gp_posterior import _GPPosterior
 
 
 class _VariationalGPPosterior(_GPPosterior):
-    def __init__(self, gp_observation_model, inducing_points, train_xs=None, train_y=None):
-        super(_VariationalGPPosterior, self).__init__(gp_observation_model.observation_model)
-        self.gp_observation_model = gp_observation_model
+    def __init__(self, prior_model, inducing_points, train_xs=None, train_y=None):
+        super(_VariationalGPPosterior, self).__init__(prior_model.likelihood)
+        self.prior_model = prior_model
         self.inducing_points = inducing_points
 
         if train_xs is not None and train_y is not None:
@@ -53,7 +53,7 @@ class _VariationalGPPosterior(_GPPosterior):
         else:
             full_inputs = inputs
 
-        gaussian_rv_output = self.gp_observation_model.forward(*full_inputs, **params)
+        gaussian_rv_output = self.prior_model.forward(*full_inputs, **params)
         full_mean, full_covar = gaussian_rv_output.representation()
 
         if not has_posterior:

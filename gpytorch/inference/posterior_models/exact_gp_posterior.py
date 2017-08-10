@@ -6,9 +6,9 @@ from .gp_posterior import _GPPosterior
 
 
 class _ExactGPPosterior(_GPPosterior):
-    def __init__(self, gp_observation_model, train_xs=None, train_y=None):
-        super(_ExactGPPosterior, self).__init__(gp_observation_model.observation_model)
-        self.gp_observation_model = gp_observation_model
+    def __init__(self, prior_model, train_xs=None, train_y=None):
+        super(_ExactGPPosterior, self).__init__(prior_model.likelihood)
+        self.prior_model = prior_model
 
         # Buffers for conditioning on data
         if train_xs is not None and train_y is not None:
@@ -43,7 +43,7 @@ class _ExactGPPosterior(_GPPosterior):
             full_inputs = [torch.cat([train_x_var, input]) for train_x_var, input in zip(train_x_vars, inputs)]
         else:
             full_inputs = inputs
-        gaussian_rv_output, log_noise = self.gp_observation_model.forward(*full_inputs, **params)
+        gaussian_rv_output, log_noise = self.prior_model.forward(*full_inputs, **params)
         full_mean, full_covar = gaussian_rv_output.representation()
 
         # Get mean/covar components

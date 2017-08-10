@@ -7,14 +7,14 @@ from torch.autograd import Variable
 
 
 class Inference(object):
-    def __init__(self, observation_model):
-        self.observation_model = observation_model
+    def __init__(self, gp_model):
+        self.gp_model = gp_model
         self.inference_engine = None
 
-        if isinstance(self.observation_model.observation_model, gpytorch.GPModel):
-            self.observation_model_inference = Inference(self.observation_model.observation_model)
+        if isinstance(self.gp_model.likelihood, gpytorch.GPModel):
+            self.gp_model_inference = Inference(self.gp_model.prior_model)
         else:
-            self.observation_model_inference = None
+            self.gp_model_inference = None
 
     def restore_from_state_dict(self, state_dict):
         """
@@ -52,36 +52,36 @@ class Inference(object):
         if isinstance(inducing_points, Variable):
             inducing_points = (inducing_points, )
 
-        if isinstance(self.observation_model, Likelihood):
+        if isinstance(self.gp_model, Likelihood):
             raise RuntimeError('Likelihood should not have an inference engine')
 
         # Replace observation models with posterior versions
-        likelihood = self.observation_model.observation_model
+        likelihood = self.gp_model.likelihood
         if isinstance(likelihood, GaussianLikelihood):
-            output = self.observation_model.forward(*train_x, **kwargs)
+            output = self.gp_model.forward(*train_x, **kwargs)
             if len(output) == 2 and isinstance(output[0], GaussianRandomVariable):
-                if not isinstance(self.observation_model, _ExactGPPosterior):
-                    self.observation_model = _ExactGPPosterior(self.observation_model)
+                if isinstance(self.gp_model, _ExactGPPosterior):
+                    raise RuntimeError('Updating existing GP posteriors is not yet supported.')
+                else:
+                    self.gp_model = _ExactGPPosterior(self.gp_model)
 
                     def log_likelihood_closure():
-                        self.observation_model.zero_grad()
-                        output = self.observation_model(*inducing_points)
-                        return self.observation_model.marginal_log_likelihood(output, train_y)
-                else:
-                    raise RuntimeError('Updating existing GP posteriors is not yet supported.')
+                        self.gp_model.zero_grad()
+                        output = self.gp_model(*inducing_points)
+                        return self.gp_model.marginal_log_likelihood(output, train_y)
             else:
-                raise RuntimeError('Unknown inference type for observation model:\n%s' % repr(self.observation_model))
+                raise RuntimeError('Unknown inference type for observation model:\n%s' % repr(self.gp_model))
         else:
-            self.observation_model = _VariationalGPPosterior(self.observation_model, inducing_points)
+            self.gp_model = _VariationalGPPosterior(self.gp_model, inducing_points)
 
             def log_likelihood_closure():
-                self.observation_model.zero_grad()
-                output = self.observation_model.forward(*inducing_points)
-                return self.observation_model.marginal_log_likelihood(output, train_y)
+                self.gp_model.zero_grad()
+                output = self.gp_model.forward(*inducing_points)
+                return self.gp_model.marginal_log_likelihood(output, train_y)
 
         if optimize:
             # Update all parameter groups
-            param_groups = list(self.observation_model.parameter_groups())
+            param_groups = list(self.gp_model.parameter_groups())
 
             has_converged = False
             for i in range(max_inference_steps):
@@ -93,16 +93,16 @@ class Inference(object):
                     break
 
         # Add the data
-        self.observation_model.update_data(train_x, train_y)
+        self.gp_model.update_data(train_x, train_y)
 
-        return self.observation_model
+        return self.gp_model
 
     def run(self, train_x, train_y, optimize=True, **kwargs):
-        orig_observation_model = self.observation_model
-        self.observation_model = deepcopy(self.observation_model)
-        new_observation_model = self.run_(train_x, train_y, optimize=optimize, **kwargs)
-        self.observation_model = orig_observation_model
-        return new_observation_model
+        orig_gp_model = self.gp_model
+        self.gp_model = deepcopy(self.gp_model)
+        new_gp_model = self.run_(train_x, train_y, optimize=optimize, **kwargs)
+        self.gp_model = orig_gp_model
+        return new_gp_model
 
     def step(self, output):
         return self.inference_engine.step(output)
