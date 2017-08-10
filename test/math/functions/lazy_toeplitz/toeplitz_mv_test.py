@@ -3,7 +3,6 @@ from gpytorch.math.functions.lazy_toeplitz import ToeplitzMV
 from gpytorch import utils
 from torch.autograd import Variable
 
-import pdb
 
 def test_mv_performs_toeplitz_matrix_vector_multiplication():
     c = Variable(torch.randn(5))

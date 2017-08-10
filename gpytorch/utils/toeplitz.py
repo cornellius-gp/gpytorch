@@ -2,7 +2,6 @@ import torch
 import gpytorch.utils.fft as fft
 import gpytorch.utils as utils
 
-import pdb
 
 def index_coef_to_sparse(index_matrix, value_matrix, row_length):
     """
