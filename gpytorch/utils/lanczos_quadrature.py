@@ -1,6 +1,7 @@
 import torch
 import math
 
+import pdb
 
 class StochasticLQ(object):
     """
@@ -76,7 +77,7 @@ class StochasticLQ(object):
         u = v / norm_v
 
         if Q.size()[1] == 1:
-            u = u - Q.mul((Q.t().mv(u)).expand_as(Q))
+            u = u - Q.mul((Q.t().mv(u))).squeeze()
         else:
             u = u - Q.mv(Q.t().mv(u))
 
