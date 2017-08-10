@@ -1,6 +1,6 @@
 import math
 import torch
-from gpytorch.utils import LinearCG, SLQLogDet
+from gpytorch.utils import LinearCG, StochasticLQ
 from gpytorch.utils.toeplitz import interpolated_toeplitz_mul, \
     sym_toeplitz_derivative_quadratic_form
 from torch.autograd import Function, Variable
@@ -30,7 +30,9 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
         # Inverse quad form
         res = mat_inv_y.dot(y)
         # Log determinant
-        ld, tr_inv = SLQLogDet(num_random_probes=10).logdet(mv_closure, len(y))
+        ld, tr_inv = StochasticLQ(num_random_probes=10).evaluate(mv_closure,
+                                                                 len(y),
+                                                                 [lambda x: x.log(), lambda x: x.pow(-1)])
         res += ld
         res += math.log(2 * math.pi) * len(y)
         res *= -0.5
