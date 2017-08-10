@@ -113,15 +113,15 @@ def toeplitz_mm(toeplitz_column, toeplitz_row, matrix):
         - Matrix (n x p) - The result of the matrix-vector multiply TM.
     """
     if toeplitz_column.ndimension() != 1 or toeplitz_row.ndimension() != 1 or matrix.ndimension() != 2:
-        raise RuntimeError('The first two inputs to ToeplitzMV should be vectors (first column c and row r of the Toeplitz \
-                            matrix), and the last input should be a matrix.')
+        raise RuntimeError('The first two inputs to ToeplitzMV should be vectors \
+                            (first column c and row r of the Toeplitz matrix), and the last input should be a matrix.')
 
     if len(toeplitz_column) != len(toeplitz_row):
         raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
 
     if len(toeplitz_column) != len(matrix):
-        raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with leading \
-                            dimension {}.'.format(len(toeplitz_column), len(toeplitz_column), len(matrix)))
+        raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with \
+                            leading dimension {}.'.format(len(toeplitz_column), len(toeplitz_column), len(matrix)))
 
     if toeplitz_column[0] != toeplitz_row[0]:
         raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first element, \

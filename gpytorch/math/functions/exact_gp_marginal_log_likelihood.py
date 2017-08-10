@@ -1,6 +1,6 @@
 import math
 import torch
-from gpytorch.utils import LinearCG, SLQLogDet
+from gpytorch.utils import LinearCG, StochasticLQ
 from torch.autograd import Function
 
 
@@ -18,7 +18,7 @@ class ExactGPMarginalLogLikelihood(Function):
         # Inverse quad form
         res = mat_inv_y.dot(y)
         # Log determinant
-        ld, _ = SLQLogDet(num_random_probes=10).logdet(mv_closure, len(y))
+        ld, = StochasticLQ(num_random_probes=10).evaluate(mv_closure, len(y), [lambda x: x.log()])
         res += ld
         res += math.log(2 * math.pi) * len(y)
         res *= -0.5
