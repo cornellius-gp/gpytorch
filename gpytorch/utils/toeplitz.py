@@ -2,6 +2,7 @@ import torch
 import gpytorch.utils.fft as fft
 import gpytorch.utils as utils
 
+import pdb
 
 def index_coef_to_sparse(index_matrix, value_matrix, row_length):
     """
@@ -133,14 +134,16 @@ def toeplitz_mm(toeplitz_column, toeplitz_row, matrix):
     _, num_rhs = matrix.size()
     orig_size = len(toeplitz_column)
     r_reverse = utils.reverse(toeplitz_row[1:])
-    toeplitz_column.resize_(orig_size + len(r_reverse))
-    toeplitz_column[orig_size:].copy_(r_reverse)
 
-    matrix.resize_(2 * orig_size - 1, num_rhs)
-    matrix[orig_size:, :].fill_(0)
+    c_r_rev = torch.zeros(orig_size + len(r_reverse))
+    c_r_rev[:orig_size] = toeplitz_column
+    c_r_rev[orig_size:] = r_reverse
 
-    fft_M = fft.fft1(matrix.t().contiguous())
-    fft_c = fft.fft1(toeplitz_column).expand_as(fft_M)
+    temp_matrix = torch.zeros(2 * orig_size - 1, num_rhs)
+    temp_matrix[:orig_size, :] = matrix
+
+    fft_M = fft.fft1(temp_matrix.t().contiguous())
+    fft_c = fft.fft1(c_r_rev).expand_as(fft_M)
     fft_product = torch.zeros(fft_M.size())
 
     fft_product[:, :, 0].addcmul_(fft_c[:, :, 0], fft_M[:, :, 0])
@@ -149,9 +152,6 @@ def toeplitz_mm(toeplitz_column, toeplitz_row, matrix):
     fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
 
     res = fft.ifft1(fft_product, (num_rhs, 2 * orig_size - 1)).t()
-    toeplitz_column.resize_(orig_size)
-    toeplitz_row.resize_(orig_size)
-    matrix.resize_(orig_size, num_rhs)
     res = res[:orig_size, :]
     return res
 
@@ -187,14 +187,16 @@ def toeplitz_mv(toeplitz_column, toeplitz_row, vector):
 
     orig_size = len(toeplitz_column)
     r_reverse = utils.reverse(toeplitz_row[1:])
-    toeplitz_column.resize_(orig_size + len(r_reverse))
-    toeplitz_column[orig_size:].copy_(r_reverse)
 
-    vector.resize_(2 * orig_size - 1)
-    vector[orig_size:].fill_(0)
+    c_r_rev = torch.zeros(orig_size + len(r_reverse))
+    c_r_rev[:orig_size] = toeplitz_column
+    c_r_rev[orig_size:] = r_reverse
 
-    fft_c = fft.fft1(toeplitz_column)
-    fft_v = fft.fft1(vector)
+    temp_vector = torch.zeros(2 * orig_size - 1)
+    temp_vector[:orig_size] = vector
+
+    fft_c = fft.fft1(c_r_rev)
+    fft_v = fft.fft1(temp_vector)
     fft_product = torch.zeros(fft_c.size())
 
     fft_product[:, 0].addcmul_(fft_c[:, 0], fft_v[:, 0])
@@ -202,10 +204,7 @@ def toeplitz_mv(toeplitz_column, toeplitz_row, vector):
     fft_product[:, 1].addcmul_(fft_c[:, 1], fft_v[:, 0])
     fft_product[:, 1].addcmul_(fft_c[:, 0], fft_v[:, 1])
 
-    res = fft.ifft1(fft_product, toeplitz_column.size())
-    toeplitz_column.resize_(orig_size)
-    toeplitz_row.resize_(orig_size)
-    vector.resize_(orig_size)
+    res = fft.ifft1(fft_product, temp_vector.size())
     res.resize_(orig_size)
     return res
 

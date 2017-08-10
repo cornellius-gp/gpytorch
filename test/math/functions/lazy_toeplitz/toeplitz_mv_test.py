@@ -3,6 +3,7 @@ from gpytorch.math.functions.lazy_toeplitz import ToeplitzMV
 from gpytorch import utils
 from torch.autograd import Variable
 
+import pdb
 
 def test_mv_performs_toeplitz_matrix_vector_multiplication():
     c = Variable(torch.randn(5))
@@ -35,7 +36,7 @@ def test_mv_backwards_performs_toeplitz_matrix_vector_multiplication():
     v = Variable(torch.randn(5), requires_grad=True)
 
     m = Variable(utils.toeplitz.toeplitz(c.data, r.data), requires_grad=True)
-    actual = torch.mv(m, v).sum()
+    actual = torch.mv(m, v).sum(0)
     actual.backward()
 
     actual_v_grad = v.grad.data.clone()
@@ -43,8 +44,9 @@ def test_mv_backwards_performs_toeplitz_matrix_vector_multiplication():
 
     v.grad.data.fill_(0)
 
-    res = ToeplitzMV()(c, r, v).sum()
+    res = ToeplitzMV()(c, r, v).sum(0)
     res.backward()
+
     assert utils.approx_equal(v.grad.data, actual_v_grad)
     assert utils.approx_equal(r.grad.data, actual_cr_grad)
     assert utils.approx_equal(c.grad.data, actual_cr_grad)
