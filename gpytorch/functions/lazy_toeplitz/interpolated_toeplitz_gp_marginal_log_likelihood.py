@@ -19,31 +19,31 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
 
         self.num_samples = num_samples
 
-    def forward(self, c, y, noise_diag):
+    def forward(self, toeplitz_column, labels, noise_diag):
         def mv_closure(v):
-            return interpolated_sym_toeplitz_mul(c, v, self.W_left, self.W_right, noise_diag)
+            return interpolated_sym_toeplitz_mul(toeplitz_column, v, self.W_left, self.W_right, noise_diag)
 
-        self.save_for_backward(c, y, noise_diag)
+        self.save_for_backward(toeplitz_column, labels, noise_diag)
 
-        mat_inv_y = LinearCG().solve(mv_closure, y)
+        mat_inv_y = LinearCG().solve(mv_closure, labels)
         # Inverse quad form
-        res = mat_inv_y.dot(y)
+        res = mat_inv_y.dot(labels)
         # Log determinant
         ld, tr_inv = StochasticLQ(num_random_probes=10).evaluate(mv_closure,
-                                                                 len(y),
+                                                                 len(labels),
                                                                  [lambda x: x.log(), lambda x: x.pow(-1)])
         res += ld
-        res += math.log(2 * math.pi) * len(y)
+        res += math.log(2 * math.pi) * len(labels)
         res *= -0.5
 
         self.mat_inv_y = mat_inv_y
         self.tr_inv = tr_inv
         self.mv_closure = mv_closure
-        return y.new().resize_(1).fill_(res)
+        return labels.new().resize_(1).fill_(res)
 
     def backward(self, grad_output):
         grad_output_value = grad_output.squeeze()[0]
-        c, y, noise_diag = self.saved_tensors
+        toeplitz_column, labels, noise_diag = self.saved_tensors
 
         mat_inv_y = self.mat_inv_y
         mv_closure = self.mv_closure
@@ -57,8 +57,8 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
             W_right_mat_inv_y = torch.dsmm(self.W_right.t(), mat_inv_y.unsqueeze(1))
             quad_form_part = sym_toeplitz_derivative_quadratic_form(y_mat_inv_W_left.squeeze(),
                                                                     W_right_mat_inv_y.squeeze())
-            log_det_part = torch.zeros(len(c))
-            sample_matrix = torch.sign(torch.randn(len(y), self.num_samples))
+            log_det_part = torch.zeros(len(toeplitz_column))
+            sample_matrix = torch.sign(torch.randn(len(labels), self.num_samples))
 
             left_vectors = torch.dsmm(self.W_left.t(), LinearCG().solve(mv_closure, sample_matrix)).t()
             right_vectors = torch.dsmm(self.W_right.t(), sample_matrix).t()
@@ -73,11 +73,12 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
             mat_grad.mul_(0.5 * grad_output_value)
 
         if self.needs_input_grad[1]:
-            # Need gradient with respect to y
+            # Need gradient with respect to labels
             y_grad = mat_inv_y.mul_(-grad_output_value)
 
         if self.needs_input_grad[2]:
             quad_form_part = mat_inv_y.dot(mat_inv_y)
-            noise_grad = c.new().resize_(1).fill_(quad_form_part - self.tr_inv).mul_(0.5 * grad_output_value)
+            noise_grad = toeplitz_column.new().resize_(1).fill_(quad_form_part - self.tr_inv)
+            noise_grad.mul_(0.5 * grad_output_value)
 
         return mat_grad, y_grad, noise_grad

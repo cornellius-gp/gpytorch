@@ -7,11 +7,13 @@ from gpytorch.utils.toeplitz import index_coef_to_sparse
 from torch.autograd import Variable
 
 
-def test_toeplitz_gp_marginal_log_likelihood_forward():
+def test_interpolated_toeplitz_gp_marginal_log_likelihood_forward():
     x = Variable(torch.linspace(0, 1, 5))
     y = torch.randn(5)
     noise = torch.Tensor([1e-4])
-    covar_module = GridInterpolationKernel(RBFKernel().initialize(log_lengthscale=-4), 10)
+    rbf_covar = RBFKernel()
+    rbf_covar.initialize(log_lengthscale=-4)
+    covar_module = GridInterpolationKernel(rbf_covar, 10)
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
     c = covar_x.c.data
     T = utils.toeplitz.sym_toeplitz(c)
@@ -36,12 +38,14 @@ def test_toeplitz_gp_marginal_log_likelihood_forward():
     assert all(torch.abs((res - actual) / actual) < 0.05)
 
 
-def test_toeplitz_gp_marginal_log_likelihood_backward():
+def test_interpolated_toeplitz_gp_marginal_log_likelihood_backward():
     x = Variable(torch.linspace(0, 1, 5))
     y = Variable(torch.randn(5), requires_grad=True)
     noise = Variable(torch.Tensor([1e-4]), requires_grad=True)
 
-    covar_module = GridInterpolationKernel(RBFKernel().initialize(log_lengthscale=-4), 10)
+    rbf_covar = RBFKernel()
+    rbf_covar.initialize(log_lengthscale=-4)
+    covar_module = GridInterpolationKernel(rbf_covar, 10)
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
 
     c = Variable(covar_x.c.data, requires_grad=True)

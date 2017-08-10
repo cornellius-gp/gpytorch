@@ -10,16 +10,28 @@ class _VariationalGPPosterior(_GPPosterior):
     def __init__(self, prior_model, inducing_points, train_xs=None, train_y=None):
         super(_VariationalGPPosterior, self).__init__(prior_model.likelihood)
         self.prior_model = prior_model
+
         self.inducing_points = inducing_points
+        self.num_inducing = len(self.inducing_points[0])
 
         if train_xs is not None and train_y is not None:
             self.update_data(train_xs, train_y)
 
-        num_inducing = len(self.inducing_points[0])
-        self.register_parameter('variational_mean', nn.Parameter(torch.randn(num_inducing)), bounds=(-1e4, 1e4))
+        output = self.forward(*self.inducing_points)
+        mean_init, chol_covar_init = self.initialize_variational_parameters(output)
+
+        self.register_parameter('variational_mean',
+                                nn.Parameter(mean_init),
+                                bounds=(-1e4, 1e4))
+
         self.register_parameter('chol_variational_covar',
-                                nn.Parameter(torch.randn(num_inducing, num_inducing).triu_()),
+                                nn.Parameter(chol_covar_init.triu_()),
                                 bounds=(-100, 100))
+
+    def initialize_variational_parameters(self, var_output):
+        mean_init = var_output.mean().data
+        chol_covar_init = torch.eye(len(mean_init))
+        return mean_init.contiguous(), chol_covar_init.contiguous()
 
     def update_data(self, train_xs, train_y):
         if isinstance(train_xs, Variable) or isinstance(train_xs, torch._TensorBase):
@@ -42,12 +54,8 @@ class _VariationalGPPosterior(_GPPosterior):
         return self
 
     def forward(self, *inputs, **params):
-        has_posterior = len(self.train_xs[0]) if hasattr(self, 'train_xs') else 0
-
-        n = len(self.inducing_points[0])
-
-        if has_posterior:
-            inducing_point_vars = [Variable(train_x) for train_x in self.train_xs]
+        if not self.training:
+            inducing_point_vars = [inducing_pt for inducing_pt in self.inducing_points]
             full_inputs = [torch.cat([inducing_point_var, input])
                            for inducing_point_var, input in zip(inducing_point_vars, inputs)]
         else:
@@ -56,32 +64,24 @@ class _VariationalGPPosterior(_GPPosterior):
         gaussian_rv_output = self.prior_model.forward(*full_inputs, **params)
         full_mean, full_covar = gaussian_rv_output.representation()
 
-        if not has_posterior:
-            test_mean = full_mean
-            test_covar = full_covar
+        if not self.training:
+            if hasattr(self, 'alpha') and self.alpha is not None:
+                f_posterior, alpha = gpytorch._variational_predict(self.num_inducing,
+                                                                   full_covar,
+                                                                   self.variational_mean,
+                                                                   self.chol_variational_covar,
+                                                                   self.alpha)
+            else:
+                f_posterior, alpha = gpytorch._variational_predict(self.num_inducing,
+                                                                   full_covar,
+                                                                   self.variational_mean,
+                                                                   self.chol_variational_covar)
+
+            return f_posterior
         else:
-            train_train_covar = full_covar[:n, :n]
-            test_train_covar = full_covar[n:, :n]
-            train_test_covar = full_covar[:n, n:]
-
-            alpha = gpytorch.invmv(train_train_covar, self.variational_mean)
-            test_mean = torch.mv(test_train_covar, alpha)
-
-            chol_covar = self.chol_variational_covar
-            variational_covar = chol_covar.t().mm(chol_covar)
-
-            test_covar = variational_covar - train_train_covar
-
-            # test_covar = K_{mn}K_{nn}^{-1}(S - K_{nn})
-            test_covar = torch.mm(test_train_covar, gpytorch.invmm(train_train_covar, test_covar))
-
-            # right_factor = K_{nn}^{-1}K_{nm}
-            right_factor = gpytorch.invmm(train_train_covar, train_test_covar)
-
-            # test_covar = K_{mn}K_{nn}^{-1}(S - K_{nn})K_{nn}^{-1}K_{nm}
-            test_covar = full_covar[n:, n:] + test_covar.mm(right_factor)
-
-        return GaussianRandomVariable(test_mean, test_covar)
+            gpytorch.add_jitter(full_covar)
+            f_prior = GaussianRandomVariable(full_mean, full_covar)
+            return f_prior
 
     def marginal_log_likelihood(self, output, train_y, num_samples=5):
         chol_var_covar = self.chol_variational_covar.triu()
@@ -90,15 +90,20 @@ class _VariationalGPPosterior(_GPPosterior):
         # of a matrix requires that the diagonal elements be positive).
         chol_var_covar = chol_var_covar.mul(chol_var_covar.diag().sign().unsqueeze(1).expand_as(chol_var_covar).triu())
 
-        inducing_mean, inducing_covar = output.representation()
-        num_inducing = len(inducing_mean)
+        _, train_covar = output.representation()
+        inducing_output = self.forward(*self.inducing_points)
+        inducing_mean = inducing_output.mean()
 
-        epsilon = Variable(torch.randn(num_inducing, num_samples))
-        samples = chol_var_covar.mm(epsilon)
-        samples = samples + self.variational_mean.unsqueeze(1).expand_as(samples)
-        log_likelihood = self.prior_model.likelihood.log_probability(samples, train_y)
+        gpytorch.add_jitter(train_covar)
+
+        log_likelihood = gpytorch.monte_carlo_log_likelihood(self.prior_model.likelihood.log_probability,
+                                                             train_y,
+                                                             self.variational_mean,
+                                                             chol_var_covar,
+                                                             train_covar,
+                                                             num_samples)
 
         kl_divergence = gpytorch.mvn_kl_divergence(self.variational_mean,
-                                                   chol_var_covar, inducing_mean, inducing_covar)
+                                                   chol_var_covar, inducing_mean, train_covar)
 
         return log_likelihood.squeeze() - kl_divergence

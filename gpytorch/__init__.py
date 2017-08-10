@@ -1,11 +1,11 @@
-import math
 import torch
 from torch.autograd import Variable
 from .lazy import LazyVariable, ToeplitzLazyVariable
 from .random_variables import GaussianRandomVariable
 from .module import Module
 from .gp_model import GPModel
-from .functions import AddDiag, DSMM, ExactGPMarginalLogLikelihood, NormalCDF, LogNormalCDF
+from .functions import AddDiag, DSMM, ExactGPMarginalLogLikelihood, \
+ NormalCDF, LogNormalCDF, TraceLogDetQuadForm
 from .utils import LinearCG, function_factory
 from .utils.toeplitz import index_coef_to_sparse, interpolated_sym_toeplitz_mul, sym_toeplitz_mv
 
@@ -118,7 +118,7 @@ def log_normal_cdf(x):
     return LogNormalCDF()(x)
 
 
-def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2):
+def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2, num_samples=10):
     """
     PyTorch function for computing the KL-Divergence between two multivariate
     Normal distributions.
@@ -140,26 +140,45 @@ def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2):
     """
     mu_diffs = mean_2 - mean_1
 
-    # ExactGPMarginalLogLikelihood gives us -0.5 * [\mu_2 -
-    # \mu_1)\Sigma_{2}^{-1}(\mu_2 - \mu_1) + logdet(\Sigma_{2}) + const]
-    # Multiplying that by -2 gives us two of the terms in the KL divergence
-    # (plus an unwanted constant that we can subtract out).
-    K_part = exact_gp_marginal_log_likelihood(covar_2, mu_diffs)
+    if isinstance(covar_2, LazyVariable):
+        trace_logdet_quadform = covar_2.trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
+    else:
+        trace_logdet_quadform = TraceLogDetQuadForm(num_samples=num_samples)(mu_diffs, chol_covar_1, covar_2)
 
-    # Get logdet(\Sigma_{1})
     log_det_covar1 = chol_covar_1.diag().log().sum(0) * 2
-
-    # Get Tr(\Sigma_2^{-1}\Sigma_{1})
-    trace = invmm(covar_2, chol_covar_1.t().mm(chol_covar_1)).trace()
 
     # get D
     D = len(mu_diffs)
 
-    # Compute the KL Divergence. We subtract out D * log(2 * pi) to get rid
-    # of the extra unwanted constant term that ExactGPMarginalLogLikelihood gives us.
-    res = 0.5 * (trace - log_det_covar1 - 2 * K_part - (1 + math.log(2 * math.pi)) * D)
+    # Compute the KL Divergence.
+    res = 0.5 * (trace_logdet_quadform - log_det_covar1 - D)
 
     return res
+
+
+def add_jitter(covar):
+    if isinstance(covar, LazyVariable):
+        covar.add_jitter_()
+    else:
+        covar.data.add_(1e-3 * torch.eye(len(covar)))
+
+
+def monte_carlo_log_likelihood(log_probability_func, train_y,
+                               variational_mean, chol_var_covar,
+                               train_covar, num_samples):
+    if isinstance(train_covar, LazyVariable):
+        log_likelihood = train_covar.monte_carlo_log_likelihood(log_probability_func,
+                                                                train_y,
+                                                                variational_mean,
+                                                                chol_var_covar,
+                                                                num_samples)
+    else:
+        epsilon = Variable(torch.randn(len(train_covar), num_samples))
+        samples = chol_var_covar.t().mm(epsilon)
+        samples = samples + variational_mean.unsqueeze(1)
+        log_likelihood = log_probability_func(samples, train_y)
+
+    return log_likelihood
 
 
 def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
@@ -227,3 +246,47 @@ def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
     test_test_covar = test_test_covar.sub(test_test_covar_correction)
 
     return GaussianRandomVariable(test_mean, test_test_covar), alpha
+
+
+def _variational_predict(n, full_covar, variational_mean, chol_variational_covar, alpha=None):
+    test_train_covar = full_covar[n:, :n]
+    train_test_covar = full_covar[:n, n:]
+    if isinstance(test_train_covar, LazyVariable):
+        test_covar = chol_variational_covar.t().mm(chol_variational_covar)
+        add_jitter(test_covar)
+
+        W_right = index_coef_to_sparse(train_test_covar.J_right, train_test_covar.C_right, len(train_test_covar.c))
+        W_left = index_coef_to_sparse(test_train_covar.J_left, test_train_covar.C_left, len(test_train_covar.c))
+
+        test_covar = dsmm(W_right, test_covar.t()).t()
+        test_covar = dsmm(W_left, test_covar)
+
+        test_mean = dsmm(W_left, variational_mean.unsqueeze(1)).squeeze()
+
+        f_posterior = GaussianRandomVariable(test_mean, test_covar)
+        alpha = None
+    else:
+        train_train_covar = full_covar[:n, :n]
+        add_jitter(train_train_covar)
+
+        if alpha is None:
+            alpha = invmv(train_train_covar, variational_mean)
+
+        test_mean = torch.mv(test_train_covar, alpha)
+
+        chol_covar = chol_variational_covar
+        variational_covar = chol_covar.t().mm(chol_covar)
+
+        test_covar = variational_covar - train_train_covar
+
+        # test_covar = K_{mn}K_{nn}^{-1}(S - K_{nn})
+        test_covar = torch.mm(test_train_covar, invmm(train_train_covar, test_covar))
+
+        # right_factor = K_{nn}^{-1}K_{nm}
+        right_factor = invmm(train_train_covar, train_test_covar)
+
+        # test_covar = K_{mn}K_{nn}^{-1}(S - K_{nn})K_{nn}^{-1}K_{nm}
+        test_covar = full_covar[n:, n:] + test_covar.mm(right_factor)
+        f_posterior = GaussianRandomVariable(test_mean, test_covar)
+
+    return f_posterior, alpha

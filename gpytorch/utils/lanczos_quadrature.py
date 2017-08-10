@@ -107,7 +107,6 @@ class StochasticLQ(object):
                 and returns Av.
             - n (scalar) - dimension of the matrix A. We require this because, if A is passed in as a closure, we
                 have no good way of determining the size of A.
-
             - funcs (list of closures) - A list of functions [f_1,...,f_k]. tr(f_i(A)) is computed for each function.
                     Each function in the closure should expect to take a torch vector of eigenvalues as input and apply
                     the function elementwise. For example, to compute logdet(A) = tr(log(A)), [lambda x: x.log()] would

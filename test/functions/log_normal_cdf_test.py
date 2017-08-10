@@ -11,8 +11,8 @@ def test_forward():
 
     # Answers should be reasonable for small values
     assert(math.fabs(output[0] + 20.7368) < 1e-4)
-    assert(math.fabs(output[1] + 15) < 0.15)
-    assert(math.fabs(output[2] + 6.6) < 0.1)
+    assert(math.fabs(output[1] + 15) < 0.1)
+    assert(math.fabs(output[2] + 6.6) < 0.01)
     assert(math.fabs(output[3] + 1.841) < 0.001)
 
     # Should be very accurate for positive values
