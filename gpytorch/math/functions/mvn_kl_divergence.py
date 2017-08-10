@@ -34,7 +34,7 @@ class MVNKLDivergence(Function):
         K_part = ExactGPMarginalLogLikelihood()(covar2_var, mu_diffs)
 
         # Get logdet(\Sigma_{1})
-        log_det_covar1 = chol_covar1_var.diag().log().sum() * 2
+        log_det_covar1 = chol_covar1_var.diag().log().sum(0) * 2
 
         # Get Tr(\Sigma_2^{-1}\Sigma_{1})
         trace = Invmm()(covar2_var, chol_covar1_var.t().mm(chol_covar1_var)).trace()

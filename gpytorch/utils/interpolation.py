@@ -59,7 +59,7 @@ class Interpolation(object):
 
             grid_targets = x_target[left_boundary_pts].unsqueeze(1).expand(num_left, num_coefficients)
             dists = torch.abs(x_grid_first - grid_targets)
-            closest_from_first = torch.min(dists, 1)[1].squeeze()
+            closest_from_first = torch.min(dists, 1)[1]
 
             for i in range(num_left):
                 C[left_boundary_pts[i], :] = 0
@@ -75,7 +75,7 @@ class Interpolation(object):
 
             grid_targets = x_target[right_boundary_pts].unsqueeze(1).expand(num_right, num_coefficients)
             dists = torch.abs(x_grid_last - grid_targets)
-            closest_from_last = torch.min(dists, 1)[1].squeeze()
+            closest_from_last = torch.min(dists, 1)[1]
 
             for i in range(num_right):
                 C[right_boundary_pts[i], :] = 0
