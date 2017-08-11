@@ -5,10 +5,10 @@ from .lazy import LazyVariable
 
 
 class GPModel(gpytorch.Module):
-    def __init__(self, observation_model):
+    def __init__(self, likelihood):
         super(GPModel, self).__init__()
         self._parameter_groups = {}
-        self.observation_model = observation_model
+        self.likelihood = likelihood
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -17,4 +17,4 @@ class GPModel(gpytorch.Module):
         output = super(GPModel, self).__call__(*args, **kwargs)
         if isinstance(output, Variable) or isinstance(output, RandomVariable) or isinstance(output, LazyVariable):
             output = (output,)
-        return self.observation_model(*output)
+        return self.likelihood(*output)

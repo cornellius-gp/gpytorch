@@ -1,14 +1,15 @@
+import torch
+from collections import OrderedDict
 from torch import nn
 from torch.autograd import Variable
 from .random_variables import RandomVariable
-from .parameters import ParameterGroup
 from .lazy import LazyVariable
 
 
 class Module(nn.Module):
     def __init__(self):
         super(Module, self).__init__()
-        self._parameter_groups = {}
+        self._bounds = OrderedDict()
 
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
@@ -32,33 +33,95 @@ class Module(nn.Module):
             outputs = outputs[0]
         return outputs
 
-    def __setattr__(self, name, value):
-        if isinstance(value, nn.Parameter):
-            raise RuntimeError('Observation Models expect ParameterGroups, not nn.Parameters directly.')
-        if isinstance(value, ParameterGroup):
-            self._parameter_groups[name] = value
-        super(Module, self).__setattr__(name, value)
+    def register_parameter(self, name, param, bounds, prior=None):
+        """
+        Adds a parameter to the module.
+        The parameter can be accessed as an attribute using given name.
+
+        name (str): name of parameter
+        param (torch.nn.Parameter): parameter
+        bounds (2-tuple of float or Tensor): lower and upper bounds for parameter
+        prior (RandomVariable): prior for parameter (default: None)
+        """
+        if '_parameters' not in self.__dict__:
+            raise AttributeError(
+                "cannot assign parameter before Module.__init__() call")
+        super(Module, self).register_parameter(name, param)
+
+        # Set bounds
+        lower_bound, upper_bound = bounds
+        if torch.is_tensor(lower_bound) and torch.is_tensor(upper_bound):
+            if lower_bound.size() != upper_bound.size() or \
+                    lower_bound.size() != param.size():
+                raise AttributeError('Lower bound, upper bound, and param should have the same size')
+            self._bounds[name] = (lower_bound, upper_bound)
+        elif (isinstance(lower_bound, int) or isinstance(lower_bound, float)) and \
+                (isinstance(upper_bound, int) or isinstance(upper_bound, float)):
+            lower_bound_tensor = param.data.new().resize_as_(param.data).fill_(lower_bound)
+            upper_bound_tensor = param.data.new().resize_as_(param.data).fill_(upper_bound)
+            self._bounds[name] = (lower_bound_tensor, upper_bound_tensor)
+        else:
+            raise AttributeError('Unsupported argument types for parameter %s' % name)
+
+    def bound_for(self, name):
+        if '.' in name:
+            module, name = name.split('.', 1)
+            if module in self._modules:
+                return self.__getattr__(module).bound_for(name)
+            else:
+                raise AttributeError('Invalid bound name %s. '
+                                     '%s has no module %s' % (name, type(self).__name__, module))
+        else:
+            if name in self._parameters:
+                return self._bounds[name]
+            else:
+                raise AttributeError('Invalid bound name %s. '
+                                     '%s has no parameter %s' % (name, type(self).__name__, module))
+
+    def named_parameter_bounds(self):
+        """
+        Returns an iterator over module parameters bounds, yielding both the
+        name of the parameter as well as the parameter bound itself
+        """
+        for name, _ in self.named_parameters():
+            yield name, self.bound_for(name)
+
+    def parameter_bounds(self):
+        """
+        Returns an iterator over module parameters bounds.
+        This is typically passed to an optimizer.
+        """
+        for name, bound in self.named_parameter_bounds():
+            yield bound
 
     def __getattr__(self, name):
-        if name == '__setstate__':
-            # Avoid issues with recursion when attempting deepcopy
-            raise AttributeError
+        if '_parameters' in self.__dict__:
+            _parameters = self.__dict__['_parameters']
+            if name in _parameters:
+                param = _parameters[name]
+                # Ensure parameter is within bounds
+                lower_bound, upper_bound = self._bounds[name]
+                lower_mask = param.data < lower_bound
+                if any(lower_mask.view(-1)):
+                    param.data.masked_scatter_(lower_mask, lower_bound[lower_mask])
+                upper_mask = param.data > upper_bound
+                if any(upper_mask.view(-1)):
+                    param.data.masked_scatter_(upper_mask, upper_bound[upper_mask])
+                return param
+        if '_buffers' in self.__dict__:
+            _buffers = self.__dict__['_buffers']
+            if name in _buffers:
+                return _buffers[name]
+        if '_modules' in self.__dict__:
+            modules = self.__dict__['_modules']
+            if name in modules:
+                return modules[name]
+        raise AttributeError("'{}' object has no attribute '{}'".format(
+            type(self).__name__, name))
+
+    def __setattr__(self, name, value):
+        if isinstance(value, nn.Parameter):
+            raise RuntimeError("Please assign torch.nn.Parameters using"
+                               "gpytorch.module.register_parameters()")
         else:
-            for param_name, value in self.named_parameter_groups():
-                if name == param_name:
-                    return value
-
-        return super(Module, self).__getattr__(name)
-
-    def parameter_groups(self):
-        for name, param_group in self.named_parameter_groups():
-            yield param_group
-
-    def named_parameter_groups(self):
-        for name, param_group in self._parameter_groups.items():
-            yield name, param_group
-
-        for child in self.children():
-            if isinstance(child, Module):
-                for name, param_group in child.named_parameter_groups():
-                    yield name, param_group
+            super(Module, self).__setattr__(name, value)

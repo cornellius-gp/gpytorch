@@ -1,9 +1,8 @@
 import math
 import torch
 import gpytorch
-
+from torch import nn, optim
 from torch.autograd import Variable
-from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 from gpytorch.kernels import SpectralMixtureKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
@@ -24,35 +23,47 @@ class SpectralMixtureGPModel(gpytorch.GPModel):
         super(SpectralMixtureGPModel, self).__init__(GaussianLikelihood())
         self.mean_module = ConstantMean()
         self.covar_module = SpectralMixtureKernel()
-        self.params = MLEParameterGroup(
-            log_noise=BoundedParameter(torch.Tensor([-2]), -15, 15),
-            log_mixture_weights=BoundedParameter(torch.zeros(3), -15, 15),
-            log_mixture_means=BoundedParameter(torch.zeros(3), -15, 15),
-            log_mixture_scales=BoundedParameter(torch.zeros(3), -15, 15)
-        )
+        self.register_parameter('log_noise', nn.Parameter(torch.Tensor([-2])), bounds=(-5, 5))
+        self.register_parameter('log_mixture_weights', nn.Parameter(torch.zeros(3)), bounds=(-5, 5))
+        self.register_parameter('log_mixture_means', nn.Parameter(torch.zeros(3)), bounds=(-5, 5))
+        self.register_parameter('log_mixture_scales', nn.Parameter(torch.zeros(3)), bounds=(-5, 5))
 
     def forward(self, x):
         mean_x = self.mean_module(x, constant=Variable(torch.Tensor([0])))
         covar_x = self.covar_module(x,
-                                    log_mixture_weights=self.params.log_mixture_weights,
-                                    log_mixture_means=self.params.log_mixture_means,
-                                    log_mixture_scales=self.params.log_mixture_scales)
+                                    log_mixture_weights=self.log_mixture_weights,
+                                    log_mixture_means=self.log_mixture_means,
+                                    log_mixture_scales=self.log_mixture_scales)
 
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
-        return latent_pred, self.params.log_noise
+        return latent_pred, self.log_noise
 
 
-prior_observation_model = SpectralMixtureGPModel()
+prior_gp_model = SpectralMixtureGPModel()
 
 
 def test_spectral_mixture_gp_mean_abs_error():
-    prior_observation_model = SpectralMixtureGPModel()
+    prior_gp_model = SpectralMixtureGPModel()
 
     # Compute posterior distribution
-    infer = Inference(prior_observation_model)
-    posterior_observation_model = infer.run(train_x, train_y)
+    infer = Inference(prior_gp_model)
+    posterior_gp_model = infer.run(train_x, train_y)
 
-    test_preds = posterior_observation_model(test_x).mean()
+    # Optimize the model
+    posterior_gp_model.train()
+    optimizer = optim.Adam(posterior_gp_model.parameters(), lr=0.1)
+    optimizer.n_iter = 0
+    for i in range(50):
+        optimizer.zero_grad()
+        output = posterior_gp_model(train_x)
+        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
+        loss.backward()
+        optimizer.n_iter += 1
+        optimizer.step()
+
+    # Test the model
+    posterior_gp_model.eval()
+    test_preds = posterior_gp_model(test_x).mean()
     mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
     # The spectral mixture kernel should be trivially able to extrapolate the sine function.

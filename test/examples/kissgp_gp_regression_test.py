@@ -1,8 +1,8 @@
 import math
 import torch
 import gpytorch
+from torch import nn, optim
 from torch.autograd import Variable
-from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
@@ -24,27 +24,39 @@ class KissGPModel(gpytorch.GPModel):
         self.mean_module = ConstantMean()
         covar_module = RBFKernel()
         self.grid_covar_module = GridInterpolationKernel(covar_module, 50)
-        self.params = MLEParameterGroup(
-            log_noise=BoundedParameter(torch.Tensor([-2]), -5, 5),
-            log_lengthscale=BoundedParameter(torch.Tensor([0]), -3, 5),
-        )
+        self.register_parameter('log_noise', nn.Parameter(torch.Tensor([-2])), bounds=(-5, 5)),
+        self.register_parameter('log_lengthscale', nn.Parameter(torch.Tensor([0])), bounds=(-3, 5)),
 
     def forward(self, x):
         mean_x = self.mean_module(x, constant=Variable(torch.Tensor([0])))
-        covar_x = self.grid_covar_module(x, log_lengthscale=self.params.log_lengthscale)
+        covar_x = self.grid_covar_module(x, log_lengthscale=self.log_lengthscale)
 
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
-        return latent_pred, self.params.log_noise
+        return latent_pred, self.log_noise
 
 
 def test_kissgp_gp_mean_abs_error():
-    prior_observation_model = KissGPModel()
+    prior_gp_model = KissGPModel()
 
     # Compute posterior distribution
-    infer = Inference(prior_observation_model)
-    posterior_observation_model = infer.run(train_x, train_y, max_inference_steps=1)
+    infer = Inference(prior_gp_model)
+    posterior_gp_model = infer.run(train_x, train_y, max_inference_steps=1)
 
-    test_preds = posterior_observation_model(test_x).mean()
+    # Optimize the model
+    posterior_gp_model.train()
+    optimizer = optim.Adam(posterior_gp_model.parameters(), lr=0.1)
+    optimizer.n_iter = 0
+    for i in range(25):
+        optimizer.zero_grad()
+        output = posterior_gp_model(train_x)
+        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
+        loss.backward()
+        optimizer.n_iter += 1
+        optimizer.step()
+
+    # Test the model
+    posterior_gp_model.eval()
+    test_preds = posterior_gp_model(test_x).mean()
     mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
     assert(mean_abs_error.data.squeeze()[0] < 0.1)

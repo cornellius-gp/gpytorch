@@ -16,14 +16,11 @@ if torch.cuda.is_available():
         if os.path.exists(absolute_dir):
             library_dirs.append(absolute_dir)
 
-    print('Including CUDA code.')
     headers += ['gpytorch/csrc/fft_cuda.h']
     sources += ['gpytorch/csrc/fft_cuda.c']
     defines += [('WITH_CUDA', None)]
     libraries += ['cufft']
     with_cuda = True
-
-print(library_dirs)
 
 ffi = create_extension(
     'gpytorch.libfft',
