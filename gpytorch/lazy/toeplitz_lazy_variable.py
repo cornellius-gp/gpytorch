@@ -89,6 +89,13 @@ class ToeplitzLazyVariable(LazyVariable):
         return ToeplitzLazyVariable(self.c.mul(constant), self.r.mul(constant), self.J_left, self.C_left,
                                     self.J_right, self.C_right, self.added_diag)
 
+    def mul_(self, constant):
+        """
+        In-place version of mul.
+        """
+        self.c.mul_(constant)
+        self.r.mul_(constant)
+        
     def diag(self):
         """
         Gets the diagonal of the Toeplitz matrix wrapped by this object.
