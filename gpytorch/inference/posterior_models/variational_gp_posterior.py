@@ -90,14 +90,13 @@ class _VariationalGPPosterior(_GPPosterior):
         # of a matrix requires that the diagonal elements be positive).
         chol_var_covar = chol_var_covar.mul(chol_var_covar.diag().sign().unsqueeze(1).expand_as(chol_var_covar).triu())
 
-        print(output)
         inducing_mean, inducing_covar = output.representation()
         num_inducing = len(inducing_mean)
 
         epsilon = Variable(torch.randn(num_inducing, num_samples))
         samples = chol_var_covar.mm(epsilon)
         samples = samples + self.variational_mean.unsqueeze(1).expand_as(samples)
-        log_likelihood = self.prior_model.log_probability(samples, train_y)
+        log_likelihood = self.prior_model.likelihood.log_probability(samples, train_y)
 
         kl_divergence = gpytorch.mvn_kl_divergence(self.variational_mean,
                                                    chol_var_covar, inducing_mean, inducing_covar)

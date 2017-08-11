@@ -10,7 +10,7 @@ from gpytorch.inference import Inference
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function, but with KISS-GP let's use 100 training examples.
-train_x = Variable(torch.linspace(0, 1, 10))
+train_x = Variable(torch.linspace(0, 1, 1000))
 train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
 
 test_x = Variable(torch.linspace(0, 1, 51))
