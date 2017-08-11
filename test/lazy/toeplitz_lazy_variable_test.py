@@ -1,12 +1,12 @@
 import torch
 import gpytorch
+from torch import nn
 from gpytorch import utils
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
-from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 
 x = Variable(torch.linspace(0, 1, 51))
 
@@ -17,13 +17,11 @@ class Model(gpytorch.GPModel):
         self.mean_module = ConstantMean()
         covar_module = RBFKernel()
         self.grid_covar_module = GridInterpolationKernel(covar_module, 50)
-        self.params = MLEParameterGroup(
-            log_lengthscale=BoundedParameter(torch.Tensor([0]), -3, 5),
-        )
+        self.register_parameter('log_lengthscale', nn.Parameter(torch.Tensor([0])), bounds=(-3, 5))
 
     def forward(self, x):
         mean_x = self.mean_module(x, constant=Variable(torch.Tensor([0])))
-        covar_x = self.grid_covar_module(x, log_lengthscale=self.params.log_lengthscale)
+        covar_x = self.grid_covar_module(x, log_lengthscale=self.log_lengthscale)
 
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred, Variable(torch.Tensor([-5]))

@@ -34,13 +34,13 @@ class Inference(object):
         # Create posterior model using training data
         train_x = tuple(Variable(state_dict[key], volatile=True) for key in train_x_keys)
         train_y = Variable(state_dict[train_y_keys[0]], volatile=True)
-        posterior_model = self.run(train_x, train_y, inducing_points=None, optimize=False)
+        posterior_model = self.run(train_x, train_y, inducing_points=None)
 
         # Copy over parameters to posterior model
         posterior_model.load_state_dict(state_dict)
         return posterior_model
 
-    def run_(self, train_x, train_y, inducing_points=None, optimize=True, max_inference_steps=20, **kwargs):
+    def run_(self, train_x, train_y, inducing_points=None, max_inference_steps=20, **kwargs):
         if isinstance(train_x, Variable):
             train_x = (train_x,)
 
@@ -64,43 +64,20 @@ class Inference(object):
                     raise RuntimeError('Updating existing GP posteriors is not yet supported.')
                 else:
                     self.gp_model = _ExactGPPosterior(self.gp_model)
-
-                    def log_likelihood_closure():
-                        self.gp_model.zero_grad()
-                        output = self.gp_model(*inducing_points)
-                        return self.gp_model.marginal_log_likelihood(output, train_y)
             else:
                 raise RuntimeError('Unknown inference type for observation model:\n%s' % repr(self.gp_model))
         else:
             self.gp_model = _VariationalGPPosterior(self.gp_model, inducing_points)
 
-            def log_likelihood_closure():
-                self.gp_model.zero_grad()
-                output = self.gp_model.forward(*inducing_points)
-                return self.gp_model.marginal_log_likelihood(output, train_y)
-
-        if optimize:
-            # Update all parameter groups
-            param_groups = list(self.gp_model.parameter_groups())
-
-            has_converged = False
-            for i in range(max_inference_steps):
-                for param_group in param_groups:
-                    param_group.update(log_likelihood_closure)
-
-                has_converged = all([param_group.has_converged(log_likelihood_closure) for param_group in param_groups])
-                if has_converged:
-                    break
-
         # Add the data
         self.gp_model.update_data(train_x, train_y)
-
+        self.gp_model.eval()
         return self.gp_model
 
-    def run(self, train_x, train_y, optimize=True, **kwargs):
+    def run(self, train_x, train_y, **kwargs):
         orig_gp_model = self.gp_model
         self.gp_model = deepcopy(self.gp_model)
-        new_gp_model = self.run_(train_x, train_y, optimize=optimize, **kwargs)
+        new_gp_model = self.run_(train_x, train_y, **kwargs)
         self.gp_model = orig_gp_model
         return new_gp_model
 

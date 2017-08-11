@@ -1,7 +1,7 @@
 import torch
 import gpytorch
+from torch import nn
 from torch.autograd import Variable
-from gpytorch.parameters import MLEParameterGroup, BoundedParameter
 from gpytorch.random_variables import GaussianRandomVariable
 from .gp_posterior import _GPPosterior
 
@@ -16,10 +16,8 @@ class _VariationalGPPosterior(_GPPosterior):
             self.update_data(train_xs, train_y)
 
         num_inducing = len(self.inducing_points[0])
-        self.variational_parameters = MLEParameterGroup(
-            variational_mean=BoundedParameter(torch.randn(num_inducing), -1e4, 1e4),
-            chol_variational_covar=BoundedParameter(torch.randn(num_inducing, num_inducing).triu_(), -100, 100),
-        )
+        self.register_parameter('variational_mean', nn.Parameter(torch.randn(num_inducing)), bounds=(-1e4, 1e4))
+        self.register_parameter('chol_variational_covar', nn.Parameter(torch.randn(num_inducing, num_inducing).triu_()), bounds=(-100, 100))
 
     def update_data(self, train_xs, train_y):
         if isinstance(train_xs, Variable) or isinstance(train_xs, torch._TensorBase):
@@ -96,7 +94,7 @@ class _VariationalGPPosterior(_GPPosterior):
         epsilon = Variable(torch.randn(num_inducing, num_samples))
         samples = chol_var_covar.mm(epsilon)
         samples = samples + self.variational_parameters.variational_mean.unsqueeze(1).expand_as(samples)
-        log_likelihood = self.observation_model.log_probability(samples, train_y)
+        log_likelihood = self.prior_model.log_probability(samples, train_y)
 
         kl_divergence = gpytorch.mvn_kl_divergence(self.variational_parameters.variational_mean,
                                                    chol_var_covar, inducing_mean, inducing_covar)

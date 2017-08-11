@@ -1,3 +1,4 @@
+import logging
 import torch
 import gpytorch
 from torch.autograd import Variable
@@ -38,24 +39,25 @@ class _ExactGPPosterior(_GPPosterior):
         n = len(self.train_xs[0]) if hasattr(self, 'train_xs') else 0
 
         # Compute mean and full data (train/test) covar
-        if n:
+        if n and not self.training:
             train_x_vars = [Variable(train_x) for train_x in self.train_xs]
+            if all([torch.equal(train_x_var.data, input.data) for train_x_var, input in zip(train_x_vars, inputs)]):
+                logging.warning('The input matches the stored training data. Did you forget to call model.train()?')
             full_inputs = [torch.cat([train_x_var, input]) for train_x_var, input in zip(train_x_vars, inputs)]
         else:
             full_inputs = inputs
         gaussian_rv_output, log_noise = self.prior_model.forward(*full_inputs, **params)
         full_mean, full_covar = gaussian_rv_output.representation()
 
-        # Get mean/covar components
-        test_mean = full_mean[n:]
-        test_test_covar = full_covar[n:, n:]
-
         # If there's data, use it
-        if n:
+        if n and not self.training:
+            # Get mean/covar components
             train_mean = full_mean[:n]
+            test_mean = full_mean[n:]
             train_train_covar = gpytorch.add_diag(full_covar[:n, :n], log_noise.exp())
             train_test_covar = full_covar[:n, n:]
             test_train_covar = full_covar[n:, :n]
+            test_test_covar = full_covar[n:, n:]
 
             if hasattr(self, 'alpha') and self.alpha is not None:
                 GRV, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
@@ -66,7 +68,7 @@ class _ExactGPPosterior(_GPPosterior):
 
             self.alpha = alpha
         else:
-            GRV = GaussianRandomVariable(test_mean, test_test_covar)
+            GRV = GaussianRandomVariable(full_mean, full_covar)
 
         return GRV, log_noise
 
