@@ -67,7 +67,6 @@ def test_multitask_gp_mean_abs_error():
         loss = -posterior_gp_model.marginal_log_likelihood(output, torch.cat([train_y1, train_y2]))
         loss.backward()
         optimizer.n_iter += 1
-        print('Iter %d - Loss: %.3f' % (optimizer.n_iter, loss.data[0]))
         optimizer.step()
 
     # Test the model

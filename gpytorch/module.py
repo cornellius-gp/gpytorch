@@ -78,7 +78,6 @@ class Module(nn.Module):
                 raise AttributeError('Invalid bound name %s. '
                                      '%s has no parameter %s' % (name, type(self).__name__, module))
 
-
     def named_parameter_bounds(self):
         """
         Returns an iterator over module parameters bounds, yielding both the
@@ -89,7 +88,7 @@ class Module(nn.Module):
 
     def parameter_bounds(self):
         """
-	Returns an iterator over module parameters bounds.
+        Returns an iterator over module parameters bounds.
         This is typically passed to an optimizer.
         """
         for name, bound in self.named_parameter_bounds():
@@ -101,7 +100,7 @@ class Module(nn.Module):
             if name in _parameters:
                 param = _parameters[name]
                 # Ensure parameter is within bounds
-		lower_bound, upper_bound = self._bounds[name]
+                lower_bound, upper_bound = self._bounds[name]
                 lower_mask = param.data < lower_bound
                 if any(lower_mask.view(-1)):
                     param.data.masked_scatter_(lower_mask, lower_bound[lower_mask])
@@ -121,7 +120,7 @@ class Module(nn.Module):
             type(self).__name__, name))
 
     def __setattr__(self, name, value):
-	if isinstance(value, nn.Parameter):
+        if isinstance(value, nn.Parameter):
             raise RuntimeError("Please assign torch.nn.Parameters using"
                                "gpytorch.module.register_parameters()")
         else:

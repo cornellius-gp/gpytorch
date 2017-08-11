@@ -17,7 +17,9 @@ class _VariationalGPPosterior(_GPPosterior):
 
         num_inducing = len(self.inducing_points[0])
         self.register_parameter('variational_mean', nn.Parameter(torch.randn(num_inducing)), bounds=(-1e4, 1e4))
-        self.register_parameter('chol_variational_covar', nn.Parameter(torch.randn(num_inducing, num_inducing).triu_()), bounds=(-100, 100))
+        self.register_parameter('chol_variational_covar',
+                                nn.Parameter(torch.randn(num_inducing, num_inducing).triu_()),
+                                bounds=(-100, 100))
 
     def update_data(self, train_xs, train_y):
         if isinstance(train_xs, Variable) or isinstance(train_xs, torch._TensorBase):

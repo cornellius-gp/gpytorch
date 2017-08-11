@@ -1,6 +1,5 @@
 import torch
 from torch.autograd import Variable
-import logging
 from .interpolation import Interpolation
 from .lincg import LinearCG
 from .lanczos_quadrature import StochasticLQ

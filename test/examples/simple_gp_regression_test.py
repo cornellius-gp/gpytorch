@@ -37,7 +37,6 @@ class ExactGPModel(gpytorch.GPModel):
 
 def test_gp_prior_and_likelihood():
     prior_gp_model = ExactGPModel()
-    self = prior_gp_model
     prior_gp_model.log_lengthscale.data.fill_(0)  # This shouldn't really do anything now
     prior_gp_model.constant_mean.data.fill_(1)  # Let's have a mean of 1
     prior_gp_model.log_noise.data.fill_(math.log(0.5))
@@ -63,7 +62,6 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
     prior_gp_model.log_lengthscale.data.fill_(-10)  # This shouldn't really do anything now
     prior_gp_model.constant_mean.data.fill_(0)
     prior_gp_model.log_noise.data.fill_(-10)
-    print(list(prior_gp_model.parameter_bounds()))
 
     # Compute posterior distribution
     infer = Inference(prior_gp_model)
@@ -104,13 +102,6 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
         loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
-        print('Iter %d - Loss: %.3f\t\tLengthscale: %.3f   Noise: %.3f   Mean: %.3f' % (
-            optimizer.n_iter,
-            loss.data[0],
-            posterior_gp_model.prior_model.log_lengthscale.data[0],
-            posterior_gp_model.prior_model.log_noise.data[0],
-            posterior_gp_model.prior_model.constant_mean.data[0]
-        ))
         optimizer.step()
 
     # Test the model
