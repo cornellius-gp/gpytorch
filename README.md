@@ -10,13 +10,11 @@ Some things you can do right now:
 
 - Simple GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_gp_regression.ipynb))
 - Simple GP classification (Currently slow. [example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/variational_inference/examples/simple_gp_classification.ipynb))
-- Simple GP regression with hyperparameter priors using MAP ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_map_gp_regression.ipynb))
 - Multitask GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/multitask_gp_regression.ipynb))
-- Multitask GP regression, but the model learns to group some tasks together ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/latent_multitask_gp_regression.ipynb))
 - Extrapolation using the spectral mixture kernel ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/spectral_mixture_gp_regression.ipynb))
 ## Installation
 
-Make sure you have PyTorch (>= 0.1.10) installed.
+Make sure you have PyTorch (>= 0.2.0) installed.
 
 In addition, you will need libfftw3 (>= 3.3.6) installed on your machine. This can be downloaded [here](http://www.fftw.org/download.html), or installed for example on Ubuntu using
 
