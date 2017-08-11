@@ -75,6 +75,20 @@ class ToeplitzLazyVariable(LazyVariable):
 
         return result_matrix
 
+    def mul(self, constant):
+        """
+        Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,
+        we multiply the Toeplitz component by the constant. This way, the interpolation acts on the
+        interpolated values in T, and the entire kernel is ultimately multiplied by this constant.
+
+        Args:
+            - constant (broadcastable with self.c) - Constant to multiply by.
+        Returns:
+            - ToeplitzLazyVariable with c = c*(constant)
+        """
+        return ToeplitzLazyVariable(self.c.mul(constant), self.r.mul(constant), self.J_left, self.C_left,
+                                    self.J_right, self.C_right, self.added_diag)
+
     def diag(self):
         """
         Gets the diagonal of the Toeplitz matrix wrapped by this object.
