@@ -64,10 +64,10 @@ class _VariationalGPPosterior(_GPPosterior):
             test_train_covar = full_covar[n:, :n]
             train_test_covar = full_covar[:n, n:]
 
-            alpha = gpytorch.invmv(train_train_covar, self.variational_parameters.variational_mean)
+            alpha = gpytorch.invmv(train_train_covar, self.variational_mean)
             test_mean = torch.mv(test_train_covar, alpha)
 
-            chol_covar = self.variational_parameters.chol_variational_covar
+            chol_covar = self.chol_variational_covar
             variational_covar = chol_covar.t().mm(chol_covar)
 
             test_covar = variational_covar - train_train_covar
@@ -84,21 +84,22 @@ class _VariationalGPPosterior(_GPPosterior):
         return GaussianRandomVariable(test_mean, test_covar)
 
     def marginal_log_likelihood(self, output, train_y, num_samples=5):
-        chol_var_covar = self.variational_parameters.chol_variational_covar.triu()
+        chol_var_covar = self.chol_variational_covar.triu()
 
         # Negate each row with a negative diagonal (the Cholesky decomposition
         # of a matrix requires that the diagonal elements be positive).
         chol_var_covar = chol_var_covar.mul(chol_var_covar.diag().sign().unsqueeze(1).expand_as(chol_var_covar).triu())
 
+        print(output)
         inducing_mean, inducing_covar = output.representation()
         num_inducing = len(inducing_mean)
 
         epsilon = Variable(torch.randn(num_inducing, num_samples))
         samples = chol_var_covar.mm(epsilon)
-        samples = samples + self.variational_parameters.variational_mean.unsqueeze(1).expand_as(samples)
+        samples = samples + self.variational_mean.unsqueeze(1).expand_as(samples)
         log_likelihood = self.prior_model.log_probability(samples, train_y)
 
-        kl_divergence = gpytorch.mvn_kl_divergence(self.variational_parameters.variational_mean,
+        kl_divergence = gpytorch.mvn_kl_divergence(self.variational_mean,
                                                    chol_var_covar, inducing_mean, inducing_covar)
 
         return log_likelihood.squeeze() - kl_divergence
