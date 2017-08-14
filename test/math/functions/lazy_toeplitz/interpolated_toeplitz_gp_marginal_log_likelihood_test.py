@@ -1,10 +1,8 @@
 import torch
-import gpytorch
 import math
 from gpytorch.math.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch import utils
-from gpytorch.utils import LinearCG, StochasticLQ
 from gpytorch.utils.toeplitz import index_coef_to_sparse
 from torch.autograd import Variable
 
@@ -30,9 +28,11 @@ def test_toeplitz_gp_marginal_log_likelihood_forward():
     chol_T = torch.potrf(WTW)
     log_det_actual = chol_T.diag().log().sum() * 2
 
-    actual = -0.5*(log_det_actual + quad_form_actual + math.log(2 * math.pi) * len(y))
+    actual = -0.5 * (log_det_actual + quad_form_actual + math.log(2 * math.pi) * len(y))
 
-    res = InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right, num_samples=1000)(Variable(c), Variable(y), Variable(noise)).data
+    res = InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right, num_samples=1000)(Variable(c),
+                                                                                         Variable(y),
+                                                                                         Variable(noise)).data
     assert all(torch.abs((res - actual) / actual) < 0.05)
 
 
@@ -45,7 +45,6 @@ def test_toeplitz_gp_marginal_log_likelihood_backward():
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1), log_lengthscale=Variable(torch.Tensor([-4])))
 
     c = Variable(covar_x.c.data, requires_grad=True)
-
 
     W_left = index_coef_to_sparse(covar_x.J_left, covar_x.C_left, len(c))
     W_right = index_coef_to_sparse(covar_x.J_right, covar_x.C_right, len(c))
@@ -63,7 +62,7 @@ def test_toeplitz_gp_marginal_log_likelihood_backward():
     quad_form_actual = y.dot(WTW.inverse().matmul(y))
     log_det_actual = _det(WTW).log()
 
-    actual_nll = -0.5*(log_det_actual + quad_form_actual + math.log(2 * math.pi) * len(y))
+    actual_nll = -0.5 * (log_det_actual + quad_form_actual + math.log(2 * math.pi) * len(y))
     actual_nll.backward()
 
     actual_c_grad = c.grad.data
@@ -92,12 +91,12 @@ def _det(A):
         return A[0, 0]
 
     det = A[0, 0] * _det(A[1:, 1:])
-    det += math.pow(-1, n-1)*(A[0, -1] * _det(A[1:, :-1]))
-    for i in range(1,n-1):
+    det += math.pow(-1, n - 1) * (A[0, -1] * _det(A[1:, :-1]))
+    for i in range(1, n - 1):
         const = A[0, i]
         lower_left = A[1:, :i]
-        lower_right = A[1:, i+1:]
+        lower_right = A[1:, i + 1:]
         matrix = torch.cat((lower_left, lower_right), 1)
-        det += const*math.pow(-1, i)*_det(matrix)
+        det += const * math.pow(-1, i) * _det(matrix)
 
     return det
