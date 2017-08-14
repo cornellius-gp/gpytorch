@@ -23,7 +23,7 @@ In addition, you will need libfftw3 (>= 3.3.6) installed on your machine. This c
 sudo apt-get install libfftw3-3
 ```
 
-If you install libfftw3 from source, be sure to configure with `--enable-shared`. Our build script by default looks for libraries in `/usr/local/lib`, which is the default installation
+If you install libfftw3 from source, be sure to run `configure` with `--enable-shared`. Our build script by default looks for libraries in `/usr/local/lib`, which is the default installation
 location for libfftw3. If it is installed elsewhere, however, be sure to either add the new location to your `LD_LIBRARY_PATH` environment variable, or add the new location to `build.py` in
 `library_dirs`.
 
