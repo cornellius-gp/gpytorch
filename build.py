@@ -7,7 +7,7 @@ sources = ['gpytorch/csrc/fft.c']
 defines = []
 with_cuda = False
 libraries = ['fftw3']
-library_dirs = []
+library_dirs = ['/usr/local/lib']
 
 if torch.cuda.is_available():
     cuda_home = os.getenv('CUDA_HOME') or '/usr/local/cuda'
