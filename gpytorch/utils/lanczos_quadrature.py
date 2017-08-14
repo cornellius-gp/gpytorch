@@ -60,13 +60,20 @@ class StochasticLQ(object):
             beta[k] = beta_k
             Q[:, k] = u
 
-            if math.fabs(beta[k]) < 1e-5:
+
+            if math.fabs(beta[k]) < 1e-4 or math.fabs(alpha[k]) < 1e-4:
                 break
 
-        alpha = alpha[:k + 1]
-        beta = beta[1:k + 1]
-        Q = Q[:, :k + 1]
-        T = torch.diag(alpha) + torch.diag(beta, 1) + torch.diag(beta, -1)
+        if k == 1:
+            T = alpha[:k].unsqueeze(1)
+            Q = Q[:, :k]
+        else:
+            alpha = alpha[:k]
+            beta = beta[1:k]
+
+            Q = Q[:, :k]
+            T = torch.diag(alpha) + torch.diag(beta, 1) + torch.diag(beta, -1)
+        
         return Q, T
 
     def _lanczos_step(self, u, v, mv_closure, Q):
@@ -132,7 +139,8 @@ class StochasticLQ(object):
             # O(n^2) time/convergence with QR iteration,
             # or O(n log n) with fast multipole (TODO).
             [f, Y] = T.symeig(eigenvectors=True)
+
             for i, func in enumerate(funcs):
-                results[i] = results[i] + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(func(f)))
+                results[i] = results[i] + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(func(f + 1e-5)))
 
         return results
