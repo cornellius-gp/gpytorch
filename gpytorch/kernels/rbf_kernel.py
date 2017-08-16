@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from torch.autograd import Function, Variable
 from .kernel import Kernel
 
@@ -43,7 +44,12 @@ class RBFFunction(Function):
 
 
 class RBFKernel(Kernel):
-    def forward(self, x1, x2, log_lengthscale):
+    def __init__(self, log_lengthscale_bounds=(-10000, 10000)):
+        super(RBFKernel, self).__init__()
+        self.register_parameter('log_lengthscale', nn.Parameter(torch.zeros(1, 1)),
+                                bounds=log_lengthscale_bounds)
+
+    def forward(self, x1, x2):
         n, _ = x1.size()
         m, _ = x2.size()
-        return RBFFunction(x1, x2)(log_lengthscale.expand(n, m))
+        return RBFFunction(x1, x2)(self.log_lengthscale.expand(n, m))

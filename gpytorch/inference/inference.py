@@ -59,7 +59,7 @@ class Inference(object):
         likelihood = self.gp_model.likelihood
         if isinstance(likelihood, GaussianLikelihood):
             output = self.gp_model.forward(*train_x, **kwargs)
-            if len(output) == 2 and isinstance(output[0], GaussianRandomVariable):
+            if isinstance(output, GaussianRandomVariable):
                 if isinstance(self.gp_model, _ExactGPPosterior):
                     raise RuntimeError('Updating existing GP posteriors is not yet supported.')
                 else:

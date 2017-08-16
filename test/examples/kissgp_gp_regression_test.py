@@ -1,7 +1,7 @@
 import math
 import torch
 import gpytorch
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean
@@ -20,19 +20,16 @@ test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
 class KissGPModel(gpytorch.GPModel):
     def __init__(self):
-        super(KissGPModel, self).__init__(GaussianLikelihood())
-        self.mean_module = ConstantMean()
-        covar_module = RBFKernel()
+        likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
+        super(KissGPModel, self).__init__(likelihood)
+        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
+        covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
         self.grid_covar_module = GridInterpolationKernel(covar_module, 50)
-        self.register_parameter('log_noise', nn.Parameter(torch.Tensor([-2])), bounds=(-5, 5)),
-        self.register_parameter('log_lengthscale', nn.Parameter(torch.Tensor([0])), bounds=(-3, 5)),
 
     def forward(self, x):
-        mean_x = self.mean_module(x, constant=Variable(torch.Tensor([0])))
-        covar_x = self.grid_covar_module(x, log_lengthscale=self.log_lengthscale)
-
-        latent_pred = GaussianRandomVariable(mean_x, covar_x)
-        return latent_pred, self.log_noise
+        mean_x = self.mean_module(x)
+        covar_x = self.grid_covar_module(x)
+        return GaussianRandomVariable(mean_x, covar_x)
 
 
 def test_kissgp_gp_mean_abs_error():

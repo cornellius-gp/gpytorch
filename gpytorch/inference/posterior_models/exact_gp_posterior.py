@@ -46,7 +46,7 @@ class _ExactGPPosterior(_GPPosterior):
             full_inputs = [torch.cat([train_x_var, input]) for train_x_var, input in zip(train_x_vars, inputs)]
         else:
             full_inputs = inputs
-        gaussian_rv_output, log_noise = self.prior_model.forward(*full_inputs, **params)
+        gaussian_rv_output = self.prior_model.forward(*full_inputs, **params)
         full_mean, full_covar = gaussian_rv_output.representation()
 
         # If there's data, use it
@@ -54,23 +54,24 @@ class _ExactGPPosterior(_GPPosterior):
             # Get mean/covar components
             train_mean = full_mean[:n]
             test_mean = full_mean[n:]
-            train_train_covar = gpytorch.add_diag(full_covar[:n, :n], log_noise.exp())
+            train_train_covar = gpytorch.add_diag(full_covar[:n, :n], self.likelihood.log_noise.exp())
             train_test_covar = full_covar[:n, n:]
             test_train_covar = full_covar[n:, :n]
             test_test_covar = full_covar[n:, n:]
 
             if hasattr(self, 'alpha') and self.alpha is not None:
-                GRV, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
-                                                     train_train_covar, train_test_covar, test_train_covar, self.alpha)
+                output, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
+                                                        train_train_covar, train_test_covar, test_train_covar,
+                                                        self.alpha)
             else:
-                GRV, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
-                                                     train_train_covar, train_test_covar, test_train_covar)
+                output, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
+                                                        train_train_covar, train_test_covar, test_train_covar)
 
             self.alpha = alpha
         else:
-            GRV = GaussianRandomVariable(full_mean, full_covar)
+            output = GaussianRandomVariable(full_mean, full_covar)
 
-        return GRV, log_noise
+        return output
 
     def marginal_log_likelihood(self, output, train_y):
         mean, covar = output.representation()

@@ -1,7 +1,7 @@
 import math
 import torch
 import gpytorch
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, IndexKernel
 from gpytorch.means import ConstantMean
@@ -25,28 +25,18 @@ test_y2 = Variable(torch.cos(test_x.data * (2 * math.pi)))
 
 class MultitaskGPModel(gpytorch.GPModel):
     def __init__(self):
-        super(MultitaskGPModel, self).__init__(GaussianLikelihood())
-        self.mean_module = ConstantMean()
-        self.covar_module = RBFKernel()
-        self.task_covar_module = IndexKernel()
-        self.register_parameter('constant_mean', nn.Parameter(torch.randn(1)), bounds=(-1, 1))
-        self.register_parameter('log_noise', nn.Parameter(torch.randn(1)), bounds=(-6, 6))
-        self.register_parameter('log_lengthscale', nn.Parameter(torch.randn(1)), bounds=(-6, 6))
-        self.register_parameter('task_matrix', nn.Parameter(torch.randn(2, 1)), bounds=(-6, 6))
-        self.register_parameter('task_log_vars', nn.Parameter(torch.randn(2)), bounds=(-6, 6))
+        likelihood = GaussianLikelihood(log_noise_bounds=(-6, 6))
+        super(MultitaskGPModel, self).__init__(likelihood)
+        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
+        self.covar_module = RBFKernel(log_lengthscale_bounds=(-6, 6))
+        self.task_covar_module = IndexKernel(n_tasks=2, rank=1, covar_factor_bounds=(-6, 6), log_var_bounds=(-6, 6))
 
     def forward(self, x, i):
-        mean_x = self.mean_module(x, constant=self.constant_mean)
-
-        covar_x = self.covar_module(x, log_lengthscale=self.log_lengthscale)
-        covar_i = self.task_covar_module(i,
-                                         index_covar_factor=self.task_matrix,
-                                         index_log_var=self.task_log_vars)
-
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        covar_i = self.task_covar_module(i)
         covar_xi = covar_x.mul(covar_i)
-
-        latent_pred = GaussianRandomVariable(mean_x, covar_xi)
-        return latent_pred, self.log_noise
+        return GaussianRandomVariable(mean_x, covar_xi)
 
 
 def test_multitask_gp_mean_abs_error():
