@@ -1,7 +1,7 @@
 import math
 import torch
 import gpytorch
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import SpectralMixtureKernel
 from gpytorch.means import ConstantMean
@@ -20,23 +20,20 @@ test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 class SpectralMixtureGPModel(gpytorch.GPModel):
     def __init__(self):
-        super(SpectralMixtureGPModel, self).__init__(GaussianLikelihood())
-        self.mean_module = ConstantMean()
-        self.covar_module = SpectralMixtureKernel()
-        self.register_parameter('log_noise', nn.Parameter(torch.Tensor([-2])), bounds=(-5, 5))
-        self.register_parameter('log_mixture_weights', nn.Parameter(torch.zeros(3)), bounds=(-5, 5))
-        self.register_parameter('log_mixture_means', nn.Parameter(torch.zeros(3)), bounds=(-5, 5))
-        self.register_parameter('log_mixture_scales', nn.Parameter(torch.zeros(3)), bounds=(-5, 5))
+        likelihood = GaussianLikelihood(log_noise_bounds=(-5, 5))
+        super(SpectralMixtureGPModel, self).__init__(likelihood)
+        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
+        self.covar_module = SpectralMixtureKernel(
+            n_mixtures=3,
+            log_mixture_weight_bounds=(-5, 5),
+            log_mixture_mean_bounds=(-5, 5),
+            log_mixture_scale_bounds=(-5, 5),
+        )
 
     def forward(self, x):
-        mean_x = self.mean_module(x, constant=Variable(torch.Tensor([0])))
-        covar_x = self.covar_module(x,
-                                    log_mixture_weights=self.log_mixture_weights,
-                                    log_mixture_means=self.log_mixture_means,
-                                    log_mixture_scales=self.log_mixture_scales)
-
-        latent_pred = GaussianRandomVariable(mean_x, covar_x)
-        return latent_pred, self.log_noise
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return GaussianRandomVariable(mean_x, covar_x)
 
 
 prior_gp_model = SpectralMixtureGPModel()

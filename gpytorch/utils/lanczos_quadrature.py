@@ -60,7 +60,6 @@ class StochasticLQ(object):
             beta[k] = beta_k
             Q[:, k] = u
 
-
             if math.fabs(beta[k]) < 1e-4 or math.fabs(alpha[k]) < 1e-4:
                 break
 
@@ -73,7 +72,7 @@ class StochasticLQ(object):
 
             Q = Q[:, :k]
             T = torch.diag(alpha) + torch.diag(beta, 1) + torch.diag(beta, -1)
-        
+
         return Q, T
 
     def _lanczos_step(self, u, v, mv_closure, Q):

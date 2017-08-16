@@ -47,23 +47,75 @@ class Module(nn.Module):
             raise AttributeError(
                 "cannot assign parameter before Module.__init__() call")
         super(Module, self).register_parameter(name, param)
+        # Get bound
+        lower_bound_tensor = param.data.new().resize_as_(param.data)
+        upper_bound_tensor = param.data.new().resize_as_(param.data)
+        self._bounds[name] = (lower_bound_tensor, upper_bound_tensor)
+        kwargs = {}
+        kwargs[name] = bounds
+        self.set_bounds(**kwargs)
 
-        # Set bounds
-        lower_bound, upper_bound = bounds
-        if torch.is_tensor(lower_bound) and torch.is_tensor(upper_bound):
-            if lower_bound.size() != upper_bound.size() or \
-                    lower_bound.size() != param.size():
-                raise AttributeError('Lower bound, upper bound, and param should have the same size')
-            self._bounds[name] = (lower_bound, upper_bound)
-        elif (isinstance(lower_bound, int) or isinstance(lower_bound, float)) and \
-                (isinstance(upper_bound, int) or isinstance(upper_bound, float)):
-            lower_bound_tensor = param.data.new().resize_as_(param.data).fill_(lower_bound)
-            upper_bound_tensor = param.data.new().resize_as_(param.data).fill_(upper_bound)
-            self._bounds[name] = (lower_bound_tensor, upper_bound_tensor)
-        else:
-            raise AttributeError('Unsupported argument types for parameter %s' % name)
+    def initialize(self, **kwargs):
+        """
+        Set a value for a parameter
+
+        kwargs: (param_name, value) - parameter to initialize
+        Value can take the form of a tensor, a float, or an int
+        """
+        for name, val in kwargs.items():
+            if name not in self._parameters:
+                raise AttributeError('Unknown parameter %s for %s' % (name, self.__class__.__name__))
+            if torch.is_tensor(val):
+                self.__getattr__(name).data.copy_(val)
+            elif isinstance(val, float) or isinstance(val, int):
+                self.__getattr__(name).data.fill_(val)
+            else:
+                raise AttributeError('Type %s not valid to initialize parameter %s' % (type(val), name))
+
+            # Ensure initializion is within bounds
+            param = self._parameters[name]
+            lower_bound, upper_bound = self._bounds[name]
+            lower_mask = param.data < lower_bound
+            if any(lower_mask.view(-1)):
+                raise AttributeError('Parameter %s exceeds lower bound' % name)
+            upper_mask = param.data > upper_bound
+            if any(upper_mask.view(-1)):
+                raise AttributeError('Parameter %s exceeds upper bound' % name)
+        return self
+
+    def set_bounds(self, **kwargs):
+        """
+        Set bounds for a parameter
+
+        kwargs: (param_name, value) - parameter to initialize
+        Value can take the form of a tensor, a float, or an int
+        """
+        for name, bounds in kwargs.items():
+            if name not in self._parameters:
+                raise AttributeError('Unknown parameter %s for %s' % (name, self.__class__.__name__))
+            param = self._parameters[name]
+            # Set bounds
+            lower_bound, upper_bound = bounds
+            if torch.is_tensor(lower_bound) and torch.is_tensor(upper_bound):
+                if lower_bound.size() != upper_bound.size() or \
+                        lower_bound.size() != param.size():
+                    raise AttributeError('Lower bound, upper bound, and param should have the same size')
+                self._bounds[name][0].copy_(lower_bound)
+                self._bounds[name][1].copy_(upper_bound)
+            elif (isinstance(lower_bound, int) or isinstance(lower_bound, float)) and \
+                    (isinstance(upper_bound, int) or isinstance(upper_bound, float)):
+                self._bounds[name][0].fill_(lower_bound)
+                self._bounds[name][1].fill_(upper_bound)
+            else:
+                raise AttributeError('Unsupported argument types for parameter %s' % name)
+        return self
 
     def bound_for(self, name):
+        """
+        Get bounds for parameter
+
+        name (str): parameter name
+        """
         if '.' in name:
             module, name = name.split('.', 1)
             if module in self._modules:

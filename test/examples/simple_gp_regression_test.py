@@ -1,7 +1,7 @@
 import math
 import torch
 import gpytorch
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
 from gpytorch.means import ConstantMean
@@ -19,27 +19,22 @@ test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 class ExactGPModel(gpytorch.GPModel):
     def __init__(self):
-        super(ExactGPModel, self).__init__(GaussianLikelihood())
-        self.mean_module = ConstantMean()
-        self.covar_module = RBFKernel()
-
-        self.register_parameter('constant_mean', nn.Parameter(torch.Tensor([0])), bounds=(-1, 1))
-        self.register_parameter('log_noise', nn.Parameter(torch.Tensor([0])), bounds=(-5, 5))
-        self.register_parameter('log_lengthscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 5))
+        likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
+        super(ExactGPModel, self).__init__(likelihood)
+        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
+        self.covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
 
     def forward(self, x):
-        log_lengthscale = self.log_lengthscale
-        mean_x = self.mean_module(x, constant=self.constant_mean)
-        covar_x = self.covar_module(x, log_lengthscale=log_lengthscale)
-        latent_pred = GaussianRandomVariable(mean_x, covar_x)
-        return latent_pred, self.log_noise
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return GaussianRandomVariable(mean_x, covar_x)
 
 
 def test_gp_prior_and_likelihood():
     prior_gp_model = ExactGPModel()
-    prior_gp_model.log_lengthscale.data.fill_(0)  # This shouldn't really do anything now
-    prior_gp_model.constant_mean.data.fill_(1)  # Let's have a mean of 1
-    prior_gp_model.log_noise.data.fill_(math.log(0.5))
+    prior_gp_model.covar_module.initialize(log_lengthscale=0)  # This shouldn't really do anything now
+    prior_gp_model.mean_module.initialize(constant=1)  # Let's have a mean of 1
+    prior_gp_model.likelihood.initialize(log_noise=math.log(0.5))
 
     # Let's see how our model does, not conditioned on any data
     # The GP prior should predict mean of 1, with a variance of 1
@@ -56,12 +51,12 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
     # We're manually going to set the hyperparameters to be ridiculous
     prior_gp_model = ExactGPModel()
     # Update bounds to accomodate extreme parameters
-    prior_gp_model.bound_for('log_lengthscale')[0].fill_(-10)
-    prior_gp_model.bound_for('log_noise')[0].fill_(-10)
+    prior_gp_model.covar_module.set_bounds(log_lengthscale=(-10, 10))
+    prior_gp_model.likelihood.set_bounds(log_noise=(-10, 10))
     # Update parameters
-    prior_gp_model.log_lengthscale.data.fill_(-10)  # This shouldn't really do anything now
-    prior_gp_model.constant_mean.data.fill_(0)
-    prior_gp_model.log_noise.data.fill_(-10)
+    prior_gp_model.covar_module.initialize(log_lengthscale=-10)
+    prior_gp_model.mean_module.initialize(constant=0)
+    prior_gp_model.likelihood.initialize(log_noise=-10)
 
     # Compute posterior distribution
     infer = Inference(prior_gp_model)
@@ -84,9 +79,9 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
 def test_posterior_latent_gp_and_likelihood_with_optimization():
     # We're manually going to set the hyperparameters to something they shouldn't be
     prior_gp_model = ExactGPModel()
-    prior_gp_model.log_lengthscale.data.fill_(1)
-    prior_gp_model.constant_mean.data.fill_(0)
-    prior_gp_model.log_noise.data.fill_(1)
+    prior_gp_model.covar_module.initialize(log_lengthscale=1)
+    prior_gp_model.mean_module.initialize(constant=0)
+    prior_gp_model.likelihood.initialize(log_noise=1)
 
     # Compute posterior distribution
     infer = Inference(prior_gp_model)

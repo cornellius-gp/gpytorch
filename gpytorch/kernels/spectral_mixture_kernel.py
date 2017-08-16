@@ -1,10 +1,21 @@
-import torch
 import math
+import torch
+from torch import nn
 from .kernel import Kernel
 
 
 class SpectralMixtureKernel(Kernel):
-    def forward(self, x1, x2, log_mixture_weights, log_mixture_means, log_mixture_scales):
+    def __init__(self, n_mixtures, log_mixture_weight_bounds=(-100, 100),
+                 log_mixture_mean_bounds=(-100, 100), log_mixture_scale_bounds=(-100, 100)):
+        super(SpectralMixtureKernel, self).__init__()
+        self.register_parameter('log_mixture_weights', nn.Parameter(torch.zeros(n_mixtures)),
+                                bounds=log_mixture_weight_bounds)
+        self.register_parameter('log_mixture_means', nn.Parameter(torch.zeros(n_mixtures)),
+                                bounds=log_mixture_mean_bounds)
+        self.register_parameter('log_mixture_scales', nn.Parameter(torch.zeros(n_mixtures)),
+                                bounds=log_mixture_scale_bounds)
+
+    def forward(self, x1, x2):
         n, d = x1.size()
         m, _ = x2.size()
 
@@ -15,9 +26,9 @@ class SpectralMixtureKernel(Kernel):
                 'use a product of SM kernels, one for each dimension.'
             ]))
 
-        mixture_weights = log_mixture_weights.exp()
-        mixture_means = log_mixture_means.exp()
-        mixture_scales = log_mixture_scales.mul(2).exp_()
+        mixture_weights = self.log_mixture_weights.exp()
+        mixture_means = self.log_mixture_means.exp()
+        mixture_scales = self.log_mixture_scales.mul(2).exp_()
 
         sq_distance = torch.mm(x1, x2.transpose(0, 1)).mul_(2)
 
