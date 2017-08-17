@@ -44,3 +44,6 @@ To run the unit tests:
 ```bash
 python -m pytest
 ```
+
+## Acknowledgements
+Development of GPyTorch is supported by funding from the [Bill and Melinda Gates foundation](https://www.gatesfoundation.org/).
