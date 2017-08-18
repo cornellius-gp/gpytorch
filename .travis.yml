@@ -8,6 +8,10 @@ addons:
     packages:
         libfftw3-dev
 
+branches:
+  only:
+    - master
+
 before_install:
   - sudo apt-get update
 install:
