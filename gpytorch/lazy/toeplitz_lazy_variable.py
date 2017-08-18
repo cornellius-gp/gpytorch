@@ -88,7 +88,8 @@ class ToeplitzLazyVariable(LazyVariable):
         lead to memory issues. As a result, using it should be a last resort.
         """
 
-        if self.J_left is not None: n_left = len(self.J_left)
+        if self.J_left is not None:
+            n_left = len(self.J_left)
             n_right = len(self.J_right)
             W_left = toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
             W_right = toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
