@@ -243,14 +243,14 @@ def _variational_predict(n, full_covar, variational_mean, chol_variational_covar
     test_train_covar = full_covar[n:, :n]
     train_test_covar = full_covar[:n, n:]
     if isinstance(test_train_covar, LazyVariable):
-        test_covar = chol_variational_covar.t().mm(chol_variational_covar)
-        test_covar = add_jitter(test_covar)
 
         W_right = index_coef_to_sparse(train_test_covar.J_right, train_test_covar.C_right, len(train_test_covar.c))
         W_left = index_coef_to_sparse(test_train_covar.J_left, test_train_covar.C_left, len(test_train_covar.c))
 
-        test_covar = dsmm(W_right, test_covar.t()).t()
-        test_covar = dsmm(W_left, test_covar)
+        test_covar_right = dsmm(W_right, chol_variational_covar.t()).t()
+        test_covar_left = dsmm(W_left, chol_variational_covar.t())
+
+        test_covar = test_covar_left.mm(test_covar_right)
 
         test_mean = dsmm(W_left, variational_mean.unsqueeze(1)).squeeze()
 
