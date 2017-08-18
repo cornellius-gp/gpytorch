@@ -77,7 +77,6 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
-
     def mul(self, constant):
         """
         Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,
