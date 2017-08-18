@@ -12,7 +12,7 @@ def test_forward():
 
     res = gpytorch.dsmm(Variable(sparse), dense)
     actual = torch.mm(Variable(sparse.to_dense()), dense)
-    assert(torch.norm(res.data - actual.data) < 1e-7)
+    assert(torch.norm(res.data - actual.data) < 1e-5)
 
 
 def test_backward():
@@ -28,4 +28,4 @@ def test_backward():
     res.backward(grad_output)
     actual = torch.mm(Variable(sparse.to_dense()), dense_copy)
     actual.backward(grad_output)
-    assert(torch.norm(dense.grad.data - dense_copy.grad.data) < 1e-7)
+    assert(torch.norm(dense.grad.data - dense_copy.grad.data) < 1e-5)
