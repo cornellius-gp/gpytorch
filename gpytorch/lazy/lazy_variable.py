@@ -1,22 +1,25 @@
 class LazyVariable(object):
+    def add_diag(self, diag):
+        """
+        Adds an element to the diagonal of the matrix.
+
+        Args:
+            - diag (Scalar Variable)
+        """
+        raise NotImplementedError
+
+    def add_jitter_(self):
+        """
+        Adds jitter (i.e., a small diagonal component) to the matrix this LazyVariable represents.
+        This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
+        so this should only be done at the user's risk.
+        """
+
     def evaluate(self):
         """
         Explicitly evaluates the matrix this LazyVariable represents. This
         function should return a Variable explicitly wrapping a Tensor storing
         an exact representation of this LazyVariable.
-        """
-        raise NotImplementedError
-
-    def add_diag(self, diag):
-        """
-        Adds a diagonal component to this lazy variable in a potentially lazy fashion.
-        That is, if this lazy variable represents some matrix A, add_diag should return
-        a LazyVariable of the same type that represents A+dI.
-
-        Args:
-            - diag (scalar) - diagonal component to add.
-        Returns:
-            - LazyVariable representing this current LazyVariable plus diag*I.
         """
         raise NotImplementedError
 
@@ -29,22 +32,6 @@ class LazyVariable(object):
             - target (vector n) - training label vector to be used in the marginal log likelihood calculation.
         Returns:
             - scalar - The GP marginal log likelihood where (K+\sigma^{2}I) is represented by this LazyVariable.
-        """
-        raise NotImplementedError
-
-    def mvn_kl_divergence(self, mean_1, chol_covar_1, mean_2):
-        """
-        Computes the KL divergence between two multivariate Normal distributions. The first of these
-        distributions is specified by mean_1 and chol_covar_1, while the second distribution is specified
-        by mean_2 and this LazyVariable.
-
-        Args:
-            - mean_1 (vector n) - Mean vector of the first Gaussian distribution.
-            - chol_covar_1 (matrix n x n) - Cholesky factorization of the covariance matrix of the first Gaussian
-                                            distribution.
-            - mean_2 (vector n) - Mean vector of the second Gaussian distribution.
-        Returns:
-            - KL divergence between N(mean_1, chol_covar_1) and N(mean_2, self)
         """
         raise NotImplementedError
 
@@ -66,10 +53,46 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
-    def add_jitter_(self):
+    def mvn_kl_divergence(self, mean_1, chol_covar_1, mean_2):
         """
-        Adds jitter (i.e., a small diagonal component) to the matrix this LazyVariable represents.
-        This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
-        so this should only be done at the user's risk.
+        Computes the KL divergence between two multivariate Normal distributions. The first of these
+        distributions is specified by mean_1 and chol_covar_1, while the second distribution is specified
+        by mean_2 and this LazyVariable.
+
+        Args:
+            - mean_1 (vector n) - Mean vector of the first Gaussian distribution.
+            - chol_covar_1 (matrix n x n) - Cholesky factorization of the covariance matrix of the first Gaussian
+                                            distribution.
+            - mean_2 (vector n) - Mean vector of the second Gaussian distribution.
+        Returns:
+            - KL divergence between N(mean_1, chol_covar_1) and N(mean_2, self)
         """
+        raise NotImplementedError
+
+    def exact_posterior_alpha(self, train_mean, train_y):
+        """
+        Assumes that self represents the train-train prior covariance matrix.
+
+        Returns alpha - a vector to memoize for calculating the
+        mean of the posterior GP on test points
+
+        Args:
+            - train_mean (Variable n) - prior mean values for the test points.
+            - train_y (Variable n) - alpha vector, computed from exact_posterior_alpha
+        """
+
+    def exact_posterior_mean(self, test_mean, alpha):
+        """
+        Assumes that self represents the test-train prior covariance matrix.
+
+        Returns the mean of the posterior GP on test points, given
+        prior means/covars
+
+        Args:
+            - test_mean (Variable m) - prior mean values for the test points.
+            - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
+        """
+        raise NotImplementedError
+
+    def __getitem__(self, index):
         raise NotImplementedError

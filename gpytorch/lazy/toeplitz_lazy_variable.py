@@ -6,11 +6,14 @@ from .lazy_variable import LazyVariable
 from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood, \
     ToeplitzTraceLogDetQuadForm
 from ..utils import function_factory
-from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse
+from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm
 
 
-def _mm_closure_factory(W_left, W_right, c):
-    return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right)
+def _mm_closure_factory(W_left, W_right, c, added_diag=None):
+    if W_left is None and W_right is None and added_diag is None:
+        return lambda mat2: sym_toeplitz_mm(c, mat2)
+    else:
+        return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right, added_diag)
 
 
 _mm_class = function_factory.mm_factory(_mm_closure_factory, grad_fn=None)
@@ -97,9 +100,16 @@ class ToeplitzLazyVariable(LazyVariable):
         Returns:
             - matrix nxk - (self)^{-1} rhs_mat
         """
-        W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-        W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
-        return _invmm_class(W_test_left, W_test_right)(self.c, rhs_mat)
+        W_test_left = None
+        W_test_right = None
+        added_diag = self.added_diag
+        if self.J_left is not None and self.C_left is not None:
+            W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
+        if self.J_right is not None and self.C_right is not None:
+            W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
+        if added_diag is None:
+            added_diag = Variable(torch.zeros(1))
+        return _invmm_class(W_test_left, W_test_right)(self.c, added_diag, rhs_mat)
 
     def mm(self, rhs_mat):
         """
@@ -111,9 +121,16 @@ class ToeplitzLazyVariable(LazyVariable):
         Returns:
             - matrix nxk
         """
-        W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-        W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
-        return _mm_class(W_test_left, W_test_right)(self.c, rhs_mat)
+        W_test_left = None
+        W_test_right = None
+        added_diag = self.added_diag
+        if self.J_left is not None and self.C_left is not None:
+            W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
+        if self.J_right is not None and self.C_right is not None:
+            W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
+        if added_diag is None:
+            added_diag = Variable(torch.zeros(1))
+        return _mm_class(W_test_left, W_test_right)(self.c, added_diag, rhs_mat)
 
     def mul(self, constant):
         """
@@ -164,7 +181,7 @@ class ToeplitzLazyVariable(LazyVariable):
 
         return WTW_diag
 
-    def gp_marginal_log_likelihood(self, target):
+    def exact_gp_marginal_log_likelihood(self, target):
         W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
         W_right = Variable(toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
         noise_diag = self.added_diag
@@ -196,6 +213,19 @@ class ToeplitzLazyVariable(LazyVariable):
 
         return ToeplitzLazyVariable(self.c, self.inducing_points, self.J_left, self.C_left,
                                     self.J_right, self.C_right, toeplitz_diag)
+
+    def exact_posterior_alpha(self, train_mean, train_y):
+        train_residual = (train_y - train_mean).unsqueeze(1)
+        alpha = self.invmm(train_residual)
+        W_train_right = Variable(index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
+        alpha = gpytorch.dsmm(W_train_right.t(), alpha)
+        alpha = ToeplitzLazyVariable(self.c).mm(alpha)
+        return alpha.squeeze()
+
+    def exact_posterior_mean(self, test_mean, alpha):
+        alpha = alpha.unsqueeze(1)
+        W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
+        return test_mean.add(gpytorch.dsmm(W_test_left, alpha).squeeze())
 
     def __getitem__(self, i):
         if isinstance(i, tuple):

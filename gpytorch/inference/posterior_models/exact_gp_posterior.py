@@ -11,6 +11,9 @@ class _ExactGPPosterior(_GPPosterior):
         super(_ExactGPPosterior, self).__init__(prior_model.likelihood)
         self.prior_model = prior_model
 
+        # Alpha cache - for computing mean
+        self.alpha = None
+
         # Buffers for conditioning on data
         if train_xs is not None and train_y is not None:
             self.update_data(train_xs, train_y)
@@ -33,6 +36,9 @@ class _ExactGPPosterior(_GPPosterior):
             self.train_y.resize_as_(train_y).copy_(train_y)
         else:
             self.register_buffer('train_y', train_y)
+
+        # Reset alpha cache
+        self.alpha = None
         return self
 
     def forward(self, *inputs, **params):
@@ -59,15 +65,13 @@ class _ExactGPPosterior(_GPPosterior):
             test_train_covar = full_covar[n:, :n]
             test_test_covar = full_covar[n:, n:]
 
-            if hasattr(self, 'alpha') and self.alpha is not None:
-                output, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
-                                                        train_train_covar, train_test_covar, test_train_covar,
-                                                        self.alpha)
-            else:
-                output, alpha = gpytorch._exact_predict(test_mean, test_test_covar, self.train_y, train_mean,
-                                                        train_train_covar, train_test_covar, test_train_covar)
-
-            self.alpha = alpha
+            # Calculate posterior components
+            if self.alpha is None:
+                self.alpha = gpytorch.exact_posterior_alpha(train_train_covar, train_mean, Variable(self.train_y))
+            test_mean = gpytorch.exact_posterior_mean(test_train_covar, test_mean, self.alpha)
+            test_covar = gpytorch.exact_posterior_covar(test_test_covar, test_train_covar,
+                                                        train_test_covar, train_train_covar)
+            output = GaussianRandomVariable(test_mean, test_covar)
         else:
             output = GaussianRandomVariable(full_mean, full_covar)
 
