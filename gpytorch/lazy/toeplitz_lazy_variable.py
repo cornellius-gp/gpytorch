@@ -1,18 +1,28 @@
-from torch.autograd import Variable
 import torch
+import gpytorch
+from torch.autograd import Variable
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
+from ..utils import function_factory
+from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse
+
+
+def _mm_closure_factory(W_left, W_right, c):
+    return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right)
+
+
+_mm_class = function_factory.mm_factory(_mm_closure_factory)
+_invmm_class = function_factory.invmm_factory(_mm_closure_factory)
 
 
 class ToeplitzLazyVariable(LazyVariable):
-    def __init__(self, c, r, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
-        if not isinstance(c, Variable) or not isinstance(r, Variable):
+    def __init__(self, c, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
+        if not isinstance(c, Variable):
             raise RuntimeError('ToeplitzLazyVariable is intended to wrap Variable versions of \
                                 the first column and row.')
 
         self.c = c
-        self.r = r
         self.J_left = J_left
         self.C_left = C_left
         self.J_right = J_right
@@ -35,16 +45,16 @@ class ToeplitzLazyVariable(LazyVariable):
             W_left = toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
             W_right = toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
             if n_left <= n_right:
-                W_left_T = self.explicit_interpolate_T(self.J_left, self.C_left).data
-                WTW = torch.dsmm(W_right, W_left_T.t()).t()
+                W_left_T = self.explicit_interpolate_T(self.J_left, self.C_left)
+                WTW = gpytorch.dsmm(Variable(W_right), W_left_T.t()).t()
             else:
-                W_right_T = self.explicit_interpolate_T(self.J_right, self.C_right).data
-                WTW = torch.dsmm(W_left, W_right_T.t())
+                W_right_T = self.explicit_interpolate_T(self.J_right, self.C_right)
+                WTW = gpytorch.dsmm(Variable(W_left), W_right_T.t())
         else:
-            WTW = toeplitz.toeplitz(self.c.data, self.r.data)
+            WTW = toeplitz.sym_toeplitz(self.c.data)
 
         if self.added_diag is not None:
-            WTW = WTW + torch.diag(self.added_diag.data)
+            WTW = WTW + torch.diag(self.added_diag)
 
         return WTW
 
@@ -70,10 +80,20 @@ class ToeplitzLazyVariable(LazyVariable):
                 entry = 0
                 for k in range(num_coefficients):
                     row = J[i, k]
-                    entry += C[i, k] * toeplitz.toeplitz_getitem(self.c, self.r, row, j)
+                    entry += C[i, k] * toeplitz.sym_toeplitz_getitem(self.c, row, j)
                 result_matrix[i, j] = entry
 
         return result_matrix
+
+    def invmm(self, rhs_mat):
+        W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
+        W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
+        return _invmm_class(W_test_left, W_test_right)(self.c, rhs_mat)
+
+    def mm(self, rhs_mat):
+        W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
+        W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
+        return _mm_class(W_test_left, W_test_right)(self.c, rhs_mat)
 
     def mul(self, constant):
         """
@@ -86,7 +106,7 @@ class ToeplitzLazyVariable(LazyVariable):
         Returns:
             - ToeplitzLazyVariable with c = c*(constant)
         """
-        return ToeplitzLazyVariable(self.c.mul(constant), self.r.mul(constant), self.J_left, self.C_left,
+        return ToeplitzLazyVariable(self.c.mul(constant), self.J_left, self.C_left,
                                     self.J_right, self.C_right, self.added_diag)
 
     def mul_(self, constant):
@@ -94,7 +114,6 @@ class ToeplitzLazyVariable(LazyVariable):
         In-place version of mul.
         """
         self.c.mul_(constant)
-        self.r.mul_(constant)
 
     def diag(self):
         """
@@ -134,7 +153,7 @@ class ToeplitzLazyVariable(LazyVariable):
         else:
             toeplitz_diag = diag.expand_as(self.c)
 
-        return ToeplitzLazyVariable(self.c, self.r, self.J_left, self.C_left,
+        return ToeplitzLazyVariable(self.c, self.J_left, self.C_left,
                                     self.J_right, self.C_right, toeplitz_diag)
 
     def __getitem__(self, i):
@@ -158,19 +177,18 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(self.c, self.r, J_left_new, C_left_new, J_right_new, C_right_new, diag_new)
+                return ToeplitzLazyVariable(self.c, J_left_new, C_left_new, J_right_new, C_right_new, diag_new)
             else:
-                r_new = self.r[i[0]]
-                c_new = self.c[i[1]]
-                if len(r_new) != len(c_new):
+                if i[0] != i[1]:
                     raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
                                         unintended. If that was the intent, use evaluate() and slice the full matrix.')
+                c_new = self.c[i[1]]
                 if self.added_diag is not None:
                     diag_new = self.added_diag[i[0]]
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(c_new, r_new, diag=diag_new)
+                return ToeplitzLazyVariable(c_new, diag=diag_new)
         else:
             if self.J_left is not None:
                 J_left_new = self.J_left[i]
@@ -180,7 +198,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(self.c, self.r, J_left_new, C_left_new,
+                return ToeplitzLazyVariable(self.c, J_left_new, C_left_new,
                                             self.J_right, self.C_right, diag_new)
             else:
                 raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \

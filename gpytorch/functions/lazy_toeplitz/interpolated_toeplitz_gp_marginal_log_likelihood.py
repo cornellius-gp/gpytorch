@@ -1,8 +1,7 @@
 import math
 import torch
 from gpytorch.utils import LinearCG, StochasticLQ
-from gpytorch.utils.toeplitz import interpolated_toeplitz_mul, \
-    sym_toeplitz_derivative_quadratic_form
+from gpytorch.utils.toeplitz import interpolated_sym_toeplitz_mul, sym_toeplitz_derivative_quadratic_form
 from torch.autograd import Function, Variable
 
 
@@ -22,7 +21,7 @@ class InterpolatedToeplitzGPMarginalLogLikelihood(Function):
 
     def forward(self, c, y, noise_diag):
         def mv_closure(v):
-            return interpolated_toeplitz_mul(c, v, self.W_left, self.W_right, noise_diag)
+            return interpolated_sym_toeplitz_mul(c, v, self.W_left, self.W_right, noise_diag)
 
         self.save_for_backward(c, y, noise_diag)
 

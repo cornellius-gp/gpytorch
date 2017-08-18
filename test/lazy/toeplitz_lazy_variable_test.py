@@ -27,7 +27,7 @@ class Model(gpytorch.GPModel):
 prior_observation_model = Model()
 pred = prior_observation_model(x)
 lazy_toeplitz_var = pred.covar()
-T = utils.toeplitz.toeplitz(lazy_toeplitz_var.c.data, lazy_toeplitz_var.r.data)
+T = utils.toeplitz.sym_toeplitz(lazy_toeplitz_var.c.data)
 W_left = utils.toeplitz.index_coef_to_sparse(lazy_toeplitz_var.J_left,
                                              lazy_toeplitz_var.C_left,
                                              len(lazy_toeplitz_var.c))

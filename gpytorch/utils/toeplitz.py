@@ -101,6 +101,19 @@ def toeplitz_getitem(toeplitz_column, toeplitz_row, i, j):
         return toeplitz_column[index]
 
 
+def sym_toeplitz_getitem(toeplitz_column, i, j):
+    """
+    Gets the (i,j)th entry of a symmetric Toeplitz matrix T.
+    Args:
+        - toeplitz_column (vector n) - column of symmetric Toeplitz matrix
+        - i (scalar) - row of entry to get
+        - j (scalar) - column of entry to get
+    Returns:
+        - T[i,j], where T is the Toeplitz matrix specified by c and r.
+    """
+    return toeplitz_getitem(toeplitz_column, toeplitz_column, i, j)
+
+
 def toeplitz_mm(toeplitz_column, toeplitz_row, matrix):
     """
     Performs a matrix-matrix multiplication TM where the matrix T is Toeplitz.
@@ -153,6 +166,18 @@ def toeplitz_mm(toeplitz_column, toeplitz_row, matrix):
     res = fft.ifft1(fft_product, (num_rhs, 2 * orig_size - 1)).t()
     res = res[:orig_size, :]
     return res
+
+
+def sym_toeplitz_mm(toeplitz_column, matrix):
+    """
+    Performs a matrix-matrix multiplication TM where the matrix T is symmetric Toeplitz.
+    Args:
+        - toeplitz_column (vector n) - First column of the symmetric Toeplitz matrix T.
+        - matrix (matrix n x p) - Matrix to multiply the Toeplitz matrix with.
+    Returns:
+        - Matrix (n x p) - The result of the matrix-vector multiply TM.
+    """
+    return toeplitz_mm(toeplitz_column, toeplitz_column, matrix)
 
 
 def toeplitz_mv(toeplitz_column, toeplitz_row, vector):
@@ -208,7 +233,19 @@ def toeplitz_mv(toeplitz_column, toeplitz_row, vector):
     return res
 
 
-def interpolated_toeplitz_mul(toeplitz_column, vector, W_left=None, W_right=None, noise_diag=None):
+def sym_toeplitz_mv(toeplitz_column, vector):
+    """
+    Performs a matrix-vector multiplication Tv where the matrix T is symmetric Toeplitz.
+    Args:
+        - toeplitz_column (vector n) - First column of the symmetric Toeplitz matrix T.
+        - vector (matrix n) - vector to multiply the Toeplitz matrix with.
+    Returns:
+        - vector (n) - The result of the matrix-vector multiply Tv.
+    """
+    return toeplitz_mv(toeplitz_column, toeplitz_column, vector)
+
+
+def interpolated_sym_toeplitz_mul(toeplitz_column, vector, W_left=None, W_right=None, noise_diag=None):
     """
     Given a interpolated symmetric Toeplitz matrix W_left*T*W_right, plus possibly an additional
     diagonal component s*I, compute a product with some vector or matrix vector.

@@ -5,9 +5,9 @@ from .lazy import LazyVariable, ToeplitzLazyVariable
 from .random_variables import GaussianRandomVariable
 from .module import Module
 from .gp_model import GPModel
-from .functions import AddDiag, ExactGPMarginalLogLikelihood, NormalCDF, LogNormalCDF
+from .functions import AddDiag, DSMM, ExactGPMarginalLogLikelihood, NormalCDF, LogNormalCDF
 from .utils import LinearCG, function_factory
-from .utils.toeplitz import index_coef_to_sparse, interpolated_toeplitz_mul, toeplitz_mv
+from .utils.toeplitz import index_coef_to_sparse, interpolated_sym_toeplitz_mul, sym_toeplitz_mv
 
 
 __all__ = [
@@ -44,6 +44,10 @@ def add_diag(input, diag):
         return input.add_diag(diag)
     else:
         return AddDiag()(input, diag)
+
+
+def dsmm(sparse_mat, dense_mat):
+    return DSMM(sparse_mat)(dense_mat)
 
 
 def exact_gp_marginal_log_likelihood(covar, target):
@@ -186,9 +190,6 @@ def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
         W_test_left = index_coef_to_sparse(test_train_covar.J_left,
                                            test_train_covar.C_left,
                                            len(test_train_covar.c))
-        W_test_right = index_coef_to_sparse(test_train_covar.J_right,
-                                            test_train_covar.C_right,
-                                            len(test_train_covar.c))
         W_train_left = index_coef_to_sparse(train_train_covar.J_left,
                                             train_train_covar.C_left,
                                             len(train_train_covar.c))
@@ -198,25 +199,22 @@ def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
         noise_diag = train_train_covar.added_diag
 
         def train_mul_closure(v):
-            return interpolated_toeplitz_mul(train_train_covar.c.data, v, W_train_left, W_train_right, noise_diag.data)
-
-        def test_train_mul_closure(v):
-            return interpolated_toeplitz_mul(test_train_covar.c.data, v, W_test_left, W_test_right)
+            return interpolated_sym_toeplitz_mul(train_train_covar.c.data, v,
+                                                 W_train_left, W_train_right, noise_diag.data)
 
         # Update test mean
         if alpha is None:
             alpha = LinearCG().solve(train_mul_closure, train_y - train_mean.data).unsqueeze(1)
             alpha = torch.dsmm(W_train_right.t(), alpha).squeeze()
-            alpha = toeplitz_mv(train_train_covar.c.data, train_train_covar.c.data, alpha).unsqueeze(1)
+            alpha = sym_toeplitz_mv(train_train_covar.c.data, alpha).unsqueeze(1)
 
         test_mean = Variable(test_mean.data.add(torch.dsmm(W_test_left, alpha).squeeze()))
 
         # TODO: Add a diagonal only mode / use implicit math
         train_test_covar = train_test_covar.evaluate()
+        test_train_covar = train_test_covar.t()
         test_test_covar = test_test_covar.evaluate()
 
-        test_test_covar_correction = test_train_mul_closure(LinearCG().solve(train_mul_closure, train_test_covar))
-        test_test_covar = Variable(test_test_covar.sub(test_test_covar_correction))
     else:
         train_y_var = Variable(train_y)
         if alpha is None:
@@ -224,8 +222,8 @@ def _exact_predict(test_mean, test_test_covar, train_y, train_mean,
 
         test_mean = test_mean.add(torch.mv(test_train_covar, alpha))
 
-        # Update test-test covar
-        test_test_covar_correction = torch.mm(test_train_covar, invmm(train_train_covar, train_test_covar))
-        test_test_covar = test_test_covar.sub(test_test_covar_correction)
+    # Update test-test covar
+    test_test_covar_correction = test_train_covar.mm(invmm(train_train_covar, train_test_covar))
+    test_test_covar = test_test_covar.sub(test_test_covar_correction)
 
     return GaussianRandomVariable(test_mean, test_test_covar), alpha

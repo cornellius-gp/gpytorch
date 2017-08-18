@@ -2,21 +2,6 @@ import torch
 from gpytorch import utils
 
 
-def test_toeplitz_constructs_tensor_from_vectors():
-    c = torch.Tensor([1, 6, 4, 5])
-    r = torch.Tensor([1, 2, 3, 7])
-
-    res = utils.toeplitz.toeplitz(c, r)
-    actual = torch.Tensor([
-        [1, 2, 3, 7],
-        [6, 1, 2, 3],
-        [4, 6, 1, 2],
-        [5, 4, 6, 1],
-    ])
-
-    assert torch.equal(res, actual)
-
-
 def test_sym_toeplitz_constructs_tensor_from_vector():
     c = torch.Tensor([1, 6, 4, 5])
 
@@ -31,19 +16,18 @@ def test_sym_toeplitz_constructs_tensor_from_vector():
     assert torch.equal(res, actual)
 
 
-def test_toeplitz_getitem():
+def test_sym_toeplitz_getitem():
     c = torch.Tensor([1, 6, 4, 5])
-    r = torch.Tensor([1, 2, 3, 7])
 
-    actual_matrix = torch.Tensor([
-        [1, 2, 3, 7],
-        [6, 1, 2, 3],
-        [4, 6, 1, 2],
+    actual = torch.Tensor([
+        [1, 6, 4, 5],
+        [6, 1, 6, 4],
+        [4, 6, 1, 6],
         [5, 4, 6, 1],
     ])
 
-    actual_entry = actual_matrix[2, 3]
-    res_entry = utils.toeplitz.toeplitz_getitem(c, r, 2, 3)
+    actual_entry = actual[2, 3]
+    res_entry = utils.toeplitz.sym_toeplitz_getitem(c, 2, 3)
     assert res_entry == actual_entry
 
 

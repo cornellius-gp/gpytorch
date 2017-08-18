@@ -55,7 +55,7 @@ def test_toeplitz_gp_marginal_log_likelihood_backward():
     T = Variable(torch.zeros(len(c), len(c)))
     for i in range(len(c)):
         for j in range(len(c)):
-            T[i, j] = utils.toeplitz.toeplitz_getitem(c, c, i, j)
+            T[i, j] = utils.toeplitz.sym_toeplitz_getitem(c, i, j)
 
     WTW = W_left_dense.matmul(T.matmul(W_right_dense.t())) + Variable(torch.eye(len(x))) * noise
 
