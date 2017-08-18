@@ -12,8 +12,8 @@ def _mm_closure_factory(W_left, W_right, c):
     return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right)
 
 
-_mm_class = function_factory.mm_factory(_mm_closure_factory)
-_invmm_class = function_factory.invmm_factory(_mm_closure_factory)
+_mm_class = function_factory.mm_factory(_mm_closure_factory, grad_fn=None)
+_invmm_class = function_factory.invmm_factory(_mm_closure_factory, grad_fn=None)
 
 
 class ToeplitzLazyVariable(LazyVariable):
@@ -86,11 +86,29 @@ class ToeplitzLazyVariable(LazyVariable):
         return result_matrix
 
     def invmm(self, rhs_mat):
+        """
+        Computes a linear solve (w.r.t self) with several right hand sides.
+
+        Args:
+            - rhs_mat (matrix nxk) - Matrix of k right hand side vectors.
+
+        Returns:
+            - matrix nxk - (self)^{-1} rhs_mat
+        """
         W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
         W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
         return _invmm_class(W_test_left, W_test_right)(self.c, rhs_mat)
 
     def mm(self, rhs_mat):
+        """
+        Multiplies self by a matrix
+
+        Args:
+            - rhs_mat (matrix nxk) - Matrix to multiply with
+
+        Returns:
+            - matrix nxk
+        """
         W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
         W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
         return _mm_class(W_test_left, W_test_right)(self.c, rhs_mat)
