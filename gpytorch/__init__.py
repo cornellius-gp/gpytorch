@@ -5,7 +5,7 @@ from .random_variables import GaussianRandomVariable
 from .module import Module
 from .gp_model import GPModel
 from .functions import AddDiag, DSMM, ExactGPMarginalLogLikelihood, \
- NormalCDF, LogNormalCDF, TraceLogDetQuadForm
+    NormalCDF, LogNormalCDF, TraceLogDetQuadForm
 from .utils import LinearCG, function_factory
 from .utils.toeplitz import index_coef_to_sparse, interpolated_sym_toeplitz_mul, sym_toeplitz_mv
 

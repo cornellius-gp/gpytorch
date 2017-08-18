@@ -9,8 +9,6 @@ from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
 from gpytorch.inference import Inference
 
-import pdb
-
 train_x = Variable(torch.linspace(0, 1, 10))
 train_y = Variable(torch.sign(torch.cos(train_x.data * (4 * math.pi))))
 
