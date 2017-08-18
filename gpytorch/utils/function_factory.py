@@ -25,6 +25,9 @@ def invmm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_defaul
             return res
 
         def backward(self, grad_output):
+            if grad_fn is None:
+                raise NotImplementedError
+
             closure_args = self.args + self.saved_tensors[:-2]
             input_1_t_input_2 = self.saved_tensors[-1]
 
@@ -63,6 +66,9 @@ def mm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_default_g
             return res
 
         def backward(self, grad_output):
+            if grad_fn is None:
+                raise NotImplementedError
+
             closure_args = self.args + self.saved_tensors[:-2]
             input_1_t_input_2 = self.saved_tensors[-1]
 
