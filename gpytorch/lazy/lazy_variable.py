@@ -8,7 +8,7 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
-    def add_jitter_(self):
+    def add_jitter(self):
         """
         Adds jitter (i.e., a small diagonal component) to the matrix this LazyVariable represents.
         This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
@@ -35,6 +35,30 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def invmm(self, rhs_mat):
+        """
+        Computes a linear solve (w.r.t self) with several right hand sides.
+
+        Args:
+            - rhs_mat (matrix nxk) - Matrix of k right hand side vectors.
+
+        Returns:
+            - matrix nxk - (self)^{-1} rhs_mat
+        """
+        raise NotImplementedError
+
+    def mm(self, rhs_mat):
+        """
+        Multiplies self by a matrix
+
+        Args:
+            - rhs_mat (matrix nxk) - Matrix to multiply with
+
+        Returns:
+            - matrix nxk
+        """
+        raise NotImplementedError
+
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
         """
         Performs Monte Carlo integration of the provided log_probability function. Typically, this should work by
@@ -53,6 +77,26 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+
+    def mul(self, constant):
+        """
+        Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,
+        we multiply the Toeplitz component by the constant. This way, the interpolation acts on the
+        multiplied values in T, and the entire kernel is ultimately multiplied by this constant.
+
+        Args:
+            - constant (broadcastable with self.c) - Constant to multiply by.
+        Returns:
+            - ToeplitzLazyVariable with c = c*(constant)
+        """
+        raise NotImplementedError
+
+    def mul_(self, constant):
+        """
+        In-place version of mul.
+        """
+        raise NotImplementedError
+
     def mvn_kl_divergence(self, mean_1, chol_covar_1, mean_2):
         """
         Computes the KL divergence between two multivariate Normal distributions. The first of these
@@ -67,6 +111,9 @@ class LazyVariable(object):
         Returns:
             - KL divergence between N(mean_1, chol_covar_1) and N(mean_2, self)
         """
+        raise NotImplementedError
+
+    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
         raise NotImplementedError
 
     def exact_posterior_alpha(self, train_mean, train_y):

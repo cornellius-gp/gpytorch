@@ -35,11 +35,21 @@ def add_diag(input, diag):
         return AddDiag()(input, diag)
 
 
-def add_jitter(covar):
-    if isinstance(covar, LazyVariable):
-        covar.add_jitter_()
+def add_jitter(mat):
+    """
+    Adds "jitter" to the diagonal of a matrix.
+    This ensures that a matrix that *should* be positive definite *is* positive definate.
+
+    Args:
+        - mat (matrix nxn) - Positive definite matrxi
+    Returns: (matrix nxn)
+    """
+    if isinstance(mat, LazyVariable):
+        return mat.add_jitter()
+    elif isinstance(mat, Variable):
+        return mat.add(1e-3 * Variable(torch.eye(len(mat))))
     else:
-        covar.data.add_(1e-3 * torch.eye(len(covar)))
+        return mat.add(1e-3 * torch.eye(len(mat)))
 
 
 def dsmm(sparse_mat, dense_mat):
@@ -234,7 +244,7 @@ def _variational_predict(n, full_covar, variational_mean, chol_variational_covar
     train_test_covar = full_covar[:n, n:]
     if isinstance(test_train_covar, LazyVariable):
         test_covar = chol_variational_covar.t().mm(chol_variational_covar)
-        add_jitter(test_covar)
+        test_covar = add_jitter(test_covar)
 
         W_right = index_coef_to_sparse(train_test_covar.J_right, train_test_covar.C_right, len(train_test_covar.c))
         W_left = index_coef_to_sparse(test_train_covar.J_left, test_train_covar.C_left, len(test_train_covar.c))
@@ -248,7 +258,7 @@ def _variational_predict(n, full_covar, variational_mean, chol_variational_covar
         alpha = None
     else:
         train_train_covar = full_covar[:n, :n]
-        add_jitter(train_train_covar)
+        train_train_covar = add_jitter(train_train_covar)
 
         if alpha is None:
             alpha = invmv(train_train_covar, variational_mean)

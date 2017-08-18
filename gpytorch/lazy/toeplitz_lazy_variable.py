@@ -34,6 +34,50 @@ class ToeplitzLazyVariable(LazyVariable):
         self.C_right = C_right
         self.added_diag = added_diag
 
+    def add_diag(self, diag):
+        if self.J_left is not None:
+            toeplitz_diag = diag.expand(len(self.J_left))
+        else:
+            toeplitz_diag = diag.expand_as(self.c)
+
+        return ToeplitzLazyVariable(self.c, self.inducing_points, self.J_left, self.C_left,
+                                    self.J_right, self.C_right, toeplitz_diag)
+
+    def add_jitter(self):
+        jitter = torch.zeros(len(self.c))
+        jitter[0] = 1e-4
+        return ToeplitzLazyVariable(self.c.add(Variable(jitter)), self.inducing_points, self.J_left, self.C_left,
+                                    self.J_right, self.C_right, self.added_diag)
+
+    def get_inducing_points(self):
+        return self.inducing_points
+
+    def diag(self):
+        """
+        Gets the diagonal of the Toeplitz matrix wrapped by this object.
+
+        By definition of a Toeplitz matrix, every element along the diagonal is equal
+        to c[0] == r[0]. Therefore, we return a vector of length len(self.c) with
+        each element equal to c[0].
+
+        If the interpolation matrices exist, then the diagonal of WTW^{T} is simply
+        W(T_diag)W^{T}.
+        """
+        if self.J_left is not None:
+            if len(self.J_left) != len(self.J_right):
+                raise RuntimeError('diag not supported for non-square interpolated Toeplitz matrices.')
+            WTW_diag = self.c[0].expand(len(self.J_left))
+        else:
+            WTW_diag = self.c[0].expand_as(self.c)
+
+        if self.added_diag is not None:
+            if len(self.added_diag) > len(WTW_diag):
+                raise RuntimeError('Additional diagonal component length does not \
+                                    match the rest of this implicit tensor.')
+            WTW_diag = WTW_diag + self.added_diag
+
+        return WTW_diag
+
     def evaluate(self):
         """
         Explicitly evaluate and return the Toeplitz matrix this object wraps as a float Tensor.
@@ -44,8 +88,7 @@ class ToeplitzLazyVariable(LazyVariable):
         lead to memory issues. As a result, using it should be a last resort.
         """
 
-        if self.J_left is not None:
-            n_left = len(self.J_left)
+        if self.J_left is not None: n_left = len(self.J_left)
             n_right = len(self.J_right)
             W_left = toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
             W_right = toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
@@ -62,6 +105,12 @@ class ToeplitzLazyVariable(LazyVariable):
             WTW = WTW + torch.diag(self.added_diag)
 
         return WTW
+
+    def exact_gp_marginal_log_likelihood(self, target):
+        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
+        W_right = Variable(toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
+        noise_diag = self.added_diag
+        return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right)(self.c, target, noise_diag)
 
     def explicit_interpolate_T(self, J, C):
         """
@@ -132,6 +181,16 @@ class ToeplitzLazyVariable(LazyVariable):
             added_diag = Variable(torch.zeros(1))
         return _mm_class(W_test_left, W_test_right)(self.c, added_diag, rhs_mat)
 
+    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
+        epsilon = Variable(torch.randn(len(self.c), num_samples))
+        samples = chol_var_covar.mm(epsilon)
+        samples = samples + variational_mean.unsqueeze(1).expand_as(samples)
+        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
+        samples = gpytorch.dsmm(W_left, samples)
+        log_likelihood = log_probability_func(samples, train_y)
+
+        return log_likelihood
+
     def mul(self, constant):
         """
         Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,
@@ -150,69 +209,10 @@ class ToeplitzLazyVariable(LazyVariable):
         """
         In-place version of mul.
         """
-        self.c.mul_(constant)
-
-    def get_inducing_points(self):
-        return self.inducing_points
-
-    def diag(self):
-        """
-        Gets the diagonal of the Toeplitz matrix wrapped by this object.
-
-        By definition of a Toeplitz matrix, every element along the diagonal is equal
-        to c[0] == r[0]. Therefore, we return a vector of length len(self.c) with
-        each element equal to c[0].
-
-        If the interpolation matrices exist, then the diagonal of WTW^{T} is simply
-        W(T_diag)W^{T}.
-        """
-        if self.J_left is not None:
-            if len(self.J_left) != len(self.J_right):
-                raise RuntimeError('diag not supported for non-square interpolated Toeplitz matrices.')
-            WTW_diag = self.c[0].expand(len(self.J_left))
-        else:
-            WTW_diag = self.c[0].expand_as(self.c)
-
-        if self.added_diag is not None:
-            if len(self.added_diag) > len(WTW_diag):
-                raise RuntimeError('Additional diagonal component length does not \
-                                    match the rest of this implicit tensor.')
-            WTW_diag = WTW_diag + self.added_diag
-
-        return WTW_diag
-
-    def exact_gp_marginal_log_likelihood(self, target):
-        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
-        W_right = Variable(toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
-        noise_diag = self.added_diag
-        return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right)(self.c, target, noise_diag)
+        return self.c.mul_(constant)
 
     def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
         return ToeplitzTraceLogDetQuadForm(num_samples=num_samples)(mu_diffs, chol_covar_1, self.c)
-
-    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
-        epsilon = Variable(torch.randn(len(self.c), num_samples))
-        samples = chol_var_covar.mm(epsilon)
-        samples = samples + variational_mean.unsqueeze(1).expand_as(samples)
-        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
-        samples = gpytorch.dsmm(W_left, samples)
-        log_likelihood = log_probability_func(samples, train_y)
-
-        return log_likelihood
-
-    def add_jitter_(self):
-        jitter = torch.zeros(len(self.c))
-        jitter[0] = 1e-4
-        self.c.data.add_(jitter)
-
-    def add_diag(self, diag):
-        if self.J_left is not None:
-            toeplitz_diag = diag.expand(len(self.J_left))
-        else:
-            toeplitz_diag = diag.expand_as(self.c)
-
-        return ToeplitzLazyVariable(self.c, self.inducing_points, self.J_left, self.C_left,
-                                    self.J_right, self.C_right, toeplitz_diag)
 
     def exact_posterior_alpha(self, train_mean, train_y):
         train_residual = (train_y - train_mean).unsqueeze(1)

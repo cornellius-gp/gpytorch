@@ -79,7 +79,7 @@ class _VariationalGPPosterior(_GPPosterior):
 
             return f_posterior
         else:
-            gpytorch.add_jitter(full_covar)
+            full_covar = gpytorch.add_jitter(full_covar)
             f_prior = GaussianRandomVariable(full_mean, full_covar)
             return f_prior
 
@@ -94,7 +94,7 @@ class _VariationalGPPosterior(_GPPosterior):
         inducing_output = self.forward(*self.inducing_points)
         inducing_mean = inducing_output.mean()
 
-        gpytorch.add_jitter(train_covar)
+        train_covar = gpytorch.add_jitter(train_covar)
 
         log_likelihood = gpytorch.monte_carlo_log_likelihood(self.prior_model.likelihood.log_probability,
                                                              train_y,
