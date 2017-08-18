@@ -1,4 +1,5 @@
 import torch
+import function_factory
 from torch.autograd import Variable
 from .interpolation import Interpolation
 from .lincg import LinearCG
@@ -54,4 +55,5 @@ __all__ = [
     reverse,
     rcumsum,
     approx_equal,
+    function_factory,
 ]
