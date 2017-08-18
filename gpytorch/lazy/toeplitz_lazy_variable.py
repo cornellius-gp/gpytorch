@@ -3,7 +3,8 @@ import gpytorch
 from torch.autograd import Variable
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
-from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
+from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood, \
+    ToeplitzTraceLogDetQuadForm
 from ..utils import function_factory
 from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse
 
@@ -17,12 +18,13 @@ _invmm_class = function_factory.invmm_factory(_mm_closure_factory, grad_fn=None)
 
 
 class ToeplitzLazyVariable(LazyVariable):
-    def __init__(self, c, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
+    def __init__(self, c, inducing_points=None, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
         if not isinstance(c, Variable):
             raise RuntimeError('ToeplitzLazyVariable is intended to wrap Variable versions of \
                                 the first column and row.')
 
         self.c = c
+        self.inducing_points = inducing_points
         self.J_left = J_left
         self.C_left = C_left
         self.J_right = J_right
@@ -124,7 +126,7 @@ class ToeplitzLazyVariable(LazyVariable):
         Returns:
             - ToeplitzLazyVariable with c = c*(constant)
         """
-        return ToeplitzLazyVariable(self.c.mul(constant), self.J_left, self.C_left,
+        return ToeplitzLazyVariable(self.c.mul(constant), self.inducing_points, self.J_left, self.C_left,
                                     self.J_right, self.C_right, self.added_diag)
 
     def mul_(self, constant):
@@ -132,6 +134,9 @@ class ToeplitzLazyVariable(LazyVariable):
         In-place version of mul.
         """
         self.c.mul_(constant)
+
+    def get_inducing_points(self):
+        return self.inducing_points
 
     def diag(self):
         """
@@ -165,13 +170,31 @@ class ToeplitzLazyVariable(LazyVariable):
         noise_diag = self.added_diag
         return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right)(self.c, target, noise_diag)
 
+    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
+        return ToeplitzTraceLogDetQuadForm(num_samples=num_samples)(mu_diffs, chol_covar_1, self.c)
+
+    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
+        epsilon = Variable(torch.randn(len(self.c), num_samples))
+        samples = chol_var_covar.mm(epsilon)
+        samples = samples + variational_mean.unsqueeze(1).expand_as(samples)
+        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
+        samples = gpytorch.dsmm(W_left, samples)
+        log_likelihood = log_probability_func(samples, train_y)
+
+        return log_likelihood
+
+    def add_jitter_(self):
+        jitter = torch.zeros(len(self.c))
+        jitter[0] = 1e-4
+        self.c.data.add_(jitter)
+
     def add_diag(self, diag):
         if self.J_left is not None:
             toeplitz_diag = diag.expand(len(self.J_left))
         else:
             toeplitz_diag = diag.expand_as(self.c)
 
-        return ToeplitzLazyVariable(self.c, self.J_left, self.C_left,
+        return ToeplitzLazyVariable(self.c, self.inducing_points, self.J_left, self.C_left,
                                     self.J_right, self.C_right, toeplitz_diag)
 
     def __getitem__(self, i):
@@ -195,7 +218,8 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(self.c, J_left_new, C_left_new, J_right_new, C_right_new, diag_new)
+                return ToeplitzLazyVariable(self.c, self.inducing_points, J_left_new, C_left_new,
+                                            J_right_new, C_right_new, diag_new)
             else:
                 if i[0] != i[1]:
                     raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
@@ -206,7 +230,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(c_new, diag=diag_new)
+                return ToeplitzLazyVariable(c_new, self.inducing_points, diag=diag_new)
         else:
             if self.J_left is not None:
                 J_left_new = self.J_left[i]
@@ -216,7 +240,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(self.c, J_left_new, C_left_new,
+                return ToeplitzLazyVariable(self.c, self.inducing_points, J_left_new, C_left_new,
                                             self.J_right, self.C_right, diag_new)
             else:
                 raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \

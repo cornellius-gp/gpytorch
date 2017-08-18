@@ -23,8 +23,8 @@ class LogNormalCDF(Function):
         log_phi_z = torch.zeros(z.size())
 
         # Three cases to handle: An entry of z is near zero, an entry of z is small, or an entry of z neither of these.
-        z_near_zero = z.pow(2).lt(0.0492)
-        z_is_small = z.lt(-3)
+        z_near_zero = z.pow(2).lt(0.04)
+        z_is_small = z.lt(-1)
         z_is_ordinary = (1 - z_near_zero).mul(1 - z_is_small)
 
         # Case 1: Entries of z that are near zero
@@ -62,7 +62,7 @@ class LogNormalCDF(Function):
         z, log_phi_z = self.saved_tensors
         log_phi_z_grad = torch.zeros(z.size())
 
-        z_is_small = z.lt(-3)
+        z_is_small = z.lt(-1)
         z_is_not_small = 1 - z_is_small
 
         if z_is_small.sum() > 0:

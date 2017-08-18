@@ -2,6 +2,7 @@ import gpytorch
 from ..likelihoods import Likelihood, GaussianLikelihood
 from ..random_variables import GaussianRandomVariable
 from .posterior_models import _ExactGPPosterior, _VariationalGPPosterior
+from ..lazy import LazyVariable
 from copy import deepcopy
 from torch.autograd import Variable
 
@@ -34,23 +35,15 @@ class Inference(object):
         # Create posterior model using training data
         train_x = tuple(Variable(state_dict[key], volatile=True) for key in train_x_keys)
         train_y = Variable(state_dict[train_y_keys[0]], volatile=True)
-        posterior_model = self.run(train_x, train_y, inducing_points=None)
+        posterior_model = self.run(train_x, train_y)
 
         # Copy over parameters to posterior model
         posterior_model.load_state_dict(state_dict)
         return posterior_model
 
-    def run_(self, train_x, train_y, inducing_points=None, max_inference_steps=20, **kwargs):
+    def run_(self, train_x, train_y, **kwargs):
         if isinstance(train_x, Variable):
             train_x = (train_x,)
-
-        if inducing_points is None:
-            inducing_points = train_x
-        else:
-            raise RuntimeError('User specified inducing points are not yet supported.')
-
-        if isinstance(inducing_points, Variable):
-            inducing_points = (inducing_points, )
 
         if isinstance(self.gp_model, Likelihood):
             raise RuntimeError('Likelihood should not have an inference engine')
@@ -67,6 +60,13 @@ class Inference(object):
             else:
                 raise RuntimeError('Unknown inference type for observation model:\n%s' % repr(self.gp_model))
         else:
+            output = self.gp_model.forward(*train_x, **kwargs)
+            covar = output.covar()
+            if isinstance(covar, LazyVariable):
+                inducing_points = (covar.get_inducing_points(),)
+            else:
+                inducing_points = train_x
+
             self.gp_model = _VariationalGPPosterior(self.gp_model, inducing_points)
 
         # Add the data

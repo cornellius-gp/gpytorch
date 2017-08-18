@@ -37,7 +37,7 @@ def test_kissgp_gp_mean_abs_error():
 
     # Compute posterior distribution
     infer = Inference(prior_gp_model)
-    posterior_gp_model = infer.run(train_x, train_y, max_inference_steps=1)
+    posterior_gp_model = infer.run(train_x, train_y)
 
     # Optimize the model
     posterior_gp_model.train()

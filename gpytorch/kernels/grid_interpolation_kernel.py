@@ -36,9 +36,6 @@ class GridInterpolationKernel(Kernel):
 
         k_UU = self.base_kernel_module(self.grid[0], self.grid, **kwargs).squeeze()
 
-        K_XX = ToeplitzLazyVariable(k_UU, J1, C1, J2, C2)
-
-        # K_UU = self.base_kernel_module(self.grid, **kwargs)
-        # K_XX = W1.mm(K_UU).mm(W2.t())
+        K_XX = ToeplitzLazyVariable(k_UU, self.grid, J1, C1, J2, C2)
 
         return K_XX
