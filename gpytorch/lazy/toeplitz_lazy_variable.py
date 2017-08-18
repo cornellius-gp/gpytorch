@@ -2,7 +2,7 @@ from torch.autograd import Variable
 import torch
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
-from gpytorch.math.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
+from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
 
 
 class ToeplitzLazyVariable(LazyVariable):

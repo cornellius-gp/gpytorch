@@ -4,7 +4,7 @@ from .lazy import LazyVariable, ToeplitzLazyVariable
 from .random_variables import GaussianRandomVariable
 from .module import Module
 from .gp_model import GPModel
-from .math.functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
+from .functions import AddDiag, ExactGPMarginalLogLikelihood, Invmm, \
     Invmv, NormalCDF, LogNormalCDF, MVNKLDivergence
 from .utils import LinearCG
 from .utils.toeplitz import index_coef_to_sparse, interpolated_toeplitz_mul, toeplitz_mv

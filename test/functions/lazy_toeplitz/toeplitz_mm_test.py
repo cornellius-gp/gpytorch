@@ -1,5 +1,5 @@
 import torch
-from gpytorch.math.functions.lazy_toeplitz import ToeplitzMM
+from gpytorch.functions.lazy_toeplitz import ToeplitzMM
 from gpytorch import utils
 from torch.autograd import Variable
 

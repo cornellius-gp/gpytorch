@@ -1,6 +1,6 @@
 import torch
 import math
-from gpytorch.math.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
+from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch import utils
 from gpytorch.utils.toeplitz import index_coef_to_sparse
