@@ -9,7 +9,7 @@ This package is currently under development, and is likely to change.
 Some things you can do right now:
 
 - Simple GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_gp_regression.ipynb))
-- Simple GP classification (Currently slow. [example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/variational_inference/examples/simple_gp_classification.ipynb))
+- Simple GP classification ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/variational_inference/examples/simple_gp_classification.ipynb))
 - Multitask GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/multitask_gp_regression.ipynb))
 - Extrapolation using the spectral mixture kernel ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/spectral_mixture_gp_regression.ipynb))
 - Scalable GP regression using kernel interpolation ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/kissgp_gp_regression.ipynb))
