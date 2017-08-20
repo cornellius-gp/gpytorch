@@ -228,6 +228,36 @@ class ToeplitzLazyVariable(LazyVariable):
         W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
         return test_mean.add(gpytorch.dsmm(W_test_left, alpha).squeeze())
 
+    def variational_posterior_mean(self, alpha):
+        """
+        Assumes self is the covariance matrix between test and inducing points
+
+        Returns the mean of the posterior GP on test points, given
+        prior means/covars
+
+        Args:
+            - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
+        """
+        W_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
+        return gpytorch.dsmm(W_left, alpha.unsqueeze(1)).squeeze()
+
+    def variational_posterior_covar(self, chol_variational_covar):
+        """
+        Assumes self is the covariance matrix between test and inducing points
+
+        Returns the covar of the posterior GP on test points, given
+        prior covars
+
+        Args:
+            - chol_variational_covar (Variable nxn) - Cholesky decomposition of variational covar
+        """
+        W_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
+        W_right = W_left.t()
+
+        covar_right = gpytorch.dsmm(W_right.t(), chol_variational_covar.t()).t()
+        covar_left = gpytorch.dsmm(W_left, chol_variational_covar.t())
+        return covar_left.mm(covar_right)
+
     def __getitem__(self, i):
         if isinstance(i, tuple):
             if self.J_left is not None:

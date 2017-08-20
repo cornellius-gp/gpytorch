@@ -6,8 +6,6 @@ from .gp_model import GPModel
 from .functions import AddDiag, DSMM, ExactGPMarginalLogLikelihood, \
     NormalCDF, LogNormalCDF, TraceLogDetQuadForm
 from .utils import function_factory
-from .random_variables import GaussianRandomVariable
-from .utils.toeplitz import index_coef_to_sparse
 
 
 _invmm_class = function_factory.invmm_factory()
@@ -239,48 +237,61 @@ def exact_posterior_covar(test_test_covar, test_train_covar, train_test_covar, t
     return test_test_covar.sub(test_test_covar_correction)
 
 
-def _variational_predict(n, full_covar, variational_mean, chol_variational_covar, alpha=None):
-    test_train_covar = full_covar[n:, :n]
-    train_test_covar = full_covar[:n, n:]
-    if isinstance(test_train_covar, LazyVariable):
+def variational_posterior_alpha(induc_induc_covar, variational_mean):
+    """
+    Returns alpha - a vector to memoize for calculating the
+    mean of the posterior GP on test points
 
-        W_right = index_coef_to_sparse(train_test_covar.J_right, train_test_covar.C_right, len(train_test_covar.c))
-        W_left = index_coef_to_sparse(test_train_covar.J_left, test_train_covar.C_left, len(test_train_covar.c))
+    Args:
+        - induc_induc_covar ((Lazy)Variable nxn) - prior covariance matrix between inducing points.
+        - variational_mean (Variable n) - prior variatoinal mean
+    """
+    if isinstance(induc_induc_covar, LazyVariable):
+        return variational_mean
+    return invmv(induc_induc_covar, variational_mean)
 
-        test_covar_right = dsmm(W_right, chol_variational_covar.t()).t()
-        test_covar_left = dsmm(W_left, chol_variational_covar.t())
 
-        test_covar = test_covar_left.mm(test_covar_right)
+def variational_posterior_mean(test_induc_covar, alpha):
+    """
+    Returns the mean of the posterior GP on test points, given
+    prior means/covars
 
-        test_mean = dsmm(W_left, variational_mean.unsqueeze(1)).squeeze()
+    Args:
+        - test_induc_covar ((Lazy)Variable nxm) - prior covariance matrix between
+                                                  test and inducing points.
+        - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
+    """
+    if isinstance(test_induc_covar, LazyVariable):
+        return test_induc_covar.variational_posterior_mean(alpha)
+    return torch.mv(test_induc_covar, alpha)
 
-        f_posterior = GaussianRandomVariable(test_mean, test_covar)
-        alpha = None
-    else:
-        train_train_covar = full_covar[:n, :n]
-        train_train_covar = add_jitter(train_train_covar)
 
-        if alpha is None:
-            alpha = invmv(train_train_covar, variational_mean)
+def variational_posterior_covar(test_induc_covar, induc_test_covar, chol_variational_covar,
+                                test_test_covar, induc_induc_covar):
+    """
+    Returns the covar of the posterior GP on test points, given
+    prior covars
 
-        test_mean = torch.mv(test_train_covar, alpha)
+    Args:
+        - test_induc_covar ((Lazy)Variable nxm) - prior covariance matrix between test and inducing points.
+                                                  Usually, this is simply the transpose of induc_test_covar.
+        - induc_test_covar ((Lazy)Variable nxm) - prior covariance matrix between inducing and test points.
+        - chol_variational_covar (Variable nxn) - Cholesky decomposition of variational covar
+        - test_test_covar ((Lazy)Variable nxm) - prior covariance matrix between test and inducing points.
+                                                 Usually, this is simply the transpose of induc_test_covar.
+        - induc_induc_covar ((Lazy)Variable nxn) - inducing-inducing covariance matrix.
+                                                   Usually takes the form (K+sI), where K is the prior
+                                                   covariance matrix and s is the noise variance.
+    """
+    if isinstance(test_induc_covar, LazyVariable):
+        return test_induc_covar.variational_posterior_covar(chol_variational_covar)
 
-        chol_covar = chol_variational_covar
-        variational_covar = chol_covar.t().mm(chol_covar)
-
-        test_covar = variational_covar - train_train_covar
-
-        # test_covar = K_{mn}K_{nn}^{-1}(S - K_{nn})
-        test_covar = torch.mm(test_train_covar, invmm(train_train_covar, test_covar))
-
-        # right_factor = K_{nn}^{-1}K_{nm}
-        right_factor = invmm(train_train_covar, train_test_covar)
-
-        # test_covar = K_{mn}K_{nn}^{-1}(S - K_{nn})K_{nn}^{-1}K_{nm}
-        test_covar = full_covar[n:, n:] + test_covar.mm(right_factor)
-        f_posterior = GaussianRandomVariable(test_mean, test_covar)
-
-    return f_posterior, alpha
+    # left_factor = K_{mn}K_{nn}^{-1}(S - K_{nn})
+    left_factor = torch.mm(test_induc_covar, invmm(induc_induc_covar, test_test_covar))
+    # right_factor = K_{nn}^{-1}K_{nm}
+    right_factor = invmm(induc_induc_covar, induc_test_covar)
+    # test_test_covar = K_{mm} + K_{mn}K_{nn}^{-1}(S - K_{nn})K_{nn}^{-1}K_{nm}
+    return test_test_covar + left_factor.mm(right_factor)
 
 
 __all__ = [
@@ -300,4 +311,7 @@ __all__ = [
     exact_posterior_alpha,
     exact_posterior_mean,
     exact_posterior_covar,
+    variational_posterior_alpha,
+    variational_posterior_mean,
+    variational_posterior_covar,
 ]

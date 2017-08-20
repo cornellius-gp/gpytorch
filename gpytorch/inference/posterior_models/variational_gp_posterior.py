@@ -28,6 +28,9 @@ class _VariationalGPPosterior(_GPPosterior):
                                 nn.Parameter(chol_covar_init.triu_()),
                                 bounds=(-100, 100))
 
+        # Alpha cache - for computing mean
+        self.register_buffer('alpha', torch.Tensor())
+
     def initialize_variational_parameters(self, var_output):
         mean_init = var_output.mean().data
         chol_covar_init = torch.eye(len(mean_init))
@@ -51,6 +54,9 @@ class _VariationalGPPosterior(_GPPosterior):
             self.train_y.resize_as_(train_y).copy_(train_y)
         else:
             self.register_buffer('train_y', train_y)
+
+        # Reset alpha cache
+        self.alpha.resize_(0)
         return self
 
     def forward(self, *inputs, **params):
@@ -65,19 +71,27 @@ class _VariationalGPPosterior(_GPPosterior):
         full_mean, full_covar = gaussian_rv_output.representation()
 
         if not self.training:
-            if hasattr(self, 'alpha') and self.alpha is not None:
-                f_posterior, alpha = gpytorch._variational_predict(self.num_inducing,
-                                                                   full_covar,
-                                                                   self.variational_mean,
-                                                                   self.chol_variational_covar,
-                                                                   self.alpha)
-            else:
-                f_posterior, alpha = gpytorch._variational_predict(self.num_inducing,
-                                                                   full_covar,
-                                                                   self.variational_mean,
-                                                                   self.chol_variational_covar)
+            # Get mean/covar components
+            n = self.num_inducing
+            test_mean = full_mean[n:]
+            induc_induc_covar = full_covar[:n, :n]
+            induc_test_covar = full_covar[:n, n:]
+            test_induc_covar = full_covar[n:, :n]
+            test_test_covar = full_covar[n:, n:]
 
-            return f_posterior
+            # Calculate posterior components
+            if self.alpha.numel():
+                alpha = Variable(self.alpha)
+            else:
+                alpha = gpytorch.variational_posterior_alpha(induc_induc_covar, self.variational_mean)
+                self.alpha.resize_as_(alpha.data).copy_(alpha.data)
+            test_mean = gpytorch.variational_posterior_mean(test_induc_covar, alpha)
+            test_covar = gpytorch.variational_posterior_covar(test_induc_covar, induc_test_covar,
+                                                              self.chol_variational_covar, test_test_covar,
+                                                              induc_induc_covar)
+            output = GaussianRandomVariable(test_mean, test_covar)
+            return output
+
         else:
             full_covar = gpytorch.add_jitter(full_covar)
             f_prior = GaussianRandomVariable(full_mean, full_covar)

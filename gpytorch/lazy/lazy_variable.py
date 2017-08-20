@@ -126,6 +126,7 @@ class LazyVariable(object):
             - train_mean (Variable n) - prior mean values for the test points.
             - train_y (Variable n) - alpha vector, computed from exact_posterior_alpha
         """
+        raise NotImplementedError
 
     def exact_posterior_mean(self, test_mean, alpha):
         """
@@ -137,6 +138,30 @@ class LazyVariable(object):
         Args:
             - test_mean (Variable m) - prior mean values for the test points.
             - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
+        """
+        raise NotImplementedError
+
+    def variational_posterior_mean(self, alpha):
+        """
+        Assumes self is the covariance matrix between test and inducing points
+
+        Returns the mean of the posterior GP on test points, given
+        prior means/covars
+
+        Args:
+            - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
+        """
+        raise NotImplementedError
+
+    def variational_posterior_covar(self):
+        """
+        Assumes self is the covariance matrix between test and inducing points
+
+        Returns the covar of the posterior GP on test points, given
+        prior covars
+
+        Args:
+            - chol_variational_covar (Variable nxn) - Cholesky decomposition of variational covar
         """
         raise NotImplementedError
 
