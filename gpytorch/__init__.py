@@ -207,7 +207,7 @@ def exact_posterior_mean(test_train_covar, test_mean, alpha):
     """
     if isinstance(test_train_covar, LazyVariable):
         return test_train_covar.exact_posterior_mean(test_mean, alpha)
-    return test_mean.add(torch.mv(test_train_covar, alpha))
+    return torch.addmv(test_mean, test_train_covar, alpha)
 
 
 def exact_posterior_covar(test_test_covar, test_train_covar, train_test_covar, train_train_covar):

@@ -12,7 +12,7 @@ class _ExactGPPosterior(_GPPosterior):
         self.prior_model = prior_model
 
         # Alpha cache - for computing mean
-        self.alpha = None
+        self.register_buffer('alpha', torch.Tensor())
 
         # Buffers for conditioning on data
         if train_xs is not None and train_y is not None:
@@ -38,7 +38,7 @@ class _ExactGPPosterior(_GPPosterior):
             self.register_buffer('train_y', train_y)
 
         # Reset alpha cache
-        self.alpha = None
+        self.alpha.resize_(0)
         return self
 
     def forward(self, *inputs, **params):
@@ -66,9 +66,12 @@ class _ExactGPPosterior(_GPPosterior):
             test_test_covar = full_covar[n:, n:]
 
             # Calculate posterior components
-            if self.alpha is None:
-                self.alpha = gpytorch.exact_posterior_alpha(train_train_covar, train_mean, Variable(self.train_y))
-            test_mean = gpytorch.exact_posterior_mean(test_train_covar, test_mean, self.alpha)
+            if self.alpha.numel():
+                alpha = Variable(self.alpha)
+            else:
+                alpha = gpytorch.exact_posterior_alpha(train_train_covar, train_mean, Variable(self.train_y))
+                self.alpha.resize_as_(alpha.data).copy_(alpha.data)
+            test_mean = gpytorch.exact_posterior_mean(test_train_covar, test_mean, alpha)
             test_covar = gpytorch.exact_posterior_covar(test_test_covar, test_train_covar,
                                                         train_test_covar, train_train_covar)
             output = GaussianRandomVariable(test_mean, test_covar)
