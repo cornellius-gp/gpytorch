@@ -5,19 +5,8 @@ from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood, \
     ToeplitzTraceLogDetQuadForm
-from ..utils import function_factory
+from ..utils import sparse_eye
 from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm
-
-
-def _mm_closure_factory(W_left, W_right, c, added_diag=None):
-    if W_left is None and W_right is None and added_diag is None:
-        return lambda mat2: sym_toeplitz_mm(c, mat2)
-    else:
-        return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right, added_diag)
-
-
-_mm_class = function_factory.mm_factory(_mm_closure_factory, grad_fn=None)
-_invmm_class = function_factory.invmm_factory(_mm_closure_factory, grad_fn=None)
 
 
 class ToeplitzLazyVariable(LazyVariable):
@@ -33,6 +22,17 @@ class ToeplitzLazyVariable(LazyVariable):
         self.J_right = J_right
         self.C_right = C_right
         self.added_diag = added_diag
+
+    @staticmethod
+    def _mm_closure_factory(*args):
+        if len(args) == 1:
+            c, = args
+            return lambda mat2: sym_toeplitz_mm(c, mat2)
+        elif len(args) == 4:
+            c, W_left, W_right, added_diag = args
+            return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right, added_diag)
+        else:
+            raise AttributeError('Invalid number of arguments')
 
     def add_diag(self, diag):
         if self.J_left is not None:
@@ -140,48 +140,6 @@ class ToeplitzLazyVariable(LazyVariable):
 
         return result_matrix
 
-    def invmm(self, rhs_mat):
-        """
-        Computes a linear solve (w.r.t self) with several right hand sides.
-
-        Args:
-            - rhs_mat (matrix nxk) - Matrix of k right hand side vectors.
-
-        Returns:
-            - matrix nxk - (self)^{-1} rhs_mat
-        """
-        W_test_left = None
-        W_test_right = None
-        added_diag = self.added_diag
-        if self.J_left is not None and self.C_left is not None:
-            W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-        if self.J_right is not None and self.C_right is not None:
-            W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
-        if added_diag is None:
-            added_diag = Variable(torch.zeros(1))
-        return _invmm_class(W_test_left, W_test_right)(self.c, added_diag, rhs_mat)
-
-    def mm(self, rhs_mat):
-        """
-        Multiplies self by a matrix
-
-        Args:
-            - rhs_mat (matrix nxk) - Matrix to multiply with
-
-        Returns:
-            - matrix nxk
-        """
-        W_test_left = None
-        W_test_right = None
-        added_diag = self.added_diag
-        if self.J_left is not None and self.C_left is not None:
-            W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-        if self.J_right is not None and self.C_right is not None:
-            W_test_right = index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
-        if added_diag is None:
-            added_diag = Variable(torch.zeros(1))
-        return _mm_class(W_test_left, W_test_right)(self.c, added_diag, rhs_mat)
-
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
         epsilon = Variable(torch.randn(len(self.c), num_samples))
         samples = chol_var_covar.mm(epsilon)
@@ -211,6 +169,25 @@ class ToeplitzLazyVariable(LazyVariable):
         In-place version of mul.
         """
         return self.c.mul_(constant)
+
+    def representation(self):
+        if self.J_left is None and self.C_left is None and self.J_right is None \
+                and self.C_right is None and self.added_diag is None:
+            return self.c,
+
+        if self.J_left is not None and self.C_left is not None:
+            W_left = Variable(index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
+        else:
+            W_left = Variable(sparse_eye(len(self.c)))
+        if self.J_right is not None and self.C_right is not None:
+            W_right = Variable(index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
+        else:
+            W_right = Variable(sparse_eye(len(self.c)))
+        if self.added_diag is not None:
+            added_diag = self.added_diag
+        else:
+            added_diag = Variable(torch.zeros(1))
+        return self.c, W_left, W_right, added_diag
 
     def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
         return ToeplitzTraceLogDetQuadForm(num_samples=num_samples)(mu_diffs, chol_covar_1, self.c)

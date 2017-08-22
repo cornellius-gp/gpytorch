@@ -47,6 +47,15 @@ def approx_equal(self, other, epsilon=1e-4):
     return torch.max((self - other).abs()) <= epsilon
 
 
+def sparse_eye(size):
+    """
+    Returns the identity matrix as a sparse matrix
+    """
+    indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
+    values = torch.Tensor([1]).expand(size)
+    return torch.sparse.FloatTensor(indices, values, torch.Size([size, size]))
+
+
 __all__ = [
     Interpolation,
     LinearCG,

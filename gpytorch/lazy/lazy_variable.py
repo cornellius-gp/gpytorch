@@ -1,4 +1,22 @@
+from ..utils import function_factory
+
+
 class LazyVariable(object):
+    @staticmethod
+    def _mm_closure_factory(self, *args):
+        """
+        Generates a closure that performs a *tensor* matrix multiply
+        The closure will take in a *tensor* matrix (not variable) and return the
+        result of a matrix multiply with the lazy variable.
+
+        The arguments into the closure factory are the *tensors* corresponding to
+        the Variables in self.representation()
+
+        Returns:
+        function(tensor (nxn)) - closure that performs a matrix multiply
+        """
+        raise NotImplementedError
+
     def add_diag(self, diag):
         """
         Adds an element to the diagonal of the matrix.
@@ -45,7 +63,11 @@ class LazyVariable(object):
         Returns:
             - matrix nxk - (self)^{-1} rhs_mat
         """
-        raise NotImplementedError
+        if not hasattr(self, '_invmm_class'):
+            grad_fn = self._grad_fn if hasattr(self, '_grad_fn') else None
+            self._invmm_class = function_factory.invmm_factory(self._mm_closure_factory, grad_fn)
+        args = list(self.representation()) + [rhs_mat]
+        return self._invmm_class()(*args)
 
     def mm(self, rhs_mat):
         """
@@ -57,7 +79,11 @@ class LazyVariable(object):
         Returns:
             - matrix nxk
         """
-        raise NotImplementedError
+        if not hasattr(self, '_mm_class'):
+            grad_fn = self._grad_fn if hasattr(self, '_grad_fn') else None
+            self._mm_class = function_factory.mm_factory(self._mm_closure_factory, grad_fn)
+        args = list(self.representation()) + [rhs_mat]
+        return self._mm_class()(*args)
 
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
         """
@@ -109,6 +135,12 @@ class LazyVariable(object):
             - mean_2 (vector n) - Mean vector of the second Gaussian distribution.
         Returns:
             - KL divergence between N(mean_1, chol_covar_1) and N(mean_2, self)
+        """
+        raise NotImplementedError
+
+    def representation(self, *args):
+        """
+        Returns the variables that are used to define the LazyVariable
         """
         raise NotImplementedError
 
