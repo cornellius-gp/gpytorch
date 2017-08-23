@@ -13,6 +13,8 @@ class _VariationalGPPosterior(_GPPosterior):
 
         self.inducing_points = inducing_points
         self.num_inducing = len(self.inducing_points[0])
+        # Alpha cache - for computing mean
+        self.register_buffer('alpha', torch.Tensor())
 
         if train_xs is not None and train_y is not None:
             self.update_data(train_xs, train_y)
@@ -27,9 +29,6 @@ class _VariationalGPPosterior(_GPPosterior):
         self.register_parameter('chol_variational_covar',
                                 nn.Parameter(chol_covar_init.triu_()),
                                 bounds=(-100, 100))
-
-        # Alpha cache - for computing mean
-        self.register_buffer('alpha', torch.Tensor())
 
     def initialize_variational_parameters(self, var_output):
         mean_init = var_output.mean().data
