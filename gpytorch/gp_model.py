@@ -25,6 +25,8 @@ class GPModel(gpytorch.Module):
         self.grid_size = grid_size
         self.inducing_points = Variable(torch.linspace(0 - grid_diff, 1 + grid_diff, grid_size))
 
+        return self
+
     def __call__(self, *args, **kwargs):
         output = super(GPModel, self).__call__(*args, **kwargs)
         if isinstance(output, Variable) or isinstance(output, RandomVariable) or isinstance(output, LazyVariable):

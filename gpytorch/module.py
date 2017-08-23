@@ -149,6 +149,7 @@ class Module(nn.Module):
     def initialize_interpolation_grid(self, grid_size):
         for module in self.children():
             module.initialize_interpolation_grid(grid_size)
+        return self
 
     def __getattr__(self, name):
         if '_parameters' in self.__dict__:

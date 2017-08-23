@@ -21,6 +21,8 @@ class GridInterpolationKernel(Kernel):
         self.grid_size = grid_size
         self.grid = Variable(torch.linspace(0 - grid_diff, 1 + grid_diff, grid_size))
 
+        return self
+
     def forward(self, x1, x2, **kwargs):
         n, d = x1.size()
         m, _ = x2.size()
