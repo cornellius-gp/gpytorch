@@ -10,6 +10,7 @@ class GPModel(gpytorch.Module):
         super(GPModel, self).__init__()
         self._parameter_groups = {}
         self.likelihood = likelihood
+        self.inducing_points = None
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
