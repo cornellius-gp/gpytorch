@@ -9,19 +9,20 @@ def test_toeplitz_mvn_kl_divergence_forward():
     x = Variable(torch.linspace(0, 1, 5))
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
-    covar_module = GridInterpolationKernel(rbf_covar, 10)
+    covar_module = GridInterpolationKernel(rbf_covar)
+    covar_module.initialize_interpolation_grid(10)
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
 
     c = Variable(covar_x.c.data, requires_grad=True)
-    mu1 = Variable(torch.randn(12), requires_grad=True)
-    mu2 = Variable(torch.randn(12), requires_grad=True)
+    mu1 = Variable(torch.randn(10), requires_grad=True)
+    mu2 = Variable(torch.randn(10), requires_grad=True)
 
     T = Variable(torch.zeros(len(c), len(c)))
     for i in range(len(c)):
         for j in range(len(c)):
             T[i, j] = utils.toeplitz.toeplitz_getitem(c, c, i, j)
 
-    U = torch.randn(12, 12).triu()
+    U = torch.randn(10, 10).triu()
     U = Variable(U.mul(U.diag().sign().unsqueeze(1).expand_as(U).triu()), requires_grad=True)
 
     actual = gpytorch.mvn_kl_divergence(mu1, U, mu2, T, num_samples=1000)
@@ -35,20 +36,21 @@ def test_toeplitz_mvn_kl_divergence_backward():
     x = Variable(torch.linspace(0, 1, 5))
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
-    covar_module = GridInterpolationKernel(rbf_covar, 10)
+    covar_module = GridInterpolationKernel(rbf_covar)
+    covar_module.initialize_interpolation_grid(10)
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
     covar_x.c = Variable(covar_x.c.data, requires_grad=True)
 
     c = covar_x.c
-    mu1 = Variable(torch.randn(12), requires_grad=True)
-    mu2 = Variable(torch.randn(12), requires_grad=True)
+    mu1 = Variable(torch.randn(10), requires_grad=True)
+    mu2 = Variable(torch.randn(10), requires_grad=True)
 
     T = Variable(torch.zeros(len(c), len(c)))
     for i in range(len(c)):
         for j in range(len(c)):
             T[i, j] = utils.toeplitz.toeplitz_getitem(c, c, i, j)
 
-    U = torch.randn(12, 12).triu()
+    U = torch.randn(10, 10).triu()
     U = Variable(U.mul(U.diag().sign().unsqueeze(1).expand_as(U).triu()), requires_grad=True)
 
     actual = gpytorch.mvn_kl_divergence(mu1, U, mu2, T)
