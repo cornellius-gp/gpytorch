@@ -61,13 +61,7 @@ class Inference(object):
                 raise RuntimeError('Unknown inference type for observation model:\n%s' % repr(self.gp_model))
         else:
             output = self.gp_model.forward(*train_x, **kwargs)
-            covar = output.covar()
-            if isinstance(covar, LazyVariable):
-                inducing_points = (covar.get_inducing_points(),)
-            else:
-                inducing_points = train_x
-
-            self.gp_model = _VariationalGPPosterior(self.gp_model, inducing_points, train_x, train_y)
+            self.gp_model = _VariationalGPPosterior(self.gp_model, train_x, train_y)
 
         self.gp_model.eval()
         return self.gp_model
