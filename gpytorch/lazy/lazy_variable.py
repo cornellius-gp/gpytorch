@@ -2,7 +2,6 @@ from ..utils import function_factory
 
 
 class LazyVariable(object):
-    @staticmethod
     def _mm_closure_factory(self, *args):
         """
         Generates a closure that performs a *tensor* matrix multiply

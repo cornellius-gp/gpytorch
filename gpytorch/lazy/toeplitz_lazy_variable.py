@@ -23,8 +23,7 @@ class ToeplitzLazyVariable(LazyVariable):
         self.C_right = C_right
         self.added_diag = added_diag
 
-    @staticmethod
-    def _mm_closure_factory(*args):
+    def _mm_closure_factory(self, *args):
         if len(args) == 1:
             c, = args
             return lambda mat2: sym_toeplitz_mm(c, mat2)
@@ -100,7 +99,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 W_right_T = self.explicit_interpolate_T(self.J_right, self.C_right)
                 WTW = gpytorch.dsmm(Variable(W_left), W_right_T.t())
         else:
-            WTW = toeplitz.sym_toeplitz(self.c.data)
+            WTW = ToeplitzLazyVariable(self.c).mm(Variable(torch.eye(len(self.c))))
 
         if self.added_diag is not None:
             WTW = WTW + torch.diag(self.added_diag)
@@ -171,6 +170,10 @@ class ToeplitzLazyVariable(LazyVariable):
         return self.c.mul_(constant)
 
     def representation(self):
+        if self.J_left is None and self.C_left is None and self.J_right is None \
+                and self.C_right is None and self.added_diag is None:
+            return self.c,
+
         if self.J_left is None and self.C_left is None and self.J_right is None \
                 and self.C_right is None and self.added_diag is None:
             return self.c,
