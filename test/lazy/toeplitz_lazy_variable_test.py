@@ -16,7 +16,8 @@ class Model(gpytorch.GPModel):
         super(Model, self).__init__(likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         covar_module = RBFKernel()
-        self.grid_covar_module = GridInterpolationKernel(covar_module, 50)
+        self.grid_covar_module = GridInterpolationKernel(covar_module)
+        self.initialize_interpolation_grid(50)
 
     def forward(self, x):
         mean_x = self.mean_module(x)

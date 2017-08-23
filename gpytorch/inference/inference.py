@@ -56,21 +56,13 @@ class Inference(object):
                 if isinstance(self.gp_model, _ExactGPPosterior):
                     raise RuntimeError('Updating existing GP posteriors is not yet supported.')
                 else:
-                    self.gp_model = _ExactGPPosterior(self.gp_model)
+                    self.gp_model = _ExactGPPosterior(self.gp_model, train_x, train_y)
             else:
                 raise RuntimeError('Unknown inference type for observation model:\n%s' % repr(self.gp_model))
         else:
             output = self.gp_model.forward(*train_x, **kwargs)
-            covar = output.covar()
-            if isinstance(covar, LazyVariable):
-                inducing_points = (covar.get_inducing_points(),)
-            else:
-                inducing_points = train_x
+            self.gp_model = _VariationalGPPosterior(self.gp_model, train_x, train_y)
 
-            self.gp_model = _VariationalGPPosterior(self.gp_model, inducing_points)
-
-        # Add the data
-        self.gp_model.update_data(train_x, train_y)
         self.gp_model.eval()
         return self.gp_model
 

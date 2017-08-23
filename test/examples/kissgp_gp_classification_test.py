@@ -18,8 +18,9 @@ class GPClassificationModel(gpytorch.GPModel):
         super(GPClassificationModel, self).__init__(BernoulliLikelihood())
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.grid_covar_module = GridInterpolationKernel(self.covar_module, 50)
+        self.grid_covar_module = GridInterpolationKernel(self.covar_module)
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
+        self.initialize_interpolation_grid(50)
 
     def forward(self, x):
         mean_x = self.mean_module(x)

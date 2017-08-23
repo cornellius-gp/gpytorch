@@ -6,17 +6,22 @@ from gpytorch.lazy import ToeplitzLazyVariable
 
 
 class GridInterpolationKernel(Kernel):
-    def __init__(self, base_kernel_module, grid_size):
+    def __init__(self, base_kernel_module):
         super(GridInterpolationKernel, self).__init__()
         self.base_kernel_module = base_kernel_module
+        self.grid = None
 
+    def initialize_interpolation_grid(self, grid_size):
+        super(GridInterpolationKernel, self).initialize_interpolation_grid(grid_size)
         grid_size = grid_size
-        grid = torch.linspace(0, 1, grid_size)
+        grid = torch.linspace(0, 1, grid_size - 2)
 
         grid_diff = grid[1] - grid[0]
 
-        self.grid_size = grid_size + 2
-        self.grid = Variable(torch.linspace(0 - grid_diff, 1 + grid_diff, grid_size + 2))
+        self.grid_size = grid_size
+        self.grid = Variable(torch.linspace(0 - grid_diff, 1 + grid_diff, grid_size))
+
+        return self
 
     def forward(self, x1, x2, **kwargs):
         n, d = x1.size()
@@ -28,6 +33,12 @@ class GridInterpolationKernel(Kernel):
                 until Kronecker structure is implemented.'
             ]))
 
+        if self.grid is None:
+            raise RuntimeError(' '.join([
+                'This GridInterpolationKernel has no grid. Call initialize_interpolation_grid \
+                 on a GPModel first.'
+            ]))
+
         x1 = (x1 - x1.min(0)[0].expand_as(x1)) / (x1.max(0)[0] - x1.min(0)[0]).expand_as(x1)
         x2 = (x2 - x2.min(0)[0].expand_as(x2)) / (x2.max(0)[0] - x2.min(0)[0]).expand_as(x2)
 
@@ -36,6 +47,6 @@ class GridInterpolationKernel(Kernel):
 
         k_UU = self.base_kernel_module(self.grid[0], self.grid, **kwargs).squeeze()
 
-        K_XX = ToeplitzLazyVariable(k_UU, self.grid, J1, C1, J2, C2)
+        K_XX = ToeplitzLazyVariable(k_UU, J1, C1, J2, C2)
 
         return K_XX

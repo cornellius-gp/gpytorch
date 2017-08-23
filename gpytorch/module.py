@@ -146,6 +146,11 @@ class Module(nn.Module):
         for name, bound in self.named_parameter_bounds():
             yield bound
 
+    def initialize_interpolation_grid(self, grid_size):
+        for module in self.children():
+            module.initialize_interpolation_grid(grid_size)
+        return self
+
     def __getattr__(self, name):
         if '_parameters' in self.__dict__:
             _parameters = self.__dict__['_parameters']
