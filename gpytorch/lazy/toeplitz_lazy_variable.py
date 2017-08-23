@@ -10,13 +10,12 @@ from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse
 
 
 class ToeplitzLazyVariable(LazyVariable):
-    def __init__(self, c, inducing_points=None, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
+    def __init__(self, c, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
         if not isinstance(c, Variable):
             raise RuntimeError('ToeplitzLazyVariable is intended to wrap Variable versions of \
                                 the first column and row.')
 
         self.c = c
-        self.inducing_points = inducing_points
         self.J_left = J_left
         self.C_left = C_left
         self.J_right = J_right
@@ -39,17 +38,14 @@ class ToeplitzLazyVariable(LazyVariable):
         else:
             toeplitz_diag = diag.expand_as(self.c)
 
-        return ToeplitzLazyVariable(self.c, self.inducing_points, self.J_left, self.C_left,
+        return ToeplitzLazyVariable(self.c, self.J_left, self.C_left,
                                     self.J_right, self.C_right, toeplitz_diag)
 
     def add_jitter(self):
         jitter = torch.zeros(len(self.c))
         jitter[0] = 1e-4
-        return ToeplitzLazyVariable(self.c.add(Variable(jitter)), self.inducing_points, self.J_left, self.C_left,
+        return ToeplitzLazyVariable(self.c.add(Variable(jitter)), self.J_left, self.C_left,
                                     self.J_right, self.C_right, self.added_diag)
-
-    def get_inducing_points(self):
-        return self.inducing_points
 
     def diag(self):
         """
@@ -160,7 +156,7 @@ class ToeplitzLazyVariable(LazyVariable):
         Returns:
             - ToeplitzLazyVariable with c = c*(constant)
         """
-        return ToeplitzLazyVariable(self.c.mul(constant), self.inducing_points, self.J_left, self.C_left,
+        return ToeplitzLazyVariable(self.c.mul(constant), self.J_left, self.C_left,
                                     self.J_right, self.C_right, self.added_diag)
 
     def mul_(self, constant):
@@ -259,7 +255,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(self.c, self.inducing_points, J_left_new, C_left_new,
+                return ToeplitzLazyVariable(self.c, J_left_new, C_left_new,
                                             J_right_new, C_right_new, diag_new)
             else:
                 if i[0] != i[1]:
@@ -271,7 +267,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(c_new, self.inducing_points, diag=diag_new)
+                return ToeplitzLazyVariable(c_new, diag=diag_new)
         else:
             if self.J_left is not None:
                 J_left_new = self.J_left[i]
@@ -281,7 +277,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(self.c, self.inducing_points, J_left_new, C_left_new,
+                return ToeplitzLazyVariable(self.c, J_left_new, C_left_new,
                                             self.J_right, self.C_right, diag_new)
             else:
                 raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
