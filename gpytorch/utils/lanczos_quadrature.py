@@ -27,7 +27,7 @@ class StochasticLQ(object):
     def lanczos(self, mv_closure, b):
         """
         Performs self.max_iter (at most n) iterations of the Lanczos iteration to decompose A as AQ = QT
-        with Q an orthogonal basis for the Krylov subspace [Ab,A^{2}b,...,A^{max_iter}b], and T tridiagonal.
+        with Q an orthogonal basis for the Krylov subspace [b,Ab,...,A^{max_iter-1}b], and T tridiagonal.
         """
         n = len(b)
         num_iters = min(self.max_iter, n)
