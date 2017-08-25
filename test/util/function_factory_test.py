@@ -12,7 +12,7 @@ def test_trace_logdet_quad_form_factory():
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
     covar_module = GridInterpolationKernel(rbf_covar)
-    covar_module.initialize_interpolation_grid(4)
+    covar_module.initialize_interpolation_grid(4, grid_bounds=(0, 1))
     c = Variable(covar_module.forward(x.unsqueeze(1), x.unsqueeze(1)).c.data, requires_grad=True)
 
     T = Variable(torch.zeros(4, 4))

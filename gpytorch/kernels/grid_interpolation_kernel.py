@@ -4,6 +4,7 @@ from .kernel import Kernel
 from gpytorch.utils.interpolation import Interpolation
 from gpytorch.lazy import ToeplitzLazyVariable
 
+import pdb
 
 class GridInterpolationKernel(Kernel):
     def __init__(self, base_kernel_module):
@@ -11,15 +12,18 @@ class GridInterpolationKernel(Kernel):
         self.base_kernel_module = base_kernel_module
         self.grid = None
 
-    def initialize_interpolation_grid(self, grid_size):
-        super(GridInterpolationKernel, self).initialize_interpolation_grid(grid_size)
+    def initialize_interpolation_grid(self, grid_size, grid_bounds):
+        super(GridInterpolationKernel, self).initialize_interpolation_grid(grid_size, grid_bounds)
         grid_size = grid_size
-        grid = torch.linspace(0, 1, grid_size - 2)
+        grid = torch.linspace(grid_bounds[0], grid_bounds[1], grid_size - 2)
 
         grid_diff = grid[1] - grid[0]
 
         self.grid_size = grid_size
-        self.grid = Variable(torch.linspace(0 - grid_diff, 1 + grid_diff, grid_size))
+        self.grid_bounds = grid_bounds
+        self.grid = Variable(torch.linspace(grid_bounds[0] - grid_diff,
+                                            grid_bounds[1] + grid_diff,
+                                            grid_size))
 
         return self
 
@@ -39,8 +43,17 @@ class GridInterpolationKernel(Kernel):
                  on a GPModel first.'
             ]))
 
-        x1 = (x1 - x1.min(0)[0].expand_as(x1)) / (x1.max(0)[0] - x1.min(0)[0]).expand_as(x1)
-        x2 = (x2 - x2.min(0)[0].expand_as(x2)) / (x2.max(0)[0] - x2.min(0)[0]).expand_as(x2)
+        both_min = torch.min(x1.min(0)[0].data, x2.min(0)[0].data)[0]
+        both_max = torch.max(x1.max(0)[0].data, x2.max(0)[0].data)[0]
+
+        if both_min < self.grid_bounds[0] or both_max > self.grid_bounds[1]:
+            # Out of bounds data is still ok if we are specifically computing kernel values for grid entries.
+            if torch.abs(both_min - self.grid[0].data)[0] > 1e-7 or torch.abs(both_max - self.grid[-1].data)[0] > 1e-7:
+                raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                    Grid bounds were ({}, {}), but min = {}, max = {}'.format(self.grid_bounds[0],
+                                                                                              self.grid_bounds[1],
+                                                                                              both_min,
+                                                                                              both_max))
 
         J1, C1 = Interpolation().interpolate(self.grid.data, x1.data.squeeze())
         J2, C2 = Interpolation().interpolate(self.grid.data, x2.data.squeeze())

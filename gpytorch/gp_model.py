@@ -15,15 +15,18 @@ class GPModel(gpytorch.Module):
     def forward(self, *args, **kwargs):
         raise NotImplementedError
 
-    def initialize_interpolation_grid(self, grid_size):
-        super(GPModel, self).initialize_interpolation_grid(grid_size)
+    def initialize_interpolation_grid(self, grid_size, grid_bounds):
+        super(GPModel, self).initialize_interpolation_grid(grid_size, grid_bounds)
         grid_size = grid_size
-        grid = torch.linspace(0, 1, grid_size - 2)
+        grid = torch.linspace(grid_bounds[0], grid_bounds[1], grid_size - 2)
 
         grid_diff = grid[1] - grid[0]
 
         self.grid_size = grid_size
-        self.inducing_points = Variable(torch.linspace(0 - grid_diff, 1 + grid_diff, grid_size))
+        self.grid_bounds = grid_bounds
+        self.inducing_points = Variable(torch.linspace(grid_bounds[0] - grid_diff, 
+                                                       grid_bounds[1] + grid_diff,
+                                                       grid_size))
 
         return self
 

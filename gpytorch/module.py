@@ -146,9 +146,9 @@ class Module(nn.Module):
         for name, bound in self.named_parameter_bounds():
             yield bound
 
-    def initialize_interpolation_grid(self, grid_size):
+    def initialize_interpolation_grid(self, grid_size, grid_bounds):
         for module in self.children():
-            module.initialize_interpolation_grid(grid_size)
+            module.initialize_interpolation_grid(grid_size, grid_bounds)
         return self
 
     def __getattr__(self, name):

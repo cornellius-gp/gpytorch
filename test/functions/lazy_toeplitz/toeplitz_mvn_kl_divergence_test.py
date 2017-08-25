@@ -11,7 +11,7 @@ def test_toeplitz_mvn_kl_divergence_forward():
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
     covar_module = GridInterpolationKernel(rbf_covar)
-    covar_module.initialize_interpolation_grid(10)
+    covar_module.initialize_interpolation_grid(10, grid_bounds=(0, 1))
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
 
     c = Variable(covar_x.c.data, requires_grad=True)
@@ -38,7 +38,7 @@ def test_toeplitz_mvn_kl_divergence_backward():
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
     covar_module = GridInterpolationKernel(rbf_covar)
-    covar_module.initialize_interpolation_grid(4)
+    covar_module.initialize_interpolation_grid(4, grid_bounds=(0, 1))
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
     covar_x.c = Variable(covar_x.c.data, requires_grad=True)
 

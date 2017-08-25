@@ -20,7 +20,7 @@ class GPClassificationModel(gpytorch.GPModel):
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.grid_covar_module = GridInterpolationKernel(self.covar_module)
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
-        self.initialize_interpolation_grid(50)
+        self.initialize_interpolation_grid(50, grid_bounds=(0, 1))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
