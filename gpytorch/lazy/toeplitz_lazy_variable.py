@@ -5,7 +5,7 @@ from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood, \
     ToeplitzTraceLogDetQuadForm
-from ..utils import sparse_eye, reverse
+from ..utils import sparse_eye
 from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm
 
 
@@ -236,7 +236,17 @@ class ToeplitzLazyVariable(LazyVariable):
 
     def __getitem__(self, i):
         if isinstance(i, tuple):
-            if self.J_left is not None:
+            if self.J_left is None:
+                # Pretend that the matrix is WTW, where W is an identity matrix, with appropriate slices
+                # J[i[0], :], C[i[0], :]
+                J_left_new = self.c.data.new(range(len(self.c))[i[0]]).unsqueeze(1)
+                C_left_new = self.c.data.new().resize_as_(J_left_new).fill_(1)
+                J_left_new = J_left_new.long()
+                # J[i[1], :] C[i[1], :]
+                J_right_new = self.c.data.new(range(len(self.c))[i[1]]).unsqueeze(1)
+                C_right_new = self.c.data.new().resize_as_(J_right_new).fill_(1)
+                J_right_new = J_right_new.long()
+            else:
                 # J[i[0], :], C[i[0], :]
                 J_left_new = self.J_left[i[0]]
                 C_left_new = self.C_left[i[0]]
@@ -245,29 +255,19 @@ class ToeplitzLazyVariable(LazyVariable):
                 J_right_new = self.J_right[i[1]]
                 C_right_new = self.C_right[i[1]]
 
-                if self.added_diag is not None:
-                    if len(J_left_new) != len(J_right_new):
-                        raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
-                                            diagonal component to make it non-square is probably not intended.\
-                                            It is ambiguous which diagonal elements to choose')
+            if self.added_diag is not None:
+                if len(J_left_new) != len(J_right_new):
+                    raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
+                                        diagonal component to make it non-square is probably not intended.\
+                                        It is ambiguous which diagonal elements to choose')
 
-                    diag_new = self.added_diag[i[0]]
-                else:
-                    diag_new = None
-
-                return ToeplitzLazyVariable(self.c, J_left_new, C_left_new,
-                                            J_right_new, C_right_new, diag_new)
+                diag_new = self.added_diag[i[0]]
             else:
-                if i[0] != i[1]:
-                    raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
-                                        unintended. If that was the intent, use evaluate() and slice the full matrix.')
-                c_new = reverse(reverse(self.c)[i[0]])
-                if self.added_diag is not None:
-                    diag_new = reverse(reverse(self.added_diag)[i[0]])
-                else:
-                    diag_new = None
+                diag_new = None
 
-                return ToeplitzLazyVariable(c_new, added_diag=diag_new)
+            return ToeplitzLazyVariable(self.c, J_left_new, C_left_new,
+                                        J_right_new, C_right_new, diag_new)
+
         else:
             if self.J_left is not None:
                 J_left_new = self.J_left[i]
