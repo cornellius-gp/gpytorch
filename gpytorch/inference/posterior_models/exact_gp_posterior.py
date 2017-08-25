@@ -11,35 +11,9 @@ class _ExactGPPosterior(_GPPosterior):
         super(_ExactGPPosterior, self).__init__(prior_model.likelihood)
         self.prior_model = prior_model
 
-        # Alpha cache - for computing mean
-        self.register_buffer('alpha', torch.Tensor())
-
         # Buffers for conditioning on data
-        if train_xs is not None and train_y is not None:
-            self.update_data(train_xs, train_y)
-
-    def update_data(self, train_xs, train_y):
-        if isinstance(train_xs, Variable) or isinstance(train_xs, torch._TensorBase):
-            train_xs = (train_xs, )
-        train_xs = [input.data if isinstance(input, Variable) else input for input in train_xs]
-        train_y = train_y.data if isinstance(train_y, Variable) else train_y
-
-        self.train_xs = []
-        for i, train_x in enumerate(train_xs):
-            if hasattr(self, 'train_x_%d' % i):
-                getattr(self, 'train_x_%d').resize_as_(train_x).copy_(train_x)
-            else:
-                self.register_buffer('train_x_%d' % i, train_x)
-            self.train_xs.append(getattr(self, 'train_x_%d' % i))
-
-        if hasattr(self, 'train_y'):
-            self.train_y.resize_as_(train_y).copy_(train_y)
-        else:
-            self.register_buffer('train_y', train_y)
-
-        # Reset alpha cache
-        self.alpha.resize_(0)
-        return self
+        self.train_xs = [input.data if isinstance(input, Variable) else input for input in train_xs]
+        self.train_y = train_y.data if isinstance(train_y, Variable) else train_y
 
     def forward(self, *inputs, **params):
         n = len(self.train_xs[0]) if hasattr(self, 'train_xs') else 0
@@ -66,12 +40,9 @@ class _ExactGPPosterior(_GPPosterior):
             test_test_covar = full_covar[n:, n:]
 
             # Calculate posterior components
-            if self.alpha.numel():
-                alpha = Variable(self.alpha)
-            else:
-                alpha = gpytorch.exact_posterior_alpha(train_train_covar, train_mean, Variable(self.train_y))
-                self.alpha.resize_as_(alpha.data).copy_(alpha.data)
-            test_mean = gpytorch.exact_posterior_mean(test_train_covar, test_mean, alpha)
+            if not hasattr(self, 'alpha'):
+                self.alpha = gpytorch.exact_posterior_alpha(train_train_covar, train_mean, Variable(self.train_y))
+            test_mean = gpytorch.exact_posterior_mean(test_train_covar, test_mean, self.alpha)
             test_covar = gpytorch.exact_posterior_covar(test_test_covar, test_train_covar,
                                                         train_test_covar, train_train_covar)
             output = GaussianRandomVariable(test_mean, test_covar)

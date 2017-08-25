@@ -247,7 +247,7 @@ def variational_posterior_alpha(induc_induc_covar, variational_mean):
         - variational_mean (Variable n) - prior variatoinal mean
     """
     if isinstance(induc_induc_covar, LazyVariable):
-        return variational_mean
+        return variational_mean.add(0)  # Trick to ensure that we're not returning a Paremeter
     return invmv(induc_induc_covar, variational_mean)
 
 

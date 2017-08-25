@@ -17,11 +17,9 @@ class _VariationalGPPosterior(_GPPosterior):
             self.inducing_points = (prior_model.inducing_points,)
 
         self.num_inducing = len(self.inducing_points[0])
-        # Alpha cache - for computing mean
-        self.register_buffer('alpha', torch.Tensor())
 
-        if train_xs is not None and train_y is not None:
-            self.update_data(train_xs, train_y)
+        self.train_xs = [input.data if isinstance(input, Variable) else input for input in train_xs]
+        self.train_y = train_y.data if isinstance(train_y, Variable) else train_y
 
         output = self.forward(*self.inducing_points)
         mean_init, chol_covar_init = self.initialize_variational_parameters(output)
@@ -38,29 +36,6 @@ class _VariationalGPPosterior(_GPPosterior):
         mean_init = var_output.mean().data
         chol_covar_init = torch.eye(len(mean_init))
         return mean_init.contiguous(), chol_covar_init.contiguous()
-
-    def update_data(self, train_xs, train_y):
-        if isinstance(train_xs, Variable) or isinstance(train_xs, torch._TensorBase):
-            train_xs = (train_xs, )
-        train_xs = [input.data if isinstance(input, Variable) else input for input in train_xs]
-        train_y = train_y.data if isinstance(train_y, Variable) else train_y
-
-        self.train_xs = []
-        for i, train_x in enumerate(train_xs):
-            if hasattr(self, 'train_x_%d' % i):
-                getattr(self, 'train_x_%d').resize_as_(train_x).copy_(train_x)
-            else:
-                self.register_buffer('train_x_%d' % i, train_x)
-            self.train_xs.append(getattr(self, 'train_x_%d' % i))
-
-        if hasattr(self, 'train_y'):
-            self.train_y.resize_as_(train_y).copy_(train_y)
-        else:
-            self.register_buffer('train_y', train_y)
-
-        # Reset alpha cache
-        self.alpha.resize_(0)
-        return self
 
     def forward(self, *inputs, **params):
         if not self.training:
@@ -83,12 +58,9 @@ class _VariationalGPPosterior(_GPPosterior):
             test_test_covar = full_covar[n:, n:]
 
             # Calculate posterior components
-            if self.alpha.numel():
-                alpha = Variable(self.alpha)
-            else:
-                alpha = gpytorch.variational_posterior_alpha(induc_induc_covar, self.variational_mean)
-                self.alpha.resize_as_(alpha.data).copy_(alpha.data)
-            test_mean = gpytorch.variational_posterior_mean(test_induc_covar, alpha)
+            if not hasattr(self, 'alpha'):
+                self.alpha = gpytorch.variational_posterior_alpha(induc_induc_covar, self.variational_mean)
+            test_mean = gpytorch.variational_posterior_mean(test_induc_covar, self.alpha)
             test_covar = gpytorch.variational_posterior_covar(test_induc_covar, induc_test_covar,
                                                               self.chol_variational_covar, test_test_covar,
                                                               induc_induc_covar)
