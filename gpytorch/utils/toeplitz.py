@@ -62,6 +62,9 @@ def toeplitz(toeplitz_column, toeplitz_row):
     if type(toeplitz_column) != type(toeplitz_row):
         raise RuntimeError('toeplitz_column and toeplitz_row should be the same type.')
 
+    if len(toeplitz_column) == 1:
+        return toeplitz_column.view(1, 1)
+
     res = torch.Tensor(len(toeplitz_column), len(toeplitz_column)).type_as(toeplitz_column)
     for i, val in enumerate(toeplitz_column):
         for j in range(len(toeplitz_column) - i):
@@ -143,6 +146,9 @@ def toeplitz_mm(toeplitz_column, toeplitz_row, matrix):
     if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(matrix):
         raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
 
+    if len(toeplitz_column) == 1:
+        return (toeplitz_column.view(1, 1).mm(matrix))
+
     _, num_rhs = matrix.size()
     orig_size = len(toeplitz_column)
     r_reverse = utils.reverse(toeplitz_row[1:])
@@ -208,6 +214,9 @@ def toeplitz_mv(toeplitz_column, toeplitz_row, vector):
 
     if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(vector):
         raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
+
+    if len(toeplitz_column) == 1:
+        return (toeplitz_column.view(1, 1).mv(vector))
 
     orig_size = len(toeplitz_column)
     r_reverse = utils.reverse(toeplitz_row[1:])

@@ -5,7 +5,7 @@ from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood, \
     ToeplitzTraceLogDetQuadForm
-from ..utils import sparse_eye
+from ..utils import sparse_eye, reverse
 from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm
 
 
@@ -261,19 +261,21 @@ class ToeplitzLazyVariable(LazyVariable):
                 if i[0] != i[1]:
                     raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
                                         unintended. If that was the intent, use evaluate() and slice the full matrix.')
-                c_new = self.c[i[1]]
+                c_new = reverse(reverse(self.c)[i[0]])
                 if self.added_diag is not None:
-                    diag_new = self.added_diag[i[0]]
+                    diag_new = reverse(reverse(self.added_diag)[i[0]])
                 else:
                     diag_new = None
 
-                return ToeplitzLazyVariable(c_new, diag=diag_new)
+                return ToeplitzLazyVariable(c_new, added_diag=diag_new)
         else:
             if self.J_left is not None:
                 J_left_new = self.J_left[i]
                 C_left_new = self.C_left[i]
                 if self.added_diag is not None:
-                    diag_new = self.added_diag[i]
+                    raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
+                                        diagonal component to make it non-square is probably not intended.\
+                                        It is ambiguous which diagonal elements to choose')
                 else:
                     diag_new = None
 

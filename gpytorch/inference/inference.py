@@ -2,7 +2,6 @@ import gpytorch
 from ..likelihoods import Likelihood, GaussianLikelihood
 from ..random_variables import GaussianRandomVariable
 from .posterior_models import _ExactGPPosterior, _VariationalGPPosterior
-from ..lazy import LazyVariable
 from copy import deepcopy
 from torch.autograd import Variable
 
