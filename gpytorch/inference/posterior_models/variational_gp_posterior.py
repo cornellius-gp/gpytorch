@@ -72,7 +72,7 @@ class _VariationalGPPosterior(_GPPosterior):
             f_prior = GaussianRandomVariable(full_mean, full_covar)
             return f_prior
 
-    def marginal_log_likelihood(self, output, train_y, num_samples=5):
+    def marginal_log_likelihood(self, output, train_y, num_samples=10):
         chol_var_covar = self.chol_variational_covar.triu()
 
         # Negate each row with a negative diagonal (the Cholesky decomposition
@@ -93,6 +93,6 @@ class _VariationalGPPosterior(_GPPosterior):
                                                              num_samples)
 
         kl_divergence = gpytorch.mvn_kl_divergence(self.variational_mean,
-                                                   chol_var_covar, inducing_mean, train_covar)
+                                                   chol_var_covar, inducing_mean, train_covar, num_samples)
 
         return log_likelihood.squeeze() - kl_divergence

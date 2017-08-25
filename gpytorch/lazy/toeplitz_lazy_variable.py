@@ -3,10 +3,10 @@ import gpytorch
 from torch.autograd import Variable
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
-from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood, \
-    ToeplitzTraceLogDetQuadForm
+from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
 from ..utils import sparse_eye
-from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm
+from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm, \
+    sym_toeplitz_derivative_quadratic_form
 
 
 class ToeplitzLazyVariable(LazyVariable):
@@ -31,6 +31,9 @@ class ToeplitzLazyVariable(LazyVariable):
             return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right, added_diag)
         else:
             raise AttributeError('Invalid number of arguments')
+
+    def _derivative_quadratic_form_factory(*args):
+        return lambda left_vector, right_vector: (sym_toeplitz_derivative_quadratic_form(left_vector, right_vector),)
 
     def add_diag(self, diag):
         if self.J_left is not None:
@@ -188,9 +191,6 @@ class ToeplitzLazyVariable(LazyVariable):
             added_diag = Variable(torch.zeros(1))
         return self.c, W_left, W_right, added_diag
 
-    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
-        return ToeplitzTraceLogDetQuadForm(num_samples=num_samples)(mu_diffs, chol_covar_1, self.c)
-
     def exact_posterior_alpha(self, train_mean, train_y):
         train_residual = (train_y - train_mean).unsqueeze(1)
         alpha = self.invmm(train_residual)
@@ -203,6 +203,12 @@ class ToeplitzLazyVariable(LazyVariable):
         alpha = alpha.unsqueeze(1)
         W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
         return test_mean.add(gpytorch.dsmm(W_test_left, alpha).squeeze())
+
+    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples):
+        if self.J_left is None and self.J_right is None:
+            return super(ToeplitzLazyVariable, self).trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
+        else:
+            return ToeplitzLazyVariable(self.c).trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
 
     def variational_posterior_mean(self, alpha):
         """

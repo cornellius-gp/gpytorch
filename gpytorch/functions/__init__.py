@@ -3,7 +3,6 @@ from .dsmm import DSMM
 from .exact_gp_marginal_log_likelihood import ExactGPMarginalLogLikelihood
 from .normal_cdf import NormalCDF
 from .log_normal_cdf import LogNormalCDF
-from .trace_log_det_quad_form import TraceLogDetQuadForm
 
 
 __all__ = [
@@ -12,5 +11,4 @@ __all__ = [
     ExactGPMarginalLogLikelihood,
     NormalCDF,
     LogNormalCDF,
-    TraceLogDetQuadForm,
 ]

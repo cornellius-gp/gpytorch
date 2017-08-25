@@ -4,11 +4,12 @@ from .lazy import LazyVariable, ToeplitzLazyVariable
 from .module import Module
 from .gp_model import GPModel
 from .functions import AddDiag, DSMM, ExactGPMarginalLogLikelihood, \
-    NormalCDF, LogNormalCDF, TraceLogDetQuadForm
+    NormalCDF, LogNormalCDF
 from .utils import function_factory
 
 
 _invmm_class = function_factory.invmm_factory()
+_trace_logdet_quad_form_factory_class = function_factory.trace_logdet_quad_form_factory()
 
 
 def add_diag(input, diag):
@@ -158,7 +159,9 @@ def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2, num_samples=10):
     if isinstance(covar_2, LazyVariable):
         trace_logdet_quadform = covar_2.trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
     else:
-        trace_logdet_quadform = TraceLogDetQuadForm(num_samples=num_samples)(mu_diffs, chol_covar_1, covar_2)
+        trace_logdet_quadform = _trace_logdet_quad_form_factory_class(num_samples)(mu_diffs,
+                                                                                   chol_covar_1,
+                                                                                   covar_2)
 
     log_det_covar1 = chol_covar_1.diag().log().sum(0) * 2
 

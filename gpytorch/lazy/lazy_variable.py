@@ -16,6 +16,18 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def _derivative_quadratic_form_factory(self, *args):
+        """
+        Generates a closure that computes the derivatives of uKv^t w.r.t. `args` given u, v
+
+        K is a square matrix corresponding to the Variables in self.representation()
+
+        Returns:
+        function(vector u, vector v) - closure that computes the derivatives of uKv^t w.r.t.
+        `args` given u, v
+        """
+        raise NotImplementedError
+
     def add_diag(self, diag):
         """
         Adds an element to the diagonal of the matrix.
@@ -144,7 +156,12 @@ class LazyVariable(object):
         raise NotImplementedError
 
     def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
-        raise NotImplementedError
+        if not hasattr(self, '_trace_log_det_quad_form_class'):
+            tlqf_function_factory = function_factory.trace_logdet_quad_form_factory
+            self._trace_log_det_quad_form_class = tlqf_function_factory(self._mm_closure_factory,
+                                                                        self._derivative_quadratic_form_factory)
+        covar2_args = self.representation()
+        return self._trace_log_det_quad_form_class(num_samples)(mu_diffs, chol_covar_1, *covar2_args)
 
     def exact_posterior_alpha(self, train_mean, train_y):
         """
