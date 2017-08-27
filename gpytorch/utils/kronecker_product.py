@@ -265,8 +265,8 @@ def _merge_index_and_value_matrices(index_matrices, value_matrices, columns):
         return index_matrices[0], value_matrices[0], len(columns[0])
 
     index_matrices_1, value_matrices_1, m_1 = _merge_index_and_value_matrices(index_matrices[1:],
-                                                                             value_matrices[1:],
-                                                                             columns[1:])
+                                                                              value_matrices[1:],
+                                                                              columns[1:])
     index_matrix_0, value_matrix_0 = index_matrices[0], value_matrices[0]
 
     n = index_matrix_0.size()[0]

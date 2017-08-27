@@ -2,6 +2,7 @@ import torch
 import gpytorch
 from gpytorch import utils
 from torch.autograd import Variable
+from gpytorch.lazy import KroneckerProductLazyVariable
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
@@ -13,6 +14,7 @@ x[0] = torch.linspace(0, 1, 11)
 x[1] = torch.linspace(0, 0.95, 11)
 x = Variable(x.t())
 
+
 class Model(gpytorch.GPModel):
     def __init__(self):
         likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
@@ -20,7 +22,7 @@ class Model(gpytorch.GPModel):
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         covar_module = RBFKernel()
         self.grid_covar_module = GridInterpolationKernel(covar_module)
-        self.initialize_interpolation_grid(10)
+        self.initialize_interpolation_grid(10, [(0, 1), (0, 1)])
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -58,7 +60,31 @@ def test_evaluate():
     assert utils.approx_equal(WKW_res, WKW)
 
 
-# def test_diag():
-#     diag_actual = torch.diag(WKW)
-#     diag_res = lazy_toeplitz_var.diag()
-#     assert utils.approx_equal(diag_res.data, diag_actual)
+def test_diag():
+    diag_actual = torch.diag(WKW)
+    diag_res = lazy_kronecker_product_var.diag()
+    assert utils.approx_equal(diag_res.data, diag_actual)
+
+
+def test_get_item_on_interpolated_variable_no_diagonal():
+    no_diag_kronecker_product = KroneckerProductLazyVariable(lazy_kronecker_product_var.columns,
+                                                             lazy_kronecker_product_var.J_lefts,
+                                                             lazy_kronecker_product_var.C_lefts,
+                                                             lazy_kronecker_product_var.J_rights,
+                                                             lazy_kronecker_product_var.C_rights)
+    evaluated = no_diag_kronecker_product.evaluate().data
+
+    assert utils.approx_equal(no_diag_kronecker_product[4:6].evaluate().data, evaluated[4:6])
+    assert utils.approx_equal(no_diag_kronecker_product[4:6, 2:6].evaluate().data, evaluated[4:6, 2:6])
+
+
+def test_get_item_square_on_interpolated_variable():
+    assert utils.approx_equal(lazy_kronecker_product_var[4:6, 4:6].evaluate().data, WKW[4:6, 4:6])
+
+
+def test_get_item_square_on_variable():
+    kronecker_product_var = KroneckerProductLazyVariable(Variable(torch.Tensor([[1, 2, 3, 4], [5, 6, 7, 8]])),
+                                                         added_diag=Variable(torch.ones(16) * 3))
+    evaluated = kronecker_product_var.evaluate().data
+
+    assert utils.approx_equal(kronecker_product_var[2:4, 2:4].evaluate().data, evaluated[2:4, 2:4])

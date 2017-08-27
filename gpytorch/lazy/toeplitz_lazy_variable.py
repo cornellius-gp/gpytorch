@@ -32,7 +32,7 @@ class ToeplitzLazyVariable(LazyVariable):
         else:
             raise AttributeError('Invalid number of arguments')
 
-    def _derivative_quadratic_form_factory(*args):
+    def _derivative_quadratic_form_factory(self, *args):
         return lambda left_vector, right_vector: (sym_toeplitz_derivative_quadratic_form(left_vector, right_vector),)
 
     def add_diag(self, diag):
@@ -53,26 +53,12 @@ class ToeplitzLazyVariable(LazyVariable):
     def diag(self):
         """
         Gets the diagonal of the Toeplitz matrix wrapped by this object.
-
-        By definition of a Toeplitz matrix, every element along the diagonal is equal
-        to c[0] == r[0]. Therefore, we return a vector of length len(self.c) with
-        each element equal to c[0].
-
-        If the interpolation matrices exist, then the diagonal of WTW^{T} is simply
-        W(T_diag)W^{T}.
         """
-        if self.J_left is not None:
-            if len(self.J_left) != len(self.J_right):
-                raise RuntimeError('diag not supported for non-square interpolated Toeplitz matrices.')
-            WTW_diag = self.c[0].expand(len(self.J_left))
-        else:
-            WTW_diag = self.c[0].expand_as(self.c)
-
-        if self.added_diag is not None:
-            if len(self.added_diag) > len(WTW_diag):
-                raise RuntimeError('Additional diagonal component length does not \
-                                    match the rest of this implicit tensor.')
-            WTW_diag = WTW_diag + self.added_diag
+        if len(self.J_left) != len(self.J_right):
+            raise RuntimeError('diag not supported for non-square interpolated Toeplitz matrices.')
+        WTW_diag = Variable(torch.zeros(len(self.J_right)))
+        for i in range(len(self.J_right)):
+            WTW_diag[i] = self[i:i + 1, i:i + 1].evaluate()
 
         return WTW_diag
 
@@ -105,11 +91,11 @@ class ToeplitzLazyVariable(LazyVariable):
 
         return WTW
 
-    def exact_gp_marginal_log_likelihood(self, target):
+    def exact_gp_marginal_log_likelihood(self, target, num_samples=10):
         W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
         W_right = Variable(toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
         noise_diag = self.added_diag
-        return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right)(self.c, target, noise_diag)
+        return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right, num_samples)(self.c, target, noise_diag)
 
     def explicit_interpolate_T(self, J, C):
         """
