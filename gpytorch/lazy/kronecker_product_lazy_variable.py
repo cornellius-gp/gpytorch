@@ -4,10 +4,9 @@ import gpytorch
 from .lazy_variable import LazyVariable
 from .toeplitz_lazy_variable import ToeplitzLazyVariable
 from torch.autograd import Variable
-from ..utils import sparse_eye
+from ..utils import sparse_eye, LinearCG
 from ..utils.kronecker_product import sym_kronecker_product_toeplitz_mul, kp_interpolated_toeplitz_mul, \
     kp_sym_toeplitz_derivative_quadratic_form, list_of_indices_and_values_to_sparse, kronecker_product
-from gpytorch.functions.lazy_kronecker_product import KPInterpolatedToeplitzGPMarginalLogLikelihood
 
 
 class KroneckerProductLazyVariable(LazyVariable):
@@ -43,6 +42,50 @@ class KroneckerProductLazyVariable(LazyVariable):
         return lambda left_vector, right_vector: (kp_sym_toeplitz_derivative_quadratic_form(columns,
                                                                                             left_vector,
                                                                                             right_vector),)
+
+    def _exact_gp_mll_grad_closure_factory(self, *args):
+        if len(args) == 1:
+            columns, = args
+            W_left = sparse_eye(len(columns))
+            W_right = sparse_eye(len(columns))
+            added_diag = None
+        elif len(args) == 4:
+            columns, W_left, W_right, added_diag, = args
+        else:
+            raise AttributeError('Invalid number of arguments')
+
+        def closure(mm_closure, tr_inv, mat_inv_labels, labels, num_samples):
+            # Gradient of c
+            labels_mat_inv_W_left = torch.dsmm(W_left.t(), mat_inv_labels.unsqueeze(1)).t()
+            W_right_mat_inv_labels = torch.dsmm(W_right.t(), mat_inv_labels.unsqueeze(1))
+            quad_form_part = kp_sym_toeplitz_derivative_quadratic_form(columns,
+                                                                       labels_mat_inv_W_left.squeeze(),
+                                                                       W_right_mat_inv_labels.squeeze())
+            log_det_part = torch.zeros(columns.size())
+            sample_matrix = torch.sign(torch.randn(len(labels), num_samples))
+
+            left_vectors = torch.dsmm(W_left.t(), LinearCG().solve(mm_closure, sample_matrix)).t()
+            right_vectors = torch.dsmm(W_right.t(), sample_matrix).t()
+
+            for left_vector, right_vector in zip(left_vectors, right_vectors):
+                log_det_part += kp_sym_toeplitz_derivative_quadratic_form(columns, left_vector, right_vector)
+
+            log_det_part.div_(num_samples)
+            columns_grad = quad_form_part - log_det_part
+
+            # Gradient of diagonal term
+            diag_grad = None
+            if added_diag is not None:
+                quad_form_part = mat_inv_labels.dot(mat_inv_labels)
+                diag_grad = columns.new().resize_(1).fill_(quad_form_part - tr_inv)
+
+            # Return grads for c, W_left (None), W_right (None), diag
+            if len(args) == 1:
+                return columns_grad,
+            elif len(args) == 4:
+                return columns_grad, None, None, diag_grad
+
+        return closure
 
     def add_diag(self, diag):
         if self.J_lefts is not None:
@@ -125,18 +168,6 @@ class KroneckerProductLazyVariable(LazyVariable):
             WKW = WKW + torch.diag(self.added_diag)
 
         return WKW
-
-    def exact_gp_marginal_log_likelihood(self, target, num_samples=10):
-        W_left = Variable(list_of_indices_and_values_to_sparse(self.J_lefts,
-                                                               self.C_lefts,
-                                                               self.columns))
-        W_right = Variable(list_of_indices_and_values_to_sparse(self.J_rights,
-                                                                self.C_rights,
-                                                                self.columns))
-        noise_diag = self.added_diag
-        return KPInterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right, num_samples)(self.columns,
-                                                                                           target,
-                                                                                           noise_diag)
 
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
         epsilon = Variable(torch.randn(self.kronecker_product_size, num_samples))

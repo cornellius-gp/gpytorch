@@ -3,13 +3,13 @@ from torch.autograd import Variable
 from .lazy import LazyVariable, ToeplitzLazyVariable
 from .module import Module
 from .gp_model import GPModel
-from .functions import AddDiag, DSMM, ExactGPMarginalLogLikelihood, \
-    NormalCDF, LogNormalCDF
+from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
 
 
 _invmm_class = function_factory.invmm_factory()
 _trace_logdet_quad_form_factory_class = function_factory.trace_logdet_quad_form_factory()
+_exact_gp_mll_class = function_factory.exact_gp_mll_factory()
 
 
 def add_diag(input, diag):
@@ -71,7 +71,7 @@ def exact_gp_marginal_log_likelihood(covar, target, num_samples=10):
     if isinstance(covar, LazyVariable):
         return covar.exact_gp_marginal_log_likelihood(target, num_samples)
     else:
-        return ExactGPMarginalLogLikelihood()(covar, target)
+        return _exact_gp_mll_class()(covar, target)
 
 
 def invmm(mat1, mat2):

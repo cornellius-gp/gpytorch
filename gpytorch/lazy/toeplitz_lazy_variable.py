@@ -3,8 +3,7 @@ import gpytorch
 from torch.autograd import Variable
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
-from gpytorch.functions.lazy_toeplitz import InterpolatedToeplitzGPMarginalLogLikelihood
-from ..utils import sparse_eye
+from ..utils import sparse_eye, LinearCG
 from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm, \
     sym_toeplitz_derivative_quadratic_form
 
@@ -25,7 +24,15 @@ class ToeplitzLazyVariable(LazyVariable):
     def _mm_closure_factory(self, *args):
         if len(args) == 1:
             c, = args
-            return lambda mat2: sym_toeplitz_mm(c, mat2)
+
+            def closure(mat2):
+                if mat2.ndimension() == 1:
+                    return sym_toeplitz_mv(c, mat2)
+                else:
+                    return sym_toeplitz_mm(c, mat2)
+
+            return closure
+
         elif len(args) == 4:
             c, W_left, W_right, added_diag = args
             return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right, added_diag)
@@ -33,7 +40,53 @@ class ToeplitzLazyVariable(LazyVariable):
             raise AttributeError('Invalid number of arguments')
 
     def _derivative_quadratic_form_factory(self, *args):
-        return lambda left_vector, right_vector: (sym_toeplitz_derivative_quadratic_form(left_vector, right_vector),)
+        def closure(left_vector, right_vector):
+            return sym_toeplitz_derivative_quadratic_form(left_vector, right_vector),
+        return closure
+
+    def _exact_gp_mll_grad_closure_factory(self, *args):
+        if len(args) == 1:
+            toeplitz_column, = args
+            W_left = sparse_eye(len(toeplitz_column))
+            W_right = sparse_eye(len(toeplitz_column))
+            added_diag = None
+        elif len(args) == 4:
+            toeplitz_column, W_left, W_right, added_diag, = args
+        else:
+            raise AttributeError('Invalid number of arguments')
+
+        def closure(mm_closure, tr_inv, mat_inv_labels, labels, num_samples):
+            # Gradient of c
+            labels_mat_inv_W_left = torch.dsmm(W_left.t(), mat_inv_labels.unsqueeze(1)).t()
+            W_right_mat_inv_labels = torch.dsmm(W_right.t(), mat_inv_labels.unsqueeze(1))
+            quad_form_part = sym_toeplitz_derivative_quadratic_form(labels_mat_inv_W_left.squeeze(),
+                                                                    W_right_mat_inv_labels.squeeze())
+            log_det_part = torch.zeros(len(toeplitz_column))
+            sample_matrix = torch.sign(torch.randn(len(labels), num_samples))
+
+            left_vectors = torch.dsmm(W_left.t(), LinearCG().solve(mm_closure, sample_matrix)).t()
+            right_vectors = torch.dsmm(W_right.t(), sample_matrix).t()
+
+            for left_vector, right_vector in zip(left_vectors, right_vectors):
+                log_det_part += sym_toeplitz_derivative_quadratic_form(left_vector,
+                                                                       right_vector)
+
+            log_det_part.div_(num_samples)
+            c_grad = quad_form_part - log_det_part
+
+            # Gradient of diagonal term
+            diag_grad = None
+            if added_diag is not None:
+                quad_form_part = mat_inv_labels.dot(mat_inv_labels)
+                diag_grad = toeplitz_column.new().resize_(1).fill_(quad_form_part - tr_inv)
+
+            # Return grads for c, W_left (None), W_right (None), diag
+            if len(args) == 1:
+                return c_grad,
+            elif len(args) == 4:
+                return c_grad, None, None, diag_grad
+
+        return closure
 
     def add_diag(self, diag):
         if self.J_left is not None:
@@ -90,12 +143,6 @@ class ToeplitzLazyVariable(LazyVariable):
             WTW = WTW + torch.diag(self.added_diag)
 
         return WTW
-
-    def exact_gp_marginal_log_likelihood(self, target, num_samples=10):
-        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
-        W_right = Variable(toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
-        noise_diag = self.added_diag
-        return InterpolatedToeplitzGPMarginalLogLikelihood(W_left, W_right, num_samples)(self.c, target, noise_diag)
 
     def explicit_interpolate_T(self, J, C):
         """

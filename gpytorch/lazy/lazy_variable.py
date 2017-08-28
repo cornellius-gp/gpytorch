@@ -28,6 +28,17 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def _exact_gp_mll_grad_closure_factory(self, *args):
+        """
+        Generates a closure that computes the derivatives of v K^-1 v + log |K|, given v
+
+        K is a square matrix corresponding to the Variables in self.representation()
+
+        Returns:
+        function(k_mm_closure, tr_inv, k_inv_y, y) - closure
+        """
+        raise NotImplementedError
+
     def add_diag(self, diag):
         """
         Adds an element to the diagonal of the matrix.
@@ -52,7 +63,7 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
-    def gp_marginal_log_likelihood(self, target):
+    def exact_gp_marginal_log_likelihood(self, target, num_samples=10):
         """
         Computes the marginal log likelihood of a Gaussian process whose covariance matrix
         plus the diagonal noise term (added using add_diag above) is stored as this lazy variable
@@ -62,7 +73,11 @@ class LazyVariable(object):
         Returns:
             - scalar - The GP marginal log likelihood where (K+\sigma^{2}I) is represented by this LazyVariable.
         """
-        raise NotImplementedError
+        if not hasattr(self, '_gp_mll_class'):
+            grad_closure_factory = self._exact_gp_mll_grad_closure_factory
+            self._gp_mll_class = function_factory.exact_gp_mll_factory(self._mm_closure_factory, grad_closure_factory)
+        args = list(self.representation()) + [target]
+        return self._gp_mll_class(num_samples)(*args)
 
     def invmm(self, rhs_mat):
         """

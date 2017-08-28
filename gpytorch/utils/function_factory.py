@@ -2,6 +2,7 @@ from torch.autograd import Function
 from .lincg import LinearCG
 from .lanczos_quadrature import StochasticLQ
 import torch
+import math
 
 
 def _default_mm_closure_factor(x):
@@ -14,6 +15,15 @@ def _default_grad_fn(grad_output, rhs_mat):
 
 def _default_derivative_quadratic_form_factory(mat):
     return lambda left_vector, right_vector: (left_vector.unsqueeze(1).mm(right_vector.unsqueeze(0)),)
+
+
+def _default_exact_gp_mml_grad_closure_factory(*args):
+    def closure(mm_closure, tr_inv, mat_inv_labels, labels, num_samples):
+        grad = torch.ger(labels.view(-1), mat_inv_labels.view(-1))
+        grad.add_(-torch.eye(*grad.size()))
+        grad = LinearCG().solve(mm_closure, grad)
+        return grad,
+    return closure
 
 
 def invmm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_default_grad_fn):
@@ -192,3 +202,63 @@ def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor
             return tuple([grad_mu_diff] + [grad_cholesky_factor] + grad_covar2_args)
 
     return TraceLogDetQuadForm
+
+
+def exact_gp_mll_factory(mm_closure_factory=_default_mm_closure_factor,
+                         exact_gp_mml_grad_closure_factory=_default_exact_gp_mml_grad_closure_factory):
+    class ExactGPMLL(Function):
+        def __init__(self, num_samples=10):
+            self.num_samples = num_samples
+
+        def forward(self, *args):
+            closure_args = args[:-1]
+            labels = args[-1]
+
+            mm_closure = mm_closure_factory(*closure_args)
+            mat_inv_labels = LinearCG().solve(mm_closure, labels.unsqueeze(1)).view(-1)
+            # Inverse quad form
+            res = mat_inv_labels.dot(labels)
+            # Log determinant
+            logdet, tr_inv = StochasticLQ(num_random_probes=10).evaluate(mm_closure, len(labels),
+                                                                         [lambda x: x.log(), lambda x: x.pow(-1)])
+
+            res += logdet
+            res += math.log(2 * math.pi) * len(labels)
+            res *= -0.5
+
+            self.mat_inv_labels = mat_inv_labels
+            self.tr_inv = tr_inv
+            self.mm_closure = mm_closure
+            self.save_for_backward(*args)
+            return labels.new().resize_(1).fill_(res)
+
+        def backward(self, grad_output):
+            if exact_gp_mml_grad_closure_factory is None:
+                raise NotImplementedError
+
+            closure_args = self.saved_tensors[:-1]
+            labels = self.saved_tensors[-1]
+            mat_inv_labels = self.mat_inv_labels
+            grad_output_value = grad_output.squeeze()[0]
+
+            mm_closure = self.mm_closure
+            tr_inv = self.tr_inv
+            closure_arg_grads = [None] * len(closure_args)
+            labels_grad = None
+
+            # input_1 gradient
+            if any(self.needs_input_grad[:-1]):
+                grad_closure = exact_gp_mml_grad_closure_factory(*(list(closure_args)))
+                closure_arg_grads = list(grad_closure(mm_closure, tr_inv, mat_inv_labels, labels, self.num_samples))
+                for i, closure_arg_grad in enumerate(closure_arg_grads):
+                    if closure_arg_grad is not None:
+                        closure_arg_grad.mul_(0.5 * grad_output_value)
+
+            # input_2 gradient
+            if self.needs_input_grad[-1]:
+                # Need gradient with respect to labels
+                labels_grad = mat_inv_labels.mul_(-grad_output_value)
+
+            return tuple(closure_arg_grads + [labels_grad])
+
+    return ExactGPMLL
