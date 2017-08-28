@@ -138,10 +138,19 @@ def test_circulant_invmm():
     assert(utils.approx_equal(aM_result, aM_actual))
 
 
-def test_Chang_circulant_approximation():
+def test_frobenius_circulant_approximation():
     A = torch.randn(5, 5)
 
-    C1 = circulant.Chang_circulant_approximation(A)
-    C2 = circulant.Chang_circulant_approximation(circulant.circulant(C1))
+    C1 = circulant.frobenius_circulant_approximation(A)
+    C2 = circulant.frobenius_circulant_approximation(circulant.circulant(C1))
 
     assert(utils.approx_equal(C1, C2))
+
+
+def test_frobenius_circulant_approximation_toeplitz():
+    toeplitz_column = torch.randn(5)
+
+    C1 = circulant.frobenius_circulant_approximation_toeplitz(toeplitz_column)
+    C2 = circulant.frobenius_circulant_approximation_toeplitz(C1)
+
+    assert(torch.norm(C1 - C2) < 1e-3)

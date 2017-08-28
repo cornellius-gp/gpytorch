@@ -219,7 +219,7 @@ def circulant_invmv(circulant_column, vector):
     return res
 
 
-def Chang_circulant_approximation(A):
+def frobenius_circulant_approximation(A):
     n = A.size(0)
     F = A.new().resize_(n).fill_(0)
 
@@ -229,3 +229,14 @@ def Chang_circulant_approximation(A):
     F = F / (2 * n)
 
     return F
+
+
+def frobenius_circulant_approximation_toeplitz(toeplitz_column):
+    n = toeplitz_column.size(0)
+    circulant_column = toeplitz_column.new().resize_(n).fill_(0)
+
+    for i in range(n):
+        circulant_column[i] = (i * toeplitz_column[-i] + (n - i) * toeplitz_column[i]) / n
+
+    circulant_column[0] += 1e-4
+    return circulant_column
