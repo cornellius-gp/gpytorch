@@ -103,7 +103,7 @@ def circulant_mv(circulant_column, vector):
 
 def circulant_mm(circulant_column, matrix):
     """
-    Performs a matrix-matrix multiplication CM where the matrix C is Circulant.
+    Performs a matrix-matrix multiplication CM where the matrix C is circulant.
     Args:
         - circulant_column (vector n) - First column of the circulant matrix C.
         - matrix (matrix n x p) - Matrix to multiply the Toeplitz matrix with.
@@ -139,12 +139,12 @@ def circulant_mm(circulant_column, matrix):
 
 def circulant_invmm(circulant_column, matrix):
     """
-    Performs a matrix-matrix multiplication CM where the matrix C is Circulant.
+    Performs a batch of linear solves C^{-1}M where the matrix C is circulant.
     Args:
         - circulant_column (vector n) - First column of the circulant matrix C.
         - matrix (matrix n x p) - Matrix to multiply the Toeplitz matrix with.
     Returns:
-        - Matrix (n x p) - The result of the matrix-vector multiply CM.
+        - Matrix (n x p) - The result of the linear solves C^{-1}M.
     """
     if circulant_column.ndimension() != 1 or matrix.ndimension() != 2:
         raise RuntimeError('All inputs to CirculantMV should be vectors (first column c and row r of the Toeplitz \
@@ -181,12 +181,12 @@ def circulant_invmm(circulant_column, matrix):
 
 def circulant_invmv(circulant_column, vector):
     """
-    Performs a matrix-vector multiplication Cv where the matrix C is circulant.
+    Performs a linear solve C^{-1}v where the matrix C is circulant.
     Args:
         - circulant_column (vector n) - First column of the circulant matrix C.
         - vector (vector n) - Vector to multiply the circulant matrix with.
     Returns:
-        - Vector (n) - The result of the matrix-vector multiply Cv.
+        - Vector (n) - The result of the linear solve C^{-1}v.
     """
     if circulant_column.ndimension() != 1 or vector.ndimension() != 1:
         raise RuntimeError('All inputs to CirculantMV should be vectors (first column c and row r of the Toeplitz \
