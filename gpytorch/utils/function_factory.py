@@ -49,7 +49,7 @@ def invmm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_defaul
                 closure_arg_grads = list(grad_fn(input_1_t_input_2.t(), lhs_matrix_grad.t()))
 
             # input_2 gradient
-            if self.needs_input_grad[1]:
+            if self.needs_input_grad[-1]:
                 rhs_matrix_grad = LinearCG().solve(mm_closure_factory(*closure_args), grad_output)
 
             return tuple(closure_arg_grads + [rhs_matrix_grad])
@@ -86,7 +86,7 @@ def mm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_default_g
                 closure_arg_grads = list(grad_fn(grad_output, input_1_t_input_2))
 
             # input_2 gradient
-            if self.needs_input_grad[1]:
+            if self.needs_input_grad[-1]:
                 rhs_matrix_grad = mm_closure_factory(*closure_args)(grad_output)
 
             return tuple(closure_arg_grads + [rhs_matrix_grad])
@@ -112,7 +112,7 @@ def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor
                 covar2_mv_closure = mm_closure_factory(*covar2_args)
             else:
                 def covar2_mv_closure(vector):
-                        return mm_closure_factory(*covar2_args)(vector.unsqueeze(1)).squeeze()
+                    return mm_closure_factory(*covar2_args)(vector.unsqueeze(1)).squeeze()
 
             def quad_form_closure(z):
                 return z.dot(LinearCG().solve(covar2_mv_closure, chol_covar1.t().mv(chol_covar1.mv(z))))
@@ -166,7 +166,7 @@ def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor
                 grad_cholesky_factor = 2 * LinearCG().solve(mm_closure_factory(*covar2_args), chol_covar1)
                 grad_cholesky_factor.mul_(grad_output_value)
 
-            if self.needs_input_grad[2]:
+            if any(self.needs_input_grad[2:]):
                 # Compute gradient with respect to covar2
                 quad_part = derivative_quadratic_form_factory(*covar2_args)(mat_inv_y, mat_inv_y)
 
