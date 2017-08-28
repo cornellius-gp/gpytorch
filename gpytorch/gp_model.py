@@ -24,7 +24,7 @@ class GPModel(gpytorch.Module):
 
         self.grid_size = grid_size
         self.grid_bounds = grid_bounds
-        self.inducing_points = Variable(torch.linspace(grid_bounds[0] - grid_diff, 
+        self.inducing_points = Variable(torch.linspace(grid_bounds[0] - grid_diff,
                                                        grid_bounds[1] + grid_diff,
                                                        grid_size))
 

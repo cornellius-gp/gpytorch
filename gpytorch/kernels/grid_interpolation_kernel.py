@@ -4,7 +4,6 @@ from .kernel import Kernel
 from gpytorch.utils.interpolation import Interpolation
 from gpytorch.lazy import ToeplitzLazyVariable
 
-import pdb
 
 class GridInterpolationKernel(Kernel):
     def __init__(self, base_kernel_module):
