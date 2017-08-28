@@ -17,7 +17,7 @@ class GridInterpolationKernel(Kernel):
         self.grid_bounds = grid_bounds
         self.grid = torch.zeros(len(grid_bounds), grid_size)
         for i in range(len(grid_bounds)):
-            grid_diff = (grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
+            grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
             self.grid[i] = torch.linspace(grid_bounds[i][0] - grid_diff,
                                           grid_bounds[i][1] + grid_diff,
                                           grid_size)
