@@ -25,7 +25,7 @@ class KissGPModel(gpytorch.GPModel):
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
         self.grid_covar_module = GridInterpolationKernel(covar_module)
-        self.initialize_interpolation_grid(30, grid_bounds=(0, 1))
+        self.initialize_interpolation_grid(30, grid_bounds=[(0, 1)])
 
     def forward(self, x):
         mean_x = self.mean_module(x)

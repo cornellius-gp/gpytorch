@@ -46,6 +46,10 @@ def kronecker_product(matrices):
     return res
 
 
+def sym_kronecker_product_toeplitz_mul(toeplitz_columns, vector):
+    return kronecker_product_toeplitz_mul(toeplitz_columns, toeplitz_columns, vector)
+
+
 def kronecker_product_toeplitz_mul(toeplitz_columns, toeplitz_rows, vector):
     """
     Performs a matrix-vector multiplication Kv where the matrix K is T_0 \otimes \cdots \otimes T_{d-1}
@@ -251,16 +255,16 @@ def kp_sym_toeplitz_derivative_quadratic_form(columns, left_vector, right_vector
 
 
 def list_of_indices_and_values_to_sparse(index_matrices, value_matrices, columns):
-    index_matrix, value_matrix, m = merge_index_and_value_matrices(index_matrices, value_matrices, columns)
+    index_matrix, value_matrix, m = _merge_index_and_value_matrices(index_matrices, value_matrices, columns)
     return index_coef_to_sparse(index_matrix, value_matrix, m)
 
 
-def merge_index_and_value_matrices(index_matrices, value_matrices, columns):
+def _merge_index_and_value_matrices(index_matrices, value_matrices, columns):
     d = len(index_matrices)
     if d == 1:
         return index_matrices[0], value_matrices[0], len(columns[0])
 
-    index_matrices_1, value_matrices_1, m_1 = merge_index_and_value_matrices(index_matrices[1:],
+    index_matrices_1, value_matrices_1, m_1 = _merge_index_and_value_matrices(index_matrices[1:],
                                                                              value_matrices[1:],
                                                                              columns[1:])
     index_matrix_0, value_matrix_0 = index_matrices[0], value_matrices[0]

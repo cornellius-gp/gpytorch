@@ -20,7 +20,7 @@ class GPClassificationModel(gpytorch.GPModel):
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.grid_covar_module = GridInterpolationKernel(self.covar_module)
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
-        self.initialize_interpolation_grid(50, grid_bounds=(0, 1))
+        self.initialize_interpolation_grid(50, grid_bounds=[(0, 1)])
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -40,7 +40,7 @@ def test_kissgp_classification_error():
     posterior_model.train()
     optimizer = optim.Adam(posterior_model.parameters(), lr=0.15)
     optimizer.n_iter = 0
-    for i in range(150):
+    for i in range(200):
         optimizer.zero_grad()
         output = posterior_model.forward(train_x)
         loss = -posterior_model.marginal_log_likelihood(output, train_y)
