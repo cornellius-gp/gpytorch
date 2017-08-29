@@ -9,4 +9,4 @@ class ConstantMean(Mean):
         self.register_parameter('constant', nn.Parameter(torch.zeros(1)), bounds=constant_bounds)
 
     def forward(self, input):
-        return self.constant.expand(input.size())
+        return self.constant.expand(input.size()[0])

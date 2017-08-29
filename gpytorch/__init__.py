@@ -55,7 +55,7 @@ def dsmm(sparse_mat, dense_mat):
     return DSMM(sparse_mat)(dense_mat)
 
 
-def exact_gp_marginal_log_likelihood(covar, target):
+def exact_gp_marginal_log_likelihood(covar, target, num_samples=10):
     """
     Computes the log marginal likelihood of the data with a GP prior and Gaussian noise model
     given a label vector and covariance matrix.
@@ -69,7 +69,7 @@ def exact_gp_marginal_log_likelihood(covar, target):
         - scalar - The marginal log likelihood of the data.
     """
     if isinstance(covar, LazyVariable):
-        return covar.exact_gp_marginal_log_likelihood(target)
+        return covar.exact_gp_marginal_log_likelihood(target, num_samples)
     else:
         return ExactGPMarginalLogLikelihood()(covar, target)
 

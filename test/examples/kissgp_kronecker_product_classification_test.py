@@ -1,4 +1,3 @@
-import math
 import torch
 import gpytorch
 from torch import nn, optim
@@ -9,8 +8,16 @@ from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
 from gpytorch.inference import Inference
 
-train_x = Variable(torch.linspace(0, 1, 10))
-train_y = Variable(torch.sign(torch.cos(train_x.data * (4 * math.pi))))
+n = 4
+train_x = torch.zeros(pow(n, 2), 2)
+train_y = torch.zeros(pow(n, 2))
+for i in range(n):
+    for j in range(n):
+        train_x[i * n + j][0] = float(i) / (n - 1)
+        train_x[i * n + j][1] = float(j) / (n - 1)
+        train_y[i * n + j] = pow(-1, int(i / 2) + int(j / 2))
+train_x = Variable(train_x)
+train_y = Variable(train_y)
 
 
 class GPClassificationModel(gpytorch.GPModel):
@@ -20,7 +27,7 @@ class GPClassificationModel(gpytorch.GPModel):
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.grid_covar_module = GridInterpolationKernel(self.covar_module)
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
-        self.initialize_interpolation_grid(50, grid_bounds=[(0, 1)])
+        self.initialize_interpolation_grid(8, grid_bounds=[(0, 3), (0, 3)])
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -40,7 +47,7 @@ def test_kissgp_classification_error():
     posterior_model.train()
     optimizer = optim.Adam(posterior_model.parameters(), lr=0.15)
     optimizer.n_iter = 0
-    for i in range(200):
+    for i in range(20):
         optimizer.zero_grad()
         output = posterior_model.forward(train_x)
         loss = -posterior_model.marginal_log_likelihood(output, train_y)
