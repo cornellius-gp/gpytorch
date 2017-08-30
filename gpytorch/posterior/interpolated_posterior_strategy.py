@@ -1,0 +1,52 @@
+import torch
+import gpytorch
+from .posterior_strategy import PosteriorStrategy
+
+
+class InterpolatedPosteriorStrategy(PosteriorStrategy):
+    def __init__(self, var, grid, interp_left, interp_right):
+        """
+        Assumes that var is represented by interp_left * grid * interp_right^T
+
+        Args:
+        - var (LazyVariable) - the variable to define the PosteriorStrategy for
+        - grid (LazyVariable) - represents the grid matrix
+        - interp_left (Sparse Tensor) - the left interpolation matrix of the grid
+        - interp_right (Sparse Tensor) - the right interpolation matrix of the grid
+        """
+        super(InterpolatedPosteriorStrategy, self).__init__(var)
+        self.grid = grid
+        self.interp_left = interp_left
+        self.interp_right = interp_right
+
+    def exact_posterior_alpha(self, train_mean, train_y):
+        train_residual = (train_y - train_mean).unsqueeze(1)
+        alpha = self.var.invmm(train_residual)
+        alpha = gpytorch.dsmm(self.interp_right.t(), alpha)
+        alpha = self.grid.mm(alpha)
+        return alpha.squeeze()
+
+    def exact_posterior_mean(self, test_mean, alpha):
+        alpha = alpha.unsqueeze(1)
+        return test_mean.add(gpytorch.dsmm(self.interp_left, alpha).squeeze())
+
+    def exact_posterior_covar(self, test_train_covar, train_test_covar, test_test_covar):
+        # TODO: Add a diagonal only mode / use implicit math
+        train_test_covar = train_test_covar.evaluate()
+        test_train_covar = train_test_covar.t()
+        test_test_covar = test_test_covar.evaluate()
+
+        test_test_covar_correction = torch.mm(test_train_covar, gpytorch.invmm(self.var, train_test_covar))
+        return test_test_covar.sub(test_test_covar_correction)
+
+    def variational_posterior_alpha(self, variational_mean):
+        return variational_mean.add(0)  # Trick to ensure that we're not returning a Paremeter
+
+    def variational_posterior_mean(self, alpha):
+        return gpytorch.dsmm(self.interp_left, alpha.unsqueeze(1)).squeeze()
+
+    def variational_posterior_covar(self, induc_test_covar, chol_variational_covar,
+                                    test_test_covar, induc_induc_covar):
+        covar_right = gpytorch.dsmm(self.interp_right.t(), chol_variational_covar.t()).t()
+        covar_left = gpytorch.dsmm(self.interp_left, chol_variational_covar.t())
+        return covar_left.mm(covar_right)

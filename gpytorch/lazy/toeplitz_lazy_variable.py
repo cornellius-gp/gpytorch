@@ -3,9 +3,10 @@ import gpytorch
 from torch.autograd import Variable
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
+from ..posterior import InterpolatedPosteriorStrategy
 from ..utils import sparse_eye, LinearCG
 from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm, \
-    sym_toeplitz_derivative_quadratic_form
+    sym_toeplitz_mv, sym_toeplitz_derivative_quadratic_form
 
 
 class ToeplitzLazyVariable(LazyVariable):
@@ -201,6 +202,14 @@ class ToeplitzLazyVariable(LazyVariable):
         """
         return self.c.mul_(constant)
 
+    def posterior_strategy(self):
+        if not hasattr(self, '_posterior_strategy'):
+            toeplitz_column, interp_left, interp_right, added_diag = self.representation()
+            grid = ToeplitzLazyVariable(toeplitz_column)
+            self._posterior_strategy = InterpolatedPosteriorStrategy(self, grid=grid, interp_left=interp_left,
+                                                                     interp_right=interp_right)
+        return self._posterior_strategy
+
     def representation(self):
         if self.J_left is None and self.C_left is None and self.J_right is None \
                 and self.C_right is None and self.added_diag is None:
@@ -224,54 +233,11 @@ class ToeplitzLazyVariable(LazyVariable):
             added_diag = Variable(torch.zeros(1))
         return self.c, W_left, W_right, added_diag
 
-    def exact_posterior_alpha(self, train_mean, train_y):
-        train_residual = (train_y - train_mean).unsqueeze(1)
-        alpha = self.invmm(train_residual)
-        W_train_right = Variable(index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
-        alpha = gpytorch.dsmm(W_train_right.t(), alpha)
-        alpha = ToeplitzLazyVariable(self.c).mm(alpha)
-        return alpha.squeeze()
-
-    def exact_posterior_mean(self, test_mean, alpha):
-        alpha = alpha.unsqueeze(1)
-        W_test_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-        return test_mean.add(gpytorch.dsmm(W_test_left, alpha).squeeze())
-
-    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples):
+    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
         if self.J_left is None and self.J_right is None:
             return super(ToeplitzLazyVariable, self).trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
         else:
             return ToeplitzLazyVariable(self.c).trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
-
-    def variational_posterior_mean(self, alpha):
-        """
-        Assumes self is the covariance matrix between test and inducing points
-
-        Returns the mean of the posterior GP on test points, given
-        prior means/covars
-
-        Args:
-            - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
-        """
-        W_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-        return gpytorch.dsmm(W_left, alpha.unsqueeze(1)).squeeze()
-
-    def variational_posterior_covar(self, chol_variational_covar):
-        """
-        Assumes self is the covariance matrix between test and inducing points
-
-        Returns the covar of the posterior GP on test points, given
-        prior covars
-
-        Args:
-            - chol_variational_covar (Variable nxn) - Cholesky decomposition of variational covar
-        """
-        W_left = index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-        W_right = W_left.t()
-
-        covar_right = gpytorch.dsmm(W_right.t(), chol_variational_covar.t()).t()
-        covar_left = gpytorch.dsmm(W_left, chol_variational_covar.t())
-        return covar_left.mm(covar_right)
 
     def __getitem__(self, i):
         if isinstance(i, tuple):

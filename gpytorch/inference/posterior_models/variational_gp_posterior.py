@@ -59,11 +59,13 @@ class _VariationalGPPosterior(_GPPosterior):
 
             # Calculate posterior components
             if not hasattr(self, 'alpha'):
-                self.alpha = gpytorch.variational_posterior_alpha(induc_induc_covar, self.variational_mean)
-            test_mean = gpytorch.variational_posterior_mean(test_induc_covar, self.alpha)
-            test_covar = gpytorch.variational_posterior_covar(test_induc_covar, induc_test_covar,
-                                                              self.chol_variational_covar, test_test_covar,
-                                                              induc_induc_covar)
+                alpha_strategy = gpytorch.posterior_strategy(induc_induc_covar)
+                self.alpha = alpha_strategy.variational_posterior_alpha(self.variational_mean)
+            mean_strategy = gpytorch.posterior_strategy(test_induc_covar)
+            test_mean = mean_strategy.variational_posterior_mean(self.alpha)
+            covar_strategy = gpytorch.posterior_strategy(test_induc_covar)
+            test_covar = covar_strategy.variational_posterior_covar(induc_test_covar, self.chol_variational_covar,
+                                                                    test_test_covar, induc_induc_covar)
             output = GaussianRandomVariable(test_mean, test_covar)
             return output
 

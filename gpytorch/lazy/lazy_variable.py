@@ -148,19 +148,9 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
-    def mvn_kl_divergence(self, mean_1, chol_covar_1, mean_2):
+    def posterior_strategy(self):
         """
-        Computes the KL divergence between two multivariate Normal distributions. The first of these
-        distributions is specified by mean_1 and chol_covar_1, while the second distribution is specified
-        by mean_2 and this LazyVariable.
-
-        Args:
-            - mean_1 (vector n) - Mean vector of the first Gaussian distribution.
-            - chol_covar_1 (matrix n x n) - Cholesky factorization of the covariance matrix of the first Gaussian
-                                            distribution.
-            - mean_2 (vector n) - Mean vector of the second Gaussian distribution.
-        Returns:
-            - KL divergence between N(mean_1, chol_covar_1) and N(mean_2, self)
+        Return a PosteriorStrategy object for computing the GP posterior.
         """
         raise NotImplementedError
 
@@ -177,56 +167,6 @@ class LazyVariable(object):
                                                                         self._derivative_quadratic_form_factory)
         covar2_args = self.representation()
         return self._trace_log_det_quad_form_class(num_samples)(mu_diffs, chol_covar_1, *covar2_args)
-
-    def exact_posterior_alpha(self, train_mean, train_y):
-        """
-        Assumes that self represents the train-train prior covariance matrix.
-
-        Returns alpha - a vector to memoize for calculating the
-        mean of the posterior GP on test points
-
-        Args:
-            - train_mean (Variable n) - prior mean values for the test points.
-            - train_y (Variable n) - alpha vector, computed from exact_posterior_alpha
-        """
-        raise NotImplementedError
-
-    def exact_posterior_mean(self, test_mean, alpha):
-        """
-        Assumes that self represents the test-train prior covariance matrix.
-
-        Returns the mean of the posterior GP on test points, given
-        prior means/covars
-
-        Args:
-            - test_mean (Variable m) - prior mean values for the test points.
-            - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
-        """
-        raise NotImplementedError
-
-    def variational_posterior_mean(self, alpha):
-        """
-        Assumes self is the covariance matrix between test and inducing points
-
-        Returns the mean of the posterior GP on test points, given
-        prior means/covars
-
-        Args:
-            - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
-        """
-        raise NotImplementedError
-
-    def variational_posterior_covar(self):
-        """
-        Assumes self is the covariance matrix between test and inducing points
-
-        Returns the covar of the posterior GP on test points, given
-        prior covars
-
-        Args:
-            - chol_variational_covar (Variable nxn) - Cholesky decomposition of variational covar
-        """
-        raise NotImplementedError
 
     def __getitem__(self, index):
         raise NotImplementedError
