@@ -94,44 +94,22 @@ def test_circulant_transpose():
     assert(utils.approx_equal(C_T_actual, C_T_result))
 
 
-def test_circulant_mv():
-    a = torch.randn(5)
-    v = torch.randn(5)
-
-    av_result = circulant.circulant_mv(a, v)
-    C = circulant.circulant(a)
-    av_actual = C.mv(v)
-
-    assert(utils.approx_equal(av_result, av_actual))
-
-
-def test_circulant_mm():
+def test_circulant_matmul():
     a = torch.randn(5)
     M = torch.randn(5, 5)
 
-    aM_result = circulant.circulant_mm(a, M)
+    aM_result = circulant.circulant_matmul(a, M)
     C = circulant.circulant(a)
     aM_actual = C.mm(M)
 
     assert(utils.approx_equal(aM_result, aM_actual))
 
 
-def test_circulant_invmv():
-    a = torch.randn(5)
-    v = torch.randn(5)
-
-    av_result = circulant.circulant_invmv(a, v)
-    C = circulant.circulant(a)
-    av_actual = C.inverse().mv(v)
-
-    assert(utils.approx_equal(av_result, av_actual))
-
-
-def test_circulant_invmm():
+def test_circulant_inv_matmul():
     a = torch.randn(5)
     M = torch.randn(5, 5)
 
-    aM_result = circulant.circulant_invmm(a, M)
+    aM_result = circulant.circulant_inv_matmul(a, M)
     C = circulant.circulant(a)
     aM_actual = C.inverse().mm(M)
 

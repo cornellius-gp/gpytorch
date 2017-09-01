@@ -5,8 +5,8 @@ from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from ..posterior import InterpolatedPosteriorStrategy
 from ..utils import sparse_eye, LinearCG
-from ..utils.toeplitz import interpolated_sym_toeplitz_mul, index_coef_to_sparse, sym_toeplitz_mm, \
-    sym_toeplitz_mv, sym_toeplitz_derivative_quadratic_form
+from ..utils.toeplitz import interpolated_sym_toeplitz_matmul, index_coef_to_sparse, sym_toeplitz_matmul, \
+    sym_toeplitz_derivative_quadratic_form
 
 
 class ToeplitzLazyVariable(LazyVariable):
@@ -22,23 +22,23 @@ class ToeplitzLazyVariable(LazyVariable):
         self.C_right = C_right
         self.added_diag = added_diag
 
-    def _mm_closure_factory(self, *args):
+    def _matmul_closure_factory(self, *args):
         if len(args) == 1:
             c, = args
 
-            def closure(mat2):
-                if mat2.ndimension() == 1:
-                    return sym_toeplitz_mv(c, mat2)
-                else:
-                    return sym_toeplitz_mm(c, mat2)
-
-            return closure
+            def closure(tensor):
+                return sym_toeplitz_matmul(c, tensor)
 
         elif len(args) == 4:
             c, W_left, W_right, added_diag = args
-            return lambda mat2: interpolated_sym_toeplitz_mul(c, mat2, W_left, W_right, added_diag)
+
+            def closure(tensor):
+                return interpolated_sym_toeplitz_matmul(c, tensor, W_left, W_right, added_diag)
+
         else:
             raise AttributeError('Invalid number of arguments')
+
+        return closure
 
     def _derivative_quadratic_form_factory(self, *args):
         def closure(left_vector, right_vector):
@@ -138,7 +138,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 W_right_T = self.explicit_interpolate_T(self.J_right, self.C_right)
                 WTW = gpytorch.dsmm(Variable(W_left), W_right_T.t())
         else:
-            WTW = ToeplitzLazyVariable(self.c).mm(Variable(torch.eye(len(self.c))))
+            WTW = ToeplitzLazyVariable(self.c).matmul(Variable(torch.eye(len(self.c))))
 
         if self.added_diag is not None:
             WTW = WTW + torch.diag(self.added_diag)

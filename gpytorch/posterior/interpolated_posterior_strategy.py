@@ -21,9 +21,9 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
 
     def exact_posterior_alpha(self, train_mean, train_y):
         train_residual = (train_y - train_mean).unsqueeze(1)
-        alpha = self.var.invmm(train_residual)
+        alpha = self.var.inv_matmul(train_residual)
         alpha = gpytorch.dsmm(self.interp_right.t(), alpha)
-        alpha = self.grid.mm(alpha)
+        alpha = self.grid.matmul(alpha)
         return alpha.squeeze()
 
     def exact_posterior_mean(self, test_mean, alpha):
@@ -36,7 +36,7 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
         test_train_covar = train_test_covar.t()
         test_test_covar = test_test_covar.evaluate()
 
-        test_test_covar_correction = torch.mm(test_train_covar, gpytorch.invmm(self.var, train_test_covar))
+        test_test_covar_correction = torch.matmul(test_train_covar, gpytorch.inv_matmul(self.var, train_test_covar))
         return test_test_covar.sub(test_test_covar_correction)
 
     def variational_posterior_alpha(self, variational_mean):
@@ -49,4 +49,4 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
                                     test_test_covar, induc_induc_covar):
         covar_right = gpytorch.dsmm(self.interp_right.t(), chol_variational_covar.t()).t()
         covar_left = gpytorch.dsmm(self.interp_left, chol_variational_covar.t())
-        return covar_left.mm(covar_right)
+        return covar_left.matmul(covar_right)

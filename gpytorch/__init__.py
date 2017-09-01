@@ -8,7 +8,7 @@ from .utils import function_factory
 from .posterior import DefaultPosteriorStrategy
 
 
-_invmm_class = function_factory.invmm_factory()
+_inv_matmul_class = function_factory.inv_matmul_factory()
 _trace_logdet_quad_form_factory_class = function_factory.trace_logdet_quad_form_factory()
 _exact_gp_mll_class = function_factory.exact_gp_mll_factory()
 
@@ -75,36 +75,21 @@ def exact_gp_marginal_log_likelihood(covar, target, num_samples=10):
         return _exact_gp_mll_class()(covar, target)
 
 
-def invmm(mat1, mat2):
+def inv_matmul(mat1, rhs):
     """
     Computes a linear solve with several right hand sides.
 
     Args:
         - mat1 (matrix nxn) - Matrix to solve with
-        - mat2 (matrix nxk) - Matrix of k right hand side vectors.
+        - rhs (matrix nxk) - rhs matrix or vector
 
     Returns:
-        - matrix nxk - (mat1)^{-1}mat2
+        - matrix nxk - (mat1)^{-1} rhs
     """
     if isinstance(mat1, LazyVariable):
-        return mat1.invmm(mat2)
+        return mat1.inv_matmul(rhs)
     else:
-        return _invmm_class()(mat1, mat2)
-
-
-def invmv(mat, vec):
-    """
-    Computes a linear solve with a single right hand side
-
-    Args:
-        - mat1 (matrix nxn) - Matrix to solve with
-        - vec (vector n) - Right hand side vector
-
-    Returns:
-        - vector n - (mat1)^{-1}vec
-    """
-    res = invmm(mat, vec.view(-1, 1))
-    return res.view(-1)
+        return _inv_matmul_class()(mat1, rhs)
 
 
 def log_normal_cdf(x):
@@ -196,8 +181,7 @@ __all__ = [
     add_jitter,
     dsmm,
     exact_gp_marginal_log_likelihood,
-    invmm,
-    invmv,
+    inv_matmul,
     log_normal_cdf,
     monte_carlo_log_likelihood,
     mvn_kl_divergence,

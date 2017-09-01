@@ -6,7 +6,7 @@ from .toeplitz_lazy_variable import ToeplitzLazyVariable
 from torch.autograd import Variable
 from ..posterior import InterpolatedPosteriorStrategy
 from ..utils import sparse_eye, LinearCG
-from ..utils.kronecker_product import sym_kronecker_product_toeplitz_mul, kp_interpolated_toeplitz_mul, \
+from ..utils.kronecker_product import sym_kronecker_product_toeplitz_matmul, kp_interpolated_toeplitz_matmul, \
     kp_sym_toeplitz_derivative_quadratic_form, list_of_indices_and_values_to_sparse, kronecker_product
 
 
@@ -28,15 +28,23 @@ class KroneckerProductLazyVariable(LazyVariable):
         else:
             self.size = (self.kronecker_product_size, self.kronecker_product_size)
 
-    def _mm_closure_factory(self, *args):
+    def _matmul_closure_factory(self, *args):
         if len(args) == 1:
             columns, = args
-            return lambda mat2: sym_kronecker_product_toeplitz_mul(columns, mat2)
+
+            def closure(mat2):
+                return sym_kronecker_product_toeplitz_matmul(columns, mat2)
+
         elif len(args) == 4:
             columns, W_lefts, W_rights, added_diag = args
-            return lambda mat2: kp_interpolated_toeplitz_mul(columns, mat2, W_lefts, W_rights, added_diag)
+
+            def closure(mat2):
+                return kp_interpolated_toeplitz_matmul(columns, mat2, W_lefts, W_rights, added_diag)
+
         else:
             raise AttributeError('Invalid number of arguments')
+
+        return closure
 
     def _derivative_quadratic_form_factory(self, *args):
         columns, = args
@@ -163,7 +171,7 @@ class KroneckerProductLazyVariable(LazyVariable):
                 W_right_K = self.explicit_interpolate_K(self.J_rights, self.C_rights)
                 WKW = gpytorch.dsmm(Variable(W_left), W_right_K.t())
         else:
-            WKW = KroneckerProductLazyVariable(self.columns).mm(Variable(torch.eye(self.kronecker_product_size)))
+            WKW = KroneckerProductLazyVariable(self.columns).matmul(Variable(torch.eye(self.kronecker_product_size)))
 
         if self.added_diag is not None:
             WKW = WKW + torch.diag(self.added_diag)

@@ -1,6 +1,5 @@
 import torch
-from gpytorch.utils.kronecker_product import kronecker_product_toeplitz_mul, kronecker_product, \
-    kronecker_product_mul
+from gpytorch.utils.kronecker_product import kronecker_product_toeplitz_matmul, kronecker_product
 from gpytorch.utils.toeplitz import toeplitz
 
 
@@ -28,10 +27,10 @@ def test_kronecker_product():
     assert(torch.equal(res, actual))
 
 
-def test_kronecker_product_toeplitz_mul():
+def test_kronecker_product_toeplitz_matmul():
     toeplitz_columns = torch.randn(3, 3)
     matrix = torch.randn(27, 10)
-    res = kronecker_product_toeplitz_mul(toeplitz_columns, toeplitz_columns, matrix)
+    res = kronecker_product_toeplitz_matmul(toeplitz_columns, toeplitz_columns, matrix)
 
     toeplitz_matrices = torch.zeros(3, 3, 3)
     for i in range(3):
@@ -40,18 +39,4 @@ def test_kronecker_product_toeplitz_mul():
     kronecker_product_matrix = kronecker_product(toeplitz_matrices)
     actual = kronecker_product_matrix.mm(matrix)
 
-    assert(torch.norm(res - actual) < 1e-4)
-
-
-def test_kronecker_product_mul():
-    kronecker_matrices = []
-    kronecker_matrices.append(torch.randn(3, 3))
-    kronecker_matrices.append(torch.randn(2, 2))
-    kronecker_matrices.append(torch.randn(3, 3))
-
-    matrix = torch.randn(3 * 2 * 3, 9)
-    res = kronecker_product_mul(kronecker_matrices, matrix)
-
-    kronecker_product_matrix = kronecker_product(kronecker_matrices)
-    actual = kronecker_product_matrix.mm(matrix)
     assert(torch.norm(res - actual) < 1e-4)
