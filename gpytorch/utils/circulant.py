@@ -64,80 +64,50 @@ def circulant_transpose(input_column):
     return output_column
 
 
-def circulant_mv(circulant_column, vector):
+def circulant_matmul(circulant_column, tensor):
     """
-    Performs a matrix-vector multiplication Cv where the matrix C is circulant.
+    Performs a matrix multiplication CM where the tensor C is circulant.
     Args:
-        - circulant_column (vector n) - First column of the circulant matrix C.
-        - vector (vector n) - Vector to multiply the circulant matrix with.
+        - circulant_column (vector n) - First column of the circulant tensor C.
+        - tensor (tensor n x p) - Matrix or vector to multiply the Toeplitz tensor with.
     Returns:
-        - Vector (n) - The result of the matrix-vector multiply Cv.
+        - tensor
     """
-    if circulant_column.ndimension() != 1 or vector.ndimension() != 1:
+    if circulant_column.ndimension() != 1 or tensor.ndimension() != 2:
         raise RuntimeError('All inputs to CirculantMV should be vectors (first column c and row r of the Toeplitz \
-                            matrix plus the target vector vector).')
+                            tensor plus the target vector vector).')
 
-    if len(circulant_column) != len(vector):
+    if len(circulant_column) != len(tensor):
         raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
 
-    if type(circulant_column) != type(vector):
+    if type(circulant_column) != type(tensor):
         raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
 
-    if len(circulant_column) == 1:
-        return (circulant_column.view(1, 1).mv(vector))
-
-    fft_c = fft.fft1(circulant_column)
-    fft_v = fft.fft1(vector)
-
-    fft_product = torch.zeros(fft_c.size())
-
-    fft_product[:, 0].addcmul_(fft_c[:, 0], fft_v[:, 0])
-    fft_product[:, 0].addcmul_(-1, fft_c[:, 1], fft_v[:, 1])
-    fft_product[:, 1].addcmul_(fft_c[:, 1], fft_v[:, 0])
-    fft_product[:, 1].addcmul_(fft_c[:, 0], fft_v[:, 1])
-
-    res = fft.ifft1(fft_product, vector.size())
-
-    return res
-
-
-def circulant_mm(circulant_column, matrix):
-    """
-    Performs a matrix-matrix multiplication CM where the matrix C is circulant.
-    Args:
-        - circulant_column (vector n) - First column of the circulant matrix C.
-        - matrix (matrix n x p) - Matrix to multiply the Toeplitz matrix with.
-    Returns:
-        - Matrix (n x p) - The result of the matrix-vector multiply CM.
-    """
-    if circulant_column.ndimension() != 1 or matrix.ndimension() != 2:
-        raise RuntimeError('All inputs to CirculantMV should be vectors (first column c and row r of the Toeplitz \
-                            matrix plus the target vector vector).')
-
-    if len(circulant_column) != len(matrix):
-        raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
-
-    if type(circulant_column) != type(matrix):
-        raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
+    output_dims = tensor.ndimension()
+    if output_dims == 1:
+        tensor = tensor.unsqueeze(1)
 
     if len(circulant_column) == 1:
-        return (circulant_column.view(1, 1).mv(matrix))
+        output = (circulant_column.view(1, 1).mv(tensor))
 
-    fft_M = fft.fft1(matrix.t().contiguous())
-    fft_c = fft.fft1(circulant_column).expand_as(fft_M)
-    fft_product = torch.zeros(fft_M.size())
+    else:
+        fft_M = fft.fft1(tensor.t().contiguous())
+        fft_c = fft.fft1(circulant_column).expand_as(fft_M)
+        fft_product = torch.zeros(fft_M.size())
 
-    fft_product[:, :, 0].addcmul_(fft_c[:, :, 0], fft_M[:, :, 0])
-    fft_product[:, :, 0].addcmul_(-1, fft_c[:, :, 1], fft_M[:, :, 1])
-    fft_product[:, :, 1].addcmul_(fft_c[:, :, 1], fft_M[:, :, 0])
-    fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
+        fft_product[:, :, 0].addcmul_(fft_c[:, :, 0], fft_M[:, :, 0])
+        fft_product[:, :, 0].addcmul_(-1, fft_c[:, :, 1], fft_M[:, :, 1])
+        fft_product[:, :, 1].addcmul_(fft_c[:, :, 1], fft_M[:, :, 0])
+        fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
 
-    res = fft.ifft1(fft_product, matrix.size()).t()
+        output = fft.ifft1(fft_product, tensor.size()).t()
 
-    return res
+    if output_dims == 1:
+        output = output.squeeze(1)
+    return output
 
 
-def circulant_invmm(circulant_column, matrix):
+def circulant_inv_matmul(circulant_column, matrix):
     """
     Performs a batch of linear solves C^{-1}M where the matrix C is circulant.
     Args:
@@ -146,8 +116,8 @@ def circulant_invmm(circulant_column, matrix):
     Returns:
         - Matrix (n x p) - The result of the linear solves C^{-1}M.
     """
-    if circulant_column.ndimension() != 1 or matrix.ndimension() != 2:
-        raise RuntimeError('All inputs to CirculantMV should be vectors (first column c and row r of the Toeplitz \
+    if circulant_column.ndimension() != 1:
+        raise RuntimeError('All inputs to CirculantMatmul should be vectors (first column c and row r of the Toeplitz \
                             matrix plus the target vector vector).')
 
     if len(circulant_column) != len(matrix):
@@ -175,46 +145,6 @@ def circulant_invmm(circulant_column, matrix):
     fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
 
     res = fft.ifft1(fft_product, matrix.size()).t()
-
-    return res
-
-
-def circulant_invmv(circulant_column, vector):
-    """
-    Performs a linear solve C^{-1}v where the matrix C is circulant.
-    Args:
-        - circulant_column (vector n) - First column of the circulant matrix C.
-        - vector (vector n) - Vector to multiply the circulant matrix with.
-    Returns:
-        - Vector (n) - The result of the linear solve C^{-1}v.
-    """
-    if circulant_column.ndimension() != 1 or vector.ndimension() != 1:
-        raise RuntimeError('All inputs to CirculantMV should be vectors (first column c and row r of the Toeplitz \
-                            matrix plus the target vector vector).')
-
-    if len(circulant_column) != len(vector):
-        raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
-
-    if type(circulant_column) != type(vector):
-        raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
-
-    if len(circulant_column) == 1:
-        return (circulant_column.view(1, 1).mv(vector))
-
-    fft_c = fft.fft1(circulant_column)
-    denominator = fft_c[:, 0].pow(2) + fft_c[:, 1].pow(2)
-    fft_c[:, 0] = fft_c[:, 0] / denominator
-    fft_c[:, 1] = -fft_c[:, 1] / denominator
-
-    fft_v = fft.fft1(vector)
-
-    fft_product = torch.zeros(fft_c.size())
-    fft_product[:, 0].addcmul_(fft_c[:, 0], fft_v[:, 0])
-    fft_product[:, 0].addcmul_(-1, fft_c[:, 1], fft_v[:, 1])
-    fft_product[:, 1].addcmul_(fft_c[:, 1], fft_v[:, 0])
-    fft_product[:, 1].addcmul_(fft_c[:, 0], fft_v[:, 1])
-
-    res = fft.ifft1(fft_product, vector.size())
 
     return res
 

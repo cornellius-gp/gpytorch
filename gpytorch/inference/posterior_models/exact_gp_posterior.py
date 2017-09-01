@@ -41,10 +41,12 @@ class _ExactGPPosterior(_GPPosterior):
 
             # Calculate posterior components
             if not hasattr(self, 'alpha'):
-                self.alpha = gpytorch.exact_posterior_alpha(train_train_covar, train_mean, Variable(self.train_y))
-            test_mean = gpytorch.exact_posterior_mean(test_train_covar, test_mean, self.alpha)
-            test_covar = gpytorch.exact_posterior_covar(test_test_covar, test_train_covar,
-                                                        train_test_covar, train_train_covar)
+                alpha_strategy = gpytorch.posterior_strategy(train_train_covar)
+                self.alpha = alpha_strategy.exact_posterior_alpha(train_mean, Variable(self.train_y))
+            mean_strategy = gpytorch.posterior_strategy(test_train_covar)
+            test_mean = mean_strategy.exact_posterior_mean(test_mean, self.alpha)
+            covar_strategy = gpytorch.posterior_strategy(train_train_covar)
+            test_covar = covar_strategy.exact_posterior_covar(test_train_covar, train_test_covar, test_test_covar)
             output = GaussianRandomVariable(test_mean, test_covar)
         else:
             output = GaussianRandomVariable(full_mean, full_covar)

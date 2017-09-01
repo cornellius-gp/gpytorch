@@ -5,38 +5,36 @@ import torch
 import math
 
 
-def _default_mm_closure_factor(x):
-    return x
+def _default_matmul_closure_factor(mat):
+    return mat
 
 
-def _default_grad_fn(grad_output, rhs_mat):
-    return rhs_mat.t().mm(grad_output),
+def _default_grad_fn(grad_output, rhs):
+    return rhs.t().matmul(grad_output),
 
 
 def _default_derivative_quadratic_form_factory(mat):
-    return lambda left_vector, right_vector: (left_vector.unsqueeze(1).mm(right_vector.unsqueeze(0)),)
+    return lambda left_vector, right_vector: (left_vector.ger(right_vector),)
 
 
 def _default_exact_gp_mml_grad_closure_factory(*args):
-    def closure(mm_closure, tr_inv, mat_inv_labels, labels, num_samples):
+    def closure(matmul_closure, tr_inv, mat_inv_labels, labels, num_samples):
         grad = torch.ger(labels.view(-1), mat_inv_labels.view(-1))
         grad.add_(-torch.eye(*grad.size()))
-        grad = LinearCG().solve(mm_closure, grad)
+        grad = LinearCG().solve(matmul_closure, grad)
         return grad,
     return closure
 
 
-def invmm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_default_grad_fn):
-    class Invmm(Function):
+def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor, grad_fn=_default_grad_fn):
+    class InvMatmul(Function):
         def __init__(self, *args):
             self.args = args
 
         def forward(self, *args):
             closure_args = self.args + args[:-1]
-            rhs_matrix = args[-1]
-            res = LinearCG().solve(mm_closure_factory(*closure_args), rhs_matrix)
-            if res.ndimension() == 1:
-                res.unsqueeze_(1)
+            rhs = args[-1]
+            res = LinearCG().solve(matmul_closure_factory(*closure_args), rhs)
             self.save_for_backward(*(list(args) + [res]))
             return res
 
@@ -48,36 +46,36 @@ def invmm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_defaul
             input_1_t_input_2 = self.saved_tensors[-1]
 
             closure_arg_grads = [None] * len(closure_args)
-            rhs_matrix_grad = None
+            rhs_grad = None
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
-                lhs_matrix_grad = LinearCG().solve(mm_closure_factory(*closure_args), grad_output)
-                if lhs_matrix_grad.ndimension() == 1:
-                    lhs_matrix_grad.unsqueeze_(1)
+                lhs_matrix_grad = LinearCG().solve(matmul_closure_factory(*closure_args), grad_output)
                 lhs_matrix_grad = lhs_matrix_grad.mul_(-1)
+                if input_1_t_input_2.ndimension() == 1:
+                    input_1_t_input_2 = input_1_t_input_2.unsqueeze(1)
+                if lhs_matrix_grad.ndimension() == 1:
+                    lhs_matrix_grad = lhs_matrix_grad.unsqueeze(1)
                 closure_arg_grads = list(grad_fn(input_1_t_input_2.t(), lhs_matrix_grad.t()))
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
-                rhs_matrix_grad = LinearCG().solve(mm_closure_factory(*closure_args), grad_output)
+                rhs_grad = LinearCG().solve(matmul_closure_factory(*closure_args), grad_output)
 
-            return tuple(closure_arg_grads + [rhs_matrix_grad])
+            return tuple(closure_arg_grads + [rhs_grad])
 
-    return Invmm
+    return InvMatmul
 
 
-def mm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_default_grad_fn):
-    class Mm(Function):
+def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor, grad_fn=_default_grad_fn):
+    class Matmul(Function):
         def __init__(self, *args):
             self.args = args
 
         def forward(self, *args):
             closure_args = self.args + args[:-1]
-            rhs_matrix = args[-1]
-            res = mm_closure_factory(*closure_args)(rhs_matrix)
-            if res.ndimension() == 1:
-                res.unsqueeze_(1)
+            rhs = args[-1]
+            res = matmul_closure_factory(*closure_args)(rhs)
             self.save_for_backward(*(list(args) + [res]))
             return res
 
@@ -89,7 +87,7 @@ def mm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_default_g
             input_1_t_input_2 = self.saved_tensors[-1]
 
             closure_arg_grads = [None] * len(closure_args)
-            rhs_matrix_grad = None
+            rhs_grad = None
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
@@ -97,38 +95,29 @@ def mm_factory(mm_closure_factory=_default_mm_closure_factor, grad_fn=_default_g
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
-                rhs_matrix_grad = mm_closure_factory(*closure_args)(grad_output)
+                rhs_grad = matmul_closure_factory(*closure_args)(grad_output)
 
-            return tuple(closure_arg_grads + [rhs_matrix_grad])
+            return tuple(closure_arg_grads + [rhs_grad])
 
-    return Mm
+    return Matmul
 
 
-def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor,
+def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closure_factor,
                                    derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
-    """
-    Args:
-        - covar2_mm - covar2_mv(matrix, *covar2_args) = covar2 * matrix
-        - derivative_quadratic_form - derivative_quadratic_form(left_vector, right_vector, *covar2_args)
-                                      = \delta left_vector * covar2 * right_vector / \delta covar2_args
-                                      The result of this function should be a list consistent to *covar2_args.
-    """
     class TraceLogDetQuadForm(Function):
         def __init__(self, num_samples=10):
             self.num_samples = num_samples
 
         def forward(self, mu_diff, chol_covar1, *covar2_args):
-            if isinstance(mm_closure_factory(*covar2_args), torch.Tensor):
-                covar2_mv_closure = mm_closure_factory(*covar2_args)
-            else:
-                def covar2_mv_closure(vector):
-                    return mm_closure_factory(*covar2_args)(vector.unsqueeze(1)).squeeze()
+            covar2_matmul_closure = matmul_closure_factory(*covar2_args)
 
             def quad_form_closure(z):
-                return z.dot(LinearCG().solve(covar2_mv_closure, chol_covar1.t().mv(chol_covar1.mv(z))))
+                rhs_vector = chol_covar1.t().mv(chol_covar1.mv(z))
+                mat_inv_vector = LinearCG().solve(covar2_matmul_closure, rhs_vector)
+                return z.dot(mat_inv_vector)
 
             # log |K2|
-            log_det_covar2, = StochasticLQ(num_random_probes=10).evaluate(covar2_mv_closure,
+            log_det_covar2, = StochasticLQ(num_random_probes=10).evaluate(covar2_matmul_closure,
                                                                           len(mu_diff),
                                                                           [lambda x: x.log()])
 
@@ -140,13 +129,13 @@ def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor
             trace = trace / self.num_samples
 
             # Inverse quad form
-            mat_inv_y = LinearCG().solve(covar2_mv_closure, mu_diff)
+            mat_inv_y = LinearCG().solve(covar2_matmul_closure, mu_diff)
             inv_quad_form = mat_inv_y.dot(mu_diff)
 
             res = log_det_covar2 + trace + inv_quad_form
 
             self.save_for_backward(*([mu_diff] + [chol_covar1] + list(covar2_args)))
-            self.covar2_mv_closure = covar2_mv_closure
+            self.covar2_matmul_closure = covar2_matmul_closure
             self.mat_inv_y = mat_inv_y
 
             return mu_diff.new().resize_(1).fill_(res)
@@ -161,7 +150,7 @@ def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor
             covar2_args = args[2:]
 
             mat_inv_y = self.mat_inv_y
-            covar2_mv_closure = self.covar2_mv_closure
+            covar2_matmul_closure = self.covar2_matmul_closure
 
             grad_mu_diff = None
             grad_cholesky_factor = None
@@ -173,7 +162,7 @@ def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor
 
             if self.needs_input_grad[1]:
                 # Compute gradient with respect to the Cholesky factor L
-                grad_cholesky_factor = 2 * LinearCG().solve(mm_closure_factory(*covar2_args), chol_covar1)
+                grad_cholesky_factor = 2 * LinearCG().solve(matmul_closure_factory(*covar2_args), chol_covar1)
                 grad_cholesky_factor.mul_(grad_output_value)
 
             if any(self.needs_input_grad[2:]):
@@ -186,8 +175,9 @@ def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor
                     grad_covar2_args[i] = torch.zeros(covar2_args[i].size())
 
                 def deriv_quad_form_closure(z):
-                    I_minus_Tinv_M_z = z - LinearCG().solve(covar2_mv_closure, chol_covar1.t().mv(chol_covar1.mv(z)))
-                    Tinv_z = LinearCG().solve(covar2_mv_closure, z)
+                    rhs_vec = chol_covar1.t().mv(chol_covar1.mv(z))
+                    I_minus_Tinv_M_z = z - LinearCG().solve(covar2_matmul_closure, rhs_vec)
+                    Tinv_z = LinearCG().solve(covar2_matmul_closure, z)
                     return derivative_quadratic_form_factory(*covar2_args)(Tinv_z, I_minus_Tinv_M_z)
 
                 for z in sample_matrix:
@@ -204,7 +194,7 @@ def trace_logdet_quad_form_factory(mm_closure_factory=_default_mm_closure_factor
     return TraceLogDetQuadForm
 
 
-def exact_gp_mll_factory(mm_closure_factory=_default_mm_closure_factor,
+def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
                          exact_gp_mml_grad_closure_factory=_default_exact_gp_mml_grad_closure_factory):
     class ExactGPMLL(Function):
         def __init__(self, num_samples=10):
@@ -214,12 +204,12 @@ def exact_gp_mll_factory(mm_closure_factory=_default_mm_closure_factor,
             closure_args = args[:-1]
             labels = args[-1]
 
-            mm_closure = mm_closure_factory(*closure_args)
-            mat_inv_labels = LinearCG().solve(mm_closure, labels.unsqueeze(1)).view(-1)
+            matmul_closure = matmul_closure_factory(*closure_args)
+            mat_inv_labels = LinearCG().solve(matmul_closure, labels)
             # Inverse quad form
             res = mat_inv_labels.dot(labels)
             # Log determinant
-            logdet, tr_inv = StochasticLQ(num_random_probes=10).evaluate(mm_closure, len(labels),
+            logdet, tr_inv = StochasticLQ(num_random_probes=10).evaluate(matmul_closure, len(labels),
                                                                          [lambda x: x.log(), lambda x: x.pow(-1)])
 
             res += logdet
@@ -228,7 +218,7 @@ def exact_gp_mll_factory(mm_closure_factory=_default_mm_closure_factor,
 
             self.mat_inv_labels = mat_inv_labels
             self.tr_inv = tr_inv
-            self.mm_closure = mm_closure
+            self.matmul_closure = matmul_closure
             self.save_for_backward(*args)
             return labels.new().resize_(1).fill_(res)
 
@@ -241,7 +231,7 @@ def exact_gp_mll_factory(mm_closure_factory=_default_mm_closure_factor,
             mat_inv_labels = self.mat_inv_labels
             grad_output_value = grad_output.squeeze()[0]
 
-            mm_closure = self.mm_closure
+            matmul_closure = self.matmul_closure
             tr_inv = self.tr_inv
             closure_arg_grads = [None] * len(closure_args)
             labels_grad = None
@@ -249,7 +239,7 @@ def exact_gp_mll_factory(mm_closure_factory=_default_mm_closure_factor,
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
                 grad_closure = exact_gp_mml_grad_closure_factory(*(list(closure_args)))
-                closure_arg_grads = list(grad_closure(mm_closure, tr_inv, mat_inv_labels, labels, self.num_samples))
+                closure_arg_grads = list(grad_closure(matmul_closure, tr_inv, mat_inv_labels, labels, self.num_samples))
                 for i, closure_arg_grad in enumerate(closure_arg_grads):
                     if closure_arg_grad is not None:
                         closure_arg_grad.mul_(0.5 * grad_output_value)

@@ -4,8 +4,9 @@ import gpytorch
 from .lazy_variable import LazyVariable
 from .toeplitz_lazy_variable import ToeplitzLazyVariable
 from torch.autograd import Variable
+from ..posterior import InterpolatedPosteriorStrategy
 from ..utils import sparse_eye, LinearCG
-from ..utils.kronecker_product import sym_kronecker_product_toeplitz_mul, kp_interpolated_toeplitz_mul, \
+from ..utils.kronecker_product import sym_kronecker_product_toeplitz_matmul, kp_interpolated_toeplitz_matmul, \
     kp_sym_toeplitz_derivative_quadratic_form, list_of_indices_and_values_to_sparse, kronecker_product
 
 
@@ -27,15 +28,23 @@ class KroneckerProductLazyVariable(LazyVariable):
         else:
             self.size = (self.kronecker_product_size, self.kronecker_product_size)
 
-    def _mm_closure_factory(self, *args):
+    def _matmul_closure_factory(self, *args):
         if len(args) == 1:
             columns, = args
-            return lambda mat2: sym_kronecker_product_toeplitz_mul(columns, mat2)
+
+            def closure(mat2):
+                return sym_kronecker_product_toeplitz_matmul(columns, mat2)
+
         elif len(args) == 4:
             columns, W_lefts, W_rights, added_diag = args
-            return lambda mat2: kp_interpolated_toeplitz_mul(columns, mat2, W_lefts, W_rights, added_diag)
+
+            def closure(mat2):
+                return kp_interpolated_toeplitz_matmul(columns, mat2, W_lefts, W_rights, added_diag)
+
         else:
             raise AttributeError('Invalid number of arguments')
+
+        return closure
 
     def _derivative_quadratic_form_factory(self, *args):
         columns, = args
@@ -162,7 +171,7 @@ class KroneckerProductLazyVariable(LazyVariable):
                 W_right_K = self.explicit_interpolate_K(self.J_rights, self.C_rights)
                 WKW = gpytorch.dsmm(Variable(W_left), W_right_K.t())
         else:
-            WKW = KroneckerProductLazyVariable(self.columns).mm(Variable(torch.eye(self.kronecker_product_size)))
+            WKW = KroneckerProductLazyVariable(self.columns).matmul(Variable(torch.eye(self.kronecker_product_size)))
 
         if self.added_diag is not None:
             WKW = WKW + torch.diag(self.added_diag)
@@ -203,6 +212,14 @@ class KroneckerProductLazyVariable(LazyVariable):
         self.columns[0].mul_(constant)
         return self
 
+    def posterior_strategy(self):
+        if not hasattr(self, '_posterior_strategy'):
+            columns, interp_left, interp_right, added_diag = self.representation()
+            grid = KroneckerProductLazyVariable(columns)
+            self._posterior_strategy = InterpolatedPosteriorStrategy(self, grid=grid, interp_left=interp_left,
+                                                                     interp_right=interp_right)
+        return self._posterior_strategy
+
     def representation(self):
         if self.J_lefts is None and self.C_lefts is None and self.J_rights is None \
                 and self.C_rights is None and self.added_diag is None:
@@ -239,53 +256,6 @@ class KroneckerProductLazyVariable(LazyVariable):
             return KroneckerProductLazyVariable(self.columns).trace_log_det_quad_form(mu_diffs,
                                                                                       chol_covar_1,
                                                                                       num_samples)
-
-    def exact_posterior_alpha(self, train_mean, train_y):
-        train_residual = (train_y - train_mean).unsqueeze(1)
-        alpha = self.invmm(train_residual)
-        W_train_right = Variable(list_of_indices_and_values_to_sparse(self.J_rights,
-                                                                      self.C_rights,
-                                                                      self.columns))
-        alpha = gpytorch.dsmm(W_train_right.t(), alpha)
-        alpha = KroneckerProductLazyVariable(self.columns).mm(alpha)
-        return alpha.squeeze()
-
-    def exact_posterior_mean(self, test_mean, alpha):
-        alpha = alpha.unsqueeze(1)
-        W_test_left = list_of_indices_and_values_to_sparse(self.J_lefts,
-                                                           self.C_lefts,
-                                                           self.columns)
-        return test_mean.add(gpytorch.dsmm(W_test_left, alpha).squeeze())
-
-    def variational_posterior_mean(self, alpha):
-        """
-        Assumes self is the covariance matrix between test and inducing points
-
-        Returns the mean of the posterior GP on test points, given
-        prior means/covars
-
-        Args:
-            - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
-        """
-        W_left = list_of_indices_and_values_to_sparse(self.J_lefts, self.C_lefts, self.columns)
-        return gpytorch.dsmm(W_left, alpha.unsqueeze(1)).squeeze()
-
-    def variational_posterior_covar(self, chol_variational_covar):
-        """
-        Assumes self is the covariance matrix between test and inducing points
-
-        Returns the covar of the posterior GP on test points, given
-        prior covars
-
-        Args:
-            - chol_variational_covar (Variable nxn) - Cholesky decomposition of variational covar
-        """
-        W_left = list_of_indices_and_values_to_sparse(self.J_lefts, self.C_lefts, self.columns)
-        W_right = W_left.t()
-
-        covar_right = gpytorch.dsmm(W_right.t(), chol_variational_covar.t()).t()
-        covar_left = gpytorch.dsmm(W_left, chol_variational_covar.t())
-        return covar_left.mm(covar_right)
 
     def __getitem__(self, i):
         if isinstance(i, tuple):

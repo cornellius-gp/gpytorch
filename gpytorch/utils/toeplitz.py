@@ -16,7 +16,7 @@ def index_coef_to_sparse(index_matrix, value_matrix, row_length):
                        definition of W given below).
         - row_length (scalar) -- The size of the second dimension of W
     Returns:
-        - W (Sparse matrix n-by-row_length) - A torch sparse matrix W so that
+        - (Sparse matrix n-by-row_length) - A torch sparse matrix W so that
             W[i, index_matrix[i, j]] = value_matrix[i, j].
     """
     num_target_points, num_coefficients = value_matrix.size()
@@ -32,8 +32,8 @@ def index_coef_to_sparse(index_matrix, value_matrix, row_length):
 
     index_tensor = torch.LongTensor(index_list)
     value_tensor = torch.FloatTensor(value_list)
-    W = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
-    return W
+    res = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
+    return res
 
 
 def toeplitz(toeplitz_column, toeplitz_row):
@@ -117,144 +117,85 @@ def sym_toeplitz_getitem(toeplitz_column, i, j):
     return toeplitz_getitem(toeplitz_column, toeplitz_column, i, j)
 
 
-def toeplitz_mm(toeplitz_column, toeplitz_row, matrix):
+def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
     """
-    Performs a matrix-matrix multiplication TM where the matrix T is Toeplitz.
+    Performs multiplication T * M where the matrix T is Toeplitz.
     Args:
         - toeplitz_column (vector n) - First column of the Toeplitz matrix T.
         - toeplitz_row (vector n) - First row of the Toeplitz matrix T.
-        - matrix (matrix n x p) - Matrix to multiply the Toeplitz matrix with.
+        - tensor (matrix n x p) - Matrix or vector to multiply the Toeplitz matrix with.
     Returns:
-        - Matrix (n x p) - The result of the matrix-vector multiply TM.
+        - tensor (n x p) - The result of the matrix multiply T * M.
     """
-    if toeplitz_column.ndimension() != 1 or toeplitz_row.ndimension() != 1 or matrix.ndimension() != 2:
+    if toeplitz_column.ndimension() != 1 or toeplitz_row.ndimension() != 1:
         raise RuntimeError('The first two inputs to ToeplitzMV should be vectors \
-                            (first column c and row r of the Toeplitz matrix), and the last input should be a matrix.')
+                            (first column c and row r of the Toeplitz matrix)')
 
     if len(toeplitz_column) != len(toeplitz_row):
         raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
 
-    if len(toeplitz_column) != len(matrix):
+    if len(toeplitz_column) != len(tensor):
         raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with \
-                            leading dimension {}.'.format(len(toeplitz_column), len(toeplitz_column), len(matrix)))
+                            leading dimension {}.'.format(len(toeplitz_column), len(toeplitz_column), len(tensor)))
 
     if toeplitz_column[0] != toeplitz_row[0]:
         raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first element, \
                             otherwise the value of T[0,0] is ambiguous. \
                             Got: c[0]={} and r[0]={}'.format(toeplitz_column[0], toeplitz_row[0]))
 
-    if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(matrix):
+    if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(tensor):
         raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
 
+    output_dims = tensor.ndimension()
+    if output_dims == 1:
+        tensor = tensor.unsqueeze(1)
+
     if len(toeplitz_column) == 1:
-        return (toeplitz_column.view(1, 1).mm(matrix))
+        output = toeplitz_column.view(1, 1).mm(tensor)
 
-    _, num_rhs = matrix.size()
-    orig_size = len(toeplitz_column)
-    r_reverse = utils.reverse(toeplitz_row[1:])
+    else:
+        _, num_rhs = tensor.size()
+        orig_size = len(toeplitz_column)
+        r_reverse = utils.reverse(toeplitz_row[1:])
 
-    c_r_rev = torch.zeros(orig_size + len(r_reverse))
-    c_r_rev[:orig_size] = toeplitz_column
-    c_r_rev[orig_size:] = r_reverse
+        c_r_rev = torch.zeros(orig_size + len(r_reverse))
+        c_r_rev[:orig_size] = toeplitz_column
+        c_r_rev[orig_size:] = r_reverse
 
-    temp_matrix = torch.zeros(2 * orig_size - 1, num_rhs)
-    temp_matrix[:orig_size, :] = matrix
+        temp_tensor = torch.zeros(2 * orig_size - 1, num_rhs)
+        temp_tensor[:orig_size, :] = tensor
 
-    fft_M = fft.fft1(temp_matrix.t().contiguous())
-    fft_c = fft.fft1(c_r_rev).expand_as(fft_M)
-    fft_product = torch.zeros(fft_M.size())
+        fft_M = fft.fft1(temp_tensor.t().contiguous())
+        fft_c = fft.fft1(c_r_rev).expand_as(fft_M)
+        fft_product = torch.zeros(fft_M.size())
 
-    fft_product[:, :, 0].addcmul_(fft_c[:, :, 0], fft_M[:, :, 0])
-    fft_product[:, :, 0].addcmul_(-1, fft_c[:, :, 1], fft_M[:, :, 1])
-    fft_product[:, :, 1].addcmul_(fft_c[:, :, 1], fft_M[:, :, 0])
-    fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
+        fft_product[:, :, 0].addcmul_(fft_c[:, :, 0], fft_M[:, :, 0])
+        fft_product[:, :, 0].addcmul_(-1, fft_c[:, :, 1], fft_M[:, :, 1])
+        fft_product[:, :, 1].addcmul_(fft_c[:, :, 1], fft_M[:, :, 0])
+        fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
 
-    res = fft.ifft1(fft_product, (num_rhs, 2 * orig_size - 1)).t()
-    res = res[:orig_size, :]
-    return res
+        output = fft.ifft1(fft_product, (num_rhs, 2 * orig_size - 1)).t()
+        output = output[:orig_size, :]
+
+    if output_dims == 1:
+        output = output.squeeze(1)
+
+    return output
 
 
-def sym_toeplitz_mm(toeplitz_column, matrix):
+def sym_toeplitz_matmul(toeplitz_column, tensor):
     """
     Performs a matrix-matrix multiplication TM where the matrix T is symmetric Toeplitz.
     Args:
         - toeplitz_column (vector n) - First column of the symmetric Toeplitz matrix T.
-        - matrix (matrix n x p) - Matrix to multiply the Toeplitz matrix with.
+        - matrix (matrix n x p) - Matrix or vector to multiply the Toeplitz matrix with.
     Returns:
-        - Matrix (n x p) - The result of the matrix-vector multiply TM.
+        - tensor
     """
-    return toeplitz_mm(toeplitz_column, toeplitz_column, matrix)
+    return toeplitz_matmul(toeplitz_column, toeplitz_column, tensor)
 
 
-def toeplitz_mv(toeplitz_column, toeplitz_row, vector):
-    """
-    Performs a matrix-vector multiplication Tv where the matrix T is Toeplitz.
-    Args:
-        - toeplitz_column (vector n) - First column of the Toeplitz matrix T.
-        - toeplitz_row (vector n) - First row of the Toeplitz matrix T.
-        - vector (vector n) - Vector to multiply the Toeplitz matrix with.
-    Returns:
-        - vector n - The result of the matrix-vector multiply Tv.
-    """
-    if toeplitz_column.ndimension() != 1 or toeplitz_row.ndimension() != 1 or vector.ndimension() != 1:
-        raise RuntimeError('All inputs to ToeplitzMV should be vectors (first column c and row r of the Toeplitz \
-                            matrix plus the target vector vector).')
-
-    if len(toeplitz_column) != len(toeplitz_row):
-        raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
-
-    if len(toeplitz_column) != len(vector):
-        raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a length \
-                            {} vector.'.format(len(toeplitz_column), len(toeplitz_column), len(vector)))
-
-    if toeplitz_column[0] != toeplitz_row[0]:
-        raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first \
-                            otherwise the value of T[0,0] is ambiguous. \
-                            Got: c[0]={} and r[0]={}'.format(toeplitz_column[0], toeplitz_row[0]))
-
-    if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(vector):
-        raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
-
-    if len(toeplitz_column) == 1:
-        return (toeplitz_column.view(1, 1).mv(vector))
-
-    orig_size = len(toeplitz_column)
-    r_reverse = utils.reverse(toeplitz_row[1:])
-
-    c_r_rev = torch.zeros(orig_size + len(r_reverse))
-    c_r_rev[:orig_size] = toeplitz_column
-    c_r_rev[orig_size:] = r_reverse
-
-    temp_vector = torch.zeros(2 * orig_size - 1)
-    temp_vector[:orig_size] = vector
-
-    fft_c = fft.fft1(c_r_rev)
-    fft_v = fft.fft1(temp_vector)
-    fft_product = torch.zeros(fft_c.size())
-
-    fft_product[:, 0].addcmul_(fft_c[:, 0], fft_v[:, 0])
-    fft_product[:, 0].addcmul_(-1, fft_c[:, 1], fft_v[:, 1])
-    fft_product[:, 1].addcmul_(fft_c[:, 1], fft_v[:, 0])
-    fft_product[:, 1].addcmul_(fft_c[:, 0], fft_v[:, 1])
-
-    res = fft.ifft1(fft_product, temp_vector.size())
-    res.resize_(orig_size)
-    return res
-
-
-def sym_toeplitz_mv(toeplitz_column, vector):
-    """
-    Performs a matrix-vector multiplication Tv where the matrix T is symmetric Toeplitz.
-    Args:
-        - toeplitz_column (vector n) - First column of the symmetric Toeplitz matrix T.
-        - vector (matrix n) - vector to multiply the Toeplitz matrix with.
-    Returns:
-        - vector (n) - The result of the matrix-vector multiply Tv.
-    """
-    return toeplitz_mv(toeplitz_column, toeplitz_column, vector)
-
-
-def interpolated_sym_toeplitz_mul(toeplitz_column, vector, W_left=None, W_right=None, noise_diag=None):
+def interpolated_sym_toeplitz_matmul(toeplitz_column, vector, W_left=None, W_right=None, noise_diag=None):
     """
     Given a interpolated symmetric Toeplitz matrix W_left*T*W_right, plus possibly an additional
     diagonal component s*I, compute a product with some vector or matrix vector.
@@ -267,36 +208,34 @@ def interpolated_sym_toeplitz_mul(toeplitz_column, vector, W_left=None, W_right=
         - noise_diag (vector p) - If not none, add (s*I)vector to WTW at the end.
 
     Returns:
-        - matrix nxk - The result of multiplying (WTW + sI)vector if noise_diag exists, or (WTW)vector otherwise.
+        - matrix nxk
     """
     noise_term = None
-    if vector.ndimension() == 1:
-        if noise_diag is not None:
-            noise_term = noise_diag.expand_as(vector) * vector
+    ndim = vector.ndimension()
+
+    if ndim == 1:
         vector = vector.unsqueeze(1)
-        mul_func = utils.toeplitz.toeplitz_mv
-    else:
-        if noise_diag is not None:
-            noise_term = noise_diag.unsqueeze(1).expand_as(vector) * vector
-        mul_func = utils.toeplitz.toeplitz_mm
+
+    if noise_diag is not None:
+        noise_term = noise_diag.unsqueeze(1).expand_as(vector) * vector
 
     if W_left is not None:
         # Get W_{r}^{T}vector
         Wt_times_v = torch.dsmm(W_right.t(), vector)
         # Get (TW_{r}^{T})vector
-        TWt_v = mul_func(toeplitz_column, toeplitz_column, Wt_times_v.squeeze())
-
-        if TWt_v.ndimension() == 1:
-            TWt_v.unsqueeze_(1)
+        TWt_v = sym_toeplitz_matmul(toeplitz_column, Wt_times_v)
 
         # Get (W_{l}TW_{r}^{T})vector
-        WTWt_v = torch.dsmm(W_left, TWt_v).squeeze()
+        WTWt_v = torch.dsmm(W_left, TWt_v)
     else:
-        WTWt_v = mul_func(toeplitz_column, toeplitz_column, vector)
+        WTWt_v = sym_toeplitz_matmul(toeplitz_column, vector)
 
     if noise_term is not None:
         # Get (W_{l}TW_{r}^{T} + \sigma^{2}I)vector
         WTWt_v = WTWt_v + noise_term
+
+    if ndim == 1:
+        WTWt_v = WTWt_v.squeeze(1)
 
     return WTWt_v
 
@@ -325,11 +264,11 @@ def sym_toeplitz_derivative_quadratic_form(left_vector, right_vector):
 
     dT_dc_row = left_vector
     dT_dc_col[0] = dT_dc_row[0]
-    res = toeplitz_mv(dT_dc_col, dT_dc_row, right_vector)
+    res = toeplitz_matmul(dT_dc_col, dT_dc_row, right_vector)
 
     dT_dc_row = utils.reverse(left_vector)
     dT_dc_col[0] = dT_dc_row[0]
-    res = res + toeplitz_mv(dT_dc_col, dT_dc_row, utils.reverse(right_vector))
+    res = res + toeplitz_matmul(dT_dc_col, dT_dc_row, utils.reverse(right_vector))
     res[0] -= left_vector.dot(right_vector)
 
     return res

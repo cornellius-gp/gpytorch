@@ -5,9 +5,10 @@ from .module import Module
 from .gp_model import GPModel
 from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
+from .posterior import DefaultPosteriorStrategy
 
 
-_invmm_class = function_factory.invmm_factory()
+_inv_matmul_class = function_factory.inv_matmul_factory()
 _trace_logdet_quad_form_factory_class = function_factory.trace_logdet_quad_form_factory()
 _exact_gp_mll_class = function_factory.exact_gp_mll_factory()
 
@@ -74,36 +75,21 @@ def exact_gp_marginal_log_likelihood(covar, target, num_samples=10):
         return _exact_gp_mll_class()(covar, target)
 
 
-def invmm(mat1, mat2):
+def inv_matmul(mat1, rhs):
     """
     Computes a linear solve with several right hand sides.
 
     Args:
         - mat1 (matrix nxn) - Matrix to solve with
-        - mat2 (matrix nxk) - Matrix of k right hand side vectors.
+        - rhs (matrix nxk) - rhs matrix or vector
 
     Returns:
-        - matrix nxk - (mat1)^{-1}mat2
+        - matrix nxk - (mat1)^{-1} rhs
     """
     if isinstance(mat1, LazyVariable):
-        return mat1.invmm(mat2)
+        return mat1.inv_matmul(rhs)
     else:
-        return _invmm_class()(mat1, mat2)
-
-
-def invmv(mat, vec):
-    """
-    Computes a linear solve with a single right hand side
-
-    Args:
-        - mat1 (matrix nxn) - Matrix to solve with
-        - vec (vector n) - Right hand side vector
-
-    Returns:
-        - vector n - (mat1)^{-1}vec
-    """
-    res = invmm(mat, vec.view(-1, 1))
-    return res.view(-1)
+        return _inv_matmul_class()(mat1, rhs)
 
 
 def log_normal_cdf(x):
@@ -181,120 +167,10 @@ def normal_cdf(x):
     return NormalCDF()(x)
 
 
-def exact_posterior_alpha(train_train_covar, train_mean, train_y):
-    """
-    Returns alpha - a vector to memoize for calculating the
-    mean of the posterior GP on test points
-
-    Args:
-        - train_train_covar ((Lazy)Variable nxn) - prior covariance matrix between
-                                                   test and training points.
-        - train_mean (Variable n) - prior mean values for the test points.
-        - train_y (Variable n) - alpha vector, computed from exact_posterior_alpha
-    """
-    if isinstance(train_train_covar, LazyVariable):
-        return train_train_covar.exact_posterior_alpha(train_mean, train_y)
-    return invmv(train_train_covar, train_y - train_mean)
-
-
-def exact_posterior_mean(test_train_covar, test_mean, alpha):
-    """
-    Returns the mean of the posterior GP on test points, given
-    prior means/covars
-
-    Args:
-        - test_train_covar ((Lazy)Variable nxm) - prior covariance matrix between
-                                                  test and training points.
-        - test_mean (Variable m) - prior mean values for the test points.
-        - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
-    """
-    if isinstance(test_train_covar, LazyVariable):
-        return test_train_covar.exact_posterior_mean(test_mean, alpha)
-    return torch.addmv(test_mean, test_train_covar, alpha)
-
-
-def exact_posterior_covar(test_test_covar, test_train_covar, train_test_covar, train_train_covar):
-    """
-    Returns the covar of the posterior GP on test points, given
-    prior means/covars
-
-    Args:
-        - test_test_covar ((Lazy)Variable nxm) - prior covariance matrix between test and training points.
-                                                 Usually, this is simply the transpose of train_test_covar.
-        - test_train_covar ((Lazy)Variable nxm) - prior covariance matrix between test and training points.
-                                                  Usually, this is simply the transpose of train_test_covar.
-        - train_test_covar ((Lazy)Variable nxm) - prior covariance matrix between training and test points.
-        - train_train_covar ((Lazy)Variable nxn) - train-train covariance matrix.
-                                                   Usually takes the form (K+sI), where K is the prior
-                                                   covariance matrix and s is the noise variance.
-    """
-    # TODO: Add a diagonal only mode / use implicit math
-    if isinstance(train_test_covar, LazyVariable):
-        train_test_covar = train_test_covar.evaluate()
-    if isinstance(test_train_covar, LazyVariable):
-        test_train_covar = train_test_covar.t()
-    if isinstance(test_test_covar, LazyVariable):
-        test_test_covar = test_test_covar.evaluate()
-
-    test_test_covar_correction = torch.mm(test_train_covar, invmm(train_train_covar, train_test_covar))
-    return test_test_covar.sub(test_test_covar_correction)
-
-
-def variational_posterior_alpha(induc_induc_covar, variational_mean):
-    """
-    Returns alpha - a vector to memoize for calculating the
-    mean of the posterior GP on test points
-
-    Args:
-        - induc_induc_covar ((Lazy)Variable nxn) - prior covariance matrix between inducing points.
-        - variational_mean (Variable n) - prior variatoinal mean
-    """
-    if isinstance(induc_induc_covar, LazyVariable):
-        return variational_mean.add(0)  # Trick to ensure that we're not returning a Paremeter
-    return invmv(induc_induc_covar, variational_mean)
-
-
-def variational_posterior_mean(test_induc_covar, alpha):
-    """
-    Returns the mean of the posterior GP on test points, given
-    prior means/covars
-
-    Args:
-        - test_induc_covar ((Lazy)Variable nxm) - prior covariance matrix between
-                                                  test and inducing points.
-        - alpha (Variable m) - alpha vector, computed from exact_posterior_alpha
-    """
-    if isinstance(test_induc_covar, LazyVariable):
-        return test_induc_covar.variational_posterior_mean(alpha)
-    return torch.mv(test_induc_covar, alpha)
-
-
-def variational_posterior_covar(test_induc_covar, induc_test_covar, chol_variational_covar,
-                                test_test_covar, induc_induc_covar):
-    """
-    Returns the covar of the posterior GP on test points, given
-    prior covars
-
-    Args:
-        - test_induc_covar ((Lazy)Variable nxm) - prior covariance matrix between test and inducing points.
-                                                  Usually, this is simply the transpose of induc_test_covar.
-        - induc_test_covar ((Lazy)Variable nxm) - prior covariance matrix between inducing and test points.
-        - chol_variational_covar (Variable nxn) - Cholesky decomposition of variational covar
-        - test_test_covar ((Lazy)Variable nxm) - prior covariance matrix between test and inducing points.
-                                                 Usually, this is simply the transpose of induc_test_covar.
-        - induc_induc_covar ((Lazy)Variable nxn) - inducing-inducing covariance matrix.
-                                                   Usually takes the form (K+sI), where K is the prior
-                                                   covariance matrix and s is the noise variance.
-    """
-    if isinstance(test_induc_covar, LazyVariable):
-        return test_induc_covar.variational_posterior_covar(chol_variational_covar)
-
-    # left_factor = K_{mn}K_{nn}^{-1}(S - K_{nn})
-    left_factor = torch.mm(test_induc_covar, invmm(induc_induc_covar, test_test_covar))
-    # right_factor = K_{nn}^{-1}K_{nm}
-    right_factor = invmm(induc_induc_covar, induc_test_covar)
-    # test_test_covar = K_{mm} + K_{mn}K_{nn}^{-1}(S - K_{nn})K_{nn}^{-1}K_{nm}
-    return test_test_covar + left_factor.mm(right_factor)
+def posterior_strategy(obj):
+    if isinstance(obj, LazyVariable):
+        return obj.posterior_strategy()
+    return DefaultPosteriorStrategy(obj)
 
 
 __all__ = [
@@ -305,16 +181,10 @@ __all__ = [
     add_jitter,
     dsmm,
     exact_gp_marginal_log_likelihood,
-    invmm,
-    invmv,
+    inv_matmul,
     log_normal_cdf,
     monte_carlo_log_likelihood,
     mvn_kl_divergence,
     normal_cdf,
-    exact_posterior_alpha,
-    exact_posterior_mean,
-    exact_posterior_covar,
-    variational_posterior_alpha,
-    variational_posterior_mean,
-    variational_posterior_covar,
+    posterior_strategy,
 ]

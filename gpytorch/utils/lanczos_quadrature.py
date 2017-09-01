@@ -24,7 +24,7 @@ class StochasticLQ(object):
         self.max_iter = max_iter
         self.num_random_probes = num_random_probes
 
-    def lanczos(self, mv_closure, b):
+    def lanczos(self, matmul_closure, b):
         """
         Performs self.max_iter (at most n) iterations of the Lanczos iteration to decompose A as AQ = QT
         with Q an orthogonal basis for the Krylov subspace [b,Ab,...,A^{max_iter-1}b], and T tridiagonal.
@@ -40,7 +40,7 @@ class StochasticLQ(object):
         Q[:, 0] = b
         u = b
 
-        r = mv_closure(u)
+        r = matmul_closure(u)
         a = u.dot(r)
         b = r - a * u
 
@@ -51,7 +51,7 @@ class StochasticLQ(object):
         alpha[0] = a
 
         for k in range(1, num_iters):
-            u, b, alpha_k, beta_k = self._lanczos_step(u, b, mv_closure, Q[:, :k])
+            u, b, alpha_k, beta_k = self._lanczos_step(u, b, matmul_closure, Q[:, :k])
 
             if b.sum() == 0:
                 b = b + 1e-10
@@ -75,7 +75,7 @@ class StochasticLQ(object):
 
         return Q, T
 
-    def _lanczos_step(self, u, v, mv_closure, Q):
+    def _lanczos_step(self, u, v, matmul_closure, Q):
         norm_v = torch.norm(v)
         orig_u = u
 
@@ -88,13 +88,13 @@ class StochasticLQ(object):
 
         u = u / torch.norm(u)
 
-        r = mv_closure(u) - norm_v * orig_u
+        r = matmul_closure(u) - norm_v * orig_u
 
         a = u.dot(r)
         v = r - a * u
         return u, v, a, norm_v
 
-    def evaluate(self, A, n, funcs):
+    def evaluate(self, matmul_closure, n, funcs):
         """
         Computes tr(f(A)) for an arbitrary list of functions, where f(A) is equivalent to applying the function
         elementwise to the eigenvalues of A, i.e., if A = V\LambdaV^{T}, then f(A) = Vf(\Lambda)V^{T}, where
@@ -115,14 +115,14 @@ class StochasticLQ(object):
             - results (list of scalars) - The trace of each supplied function applied to the matrix, e.g.,
                       [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
         """
-        if isinstance(A, torch.Tensor) and A.numel() == 1:
-            return math.fabs(A.squeeze()[0])
+        if isinstance(matmul_closure, torch.Tensor):
+            lhs = matmul_closure
+            if lhs.numel() == 1:
+                return math.fabs(lhs.squeeze()[0])
 
-        if isinstance(A, torch.Tensor):
-            def mv_closure(v):
-                return A.mv(v)
-        else:
-            mv_closure = A
+            def default_matmul_closure(tensor):
+                return lhs.matmul(tensor)
+            matmul_closure = default_matmul_closure
 
         V = torch.sign(torch.randn(n, self.num_random_probes))
         V.div_(torch.norm(V, 2, 0).expand_as(V))
@@ -131,7 +131,7 @@ class StochasticLQ(object):
 
         for j in range(self.num_random_probes):
             vj = V[:, j]
-            Q, T = self.lanczos(mv_closure, vj)
+            Q, T = self.lanczos(matmul_closure, vj)
 
             # Eigendecomposition of a Tridiagonal matrix
             # O(n^2) time/convergence with QR iteration,
