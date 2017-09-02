@@ -26,12 +26,15 @@ def _default_exact_gp_mml_grad_closure_factory(*args):
     return closure
 
 
-def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor, grad_fn=_default_grad_fn):
+def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
+                       derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class InvMatmul(Function):
         def __init__(self, *args):
             self.args = args
 
         def forward(self, *args):
+            if derivative_quadratic_form_factory is None:
+                raise NotImplementedError
             closure_args = self.args + args[:-1]
             rhs = args[-1]
             res = LinearCG().solve(matmul_closure_factory(*closure_args), rhs)
@@ -39,35 +42,43 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor, gr
             return res
 
         def backward(self, grad_output):
-            if grad_fn is None:
-                raise NotImplementedError
+            args = self.saved_tensors[:-2]
+            closure_args = self.args + args
+            res = self.saved_tensors[-1]
 
-            closure_args = self.args + self.saved_tensors[:-2]
-            input_1_t_input_2 = self.saved_tensors[-1]
-
-            closure_arg_grads = [None] * len(closure_args)
+            arg_grads = [None] * len(args)
             rhs_grad = None
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
                 lhs_matrix_grad = LinearCG().solve(matmul_closure_factory(*closure_args), grad_output)
                 lhs_matrix_grad = lhs_matrix_grad.mul_(-1)
-                if input_1_t_input_2.ndimension() == 1:
-                    input_1_t_input_2 = input_1_t_input_2.unsqueeze(1)
+                if res.ndimension() == 1:
+                    res = res.unsqueeze(1)
                 if lhs_matrix_grad.ndimension() == 1:
                     lhs_matrix_grad = lhs_matrix_grad.unsqueeze(1)
-                closure_arg_grads = list(grad_fn(input_1_t_input_2.t(), lhs_matrix_grad.t()))
+
+                for i in range(len(args)):
+                    if self.needs_input_grad[i]:
+                        arg_grads[i] = torch.zeros(args[i].size())
+
+                for i in range(lhs_matrix_grad.size()[1]):
+                    quad_derivative = derivative_quadratic_form_factory(*args)(lhs_matrix_grad[:, i], res[:, i])
+                    for j in range(len(args)):
+                        if arg_grads[j] is not None:
+                            arg_grads[j].add_(quad_derivative[j])
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
                 rhs_grad = LinearCG().solve(matmul_closure_factory(*closure_args), grad_output)
 
-            return tuple(closure_arg_grads + [rhs_grad])
+            return tuple(arg_grads + [rhs_grad])
 
     return InvMatmul
 
 
-def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor, grad_fn=_default_grad_fn):
+def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
+                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class Matmul(Function):
         def __init__(self, *args):
             self.args = args
@@ -76,28 +87,43 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor, grad_f
             closure_args = self.args + args[:-1]
             rhs = args[-1]
             res = matmul_closure_factory(*closure_args)(rhs)
-            self.save_for_backward(*(list(args) + [res]))
+            self.save_for_backward(*args)
             return res
 
         def backward(self, grad_output):
-            if grad_fn is None:
+            if derivative_quadratic_form_factory is None:
                 raise NotImplementedError
+            args = self.saved_tensors[:-1]
+            rhs = self.saved_tensors[-1]
+            closure_args = self.args + args
 
-            closure_args = self.args + self.saved_tensors[:-2]
-            input_1_t_input_2 = self.saved_tensors[-1]
-
-            closure_arg_grads = [None] * len(closure_args)
+            arg_grads = [None] * len(args)
             rhs_grad = None
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
-                closure_arg_grads = list(grad_fn(grad_output, input_1_t_input_2))
+                if rhs.ndimension() == 1:
+                    rhs = rhs.unsqueeze(1)
+                if grad_output.ndimension() == 1:
+                    grad_output_matrix = grad_output.unsqueeze(1)
+                else:
+                    grad_output_matrix = grad_output
+
+                for i in range(len(args)):
+                    if self.needs_input_grad[i]:
+                        arg_grads[i] = torch.zeros(args[i].size())
+
+                for i in range(grad_output_matrix.size()[1]):
+                    quad_derivative = derivative_quadratic_form_factory(*args)(grad_output_matrix[:, i], rhs[:, i])
+                    for j in range(len(args)):
+                        if arg_grads[j] is not None:
+                            arg_grads[j].add_(quad_derivative[j])
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
                 rhs_grad = matmul_closure_factory(*closure_args)(grad_output)
 
-            return tuple(closure_arg_grads + [rhs_grad])
+            return tuple(arg_grads + [rhs_grad])
 
     return Matmul
 
@@ -141,6 +167,8 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             return mu_diff.new().resize_(1).fill_(res)
 
         def backward(self, grad_output):
+            if derivative_quadratic_form_factory is None:
+                raise NotImplementedError
             grad_output_value = grad_output.squeeze()[0]
 
             args = self.saved_tensors
@@ -172,7 +200,8 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                 sample_matrix = torch.sign(torch.randn(self.num_samples, len(mu_diff)))
 
                 for i in range(len(covar2_args)):
-                    grad_covar2_args[i] = torch.zeros(covar2_args[i].size())
+                    if self.needs_input_grad[i + 2]:
+                        grad_covar2_args[i] = torch.zeros(covar2_args[i].size())
 
                 def deriv_quad_form_closure(z):
                     rhs_vec = chol_covar1.t().mv(chol_covar1.mv(z))
@@ -181,13 +210,16 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                     return derivative_quadratic_form_factory(*covar2_args)(Tinv_z, I_minus_Tinv_M_z)
 
                 for z in sample_matrix:
+                    quad_derivative = deriv_quad_form_closure(z)
                     for i in range(len(covar2_args)):
-                        grad_covar2_args[i].add_(deriv_quad_form_closure(z)[i])
+                        if grad_covar2_args[i] is not None:
+                            grad_covar2_args[i].add_(quad_derivative[i])
 
                 for i in range(len(covar2_args)):
-                    grad_covar2_args[i].div_(self.num_samples)
-                    grad_covar2_args[i].add_(-quad_part[i])
-                    grad_covar2_args[i].mul_(grad_output_value)
+                    if grad_covar2_args[i] is not None:
+                        grad_covar2_args[i].div_(self.num_samples)
+                        grad_covar2_args[i].add_(-quad_part[i])
+                        grad_covar2_args[i].mul_(grad_output_value)
 
             return tuple([grad_mu_diff] + [grad_cholesky_factor] + grad_covar2_args)
 

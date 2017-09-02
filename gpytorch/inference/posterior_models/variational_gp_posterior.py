@@ -84,6 +84,7 @@ class _VariationalGPPosterior(_GPPosterior):
         _, train_covar = output.representation()
         inducing_output = self.forward(*self.inducing_points)
         inducing_mean = inducing_output.mean()
+        inducing_covar = inducing_output.covar()
 
         train_covar = gpytorch.add_jitter(train_covar)
 
@@ -95,6 +96,6 @@ class _VariationalGPPosterior(_GPPosterior):
                                                              num_samples)
 
         kl_divergence = gpytorch.mvn_kl_divergence(self.variational_mean,
-                                                   chol_var_covar, inducing_mean, train_covar, num_samples)
+                                                   chol_var_covar, inducing_mean, inducing_covar, num_samples)
 
         return log_likelihood.squeeze() - kl_divergence

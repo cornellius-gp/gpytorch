@@ -47,10 +47,19 @@ class KroneckerProductLazyVariable(LazyVariable):
         return closure
 
     def _derivative_quadratic_form_factory(self, *args):
-        columns, = args
-        return lambda left_vector, right_vector: (kp_sym_toeplitz_derivative_quadratic_form(columns,
-                                                                                            left_vector,
-                                                                                            right_vector),)
+        def closure(left_vector, right_vector):
+            if len(args) == 1:
+                columns, = args
+                left_v_W = left_vector
+                W_right_v = right_vector
+            elif len(args) == 4:
+                columns, W_left, W_right, added_diag, = args
+                left_v_W = torch.dsmm(W_left.t(), left_vector.unsqueeze(1)).squeeze()
+                W_right_v = torch.dsmm(W_right.t(), right_vector.unsqueeze(1)).squeeze()
+            return tuple([kp_sym_toeplitz_derivative_quadratic_form(columns,
+                                                                    left_v_W,
+                                                                    W_right_v)] + [None] * (len(args) - 1))
+        return closure
 
     def _exact_gp_mll_grad_closure_factory(self, *args):
         if len(args) == 1:
@@ -246,16 +255,6 @@ class KroneckerProductLazyVariable(LazyVariable):
         else:
             added_diag = Variable(torch.zeros(1))
         return self.columns, W_left, W_right, added_diag
-
-    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples):
-        if self.J_lefts is None and self.J_rights is None:
-            return super(KroneckerProductLazyVariable, self).trace_log_det_quad_form(mu_diffs,
-                                                                                     chol_covar_1,
-                                                                                     num_samples)
-        else:
-            return KroneckerProductLazyVariable(self.columns).trace_log_det_quad_form(mu_diffs,
-                                                                                      chol_covar_1,
-                                                                                      num_samples)
 
     def __getitem__(self, i):
         if isinstance(i, tuple):
