@@ -33,8 +33,6 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
             self.args = args
 
         def forward(self, *args):
-            if derivative_quadratic_form_factory is None:
-                raise NotImplementedError
             closure_args = self.args + args[:-1]
             rhs = args[-1]
             res = LinearCG().solve(matmul_closure_factory(*closure_args), rhs)
@@ -42,6 +40,8 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
             return res
 
         def backward(self, grad_output):
+            if derivative_quadratic_form_factory is None:
+                raise NotImplementedError
             args = self.saved_tensors[:-2]
             closure_args = self.args + args
             res = self.saved_tensors[-1]
