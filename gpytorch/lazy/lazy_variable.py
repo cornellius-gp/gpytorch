@@ -74,9 +74,9 @@ class LazyVariable(object):
             - scalar - The GP marginal log likelihood where (K+\sigma^{2}I) is represented by this LazyVariable.
         """
         if not hasattr(self, '_gp_mll_class'):
-            grad_closure_factory = self._exact_gp_mll_grad_closure_factory
+            dqff = self._derivative_quadratic_form_factory
             self._gp_mll_class = function_factory.exact_gp_mll_factory(self._matmul_closure_factory,
-                                                                       grad_closure_factory)
+                                                                       dqff)
         args = list(self.representation()) + [target]
         return self._gp_mll_class(num_samples)(*args)
 

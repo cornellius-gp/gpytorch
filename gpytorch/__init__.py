@@ -72,7 +72,7 @@ def exact_gp_marginal_log_likelihood(covar, target, num_samples=10):
     if isinstance(covar, LazyVariable):
         return covar.exact_gp_marginal_log_likelihood(target, num_samples)
     else:
-        return _exact_gp_mll_class()(covar, target)
+        return _exact_gp_mll_class(num_samples)(covar, target)
 
 
 def inv_matmul(mat1, rhs):

@@ -53,7 +53,7 @@ def test_spectral_mixture_gp_mean_abs_error():
     for i in range(50):
         optimizer.zero_grad()
         output = posterior_gp_model(train_x)
-        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
+        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y, num_samples=11)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
