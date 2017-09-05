@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from ..posterior import InterpolatedPosteriorStrategy
-from ..utils import sparse_eye, LinearCG
+from ..utils import sparse_eye
 from ..utils.toeplitz import interpolated_sym_toeplitz_matmul, index_coef_to_sparse, sym_toeplitz_matmul, \
     sym_toeplitz_derivative_quadratic_form
 
@@ -42,51 +42,23 @@ class ToeplitzLazyVariable(LazyVariable):
 
     def _derivative_quadratic_form_factory(self, *args):
         def closure(left_vector, right_vector):
-            return sym_toeplitz_derivative_quadratic_form(left_vector, right_vector),
-        return closure
-
-    def _exact_gp_mll_grad_closure_factory(self, *args):
-        if len(args) == 1:
-            toeplitz_column, = args
-            W_left = sparse_eye(len(toeplitz_column))
-            W_right = sparse_eye(len(toeplitz_column))
-            added_diag = None
-        elif len(args) == 4:
-            toeplitz_column, W_left, W_right, added_diag, = args
-        else:
-            raise AttributeError('Invalid number of arguments')
-
-        def closure(mm_closure, tr_inv, mat_inv_labels, labels, num_samples):
-            # Gradient of c
-            labels_mat_inv_W_left = torch.dsmm(W_left.t(), mat_inv_labels.unsqueeze(1)).t()
-            W_right_mat_inv_labels = torch.dsmm(W_right.t(), mat_inv_labels.unsqueeze(1))
-            quad_form_part = sym_toeplitz_derivative_quadratic_form(labels_mat_inv_W_left.squeeze(),
-                                                                    W_right_mat_inv_labels.squeeze())
-            log_det_part = torch.zeros(len(toeplitz_column))
-            sample_matrix = torch.sign(torch.randn(len(labels), num_samples))
-
-            left_vectors = torch.dsmm(W_left.t(), LinearCG().solve(mm_closure, sample_matrix)).t()
-            right_vectors = torch.dsmm(W_right.t(), sample_matrix).t()
-
-            for left_vector, right_vector in zip(left_vectors, right_vectors):
-                log_det_part += sym_toeplitz_derivative_quadratic_form(left_vector,
-                                                                       right_vector)
-
-            log_det_part.div_(num_samples)
-            c_grad = quad_form_part - log_det_part
-
-            # Gradient of diagonal term
-            diag_grad = None
-            if added_diag is not None:
-                quad_form_part = mat_inv_labels.dot(mat_inv_labels)
-                diag_grad = toeplitz_column.new().resize_(1).fill_(quad_form_part - tr_inv)
-
-            # Return grads for c, W_left (None), W_right (None), diag
             if len(args) == 1:
-                return c_grad,
+                toeplitz_column, = args
+                left_v_W = left_vector
+                W_right_v = right_vector
+                return sym_toeplitz_derivative_quadratic_form(left_v_W, W_right_v),
             elif len(args) == 4:
-                return c_grad, None, None, diag_grad
+                toeplitz_column, W_left, W_right, added_diag, = args
 
+                if added_diag is not None:
+                    diag_grad = torch.zeros(len(added_diag))
+                    diag_grad[0] = left_vector.dot(right_vector)
+                else:
+                    diag_grad = None
+
+                left_v_W = torch.dsmm(W_left.t(), left_vector.unsqueeze(1)).squeeze()
+                W_right_v = torch.dsmm(W_right.t(), right_vector.unsqueeze(1)).squeeze()
+                return tuple([sym_toeplitz_derivative_quadratic_form(left_v_W, W_right_v)] + [None] * 2 + [diag_grad])
         return closure
 
     def add_diag(self, diag):
@@ -232,12 +204,6 @@ class ToeplitzLazyVariable(LazyVariable):
         else:
             added_diag = Variable(torch.zeros(1))
         return self.c, W_left, W_right, added_diag
-
-    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
-        if self.J_left is None and self.J_right is None:
-            return super(ToeplitzLazyVariable, self).trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
-        else:
-            return ToeplitzLazyVariable(self.c).trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
 
     def __getitem__(self, i):
         if isinstance(i, tuple):

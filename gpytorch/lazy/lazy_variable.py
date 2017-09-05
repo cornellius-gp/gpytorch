@@ -74,9 +74,9 @@ class LazyVariable(object):
             - scalar - The GP marginal log likelihood where (K+\sigma^{2}I) is represented by this LazyVariable.
         """
         if not hasattr(self, '_gp_mll_class'):
-            grad_closure_factory = self._exact_gp_mll_grad_closure_factory
+            dqff = self._derivative_quadratic_form_factory
             self._gp_mll_class = function_factory.exact_gp_mll_factory(self._matmul_closure_factory,
-                                                                       grad_closure_factory)
+                                                                       dqff)
         args = list(self.representation()) + [target]
         return self._gp_mll_class(num_samples)(*args)
 
@@ -91,8 +91,11 @@ class LazyVariable(object):
             - tensor - (self)^{-1} rhs
         """
         if not hasattr(self, '_inv_matmul_class'):
-            grad_fn = self._grad_fn if hasattr(self, '_grad_fn') else None
-            self._inv_matmul_class = function_factory.inv_matmul_factory(self._matmul_closure_factory, grad_fn)
+            if hasattr(self, '_derivative_quadratic_form_factory'):
+                dqff = self._derivative_quadratic_form_factory
+            else:
+                dqff = None
+            self._inv_matmul_class = function_factory.inv_matmul_factory(self._matmul_closure_factory, dqff)
         args = list(self.representation()) + [rhs]
         return self._inv_matmul_class()(*args)
 
@@ -107,8 +110,11 @@ class LazyVariable(object):
             - tensor
         """
         if not hasattr(self, '_matmul_class'):
-            grad_fn = self._grad_fn if hasattr(self, '_grad_fn') else None
-            self._matmul_class = function_factory.matmul_factory(self._matmul_closure_factory, grad_fn)
+            if hasattr(self, '_derivative_quadratic_form_factory'):
+                dqff = self._derivative_quadratic_form_factory
+            else:
+                dqff = None
+            self._matmul_class = function_factory.matmul_factory(self._matmul_closure_factory, dqff)
         args = list(self.representation()) + [tensor]
         return self._matmul_class()(*args)
 
