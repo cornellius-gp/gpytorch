@@ -9,10 +9,6 @@ def _default_matmul_closure_factor(mat):
     return mat
 
 
-def _default_grad_fn(grad_output, rhs):
-    return rhs.t().matmul(grad_output),
-
-
 def _default_derivative_quadratic_form_factory(mat):
     return lambda left_vector, right_vector: (left_vector.ger(right_vector),)
 

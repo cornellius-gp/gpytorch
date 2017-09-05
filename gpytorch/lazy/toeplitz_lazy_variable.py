@@ -49,7 +49,7 @@ class ToeplitzLazyVariable(LazyVariable):
                 return sym_toeplitz_derivative_quadratic_form(left_v_W, W_right_v),
             elif len(args) == 4:
                 toeplitz_column, W_left, W_right, added_diag, = args
-                
+
                 if added_diag is not None:
                     diag_grad = torch.zeros(len(added_diag))
                     diag_grad[0] = left_vector.dot(right_vector)
