@@ -63,7 +63,7 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
-    def exact_gp_marginal_log_likelihood(self, target, num_samples=10):
+    def exact_gp_marginal_log_likelihood(self, target):
         """
         Computes the marginal log likelihood of a Gaussian process whose covariance matrix
         plus the diagonal noise term (added using add_diag above) is stored as this lazy variable
@@ -78,7 +78,7 @@ class LazyVariable(object):
             self._gp_mll_class = function_factory.exact_gp_mll_factory(self._matmul_closure_factory,
                                                                        dqff)
         args = list(self.representation()) + [target]
-        return self._gp_mll_class(num_samples)(*args)
+        return self._gp_mll_class()(*args)
 
     def inv_matmul(self, rhs):
         """
@@ -118,7 +118,7 @@ class LazyVariable(object):
         args = list(self.representation()) + [tensor]
         return self._matmul_class()(*args)
 
-    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
+    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
         """
         Performs Monte Carlo integration of the provided log_probability function. Typically, this should work by
         drawing samples of u from the variational posterior, transforming these in to samples of f using the information
@@ -129,7 +129,6 @@ class LazyVariable(object):
             - train_y (vector n) - Training label vector.
             - variational_mean (vector m) - Mean vector of the variational posterior.
             - chol_var_covar (matrix m x m) - Cholesky decomposition of the variational posterior covariance matrix.
-            - num_samples (scalar) - Number of samples to use for Monte Carlo integration.
         Returns:
             - The average of calling log_probability_func on num_samples samples of f, where f is sampled from the
               current posterior.
@@ -167,13 +166,13 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
-    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1, num_samples=10):
+    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1):
         if not hasattr(self, '_trace_log_det_quad_form_class'):
             tlqf_function_factory = function_factory.trace_logdet_quad_form_factory
             self._trace_log_det_quad_form_class = tlqf_function_factory(self._matmul_closure_factory,
                                                                         self._derivative_quadratic_form_factory)
         covar2_args = self.representation()
-        return self._trace_log_det_quad_form_class(num_samples)(mu_diffs, chol_covar_1, *covar2_args)
+        return self._trace_log_det_quad_form_class()(mu_diffs, chol_covar_1, *covar2_args)
 
     def __getitem__(self, index):
         raise NotImplementedError

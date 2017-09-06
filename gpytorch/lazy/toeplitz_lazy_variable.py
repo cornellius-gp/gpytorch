@@ -144,8 +144,8 @@ class ToeplitzLazyVariable(LazyVariable):
 
         return result_matrix
 
-    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
-        epsilon = Variable(torch.randn(len(self.c), num_samples))
+    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
+        epsilon = Variable(torch.randn(len(self.c), gpytorch.functions.num_trace_samples))
         samples = chol_var_covar.mm(epsilon)
         samples = samples + variational_mean.unsqueeze(1).expand_as(samples)
         W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))

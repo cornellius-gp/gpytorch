@@ -10,3 +10,6 @@ __all__ = [
     NormalCDF,
     LogNormalCDF,
 ]
+
+fastest = True
+num_trace_samples = 10

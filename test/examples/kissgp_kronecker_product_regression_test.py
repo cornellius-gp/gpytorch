@@ -59,7 +59,7 @@ def test_kissgp_gp_mean_abs_error():
     for i in range(20):
         optimizer.zero_grad()
         output = posterior_gp_model(train_x)
-        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y, 10)
+        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()

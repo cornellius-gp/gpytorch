@@ -3,7 +3,7 @@ from torch.autograd import Variable
 from .lazy import LazyVariable, ToeplitzLazyVariable
 from .module import Module
 from .gp_model import GPModel
-from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
+from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF, num_trace_samples
 from .utils import function_factory
 from .posterior import DefaultPosteriorStrategy
 
@@ -56,7 +56,7 @@ def dsmm(sparse_mat, dense_mat):
     return DSMM(sparse_mat)(dense_mat)
 
 
-def exact_gp_marginal_log_likelihood(covar, target, num_samples=10):
+def exact_gp_marginal_log_likelihood(covar, target):
     """
     Computes the log marginal likelihood of the data with a GP prior and Gaussian noise model
     given a label vector and covariance matrix.
@@ -70,9 +70,9 @@ def exact_gp_marginal_log_likelihood(covar, target, num_samples=10):
         - scalar - The marginal log likelihood of the data.
     """
     if isinstance(covar, LazyVariable):
-        return covar.exact_gp_marginal_log_likelihood(target, num_samples)
+        return covar.exact_gp_marginal_log_likelihood(target)
     else:
-        return _exact_gp_mll_class(num_samples)(covar, target)
+        return _exact_gp_mll_class()(covar, target)
 
 
 def inv_matmul(mat1, rhs):
@@ -104,15 +104,14 @@ def log_normal_cdf(x):
 
 def monte_carlo_log_likelihood(log_probability_func, train_y,
                                variational_mean, chol_var_covar,
-                               train_covar, num_samples):
+                               train_covar):
     if isinstance(train_covar, LazyVariable):
         log_likelihood = train_covar.monte_carlo_log_likelihood(log_probability_func,
                                                                 train_y,
                                                                 variational_mean,
-                                                                chol_var_covar,
-                                                                num_samples)
+                                                                chol_var_covar)
     else:
-        epsilon = Variable(torch.randn(len(train_covar), num_samples))
+        epsilon = Variable(torch.randn(len(train_covar), num_trace_samples))
         samples = chol_var_covar.t().mm(epsilon)
         samples = samples + variational_mean.unsqueeze(1)
         log_likelihood = log_probability_func(samples, train_y)
@@ -120,7 +119,7 @@ def monte_carlo_log_likelihood(log_probability_func, train_y,
     return log_likelihood
 
 
-def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2, num_samples=10):
+def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2):
     """
     PyTorch function for computing the KL-Divergence between two multivariate
     Normal distributions.
@@ -143,11 +142,11 @@ def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2, num_samples=10):
     mu_diffs = mean_2 - mean_1
 
     if isinstance(covar_2, LazyVariable):
-        trace_logdet_quadform = covar_2.trace_log_det_quad_form(mu_diffs, chol_covar_1, num_samples)
+        trace_logdet_quadform = covar_2.trace_log_det_quad_form(mu_diffs, chol_covar_1)
     else:
-        trace_logdet_quadform = _trace_logdet_quad_form_factory_class(num_samples)(mu_diffs,
-                                                                                   chol_covar_1,
-                                                                                   covar_2)
+        trace_logdet_quadform = _trace_logdet_quad_form_factory_class()(mu_diffs,
+                                                                        chol_covar_1,
+                                                                        covar_2)
 
     log_det_covar1 = chol_covar_1.diag().log().sum(0) * 2
 

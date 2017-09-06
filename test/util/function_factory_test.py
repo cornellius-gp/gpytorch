@@ -32,15 +32,15 @@ def test_trace_logdet_quad_form_factory():
     actual = _det(T).log() + mu_diff.dot(T.inverse().mv(mu_diff)) + T.inverse().mm(U.t().mm(U)).trace()
     actual.backward()
 
-    actual_c_grad = c.grad.data
-    actual_mu_diff_grad = mu_diff.grad.data
-    actual_U_grad = U.grad.data
+    actual_c_grad = c.grad.data.clone()
+    actual_mu_diff_grad = mu_diff.grad.data.clone()
+    actual_U_grad = U.grad.data.clone()
 
     c.grad.data.fill_(0)
     mu_diff.grad.data.fill_(0)
     U.grad.data.fill_(0)
 
-    def _mm_closure_factory(*args):
+    def _matmul_closure_factory(*args):
         c, = args
         return lambda mat2: sym_toeplitz_matmul(c, mat2)
 
@@ -49,18 +49,39 @@ def test_trace_logdet_quad_form_factory():
 
     covar_args = (c,)
 
-    res = trace_logdet_quad_form_factory(_mm_closure_factory,
-                                         _derivative_quadratic_form_factory)(num_samples=1000)(mu_diff, U, *covar_args)
+    gpytorch.functions.num_trace_samples = 1000
+    res = trace_logdet_quad_form_factory(_matmul_closure_factory,
+                                         _derivative_quadratic_form_factory)()(mu_diff, U, *covar_args)
     res.backward()
 
     res_c_grad = c.grad.data
     res_mu_diff_grad = mu_diff.grad.data
     res_U_grad = U.grad.data
 
-    assert all(torch.abs((res.data - actual.data) / actual.data) < 0.15)
-    assert utils.approx_equal(res_c_grad, actual_c_grad)
-    assert utils.approx_equal(res_mu_diff_grad, actual_mu_diff_grad)
-    assert utils.approx_equal(res_U_grad, actual_U_grad)
+    assert (res.data - actual.data).norm() / actual.data.norm() < 0.15
+    assert (res_c_grad - actual_c_grad).norm() / actual_c_grad.norm() < 0.15
+    assert (res_mu_diff_grad - actual_mu_diff_grad).norm() / actual_mu_diff_grad.norm() < 1e-3
+    assert (res_U_grad - actual_U_grad).norm() / actual_U_grad.norm() < 1e-3
+
+    c.grad.data.fill_(0)
+    mu_diff.grad.data.fill_(0)
+    U.grad.data.fill_(0)
+
+    covar_args = (c,)
+
+    gpytorch.functions.fastest = False
+    res = trace_logdet_quad_form_factory(_matmul_closure_factory,
+                                         _derivative_quadratic_form_factory)()(mu_diff, U, *covar_args)
+    res.backward()
+
+    res_c_grad = c.grad.data
+    res_mu_diff_grad = mu_diff.grad.data
+    res_U_grad = U.grad.data
+
+    assert (res.data - actual.data).norm() / actual.data.norm() < 1e-3
+    assert (res_c_grad - actual_c_grad).norm() / actual_c_grad.norm() < 1e-3
+    assert (res_mu_diff_grad - actual_mu_diff_grad).norm() / actual_mu_diff_grad.norm() < 1e-3
+    assert (res_U_grad - actual_U_grad).norm() / actual_U_grad.norm() < 1e-3
 
 
 def test_interpolated_toeplitz_gp_marginal_log_likelihood_forward():
@@ -124,24 +145,30 @@ def test_interpolated_toeplitz_gp_marginal_log_likelihood_backward():
     actual_nll = -0.5 * (log_det_actual + quad_form_actual + math.log(2 * math.pi) * len(y))
     actual_nll.backward()
 
-    actual_c_grad = c.grad.data
-    actual_y_grad = y.grad.data
-    actual_noise_grad = noise.grad.data
+    actual_c_grad = c.grad.data.clone()
+    actual_y_grad = y.grad.data.clone()
+    actual_noise_grad = noise.grad.data.clone()
 
     c.grad.data.fill_(0)
     y.grad.data.fill_(0)
     noise.grad.data.fill_(0)
 
+    covar_x = gpytorch.lazy.ToeplitzLazyVariable(c,
+                                                 covar_x.J_left,
+                                                 covar_x.C_left,
+                                                 covar_x.J_right,
+                                                 covar_x.C_right,
+                                                 noise)
     res = covar_x.exact_gp_marginal_log_likelihood(y)
     res.backward()
 
-    res_c_grad = c.grad.data
+    res_c_grad = covar_x.c.grad.data
     res_y_grad = y.grad.data
     res_noise_grad = noise.grad.data
 
-    assert utils.approx_equal(actual_c_grad, res_c_grad)
-    assert utils.approx_equal(actual_y_grad, res_y_grad)
-    assert utils.approx_equal(actual_noise_grad, res_noise_grad)
+    assert (actual_c_grad - res_c_grad).norm() / res_c_grad.norm() < 0.05
+    assert (actual_y_grad - res_y_grad).norm() / res_y_grad.norm() < 1e-3
+    assert (actual_noise_grad - res_noise_grad).norm() / res_noise_grad.norm() < 1e-3
 
 
 def test_normal_gp_mll_forward():
@@ -184,7 +211,17 @@ def test_normal_gp_mll_backward():
 
     covarvar = Variable(covar, requires_grad=True)
     yvar = Variable(y, requires_grad=True)
-    output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar, num_samples=12) * 3
+    gpytorch.functions.num_trace_samples = 1000
+    output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar) * 3
+    output.backward()
+
+    assert(torch.norm(actual_mat_grad - covarvar.grad.data) < 1e-1)
+    assert(torch.norm(actual_y_grad - yvar.grad.data) < 1e-4)
+
+    gpytorch.functions.fastest = False
+    covarvar = Variable(covar, requires_grad=True)
+    yvar = Variable(y, requires_grad=True)
+    output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar) * 3
     output.backward()
 
     assert(torch.norm(actual_mat_grad - covarvar.grad.data) < 1e-1)
@@ -246,18 +283,39 @@ def foo_kp_toeplitz_gp_marginal_log_likelihood_backward():
 
     actual_nll = -0.5 * (log_det_actual + quad_form_actual + math.log(2 * math.pi) * len(y))
     actual_nll.backward()
-    actual_c_grad = cs.grad.data.clone()
+    actual_cs_grad = cs.grad.data.clone()
     actual_y_grad = y.grad.data.clone()
 
     y.grad.data.fill_(0)
-    res = kronecker_var.exact_gp_marginal_log_likelihood(y, num_samples=10)
+    cs.grad.data.fill_(0)
+
+    kronecker_var = gpytorch.lazy.kroneckerProductLazyVariable(cs,
+                                                               kronecker_var.J_lefts,
+                                                               kronecker_var.C_lefts,
+                                                               kronecker_var.J_rights,
+                                                               kronecker_var.C_rights)
+    gpytorch.functions.num_trace_samples = 100
+    res = kronecker_var.exact_gp_marginal_log_likelihood(y)
     res.backward()
 
-    res_c_grad = cs.grad.data
+    res_cs_grad = covar_x.cs.grad.data
     res_y_grad = y.grad.data
 
-    assert torch.abs(actual_c_grad - res_c_grad).mean() < 1e-3
-    assert torch.abs(actual_y_grad - res_y_grad).mean() < 1e-4
+    assert (actual_cs_grad - res_cs_grad).norm() / res_cs_grad.norm() < 0.05
+    assert (actual_y_grad - res_y_grad).norm() / res_y_grad.norm() < 1e-3
+
+    y.grad.data.fill_(0)
+    cs.grad.data.fill_(0)
+
+    gpytorch.functions.fastest = False
+    res = kronecker_var.exact_gp_marginal_log_likelihood(y)
+    res.backward()
+
+    res_cs_grad = covar_x.cs.grad.data
+    res_y_grad = y.grad.data
+
+    assert (actual_cs_grad - res_cs_grad).norm() / res_cs_grad.norm() < 1e-3
+    assert (actual_y_grad - res_y_grad).norm() / res_y_grad.norm() < 1e-3
 
 
 def _det(A):

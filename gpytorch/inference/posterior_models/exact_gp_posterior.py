@@ -53,6 +53,6 @@ class _ExactGPPosterior(_GPPosterior):
 
         return output
 
-    def marginal_log_likelihood(self, output, train_y, num_samples=10):
+    def marginal_log_likelihood(self, output, train_y):
         mean, covar = output.representation()
-        return gpytorch.exact_gp_marginal_log_likelihood(covar, train_y - mean, num_samples)
+        return gpytorch.exact_gp_marginal_log_likelihood(covar, train_y - mean)

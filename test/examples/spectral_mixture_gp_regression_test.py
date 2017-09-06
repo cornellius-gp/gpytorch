@@ -50,10 +50,12 @@ def test_spectral_mixture_gp_mean_abs_error():
     posterior_gp_model.train()
     optimizer = optim.Adam(posterior_gp_model.parameters(), lr=0.1)
     optimizer.n_iter = 0
+
+    gpytorch.functions.fastest = False
     for i in range(50):
         optimizer.zero_grad()
         output = posterior_gp_model(train_x)
-        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y, num_samples=11)
+        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
