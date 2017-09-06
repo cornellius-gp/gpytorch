@@ -35,7 +35,9 @@ class DefaultPosteriorStrategy(PosteriorStrategy):
     def variational_posterior_covar(self, induc_test_covar, chol_variational_covar,
                                     test_test_covar, induc_induc_covar):
         # left_factor = K_{mn}K_{nn}^{-1}(S - K_{nn})
-        left_factor = torch.mm(self.var, gpytorch.inv_matmul(induc_induc_covar, test_test_covar))
+        variational_covar = chol_variational_covar.t().matmul(chol_variational_covar)
+        left_factor = torch.mm(self.var, gpytorch.inv_matmul(induc_induc_covar,
+                                                             variational_covar - induc_induc_covar))
         # right_factor = K_{nn}^{-1}K_{nm}
         right_factor = gpytorch.inv_matmul(induc_induc_covar, induc_test_covar)
         # test_test_covar = K_{mm} + K_{mn}K_{nn}^{-1}(S - K_{nn})K_{nn}^{-1}K_{nm}

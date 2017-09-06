@@ -47,6 +47,6 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
 
     def variational_posterior_covar(self, induc_test_covar, chol_variational_covar,
                                     test_test_covar, induc_induc_covar):
-        covar_right = gpytorch.dsmm(self.interp_right.t(), chol_variational_covar.t()).t()
+        covar_right = gpytorch.dsmm(self.interp_left, chol_variational_covar.t()).t()
         covar_left = gpytorch.dsmm(self.interp_left, chol_variational_covar.t())
         return covar_left.matmul(covar_right)
