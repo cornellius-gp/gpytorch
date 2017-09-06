@@ -1,30 +1,40 @@
 import torch
-import math
+from torch.autograd import Variable
 from .random_variable import RandomVariable
-import random
 
 
 class BernoulliRandomVariable(RandomVariable):
     def __init__(self, probability):
+        """
+        Constructs a Bernoulli random variable
+        probability represents the weight of a positive outcome
+
+        Passing a scalar mass function corresponds to a single Bernoulli variable
+        Passing a vector mass function corresponds to a batch of independent Bernoulli variables
+
+        Params:
+        - probability (Variable: scalar or vector n) weights of Bernoulli distribution
+        """
+        if not isinstance(probability, Variable):
+            raise RuntimeError('probability should be a Variable')
+        if not probability.ndimension() == 1:
+            raise RuntimeError('BernoulliRandomVariable should be a scalar or a vector')
+        if any(probability.data < 0) or any(probability.data > 1):
+            raise RuntimeError('Probabilities must be between 0 and 1')
         self.probability = probability
 
     def representation(self):
         return self.probability
 
-    def log_probability(self, i):
-        if i == 1:
-            return math.log(self.probability)
-        elif i == -1:
-            return math.log(1 - self.probability)
-        else:
-            raise RuntimeError('The Bernoulli probability mass function is defined on {-1,1}')
-
-    def sample(self):
-        p = random.random()
-        if p < self.probability:
-            return torch.LongTensor([1])
-        else:
-            return torch.LongTensor([-1])
+    def sample(self, n_samples=1):
+        prob = torch.rand(n_samples, len(self.probability))
+        res = prob < self.probability.data.unsqueeze(0).expand(n_samples, len(self.probability))
+        if len(self.probability) == 1:
+            res.squeeze_(1)
+        return res
 
     def mean(self):
         return self.probability
+
+    def __len__(self):
+        return len(self.probability)

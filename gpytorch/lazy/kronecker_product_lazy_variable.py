@@ -24,9 +24,9 @@ class KroneckerProductLazyVariable(LazyVariable):
         self.added_diag = added_diag
         self.kronecker_product_size = int(math.pow(self.columns.size()[1], self.columns.size()[0]))
         if J_lefts is not None:
-            self.size = (self.J_lefts.size()[1], self.J_rights.size()[1])
+            self._size = (self.J_lefts.size()[1], self.J_rights.size()[1])
         else:
-            self.size = (self.kronecker_product_size, self.kronecker_product_size)
+            self._size = (self.kronecker_product_size, self.kronecker_product_size)
 
     def _matmul_closure_factory(self, *args):
         if len(args) == 1:
@@ -71,7 +71,7 @@ class KroneckerProductLazyVariable(LazyVariable):
 
     def add_diag(self, diag):
         if self.J_lefts is not None:
-            kronecker_product_diag = diag.expand(self.size[0])
+            kronecker_product_diag = diag.expand(self._size[0])
         else:
             kronecker_product_diag = diag.expand_as(self.kronecker_product_size)
 
@@ -134,7 +134,7 @@ class KroneckerProductLazyVariable(LazyVariable):
         """
 
         if self.J_lefts is not None:
-            n_left, n_right = self.size
+            n_left, n_right = self._size
             W_left = list_of_indices_and_values_to_sparse(self.J_lefts, self.C_lefts, self.columns)
             W_right = list_of_indices_and_values_to_sparse(self.J_rights, self.C_rights, self.columns)
             if n_left <= n_right:
@@ -219,6 +219,9 @@ class KroneckerProductLazyVariable(LazyVariable):
         else:
             added_diag = Variable(torch.zeros(1))
         return self.columns, W_left, W_right, added_diag
+
+    def size(self):
+        return self._size
 
     def __getitem__(self, i):
         if isinstance(i, tuple):
