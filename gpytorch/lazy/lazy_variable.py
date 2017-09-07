@@ -166,6 +166,12 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def size(self):
+        """
+        Returns the size of the resulting Variable that the lazy variable represents
+        """
+        raise NotImplementedError
+
     def trace_log_det_quad_form(self, mu_diffs, chol_covar_1):
         if not hasattr(self, '_trace_log_det_quad_form_class'):
             tlqf_function_factory = function_factory.trace_logdet_quad_form_factory

@@ -205,6 +205,11 @@ class ToeplitzLazyVariable(LazyVariable):
             added_diag = Variable(torch.zeros(1))
         return self.c, W_left, W_right, added_diag
 
+    def size(self):
+        if self.J_left is not None:
+            return torch.Size((len(self.J_left), len(self.J_right)))
+        return torch.Size((len(self.c), len(self.c)))
+
     def __getitem__(self, i):
         if isinstance(i, tuple):
             if self.J_left is None:

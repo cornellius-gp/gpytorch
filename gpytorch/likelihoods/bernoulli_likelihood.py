@@ -1,6 +1,6 @@
 import torch
 import gpytorch
-from gpytorch.random_variables import GaussianRandomVariable, IndependentRandomVariables, BernoulliRandomVariable
+from gpytorch.random_variables import GaussianRandomVariable, BernoulliRandomVariable
 from .likelihood import Likelihood
 
 
@@ -39,8 +39,7 @@ class BernoulliLikelihood(Likelihood):
         link = mean.div(torch.sqrt(1 + var))
 
         output_probs = gpytorch.normal_cdf(link)
-        return IndependentRandomVariables([BernoulliRandomVariable(output_prob)
-                                           for output_prob in output_probs])
+        return BernoulliRandomVariable(output_probs)
 
     def log_probability(self, f, y):
         """
