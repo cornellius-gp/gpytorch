@@ -240,7 +240,7 @@ def interpolated_sym_toeplitz_matmul(toeplitz_column, vector, W_left=None, W_rig
     return WTWt_v
 
 
-def sym_toeplitz_derivative_quadratic_form(left_vector, right_vector):
+def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
     """
     Given a left vector v1 and a right vector v2, computes the quadratic form:
                                 v1'*(dT/dc_i)*v2
@@ -254,21 +254,27 @@ def sym_toeplitz_derivative_quadratic_form(left_vector, right_vector):
     for i=1..m is the matrix with ones on the ith sub- and superdiagonal.
 
     Args:
-        - left_vector (vector m) - left vector v1 in the quadratic form.
-        - right_vector (vector m) - right vector v2 in the quadratic form.
+        - left_vectors (vector m or matrix s x m) - s left vectors u[j] in the quadratic form.
+        - right_vectors (vector m or matrix s x m) - s right vectors v[j] in the quadratic form.
     Returns:
-        - vector m - a vector so that the ith element is the result of v1'*(dT/dc_i)*v2
+        - vector m - a vector so that the ith element is the result of \sum_j(u[j]*(dT/dc_i)*v[j])
     """
-    m = len(left_vector)
+    if left_vectors.ndimension() == 1:
+        left_vectors = left_vectors.unsqueeze(0)
+        right_vectors = right_vectors.unsqueeze(0)
+    s, m = left_vectors.size()
     dT_dc_col = torch.zeros(m)
 
-    dT_dc_row = left_vector
-    dT_dc_col[0] = dT_dc_row[0]
-    res = toeplitz_matmul(dT_dc_col, dT_dc_row, right_vector)
+    res = torch.zeros(m)
 
-    dT_dc_row = utils.reverse(left_vector)
-    dT_dc_col[0] = dT_dc_row[0]
-    res = res + toeplitz_matmul(dT_dc_col, dT_dc_row, utils.reverse(right_vector))
-    res[0] -= left_vector.dot(right_vector)
+    for j in range(s):
+        dT_dc_row = left_vectors[j]
+        dT_dc_col[0] = dT_dc_row[0]
+        res += toeplitz_matmul(dT_dc_col, dT_dc_row, right_vectors[j])
+        dT_dc_row = utils.reverse(left_vectors[j])
+        dT_dc_col[0] = dT_dc_row[0]
+        res = res + toeplitz_matmul(dT_dc_col, dT_dc_row, utils.reverse(right_vectors[j]))
+
+    res[0] -= (left_vectors * right_vectors).sum()
 
     return res
