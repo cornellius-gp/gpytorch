@@ -22,7 +22,6 @@ class GaussianRandomVariable(RandomVariable):
         if not isinstance(covar, Variable) and not isinstance(covar, LazyVariable):
             raise RuntimeError('The covariance of a GaussianRandomVariable must be a Variable')
 
-        print(mean.size(), covar.size())
         if not (mean.ndimension() == 1 or mean.ndimension() == 2):
             raise RuntimeError('mean should be a vector or a matrix (batch mode)')
 
