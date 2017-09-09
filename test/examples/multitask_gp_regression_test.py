@@ -6,7 +6,6 @@ from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, IndexKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.inference import Inference
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
@@ -40,33 +39,29 @@ class MultitaskGPModel(gpytorch.GPModel):
 
 
 def test_multitask_gp_mean_abs_error():
-    prior_gp_model = MultitaskGPModel()
-
-    # Compute posterior distribution
-    infer = Inference(prior_gp_model)
-    posterior_gp_model = infer.run((torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds])),
-                                   torch.cat([train_y1, train_y2]))
+    gp_model = MultitaskGPModel()
+    gp_model.condition(torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds]), torch.cat([train_y1, train_y2]))
 
     # Optimize the model
-    posterior_gp_model.train()
-    optimizer = optim.Adam(posterior_gp_model.parameters(), lr=0.1)
+    gp_model.train()
+    optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
     optimizer.n_iter = 0
     for i in range(100):
         optimizer.zero_grad()
-        output = posterior_gp_model(torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds]))
-        loss = -posterior_gp_model.marginal_log_likelihood(output, torch.cat([train_y1, train_y2]))
+        output = gp_model(torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds]))
+        loss = -gp_model.marginal_log_likelihood(output, torch.cat([train_y1, train_y2]))
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
 
     # Test the model
-    posterior_gp_model.eval()
-    test_preds_task_1 = posterior_gp_model(test_x, y1_inds_test).mean()
+    gp_model.eval()
+    test_preds_task_1 = gp_model(test_x, y1_inds_test).mean()
     mean_abs_error_task_1 = torch.mean(torch.abs(test_y1 - test_preds_task_1))
 
     assert(mean_abs_error_task_1.data.squeeze()[0] < 0.05)
 
-    test_preds_task_2 = posterior_gp_model(test_x, y2_inds_test).mean()
+    test_preds_task_2 = gp_model(test_x, y2_inds_test).mean()
     mean_abs_error_task_2 = torch.mean(torch.abs(test_y2 - test_preds_task_2))
 
     assert(mean_abs_error_task_2.data.squeeze()[0] < 0.05)

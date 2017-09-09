@@ -6,7 +6,6 @@ from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.inference import Inference
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
@@ -31,14 +30,14 @@ class ExactGPModel(gpytorch.GPModel):
 
 
 def test_gp_prior_and_likelihood():
-    prior_gp_model = ExactGPModel()
-    prior_gp_model.covar_module.initialize(log_lengthscale=0)  # This shouldn't really do anything now
-    prior_gp_model.mean_module.initialize(constant=1)  # Let's have a mean of 1
-    prior_gp_model.likelihood.initialize(log_noise=math.log(0.5))
+    gp_model = ExactGPModel()
+    gp_model.covar_module.initialize(log_lengthscale=0)  # This shouldn't really do anything now
+    gp_model.mean_module.initialize(constant=1)  # Let's have a mean of 1
+    gp_model.likelihood.initialize(log_noise=math.log(0.5))
 
     # Let's see how our model does, not conditioned on any data
     # The GP prior should predict mean of 1, with a variance of 1
-    function_predictions = prior_gp_model(train_x)
+    function_predictions = gp_model(train_x)
     assert(torch.norm(function_predictions.mean().data - 1) < 1e-5)
     assert(torch.norm(function_predictions.var().data - 1.5) < 1e-5)
 
@@ -49,28 +48,27 @@ def test_gp_prior_and_likelihood():
 
 def test_posterior_latent_gp_and_likelihood_without_optimization():
     # We're manually going to set the hyperparameters to be ridiculous
-    prior_gp_model = ExactGPModel()
+    gp_model = ExactGPModel()
     # Update bounds to accomodate extreme parameters
-    prior_gp_model.covar_module.set_bounds(log_lengthscale=(-10, 10))
-    prior_gp_model.likelihood.set_bounds(log_noise=(-10, 10))
+    gp_model.covar_module.set_bounds(log_lengthscale=(-10, 10))
+    gp_model.likelihood.set_bounds(log_noise=(-10, 10))
     # Update parameters
-    prior_gp_model.covar_module.initialize(log_lengthscale=-10)
-    prior_gp_model.mean_module.initialize(constant=0)
-    prior_gp_model.likelihood.initialize(log_noise=-10)
+    gp_model.covar_module.initialize(log_lengthscale=-10)
+    gp_model.mean_module.initialize(constant=0)
+    gp_model.likelihood.initialize(log_noise=-10)
 
     # Compute posterior distribution
-    infer = Inference(prior_gp_model)
-    posterior_gp_model = infer.run(train_x, train_y)
-    posterior_gp_model.eval()
+    gp_model.condition(train_x, train_y)
+    gp_model.eval()
 
     # Let's see how our model does, conditioned with weird hyperparams
     # The posterior should fit all the data
-    function_predictions = posterior_gp_model(train_x)
+    function_predictions = gp_model(train_x)
     assert(torch.norm(function_predictions.mean().data - train_y.data) < 1e-3)
     assert(torch.norm(function_predictions.var().data) < 1e-3)
 
     # It shouldn't fit much else though
-    test_function_predictions = posterior_gp_model(Variable(torch.Tensor([1.1])))
+    test_function_predictions = gp_model(Variable(torch.Tensor([1.1])))
 
     assert(torch.norm(test_function_predictions.mean().data - 0) < 1e-4)
     assert(torch.norm(test_function_predictions.var().data - 1) < 1e-4)
@@ -78,30 +76,29 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
 
 def test_posterior_latent_gp_and_likelihood_with_optimization():
     # We're manually going to set the hyperparameters to something they shouldn't be
-    prior_gp_model = ExactGPModel()
-    prior_gp_model.covar_module.initialize(log_lengthscale=1)
-    prior_gp_model.mean_module.initialize(constant=0)
-    prior_gp_model.likelihood.initialize(log_noise=1)
-
-    # Compute posterior distribution
-    infer = Inference(prior_gp_model)
-    posterior_gp_model = infer.run(train_x, train_y)
+    gp_model = ExactGPModel()
+    gp_model.covar_module.initialize(log_lengthscale=1)
+    gp_model.mean_module.initialize(constant=0)
+    gp_model.likelihood.initialize(log_noise=1)
 
     # Find optimal model hyperparameters
-    posterior_gp_model.train()
-    optimizer = optim.Adam(posterior_gp_model.parameters(), lr=0.1)
+    gp_model.train()
+    optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
     optimizer.n_iter = 0
     for i in range(50):
         optimizer.zero_grad()
-        output = posterior_gp_model(train_x)
-        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
+        output = gp_model(train_x)
+        loss = -gp_model.marginal_log_likelihood(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
 
+    # Compute posterior distribution
+    gp_model.condition(train_x, train_y)
+
     # Test the model
-    posterior_gp_model.eval()
-    test_function_predictions = posterior_gp_model(test_x)
+    gp_model.eval()
+    test_function_predictions = gp_model(test_x)
     mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean()))
 
     assert(mean_abs_error.data.squeeze()[0] < 0.05)

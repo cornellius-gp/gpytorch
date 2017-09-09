@@ -6,7 +6,6 @@ from torch.autograd import Variable
 from gpytorch.kernels import SpectralMixtureKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.inference import Inference
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
@@ -36,33 +35,30 @@ class SpectralMixtureGPModel(gpytorch.GPModel):
         return GaussianRandomVariable(mean_x, covar_x)
 
 
-prior_gp_model = SpectralMixtureGPModel()
+gp_model = SpectralMixtureGPModel()
 
 
 def test_spectral_mixture_gp_mean_abs_error():
-    prior_gp_model = SpectralMixtureGPModel()
-
-    # Compute posterior distribution
-    infer = Inference(prior_gp_model)
-    posterior_gp_model = infer.run(train_x, train_y)
+    gp_model = SpectralMixtureGPModel()
+    gp_model.condition(train_x, train_y)
 
     # Optimize the model
-    posterior_gp_model.train()
-    optimizer = optim.Adam(posterior_gp_model.parameters(), lr=0.1)
+    gp_model.train()
+    optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
     optimizer.n_iter = 0
 
     gpytorch.functions.fastest = False
     for i in range(50):
         optimizer.zero_grad()
-        output = posterior_gp_model(train_x)
-        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
+        output = gp_model(train_x)
+        loss = -gp_model.marginal_log_likelihood(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
 
     # Test the model
-    posterior_gp_model.eval()
-    test_preds = posterior_gp_model(test_x).mean()
+    gp_model.eval()
+    test_preds = gp_model(test_x).mean()
     mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
     # The spectral mixture kernel should be trivially able to extrapolate the sine function.

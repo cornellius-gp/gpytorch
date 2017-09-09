@@ -6,7 +6,6 @@ from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
-from gpytorch.inference import Inference
 
 n = 4
 train_x = torch.zeros(pow(n, 2), 2)
@@ -38,25 +37,23 @@ class GPClassificationModel(gpytorch.GPModel):
 
 
 def test_kissgp_classification_error():
-    prior_model = GPClassificationModel()
-
-    infer = Inference(prior_model)
-    posterior_model = infer.run(train_x, train_y)
+    model = GPClassificationModel()
+    model.condition(train_x, train_y)
 
     # Find optimal model hyperparameters
-    posterior_model.train()
-    optimizer = optim.Adam(posterior_model.parameters(), lr=0.15)
+    model.train()
+    optimizer = optim.Adam(model.parameters(), lr=0.15)
     optimizer.n_iter = 0
     for i in range(20):
         optimizer.zero_grad()
-        output = posterior_model.forward(train_x)
-        loss = -posterior_model.marginal_log_likelihood(output, train_y)
+        output = model.forward(train_x)
+        loss = -model.marginal_log_likelihood(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
 
     # Set back to eval mode
-    posterior_model.eval()
-    test_preds = posterior_model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
+    model.eval()
+    test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
     mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
     assert(mean_abs_error.data.squeeze()[0] < 1e-5)
