@@ -72,25 +72,21 @@ def kronecker_product_toeplitz_matmul(toeplitz_columns, toeplitz_rows, tensor):
 
     else:
         n, p = tensor.size()
-
         d, n_0 = toeplitz_columns.size()
 
         if d == 1:
             output = sym_toeplitz_matmul(toeplitz_rows[0], tensor)
-
         else:
             len_sub = int(n / n_0)
             output = torch.zeros(n, p)
 
-            for i in range(n_0):
-                new_val = kronecker_product_toeplitz_matmul(toeplitz_columns[1:], toeplitz_rows[1:],
-                                                            tensor[len_sub * i:len_sub * (i + 1)])
-                output[len_sub * i:len_sub * (i + 1)] = new_val
+            tensor = tensor.t().contiguous().view(int(p * n_0), len_sub).t().contiguous()
+            new_val = kronecker_product_toeplitz_matmul(toeplitz_columns[1:], toeplitz_rows[1:], tensor)
+            output = new_val.t().contiguous().view(p, n).t().contiguous()
 
-            output = output.contiguous().view(n_0, len_sub * p)
+            output = output.view(n_0, len_sub * p)
             output = sym_toeplitz_matmul(toeplitz_rows[0], output)
             output = output.contiguous().view(n, p)
-            output = output
 
     if output_dims == 1:
         output = output.squeeze(1)
@@ -149,7 +145,7 @@ def kp_interpolated_toeplitz_matmul(toeplitz_columns, tensor, interp_left=None, 
     return output
 
 
-def kp_sym_toeplitz_derivative_quadratic_form(columns, left_vector, right_vector):
+def kp_sym_toeplitz_derivative_quadratic_form(columns, left_vectors, right_vectors):
     """
     Given a left vector v1 and a right vector v2, computes the quadratic form:
                             v1'* (T_1x...xT_{i-1}x(dT_i/dc_i^j)xT_{i+1}x...T_d)*v2
@@ -170,9 +166,14 @@ def kp_sym_toeplitz_derivative_quadratic_form(columns, left_vector, right_vector
           this list is the result of v1'*(dT_i/dc_i^j)*v2
     """
 
+    if left_vectors.ndimension() == 1:
+        left_vectors = left_vectors.unsqueeze(0)
+        right_vectors = right_vectors.unsqueeze(0)
+
     res = torch.zeros(columns.size())
     d = columns.size()[0]
-    m = len(left_vector)
+    s, m = left_vectors.size()
+
     for i in range(d):
         m_left = 1
         for j in range(i):
@@ -183,30 +184,35 @@ def kp_sym_toeplitz_derivative_quadratic_form(columns, left_vector, right_vector
 
         m_i = len(columns[i])
 
-        right_vector_i = right_vector.clone()
-        right_vector_i = right_vector_i.view(m_left, m_right * m_i)
+        right_vectors_i = right_vectors.clone()
+        right_vectors_i = right_vectors_i.view(s, m_left, m_right * m_i)
 
-        left_vector_i = left_vector.clone()
-        left_vector_i = left_vector_i.view(int(m / m_left), m_left)
+        left_vectors_i = left_vectors.clone()
+        left_vectors_i = left_vectors_i.view(s, int(m / m_left), m_left)
 
         if i == 0:
-            left_vector_i = left_vector_i.t()
+            left_vectors_i = left_vectors_i.transpose(1, 2)
         else:
-            left_vector_i = kronecker_product_toeplitz_matmul(columns[:i], columns[:i], left_vector_i.t())
+            left_vectors_i = left_vectors_i.transpose(1, 2)
+            left_vectors_i = left_vectors_i.transpose(0, 1).contiguous().view(m_left, s * int(m / m_left))
+            left_vectors_i = kronecker_product_toeplitz_matmul(columns[:i], columns[:i], left_vectors_i)
+            left_vectors_i = left_vectors_i.contiguous().view(m_left, s, int(m / m_left)).transpose(0, 1)
 
         for j in range(m_left):
-            right_vector_i_j = right_vector_i[j].view(m_i, m_right).t()
+            right_vectors_i_j = right_vectors_i[:, j].contiguous().view(s, m_i, m_right).transpose(1, 2).contiguous()
 
-            left_vector_i_j = left_vector_i[j]
-            left_vector_i_j = left_vector_i_j.contiguous().view(m_i, m_right)
+            left_vectors_i_j = left_vectors_i[:, j].contiguous().view(s, m_i, m_right)
             if i == d - 1:
-                left_vector_i_j = left_vector_i_j.t()
+                left_vectors_i_j = left_vectors_i_j.transpose(1, 2)
             else:
-                left_vector_i_j = kronecker_product_toeplitz_matmul(columns[i + 1:], columns[i + 1:],
-                                                                    left_vector_i_j.t())
-            for k in range(m_right):
-                res[i] = res[i] + sym_toeplitz_derivative_quadratic_form(left_vector_i_j[k],
-                                                                         right_vector_i_j[k])
+                left_vectors_i_j = left_vectors_i_j.transpose(1, 2)
+                left_vectors_i_j = left_vectors_i_j.transpose(0, 1).contiguous().view(m_right, s * m_i)
+                left_vectors_i_j = kronecker_product_toeplitz_matmul(columns[i + 1:], columns[i + 1:],
+                                                                     left_vectors_i_j)
+                left_vectors_i_j = left_vectors_i_j.contiguous().view(m_right, s, m_i).transpose(0, 1).contiguous()
+
+            res[i] = res[i] + sym_toeplitz_derivative_quadratic_form(left_vectors_i_j.view(s * m_right, m_i),
+                                                                     right_vectors_i_j.view(s * m_right, m_i))
     return res
 
 

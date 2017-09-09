@@ -41,24 +41,30 @@ class ToeplitzLazyVariable(LazyVariable):
         return closure
 
     def _derivative_quadratic_form_factory(self, *args):
-        def closure(left_vector, right_vector):
+        def closure(left_vectors, right_vectors):
+            if left_vectors.ndimension() == 1:
+                left_factor = left_vectors.unsqueeze(0)
+                right_factor = right_vectors.unsqueeze(0)
+            else:
+                left_factor = left_vectors
+                right_factor = right_vectors
             if len(args) == 1:
                 toeplitz_column, = args
-                left_v_W = left_vector
-                W_right_v = right_vector
-                return sym_toeplitz_derivative_quadratic_form(left_v_W, W_right_v),
+                return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor),
             elif len(args) == 4:
                 toeplitz_column, W_left, W_right, added_diag, = args
 
                 if added_diag is not None:
                     diag_grad = torch.zeros(len(added_diag))
-                    diag_grad[0] = left_vector.dot(right_vector)
+                    diag_grad[0] = (left_vectors * right_vectors).sum()
                 else:
                     diag_grad = None
 
-                left_v_W = torch.dsmm(W_left.t(), left_vector.unsqueeze(1)).squeeze()
-                W_right_v = torch.dsmm(W_right.t(), right_vector.unsqueeze(1)).squeeze()
-                return tuple([sym_toeplitz_derivative_quadratic_form(left_v_W, W_right_v)] + [None] * 2 + [diag_grad])
+                left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
+                right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
+
+                return tuple([sym_toeplitz_derivative_quadratic_form(left_factor,
+                                                                     right_factor)] + [None] * 2 + [diag_grad])
         return closure
 
     def add_diag(self, diag):
