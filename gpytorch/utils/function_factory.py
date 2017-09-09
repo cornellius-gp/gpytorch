@@ -20,7 +20,7 @@ def _default_derivative_quadratic_form_factory(mat):
             right_factor = right_vectors
         left_factor.unsqueeze_(2)
         right_factor.unsqueeze_(1)
-        res =  (left_factor * right_factor).sum(dim=0).squeeze_()
+        res = (left_factor * right_factor).sum(dim=0).squeeze_()
         return res,
     return closure
 
@@ -206,7 +206,6 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                                                                                              right_vectors_1))
                     quad_derivative_2 = list(derivative_quadratic_form_factory(*covar2_args)(left_vectors_2,
                                                                                              right_vectors_2))
-
 
                     for i in range(len(covar2_args)):
                         if grad_covar2_args[i] is not None:

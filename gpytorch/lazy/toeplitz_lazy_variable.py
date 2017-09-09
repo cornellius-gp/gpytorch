@@ -63,7 +63,8 @@ class ToeplitzLazyVariable(LazyVariable):
                 left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
                 right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
 
-                return tuple([sym_toeplitz_derivative_quadratic_form(left_factor, right_factor)] + [None] * 2 + [diag_grad])
+                return tuple([sym_toeplitz_derivative_quadratic_form(left_factor,
+                                                                     right_factor)] + [None] * 2 + [diag_grad])
         return closure
 
     def add_diag(self, diag):
