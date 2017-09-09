@@ -72,25 +72,21 @@ def kronecker_product_toeplitz_matmul(toeplitz_columns, toeplitz_rows, tensor):
 
     else:
         n, p = tensor.size()
-
         d, n_0 = toeplitz_columns.size()
 
         if d == 1:
             output = sym_toeplitz_matmul(toeplitz_rows[0], tensor)
-
         else:
             len_sub = int(n / n_0)
             output = torch.zeros(n, p)
 
-            for i in range(n_0):
-                new_val = kronecker_product_toeplitz_matmul(toeplitz_columns[1:], toeplitz_rows[1:],
-                                                            tensor[len_sub * i:len_sub * (i + 1)])
-                output[len_sub * i:len_sub * (i + 1)] = new_val
+            tensor = tensor.t().contiguous().view(int(p * n_0), len_sub).t().contiguous()
+            new_val = kronecker_product_toeplitz_matmul(toeplitz_columns[1:], toeplitz_rows[1:], tensor)
+            output = new_val.t().contiguous().view(p, n).t().contiguous()
 
-            output = output.contiguous().view(n_0, len_sub * p)
+            output = output.view(n_0, len_sub * p)
             output = sym_toeplitz_matmul(toeplitz_rows[0], output)
             output = output.contiguous().view(n, p)
-            output = output
 
     if output_dims == 1:
         output = output.squeeze(1)
