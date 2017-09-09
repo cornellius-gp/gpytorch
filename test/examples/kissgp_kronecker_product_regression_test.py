@@ -6,7 +6,6 @@ from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.inference import Inference
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function, but with KISS-GP let's use 100 training examples.
@@ -46,26 +45,23 @@ class KissGPModel(gpytorch.GPModel):
 
 
 def test_kissgp_gp_mean_abs_error():
-    prior_gp_model = KissGPModel()
-
-    # Compute posterior distribution
-    infer = Inference(prior_gp_model)
-    posterior_gp_model = infer.run(train_x, train_y)
+    gp_model = KissGPModel()
+    gp_model.condition(train_x, train_y)
 
     # Optimize the model
-    posterior_gp_model.train()
-    optimizer = optim.Adam(posterior_gp_model.parameters(), lr=0.2)
+    gp_model.train()
+    optimizer = optim.Adam(gp_model.parameters(), lr=0.2)
     optimizer.n_iter = 0
     for i in range(20):
         optimizer.zero_grad()
-        output = posterior_gp_model(train_x)
-        loss = -posterior_gp_model.marginal_log_likelihood(output, train_y)
+        output = gp_model(train_x)
+        loss = -gp_model.marginal_log_likelihood(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
 
     # Test the model
-    posterior_gp_model.eval()
-    test_preds = posterior_gp_model(test_x).mean()
+    gp_model.eval()
+    test_preds = gp_model(test_x).mean()
     mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
     assert(mean_abs_error.data.squeeze()[0] < 0.1)

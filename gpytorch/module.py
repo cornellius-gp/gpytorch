@@ -47,10 +47,6 @@ class Module(nn.Module):
             raise AttributeError(
                 "cannot assign parameter before Module.__init__() call")
         super(Module, self).register_parameter(name, param)
-        # Get bound
-        lower_bound_tensor = param.data.new().resize_as_(param.data)
-        upper_bound_tensor = param.data.new().resize_as_(param.data)
-        self._bounds[name] = (lower_bound_tensor, upper_bound_tensor)
         kwargs = {}
         kwargs[name] = bounds
         self.set_bounds(**kwargs)
@@ -83,6 +79,33 @@ class Module(nn.Module):
                 raise AttributeError('Parameter %s exceeds upper bound' % name)
         return self
 
+    def load_state_dict(self, state_dict):
+        """Copies parameters and buffers from :attr:`state_dict` into
+        this module and its descendants. The keys of :attr:`state_dict` must
+        exactly match the keys returned by this module's :func:`state_dict()`
+        function.
+
+        NOTE: This differs from the PyTorch load_state_dict.
+        Buffer size doesn't have to match. This allows us to load caches
+
+        Arguments:
+            state_dict (dict): A dict containing parameters and
+                persistent buffers.
+        """
+        own_state = self.state_dict()
+        for name, param in state_dict.items():
+            if name not in own_state:
+                raise KeyError('unexpected key "{}" in state_dict'
+                               .format(name))
+            if isinstance(param, nn.Parameter):
+                # backwards compatibility for serialized parameters
+                param = param.data
+            own_state[name].resize_as_(param).copy_(param)
+
+        missing = set(own_state.keys()) - set(state_dict.keys())
+        if len(missing) > 0:
+            raise KeyError('missing keys in state_dict: "{}"'.format(missing))
+
     def set_bounds(self, **kwargs):
         """
         Set bounds for a parameter
@@ -100,14 +123,14 @@ class Module(nn.Module):
                 if lower_bound.size() != upper_bound.size() or \
                         lower_bound.size() != param.size():
                     raise AttributeError('Lower bound, upper bound, and param should have the same size')
-                self._bounds[name][0].copy_(lower_bound)
-                self._bounds[name][1].copy_(upper_bound)
-            elif (isinstance(lower_bound, int) or isinstance(lower_bound, float)) and \
-                    (isinstance(upper_bound, int) or isinstance(upper_bound, float)):
-                self._bounds[name][0].fill_(lower_bound)
-                self._bounds[name][1].fill_(upper_bound)
-            else:
+            elif not (isinstance(lower_bound, int) or isinstance(lower_bound, float)) or \
+                    not (isinstance(upper_bound, int) or isinstance(upper_bound, float)):
                 raise AttributeError('Unsupported argument types for parameter %s' % name)
+
+            if name not in self._bounds:
+                self._bounds[name] = [None, None]
+            self._bounds[name][0] = lower_bound
+            self._bounds[name][1] = upper_bound
         return self
 
     def bound_for(self, name):
@@ -146,6 +169,27 @@ class Module(nn.Module):
         for name, bound in self.named_parameter_bounds():
             yield bound
 
+    def condition(self, *args, **kwargs):
+        """
+        Conditions the model on data. After conditioning, the model functions
+        in posterior mode rather than prior mode.
+
+        Args: (Variables) inputs to condition on
+        """
+        if not all(isinstance(arg, Variable) for arg in args):
+            raise RuntimeError('All inputs must be Variables')
+        self.train_data = args
+        for module in self.children():
+            module.condition(*args, **kwargs)
+        return self
+
+    @property
+    def posterior(self):
+        """
+        Returns if the model is in posterior mode (are we conditioning on data?)
+        """
+        return hasattr(self, 'train_data') and not self.training
+
     def initialize_interpolation_grid(self, grid_size, grid_bounds):
         for module in self.children():
             module.initialize_interpolation_grid(grid_size, grid_bounds)
@@ -160,10 +204,16 @@ class Module(nn.Module):
                 lower_bound, upper_bound = self._bounds[name]
                 lower_mask = param.data < lower_bound
                 if any(lower_mask.view(-1)):
-                    param.data.masked_scatter_(lower_mask, lower_bound[lower_mask])
+                    if torch.is_tensor(lower_bound):
+                        param.data.masked_scatter_(lower_mask, lower_bound[lower_mask])
+                    else:
+                        param.data.masked_fill_(lower_mask, lower_bound)
                 upper_mask = param.data > upper_bound
                 if any(upper_mask.view(-1)):
-                    param.data.masked_scatter_(upper_mask, upper_bound[upper_mask])
+                    if torch.is_tensor(upper_bound):
+                        param.data.masked_scatter_(upper_mask, upper_bound[upper_mask])
+                    else:
+                        param.data.masked_fill_(upper_mask, upper_bound)
                 return param
         if '_buffers' in self.__dict__:
             _buffers = self.__dict__['_buffers']
