@@ -240,7 +240,7 @@ class GPModel(gpytorch.Module):
             # Add some jitter
             if not self.exact_inference:
                 mean, covar = output.representation()
-                covar = covar.add_jitter(covar)
+                covar = gpytorch.add_jitter(covar)
                 output = GaussianRandomVariable(mean, covar)
 
         # Now go through the likelihood
