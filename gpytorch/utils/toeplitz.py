@@ -267,6 +267,8 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
 
     res = torch.zeros(m)
 
+    left_vectors.contiguous()
+    right_vectors.contiguous()
     for j in range(s):
         dT_dc_row = left_vectors[j]
         dT_dc_col[0] = dT_dc_row[0]

@@ -13,11 +13,11 @@ def _default_matmul_closure_factor(mat):
 def _default_derivative_quadratic_form_factory(mat):
     def closure(left_vectors, right_vectors):
         if left_vectors.ndimension() == 1:
-            left_factor = left_vectors.unsqueeze(0)
-            right_factor = right_vectors.unsqueeze(0)
+            left_factor = left_vectors.unsqueeze(0).contiguous()
+            right_factor = right_vectors.unsqueeze(0).contiguous()
         else:
-            left_factor = left_vectors
-            right_factor = right_vectors
+            left_factor = left_vectors.contiguous()
+            right_factor = right_vectors.contiguous()
         left_factor.unsqueeze_(2)
         right_factor.unsqueeze_(1)
         res = (left_factor * right_factor).sum(dim=0).squeeze_()
@@ -125,11 +125,12 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             # Tr(K2^{-1}K1)
             if gpytorch.functions.fastest:
                 sample_matrix = torch.sign(torch.randn(len(mu_diff), gpytorch.functions.num_trace_samples))
-                rhs_vectors = chol_covar1.t().mm(chol_covar1.mm(sample_matrix))
+                rhs_vectors = chol_covar1.t().contiguous().mm(chol_covar1.mm(sample_matrix))
                 mat_inv_vectors = LinearCG().solve(covar2_matmul_closure, rhs_vectors)
                 trace = (mat_inv_vectors * sample_matrix).sum() / gpytorch.functions.num_trace_samples
             else:
-                cov2_inv_cov1 = LinearCG().solve(covar2_matmul_closure, chol_covar1.t().matmul(chol_covar1))
+                cov2_inv_cov1 = LinearCG().solve(covar2_matmul_closure,
+                                                 chol_covar1.t().contiguous().matmul(chol_covar1))
                 self.cov2_inv_cov1 = cov2_inv_cov1
                 trace = cov2_inv_cov1.trace()
 
@@ -182,7 +183,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                     quad_part = derivative_quadratic_form_factory(*covar2_args)(mat_inv_y, mat_inv_y)
 
                     sample_matrix = torch.sign(torch.randn(len(mu_diff), gpytorch.functions.num_trace_samples))
-                    rhs_vectors = chol_covar1.t().mm(chol_covar1.mm(sample_matrix))
+                    rhs_vectors = chol_covar1.t().contiguous().mm(chol_covar1.mm(sample_matrix))
                     I_minus_Tinv_M_vectors = sample_matrix - LinearCG().solve(covar2_matmul_closure, rhs_vectors)
                     Tinv_vectors = LinearCG().solve(covar2_matmul_closure, sample_matrix)
                     grad_covar2_args = list(derivative_quadratic_form_factory(*covar2_args)(Tinv_vectors.t(),

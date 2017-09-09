@@ -203,21 +203,20 @@ def kp_sym_toeplitz_derivative_quadratic_form(columns, left_vectors, right_vecto
             left_vectors_i = left_vectors_i.contiguous().view(m_left, s, int(m / m_left)).transpose(0, 1)
 
         for j in range(m_left):
-            right_vectors_i_j = right_vectors_i[:, j].contiguous().view(s, m_i, m_right).transpose(1, 2)
+            right_vectors_i_j = right_vectors_i[:, j].contiguous().view(s, m_i, m_right).transpose(1, 2).contiguous()
 
-            left_vectors_i_j = left_vectors_i[:, j].contiguous()
-            left_vectors_i_j = left_vectors_i_j.view(s, m_i, m_right)
+            left_vectors_i_j = left_vectors_i[:, j].contiguous().view(s, m_i, m_right)
             if i == d - 1:
                 left_vectors_i_j = left_vectors_i_j.transpose(1, 2)
             else:
                 left_vectors_i_j = left_vectors_i_j.transpose(1, 2)
-                left_vectors_i_j = left_vectors_i_j.transpose(0, 1).contiguous().view(m_i, s * m_right)
+                left_vectors_i_j = left_vectors_i_j.transpose(0, 1).contiguous().view(m_right, s * m_i)
                 left_vectors_i_j = kronecker_product_toeplitz_matmul(columns[i + 1:], columns[i + 1:],
                                                                      left_vectors_i_j)
-                left_vectors_i_j = left_vectors_i_j.contiguous().view(m_i, s, m_right).transpose(0, 1)
-            for k in range(m_right):
-                res[i] = res[i] + sym_toeplitz_derivative_quadratic_form(left_vectors_i_j[:, k],
-                                                                         right_vectors_i_j[:, k])
+                left_vectors_i_j = left_vectors_i_j.contiguous().view(m_right, s, m_i).transpose(0, 1).contiguous()
+
+            res[i] = res[i] + sym_toeplitz_derivative_quadratic_form(left_vectors_i_j.view(s * m_right, m_i),
+                                                                     right_vectors_i_j.view(s * m_right, m_i))
     return res
 
 
