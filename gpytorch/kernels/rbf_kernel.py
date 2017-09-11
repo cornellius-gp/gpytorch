@@ -5,13 +5,14 @@ from .kernel import Kernel
 
 
 class RBFFunction(Function):
-    def __init__(self, x1, x2):
+    def __init__(self, x1, x2, eps=1e-5):
         if isinstance(x1, Variable):
             x1 = x1.data
         if isinstance(x2, Variable):
             x2 = x2.data
         self.x1 = x1
         self.x2 = x2
+        self.eps = eps
 
     # Assumes log_lengthscale is a constant matrix (filled with
     # the parameter log_lengthscale) which is the size of the
@@ -29,11 +30,10 @@ class RBFFunction(Function):
         x2_squared = x2_squared.view(1, m).expand(n, m)
         res.add_(-1, x1_squared).add_(-1, x2_squared)  # res = -(x - z)^2
 
-        res.div_(log_lengthscale.exp())  # res = -(x - z)^2 / lengthscale
+        res.div_(log_lengthscale.exp() + self.eps)  # res = -(x - z)^2 / lengthscale
         res.exp_()
 
         self.save_for_backward(res)
-
         return res
 
     def backward(self, grad_output):
@@ -44,12 +44,13 @@ class RBFFunction(Function):
 
 
 class RBFKernel(Kernel):
-    def __init__(self, log_lengthscale_bounds=(-10000, 10000)):
+    def __init__(self, log_lengthscale_bounds=(-10000, 10000), eps=1e-5):
         super(RBFKernel, self).__init__()
+        self.eps = eps
         self.register_parameter('log_lengthscale', nn.Parameter(torch.zeros(1, 1)),
                                 bounds=log_lengthscale_bounds)
 
     def forward(self, x1, x2):
         n, _ = x1.size()
         m, _ = x2.size()
-        return RBFFunction(x1, x2)(self.log_lengthscale.expand(n, m))
+        return RBFFunction(x1, x2, self.eps)(self.log_lengthscale.expand(n, m))
