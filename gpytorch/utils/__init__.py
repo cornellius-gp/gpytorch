@@ -110,7 +110,6 @@ def sparse_getitem(sparse, idxs):
         else:
             raise RuntimeError('Unknown index type')
 
-    print(indices, values, size)
     return sparse.__class__(indices, values, torch.Size(size))
 
 
@@ -122,5 +121,5 @@ __all__ = [
     rcumsum,
     approx_equal,
     sparse_eye,
-    sparse_getitem
+    sparse_getitem,
 ]
