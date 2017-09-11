@@ -20,3 +20,6 @@ class SamplesRandomVariable(RandomVariable):
     def sample(self):
         ix = random.randrange(len(self._sample_list))
         return self._samples.data[ix]
+
+    def representation(self):
+        return self._samples
