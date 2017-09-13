@@ -1,6 +1,5 @@
 import torch
 import math
-import pdb
 
 
 class StochasticLQ(object):
@@ -57,9 +56,6 @@ class StochasticLQ(object):
             if b.sum() == 0:
                 b = b + 1e-10
 
-#            if k > 1 and beta_k > alpha_k:
-#                pdb.set_trace()
-
             alpha[k] = alpha_k
             beta[k] = beta_k
             Q[:, k] = u
@@ -102,7 +98,7 @@ class StochasticLQ(object):
         left = 0
         right = len(T)
         while right - left > 1:
-            mid = (left + right)//2
+            mid = (left + right) // 2
             eigs = T[:mid, :mid].symeig()[0]
             if torch.min(eigs) < -1e-4:
                 right = mid - 1
