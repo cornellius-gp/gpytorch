@@ -1,5 +1,5 @@
 import torch
-from gpytorch.utils import sparse_eye, sparse_getitem, sparse_repeat
+from gpytorch.utils import sparse_eye, sparse_getitem, sparse_repeat, to_sparse
 
 
 def test_sparse_eye():
@@ -71,3 +71,9 @@ def test_sparse_repeat_2d():
     actual = sparse.to_dense().repeat(3, 1)
     res = sparse_repeat(sparse, 3, 1)
     assert torch.equal(actual, res.to_dense())
+
+
+def test_to_sparse():
+    actual = sparse
+    res = to_sparse(sparse.to_dense())
+    assert torch.equal(actual.to_dense(), res.to_dense())

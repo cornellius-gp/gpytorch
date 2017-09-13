@@ -143,6 +143,18 @@ def sparse_repeat(sparse, *repeat_sizes):
     return sparse.__class__(new_indices, new_values, torch.Size(new_size))
 
 
+def to_sparse(dense):
+    mask = dense.ne(0)
+    indices = mask.nonzero()
+    if indices.storage():
+        values = dense[mask]
+    else:
+        indices = indices.resize_(1, dense.ndimension()).zero_()
+        values = dense.new().resize_(1).zero_()
+    klass = getattr(torch.sparse, dense.__class__.__name__)
+    return klass(indices.t(), values, dense.size())
+
+
 __all__ = [
     Interpolation,
     LinearCG,
