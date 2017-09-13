@@ -88,14 +88,28 @@ class ToeplitzLazyVariable(LazyVariable):
         """
         if len(self.J_left) != len(self.J_right):
             raise RuntimeError('diag not supported for non-square interpolated Toeplitz matrices.')
-        WTW_diag = Variable(torch.zeros(len(self.J_right)))
-        n = len(self.J_right)
-        mask = Variable(torch.zeros(n))
-        for i in range(len(self.J_right)):
-            mask.data[i] = 1
-            WTW_diag = WTW_diag + mask * self[i:i + 1, i:i + 1].evaluate().squeeze(1).expand(n)
-            mask.data[i] = 0
-        return WTW_diag
+        n_data, n_interp = self.J_left.size()
+        n_grid = len(self.c)
+
+        # For row k, we will calculate the diagonal element as sum_{i,j} w_left^k_i w_right^k_j T_{i,j}
+        # Batch compute the non-zero values of the outer products w_left^k w_left^k^T
+        left_interp_values = self.C_left.unsqueeze(2)
+        right_interp_values = self.C_right.unsqueeze(1)
+        interp_values = torch.matmul(left_interp_values, right_interp_values)
+
+        # Batch compute Toeplitz values that will be non-zero for row k
+        left_interp_indices = self.J_left.unsqueeze(2).expand(n_data, n_interp, n_interp)
+        right_interp_indices = self.J_right.unsqueeze(1).expand(n_data, n_interp, n_interp)
+        toeplitz_indices = (left_interp_indices - right_interp_indices).fmod(n_grid).abs().long()
+        toeplitz_vals = self.c.index_select(0, Variable(toeplitz_indices.view(-1))).view(toeplitz_indices.size())
+
+        # Compute batch sums to get diagonal elements
+        diag = (Variable(interp_values) * toeplitz_vals).sum(2).sum(1)
+
+        # Add added diag term
+        if self.added_diag is not None:
+            diag += self.added_diag
+        return diag
 
     def evaluate(self):
         """

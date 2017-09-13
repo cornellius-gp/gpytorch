@@ -20,18 +20,21 @@ def index_coef_to_sparse(index_matrix, value_matrix, row_length):
             W[i, index_matrix[i, j]] = value_matrix[i, j].
     """
     num_target_points, num_coefficients = value_matrix.size()
-    index_list = [[], []]
-    value_list = []
-    for i in range(num_target_points):
-        for j in range(num_coefficients):
-            if value_matrix[i, j] == 0:
-                continue
-            index_list[0].append(i)
-            index_list[1].append(index_matrix[i, j])
-            value_list.append(value_matrix[i, j])
 
-    index_tensor = torch.LongTensor(index_list)
-    value_tensor = torch.FloatTensor(value_list)
+    row_tensor = torch.arange(0, num_target_points).unsqueeze(1)
+    row_tensor = row_tensor.repeat(1, num_coefficients).type_as(index_matrix)
+    index_tensor = torch.cat([row_tensor.view(1, -1), index_matrix.view(1, -1)], 0)
+    value_tensor = value_matrix.view(-1)
+
+    nonzero_indices = value_tensor.nonzero()
+    if nonzero_indices.storage():
+        nonzero_indices.squeeze_()
+        index_tensor = index_tensor.index_select(1, nonzero_indices)
+        value_tensor = value_tensor.index_select(0, nonzero_indices)
+    else:
+        index_tensor = index_tensor.resize_(2, 1).zero_()
+        value_tensor = value_tensor.resize_(1).zero_()
+
     res = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
     return res
 
