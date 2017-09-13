@@ -1,5 +1,6 @@
 import torch
 import math
+import pdb
 
 
 class StochasticLQ(object):
@@ -56,11 +57,14 @@ class StochasticLQ(object):
             if b.sum() == 0:
                 b = b + 1e-10
 
+#            if k > 1 and beta_k > alpha_k:
+#                pdb.set_trace()
+
             alpha[k] = alpha_k
             beta[k] = beta_k
             Q[:, k] = u
 
-            if math.fabs(beta[k]) < 1e-4 or math.fabs(alpha[k]) < 1e-4:
+            if math.fabs(beta[k]) < 2e-4 or math.fabs(alpha[k]) < 2e-4:
                 break
 
         if k == 1:
@@ -93,6 +97,19 @@ class StochasticLQ(object):
         a = u.dot(r)
         v = r - a * u
         return u, v, a, norm_v
+
+    def binary_search_symeig(self, T):
+        left = 0
+        right = len(T)
+        while right - left > 1:
+            mid = (left + right)//2
+            eigs = T[:mid, :mid].symeig()[0]
+            if torch.min(eigs) < -1e-4:
+                right = mid - 1
+            else:
+                left = mid
+
+        return left
 
     def evaluate(self, matmul_closure, n, funcs):
         """
@@ -137,8 +154,11 @@ class StochasticLQ(object):
             # O(n^2) time/convergence with QR iteration,
             # or O(n log n) with fast multipole (TODO).
             [f, Y] = T.symeig(eigenvectors=True)
+            if min(f) < -1e-4:
+                last_proper = self.binary_search_symeig(T)
+                [f, Y] = T[:last_proper, :last_proper].symeig(eigenvectors=True)
 
             for i, func in enumerate(funcs):
-                results[i] = results[i] + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(func(f + 1e-5)))
+                results[i] = results[i] + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(func(f + 1.1e-4)))
 
         return results
