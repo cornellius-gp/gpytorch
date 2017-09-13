@@ -151,8 +151,13 @@ def to_sparse(dense):
     else:
         indices = indices.resize_(1, dense.ndimension()).zero_()
         values = dense.new().resize_(1).zero_()
+
+    # Construct sparse tensor
     klass = getattr(torch.sparse, dense.__class__.__name__)
-    return klass(indices.t(), values, dense.size())
+    res = klass(indices.t(), values, dense.size())
+    if dense.is_cuda:
+        res = res.cuda()
+    return res
 
 
 __all__ = [
