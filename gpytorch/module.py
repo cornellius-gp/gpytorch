@@ -176,7 +176,7 @@ class Module(nn.Module):
 
         Args: (Variables) inputs to condition on
         """
-        if not all(isinstance(arg, Variable) for arg in args):
+        if not all(isinstance(arg, Variable) or isinstance(arg, RandomVariable) for arg in args):
             raise RuntimeError('All inputs must be Variables')
         self.train_data = args
         for module in self.children():

@@ -35,6 +35,7 @@ class GPModel(gpytorch.Module):
         the state dict
 
         Args: (Variables) inputs to condition on
+        reset (bool) - reset variational parameters and alpha cache (default True)
         """
 
         if len(args) < 2:
@@ -45,15 +46,17 @@ class GPModel(gpytorch.Module):
             logging.warning('You are conditioning on data after loading the state dict.'
                             'This has reset caches and variational parameters (if applicable).')
 
-        # Reset alpha cache
-        self.alpha.resize_(0)
+        reset = kwargs.get('reset', True)
+        if reset:
+            # Reset alpha cache
+            self.alpha.resize_(0)
 
-        # Reset variational parameters (if applicable)
-        if not self.exact_inference:
-            if len(args) != 2:
-                raise RuntimeError('Variational inference currently only works with one input.')
-            self.variational_mean.data.resize_(0)
-            self.chol_variational_covar.data.resize_(0)
+            # Reset variational parameters (if applicable)
+            if not self.exact_inference:
+                if len(args) != 2:
+                    raise RuntimeError('Variational inference currently only works with one input.')
+                self.variational_mean.data.resize_(0)
+                self.chol_variational_covar.data.resize_(0)
 
         super(GPModel, self).condition(*args, **kwargs)
 
