@@ -180,5 +180,15 @@ class LazyVariable(object):
         covar2_args = self.representation()
         return self._trace_log_det_quad_form_class()(mu_diffs, chol_covar_1, *covar2_args)
 
+    def __add__(self, other):
+        from .sum_lazy_variable import SumLazyVariable
+        return SumLazyVariable(self, other)
+
+    def __div__(self, other):
+        return self.mul(1. / other)
+
+    def __mul__(self, other):
+        return self.mul(other)
+
     def __getitem__(self, index):
         raise NotImplementedError

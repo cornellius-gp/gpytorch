@@ -82,3 +82,16 @@ class RandomVariable(object):
 
     def __repr__(self):
         return repr(self.representation())
+
+    def __add__(self, other):
+        if type(self) != type(other):
+            raise RuntimeError('Can only add random variables of the same type')
+        return self.__class__(*(a + b for a, b in zip(self.representation(), other.representation())))
+
+    def __div__(self, other):
+        return self.__mul__(1. / other)
+
+    def __mul__(self, other):
+        if not isinstance(other, int) and not isinstance(other, float):
+            raise RuntimeError('Can only multiply by scalars')
+        return self.__class__(*(a * other for a in self.representation()))
