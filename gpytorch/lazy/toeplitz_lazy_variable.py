@@ -29,6 +29,12 @@ class ToeplitzLazyVariable(LazyVariable):
             def closure(tensor):
                 return sym_toeplitz_matmul(c, tensor)
 
+        elif len(args) == 3:
+            c, W_left, W_right = args
+
+            def closure(tensor):
+                return interpolated_sym_toeplitz_matmul(c, tensor, W_left, W_right)
+
         elif len(args) == 4:
             c, W_left, W_right, added_diag = args
 
@@ -51,20 +57,19 @@ class ToeplitzLazyVariable(LazyVariable):
             if len(args) == 1:
                 toeplitz_column, = args
                 return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor),
+            elif len(args) == 3:
+                toeplitz_column, W_left, W_right = args
+                left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
+                right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
+                return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor), None, None
             elif len(args) == 4:
                 toeplitz_column, W_left, W_right, added_diag, = args
 
-                if added_diag is not None:
-                    diag_grad = torch.zeros(len(added_diag))
-                    diag_grad[0] = (left_vectors * right_vectors).sum()
-                else:
-                    diag_grad = None
-
+                diag_grad = torch.zeros(len(added_diag))
+                diag_grad[0] = (left_vectors * right_vectors).sum()
                 left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
                 right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
-
-                return tuple([sym_toeplitz_derivative_quadratic_form(left_factor,
-                                                                     right_factor)] + [None] * 2 + [diag_grad])
+                return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor), None, None, diag_grad
         return closure
 
     def add_diag(self, diag):
@@ -199,7 +204,7 @@ class ToeplitzLazyVariable(LazyVariable):
 
     def posterior_strategy(self):
         if not hasattr(self, '_posterior_strategy'):
-            toeplitz_column, interp_left, interp_right, added_diag = self.representation()
+            toeplitz_column, interp_left, interp_right = self.representation()[:3]
             grid = ToeplitzLazyVariable(toeplitz_column)
             self._posterior_strategy = InterpolatedPosteriorStrategy(self, grid=grid, interp_left=interp_left,
                                                                      interp_right=interp_right)
@@ -222,11 +227,11 @@ class ToeplitzLazyVariable(LazyVariable):
             W_right = Variable(index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
         else:
             W_right = Variable(sparse_eye(len(self.c)))
+
         if self.added_diag is not None:
-            added_diag = self.added_diag
+            return self.c, W_left, W_right, self.added_diag
         else:
-            added_diag = Variable(torch.zeros(1))
-        return self.c, W_left, W_right, added_diag
+            return self.c, W_left, W_right
 
     def size(self):
         if self.J_left is not None:
