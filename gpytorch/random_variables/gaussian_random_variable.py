@@ -47,3 +47,17 @@ class GaussianRandomVariable(RandomVariable):
         if self._mean.ndimension() == 1:
             return 1
         return self._mean.size(0)
+
+    def __add__(self, other):
+        if not isinstance(other, GaussianRandomVariable):
+            raise RuntimeError('Can only add random variables of the same type')
+
+        return GaussianRandomVariable(self._mean + other.mean(), self._covar + other.covar())
+
+    def __div__(self, other):
+        return self.__mul__(1. / other)
+
+    def __mul__(self, other):
+        if not isinstance(other, int) and not isinstance(other, float):
+            raise RuntimeError('Can only multiply by scalars')
+        return GaussianRandomVariable(self._mean * other, self._covar * (other ** 2))
