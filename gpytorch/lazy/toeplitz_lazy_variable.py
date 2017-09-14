@@ -126,24 +126,11 @@ class ToeplitzLazyVariable(LazyVariable):
         lead to memory issues. As a result, using it should be a last resort.
         """
 
-        if self.J_left is not None:
-            n_left = len(self.J_left)
-            n_right = len(self.J_right)
-            W_left = toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c))
-            W_right = toeplitz.index_coef_to_sparse(self.J_right, self.C_right, len(self.c))
-            if n_left <= n_right:
-                W_left_T = self.explicit_interpolate_T(self.J_left, self.C_left)
-                WTW = gpytorch.dsmm(Variable(W_right), W_left_T.t()).t()
-            else:
-                W_right_T = self.explicit_interpolate_T(self.J_right, self.C_right)
-                WTW = gpytorch.dsmm(Variable(W_left), W_right_T.t())
+        if self.J_right is None:
+            res = self.matmul(Variable(torch.eye(len(self.c))))
         else:
-            WTW = ToeplitzLazyVariable(self.c).matmul(Variable(torch.eye(len(self.c))))
-
-        if self.added_diag is not None:
-            WTW = WTW + torch.diag(self.added_diag)
-
-        return WTW
+            res = self.matmul(Variable(torch.eye(len(self.J_right))))
+        return res
 
     def explicit_interpolate_T(self, J, C):
         """

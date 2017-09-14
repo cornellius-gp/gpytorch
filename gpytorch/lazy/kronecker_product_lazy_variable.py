@@ -35,6 +35,12 @@ class KroneckerProductLazyVariable(LazyVariable):
             def closure(mat2):
                 return sym_kronecker_product_toeplitz_matmul(columns, mat2)
 
+        elif len(args) == 3:
+            columns, W_lefts, W_rights = args
+
+            def closure(mat2):
+                return kp_interpolated_toeplitz_matmul(columns, mat2, W_lefts, W_rights, None)
+
         elif len(args) == 4:
             columns, W_lefts, W_rights, added_diag = args
 
@@ -57,20 +63,24 @@ class KroneckerProductLazyVariable(LazyVariable):
             if len(args) == 1:
                 columns, = args
                 return kp_sym_toeplitz_derivative_quadratic_form(columns, left_factor, right_factor),
+            elif len(args) == 3:
+                columns, W_left, W_right = args
+                left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
+                right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
+
+                res = kp_sym_toeplitz_derivative_quadratic_form(columns, left_factor, right_factor)
+                return res, None, None
             elif len(args) == 4:
                 columns, W_left, W_right, added_diag, = args
-
-                if added_diag is not None:
-                    diag_grad = torch.zeros(len(added_diag))
-                    diag_grad[0] = (left_factor * right_factor).sum()
-                else:
-                    diag_grad = None
+                diag_grad = torch.zeros(len(added_diag))
+                diag_grad[0] = (left_factor * right_factor).sum()
 
                 left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
                 right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
 
                 res = kp_sym_toeplitz_derivative_quadratic_form(columns, left_factor, right_factor)
-                return tuple([res] + [None] * 2 + [diag_grad])
+                return res, None, None, diag_grad
+
         return closure
 
     def add_diag(self, diag):
@@ -159,23 +169,11 @@ class KroneckerProductLazyVariable(LazyVariable):
         lead to memory issues. As a result, using it should be a last resort.
         """
 
-        if self.J_lefts is not None:
-            n_left, n_right = self._size
-            W_left = list_of_indices_and_values_to_sparse(self.J_lefts, self.C_lefts, self.columns)
-            W_right = list_of_indices_and_values_to_sparse(self.J_rights, self.C_rights, self.columns)
-            if n_left <= n_right:
-                W_left_K = self.explicit_interpolate_K(self.J_lefts, self.C_lefts)
-                WKW = gpytorch.dsmm(Variable(W_right), W_left_K.t()).t()
-            else:
-                W_right_K = self.explicit_interpolate_K(self.J_rights, self.C_rights)
-                WKW = gpytorch.dsmm(Variable(W_left), W_right_K.t())
+        if self.J_rights is not None:
+            res = self.matmul(Variable(torch.eye(self._size[1])))
         else:
-            WKW = KroneckerProductLazyVariable(self.columns).matmul(Variable(torch.eye(self.kronecker_product_size)))
-
-        if self.added_diag is not None:
-            WKW = WKW + torch.diag(self.added_diag)
-
-        return WKW
+            res = self.matmul(Variable(torch.eye(self.kronecker_product_size)))
+        return res
 
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
         epsilon = Variable(torch.randn(self.kronecker_product_size, gpytorch.functions.num_trace_samples))
@@ -213,7 +211,7 @@ class KroneckerProductLazyVariable(LazyVariable):
 
     def posterior_strategy(self):
         if not hasattr(self, '_posterior_strategy'):
-            columns, interp_left, interp_right, added_diag = self.representation()
+            columns, interp_left, interp_right = self.representation()[:3]
             grid = KroneckerProductLazyVariable(columns)
             self._posterior_strategy = InterpolatedPosteriorStrategy(self, grid=grid, interp_left=interp_left,
                                                                      interp_right=interp_right)
@@ -241,10 +239,9 @@ class KroneckerProductLazyVariable(LazyVariable):
         else:
             W_right = Variable(sparse_eye(self.kronecker_product_size))
         if self.added_diag is not None:
-            added_diag = self.added_diag
+            return self.columns, W_left, W_right, self.added_diag
         else:
-            added_diag = Variable(torch.zeros(1))
-        return self.columns, W_left, W_right, added_diag
+            return self.columns, W_left, W_right
 
     def size(self):
         return self._size

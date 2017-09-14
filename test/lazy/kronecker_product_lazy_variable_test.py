@@ -73,7 +73,6 @@ def test_get_item_on_interpolated_variable_no_diagonal():
                                                              lazy_kronecker_product_var.J_rights,
                                                              lazy_kronecker_product_var.C_rights)
     evaluated = no_diag_kronecker_product.evaluate().data
-
     assert utils.approx_equal(no_diag_kronecker_product[4:6].evaluate().data, evaluated[4:6])
     assert utils.approx_equal(no_diag_kronecker_product[4:6, 2:6].evaluate().data, evaluated[4:6, 2:6])
 
