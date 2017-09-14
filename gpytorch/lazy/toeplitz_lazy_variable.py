@@ -132,33 +132,6 @@ class ToeplitzLazyVariable(LazyVariable):
             res = self.matmul(Variable(torch.eye(len(self.J_right))))
         return res
 
-    def explicit_interpolate_T(self, J, C):
-        """
-        Multiplies the Toeplitz matrix T this object represents (by a column c and row r)
-        by an interpolation matrix W, to get WT, without explicitly forming the Toeplitz
-        matrix T. This is a much more space-efficient approach.
-
-        Args:
-            - J (matrix n-by-k) - Index matrix for interpolation matrix W
-            - C (matrix n-by-k) - Coefficients matrix for interpolation matrix W
-        Returns:
-            - Matrix (n-by-m) - The result of the multiplication WT
-        """
-        m = len(self.c)
-        n, num_coefficients = J.size()
-
-        result_matrix = Variable(torch.zeros(n, m))
-
-        for i in range(n):
-            for j in range(m):
-                entry = 0
-                for k in range(num_coefficients):
-                    row = J[i, k]
-                    entry += C[i, k] * toeplitz.sym_toeplitz_getitem(self.c, row, j)
-                result_matrix[i, j] = entry
-
-        return result_matrix
-
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
         epsilon = Variable(torch.randn(len(self.c), gpytorch.functions.num_trace_samples))
         samples = chol_var_covar.mm(epsilon)

@@ -2,12 +2,11 @@ import torch
 import math
 import gpytorch
 from .lazy_variable import LazyVariable
-from .toeplitz_lazy_variable import ToeplitzLazyVariable
 from torch.autograd import Variable
 from ..posterior import InterpolatedPosteriorStrategy
 from ..utils import sparse_eye
 from ..utils.kronecker_product import sym_kronecker_product_toeplitz_matmul, kp_interpolated_toeplitz_matmul, \
-    kp_sym_toeplitz_derivative_quadratic_form, list_of_indices_and_values_to_sparse, kronecker_product
+    kp_sym_toeplitz_derivative_quadratic_form, list_of_indices_and_values_to_sparse
 
 
 class KroneckerProductLazyVariable(LazyVariable):
@@ -131,33 +130,6 @@ class KroneckerProductLazyVariable(LazyVariable):
             diag += self.added_diag
 
         return diag
-
-    def explicit_interpolate_K(self, Js, Cs):
-        """
-        Multiplies the Kronecker Product matrix K this object represents (by columns and rows)
-        by an interpolation matrix W, to get WK, without explicitly forming the Kronecker Product
-        matrix K. This is a much more space-efficient approach.
-
-        Args:
-            - Js (matrix d x n x k) - d Index matrices for interpolation matrix W
-            - Cs (matrix d x n x k) - d Coefficients matrices for interpolation matrix W
-        Returns:
-            - Matrix (n x m) - The result of the multiplication WK
-        """
-        m = self.kronecker_product_size
-        d, n, num_coefficients = Js.size()
-        m0 = self.columns.size()[1]
-
-        result_matrix = Variable(torch.zeros(n, m))
-
-        result_dim = Variable(torch.zeros(d, n, m0))
-        for i in range(d):
-            result_dim[i] = ToeplitzLazyVariable(self.columns[i]).explicit_interpolate_T(Js[i], Cs[i])
-
-        for i in range(n):
-            result_matrix[i] = kronecker_product(result_dim[:, i, :].unsqueeze(1))
-
-        return result_matrix
 
     def evaluate(self):
         """
