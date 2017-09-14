@@ -94,11 +94,33 @@ class KroneckerProductLazyVariable(LazyVariable):
         """
         if len(self.J_lefts[0]) != len(self.J_rights[0]):
             raise RuntimeError('diag not supported for non-square interpolated Toeplitz matrices.')
-        WKW_diag = Variable(torch.zeros(len(self.J_rights[0])))
-        for i in range(len(self.J_rights[0])):
-            WKW_diag[i] = self[i:i + 1, i:i + 1].evaluate()
+        d, n_data, n_interp = self.J_lefts.size()
+        n_grid = len(self.columns[0])
 
-        return WKW_diag
+        left_interps_values = self.C_lefts.unsqueeze(3)
+        right_interps_values = self.C_rights.unsqueeze(2)
+        interps_values = torch.matmul(left_interps_values, right_interps_values)
+
+        left_interps_indices = self.J_lefts.unsqueeze(3).expand(d, n_data, n_interp, n_interp)
+        right_interps_indices = self.J_rights.unsqueeze(2).expand(d, n_data, n_interp, n_interp)
+
+        toeplitz_indices = (left_interps_indices - right_interps_indices).fmod(n_grid).abs().long()
+        toeplitz_vals = Variable(torch.zeros(d, n_data * n_interp * n_interp))
+
+        mask = torch.zeros(d, n_data * n_interp * n_interp)
+        for i in range(d):
+            mask[i] += torch.ones(n_data * n_interp * n_interp)
+            temp = self.columns.index_select(1, Variable(toeplitz_indices.view(d, -1)[i]))
+            toeplitz_vals += Variable(mask) * temp.view(toeplitz_indices.size())
+            mask[i] -= torch.ones(n_data * n_interp * n_interp)
+
+        diag = (Variable(interps_values) * toeplitz_vals).sum(3).sum(2)
+        diag = diag.prod(0)
+
+        if self.added_diag is not None:
+            diag += self.added_diag
+
+        return diag
 
     def explicit_interpolate_K(self, Js, Cs):
         """

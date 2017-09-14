@@ -238,12 +238,7 @@ def _merge_index_and_value_matrices(index_matrices, value_matrices, columns):
 
     m_0 = len(columns[0])
 
-    for i in range(n):
-        index = 0
-        for j in range(index_matrix_0.size()[1]):
-            for k in range(index_matrices_1.size()[1]):
-                index_matrix[i][index] = m_1 * index_matrix_0[i][j] + index_matrices_1[i][k]
-                value_matrix[i][index] = value_matrix_0[i][j] * value_matrices_1[i][k]
-                index = index + 1
+    value_matrix = (value_matrix_0.unsqueeze(2) * value_matrices_1.unsqueeze(1)).view(n, -1)
+    index_matrix = (index_matrix_0.mul(m_1).unsqueeze(2) + index_matrices_1.unsqueeze(1)).view(n, -1)
 
     return index_matrix.long(), value_matrix, m_0 * m_1
