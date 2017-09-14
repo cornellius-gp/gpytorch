@@ -174,13 +174,15 @@ class Module(nn.Module):
         Conditions the model on data. After conditioning, the model functions
         in posterior mode rather than prior mode.
 
+        Each model class should override this method to do whatever needs to be
+        done to the data. It is highly recommended that parent modules call this
+        function on their children modules.
+
         Args: (Variables) inputs to condition on
         """
         if not all(isinstance(arg, Variable) or isinstance(arg, RandomVariable) for arg in args):
             raise RuntimeError('All inputs must be Variables')
         self.train_data = args
-        for module in self.children():
-            module.condition(*args, **kwargs)
         return self
 
     @property
