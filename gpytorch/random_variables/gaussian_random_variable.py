@@ -49,10 +49,17 @@ class GaussianRandomVariable(RandomVariable):
         return self._mean.size(0)
 
     def __add__(self, other):
-        if not isinstance(other, GaussianRandomVariable):
-            raise RuntimeError('Can only add random variables of the same type')
+        if isinstance(other, GaussianRandomVariable):
+            return GaussianRandomVariable(self._mean + other.mean(), self._covar + other.covar())
+        elif isinstance(other, int) or isinstance(other, float):
+            return GaussianRandomVariable(self._mean + other, self._covar)
+        else:
+            raise RuntimeError('Unsupported type for addition w/ Gaussian random variables')
 
-        return GaussianRandomVariable(self._mean + other.mean(), self._covar + other.covar())
+    def __radd__(self, other):
+        if other == 0:
+            return self
+        return self.__add__(other)
 
     def __div__(self, other):
         return self.__mul__(1. / other)
