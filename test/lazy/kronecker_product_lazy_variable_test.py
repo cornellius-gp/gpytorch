@@ -48,13 +48,6 @@ W_right = list_of_indices_and_values_to_sparse(lazy_kronecker_product_var.J_righ
 WKW = torch.dsmm(W_right, torch.dsmm(W_left, K).t()) + torch.diag(lazy_kronecker_product_var.added_diag.data)
 
 
-def test_explicit_interpolate_K():
-    WK_res = lazy_kronecker_product_var.explicit_interpolate_K(lazy_kronecker_product_var.J_lefts,
-                                                               lazy_kronecker_product_var.C_lefts)
-    WK_actual = torch.dsmm(W_left, K)
-    assert utils.approx_equal(WK_res.data, WK_actual)
-
-
 def test_evaluate():
     WKW_res = lazy_kronecker_product_var.evaluate()
     assert utils.approx_equal(WKW_res, WKW)

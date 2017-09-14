@@ -39,12 +39,6 @@ W_right = utils.toeplitz.index_coef_to_sparse(lazy_toeplitz_var.J_right,
 WTW = torch.dsmm(W_right, torch.dsmm(W_left, T).t()) + torch.diag(lazy_toeplitz_var.added_diag.data)
 
 
-def test_explicit_interpolate_T():
-    WT_res = lazy_toeplitz_var.explicit_interpolate_T(lazy_toeplitz_var.J_left, lazy_toeplitz_var.C_left)
-    WT_actual = torch.dsmm(W_left, T)
-    assert utils.approx_equal(WT_res.data, WT_actual)
-
-
 def test_evaluate():
     WTW_res = lazy_toeplitz_var.evaluate()
     assert utils.approx_equal(WTW_res, WTW)
