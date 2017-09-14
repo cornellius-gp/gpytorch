@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from ..posterior import InterpolatedPosteriorStrategy
-from ..utils import sparse_eye
+from ..utils import sparse_eye, approx_equal
 from ..utils.toeplitz import interpolated_sym_toeplitz_matmul, index_coef_to_sparse, sym_toeplitz_matmul, \
     sym_toeplitz_derivative_quadratic_form
 
@@ -182,25 +182,41 @@ class ToeplitzLazyVariable(LazyVariable):
 
         return log_likelihood
 
-    def mul(self, constant):
+    def mul(self, other):
         """
-        Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,
-        we multiply the Toeplitz component by the constant. This way, the interpolation acts on the
-        multiplied values in T, and the entire kernel is ultimately multiplied by this constant.
+        Multiplies this interpolated Toeplitz matrix elementwise by a constant or another ToeplitzLazyVariable.
+        To accomplish this, we multiply the Toeplitz component by the constant or the other ToeplitzLazyVariable's
+        Toeplitz component. This way, the interpolation acts on the multiplied values.
 
         Args:
-            - constant (broadcastable with self.c) - Constant to multiply by.
+            - other (broadcastable with self.c) - Constant or ToeplitzLazyVariable to multiply by.
         Returns:
             - ToeplitzLazyVariable with c = c*(constant)
         """
-        return ToeplitzLazyVariable(self.c.mul(constant), self.J_left, self.C_left,
-                                    self.J_right, self.C_right, self.added_diag)
+        if isinstance(other, ToeplitzLazyVariable):
+            if len(self.c) != len(other.c):
+                raise RuntimeError('Can only multiply two ToeplitzLazyVariables if they correspond to the same grid.')
+            if self.J_left is not None:
+                if other.J_left is None:
+                    raise RuntimeError('Cannot multiply interpolated ToeplitzLazyVariables by non-interpolated ones.')
+                if not (approx_equal(self.C_left, other.C_left) and approx_equal(self.C_right, other.C_right)):
+                    raise RuntimeError('Cannot multiply two ToeplitzLazyVariables with different',
+                                       'left interpolation matrices.')
+            if self.added_diag is not None or other.added_diag is not None:
+                raise RuntimeError('Multiplying ToeplitzLazyVariables with added diagonal components would break',
+                                   'Toeplitz structure.')
+            return ToeplitzLazyVariable(self.c.mul(other.c), self.J_left, self.C_left,
+                                        self.J_right, self.C_right, None)
+        else:
+            return ToeplitzLazyVariable(self.c.mul(other), self.J_left, self.C_left,
+                                        self.J_right, self.C_right, self.added_diag)
 
-    def mul_(self, constant):
+    def mul_(self, other):
         """
         In-place version of mul.
         """
-        return self.c.mul_(constant)
+        self.c.mul_(other)
+        return self
 
     def posterior_strategy(self):
         if not hasattr(self, '_posterior_strategy'):
