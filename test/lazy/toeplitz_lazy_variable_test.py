@@ -28,6 +28,7 @@ class Model(gpytorch.GPModel):
 
 prior_observation_model = Model()
 pred = prior_observation_model(x)
+lazy_toeplitz_var_no_diag = prior_observation_model.grid_covar_module(x)
 lazy_toeplitz_var = pred.covar()
 T = utils.toeplitz.sym_toeplitz(lazy_toeplitz_var.c.data)
 W_left = utils.toeplitz.index_coef_to_sparse(lazy_toeplitz_var.J_left,
@@ -48,6 +49,16 @@ def test_diag():
     diag_actual = torch.diag(WTW)
     diag_res = lazy_toeplitz_var.diag()
     assert utils.approx_equal(diag_res.data, diag_actual)
+
+
+def test_mul_constant():
+    product_var = lazy_toeplitz_var * 2.5
+    assert utils.approx_equal(product_var.c, lazy_toeplitz_var.c * 2.5)
+
+
+def test_mul_other_toeplitz_lazy_variable():
+    product_var = lazy_toeplitz_var_no_diag * lazy_toeplitz_var_no_diag
+    assert utils.approx_equal(product_var.c, lazy_toeplitz_var_no_diag.c * lazy_toeplitz_var_no_diag.c)
 
 
 def test_get_item_on_interpolated_variable_no_diagonal():
