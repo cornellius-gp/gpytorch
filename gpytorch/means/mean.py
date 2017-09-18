@@ -6,7 +6,7 @@ class Mean(gpytorch.Module):
     def initialize(self, **kwargs):
         for param_name, param_value in kwargs.items():
             if hasattr(self, param_name):
-                if isinstance(param_value, torch.Tensor):
+                if torch.is_tensor(param_value):
                     getattr(self, param_name).data.copy_(param_value)
                 else:
                     getattr(self, param_name).data.fill_(param_value)

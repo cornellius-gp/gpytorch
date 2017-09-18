@@ -118,9 +118,8 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             covar2_matmul_closure = matmul_closure_factory(*covar2_args)
 
             # log |K2|
-            log_det_covar2, = StochasticLQ(num_random_probes=10).evaluate(covar2_matmul_closure,
-                                                                          len(mu_diff),
-                                                                          [lambda x: x.log()])
+            slq = StochasticLQ(num_random_probes=10, cls=type(covar2_args[0]))
+            log_det_covar2, = slq.evaluate(covar2_matmul_closure, len(mu_diff), [lambda x: x.log()])
 
             # Tr(K2^{-1}K1)
             if gpytorch.functions.fastest:
@@ -231,7 +230,8 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
             # Inverse quad form
             res = mat_inv_labels.dot(labels)
             # Log determinant
-            logdet, = StochasticLQ(num_random_probes=10).evaluate(matmul_closure, len(labels), [lambda x: x.log()])
+            slq = StochasticLQ(num_random_probes=10, cls=type(closure_args[0]))
+            logdet, = slq.evaluate(matmul_closure, len(labels), [lambda x: x.log()])
 
             res += logdet
             res += math.log(2 * math.pi) * len(labels)
@@ -267,7 +267,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
                     num_samples = gpytorch.functions.num_trace_samples
                     quad_form_part = derivative_quadratic_form_factory(*closure_args)(mat_inv_labels, mat_inv_labels)
 
-                    sample_matrix = torch.sign(torch.randn(len(labels), num_samples))
+                    sample_matrix = grad_output.new(len(labels), num_samples).bernoulli_().mul_(2).add_(-1)
                     left_vectors = LinearCG().solve(matmul_closure, sample_matrix).t()
                     right_vectors = sample_matrix.t()
 
