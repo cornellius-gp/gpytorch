@@ -20,47 +20,48 @@ class LogNormalCDF(Function):
                                9.608965327192787870698, 3.3690752069827527677])
 
     def forward(self, z):
-        log_phi_z = torch.zeros(z.size())
+        log_phi_z = z.new(*z.size()).zero_()
 
         # Three cases to handle: An entry of z is near zero, an entry of z is small, or an entry of z neither of these.
         z_near_zero = z.pow(2).lt(0.04)
         z_is_small = z.lt(-1)
-        z_is_ordinary = (1 - z_near_zero).mul(1 - z_is_small)
+        z_is_ordinary = (1 - z_near_zero).mul_(1 - z_is_small)
 
         # Case 1: Entries of z that are near zero
         if z_near_zero.sum() > 0:
-            log_phi_first = -z[z_near_zero].div(math.sqrt(2 * math.pi))
+            log_phi_first = -z.masked_select(z_near_zero).div_(math.sqrt(2 * math.pi))
             f = 0
             for c_i in self.c:
                 f = log_phi_first.mul(c_i + f)
 
-            log_phi_z[z_near_zero] = f.mul(-2).sub_(math.log(2))
+            log_phi_z.masked_scatter_(z_near_zero, f.mul_(-2).sub_(math.log(2)))
 
         # Case 2: Entries of z that are very small
         if z_is_small.sum() > 0:
-            numerator = torch.Tensor([0.5641895835477550741]).expand_as(z[z_is_small])
-            denominator = torch.Tensor([1.0]).expand_as(z[z_is_small])
+            z_where_z_is_small = z.masked_select(z_is_small)
+            numerator = z.new([0.5641895835477550741]).expand_as(z_where_z_is_small)
+            denominator = z.new([1.0]).expand_as(z_where_z_is_small)
 
             for r_i in self.r:
-                numerator = -z[z_is_small].mul(numerator.div(math.sqrt(2))) + r_i
+                numerator = -z_where_z_is_small.mul(numerator.div(math.sqrt(2))) + r_i
 
             for q_i in self.q:
-                denominator = -z[z_is_small].mul(denominator.div(math.sqrt(2))) + q_i
+                denominator = -z_where_z_is_small.mul(denominator.div(math.sqrt(2))) + q_i
 
             e = numerator.div(denominator)
-            log_phi_z[z_is_small] = torch.log(e / 2) - z[z_is_small].pow(2).div_(2)
+            log_phi_z.masked_scatter_(z_is_small, torch.log(e / 2) - z_where_z_is_small.pow(2).div_(2))
 
             self.denominator = denominator
             self.numerator = numerator
 
-        log_phi_z[z_is_ordinary] = torch.log(NormalCDF().forward(z[z_is_ordinary]))
+        log_phi_z.masked_scatter_(z_is_ordinary, torch.log(NormalCDF().forward(z.masked_select(z_is_ordinary))))
 
         self.save_for_backward(z, log_phi_z)
         return log_phi_z
 
     def backward(self, grad_output):
         z, log_phi_z = self.saved_tensors
-        log_phi_z_grad = torch.zeros(z.size())
+        log_phi_z_grad = z.new().resize_as_(z).zero_()
 
         z_is_small = z.lt(-1)
         z_is_not_small = 1 - z_is_small

@@ -47,7 +47,8 @@ def add_jitter(mat):
     if isinstance(mat, LazyVariable):
         return mat.add_jitter()
     elif isinstance(mat, Variable):
-        return mat.add(1e-3 * Variable(torch.eye(len(mat))))
+        diag = Variable(mat.data.new(len(mat)).fill_(1e-3).diag())
+        return mat + diag
     else:
         return mat.add(1e-3 * torch.eye(len(mat)))
 
@@ -111,7 +112,7 @@ def monte_carlo_log_likelihood(log_probability_func, train_y,
                                                                 variational_mean,
                                                                 chol_var_covar)
     else:
-        epsilon = Variable(torch.randn(len(train_covar), num_trace_samples))
+        epsilon = Variable(train_covar.data.new(len(train_covar), num_trace_samples).normal_())
         samples = chol_var_covar.t().mm(epsilon)
         samples = samples + variational_mean.unsqueeze(1)
         log_likelihood = log_probability_func(samples, train_y)

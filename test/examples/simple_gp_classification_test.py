@@ -8,8 +8,14 @@ from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
 
-train_x = Variable(torch.linspace(0, 1, 10))
-train_y = Variable(torch.sign(torch.cos(train_x.data * (4 * math.pi))))
+
+def train_data(cuda=False):
+    train_x = Variable(torch.linspace(0, 1, 10))
+    train_y = Variable(torch.sign(torch.cos(train_x.data * (4 * math.pi))))
+    if cuda:
+        return train_x.cuda(), train_y.cuda()
+    else:
+        return train_x, train_y
 
 
 class GPClassificationModel(gpytorch.GPModel):
@@ -28,6 +34,7 @@ class GPClassificationModel(gpytorch.GPModel):
 
 
 def test_kissgp_classification_error():
+    train_x, train_y = train_data()
     model = GPClassificationModel()
     model.condition(train_x, train_y)
 
@@ -48,3 +55,28 @@ def test_kissgp_classification_error():
     test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
     mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
     assert(mean_abs_error.data.squeeze()[0] < 1e-5)
+
+
+def test_kissgp_classification_error_cuda():
+    if torch.cuda.is_available():
+        train_x, train_y = train_data(cuda=True)
+        model = GPClassificationModel().cuda()
+        model.condition(train_x, train_y)
+
+        # Find optimal model hyperparameters
+        model.train()
+        optimizer = optim.Adam(model.parameters(), lr=0.1)
+        optimizer.n_iter = 0
+        for i in range(50):
+            optimizer.zero_grad()
+            output = model.forward(train_x)
+            loss = -model.marginal_log_likelihood(output, train_y)
+            loss.backward()
+            optimizer.n_iter += 1
+            optimizer.step()
+
+        # Set back to eval mode
+        model.eval()
+        test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
+        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+        assert(mean_abs_error.data.squeeze()[0] < 1e-5)

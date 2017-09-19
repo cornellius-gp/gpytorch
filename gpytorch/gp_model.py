@@ -77,7 +77,7 @@ class GPModel(gpytorch.Module):
         Initializes variational parameters
         """
         mean_init = output.mean().data
-        chol_covar_init = torch.eye(len(mean_init))
+        chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
         self.variational_mean.data.resize_as_(mean_init).copy_(mean_init)
         self.chol_variational_covar.data.resize_as_(chol_covar_init).copy_(chol_covar_init)
         return self
