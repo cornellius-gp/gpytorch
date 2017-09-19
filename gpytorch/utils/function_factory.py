@@ -1,9 +1,9 @@
 from torch.autograd import Function
 from .lincg import LinearCG
 from .lanczos_quadrature import StochasticLQ
+from .trace import trace_components
 import torch
 import math
-import gpytorch.functions
 
 
 def _default_matmul_closure_factor(mat):
@@ -122,16 +122,13 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             log_det_covar2, = slq.evaluate(covar2_matmul_closure, len(mu_diff), [lambda x: x.log()])
 
             # Tr(K2^{-1}K1)
-            if gpytorch.functions.fastest:
-                sample_matrix = torch.sign(torch.randn(len(mu_diff), gpytorch.functions.num_trace_samples))
-                rhs_vectors = chol_covar1.t().contiguous().mm(chol_covar1.mm(sample_matrix))
-                mat_inv_vectors = LinearCG().solve(covar2_matmul_closure, rhs_vectors)
-                trace = (mat_inv_vectors * sample_matrix).sum() / gpytorch.functions.num_trace_samples
-            else:
-                cov2_inv_cov1 = LinearCG().solve(covar2_matmul_closure,
-                                                 chol_covar1.t().contiguous().matmul(chol_covar1))
-                self.cov2_inv_cov1 = cov2_inv_cov1
-                trace = cov2_inv_cov1.trace()
+            def matmul_closure(sample_matrix):
+                rhs_vectors = chol_covar1.t().contiguous().matmul(chol_covar1.matmul(sample_matrix))
+                return LinearCG().solve(covar2_matmul_closure, rhs_vectors)
+
+            sample_matrix, mat_inv_vectors = trace_components(None, matmul_closure, size=len(mu_diff),
+                                                              tensor_cls=type(chol_covar1))
+            trace = (sample_matrix * mat_inv_vectors).sum()
 
             # Inverse quad form
             mat_inv_y = LinearCG().solve(covar2_matmul_closure, mu_diff)
@@ -178,40 +175,25 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                     if self.needs_input_grad[i + 2]:
                         grad_covar2_args[i] = torch.zeros(covar2_args[i].size())
 
-                if gpytorch.functions.fastest:
-                    quad_part = derivative_quadratic_form_factory(*covar2_args)(mat_inv_y, mat_inv_y)
+                quad_part = derivative_quadratic_form_factory(*covar2_args)(mat_inv_y, mat_inv_y)
 
-                    sample_matrix = torch.sign(torch.randn(len(mu_diff), gpytorch.functions.num_trace_samples))
+                def right_matmul_closure(sample_matrix):
                     rhs_vectors = chol_covar1.t().contiguous().mm(chol_covar1.mm(sample_matrix))
-                    I_minus_Tinv_M_vectors = sample_matrix - LinearCG().solve(covar2_matmul_closure, rhs_vectors)
-                    Tinv_vectors = LinearCG().solve(covar2_matmul_closure, sample_matrix)
-                    grad_covar2_args = list(derivative_quadratic_form_factory(*covar2_args)(Tinv_vectors.t(),
-                                                                                            I_minus_Tinv_M_vectors.t()))
+                    return sample_matrix - LinearCG().solve(covar2_matmul_closure, rhs_vectors)
 
-                    for i in range(len(covar2_args)):
-                        if grad_covar2_args[i] is not None:
-                            grad_covar2_args[i].div_(gpytorch.functions.num_trace_samples)
-                            grad_covar2_args[i].add_(-quad_part[i])
-                            grad_covar2_args[i].mul_(grad_output_value)
-                else:
-                    left_vectors_1 = torch.eye(len(mu_diff)) - torch.ger(mu_diff, mat_inv_y)
-                    left_vectors_1 = LinearCG().solve(covar2_matmul_closure, left_vectors_1)
-                    right_vectors_1_t = torch.eye(len(mu_diff)) - self.cov2_inv_cov1
-                    right_vectors_1 = right_vectors_1_t.t()
+                def left_matmul_closure(sample_matrix):
+                    return LinearCG().solve(covar2_matmul_closure, sample_matrix)
 
-                    left_vectors_2 = torch.ger(mat_inv_y, mat_inv_y)
-                    right_vectors_2 = self.cov2_inv_cov1.t()
+                left_vectors, right_vectors = trace_components(left_matmul_closure, right_matmul_closure,
+                                                               size=len(mu_diff), tensor_cls=type(mat_inv_y))
 
-                    quad_derivative_1 = list(derivative_quadratic_form_factory(*covar2_args)(left_vectors_1,
-                                                                                             right_vectors_1))
-                    quad_derivative_2 = list(derivative_quadratic_form_factory(*covar2_args)(left_vectors_2,
-                                                                                             right_vectors_2))
+                grad_covar2_fn = derivative_quadratic_form_factory(*covar2_args)
+                grad_covar2_args = list(grad_covar2_fn(left_vectors.t(), right_vectors.t()))
 
-                    for i in range(len(covar2_args)):
-                        if grad_covar2_args[i] is not None:
-                            grad_covar2_args[i].add_(quad_derivative_1[i])
-                            grad_covar2_args[i].add_(-quad_derivative_2[i])
-                            grad_covar2_args[i].mul_(grad_output_value)
+                for i in range(len(covar2_args)):
+                    if grad_covar2_args[i] is not None:
+                        grad_covar2_args[i].add_(-quad_part[i])
+                        grad_covar2_args[i].mul_(grad_output_value)
 
             return tuple([grad_mu_diff] + [grad_cholesky_factor] + grad_covar2_args)
 
@@ -263,31 +245,18 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
                     else:
                         closure_arg_grads[i] = None
 
-                if gpytorch.functions.fastest:
-                    num_samples = gpytorch.functions.num_trace_samples
-                    quad_form_part = derivative_quadratic_form_factory(*closure_args)(mat_inv_labels, mat_inv_labels)
+                quad_form_part = derivative_quadratic_form_factory(*closure_args)(mat_inv_labels, mat_inv_labels)
 
-                    sample_matrix = grad_output.new(len(labels), num_samples).bernoulli_().mul_(2).add_(-1)
-                    left_vectors = LinearCG().solve(matmul_closure, sample_matrix).t()
-                    right_vectors = sample_matrix.t()
-
-                    closure_arg_grads = list(derivative_quadratic_form_factory(*closure_args)(left_vectors,
-                                                                                              right_vectors))
-
-                    for i in range(len(closure_args)):
-                        if self.needs_input_grad[i]:
-                            closure_arg_grads[i] = quad_form_part[i].add_(-closure_arg_grads[i].div_(num_samples))
-                            closure_arg_grads[i].mul_(0.5 * grad_output_value)
-                else:
-                    left_vectors = torch.ger(labels, mat_inv_labels) - torch.eye(len(labels))
-                    left_vectors = LinearCG().solve(matmul_closure, left_vectors)
-                    right_vectors = torch.eye(len(labels))
-                    closure_arg_grads = list(derivative_quadratic_form_factory(*closure_args)(left_vectors,
-                                                                                              right_vectors))
-
-                    for i in range(len(closure_args)):
-                        if self.needs_input_grad[i]:
-                            closure_arg_grads[i].mul_(0.5 * grad_output_value)
+                def left_matmul_closure(sample_matrix):
+                    return LinearCG().solve(matmul_closure, sample_matrix)
+                left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=len(labels),
+                                                               tensor_cls=type(mat_inv_labels))
+                closure_arg_grads = list(derivative_quadratic_form_factory(*closure_args)(left_vectors.t(),
+                                                                                          right_vectors.t()))
+                for i in range(len(closure_args)):
+                    if self.needs_input_grad[i]:
+                        closure_arg_grads[i] = quad_form_part[i].add_(-closure_arg_grads[i])
+                        closure_arg_grads[i].mul_(0.5 * grad_output_value)
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
