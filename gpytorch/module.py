@@ -187,9 +187,44 @@ class Module(nn.Module):
         """
         return hasattr(self, 'train_inputs') and not self.training
 
-    def initialize_interpolation_grid(self, grid_size, grid_bounds):
+    @property
+    def has_grid(self):
+        return hasattr(self, 'grid')
+
+    @property
+    def needs_grid(self):
+        return False
+
+    def _set_interpolation_grid(self, grid, inducing_points, grid_size, grid_bounds):
+        if self.needs_grid:
+            self.grid_size = grid_size
+            self.grid_bounds = grid_bounds
+            self.register_buffer('grid', grid)
+            self.register_buffer('inducing_points', inducing_points)
+
         for module in self.children():
-            module.initialize_interpolation_grid(grid_size, grid_bounds)
+            module._set_interpolation_grid(grid, inducing_points, grid_size, grid_bounds)
+
+    def initialize_interpolation_grid(self, grid_size, grid_bounds):
+        grid = torch.zeros(len(grid_bounds), grid_size)
+        for i in range(len(grid_bounds)):
+            grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
+            grid[i] = torch.linspace(grid_bounds[i][0] - grid_diff,
+                                     grid_bounds[i][1] + grid_diff,
+                                     grid_size)
+
+        inducing_points = torch.zeros(int(pow(grid_size, len(grid_bounds))), len(grid_bounds))
+        prev_points = None
+        for i in range(len(grid_bounds)):
+            for j in range(grid_size):
+                inducing_points[j * grid_size ** i:(j + 1) * grid_size ** i, i].fill_(grid[i, j])
+                if prev_points is not None:
+                    inducing_points[j * grid_size ** i:(j + 1) * grid_size ** i, :i].copy_(prev_points)
+            prev_points = inducing_points[:grid_size ** (i + 1), :(i + 1)]
+
+        grid = Variable(grid)
+        inducing_points = Variable(inducing_points)
+        self._set_interpolation_grid(grid, inducing_points, grid_size, grid_bounds)
         return self
 
     def __getattr__(self, name):
