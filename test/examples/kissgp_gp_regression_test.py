@@ -34,6 +34,7 @@ class KissGPModel(gpytorch.GPModel):
 
 def test_kissgp_gp_mean_abs_error():
     gp_model = KissGPModel()
+    gp_model.condition(train_x, train_y)
 
     # Optimize the model
     gp_model.train()
@@ -48,7 +49,6 @@ def test_kissgp_gp_mean_abs_error():
         optimizer.step()
 
     # Test the model
-    gp_model.condition(train_x, train_y)
     gp_model.eval()
     test_preds = gp_model(test_x).mean()
     mean_abs_error = torch.mean(torch.abs(test_y - test_preds))

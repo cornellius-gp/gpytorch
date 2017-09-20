@@ -15,12 +15,13 @@ class GPModel(gpytorch.Module):
         self.likelihood = likelihood
         self.inducing_points = None
 
+        self.register_buffer('has_computed_alpha', torch.ByteTensor([0]))
         self.register_buffer('alpha', torch.Tensor())
         if not self.exact_inference:
             self.register_parameter('variational_mean', nn.Parameter(torch.Tensor()), bounds=(-1e4, 1e4))
             self.register_parameter('chol_variational_covar', nn.Parameter(torch.Tensor()), bounds=(-100, 100))
 
-    def condition(self, *args, **kwargs):
+    def condition(self, train_inputs, train_target, **kwargs):
         """
         Conditions the model on data. After conditioning, the model functions
         in posterior mode rather than prior mode.
@@ -37,28 +38,29 @@ class GPModel(gpytorch.Module):
         Args: (Variables) inputs to condition on
         reset (bool) - reset variational parameters and alpha cache (default True)
         """
+        if (isinstance(train_inputs, Variable) or isinstance(train_inputs, LazyVariable) or
+                isinstance(train_inputs, RandomVariable)):
+            train_inputs = train_inputs,
 
-        if len(args) < 2:
-            raise RuntimeError('A GPModel must condition on at least two data (inputs and targets)!')
+        # Get inducing points (or use training points)
+        inducing_points = self.inducing_points
+        if inducing_points is None:
+            inducing_points = train_inputs[0]
 
-        # Check to be sure that this method was called before loading state dict
-        if not hasattr(self, 'train_data') and self.alpha.numel():
-            logging.warning('You are conditioning on data after loading the state dict.'
-                            'This has reset caches and variational parameters (if applicable).')
+        # Reset alpha cache
+        self.has_computed_alpha.fill_(0)
+        self.alpha.resize_(len(inducing_points))
 
-        reset = kwargs.get('reset', True)
-        if reset:
-            # Reset alpha cache
-            self.alpha.resize_(0)
+        res = super(GPModel, self).condition(train_inputs, train_target, **kwargs)
 
-            # Reset variational parameters (if applicable)
-            if not self.exact_inference:
-                if len(args) != 2:
-                    raise RuntimeError('Variational inference currently only works with one input.')
-                self.variational_mean.data.resize_(0)
-                self.chol_variational_covar.data.resize_(0)
+        # Initialize variational parameters (if applicable)
+        if not self.exact_inference:
+            if len(train_inputs) > 1:
+                raise RuntimeError('Variational inference currently only supports one input')
+            inducing_output = super(GPModel, self).__call__(inducing_points)
+            self.initialize_variational_parameters(inducing_output)
 
-        super(GPModel, self).condition(*args, **kwargs)
+        return res
 
     @property
     def exact_inference(self):
@@ -114,18 +116,13 @@ class GPModel(gpytorch.Module):
         # Approximate inference
         else:
             # Get inducing points
-            if not hasattr(self, 'train_data'):
+            if not hasattr(self, 'train_inputs'):
                 raise RuntimeError('Must condition on data.')
 
-            train_x = self.train_data[0]
+            train_x = self.train_inputs[0]
             inducing_points = self.inducing_points
             if inducing_points is None:
                 inducing_points = train_x
-
-            # Initialize variational parameters - if necessary
-            if not self.variational_mean.numel():
-                inducing_output = super(GPModel, self).__call__(inducing_points)
-                self.initialize_variational_parameters(inducing_output)
 
             chol_var_covar = self.chol_variational_covar.triu()
             # Negate each row with a negative diagonal (the Cholesky decomposition
@@ -151,18 +148,13 @@ class GPModel(gpytorch.Module):
             res = log_likelihood.squeeze() - kl_divergence
             return res
 
-    def train(self, mode=True):
-        if mode:
-            self.alpha.resize_(0)
-        return super(GPModel, self).train(mode)
-
     def __call__(self, *args, **kwargs):
         output = None
 
         # Posterior mode
         if self.posterior:
-            train_xs = self.train_data[:-1]
-            train_y = self.train_data[-1]
+            train_xs = self.train_inputs
+            train_y = self.train_target
             if all([torch.equal(train_x.data, input.data)
                     for train_x, input in zip(train_xs, args)]):
                 logging.warning('The input matches the stored training data. '
@@ -188,10 +180,11 @@ class GPModel(gpytorch.Module):
                 test_test_covar = full_covar[n_train:, n_train:]
 
                 # Calculate posterior components
-                if not self.alpha.numel():
+                if not self.has_computed_alpha[0]:
                     alpha_strategy = gpytorch.posterior_strategy(train_train_covar)
                     alpha = alpha_strategy.exact_posterior_alpha(train_mean, train_y)
-                    self.alpha.resize_as_(alpha.data).copy_(alpha.data)
+                    self.alpha.copy_(alpha.data)
+                    self.has_computed_alpha.fill_(1)
                 else:
                     alpha = Variable(self.alpha)
                 mean_strategy = gpytorch.posterior_strategy(test_train_covar)
@@ -205,7 +198,7 @@ class GPModel(gpytorch.Module):
                 # Ensure variational parameters have been initalized
                 if not self.variational_mean.numel():
                     raise RuntimeError('Variational parameters have not been initalized.'
-                                       'Train the model or load a state dict.')
+                                       'Condition on data.')
 
                 # Get inducing points
                 inducing_points = self.inducing_points
@@ -224,10 +217,11 @@ class GPModel(gpytorch.Module):
                 test_test_covar = full_covar[n_induc:, n_induc:]
 
                 # Calculate posterior components
-                if not self.alpha.numel():
+                if not self.has_computed_alpha[0]:
                     alpha_strategy = gpytorch.posterior_strategy(induc_induc_covar)
                     alpha = alpha_strategy.variational_posterior_alpha(self.variational_mean)
-                    self.alpha.resize_as_(alpha.data).copy_(alpha.data)
+                    self.alpha.copy_(alpha.data)
+                    self.has_computed_alpha.fill_(1)
                 else:
                     alpha = Variable(self.alpha)
                 mean_strategy = gpytorch.posterior_strategy(test_induc_covar)

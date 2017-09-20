@@ -40,7 +40,8 @@ class MultitaskGPModel(gpytorch.GPModel):
 
 def test_multitask_gp_mean_abs_error():
     gp_model = MultitaskGPModel()
-    gp_model.condition(torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds]), torch.cat([train_y1, train_y2]))
+    gp_model.condition((torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds])),
+                       torch.cat([train_y1, train_y2]))
 
     # Optimize the model
     gp_model.train()

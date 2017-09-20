@@ -10,11 +10,18 @@ class Module(nn.Module):
     def __init__(self):
         super(Module, self).__init__()
         self._bounds = OrderedDict()
+        self.conditioning = False
 
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
 
     def __call__(self, *inputs, **kwargs):
+        if self.training and not self.conditioning and not hasattr(self, 'train_inputs'):
+            raise RuntimeError('Cannot run module in training mode before calling `condition`!')
+
+        if self.conditioning:
+            self.train_inputs = inputs
+
         for input in inputs:
             if not(isinstance(input, RandomVariable) or isinstance(input, Variable)):
                 raise RuntimeError('Input must be a RandomVariable or Variable, was a %s' %
@@ -79,33 +86,6 @@ class Module(nn.Module):
                 raise AttributeError('Parameter %s exceeds upper bound' % name)
         return self
 
-    def load_state_dict(self, state_dict):
-        """Copies parameters and buffers from :attr:`state_dict` into
-        this module and its descendants. The keys of :attr:`state_dict` must
-        exactly match the keys returned by this module's :func:`state_dict()`
-        function.
-
-        NOTE: This differs from the PyTorch load_state_dict.
-        Buffer size doesn't have to match. This allows us to load caches
-
-        Arguments:
-            state_dict (dict): A dict containing parameters and
-                persistent buffers.
-        """
-        own_state = self.state_dict()
-        for name, param in state_dict.items():
-            if name not in own_state:
-                raise KeyError('unexpected key "{}" in state_dict'
-                               .format(name))
-            if isinstance(param, nn.Parameter):
-                # backwards compatibility for serialized parameters
-                param = param.data
-            own_state[name].resize_as_(param).copy_(param)
-
-        missing = set(own_state.keys()) - set(state_dict.keys())
-        if len(missing) > 0:
-            raise KeyError('missing keys in state_dict: "{}"'.format(missing))
-
     def set_bounds(self, **kwargs):
         """
         Set bounds for a parameter
@@ -169,20 +149,35 @@ class Module(nn.Module):
         for name, bound in self.named_parameter_bounds():
             yield bound
 
-    def condition(self, *args, **kwargs):
+    def _set_conditioning_flag(self, mode=True):
+        self.conditioning = mode
+        for module in self.children():
+            module._set_conditioning_flag(mode)
+
+    def condition(self, train_inputs, train_target=None, **kwargs):
         """
         Conditions the model on data. After conditioning, the model functions
         in posterior mode rather than prior mode.
 
-        Each model class should override this method to do whatever needs to be
-        done to the data. It is highly recommended that parent modules call this
-        function on their children modules.
-
-        Args: (Variables) inputs to condition on
+        train_inputs: (Variables or tuple of Variables) inputs to condition on
+        train_target: (Variable) target to condition on
         """
-        if not all(isinstance(arg, Variable) or isinstance(arg, RandomVariable) for arg in args):
-            raise RuntimeError('All inputs must be Variables')
-        self.train_data = args
+        if (isinstance(train_inputs, Variable) or isinstance(train_inputs, LazyVariable) or
+                isinstance(train_inputs, RandomVariable)):
+            train_inputs = train_inputs,
+        if not (isinstance(train_target, Variable) or isinstance(train_target, LazyVariable) or
+                isinstance(train_target, RandomVariable)):
+            raise RuntimeError('train_target must be a Variable or LazyVariable or RandomVariable')
+
+        training_mode = self.training
+        self.train()
+        self._set_conditioning_flag(True)
+        self(*train_inputs)
+        self.train(training_mode)
+        self._set_conditioning_flag(False)
+
+        self.train_target = train_target
+
         return self
 
     @property
@@ -190,7 +185,7 @@ class Module(nn.Module):
         """
         Returns if the model is in posterior mode (are we conditioning on data?)
         """
-        return hasattr(self, 'train_data') and not self.training
+        return hasattr(self, 'train_inputs') and not self.training
 
     def initialize_interpolation_grid(self, grid_size, grid_bounds):
         for module in self.children():

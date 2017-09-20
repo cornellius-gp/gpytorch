@@ -16,6 +16,7 @@ def test_trace_logdet_quad_form_factory():
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
     covar_module = GridInterpolationKernel(rbf_covar)
+    covar_module.eval()
     covar_module.initialize_interpolation_grid(4, [(0, 1)])
     c = Variable(covar_module.forward(x.unsqueeze(1), x.unsqueeze(1)).c.data, requires_grad=True)
 
@@ -90,6 +91,7 @@ def test_interpolated_toeplitz_gp_marginal_log_likelihood_forward():
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
     covar_module = GridInterpolationKernel(rbf_covar)
+    covar_module.eval()
     covar_module.initialize_interpolation_grid(10, [(0, 1)])
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
     c = covar_x.c.data
@@ -121,6 +123,7 @@ def test_interpolated_toeplitz_gp_marginal_log_likelihood_backward():
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
     covar_module = GridInterpolationKernel(rbf_covar)
+    covar_module.eval()
     covar_module.initialize_interpolation_grid(10, [(0, 1)])
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
 
@@ -234,6 +237,7 @@ def test_kp_toeplitz_gp_marginal_log_likelihood_forward():
     rbf_module = RBFKernel()
     rbf_module.initialize(log_lengthscale=-2)
     covar_module = GridInterpolationKernel(rbf_module)
+    covar_module.eval()
     covar_module.initialize_interpolation_grid(5, [(0, 1), (0, 1), (0, 1)])
 
     kronecker_var = covar_module.forward(x, x)
@@ -249,6 +253,7 @@ def foo_kp_toeplitz_gp_marginal_log_likelihood_backward():
     rbf_module = RBFKernel()
     rbf_module.initialize(log_lengthscale=-2)
     covar_module = GridInterpolationKernel(rbf_module)
+    covar_module.eval()
     covar_module.initialize_interpolation_grid(5, [(0, 1), (0, 1), (0, 1)])
 
     kronecker_var = covar_module.forward(x, x)

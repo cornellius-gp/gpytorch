@@ -34,6 +34,7 @@ def test_gp_prior_and_likelihood():
     gp_model.covar_module.initialize(log_lengthscale=0)  # This shouldn't really do anything now
     gp_model.mean_module.initialize(constant=1)  # Let's have a mean of 1
     gp_model.likelihood.initialize(log_noise=math.log(0.5))
+    gp_model.eval()
 
     # Let's see how our model does, not conditioned on any data
     # The GP prior should predict mean of 1, with a variance of 1
@@ -81,6 +82,9 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
     gp_model.mean_module.initialize(constant=0)
     gp_model.likelihood.initialize(log_noise=1)
 
+    # Compute posterior distribution
+    gp_model.condition(train_x, train_y)
+
     # Find optimal model hyperparameters
     gp_model.train()
     optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
@@ -92,9 +96,6 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
-
-    # Compute posterior distribution
-    gp_model.condition(train_x, train_y)
 
     # Test the model
     gp_model.eval()
@@ -112,6 +113,9 @@ def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():
         gp_model.mean_module.initialize(constant=0)
         gp_model.likelihood.initialize(log_noise=1)
 
+        # Compute posterior distribution
+        gp_model.condition(train_x.cuda(), train_y.cuda())
+
         # Find optimal model hyperparameters
         gp_model.train()
         optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
@@ -123,9 +127,6 @@ def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()
-
-        # Compute posterior distribution
-        gp_model.condition(train_x.cuda(), train_y.cuda())
 
         # Test the model
         gp_model.eval()
