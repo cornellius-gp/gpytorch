@@ -1,4 +1,3 @@
-import torch
 from torch.autograd import Variable
 from .lazy import LazyVariable, ToeplitzLazyVariable
 from .module import Module
@@ -50,7 +49,8 @@ def add_jitter(mat):
         diag = Variable(mat.data.new(len(mat)).fill_(1e-3).diag())
         return mat + diag
     else:
-        return mat.add(1e-3 * torch.eye(len(mat)))
+        diag = mat.new(len(mat)).fill_(1e-3).diag()
+        return diag.add_(mat)
 
 
 def dsmm(sparse_mat, dense_mat):

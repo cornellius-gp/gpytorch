@@ -42,7 +42,7 @@ class Interpolation(object):
         lower_grid_pt_idxs = torch.floor((x_target - x_grid[0]) / grid_delta).squeeze()
         lower_pt_rel_dists = (x_target - x_grid[0]) / grid_delta - lower_grid_pt_idxs
         lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points[-1]
-        C = torch.zeros(num_target_points, num_coefficients)
+        C = x_target.new(num_target_points, num_coefficients).zero_()
 
         for i in range(num_coefficients):
             scaled_dist = lower_pt_rel_dists + interp_points[-i - 1]
@@ -50,11 +50,11 @@ class Interpolation(object):
 
         # Find points who's closest lower grid point is the first grid point
         # This corresponds to a boundary condition that we must fix manually.
-        left_boundary_pts = torch.LongTensor([i for i in range(len(lower_grid_pt_idxs))
-                                             if (lower_grid_pt_idxs < 1)[i] == 1])
+        left_boundary_pts = torch.nonzero(lower_grid_pt_idxs < 1)
         num_left = len(left_boundary_pts)
 
         if num_left > 0:
+            left_boundary_pts.squeeze_(1)
             x_grid_first = x_grid[:num_coefficients].unsqueeze(1).t().expand(num_left, num_coefficients)
 
             grid_targets = x_target[left_boundary_pts].unsqueeze(1).expand(num_left, num_coefficients)
@@ -66,11 +66,11 @@ class Interpolation(object):
                 C[left_boundary_pts[i], closest_from_first[i]] = 1
                 lower_grid_pt_idxs[left_boundary_pts[i]] = 0
 
-        right_boundary_pts = torch.LongTensor([i for i in range(len(lower_grid_pt_idxs))
-                                              if (lower_grid_pt_idxs > num_grid_points - num_coefficients)[i] == 1])
+        right_boundary_pts = torch.nonzero(lower_grid_pt_idxs > num_grid_points - num_coefficients)
         num_right = len(right_boundary_pts)
 
         if num_right > 0:
+            right_boundary_pts.squeeze_(1)
             x_grid_last = x_grid[-num_coefficients:].unsqueeze(1).t().expand(num_right, num_coefficients)
 
             grid_targets = x_target[right_boundary_pts].unsqueeze(1).expand(num_right, num_coefficients)
@@ -82,7 +82,7 @@ class Interpolation(object):
                 C[right_boundary_pts[i], closest_from_last[i]] = 1
                 lower_grid_pt_idxs[right_boundary_pts[i]] = num_grid_points - num_coefficients
 
-        J = torch.zeros(num_target_points, num_coefficients)
+        J = x_grid.new(num_target_points, num_coefficients).zero_()
         for i in range(num_coefficients):
             J[:, i] = lower_grid_pt_idxs + i
 

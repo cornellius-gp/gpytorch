@@ -72,7 +72,7 @@ class KroneckerProductLazyVariable(LazyVariable):
                 return res, None, None
             elif len(args) == 4:
                 columns, W_left, W_right, added_diag, = args
-                diag_grad = torch.zeros(len(added_diag))
+                diag_grad = columns.new(len(added_diag)).zero_()
                 diag_grad[0] = (left_factor * right_factor).sum()
 
                 left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
@@ -93,7 +93,7 @@ class KroneckerProductLazyVariable(LazyVariable):
                                             self.J_rights, self.C_rights, kronecker_product_diag)
 
     def add_jitter(self):
-        jitter = torch.zeros(self.columns.size())
+        jitter = self.columns.data.new(self.columns.size()).zero_()
         jitter[:, 0] = 1e-4
         return KroneckerProductLazyVariable(self.columns.add(Variable(jitter)), self.J_lefts, self.C_lefts,
                                             self.J_rights, self.C_rights, self.added_diag)
@@ -115,9 +115,9 @@ class KroneckerProductLazyVariable(LazyVariable):
         right_interps_indices = self.J_rights.unsqueeze(2).expand(d, n_data, n_interp, n_interp)
 
         toeplitz_indices = (left_interps_indices - right_interps_indices).fmod(n_grid).abs().long()
-        toeplitz_vals = Variable(torch.zeros(d, n_data * n_interp * n_interp))
+        toeplitz_vals = Variable(self.columns.data.new(d, n_data * n_interp * n_interp).zero_())
 
-        mask = torch.zeros(d, n_data * n_interp * n_interp)
+        mask = self.columns.data.new(d, n_data * n_interp * n_interp).zero_()
         for i in range(d):
             mask[i] += torch.ones(n_data * n_interp * n_interp)
             temp = self.columns.index_select(1, Variable(toeplitz_indices.view(d, -1)[i]))
@@ -143,9 +143,10 @@ class KroneckerProductLazyVariable(LazyVariable):
         """
 
         if self.J_rights is not None:
-            res = self.matmul(Variable(torch.eye(self._size[1])))
+            eye = Variable(self.columns.data.new(self._size[1]).fill_(1).diag())
         else:
-            res = self.matmul(Variable(torch.eye(self.kronecker_product_size)))
+            eye = Variable(self.columns.data.new(self.kronecker_product_size).fill_(1).diag())
+        res = self.matmul(eye)
         return res
 
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
@@ -236,8 +237,8 @@ class KroneckerProductLazyVariable(LazyVariable):
                 d, m0 = self.columns.size()
                 len_i0 = len(range(self.kronecker_product_size)[first_index])
                 len_i1 = len(range(self.kronecker_product_size)[second_index])
-                J_lefts_new = torch.zeros(d, len_i0)
-                J_rights_new = torch.zeros(d, len_i1)
+                J_lefts_new = self.columns.data.new(d, len_i0).zero_()
+                J_rights_new = self.columns.data.new(d, len_i1).zero_()
                 for j in range(d):
                     J_lefts_new_tensor = torch.arange(0, self.kronecker_product_size)[first_index] / pow(m0, d - j - 1)
                     J_lefts_new[j] = self.columns.data.new(J_lefts_new_tensor)

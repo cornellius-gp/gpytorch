@@ -75,7 +75,7 @@ def test_trace_log_det_quad_form():
     # Test forward
     tldqf_res = sum_lv.trace_log_det_quad_form(mu_diffs_var, chol_covar_1_var)
     tldqf_actual = actual.trace_log_det_quad_form(mu_diffs_var, chol_covar_1_var)
-    assert(math.fabs(tldqf_res.data.squeeze()[0] - tldqf_actual.data.squeeze()[0]) < 1)
+    assert(math.fabs(tldqf_res.data.squeeze()[0] - tldqf_actual.data.squeeze()[0]) < 1.5)
 
     # Test backwards
     tldqf_res.backward()

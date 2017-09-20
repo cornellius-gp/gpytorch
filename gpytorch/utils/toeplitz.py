@@ -21,7 +21,9 @@ def index_coef_to_sparse(index_matrix, value_matrix, row_length):
     """
     num_target_points, num_coefficients = value_matrix.size()
 
-    row_tensor = torch.arange(0, num_target_points).unsqueeze(1)
+    row_tensor = value_matrix.new(num_target_points)
+    torch.arange(0, num_target_points, out=row_tensor)
+    row_tensor.unsqueeze_(1)
     row_tensor = row_tensor.repeat(1, num_coefficients).type_as(index_matrix)
     index_tensor = torch.cat([row_tensor.view(1, -1), index_matrix.view(1, -1)], 0)
     value_tensor = value_matrix.view(-1)
@@ -35,7 +37,10 @@ def index_coef_to_sparse(index_matrix, value_matrix, row_length):
         index_tensor = index_tensor.resize_(2, 1).zero_()
         value_tensor = value_tensor.resize_(1).zero_()
 
-    res = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
+    if index_tensor.is_cuda:
+        res = torch.cuda.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
+    else:
+        res = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
     return res
 
 
@@ -68,7 +73,7 @@ def toeplitz(toeplitz_column, toeplitz_row):
     if len(toeplitz_column) == 1:
         return toeplitz_column.view(1, 1)
 
-    res = torch.Tensor(len(toeplitz_column), len(toeplitz_column)).type_as(toeplitz_column)
+    res = toeplitz_column.new(len(toeplitz_column), len(toeplitz_column))
     for i, val in enumerate(toeplitz_column):
         for j in range(len(toeplitz_column) - i):
             res[j + i, j] = val

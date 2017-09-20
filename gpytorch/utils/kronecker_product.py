@@ -60,7 +60,7 @@ def kronecker_product_toeplitz_matmul(toeplitz_columns, toeplitz_rows, tensor):
             output = toeplitz_matmul(toeplitz_rows[0], toeplitz_columns[0], tensor)
         else:
             len_sub = int(n / n_0)
-            output = torch.zeros(n, p)
+            output = toeplitz_columns.new(n, p).zero_()
 
             tensor = tensor.t().contiguous().view(int(p * n_0), len_sub).t().contiguous()
             new_val = kronecker_product_toeplitz_matmul(toeplitz_columns[1:], toeplitz_rows[1:], tensor)
@@ -155,7 +155,7 @@ def kp_sym_toeplitz_derivative_quadratic_form(columns, left_vectors, right_vecto
     left_vectors = left_vectors.contiguous()
     right_vectors = right_vectors.contiguous()
 
-    res = torch.zeros(columns.size())
+    res = columns.new(columns.size()).zero_()
     d = columns.size()[0]
     s, m = left_vectors.size()
 
@@ -206,8 +206,8 @@ def _merge_index_and_value_matrices(index_matrices, value_matrices, columns):
 
     n = index_matrix_0.size()[0]
 
-    index_matrix = torch.zeros(n, index_matrices_1.size()[1] * index_matrix_0.size()[1])
-    value_matrix = torch.zeros(n, value_matrices_1.size()[1] * value_matrix_0.size()[1])
+    index_matrix = index_matrices_1.new(n, index_matrices_1.size()[1] * index_matrix_0.size()[1]).zero_()
+    value_matrix = value_matrices_1.new(n, value_matrices_1.size()[1] * value_matrix_0.size()[1]).zero_()
 
     m_0 = len(columns[0])
 

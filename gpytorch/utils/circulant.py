@@ -93,7 +93,7 @@ def circulant_matmul(circulant_column, tensor):
     else:
         fft_M = fft.fft1(tensor.t().contiguous())
         fft_c = fft.fft1(circulant_column).expand_as(fft_M)
-        fft_product = torch.zeros(fft_M.size())
+        fft_product = fft_M.new(*fft_M.size()).zero_()
 
         fft_product[:, :, 0].addcmul_(fft_c[:, :, 0], fft_M[:, :, 0])
         fft_product[:, :, 0].addcmul_(-1, fft_c[:, :, 1], fft_M[:, :, 1])
@@ -137,7 +137,7 @@ def circulant_inv_matmul(circulant_column, matrix):
     fft_c[:, 1] = -fft_c[:, 1] / denominator
     fft_c = fft_c.expand_as(fft_M)
 
-    fft_product = torch.zeros(fft_M.size())
+    fft_product = fft_M.new(*fft_M.size()).zero_()
 
     fft_product[:, :, 0].addcmul_(fft_c[:, :, 0], fft_M[:, :, 0])
     fft_product[:, :, 0].addcmul_(-1, fft_c[:, :, 1], fft_M[:, :, 1])
