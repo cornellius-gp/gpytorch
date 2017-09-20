@@ -57,11 +57,6 @@ def test_mul_constant():
     assert utils.approx_equal(product_var.c, lazy_toeplitz_var.c * 2.5)
 
 
-def test_mul_other_toeplitz_lazy_variable():
-    product_var = lazy_toeplitz_var_no_diag * lazy_toeplitz_var_no_diag
-    assert utils.approx_equal(product_var.c, lazy_toeplitz_var_no_diag.c * lazy_toeplitz_var_no_diag.c)
-
-
 def test_get_item_on_interpolated_variable_no_diagonal():
     no_diag_toeplitz = ToeplitzLazyVariable(lazy_toeplitz_var.c, lazy_toeplitz_var.J_left, lazy_toeplitz_var.C_left,
                                             lazy_toeplitz_var.J_right, lazy_toeplitz_var.C_right)
