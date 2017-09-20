@@ -3,6 +3,7 @@ import gpytorch
 from torch.autograd import Variable
 from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
+from .mul_lazy_variable import MulLazyVariable
 from ..posterior import InterpolatedPosteriorStrategy
 from ..utils import sparse_eye, approx_equal
 from ..utils.toeplitz import interpolated_sym_toeplitz_matmul, index_coef_to_sparse, sym_toeplitz_matmul, \
@@ -155,18 +156,18 @@ class ToeplitzLazyVariable(LazyVariable):
         """
         if isinstance(other, ToeplitzLazyVariable):
             if len(self.c) != len(other.c):
-                raise RuntimeError('Can only multiply two ToeplitzLazyVariables if they correspond to the same grid.')
+                return MulLazyVariable(self, other)
             if self.J_left is not None:
                 if other.J_left is None:
-                    raise RuntimeError('Cannot multiply interpolated ToeplitzLazyVariables by non-interpolated ones.')
+                    return MulLazyVariable(self, other)
                 if not (approx_equal(self.C_left, other.C_left) and approx_equal(self.C_right, other.C_right)):
-                    raise RuntimeError('Cannot multiply two ToeplitzLazyVariables with different',
-                                       'left interpolation matrices.')
+                    return MulLazyVariable(self, other)
             if self.added_diag is not None or other.added_diag is not None:
-                raise RuntimeError('Multiplying ToeplitzLazyVariables with added diagonal components would break',
-                                   'Toeplitz structure.')
+                return MulLazyVariable(self, other)
             return ToeplitzLazyVariable(self.c.mul(other.c), self.J_left, self.C_left,
                                         self.J_right, self.C_right, None)
+        elif isinstance(other, LazyVariable):
+            return MulLazyVariable(self, other)
         else:
             return ToeplitzLazyVariable(self.c.mul(other), self.J_left, self.C_left,
                                         self.J_right, self.C_right, self.added_diag)

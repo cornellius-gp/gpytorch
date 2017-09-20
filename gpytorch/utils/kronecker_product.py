@@ -1,5 +1,5 @@
 import torch
-from gpytorch.utils.toeplitz import sym_toeplitz_matmul, \
+from gpytorch.utils.toeplitz import toeplitz_matmul, \
     sym_toeplitz_derivative_quadratic_form, index_coef_to_sparse
 
 
@@ -57,7 +57,7 @@ def kronecker_product_toeplitz_matmul(toeplitz_columns, toeplitz_rows, tensor):
         d, n_0 = toeplitz_columns.size()
 
         if d == 1:
-            output = sym_toeplitz_matmul(toeplitz_rows[0], tensor)
+            output = toeplitz_matmul(toeplitz_rows[0], toeplitz_columns[0], tensor)
         else:
             len_sub = int(n / n_0)
             output = torch.zeros(n, p)
@@ -67,7 +67,7 @@ def kronecker_product_toeplitz_matmul(toeplitz_columns, toeplitz_rows, tensor):
             output = new_val.t().contiguous().view(p, n).t().contiguous()
 
             output = output.view(n_0, len_sub * p)
-            output = sym_toeplitz_matmul(toeplitz_rows[0], output)
+            output = toeplitz_matmul(toeplitz_rows[0], toeplitz_columns[0], output)
             output = output.contiguous().view(n, p)
 
     if output_dims == 1:
