@@ -9,18 +9,20 @@ class StochasticLQ(object):
     compute the trace of the inverse using the same probe vector the log determinant was computed
     with. For more details, see Dong et al. 2017 (in submission).
     """
-    def __init__(self, max_iter=15, num_random_probes=10):
+    def __init__(self, cls=None, max_iter=15, num_random_probes=10):
         """
         The nature of stochastic Lanczos quadrature is that the calculation of tr(f(A)) is both inaccurate and
         stochastic. An instance of StochasticLQ has two parameters that control these tradeoffs. Increasing either
         parameter increases the running time of the algorithm.
         Args:
+            cls - Tensor constructor - to ensure correct type (default - default tensor)
             max_iter (scalar) - The number of Lanczos iterations to perform. Increasing this makes the estimate of
                      tr(f(A)) more accurate in expectation -- that is, the average value returned has lower error.
             num_random_probes (scalar) - The number of random probes to use in the stochastic trace estimation.
                               Increasing this makes the estimate of tr(f(A)) lower variance -- that is, the value
                               returned is more consistent.
         """
+        self.cls = cls or torch.Tensor
         self.max_iter = max_iter
         self.num_random_probes = num_random_probes
 
@@ -32,7 +34,7 @@ class StochasticLQ(object):
         n = len(b)
         num_iters = min(self.max_iter, n)
 
-        Q = torch.zeros(n, num_iters)
+        Q = self.cls(n, num_iters).zero_()
         alpha = torch.zeros(num_iters)
         beta = torch.zeros(num_iters)
 
@@ -128,7 +130,7 @@ class StochasticLQ(object):
             - results (list of scalars) - The trace of each supplied function applied to the matrix, e.g.,
                       [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
         """
-        if isinstance(matmul_closure, torch.Tensor):
+        if torch.is_tensor(matmul_closure):
             lhs = matmul_closure
             if lhs.numel() == 1:
                 return math.fabs(lhs.squeeze()[0])
@@ -138,6 +140,7 @@ class StochasticLQ(object):
             matmul_closure = default_matmul_closure
 
         V = torch.sign(torch.randn(n, self.num_random_probes))
+        V = self.cls(n, self.num_random_probes).bernoulli_().mul_(2).add_(-1)
         V.div_(torch.norm(V, 2, 0).expand_as(V))
 
         results = [0] * len(funcs)

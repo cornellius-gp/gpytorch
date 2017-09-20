@@ -4,6 +4,7 @@ from torch.autograd import Variable
 from .interpolation import Interpolation
 from .lincg import LinearCG
 from .lanczos_quadrature import StochasticLQ
+from .trace import trace_components
 
 
 def reverse(input, dim=0):
@@ -170,4 +171,5 @@ __all__ = [
     sparse_eye,
     sparse_getitem,
     sparse_repeat,
+    trace_components,
 ]

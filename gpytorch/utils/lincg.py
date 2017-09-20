@@ -37,19 +37,23 @@ class LinearCG(object):
         if isinstance(matmul_closure, Variable) or isinstance(rhs, Variable):
             raise RuntimeError('LinearCG is not intended to operate directly on Variables or be used with autograd.')
 
-        if isinstance(matmul_closure, torch.Tensor):
+        if torch.is_tensor(matmul_closure):
             # If matmul_closure is a tensor, we can use some default preconditioning.
-            lhs_mat = matmul_closure
-
-            if self.precondition_closure is None:
-                self.precondition_closure = lambda mat: self._ssor_preconditioner(lhs_mat, mat)
-                self._reset_precond = True
-            else:
-                self._reset_precond = False
-
             def default_matmul_closure(tensor):
                 return torch.matmul(lhs_mat, tensor)
+
+            lhs_mat = matmul_closure
             matmul_closure = default_matmul_closure
+
+            if lhs_mat.is_cuda:
+                self.precondition_closure = lambda mat: mat
+                self._reset_precond = True
+            else:
+                if self.precondition_closure is None:
+                    self.precondition_closure = lambda mat: self._ssor_preconditioner(lhs_mat, mat)
+                    self._reset_precond = True
+                else:
+                    self._reset_precond = False
 
         else:
             # Probably fairly difficult to implement a default preconditioner for an arbitrary mm closure.

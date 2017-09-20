@@ -8,7 +8,7 @@ class AddDiag(Function):
             raise RuntimeError('Input must be a single-element tensor')
         val = diag.squeeze()[0]
 
-        return torch.eye(*input.size()).mul_(val).add_(input)
+        return torch.eye(*input.size()).type_as(input).mul_(val).add_(input)
 
     def backward(self, grad_output):
         input_grad = None

@@ -102,3 +102,34 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
     mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean()))
 
     assert(mean_abs_error.data.squeeze()[0] < 0.05)
+
+
+def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():
+    if torch.cuda.is_available():
+        # We're manually going to set the hyperparameters to something they shouldn't be
+        gp_model = ExactGPModel().cuda()
+        gp_model.covar_module.initialize(log_lengthscale=1)
+        gp_model.mean_module.initialize(constant=0)
+        gp_model.likelihood.initialize(log_noise=1)
+
+        # Find optimal model hyperparameters
+        gp_model.train()
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
+        optimizer.n_iter = 0
+        for i in range(50):
+            optimizer.zero_grad()
+            output = gp_model(train_x.cuda())
+            loss = -gp_model.marginal_log_likelihood(output, train_y.cuda())
+            loss.backward()
+            optimizer.n_iter += 1
+            optimizer.step()
+
+        # Compute posterior distribution
+        gp_model.condition(train_x.cuda(), train_y.cuda())
+
+        # Test the model
+        gp_model.eval()
+        test_function_predictions = gp_model(test_x.cuda())
+        mean_abs_error = torch.mean(torch.abs(test_y.cuda() - test_function_predictions.mean()))
+
+        assert(mean_abs_error.data.squeeze()[0] < 0.05)
