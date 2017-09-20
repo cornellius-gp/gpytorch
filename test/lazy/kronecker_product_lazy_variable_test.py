@@ -31,6 +31,7 @@ class Model(gpytorch.GPModel):
 
 
 prior_observation_model = Model()
+prior_observation_model.eval()
 pred = prior_observation_model(x)
 lazy_kronecker_product_var = pred.covar()
 Ts = torch.zeros(lazy_kronecker_product_var.columns.size()[0],

@@ -10,6 +10,7 @@ def test_computes_radial_basis_function():
     lengthscale = 2
 
     kernel = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+    kernel.eval()
     actual = torch.Tensor([
         [16, 4, 4],
         [4, 0, 0],
@@ -26,6 +27,7 @@ def test_computes_radial_basis_function_gradient():
     lengthscale = 2
 
     kernel = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+    kernel.eval()
     param = Variable(torch.Tensor(3, 3).fill_(math.log(lengthscale)), requires_grad=True)
     diffs = Variable(a.expand(3, 3) - b.expand(3, 3).transpose(0, 1))
     actual_output = (-(diffs ** 2) / param.exp()).exp()

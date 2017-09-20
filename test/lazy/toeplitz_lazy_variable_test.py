@@ -27,6 +27,7 @@ class Model(gpytorch.GPModel):
 
 
 prior_observation_model = Model()
+prior_observation_model.eval()
 pred = prior_observation_model(x)
 lazy_toeplitz_var_no_diag = prior_observation_model.grid_covar_module(x)
 lazy_toeplitz_var = pred.covar()
