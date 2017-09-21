@@ -124,24 +124,32 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
     """
     Performs multiplication T * M where the matrix T is Toeplitz.
     Args:
-        - toeplitz_column (vector n) - First column of the Toeplitz matrix T.
-        - toeplitz_row (vector n) - First row of the Toeplitz matrix T.
-        - tensor (matrix n x p) - Matrix or vector to multiply the Toeplitz matrix with.
+        - toeplitz_column (vector n or b x n) - First column of the Toeplitz matrix T.
+        - toeplitz_row (vector n or b x n) - First row of the Toeplitz matrix T.
+        - tensor (matrix n x p or b x n x p) - Matrix or vector to multiply the Toeplitz matrix with.
     Returns:
-        - tensor (n x p) - The result of the matrix multiply T * M.
+        - tensor (n x p or b x n x p) - The result of the matrix multiply T * M.
     """
-    if toeplitz_column.ndimension() != 1 or toeplitz_row.ndimension() != 1:
-        raise RuntimeError('The first two inputs to ToeplitzMV should be vectors \
-                            (first column c and row r of the Toeplitz matrix)')
-
-    if len(toeplitz_column) != len(toeplitz_row):
+    if toeplitz_column.size() != toeplitz_row.size():
         raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
 
-    if len(toeplitz_column) != len(tensor):
+    is_batch = True
+    if toeplitz_column.ndimension() == 1:
+        toeplitz_column = toeplitz_column.unsqueeze(0)
+        toeplitz_row = toeplitz_row.unsqueeze(0)
+        tensor = tensor.unsqueeze(0)
+        is_batch = False
+
+    if toeplitz_column.ndimension() != 2:
+        raise RuntimeError('The first two inputs to ToeplitzMV should be vectors \
+                            (or matrices, representing batch) \
+                            (first column c and row r of the Toeplitz matrix)')
+
+    if toeplitz_column.size()[:2] != tensor.size()[:2]:
         raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with \
                             leading dimension {}.'.format(len(toeplitz_column), len(toeplitz_column), len(tensor)))
 
-    if toeplitz_column[0] != toeplitz_row[0]:
+    if not torch.equal(toeplitz_column[:, 0], toeplitz_row[:, 0]):
         raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first element, \
                             otherwise the value of T[0,0] is ambiguous. \
                             Got: c[0]={} and r[0]={}'.format(toeplitz_column[0], toeplitz_row[0]))
@@ -150,38 +158,40 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
         raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
 
     output_dims = tensor.ndimension()
-    if output_dims == 1:
-        tensor = tensor.unsqueeze(1)
+    if output_dims == 2:
+        tensor = tensor.unsqueeze(2)
 
-    if len(toeplitz_column) == 1:
-        output = toeplitz_column.view(1, 1).mm(tensor)
+    if toeplitz_column.size(1) == 1:
+        output = toeplitz_column.view(-1, 1, 1).matmul(tensor)
 
     else:
-        _, num_rhs = tensor.size()
-        orig_size = len(toeplitz_column)
-        r_reverse = utils.reverse(toeplitz_row[1:])
+        batch_size, orig_size, num_rhs = tensor.size()
+        r_reverse = utils.reverse(toeplitz_row[:, 1:], dim=1)
 
-        c_r_rev = torch.zeros(orig_size + len(r_reverse))
-        c_r_rev[:orig_size] = toeplitz_column
-        c_r_rev[orig_size:] = r_reverse
+        c_r_rev = toeplitz_column.new(batch_size, orig_size + r_reverse.size(1)).zero_()
+        c_r_rev[:, :orig_size] = toeplitz_column
+        c_r_rev[:, orig_size:] = r_reverse
 
-        temp_tensor = torch.zeros(2 * orig_size - 1, num_rhs)
-        temp_tensor[:orig_size, :] = tensor
+        temp_tensor = toeplitz_column.new(batch_size, 2 * orig_size - 1, num_rhs).zero_()
+        temp_tensor[:, :orig_size, :] = tensor
 
-        fft_M = fft.fft1(temp_tensor.t().contiguous())
-        fft_c = fft.fft1(c_r_rev).expand_as(fft_M)
-        fft_product = torch.zeros(fft_M.size())
+        fft_M = fft.fft1(temp_tensor.transpose(1, 2).contiguous())
+        fft_c = fft.fft1(c_r_rev).unsqueeze(1).expand_as(fft_M)
+        fft_product = toeplitz_column.new(fft_M.size()).zero_()
 
-        fft_product[:, :, 0].addcmul_(fft_c[:, :, 0], fft_M[:, :, 0])
-        fft_product[:, :, 0].addcmul_(-1, fft_c[:, :, 1], fft_M[:, :, 1])
-        fft_product[:, :, 1].addcmul_(fft_c[:, :, 1], fft_M[:, :, 0])
-        fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
+        fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 0])
+        fft_product[:, :, :, 0].addcmul_(-1, fft_c[:, :, :, 1], fft_M[:, :, :, 1])
+        fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 0])
+        fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 1])
 
-        output = fft.ifft1(fft_product, (num_rhs, 2 * orig_size - 1)).t()
-        output = output[:orig_size, :]
+        output = fft.ifft1(fft_product, (batch_size, num_rhs, 2 * orig_size - 1)).transpose(1, 2)
+        output = output[:, :orig_size, :]
 
-    if output_dims == 1:
-        output = output.squeeze(1)
+    if output_dims == 2:
+        output = output.squeeze(2)
+
+    if not is_batch:
+        output = output.squeeze(0)
 
     return output
 
@@ -279,7 +289,6 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
         dT_dc_row = utils.reverse(left_vectors[j])
         dT_dc_col[0] = dT_dc_row[0]
         res = res + toeplitz_matmul(dT_dc_col, dT_dc_row, utils.reverse(right_vectors[j]))
-
     res[0] -= (left_vectors * right_vectors).sum()
 
     return res

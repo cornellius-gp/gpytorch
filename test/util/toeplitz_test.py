@@ -16,6 +16,45 @@ def test_sym_toeplitz_constructs_tensor_from_vector():
     assert torch.equal(res, actual)
 
 
+def test_toeplitz_matmul():
+    col = torch.Tensor([1, 6, 4, 5])
+    row = torch.Tensor([1, 2, 1, 1])
+    rhs_mat = torch.randn(4, 2)
+
+    # Actual
+    lhs_mat = utils.toeplitz.toeplitz(col, row)
+    actual = torch.matmul(lhs_mat, rhs_mat)
+
+    # Fast toeplitz
+    res = utils.toeplitz.toeplitz_matmul(col, row, rhs_mat)
+    assert utils.approx_equal(res, actual)
+
+
+def test_toeplitz_matmul_batch():
+    cols = torch.Tensor([
+        [1, 6, 4, 5],
+        [2, 3, 1, 0],
+        [1, 2, 3, 1],
+    ])
+    rows = torch.Tensor([
+        [1, 2, 1, 1],
+        [2, 0, 0, 1],
+        [1, 5, 1, 0],
+    ])
+
+    rhs_mats = torch.randn(3, 4, 2)
+
+    # Actual
+    lhs_mats = torch.zeros(3, 4, 4)
+    for i, (col, row) in enumerate(zip(cols, rows)):
+        lhs_mats[i].copy_(utils.toeplitz.toeplitz(col, row))
+    actual = torch.matmul(lhs_mats, rhs_mats)
+
+    # Fast toeplitz
+    res = utils.toeplitz.toeplitz_matmul(cols, rows, rhs_mats)
+    assert utils.approx_equal(res, actual)
+
+
 def test_sym_toeplitz_getitem():
     c = torch.Tensor([1, 6, 4, 5])
 
