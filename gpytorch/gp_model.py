@@ -13,7 +13,6 @@ class GPModel(gpytorch.Module):
         super(GPModel, self).__init__()
         self._parameter_groups = {}
         self.likelihood = likelihood
-        self.inducing_points = None
 
         self.register_buffer('has_computed_alpha', torch.ByteTensor([0]))
         self.register_buffer('alpha', torch.Tensor())
@@ -43,8 +42,9 @@ class GPModel(gpytorch.Module):
             train_inputs = train_inputs,
 
         # Get inducing points (or use training points)
-        inducing_points = self.inducing_points
-        if inducing_points is None:
+        if hasattr(self, 'inducing_points'):
+            inducing_points = self.inducing_points
+        else:
             inducing_points = train_inputs[0]
 
         # Reset alpha cache
@@ -82,23 +82,6 @@ class GPModel(gpytorch.Module):
         self.chol_variational_covar.data.resize_as_(chol_covar_init).copy_(chol_covar_init)
         return self
 
-    def initialize_interpolation_grid(self, grid_size, grid_bounds):
-        super(GPModel, self).initialize_interpolation_grid(grid_size, grid_bounds)
-        self.grid_size = grid_size
-        self.grid_bounds = grid_bounds
-        grid = torch.zeros(len(grid_bounds), grid_size)
-        for i in range(len(grid_bounds)):
-            grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
-            grid[i] = torch.linspace(grid_bounds[i][0] - grid_diff,
-                                     grid_bounds[i][1] + grid_diff,
-                                     grid_size)
-        self.inducing_points = torch.zeros(int(pow(grid_size, len(grid_bounds))), len(grid_bounds))
-        for i in range(self.inducing_points.size()[0]):
-            for j in range(len(grid_bounds)):
-                self.inducing_points[i][j] = grid[j][int(i / pow(grid_size, j)) % pow(grid_size, j + 1)]
-        self.inducing_points = Variable(self.inducing_points)
-        return self
-
     def marginal_log_likelihood(self, output, target):
         """
         Returns the marginal log likelihood of the data
@@ -120,8 +103,9 @@ class GPModel(gpytorch.Module):
                 raise RuntimeError('Must condition on data.')
 
             train_x = self.train_inputs[0]
-            inducing_points = self.inducing_points
-            if inducing_points is None:
+            if hasattr(self, 'inducing_points'):
+                inducing_points = self.inducing_points
+            else:
                 inducing_points = train_x
 
             chol_var_covar = self.chol_variational_covar.triu()
@@ -147,6 +131,10 @@ class GPModel(gpytorch.Module):
 
             res = log_likelihood.squeeze() - kl_divergence
             return res
+
+    @property
+    def needs_grid(self):
+        return True
 
     def __call__(self, *args, **kwargs):
         output = None
@@ -201,8 +189,9 @@ class GPModel(gpytorch.Module):
                                        'Condition on data.')
 
                 # Get inducing points
-                inducing_points = self.inducing_points
-                if inducing_points is None:
+                if hasattr(self, 'inducing_points'):
+                    inducing_points = self.inducing_points
+                else:
                     inducing_points = train_xs[0]
 
                 n_induc = len(inducing_points)
