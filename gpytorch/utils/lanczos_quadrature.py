@@ -124,6 +124,7 @@ class StochasticLQ(object):
         results = [0] * len(funcs)
 
         _, Ts = self.lanczos_batch(matmul_closure, V)
+        Ts = Ts.cpu()
 
         for j in range(self.num_random_probes):
             T = Ts[j, :, :]
