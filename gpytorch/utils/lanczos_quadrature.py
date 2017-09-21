@@ -26,75 +26,74 @@ class StochasticLQ(object):
         self.max_iter = max_iter
         self.num_random_probes = num_random_probes
 
-    def lanczos(self, matmul_closure, b):
-        """
-        Performs self.max_iter (at most n) iterations of the Lanczos iteration to decompose A as AQ = QT
-        with Q an orthogonal basis for the Krylov subspace [b,Ab,...,A^{max_iter-1}b], and T tridiagonal.
-        """
-        n = len(b)
-        num_iters = min(self.max_iter, n)
+    def lanczos_batch(self, matmul_closure, rhs_vectors):
+        dim, num_vectors = rhs_vectors.size()
+        num_iters = min(self.max_iter, dim)
 
-        Q = self.cls(n, num_iters).zero_()
-        alpha = torch.zeros(num_iters)
-        beta = torch.zeros(num_iters)
+        Q = self.cls(num_vectors, dim, num_iters).zero_()
+        alpha = self.cls(num_vectors, num_iters).zero_()
+        beta = self.cls(num_vectors, num_iters).zero_()
 
-        b = b / torch.norm(b)
-        Q[:, 0] = b
-        u = b
+        rhs_vectors = rhs_vectors / torch.norm(rhs_vectors, 2, dim=0)
+        Q[:, :, 0] = rhs_vectors
+        U = rhs_vectors
 
-        r = matmul_closure(u)
-        a = u.dot(r)
-        b = r - a * u
+        R = matmul_closure(U)
+        a = U.mul(R).sum(0)
 
-        if b.sum() == 0:
-            b = b + 1e-10
+        rhs_vectors = (R - a * U) + 1e-10
 
-        beta[0] = torch.norm(b)
-        alpha[0] = a
+        beta[:, 0] = torch.norm(rhs_vectors, 2, dim=0)
+        alpha[:, 0] = a
 
         for k in range(1, num_iters):
-            u, b, alpha_k, beta_k = self._lanczos_step(u, b, matmul_closure, Q[:, :k])
+            U, rhs_vectors, alpha_k, beta_k = self._lanczos_step_batch(U, rhs_vectors, matmul_closure, Q[:, :, :k])
 
-            if b.sum() == 0:
-                b = b + 1e-10
+            alpha[:, k] = alpha_k
+            beta[:, k] = beta_k
+            Q[:, :, k] = U
 
-            alpha[k] = alpha_k
-            beta[k] = beta_k
-            Q[:, k] = u
-
-            if math.fabs(beta[k]) < 2e-4 or math.fabs(alpha[k]) < 2e-4:
+            if all(torch.abs(beta[:, k]) < 1e-4) or all(torch.abs(alpha[:, k]) < 1e-4):
                 break
 
         if k == 1:
-            T = alpha[:k].unsqueeze(1)
-            Q = Q[:, :k]
+            Ts = alpha[:, :k].unsqueeze(1)
+            Qs = Q[:, :, :k]
         else:
-            alpha = alpha[:k]
-            beta = beta[1:k]
+            alpha = alpha[:, :k]
+            beta = beta[:, 1:k]
 
-            Q = Q[:, :k]
-            T = torch.diag(alpha) + torch.diag(beta, 1) + torch.diag(beta, -1)
+            Qs = Q[:, :, :k]
 
-        return Q, T
+            Ts = self.cls(num_vectors, num_iters - 1, num_iters - 1)
+            for i in range(num_vectors):
+                Ts[i, :, :] = torch.diag(alpha[i, :]) + torch.diag(beta[i, :], 1) + torch.diag(beta[i, :], -1)
 
-    def _lanczos_step(self, u, v, matmul_closure, Q):
-        norm_v = torch.norm(v)
-        orig_u = u
+        return Qs, Ts
 
-        u = v / norm_v
+    def _lanczos_step_batch(self, U, rhs_vectors, matmul_closure, Q):
+        num_vectors, dim, num_iters = Q.size()
+        norm_vs = torch.norm(rhs_vectors, 2, dim=0)
+        orig_U = U
 
-        if Q.size()[1] == 1:
-            u = u - Q.mul((Q.t().mv(u))).squeeze()
-        else:
-            u = u - Q.mv(Q.t().mv(u))
+        U = rhs_vectors / norm_vs
 
-        u = u / torch.norm(u)
+        U = U - self._batch_mv(Q, self._batch_mv(Q.transpose(1, 2), U.t()))
 
-        r = matmul_closure(u) - norm_v * orig_u
+        U = U / torch.norm(U, 2, dim=0)
 
-        a = u.dot(r)
-        v = r - a * u
-        return u, v, a, norm_v
+        R = matmul_closure(U) - norm_vs * orig_U
+
+        a = U.mul(R).sum(0)
+        rhs_vectors = (R - a * U) + 1e-10
+
+        return U, rhs_vectors, a, norm_vs
+
+    def _batch_mv(self, M, V):
+        num, n, m = M.size()
+        V_expand = V.expand(n, num, m).transpose(0, 1)
+
+        return (M * V_expand).sum(2)
 
     def binary_search_symeig(self, T):
         left = 0
@@ -110,26 +109,6 @@ class StochasticLQ(object):
         return left
 
     def evaluate(self, matmul_closure, n, funcs):
-        """
-        Computes tr(f(A)) for an arbitrary list of functions, where f(A) is equivalent to applying the function
-        elementwise to the eigenvalues of A, i.e., if A = V\LambdaV^{T}, then f(A) = Vf(\Lambda)V^{T}, where
-        f(\Lambda) is applied elementwise.
-        Note that calling this function with a list of functions to apply is significantly more efficient than
-        calling it multiple times with one function -- each additional function after the first requires negligible
-        additional computation.
-        Args:
-            - A (matrix n x n or closure) - Either the input matrix A or a closure that takes an n dimensional vector v
-                and returns Av.
-            - n (scalar) - dimension of the matrix A. We require this because, if A is passed in as a closure, we
-                have no good way of determining the size of A.
-            - funcs (list of closures) - A list of functions [f_1,...,f_k]. tr(f_i(A)) is computed for each function.
-                    Each function in the closure should expect to take a torch vector of eigenvalues as input and apply
-                    the function elementwise. For example, to compute logdet(A) = tr(log(A)), [lambda x: x.log()] would
-                    be a reasonable value of funcs.
-        Returns:
-            - results (list of scalars) - The trace of each supplied function applied to the matrix, e.g.,
-                      [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
-        """
         if torch.is_tensor(matmul_closure):
             lhs = matmul_closure
             if lhs.numel() == 1:
@@ -139,22 +118,19 @@ class StochasticLQ(object):
                 return lhs.matmul(tensor)
             matmul_closure = default_matmul_closure
 
-        V = torch.sign(torch.randn(n, self.num_random_probes))
         V = self.cls(n, self.num_random_probes).bernoulli_().mul_(2).add_(-1)
         V.div_(torch.norm(V, 2, 0).expand_as(V))
 
         results = [0] * len(funcs)
 
-        for j in range(self.num_random_probes):
-            vj = V[:, j]
-            Q, T = self.lanczos(matmul_closure, vj)
+        _, Ts = self.lanczos_batch(matmul_closure, V)
 
-            # Eigendecomposition of a Tridiagonal matrix
-            # O(n^2) time/convergence with QR iteration,
-            # or O(n log n) with fast multipole (TODO).
+        for j in range(self.num_random_probes):
+            T = Ts[j, :, :]
+
             [f, Y] = T.symeig(eigenvectors=True)
             if min(f) < -1e-4:
-                last_proper = self.binary_search_symeig(T)
+                last_proper = max(self.binary_search_symeig(T), 1)
                 [f, Y] = T[:last_proper, :last_proper].symeig(eigenvectors=True)
 
             for i, func in enumerate(funcs):
