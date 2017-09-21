@@ -11,7 +11,7 @@ class GridInterpolationKernel(Kernel):
         super(GridInterpolationKernel, self).__init__()
         self.base_kernel_module = base_kernel_module
 
-    def forward(self, x1, x2, **kwargs):
+    def _compute_grid(self, x1, x2):
         if not self.has_grid:
             raise RuntimeError('GridInterpolationKernel requires setting the interpolation grid')
 
@@ -19,12 +19,10 @@ class GridInterpolationKernel(Kernel):
         m, _ = x2.size()
 
         if d > 1:
-            grid_size = self.grid_size
-            k_UUs = Variable(torch.zeros(d, grid_size))
-            Js1 = torch.zeros(d, len(x1.data), 4).long()
-            Cs1 = torch.zeros(d, len(x1.data), 4)
-            Js2 = torch.zeros(d, len(x1.data), 4).long()
-            Cs2 = torch.zeros(d, len(x1.data), 4)
+            Js1 = x1.data.new(d, len(x1.data), 4).zero_().long()
+            Cs1 = x1.data.new(d, len(x1.data), 4).zero_()
+            Js2 = x1.data.new(d, len(x1.data), 4).zero_().long()
+            Cs2 = x1.data.new(d, len(x1.data), 4).zero_()
             for i in range(d):
                 both_min = torch.min(x1.min(0)[0].data, x2.min(0)[0].data)[i]
                 both_max = torch.max(x1.max(0)[0].data, x2.max(0)[0].data)[i]
@@ -46,9 +44,7 @@ class GridInterpolationKernel(Kernel):
                                                              both_max))
                 Js1[i], Cs1[i] = Interpolation().interpolate(self.grid.data[i], x1.data[:, i])
                 Js2[i], Cs2[i] = Interpolation().interpolate(self.grid.data[i], x2.data[:, i])
-                k_UUs[i] = self.base_kernel_module(self.grid[i][0], self.grid[i], **kwargs).squeeze()
-            K_XX = KroneckerProductLazyVariable(k_UUs, Js1, Cs1, Js2, Cs2)
-            return K_XX
+            return Js1, Cs1, Js2, Cs2
 
         both_min = torch.min(x1.min(0)[0].data, x2.min(0)[0].data)[0]
         both_max = torch.max(x1.max(0)[0].data, x2.max(0)[0].data)[0]
@@ -69,9 +65,36 @@ class GridInterpolationKernel(Kernel):
                                                                                               both_max))
         J1, C1 = Interpolation().interpolate(self.grid.data[0], x1.data.squeeze())
         J2, C2 = Interpolation().interpolate(self.grid.data[0], x2.data.squeeze())
+        return J1, C1, J2, C2
 
-        k_UU = self.base_kernel_module(self.grid[0][0], self.grid[0], **kwargs).squeeze()
-        K_XX = ToeplitzLazyVariable(k_UU, J1, C1, J2, C2)
+    def forward(self, x1, x2, **kwargs):
+        n, d = x1.size()
+        grid_size = self.grid_size
+
+        if self.conditioning:
+            J1, C1, J2, C2 = self._compute_grid(x1, x2)
+            self.train_J1 = J1
+            self.train_C1 = C1
+            self.train_J2 = J2
+            self.train_C2 = C2
+        else:
+            train_data = self.train_inputs[0].data if hasattr(self, 'train_inputs') else None
+            if train_data is not None and torch.equal(x1.data, train_data) and torch.equal(x2.data, train_data):
+                J1 = self.train_J1
+                C1 = self.train_C1
+                J2 = self.train_J2
+                C2 = self.train_C2
+            else:
+                J1, C1, J2, C2 = self._compute_grid(x1, x2)
+
+        if d > 1:
+            k_UUs = Variable(x1.data.new(d, grid_size).zero_())
+            for i in xrange(d):
+                k_UUs[i] = self.base_kernel_module(self.grid[i][0], self.grid[i], **kwargs).squeeze()
+            K_XX = KroneckerProductLazyVariable(k_UUs, J1, C1, J2, C2)
+        else:
+            k_UU = self.base_kernel_module(self.grid[0][0], self.grid[0], **kwargs).squeeze()
+            K_XX = ToeplitzLazyVariable(k_UU, J1, C1, J2, C2)
 
         return K_XX
 
