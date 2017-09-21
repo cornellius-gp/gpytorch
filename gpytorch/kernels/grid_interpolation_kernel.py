@@ -89,7 +89,7 @@ class GridInterpolationKernel(Kernel):
 
         if d > 1:
             k_UUs = Variable(x1.data.new(d, grid_size).zero_())
-            for i in xrange(d):
+            for i in range(d):
                 k_UUs[i] = self.base_kernel_module(self.grid[i][0], self.grid[i], **kwargs).squeeze()
             K_XX = KroneckerProductLazyVariable(k_UUs, J1, C1, J2, C2)
         else:
