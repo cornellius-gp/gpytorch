@@ -16,18 +16,21 @@ class MulLazyVariable(LazyVariable):
             self.added_diag = None
 
     def _matmul_closure_factory(self, *args):
-        len_mul_args = 0
+        sub_closures = []
+        i = 0
         for lazy_var in self.lazy_vars:
             len_repr = len(lazy_var.representation())
-            len_mul_args = len_mul_args + len_repr
-        if len(args) > len_mul_args:
+            sub_closure = lazy_var._matmul_closure_factory(*args[i:i + len_repr])
+            sub_closures.append(sub_closure)
+            i = i + len_repr
+        if len(args) > i:
             added_diag = args[-1]
             args = args[:-1]
         else:
             added_diag = None
 
         if len(self.lazy_vars) == 1:
-            def closure(rhs_mat):
+            def _closure(rhs_mat):
                 if_vector = False
                 if rhs_mat.ndimension() == 1:
                     rhs_mat = rhs_mat.unsqueeze(1)
@@ -40,45 +43,47 @@ class MulLazyVariable(LazyVariable):
                     res = res_mul
                 res = res.squeeze(1) if if_vector else res
                 return res
-            return closure
+        else:
+            def _closure(rhs_mat):
+                if_vector = False
+                if rhs_mat.ndimension() == 1:
+                    rhs_mat = rhs_mat.unsqueeze(1)
+                    if_vector = True
+                n, m = rhs_mat.size()
 
-        first_len_repr = len(self.lazy_vars[0].representation())
-        first_args = args[0:first_len_repr]
+                def left_matmul_closure(samples_matrix):
+                    d, n, s = samples_matrix.size()
+                    return samples_matrix.prod(0).expand(m, n, s).contiguous()
 
-        first_closure = self.lazy_vars[0]._matmul_closure_factory(*first_args)
-        second_closure = MulLazyVariable(*(self.lazy_vars[1:]))._matmul_closure_factory(*(args[first_len_repr:]))
+                def right_matmul_closure(samples_matrix):
+                    d, n, s = samples_matrix.size()
+                    lazy_mul_sample_matrix = torch.ones(n, s)
+                    for i in range(d):
+                        lazy_mul_sample_matrix = lazy_mul_sample_matrix.mul(sub_closures[i](samples_matrix[i]))
+                    rhs_mat_expand = rhs_mat.expand(s, n, m).transpose(0, 2).contiguous()
+                    lazy_mul_rhs_mat = rhs_mat_expand.mul(lazy_mul_sample_matrix)
+                    res_high = lazy_mul_rhs_mat.transpose(1, 2).contiguous().view(m * s, n).transpose(0, 1)
+                    res = sub_closures[d](res_high.contiguous()).transpose(0, 1).contiguous()
+                    return res.view(m, s, n).transpose(1, 2).contiguous()
+
+                left_matrix, right_matrix = trace_components(left_matmul_closure, right_matmul_closure,
+                                                             size=n, tensor_cls=type(rhs_mat),
+                                                             dim_num=len(sub_closures) - 1)
+                res_mul = (left_matrix * right_matrix).sum(2).transpose(0, 1).contiguous()
+
+                if added_diag is not None:
+                    res_diag = rhs_mat.mul(added_diag.expand_as(rhs_mat.t()).t())
+                    res = res_mul + res_diag
+                else:
+                    res = res_mul
+                res = res.squeeze(1) if if_vector else res
+                return res
 
         def closure(rhs_mat):
-            if_vector = False
-            if rhs_mat.ndimension() == 1:
-                rhs_mat = rhs_mat.unsqueeze(1)
-                if_vector = True
-            n, m = rhs_mat.size()
-
-            def left_matmul_closure(samples_matrix):
-                n, s = samples_matrix.size()
-                return samples_matrix.expand(m, n, s).contiguous()
-
-            def right_matmul_closure(samples_matrix):
-                _, s = samples_matrix.size()
-                second_mul_sample_matrix = second_closure(samples_matrix)
-                rhs_mat_expand = rhs_mat.expand(s, n, m).transpose(0, 2).contiguous()
-                second_mul_rhs_mat = rhs_mat_expand.mul(second_mul_sample_matrix)
-                res_high = second_mul_rhs_mat.transpose(1, 2).contiguous().view(m * s, n).transpose(0, 1)
-                res = first_closure(res_high.contiguous()).transpose(0, 1).contiguous()
-                return res.view(m, s, n).transpose(1, 2).contiguous()
-
-            left_matrix, right_matrix = trace_components(left_matmul_closure, right_matmul_closure,
-                                                         size=n, tensor_cls=type(rhs_mat))
-            res_mul = (left_matrix * right_matrix).sum(2).transpose(0, 1).contiguous()
-
-            if added_diag is not None:
-                res_diag = rhs_mat.mul(added_diag.expand_as(rhs_mat.t()).t())
-                res = res_mul + res_diag
-            else:
-                res = res_mul
-            res = res.squeeze(1) if if_vector else res
-            return res
+            zeros = torch.zeros(rhs_mat.size())
+            rhs_mat_pos = torch.max(rhs_mat, zeros)
+            rhs_mat_neg = torch.min(rhs_mat, zeros)
+            return _closure(rhs_mat_pos) + _closure(rhs_mat_neg)
 
         return closure
 

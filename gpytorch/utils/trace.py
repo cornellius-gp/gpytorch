@@ -9,7 +9,7 @@ def _identity(x):
 
 
 def trace_components(left_matmul_closure, right_matmul_closure, size=None, num_samples=None,
-                     estimator_type='mub', tensor_cls=None, use_vars=False):
+                     estimator_type='mub', tensor_cls=None, use_vars=False, dim_num=None):
     """
     Create components for stochastic trace estimation
     Given two matrices `A` and `B` (represented by closures that define matrix-multiplication
@@ -85,28 +85,34 @@ def trace_components(left_matmul_closure, right_matmul_closure, size=None, num_s
         eye = tensor_cls(size).fill_(1).diag()
         if use_vars:
             eye = Variable(eye)
+        if dim_num is not None:
+            eye = eye.expand(dim_num, size, size)
         return left_matmul_closure(eye), right_matmul_closure(eye)
 
     # Call appropriate estimator
     if estimator_type == 'mub':
         return mubs_trace_components(left_matmul_closure, right_matmul_closure, size, num_samples,
-                                     use_vars=use_vars, tensor_cls=tensor_cls)
+                                     use_vars=use_vars, tensor_cls=tensor_cls, dim_num=dim_num)
     elif estimator_type == 'hutchinson':
         return hutchinson_trace_components(left_matmul_closure, right_matmul_closure, size, num_samples,
-                                           use_vars=use_vars, tensor_cls=tensor_cls)
+                                           use_vars=use_vars, tensor_cls=tensor_cls, dim_num=dim_num)
     else:
         raise RuntimeError('Unknown estimator_type %s' % estimator_type)
 
 
 def mubs_trace_components(left_matmul_closure, right_matmul_closure, size, num_samples,
-                          tensor_cls=torch.Tensor, use_vars=False):
+                          tensor_cls=torch.Tensor, use_vars=False, dim_num=None):
     r1_coeff = tensor_cls(size)
     torch.arange(0, size, out=r1_coeff)
     r1_coeff.unsqueeze_(1)
     r2_coeff = ((r1_coeff + 1) * (r1_coeff + 2) / 2)
 
-    r1 = tensor_cls(num_samples).uniform_().mul_(size).floor().type_as(r1_coeff).unsqueeze(1).t()
-    r2 = tensor_cls(num_samples).uniform_().mul_(size).floor().type_as(r1_coeff).unsqueeze(1).t()
+    if dim_num is not None:
+        r1 = tensor_cls(num_samples * dim_num).uniform_().mul_(size).floor().type_as(r1_coeff).unsqueeze(1).t()
+        r2 = tensor_cls(num_samples * dim_num).uniform_().mul_(size).floor().type_as(r1_coeff).unsqueeze(1).t()
+    else:
+        r1 = tensor_cls(num_samples).uniform_().mul_(size).floor().type_as(r1_coeff).unsqueeze(1).t()
+        r2 = tensor_cls(num_samples).uniform_().mul_(size).floor().type_as(r1_coeff).unsqueeze(1).t()
 
     two_pi_n = (2 * math.pi) / size
     real_comps = torch.cos(two_pi_n * (r1_coeff.matmul(r1) + r2_coeff.matmul(r2))) / math.sqrt(size)
@@ -116,18 +122,26 @@ def mubs_trace_components(left_matmul_closure, right_matmul_closure, size, num_s
     comps = torch.cat([real_comps, imag_comps], 1).mul_(coeff)
     if use_vars:
         comps = Variable(comps)
-
+    if dim_num is not None:
+        comps = comps.t().contiguous().view(dim_num, 2 * num_samples, size).transpose(1, 2).contiguous()
     left_res = left_matmul_closure(comps)
     right_res = right_matmul_closure(comps)
     return left_res, right_res
 
 
 def hutchinson_trace_components(left_matmul_closure, right_matmul_closure, size, num_samples,
-                                tensor_cls=torch.Tensor, use_vars=False):
+                                tensor_cls=torch.Tensor, use_vars=False, dim_num=None):
     coeff = math.sqrt(1. / num_samples)
-    comps = tensor_cls(size, num_samples).bernoulli_().mul_(2).add_(-1).mul_(coeff)
+    if dim_num is not None:
+        comps = tensor_cls(size, num_samples * dim_num).bernoulli_().mul_(2).add_(-1).mul_(coeff)
+    else:
+        comps = tensor_cls(size, num_samples).bernoulli_().mul_(2).add_(-1).mul_(coeff)
+
     if use_vars:
         comps = Variable(comps)
+
+    if dim_num is not None:
+        comps = comps.t().contiguous().view(dim_num, num_samples, size).transpose(1, 2).contiguous()
 
     left_res = left_matmul_closure(comps)
     right_res = right_matmul_closure(comps)
