@@ -277,12 +277,10 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
         right_vectors = right_vectors.unsqueeze(0)
     s, m = left_vectors.size()
 
-    res = torch.zeros(m)
-
     left_vectors.contiguous()
     right_vectors.contiguous()
 
-    columns = torch.zeros(s, m)
+    columns = left_vectors.new().resize_(s, m).fill_(0)
     columns[:, 0] = left_vectors[:, 0]
     res = toeplitz_matmul(columns, left_vectors, right_vectors).sum(0)
     rows = utils.reverse(left_vectors, dim=1)
