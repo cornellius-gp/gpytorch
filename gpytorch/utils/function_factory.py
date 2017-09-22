@@ -2,7 +2,6 @@ from torch.autograd import Function
 from .lincg import LinearCG
 from .lanczos_quadrature import StochasticLQ
 from .trace import trace_components
-import torch
 import math
 
 
@@ -173,7 +172,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                 # Compute gradient with respect to covar2
                 for i in range(len(covar2_args)):
                     if self.needs_input_grad[i + 2]:
-                        grad_covar2_args[i] = torch.zeros(covar2_args[i].size())
+                        grad_covar2_args[i] = covar2_args[i].new().resize_as_(covar2_args[i]).zero_()
 
                 quad_part = derivative_quadratic_form_factory(*covar2_args)(mat_inv_y, mat_inv_y)
 
@@ -241,7 +240,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
             if any(self.needs_input_grad[:-1]):
                 for i in range(len(closure_args)):
                     if self.needs_input_grad[i]:
-                        closure_arg_grads[i] = torch.zeros(closure_args[i].size())
+                        closure_arg_grads[i] = closure_args[i].new().resize_as_(closure_args[i]).zero_()
                     else:
                         closure_arg_grads[i] = None
 

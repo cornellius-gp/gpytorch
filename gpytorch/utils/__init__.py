@@ -16,7 +16,9 @@ def reverse(input, dim=0):
     Returns:
         - reversed input
     """
-    reverse_index = torch.LongTensor(list(range(input.size(dim))[::-1]))
+    reverse_index = input.new(input.size(dim)).long()
+    torch.arange(1 - input.size(dim), 1, out=reverse_index)
+    reverse_index.mul_(-1)
     return input.index_select(dim, reverse_index)
 
 

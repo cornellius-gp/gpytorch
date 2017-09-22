@@ -66,7 +66,7 @@ class ToeplitzLazyVariable(LazyVariable):
             elif len(args) == 4:
                 toeplitz_column, W_left, W_right, added_diag, = args
 
-                diag_grad = torch.zeros(len(added_diag))
+                diag_grad = left_vectors.new(len(added_diag)).zero_()
                 diag_grad[0] = (left_vectors * right_vectors).sum()
                 left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
                 right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
@@ -83,7 +83,7 @@ class ToeplitzLazyVariable(LazyVariable):
                                     self.J_right, self.C_right, toeplitz_diag)
 
     def add_jitter(self):
-        jitter = torch.zeros(len(self.c))
+        jitter = self.c.data.new(len(self.c)).zero_()
         jitter[0] = 1e-4
         return ToeplitzLazyVariable(self.c.add(Variable(jitter)), self.J_left, self.C_left,
                                     self.J_right, self.C_right, self.added_diag)
@@ -128,9 +128,10 @@ class ToeplitzLazyVariable(LazyVariable):
         """
 
         if self.J_right is None:
-            res = self.matmul(Variable(torch.eye(len(self.c))))
+            eye = Variable(self.c.data.new(len(self.c)).fill_(1).diag())
         else:
-            res = self.matmul(Variable(torch.eye(len(self.J_right))))
+            eye = Variable(self.c.data.new(len(self.J_right)).fill_(1).diag())
+        res = self.matmul(eye)
         return res
 
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
