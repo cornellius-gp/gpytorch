@@ -109,6 +109,26 @@ class StochasticLQ(object):
         return left
 
     def evaluate(self, matmul_closure, n, funcs):
+        """
+        Computes tr(f(A)) for an arbitrary list of functions, where f(A) is equivalent to applying the function
+        elementwise to the eigenvalues of A, i.e., if A = V\LambdaV^{T}, then f(A) = Vf(\Lambda)V^{T}, where
+        f(\Lambda) is applied elementwise.
+        Note that calling this function with a list of functions to apply is significantly more efficient than
+        calling it multiple times with one function -- each additional function after the first requires negligible
+        additional computation.
+        Args:
+            - A (matrix n x n or closure) - Either the input matrix A or a closure that takes an n dimensional vector v
+                and returns Av.
+            - n (scalar) - dimension of the matrix A. We require this because, if A is passed in as a closure, we
+                have no good way of determining the size of A.
+            - funcs (list of closures) - A list of functions [f_1,...,f_k]. tr(f_i(A)) is computed for each function.
+                    Each function in the closure should expect to take a torch vector of eigenvalues as input and apply
+                    the function elementwise. For example, to compute logdet(A) = tr(log(A)), [lambda x: x.log()] would
+                    be a reasonable value of funcs.
+        Returns:
+            - results (list of scalars) - The trace of each supplied function applied to the matrix, e.g.,
+                      [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
+        """
         if torch.is_tensor(matmul_closure):
             lhs = matmul_closure
             if lhs.numel() == 1:
