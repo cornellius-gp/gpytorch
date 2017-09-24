@@ -3,6 +3,7 @@ from ..posterior import DefaultPosteriorStrategy
 import torch
 from torch.autograd import Variable
 from ..utils.trace import trace_components
+import gpytorch
 
 
 class MulLazyVariable(LazyVariable):
@@ -14,6 +15,11 @@ class MulLazyVariable(LazyVariable):
             self.added_diag = kwargs['added_diag']
         else:
             self.added_diag = None
+
+        if 'num_samples' in kwargs:
+            self.num_samples = kwargs['num_samples']
+        else:
+            self.num_samples = 200
 
     def _matmul_closure_factory(self, *args):
         sub_closures = []
@@ -50,26 +56,29 @@ class MulLazyVariable(LazyVariable):
                     rhs_mat = rhs_mat.unsqueeze(1)
                     if_vector = True
                 n, m = rhs_mat.size()
+                dim = len(self.lazy_vars)
 
-                def left_matmul_closure(samples_matrix):
-                    d, n, s = samples_matrix.size()
-                    return samples_matrix.prod(0).expand(m, n, s).contiguous()
+                if self.num_samples < n and gpytorch.functions.fastest:
+                    sample_matrix = torch.sign(torch.randn(dim - 1, self.num_samples, n, m))
+                    num_samples = self.num_samples
+                else:
+                    sample_matrix = torch.eye(n).expand(dim - 1, m, n, n).transpose(1, 3).contiguous()
+                    num_samples = n
 
-                def right_matmul_closure(samples_matrix):
-                    d, n, s = samples_matrix.size()
-                    lazy_mul_sample_matrix = torch.ones(n, s)
-                    for i in range(d):
-                        lazy_mul_sample_matrix = lazy_mul_sample_matrix.mul(sub_closures[i](samples_matrix[i]))
-                    rhs_mat_expand = rhs_mat.expand(s, n, m).transpose(0, 2).contiguous()
-                    lazy_mul_rhs_mat = rhs_mat_expand.mul(lazy_mul_sample_matrix)
-                    res_high = lazy_mul_rhs_mat.transpose(1, 2).contiguous().view(m * s, n).transpose(0, 1)
-                    res = sub_closures[d](res_high.contiguous()).transpose(0, 1).contiguous()
-                    return res.view(m, s, n).transpose(1, 2).contiguous()
+                sample_matrix_1 = torch.cat((sample_matrix, rhs_mat.expand(1, num_samples, n, m)), dim=0)
+                sample_matrix_2 = torch.cat((torch.ones(1, num_samples, n, m), sample_matrix), dim=0)
 
-                left_matrix, right_matrix = trace_components(left_matmul_closure, right_matmul_closure,
-                                                             size=n, tensor_cls=type(rhs_mat),
-                                                             dim_num=len(sub_closures) - 1)
-                res_mul = (left_matrix * right_matrix).sum(2).transpose(0, 1).contiguous()
+                right_factor = (sample_matrix_1 * sample_matrix_2).transpose(1, 2).contiguous()
+                right_factor = right_factor.view(dim, n, num_samples * m)
+
+                res_mul = torch.ones(n, num_samples * m)
+                for i in range(dim):
+                    res_mul *= sub_closures[i](right_factor[i])
+
+                res_mul = res_mul.view(n, num_samples, m).sum(1)
+
+                if self.num_samples < n and gpytorch.functions.fastest:
+                    res_mul.div_(num_samples)
 
                 if added_diag is not None:
                     res_diag = rhs_mat.mul(added_diag.expand_as(rhs_mat.t()).t())
