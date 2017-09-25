@@ -6,6 +6,12 @@ class PosteriorStrategy(object):
         """
         self.var = var
 
+    def alpha_size(self):
+        """
+        Returns the size of the alpha vector
+        """
+        raise NotImplementedError
+
     def exact_posterior_alpha(self, train_mean, train_y):
         """
         Assumes that self.var represents the train-train prior covariance matrix.

@@ -5,6 +5,9 @@ from .posterior_strategy import PosteriorStrategy
 
 
 class DefaultPosteriorStrategy(PosteriorStrategy):
+    def alpha_size(self):
+        return self.var.size()[1]
+
     def exact_posterior_alpha(self, train_mean, train_y):
         res = gpytorch.inv_matmul(self.var, train_y - train_mean)
         return res

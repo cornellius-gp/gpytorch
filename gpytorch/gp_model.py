@@ -41,20 +41,15 @@ class GPModel(gpytorch.Module):
                 isinstance(train_inputs, RandomVariable)):
             train_inputs = train_inputs,
 
-        # Get inducing points (or use training points)
-        if hasattr(self, 'inducing_points'):
-            inducing_points = self.inducing_points
-        else:
-            inducing_points = train_inputs[0]
-
-        # Reset alpha cache
-        self.has_computed_alpha.fill_(0)
-        self.alpha.resize_(len(inducing_points))
-
         res = super(GPModel, self).condition(train_inputs, train_target, **kwargs)
 
         # Initialize variational parameters (if applicable)
         if not self.exact_inference:
+            if hasattr(self, 'inducing_points'):
+                inducing_points = self.inducing_points
+            else:
+                inducing_points = train_inputs[0]
+
             if len(train_inputs) > 1:
                 raise RuntimeError('Variational inference currently only supports one input')
             inducing_output = super(GPModel, self).__call__(inducing_points)
@@ -228,6 +223,12 @@ class GPModel(gpytorch.Module):
                 mean, covar = output.representation()
                 covar = gpytorch.add_jitter(covar)
                 output = GaussianRandomVariable(mean, covar)
+
+            if self.conditioning:
+                # Reset alpha cache
+                _, covar = output.representation()
+                self.has_computed_alpha.fill_(0)
+                self.alpha.resize_(gpytorch.posterior_strategy(covar).alpha_size())
 
         # Now go through the likelihood
         if isinstance(output, Variable) or isinstance(output, RandomVariable) or isinstance(output, LazyVariable):

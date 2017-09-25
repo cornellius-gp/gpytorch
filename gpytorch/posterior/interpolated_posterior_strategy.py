@@ -19,6 +19,9 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
         self.interp_left = interp_left
         self.interp_right = interp_right
 
+    def alpha_size(self):
+        return self.grid.size()[1]
+
     def exact_posterior_alpha(self, train_mean, train_y):
         train_residual = (train_y - train_mean).unsqueeze(1)
         alpha = self.var.inv_matmul(train_residual)
