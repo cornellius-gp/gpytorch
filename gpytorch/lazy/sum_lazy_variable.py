@@ -74,3 +74,6 @@ class SumLazyVariable(LazyVariable):
     def __getitem__(self, i):
         sliced_lazy_vars = [lazy_var.__getitem__(i) for lazy_var in self.lazy_vars]
         return SumLazyVariable(*sliced_lazy_vars)
+
+    def size(self):
+        return self.lazy_vars[0].size()
