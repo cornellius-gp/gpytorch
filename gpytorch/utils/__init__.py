@@ -51,6 +51,24 @@ def approx_equal(self, other, epsilon=1e-4):
     return torch.max((self - other).abs()) <= epsilon
 
 
+def bdsmm(sparse, dense):
+    """
+    Batch dense-sparse matrix multiply
+    """
+    batch_size, n_rows, n_cols = sparse.size()
+    batch_assignment = sparse._indices()[0]
+    indices = sparse._indices()[1:].clone()
+    indices[0].add_(n_rows, batch_assignment)
+    indices[1].add_(n_cols, batch_assignment)
+    sparse_2d = sparse.__class__(indices, sparse._values(),
+                                 torch.Size((batch_size * n_rows, batch_size * n_cols)))
+
+    dense_2d = dense.view(batch_size * n_cols, -1)
+    res = torch.dsmm(sparse_2d, dense_2d)
+    res = res.view(batch_size, n_rows, -1)
+    return res
+
+
 def sparse_eye(size):
     """
     Returns the identity matrix as a sparse matrix
@@ -170,6 +188,7 @@ __all__ = [
     reverse,
     rcumsum,
     approx_equal,
+    bdsmm,
     sparse_eye,
     sparse_getitem,
     sparse_repeat,
