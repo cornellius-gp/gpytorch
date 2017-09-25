@@ -63,7 +63,7 @@ def bdsmm(sparse, dense):
     sparse_2d = sparse.__class__(indices, sparse._values(),
                                  torch.Size((batch_size * n_rows, batch_size * n_cols)))
 
-    dense_2d = dense.view(batch_size * n_cols, -1)
+    dense_2d = dense.contiguous().view(batch_size * n_cols, -1)
     res = torch.dsmm(sparse_2d, dense_2d)
     res = res.view(batch_size, n_rows, -1)
     return res

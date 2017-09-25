@@ -83,7 +83,7 @@ class ToeplitzLazyVariable(LazyVariable):
                                     self.J_right, self.C_right, toeplitz_diag)
 
     def add_jitter(self):
-        jitter = self.c.data.new(len(self.c)).zero_()
+        jitter = self.c.data.new(self.c.size(-1)).zero_()
         jitter[0] = 1e-4
         return ToeplitzLazyVariable(self.c.add(Variable(jitter)), self.J_left, self.C_left,
                                     self.J_right, self.C_right, self.added_diag)
@@ -95,7 +95,7 @@ class ToeplitzLazyVariable(LazyVariable):
         if len(self.J_left) != len(self.J_right):
             raise RuntimeError('diag not supported for non-square interpolated Toeplitz matrices.')
         n_data, n_interp = self.J_left.size()
-        n_grid = len(self.c)
+        n_grid = self.c.size(-1)
 
         # For row k, we will calculate the diagonal element as sum_{i,j} w_left^k_i w_right^k_j T_{i,j}
         # Batch compute the non-zero values of the outer products w_left^k w_left^k^T
@@ -128,17 +128,17 @@ class ToeplitzLazyVariable(LazyVariable):
         """
 
         if self.J_right is None:
-            eye = Variable(self.c.data.new(len(self.c)).fill_(1).diag())
+            eye = Variable(self.c.data.new(self.c.size(-1)).fill_(1).diag())
         else:
             eye = Variable(self.c.data.new(len(self.J_right)).fill_(1).diag())
         res = self.matmul(eye)
         return res
 
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
-        epsilon = Variable(torch.randn(len(self.c), gpytorch.functions.num_trace_samples))
+        epsilon = Variable(torch.randn(self.c.size(-1), gpytorch.functions.num_trace_samples))
         samples = chol_var_covar.mm(epsilon)
         samples = samples + variational_mean.unsqueeze(1).expand_as(samples)
-        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
+        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, self.c.size(-1)))
         samples = gpytorch.dsmm(W_left, samples)
         log_likelihood = log_probability_func(samples, train_y)
 
@@ -186,23 +186,39 @@ class ToeplitzLazyVariable(LazyVariable):
             return self.c,
 
         if self.J_left is not None and self.C_left is not None:
-            W_left = Variable(index_coef_to_sparse(self.J_left, self.C_left, len(self.c)))
+            W_left = Variable(index_coef_to_sparse(self.J_left, self.C_left, self.c.size(-1)))
         else:
-            W_left = Variable(sparse_eye(len(self.c)))
+            W_left = Variable(sparse_eye(self.c.size(-1)))
         if self.J_right is not None and self.C_right is not None:
-            W_right = Variable(index_coef_to_sparse(self.J_right, self.C_right, len(self.c)))
+            W_right = Variable(index_coef_to_sparse(self.J_right, self.C_right, self.c.size(-1)))
         else:
-            W_right = Variable(sparse_eye(len(self.c)))
+            W_right = Variable(sparse_eye(self.c.size(-1)))
 
         if self.added_diag is not None:
             return self.c, W_left, W_right, self.added_diag
         else:
             return self.c, W_left, W_right
 
+    def repeat(self, *sizes):
+        """
+        Repeat elements of the Variable.
+        Right now it only works to create a batched version of a ToeplitzLazyVariable.
+
+        e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
+        """
+        if not len(sizes) == 3 and sizes[1] == 1 and sizes[2] == 1:
+            raise RuntimeError('Repeat only works to create a batched version at the moment.')
+        if self.J_left is None:
+            raise RuntimeError('Repeat only works when the toeplitz variable is interpolated.')
+
+        return ToeplitzLazyVariable(self.c.repeat(sizes[0], 1), self.J_left.repeat(*sizes), self.C_left.repeat(*sizes),
+                                    self.J_right.repeat(*sizes), self.C_right.repeat(*sizes),
+                                    self.added_diag)
+
     def size(self):
         if self.J_left is not None:
             return torch.Size((len(self.J_left), len(self.J_right)))
-        return torch.Size((len(self.c), len(self.c)))
+        return torch.Size((self.c.size(-1), self.c.size(-1)))
 
     def __getitem__(self, i):
         if isinstance(i, tuple):
@@ -216,11 +232,11 @@ class ToeplitzLazyVariable(LazyVariable):
             if self.J_left is None:
                 # Pretend that the matrix is WTW, where W is an identity matrix, with appropriate slices
                 # J[first_index, :], C[first_index, :]
-                J_left_new = self.c.data.new(range(len(self.c))[first_index]).unsqueeze(1)
+                J_left_new = self.c.data.new(range(self.c.size(-1))[first_index]).unsqueeze(1)
                 C_left_new = self.c.data.new().resize_as_(J_left_new).fill_(1)
                 J_left_new = J_left_new.long()
                 # J[second_index, :] C[second_index, :]
-                J_right_new = self.c.data.new(range(len(self.c))[second_index]).unsqueeze(1)
+                J_right_new = self.c.data.new(range(self.c.size(-1))[second_index]).unsqueeze(1)
                 C_right_new = self.c.data.new().resize_as_(J_right_new).fill_(1)
                 J_right_new = J_right_new.long()
             else:
