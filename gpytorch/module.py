@@ -222,8 +222,6 @@ class Module(nn.Module):
                     inducing_points[j * grid_size ** i:(j + 1) * grid_size ** i, :i].copy_(prev_points)
             prev_points = inducing_points[:grid_size ** (i + 1), :(i + 1)]
 
-        grid = Variable(grid)
-        inducing_points = Variable(inducing_points)
         self._set_interpolation_grid(grid, inducing_points, grid_size, grid_bounds)
         return self
 

@@ -46,7 +46,7 @@ class GPModel(gpytorch.Module):
         # Initialize variational parameters (if applicable)
         if not self.exact_inference:
             if hasattr(self, 'inducing_points'):
-                inducing_points = self.inducing_points
+                inducing_points = Variable(self.inducing_points)
             else:
                 inducing_points = train_inputs[0]
 
@@ -99,7 +99,7 @@ class GPModel(gpytorch.Module):
 
             train_x = self.train_inputs[0]
             if hasattr(self, 'inducing_points'):
-                inducing_points = self.inducing_points
+                inducing_points = Variable(self.inducing_points)
             else:
                 inducing_points = train_x
 
@@ -185,7 +185,7 @@ class GPModel(gpytorch.Module):
 
                 # Get inducing points
                 if hasattr(self, 'inducing_points'):
-                    inducing_points = self.inducing_points
+                    inducing_points = Variable(self.inducing_points)
                 else:
                     inducing_points = train_xs[0]
 
