@@ -76,3 +76,13 @@ def test_get_item_square_on_variable():
     evaluated = toeplitz_var.evaluate().data
 
     assert utils.approx_equal(toeplitz_var[2:4, 2:4].evaluate().data, evaluated[2:4, 2:4])
+
+
+def test_batch_mode():
+    batch_explicit = WTW.repeat(4, 1, 1)
+    batch_lv = lazy_toeplitz_var.repeat(4, 1, 1)
+
+    batch_mat = torch.randn(4, 51, 3)
+    res = batch_lv.matmul(Variable(batch_mat)).data
+    actual = batch_explicit.matmul(batch_mat)
+    assert utils.approx_equal(res, actual)

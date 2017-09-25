@@ -55,6 +55,20 @@ def test_toeplitz_matmul_batch():
     assert utils.approx_equal(res, actual)
 
 
+def test_toeplitz_matmul_batchmat():
+    col = torch.Tensor([1, 6, 4, 5])
+    row = torch.Tensor([1, 2, 1, 1])
+    rhs_mat = torch.randn(3, 4, 2)
+
+    # Actual
+    lhs_mat = utils.toeplitz.toeplitz(col, row)
+    actual = torch.matmul(lhs_mat.unsqueeze(0), rhs_mat)
+
+    # Fast toeplitz
+    res = utils.toeplitz.toeplitz_matmul(col.unsqueeze(0), row.unsqueeze(0), rhs_mat)
+    assert utils.approx_equal(res, actual)
+
+
 def test_sym_toeplitz_getitem():
     c = torch.Tensor([1, 6, 4, 5])
 

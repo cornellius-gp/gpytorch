@@ -1,5 +1,6 @@
 import torch
 from torch.autograd import Function, Variable
+from ..utils import bdsmm
 
 
 class DSMM(Function):
@@ -9,7 +10,13 @@ class DSMM(Function):
         self.sparse = sparse
 
     def forward(self, dense):
-        return torch.dsmm(self.sparse, dense)
+        if self.sparse.ndimension() == 3:
+            return bdsmm(self.sparse, dense)
+        else:
+            return torch.dsmm(self.sparse, dense)
 
     def backward(self, grad_output):
-        return torch.dsmm(self.sparse.t(), grad_output)
+        if self.sparse.ndimension() == 3:
+            return bdsmm(self.sparse.transpose(1, 2), grad_output)
+        else:
+            return torch.dsmm(self.sparse.t(), grad_output)

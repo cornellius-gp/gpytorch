@@ -1,6 +1,7 @@
 import torch
 import gpytorch.utils.fft as fft
 import gpytorch.utils as utils
+from . import bdsmm
 
 
 def index_coef_to_sparse(index_matrix, value_matrix, row_length):
@@ -19,28 +20,50 @@ def index_coef_to_sparse(index_matrix, value_matrix, row_length):
         - (Sparse matrix n-by-row_length) - A torch sparse matrix W so that
             W[i, index_matrix[i, j]] = value_matrix[i, j].
     """
-    num_target_points, num_coefficients = value_matrix.size()
+    # Is it batch mode?
+    is_batch = index_matrix.ndimension() == 3
+    if is_batch:
+        batch_size, num_target_points, num_coefficients = value_matrix.size()
+    else:
+        num_target_points, num_coefficients = value_matrix.size()
 
-    row_tensor = value_matrix.new(num_target_points)
+    # Index tensor
+    row_tensor = index_matrix.new(num_target_points)
     torch.arange(0, num_target_points, out=row_tensor)
     row_tensor.unsqueeze_(1)
-    row_tensor = row_tensor.repeat(1, num_coefficients).type_as(index_matrix)
-    index_tensor = torch.cat([row_tensor.view(1, -1), index_matrix.view(1, -1)], 0)
-    value_tensor = value_matrix.view(-1)
+    if is_batch:
+        batch_tensor = index_matrix.new(batch_size)
+        torch.arange(0, batch_size, out=batch_tensor)
+        batch_tensor.unsqueeze_(1).unsqueeze_(2)
 
+        row_tensor = row_tensor.repeat(batch_size, 1, num_coefficients)
+        batch_tensor = batch_tensor.repeat(1, num_target_points, num_coefficients)
+        index_tensor = torch.stack([batch_tensor.view(-1), row_tensor.view(-1), index_matrix.view(-1)], 0)
+    else:
+        row_tensor = row_tensor.repeat(1, num_coefficients)
+        index_tensor = torch.cat([row_tensor.view(1, -1), index_matrix.view(1, -1)], 0)
+
+    # Value tensor
+    value_tensor = value_matrix.view(-1)
     nonzero_indices = value_tensor.nonzero()
     if nonzero_indices.storage():
         nonzero_indices.squeeze_()
         index_tensor = index_tensor.index_select(1, nonzero_indices)
         value_tensor = value_tensor.index_select(0, nonzero_indices)
     else:
-        index_tensor = index_tensor.resize_(2, 1).zero_()
+        index_tensor = index_tensor.resize_(3 if is_batch else 2, 1).zero_()
         value_tensor = value_tensor.resize_(1).zero_()
 
-    if index_tensor.is_cuda:
-        res = torch.cuda.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
+    # Size
+    if is_batch:
+        size = torch.Size([batch_size, num_target_points, row_length])
     else:
-        res = torch.sparse.FloatTensor(index_tensor, value_tensor, torch.Size([num_target_points, row_length]))
+        size = torch.Size([num_target_points, row_length])
+
+    if index_tensor.is_cuda:
+        res = torch.cuda.sparse.FloatTensor(index_tensor, value_tensor, size)
+    else:
+        res = torch.sparse.FloatTensor(index_tensor, value_tensor, size)
     return res
 
 
@@ -150,6 +173,10 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
                             (or matrices, representing batch) \
                             (first column c and row r of the Toeplitz matrix)')
 
+    if toeplitz_column.size(0) == 1:
+        toeplitz_column = toeplitz_column.expand(tensor.size(0), toeplitz_column.size(1))
+        toeplitz_row = toeplitz_row.expand(tensor.size(0), toeplitz_row.size(1))
+
     if toeplitz_column.size()[:2] != tensor.size()[:2]:
         raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with \
                             leading dimension {}.'.format(len(toeplitz_column), len(toeplitz_column), len(tensor)))
@@ -235,16 +262,22 @@ def interpolated_sym_toeplitz_matmul(toeplitz_column, vector, W_left=None, W_rig
         vector = vector.unsqueeze(1)
 
     if noise_diag is not None:
-        noise_term = noise_diag.unsqueeze(1).expand_as(vector) * vector
+        noise_term = noise_diag.unsqueeze(-1).expand_as(vector) * vector
 
     if W_left is not None:
         # Get W_{r}^{T}vector
-        Wt_times_v = torch.dsmm(W_right.t(), vector)
-        # Get (TW_{r}^{T})vector
-        TWt_v = sym_toeplitz_matmul(toeplitz_column, Wt_times_v)
-
-        # Get (W_{l}TW_{r}^{T})vector
-        WTWt_v = torch.dsmm(W_left, TWt_v)
+        if W_left.ndimension() == 3:  # Batch mode:
+            Wt_times_v = bdsmm(W_right.transpose(1, 2), vector)
+            # Get (TW_{r}^{T})vector
+            TWt_v = sym_toeplitz_matmul(toeplitz_column, Wt_times_v)
+            # Get (W_{l}TW_{r}^{T})vector
+            WTWt_v = bdsmm(W_left, TWt_v)
+        else:
+            Wt_times_v = torch.dsmm(W_right.t(), vector)
+            # Get (TW_{r}^{T})vector
+            TWt_v = sym_toeplitz_matmul(toeplitz_column, Wt_times_v)
+            # Get (W_{l}TW_{r}^{T})vector
+            WTWt_v = torch.dsmm(W_left, TWt_v)
     else:
         WTWt_v = sym_toeplitz_matmul(toeplitz_column, vector)
 
