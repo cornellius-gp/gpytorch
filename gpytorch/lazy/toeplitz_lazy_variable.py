@@ -5,7 +5,7 @@ from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from .mul_lazy_variable import MulLazyVariable
 from ..posterior import InterpolatedPosteriorStrategy
-from ..utils import sparse_eye
+from ..utils import sparse_eye, bdsmm
 from ..utils.toeplitz import interpolated_sym_toeplitz_matmul, index_coef_to_sparse, sym_toeplitz_matmul, \
     sym_toeplitz_derivative_quadratic_form
 
@@ -60,18 +60,31 @@ class ToeplitzLazyVariable(LazyVariable):
                 return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor),
             elif len(args) == 3:
                 toeplitz_column, W_left, W_right = args
-                left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
-                right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
+                if W_left.ndimension() == 3:
+                    left_factor = bdsmm(W_left.transpose(1, 2), left_factor.transpose(1, 2)).transpose(1, 2)
+                    right_factor = bdsmm(W_right.transpose(1, 2), right_factor.transpose(1, 2)).transpose(1, 2)
+                else:
+                    left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
+                    right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
                 return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor), None, None
             elif len(args) == 4:
                 toeplitz_column, W_left, W_right, added_diag, = args
 
                 diag_grad = left_vectors.new(len(added_diag)).zero_()
                 diag_grad[0] = (left_vectors * right_vectors).sum()
-                left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
-                right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
+                if W_left.ndimension() == 3:
+                    left_factor = bdsmm(W_left.transpose(1, 2), left_factor.t(1, 2)).t(1, 2)
+                    right_factor = bdsmm(W_right.t(1, 2), right_factor.t(1, 2)).t(1, 2)
+                else:
+                    left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
+                    right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
                 return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor), None, None, diag_grad
         return closure
+
+    def is_batch(self):
+        if self.J_left is None:
+            return self.c.ndimension() == 2
+        return self.J_left.ndimension() == 3
 
     def add_diag(self, diag):
         if self.J_left is not None:
@@ -129,8 +142,14 @@ class ToeplitzLazyVariable(LazyVariable):
 
         if self.J_right is None:
             eye = Variable(self.c.data.new(self.c.size(-1)).fill_(1).diag())
+            if self.c.ndimension() == 2:
+                eye = eye.unsqueeze(0).expand(len(self.c), self.c.size(1), self.c.size(1))
         else:
-            eye = Variable(self.c.data.new(len(self.J_right)).fill_(1).diag())
+            if self.J_right.ndimension() == 3:
+                eye = Variable(self.c.data.new(self.J_right.size(1)).fill_(1).diag())
+                eye = eye.unsqueeze(0).expand(len(self.c), self.J_right.size(1), self.J_right.size(1))
+            else:
+                eye = Variable(self.c.data.new(self.J_right.size(0)).fill_(1).diag())
         res = self.matmul(eye)
         return res
 
@@ -217,36 +236,59 @@ class ToeplitzLazyVariable(LazyVariable):
 
     def size(self):
         if self.J_left is not None:
-            return torch.Size((len(self.J_left), len(self.J_right)))
-        return torch.Size((self.c.size(-1), self.c.size(-1)))
+            if self.J_left.ndimension() == 3:
+                return torch.Size((self.J_left.size(0), self.J_left.size(1), self.J_right.size(1)))
+            else:
+                return torch.Size((self.J_left.size(0), self.J_right.size(0)))
+        if self.c.ndimension() == 2:
+            return torch.Size((self.c.size(0), self.c.size(-1), self.c.size(-1)))
+        else:
+            return torch.Size((self.c.size(-1), self.c.size(-1)))
 
     def __getitem__(self, i):
         if isinstance(i, tuple):
-            first_index = i[0]
+            if not self.is_batch():
+                i = tuple([0] + list(i))
+            elif len(i) == 2:
+                i = tuple(list(i) + [slice(None, None, None)])
+
+            batch_index = i[0]
+            first_index = i[1]
             if not isinstance(first_index, slice):
                 first_index = slice(first_index, first_index + 1, None)
-            second_index = i[1]
+            second_index = i[2]
             if not isinstance(second_index, slice):
                 second_index = slice(second_index, second_index + 1, None)
 
+            columns = self.c.unsqueeze(0) if self.c.ndimension() == 1 else self.c
             if self.J_left is None:
                 # Pretend that the matrix is WTW, where W is an identity matrix, with appropriate slices
                 # J[first_index, :], C[first_index, :]
                 J_left_new = self.c.data.new(range(self.c.size(-1))[first_index]).unsqueeze(1)
+                J_right_new = self.c.data.new(range(self.c.size(-1))[second_index]).unsqueeze(1)
+                if isinstance(batch_index, slice):
+                    batch_size = len(range(self.c.size(0))[batch_index])
+                    J_left_new.unsqueeze_(0)
+                    J_left_new = J_left_new.expand(batch_size, J_left_new.size(1), 1)
+                    J_right_new.unsqueeze_(0)
+                    J_right_new = J_right_new.expand(batch_size, J_right_new.size(1), 1)
                 C_left_new = self.c.data.new().resize_as_(J_left_new).fill_(1)
                 J_left_new = J_left_new.long()
                 # J[second_index, :] C[second_index, :]
-                J_right_new = self.c.data.new(range(self.c.size(-1))[second_index]).unsqueeze(1)
                 C_right_new = self.c.data.new().resize_as_(J_right_new).fill_(1)
                 J_right_new = J_right_new.long()
             else:
+                J_left = self.J_left.unsqueeze(0) if self.J_left.ndimension() == 2 else self.J_left
+                C_left = self.C_left.unsqueeze(0) if self.C_left.ndimension() == 2 else self.C_left
+                J_right = self.J_right.unsqueeze(0) if self.J_right.ndimension() == 2 else self.J_right
+                C_right = self.C_right.unsqueeze(0) if self.C_right.ndimension() == 2 else self.C_right
                 # J[first_index, :], C[first_index, :]
-                J_left_new = self.J_left[first_index]
-                C_left_new = self.C_left[first_index]
+                J_left_new = J_left[batch_index, first_index]
+                C_left_new = C_left[batch_index, first_index]
 
                 # J[second_index, :] C[second_index, :]
-                J_right_new = self.J_right[second_index]
-                C_right_new = self.C_right[second_index]
+                J_right_new = J_right[batch_index, second_index]
+                C_right_new = C_right[batch_index, second_index]
 
             if self.added_diag is not None:
                 if len(J_left_new) != len(J_right_new):
@@ -258,7 +300,7 @@ class ToeplitzLazyVariable(LazyVariable):
             else:
                 diag_new = None
 
-            return ToeplitzLazyVariable(self.c, J_left_new, C_left_new,
+            return ToeplitzLazyVariable(columns[batch_index], J_left_new, C_left_new,
                                         J_right_new, C_right_new, diag_new)
 
         else:
@@ -266,17 +308,26 @@ class ToeplitzLazyVariable(LazyVariable):
                 i = slice(i, i + 1, None)
 
             if self.J_left is not None:
-                J_left_new = self.J_left[i]
-                C_left_new = self.C_left[i]
-                if self.added_diag is not None:
-                    raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
-                                        diagonal component to make it non-square is probably not intended.\
-                                        It is ambiguous which diagonal elements to choose')
+                # Batch mode
+                if self.J_left.ndimension() == 3:
+                    return ToeplitzLazyVariable(self.c[i], self.J_left[i], self.C_left[i],
+                                                self.J_right[i], self.C_right[i], self.added_diag)
                 else:
-                    diag_new = None
+                    J_left_new = self.J_left[i]
+                    C_left_new = self.C_left[i]
+                    if self.added_diag is not None:
+                        raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
+                                            diagonal component to make it non-square is probably not intended.\
+                                            It is ambiguous which diagonal elements to choose')
+                    else:
+                        diag_new = None
 
                 return ToeplitzLazyVariable(self.c, J_left_new, C_left_new,
                                             self.J_right, self.C_right, diag_new)
             else:
-                raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
-                                    unintended. If that was the intent, use evaluate() and slice the full matrix.')
+                # Batch modej
+                if self.c.ndimension() == 2:
+                    return ToeplitzLazyVariable(self.c[i], None, None, None, None, self.added_diag)
+                else:
+                    raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
+                                        unintended. If that was the intent, use evaluate() and slice the full matrix.')

@@ -78,6 +78,32 @@ def test_get_item_square_on_variable():
     assert utils.approx_equal(toeplitz_var[2:4, 2:4].evaluate().data, evaluated[2:4, 2:4])
 
 
+def test_get_item_on_batch():
+    toeplitz_var = ToeplitzLazyVariable(Variable(torch.Tensor([[1, 2, 3, 4]])))
+    evaluated = toeplitz_var.evaluate().data
+    assert utils.approx_equal(toeplitz_var[0, 1:3].evaluate().data, evaluated[0, 1:3])
+
+    no_diag_toeplitz = ToeplitzLazyVariable(lazy_toeplitz_var.c, lazy_toeplitz_var.J_left, lazy_toeplitz_var.C_left,
+                                            lazy_toeplitz_var.J_right, lazy_toeplitz_var.C_right)
+    no_diag_toeplitz = no_diag_toeplitz.repeat(3, 1, 1)
+    evaluated = no_diag_toeplitz.evaluate().data
+
+    assert utils.approx_equal(no_diag_toeplitz[0:2, 1, 2:3].evaluate().data, evaluated[0:2, 1, 2:3])
+
+
+def test_get_item_scalar_on_batch():
+    toeplitz_var = ToeplitzLazyVariable(Variable(torch.Tensor([[1, 2, 3, 4]])))
+    evaluated = toeplitz_var.evaluate().data
+    assert utils.approx_equal(toeplitz_var[0].evaluate().data, evaluated[0])
+
+    no_diag_toeplitz = ToeplitzLazyVariable(lazy_toeplitz_var.c, lazy_toeplitz_var.J_left, lazy_toeplitz_var.C_left,
+                                            lazy_toeplitz_var.J_right, lazy_toeplitz_var.C_right)
+    no_diag_toeplitz = no_diag_toeplitz.repeat(3, 1, 1)
+    evaluated = no_diag_toeplitz.evaluate().data
+
+    assert utils.approx_equal(no_diag_toeplitz[0:2].evaluate().data, evaluated[0:2])
+
+
 def test_batch_mode():
     batch_explicit = WTW.repeat(4, 1, 1)
     batch_lv = lazy_toeplitz_var.repeat(4, 1, 1)

@@ -38,13 +38,14 @@ def index_coef_to_sparse(index_matrix, value_matrix, row_length):
 
         row_tensor = row_tensor.repeat(batch_size, 1, num_coefficients)
         batch_tensor = batch_tensor.repeat(1, num_target_points, num_coefficients)
-        index_tensor = torch.stack([batch_tensor.view(-1), row_tensor.view(-1), index_matrix.view(-1)], 0)
+        index_tensor = torch.stack([batch_tensor.contiguous().view(-1), row_tensor.contiguous().view(-1),
+                                    index_matrix.contiguous().view(-1)], 0)
     else:
         row_tensor = row_tensor.repeat(1, num_coefficients)
-        index_tensor = torch.cat([row_tensor.view(1, -1), index_matrix.view(1, -1)], 0)
+        index_tensor = torch.cat([row_tensor.contiguous().view(1, -1), index_matrix.contiguous().view(1, -1)], 0)
 
     # Value tensor
-    value_tensor = value_matrix.view(-1)
+    value_tensor = value_matrix.contiguous().view(-1)
     nonzero_indices = value_tensor.nonzero()
     if nonzero_indices.storage():
         nonzero_indices.squeeze_()
@@ -313,17 +314,31 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
     if left_vectors.ndimension() == 1:
         left_vectors = left_vectors.unsqueeze(0)
         right_vectors = right_vectors.unsqueeze(0)
+    if left_vectors.ndimension() == 3:
+        batch = True
+        batch_size, s, _ = left_vectors.size()
+        left_vectors = left_vectors.contiguous().view(batch_size * s, -1)
+        right_vectors = right_vectors.contiguous().view(batch_size * s, -1)
+    else:
+        batch = False
+
     s, m = left_vectors.size()
 
     left_vectors.contiguous()
     right_vectors.contiguous()
 
-    columns = left_vectors.new().resize_(s, m).fill_(0)
+    columns = left_vectors.new(s, m).fill_(0)
     columns[:, 0] = left_vectors[:, 0]
-    res = toeplitz_matmul(columns, left_vectors, right_vectors).sum(0)
+    res = toeplitz_matmul(columns, left_vectors, right_vectors)
     rows = utils.reverse(left_vectors, dim=1)
     columns[:, 0] = rows[:, 0]
-    res += toeplitz_matmul(columns, rows, utils.reverse(right_vectors, dim=1)).sum(0)
-    res[0] -= (left_vectors * right_vectors).sum()
+    res += toeplitz_matmul(columns, rows, utils.reverse(right_vectors, dim=1))
+
+    if not batch:
+        res = res.sum(0)
+        res[0] -= (left_vectors * right_vectors).sum()
+    else:
+        res = res.contiguous().view(batch_size, -1, m).sum(1)
+        res[:, 0] -= (left_vectors * right_vectors).view(batch_size, -1).sum(1)
 
     return res
