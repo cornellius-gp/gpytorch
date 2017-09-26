@@ -5,7 +5,7 @@ from torch.autograd import Variable
 
 
 class MixtureRandomVariable(RandomVariable):
-    def __init__(self, rand_vars, weights):
+    def __init__(self, rand_vars, weights=None):
         """
         Mixture of random variables
 
@@ -17,6 +17,9 @@ class MixtureRandomVariable(RandomVariable):
         """
         if not all(isinstance(rand_var, RandomVariable) for rand_var in rand_vars):
             raise RuntimeError('Everything needs to be an instance of a random variable')
+
+        if weights is None:
+            weights = rand_vars[0].representation()[0].data.new(len(rand_vars)).fill_(1. / len(rand_vars))
 
         if torch.is_tensor(weights):
             weights = Variable(weights)
