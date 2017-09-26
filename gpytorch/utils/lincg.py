@@ -99,8 +99,8 @@ class LinearCG(object):
                 P = z + betas.expand_as(P).mul(P)
                 r_dot_zs = new_r_dot_zs
 
-            if self._reset_precond:
-                self.precondition_closure = None
+        if self._reset_precond:
+            self.precondition_closure = None
 
         if output_dims == 1:
             result = result.squeeze(1)
