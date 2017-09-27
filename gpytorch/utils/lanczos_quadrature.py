@@ -88,10 +88,10 @@ class StochasticLQ(object):
 
         rhs_vectors = (R - a * U)
 
-        #Numerical Problems
+        # Numerical Problems
         rhs_vectors += 1e-10
-        a = torch.max(a, torch.ones(a.size()) * 1e-20)
-        norm_vs = torch.max(norm_vs, torch.ones(norm_vs.size()) * 1e-20)
+        a = torch.max(a, a.new(*a.size()).fill_(1) * 1e-20)
+        norm_vs = torch.max(norm_vs, norm_vs.new(*norm_vs.size()).fill_(1) * 1e-20)
         U += 1e-10
 
         return U, rhs_vectors, a, norm_vs
