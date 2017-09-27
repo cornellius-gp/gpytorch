@@ -24,7 +24,9 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
 
     def exact_posterior_alpha(self, train_mean, train_y):
         train_residual = (train_y - train_mean).unsqueeze(1)
+        gpytorch.functions.max_cg_iterations *= 10
         alpha = self.var.inv_matmul(train_residual)
+        gpytorch.functions.max_cg_iterations /= 10
         alpha = gpytorch.dsmm(self.interp_right.t(), alpha)
         alpha = self.grid.matmul(alpha)
         return alpha.squeeze()
