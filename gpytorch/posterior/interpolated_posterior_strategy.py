@@ -38,8 +38,9 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
         train_test_covar = train_test_covar.evaluate()
         test_train_covar = train_test_covar.t()
         test_test_covar = test_test_covar.evaluate()
-
+        gpytorch.functions.max_cg_iterations *= 10
         test_test_covar_correction = torch.matmul(test_train_covar, gpytorch.inv_matmul(self.var, train_test_covar))
+        gpytorch.functions.max_cg_iterations /= 10
         return test_test_covar.sub(test_test_covar_correction)
 
     def variational_posterior_alpha(self, variational_mean):
