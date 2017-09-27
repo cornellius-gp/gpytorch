@@ -1,4 +1,5 @@
 import torch
+import gpytorch
 from torch.autograd import Variable
 
 
@@ -14,8 +15,8 @@ class LinearCG(object):
     overrelaxation, the form of which is described, e.g., at
     http://netlib.org/linalg/html_templates/node58.html.
     """
-    def __init__(self, max_iter=15, tolerance_resid=1e-5, precondition_closure=None):
-        self.max_iter = max_iter
+    def __init__(self, tolerance_resid=1e-6, precondition_closure=None):
+        self.max_iter = gpytorch.functions.max_cg_iterations
         self.tolerance_resid = tolerance_resid
         self.precondition_closure = precondition_closure
 
