@@ -35,7 +35,7 @@ class StochasticLQ(object):
         beta = self.cls(num_vectors, num_iters).zero_()
 
         rhs_vectors = rhs_vectors / torch.norm(rhs_vectors, 2, dim=0)
-        Q[:, :, 0] = rhs_vectors
+        Q[:, :, 0] = rhs_vectors.t()
         U = rhs_vectors
 
         R = matmul_closure(U)
@@ -51,7 +51,7 @@ class StochasticLQ(object):
 
             alpha[:, k] = alpha_k
             beta[:, k] = beta_k
-            Q[:, :, k] = U
+            Q[:, :, k] = U.t()
 
             if all(torch.abs(beta[:, k]) < 1e-4) or all(torch.abs(alpha[:, k]) < 1e-4):
                 break
@@ -65,7 +65,7 @@ class StochasticLQ(object):
 
             Qs = Q[:, :, :k]
 
-            Ts = self.cls(num_vectors, num_iters - 1, num_iters - 1)
+            Ts = self.cls(num_vectors, k, k)
             for i in range(num_vectors):
                 Ts[i, :, :] = torch.diag(alpha[i, :]) + torch.diag(beta[i, :], 1) + torch.diag(beta[i, :], -1)
 
@@ -78,21 +78,27 @@ class StochasticLQ(object):
 
         U = rhs_vectors / norm_vs
 
-        U = U - self._batch_mv(Q, self._batch_mv(Q.transpose(1, 2), U.t()))
+        U = U - self._batch_mv(Q, self._batch_mv(Q.transpose(1, 2), U.t())).t()
 
         U = U / torch.norm(U, 2, dim=0)
 
         R = matmul_closure(U) - norm_vs * orig_U
 
         a = U.mul(R).sum(0)
-        rhs_vectors = (R - a * U) + 1e-10
+
+        rhs_vectors = (R - a * U)
+
+        #Numerical Problems
+        rhs_vectors += 1e-10
+        a = torch.max(a, torch.ones(a.size()) * 1e-20)
+        norm_vs = torch.max(norm_vs, torch.ones(norm_vs.size()) * 1e-20)
+        U += 1e-10
 
         return U, rhs_vectors, a, norm_vs
 
     def _batch_mv(self, M, V):
         num, n, m = M.size()
         V_expand = V.expand(n, num, m).transpose(0, 1)
-
         return (M * V_expand).sum(2)
 
     def binary_search_symeig(self, T):
