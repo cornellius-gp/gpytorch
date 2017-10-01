@@ -2,7 +2,11 @@ import math
 import torch
 import gpytorch
 from torch.autograd import Variable
-from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable
+from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, MulLazyVariable
+from gpytorch.kernels import RBFKernel, GridInterpolationKernel
+from gpytorch.means import ConstantMean
+from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.random_variables import GaussianRandomVariable
 
 
 def make_mul_lazy_var():
@@ -25,10 +29,8 @@ t1_t2_t3_eval = t1_eval * t2_eval * t3_eval
 
 
 def test_add_diag():
-    gpytorch.functions.fastest = False
     lazy_var = make_mul_lazy_var()[0]
     assert torch.equal(lazy_var.evaluate().data, (t1_t2_t3_eval + added_diag.diag()))
-    gpytorch.functions.fastest = True
 
 
 def test_add_jitter():
@@ -37,24 +39,63 @@ def test_add_jitter():
 
 
 def test_inv_matmul():
-    gpytorch.functions.fastest = False
     mat = torch.randn(4, 4)
     res = make_mul_lazy_var()[0].inv_matmul(Variable(mat))
     assert torch.norm(res.data - (t1_t2_t3_eval + added_diag.diag()).inverse().matmul(mat)) < 1e-3
-    gpytorch.functions.fastest = True
 
 
-def test_matmul():
-    gpytorch.functions.fastest = False
+def test_matmul_deterministic():
     mat = torch.randn(4, 4)
     res = make_mul_lazy_var()[0].matmul(Variable(mat))
     assert torch.norm(res.data - (t1_t2_t3_eval + added_diag.diag()).matmul(mat)) < 1e-3
-    gpytorch.functions.fastest = True
+
+
+def test_matmul_approx():
+    class KissGPModel(gpytorch.GPModel):
+        def __init__(self):
+            likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
+            super(KissGPModel, self).__init__(likelihood)
+            self.mean_module = ConstantMean(constant_bounds=(-1, 1))
+            covar_module = RBFKernel(log_lengthscale_bounds=(-100, 100))
+            covar_module.log_lengthscale.data = torch.FloatTensor([-2])
+            self.grid_covar_module = GridInterpolationKernel(covar_module)
+            self.initialize_interpolation_grid(300, grid_bounds=[(0, 1)])
+
+        def forward(self, x):
+            mean_x = self.mean_module(x)
+            covar_x = self.grid_covar_module(x)
+            return GaussianRandomVariable(mean_x, covar_x)
+
+    model = KissGPModel()
+
+    n = 100
+    d = 4
+
+    lazy_var_list = []
+    lazy_var_eval_list = []
+
+    for i in range(d):
+        x = Variable(torch.rand(n))
+        y = Variable(torch.rand(n))
+        model.condition(x, y)
+        toeplitz_var = model.forward(x).covar()
+        lazy_var_list.append(toeplitz_var)
+        lazy_var_eval_list.append(toeplitz_var.evaluate().data)
+
+    mul_lazy_var = MulLazyVariable(*lazy_var_list, matmul_mode='approximate', max_iter=30)
+    mul_lazy_var_eval = torch.ones(n, n)
+    for i in range(d):
+        mul_lazy_var_eval *= (lazy_var_eval_list[i].matmul(torch.eye(lazy_var_eval_list[i].size()[0])))
+
+    vec = torch.randn(n)
+
+    actual = mul_lazy_var_eval.matmul(vec)
+    res = mul_lazy_var.matmul(Variable(vec)).data
+
+    assert torch.norm(actual - res) / torch.norm(actual) < 1e-2
 
 
 def test_exact_gp_mll():
-
-    gpytorch.functions.fastest = False
     labels_var = Variable(torch.arange(1, 5, 1))
 
     # Test case
@@ -84,11 +125,9 @@ def test_exact_gp_mll():
     assert((c2_var.grad.data - t2.columns.grad.data).abs().norm() / c2_var.grad.data.abs().norm() < 1e-1)
     assert((c3_var.grad.data - t3.c.grad.data).abs().norm() / c3_var.grad.data.abs().norm() < 1e-1)
     assert((diag_var.grad.data - diag.grad.data).abs().norm() / diag_var.grad.data.abs().norm() < 1e-1)
-    gpytorch.functions.fastest = True
 
 
 def test_trace_log_det_quad_form():
-    gpytorch.functions.fastest = False
     mu_diffs_var = Variable(torch.arange(1, 5, 1))
     chol_covar_1_var = Variable(torch.eye(4))
 
@@ -119,18 +158,14 @@ def test_trace_log_det_quad_form():
     assert((c2_var.grad.data - t2.columns.grad.data).abs().norm() / c2_var.grad.data.abs().norm() < 1e-1)
     assert((c3_var.grad.data - t3.c.grad.data).abs().norm() / c3_var.grad.data.abs().norm() < 1e-1)
     assert((diag_var.grad.data - diag.grad.data).abs().norm() / diag_var.grad.data.abs().norm() < 1e-1)
-    gpytorch.functions.fastest = True
 
 
 def test_getitem():
-    gpytorch.functions.fastest = False
     res = make_mul_lazy_var()[0][1, 1]
     assert torch.norm(res.evaluate().data - (t1_t2_t3_eval + torch.ones(4))[1, 1]) < 1e-3
-    gpytorch.functions.fastest = True
 
 
 def test_exact_posterior():
-    gpytorch.functions.fastest = False
     train_mean = Variable(torch.randn(4))
     train_y = Variable(torch.randn(4))
     test_mean = Variable(torch.randn(4))
@@ -157,5 +192,4 @@ def test_exact_posterior():
     actual_mean = gpytorch.posterior_strategy(actual).exact_posterior_mean(test_mean, actual_alpha)
     mul_lv_alpha = mul_lv.posterior_strategy().exact_posterior_alpha(train_mean, train_y)
     mul_lv_mean = mul_lv.posterior_strategy().exact_posterior_mean(test_mean, mul_lv_alpha)
-    assert(torch.norm(actual_mean.data - mul_lv_mean.data) < 1e-4)
-    gpytorch.functions.fastest = True
+    assert(torch.norm(actual_mean.data - mul_lv_mean.data) < 1e-3)
