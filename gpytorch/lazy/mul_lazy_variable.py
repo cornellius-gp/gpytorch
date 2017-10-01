@@ -239,13 +239,13 @@ class MulLazyVariable(LazyVariable):
                 def left_matmul_closure(samples_matrix):
                     _, s = samples_matrix.size()
                     left_vecs_expand = left_vecs.expand(s, vecs_num, n).transpose(0, 1).contiguous()
-                    return left_vecs_expand.mul(samples_matrix).view(s * vecs_num, n)
+                    return left_vecs_expand.mul(samples_matrix.t()).view(s * vecs_num, n)
 
                 def right_matmul_closure(samples_matrix):
                     _, s = samples_matrix.size()
                     right_vecs_expand = right_vecs.expand(s, vecs_num, n).transpose(0, 1).contiguous()
-                    second_var_sample_matrix = second_mul_closure(samples_matrix.t().contiguous()).t().contiguous()
-                    return right_vecs_expand.mul(second_var_sample_matrix).view(s * vecs_num, n)
+                    second_var_sample_matrix = second_mul_closure(samples_matrix)
+                    return right_vecs_expand.mul(second_var_sample_matrix.t()).view(s * vecs_num, n)
 
                 left_matrix, right_matrix = trace_components(left_matmul_closure, right_matmul_closure,
                                                              size=n, tensor_cls=type(left_vecs))
