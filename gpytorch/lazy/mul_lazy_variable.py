@@ -197,7 +197,7 @@ class MulLazyVariable(LazyVariable):
             def tensor_matmul_closure(rhs):
                 return self._matmul_closure_factory(*args)(rhs)
 
-            Q, T = StochasticLQ(max_iter=self.max_iter).lanczos_batch(tensor_matmul_closure, z)
+            Q, T = StochasticLQ(cls=type(z), max_iter=self.max_iter).lanczos_batch(tensor_matmul_closure, z)
             Q = Q[0]
             T = T[0]
             self._lanczos_quadrature = Q, T
