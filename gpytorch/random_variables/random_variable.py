@@ -13,6 +13,18 @@ class RandomVariable(object):
         mean = self.mean()
         return mean.sub(std2), mean.add(std2)
 
+    def cpu(self):
+        representation = self.representation()
+        if not isinstance(representation, tuple) or isinstance(representation, list):
+            representation = representation,
+        return self.__class__(*(var.cpu() for var in representation))
+
+    def cuda(self, device_id=None):
+        representation = self.representation()
+        if not isinstance(representation, tuple) or isinstance(representation, list):
+            representation = representation,
+        return self.__class__(*(var.cuda(device_id) for var in representation))
+
     def covar(self):
         """
         Returns the covariance of the random variable
