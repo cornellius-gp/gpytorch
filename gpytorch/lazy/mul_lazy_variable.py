@@ -308,17 +308,17 @@ class MulLazyVariable(LazyVariable):
             lazy_vars = list(self.lazy_vars[:-1])
             lazy_vars.append(self.lazy_vars[-1] * other)
             added_diag = self.added_diag * other
-            return MulLazyVariable(*lazy_vars, added_diag=added_diag)
+            return MulLazyVariable(*lazy_vars, added_diag=added_diag, matmul_mode=self.matmul_mode)
         elif isinstance(other, MulLazyVariable):
             if self.added_diag is not None:
                 res = list((self, other))
                 return MulLazyVariable(*res)
-            return MulLazyVariable(*(list(self.lazy_vars) + list(other.lazy_vars)))
+            return MulLazyVariable(*(list(self.lazy_vars) + list(other.lazy_vars)), matmul_mode=self.matmul_mode)
         elif isinstance(other, LazyVariable):
             if self.added_diag is not None:
                 res = list((self, other))
-                return MulLazyVariable(*res)
-            return MulLazyVariable(*(list(self.lazy_vars) + [other]))
+                return MulLazyVariable(*res, matmul_mode=self.matmul_mode)
+            return MulLazyVariable(*(list(self.lazy_vars) + [other]), matmul_mode=self.matmul_mode)
         else:
             raise RuntimeError('other must be a LazyVariable, int or float.')
 
@@ -345,8 +345,8 @@ class MulLazyVariable(LazyVariable):
                 if not isinstance(second_index, slice):
                     second_index = slice(second_index, second_index + 1, None)
                 if first_index == second_index:
-                    return MulLazyVariable(*sliced_lazy_vars, added_diag=self.added_diag[first_index])
+                    return MulLazyVariable(*sliced_lazy_vars, added_diag=self.added_diag[first_index], matmul_mode=self.matmul_mode)
             raise RuntimeError('Slicing in to a hadamard product of matrces that has an additional \
                                 diagonal component to make it non-square is probably not intended.\
                                 It is ambiguous which diagonal elements to choose')
-        return MulLazyVariable(*sliced_lazy_vars)
+        return MulLazyVariable(*sliced_lazy_vars, matmul_mode=self.matmul_mode)
