@@ -30,28 +30,25 @@ class MulLazyVariable(LazyVariable):
         else:
             self.added_diag = None
 
-        if self.matmul_mode == 'approximate':
-            if 'max_iter' in kwargs:
-                self.max_iter = kwargs['max_iter']
-            else:
-                self.max_iter = 15
+        if 'max_iter' in kwargs:
+            self.max_iter = kwargs['max_iter']
+        else:
+            self.max_iter = 15
 
+        if self.matmul_mode == 'approximate':
             if len(lazy_vars) > 1:
                 half_d = int(len(lazy_vars) / 2)
                 self.left_var = MulLazyVariable(*lazy_vars[:half_d], matmul_mode='approximate',
                                                 max_iter=self.max_iter)
                 self.right_var = MulLazyVariable(*lazy_vars[half_d:], matmul_mode='approximate',
                                                  max_iter=self.max_iter)
-        elif self.matmul_mode == 'stochastic' or self.matmul_mode == 'deterministic':
-            if self.matmul_mode == 'stochastic':
-                if 'num_samples' in kwargs:
-                    self.num_samples = kwargs['num_samples']
-                else:
-                    self.num_samples = 200
-            else:
-                self.num_samples = lazy_vars[0].size()[0]
+        if self.matmul_mode == 'deterministic':
+            self.num_samples = lazy_vars[0].size()[0]
         else:
-            raise RuntimeError('matmul_mode should be approximate, stochastic or deterministic')
+            if 'num_samples' in kwargs:
+                self.num_samples = kwargs['num_samples']
+            else:
+                self.num_samples = 200
 
     def _matmul_closure_factory(self, *args):
         if self.matmul_mode == 'approximate':
@@ -234,18 +231,21 @@ class MulLazyVariable(LazyVariable):
                 second_lazy_vars = list(self.lazy_vars[:i]) + list(self.lazy_vars[i + 1:])
                 second_args = list(args[:i1]) + list(args[i2:])
 
-                second_mul_closure = MulLazyVariable(*second_lazy_vars)._matmul_closure_factory(*second_args)
+                second_mul_closure = MulLazyVariable(*second_lazy_vars,
+                                                     matmul_mode=self.matmul_mode,
+                                                     max_iter=self.max_iter,
+                                                     num_samples=self.num_samples)._matmul_closure_factory(*second_args)
 
                 def left_matmul_closure(samples_matrix):
                     _, s = samples_matrix.size()
                     left_vecs_expand = left_vecs.expand(s, vecs_num, n).transpose(0, 1).contiguous()
-                    return left_vecs_expand.mul(samples_matrix).view(s * vecs_num, n)
+                    return left_vecs_expand.mul(samples_matrix.t()).view(s * vecs_num, n)
 
                 def right_matmul_closure(samples_matrix):
                     _, s = samples_matrix.size()
                     right_vecs_expand = right_vecs.expand(s, vecs_num, n).transpose(0, 1).contiguous()
-                    second_var_sample_matrix = second_mul_closure(samples_matrix.t().contiguous()).t().contiguous()
-                    return right_vecs_expand.mul(second_var_sample_matrix).view(s * vecs_num, n)
+                    second_var_sample_matrix = second_mul_closure(samples_matrix)
+                    return right_vecs_expand.mul(second_var_sample_matrix.t()).view(s * vecs_num, n)
 
                 left_matrix, right_matrix = trace_components(left_matmul_closure, right_matmul_closure,
                                                              size=n, tensor_cls=type(left_vecs))
@@ -262,13 +262,25 @@ class MulLazyVariable(LazyVariable):
 
     def add_diag(self, diag):
         if self.added_diag is None:
-            return MulLazyVariable(*self.lazy_vars, added_diag=diag.expand(self.size()[0]))
+            return MulLazyVariable(*self.lazy_vars,
+                                   matmul_mode=self.matmul_mode,
+                                   max_iter=self.max_iter,
+                                   num_samples=self.num_samples,
+                                   added_diag=diag.expand(self.size()[0]))
         else:
-            return MulLazyVariable(*self.lazy_vars, added_diag=self.added_diag + diag)
+            return MulLazyVariable(*self.lazy_vars,
+                                   matmul_mode=self.matmul_mode,
+                                   max_iter=self.max_iter,
+                                   num_samples=self.num_samples,
+                                   added_diag=self.added_diag + diag)
 
     def add_jitter(self):
         new_lazy_vars = list(lazy_var.add_jitter() for lazy_var in self.lazy_vars)
-        return MulLazyVariable(*new_lazy_vars, added_diag=self.added_diag)
+        return MulLazyVariable(*new_lazy_vars,
+                               matmul_mode=self.matmul_mode,
+                               max_iter=self.max_iter,
+                               num_samples=self.num_samples,
+                               added_diag=self.added_diag)
 
     def diag(self):
         res = Variable(torch.ones(self.size()[0]))
