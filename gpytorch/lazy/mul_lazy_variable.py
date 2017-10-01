@@ -3,25 +3,65 @@ from ..posterior import DefaultPosteriorStrategy
 import torch
 from torch.autograd import Variable
 from ..utils.trace import trace_components
-import gpytorch
+from gpytorch.utils import StochasticLQ
 
 
 class MulLazyVariable(LazyVariable):
     def __init__(self, *lazy_vars, **kwargs):
+        '''
+        Args:
+            - lazy_vars (A list of LazyVariable) - A list of LazyVariable to multiplicate with.
+            - matmul_mode (String) - deterministic(default), stochastic or approximate
+            - max_iter (int) - the maximum iteration in lanczos decomposition in when matmul_mode=approximate
+            - num_samples (int) - the samples number when matmul_mode=stochastic
+        '''
         if not all([isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars]):
             raise RuntimeError('All arguments of a MulLazyVariable should be lazy variables')
+
         self.lazy_vars = lazy_vars
+
+        if 'matmul_mode' in kwargs:
+            self.matmul_mode = kwargs['matmul_mode']
+        else:
+            self.matmul_mode = 'deterministic'
+
         if 'added_diag' in kwargs:
             self.added_diag = kwargs['added_diag']
         else:
             self.added_diag = None
 
-        if 'num_samples' in kwargs:
-            self.num_samples = kwargs['num_samples']
+        if self.matmul_mode == 'approximate':
+            if 'max_iter' in kwargs:
+                self.max_iter = kwargs['max_iter']
+            else:
+                self.max_iter = 15
+
+            if len(lazy_vars) > 1:
+                half_d = int(len(lazy_vars) / 2)
+                self.left_var = MulLazyVariable(*lazy_vars[:half_d], matmul_mode='approximate',
+                                                max_iter=self.max_iter)
+                self.right_var = MulLazyVariable(*lazy_vars[half_d:], matmul_mode='approximate',
+                                                 max_iter=self.max_iter)
+        elif self.matmul_mode == 'stochastic' or self.matmul_mode == 'deterministic':
+            if self.matmul_mode == 'stochastic':
+                if 'num_samples' in kwargs:
+                    self.num_samples = kwargs['num_samples']
+                else:
+                    self.num_samples = 200
+            else:
+                self.num_samples = lazy_vars[0].size()[0]
         else:
-            self.num_samples = 200
+            raise RuntimeError('matmul_mode should be approximate, stochastic or deterministic')
 
     def _matmul_closure_factory(self, *args):
+        if self.matmul_mode == 'approximate':
+            return self._approx_matmul_closure_factory(*args)
+        elif self.matmul_mode == 'stochastic' or self.matmul_mode == 'deterministic':
+            return self._stoch_deter_matmul_closure_factory(*args)
+        else:
+            raise RuntimeError('matmul_mode should be approximate, stochastic or deterministic')
+
+    def _stoch_deter_matmul_closure_factory(self, *args):
         sub_closures = []
         i = 0
         for lazy_var in self.lazy_vars:
@@ -36,7 +76,7 @@ class MulLazyVariable(LazyVariable):
             added_diag = None
 
         if len(self.lazy_vars) == 1:
-            def _closure(rhs_mat):
+            def closure(rhs_mat):
                 if_vector = False
                 if rhs_mat.ndimension() == 1:
                     rhs_mat = rhs_mat.unsqueeze(1)
@@ -50,7 +90,7 @@ class MulLazyVariable(LazyVariable):
                 res = res.squeeze(1) if if_vector else res
                 return res
         else:
-            def _closure(rhs_mat):
+            def closure(rhs_mat):
                 if_vector = False
                 if rhs_mat.ndimension() == 1:
                     rhs_mat = rhs_mat.unsqueeze(1)
@@ -58,7 +98,7 @@ class MulLazyVariable(LazyVariable):
                 n, m = rhs_mat.size()
                 dim = len(self.lazy_vars)
 
-                if self.num_samples < n and gpytorch.functions.fastest:
+                if self.num_samples < n:
                     sample_matrix = torch.sign(torch.randn(dim - 1, self.num_samples, n, m))
                     num_samples = self.num_samples
                 else:
@@ -77,7 +117,7 @@ class MulLazyVariable(LazyVariable):
 
                 res_mul = res_mul.view(n, num_samples, m).sum(1)
 
-                if self.num_samples < n and gpytorch.functions.fastest:
+                if self.num_samples < n:
                     res_mul.div_(num_samples)
 
                 if added_diag is not None:
@@ -88,13 +128,83 @@ class MulLazyVariable(LazyVariable):
                 res = res.squeeze(1) if if_vector else res
                 return res
 
-        def closure(rhs_mat):
-            zeros = torch.zeros(rhs_mat.size())
-            rhs_mat_pos = torch.max(rhs_mat, zeros)
-            rhs_mat_neg = torch.min(rhs_mat, zeros)
-            return _closure(rhs_mat_pos) + _closure(rhs_mat_neg)
-
         return closure
+
+    def _approx_matmul_closure_factory(self, *args):
+        args_length = 0
+        half_d = int(len(self.lazy_vars) / 2)
+        for i in range(half_d):
+            args_length += len(self.lazy_vars[i].representation())
+        half_args_length = args_length
+        for i in range(half_d, len(self.lazy_vars)):
+            args_length += len(self.lazy_vars[i].representation())
+        if len(args) > args_length:
+            added_diag = args[-1]
+            args = args[:-1]
+        else:
+            added_diag = None
+        if len(self.lazy_vars) == 1:
+            def closure(rhs_mat):
+                if_vector = False
+                if rhs_mat.ndimension() == 1:
+                    rhs_mat = rhs_mat.unsqueeze(1)
+                    if_vector = True
+                res_mul = self.lazy_vars[0]._matmul_closure_factory(*args)(rhs_mat)
+                if added_diag is not None:
+                    res_diag = rhs_mat.mul(added_diag.expand_as(rhs_mat.t()).t())
+                    res = res_mul + res_diag
+                else:
+                    res = res_mul
+                res = res.squeeze(1) if if_vector else res
+                return res
+        else:
+            def closure(rhs_mat):
+                if_vector = False
+                if rhs_mat.ndimension() == 1:
+                    rhs_mat = rhs_mat.unsqueeze(1)
+                    if_vector = True
+                Q_1, T_1 = self.left_var._lanczos_quadrature_form(*args[:half_args_length])
+                Q_2, T_2 = self.right_var._lanczos_quadrature_form(*args[half_args_length:])
+
+                n, k_1 = Q_1.size()
+                _, m = rhs_mat.size()
+                _, k_2 = Q_2.size()
+
+                if not hasattr(self, '_Q_2_T_2'):
+                    self._Q_2_T_2 = Q_2.matmul(T_2)
+                Q_2_T_2 = self._Q_2_T_2
+                rhs_mat_expand = rhs_mat.expand(k_2, n, m).transpose(0, 2).contiguous()
+                rhs_mat_Q_2_T_2 = rhs_mat_expand.mul(Q_2_T_2)
+                if not hasattr(self, '_T_1_Q_1_t'):
+                    self._T_1_Q_1_t = T_1.matmul(Q_1.t())
+                T_1_Q_1_t = self._T_1_Q_1_t
+
+                m_res = T_1_Q_1_t.matmul(rhs_mat_Q_2_T_2)
+                res_mul = Q_1.matmul(m_res).mul(Q_2).sum(2).transpose(0, 1).contiguous()
+
+                if added_diag is not None:
+                    res_diag = rhs_mat.mul(added_diag.expand_as(rhs_mat.t()).t())
+                    res = res_mul + res_diag
+                else:
+                    res = res_mul
+                res = res.squeeze(1) if if_vector else res
+                return res
+        return closure
+
+    def _lanczos_quadrature_form(self, *args):
+        if not hasattr(self, '_lanczos_quadrature'):
+            n = self.size()[0]
+            z = torch.randn(n, 1)
+            z = z / torch.norm(z, 2, 0)
+
+            def tensor_matmul_closure(rhs):
+                return self._matmul_closure_factory(*args)(rhs)
+
+            Q, T = StochasticLQ(max_iter=self.max_iter).lanczos_batch(tensor_matmul_closure, z)
+            Q = Q[0]
+            T = T[0]
+            self._lanczos_quadrature = Q, T
+        return self._lanczos_quadrature
 
     def _derivative_quadratic_form_factory(self, *args):
         args_index = []
