@@ -12,6 +12,14 @@ class Module(nn.Module):
         self._bounds = OrderedDict()
         self.conditioning = False
 
+    def _apply(self, fn):
+        super(Module, self)._apply(fn)
+        if hasattr(self, 'train_inputs'):
+            self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
+        if hasattr(self, 'train_target'):
+            self.train_target = fn(self.train_target)
+        return self
+
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
 
