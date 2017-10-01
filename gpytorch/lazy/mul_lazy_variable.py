@@ -253,7 +253,7 @@ class MulLazyVariable(LazyVariable):
                 res = res + deriv_args_i
 
             if added_diag is not None:
-                diag_grad = torch.zeros(len(added_diag))
+                diag_grad = added_diag.new(len(added_diag)).fill_(0)
                 diag_grad[0] = (left_vecs * right_vecs).sum()
                 res = res + [diag_grad]
 
