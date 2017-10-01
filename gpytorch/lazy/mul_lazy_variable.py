@@ -99,7 +99,7 @@ class MulLazyVariable(LazyVariable):
                 dim = len(self.lazy_vars)
 
                 if self.num_samples < n:
-                    sample_matrix = torch.sign(torch.randn(dim - 1, self.num_samples, n, m))
+                    sample_matrix = torch.sign(rhs_mat.new(dim - 1, self.num_samples, n, m).normal_())
                     num_samples = self.num_samples
                 else:
                     sample_matrix = torch.eye(n).expand(dim - 1, m, n, n).transpose(1, 3).contiguous()
@@ -194,7 +194,7 @@ class MulLazyVariable(LazyVariable):
     def _lanczos_quadrature_form(self, *args):
         if not hasattr(self, '_lanczos_quadrature'):
             n = self.size()[0]
-            z = torch.randn(n, 1)
+            z =     args[0].new(n, 1).normal_()
             z = z / torch.norm(z, 2, 0)
 
             def tensor_matmul_closure(rhs):
