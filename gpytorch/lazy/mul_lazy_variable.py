@@ -191,7 +191,7 @@ class MulLazyVariable(LazyVariable):
     def _lanczos_quadrature_form(self, *args):
         if not hasattr(self, '_lanczos_quadrature'):
             n = self.size()[0]
-            z =     args[0].new(n, 1).normal_()
+            z = args[0].new(n, 1).normal_()
             z = z / torch.norm(z, 2, 0)
 
             def tensor_matmul_closure(rhs):
