@@ -345,7 +345,9 @@ class MulLazyVariable(LazyVariable):
                 if not isinstance(second_index, slice):
                     second_index = slice(second_index, second_index + 1, None)
                 if first_index == second_index:
-                    return MulLazyVariable(*sliced_lazy_vars, added_diag=self.added_diag[first_index], matmul_mode=self.matmul_mode)
+                    return MulLazyVariable(*sliced_lazy_vars,
+                                           added_diag=self.added_diag[first_index],
+                                           matmul_mode=self.matmul_mode)
             raise RuntimeError('Slicing in to a hadamard product of matrces that has an additional \
                                 diagonal component to make it non-square is probably not intended.\
                                 It is ambiguous which diagonal elements to choose')
