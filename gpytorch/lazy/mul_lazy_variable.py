@@ -167,10 +167,14 @@ class MulLazyVariable(LazyVariable):
                 _, m = rhs_mat.size()
                 _, k_2 = Q_2.size()
 
-                Q_2_T_2 = Q_2.matmul(T_2)
+                if not hasattr(self, '_Q_2_T_2'):
+                    self._Q_2_T_2 = Q_2.matmul(T_2)
+                Q_2_T_2 = self._Q_2_T_2
                 rhs_mat_expand = rhs_mat.expand(k_2, n, m).transpose(0, 2).contiguous()
                 rhs_mat_Q_2_T_2 = rhs_mat_expand.mul(Q_2_T_2)
-                T_1_Q_1_t = T_1.matmul(Q_1.t())
+                if not hasattr(self, '_T_1_Q_1_t'):
+                    self._T_1_Q_1_t = T_1.matmul(Q_1.t())
+                T_1_Q_1_t = self._T_1_Q_1_t
 
                 m_res = T_1_Q_1_t.matmul(rhs_mat_Q_2_T_2)
                 res_mul = Q_1.matmul(m_res).mul(Q_2).sum(2).transpose(0, 1).contiguous()
@@ -185,17 +189,19 @@ class MulLazyVariable(LazyVariable):
         return closure
 
     def _lanczos_quadrature_form(self, *args):
-        n = self.size()[0]
-        z = args[0].new(n, 1).normal_()
-        z = z / torch.norm(z, 2, 0)
+        if not hasattr(self, '_lanczos_quadrature'):
+            n = self.size()[0]
+            z = args[0].new(n, 1).normal_()
+            z = z / torch.norm(z, 2, 0)
 
-        def tensor_matmul_closure(rhs):
-            return self._matmul_closure_factory(*args)(rhs)
+            def tensor_matmul_closure(rhs):
+                return self._matmul_closure_factory(*args)(rhs)
 
-        Q, T = StochasticLQ(cls=type(z), max_iter=self.max_iter).lanczos_batch(tensor_matmul_closure, z)
-        Q = Q[0]
-        T = T[0]
-        return Q, T
+            Q, T = StochasticLQ(cls=type(z), max_iter=self.max_iter).lanczos_batch(tensor_matmul_closure, z)
+            Q = Q[0]
+            T = T[0]
+            self._lanczos_quadrature = Q, T
+        return self._lanczos_quadrature
 
     def _derivative_quadratic_form_factory(self, *args):
         args_index = []
