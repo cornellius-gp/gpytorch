@@ -12,6 +12,7 @@ from ..utils.kronecker_product import sym_kronecker_product_toeplitz_matmul, kp_
 
 class KroneckerProductLazyVariable(LazyVariable):
     def __init__(self, columns, J_lefts=None, C_lefts=None, J_rights=None, C_rights=None, added_diag=None):
+        super(KroneckerProductLazyVariable, self).__init__(columns, J_lefts, C_lefts, J_rights, C_rights, added_diag)
         if not isinstance(columns, Variable):
             raise RuntimeError('KroneckerProductLazyVariable is intended to wrap Variable versions of \
                                 the first column and row.')

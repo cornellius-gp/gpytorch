@@ -12,6 +12,7 @@ class NonLazyVariable(LazyVariable):
         Args:
         - var (Variable: matrix) a variable
         """
+        super(NonLazyVariable, self).__init__(var)
         self.var = var
 
     def _matmul_closure_factory(self, tensor):

@@ -16,6 +16,7 @@ class DirichletRandomVariable(RandomVariable):
         Params:
         - alpha (Variable: vector k or matrix n x k) weights of categorical distribution
         """
+        super(DirichletRandomVariable, self).__init__(alpha)
         if not isinstance(alpha, Variable):
             raise RuntimeError('alpha should be a Variable')
 

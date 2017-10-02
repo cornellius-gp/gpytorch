@@ -13,6 +13,7 @@ class SamplesRandomVariable(RandomVariable):
         Params:
         - samples (Variable: b x ...) samples
         """
+        super(SamplesRandomVariable, self).__init__(samples)
         if not isinstance(samples, Variable):
             raise RuntimeError('samples should be a Variable')
         self._samples = samples

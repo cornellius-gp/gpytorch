@@ -12,6 +12,7 @@ from ..utils.toeplitz import interpolated_sym_toeplitz_matmul, index_coef_to_spa
 
 class ToeplitzLazyVariable(LazyVariable):
     def __init__(self, c, J_left=None, C_left=None, J_right=None, C_right=None, added_diag=None):
+        super(ToeplitzLazyVariable, self).__init__(c, J_left, C_left, J_right, C_right, added_diag)
         if not isinstance(c, Variable):
             raise RuntimeError('ToeplitzLazyVariable is intended to wrap Variable versions of \
                                 the first column and row.')

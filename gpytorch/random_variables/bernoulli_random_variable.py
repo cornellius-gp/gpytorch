@@ -15,6 +15,7 @@ class BernoulliRandomVariable(RandomVariable):
         Params:
         - probability (Variable: scalar or vector n) weights of Bernoulli distribution
         """
+        super(BernoulliRandomVariable, self).__init__(probability)
         if not isinstance(probability, Variable):
             raise RuntimeError('probability should be a Variable')
         if not probability.ndimension() == 1:
