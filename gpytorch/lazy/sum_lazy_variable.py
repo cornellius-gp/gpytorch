@@ -4,6 +4,7 @@ from ..posterior import DefaultPosteriorStrategy
 
 class SumLazyVariable(LazyVariable):
     def __init__(self, *lazy_vars):
+        super(SumLazyVariable, self).__init__(*lazy_vars)
         if not all([isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars]):
             raise RuntimeError('All arguments of a SumLazyVariable should be lazy variables')
 

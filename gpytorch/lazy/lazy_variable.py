@@ -1,7 +1,13 @@
+import torch
+from torch.autograd import Variable
 from ..utils import function_factory
 
 
 class LazyVariable(object):
+    def __init__(self, *args, **kwargs):
+        self._args = args
+        self._kwargs = kwargs
+
     def _matmul_closure_factory(self, *args):
         """
         Generates a closure that performs a *tensor* matrix multiply
@@ -54,6 +60,37 @@ class LazyVariable(object):
         This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
         so this should only be done at the user's risk.
         """
+        raise NotImplementedError
+
+    def cpu(self):
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, 'cpu'):
+                new_args.append(arg.cpu())
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, 'cpu'):
+                new_kwargs[name] = val.cpu()
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
+
+    def cuda(self, device_id=None):
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, 'cuda'):
+                new_args.append(arg.cuda(device_id))
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, 'cuda'):
+                new_kwargs[name] = val.cuda(device_id)
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
 
     def evaluate(self):
         """
@@ -192,3 +229,9 @@ class LazyVariable(object):
 
     def __getitem__(self, index):
         raise NotImplementedError
+
+    def __setattr__(self, name, val):
+        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):
+            if not hasattr(self, '_args'):
+                raise RuntimeError('Cannot assign %s to LazyVariable before calling LazyVariable.__init__()' % name)
+        object.__setattr__(self, name, val)

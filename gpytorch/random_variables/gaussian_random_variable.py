@@ -16,6 +16,7 @@ class GaussianRandomVariable(RandomVariable):
         - mean (Variable: vector n or matrix b x n) mean of Gaussian distribution
         - covar (Variable: matrix n x n or batch matrix b x n x n) covariance of Gaussian distribution
         """
+        super(GaussianRandomVariable, self).__init__(mean, covar)
         if not isinstance(mean, Variable) and not isinstance(mean, LazyVariable):
             raise RuntimeError('The mean of a GaussianRandomVariable must be a Variable')
 

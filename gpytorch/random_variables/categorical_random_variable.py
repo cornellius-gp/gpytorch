@@ -16,6 +16,7 @@ class CategoricalRandomVariable(RandomVariable):
         Params:
         - mass_function (Variable: vector k or matrix n x k) weights of categorical distribution
         """
+        super(CategoricalRandomVariable, self).__init__(mass_function)
         if not isinstance(mass_function, Variable):
             raise RuntimeError('mass_function should be a Variable')
 

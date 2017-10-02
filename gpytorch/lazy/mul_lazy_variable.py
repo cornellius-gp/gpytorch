@@ -15,6 +15,7 @@ class MulLazyVariable(LazyVariable):
             - max_iter (int) - the maximum iteration in lanczos decomposition in when matmul_mode=approximate
             - num_samples (int) - the samples number when matmul_mode=stochastic
         '''
+        super(MulLazyVariable, self).__init__(*lazy_vars, **kwargs)
         if not all([isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars]):
             raise RuntimeError('All arguments of a MulLazyVariable should be lazy variables')
 

@@ -1,4 +1,13 @@
+import torch
+from torch.autograd import Variable
+from ..lazy import LazyVariable
+
+
 class RandomVariable(object):
+    def __init__(self, *args, **kwargs):
+        self._args = args
+        self._kwargs = kwargs
+
     def confidence_region(self):
         """
         Returns 2 standard deviations above and below the mean.
@@ -14,16 +23,34 @@ class RandomVariable(object):
         return mean.sub(std2), mean.add(std2)
 
     def cpu(self):
-        representation = self.representation()
-        if not isinstance(representation, tuple) or isinstance(representation, list):
-            representation = representation,
-        return self.__class__(*(var.cpu() for var in representation))
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, 'cpu'):
+                new_args.append(arg.cpu())
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, 'cpu'):
+                new_kwargs[name] = val.cpu()
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
 
     def cuda(self, device_id=None):
-        representation = self.representation()
-        if not isinstance(representation, tuple) or isinstance(representation, list):
-            representation = representation,
-        return self.__class__(*(var.cuda(device_id) for var in representation))
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, 'cuda'):
+                new_args.append(arg.cuda(device_id))
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, 'cuda'):
+                new_kwargs[name] = val.cuda(device_id)
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
 
     def covar(self):
         """
@@ -103,3 +130,9 @@ class RandomVariable(object):
 
     def __mul__(self, other):
         raise NotImplementedError
+
+    def __setattr__(self, name, val):
+        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):
+            if not hasattr(self, '_args'):
+                raise RuntimeError('Cannot assign %s to LazyVariable before calling LazyVariable.__init__()' % name)
+        object.__setattr__(self, name, val)
