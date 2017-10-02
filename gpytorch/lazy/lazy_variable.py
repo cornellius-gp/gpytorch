@@ -52,7 +52,10 @@ class LazyVariable(object):
         Args:
             - diag (Scalar Variable)
         """
-        raise NotImplementedError
+        from .diag_lazy_variable import DiagLazyVariable
+        if len(self.size()) != 2 or (self.size()[0] != self.size()[1]):
+            raise RuntimeError('add_diag only defined for square matrices')
+        return self + DiagLazyVariable(diag.expand(self.size()[0]))
 
     def add_jitter(self):
         """

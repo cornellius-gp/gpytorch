@@ -36,11 +36,6 @@ class SumLazyVariable(LazyVariable):
             return tuple(var for sub_closure in sub_closures for var in sub_closure(*closure_args))
         return closure
 
-    def add_diag(self, diag):
-        lazy_vars = list(self.lazy_vars[:-1])
-        lazy_vars.append(self.lazy_vars[-1].add_diag(diag))
-        return SumLazyVariable(*lazy_vars)
-
     def add_jitter(self):
         lazy_vars = list(self.lazy_vars[:-1])
         lazy_vars.append(self.lazy_vars[-1].add_jitter())
