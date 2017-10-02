@@ -106,11 +106,12 @@ class MulLazyVariable(LazyVariable):
                     sample_matrix = torch.sign(rhs_mat.new(dim - 1, self.num_samples, n, m).normal_())
                     num_samples = self.num_samples
                 else:
-                    sample_matrix = torch.eye(n).expand(dim - 1, m, n, n).transpose(1, 3).contiguous()
+                    sample_matrix = torch.diag(rhs_mat.new(n).fill_(1)).expand(dim - 1, m, n, n).transpose(1, 3)
+                    sample_matrix = sample_matrix.contiguous()
                     num_samples = n
 
                 sample_matrix_1 = torch.cat((sample_matrix, rhs_mat.expand(1, num_samples, n, m)), dim=0)
-                sample_matrix_2 = torch.cat((torch.ones(1, num_samples, n, m), sample_matrix), dim=0)
+                sample_matrix_2 = torch.cat((rhs_mat.new(1, num_samples, n, m).fill_(1), sample_matrix), dim=0)
 
                 right_factor = (sample_matrix_1 * sample_matrix_2).transpose(1, 2).contiguous()
                 right_factor = right_factor.view(dim, n, num_samples * m)
