@@ -51,7 +51,14 @@ class MulLazyVariable(LazyVariable):
                 self.num_samples = 200
 
     def _matmul_closure_factory(self, *args):
-        if self.matmul_mode == 'approximate':
+        n1, n2 = self.size()
+        if n1 != n2:
+            temp_samples = self.num_samples
+            self.num_samples = self.lazy_vars[0].size()[0]
+            result = self._stoch_deter_matmul_closure_factory(*args)
+            self.num_samples = temp_samples
+            return result
+        elif self.matmul_mode == 'approximate':
             return self._approx_matmul_closure_factory(*args)
         elif self.matmul_mode == 'stochastic' or self.matmul_mode == 'deterministic':
             return self._stoch_deter_matmul_closure_factory(*args)
