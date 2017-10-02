@@ -346,6 +346,14 @@ class MulLazyVariable(LazyVariable):
     def size(self):
         return self.lazy_vars[0].size()
 
+    def t(self):
+        lazy_vars_t = list(lazy_var.t() for lazy_var in self.lazy_vars)
+        return MulLazyVariable(*lazy_vars_t,
+                               matmul_mode=self.matmul_mode,
+                               max_iter=self.max_iter,
+                               num_samples=self.num_samples,
+                               added_diag=self.added_diag)
+
     def __getitem__(self, i):
         sliced_lazy_vars = [lazy_var.__getitem__(i) for lazy_var in self.lazy_vars]
         if self.added_diag is not None:

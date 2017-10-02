@@ -35,5 +35,8 @@ class NonLazyVariable(LazyVariable):
     def representation(self):
         return self.var,
 
+    def t(self):
+        return NonLazyVariable(self.var.t())
+
     def __getitem__(self, index):
         return NonLazyVariable(self.var[index])

@@ -64,6 +64,10 @@ class SumLazyVariable(LazyVariable):
     def posterior_strategy(self):
         return DefaultPosteriorStrategy(self)
 
+    def t(self):
+        lazy_vars_t = list(lazy_var.t() for lazy_var in self.lazy_var)
+        return SumLazyVariable(*lazy_vars_t)
+
     def __add__(self, other):
         if isinstance(other, SumLazyVariable):
             return SumLazyVariable(*(list(self.lazy_vars) + list(other.lazy_vars)))

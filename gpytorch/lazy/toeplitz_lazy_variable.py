@@ -246,6 +246,10 @@ class ToeplitzLazyVariable(LazyVariable):
         else:
             return torch.Size((self.c.size(-1), self.c.size(-1)))
 
+    def t(self):
+        return ToeplitzLazyVariable(self.c, J_left=self.J_right, C_left=self.C_right,
+                                    J_right=self.J_left, C_right=self.C_left, added_diag=self.added_diag)
+
     def __getitem__(self, i):
         if isinstance(i, tuple):
             if not self.is_batch():

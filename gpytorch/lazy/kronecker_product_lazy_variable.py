@@ -225,6 +225,11 @@ class KroneckerProductLazyVariable(LazyVariable):
     def size(self):
         return self._size
 
+    def t(self):
+        return KroneckerProductLazyVariable(self.columns, J_lefts=self.J_rights,
+                                            C_lefts=self.C_rights, J_rights=self.J_lefts,
+                                            C_rights=self.C_lefts, added_diag=self.added_diag)
+
     def __getitem__(self, i):
         if isinstance(i, tuple):
             first_index = i[0]
