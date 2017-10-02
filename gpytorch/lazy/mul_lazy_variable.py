@@ -301,9 +301,12 @@ class MulLazyVariable(LazyVariable):
         return res
 
     def evaluate(self):
-        res = Variable(torch.ones(self.size()))
+        res = None
         for lazy_var in self.lazy_vars:
-            res = res * lazy_var.evaluate()
+            if res is None:
+                res = lazy_var.evaluate()
+            else:
+                res = res * lazy_var.evaluate()
 
         if self.added_diag is not None:
             res = res + self.added_diag.diag()
