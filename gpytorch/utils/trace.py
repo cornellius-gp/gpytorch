@@ -53,13 +53,13 @@ def trace_components(left_matmul_closure, right_matmul_closure, size=None, num_s
     """
     if torch.is_tensor(left_matmul_closure):
         left_matrix = left_matmul_closure
-        size = left_matrix.size(1)
+        size = left_matrix.size(-1)
         tensor_cls = type(left_matrix)
         left_matmul_closure = left_matrix.matmul
 
     if torch.is_tensor(right_matmul_closure):
         right_matrix = right_matmul_closure
-        size = right_matrix.size(1)
+        size = right_matrix.size(-1)
         tensor_cls = type(right_matrix)
         right_matmul_closure = right_matrix.matmul
 

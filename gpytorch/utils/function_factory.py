@@ -2,6 +2,7 @@ from torch.autograd import Function
 from .lincg import LinearCG
 from .lanczos_quadrature import StochasticLQ
 from .trace import trace_components
+import torch
 import math
 
 
@@ -99,7 +100,7 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
                 else:
                     grad_output_matrix = grad_output
 
-                if rhs.ndimension() == 3:
+                if grad_output_matrix.ndimension() == 3:
                     arg_grads = list(derivative_quadratic_form_factory(*args)(grad_output_matrix.transpose(1, 2),
                                                                               rhs.transpose(1, 2)))
                 else:
@@ -211,22 +212,28 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
         def forward(self, *args):
             closure_args = args[:-1]
             labels = args[-1]
+            labels = labels.unsqueeze(-1)
 
             matmul_closure = matmul_closure_factory(*closure_args)
             mat_inv_labels = LinearCG().solve(matmul_closure, labels)
             # Inverse quad form
-            res = mat_inv_labels.dot(labels)
+            res = (mat_inv_labels * labels).sum(-1).sum(-1)
             # Log determinant
             slq = StochasticLQ(num_random_probes=10, cls=type(closure_args[0]))
-            logdet, = slq.evaluate(matmul_closure, len(labels), [lambda x: x.log()])
+            if labels.ndimension() == 3:
+                logdet, = slq.evaluate(matmul_closure, labels.size(1), [lambda x: x.log()], batch_size=labels.size(0))
+            else:
+                logdet, = slq.evaluate(matmul_closure, labels.size(0), [lambda x: x.log()])
 
             res += logdet
-            res += math.log(2 * math.pi) * len(labels)
+            res += math.log(2 * math.pi) * labels.size(-2)
             res *= -0.5
 
             self.mat_inv_labels = mat_inv_labels
             self.matmul_closure = matmul_closure
             self.save_for_backward(*args)
+            if torch.is_tensor(res):
+                return res
             return labels.new().resize_(1).fill_(res)
 
         def backward(self, grad_output):
@@ -234,7 +241,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
                 raise NotImplementedError
 
             closure_args = self.saved_tensors[:-1]
-            labels = self.saved_tensors[-1]
+            labels = self.saved_tensors[-1].unsqueeze(-1)
             mat_inv_labels = self.mat_inv_labels
             grad_output_value = grad_output.squeeze()[0]
 
@@ -250,14 +257,28 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
                     else:
                         closure_arg_grads[i] = None
 
-                quad_form_part = derivative_quadratic_form_factory(*closure_args)(mat_inv_labels, mat_inv_labels)
+                if labels.ndimension() == 3:
+                    function = derivative_quadratic_form_factory(*closure_args)
+                    quad_form_part = function(mat_inv_labels, mat_inv_labels)
+                else:
+                    function = derivative_quadratic_form_factory(*closure_args)
+                    quad_form_part = function(mat_inv_labels.squeeze(1), mat_inv_labels.squeeze(1))
 
                 def left_matmul_closure(sample_matrix):
                     return LinearCG().solve(matmul_closure, sample_matrix)
-                left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=len(labels),
-                                                               tensor_cls=type(mat_inv_labels))
-                closure_arg_grads = list(derivative_quadratic_form_factory(*closure_args)(left_vectors.t(),
-                                                                                          right_vectors.t()))
+
+                if labels.ndimension() == 3:
+                    left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(1),
+                                                                   tensor_cls=type(mat_inv_labels),
+                                                                   dim_num=labels.size(0))
+                    function = derivative_quadratic_form_factory(*closure_args)
+                    closure_arg_grads = list(function(left_vectors.transpose(1, 2), right_vectors.transpose(1, 2)))
+                else:
+                    left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(0),
+                                                                   tensor_cls=type(mat_inv_labels))
+                    closure_arg_grads = list(derivative_quadratic_form_factory(*closure_args)(left_vectors.t(),
+                                                                                              right_vectors.t()))
+
                 for i in range(len(closure_args)):
                     if self.needs_input_grad[i]:
                         closure_arg_grads[i] = quad_form_part[i].add_(-closure_arg_grads[i])
@@ -266,7 +287,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
             # input_2 gradient
             if self.needs_input_grad[-1]:
                 # Need gradient with respect to labels
-                labels_grad = mat_inv_labels.mul_(-grad_output_value)
+                labels_grad = mat_inv_labels.mul_(-grad_output_value).squeeze(-1)
 
             return tuple(closure_arg_grads + [labels_grad])
 
