@@ -179,7 +179,7 @@ def kp_sym_toeplitz_derivative_quadratic_form(columns, left_vectors, right_vecto
 
         left_vectors_i = left_vectors_i.contiguous().view(s, m_left, m_i, m_right).transpose(2, 3)
         if i != d - 1:
-            left_vectors_i = left_vectors_i.transpose(0, 2).contiguous().view(m_right * m_left, s * m_i)
+            left_vectors_i = left_vectors_i.transpose(0, 2).contiguous().view(m_right, m_left * s * m_i)
             left_vectors_i = kronecker_product_toeplitz_matmul(columns[i + 1:], columns[i + 1:], left_vectors_i)
             left_vectors_i = left_vectors_i.contiguous().view(m_right, m_left, s, m_i).transpose(0, 2)
         left_vectors_i = left_vectors_i.contiguous().view(s * m_left * m_right, m_i).contiguous()
