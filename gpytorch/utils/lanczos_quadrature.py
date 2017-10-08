@@ -28,7 +28,7 @@ class StochasticLQ(object):
 
     def lanczos_batch(self, matmul_closure, rhs_vectors):
         dim, num_vectors = rhs_vectors.size()
-        num_iters = min(self.max_iter, dim + 1)
+        num_iters = min(self.max_iter, dim)
 
         Q = self.cls(num_vectors, dim, num_iters).zero_()
         alpha = self.cls(num_vectors, num_iters).zero_()
@@ -46,26 +46,27 @@ class StochasticLQ(object):
         beta[:, 0] = torch.norm(rhs_vectors, 2, dim=0)
         alpha[:, 0] = a
 
-        for k in range(1, num_iters):
-            U, rhs_vectors, alpha_k, beta_k = self._lanczos_step_batch(U, rhs_vectors, matmul_closure, Q[:, :, :k])
+        if num_iters == 1:
+            Ts = alpha[:, :].unsqueeze(1)
+            Qs = Q[:, :, :]
 
-            alpha[:, k] = alpha_k
-            beta[:, k] = beta_k
-            Q[:, :, k] = U.t()
-
-            if all(torch.abs(beta[:, k]) < 1e-4) or all(torch.abs(alpha[:, k]) < 1e-4):
-                break
-
-        if k == 1:
-            Ts = alpha[:, :k].unsqueeze(1)
-            Qs = Q[:, :, :k]
         else:
-            alpha = alpha[:, :k]
-            beta = beta[:, 1:k]
+            for k in range(1, num_iters):
+                U, rhs_vectors, alpha_k, beta_k = self._lanczos_step_batch(U, rhs_vectors, matmul_closure, Q[:, :, :k])
 
-            Qs = Q[:, :, :k]
+                alpha[:, k] = alpha_k
+                beta[:, k] = beta_k
+                Q[:, :, k] = U.t()
 
-            Ts = self.cls(num_vectors, k, k)
+                if all(torch.abs(beta[:, k]) < 1e-4) or all(torch.abs(alpha[:, k]) < 1e-4):
+                    break
+
+            alpha = alpha[:, :k + 1]
+            beta = beta[:, 1:k + 1]
+
+            Qs = Q[:, :, :k + 1]
+
+            Ts = self.cls(num_vectors, k + 1, k + 1)
             for i in range(num_vectors):
                 Ts[i, :, :] = torch.diag(alpha[i, :]) + torch.diag(beta[i, :], 1) + torch.diag(beta[i, :], -1)
 
