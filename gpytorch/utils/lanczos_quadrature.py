@@ -28,7 +28,7 @@ class StochasticLQ(object):
 
     def lanczos_batch(self, matmul_closure, rhs_vectors):
         dim, num_vectors = rhs_vectors.size()
-        num_iters = min(self.max_iter, dim)
+        num_iters = min(self.max_iter, dim + 1)
 
         Q = self.cls(num_vectors, dim, num_iters).zero_()
         alpha = self.cls(num_vectors, num_iters).zero_()
