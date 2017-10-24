@@ -16,24 +16,37 @@ Some things you can do right now:
 - Scalable GP classification using kernel interpolation ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/kissgp_gp_classification.ipynb))
 - Scalable GP regression in multiple dimensions ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/kissgp_kronecker_product_regression.ipynb))
 - Scalable GP classification in multiple dimensions ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/kissgp_kronecker_product_classification.ipynb))
+
 ## Installation
 
-Make sure you have PyTorch (>= 0.2.0) installed.
+### Global installation
 
-In addition, you will need libfftw3 (>= 3.3.6) installed on your machine. This can be downloaded [here](http://www.fftw.org/download.html), or installed for example on Ubuntu using
+The easiest way to install GPyTorch is by installing the dependencies we require, `PyTorch >= 0.2.0` and `libfftw3 > 3.3.6` ([source](http://www.fftw.org/download.html)) using conda, and then installing 
+GPyTorch using pip. This can be accomplished globally using one of the two sets of commands below depending on whether you want CUDA support.
 
+For CUDA/GPU support, run:
 ```bash
-sudo apt-get install libfftw3-3
+conda install fftw cffi pytorch torchvision cuda80 -c conda-forge -c soumith
+pip install git+https://github.com/jrg365/gpytorch.git
 ```
 
-If you install libfftw3 from source, be sure to run `configure` with `--enable-shared`. Our build script by default looks for libraries in `/usr/local/lib`, which is the default installation
-location for libfftw3. If it is installed elsewhere, however, be sure to either add the new location to your `LD_LIBRARY_PATH` environment variable, or add the new location to `build.py` in
-`library_dirs`.
+If you do not have or do not wish to use CUDA, instead run:
+```bash
+conda install fftw cffi pytorch torchvision -c conda-forge -c soumith
+pip install git+https://github.com/jrg365/gpytorch.git
+```
+
+If you install libfftw3 from source, be sure to run `configure` with `--enable-shared`. To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.
+
+### Installation in a conda environment
+
+We also provide two conda environment files, `environment.yml` and `environment_cuda.yml`. As an example, to install GPyTorch in a conda environment with cuda support, run:
 
 ```bash
-git clone https://github.com/jrg365/gpytorch.git
-cd gpytorch
-python setup.py install
+git clone git+https://github.com/jrg365/gpytorch.git
+conda create -f gpytorch/environment_cuda.yml
+source activate gpytorch
+pip install gpytorch/
 ```
 
 ## Documentation
