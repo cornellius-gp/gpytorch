@@ -1,5 +1,5 @@
 from gpytorch.lazy import LazyVariable
-from non_lazy_variable import NonLazyVariable
+from .non_lazy_variable import NonLazyVariable
 
 
 class DiagLazyVariable(LazyVariable):
