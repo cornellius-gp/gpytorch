@@ -40,6 +40,7 @@ gp_model = SpectralMixtureGPModel()
 
 def test_spectral_mixture_gp_mean_abs_error():
     gp_model = SpectralMixtureGPModel()
+    gp_model.covar_module.initialize(train_x, train_y)
     gp_model.condition(train_x, train_y)
 
     # Optimize the model
@@ -48,7 +49,7 @@ def test_spectral_mixture_gp_mean_abs_error():
     optimizer.n_iter = 0
 
     gpytorch.functions.fastest = False
-    for i in range(50):
+    for i in range(200):
         optimizer.zero_grad()
         output = gp_model(train_x)
         loss = -gp_model.marginal_log_likelihood(output, train_y)
