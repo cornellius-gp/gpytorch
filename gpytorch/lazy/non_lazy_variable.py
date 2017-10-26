@@ -27,6 +27,9 @@ class NonLazyVariable(LazyVariable):
     def add_diag(self, diag):
         return NonLazyVariable(gpytorch.add_diag(self.var, diag))
 
+    def diag(self):
+        return self.var.diag()
+
     def evaluate(self):
         return self.var
 
@@ -38,6 +41,9 @@ class NonLazyVariable(LazyVariable):
 
     def representation(self):
         return self.var,
+
+    def size(self):
+        return self.var.size()
 
     def t(self):
         return NonLazyVariable(self.var.t())

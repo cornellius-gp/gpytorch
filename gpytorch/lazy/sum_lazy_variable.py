@@ -41,6 +41,10 @@ class SumLazyVariable(LazyVariable):
         lazy_vars.append(self.lazy_vars[-1].add_jitter())
         return SumLazyVariable(*lazy_vars)
 
+    def diag(self):
+        print([lazy_var for lazy_var in self.lazy_vars])
+        return sum(lazy_var.diag() for lazy_var in self.lazy_vars)
+
     def evaluate(self):
         return sum(lazy_var.evaluate() for lazy_var in self.lazy_vars)
 

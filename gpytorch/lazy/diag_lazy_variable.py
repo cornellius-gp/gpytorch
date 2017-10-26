@@ -11,7 +11,7 @@ class DiagLazyVariable(LazyVariable):
         - diag (Variable: n) diagonal of matrix
         """
         super(DiagLazyVariable, self).__init__(diag)
-        self.diag = diag
+        self._diag = diag
 
     def _matmul_closure_factory(self, diag):
         def closure(tensor):
@@ -33,19 +33,22 @@ class DiagLazyVariable(LazyVariable):
         return closure
 
     def add_diag(self, added_diag):
-        return DiagLazyVariable(self.diag + added_diag.expand_as(self.diag))
+        return DiagLazyVariable(self._diag + added_diag.expand_as(self._diag))
+
+    def diag(self):
+        return self._diag
 
     def evaluate(self):
-        return self.diag.diag()
+        return self._diag.diag()
 
     def mul(self, constant):
-        return DiagLazyVariable(self.diag * constant)
+        return DiagLazyVariable(self._diag * constant)
 
     def representation(self):
-        return self.diag,
+        return self._diag,
 
     def __getitem__(self, index):
         return NonLazyVariable(self.evaluate())[index]
 
     def size(self):
-        return self.diag.size(0), self.diag.size(0)
+        return self._diag.size(0), self._diag.size(0)
