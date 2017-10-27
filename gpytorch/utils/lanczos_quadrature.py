@@ -139,7 +139,7 @@ class StochasticLQ(object):
         if torch.is_tensor(matmul_closure):
             lhs = matmul_closure
             if lhs.numel() == 1:
-                return [func(lhs.squeeze()[0]) for func in funcs]
+                return [func(lhs).squeeze()[0] for func in funcs]
 
             def default_matmul_closure(tensor):
                 return lhs.matmul(tensor)
