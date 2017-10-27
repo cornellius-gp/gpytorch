@@ -39,7 +39,10 @@ class RBFFunction(Function):
     def backward(self, grad_output):
         kernel, = self.saved_tensors
         grad = kernel.log().mul_(-1).mul_(kernel)
-        grad.mul_(grad_output.transpose(0, 1))
+        if grad_output.numel() == 1:
+            grad.mul_(grad_output)
+        else:
+            grad.mul_(grad_output.transpose(0, 1))
         return grad
 
 

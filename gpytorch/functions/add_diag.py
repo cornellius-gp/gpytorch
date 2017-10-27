@@ -19,6 +19,9 @@ class AddDiag(Function):
 
         if self.needs_input_grad[1]:
             diag_grad = grad_output.new().resize_(1)
-            diag_grad.fill_(grad_output.trace())
+            if grad_output.numel() == 1:
+                diag_grad.fill_(grad_output[0])
+            else:
+                diag_grad.fill_(grad_output.trace())
 
         return input_grad, diag_grad
