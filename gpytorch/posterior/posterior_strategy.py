@@ -1,3 +1,9 @@
+import gpytorch
+import torch
+from ..lazy import LazyVariable
+from ..utils import StochasticLQ
+
+
 class PosteriorStrategy(object):
     def __init__(self, var):
         """
@@ -12,6 +18,16 @@ class PosteriorStrategy(object):
         """
         raise NotImplementedError
 
+    def lanczos_size(self):
+        """
+        Returns the sizes of the lanczos decompositon matrices (Q and T)
+        """
+        var_size = self.var.size()[1]
+        max_iter = min(var_size, gpytorch.functions.max_lanczos_iterations)
+        q_size = torch.Size((var_size, max_iter))
+        t_size = torch.Size((max_iter, max_iter))
+        return q_size, t_size
+
     def exact_posterior_alpha(self, train_mean, train_y):
         """
         Assumes that self.var represents the train-train prior covariance matrix.
@@ -25,6 +41,34 @@ class PosteriorStrategy(object):
             - train_y (Variable n) - alpha vector, computed from exact_posterior_alpha
         """
         raise NotImplementedError
+
+    def exact_posterior_lanczos(self):
+        """
+        Computes the lanczos decomposition of the train_train_covariance matrix
+        ((Lazy)Variable nxn)
+
+        k -- the rank of the Lanczos decomposition -- is determined by
+        gpytorch.functions.max_lanczos_iterations
+
+        Returns:
+            - q_mat (matrix (nxk)) - Lanczos Q matrix of train/train covariance matrix
+            - t_mat (matrix (kxk)) - Lanczos Q matrix of train/train covariance matrix
+        """
+        if isinstance(self.var, LazyVariable):
+            train_train_representation = [var.data for var in self.var.representation()]
+            train_train_matmul = self.var._matmul_closure_factory(*train_train_representation)
+            tensor_cls = type(train_train_representation[0])
+        else:
+            train_train_matmul = self.var.data.matmul
+            tensor_cls = type(self.var.data)
+
+        n_train = self.var.size()[0]
+        max_iter = min(n_train, gpytorch.functions.max_lanczos_iterations)
+        lq_object = StochasticLQ(cls=tensor_cls, max_iter=max_iter)
+        init_vector = tensor_cls(n_train, 1).normal_()
+        init_vector /= torch.norm(init_vector, 2, 0)
+        q_mat, t_mat = lq_object.lanczos_batch(train_train_matmul, init_vector)
+        return q_mat[0], t_mat[0]
 
     def exact_posterior_mean(self, test_mean, alpha):
         """
@@ -54,7 +98,39 @@ class PosteriorStrategy(object):
             - train_test_covar ((Lazy)Variable nxm) - prior covariance matrix between training and test points.
             - test_test_covar ((Lazy)Variable mxm) - prior covariance matrix between test points
         """
-        raise NotImplementedError
+        from ..lazy import NonLazyVariable, MatmulLazyVariable
+        if isinstance(train_test_covar, LazyVariable):
+            train_test_covar = train_test_covar.evaluate()
+        if isinstance(test_train_covar, LazyVariable):
+            test_train_covar = train_test_covar.t()
+        if not isinstance(test_test_covar, LazyVariable):
+            test_test_covar = NonLazyVariable(test_test_covar)
+
+        covar_correction_rhs = gpytorch.inv_matmul(self.var, train_test_covar).mul_(-1)
+        return test_test_covar + MatmulLazyVariable(test_train_covar, covar_correction_rhs)
+
+    def exact_posterior_covar_fast(self, lanczos_q_var, lanczos_t_var):
+        """
+        Returns the covar of the posterior GP on test points, given
+        prior means/covars
+
+        Assumes self.var is the full prior covar
+        ((Lazy)Variable (n+m)x(n+m))
+
+        Args:
+            - lanczos_q_var (Variable nxk) - Q matrix of Lanczos decomposition of train/train covariance matrix
+            - lanczos_t_var (Variable kxk) - T matrix of Lanczos decomposition of train/train covariance matrix
+        """
+        from ..lazy import NonLazyVariable, MatmulLazyVariable
+        n_train = lanczos_q_var.size(0)
+        test_train_covar = self.var[n_train:, :n_train]
+        test_test_covar = self.var[n_train:, n_train:]
+        if not isinstance(test_test_covar, LazyVariable):
+            test_test_covar = NonLazyVariable(test_test_covar)
+
+        covar_correction_lhs = test_train_covar.matmul(lanczos_q_var)
+        covar_correction_rhs = covar_correction_lhs.matmul(lanczos_t_var.inverse()).mul_(-1)
+        return test_test_covar + MatmulLazyVariable(covar_correction_lhs, covar_correction_rhs.t())
 
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
         """

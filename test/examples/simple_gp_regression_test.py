@@ -48,6 +48,9 @@ def test_gp_prior_and_likelihood():
 
 
 def test_posterior_latent_gp_and_likelihood_without_optimization():
+    fast_pred_var = gpytorch.functions.fast_pred_var
+    gpytorch.functions.fast_pred_var = False
+
     # We're manually going to set the hyperparameters to be ridiculous
     gp_model = ExactGPModel()
     # Update bounds to accomodate extreme parameters
@@ -65,6 +68,7 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
     # Let's see how our model does, conditioned with weird hyperparams
     # The posterior should fit all the data
     function_predictions = gp_model(train_x)
+
     assert(torch.norm(function_predictions.mean().data - train_y.data) < 1e-3)
     assert(torch.norm(function_predictions.var().data) < 1e-3)
 
@@ -73,6 +77,8 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
 
     assert(torch.norm(test_function_predictions.mean().data - 0) < 1e-4)
     assert(torch.norm(test_function_predictions.var().data - 1) < 1e-4)
+
+    fast_pred_var = gpytorch.functions.fast_pred_var = fast_pred_var
 
 
 def test_posterior_latent_gp_and_likelihood_with_optimization():
