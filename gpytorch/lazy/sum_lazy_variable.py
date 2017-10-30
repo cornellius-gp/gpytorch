@@ -42,7 +42,6 @@ class SumLazyVariable(LazyVariable):
         return SumLazyVariable(*lazy_vars)
 
     def diag(self):
-        print([lazy_var for lazy_var in self.lazy_vars])
         return sum(lazy_var.diag() for lazy_var in self.lazy_vars)
 
     def evaluate(self):
