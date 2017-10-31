@@ -157,7 +157,8 @@ class Module(nn.Module):
     def _set_conditioning_flag(self, mode=True):
         self.conditioning = mode
         for module in self.children():
-            module._set_conditioning_flag(mode)
+            if isinstance(module, Module):
+                module._set_conditioning_flag(mode)
 
     def condition(self, train_inputs, train_target=None, **kwargs):
         """
