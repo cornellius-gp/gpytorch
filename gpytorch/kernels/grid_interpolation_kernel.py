@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Variable
 from .kernel import Kernel
 from gpytorch.utils.interpolation import Interpolation
-from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable
+from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, InterpolatedLazyVariable
 
 
 class GridInterpolationKernel(Kernel):
@@ -103,6 +103,7 @@ class GridInterpolationKernel(Kernel):
             K_XX = KroneckerProductLazyVariable(k_UUs, J1, C1, J2, C2)
         else:
             k_UU = self.base_kernel_module(grid_var[0, 0], grid_var[0], **kwargs).squeeze()
-            K_XX = ToeplitzLazyVariable(k_UU, J1, C1, J2, C2)
+            K_XX = InterpolatedLazyVariable(ToeplitzLazyVariable(k_UU), Variable(J1), Variable(C1),
+                                            Variable(J2), Variable(C2))
 
         return K_XX

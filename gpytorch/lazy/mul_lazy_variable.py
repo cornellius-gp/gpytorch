@@ -1,4 +1,5 @@
 from .lazy_variable import LazyVariable
+from .non_lazy_variable import NonLazyVariable
 from ..posterior import DefaultPosteriorStrategy
 import torch
 from torch.autograd import Variable
@@ -15,9 +16,14 @@ class MulLazyVariable(LazyVariable):
             - max_iter (int) - the maximum iteration in lanczos decomposition in when matmul_mode=approximate
             - num_samples (int) - the samples number when matmul_mode=stochastic
         '''
+        lazy_vars = list(lazy_vars)
+        for i, lazy_var in enumerate(lazy_vars):
+            if not isinstance(lazy_var, LazyVariable):
+                if isinstance(lazy_var, Variable):
+                    lazy_vars[i] = NonLazyVariable(lazy_var)
+                else:
+                    raise RuntimeError('All arguments of a SumLazyVariable should be lazy variables or vairables')
         super(MulLazyVariable, self).__init__(*lazy_vars, **kwargs)
-        if not all([isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars]):
-            raise RuntimeError('All arguments of a MulLazyVariable should be lazy variables')
 
         self.lazy_vars = lazy_vars
 
@@ -343,7 +349,7 @@ class MulLazyVariable(LazyVariable):
     def size(self):
         return self.lazy_vars[0].size()
 
-    def t(self):
+    def _transpose_nonbatch(self):
         lazy_vars_t = list(lazy_var.t() for lazy_var in self.lazy_vars)
         return MulLazyVariable(*lazy_vars_t,
                                matmul_mode=self.matmul_mode,

@@ -33,9 +33,6 @@ class NonLazyVariable(LazyVariable):
     def evaluate(self):
         return self.var
 
-    def mul(self, constant):
-        return NonLazyVariable(self.var.mul(constant))
-
     def posterior_strategy(self):
         return DefaultPosteriorStrategy(self)
 
@@ -45,8 +42,11 @@ class NonLazyVariable(LazyVariable):
     def size(self):
         return self.var.size()
 
-    def t(self):
-        return NonLazyVariable(self.var.t())
+    def _transpose_nonbatch(self):
+        return NonLazyVariable(self.var.transpose(-1, -2))
 
     def __getitem__(self, index):
         return NonLazyVariable(self.var[index])
+
+    def _get_indices(self, left_indices, right_indices):
+        return self.var[left_indices.data, right_indices.data]

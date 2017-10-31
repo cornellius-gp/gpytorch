@@ -2,7 +2,7 @@ import math
 import torch
 import gpytorch
 from torch.autograd import Variable
-from gpytorch.lazy import ToeplitzLazyVariable
+from gpytorch.lazy import ToeplitzLazyVariable, InterpolatedLazyVariable
 
 
 def make_sum_lazy_var():
@@ -55,8 +55,8 @@ def test_exact_gp_mll():
     # Test backwards
     mll_res.backward()
     mll_actual.backward()
-    assert(math.fabs(c1_var.grad.data[0] - t1.c.grad.data[0]) < 1e-1)
-    assert(math.fabs(c2_var.grad.data[0] - t2.c.grad.data[0]) < 1e-1)
+    assert(math.fabs(c1_var.grad.data[0] - t1.column.grad.data[0]) < 1e-1)
+    assert(math.fabs(c2_var.grad.data[0] - t2.column.grad.data[0]) < 1e-1)
 
 
 def test_trace_log_det_quad_form():
@@ -80,13 +80,13 @@ def test_trace_log_det_quad_form():
     # Test backwards
     tldqf_res.backward()
     tldqf_actual.backward()
-    assert(math.fabs(c1_var.grad.data[0] - t1.c.grad.data[0]) < 1e-1)
-    assert(math.fabs(c2_var.grad.data[0] - t2.c.grad.data[0]) < 1e-1)
+    assert(math.fabs(c1_var.grad.data[0] - t1.column.grad.data[0]) < 1e-1)
+    assert(math.fabs(c2_var.grad.data[0] - t2.column.grad.data[0]) < 1e-1)
 
 
 def test_getitem():
     res = make_sum_lazy_var()[1, 1]
-    assert torch.norm(res.evaluate().data - (t1_eval + t2_eval)[1, 1]) < 1e-3
+    assert torch.norm(res.data - (t1_eval + t2_eval)[1, 1]) < 1e-3
 
 
 def test_exact_posterior():
@@ -97,10 +97,10 @@ def test_exact_posterior():
     # Test case
     c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
     c2_var = Variable(torch.Tensor([6, 0, 1, -1]), requires_grad=True)
-    indices = torch.arange(0, 4).long().view(4, 1)
-    values = torch.ones(4).view(4, 1)
-    toeplitz_1 = ToeplitzLazyVariable(c1_var, indices, values, indices, values)
-    toeplitz_2 = ToeplitzLazyVariable(c2_var, indices, values, indices, values)
+    indices = Variable(torch.arange(0, 4).long().view(4, 1))
+    values = Variable(torch.ones(4).view(4, 1))
+    toeplitz_1 = InterpolatedLazyVariable(ToeplitzLazyVariable(c1_var), indices, values, indices, values)
+    toeplitz_2 = InterpolatedLazyVariable(ToeplitzLazyVariable(c2_var), indices, values, indices, values)
     sum_lv = toeplitz_1 + toeplitz_2
 
     # Actual case

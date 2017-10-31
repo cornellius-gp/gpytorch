@@ -17,9 +17,9 @@ def _default_derivative_quadratic_form_factory(mat):
         else:
             left_factor = left_vectors.contiguous()
             right_factor = right_vectors.contiguous()
-        left_factor.unsqueeze_(2)
-        right_factor.unsqueeze_(1)
-        res = (left_factor * right_factor).sum(dim=0).squeeze_()
+        left_factor.unsqueeze_(-1)
+        right_factor.unsqueeze_(-2)
+        res = (left_factor * right_factor).sum(dim=-3).squeeze_()
         return res,
     return closure
 
@@ -99,7 +99,11 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
                 else:
                     grad_output_matrix = grad_output
 
-                arg_grads = list(derivative_quadratic_form_factory(*args)(grad_output_matrix.t(), rhs.t()))
+                if rhs.ndimension() == 3:
+                    arg_grads = list(derivative_quadratic_form_factory(*args)(grad_output_matrix.transpose(1, 2),
+                                                                              rhs.transpose(1, 2)))
+                else:
+                    arg_grads = list(derivative_quadratic_form_factory(*args)(grad_output_matrix.t(), rhs.t()))
 
             # input_2 gradient
             if self.needs_input_grad[-1]:

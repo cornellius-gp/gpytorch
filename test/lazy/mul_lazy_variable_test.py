@@ -2,7 +2,7 @@ import math
 import torch
 import gpytorch
 from torch.autograd import Variable
-from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, MulLazyVariable
+from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, MulLazyVariable, InterpolatedLazyVariable
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
@@ -120,9 +120,9 @@ def test_exact_gp_mll():
     mll_res.backward()
     mll_actual.backward()
 
-    assert((c1_var.grad.data - t1.c.grad.data).abs().norm() / c1_var.grad.data.abs().norm() < 1e-1)
+    assert((c1_var.grad.data - t1.column.grad.data).abs().norm() / c1_var.grad.data.abs().norm() < 1e-1)
     assert((c2_var.grad.data - t2.columns.grad.data).abs().norm() / c2_var.grad.data.abs().norm() < 1e-1)
-    assert((c3_var.grad.data - t3.c.grad.data).abs().norm() / c3_var.grad.data.abs().norm() < 1e-1)
+    assert((c3_var.grad.data - t3.column.grad.data).abs().norm() / c3_var.grad.data.abs().norm() < 1e-1)
     assert((diag_var.grad.data - diag.grad.data).abs().norm() / diag_var.grad.data.abs().norm() < 1e-1)
 
 
@@ -153,9 +153,9 @@ def test_trace_log_det_quad_form():
     # Test backwards
     tldqf_res.backward()
     tldqf_actual.backward()
-    assert((c1_var.grad.data - t1.c.grad.data).abs().norm() / c1_var.grad.data.abs().norm() < 1e-1)
+    assert((c1_var.grad.data - t1.column.grad.data).abs().norm() / c1_var.grad.data.abs().norm() < 1e-1)
     assert((c2_var.grad.data - t2.columns.grad.data).abs().norm() / c2_var.grad.data.abs().norm() < 1e-1)
-    assert((c3_var.grad.data - t3.c.grad.data).abs().norm() / c3_var.grad.data.abs().norm() < 1e-1)
+    assert((c3_var.grad.data - t3.column.grad.data).abs().norm() / c3_var.grad.data.abs().norm() < 1e-1)
     assert((diag_var.grad.data - diag.grad.data).abs().norm() / diag_var.grad.data.abs().norm() < 1e-1)
 
 
@@ -179,9 +179,11 @@ def test_exact_posterior():
     values_2 = torch.ones(8).view(2, 4, 1)
     indices_3 = torch.arange(0, 4).long().view(4, 1)
     values_3 = torch.ones(4).view(4, 1)
-    toeplitz_1 = ToeplitzLazyVariable(c1_var, indices_1, values_1, indices_1, values_1)
+    toeplitz_1 = InterpolatedLazyVariable(ToeplitzLazyVariable(c1_var), Variable(indices_1), Variable(values_1),
+                                          Variable(indices_1), Variable(values_1))
     kronecker_product = KroneckerProductLazyVariable(c2_var, indices_2, values_2, indices_2, values_2)
-    toeplitz_2 = ToeplitzLazyVariable(c3_var, indices_3, values_3, indices_3, values_3)
+    toeplitz_2 = InterpolatedLazyVariable(ToeplitzLazyVariable(c3_var), Variable(indices_3), Variable(values_3),
+                                          Variable(indices_3), Variable(values_3))
     mul_lv = toeplitz_1 * kronecker_product * toeplitz_2
 
     # Actual case

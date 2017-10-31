@@ -132,28 +132,10 @@ class KroneckerProductLazyVariable(LazyVariable):
 
         return diag
 
-    def evaluate(self):
-        """
-        Explicitly evaluate and return the Kronecer Product matrix this object wraps as a float Tensor.
-        To do this, we explicitly compute W_{left}TW_{right}^{T} and return it.
-
-        Warning: as implicitly stored by this LazyVariable, W is very sparse and T requires O(m)
-        storage, where as the full matrix requires O(m^2) storage. Calling evaluate can very easily
-        lead to memory issues. As a result, using it should be a last resort.
-        """
-
-        if self.J_rights is not None:
-            eye = Variable(self.columns.data.new(self._size[1]).fill_(1).diag())
-        else:
-            eye = Variable(self.columns.data.new(self.kronecker_product_size).fill_(1).diag())
-        res = self.matmul(eye)
-        return res
-
     def mul(self, other):
         """
         Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,
         we multiply the first Toeplitz component of this KroneckerProductLazyVariable by the constant.
-
         Args:
             - other (broadcastable with self.columns[0]) - Constant to multiply by.
         Returns:
@@ -170,13 +152,6 @@ class KroneckerProductLazyVariable(LazyVariable):
             columns = columns * other
             return KroneckerProductLazyVariable(columns, self.J_lefts, self.C_lefts,
                                                 self.J_rights, self.C_rights, self.added_diag)
-
-    def mul_(self, other):
-        """
-        In-place version of mul.
-        """
-        self.columns[0].mul_(other)
-        return self
 
     def posterior_strategy(self):
         if not hasattr(self, '_posterior_strategy'):
@@ -215,7 +190,7 @@ class KroneckerProductLazyVariable(LazyVariable):
     def size(self):
         return self._size
 
-    def t(self):
+    def _transpose_nonbatch(self):
         return KroneckerProductLazyVariable(self.columns, J_lefts=self.J_rights,
                                             C_lefts=self.C_rights, J_rights=self.J_lefts,
                                             C_rights=self.C_lefts, added_diag=self.added_diag)

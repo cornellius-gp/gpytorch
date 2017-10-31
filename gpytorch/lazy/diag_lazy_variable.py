@@ -41,9 +41,6 @@ class DiagLazyVariable(LazyVariable):
     def evaluate(self):
         return self._diag.diag()
 
-    def mul(self, constant):
-        return DiagLazyVariable(self._diag * constant)
-
     def representation(self):
         return self._diag,
 

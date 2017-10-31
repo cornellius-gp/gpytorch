@@ -86,8 +86,8 @@ class GridInducingPointModule(InducingPointModule):
             else:
                 # Compute test mean
                 # Left multiply samples by interpolation matrix
-                interp_indices = Variable(test_test_covar.J_left)
-                interp_values = Variable(test_test_covar.C_left)
+                interp_indices = test_test_covar.left_interp_indices
+                interp_values = test_test_covar.left_interp_values
                 mean_output = alpha.index_select(0, interp_indices.view(-1)).view(*interp_values.size())
                 mean_output = mean_output.mul(interp_values)
                 test_mean = mean_output.sum(-1)

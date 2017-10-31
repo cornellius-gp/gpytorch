@@ -1,12 +1,19 @@
 from .lazy_variable import LazyVariable
+from .non_lazy_variable import NonLazyVariable
 from ..posterior import DefaultPosteriorStrategy
+from torch.autograd import Variable
 
 
 class SumLazyVariable(LazyVariable):
     def __init__(self, *lazy_vars):
+        lazy_vars = list(lazy_vars)
+        for i, lazy_var in enumerate(lazy_vars):
+            if not isinstance(lazy_var, LazyVariable):
+                if isinstance(lazy_var, Variable):
+                    lazy_vars[i] = NonLazyVariable(lazy_var)
+                else:
+                    raise RuntimeError('All arguments of a SumLazyVariable should be lazy variables or vairables')
         super(SumLazyVariable, self).__init__(*lazy_vars)
-        if not all([isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars]):
-            raise RuntimeError('All arguments of a SumLazyVariable should be lazy variables')
 
         self.lazy_vars = lazy_vars
 
@@ -44,14 +51,6 @@ class SumLazyVariable(LazyVariable):
     def diag(self):
         return sum(lazy_var.diag() for lazy_var in self.lazy_vars)
 
-    def evaluate(self):
-        return sum(lazy_var.evaluate() for lazy_var in self.lazy_vars)
-
-    def mul(self, other):
-        if not isinstance(other, int) and not isinstance(other, float):
-            raise RuntimeError('Can only multiply by scalars')
-        return SumLazyVariable(*(lazy_var * other for lazy_var in self.lazy_vars))
-
     def representation(self):
         res = tuple(var for lazy_var in self.lazy_vars for var in lazy_var.representation())
         return res
@@ -59,7 +58,7 @@ class SumLazyVariable(LazyVariable):
     def posterior_strategy(self):
         return DefaultPosteriorStrategy(self)
 
-    def t(self):
+    def _transpose_nonbatch(self):
         lazy_vars_t = list(lazy_var.t() for lazy_var in self.lazy_var)
         return SumLazyVariable(*lazy_vars_t)
 
@@ -73,7 +72,7 @@ class SumLazyVariable(LazyVariable):
 
     def __getitem__(self, i):
         sliced_lazy_vars = [lazy_var.__getitem__(i) for lazy_var in self.lazy_vars]
-        return SumLazyVariable(*sliced_lazy_vars)
+        return sum(*sliced_lazy_vars)
 
     def size(self):
         return self.lazy_vars[0].size()
