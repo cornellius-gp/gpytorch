@@ -145,7 +145,7 @@ class KroneckerProductLazyVariable(LazyVariable):
             return MulLazyVariable(self, other)
         else:
             columns = self.columns
-            mask = torch.zeros(columns.size())
+            mask = self.columns.data.new(columns.size()).zero_()
             mask[0] = mask[0] + 1
             mask = Variable(mask)
             other = mask * (other - 1).expand_as(mask) + 1
