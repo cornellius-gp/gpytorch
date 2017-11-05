@@ -1,5 +1,6 @@
 import torch
 import gpytorch
+from torch.autograd import Variable
 from .posterior_strategy import PosteriorStrategy
 
 
@@ -44,6 +45,16 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
         test_test_covar_correction = torch.matmul(test_train_covar, gpytorch.inv_matmul(self.var, train_test_covar))
         gpytorch.functions.max_cg_iterations /= 10
         return test_test_covar.sub(test_test_covar_correction)
+
+    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
+        epsilon = Variable(variational_mean.data.new(variational_mean.size(0),
+                           gpytorch.functions.num_trace_samples).normal_())
+        samples = chol_var_covar.mm(epsilon)
+        samples = samples + variational_mean.unsqueeze(1).expand_as(samples)
+        samples = gpytorch.dsmm(self.interp_left, samples)
+        log_likelihood = log_probability_func(samples, train_y)
+
+        return log_likelihood
 
     def variational_posterior_alpha(self, variational_mean):
         return variational_mean.add(0)  # Trick to ensure that we're not returning a Paremeter

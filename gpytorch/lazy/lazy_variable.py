@@ -158,23 +158,6 @@ class LazyVariable(object):
         args = list(self.representation()) + [tensor]
         return self._matmul_class()(*args)
 
-    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
-        """
-        Performs Monte Carlo integration of the provided log_probability function. Typically, this should work by
-        drawing samples of u from the variational posterior, transforming these in to samples of f using the information
-        stored in this LazyVariable, and then calling the log_probability_func with these samples and train_y.
-
-        Args:
-            - log_probability_func (function) - Log probability function to integrate.
-            - train_y (vector n) - Training label vector.
-            - variational_mean (vector m) - Mean vector of the variational posterior.
-            - chol_var_covar (matrix m x m) - Cholesky decomposition of the variational posterior covariance matrix.
-        Returns:
-            - The average of calling log_probability_func on num_samples samples of f, where f is sampled from the
-              current posterior.
-        """
-        raise NotImplementedError
-
     def mul(self, constant):
         """
         Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,

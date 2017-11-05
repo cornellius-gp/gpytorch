@@ -56,6 +56,21 @@ class PosteriorStrategy(object):
         """
         raise NotImplementedError
 
+    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
+        """
+        Computes the expected likelihood component of the variational marginal log likelihood, using MC integration
+
+        Assumes self.var is the training prior covariance
+        ((Lazy)Variable nxn)
+
+        Args:
+            - log_probability_func
+            - train_y
+            - variational_mean
+            - chol_var_covar
+        """
+        raise NotImplementedError
+
     def variational_posterior_alpha(self, variational_mean):
         """
         Returns alpha - a vector to memoize for calculating the

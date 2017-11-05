@@ -2,7 +2,7 @@ from torch.autograd import Variable
 from .lazy import LazyVariable, ToeplitzLazyVariable
 from .module import Module
 from .gp_model import GPModel
-from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF, num_trace_samples
+from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
 from .posterior import DefaultPosteriorStrategy
 
@@ -103,23 +103,6 @@ def log_normal_cdf(x):
     return LogNormalCDF()(x)
 
 
-def monte_carlo_log_likelihood(log_probability_func, train_y,
-                               variational_mean, chol_var_covar,
-                               train_covar):
-    if isinstance(train_covar, LazyVariable):
-        log_likelihood = train_covar.monte_carlo_log_likelihood(log_probability_func,
-                                                                train_y,
-                                                                variational_mean,
-                                                                chol_var_covar)
-    else:
-        epsilon = Variable(train_covar.data.new(len(train_covar), num_trace_samples).normal_())
-        samples = chol_var_covar.t().mm(epsilon)
-        samples = samples + variational_mean.unsqueeze(1)
-        log_likelihood = log_probability_func(samples, train_y)
-
-    return log_likelihood
-
-
 def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2):
     """
     PyTorch function for computing the KL-Divergence between two multivariate
@@ -183,7 +166,6 @@ __all__ = [
     exact_gp_marginal_log_likelihood,
     inv_matmul,
     log_normal_cdf,
-    monte_carlo_log_likelihood,
     mvn_kl_divergence,
     normal_cdf,
     posterior_strategy,

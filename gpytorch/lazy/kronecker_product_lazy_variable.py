@@ -1,6 +1,5 @@
 import torch
 import math
-import gpytorch
 from .lazy_variable import LazyVariable
 from .mul_lazy_variable import MulLazyVariable
 from torch.autograd import Variable
@@ -149,15 +148,6 @@ class KroneckerProductLazyVariable(LazyVariable):
             eye = Variable(self.columns.data.new(self.kronecker_product_size).fill_(1).diag())
         res = self.matmul(eye)
         return res
-
-    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
-        epsilon = Variable(torch.randn(self.kronecker_product_size, gpytorch.functions.num_trace_samples))
-        samples = chol_var_covar.mm(epsilon)
-        samples = samples + variational_mean.unsqueeze(1).expand_as(samples)
-        W_left = Variable(list_of_indices_and_values_to_sparse(self.J_lefts, self.C_lefts, self.columns))
-        samples = gpytorch.dsmm(W_left, samples)
-        log_likelihood = log_probability_func(samples, train_y)
-        return log_likelihood
 
     def mul(self, other):
         """

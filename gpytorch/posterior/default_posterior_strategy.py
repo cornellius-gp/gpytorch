@@ -1,5 +1,6 @@
 import torch
 import gpytorch
+from torch.autograd import Variable
 from gpytorch.lazy import LazyVariable
 from .posterior_strategy import PosteriorStrategy
 
@@ -28,6 +29,14 @@ class DefaultPosteriorStrategy(PosteriorStrategy):
 
         test_test_covar_correction = torch.mm(test_train_covar, gpytorch.inv_matmul(self.var, train_test_covar))
         return test_test_covar.sub(test_test_covar_correction)
+
+    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
+        epsilon = Variable(variational_mean.data.new(len(variational_mean),
+                           gpytorch.functions.num_trace_samples).normal_())
+        samples = chol_var_covar.t().mm(epsilon)
+        samples = samples + variational_mean.unsqueeze(1)
+        log_likelihood = log_probability_func(samples, train_y)
+        return log_likelihood
 
     def variational_posterior_alpha(self, variational_mean):
         return gpytorch.inv_matmul(self.var, variational_mean)

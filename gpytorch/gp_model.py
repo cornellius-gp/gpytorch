@@ -114,11 +114,11 @@ class GPModel(gpytorch.Module):
             inducing_mean, inducing_covar = inducing_output.representation()
 
             train_covar = gpytorch.add_jitter(train_covar)
-            log_likelihood = gpytorch.monte_carlo_log_likelihood(self.likelihood.log_probability,
-                                                                 target,
-                                                                 self.variational_mean,
-                                                                 chol_var_covar,
-                                                                 train_covar)
+            mcll_strategy = gpytorch.posterior_strategy(train_covar)
+            log_likelihood = mcll_strategy.monte_carlo_log_likelihood(self.likelihood.log_probability,
+                                                                      target,
+                                                                      self.variational_mean,
+                                                                      chol_var_covar)
 
             inducing_covar = gpytorch.add_jitter(inducing_covar)
             kl_divergence = gpytorch.mvn_kl_divergence(self.variational_mean,

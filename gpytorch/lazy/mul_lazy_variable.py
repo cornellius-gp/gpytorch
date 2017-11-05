@@ -312,9 +312,6 @@ class MulLazyVariable(LazyVariable):
             res = res + self.added_diag.diag()
         return res
 
-    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
-        raise NotImplementedError
-
     def mul(self, other):
         if isinstance(other, int) or isinstance(other, float):
             lazy_vars = list(self.lazy_vars[:-1])

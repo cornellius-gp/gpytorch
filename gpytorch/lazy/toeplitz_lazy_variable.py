@@ -1,7 +1,5 @@
 import torch
-import gpytorch
 from torch.autograd import Variable
-from gpytorch.utils import toeplitz
 from .lazy_variable import LazyVariable
 from .mul_lazy_variable import MulLazyVariable
 from ..posterior import InterpolatedPosteriorStrategy
@@ -153,16 +151,6 @@ class ToeplitzLazyVariable(LazyVariable):
                 eye = Variable(self.c.data.new(self.J_right.size(0)).fill_(1).diag())
         res = self.matmul(eye)
         return res
-
-    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
-        epsilon = Variable(torch.randn(self.c.size(-1), gpytorch.functions.num_trace_samples))
-        samples = chol_var_covar.mm(epsilon)
-        samples = samples + variational_mean.unsqueeze(1).expand_as(samples)
-        W_left = Variable(toeplitz.index_coef_to_sparse(self.J_left, self.C_left, self.c.size(-1)))
-        samples = gpytorch.dsmm(W_left, samples)
-        log_likelihood = log_probability_func(samples, train_y)
-
-        return log_likelihood
 
     def mul(self, other):
         """

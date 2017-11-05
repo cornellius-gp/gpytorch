@@ -47,9 +47,6 @@ class SumLazyVariable(LazyVariable):
     def evaluate(self):
         return sum(lazy_var.evaluate() for lazy_var in self.lazy_vars)
 
-    def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar, num_samples):
-        raise NotImplementedError
-
     def mul(self, other):
         if not isinstance(other, int) and not isinstance(other, float):
             raise RuntimeError('Can only multiply by scalars')
