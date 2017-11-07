@@ -43,14 +43,17 @@ class SpectralMixtureKernel(Kernel):
 
         sq_distance.mul_(2 * math.pi ** 2)  # sq_distance = -2*pi^2*(x-z)^2
 
-        res = x1.data.new(n, m).zero_()
+        res = None
         for weight, mean, scale in zip(mixture_weights, mixture_means, mixture_scales):
             weight = weight.expand(n, m)
             mean = mean.expand(n, m)
             scale = scale.expand(n, m)
 
             sq_distance_factor = (scale * sq_distance).exp_()
-            res = weight * sq_distance_factor * torch.cos(2 * math.pi * mean * distance)
+            if res is None:
+                res = weight * sq_distance_factor * torch.cos(2 * math.pi * mean * distance)
+            else:
+                res += weight * sq_distance_factor * torch.cos(2 * math.pi * mean * distance)
             # res += w_a^2*exp{-2\pi^2*\sigma_a^2*sq_distance}*cos(2\pi*\mu_a*distance)
 
         return res
