@@ -24,9 +24,6 @@ class Module(nn.Module):
         raise NotImplementedError
 
     def __call__(self, *inputs, **kwargs):
-        if self.training and not self.conditioning and not hasattr(self, 'train_inputs'):
-            raise RuntimeError('Cannot run module in training mode before calling `condition`!')
-
         if self.conditioning:
             self.train_inputs = inputs
 
@@ -189,49 +186,24 @@ class Module(nn.Module):
         return self
 
     @property
+    def exact_inference(self):
+        """
+        Returns true if the model performs exact inference (vs. approximate inference)
+        """
+        if hasattr(self, '_exact_inference'):
+            return self._exact_inference
+        else:
+            return True
+
+    @property
     def posterior(self):
         """
         Returns if the model is in posterior mode (are we conditioning on data?)
         """
         return hasattr(self, 'train_inputs') and not self.training
 
-    @property
-    def has_grid(self):
-        return hasattr(self, 'grid')
-
-    @property
-    def needs_grid(self):
-        return False
-
-    def _set_interpolation_grid(self, grid, inducing_points, grid_size, grid_bounds):
-        if self.needs_grid:
-            self.grid_size = grid_size
-            self.grid_bounds = grid_bounds
-            self.register_buffer('grid', grid)
-            self.register_buffer('inducing_points', inducing_points)
-
-        for module in self.children():
-            module._set_interpolation_grid(grid, inducing_points, grid_size, grid_bounds)
-
-    def initialize_interpolation_grid(self, grid_size, grid_bounds):
-        grid = torch.zeros(len(grid_bounds), grid_size)
-        for i in range(len(grid_bounds)):
-            grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
-            grid[i] = torch.linspace(grid_bounds[i][0] - grid_diff,
-                                     grid_bounds[i][1] + grid_diff,
-                                     grid_size)
-
-        inducing_points = torch.zeros(int(pow(grid_size, len(grid_bounds))), len(grid_bounds))
-        prev_points = None
-        for i in range(len(grid_bounds)):
-            for j in range(grid_size):
-                inducing_points[j * grid_size ** i:(j + 1) * grid_size ** i, i].fill_(grid[i, j])
-                if prev_points is not None:
-                    inducing_points[j * grid_size ** i:(j + 1) * grid_size ** i, :i].copy_(prev_points)
-            prev_points = inducing_points[:grid_size ** (i + 1), :(i + 1)]
-
-        self._set_interpolation_grid(grid, inducing_points, grid_size, grid_bounds)
-        return self
+    def _set_exact_inference(self, exact_inference):
+        self._exact_inference = exact_inference
 
     def __getattr__(self, name):
         if '_parameters' in self.__dict__:
@@ -268,5 +240,8 @@ class Module(nn.Module):
         if isinstance(value, nn.Parameter):
             raise RuntimeError("Please assign torch.nn.Parameters using"
                                "gpytorch.module.register_parameters()")
-        else:
-            super(Module, self).__setattr__(name, value)
+        elif isinstance(value, Module):
+            if hasattr(self, 'exact_inference'):
+                value._set_exact_inference(self.exact_inference)
+
+        super(Module, self).__setattr__(name, value)

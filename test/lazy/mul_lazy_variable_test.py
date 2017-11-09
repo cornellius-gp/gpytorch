@@ -58,8 +58,7 @@ def test_matmul_approx():
             self.mean_module = ConstantMean(constant_bounds=(-1, 1))
             covar_module = RBFKernel(log_lengthscale_bounds=(-100, 100))
             covar_module.log_lengthscale.data = torch.FloatTensor([-2])
-            self.grid_covar_module = GridInterpolationKernel(covar_module)
-            self.initialize_interpolation_grid(300, grid_bounds=[(0, 1)])
+            self.grid_covar_module = GridInterpolationKernel(covar_module, grid_size=300, grid_bounds=[(0, 1)])
 
         def forward(self, x):
             mean_x = self.mean_module(x)

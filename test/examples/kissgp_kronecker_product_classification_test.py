@@ -2,7 +2,7 @@ import torch
 import gpytorch
 from torch import nn, optim
 from torch.autograd import Variable
-from gpytorch.kernels import RBFKernel, GridInterpolationKernel
+from gpytorch.kernels import RBFKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
@@ -19,26 +19,32 @@ train_x = Variable(train_x)
 train_y = Variable(train_y)
 
 
-class GPClassificationModel(gpytorch.GPModel):
+class LatentFunction(gpytorch.GridInducingPointModule):
     def __init__(self):
-        super(GPClassificationModel, self).__init__(BernoulliLikelihood())
+        super(LatentFunction, self).__init__(grid_size=8, grid_bounds=[(0, 3), (0, 3)])
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.grid_covar_module = GridInterpolationKernel(self.covar_module)
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
-        self.initialize_interpolation_grid(8, grid_bounds=[(0, 3), (0, 3)])
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = self.grid_covar_module(x)
+        covar_x = self.covar_module(x)
         covar_x = covar_x.mul(self.log_outputscale.exp())
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred
 
 
+class GPClassificationModel(gpytorch.GPModel):
+    def __init__(self):
+        super(GPClassificationModel, self).__init__(BernoulliLikelihood())
+        self.latent_function = LatentFunction()
+
+    def forward(self, x):
+        return self.latent_function(x)
+
+
 def test_kissgp_classification_error():
     model = GPClassificationModel()
-    model.condition(train_x, train_y)
 
     # Find optimal model hyperparameters
     model.train()
@@ -54,6 +60,7 @@ def test_kissgp_classification_error():
 
     # Set back to eval mode
     model.eval()
+    model.condition(train_x, train_y)
     test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
     mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
     assert(mean_abs_error.data.squeeze()[0] < 1e-5)

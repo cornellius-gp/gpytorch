@@ -62,8 +62,8 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
     gp_model.likelihood.initialize(log_noise=-10)
 
     # Compute posterior distribution
-    gp_model.condition(train_x, train_y)
     gp_model.eval()
+    gp_model.condition(train_x, train_y)
 
     # Let's see how our model does, conditioned with weird hyperparams
     # The posterior should fit all the data
@@ -88,9 +88,6 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
     gp_model.mean_module.initialize(constant=0)
     gp_model.likelihood.initialize(log_noise=1)
 
-    # Compute posterior distribution
-    gp_model.condition(train_x, train_y)
-
     # Find optimal model hyperparameters
     gp_model.train()
     optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
@@ -105,6 +102,7 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
 
     # Test the model
     gp_model.eval()
+    gp_model.condition(train_x, train_y)
     test_function_predictions = gp_model(test_x)
     mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean()))
 
@@ -118,9 +116,6 @@ def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():
         gp_model.covar_module.initialize(log_lengthscale=1)
         gp_model.mean_module.initialize(constant=0)
         gp_model.likelihood.initialize(log_noise=1)
-
-        # Compute posterior distribution
-        gp_model.condition(train_x.cuda(), train_y.cuda())
 
         # Find optimal model hyperparameters
         gp_model.train()
@@ -136,6 +131,7 @@ def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():
 
         # Test the model
         gp_model.eval()
+        gp_model.condition(train_x.cuda(), train_y.cuda())
         test_function_predictions = gp_model(test_x.cuda())
         mean_abs_error = torch.mean(torch.abs(test_y.cuda() - test_function_predictions.mean()))
 

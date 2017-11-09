@@ -2,6 +2,7 @@ from torch.autograd import Variable
 from .lazy import LazyVariable, ToeplitzLazyVariable
 from .module import Module
 from .gp_model import GPModel
+from .inducing_points import InducingPointModule, GridInducingPointModule
 from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
 from .posterior import DefaultPosteriorStrategy
@@ -103,46 +104,6 @@ def log_normal_cdf(x):
     return LogNormalCDF()(x)
 
 
-def mvn_kl_divergence(mean_1, chol_covar_1, mean_2, covar_2):
-    """
-    PyTorch function for computing the KL-Divergence between two multivariate
-    Normal distributions.
-
-    For this function, the first Gaussian distribution is parameterized by the
-    mean vector \mu_1 and the Cholesky decomposition of the covariance matrix U_1:
-    N(\mu_1, U_1^{\top}U_1).
-
-    The second Gaussian distribution is parameterized by the mean vector \mu_2
-    and the full covariance matrix \Sigma_2: N(\mu_2, \Sigma_2)
-
-    The KL divergence between two multivariate Gaussians is given by:
-
-        KL(N_1||N_2) = 0.5 * (Tr(\Sigma_2^{-1}\Sigma_{1}) + (\mu_2 -
-            \mu_1)\Sigma_{2}^{-1}(\mu_2 - \mu_1) + logdet(\Sigma_{2}) -
-            logdet(\Sigma_{1}) - D)
-
-    Where D is the dimensionality of the distributions.
-    """
-    mu_diffs = mean_2 - mean_1
-
-    if isinstance(covar_2, LazyVariable):
-        trace_logdet_quadform = covar_2.trace_log_det_quad_form(mu_diffs, chol_covar_1)
-    else:
-        trace_logdet_quadform = _trace_logdet_quad_form_factory_class()(mu_diffs,
-                                                                        chol_covar_1,
-                                                                        covar_2)
-
-    log_det_covar1 = chol_covar_1.diag().log().sum(0) * 2
-
-    # get D
-    D = len(mu_diffs)
-
-    # Compute the KL Divergence.
-    res = 0.5 * (trace_logdet_quadform - log_det_covar1 - D)
-
-    return res
-
-
 def normal_cdf(x):
     """
     Computes the element-wise standard normal CDF of an input tensor x.
@@ -156,17 +117,26 @@ def posterior_strategy(obj):
     return DefaultPosteriorStrategy(obj)
 
 
+def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
+    if isinstance(covar_2, LazyVariable):
+        return covar_2.trace_log_det_quad_form(mean_diffs, chol_covar_1)
+    else:
+        return _trace_logdet_quad_form_factory_class()(mean_diffs, chol_covar_1, covar_2)
+
+
 __all__ = [
     ToeplitzLazyVariable,
     Module,
     GPModel,
+    GridInducingPointModule,
+    InducingPointModule,
     add_diag,
     add_jitter,
     dsmm,
     exact_gp_marginal_log_likelihood,
     inv_matmul,
     log_normal_cdf,
-    mvn_kl_divergence,
     normal_cdf,
     posterior_strategy,
+    trace_logdet_quad_form,
 ]
