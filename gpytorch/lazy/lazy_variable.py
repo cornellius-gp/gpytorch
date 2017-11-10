@@ -101,7 +101,27 @@ class LazyVariable(object):
         function should return a Variable explicitly wrapping a Tensor storing
         an exact representation of this LazyVariable.
         """
-        raise NotImplementedError
+        tensor_cls = type(self.representation()[0].data)
+        size = self.size()
+        if len(size) == 2:
+            batch_mode = False
+            n_rows, n_cols = size
+        else:
+            batch_mode = True
+            batch_size, n_rows, n_cols = size
+
+        if n_rows < n_cols:
+            eye = Variable(tensor_cls(n_rows).fill_(1)).diag()
+            if batch_mode:
+                eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_cols)
+                return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
+            else:
+                return self.t().matmul(eye).t().contiguous()
+        else:
+            eye = Variable(tensor_cls(n_cols).fill_(1)).diag()
+            if batch_mode:
+                eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_cols)
+            return self.matmul(eye)
 
     def exact_gp_marginal_log_likelihood(self, target):
         """

@@ -1,4 +1,3 @@
-import torch
 import gpytorch
 from torch.autograd import Variable
 from .posterior_strategy import PosteriorStrategy
@@ -36,16 +35,6 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
         alpha = alpha.unsqueeze(1)
         return test_mean.add(gpytorch.dsmm(self.interp_left, alpha).squeeze())
 
-    def exact_posterior_covar(self, test_train_covar, train_test_covar, test_test_covar):
-        # TODO: Add a diagonal only mode / use implicit math
-        train_test_covar = train_test_covar.evaluate()
-        test_train_covar = train_test_covar.t()
-        test_test_covar = test_test_covar.evaluate()
-        gpytorch.functions.max_cg_iterations *= 10
-        test_test_covar_correction = torch.matmul(test_train_covar, gpytorch.inv_matmul(self.var, train_test_covar))
-        gpytorch.functions.max_cg_iterations /= 10
-        return test_test_covar.sub(test_test_covar_correction)
-
     def monte_carlo_log_likelihood(self, log_probability_func, train_y, variational_mean, chol_var_covar):
         epsilon = Variable(variational_mean.data.new(variational_mean.size(0),
                            gpytorch.functions.num_trace_samples).normal_())
@@ -64,6 +53,7 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
 
     def variational_posterior_covar(self, induc_test_covar, chol_variational_covar,
                                     test_test_covar, induc_induc_covar):
+        from ..lazy import MatmulLazyVariable
         covar_right = gpytorch.dsmm(self.interp_left, chol_variational_covar.t()).t()
         covar_left = gpytorch.dsmm(self.interp_left, chol_variational_covar.t())
-        return covar_left.matmul(covar_right)
+        return MatmulLazyVariable(covar_left, covar_right)

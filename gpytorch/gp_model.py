@@ -15,7 +15,10 @@ class GPModel(gpytorch.Module):
         self.likelihood = likelihood
 
         self.register_buffer('has_computed_alpha', torch.ByteTensor([0]))
+        self.register_buffer('has_computed_lanczos', torch.ByteTensor([0]))
         self.register_buffer('alpha', torch.Tensor())
+        self.register_buffer('lanczos_q_mat', torch.Tensor())
+        self.register_buffer('lanczos_t_mat', torch.Tensor())
         if not self.exact_inference:
             self.register_parameter('variational_mean', nn.Parameter(torch.Tensor()), bounds=(-1e4, 1e4))
             self.register_parameter('chol_variational_covar', nn.Parameter(torch.Tensor()), bounds=(-100, 100))
@@ -170,10 +173,24 @@ class GPModel(gpytorch.Module):
                     self.has_computed_alpha.fill_(1)
                 else:
                     alpha = Variable(self.alpha)
+
+                if not self.has_computed_lanczos[0] and gpytorch.functions.fast_pred_var:
+                    lanczos_strategy = gpytorch.posterior_strategy(train_train_covar)
+                    q_mat, t_mat = lanczos_strategy.exact_posterior_lanczos()
+                    self.lanczos_q_mat[:, :q_mat.size(1)].copy_(q_mat)
+                    self.lanczos_t_mat[:t_mat.size(0), :t_mat.size(1)].copy_(t_mat)
+                    self.has_computed_lanczos.fill_(1)
+
                 mean_strategy = gpytorch.posterior_strategy(test_train_covar)
                 test_mean = mean_strategy.exact_posterior_mean(test_mean, alpha)
-                covar_strategy = gpytorch.posterior_strategy(train_train_covar)
-                test_covar = covar_strategy.exact_posterior_covar(test_train_covar, train_test_covar, test_test_covar)
+                if gpytorch.functions.fast_pred_var:
+                    covar_strategy = gpytorch.posterior_strategy(full_covar)
+                    test_covar = covar_strategy.exact_posterior_covar_fast(Variable(self.lanczos_q_mat),
+                                                                           Variable(self.lanczos_t_mat))
+                else:
+                    covar_strategy = gpytorch.posterior_strategy(train_train_covar)
+                    test_covar = covar_strategy.exact_posterior_covar(test_train_covar, train_test_covar,
+                                                                      test_test_covar)
                 output = GaussianRandomVariable(test_mean, test_covar)
 
             # Approximate inference
@@ -229,6 +246,12 @@ class GPModel(gpytorch.Module):
                 _, covar = output.representation()
                 self.has_computed_alpha.fill_(0)
                 self.alpha.resize_(gpytorch.posterior_strategy(covar).alpha_size())
+                self.has_computed_lanczos.fill_(0)
+                if gpytorch.functions.fast_pred_var:
+                    lanczos_q_size, lanczos_t_size = gpytorch.posterior_strategy(covar).lanczos_size()
+                    self.lanczos_q_mat.resize_(lanczos_q_size).zero_()
+                    lanczos_t_mat_init = torch.eye(*lanczos_t_size).type_as(self.lanczos_t_mat)
+                    self.lanczos_t_mat.resize_(lanczos_t_size).copy_(lanczos_t_mat_init)
 
         # Now go through the likelihood
         if isinstance(output, Variable) or isinstance(output, RandomVariable) or isinstance(output, LazyVariable):

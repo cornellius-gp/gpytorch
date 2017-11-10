@@ -129,29 +129,6 @@ class ToeplitzLazyVariable(LazyVariable):
             diag += self.added_diag
         return diag
 
-    def evaluate(self):
-        """
-        Explicitly evaluate and return the Toeplitz matrix this object wraps as a float Tensor.
-        To do this, we explicitly compute W_{left}TW_{right}^{T} and return it.
-
-        Warning: as implicitly stored by this LazyVariable, W is very sparse and T requires O(n)
-        storage, where as the full matrix requires O(n^2) storage. Calling evaluate can very easily
-        lead to memory issues. As a result, using it should be a last resort.
-        """
-
-        if self.J_right is None:
-            eye = Variable(self.c.data.new(self.c.size(-1)).fill_(1).diag())
-            if self.c.ndimension() == 2:
-                eye = eye.unsqueeze(0).expand(len(self.c), self.c.size(1), self.c.size(1))
-        else:
-            if self.J_right.ndimension() == 3:
-                eye = Variable(self.c.data.new(self.J_right.size(1)).fill_(1).diag())
-                eye = eye.unsqueeze(0).expand(len(self.c), self.J_right.size(1), self.J_right.size(1))
-            else:
-                eye = Variable(self.c.data.new(self.J_right.size(0)).fill_(1).diag())
-        res = self.matmul(eye)
-        return res
-
     def mul(self, other):
         """
         Multiplies this interpolated Toeplitz matrix elementwise by a constant or another ToeplitzLazyVariable.
