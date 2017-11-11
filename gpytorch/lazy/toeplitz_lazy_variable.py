@@ -85,7 +85,6 @@ class ToeplitzLazyVariable(LazyVariable):
             column = self.column[batch_index]
 
         ndimension = column.ndimension() + 1
-        print(ndimension)
 
         # Handle index
         left_index = index[-2]

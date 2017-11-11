@@ -236,6 +236,12 @@ class Module(nn.Module):
         raise AttributeError("'{}' object has no attribute '{}'".format(
             type(self).__name__, name))
 
+    def add_module(self, name, value):
+        if isinstance(value, Module):
+            if hasattr(self, 'exact_inference'):
+                value._set_exact_inference(self.exact_inference)
+        super(Module, self).add_module(name, value)
+
     def __setattr__(self, name, value):
         if isinstance(value, nn.Parameter):
             raise RuntimeError("Please assign torch.nn.Parameters using"

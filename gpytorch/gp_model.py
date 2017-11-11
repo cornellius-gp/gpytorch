@@ -143,6 +143,10 @@ class GPModel(gpytorch.Module):
                     lanczos_t_mat_init = torch.eye(*lanczos_t_size).type_as(self.lanczos_t_mat)
                     self.lanczos_t_mat.resize_(lanczos_t_size).copy_(lanczos_t_mat_init)
 
+        # Don't go through the output if we're training a variational inference model
+        if self.training and not self.exact_inference:
+            return output
+
         # Now go through the likelihood
         if isinstance(output, Variable) or isinstance(output, RandomVariable) or isinstance(output, LazyVariable):
             output = (output,)
