@@ -1,9 +1,11 @@
 import math
+import gpytorch
 import torch
 from torch.autograd import Variable
 from .kernel import Kernel
 from gpytorch.utils.interpolation import Interpolation
-from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, InterpolatedLazyVariable
+from ..lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, InterpolatedLazyVariable, \
+        NonLazyVariable
 
 
 class GridInterpolationKernel(Kernel):
@@ -102,8 +104,13 @@ class GridInterpolationKernel(Kernel):
                 k_UUs[i] = self.base_kernel_module(grid_var[i, 0], grid_var[i], **kwargs).squeeze()
             K_XX = KroneckerProductLazyVariable(k_UUs, J1, C1, J2, C2)
         else:
-            k_UU = self.base_kernel_module(grid_var[0, 0], grid_var[0], **kwargs).squeeze()
-            K_XX = InterpolatedLazyVariable(ToeplitzLazyVariable(k_UU), Variable(J1), Variable(C1),
-                                            Variable(J2), Variable(C2))
+            if gpytorch.functions.use_toeplitz:
+                k_UU = self.base_kernel_module(grid_var[0, 0], grid_var[0], **kwargs).squeeze()
+                K_XX = InterpolatedLazyVariable(ToeplitzLazyVariable(k_UU), Variable(J1), Variable(C1),
+                                                Variable(J2), Variable(C2))
+            else:
+                k_UU = self.base_kernel_module(grid_var[0], grid_var[0], **kwargs).squeeze()
+                K_XX = InterpolatedLazyVariable(NonLazyVariable(k_UU), Variable(J1), Variable(C1),
+                                                Variable(J2), Variable(C2))
 
         return K_XX
