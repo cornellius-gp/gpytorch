@@ -14,5 +14,8 @@ class MatmulLazyVariable(LazyVariable):
     def evaluate(self):
         return torch.matmul(self.lhs, self.rhs)
 
+    def representation(self):
+        return self.lhs, self.rhs
+
     def size(self):
         return torch.Size((self.lhs.size()[0], self.lhs.size()[0]))

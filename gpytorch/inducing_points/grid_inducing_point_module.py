@@ -3,7 +3,7 @@ import torch
 from copy import deepcopy
 from torch.autograd import Variable
 from .inducing_point_module import InducingPointModule
-from ..lazy import MatmulLazyVariable, KroneckerProductLazyVariable
+from ..lazy import NonLazyVariable, KroneckerProductLazyVariable, InterpolatedLazyVariable
 from ..random_variables import GaussianRandomVariable
 from ..variational import GridInducingPointStrategy
 from ..kernels import Kernel, GridInterpolationKernel
@@ -36,6 +36,20 @@ class GridInducingPointModule(InducingPointModule):
         if isinstance(value, Kernel):
             value = GridInterpolationKernel(value, self.grid_size, self.grid_bounds, self.grid)
         return super(GridInducingPointModule, self).__setattr__(name, value)
+
+    def train(self, mode=True):
+        if hasattr(self, '_variational_covar'):
+            del self._variational_covar
+        return super(GridInducingPointModule, self).train(mode)
+
+    @property
+    def variational_covar(self):
+        if self.training:
+            return self.chol_variational_covar.matmul(self.chol_variational_covar.t())
+        else:
+            if not hasattr(self, '_variational_covar'):
+                self._variational_covar = self.chol_variational_covar.matmul(self.chol_variational_covar.t())
+            return self._variational_covar
 
     def __call__(self, inputs, **kwargs):
         if self.exact_inference:
@@ -93,16 +107,8 @@ class GridInducingPointModule(InducingPointModule):
                 test_mean = mean_output.sum(-1)
 
                 # Compute test covar
-                interp_size = list(interp_indices.size()) + [self.chol_variational_covar.size(-1)]
-                chol_covar_size = deepcopy(interp_size)
-                chol_covar_size[-3] = self.chol_variational_covar.size()[-2]
-                interp_indices_expanded = interp_indices.unsqueeze(-1).expand(*interp_size)
-                test_chol_covar_output = self.chol_variational_covar.t().unsqueeze(-2)
-                test_chol_covar_output = test_chol_covar_output.expand(*chol_covar_size)
-                test_chol_covar_output = test_chol_covar_output.gather(-3, interp_indices_expanded)
-                test_chol_covar_output = test_chol_covar_output.mul(interp_values.unsqueeze(-1).expand(interp_size))
-                test_chol_covar = test_chol_covar_output.sum(-2)
-                test_covar = MatmulLazyVariable(test_chol_covar, test_chol_covar.t())
+                base_lv = NonLazyVariable(self.variational_covar)
+                test_covar = InterpolatedLazyVariable(base_lv, interp_indices, interp_values, interp_indices, interp_values)
 
             output = GaussianRandomVariable(test_mean, test_covar)
         # Prior mode
