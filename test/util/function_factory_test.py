@@ -15,9 +15,8 @@ def test_trace_logdet_quad_form_factory():
     x = Variable(torch.linspace(0, 1, 10))
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
-    covar_module = GridInterpolationKernel(rbf_covar)
+    covar_module = GridInterpolationKernel(rbf_covar, grid_size=4, grid_bounds=[(0, 1)])
     covar_module.eval()
-    covar_module.initialize_interpolation_grid(4, [(0, 1)])
     c = Variable(covar_module.forward(x.unsqueeze(1), x.unsqueeze(1)).c.data, requires_grad=True)
 
     T = Variable(torch.zeros(4, 4))
@@ -90,9 +89,8 @@ def test_interpolated_toeplitz_gp_marginal_log_likelihood_forward():
     y = torch.randn(5)
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
-    covar_module = GridInterpolationKernel(rbf_covar)
+    covar_module = GridInterpolationKernel(rbf_covar, grid_size=10, grid_bounds=[(0, 1)])
     covar_module.eval()
-    covar_module.initialize_interpolation_grid(10, [(0, 1)])
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
     c = covar_x.c.data
     T = utils.toeplitz.sym_toeplitz(c)
@@ -122,9 +120,8 @@ def test_interpolated_toeplitz_gp_marginal_log_likelihood_backward():
 
     rbf_covar = RBFKernel()
     rbf_covar.initialize(log_lengthscale=-4)
-    covar_module = GridInterpolationKernel(rbf_covar)
+    covar_module = GridInterpolationKernel(rbf_covar, grid_size=10, grid_bounds=[(0, 1)])
     covar_module.eval()
-    covar_module.initialize_interpolation_grid(10, [(0, 1)])
     covar_x = covar_module.forward(x.unsqueeze(1), x.unsqueeze(1))
 
     c = Variable(covar_x.c.data, requires_grad=True)
@@ -236,9 +233,8 @@ def test_kp_toeplitz_gp_marginal_log_likelihood_forward():
     y = torch.randn(2)
     rbf_module = RBFKernel()
     rbf_module.initialize(log_lengthscale=-2)
-    covar_module = GridInterpolationKernel(rbf_module)
+    covar_module = GridInterpolationKernel(rbf_module, grid_size=5, grid_bounds=[(0, 1), (0, 1), (0, 1)])
     covar_module.eval()
-    covar_module.initialize_interpolation_grid(5, [(0, 1), (0, 1), (0, 1)])
 
     kronecker_var = covar_module.forward(x, x)
     kronecker_var_eval = kronecker_var.evaluate()
@@ -252,9 +248,8 @@ def foo_kp_toeplitz_gp_marginal_log_likelihood_backward():
     y = Variable(torch.randn(2), requires_grad=True)
     rbf_module = RBFKernel()
     rbf_module.initialize(log_lengthscale=-2)
-    covar_module = GridInterpolationKernel(rbf_module)
+    covar_module = GridInterpolationKernel(rbf_module, grid_size=5, grid_bounds=[(0, 1), (0, 1), (0, 1)])
     covar_module.eval()
-    covar_module.initialize_interpolation_grid(5, [(0, 1), (0, 1), (0, 1)])
 
     kronecker_var = covar_module.forward(x, x)
 

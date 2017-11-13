@@ -7,14 +7,22 @@ from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable
 
 
 class GridInterpolationKernel(Kernel):
-    def __init__(self, base_kernel_module):
+    def __init__(self, base_kernel_module, grid_size, grid_bounds, grid=None):
         super(GridInterpolationKernel, self).__init__()
         self.base_kernel_module = base_kernel_module
+        self.grid_size = grid_size
+        self.grid_bounds = grid_bounds
+
+        if grid is None:
+            grid = torch.zeros(len(grid_bounds), grid_size)
+            for i in range(len(grid_bounds)):
+                grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
+                grid[i] = torch.linspace(grid_bounds[i][0] - grid_diff,
+                                         grid_bounds[i][1] + grid_diff,
+                                         grid_size)
+        self.register_buffer('grid', grid)
 
     def _compute_grid(self, x1, x2):
-        if not self.has_grid:
-            raise RuntimeError('GridInterpolationKernel requires setting the interpolation grid')
-
         n, d = x1.size()
         m, _ = x2.size()
 
@@ -98,7 +106,3 @@ class GridInterpolationKernel(Kernel):
             K_XX = ToeplitzLazyVariable(k_UU, J1, C1, J2, C2)
 
         return K_XX
-
-    @property
-    def needs_grid(self):
-        return True
