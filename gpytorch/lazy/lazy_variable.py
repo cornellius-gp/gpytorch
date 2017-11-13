@@ -239,11 +239,7 @@ class LazyVariable(object):
 
         # Batch case
         if dim1 < ndimension - 2 and dim2 < ndimension - 2:
-            res = self.__class__(self.base_lazy_variable.transpose(dim1, dim2),
-                                 self.left_interp_indices.transpose(dim1, dim2),
-                                 self.left_interp_values.tranpose(dim1, dim2),
-                                 self.right_interp_indices.transpose(dim1, dim2),
-                                 self.right_interp_values.transpose(dim1, dim2))
+            res = self.__class__(*(arg.transpose(dim1, dim2) for arg in self._args))
 
         elif dim1 >= ndimension - 2 and dim2 >= ndimension - 2:
             res = self._transpose_nonbatch()
