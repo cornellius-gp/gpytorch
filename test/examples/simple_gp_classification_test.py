@@ -60,7 +60,6 @@ def test_kissgp_classification_error():
 
     # Set back to eval mode
     model.eval()
-    model.condition(train_x, train_y)
     test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
     mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
     assert(mean_abs_error.data.squeeze()[0] < 1e-5)

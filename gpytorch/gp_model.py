@@ -131,12 +131,6 @@ class GPModel(gpytorch.Module):
         # Training or Prior mode
         else:
             output = super(GPModel, self).__call__(*args, **kwargs)
-            # Add some jitter
-            if not self.exact_inference:
-                mean, covar = output.representation()
-                covar = gpytorch.add_jitter(covar)
-                output = GaussianRandomVariable(mean, covar)
-
             if self.conditioning:
                 # Reset alpha cache
                 _, covar = output.representation()
