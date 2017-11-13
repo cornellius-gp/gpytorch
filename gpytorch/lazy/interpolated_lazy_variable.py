@@ -198,16 +198,14 @@ class InterpolatedLazyVariable(LazyVariable):
     def repeat(self, *sizes):
         """
         Repeat elements of the Variable.
-        Right now it only works to create a batched version of a ToeplitzLazyVariable.
+        Right now it only works to create a batched version of a InterpolatedLazyVariable.
 
         e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
         """
         if not len(sizes) == 3 and sizes[1] == 1 and sizes[2] == 1:
             raise RuntimeError('Repeat only works to create a batched version at the moment.')
-        if self.J_left is None:
-            raise RuntimeError('Repeat only works when the toeplitz variable is interpolated.')
 
-        return self.__class__(self.base_lazy_variable(sizes[0], 1), self.left_interp_indices.repeat(*sizes),
+        return self.__class__(self.base_lazy_variable, self.left_interp_indices.repeat(*sizes),
                               self.left_interp_values.repeat(*sizes),
                               self.right_interp_indices.repeat(*sizes),
                               self.right_interp_values.repeat(*sizes))
