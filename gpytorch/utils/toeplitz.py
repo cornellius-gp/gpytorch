@@ -1,7 +1,6 @@
 import torch
 import gpytorch.utils.fft as fft
 import gpytorch.utils as utils
-from . import bdsmm
 
 
 def index_coef_to_sparse(index_matrix, value_matrix, row_length):
@@ -239,57 +238,6 @@ def sym_toeplitz_matmul(toeplitz_column, tensor):
         - tensor
     """
     return toeplitz_matmul(toeplitz_column, toeplitz_column, tensor)
-
-
-def interpolated_sym_toeplitz_matmul(toeplitz_column, vector, W_left=None, W_right=None, noise_diag=None):
-    """
-    Given a interpolated symmetric Toeplitz matrix W_left*T*W_right, plus possibly an additional
-    diagonal component s*I, compute a product with some vector or matrix vector.
-
-    Args:
-        - toeplitz_column (vector matrix) - First column of the symmetric Toeplitz matrix T
-        - W_left (sparse matrix nxm) - Left interpolation matrix
-        - W_right (sparse matrix pxm) - Right interpolation matrix
-        - vector (matrix pxk) - Vector (k=1) or matrix (k>1) to multiply WTW with
-        - noise_diag (vector p) - If not none, add (s*I)vector to WTW at the end.
-
-    Returns:
-        - matrix nxk
-    """
-    noise_term = None
-    ndim = vector.ndimension()
-
-    if ndim == 1:
-        vector = vector.unsqueeze(1)
-
-    if noise_diag is not None:
-        noise_term = noise_diag.unsqueeze(-1).expand_as(vector) * vector
-
-    if W_left is not None:
-        # Get W_{r}^{T}vector
-        if W_left.ndimension() == 3:  # Batch mode:
-            Wt_times_v = bdsmm(W_right.transpose(1, 2), vector)
-            # Get (TW_{r}^{T})vector
-            TWt_v = sym_toeplitz_matmul(toeplitz_column, Wt_times_v)
-            # Get (W_{l}TW_{r}^{T})vector
-            WTWt_v = bdsmm(W_left, TWt_v)
-        else:
-            Wt_times_v = torch.dsmm(W_right.t(), vector)
-            # Get (TW_{r}^{T})vector
-            TWt_v = sym_toeplitz_matmul(toeplitz_column, Wt_times_v)
-            # Get (W_{l}TW_{r}^{T})vector
-            WTWt_v = torch.dsmm(W_left, TWt_v)
-    else:
-        WTWt_v = sym_toeplitz_matmul(toeplitz_column, vector)
-
-    if noise_term is not None:
-        # Get (W_{l}TW_{r}^{T} + \sigma^{2}I)vector
-        WTWt_v = WTWt_v + noise_term
-
-    if ndim == 1:
-        WTWt_v = WTWt_v.squeeze(1)
-
-    return WTWt_v
 
 
 def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):

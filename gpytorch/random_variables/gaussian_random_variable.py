@@ -50,8 +50,13 @@ class GaussianRandomVariable(RandomVariable):
         return self._mean.size(0)
 
     def __add__(self, other):
+        from ..variational import SumVariationalStrategy
         if isinstance(other, GaussianRandomVariable):
-            return GaussianRandomVariable(self._mean + other.mean(), self._covar + other.covar())
+            res = GaussianRandomVariable(self._mean + other.mean(), self._covar + other.covar())
+            if hasattr(self, '_variational_strategy') and hasattr(other, '_variational_strategy'):
+                res._variational_strategy = SumVariationalStrategy(self._variational_strategy,
+                                                                   other._variational_strategy)
+            return res
         elif isinstance(other, int) or isinstance(other, float):
             return GaussianRandomVariable(self._mean + other, self._covar)
         else:

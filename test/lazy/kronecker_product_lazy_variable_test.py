@@ -3,9 +3,8 @@ import gpytorch
 from gpytorch import utils
 from torch.autograd import Variable
 from gpytorch.lazy import KroneckerProductLazyVariable
-from gpytorch.kernels import RBFKernel, GridInterpolationKernel
+from gpytorch.kernels import RBFKernel
 from gpytorch.means import ConstantMean
-from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
 from gpytorch.utils.kronecker_product import kronecker_product, list_of_indices_and_values_to_sparse
 
@@ -15,24 +14,22 @@ x[1] = torch.linspace(0, 0.95, 11)
 x = Variable(x.t())
 
 
-class Model(gpytorch.GPModel):
+class Model(gpytorch.GridInducingPointModule):
     def __init__(self):
-        likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
-        super(Model, self).__init__(likelihood)
+        super(Model, self).__init__(grid_size=10, grid_bounds=[(0, 1), (0, 1)])
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
-        covar_module = RBFKernel()
-        self.grid_covar_module = GridInterpolationKernel(covar_module, grid_size=10, grid_bounds=[(0, 1), (0, 1)])
+        self.covar_module = RBFKernel()
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = self.grid_covar_module(x)
+        covar_x = self.covar_module(x).add_diag(Variable(torch.Tensor([1e-2])))
         return GaussianRandomVariable(mean_x, covar_x)
 
 
 prior_observation_model = Model()
 prior_observation_model.eval()
 pred = prior_observation_model(x)
-lazy_kronecker_product_var = pred.covar()
+lazy_kronecker_product_var = pred.covar().add_diag(Variable(torch.Tensor([1e-2])))
 Ts = torch.zeros(lazy_kronecker_product_var.columns.size()[0],
                  lazy_kronecker_product_var.columns.size()[1],
                  lazy_kronecker_product_var.columns.size()[1])

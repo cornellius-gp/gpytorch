@@ -157,7 +157,8 @@ class Module(nn.Module):
     def _set_conditioning_flag(self, mode=True):
         self.conditioning = mode
         for module in self.children():
-            module._set_conditioning_flag(mode)
+            if isinstance(module, Module):
+                module._set_conditioning_flag(mode)
 
     def condition(self, train_inputs, train_target=None, **kwargs):
         """
@@ -235,6 +236,12 @@ class Module(nn.Module):
                 return modules[name]
         raise AttributeError("'{}' object has no attribute '{}'".format(
             type(self).__name__, name))
+
+    def add_module(self, name, value):
+        if isinstance(value, Module):
+            if hasattr(self, 'exact_inference'):
+                value._set_exact_inference(self.exact_inference)
+        super(Module, self).add_module(name, value)
 
     def __setattr__(self, name, value):
         if isinstance(value, nn.Parameter):

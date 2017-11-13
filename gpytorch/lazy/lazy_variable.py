@@ -34,14 +34,9 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
-    def _exact_gp_mll_grad_closure_factory(self, *args):
+    def _transpose_nonbatch(self):
         """
-        Generates a closure that computes the derivatives of v K^-1 v + log |K|, given v
-
-        K is a square matrix corresponding to the Variables in self.representation()
-
-        Returns:
-        function(k_matmul_closure, tr_inv, k_inv_y, y) - closure
+        Transposes non-batch dimensions (e.g. last two)
         """
         raise NotImplementedError
 
@@ -63,7 +58,8 @@ class LazyVariable(object):
         This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
         so this should only be done at the user's risk.
         """
-        raise NotImplementedError
+        diag = Variable(self.representation()[0].data.new(1).fill_(1e-4))
+        return self.add_diag(diag)
 
     def cpu(self):
         new_args = []
@@ -113,14 +109,14 @@ class LazyVariable(object):
         if n_rows < n_cols:
             eye = Variable(tensor_cls(n_rows).fill_(1)).diag()
             if batch_mode:
-                eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_cols)
+                eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_rows)
                 return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
             else:
                 return self.t().matmul(eye).t().contiguous()
         else:
             eye = Variable(tensor_cls(n_cols).fill_(1)).diag()
             if batch_mode:
-                eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_cols)
+                eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
 
     def exact_gp_marginal_log_likelihood(self, target):
@@ -178,36 +174,50 @@ class LazyVariable(object):
         args = list(self.representation()) + [tensor]
         return self._matmul_class()(*args)
 
-    def mul(self, constant):
+    def mul(self, other):
         """
-        Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,
-        we multiply the Toeplitz component by the constant. This way, the interpolation acts on the
-        multiplied values in T, and the entire kernel is ultimately multiplied by this constant.
-
-        Args:
-            - constant (broadcastable with self.c) - Constant to multiply by.
-        Returns:
-            - ToeplitzLazyVariable with c = c*(constant)
+        Multiplies the matrix by a constant, or elementwise the matrix by another matrix
         """
-        raise NotImplementedError
+        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or \
+               (isinstance(other, Variable) and other.numel() == 1):
+            from .constant_mul_lazy_variable import ConstantMulLazyVariable
+            return ConstantMulLazyVariable(self, other)
+        else:
+            from .mul_lazy_variable import MulLazyVariable
+            return MulLazyVariable(self, other)
 
-    def mul_(self, constant):
+    def mul_(self, other):
         """
         In-place version of mul.
         """
         raise NotImplementedError
 
+    def ndimension(self):
+        """
+        Returns the number of dimensions
+        """
+        return len(self.size())
+
     def posterior_strategy(self):
         """
         Return a PosteriorStrategy object for computing the GP posterior.
         """
-        raise NotImplementedError
+        from ..posterior import DefaultPosteriorStrategy
+        return DefaultPosteriorStrategy(self)
 
     def representation(self, *args):
         """
         Returns the variables that are used to define the LazyVariable
         """
-        raise NotImplementedError
+        representation = []
+        for arg in self._args:
+            if isinstance(arg, Variable):
+                representation.append(arg)
+            elif isinstance(arg, LazyVariable):
+                representation += list(arg.representation())
+            else:
+                raise RuntimeError('Representation of a LazyVariable should consist only of Variables')
+        return tuple(representation)
 
     def size(self):
         """
@@ -215,11 +225,37 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def transpose(self, dim1, dim2):
+        """
+        Returns the transpose of the resulting Variable that the lazy variable represents
+        """
+        ndimension = self.ndimension()
+        if dim1 < 0:
+            dim1 = ndimension + dim1
+        if dim2 < 0:
+            dim2 = ndimension + dim2
+        if dim1 >= ndimension or dim2 >= ndimension or not isinstance(dim1, int) or not isinstance(dim2, int):
+            raise RuntimeError('Invalid dimension')
+
+        # Batch case
+        if dim1 < ndimension - 2 and dim2 < ndimension - 2:
+            res = self.__class__(*(arg.transpose(dim1, dim2) for arg in self._args))
+
+        elif dim1 >= ndimension - 2 and dim2 >= ndimension - 2:
+            res = self._transpose_nonbatch()
+
+        else:
+            raise RuntimeError('Cannot transpose batch dimension with non-batch dimension')
+
+        return res
+
     def t(self):
         """
         Returns the transpose of the resulting Variable that the lazy variable represents
         """
-        raise NotImplementedError
+        if self.ndimension() != 2:
+            raise RuntimeError('Cannot call t for more than 2 dimensions')
+        return self.transpose(0, 1)
 
     def trace_log_det_quad_form(self, mu_diffs, chol_covar_1):
         if not hasattr(self, '_trace_log_det_quad_form_class'):
@@ -240,7 +276,69 @@ class LazyVariable(object):
         return self.mul(other)
 
     def __getitem__(self, index):
-        raise NotImplementedError
+        from .interpolated_lazy_variable import InterpolatedLazyVariable
+
+        index = list(index) if isinstance(index, tuple) else [index]
+        ndimension = self.ndimension()
+        index += [slice(None, None, None)] * (ndimension - len(index))
+        components = list(self._args)
+
+        squeeze_left = False
+        squeeze_right = False
+        if isinstance(index[-2], int):
+            index[-2] = slice(index[-2], index[-2] + 1, None)
+            squeeze_left = True
+        if isinstance(index[-1], int):
+            index[-1] = slice(index[-1], index[-1] + 1, None)
+            squeeze_right = True
+
+        # Handle batch dimensions
+        isbatch = ndimension >= 3
+        if isbatch:
+            batch_index = tuple(index[:-2])
+            for i, item in enumerate(components):
+                components[i] = item[batch_index]
+
+        new_lazy_variable = self.__class__(*components)
+        representation = new_lazy_variable.representation()
+        ndimension = new_lazy_variable.ndimension()
+
+        # Handle index
+        left_index = index[-2]
+        right_index = index[-1]
+
+        batch_sizes = list(new_lazy_variable.size()[:-2])
+        left_row_iter = representation[0].data.new(new_lazy_variable.size()[-2]).long()
+        right_row_iter = representation[0].data.new(new_lazy_variable.size()[-1]).long()
+        torch.arange(0, new_lazy_variable.size()[-2], out=left_row_iter)
+        torch.arange(0, new_lazy_variable.size()[-1], out=right_row_iter)
+
+        left_interp_indices = left_row_iter[left_index].unsqueeze(-1)
+        right_interp_indices = right_row_iter[right_index].unsqueeze(-1)
+
+        left_interp_len = len(left_interp_indices)
+        right_interp_len = len(right_interp_indices)
+        for i in range(ndimension - 2):
+            left_interp_indices.unsqueeze_(0)
+            right_interp_indices.unsqueeze_(0)
+
+        left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
+        left_interp_values = left_interp_indices.new(left_interp_indices.size()).fill_(1).float()
+        right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
+        right_interp_values = right_interp_indices.new(right_interp_indices.size()).fill_(1).float()
+
+        res = InterpolatedLazyVariable(new_lazy_variable, Variable(left_interp_indices),
+                                       Variable(left_interp_values),
+                                       Variable(right_interp_indices), Variable(right_interp_values))
+
+        if squeeze_left or squeeze_right:
+            res = res.evaluate()
+            if squeeze_left:
+                res = res.squeeze(-2)
+            if squeeze_right:
+                res = res.squeeze(-1)
+
+        return res
 
     def __setattr__(self, name, val):
         if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):

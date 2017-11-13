@@ -13,6 +13,7 @@ __all__ = [
 
 fastest = True
 fast_pred_var = False
+use_toeplitz = True
 max_lanczos_iterations = 25
 num_trace_samples = 10
 max_cg_iterations = 15
