@@ -272,7 +272,69 @@ class LazyVariable(object):
         return self.mul(other)
 
     def __getitem__(self, index):
-        raise NotImplementedError
+        from .interpolated_lazy_variable import InterpolatedLazyVariable
+
+        index = list(index) if isinstance(index, tuple) else [index]
+        ndimension = self.ndimension()
+        index += [slice(None, None, None)] * (ndimension - len(index))
+        representation = list(self.representation())
+
+        squeeze_left = False
+        squeeze_right = False
+        if isinstance(index[-2], int):
+            index[-2] = slice(index[-2], index[-2] + 1, None)
+            squeeze_left = True
+        if isinstance(index[-1], int):
+            index[-1] = slice(index[-1], index[-1] + 1, None)
+            squeeze_right = True
+
+        # Handle batch dimensions
+        isbatch = ndimension >= 3
+        if isbatch:
+            batch_index = tuple(index[:-2])
+            for i, item in enumerate(representation):
+                representation[i] = item[batch_index]
+
+        new_lazy_variable = self.__class__(*representation)
+        print(new_lazy_variable.evaluate())
+        ndimension = new_lazy_variable.ndimension()
+
+        # Handle index
+        left_index = index[-2]
+        right_index = index[-1]
+
+        batch_sizes = list(new_lazy_variable.size()[:-2])
+        left_row_iter = representation[0].data.new(new_lazy_variable.size()[-2]).long()
+        right_row_iter = representation[0].data.new(new_lazy_variable.size()[-1]).long()
+        torch.arange(0, new_lazy_variable.size()[-2], out=left_row_iter)
+        torch.arange(0, new_lazy_variable.size()[-1], out=right_row_iter)
+
+        left_interp_indices = left_row_iter[left_index].unsqueeze(-1)
+        right_interp_indices = right_row_iter[right_index].unsqueeze(-1)
+
+        left_interp_len = len(left_interp_indices)
+        right_interp_len = len(right_interp_indices)
+        for i in range(ndimension - 2):
+            left_interp_indices.unsqueeze_(0)
+            right_interp_indices.unsqueeze_(0)
+
+        left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
+        left_interp_values = left_interp_indices.new(left_interp_indices.size()).fill_(1).float()
+        right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
+        right_interp_values = right_interp_indices.new(right_interp_indices.size()).fill_(1).float()
+
+        res = InterpolatedLazyVariable(new_lazy_variable, Variable(left_interp_indices),
+                                       Variable(left_interp_values),
+                                       Variable(right_interp_indices), Variable(right_interp_values))
+
+        if squeeze_left or squeeze_right:
+            res = res.evaluate()
+            if squeeze_left:
+                res = res.squeeze(-2)
+            if squeeze_right:
+                res = res.squeeze(-1)
+
+        return res
 
     def __setattr__(self, name, val):
         if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):

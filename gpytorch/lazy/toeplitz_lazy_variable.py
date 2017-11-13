@@ -1,7 +1,6 @@
 import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
-from .interpolated_lazy_variable import InterpolatedLazyVariable
 from ..utils.toeplitz import sym_toeplitz_matmul, sym_toeplitz_derivative_quadratic_form
 
 
@@ -62,64 +61,6 @@ class ToeplitzLazyVariable(LazyVariable):
 
     def _transpose_nonbatch(self):
         return ToeplitzLazyVariable(self.column)
-
-    def __getitem__(self, index):
-        index = list(index) if isinstance(index, tuple) else [index]
-        ndimension = self.ndimension()
-        index += [slice(None, None, None)] * (ndimension - len(index))
-        column = self.column
-
-        squeeze_left = False
-        squeeze_right = False
-        if isinstance(index[-2], int):
-            index[-2] = slice(index[-2], index[-2] + 1, None)
-            squeeze_left = True
-        if isinstance(index[-1], int):
-            index[-1] = slice(index[-1], index[-1] + 1, None)
-            squeeze_right = True
-
-        # Handle batch dimensions
-        isbatch = ndimension >= 3
-        if isbatch:
-            batch_index = tuple(index[:-2])
-            column = self.column[batch_index]
-
-        ndimension = column.ndimension() + 1
-
-        # Handle index
-        left_index = index[-2]
-        right_index = index[-1]
-
-        batch_sizes = list(column.size()[:-1])
-        row_iter = column.data.new(column.size(-1)).long()
-        torch.arange(0, self.column.size(-1), out=row_iter)
-
-        left_interp_indices = row_iter[left_index].unsqueeze(-1)
-        right_interp_indices = row_iter[right_index].unsqueeze(-1)
-
-        left_interp_len = len(left_interp_indices)
-        right_interp_len = len(right_interp_indices)
-        for i in range(ndimension - 2):
-            left_interp_indices.unsqueeze_(0)
-            right_interp_indices.unsqueeze_(0)
-
-        left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
-        left_interp_values = left_interp_indices.new(left_interp_indices.size()).fill_(1).float()
-        right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
-        right_interp_values = right_interp_indices.new(right_interp_indices.size()).fill_(1).float()
-
-        res = InterpolatedLazyVariable(ToeplitzLazyVariable(column), Variable(left_interp_indices),
-                                       Variable(left_interp_values),
-                                       Variable(right_interp_indices), Variable(right_interp_values))
-
-        if squeeze_left or squeeze_right:
-            res = res.evaluate()
-            if squeeze_left:
-                res = res.squeeze(-2)
-            if squeeze_right:
-                res = res.squeeze(-1)
-
-        return res
 
     def _get_indices(self, left_indices, right_indices):
         n_grid = self.column.size(-1)
