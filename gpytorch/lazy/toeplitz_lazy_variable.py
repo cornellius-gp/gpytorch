@@ -99,7 +99,7 @@ class ToeplitzLazyVariable(LazyVariable):
 
         left_interp_len = len(left_interp_indices)
         right_interp_len = len(right_interp_indices)
-        for i in xrange(ndimension - 2):
+        for i in range(ndimension - 2):
             left_interp_indices.unsqueeze_(0)
             right_interp_indices.unsqueeze_(0)
 
