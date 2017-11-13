@@ -87,7 +87,7 @@ class KroneckerProductLazyVariable(LazyVariable):
         if self.J_lefts is not None:
             kronecker_product_diag = diag.expand(self._size[0])
         else:
-            kronecker_product_diag = diag.expand_as(self.kronecker_product_size)
+            kronecker_product_diag = diag.expand(self.kronecker_product_size)
 
         return KroneckerProductLazyVariable(self.columns, self.J_lefts, self.C_lefts,
                                             self.J_rights, self.C_rights, kronecker_product_diag)

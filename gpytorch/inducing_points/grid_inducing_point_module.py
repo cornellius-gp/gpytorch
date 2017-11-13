@@ -1,12 +1,13 @@
 import gpytorch
 import torch
-from copy import deepcopy
+import math
 from torch.autograd import Variable
 from .inducing_point_module import InducingPointModule
-from ..lazy import NonLazyVariable, KroneckerProductLazyVariable, InterpolatedLazyVariable
+from ..lazy import NonLazyVariable, KroneckerProductLazyVariable, InterpolatedLazyVariable, MatmulLazyVariable
 from ..random_variables import GaussianRandomVariable
 from ..variational import GridInducingPointStrategy
 from ..kernels import Kernel, GridInterpolationKernel
+from ..utils.interpolation import Interpolation
 
 
 class GridInducingPointModule(InducingPointModule):
@@ -34,86 +35,157 @@ class GridInducingPointModule(InducingPointModule):
 
     def __setattr__(self, name, value):
         if isinstance(value, Kernel):
-            value = GridInterpolationKernel(value, self.grid_size, self.grid_bounds, self.grid)
+            value = GridInterpolationKernel(value, self.grid_size, self.grid, self._inducing_points)
         return super(GridInducingPointModule, self).__setattr__(name, value)
 
-    def train(self, mode=True):
-        if hasattr(self, '_variational_covar'):
-            del self._variational_covar
-        return super(GridInducingPointModule, self).train(mode)
+    def _compute_grid(self, inputs):
+        if inputs.ndimension() == 1:
+            inputs = inputs.unsqueeze(1)
+        d = inputs.size(1)
 
-    @property
-    def variational_covar(self):
-        if self.training:
-            return self.chol_variational_covar.matmul(self.chol_variational_covar.t())
-        else:
-            if not hasattr(self, '_variational_covar'):
-                self._variational_covar = self.chol_variational_covar.matmul(self.chol_variational_covar.t())
-            return self._variational_covar
+        if d > 1:
+            interp_indices = inputs.data.new(d, len(inputs.data), 4).zero_().long()
+            interp_values = inputs.data.new(d, len(inputs.data), 4).zero_().float()
+            for i in range(d):
+                inputs_min = inputs.min(0)[0].data[i]
+                inputs_max = inputs.max(0)[0].data[i]
+                if inputs_min < self.grid_bounds[i][0] or inputs_max > self.grid_bounds[i][1]:
+                    # Out of bounds data is still ok if we are specifically computing kernel values for grid entries.
+                    if math.fabs(inputs_min - self.grid[i, 0]) > 1e-7:
+                        raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                            Grid bounds were ({}, {}), but min = {}, \
+                                            max = {}'.format(self.grid_bounds[i][0],
+                                                             self.grid_bounds[i][1],
+                                                             inputs_min,
+                                                             inputs_max))
+                    elif math.fabs(inputs_max - self.grid[i, -1]) > 1e-7:
+                        raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                            Grid bounds were ({}, {}), but min = {}, \
+                                            max = {}'.format(self.grid_bounds[i][0],
+                                                             self.grid_bounds[i][1],
+                                                             inputs_min,
+                                                             inputs_max))
+                dim_interp_indices, dim_interp_values = Interpolation().interpolate(self.grid[i], inputs.data[:, i])
+                interp_indices[i].copy_(dim_interp_indices)
+                interp_values[i].copy_(dim_interp_values)
+            return interp_indices, interp_values
+
+        inputs_min = inputs.min(0)[0].data[0]
+        inputs_max = inputs.max(0)[0].data[0]
+        if inputs_min < self.grid_bounds[0][0] or inputs_max > self.grid_bounds[0][1]:
+            # Out of bounds data is still ok if we are specifically computing kernel values for grid entries.
+            if math.fabs(inputs_min - self.grid[0, 0]) > 1e-7:
+                raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                    Grid bounds were ({}, {}), but min = {}, max = {}'.format(self.grid_bounds[0][0],
+                                                                                              self.grid_bounds[0][1],
+                                                                                              inputs_min,
+                                                                                              inputs_max))
+            elif math.fabs(inputs_max - self.grid[0, -1]) > 1e-7:
+                raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                    Grid bounds were ({}, {}), but min = {}, max = {}'.format(self.grid_bounds[0][0],
+                                                                                              self.grid_bounds[0][1],
+                                                                                              inputs_min,
+                                                                                              inputs_max))
+        interp_indices, interp_values = Interpolation().interpolate(self.grid[0], inputs.data.squeeze())
+        return interp_indices, interp_values
 
     def __call__(self, inputs, **kwargs):
         if self.exact_inference:
-            output = gpytorch.Module.__call__(self, inputs)
-            if not isinstance(output, GaussianRandomVariable):
-                raise RuntimeError('Output should be a GaussianRandomVariable')
-            return output
+            if self.conditioning:
+                interp_indices, interp_values = self._compute_grid(inputs)
+                self.train_interp_indices = interp_indices
+                self.train_interp_values = interp_values
+            else:
+                train_data = self.train_inputs[0].data if hasattr(self, 'train_inputs') else None
+                if train_data is not None and torch.equal(inputs.data, train_data):
+                    interp_indices = self.train_interp_indices
+                    interp_values = self.train_interp_values
+                else:
+                    interp_indices, interp_values, = self._compute_grid(inputs)
 
-        # Training mode: optimizing
-        if self.training:
             induc_output = gpytorch.Module.__call__(self, Variable(self._inducing_points))
-            output = gpytorch.Module.__call__(self, inputs)
+            if not isinstance(induc_output, GaussianRandomVariable):
+                raise RuntimeError('Output should be a GaussianRandomVariable')
+
+            if isinstance(induc_output.covar(), KroneckerProductLazyVariable):
+                covar = KroneckerProductLazyVariable(induc_output.covar().columns, interp_indices, interp_values,
+                                                     interp_indices, interp_values)
+                interp_matrix = covar.representation()[1]
+                mean = gpytorch.dsmm(interp_matrix, induc_output.mean().unsqueeze(-1)).squeeze(-1)
+
+            else:
+                # Compute test mean
+                # Left multiply samples by interpolation matrix
+                interp_indices = Variable(interp_indices)
+                interp_values = Variable(interp_values)
+                mean_output = induc_output.mean().index_select(0, interp_indices.view(-1)).view(*interp_values.size())
+                mean_output = mean_output.mul(interp_values)
+                mean = mean_output.sum(-1)
+
+                # Compute test covar
+                base_lv = induc_output.covar()
+                covar = InterpolatedLazyVariable(base_lv, interp_indices, interp_values, interp_indices, interp_values)
+
+            return GaussianRandomVariable(mean, covar)
+
+        else:
+            variational_mean = self.variational_mean
+            chol_variational_covar = self.chol_variational_covar
+            induc_output = gpytorch.Module.__call__(self, Variable(self._inducing_points))
+            interp_indices, interp_values = self._compute_grid(inputs)
 
             # Initialize variational parameters, if necessary
             if not self.variational_params_initialized[0]:
                 mean_init = induc_output.mean().data
                 chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
-                self.variational_mean.data.copy_(mean_init)
-                self.chol_variational_covar.data.copy_(chol_covar_init)
+                variational_mean.data.copy_(mean_init)
+                chol_variational_covar.data.copy_(chol_covar_init)
                 self.variational_params_initialized.fill_(1)
 
-            # Add variational strategy
-            output._variational_strategy = GridInducingPointStrategy(self.variational_mean,
-                                                                     self.chol_variational_covar,
-                                                                     induc_output)
-
-        # Posterior mode
-        elif self.posterior:
-            output = gpytorch.Module.__call__(self, inputs)
-            test_test_covar = output.covar()
-
-            # Calculate posterior components
-            if not self.has_computed_alpha[0]:
-                induc_output = gpytorch.Module.__call__(self, Variable(self._inducing_points))
-                alpha = self.variational_mean.sub(induc_output.mean())
-                self.alpha.copy_(alpha.data)
-                self.has_computed_alpha.fill_(1)
+            # Calculate alpha vector
+            if self.training:
+                alpha = induc_output.mean()
             else:
-                alpha = Variable(self.alpha)
+                if not self.has_computed_alpha[0]:
+                    alpha = variational_mean.sub(induc_output.mean())
+                    self.alpha.copy_(alpha.data)
+                    self.has_computed_alpha.fill_(1)
+                else:
+                    alpha = Variable(self.alpha)
 
-            # Hacky code for now for KroneckerProductLazyVariable. Let's change it soon.
-            if isinstance(output.covar(), KroneckerProductLazyVariable):
-                interp_matrix = output.covar().representation()[1]
+            if isinstance(induc_output.covar(), KroneckerProductLazyVariable):
+                test_covar = KroneckerProductLazyVariable(induc_output.covar().columns, interp_indices, interp_values,
+                                                          interp_indices, interp_values)
+                interp_matrix = test_covar.representation()[1]
                 test_mean = gpytorch.dsmm(interp_matrix, alpha.unsqueeze(-1)).squeeze(-1)
-                test_chol_covar = gpytorch.dsmm(interp_matrix, self.chol_variational_covar.t())
-                test_covar = MatmulLazyVariable(test_chol_covar, test_chol_covar.t())
+                if not self.training:
+                    test_chol_covar = gpytorch.dsmm(interp_matrix, chol_variational_covar)
+                    test_covar = MatmulLazyVariable(test_chol_covar, test_chol_covar.t())
 
             else:
                 # Compute test mean
                 # Left multiply samples by interpolation matrix
-                interp_indices = test_test_covar.left_interp_indices
-                interp_values = test_test_covar.left_interp_values
+                interp_indices = Variable(interp_indices)
+                interp_values = Variable(interp_values)
                 mean_output = alpha.index_select(0, interp_indices.view(-1)).view(*interp_values.size())
                 mean_output = mean_output.mul(interp_values)
                 test_mean = mean_output.sum(-1)
 
                 # Compute test covar
-                base_lv = NonLazyVariable(self.variational_covar)
-                test_covar = InterpolatedLazyVariable(base_lv, interp_indices, interp_values, interp_indices, interp_values)
+                if self.training:
+                    base_lv = induc_output.covar()
+                else:
+                    base_lv = NonLazyVariable(self.variational_covar)
+                test_covar = InterpolatedLazyVariable(base_lv, interp_indices, interp_values,
+                                                      interp_indices, interp_values)
 
             output = GaussianRandomVariable(test_mean, test_covar)
-        # Prior mode
-        else:
-            output = gpytorch.Module.__call__(self, inputs)
+
+            # Add variational strategy
+            if self.training:
+                output._variational_strategy = GridInducingPointStrategy(variational_mean,
+                                                                         chol_variational_covar,
+                                                                         induc_output)
 
         if not isinstance(output, GaussianRandomVariable):
             raise RuntimeError('Output should be a GaussianRandomVariable')

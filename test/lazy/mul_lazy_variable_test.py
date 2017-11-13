@@ -3,9 +3,8 @@ import torch
 import gpytorch
 from torch.autograd import Variable
 from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, MulLazyVariable, InterpolatedLazyVariable
-from gpytorch.kernels import RBFKernel, GridInterpolationKernel
+from gpytorch.kernels import RBFKernel
 from gpytorch.means import ConstantMean
-from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
 
 
@@ -51,18 +50,17 @@ def test_matmul_deterministic():
 
 
 def test_matmul_approx():
-    class KissGPModel(gpytorch.GPModel):
+    class KissGPModel(gpytorch.GridInducingPointModule):
         def __init__(self):
-            likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
-            super(KissGPModel, self).__init__(likelihood)
+            super(KissGPModel, self).__init__(grid_size=300, grid_bounds=[(0, 1)])
             self.mean_module = ConstantMean(constant_bounds=(-1, 1))
             covar_module = RBFKernel(log_lengthscale_bounds=(-100, 100))
             covar_module.log_lengthscale.data = torch.FloatTensor([-2])
-            self.grid_covar_module = GridInterpolationKernel(covar_module, grid_size=300, grid_bounds=[(0, 1)])
+            self.covar_module = covar_module
 
         def forward(self, x):
             mean_x = self.mean_module(x)
-            covar_x = self.grid_covar_module(x)
+            covar_x = self.covar_module(x)
             return GaussianRandomVariable(mean_x, covar_x)
 
     model = KissGPModel()
@@ -77,7 +75,7 @@ def test_matmul_approx():
         x = Variable(torch.rand(n))
         y = Variable(torch.rand(n))
         model.condition(x, y)
-        toeplitz_var = model.forward(x).covar()
+        toeplitz_var = model(x).covar()
         lazy_var_list.append(toeplitz_var)
         lazy_var_eval_list.append(toeplitz_var.evaluate().data)
 
