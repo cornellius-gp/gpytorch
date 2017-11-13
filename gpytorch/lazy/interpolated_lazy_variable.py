@@ -1,7 +1,6 @@
 import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
-from .constant_mul_lazy_variable import ConstantMulLazyVariable
 from copy import deepcopy
 from ..utils import bdsmm
 
@@ -179,21 +178,6 @@ class InterpolatedLazyVariable(LazyVariable):
 
         diag = (interp_values * base_var_vals).sum(2).sum(1)
         return diag
-
-    def mul(self, other):
-        """
-        Multiplies the matrix by a constant, or elementwise the matrix by another matrix
-        """
-        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or \
-               (isinstance(other, Variable) and other.numel() == 1):
-            base_lazy_variable = ConstantMulLazyVariable(self.base_lazy_variable, other)
-
-            return self.__class__(base_lazy_variable, self.left_interp_indices, self.left_interp_values,
-                                  self.right_interp_indices, self.right_interp_values)
-
-        else:
-            from .mul_lazy_variable import MulLazyVariable
-            return MulLazyVariable(self, other)
 
     def repeat(self, *sizes):
         """
