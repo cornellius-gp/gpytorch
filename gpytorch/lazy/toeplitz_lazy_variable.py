@@ -40,9 +40,6 @@ class ToeplitzLazyVariable(LazyVariable):
             diag_term = diag_term.unsqueeze(-1)
         return diag_term.expand(*self.column.size())
 
-    def representation(self):
-        return self.column,
-
     def repeat(self, *sizes):
         """
         Repeat elements of the Variable.

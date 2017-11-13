@@ -1,6 +1,5 @@
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
-from ..posterior import DefaultPosteriorStrategy
 import torch
 from torch.autograd import Variable
 from ..utils.trace import trace_components
@@ -342,9 +341,6 @@ class MulLazyVariable(LazyVariable):
         if self.added_diag is not None:
             res = res + [self.added_diag]
         return tuple(res)
-
-    def posterior_strategy(self):
-        return DefaultPosteriorStrategy(self)
 
     def size(self):
         return self.lazy_vars[0].size()

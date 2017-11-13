@@ -1,6 +1,5 @@
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
-from ..posterior import DefaultPosteriorStrategy
 from torch.autograd import Variable
 
 
@@ -51,13 +50,6 @@ class SumLazyVariable(LazyVariable):
     def diag(self):
         return sum(lazy_var.diag() for lazy_var in self.lazy_vars)
 
-    def representation(self):
-        res = tuple(var for lazy_var in self.lazy_vars for var in lazy_var.representation())
-        return res
-
-    def posterior_strategy(self):
-        return DefaultPosteriorStrategy(self)
-
     def _transpose_nonbatch(self):
         lazy_vars_t = list(lazy_var.t() for lazy_var in self.lazy_var)
         return SumLazyVariable(*lazy_vars_t)
@@ -69,10 +61,6 @@ class SumLazyVariable(LazyVariable):
             return SumLazyVariable(*(list(self.lazy_vars) + [other]))
         else:
             raise AttributeError('other must be a LazyVariable')
-
-    def __getitem__(self, i):
-        sliced_lazy_vars = [lazy_var.__getitem__(i) for lazy_var in self.lazy_vars]
-        return sum(*sliced_lazy_vars)
 
     def size(self):
         return self.lazy_vars[0].size()

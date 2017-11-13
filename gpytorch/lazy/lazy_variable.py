@@ -209,7 +209,15 @@ class LazyVariable(object):
         """
         Returns the variables that are used to define the LazyVariable
         """
-        raise NotImplementedError
+        representation = []
+        for arg in self._args:
+            if isinstance(arg, Variable):
+                representation.append(arg)
+            elif isinstance(arg, LazyVariable):
+                representation += list(arg.representation())
+            else:
+                raise RuntimeError('Representation of a LazyVariable should consist only of Variables')
+        return tuple(representation)
 
     def size(self):
         """
@@ -277,7 +285,7 @@ class LazyVariable(object):
         index = list(index) if isinstance(index, tuple) else [index]
         ndimension = self.ndimension()
         index += [slice(None, None, None)] * (ndimension - len(index))
-        representation = list(self.representation())
+        components = list(self._args)
 
         squeeze_left = False
         squeeze_right = False
@@ -292,11 +300,11 @@ class LazyVariable(object):
         isbatch = ndimension >= 3
         if isbatch:
             batch_index = tuple(index[:-2])
-            for i, item in enumerate(representation):
-                representation[i] = item[batch_index]
+            for i, item in enumerate(components):
+                components[i] = item[batch_index]
 
-        new_lazy_variable = self.__class__(*representation)
-        print(new_lazy_variable.evaluate())
+        new_lazy_variable = self.__class__(*components)
+        representation = new_lazy_variable.representation()
         ndimension = new_lazy_variable.ndimension()
 
         # Handle index

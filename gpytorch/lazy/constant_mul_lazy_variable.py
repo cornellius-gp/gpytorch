@@ -1,18 +1,16 @@
 import torch
 from torch.autograd import Variable
-from ..posterior import DefaultPosteriorStrategy
 from .lazy_variable import LazyVariable
 
 
 class ConstantMulLazyVariable(LazyVariable):
     def __init__(self, lazy_var, constant):
-        super(ConstantMulLazyVariable, self).__init__(lazy_var)
-        self.lazy_var = lazy_var
         if not isinstance(constant, Variable):
-            tensor_cls = type(self.lazy_var.representation()[0].data)
-            self.constant = Variable(tensor_cls(1).fill_(constant))
-        else:
-            self.constant = constant
+            tensor_cls = type(lazy_var.representation()[0].data)
+            constant = Variable(tensor_cls(1).fill_(constant))
+        super(ConstantMulLazyVariable, self).__init__(lazy_var, constant)
+        self.lazy_var = lazy_var
+        self.constant = constant
 
     def _matmul_closure_factory(self, *args):
         lazy_var_closure = self.lazy_var._matmul_closure_factory(*args[:-1])
@@ -40,15 +38,6 @@ class ConstantMulLazyVariable(LazyVariable):
 
     def diag(self):
         return self.lazy_var.diag() * self.constant
-
-    def evaluate(self):
-        return self.lazy_var.evaluate() * self.constant
-
-    def representation(self):
-        return tuple(list(self.lazy_var.representation()) + [self.constant])
-
-    def posterior_strategy(self):
-        return DefaultPosteriorStrategy(self)
 
     def _transpose_nonbatch(self):
         return ConstantMulLazyVariable(self.lazy_var._transpose_nonbatch(), self.constant)

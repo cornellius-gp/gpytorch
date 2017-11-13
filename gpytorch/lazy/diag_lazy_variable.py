@@ -1,5 +1,4 @@
 from gpytorch.lazy import LazyVariable
-from .non_lazy_variable import NonLazyVariable
 
 
 class DiagLazyVariable(LazyVariable):
@@ -41,11 +40,8 @@ class DiagLazyVariable(LazyVariable):
     def evaluate(self):
         return self._diag.diag()
 
-    def representation(self):
-        return self._diag,
-
-    def __getitem__(self, index):
-        return NonLazyVariable(self.evaluate())[index]
-
     def size(self):
         return self._diag.size(0), self._diag.size(0)
+
+    def _transpose_nonbatch(self):
+        return self

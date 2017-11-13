@@ -2,7 +2,6 @@ import torch
 import gpytorch
 from gpytorch.lazy import LazyVariable
 from gpytorch.utils import function_factory
-from ..posterior import DefaultPosteriorStrategy
 
 
 class NonLazyVariable(LazyVariable):
@@ -32,12 +31,6 @@ class NonLazyVariable(LazyVariable):
 
     def evaluate(self):
         return self.var
-
-    def posterior_strategy(self):
-        return DefaultPosteriorStrategy(self)
-
-    def representation(self):
-        return self.var,
 
     def size(self):
         return self.var.size()

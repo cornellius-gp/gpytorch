@@ -194,11 +194,6 @@ class InterpolatedLazyVariable(LazyVariable):
                               self.right_interp_indices.repeat(*sizes),
                               self.right_interp_values.repeat(*sizes))
 
-    def representation(self):
-        return tuple(list(self.base_lazy_variable.representation()) +
-                     [self.left_interp_indices, self.left_interp_values, self.right_interp_indices,
-                      self.right_interp_values])
-
     def size(self):
         if self.left_interp_indices.ndimension() == 3:
             return torch.Size((self.left_interp_indices.size(0), self.left_interp_indices.size(1),
