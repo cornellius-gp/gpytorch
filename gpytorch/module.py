@@ -87,10 +87,10 @@ class Module(nn.Module):
             param = self._parameters[name]
             lower_bound, upper_bound = self._bounds[name]
             lower_mask = param.data < lower_bound
-            if any(lower_mask.view(-1)):
+            if lower_mask.view(-1).sum():
                 raise AttributeError('Parameter %s exceeds lower bound' % name)
             upper_mask = param.data > upper_bound
-            if any(upper_mask.view(-1)):
+            if upper_mask.view(-1).sum():
                 raise AttributeError('Parameter %s exceeds upper bound' % name)
         return self
 
@@ -241,13 +241,13 @@ class Module(nn.Module):
                 # Ensure parameter is within bounds
                 lower_bound, upper_bound = self._bounds[name]
                 lower_mask = param.data < lower_bound
-                if any(lower_mask.view(-1)):
+                if lower_mask.sum():
                     if torch.is_tensor(lower_bound):
                         param.data.masked_scatter_(lower_mask, lower_bound[lower_mask])
                     else:
                         param.data.masked_fill_(lower_mask, lower_bound)
                 upper_mask = param.data > upper_bound
-                if any(upper_mask.view(-1)):
+                if upper_mask.sum():
                     if torch.is_tensor(upper_bound):
                         param.data.masked_scatter_(upper_mask, upper_bound[upper_mask])
                     else:

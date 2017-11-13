@@ -20,7 +20,7 @@ class BernoulliRandomVariable(RandomVariable):
             raise RuntimeError('probability should be a Variable')
         if not probability.ndimension() == 1:
             raise RuntimeError('BernoulliRandomVariable should be a scalar or a vector')
-        if any(probability.data < 0) or any(probability.data > 1):
+        if probability.data.lt(0).sum() or probability.data.gt(1).sum():
             raise RuntimeError('Probabilities must be between 0 and 1')
         self.probability = probability
 

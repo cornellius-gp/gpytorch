@@ -27,7 +27,7 @@ class CategoricalRandomVariable(RandomVariable):
         # Assert that probabilities sum to 1
         if ndimension == 1:
             mass_function = mass_function.unsqueeze(0)
-        if any(torch.abs(mass_function.data.sum(1) - 1).gt(1e-5).squeeze()):
+        if torch.abs(mass_function.data.sum(1) - 1).gt(1e-5).sum():
             raise RuntimeError('mass_function probabilties (in each row) should sum to 1!')
         if ndimension == 1:
             mass_function = mass_function.squeeze(0)
