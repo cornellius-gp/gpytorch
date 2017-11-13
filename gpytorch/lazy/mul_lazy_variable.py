@@ -22,7 +22,7 @@ class MulLazyVariable(LazyVariable):
                 if isinstance(lazy_var, Variable):
                     lazy_vars[i] = NonLazyVariable(lazy_var)
                 else:
-                    raise RuntimeError('All arguments of a SumLazyVariable should be lazy variables or vairables')
+                    raise RuntimeError('All arguments of a MulLazyVariable should be lazy variables or vairables')
         super(MulLazyVariable, self).__init__(*lazy_vars, **kwargs)
 
         self.lazy_vars = lazy_vars
