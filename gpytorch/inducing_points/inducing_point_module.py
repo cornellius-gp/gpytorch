@@ -23,6 +23,10 @@ class InducingPointModule(gpytorch.Module):
     def forward(self, inputs):
         raise NotImplementedError
 
+    @property
+    def posterior(self):
+        return self.variational_params_initialized[0] and not self.training
+
     def __call__(self, inputs, **kwargs):
         if self.exact_inference:
             raise RuntimeError('At the moment, the InducingPointModule only works for variational inference')
