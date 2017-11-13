@@ -1,8 +1,7 @@
 import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
-from copy import deepcopy
-from ..utils import bdsmm
+from ..utils import bdsmm, left_interp
 
 
 def _make_sparse_from_indices_and_values(right_interp_indices, right_interp_values, n_inducing):
@@ -111,15 +110,9 @@ class InterpolatedLazyVariable(LazyVariable):
             base_res = base_lazy_variable_matmul(right_interp_res)
 
             # left_interp * base_lazy_var * right_interp^T * tensor
-            left_interp_size = list(left_interp_indices.size()) + [tensor.size(-1)]
-            base_res_size = deepcopy(left_interp_size)
-            base_res_size[-3] = self.base_lazy_variable.size()[-2]
-            left_interp_indices_expanded = left_interp_indices.unsqueeze(-1).expand(*left_interp_size)
-            left_interp_res = base_res.unsqueeze(-2).expand(*base_res_size).gather(-3, left_interp_indices_expanded)
-            left_interp_res.mul_(left_interp_values.unsqueeze(-1).expand(left_interp_size))
+            res = left_interp(left_interp_indices, left_interp_values, base_res)
 
             # Squeeze if necessary
-            res = left_interp_res.sum(-2)
             if is_vector:
                 res = res.squeeze(-1)
             return res

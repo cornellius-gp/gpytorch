@@ -8,6 +8,7 @@ from ..random_variables import GaussianRandomVariable
 from ..variational import GridInducingPointStrategy
 from ..kernels import Kernel, GridInterpolationKernel
 from ..utils.interpolation import Interpolation
+from ..utils import left_interp
 
 
 class GridInducingPointModule(InducingPointModule):
@@ -118,9 +119,7 @@ class GridInducingPointModule(InducingPointModule):
                 # Left multiply samples by interpolation matrix
                 interp_indices = Variable(interp_indices)
                 interp_values = Variable(interp_values)
-                mean_output = induc_output.mean().index_select(0, interp_indices.view(-1)).view(*interp_values.size())
-                mean_output = mean_output.mul(interp_values)
-                mean = mean_output.sum(-1)
+                mean = left_interp(interp_indices, interp_values, induc_output.mean())
 
                 # Compute test covar
                 base_lv = induc_output.covar()
@@ -167,9 +166,7 @@ class GridInducingPointModule(InducingPointModule):
                 # Left multiply samples by interpolation matrix
                 interp_indices = Variable(interp_indices)
                 interp_values = Variable(interp_values)
-                mean_output = alpha.index_select(0, interp_indices.view(-1)).view(*interp_values.size())
-                mean_output = mean_output.mul(interp_values)
-                test_mean = mean_output.sum(-1)
+                test_mean = left_interp(interp_indices, interp_values, alpha)
 
                 # Compute test covar
                 if self.training:

@@ -1,4 +1,5 @@
 import torch
+from copy import deepcopy
 from operator import mul
 from torch.autograd import Variable
 from .interpolation import Interpolation
@@ -72,6 +73,24 @@ def bdsmm(sparse, dense):
         return res
     else:
         return torch.dsmm(sparse, dense)
+
+
+def left_interp(interp_indices, interp_values, rhs):
+    is_vector = rhs.ndimension() == 1
+
+    if is_vector:
+        res = rhs.index_select(0, interp_indices.view(-1)).view(*interp_values.size())
+        res = res.mul(interp_values)
+        return res.sum(-1)
+
+    else:
+        interp_size = list(interp_indices.size()) + [rhs.size(-1)]
+        rhs_size = deepcopy(interp_size)
+        rhs_size[-3] = rhs.size()[-2]
+        interp_indices_expanded = interp_indices.unsqueeze(-1).expand(*interp_size)
+        res = rhs.unsqueeze(-2).expand(*rhs_size).gather(-3, interp_indices_expanded)
+        res = res.mul(interp_values.unsqueeze(-1).expand(interp_size))
+        return res.sum(-2)
 
 
 def sparse_eye(size):
@@ -190,6 +209,7 @@ __all__ = [
     Interpolation,
     LinearCG,
     StochasticLQ,
+    left_interp,
     reverse,
     rcumsum,
     approx_equal,

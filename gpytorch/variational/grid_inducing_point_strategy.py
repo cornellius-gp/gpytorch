@@ -1,8 +1,8 @@
-from copy import deepcopy
 import gpytorch
 from torch.autograd import Variable
 from .variational_strategy import VariationalStrategy
 from ..lazy import InterpolatedLazyVariable, KroneckerProductLazyVariable
+from ..utils import left_interp
 
 
 class GridInducingPointStrategy(VariationalStrategy):
@@ -23,15 +23,10 @@ class GridInducingPointStrategy(VariationalStrategy):
 
         if not isinstance(output.covar(), InterpolatedLazyVariable):
             raise RuntimeError('Output should be an interpolated lazy variable')
+
+        # Left multiply samples by interpolation matrix
         interp_indices = output.covar().left_interp_indices
         interp_values = output.covar().left_interp_values
-        # Left multiply samples by interpolation matrix
-        interp_size = list(interp_indices.size()) + [samples.size(-1)]
-        samples_size = deepcopy(interp_size)
-        samples_size[-3] = samples.size()[-2]
-        interp_indices_expanded = interp_indices.unsqueeze(-1).expand(*interp_size)
-        samples_output = samples.unsqueeze(-2).expand(*samples_size).gather(-3, interp_indices_expanded)
-        samples_output = samples_output.mul(interp_values.unsqueeze(-1).expand(interp_size))
-        samples = samples_output.sum(-2)
+        samples = left_interp(interp_indices, interp_values, samples)
 
         return samples
