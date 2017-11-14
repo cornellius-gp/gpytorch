@@ -59,6 +59,11 @@ class ToeplitzLazyVariable(LazyVariable):
     def _transpose_nonbatch(self):
         return ToeplitzLazyVariable(self.column)
 
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        n_grid = self.column.size(-1)
+        toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
+        return self.column[batch_indices.data, toeplitz_indices.data]
+
     def _get_indices(self, left_indices, right_indices):
         n_grid = self.column.size(-1)
         toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()

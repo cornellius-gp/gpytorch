@@ -32,6 +32,9 @@ class NonLazyVariable(LazyVariable):
     def evaluate(self):
         return self.var
 
+    def repeat(self, *sizes):
+        return NonLazyVariable(self.var.repeat(*sizes))
+
     def size(self):
         return self.var.size()
 
@@ -40,6 +43,9 @@ class NonLazyVariable(LazyVariable):
 
     def __getitem__(self, index):
         return NonLazyVariable(self.var[index])
+
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        return self.var[batch_indices.data, left_indices.data, right_indices.data]
 
     def _get_indices(self, left_indices, right_indices):
         return self.var[left_indices.data, right_indices.data]
