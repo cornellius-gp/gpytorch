@@ -39,8 +39,15 @@ class ConstantMulLazyVariable(LazyVariable):
     def diag(self):
         return self.lazy_var.diag() * self.constant
 
+    def repeat(self, *sizes):
+        return ConstantMulLazyVariable(self.lazy_var.repeat(*sizes), self.constant)
+
     def _transpose_nonbatch(self):
         return ConstantMulLazyVariable(self.lazy_var._transpose_nonbatch(), self.constant)
+
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        res = self.lazy_var._batch_get_indices(batch_indices, left_indices, right_indices)
+        return self.constant.expand_as(res) * res
 
     def _get_indices(self, left_indices, right_indices):
         res = self.lazy_var._get_indices(left_indices, right_indices)

@@ -1,7 +1,7 @@
 import gpytorch
 from torch.autograd import Variable
 from .variational_strategy import VariationalStrategy
-from ..lazy import InterpolatedLazyVariable, KroneckerProductLazyVariable
+from ..lazy import InterpolatedLazyVariable, KroneckerProductLazyVariable, SumInterpolatedLazyVariable
 from ..utils import left_interp
 
 
@@ -27,6 +27,9 @@ class GridInducingPointStrategy(VariationalStrategy):
         # Left multiply samples by interpolation matrix
         interp_indices = output.covar().left_interp_indices
         interp_values = output.covar().left_interp_values
+
         samples = left_interp(interp_indices, interp_values, samples)
+        if isinstance(output.covar(), SumInterpolatedLazyVariable):
+            samples = samples.sum(0)
 
         return samples

@@ -21,7 +21,7 @@ def test_exact_gp_mll():
     # Test backwards
     mll_res.backward()
     mll_actual.backward()
-    assert(math.fabs(c1_var.grad.data[0] - c2_var.grad.data[0]) < 5e-1)
+    assert(math.fabs(c1_var.grad.data[0] - c2_var.grad.data[0]) < 1)
 
 
 def test_getitem():

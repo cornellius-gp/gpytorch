@@ -6,6 +6,7 @@ from .kronecker_product_lazy_variable import KroneckerProductLazyVariable
 from .mul_lazy_variable import MulLazyVariable
 from .non_lazy_variable import NonLazyVariable
 from .sum_lazy_variable import SumLazyVariable
+from .sum_interpolated_lazy_variable import SumInterpolatedLazyVariable
 from .toeplitz_lazy_variable import ToeplitzLazyVariable
 
 
@@ -18,5 +19,6 @@ __all__ = [
     MulLazyVariable,
     NonLazyVariable,
     SumLazyVariable,
+    SumInterpolatedLazyVariable,
     ToeplitzLazyVariable,
 ]
