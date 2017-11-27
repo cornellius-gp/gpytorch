@@ -169,7 +169,9 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
 
             if self.needs_input_grad[1]:
                 # Compute gradient with respect to the Cholesky factor L
-                grad_cholesky_factor = 2 * LinearCG().solve(matmul_closure_factory(*covar2_args), chol_covar1)
+                grad_cholesky_factor = 2 * LinearCG().solve(matmul_closure_factory(*covar2_args),
+                                                            chol_covar1.transpose(-1, -2)).transpose(-1, -2)
+                grad_cholesky_factor = grad_cholesky_factor.contiguous()
                 grad_cholesky_factor.mul_(grad_output_value)
 
             if any(self.needs_input_grad[2:]):
