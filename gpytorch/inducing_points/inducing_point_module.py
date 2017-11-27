@@ -36,10 +36,11 @@ class InducingPointModule(gpytorch.Module):
     @property
     def variational_covar(self):
         if self.training:
-            return self.chol_variational_covar.matmul(self.chol_variational_covar.t())
+            return self.chol_variational_covar.matmul(self.chol_variational_covar.transpose(-1, -2))
         else:
             if not hasattr(self, '_variational_covar'):
-                self._variational_covar = self.chol_variational_covar.matmul(self.chol_variational_covar.t())
+                transpose = self.chol_variational_covar.transpose(-1, -2)
+                self._variational_covar = self.chol_variational_covar.matmul(transpose)
             return self._variational_covar
 
     def __call__(self, inputs, **kwargs):

@@ -159,7 +159,7 @@ class GridInducingPointModule(InducingPointModule):
                 test_mean = gpytorch.dsmm(interp_matrix, alpha.unsqueeze(-1)).squeeze(-1)
                 if not self.training:
                     test_chol_covar = gpytorch.dsmm(interp_matrix, chol_variational_covar)
-                    test_covar = MatmulLazyVariable(test_chol_covar, test_chol_covar.t())
+                    test_covar = MatmulLazyVariable(test_chol_covar, test_chol_covar.transpose(-2, -1))
 
             else:
                 # Compute test mean

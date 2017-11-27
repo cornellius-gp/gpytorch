@@ -18,8 +18,8 @@ def _default_derivative_quadratic_form_factory(mat):
         else:
             left_factor = left_vectors.contiguous()
             right_factor = right_vectors.contiguous()
-        left_factor.unsqueeze_(-1)
-        right_factor.unsqueeze_(-2)
+        left_factor = left_factor.unsqueeze(-1)
+        right_factor = right_factor.unsqueeze(-2)
         res = (left_factor * right_factor).sum(dim=-3).squeeze_()
         return res,
     return closure
@@ -123,28 +123,36 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
 
             # log |K2|
             slq = StochasticLQ(num_random_probes=10, cls=type(covar2_args[0]))
-            log_det_covar2, = slq.evaluate(covar2_matmul_closure, len(mu_diff), [lambda x: x.log()])
+            if mu_diff.ndimension() == 2:
+                log_det_covar2, = slq.evaluate(covar2_matmul_closure, mu_diff.size(-1),
+                                               [lambda x: x.log()], batch_size=mu_diff.size(0))
+            else:
+                log_det_covar2, = slq.evaluate(covar2_matmul_closure, mu_diff.size(-1), [lambda x: x.log()])
 
             # Tr(K2^{-1}K1)
             def matmul_closure(sample_matrix):
-                rhs_vectors = chol_covar1.t().contiguous().matmul(chol_covar1.matmul(sample_matrix))
+                if chol_covar1.ndimension() == 3:
+                    sample_matrix = sample_matrix.unsqueeze(0)
+                rhs_vectors = chol_covar1.transpose(-1, -2).contiguous().matmul(chol_covar1.matmul(sample_matrix))
                 return LinearCG().solve(covar2_matmul_closure, rhs_vectors)
 
-            sample_matrix, mat_inv_vectors = trace_components(None, matmul_closure, size=len(mu_diff),
+            sample_matrix, mat_inv_vectors = trace_components(None, matmul_closure, size=mu_diff.size(-1),
                                                               tensor_cls=type(chol_covar1))
-            trace = (sample_matrix * mat_inv_vectors).sum()
+            trace = (sample_matrix * mat_inv_vectors).sum(-2).sum(-1)
 
             # Inverse quad form
-            mat_inv_y = LinearCG().solve(covar2_matmul_closure, mu_diff)
-            inv_quad_form = mat_inv_y.dot(mu_diff)
+            mat_inv_y = LinearCG().solve(covar2_matmul_closure, mu_diff.unsqueeze(-1)).squeeze(-1)
+            inv_quad_form = mat_inv_y.mul(mu_diff).sum(-1)
 
             res = log_det_covar2 + trace + inv_quad_form
+            if res.numel() > 1:
+                res = res.sum(-1)
 
             self.save_for_backward(*([mu_diff] + [chol_covar1] + list(covar2_args)))
             self.covar2_matmul_closure = covar2_matmul_closure
             self.mat_inv_y = mat_inv_y
 
-            return mu_diff.new().resize_(1).fill_(res)
+            return res
 
         def backward(self, grad_output):
             if derivative_quadratic_form_factory is None:
@@ -157,7 +165,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             chol_covar1 = args[1]
             covar2_args = args[2:]
 
-            mat_inv_y = self.mat_inv_y
+            mat_inv_y = self.mat_inv_y.unsqueeze(-2)
             covar2_matmul_closure = self.covar2_matmul_closure
 
             grad_mu_diff = None
@@ -166,7 +174,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
 
             if self.needs_input_grad[0]:
                 # Need gradient with respect to mu_diff
-                grad_mu_diff = mat_inv_y.mul(2 * grad_output_value)
+                grad_mu_diff = mat_inv_y.mul(2 * grad_output_value).squeeze(-2)
 
             if self.needs_input_grad[1]:
                 # Compute gradient with respect to the Cholesky factor L
@@ -184,24 +192,28 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                 quad_part = derivative_quadratic_form_factory(*covar2_args)(mat_inv_y, mat_inv_y)
 
                 def right_matmul_closure(sample_matrix):
-                    rhs_vectors = chol_covar1.t().contiguous().mm(chol_covar1.mm(sample_matrix))
+                    rhs_vectors = chol_covar1.transpose(-1, -2).contiguous().matmul(chol_covar1.matmul(sample_matrix))
                     return sample_matrix - LinearCG().solve(covar2_matmul_closure, rhs_vectors)
 
                 def left_matmul_closure(sample_matrix):
+                    if chol_covar1.ndimension() == 3:
+                        sample_matrix = sample_matrix.unsqueeze(0)
                     return LinearCG().solve(covar2_matmul_closure, sample_matrix)
 
                 left_vectors, right_vectors = trace_components(left_matmul_closure, right_matmul_closure,
-                                                               size=len(mu_diff), tensor_cls=type(mat_inv_y))
+                                                               size=mu_diff.size(-1), tensor_cls=type(mat_inv_y))
 
                 grad_covar2_fn = derivative_quadratic_form_factory(*covar2_args)
-                grad_covar2_args = list(grad_covar2_fn(left_vectors.t(), right_vectors.t()))
+                grad_covar2_args = list(grad_covar2_fn(left_vectors.transpose(-1, -2),
+                                                       right_vectors.transpose(-1, -2)))
 
                 for i in range(len(covar2_args)):
                     if grad_covar2_args[i] is not None:
                         grad_covar2_args[i].add_(-quad_part[i])
                         grad_covar2_args[i].mul_(grad_output_value)
 
-            return tuple([grad_mu_diff] + [grad_cholesky_factor] + grad_covar2_args)
+            res = tuple([grad_mu_diff] + [grad_cholesky_factor] + grad_covar2_args)
+            return res
 
     return TraceLogDetQuadForm
 

@@ -7,7 +7,7 @@ from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
 
-n = 101
+n = 64
 train_x = torch.zeros(n ** 2, 2)
 train_x[:, 0].copy_(torch.linspace(-1, 1, n).repeat(n))
 train_x[:, 1].copy_(torch.linspace(-1, 1, n).unsqueeze(1).repeat(1, n).view(-1))
@@ -18,7 +18,7 @@ train_y = Variable(train_y)
 
 class LatentFunction(gpytorch.AdditiveGridInducingPointModule):
     def __init__(self):
-        super(LatentFunction, self).__init__(grid_size=25, grid_bounds=[(-1, 1)])
+        super(LatentFunction, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2)
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
@@ -41,6 +41,7 @@ class GPClassificationModel(gpytorch.GPModel):
 
 
 def test_kissgp_classification_error():
+    gpytorch.functions.use_toeplitz = False
     model = GPClassificationModel()
 
     # Find optimal model hyperparameters
@@ -59,4 +60,5 @@ def test_kissgp_classification_error():
     model.eval()
     test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
     mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+    gpytorch.functions.use_toeplitz = True
     assert(mean_abs_error.data.squeeze()[0] < 5e-2)

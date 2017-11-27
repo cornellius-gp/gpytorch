@@ -31,7 +31,7 @@ test_y = Variable((torch.sin(test_x.data[:, 0]) + torch.cos(test_x.data[:, 1])) 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
 class LatentFunction(gpytorch.AdditiveGridInducingPointModule):
     def __init__(self):
-        super(LatentFunction, self).__init__(grid_size=100, grid_bounds=[(0, 1)])
+        super(LatentFunction, self).__init__(grid_size=100, grid_bounds=[(0, 1)], n_components=2)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
 

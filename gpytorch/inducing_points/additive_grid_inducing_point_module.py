@@ -9,6 +9,17 @@ from ..utils import left_interp
 
 
 class AdditiveGridInducingPointModule(GridInducingPointModule):
+    def __init__(self, grid_size, grid_bounds, n_components):
+        super(AdditiveGridInducingPointModule, self).__init__(grid_size, grid_bounds)
+        self.n_components = n_components
+
+        # Resize variational parameters to have one size per component
+        self.alpha.resize_(*([n_components] + list(self.alpha.size())))
+        variational_mean = self.variational_mean
+        chol_variational_covar = self.chol_variational_covar
+        variational_mean.data.resize_(*([n_components] + list(variational_mean.size())))
+        chol_variational_covar.data.resize_(*([n_components] + list(chol_variational_covar.size())))
+
     def _compute_grid(self, inputs):
         n_data, n_components, n_dimensions = inputs.size()
         inputs = inputs.transpose(0, 1).contiguous().view(n_components * n_data, n_dimensions)
@@ -28,6 +39,8 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
         n_data, n_components, n_dimensions = inputs.size()
         if n_dimensions != len(self.grid_bounds):
             raise RuntimeError('The number of dimensions should match the inducing points number of dimensions.')
+        if n_components != self.n_components:
+            raise RuntimeError('The number of components should match the number specified.')
         if n_dimensions != 1:
             raise RuntimeError('At the moment, AdditiveGridInducingPointModule only supports 1d'
                                ' (Toeplitz) interpolation.')
@@ -69,15 +82,22 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
 
             # Initialize variational parameters, if necessary
             if not self.variational_params_initialized[0]:
-                mean_init = induc_output.mean().data
-                chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
+                mean_init = induc_output.mean().data.unsqueeze(0)
+                mean_init_size = list(mean_init.size())
+                mean_init_size[0] = self.n_components
+                mean_init = mean_init.expand(*mean_init_size)
+                chol_covar_init = torch.eye(mean_init.size(-1)).type_as(mean_init).unsqueeze(0)
+                chol_covar_init_size = list(chol_covar_init.size())
+                chol_covar_init_size[0] = self.n_components
+                chol_covar_init = chol_covar_init.expand(*chol_covar_init_size)
+
                 variational_mean.data.copy_(mean_init)
                 chol_variational_covar.data.copy_(chol_covar_init)
                 self.variational_params_initialized.fill_(1)
 
             # Calculate alpha vector
             if self.training:
-                alpha = induc_output.mean()
+                alpha = induc_output.mean().unsqueeze(0).expand_as(self.alpha)
             else:
                 if not self.has_computed_alpha[0]:
                     alpha = variational_mean.sub(induc_output.mean())
@@ -90,7 +110,7 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
             # Left multiply samples by interpolation matrix
             interp_indices = Variable(interp_indices)
             interp_values = Variable(interp_values)
-            test_mean = left_interp(interp_indices, interp_values, alpha).sum(0)
+            test_mean = left_interp(interp_indices, interp_values, alpha.unsqueeze(-1)).sum(0).squeeze(-1)
 
             # Compute test covar
             if self.training:
