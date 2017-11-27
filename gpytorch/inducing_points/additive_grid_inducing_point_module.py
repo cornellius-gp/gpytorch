@@ -1,5 +1,6 @@
 import gpytorch
 import torch
+from torch import nn
 from torch.autograd import Variable
 from .grid_inducing_point_module import GridInducingPointModule
 from ..lazy import NonLazyVariable, SumInterpolatedLazyVariable
@@ -9,7 +10,7 @@ from ..utils import left_interp
 
 
 class AdditiveGridInducingPointModule(GridInducingPointModule):
-    def __init__(self, grid_size, grid_bounds, n_components):
+    def __init__(self, grid_size, grid_bounds, n_components, mixing_params=False):
         super(AdditiveGridInducingPointModule, self).__init__(grid_size, grid_bounds)
         self.n_components = n_components
 
@@ -19,6 +20,12 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
         chol_variational_covar = self.chol_variational_covar
         variational_mean.data.resize_(*([n_components] + list(variational_mean.size())))
         chol_variational_covar.data.resize_(*([n_components] + list(chol_variational_covar.size())))
+
+        # Mixing parameters
+        if mixing_params:
+            self.register_parameter('mixing_params',
+                                    nn.Parameter(torch.Tensor(n_components).fill_(1. / n_components)),
+                                    bounds=(-2, 2))
 
     def _compute_grid(self, inputs):
         n_data, n_components, n_dimensions = inputs.size()
@@ -66,6 +73,8 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
             # Left multiply samples by interpolation matrix
             interp_indices = Variable(interp_indices)
             interp_values = Variable(interp_values)
+            if hasattr(self, 'mixing_params'):
+                interp_values = interp_values.mul(self.mixing_params.unsqueeze(1).unsqueeze(2))
             mean = left_interp(interp_indices, interp_values, induc_output.mean()).sum(0)
 
             # Compute test covar
@@ -110,6 +119,8 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
             # Left multiply samples by interpolation matrix
             interp_indices = Variable(interp_indices)
             interp_values = Variable(interp_values)
+            if hasattr(self, 'mixing_params'):
+                interp_values = interp_values.mul(self.mixing_params.unsqueeze(1).unsqueeze(2))
             test_mean = left_interp(interp_indices, interp_values, alpha.unsqueeze(-1)).sum(0).squeeze(-1)
 
             # Compute test covar

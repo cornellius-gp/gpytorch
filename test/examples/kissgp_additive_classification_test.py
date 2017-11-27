@@ -18,7 +18,7 @@ train_y = Variable(train_y)
 
 class LatentFunction(gpytorch.AdditiveGridInducingPointModule):
     def __init__(self):
-        super(LatentFunction, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2)
+        super(LatentFunction, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2, mixing_params=True)
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
@@ -48,7 +48,7 @@ def test_kissgp_classification_error():
     model.train()
     optimizer = optim.Adam(model.parameters(), lr=0.15)
     optimizer.n_iter = 0
-    for i in range(20):
+    for i in range(100):
         optimizer.zero_grad()
         output = model.forward(train_x)
         loss = -model.marginal_log_likelihood(output, train_y)
