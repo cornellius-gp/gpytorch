@@ -106,7 +106,7 @@ class StochasticLQ(object):
                 beta[:, k] = beta_k
                 Q[:, :, k] = U.t()
 
-                if all(torch.abs(beta[:, k]) < 1e-4) or all(torch.abs(alpha[:, k]) < 1e-4):
+                if not torch.sum(torch.abs(beta[:, k]) > 1e-4) or not torch.sum(torch.abs(alpha[:, k]) > 1e-4):
                     break
 
             alpha = alpha[:, :k + 1]
