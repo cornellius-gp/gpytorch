@@ -69,7 +69,7 @@ class StochasticLQ(object):
 
                 Ts = self.cls(batch, num_vectors, k, k)
                 for i in range(num_vectors):
-                    for j in xrange(batch):
+                    for j in range(batch):
                         Ts[j, i, :, :] = torch.diag(alpha[j, i, :]) + torch.diag(beta[j, i, :], 1) + \
                             torch.diag(beta[j, i, :], -1)
 
@@ -241,7 +241,7 @@ class StochasticLQ(object):
 
         for j in range(self.num_random_probes):
             if Ts.ndimension() == 4:
-                for k in xrange(Ts.size(0)):
+                for k in range(Ts.size(0)):
                     T = Ts[k, j, :, :]
 
                     [f, Y] = T.symeig(eigenvectors=True)
