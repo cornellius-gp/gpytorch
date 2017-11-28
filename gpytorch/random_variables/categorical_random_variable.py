@@ -34,6 +34,9 @@ class CategoricalRandomVariable(RandomVariable):
 
         self.mass_function = mass_function
 
+    def argmax(self):
+        return self.mass_function.max(-1)[1]
+
     def representation(self):
         return self.mass_function
 
