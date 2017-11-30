@@ -24,24 +24,44 @@ class LinearCG(object):
         return mat.mul((1 / lhs_mat.diag()).unsqueeze(1).expand_as(mat))
 
     def _ssor_preconditioner(self, lhs_mat, mat):
-        DL = lhs_mat.tril()
-        D = lhs_mat.diag()
-        upper_part = (1 / D).expand_as(DL).mul(DL.t())
-        Minv_times_mat = torch.trtrs(torch.trtrs(mat, DL, upper=False)[0], upper_part)[0]
+        if lhs_mat.ndimension() == 2:
+            DL = lhs_mat.tril()
+            D = lhs_mat.diag()
+            upper_part = (1 / D).expand_as(DL).mul(DL.t())
+            Minv_times_mat = torch.trtrs(torch.trtrs(mat, DL, upper=False)[0], upper_part)[0]
+
+        elif lhs_mat.ndimension() == 3:
+            if mat.size(0) == 1 and lhs_mat.size(0) != 1:
+                mat = mat.expand(*([lhs_mat.size(0)] + list(mat.size())[1:]))
+            Minv_times_mat = mat.new(*mat.size())
+            for i in range(lhs_mat.size(0)):
+                DL = lhs_mat[i].tril()
+                D = lhs_mat[i].diag()
+                upper_part = (1 / D).expand_as(DL).mul(DL.t())
+                Minv_times_mat[i].copy_(torch.trtrs(torch.trtrs(mat[i], DL, upper=False)[0], upper_part)[0])
+
+        else:
+            raise RuntimeError('Invalid number of dimensions')
+
         return Minv_times_mat
 
     def solve(self, matmul_closure, rhs, result=None):
         output_dims = rhs.ndimension()
-        if output_dims == 1:
-            rhs = rhs.unsqueeze(1)
+        squeeze = False
+        if output_dims == 1 or (output_dims == 2 and torch.is_tensor(matmul_closure) and
+                                matmul_closure.ndimension() == 3):
+            squeeze = True
+            rhs = rhs.unsqueeze(-1)
 
         if isinstance(matmul_closure, Variable) or isinstance(rhs, Variable):
             raise RuntimeError('LinearCG is not intended to operate directly on Variables or be used with autograd.')
 
-        if torch.is_tensor(matmul_closure):
-            # If matmul_closure is a tensor, we can use some default preconditioning.
+        if torch.is_tensor(matmul_closure):  # If matmul_closure is a tensor, we can use some default preconditioning.
             def default_matmul_closure(tensor):
-                return torch.matmul(lhs_mat, tensor)
+                if lhs_mat.ndimension() == 3 and tensor.ndimension() == 2:
+                    tensor = tensor.unsqueeze(-1)
+                result = torch.matmul(lhs_mat, tensor)
+                return result
 
             lhs_mat = matmul_closure
             matmul_closure = default_matmul_closure
@@ -63,7 +83,10 @@ class LinearCG(object):
             self._reset_precond = True
 
         # Solve batch
-        n, k = rhs.size()
+        if rhs.ndimension() == 3:
+            _, n, k = rhs.size()
+        else:
+            n, k = rhs.size()
 
         if result is None:
             result = self.precondition_closure(rhs)
@@ -71,38 +94,38 @@ class LinearCG(object):
         residuals = rhs - matmul_closure(result)
 
         # Preconditioner solve is exact in some cases
-        rtr = residuals.pow(2).sum(0)
-        if not all(rtr.sqrt().squeeze() < self.tolerance_resid):
+        rtr = residuals.pow(2).sum(-2)
+        if torch.sum(rtr.sqrt().squeeze() > self.tolerance_resid):
             z = self.precondition_closure(residuals)
             P = z
-            r_dot_zs = residuals.mul(z).sum(0)
+            r_dot_zs = residuals.mul(z).sum(-2)
 
             for k in range(min(self.max_iter, n)):
                 AP = matmul_closure(P)
-                PAPs = AP.mul(P).sum(0)
+                PAPs = AP.mul(P).sum(-2)
 
                 alphas = r_dot_zs.div(PAPs + 1e-10)
 
-                result = result + alphas.expand_as(P).mul(P)
+                result = result + alphas.unsqueeze(-2).expand_as(P).mul(P)
 
-                residuals = residuals - alphas.expand_as(AP).mul(AP)
+                residuals = residuals - alphas.unsqueeze(-2).expand_as(AP).mul(AP)
 
-                r_sq_news = residuals.pow(2).sum(0)
+                r_sq_news = residuals.pow(2).sum(-2)
 
-                if all(r_sq_news.sqrt().squeeze() < self.tolerance_resid):
+                if not torch.sum(r_sq_news.sqrt().squeeze() > self.tolerance_resid):
                     break
 
                 z = self.precondition_closure(residuals)
-                new_r_dot_zs = residuals.mul(z).sum(0)
+                new_r_dot_zs = residuals.mul(z).sum(-2)
 
                 betas = new_r_dot_zs.div(r_dot_zs + 1e-10)
 
-                P = z + betas.expand_as(P).mul(P)
+                P = z + betas.unsqueeze(-2).expand_as(P).mul(P)
                 r_dot_zs = new_r_dot_zs
 
         if self._reset_precond:
             self.precondition_closure = None
 
-        if output_dims == 1:
-            result = result.squeeze(1)
+        if squeeze:
+            result = result.squeeze(-1)
         return result

@@ -11,9 +11,12 @@ class GridInducingPointStrategy(VariationalStrategy):
             n_samples = gpytorch.functions.num_trace_samples
 
         # Draw samplse from variational distribution
-        base_samples = Variable(self.variational_mean.data.new(len(self.variational_mean), n_samples).normal_())
-        samples = self.chol_variational_covar.t().mm(base_samples)
-        samples = samples + self.variational_mean.unsqueeze(1)
+        base_samples = Variable(self.variational_mean.data.new(self.variational_mean.size(-1), n_samples).normal_())
+        if self.variational_mean.ndimension() > 1:
+            # Batch mode
+            base_samples = base_samples.unsqueeze(0)
+        samples = self.chol_variational_covar.transpose(-1, -2).matmul(base_samples)
+        samples = samples + self.variational_mean.unsqueeze(-1)
 
         # Hacky code for now for KroneckerProductLazyVariable. Let's change it soon.
         if isinstance(output.covar(), KroneckerProductLazyVariable):

@@ -21,7 +21,16 @@ class NonLazyVariable(LazyVariable):
         return closure
 
     def _derivative_quadratic_form_factory(self, mat):
-        return function_factory._default_derivative_quadratic_form_factory(mat)
+        orig_closure = function_factory._default_derivative_quadratic_form_factory(mat)
+
+        def closure(*stuff):
+            res = orig_closure(*stuff)[0]
+            # Batch mode?
+            if res.ndimension() > self.var.ndimension():
+                res = res.sum(0)
+            return res,
+
+        return closure
 
     def add_diag(self, diag):
         return NonLazyVariable(gpytorch.add_diag(self.var, diag))

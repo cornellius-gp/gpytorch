@@ -54,8 +54,13 @@ class GaussianRandomVariable(RandomVariable):
         if isinstance(other, GaussianRandomVariable):
             res = GaussianRandomVariable(self._mean + other.mean(), self._covar + other.covar())
             if hasattr(self, '_variational_strategy') and hasattr(other, '_variational_strategy'):
-                res._variational_strategy = SumVariationalStrategy(self._variational_strategy,
-                                                                   other._variational_strategy)
+                if isinstance(self._variational_strategy, SumVariationalStrategy):
+                    var_strat = SumVariationalStrategy(*(list(self._variational_strategy.variational_strategies) +
+                                                         [other._variational_strategy]))
+                    res._variational_strategy = var_strat
+                else:
+                    res._variational_strategy = SumVariationalStrategy(self._variational_strategy,
+                                                                       other._variational_strategy)
             return res
         elif isinstance(other, int) or isinstance(other, float):
             return GaussianRandomVariable(self._mean + other, self._covar)

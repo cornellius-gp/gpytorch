@@ -47,25 +47,32 @@ class GPModel(gpytorch.Module):
     def forward(self, *args, **kwargs):
         raise NotImplementedError
 
-    def marginal_log_likelihood(self, output, target):
+    def marginal_log_likelihood(self, output, target, n_data=None):
         """
         Returns the marginal log likelihood of the data
 
         Args:
         - output: (GaussianRandomVariable) - the output of the model
         - target: (Variable) - target
+        - n_data: (int) - total number of data points in the set (required only for SGD)
         """
+        if n_data is None:
+            n_data = len(target)
+        n_batch = output.mean().size(0)
 
         # Exact inference
         if self.exact_inference:
             mean, covar = output.representation()
-            return gpytorch.exact_gp_marginal_log_likelihood(covar, target - mean)
+            return gpytorch.exact_gp_marginal_log_likelihood(covar, target - mean).div(n_data)
 
         # Approximate inference
         else:
             samples = output._variational_strategy.variational_samples(output)
-            log_likelihood = self.likelihood.log_probability(samples, target).squeeze()
-            kl_divergence = output._variational_strategy.mvn_kl_divergence()
+            n_samples = samples.size(1)
+            log_likelihood = self.likelihood.log_probability(samples.view(-1),
+                                                             target.unsqueeze(1).repeat(1, n_samples).view(-1))
+            log_likelihood = log_likelihood.div(n_samples).div(n_batch)
+            kl_divergence = output._variational_strategy.mvn_kl_divergence().div(n_data)
 
             res = log_likelihood - kl_divergence
             return res
