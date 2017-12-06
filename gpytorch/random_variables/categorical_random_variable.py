@@ -38,12 +38,30 @@ class CategoricalRandomVariable(RandomVariable):
         return self.mass_function
 
     def sample(self, n_samples=1):
-        mass_function = self.mass_function.data
-        res = torch.multinomial(mass_function, n_samples, replacement=True)
+        """
+        This function is written as a reparameterization
+        This way we can differentiate through the mass function
+        """
+        mass_function = self.mass_function
+        if mass_function.ndimension() == 1:
+            mass_function = mass_function.unsqueeze(0)
+
+        upper_mass_function = mass_function.cumsum(1)
+        lower_mass_function = upper_mass_function - mass_function
+
+        # Generate uniform samples
+        samples = Variable(mass_function.data.new(n_samples, 1, 1).uniform_())
+        samples = samples.clamp(1e-5, 1)  # Make sure that everything is strictly greater than zero
+
+        lower_mask = samples.gt(lower_mass_function.unsqueeze(0))
+        upper_mask = samples.le(upper_mass_function.unsqueeze(0))
+        res = (lower_mask * upper_mask)
 
         # Sample dimension is first
-        if res.ndimension() == 2:
-            res = res.t()
+        if self.mass_function.ndimension() == 1:
+            res = res.squeeze(1)
+        if n_samples == 1:
+            res = res.squeeze(0)
         return res
 
     def __len__(self):
