@@ -1,5 +1,6 @@
 import gpytorch
 from .posterior_strategy import PosteriorStrategy
+from torch.autograd import Variable
 
 
 class InterpolatedPosteriorStrategy(PosteriorStrategy):
@@ -26,7 +27,7 @@ class InterpolatedPosteriorStrategy(PosteriorStrategy):
         gpytorch.functions.max_cg_iterations *= 10
         alpha = self.var.inv_matmul(train_residual)
         gpytorch.functions.max_cg_iterations /= 10
-        alpha = gpytorch.dsmm(self.interp_right.t(), alpha)
+        alpha = gpytorch.dsmm(Variable(self.interp_right.data.t()), alpha)
         alpha = self.grid.matmul(alpha)
         return alpha.squeeze()
 
