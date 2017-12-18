@@ -39,8 +39,7 @@ class GridInterpolationKernel(Kernel):
                     k_UU = self.base_kernel_module(grid_var[0, 0], grid_var[0], **kwargs).squeeze()
                     K_XX = ToeplitzLazyVariable(k_UU)
                 else:
-                    for i in range(100):
-                        k_UU = self.base_kernel_module(grid_var[0], grid_var[0], **kwargs).squeeze()
+                    k_UU = self.base_kernel_module(grid_var[0], grid_var[0], **kwargs).squeeze()
                     K_XX = NonLazyVariable(k_UU)
 
             if not self.training:
