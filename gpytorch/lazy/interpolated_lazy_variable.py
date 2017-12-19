@@ -59,34 +59,33 @@ def _make_sparse_from_indices_and_values(right_interp_indices, right_interp_valu
 class InterpolatedLazyVariable(LazyVariable):
     def __init__(self, base_lazy_variable, left_interp_indices=None, left_interp_values=None,
                  right_interp_indices=None, right_interp_values=None):
+        tensor_cls = type(base_lazy_variable.representation()[0].data)
+
+        if left_interp_indices is None:
+            n_rows = base_lazy_variable.size()[-2]
+            left_interp_indices = Variable(tensor_cls(n_rows).long())
+            torch.arange(0, n_rows, out=left_interp_indices.data)
+            left_interp_indices = left_interp_indices.unsqueeze(-1)
+
+        if left_interp_values is None:
+            left_interp_values = Variable(tensor_cls(left_interp_indices.size()).fill_(1))
+
+        if right_interp_indices is None:
+            n_rows = base_lazy_variable.size()[-2]
+            right_interp_indices = Variable(tensor_cls(n_rows).long())
+            torch.arange(0, n_rows, out=right_interp_indices.data)
+            right_interp_indices = right_interp_indices.unsqueeze(-1)
+
+        if right_interp_values is None:
+            right_interp_values = Variable(tensor_cls(right_interp_indices.size()).fill_(1))
+
         super(InterpolatedLazyVariable, self).__init__(base_lazy_variable, left_interp_indices, left_interp_values,
                                                        right_interp_indices, right_interp_values)
         self.base_lazy_variable = base_lazy_variable
-        self.tensor_cls = type(self.base_lazy_variable.representation()[0].data)
-
-        if left_interp_indices is None:
-            n_rows = self.base_lazy_variable.size(-2)
-            self.left_interp_indices = Variable(self.tensor_cls(n_rows).long())
-            torch.arange(0, n_rows, out=self.left_interp_indices.data)
-        else:
-            self.left_interp_indices = left_interp_indices
-
-        if left_interp_values is None:
-            self.left_interp_values = Variable(self.tensor_cls(left_interp_values.size()).fill_(1))
-        else:
-            self.left_interp_values = left_interp_values
-
-        if right_interp_indices is None:
-            n_rows = self.base_lazy_variable.size(-2)
-            self.right_interp_indices = Variable(self.tensor_cls(n_rows).long())
-            torch.arange(0, n_rows, out=self.right_interp_indices.data)
-        else:
-            self.right_interp_indices = right_interp_indices
-
-        if right_interp_values is None:
-            self.right_interp_values = Variable(self.tensor_cls(right_interp_values.size()).fill_(1))
-        else:
-            self.right_interp_values = right_interp_values
+        self.left_interp_indices = left_interp_indices
+        self.left_interp_values = left_interp_values
+        self.right_interp_indices = right_interp_indices
+        self.right_interp_values = right_interp_values
 
     def _matmul_closure_factory(self, *args):
         base_lazy_variable_representation = args[:-4]
