@@ -88,6 +88,9 @@ class GridInducingPointModule(InducingPointModule):
                                                                                               inputs_min,
                                                                                               inputs_max))
         interp_indices, interp_values = Interpolation().interpolate(self.grid[0], inputs.data.squeeze())
+
+        interp_indices = Variable(interp_indices)
+        interp_values = Variable(interp_values)
         return interp_indices, interp_values
 
     def __call__(self, inputs, **kwargs):
@@ -109,16 +112,14 @@ class GridInducingPointModule(InducingPointModule):
                 raise RuntimeError('Output should be a GaussianRandomVariable')
 
             if isinstance(induc_output.covar(), KroneckerProductLazyVariable):
-                covar = KroneckerProductLazyVariable(induc_output.covar().columns, interp_indices, interp_values,
-                                                     interp_indices, interp_values)
+                covar = KroneckerProductLazyVariable(induc_output.covar().columns, interp_indices,
+                                                     interp_values, interp_indices, interp_values)
                 interp_matrix = covar.representation()[1]
                 mean = gpytorch.dsmm(interp_matrix, induc_output.mean().unsqueeze(-1)).squeeze(-1)
 
             else:
                 # Compute test mean
                 # Left multiply samples by interpolation matrix
-                interp_indices = Variable(interp_indices)
-                interp_values = Variable(interp_values)
                 mean = left_interp(interp_indices, interp_values, induc_output.mean())
 
                 # Compute test covar
@@ -149,8 +150,8 @@ class GridInducingPointModule(InducingPointModule):
             # Kronecker hack - need until refactor
             if len(self.grid_bounds) > 1:
                 prior_output = self.prior_output()
-                test_covar = KroneckerProductLazyVariable(prior_output.covar().columns, interp_indices, interp_values,
-                                                          interp_indices, interp_values)
+                test_covar = KroneckerProductLazyVariable(prior_output.covar().columns, interp_indices,
+                                                          interp_values, interp_indices, interp_values)
                 interp_matrix = test_covar.representation()[1]
                 test_mean = gpytorch.dsmm(interp_matrix, self.variational_mean.unsqueeze(-1)).squeeze(-1)
                 test_chol_covar = gpytorch.dsmm(interp_matrix, variational_output.covar().lhs)
@@ -159,9 +160,8 @@ class GridInducingPointModule(InducingPointModule):
             else:
                 # Compute test mean
                 # Left multiply samples by interpolation matrix
-                interp_indices = Variable(interp_indices)
-                interp_values = Variable(interp_values)
-                test_mean = left_interp(interp_indices, interp_values, variational_output.mean())
+                test_mean = left_interp(interp_indices, interp_values, variational_output.mean().unsqueeze(-1))
+                test_mean = test_mean.squeeze(-1)
 
                 # Compute test covar
                 test_chol_covar = left_interp(interp_indices, interp_values, variational_output.covar().lhs)
