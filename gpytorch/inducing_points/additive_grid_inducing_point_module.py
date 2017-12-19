@@ -3,9 +3,9 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 from .grid_inducing_point_module import GridInducingPointModule
-from ..lazy import NonLazyVariable, SumInterpolatedLazyVariable
+from ..lazy import CholLazyVariable, InterpolatedLazyVariable, SumBatchLazyVariable
 from ..random_variables import GaussianRandomVariable
-from ..variational import GridInducingPointStrategy
+from ..variational import MVNVariationalStrategy
 from ..utils import left_interp
 
 
@@ -78,42 +78,30 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
             mean = left_interp(interp_indices, interp_values, induc_output.mean()).sum(0)
 
             # Compute test covar
-            base_lv = induc_output.covar()
-            covar = SumInterpolatedLazyVariable(base_lv, interp_indices, interp_values, interp_indices, interp_values)
+            base_lv = InterpolatedLazyVariable(induc_output.covar(), interp_indices, interp_values,
+                                               interp_indices, interp_values)
+            covar = SumBatchLazyVariable(base_lv)
 
             return GaussianRandomVariable(mean, covar)
 
         else:
-            variational_mean = self.variational_mean
-            chol_variational_covar = self.chol_variational_covar
-            induc_output = gpytorch.Module.__call__(self, Variable(self._inducing_points))
             interp_indices, interp_values = self._compute_grid(inputs)
 
-            # Initialize variational parameters, if necessary
-            if not self.variational_params_initialized[0]:
-                mean_init = induc_output.mean().data.unsqueeze(0)
-                mean_init_size = list(mean_init.size())
-                mean_init_size[0] = self.n_components
-                mean_init = mean_init.expand(*mean_init_size)
-                chol_covar_init = torch.eye(mean_init.size(-1)).type_as(mean_init).unsqueeze(0)
-                chol_covar_init_size = list(chol_covar_init.size())
-                chol_covar_init_size[0] = self.n_components
-                chol_covar_init = chol_covar_init.expand(*chol_covar_init_size)
+            if not self.posterior:
+                prior_output = self.prior_output()
+                # Initialize variational parameters, if necessary
+                if not self.variational_params_initialized[0]:
+                    mean_init = prior_output.mean().data
+                    chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
+                    self.variational_mean.data.copy_(mean_init)
+                    self.chol_variational_covar.data.copy_(chol_covar_init)
+                    self.variational_params_initialized.fill_(1)
 
-                variational_mean.data.copy_(mean_init)
-                chol_variational_covar.data.copy_(chol_covar_init)
-                self.variational_params_initialized.fill_(1)
-
-            # Calculate alpha vector
-            if self.training:
-                alpha = induc_output.mean().unsqueeze(0).expand_as(self.alpha)
+                variational_output = self.variational_output()
+                new_variational_strategy = MVNVariationalStrategy(variational_output, prior_output)
+                self.update_variational_strategy('inducing_point_strategy', new_variational_strategy)
             else:
-                if not self.has_computed_alpha[0]:
-                    alpha = variational_mean.sub(induc_output.mean())
-                    self.alpha.copy_(alpha.data)
-                    self.has_computed_alpha.fill_(1)
-                else:
-                    alpha = Variable(self.alpha)
+                variational_output = self.variational_output()
 
             # Compute test mean
             # Left multiply samples by interpolation matrix
@@ -121,23 +109,14 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
             interp_values = Variable(interp_values)
             if hasattr(self, 'mixing_params'):
                 interp_values = interp_values.mul(self.mixing_params.unsqueeze(1).unsqueeze(2))
-            test_mean = left_interp(interp_indices, interp_values, alpha.unsqueeze(-1)).sum(0).squeeze(-1)
+            test_mean = left_interp(interp_indices, interp_values,
+                                    variational_output.mean().unsqueeze(-1)).sum(0).squeeze(-1)
 
             # Compute test covar
-            if self.training:
-                base_lv = induc_output.covar()
-            else:
-                base_lv = NonLazyVariable(self.variational_covar)
-            test_covar = SumInterpolatedLazyVariable(base_lv, interp_indices, interp_values,
-                                                     interp_indices, interp_values)
+            test_chol_covar = left_interp(interp_indices, interp_values, variational_output.covar().lhs)
+            test_covar = SumBatchLazyVariable(CholLazyVariable(test_chol_covar))
 
             output = GaussianRandomVariable(test_mean, test_covar)
-
-            # Add variational strategy
-            if self.training:
-                output._variational_strategy = GridInducingPointStrategy(variational_mean,
-                                                                         chol_variational_covar,
-                                                                         induc_output)
 
         if not isinstance(output, GaussianRandomVariable):
             raise RuntimeError('Output should be a GaussianRandomVariable')

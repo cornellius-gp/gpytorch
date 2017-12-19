@@ -26,7 +26,7 @@ class MatmulLazyVariable(LazyVariable):
         return self.lhs.ndimension() > 2
 
     def diag(self):
-        return (self.lhs * self.rhs.t()).sum(1)
+        return (self.lhs * self.rhs.transpose(-1, -2)).sum(-1)
 
     def evaluate(self):
         return torch.matmul(self.lhs, self.rhs)

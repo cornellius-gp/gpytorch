@@ -61,6 +61,24 @@ class LazyVariable(object):
         diag = Variable(self.representation()[0].data.new(1).fill_(1e-4))
         return self.add_diag(diag)
 
+    def chol_approx_size(self):
+        """
+        This is used in conjunction with `chol_matmul`.
+        This multiplies a Tensor with a low-rank decomposition of the Cholesky decomposition
+        This function returns the rank of that approximation, so that you can
+        generate Tensors of the appropriate size.
+        """
+        raise NotImplementedError
+
+    def chol_matmul(self, tensor):
+        """
+        Multiplies the cholesky decomposition of the lazy variable with a tensor.
+        This is useful for sampling from multivariate Gaussians.
+
+        Assumes self represents a positive definite matrix, or a batch of PSD matrices.
+        """
+        raise NotImplementedError
+
     def cpu(self):
         new_args = []
         new_kwargs = {}
