@@ -4,6 +4,27 @@ from gpytorch.lazy import MatmulLazyVariable
 from gpytorch.utils import approx_equal
 
 
+def test_matmul():
+    lhs = Variable(torch.randn(5, 3), requires_grad=True)
+    rhs = Variable(torch.randn(3, 4), requires_grad=True)
+    covar = MatmulLazyVariable(lhs, rhs)
+    mat = Variable(torch.randn(4, 10))
+    res = covar.matmul(mat)
+
+    lhs_clone = Variable(lhs.data.clone(), requires_grad=True)
+    rhs_clone = Variable(rhs.data.clone(), requires_grad=True)
+    mat_clone = Variable(mat.data.clone())
+    actual = lhs_clone.matmul(rhs_clone).matmul(mat_clone)
+
+    assert approx_equal(res.data, actual.data)
+
+    actual.sum().backward()
+
+    res.sum().backward()
+    assert approx_equal(lhs.grad.data, lhs_clone.grad.data)
+    assert approx_equal(rhs.grad.data, rhs_clone.grad.data)
+
+
 def test_diag():
     lhs = Variable(torch.randn(5, 3))
     rhs = Variable(torch.randn(3, 5))
