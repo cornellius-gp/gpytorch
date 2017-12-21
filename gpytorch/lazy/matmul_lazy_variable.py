@@ -32,7 +32,6 @@ class MatmulLazyVariable(LazyVariable):
         return torch.matmul(self.lhs, self.rhs)
 
     def size(self):
-        return torch.Size((self.lhs.size()[0], self.lhs.size()[0]))
         if self.is_batch():
             return torch.Size((self.lhs.size()[0], self.lhs.size()[1], self.lhs.size()[1]))
         else:
