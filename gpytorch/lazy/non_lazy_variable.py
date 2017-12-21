@@ -32,6 +32,18 @@ class NonLazyVariable(LazyVariable):
 
         return closure
 
+    def _size(self):
+        return self.var.size()
+
+    def _transpose_nonbatch(self):
+        return NonLazyVariable(self.var.transpose(-1, -2))
+
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        return self.var[batch_indices.data, left_indices.data, right_indices.data]
+
+    def _get_indices(self, left_indices, right_indices):
+        return self.var[left_indices.data, right_indices.data]
+
     def add_diag(self, diag):
         return NonLazyVariable(gpytorch.add_diag(self.var, diag))
 
@@ -44,17 +56,5 @@ class NonLazyVariable(LazyVariable):
     def repeat(self, *sizes):
         return NonLazyVariable(self.var.repeat(*sizes))
 
-    def size(self):
-        return self.var.size()
-
-    def _transpose_nonbatch(self):
-        return NonLazyVariable(self.var.transpose(-1, -2))
-
     def __getitem__(self, index):
         return NonLazyVariable(self.var[index])
-
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        return self.var[batch_indices.data, left_indices.data, right_indices.data]
-
-    def _get_indices(self, left_indices, right_indices):
-        return self.var[left_indices.data, right_indices.data]

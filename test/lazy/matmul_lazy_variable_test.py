@@ -33,9 +33,32 @@ def test_diag():
     assert approx_equal(actual.diag().data, res.diag().data)
 
 
+def test_batch_diag():
+    lhs = Variable(torch.randn(4, 5, 3))
+    rhs = Variable(torch.randn(4, 3, 5))
+    actual = lhs.matmul(rhs)
+    actual_diag = torch.cat([
+        actual[0].diag().unsqueeze(0),
+        actual[1].diag().unsqueeze(0),
+        actual[2].diag().unsqueeze(0),
+        actual[3].diag().unsqueeze(0),
+    ])
+
+    res = MatmulLazyVariable(lhs, rhs)
+    assert approx_equal(actual_diag.data, res.diag().data)
+
+
 def test_evaluate():
     lhs = Variable(torch.randn(5, 3))
     rhs = Variable(torch.randn(3, 5))
     actual = lhs.matmul(rhs)
     res = MatmulLazyVariable(lhs, rhs)
     assert approx_equal(actual.data, res.evaluate().data)
+
+
+def test_transpose():
+    lhs = Variable(torch.randn(5, 3))
+    rhs = Variable(torch.randn(3, 5))
+    actual = lhs.matmul(rhs)
+    res = MatmulLazyVariable(lhs, rhs)
+    assert approx_equal(actual.t().data, res.t().evaluate().data)

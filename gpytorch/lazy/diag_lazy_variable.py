@@ -31,6 +31,20 @@ class DiagLazyVariable(LazyVariable):
 
         return closure
 
+    def _size(self):
+        return self._diag.size(0), self._diag.size(0)
+
+    def _transpose_nonbatch(self):
+        return self
+
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        equal_indices = left_indices.eq(right_indices).type_as(self._diag.data)
+        return self._diag[batch_indices, left_indices] * equal_indices
+
+    def _get_indices(self, left_indices, right_indices):
+        equal_indices = left_indices.eq(right_indices).type_as(self._diag.data)
+        return self._diag[left_indices] * equal_indices
+
     def add_diag(self, added_diag):
         return DiagLazyVariable(self._diag + added_diag.expand_as(self._diag))
 
@@ -39,9 +53,3 @@ class DiagLazyVariable(LazyVariable):
 
     def evaluate(self):
         return self._diag.diag()
-
-    def size(self):
-        return self._diag.size(0), self._diag.size(0)
-
-    def _transpose_nonbatch(self):
-        return self

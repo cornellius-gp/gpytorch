@@ -59,7 +59,7 @@ def _make_sparse_from_indices_and_values(right_interp_indices, right_interp_valu
 class InterpolatedLazyVariable(LazyVariable):
     def __init__(self, base_lazy_variable, left_interp_indices=None, left_interp_values=None,
                  right_interp_indices=None, right_interp_values=None):
-        tensor_cls = type(base_lazy_variable.representation()[0].data)
+        tensor_cls = base_lazy_variable.tensor_cls
 
         if left_interp_indices is None:
             n_rows = base_lazy_variable.size()[-2]
@@ -147,29 +147,78 @@ class InterpolatedLazyVariable(LazyVariable):
 
         return closure
 
+    def _size(self):
+        if self.left_interp_indices.ndimension() == 3:
+            return torch.Size((self.left_interp_indices.size(0), self.left_interp_indices.size(1),
+                               self.right_interp_indices.size(1)))
+        else:
+            return torch.Size((self.left_interp_indices.size(0), self.right_interp_indices.size(0)))
+
     def _transpose_nonbatch(self):
         res = self.__class__(self.base_lazy_variable.transpose(-1, -2), self.right_interp_indices,
                              self.right_interp_values,
                              self.left_interp_indices, self.left_interp_values)
         return res
 
-    def diag(self):
-        n_data, n_interp = self.left_interp_indices.size()
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        left_interp_indices = self.left_interp_indices[batch_indices, left_indices, :]
+        left_interp_values = self.left_interp_values[batch_indices, left_indices, :]
+        right_interp_indices = self.right_interp_indices[batch_indices, right_indices, :]
+        right_interp_values = self.right_interp_values[batch_indices, right_indices, :]
+
+        n_data, n_interp = left_interp_indices.size()
 
         # Batch compute the non-zero values of the outer products w_left^k w_right^k^T
-        left_interp_values = self.left_interp_values.unsqueeze(2)
-        right_interp_values = self.right_interp_values.unsqueeze(1)
+        left_interp_values = left_interp_values.unsqueeze(-1)
+        right_interp_values = right_interp_values.unsqueeze(-2)
         interp_values = torch.matmul(left_interp_values, right_interp_values)
 
-        # Batch compute Toeplitz values that will be non-zero for row k
-        left_interp_indices = self.left_interp_indices.unsqueeze(2).expand(n_data, n_interp, n_interp).contiguous()
-        right_interp_indices = self.right_interp_indices.unsqueeze(1).expand(n_data, n_interp, n_interp).contiguous()
+        # Batch compute values that will be non-zero for row k
+        left_interp_indices = left_interp_indices.unsqueeze(-1).expand(n_data, n_interp, n_interp)
+        right_interp_indices = right_interp_indices.unsqueeze(-2).expand(n_data, n_interp, n_interp)
+        left_interp_indices = left_interp_indices.contiguous()
+        right_interp_indices = right_interp_indices.contiguous()
+        batch_indices = batch_indices.unsqueeze(1).repeat(1, n_interp ** 2).view(-1)
+        base_var_vals = self.base_lazy_variable._batch_get_indices(batch_indices, left_interp_indices.view(-1),
+                                                                   right_interp_indices.view(-1))
+        base_var_vals = base_var_vals.view(left_interp_indices.size())
+        res = (interp_values * base_var_vals).sum(-1).sum(-1)
+        return res
+
+    def _get_indices(self, left_indices, right_indices):
+        left_interp_indices = self.left_interp_indices[left_indices, :]
+        left_interp_values = self.left_interp_values[left_indices, :]
+        right_interp_indices = self.right_interp_indices[right_indices, :]
+        right_interp_values = self.right_interp_values[right_indices, :]
+
+        n_data, n_interp = left_interp_indices.size()
+
+        # Batch compute the non-zero values of the outer products w_left^k w_right^k^T
+        left_interp_values = left_interp_values.unsqueeze(-1)
+        right_interp_values = right_interp_values.unsqueeze(-2)
+        interp_values = torch.matmul(left_interp_values, right_interp_values)
+
+        # Batch compute values that will be non-zero for row k
+        if left_interp_indices.ndimension() == 3:
+            left_interp_indices = left_interp_indices.unsqueeze(-1).expand(n_data, n_interp, n_interp).contiguous()
+            right_interp_indices = right_interp_indices.unsqueeze(-2).expand(n_data, n_interp, n_interp).contiguous()
+        else:
+            left_interp_indices = left_interp_indices.unsqueeze(-1).expand(n_data, n_interp, n_interp).contiguous()
+            right_interp_indices = right_interp_indices.unsqueeze(-2).expand(n_data, n_interp, n_interp).contiguous()
         base_var_vals = self.base_lazy_variable._get_indices(left_interp_indices.view(-1),
                                                              right_interp_indices.view(-1))
         base_var_vals = base_var_vals.view(left_interp_indices.size())
+        res = (interp_values * base_var_vals).sum(-1).sum(-1)
+        return res
 
-        diag = (interp_values * base_var_vals).sum(2).sum(1)
-        return diag
+    def chol_approx_size(self):
+        return self.base_lazy_variable.chol_approx_size()
+
+    def chol_matmul(self, tensor):
+        # Assumes the tensor is symmetric
+        res = self.base_lazy_variable.chol_matmul(tensor)
+        res = left_interp(self.left_interp_indices, self.left_interp_values, res)
+        return res
 
     def repeat(self, *sizes):
         """
@@ -185,13 +234,6 @@ class InterpolatedLazyVariable(LazyVariable):
                               self.left_interp_values.repeat(*sizes),
                               self.right_interp_indices.repeat(*sizes),
                               self.right_interp_values.repeat(*sizes))
-
-    def size(self):
-        if self.left_interp_indices.ndimension() == 3:
-            return torch.Size((self.left_interp_indices.size(0), self.left_interp_indices.size(1),
-                               self.right_interp_indices.size(1)))
-        else:
-            return torch.Size((self.left_interp_indices.size(0), self.right_interp_indices.size(0)))
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]

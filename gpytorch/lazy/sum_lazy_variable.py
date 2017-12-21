@@ -42,17 +42,25 @@ class SumLazyVariable(LazyVariable):
             return tuple(var for sub_closure in sub_closures for var in sub_closure(*closure_args))
         return closure
 
-    def add_jitter(self):
-        lazy_vars = list(self.lazy_vars[:-1])
-        lazy_vars.append(self.lazy_vars[-1].add_jitter())
-        return SumLazyVariable(*lazy_vars)
-
-    def diag(self):
-        return sum(lazy_var.diag() for lazy_var in self.lazy_vars)
+    def _size(self):
+        return self.lazy_vars[0].size()
 
     def _transpose_nonbatch(self):
         lazy_vars_t = list(lazy_var.t() for lazy_var in self.lazy_var)
         return SumLazyVariable(*lazy_vars_t)
+
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        return sum(lazy_var._batch_get_indices(batch_indices, left_indices, right_indices)
+                   for lazy_var in self.lazy_vars)
+
+    def _get_indices(self, left_indices, right_indices):
+        return sum(lazy_var._get_indices(left_indices, right_indices)
+                   for lazy_var in self.lazy_vars)
+
+    def add_jitter(self):
+        lazy_vars = list(self.lazy_vars[:-1])
+        lazy_vars.append(self.lazy_vars[-1].add_jitter())
+        return SumLazyVariable(*lazy_vars)
 
     def __add__(self, other):
         if isinstance(other, SumLazyVariable):
@@ -62,5 +70,5 @@ class SumLazyVariable(LazyVariable):
         else:
             raise AttributeError('other must be a LazyVariable')
 
-    def size(self):
-        return self.lazy_vars[0].size()
+    def diag(self):
+        return sum(lazy_var.diag() for lazy_var in self.lazy_vars)

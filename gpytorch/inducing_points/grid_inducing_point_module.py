@@ -164,8 +164,8 @@ class GridInducingPointModule(InducingPointModule):
                 test_mean = test_mean.squeeze(-1)
 
                 # Compute test covar
-                test_chol_covar = left_interp(interp_indices, interp_values, variational_output.covar().lhs)
-                test_covar = CholLazyVariable(test_chol_covar)
+                test_covar = InterpolatedLazyVariable(variational_output.covar(), interp_indices, interp_values,
+                                                      interp_indices, interp_values)
 
             output = GaussianRandomVariable(test_mean, test_covar)
 
