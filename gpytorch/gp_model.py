@@ -144,11 +144,10 @@ class GPModel(gpytorch.Module):
                 self.has_computed_alpha.fill_(0)
                 self.alpha.resize_(gpytorch.posterior_strategy(covar).alpha_size())
                 self.has_computed_lanczos.fill_(0)
-                if gpytorch.functions.fast_pred_var:
-                    lanczos_q_size, lanczos_t_size = gpytorch.posterior_strategy(covar).lanczos_size()
-                    self.lanczos_q_mat.resize_(lanczos_q_size).zero_()
-                    lanczos_t_mat_init = torch.eye(*lanczos_t_size).type_as(self.lanczos_t_mat)
-                    self.lanczos_t_mat.resize_(lanczos_t_size).copy_(lanczos_t_mat_init)
+                lanczos_q_size, lanczos_t_size = gpytorch.posterior_strategy(covar).lanczos_size()
+                self.lanczos_q_mat.resize_(lanczos_q_size).zero_()
+                lanczos_t_mat_init = torch.eye(*lanczos_t_size).type_as(self.lanczos_t_mat)
+                self.lanczos_t_mat.resize_(lanczos_t_size).copy_(lanczos_t_mat_init)
 
         # Don't go through the output if we're training a variational inference model
         if self.training and not self.exact_inference:
