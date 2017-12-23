@@ -1,5 +1,4 @@
 import torch
-from copy import deepcopy
 from operator import mul
 from torch.autograd import Variable
 from .interpolation import Interpolation
@@ -81,16 +80,35 @@ def left_interp(interp_indices, interp_values, rhs):
     if is_vector:
         res = rhs.index_select(0, interp_indices.view(-1)).view(*interp_values.size())
         res = res.mul(interp_values)
-        return res.sum(-1)
+        res = res.sum(-1)
+        return res
 
     else:
-        interp_size = list(interp_indices.size()) + [rhs.size(-1)]
-        rhs_size = deepcopy(interp_size)
-        rhs_size[-3] = rhs.size()[-2]
-        interp_indices_expanded = interp_indices.unsqueeze(-1).expand(*interp_size)
-        res = rhs.unsqueeze(-2).expand(*rhs_size).gather(-3, interp_indices_expanded)
-        res = res.mul(interp_values.unsqueeze(-1).expand(interp_size))
-        return res.sum(-2)
+        if interp_indices.ndimension() == 3:
+            n_batch, n_data, n_interp = interp_indices.size()
+            interp_indices = interp_indices.view(-1)
+            if isinstance(interp_indices, Variable):
+                interp_indices = interp_indices.data
+            interp_values = interp_values.view(-1, 1)
+
+            if rhs.ndimension() == 3:
+                batch_indices = interp_indices.new(n_batch, 1)
+                torch.arange(0, n_batch, out=batch_indices[:, 0])
+                batch_indices = batch_indices.repeat(1, n_data * n_interp).view(-1)
+                res = rhs[batch_indices, interp_indices, :] * interp_values
+            else:
+                res = rhs[interp_indices, :].unsqueeze(0) * interp_values
+            res = res.view(n_batch, n_data, n_interp, -1)
+            res = res.sum(-2)
+            return res
+        else:
+            n_data, n_interp = interp_indices.size()
+            interp_indices = interp_indices.view(-1)
+            interp_values = interp_values.view(-1, 1)
+            res = rhs[interp_indices, :] * interp_values
+            res = res.view(n_data, n_interp, -1)
+            res = res.sum(-2)
+            return res
 
 
 def sparse_eye(size):

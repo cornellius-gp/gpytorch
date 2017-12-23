@@ -49,6 +49,16 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        """
+        Batch version of _get_indices
+        For each matrix in batch_indices, returns entries of the matrix,
+        indexed by left and right indices
+        Only works for batch lazy variables
+
+        """
+        raise NotImplementedError
+
     def _get_indices(self, left_indices, right_indices):
         """
         Returns entries of the matrix, indexed by left and right indices
@@ -137,7 +147,6 @@ class LazyVariable(object):
             torch.arange(0, size[0], out=batch_iter.data)
             batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
             row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
-            print(self.size())
             return self._batch_get_indices(batch_iter, row_col_iter, row_col_iter).view(size[0], size[1])
         else:
             return self._get_indices(row_col_iter, row_col_iter)
