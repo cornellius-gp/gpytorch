@@ -206,6 +206,15 @@ def sparse_repeat(sparse, *repeat_sizes):
     return sparse.__class__(new_indices, new_values, torch.Size(new_size))
 
 
+def scale_to_bounds(x, lower_bound, upper_bound):
+    # Scale features so they fit inside grid bounds
+    min_val = x.data.min()
+    max_val = x.data.max()
+    diff = max_val - min_val
+    x = (x - min_val) * (0.95 * (upper_bound - lower_bound) / diff) + 0.95 * lower_bound
+    return x
+
+
 def to_sparse(dense):
     mask = dense.ne(0)
     indices = mask.nonzero()
