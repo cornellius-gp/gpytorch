@@ -1,260 +1,180 @@
 import torch
-import math
-from .lazy_variable import LazyVariable
-from .mul_lazy_variable import MulLazyVariable
+import operator
 from torch.autograd import Variable
-from ..posterior import InterpolatedPosteriorStrategy
-from ..utils import sparse_eye
-from ..utils.kronecker_product import sym_kronecker_product_toeplitz_matmul, kp_interpolated_toeplitz_matmul, \
-    kp_sym_toeplitz_derivative_quadratic_form, list_of_indices_and_values_to_sparse
+from .lazy_variable import LazyVariable
+from functools import reduce
+
+
+def _prod(iterable):
+    return reduce(operator.mul, iterable, 1)
+
+
+def _matmul(sub_matmul_closures, sizes, tensor):
+    res = tensor.contiguous()
+    is_batch = tensor.ndimension() == 3
+    n_cols = tensor.size(-1)
+    for sub_matmul_closure, size in list(zip(sub_matmul_closures, sizes))[::-1]:
+        if is_batch:
+            n_batch = res.size(0)
+            res = res.view(n_batch, size, -1)
+            factor = sub_matmul_closure(res)
+            n_batch = factor.size(0)
+            factor = factor.view(n_batch, size, -1, n_cols).transpose(-3, -2)
+            res = factor.contiguous().view(n_batch, -1, n_cols)
+        else:
+            res = res.view(size, -1)
+            factor = sub_matmul_closure(res)
+            factor = factor.contiguous().view(size, -1, n_cols).transpose(-3, -2)
+            res = factor.contiguous().view(-1, n_cols)
+    return res
 
 
 class KroneckerProductLazyVariable(LazyVariable):
-    def __init__(self, columns, J_lefts=None, C_lefts=None, J_rights=None, C_rights=None, added_diag=None):
-        super(KroneckerProductLazyVariable, self).__init__(columns, J_lefts, C_lefts, J_rights, C_rights, added_diag)
-        if not isinstance(columns, Variable):
-            raise RuntimeError('KroneckerProductLazyVariable is intended to wrap Variable versions of \
-                                the first column and row.')
-
-        self.columns = columns
-        self.J_lefts = J_lefts
-        self.C_lefts = C_lefts
-        self.J_rights = J_rights
-        self.C_rights = C_rights
-        self.added_diag = added_diag
-        self.kronecker_product_size = int(math.pow(self.columns.size()[1], self.columns.size()[0]))
-        if J_lefts is not None:
-            self._size = (self.J_lefts.size()[1], self.J_rights.size()[1])
-        else:
-            self._size = (self.kronecker_product_size, self.kronecker_product_size)
+    def __init__(self, *lazy_vars):
+        if not all(isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars):
+            raise RuntimeError('KroneckerProductLazyVariable is intended to wrap lazy variables.')
+        super(KroneckerProductLazyVariable, self).__init__(*lazy_vars)
+        self.lazy_vars = lazy_vars
 
     def _matmul_closure_factory(self, *args):
-        if len(args) == 1:
-            columns, = args
+        sizes = [lazy_var.size(-1) for lazy_var in self.lazy_vars]
+        sub_matmul_closures = []
+        i = 0
+        for lazy_var in self.lazy_vars:
+            len_repr = len(lazy_var.representation())
+            sub_matmul_closure = lazy_var._matmul_closure_factory(*args[i:i + len_repr])
+            sub_matmul_closures.append(sub_matmul_closure)
+            i = i + len_repr
 
-            def closure(mat2):
-                return sym_kronecker_product_toeplitz_matmul(columns, mat2)
+        def closure(tensor):
+            is_vec = tensor.ndimension() == 1
+            if is_vec:
+                tensor = tensor.unsqueeze(-1)
 
-        elif len(args) == 3:
-            columns, W_lefts, W_rights = args
-
-            def closure(mat2):
-                return kp_interpolated_toeplitz_matmul(columns, mat2, W_lefts, W_rights, None)
-
-        elif len(args) == 4:
-            columns, W_lefts, W_rights, added_diag = args
-
-            def closure(mat2):
-                return kp_interpolated_toeplitz_matmul(columns, mat2, W_lefts, W_rights, added_diag)
-
-        else:
-            raise AttributeError('Invalid number of arguments')
+            res = _matmul(sub_matmul_closures, sizes, tensor)
+            if is_vec:
+                res = res.squeeze(-1)
+            return res
 
         return closure
 
     def _derivative_quadratic_form_factory(self, *args):
+        sizes = [lazy_var.size(-1) for lazy_var in self.lazy_vars]
+        sub_matmul_closures = []
+        sub_derivative_closures = []
+        i = 0
+        for lazy_var in self.lazy_vars:
+            len_repr = len(lazy_var.representation())
+            sub_matmul_closure = lazy_var._matmul_closure_factory(*args[i:i + len_repr])
+            sub_derivative_closure = lazy_var._derivative_quadratic_form_factory(*args[i:i + len_repr])
+            sub_matmul_closures.append(sub_matmul_closure)
+            sub_derivative_closures.append(sub_derivative_closure)
+            i = i + len_repr
+
         def closure(left_vectors, right_vectors):
+            res = []
             if left_vectors.ndimension() == 1:
-                left_factor = left_vectors.unsqueeze(0)
-                right_factor = right_vectors.unsqueeze(0)
+                left_vectors = left_vectors.unsqueeze(0)
+                right_vectors = right_vectors.unsqueeze(0)
+
+            left_vectors = left_vectors.contiguous()
+            right_vectors = right_vectors.contiguous()
+            is_batch = left_vectors.ndimension() == 3
+
+            if not is_batch:
+                s, m = left_vectors.size()
+
+                for i, sub_derivative_closure in enumerate(sub_derivative_closures):
+                    m_left = _prod(sizes[i + 1:])
+                    m_right = _prod(sizes[:i])
+                    m_i = sizes[i]
+
+                    right_vectors_i = right_vectors.view(s, m_left, m_i, m_right).transpose(2, 3).contiguous()
+                    right_vectors_i = right_vectors_i.view(s * m_left * m_right, m_i)
+
+                    left_vectors_i = left_vectors.view(s, int(m / m_left), m_left).transpose(1, 2)
+                    if i != len(sub_derivative_closures) - 1:
+                        left_vectors_i = left_vectors_i.transpose(0, 1).contiguous().view(m_left, s * int(m / m_left))
+                        left_vectors_i = _matmul(sub_matmul_closures[i + 1:], sizes[i + 1:], left_vectors_i)
+                        left_vectors_i = left_vectors_i.contiguous().view(m_left, s, int(m / m_left)).transpose(0, 1)
+
+                    left_vectors_i = left_vectors_i.contiguous().view(s, m_left, m_i, m_right).transpose(2, 3)
+                    if i != 0:
+                        left_vectors_i = left_vectors_i.transpose(0, 2).contiguous().view(m_right, m_left * s * m_i)
+                        left_vectors_i = _matmul(sub_matmul_closures[:i], sizes[:i], left_vectors_i)
+                        left_vectors_i = left_vectors_i.contiguous().view(m_right, m_left, s, m_i).transpose(0, 2)
+                    left_vectors_i = left_vectors_i.contiguous().view(s * m_left * m_right, m_i).contiguous()
+                    res = res + list(sub_derivative_closure(left_vectors_i, right_vectors_i))
             else:
-                left_factor = left_vectors
-                right_factor = right_vectors
-            if len(args) == 1:
-                columns, = args
-                return kp_sym_toeplitz_derivative_quadratic_form(columns, left_factor, right_factor),
-            elif len(args) == 3:
-                columns, W_left, W_right = args
-                left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
-                right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
+                batch_size, s, m = left_vectors.size()
 
-                res = kp_sym_toeplitz_derivative_quadratic_form(columns, left_factor, right_factor)
-                return res, None, None
-            elif len(args) == 4:
-                columns, W_left, W_right, added_diag, = args
-                diag_grad = columns.new(len(added_diag)).zero_()
-                diag_grad[0] = (left_factor * right_factor).sum()
+                for i, sub_derivative_closure in enumerate(sub_derivative_closures):
+                    m_left = _prod(sizes[i + 1:])
+                    m_right = _prod(sizes[:i])
+                    m_i = sizes[i]
 
-                left_factor = torch.dsmm(W_left.t(), left_factor.t()).t()
-                right_factor = torch.dsmm(W_right.t(), right_factor.t()).t()
+                    right_vectors_i = right_vectors.view(batch_size, s, m_left, m_i, m_right)
+                    right_vectors_i = right_vectors_i.transpose(-2, -1).contiguous()
+                    right_vectors_i = right_vectors_i.view(batch_size, s * m_left * m_right, m_i)
 
-                res = kp_sym_toeplitz_derivative_quadratic_form(columns, left_factor, right_factor)
-                return res, None, None, diag_grad
+                    left_vectors_i = left_vectors.view(batch_size, s, int(m / m_left), m_left).transpose(-2, -1)
+                    if i != len(sub_derivative_closures) - 1:
+                        left_vectors_i = left_vectors_i.transpose(-2, -3).contiguous()
+                        left_vectors_i = left_vectors_i.view(batch_size, m_left, s * int(m / m_left))
+                        left_vectors_i = _matmul(sub_matmul_closures[i + 1:], sizes[i + 1:], left_vectors_i)
+                        left_vectors_i = left_vectors_i.contiguous().view(batch_size, m_left, s, int(m / m_left))
+                        left_vectors_i = left_vectors_i.transpose(-2, -3)
 
+                    left_vectors_i = left_vectors_i.contiguous().view(batch_size, s, m_left, m_i, m_right)
+                    left_vectors_i = left_vectors_i.transpose(-2, -1)
+                    if i != 0:
+                        left_vectors_i = left_vectors_i.transpose(1, 3).contiguous()
+                        left_vectors_i = left_vectors_i.view(batch_size, m_right, m_left * s * m_i)
+                        left_vectors_i = _matmul(sub_matmul_closures[:i], sizes[:i], left_vectors_i)
+                        left_vectors_i = left_vectors_i.contiguous().view(batch_size, m_right, m_left, s, m_i)
+                        left_vectors_i = left_vectors_i.transpose(1, 3)
+                    left_vectors_i = left_vectors_i.contiguous().view(batch_size, s * m_left * m_right, m_i)
+                    left_vectors_i = left_vectors_i.contiguous()
+                    res = res + list(sub_derivative_closure(left_vectors_i, right_vectors_i))
+
+            return res
         return closure
 
-    def add_diag(self, diag):
-        if self.J_lefts is not None:
-            kronecker_product_diag = diag.expand(self._size[0])
+    def _size(self):
+        left_size = _prod(lazy_var.size(-2) for lazy_var in self.lazy_vars)
+        right_size = _prod(lazy_var.size(-1) for lazy_var in self.lazy_vars)
+
+        is_batch = self.lazy_vars[0].ndimension() == 3
+        if is_batch:
+            return torch.Size((self.lazy_vars[0].size(0), left_size, right_size))
         else:
-            kronecker_product_diag = diag.expand(self.kronecker_product_size)
-
-        return KroneckerProductLazyVariable(self.columns, self.J_lefts, self.C_lefts,
-                                            self.J_rights, self.C_rights, kronecker_product_diag)
-
-    def add_jitter(self):
-        jitter = self.columns.data.new(self.columns.size()).zero_()
-        jitter[:, 0] = 1e-4
-        return KroneckerProductLazyVariable(self.columns.add(Variable(jitter)), self.J_lefts, self.C_lefts,
-                                            self.J_rights, self.C_rights, self.added_diag)
-
-    def diag(self):
-        """
-        Gets the diagonal of the Kronecker Product matrix wrapped by this object.
-        """
-        if len(self.J_lefts[0]) != len(self.J_rights[0]):
-            raise RuntimeError('diag not supported for non-square interpolated Toeplitz matrices.')
-        d, n_data, n_interp = self.J_lefts.size()
-        n_grid = len(self.columns[0])
-
-        left_interps_values = self.C_lefts.unsqueeze(3)
-        right_interps_values = self.C_rights.unsqueeze(2)
-        interps_values = torch.matmul(left_interps_values, right_interps_values)
-
-        left_interps_indices = self.J_lefts.unsqueeze(3).expand(d, n_data, n_interp, n_interp)
-        right_interps_indices = self.J_rights.unsqueeze(2).expand(d, n_data, n_interp, n_interp)
-
-        toeplitz_indices = (left_interps_indices - right_interps_indices).fmod(n_grid).abs().long()
-        toeplitz_vals = Variable(self.columns.data.new(d, n_data * n_interp * n_interp).zero_())
-
-        mask = self.columns.data.new(d, n_data * n_interp * n_interp).zero_()
-        for i in range(d):
-            mask[i] += torch.ones(n_data * n_interp * n_interp)
-            temp = self.columns.index_select(1, Variable(toeplitz_indices.view(d, -1)[i]))
-            toeplitz_vals += Variable(mask) * temp.view(toeplitz_indices.size())
-            mask[i] -= torch.ones(n_data * n_interp * n_interp)
-
-        diag = (Variable(interps_values) * toeplitz_vals).sum(3).sum(2)
-        diag = diag.prod(0)
-
-        if self.added_diag is not None:
-            diag += self.added_diag
-
-        return diag
-
-    def mul(self, other):
-        """
-        Multiplies this interpolated Toeplitz matrix elementwise by a constant. To accomplish this,
-        we multiply the first Toeplitz component of this KroneckerProductLazyVariable by the constant.
-        Args:
-            - other (broadcastable with self.columns[0]) - Constant to multiply by.
-        Returns:
-            - KroneckerProductLazyVariable with columns[0] = columns[0]*(constant) and columns[i] = columns[i] for i>0
-        """
-        if isinstance(other, LazyVariable):
-            return MulLazyVariable(self, other)
-        else:
-            columns = self.columns
-            mask = self.columns.data.new(columns.size()).zero_()
-            mask[0] = mask[0] + 1
-            mask = Variable(mask)
-            other = mask * (other - 1).expand_as(mask) + 1
-            columns = columns * other
-            return KroneckerProductLazyVariable(columns, self.J_lefts, self.C_lefts,
-                                                self.J_rights, self.C_rights, self.added_diag)
-
-    def posterior_strategy(self):
-        if not hasattr(self, '_posterior_strategy'):
-            columns, interp_left, interp_right = self.representation()[:3]
-            grid = KroneckerProductLazyVariable(columns)
-            self._posterior_strategy = InterpolatedPosteriorStrategy(self, grid=grid, interp_left=interp_left,
-                                                                     interp_right=interp_right)
-        return self._posterior_strategy
-
-    def representation(self):
-        if self.J_lefts is None and self.C_lefts is None and self.J_rights is None \
-                and self.C_rights is None and self.added_diag is None:
-            return self.columns,
-
-        if self.J_lefts is None and self.C_lefts is None and self.J_rights is None \
-                and self.C_rights is None and self.added_diag is None:
-            return self.columns,
-
-        if self.J_lefts is not None and self.C_lefts is not None:
-            W_left = Variable(list_of_indices_and_values_to_sparse(self.J_lefts,
-                                                                   self.C_lefts,
-                                                                   self.columns))
-        else:
-            W_left = Variable(sparse_eye(self.kronecker_product_size))
-        if self.J_rights is not None and self.C_rights is not None:
-            W_right = Variable(list_of_indices_and_values_to_sparse(self.J_rights,
-                                                                    self.C_rights,
-                                                                    self.columns))
-        else:
-            W_right = Variable(sparse_eye(self.kronecker_product_size))
-        if self.added_diag is not None:
-            return self.columns, W_left, W_right, self.added_diag
-        else:
-            return self.columns, W_left, W_right
-
-    def size(self):
-        return self._size
+            return torch.Size((left_size, right_size))
 
     def _transpose_nonbatch(self):
-        return KroneckerProductLazyVariable(self.columns, J_lefts=self.J_rights,
-                                            C_lefts=self.C_rights, J_rights=self.J_lefts,
-                                            C_rights=self.C_lefts, added_diag=self.added_diag)
+        return self.__class__(*(lazy_var._transpose_nonbatch() for lazy_var in self.lazy_vars))
 
-    def __getitem__(self, i):
-        if isinstance(i, tuple):
-            first_index = i[0]
-            if not isinstance(first_index, slice):
-                first_index = slice(first_index, first_index + 1, None)
-            second_index = i[1]
-            if not isinstance(second_index, slice):
-                second_index = slice(second_index, second_index + 1, None)
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        res = Variable(self._tensor_cls(left_indices.size()).fill_(1))
+        size = self.size(-1)
+        for i, lazy_var in enumerate(list(self.lazy_vars)[::-1]):
+            size = size / lazy_var.size(-1)
+            left_indices_i = left_indices.float().div(size).floor().long()
+            right_indices_i = right_indices.float().div(size).floor().long()
 
-            if self.J_lefts is None:
-                d, m0 = self.columns.size()
-                len_i0 = len(range(self.kronecker_product_size)[first_index])
-                len_i1 = len(range(self.kronecker_product_size)[second_index])
-                J_lefts_new = self.columns.data.new(d, len_i0).zero_()
-                J_rights_new = self.columns.data.new(d, len_i1).zero_()
-                for j in range(d):
-                    J_lefts_new_tensor = torch.arange(0, self.kronecker_product_size)[first_index] / pow(m0, d - j - 1)
-                    J_lefts_new[j] = self.columns.data.new(J_lefts_new_tensor)
-                    J_rights_new_tensor = torch.arange(0, self.kronecker_product_size)[second_index] / pow(m0,
-                                                                                                           d - j - 1)
-                    J_rights_new[j] = self.columns.data.new(J_rights_new_tensor)
-                C_lefts_new = self.columns.data.new().resize_as_(J_lefts_new).fill_(1).unsqueeze(2)
-                C_rights_new = self.columns.data.new().resize_as_(J_lefts_new).fill_(1).unsqueeze(2)
-                J_lefts_new = J_lefts_new.long().unsqueeze(2)
-                J_rights_new = J_rights_new.long().unsqueeze(2)
-            else:
-                # J[:, i[0], :], C[:, i[0], :]
-                J_lefts_new = self.J_lefts[:, first_index, :]
-                C_lefts_new = self.C_lefts[:, first_index, :]
+            res = res * lazy_var._batch_get_indices(batch_indices, left_indices_i, right_indices_i)
+            left_indices = left_indices - (left_indices_i * size)
+            right_indices = right_indices - (right_indices_i * size)
+        return res
 
-                # J[:, i[1], :], C[:, i[1], :]
-                J_rights_new = self.J_rights[:, second_index, :]
-                C_rights_new = self.C_rights[:, second_index, :]
+    def _get_indices(self, left_indices, right_indices):
+        res = Variable(self._tensor_cls(left_indices.size()).fill_(1))
+        size = self.size(-1)
+        for i, lazy_var in enumerate(list(self.lazy_vars)[::-1]):
+            size = size / lazy_var.size(-1)
+            left_indices_i = left_indices.float().div(size).floor().long()
+            right_indices_i = right_indices.float().div(size).floor().long()
 
-            if self.added_diag is not None:
-                if len(J_lefts_new[0]) != len(J_rights_new[0]):
-                    raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
-                                        diagonal component to make it non-square is probably not intended.\
-                                        It is ambiguous which diagonal elements to choose')
-
-                diag_new = self.added_diag[first_index]
-            else:
-                diag_new = None
-
-            return KroneckerProductLazyVariable(self.columns, J_lefts_new, C_lefts_new,
-                                                J_rights_new, C_rights_new, diag_new)
-
-        else:
-            if self.J_lefts is not None:
-                J_lefts_new = self.J_lefts[:, i, :]
-                C_lefts_new = self.C_lefts[:, i, :]
-                if self.added_diag is not None:
-                    raise RuntimeError('Slicing in to interpolated Toeplitz matrix that has an additional \
-                                        diagonal component to make it non-square is probably not intended.\
-                                        It is ambiguous which diagonal elements to choose')
-                else:
-                    diag_new = None
-
-                return KroneckerProductLazyVariable(self.columns, J_lefts_new, C_lefts_new,
-                                                    self.J_rights, self.C_rights, diag_new)
-            else:
-                raise RuntimeError('Slicing an uninterpolated Toeplitz matrix to be non-square is probably \
-                                    unintended. If that was the intent, use evaluate() and slice the full matrix.')
+            res = res * lazy_var._get_indices(left_indices_i, right_indices_i)
+            left_indices = left_indices - (left_indices_i * size)
+            right_indices = right_indices - (right_indices_i * size)
+        return res

@@ -16,8 +16,8 @@ class SpectralMixtureKernel(Kernel):
                                 bounds=log_mixture_scale_bounds)
 
     def forward(self, x1, x2):
-        n, d = x1.size()
-        m, _ = x2.size()
+        batch_size, n, d = x1.size()
+        _, m, _ = x2.size()
 
         if d > 1:
             raise RuntimeError(' '.join([
@@ -30,12 +30,12 @@ class SpectralMixtureKernel(Kernel):
         mixture_means = self.log_mixture_means.exp()
         mixture_scales = self.log_mixture_scales.mul(2).exp_()
 
-        sq_distance = torch.mm(x1, x2.transpose(0, 1)).mul_(2)
+        sq_distance = torch.matmul(x1, x2.transpose(-1, -2)).mul_(2)
 
-        x1_squared = torch.bmm(x1.view(n, 1, d), x1.view(n, d, 1))
-        x1_squared = x1_squared.view(n, 1).expand(n, m)
-        x2_squared = torch.bmm(x2.view(m, 1, d), x2.view(m, d, 1))
-        x2_squared = x2_squared.view(1, m).expand(n, m)
+        x1_squared = torch.matmul(x1.unsqueeze(-2), x1.unsqueeze(-1))
+        x1_squared = x1_squared.view(batch_size, n, 1).expand(batch_size, n, m)
+        x2_squared = torch.matmul(x2.unsqueeze(-2), x2.unsqueeze(-1))
+        x2_squared = x2_squared.view(batch_size, 1, m).expand(batch_size, n, m)
 
         sq_distance.add_(-x1_squared).add_(-x2_squared)  # sq_distance = -(x - z)^2
 
@@ -45,9 +45,9 @@ class SpectralMixtureKernel(Kernel):
 
         res = None
         for weight, mean, scale in zip(mixture_weights, mixture_means, mixture_scales):
-            weight = weight.expand(n, m)
-            mean = mean.expand(n, m)
-            scale = scale.expand(n, m)
+            weight = weight.expand(batch_size, n, m)
+            mean = mean.expand(batch_size, n, m)
+            scale = scale.expand(batch_size, n, m)
 
             sq_distance_factor = (scale * sq_distance).exp_()
             if res is None:

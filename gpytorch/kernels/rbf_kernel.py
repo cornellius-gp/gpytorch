@@ -11,17 +11,13 @@ class RBFKernel(Kernel):
                                 bounds=log_lengthscale_bounds)
 
     def forward(self, x1, x2):
-        n, d = x1.size()
-        m, _ = x2.size()
+        res = 2 * x1.matmul(x2.transpose(-1, -2))
 
-        res = 2 * x1.matmul(x2.transpose(0, 1))
-
-        x1_squared = torch.bmm(x1.view(n, 1, d), x1.view(n, d, 1))
-        x1_squared = x1_squared.view(n, 1).expand(n, m)
-        x2_squared = torch.bmm(x2.view(m, 1, d), x2.view(m, d, 1))
-        x2_squared = x2_squared.view(1, m).expand(n, m)
+        x1_squared = torch.matmul(x1.unsqueeze(-2), x1.unsqueeze(-1)).squeeze(-1)
+        x2_squared = torch.matmul(x2.unsqueeze(-2), x2.unsqueeze(-1)).squeeze(-1).transpose(-1, -2)
         res.sub_(x1_squared).sub_(x2_squared)  # res = -(x - z)^2
 
         res = res / (self.log_lengthscale.exp() + self.eps)  # res = -(x - z)^2 / lengthscale
         res.exp_()
+
         return res

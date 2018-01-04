@@ -11,6 +11,8 @@ class GridInterpolationKernel(Kernel):
         self.base_kernel_module = base_kernel_module
         self.grid_size = grid_size
         self.register_buffer('grid', grid)
+        if inducing_points.ndimension() == 2:
+            inducing_points = inducing_points.unsqueeze(0)
         self.register_buffer('_inducing_points', inducing_points)
 
     def train(self, mode=True):
@@ -26,21 +28,21 @@ class GridInterpolationKernel(Kernel):
         if not self.training and hasattr(self, '_cached_kernel_mat'):
             return self._cached_kernel_mat
         else:
-            d = x1.size(1)
+            d = x1.size(-1)
             grid_var = Variable(self.grid)
-            if d > 1:
-                k_UUs = Variable(x1.data.new(d, self.grid_size).zero_())
-                for i in range(d):
-                    k_UUs[i] = self.base_kernel_module(grid_var[i, 0], grid_var[i], **kwargs).squeeze()
-                K_XX = KroneckerProductLazyVariable(k_UUs)
 
+            if gpytorch.functions.use_toeplitz:
+                first_item = grid_var[:, 0].contiguous().view(d, 1, 1)
+                k_UU = self.base_kernel_module(first_item, grid_var.view(d, -1, 1), **kwargs)
+                K_XXs = [ToeplitzLazyVariable(k_UU[i:i + 1].squeeze(-2)) for i in range(d)]
             else:
-                if gpytorch.functions.use_toeplitz:
-                    k_UU = self.base_kernel_module(grid_var[0, 0], grid_var[0], **kwargs).squeeze()
-                    K_XX = ToeplitzLazyVariable(k_UU)
-                else:
-                    k_UU = self.base_kernel_module(grid_var[0], grid_var[0], **kwargs).squeeze()
-                    K_XX = NonLazyVariable(k_UU)
+                k_UU = self.base_kernel_module(grid_var.view(d, -1, 1), grid_var.view(d, -1, 1), **kwargs)
+                K_XXs = [NonLazyVariable(k_UU[i:i + 1]) for i in range(d)]
+
+            if d > 1:
+                K_XX = KroneckerProductLazyVariable(*K_XXs)
+            else:
+                K_XX = K_XXs[0]
 
             if not self.training:
                 self._cached_kernel_mat = K_XX
