@@ -74,9 +74,12 @@ class LazyVariable(object):
             - diag (Scalar Variable)
         """
         from .diag_lazy_variable import DiagLazyVariable
-        if len(self.size()) != 2 or (self.size()[0] != self.size()[1]):
+        if self.size(-1) != self.size(-2):
             raise RuntimeError('add_diag only defined for square matrices')
-        return self + DiagLazyVariable(diag.expand(self.size()[0]))
+        if self.ndimension() == 3:
+            return self + DiagLazyVariable(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
+        else:
+            return self + DiagLazyVariable(diag.expand(self.size(0)))
 
     def add_jitter(self):
         """
@@ -195,15 +198,15 @@ class LazyVariable(object):
         args = list(self.representation()) + [target]
         return self._gp_mll_class()(*args)
 
-    def inv_matmul(self, rhs):
+    def inv_matmul(self, tensor):
         """
         Computes a linear solve (w.r.t self) with several right hand sides.
 
         Args:
-            - rhs (tensor nxk) - Matrix or tensor
+            - tensor (tensor nxk) - Matrix or tensor
 
         Returns:
-            - tensor - (self)^{-1} rhs
+            - tensor - (self)^{-1} tensor
         """
         if not hasattr(self, '_inv_matmul_class'):
             if hasattr(self, '_derivative_quadratic_form_factory'):
@@ -211,8 +214,18 @@ class LazyVariable(object):
             else:
                 dqff = None
             self._inv_matmul_class = function_factory.inv_matmul_factory(self._matmul_closure_factory, dqff)
-        args = list(self.representation()) + [rhs]
-        return self._inv_matmul_class()(*args)
+
+        lazy_var = self
+        if lazy_var.ndimension() == 3 and tensor.ndimension() == 3:
+            if lazy_var.size(0) == 1 and tensor.size(0) > 1:
+                lazy_var = lazy_var.repeat(tensor.size(0), 1, 1)
+            elif tensor.size(0) == 1:
+                tensor = tensor.expand(lazy_var.size(0), tensor.size(1), tensor.size(2))
+        elif self.ndimension() > 3 or tensor.ndimension() > 3:
+            raise RuntimeError
+
+        args = list(lazy_var.representation()) + [tensor]
+        return lazy_var._inv_matmul_class()(*args)
 
     def matmul(self, tensor):
         """
@@ -230,8 +243,18 @@ class LazyVariable(object):
             else:
                 dqff = None
             self._matmul_class = function_factory.matmul_factory(self._matmul_closure_factory, dqff)
-        args = list(self.representation()) + [tensor]
-        return self._matmul_class()(*args)
+
+        lazy_var = self
+        if lazy_var.ndimension() == 3 and tensor.ndimension() == 3:
+            if lazy_var.size(0) == 1 and tensor.size(0) > 1:
+                lazy_var = lazy_var.repeat(tensor.size(0), 1, 1)
+            elif tensor.size(0) == 1:
+                tensor = tensor.expand(lazy_var.size(0), tensor.size(1), tensor.size(2))
+        elif self.ndimension() > 3 or tensor.ndimension() > 3:
+            raise RuntimeError
+
+        args = list(lazy_var.representation()) + [tensor]
+        return lazy_var._matmul_class()(*args)
 
     def mul(self, other):
         """

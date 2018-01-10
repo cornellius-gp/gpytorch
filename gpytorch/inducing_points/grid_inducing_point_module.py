@@ -87,7 +87,7 @@ class GridInducingPointModule(InducingPointModule):
                 else:
                     interp_indices, interp_values, = self._compute_grid(inputs)
 
-            induc_output = gpytorch.Module.__call__(self, Variable(self._inducing_points))
+            induc_output = self.prior_output()
             if not isinstance(induc_output, GaussianRandomVariable):
                 raise RuntimeError('Output should be a GaussianRandomVariable')
 

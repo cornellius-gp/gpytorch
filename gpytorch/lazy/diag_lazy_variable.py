@@ -14,10 +14,10 @@ class DiagLazyVariable(LazyVariable):
 
     def _matmul_closure_factory(self, diag):
         def closure(tensor):
-            if tensor.ndimension() == 1:
+            if tensor.ndimension() == 1 and self.ndimension() == 2:
                 return diag * tensor
             else:
-                res = diag.unsqueeze(1).expand_as(tensor) * tensor
+                res = diag.unsqueeze(-1).expand_as(tensor) * tensor
                 return res
 
         return closure
@@ -32,7 +32,10 @@ class DiagLazyVariable(LazyVariable):
         return closure
 
     def _size(self):
-        return self._diag.size(0), self._diag.size(0)
+        if self._diag.ndimension() == 2:
+            return self._diag.size(0), self._diag.size(-1), self._diag.size(-1)
+        else:
+            return self._diag.size(-1), self._diag.size(-1)
 
     def _transpose_nonbatch(self):
         return self
@@ -52,4 +55,7 @@ class DiagLazyVariable(LazyVariable):
         return self._diag
 
     def evaluate(self):
-        return self._diag.diag()
+        if self.ndimension() == 2:
+            return self._diag.diag()
+        else:
+            return super(DiagLazyVariable, self).evaluate()

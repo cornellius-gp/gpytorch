@@ -133,6 +133,8 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             def matmul_closure(sample_matrix):
                 if chol_covar1.ndimension() == 3:
                     sample_matrix = sample_matrix.unsqueeze(0)
+                    sample_matrix = sample_matrix.expand(chol_covar1.size(0), sample_matrix.size(1),
+                                                         sample_matrix.size(2))
                 rhs_vectors = chol_covar1.transpose(-1, -2).contiguous().matmul(chol_covar1.matmul(sample_matrix))
                 return LinearCG().solve(covar2_matmul_closure, rhs_vectors)
 
@@ -198,6 +200,8 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                 def left_matmul_closure(sample_matrix):
                     if chol_covar1.ndimension() == 3:
                         sample_matrix = sample_matrix.unsqueeze(0)
+                        sample_matrix = sample_matrix.expand(chol_covar1.size(0), sample_matrix.size(1),
+                                                             sample_matrix.size(2))
                     return LinearCG().solve(covar2_matmul_closure, sample_matrix)
 
                 left_vectors, right_vectors = trace_components(left_matmul_closure, right_matmul_closure,

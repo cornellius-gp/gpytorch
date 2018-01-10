@@ -35,6 +35,12 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
             interp_values = interp_values.mul(self.mixing_params.unsqueeze(1).unsqueeze(2))
         return interp_indices, interp_values
 
+    def prior_output(self):
+        out = super(AdditiveGridInducingPointModule, self).prior_output()
+        mean = out.mean()
+        covar = out.covar().repeat(self.n_components, 1, 1)
+        return GaussianRandomVariable(mean, covar)
+
     def __call__(self, inputs, **kwargs):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(-1).unsqueeze(-1)
