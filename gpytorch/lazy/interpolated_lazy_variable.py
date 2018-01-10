@@ -161,10 +161,10 @@ class InterpolatedLazyVariable(LazyVariable):
         return res
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        left_interp_indices = self.left_interp_indices[batch_indices, left_indices, :]
-        left_interp_values = self.left_interp_values[batch_indices, left_indices, :]
-        right_interp_indices = self.right_interp_indices[batch_indices, right_indices, :]
-        right_interp_values = self.right_interp_values[batch_indices, right_indices, :]
+        left_interp_indices = self.left_interp_indices[batch_indices.data, left_indices.data, :]
+        left_interp_values = self.left_interp_values[batch_indices.data, left_indices.data, :]
+        right_interp_indices = self.right_interp_indices[batch_indices.data, right_indices.data, :]
+        right_interp_values = self.right_interp_values[batch_indices.data, right_indices.data, :]
 
         n_data, n_interp = left_interp_indices.size()
 
@@ -186,10 +186,10 @@ class InterpolatedLazyVariable(LazyVariable):
         return res
 
     def _get_indices(self, left_indices, right_indices):
-        left_interp_indices = self.left_interp_indices[left_indices, :]
-        left_interp_values = self.left_interp_values[left_indices, :]
-        right_interp_indices = self.right_interp_indices[right_indices, :]
-        right_interp_values = self.right_interp_values[right_indices, :]
+        left_interp_indices = self.left_interp_indices[left_indices.data, :]
+        left_interp_values = self.left_interp_values[left_indices.data, :]
+        right_interp_indices = self.right_interp_indices[right_indices.data, :]
+        right_interp_values = self.right_interp_values[right_indices.data, :]
 
         n_data, n_interp = left_interp_indices.size()
 
