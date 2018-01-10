@@ -42,52 +42,32 @@ class GridInducingPointModule(InducingPointModule):
     def _compute_grid(self, inputs):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(1)
-        d = inputs.size(1)
+        n_dim = inputs.size(1)
 
-        if d > 1:
-            interp_indices = inputs.data.new(d, len(inputs.data), 4).zero_().long()
-            interp_values = inputs.data.new(d, len(inputs.data), 4).zero_().float()
-            for i in range(d):
-                inputs_min = inputs.min(0)[0].data[i]
-                inputs_max = inputs.max(0)[0].data[i]
-                if inputs_min < self.grid_bounds[i][0] or inputs_max > self.grid_bounds[i][1]:
-                    # Out of bounds data is still ok if we are specifically computing kernel values for grid entries.
-                    if math.fabs(inputs_min - self.grid[i, 0]) > 1e-7:
-                        raise RuntimeError('Received data that was out of bounds for the specified grid. \
-                                            Grid bounds were ({}, {}), but min = {}, \
-                                            max = {}'.format(self.grid_bounds[i][0],
-                                                             self.grid_bounds[i][1],
-                                                             inputs_min,
-                                                             inputs_max))
-                    elif math.fabs(inputs_max - self.grid[i, -1]) > 1e-7:
-                        raise RuntimeError('Received data that was out of bounds for the specified grid. \
-                                            Grid bounds were ({}, {}), but min = {}, \
-                                            max = {}'.format(self.grid_bounds[i][0],
-                                                             self.grid_bounds[i][1],
-                                                             inputs_min,
-                                                             inputs_max))
-                dim_interp_indices, dim_interp_values = Interpolation().interpolate(self.grid[i], inputs.data[:, i])
-                interp_indices[i].copy_(dim_interp_indices)
-                interp_values[i].copy_(dim_interp_values)
-            return interp_indices, interp_values
+        for i in range(n_dim):
+            inputs_min = inputs.min(0)[0].data[i]
+            inputs_max = inputs.max(0)[0].data[i]
+            if inputs_min < self.grid_bounds[i][0] or inputs_max > self.grid_bounds[i][1]:
+                # Out of bounds data is still ok if we are specifically computing kernel values for grid entries.
+                if math.fabs(inputs_min - self.grid[i, 0]) > 1e-7:
+                    raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                        Grid bounds were ({}, {}), but min = {}, \
+                                        max = {}'.format(self.grid_bounds[i][0],
+                                                         self.grid_bounds[i][1],
+                                                         inputs_min,
+                                                         inputs_max))
+                elif math.fabs(inputs_max - self.grid[i, -1]) > 1e-7:
+                    raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                        Grid bounds were ({}, {}), but min = {}, \
+                                        max = {}'.format(self.grid_bounds[i][0],
+                                                         self.grid_bounds[i][1],
+                                                         inputs_min,
+                                                         inputs_max))
 
-        inputs_min = inputs.min(0)[0].data[0]
-        inputs_max = inputs.max(0)[0].data[0]
-        if inputs_min < self.grid_bounds[0][0] or inputs_max > self.grid_bounds[0][1]:
-            # Out of bounds data is still ok if we are specifically computing kernel values for grid entries.
-            if math.fabs(inputs_min - self.grid[0, 0]) > 1e-7:
-                raise RuntimeError('Received data that was out of bounds for the specified grid. \
-                                    Grid bounds were ({}, {}), but min = {}, max = {}'.format(self.grid_bounds[0][0],
-                                                                                              self.grid_bounds[0][1],
-                                                                                              inputs_min,
-                                                                                              inputs_max))
-            elif math.fabs(inputs_max - self.grid[0, -1]) > 1e-7:
-                raise RuntimeError('Received data that was out of bounds for the specified grid. \
-                                    Grid bounds were ({}, {}), but min = {}, max = {}'.format(self.grid_bounds[0][0],
-                                                                                              self.grid_bounds[0][1],
-                                                                                              inputs_min,
-                                                                                              inputs_max))
-        interp_indices, interp_values = Interpolation().interpolate(self.grid[0], inputs.data.squeeze())
+        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs.data)
+        if n_dim == 1:
+            interp_indices.squeeze_(0)
+            interp_values.squeeze_(0)
 
         interp_indices = Variable(interp_indices)
         interp_values = Variable(interp_values)
@@ -112,8 +92,8 @@ class GridInducingPointModule(InducingPointModule):
                 raise RuntimeError('Output should be a GaussianRandomVariable')
 
             if isinstance(induc_output.covar(), KroneckerProductLazyVariable):
-                covar = KroneckerProductLazyVariable(induc_output.covar().columns, interp_indices,
-                                                     interp_values, interp_indices, interp_values)
+                covar = KroneckerProductLazyVariable(induc_output.covar().columns, interp_indices.data,
+                                                     interp_values.data, interp_indices.data, interp_values.data)
                 interp_matrix = covar.representation()[1]
                 mean = gpytorch.dsmm(interp_matrix, induc_output.mean().unsqueeze(-1)).squeeze(-1)
 
@@ -150,8 +130,8 @@ class GridInducingPointModule(InducingPointModule):
             # Kronecker hack - need until refactor
             if len(self.grid_bounds) > 1:
                 prior_output = self.prior_output()
-                test_covar = KroneckerProductLazyVariable(prior_output.covar().columns, interp_indices,
-                                                          interp_values, interp_indices, interp_values)
+                test_covar = KroneckerProductLazyVariable(prior_output.covar().columns, interp_indices.data,
+                                                          interp_values.data, interp_indices.data, interp_values.data)
                 interp_matrix = test_covar.representation()[1]
                 test_mean = gpytorch.dsmm(interp_matrix, self.variational_mean.unsqueeze(-1)).squeeze(-1)
                 test_chol_covar = gpytorch.dsmm(interp_matrix, variational_output.covar().lhs)
