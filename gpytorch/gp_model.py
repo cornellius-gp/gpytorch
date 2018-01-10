@@ -58,7 +58,7 @@ class GPModel(gpytorch.Module):
         """
         if n_data is None:
             n_data = len(target)
-        n_batch = output.mean().size(0)
+        n_batch = target.size(0)
 
         # Exact inference
         if self.exact_inference:

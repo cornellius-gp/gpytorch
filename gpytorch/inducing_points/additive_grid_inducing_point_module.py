@@ -6,9 +6,10 @@ from ..random_variables import GaussianRandomVariable
 
 
 class AdditiveGridInducingPointModule(GridInducingPointModule):
-    def __init__(self, grid_size, grid_bounds, n_components, mixing_params=False):
+    def __init__(self, grid_size, grid_bounds, n_components, mixing_params=False, sum_output=True):
         super(AdditiveGridInducingPointModule, self).__init__(grid_size, grid_bounds)
         self.n_components = n_components
+        self.sum_output = sum_output
 
         # Resize variational parameters to have one size per component
         self.alpha.resize_(*([n_components] + list(self.alpha.size())))
@@ -52,6 +53,9 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
                                ' (Toeplitz) interpolation.')
 
         output = super(AdditiveGridInducingPointModule, self).__call__(inputs, **kwargs)
-        mean = output.mean().sum(0)
-        covar = SumBatchLazyVariable(output.covar())
-        return GaussianRandomVariable(mean, covar)
+        if self.sum_output:
+            mean = output.mean().sum(0)
+            covar = SumBatchLazyVariable(output.covar())
+            return GaussianRandomVariable(mean, covar)
+        else:
+            return output
