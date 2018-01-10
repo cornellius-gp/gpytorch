@@ -165,7 +165,8 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
     if toeplitz_column.ndimension() == 1:
         toeplitz_column = toeplitz_column.unsqueeze(0)
         toeplitz_row = toeplitz_row.unsqueeze(0)
-        tensor = tensor.unsqueeze(0)
+        if tensor.ndimension() < 3:
+            tensor = tensor.unsqueeze(0)
         is_batch = False
 
     if toeplitz_column.ndimension() != 2:

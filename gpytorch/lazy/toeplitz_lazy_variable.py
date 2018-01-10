@@ -26,6 +26,25 @@ class ToeplitzLazyVariable(LazyVariable):
             return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor),
         return closure
 
+    def _size(self):
+        if self.column.ndimension() == 2:
+            return torch.Size((self.column.size(0), self.column.size(-1), self.column.size(-1)))
+        else:
+            return torch.Size((self.column.size(-1), self.column.size(-1)))
+
+    def _transpose_nonbatch(self):
+        return ToeplitzLazyVariable(self.column)
+
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        n_grid = self.column.size(-1)
+        toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
+        return self.column[batch_indices.data, toeplitz_indices.data]
+
+    def _get_indices(self, left_indices, right_indices):
+        n_grid = self.column.size(-1)
+        toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
+        return self.column.index_select(0, toeplitz_indices)
+
     def add_jitter(self):
         jitter = self.column.data.new(self.column.size(-1)).zero_()
         jitter.narrow(-1, 0, 1).fill_(1e-4)
@@ -49,22 +68,3 @@ class ToeplitzLazyVariable(LazyVariable):
         """
 
         return ToeplitzLazyVariable(self.column.repeat(sizes[0], 1))
-
-    def size(self):
-        if self.column.ndimension() == 2:
-            return torch.Size((self.column.size(0), self.column.size(-1), self.column.size(-1)))
-        else:
-            return torch.Size((self.column.size(-1), self.column.size(-1)))
-
-    def _transpose_nonbatch(self):
-        return ToeplitzLazyVariable(self.column)
-
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        n_grid = self.column.size(-1)
-        toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
-        return self.column[batch_indices.data, toeplitz_indices.data]
-
-    def _get_indices(self, left_indices, right_indices):
-        n_grid = self.column.size(-1)
-        toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
-        return self.column.index_select(0, toeplitz_indices)

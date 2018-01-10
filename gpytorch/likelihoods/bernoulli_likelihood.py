@@ -41,10 +41,13 @@ class BernoulliLikelihood(Likelihood):
         output_probs = gpytorch.normal_cdf(link)
         return BernoulliRandomVariable(output_probs)
 
-    def log_probability(self, f, y):
+    def log_probability(self, latent_func, target):
         """
         Computes the log probability \sum_{i} \log \Phi(y_{i}f_{i}), where
         \Phi(y_{i}f_{i}) is computed by averaging over a set of s samples of
         f_{i} drawn from p(f|x).
         """
-        return gpytorch.log_normal_cdf(f.mul(y)).sum(0)
+        num_samples = gpytorch.functions.num_samples
+        samples = latent_func.sample(num_samples).view(-1)
+        target = target.unsqueeze(1).repeat(1, num_samples).view(-1)
+        return gpytorch.log_normal_cdf(samples.mul(target)).sum(0).div(num_samples)

@@ -39,7 +39,10 @@ class GaussianRandomVariable(RandomVariable):
         return self._mean, self._covar
 
     def sample(self, n_samples):
-        raise NotImplementedError
+        base_samples = Variable(self._mean.data.new(self._covar.chol_approx_size(), n_samples).normal_())
+        samples = self._covar.chol_matmul(base_samples)
+        samples = samples + self._mean.unsqueeze(-1)
+        return samples
 
     def var(self):
         return self._covar.diag()

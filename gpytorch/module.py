@@ -4,12 +4,14 @@ from torch import nn
 from torch.autograd import Variable
 from .random_variables import RandomVariable
 from .lazy import LazyVariable
+from .variational import VariationalStrategy
 
 
 class Module(nn.Module):
     def __init__(self):
         super(Module, self).__init__()
         self._bounds = OrderedDict()
+        self._variational_strategies = OrderedDict()
         self.conditioning = False
 
     def _apply(self, fn):
@@ -62,6 +64,16 @@ class Module(nn.Module):
         kwargs = {}
         kwargs[name] = bounds
         self.set_bounds(**kwargs)
+
+    def register_variational_strategy(self, name):
+        self._variational_strategies[name] = None
+
+    def update_variational_strategy(self, name, variational_strategy):
+        if not isinstance(variational_strategy, VariationalStrategy):
+            raise RuntimeError('variational_strategy must be a VariationalStrategy')
+        if name not in self._variational_strategies.keys():
+            raise RuntimeError('variational strategy %s not registered' % name)
+        self._variational_strategies[name] = variational_strategy
 
     def initialize(self, **kwargs):
         """
@@ -202,6 +214,23 @@ class Module(nn.Module):
         Returns if the model is in posterior mode (are we conditioning on data?)
         """
         return hasattr(self, 'train_inputs') and not self.training
+
+    def variational_strategies(self):
+        for _, strategy in self.named_variational_strategies():
+            yield strategy
+
+    def named_variational_strategies(self, memo=None, prefix=''):
+        if memo is None:
+            memo = set()
+        for name, strategy in self._variational_strategies.items():
+            if strategy is not None and strategy not in memo:
+                memo.add(strategy)
+                yield prefix + ('.' if prefix else '') + name, strategy
+        for mname, module in self.named_children():
+            submodule_prefix = prefix + ('.' if prefix else '') + mname
+            if hasattr(module, 'named_variational_strategies'):
+                for name, strategy in module.named_variational_strategies(memo, submodule_prefix):
+                    yield name, strategy
 
     def _set_exact_inference(self, exact_inference):
         self._exact_inference = exact_inference

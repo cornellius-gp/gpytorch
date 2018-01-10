@@ -6,7 +6,7 @@ from .lazy_variable import LazyVariable
 class ConstantMulLazyVariable(LazyVariable):
     def __init__(self, lazy_var, constant):
         if not isinstance(constant, Variable):
-            tensor_cls = type(lazy_var.representation()[0].data)
+            tensor_cls = lazy_var.tensor_cls
             constant = Variable(tensor_cls(1).fill_(constant))
         super(ConstantMulLazyVariable, self).__init__(lazy_var, constant)
         self.lazy_var = lazy_var
@@ -36,11 +36,8 @@ class ConstantMulLazyVariable(LazyVariable):
             return res
         return closure
 
-    def diag(self):
-        return self.lazy_var.diag() * self.constant
-
-    def repeat(self, *sizes):
-        return ConstantMulLazyVariable(self.lazy_var.repeat(*sizes), self.constant)
+    def _size(self):
+        return self.lazy_var.size()
 
     def _transpose_nonbatch(self):
         return ConstantMulLazyVariable(self.lazy_var._transpose_nonbatch(), self.constant)
@@ -53,8 +50,8 @@ class ConstantMulLazyVariable(LazyVariable):
         res = self.lazy_var._get_indices(left_indices, right_indices)
         return self.constant.expand_as(res) * res
 
+    def repeat(self, *sizes):
+        return ConstantMulLazyVariable(self.lazy_var.repeat(*sizes), self.constant)
+
     def __getitem__(self, i):
         return self.lazy_var.__getitem__(i) * self.constant
-
-    def size(self):
-        return self.lazy_var.size()

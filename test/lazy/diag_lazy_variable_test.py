@@ -54,3 +54,11 @@ def test_get_item():
     diag_lv = DiagLazyVariable(Variable(diag))
     diag_ev = diag_lv.evaluate()
     assert torch.equal(diag_lv[0:2].evaluate().data, diag_ev[0:2].data)
+
+
+def test_get_indices():
+    diag_lv = DiagLazyVariable(Variable(diag))
+    res = diag_lv._get_indices(Variable(torch.LongTensor([1, 2, 0])),
+                               Variable(torch.LongTensor([0, 2, 0])))
+    print(res)
+    assert torch.equal(res.data, torch.Tensor([0, 3, 1]))

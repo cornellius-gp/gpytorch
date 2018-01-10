@@ -34,9 +34,35 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def _size(self):
+        """
+        Returns the size of the resulting Variable that the lazy variable represents
+
+        Implement this method, rather than size().
+        This is because size does some additional work
+        """
+        raise NotImplementedError
+
     def _transpose_nonbatch(self):
         """
         Transposes non-batch dimensions (e.g. last two)
+        """
+        raise NotImplementedError
+
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        """
+        Batch version of _get_indices
+        For each matrix in batch_indices, returns entries of the matrix,
+        indexed by left and right indices
+        Only works for batch lazy variables
+
+        """
+        raise NotImplementedError
+
+    def _get_indices(self, left_indices, right_indices):
+        """
+        Returns entries of the matrix, indexed by left and right indices
+        Only works for non-batch lazy variables
         """
         raise NotImplementedError
 
@@ -58,8 +84,26 @@ class LazyVariable(object):
         This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
         so this should only be done at the user's risk.
         """
-        diag = Variable(self.representation()[0].data.new(1).fill_(1e-4))
+        diag = Variable(self.tensor_cls(1).fill_(1e-4))
         return self.add_diag(diag)
+
+    def chol_approx_size(self):
+        """
+        This is used in conjunction with `chol_matmul`.
+        This multiplies a Tensor with a low-rank decomposition of the Cholesky decomposition
+        This function returns the rank of that approximation, so that you can
+        generate Tensors of the appropriate size.
+        """
+        raise NotImplementedError
+
+    def chol_matmul(self, tensor):
+        """
+        Multiplies the cholesky decomposition of the lazy variable with a tensor.
+        This is useful for sampling from multivariate Gaussians.
+
+        Assumes self represents a positive definite matrix, or a batch of PSD matrices.
+        """
+        raise NotImplementedError
 
     def cpu(self):
         new_args = []
@@ -91,13 +135,28 @@ class LazyVariable(object):
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
 
+    def diag(self):
+        size = self.size()
+        if size[-1] != size[-2]:
+            raise RuntimeError('Diag works on square matrices (or batches)')
+
+        row_col_iter = Variable(self.tensor_cls(size[-1]).long())
+        torch.arange(0, size[-1], out=row_col_iter.data)
+        if self.ndimension() == 3:
+            batch_iter = Variable(self.tensor_cls(size[0]).long())
+            torch.arange(0, size[0], out=batch_iter.data)
+            batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
+            row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
+            return self._batch_get_indices(batch_iter, row_col_iter, row_col_iter).view(size[0], size[1])
+        else:
+            return self._get_indices(row_col_iter, row_col_iter)
+
     def evaluate(self):
         """
         Explicitly evaluates the matrix this LazyVariable represents. This
         function should return a Variable explicitly wrapping a Tensor storing
         an exact representation of this LazyVariable.
         """
-        tensor_cls = type(self.representation()[0].data)
         size = self.size()
         if len(size) == 2:
             batch_mode = False
@@ -107,14 +166,14 @@ class LazyVariable(object):
             batch_size, n_rows, n_cols = size
 
         if n_rows < n_cols:
-            eye = Variable(tensor_cls(n_rows).fill_(1)).diag()
+            eye = Variable(self.tensor_cls(n_rows).fill_(1)).diag()
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_rows)
                 return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
             else:
                 return self.t().matmul(eye).t().contiguous()
         else:
-            eye = Variable(tensor_cls(n_cols).fill_(1)).diag()
+            eye = Variable(self.tensor_cls(n_cols).fill_(1)).diag()
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
@@ -186,12 +245,6 @@ class LazyVariable(object):
             from .mul_lazy_variable import MulLazyVariable
             return MulLazyVariable(self, other)
 
-    def mul_(self, other):
-        """
-        In-place version of mul.
-        """
-        raise NotImplementedError
-
     def ndimension(self):
         """
         Returns the number of dimensions
@@ -219,11 +272,14 @@ class LazyVariable(object):
                 raise RuntimeError('Representation of a LazyVariable should consist only of Variables')
         return tuple(representation)
 
-    def size(self):
+    def size(self, val=None):
         """
         Returns the size of the resulting Variable that the lazy variable represents
         """
-        raise NotImplementedError
+        size = self._size()
+        if val is not None:
+            return size[val]
+        return size
 
     def transpose(self, dim1, dim2):
         """
@@ -256,6 +312,12 @@ class LazyVariable(object):
         if self.ndimension() != 2:
             raise RuntimeError('Cannot call t for more than 2 dimensions')
         return self.transpose(0, 1)
+
+    @property
+    def tensor_cls(self):
+        if not hasattr(self, '_tensor_cls'):
+            self._tensor_cls = type(self.representation()[0].data)
+        return self._tensor_cls
 
     def trace_log_det_quad_form(self, mu_diffs, chol_covar_1):
         if not hasattr(self, '_trace_log_det_quad_form_class'):
