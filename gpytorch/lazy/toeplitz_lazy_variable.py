@@ -23,7 +23,10 @@ class ToeplitzLazyVariable(LazyVariable):
                 left_factor = left_vectors
                 right_factor = right_vectors
 
-            return sym_toeplitz_derivative_quadratic_form(left_factor, right_factor),
+            res = sym_toeplitz_derivative_quadratic_form(left_factor, right_factor),
+            if self.column.ndimension() == 1 and res[0].ndimension() == 2:
+                res = res[0].sum(0),
+            return res
         return closure
 
     def _size(self):

@@ -70,6 +70,12 @@ def bdsmm(sparse, dense):
         res = torch.dsmm(sparse_2d, dense_2d)
         res = res.view(batch_size, n_rows, -1)
         return res
+    elif dense.ndimension() == 3:
+        batch_size, _, n_cols = dense.size()
+        res = torch.dsmm(sparse, dense.transpose(0, 1).contiguous().view(-1, batch_size * n_cols))
+        res = res.view(-1, batch_size, n_cols)
+        res = res.transpose(0, 1).contiguous()
+        return res
     else:
         return torch.dsmm(sparse, dense)
 
@@ -92,6 +98,8 @@ def left_interp(interp_indices, interp_values, rhs):
             interp_values = interp_values.view(-1, 1)
 
             if rhs.ndimension() == 3:
+                if rhs.size(0) == 1 and interp_indices.size(0) > 1:
+                    rhs = rhs.expand(interp_indices.size(0), rhs.size(1), rhs.size(2))
                 batch_indices = interp_indices.new(n_batch, 1)
                 torch.arange(0, n_batch, out=batch_indices[:, 0])
                 batch_indices = batch_indices.repeat(1, n_data * n_interp).view(-1)
@@ -105,9 +113,16 @@ def left_interp(interp_indices, interp_values, rhs):
             n_data, n_interp = interp_indices.size()
             interp_indices = interp_indices.view(-1)
             interp_values = interp_values.view(-1, 1)
-            res = rhs[interp_indices, :] * interp_values
-            res = res.view(n_data, n_interp, -1)
-            res = res.sum(-2)
+            if rhs.ndimension() == 3:
+                n_batch, _, n_cols = rhs.size()
+                rhs = rhs.transpose(0, 1).contiguous().view(-1, n_batch * n_cols)
+                res = rhs[interp_indices, :] * interp_values
+                res = res.view(n_data, n_interp, n_batch, n_cols)
+                res = res.sum(-2).transpose(0, 1).contiguous()
+            else:
+                res = rhs[interp_indices, :] * interp_values
+                res = res.view(n_data, n_interp, -1)
+                res = res.sum(-2)
             return res
 
 

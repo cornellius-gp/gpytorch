@@ -369,6 +369,9 @@ class LazyVariable(object):
         left_index = index[-2]
         right_index = index[-1]
 
+        if left_index == slice(None, None, None) and right_index == slice(None, None, None):
+            return new_lazy_variable
+
         batch_sizes = list(new_lazy_variable.size()[:-2])
         left_row_iter = representation[0].data.new(new_lazy_variable.size()[-2]).long()
         right_row_iter = representation[0].data.new(new_lazy_variable.size()[-1]).long()
