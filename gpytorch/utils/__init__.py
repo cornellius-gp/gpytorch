@@ -1,4 +1,5 @@
 import torch
+from copy import deepcopy
 from operator import mul
 from torch.autograd import Variable
 from .interpolation import Interpolation
@@ -90,40 +91,52 @@ def left_interp(interp_indices, interp_values, rhs):
         return res
 
     else:
-        if interp_indices.ndimension() == 3:
-            n_batch, n_data, n_interp = interp_indices.size()
-            interp_indices = interp_indices.view(-1)
-            if isinstance(interp_indices, Variable):
-                interp_indices = interp_indices.data
-            interp_values = interp_values.view(-1, 1)
+        # Special cuda version -- this is faster on the GPU for some reason
+        if interp_indices.is_cuda:
+            if interp_indices.ndimension() == 3:
+                n_batch, n_data, n_interp = interp_indices.size()
+                interp_indices = interp_indices.view(-1)
+                if isinstance(interp_indices, Variable):
+                    interp_indices = interp_indices.data
+                interp_values = interp_values.view(-1, 1)
 
-            if rhs.ndimension() == 3:
-                if rhs.size(0) == 1 and interp_indices.size(0) > 1:
-                    rhs = rhs.expand(interp_indices.size(0), rhs.size(1), rhs.size(2))
-                batch_indices = interp_indices.new(n_batch, 1)
-                torch.arange(0, n_batch, out=batch_indices[:, 0])
-                batch_indices = batch_indices.repeat(1, n_data * n_interp).view(-1)
-                res = rhs[batch_indices, interp_indices, :] * interp_values
-            else:
-                res = rhs[interp_indices, :].unsqueeze(0) * interp_values
-            res = res.view(n_batch, n_data, n_interp, -1)
-            res = res.sum(-2)
-            return res
-        else:
-            n_data, n_interp = interp_indices.size()
-            interp_indices = interp_indices.view(-1)
-            interp_values = interp_values.view(-1, 1)
-            if rhs.ndimension() == 3:
-                n_batch, _, n_cols = rhs.size()
-                rhs = rhs.transpose(0, 1).contiguous().view(-1, n_batch * n_cols)
-                res = rhs[interp_indices, :] * interp_values
-                res = res.view(n_data, n_interp, n_batch, n_cols)
-                res = res.sum(-2).transpose(0, 1).contiguous()
-            else:
-                res = rhs[interp_indices, :] * interp_values
-                res = res.view(n_data, n_interp, -1)
+                if rhs.ndimension() == 3:
+                    if rhs.size(0) == 1 and interp_indices.size(0) > 1:
+                        rhs = rhs.expand(interp_indices.size(0), rhs.size(1), rhs.size(2))
+                    batch_indices = interp_indices.new(n_batch, 1)
+                    torch.arange(0, n_batch, out=batch_indices[:, 0])
+                    batch_indices = batch_indices.repeat(1, n_data * n_interp).view(-1)
+                    res = rhs[batch_indices, interp_indices, :] * interp_values
+                else:
+                    res = rhs[interp_indices, :].unsqueeze(0) * interp_values
+                res = res.view(n_batch, n_data, n_interp, -1)
                 res = res.sum(-2)
-            return res
+                return res
+            else:
+                n_data, n_interp = interp_indices.size()
+                interp_indices = interp_indices.view(-1)
+                interp_values = interp_values.view(-1, 1)
+                if rhs.ndimension() == 3:
+                    n_batch, _, n_cols = rhs.size()
+                    rhs = rhs.transpose(0, 1).contiguous().view(-1, n_batch * n_cols)
+                    res = rhs[interp_indices, :] * interp_values
+                    res = res.view(n_data, n_interp, n_batch, n_cols)
+                    res = res.sum(-2).transpose(0, 1).contiguous()
+                else:
+                    res = rhs[interp_indices, :] * interp_values
+                    res = res.view(n_data, n_interp, -1)
+                    res = res.sum(-2)
+                return res
+
+        # Special non-cuda version -- this is faster on the CPU
+        else:
+            interp_size = list(interp_indices.size()) + [rhs.size(-1)]
+            rhs_size = deepcopy(interp_size)
+            rhs_size[-3] = rhs.size()[-2]
+            interp_indices_expanded = interp_indices.unsqueeze(-1).expand(*interp_size)
+            res = rhs.unsqueeze(-2).expand(*rhs_size).gather(-3, interp_indices_expanded)
+            res = res.mul(interp_values.unsqueeze(-1).expand(interp_size))
+            return res.sum(-2)
 
 
 def sparse_eye(size):
