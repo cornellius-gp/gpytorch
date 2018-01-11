@@ -47,11 +47,17 @@ def add_jitter(mat):
     if isinstance(mat, LazyVariable):
         return mat.add_jitter()
     elif isinstance(mat, Variable):
-        diag = Variable(mat.data.new(len(mat)).fill_(1e-3).diag())
-        return mat + diag
+        diag = Variable(mat.data.new(mat.size(-1)).fill_(1e-3).diag())
+        if mat.ndimension() == 3:
+            return mat + diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2))
+        else:
+            return mat + diag
     else:
         diag = mat.new(len(mat)).fill_(1e-3).diag()
-        return diag.add_(mat)
+        if mat.ndimension() == 3:
+            return mat.add_(diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2)))
+        else:
+            return diag.add_(mat)
 
 
 def dsmm(sparse_mat, dense_mat):
