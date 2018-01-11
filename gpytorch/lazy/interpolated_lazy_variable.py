@@ -1,3 +1,4 @@
+import gpytorch
 import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
@@ -5,6 +6,11 @@ from ..utils import bdsmm, left_interp
 
 
 def _make_sparse_from_indices_and_values(right_interp_indices, right_interp_values, n_inducing):
+    is_variable = isinstance(right_interp_indices, Variable)
+    if is_variable:
+        right_interp_indices = right_interp_indices.data
+        right_interp_values = right_interp_values.data
+
     # Is it batch mode?
     is_batch = right_interp_indices.ndimension() > 2
     if is_batch:
@@ -53,6 +59,11 @@ def _make_sparse_from_indices_and_values(right_interp_indices, right_interp_valu
         res = torch.cuda.sparse.FloatTensor(index_tensor, value_tensor, right_interp_size)
     else:
         res = torch.sparse.FloatTensor(index_tensor, value_tensor, right_interp_size)
+
+    # Wrap things as a variable, if necessary
+    if is_variable:
+        res = Variable(res)
+
     return res
 
 
@@ -88,9 +99,9 @@ class InterpolatedLazyVariable(LazyVariable):
         self.right_interp_values = right_interp_values
 
     def _matmul_closure_factory(self, *args):
-        base_lazy_variable_representation = args[:-4]
+        base_lazy_variable_representation = args[:-2]
         base_lazy_variable_matmul = self.base_lazy_variable._matmul_closure_factory(*base_lazy_variable_representation)
-        left_interp_indices, left_interp_values, right_interp_indices, right_interp_values = args[-4:]
+        left_interp_t, right_interp_t = args[-2:]
 
         def closure(tensor):
             if tensor.ndimension() == 1:
@@ -100,16 +111,17 @@ class InterpolatedLazyVariable(LazyVariable):
                 is_vector = False
 
             # right_interp^T * tensor
-            right_interp = _make_sparse_from_indices_and_values(right_interp_indices,
-                                                                right_interp_values,
-                                                                self.base_lazy_variable.size()[-1])
-            right_interp_res = bdsmm(right_interp, tensor)
+            right_interp_res = bdsmm(right_interp_t, tensor)
 
             # base_lazy_var * right_interp^T * tensor
             base_res = base_lazy_variable_matmul(right_interp_res)
 
             # left_interp * base_lazy_var * right_interp^T * tensor
-            res = left_interp(left_interp_indices, left_interp_values, base_res)
+            if len(left_interp_t.size()) == 3:
+                left_interp_mat = left_interp_t.transpose(1, 2)
+            else:
+                left_interp_mat = left_interp_t.t()
+            res = bdsmm(left_interp_mat, base_res)
 
             # Squeeze if necessary
             if is_vector:
@@ -119,9 +131,9 @@ class InterpolatedLazyVariable(LazyVariable):
         return closure
 
     def _derivative_quadratic_form_factory(self, *args):
-        base_lazy_var_repr = args[:-4]
+        base_lazy_var_repr = args[:-2]
         base_lazy_var_deriv = self.base_lazy_variable._derivative_quadratic_form_factory(*base_lazy_var_repr)
-        left_interp_indices, left_interp_values, right_interp_indices, right_interp_values = args[-4:]
+        left_interp_t, right_interp_t = args[-2:]
 
         def closure(left_factor, right_factor):
             if left_factor.ndimension() == 1:
@@ -129,20 +141,14 @@ class InterpolatedLazyVariable(LazyVariable):
                 right_factor = right_factor.unsqueeze(0)
 
             # Left factor
-            left_interp = _make_sparse_from_indices_and_values(left_interp_indices,
-                                                               left_interp_values,
-                                                               self.base_lazy_variable.size()[-2])
             left_factor = left_factor.transpose(-1, -2)
-            left_res = bdsmm(left_interp, left_factor).transpose(-1, -2).contiguous()
+            left_res = bdsmm(left_interp_t, left_factor).transpose(-1, -2).contiguous()
 
             # Right factor
-            right_interp = _make_sparse_from_indices_and_values(right_interp_indices,
-                                                                right_interp_values,
-                                                                self.base_lazy_variable.size()[-1])
             right_factor = right_factor.transpose(-1, -2)
-            right_res = bdsmm(right_interp, right_factor).transpose(-1, -2).contiguous()
+            right_res = bdsmm(right_interp_t, right_factor).transpose(-1, -2).contiguous()
 
-            res = tuple(list(base_lazy_var_deriv(left_res, right_res)) + [None] * 4)
+            res = tuple(list(base_lazy_var_deriv(left_res, right_res)) + [None] * 2)
             return res
 
         return closure
@@ -220,6 +226,34 @@ class InterpolatedLazyVariable(LazyVariable):
         res = left_interp(self.left_interp_indices, self.left_interp_values, res)
         return res
 
+    def matmul(self, tensor):
+        # We're using a custom matmul here, because it is significantly faster than
+        # what we get from the function factory.
+        # The _matmul_closure is optimized for repeated calls, such as for inv_matmul
+
+        if tensor.ndimension() == 1:
+            is_vector = True
+            tensor = tensor.unsqueeze(-1)
+        else:
+            is_vector = False
+
+        # right_interp^T * tensor
+        right_interp_t = _make_sparse_from_indices_and_values(self.right_interp_indices,
+                                                              self.right_interp_values,
+                                                              self.base_lazy_variable.size()[-1])
+        right_interp_res = gpytorch.dsmm(right_interp_t, tensor)
+
+        # base_lazy_var * right_interp^T * tensor
+        base_res = self.base_lazy_variable.matmul(right_interp_res)
+
+        # left_interp * base_lazy_var * right_interp^T * tensor
+        res = left_interp(self.left_interp_indices, self.left_interp_values, base_res)
+
+        # Squeeze if necessary
+        if is_vector:
+            res = res.squeeze(-1)
+        return res
+
     def repeat(self, *sizes):
         """
         Repeat elements of the Variable.
@@ -234,6 +268,18 @@ class InterpolatedLazyVariable(LazyVariable):
                               self.left_interp_values.repeat(*sizes),
                               self.right_interp_indices.repeat(*sizes),
                               self.right_interp_values.repeat(*sizes))
+
+    def representation(self):
+        if not hasattr(self, '__representation_memo'):
+            left_interp_t = _make_sparse_from_indices_and_values(self.left_interp_indices,
+                                                                 self.left_interp_values,
+                                                                 self.base_lazy_variable.size()[-1])
+            right_interp_t = _make_sparse_from_indices_and_values(self.right_interp_indices,
+                                                                  self.right_interp_values,
+                                                                  self.base_lazy_variable.size()[-1])
+            representation_memo = list(self.base_lazy_variable.representation()) + [left_interp_t, right_interp_t]
+            self.__representation_memo = tuple(representation_memo)
+        return self.__representation_memo
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]

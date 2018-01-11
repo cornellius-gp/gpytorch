@@ -1,3 +1,4 @@
+import gpytorch
 import torch
 from torch.autograd import Variable
 from gpytorch.lazy import NonLazyVariable, InterpolatedLazyVariable
@@ -15,7 +16,6 @@ def test_matmul():
     base_lazy_variable = NonLazyVariable(Variable(base_lazy_variable_mat))
 
     test_matrix = torch.randn(9, 4)
-    test_matrix = torch.ones(9)
 
     interp_lazy_var = InterpolatedLazyVariable(base_lazy_variable, left_interp_indices, left_interp_values,
                                                right_interp_indices, right_interp_values)
@@ -44,6 +44,36 @@ def test_matmul():
         [0, 0, 1, 3, 0, 0],
     ])
     actual = left_matrix.matmul(base_lazy_variable_mat).matmul(right_matrix.t()).matmul(test_matrix)
+    assert approx_equal(res, actual)
+
+
+def pending_test_inv_matmul():
+    left_interp_indices = Variable(torch.LongTensor([[2, 3], [3, 4], [4, 5]]))
+    left_interp_values = Variable(torch.Tensor([[1, 2], [0.5, 1], [1, 3]]))
+    right_interp_indices = Variable(torch.LongTensor([[2, 3], [3, 4], [4, 5]]))
+    right_interp_values = Variable(torch.Tensor([[1, 2], [0.5, 1], [1, 3]]))
+
+    base_lazy_variable_mat = torch.randn(6, 6)
+    base_lazy_variable_mat = base_lazy_variable_mat.t().matmul(base_lazy_variable_mat)
+    base_lazy_variable = NonLazyVariable(Variable(base_lazy_variable_mat))
+    test_matrix = torch.randn(3, 4)
+
+    interp_lazy_var = InterpolatedLazyVariable(base_lazy_variable, left_interp_indices, left_interp_values,
+                                               right_interp_indices, right_interp_values)
+    res = interp_lazy_var.inv_matmul(Variable(test_matrix)).data
+
+    left_matrix = torch.Tensor([
+        [0, 0, 1, 2, 0, 0],
+        [0, 0, 0, 0.5, 1, 0],
+        [0, 0, 0, 0, 1, 3],
+    ])
+    right_matrix = torch.Tensor([
+        [0, 0, 1, 2, 0, 0],
+        [0, 0, 0, 0.5, 1, 0],
+        [0, 0, 0, 0, 1, 3],
+    ])
+    actual_mat = Variable(left_matrix.matmul(base_lazy_variable_mat).matmul(right_matrix.t()))
+    actual = gpytorch.inv_matmul(actual_mat, Variable(test_matrix)).data
     assert approx_equal(res, actual)
 
 
