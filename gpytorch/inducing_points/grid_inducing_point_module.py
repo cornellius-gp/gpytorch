@@ -1,5 +1,4 @@
 import torch
-import math
 from torch.autograd import Variable
 from .inducing_point_module import InducingPointModule
 from ..lazy import InterpolatedLazyVariable
@@ -30,7 +29,6 @@ class GridInducingPointModule(InducingPointModule):
 
         super(GridInducingPointModule, self).__init__(inducing_points)
         self.grid_size = grid_size
-        self.grid_bounds = grid_bounds
         self.register_buffer('grid', grid)
 
     def __setattr__(self, name, value):
@@ -41,27 +39,8 @@ class GridInducingPointModule(InducingPointModule):
     def _compute_grid(self, inputs):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(1)
-        n_dim = inputs.size(1)
-
-        for i in range(n_dim):
-            inputs_min = inputs.min(0)[0].data[i]
-            inputs_max = inputs.max(0)[0].data[i]
-            if inputs_min < self.grid_bounds[i][0] or inputs_max > self.grid_bounds[i][1]:
-                # Out of bounds data is still ok if we are specifically computing kernel values for grid entries.
-                if math.fabs(inputs_min - self.grid[i, 0]) > 1e-7:
-                    raise RuntimeError('Received data that was out of bounds for the specified grid. \
-                                        Grid bounds were ({}, {}), but min = {}, \
-                                        max = {}'.format(self.grid_bounds[i][0],
-                                                         self.grid_bounds[i][1],
-                                                         inputs_min,
-                                                         inputs_max))
-                elif math.fabs(inputs_max - self.grid[i, -1]) > 1e-7:
-                    raise RuntimeError('Received data that was out of bounds for the specified grid. \
-                                        Grid bounds were ({}, {}), but min = {}, \
-                                        max = {}'.format(self.grid_bounds[i][0],
-                                                         self.grid_bounds[i][1],
-                                                         inputs_min,
-                                                         inputs_max))
+        elif not inputs.ndimension() == 2:
+            raise RuntimeError('Inputs must be 1 or 2 dimensional')
 
         interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs.data)
         interp_indices = Variable(interp_indices)
