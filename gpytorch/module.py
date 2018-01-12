@@ -12,68 +12,29 @@ class Module(nn.Module):
         super(Module, self).__init__()
         self._bounds = OrderedDict()
         self._variational_strategies = OrderedDict()
-        self.conditioning = False
 
-    def _apply(self, fn):
-        super(Module, self)._apply(fn)
-        if hasattr(self, 'train_inputs'):
-            self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
-        if hasattr(self, 'train_target'):
-            self.train_target = fn(self.train_target)
-        return self
+    def bound_for(self, name):
+        """
+        Get bounds for parameter
+
+        name (str): parameter name
+        """
+        if '.' in name:
+            module, name = name.split('.', 1)
+            if module in self._modules:
+                return self.__getattr__(module).bound_for(name)
+            else:
+                raise AttributeError('Invalid bound name %s. '
+                                     '%s has no module %s' % (name, type(self).__name__, module))
+        else:
+            if name in self._parameters:
+                return self._bounds[name]
+            else:
+                raise AttributeError('Invalid bound name %s. '
+                                     '%s has no parameter %s' % (name, type(self).__name__, module))
 
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
-
-    def __call__(self, *inputs, **kwargs):
-        if self.conditioning:
-            self.train_inputs = inputs
-
-        for input in inputs:
-            if not(isinstance(input, RandomVariable) or isinstance(input, Variable)):
-                raise RuntimeError('Input must be a RandomVariable or Variable, was a %s' %
-                                   input.__class__.__name__)
-        outputs = self.forward(*inputs, **kwargs)
-        if isinstance(outputs, Variable) or isinstance(outputs, RandomVariable) or isinstance(outputs, LazyVariable):
-            return outputs
-
-        for output in outputs:
-            if not (isinstance(output, RandomVariable) or
-                    isinstance(output, Variable) or
-                    isinstance(output, LazyVariable)):
-                raise RuntimeError('Output must be a RandomVariable, Variable, or LazyVariable. Was a %s' %
-                                   input.__class__.__name__)
-        if len(outputs) == 1:
-            outputs = outputs[0]
-        return outputs
-
-    def register_parameter(self, name, param, bounds, prior=None):
-        """
-        Adds a parameter to the module.
-        The parameter can be accessed as an attribute using given name.
-
-        name (str): name of parameter
-        param (torch.nn.Parameter): parameter
-        bounds (2-tuple of float or Tensor): lower and upper bounds for parameter
-        prior (RandomVariable): prior for parameter (default: None)
-        """
-        if '_parameters' not in self.__dict__:
-            raise AttributeError(
-                "cannot assign parameter before Module.__init__() call")
-        super(Module, self).register_parameter(name, param)
-        kwargs = {}
-        kwargs[name] = bounds
-        self.set_bounds(**kwargs)
-
-    def register_variational_strategy(self, name):
-        self._variational_strategies[name] = None
-
-    def update_variational_strategy(self, name, variational_strategy):
-        if not isinstance(variational_strategy, VariationalStrategy):
-            raise RuntimeError('variational_strategy must be a VariationalStrategy')
-        if name not in self._variational_strategies.keys():
-            raise RuntimeError('variational strategy %s not registered' % name)
-        self._variational_strategies[name] = variational_strategy
 
     def initialize(self, **kwargs):
         """
@@ -103,6 +64,56 @@ class Module(nn.Module):
                 raise AttributeError('Parameter %s exceeds upper bound' % name)
         return self
 
+    def named_parameter_bounds(self):
+        """
+        Returns an iterator over module parameters bounds, yielding both the
+        name of the parameter as well as the parameter bound itself
+        """
+        for name, _ in self.named_parameters():
+            yield name, self.bound_for(name)
+
+    def named_variational_strategies(self, memo=None, prefix=''):
+        if memo is None:
+            memo = set()
+        for name, strategy in self._variational_strategies.items():
+            if strategy is not None and strategy not in memo:
+                memo.add(strategy)
+                yield prefix + ('.' if prefix else '') + name, strategy
+        for mname, module in self.named_children():
+            submodule_prefix = prefix + ('.' if prefix else '') + mname
+            if hasattr(module, 'named_variational_strategies'):
+                for name, strategy in module.named_variational_strategies(memo, submodule_prefix):
+                    yield name, strategy
+
+    def parameter_bounds(self):
+        """
+        Returns an iterator over module parameters bounds.
+        This is typically passed to an optimizer.
+        """
+        for name, bound in self.named_parameter_bounds():
+            yield bound
+
+    def register_parameter(self, name, param, bounds, prior=None):
+        """
+        Adds a parameter to the module.
+        The parameter can be accessed as an attribute using given name.
+
+        name (str): name of parameter
+        param (torch.nn.Parameter): parameter
+        bounds (2-tuple of float or Tensor): lower and upper bounds for parameter
+        prior (RandomVariable): prior for parameter (default: None)
+        """
+        if '_parameters' not in self.__dict__:
+            raise AttributeError(
+                "cannot assign parameter before Module.__init__() call")
+        super(Module, self).register_parameter(name, param)
+        kwargs = {}
+        kwargs[name] = bounds
+        self.set_bounds(**kwargs)
+
+    def register_variational_strategy(self, name):
+        self._variational_strategies[name] = None
+
     def set_bounds(self, **kwargs):
         """
         Set bounds for a parameter
@@ -130,110 +141,35 @@ class Module(nn.Module):
             self._bounds[name][1] = upper_bound
         return self
 
-    def bound_for(self, name):
-        """
-        Get bounds for parameter
-
-        name (str): parameter name
-        """
-        if '.' in name:
-            module, name = name.split('.', 1)
-            if module in self._modules:
-                return self.__getattr__(module).bound_for(name)
-            else:
-                raise AttributeError('Invalid bound name %s. '
-                                     '%s has no module %s' % (name, type(self).__name__, module))
-        else:
-            if name in self._parameters:
-                return self._bounds[name]
-            else:
-                raise AttributeError('Invalid bound name %s. '
-                                     '%s has no parameter %s' % (name, type(self).__name__, module))
-
-    def named_parameter_bounds(self):
-        """
-        Returns an iterator over module parameters bounds, yielding both the
-        name of the parameter as well as the parameter bound itself
-        """
-        for name, _ in self.named_parameters():
-            yield name, self.bound_for(name)
-
-    def parameter_bounds(self):
-        """
-        Returns an iterator over module parameters bounds.
-        This is typically passed to an optimizer.
-        """
-        for name, bound in self.named_parameter_bounds():
-            yield bound
-
-    def _set_conditioning_flag(self, mode=True):
-        self.conditioning = mode
-        for module in self.children():
-            if isinstance(module, Module):
-                module._set_conditioning_flag(mode)
-
-    def condition(self, train_inputs, train_target=None, **kwargs):
-        """
-        Conditions the model on data. After conditioning, the model functions
-        in posterior mode rather than prior mode.
-
-        train_inputs: (Variables or tuple of Variables) inputs to condition on
-        train_target: (Variable) target to condition on
-        """
-        if (isinstance(train_inputs, Variable) or isinstance(train_inputs, LazyVariable) or
-                isinstance(train_inputs, RandomVariable)):
-            train_inputs = train_inputs,
-        if not (isinstance(train_target, Variable) or isinstance(train_target, LazyVariable) or
-                isinstance(train_target, RandomVariable)):
-            raise RuntimeError('train_target must be a Variable or LazyVariable or RandomVariable')
-
-        training_mode = self.training
-        self.train()
-        self._set_conditioning_flag(True)
-        self(*train_inputs)
-        self.train(training_mode)
-        self._set_conditioning_flag(False)
-
-        self.train_target = train_target
-
-        return self
-
-    @property
-    def exact_inference(self):
-        """
-        Returns true if the model performs exact inference (vs. approximate inference)
-        """
-        if hasattr(self, '_exact_inference'):
-            return self._exact_inference
-        else:
-            return True
-
-    @property
-    def posterior(self):
-        """
-        Returns if the model is in posterior mode (are we conditioning on data?)
-        """
-        return hasattr(self, 'train_inputs') and not self.training
-
     def variational_strategies(self):
         for _, strategy in self.named_variational_strategies():
             yield strategy
 
-    def named_variational_strategies(self, memo=None, prefix=''):
-        if memo is None:
-            memo = set()
-        for name, strategy in self._variational_strategies.items():
-            if strategy is not None and strategy not in memo:
-                memo.add(strategy)
-                yield prefix + ('.' if prefix else '') + name, strategy
-        for mname, module in self.named_children():
-            submodule_prefix = prefix + ('.' if prefix else '') + mname
-            if hasattr(module, 'named_variational_strategies'):
-                for name, strategy in module.named_variational_strategies(memo, submodule_prefix):
-                    yield name, strategy
+    def update_variational_strategy(self, name, variational_strategy):
+        if not isinstance(variational_strategy, VariationalStrategy):
+            raise RuntimeError('variational_strategy must be a VariationalStrategy')
+        if name not in self._variational_strategies.keys():
+            raise RuntimeError('variational strategy %s not registered' % name)
+        self._variational_strategies[name] = variational_strategy
 
-    def _set_exact_inference(self, exact_inference):
-        self._exact_inference = exact_inference
+    def __call__(self, *inputs, **kwargs):
+        for input in inputs:
+            if not(isinstance(input, RandomVariable) or isinstance(input, Variable)):
+                raise RuntimeError('Input must be a RandomVariable or Variable, was a %s' %
+                                   input.__class__.__name__)
+        outputs = self.forward(*inputs, **kwargs)
+        if isinstance(outputs, Variable) or isinstance(outputs, RandomVariable) or isinstance(outputs, LazyVariable):
+            return outputs
+
+        for output in outputs:
+            if not (isinstance(output, RandomVariable) or
+                    isinstance(output, Variable) or
+                    isinstance(output, LazyVariable)):
+                raise RuntimeError('Output must be a RandomVariable, Variable, or LazyVariable. Was a %s' %
+                                   input.__class__.__name__)
+        if len(outputs) == 1:
+            outputs = outputs[0]
+        return outputs
 
     def __getattr__(self, name):
         if '_parameters' in self.__dict__:
@@ -266,18 +202,8 @@ class Module(nn.Module):
         raise AttributeError("'{}' object has no attribute '{}'".format(
             type(self).__name__, name))
 
-    def add_module(self, name, value):
-        if isinstance(value, Module):
-            if hasattr(self, 'exact_inference'):
-                value._set_exact_inference(self.exact_inference)
-        super(Module, self).add_module(name, value)
-
     def __setattr__(self, name, value):
         if isinstance(value, nn.Parameter):
             raise RuntimeError("Please assign torch.nn.Parameters using"
                                "gpytorch.module.register_parameters()")
-        elif isinstance(value, Module):
-            if hasattr(self, 'exact_inference'):
-                value._set_exact_inference(self.exact_inference)
-
         super(Module, self).__setattr__(name, value)

@@ -3,7 +3,7 @@ import torch
 import gpytorch
 from torch import optim
 from torch.autograd import Variable
-from gpytorch.kernels import RBFKernel
+from gpytorch.kernels import RBFKernel, AdditiveGridInterpolationKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
@@ -29,11 +29,13 @@ test_y = Variable((torch.sin(test_x.data[:, 0]) + torch.cos(test_x.data[:, 1])) 
 
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
-class LatentFunction(gpytorch.AdditiveGridInducingPointModule):
-    def __init__(self):
-        super(LatentFunction, self).__init__(grid_size=100, grid_bounds=[(0, 1)], n_components=2)
+class GPRegressionModel(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y, likelihood):
+        super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
+        self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
+        self.covar_module = AdditiveGridInterpolationKernel(self.base_covar_module, grid_size=100,
+                                                            grid_bounds=[(0, 1)], n_components=2)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -41,33 +43,28 @@ class LatentFunction(gpytorch.AdditiveGridInducingPointModule):
         return GaussianRandomVariable(mean_x, covar_x)
 
 
-class GPRegressionModel(gpytorch.GPModel):
-    def __init__(self):
-        super(GPRegressionModel, self).__init__(GaussianLikelihood())
-        self.latent_function = LatentFunction()
-
-    def forward(self, x):
-        return self.latent_function(x)
-
-
 def test_kissgp_gp_mean_abs_error():
-    gp_model = GPRegressionModel()
+    likelihood = GaussianLikelihood()
+    gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
 
     # Optimize the model
     gp_model.train()
-    optimizer = optim.Adam(gp_model.parameters(), lr=0.2)
+    likelihood.train()
+
+    optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
     optimizer.n_iter = 0
     for i in range(20):
         optimizer.zero_grad()
         output = gp_model(train_x)
-        loss = -gp_model.marginal_log_likelihood(output, train_y)
+        loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
 
     # Test the model
     gp_model.eval()
-    gp_model.condition(train_x, train_y)
-    test_preds = gp_model(test_x).mean()
+    likelihood.eval()
+
+    test_preds = likelihood(gp_model(test_x)).mean()
     mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
     assert(mean_abs_error.data.squeeze()[0] < 0.1)
