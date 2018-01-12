@@ -1,13 +1,11 @@
-from torch.autograd import Variable
-from .lazy import LazyVariable, ToeplitzLazyVariable
 from .module import Module
-from .gp_model import GPModel
-from .inducing_points import AdditiveGridInducingPointModule, InducingPointModule, GridInducingPointModule
-from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
-from .utils import function_factory
-from .posterior import DefaultPosteriorStrategy
+import models
 import means
 import kernels
+from torch.autograd import Variable
+from .lazy import LazyVariable
+from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
+from .utils import function_factory
 
 
 _inv_matmul_class = function_factory.inv_matmul_factory()
@@ -119,12 +117,6 @@ def normal_cdf(x):
     return NormalCDF()(x)
 
 
-def posterior_strategy(obj):
-    if isinstance(obj, LazyVariable):
-        return obj.posterior_strategy()
-    return DefaultPosteriorStrategy(obj)
-
-
 def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
     if isinstance(covar_2, LazyVariable):
         return covar_2.trace_log_det_quad_form(mean_diffs, chol_covar_1)
@@ -133,14 +125,10 @@ def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
 
 
 __all__ = [
+    Module,
+    models,
     means,
     kernels,
-    ToeplitzLazyVariable,
-    Module,
-    GPModel,
-    AdditiveGridInducingPointModule,
-    GridInducingPointModule,
-    InducingPointModule,
     add_diag,
     add_jitter,
     dsmm,
@@ -148,6 +136,5 @@ __all__ = [
     inv_matmul,
     log_normal_cdf,
     normal_cdf,
-    posterior_strategy,
     trace_logdet_quad_form,
 ]

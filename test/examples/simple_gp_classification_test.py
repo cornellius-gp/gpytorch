@@ -18,9 +18,9 @@ def train_data(cuda=False):
         return train_x, train_y
 
 
-class LatentFunction(gpytorch.InducingPointModule):
+class GPClassificationModel(gpytorch.models.VariationalGP):
     def __init__(self, train_x):
-        super(LatentFunction, self).__init__(inducing_points=train_x)
+        super(GPClassificationModel, self).__init__(train_x)
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
@@ -33,34 +33,28 @@ class LatentFunction(gpytorch.InducingPointModule):
         return latent_pred
 
 
-class GPClassificationModel(gpytorch.GPModel):
-    def __init__(self, train_x):
-        super(GPClassificationModel, self).__init__(BernoulliLikelihood())
-        self.latent_function = LatentFunction(train_x)
-
-    def forward(self, x):
-        return self.latent_function(x)
-
-
 def test_kissgp_classification_error():
     train_x, train_y = train_data()
+    likelihood = BernoulliLikelihood()
     model = GPClassificationModel(train_x.data)
 
     # Find optimal model hyperparameters
     model.train()
+    likelihood.train()
     optimizer = optim.Adam(model.parameters(), lr=0.1)
     optimizer.n_iter = 0
     for i in range(50):
         optimizer.zero_grad()
-        output = model.forward(train_x)
-        loss = -model.marginal_log_likelihood(output, train_y)
+        output = model(train_x)
+        loss = -model.marginal_log_likelihood(likelihood, output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
 
     # Set back to eval mode
     model.eval()
-    test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
+    likelihood.eval()
+    test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
     mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
     assert(mean_abs_error.data.squeeze()[0] < 1e-5)
 
@@ -68,8 +62,8 @@ def test_kissgp_classification_error():
 def test_kissgp_classification_error_cuda():
     if torch.cuda.is_available():
         train_x, train_y = train_data(cuda=True)
+        likelihood = BernoulliLikelihood().cuda()
         model = GPClassificationModel(train_x.data).cuda()
-        model.condition(train_x, train_y)
 
         # Find optimal model hyperparameters
         model.train()
@@ -77,14 +71,14 @@ def test_kissgp_classification_error_cuda():
         optimizer.n_iter = 0
         for i in range(50):
             optimizer.zero_grad()
-            output = model.forward(train_x)
-            loss = -model.marginal_log_likelihood(output, train_y)
+            output = model(train_x)
+            loss = -model.marginal_log_likelihood(likelihood, output, train_y)
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()
 
         # Set back to eval mode
         model.eval()
-        test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
+        test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         assert(mean_abs_error.data.squeeze()[0] < 1e-5)
