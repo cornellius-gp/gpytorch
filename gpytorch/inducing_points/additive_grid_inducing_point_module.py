@@ -50,7 +50,7 @@ class AdditiveGridInducingPointModule(GridInducingPointModule):
             raise RuntimeError('AdditiveGridInducingPointModule expects a 3d tensor.')
 
         n_data, n_components, n_dimensions = inputs.size()
-        if n_dimensions != len(self.grid_bounds):
+        if n_dimensions != self.grid.size(0):
             raise RuntimeError('The number of dimensions should match the inducing points number of dimensions.')
         if n_components != self.n_components:
             raise RuntimeError('The number of components should match the number specified.')
