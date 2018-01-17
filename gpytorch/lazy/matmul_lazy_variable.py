@@ -24,6 +24,9 @@ class MatmulLazyVariable(LazyVariable):
 
     def _derivative_quadratic_form_factory(self, lhs, rhs):
         def closure(left_factor, right_factor):
+            if left_factor.ndimension() == 1:
+                left_factor = left_factor.unsqueeze(0)
+                right_factor = right_factor.unsqueeze(0)
             left_grad = left_factor.transpose(-1, -2).matmul(right_factor.matmul(rhs.transpose(-1, -2)))
             right_grad = lhs.transpose(-1, -2).matmul(left_factor.transpose(-1, -2)).matmul(right_factor)
             return left_grad, right_grad
