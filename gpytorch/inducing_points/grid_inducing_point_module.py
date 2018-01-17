@@ -1,9 +1,8 @@
-import gpytorch
 import torch
 import math
 from torch.autograd import Variable
 from .inducing_point_module import InducingPointModule
-from ..lazy import CholLazyVariable, KroneckerProductLazyVariable, InterpolatedLazyVariable
+from ..lazy import InterpolatedLazyVariable
 from ..random_variables import GaussianRandomVariable
 from ..variational import MVNVariationalStrategy
 from ..kernels import Kernel, GridInterpolationKernel
@@ -65,10 +64,6 @@ class GridInducingPointModule(InducingPointModule):
                                                          inputs_max))
 
         interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs.data)
-        if n_dim == 1:
-            interp_indices.squeeze_(0)
-            interp_values.squeeze_(0)
-
         interp_indices = Variable(interp_indices)
         interp_values = Variable(interp_values)
         return interp_indices, interp_values
@@ -91,20 +86,13 @@ class GridInducingPointModule(InducingPointModule):
             if not isinstance(induc_output, GaussianRandomVariable):
                 raise RuntimeError('Output should be a GaussianRandomVariable')
 
-            if isinstance(induc_output.covar(), KroneckerProductLazyVariable):
-                covar = KroneckerProductLazyVariable(induc_output.covar().columns, interp_indices.data,
-                                                     interp_values.data, interp_indices.data, interp_values.data)
-                interp_matrix = covar.representation()[1]
-                mean = gpytorch.dsmm(interp_matrix, induc_output.mean().unsqueeze(-1)).squeeze(-1)
+            # Compute test mean
+            # Left multiply samples by interpolation matrix
+            mean = left_interp(interp_indices, interp_values, induc_output.mean())
 
-            else:
-                # Compute test mean
-                # Left multiply samples by interpolation matrix
-                mean = left_interp(interp_indices, interp_values, induc_output.mean())
-
-                # Compute test covar
-                base_lv = induc_output.covar()
-                covar = InterpolatedLazyVariable(base_lv, interp_indices, interp_values, interp_indices, interp_values)
+            # Compute test covar
+            base_lv = induc_output.covar()
+            covar = InterpolatedLazyVariable(base_lv, interp_indices, interp_values, interp_indices, interp_values)
 
             return GaussianRandomVariable(mean, covar)
 
@@ -127,25 +115,14 @@ class GridInducingPointModule(InducingPointModule):
             else:
                 variational_output = self.variational_output()
 
-            # Kronecker hack - need until refactor
-            if len(self.grid_bounds) > 1:
-                prior_output = self.prior_output()
-                test_covar = KroneckerProductLazyVariable(prior_output.covar().columns, interp_indices.data,
-                                                          interp_values.data, interp_indices.data, interp_values.data)
-                interp_matrix = test_covar.representation()[1]
-                test_mean = gpytorch.dsmm(interp_matrix, self.variational_mean.unsqueeze(-1)).squeeze(-1)
-                test_chol_covar = gpytorch.dsmm(interp_matrix, variational_output.covar().lhs)
-                test_covar = CholLazyVariable(test_chol_covar)
+            # Compute test mean
+            # Left multiply samples by interpolation matrix
+            test_mean = left_interp(interp_indices, interp_values, variational_output.mean().unsqueeze(-1))
+            test_mean = test_mean.squeeze(-1)
 
-            else:
-                # Compute test mean
-                # Left multiply samples by interpolation matrix
-                test_mean = left_interp(interp_indices, interp_values, variational_output.mean().unsqueeze(-1))
-                test_mean = test_mean.squeeze(-1)
-
-                # Compute test covar
-                test_covar = InterpolatedLazyVariable(variational_output.covar(), interp_indices, interp_values,
-                                                      interp_indices, interp_values)
+            # Compute test covar
+            test_covar = InterpolatedLazyVariable(variational_output.covar(), interp_indices, interp_values,
+                                                  interp_indices, interp_values)
 
             output = GaussianRandomVariable(test_mean, test_covar)
 

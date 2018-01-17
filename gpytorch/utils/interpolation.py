@@ -40,8 +40,8 @@ class Interpolation(object):
         num_dim = x_target.size(-1)
         num_coefficients = len(interp_points)
 
-        interp_values = x_target.new(num_dim, num_target_points, num_coefficients).zero_()
-        interp_indices = x_grid.new(num_dim, num_target_points, num_coefficients).long().zero_()
+        interp_values = x_target.new(num_target_points, num_coefficients ** num_dim).fill_(1)
+        interp_indices = x_grid.new(num_target_points, num_coefficients ** num_dim).long().zero_()
 
         for i in range(num_dim):
             grid_delta = x_grid[i, 1] - x_grid[i, 0]
@@ -90,7 +90,12 @@ class Interpolation(object):
             offset = (interp_points - interp_points.min()).long().unsqueeze(-2)
             dim_interp_indices = lower_grid_pt_idxs.long().unsqueeze(-1) + offset
 
-            interp_indices[i].copy_(dim_interp_indices)
-            interp_values[i].copy_(dim_interp_values)
+            n_inner_repeat = num_coefficients ** i
+            n_outer_repeat = num_coefficients ** (num_dim - i - 1)
+            index_coeff = num_grid_points ** (num_dim - i - 1)
+            dim_interp_indices = dim_interp_indices.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
+            dim_interp_values = dim_interp_values.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
+            interp_indices.add_(dim_interp_indices.view(num_target_points, -1).mul_(index_coeff))
+            interp_values.mul_(dim_interp_values.view(num_target_points, -1))
 
         return interp_indices, interp_values

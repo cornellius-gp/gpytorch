@@ -1,79 +1,160 @@
 import torch
-import gpytorch
-from gpytorch import utils
 from torch.autograd import Variable
-from gpytorch.lazy import KroneckerProductLazyVariable
-from gpytorch.kernels import RBFKernel
-from gpytorch.means import ConstantMean
-from gpytorch.random_variables import GaussianRandomVariable
-from gpytorch.utils.kronecker_product import kronecker_product, list_of_indices_and_values_to_sparse
-
-x = torch.zeros(2, 11)
-x[0] = torch.linspace(0, 1, 11)
-x[1] = torch.linspace(0, 0.95, 11)
-x = Variable(x.t())
+from gpytorch.lazy import KroneckerProductLazyVariable, NonLazyVariable
+from gpytorch.utils import approx_equal
 
 
-class Model(gpytorch.GridInducingPointModule):
-    def __init__(self):
-        super(Model, self).__init__(grid_size=10, grid_bounds=[(0, 1), (0, 1)])
-        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
-        self.covar_module = RBFKernel()
+a = torch.Tensor([
+    [4, 0, 2],
+    [0, 1, -1],
+    [2, -1, 3],
+])
+b = torch.Tensor([
+    [2, 1],
+    [1, 2],
+])
+c = torch.Tensor([
+    [4, 0, 1, 0],
+    [0, 1, -1, 0],
+    [1, -1, 3, 0],
+    [0, 0, 0, 1],
+])
 
-    def forward(self, x):
-        mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x).add_diag(Variable(torch.Tensor([1e-2])))
-        return GaussianRandomVariable(mean_x, covar_x)
+
+def kron(a, b):
+    res = []
+    if b.ndimension() == 2:
+        for i in range(b.size(0)):
+            row_res = []
+            for j in range(b.size(1)):
+                row_res.append(a * b[i, j])
+            res.append(torch.cat(row_res, 1))
+        return torch.cat(res, 0)
+    else:
+        for i in range(b.size(1)):
+            row_res = []
+            for j in range(b.size(2)):
+                row_res.append(a * b[:, i, j].unsqueeze(1).unsqueeze(2))
+            res.append(torch.cat(row_res, 2))
+        return torch.cat(res, 1)
 
 
-prior_observation_model = Model()
-prior_observation_model.eval()
-pred = prior_observation_model(x)
-lazy_kronecker_product_var = pred.covar().add_diag(Variable(torch.Tensor([1e-2])))
-Ts = torch.zeros(lazy_kronecker_product_var.columns.size()[0],
-                 lazy_kronecker_product_var.columns.size()[1],
-                 lazy_kronecker_product_var.columns.size()[1])
-for i in range(lazy_kronecker_product_var.columns.size()[0]):
-    Ts[i] = utils.toeplitz.sym_toeplitz(lazy_kronecker_product_var.columns[i].data)
-K = kronecker_product(Ts)
-W_left = list_of_indices_and_values_to_sparse(lazy_kronecker_product_var.J_lefts,
-                                              lazy_kronecker_product_var.C_lefts,
-                                              lazy_kronecker_product_var.columns)
-W_right = list_of_indices_and_values_to_sparse(lazy_kronecker_product_var.J_rights,
-                                               lazy_kronecker_product_var.C_rights,
-                                               lazy_kronecker_product_var.columns)
-WKW = torch.dsmm(W_right, torch.dsmm(W_left, K).t()) + torch.diag(lazy_kronecker_product_var.added_diag.data)
+def test_matmul_vec():
+    avar = Variable(a, requires_grad=True)
+    bvar = Variable(b, requires_grad=True)
+    cvar = Variable(c, requires_grad=True)
+    vec = Variable(torch.randn(24), requires_grad=True)
+    kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar),
+                                               NonLazyVariable(bvar),
+                                               NonLazyVariable(cvar))
+    res = kp_lazy_var.matmul(vec)
+
+    avar_copy = Variable(a, requires_grad=True)
+    bvar_copy = Variable(b, requires_grad=True)
+    cvar_copy = Variable(c, requires_grad=True)
+    vec_copy = Variable(vec.data.clone(), requires_grad=True)
+    actual = kron(kron(avar_copy, bvar_copy), cvar_copy).matmul(vec_copy)
+
+    assert approx_equal(res.data, actual.data)
+
+    actual.sum().backward()
+    res.sum().backward()
+    assert approx_equal(avar_copy.grad.data, avar.grad.data)
+    assert approx_equal(bvar_copy.grad.data, bvar.grad.data)
+    assert approx_equal(cvar_copy.grad.data, cvar.grad.data)
+    assert approx_equal(vec_copy.grad.data, vec.grad.data)
+
+
+def test_matmul_mat():
+    avar = Variable(a, requires_grad=True)
+    bvar = Variable(b, requires_grad=True)
+    cvar = Variable(c, requires_grad=True)
+    mat = Variable(torch.randn(24, 5), requires_grad=True)
+    kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar),
+                                               NonLazyVariable(bvar),
+                                               NonLazyVariable(cvar))
+    res = kp_lazy_var.matmul(mat)
+
+    avar_copy = Variable(a, requires_grad=True)
+    bvar_copy = Variable(b, requires_grad=True)
+    cvar_copy = Variable(c, requires_grad=True)
+    mat_copy = Variable(mat.data.clone(), requires_grad=True)
+    actual = kron(kron(avar_copy, bvar_copy), cvar_copy).matmul(mat_copy)
+    assert approx_equal(res.data, actual.data)
+
+    actual.sum().backward()
+    res.sum().backward()
+    assert approx_equal(avar_copy.grad.data, avar.grad.data)
+    assert approx_equal(bvar_copy.grad.data, bvar.grad.data)
+    assert approx_equal(cvar_copy.grad.data, cvar.grad.data)
+    assert approx_equal(mat_copy.grad.data, mat.grad.data)
+
+
+def test_matmul_batch_mat():
+    avar = Variable(a.repeat(3, 1, 1), requires_grad=True)
+    bvar = Variable(b.repeat(3, 1, 1), requires_grad=True)
+    cvar = Variable(c.repeat(3, 1, 1), requires_grad=True)
+    mat = Variable(torch.randn(3, 24, 5), requires_grad=True)
+    kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar),
+                                               NonLazyVariable(bvar),
+                                               NonLazyVariable(cvar))
+    res = kp_lazy_var.matmul(mat)
+
+    avar_copy = Variable(a.repeat(3, 1, 1), requires_grad=True)
+    bvar_copy = Variable(b.repeat(3, 1, 1), requires_grad=True)
+    cvar_copy = Variable(c.repeat(3, 1, 1), requires_grad=True)
+    mat_copy = Variable(mat.data.clone(), requires_grad=True)
+    actual = kron(kron(avar_copy, bvar_copy), cvar_copy).matmul(mat_copy)
+    assert approx_equal(res.data, actual.data)
+
+    actual.sum().backward()
+    res.sum().backward()
+    assert approx_equal(avar_copy.grad.data, avar.grad.data)
+    assert approx_equal(bvar_copy.grad.data, bvar.grad.data)
+    assert approx_equal(cvar_copy.grad.data, cvar.grad.data)
+    assert approx_equal(mat_copy.grad.data, mat.grad.data)
 
 
 def test_evaluate():
-    WKW_res = lazy_kronecker_product_var.evaluate()
-    assert utils.approx_equal(WKW_res, WKW)
+    avar = Variable(a)
+    bvar = Variable(b)
+    cvar = Variable(c)
+    kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar),
+                                               NonLazyVariable(bvar),
+                                               NonLazyVariable(cvar))
+    res = kp_lazy_var.evaluate()
+    actual = kron(kron(avar, bvar), cvar)
+    assert approx_equal(res.data, actual.data)
+
+    avar = Variable(a.repeat(3, 1, 1))
+    bvar = Variable(b.repeat(3, 1, 1))
+    cvar = Variable(c.repeat(3, 1, 1))
+    kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar),
+                                               NonLazyVariable(bvar),
+                                               NonLazyVariable(cvar))
+    res = kp_lazy_var.evaluate()
+    actual = kron(kron(avar, bvar), cvar)
+    assert approx_equal(res.data, actual.data)
 
 
-def pending_test_diag():
-    diag_actual = torch.diag(WKW)
-    diag_res = lazy_kronecker_product_var.diag()
-    assert utils.approx_equal(diag_res.data, diag_actual)
+def test_diag():
+    avar = Variable(a)
+    bvar = Variable(b)
+    cvar = Variable(c)
+    kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar),
+                                               NonLazyVariable(bvar),
+                                               NonLazyVariable(cvar))
+    res = kp_lazy_var.diag()
+    actual = kron(kron(avar, bvar), cvar).diag()
+    assert approx_equal(res.data, actual.data)
 
-
-def test_get_item_on_interpolated_variable_no_diagonal():
-    no_diag_kronecker_product = KroneckerProductLazyVariable(lazy_kronecker_product_var.columns,
-                                                             lazy_kronecker_product_var.J_lefts,
-                                                             lazy_kronecker_product_var.C_lefts,
-                                                             lazy_kronecker_product_var.J_rights,
-                                                             lazy_kronecker_product_var.C_rights)
-    evaluated = no_diag_kronecker_product.evaluate().data
-    assert utils.approx_equal(no_diag_kronecker_product[4:6].evaluate().data, evaluated[4:6])
-    assert utils.approx_equal(no_diag_kronecker_product[4:6, 2:6].evaluate().data, evaluated[4:6, 2:6])
-
-
-def test_get_item_square_on_interpolated_variable():
-    assert utils.approx_equal(lazy_kronecker_product_var[4:6, 4:6].evaluate().data, WKW[4:6, 4:6])
-
-
-def test_get_item_square_on_variable():
-    kronecker_product_var = KroneckerProductLazyVariable(Variable(torch.Tensor([[1, 2, 3, 4], [5, 6, 7, 8]])),
-                                                         added_diag=Variable(torch.ones(16) * 3))
-    evaluated = kronecker_product_var.evaluate().data
-
-    assert utils.approx_equal(kronecker_product_var[2:4, 2:4].evaluate().data, evaluated[2:4, 2:4])
+    avar = Variable(a.repeat(3, 1, 1))
+    bvar = Variable(b.repeat(3, 1, 1))
+    cvar = Variable(c.repeat(3, 1, 1))
+    kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar),
+                                               NonLazyVariable(bvar),
+                                               NonLazyVariable(cvar))
+    res = kp_lazy_var.diag()
+    actual_mat = kron(kron(avar, bvar), cvar)
+    actual = torch.stack([actual_mat[0].diag(), actual_mat[1].diag(), actual_mat[2].diag()])
+    assert approx_equal(res.data, actual.data)
