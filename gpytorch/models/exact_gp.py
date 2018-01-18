@@ -22,7 +22,7 @@ class ExactGP(Module):
         self.likelihood = likelihood
 
         self.has_computed_alpha = False
-        self.has_computed_chol = False
+        self.has_computed_low_rank = False
 
     def _apply(self, fn):
         self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
@@ -51,7 +51,7 @@ class ExactGP(Module):
     def train(self, mode=True):
         if mode:
             self.has_computed_alpha = False
-            self.has_computed_chol = False
+            self.has_computed_low_rank = False
         return super(ExactGP, self).train(mode)
 
     def __call__(self, *args, **kwargs):
@@ -88,7 +88,7 @@ class ExactGP(Module):
             if not self.has_computed_alpha:
                 train_residual = Variable(self.train_targets) - train_mean
                 alpha = gpytorch.inv_matmul(train_train_covar, train_residual)
-                if isinstance(test_train_covar, InterpolatedLazyVariable):
+                if isinstance(full_covar, InterpolatedLazyVariable):
                     right_interp = InterpolatedLazyVariable(test_train_covar.base_lazy_variable,
                                                             left_interp_indices=None, left_interp_values=None,
                                                             right_interp_indices=test_train_covar.right_interp_indices,
@@ -98,8 +98,8 @@ class ExactGP(Module):
                 self.alpha = alpha
                 self.has_computed_alpha = True
 
-            # Calculate chol cache, if necessary
-            if not self.has_computed_chol and gpytorch.functions.fast_pred_var:
+            # Calculate low rank cache, if necessary
+            if not self.has_computed_low_rank and gpytorch.functions.fast_pred_var:
                 if isinstance(train_train_covar, LazyVariable):
                     train_train_representation = [var.data for var in train_train_covar.representation()]
                     train_train_matmul = train_train_covar._matmul_closure_factory(*train_train_representation)
@@ -112,11 +112,12 @@ class ExactGP(Module):
                 init_vector = tensor_cls(n_train, 1).normal_()
                 init_vector /= torch.norm(init_vector, 2, 0)
                 q_mat, t_mat = lq_object.lanczos_batch(train_train_matmul, init_vector)
-                self.chol = Variable(q_mat[0].matmul(t_mat[0].potrf().inverse()))
-                self.has_computed_chol = True
+                self.low_rank_left = Variable(q_mat[0].matmul(t_mat[0].inverse()))
+                self.low_rank_right = Variable(q_mat[0].transpose(-1, -2))
+                self.has_computed_low_rank = True
 
             # Calculate mean
-            if isinstance(test_train_covar, InterpolatedLazyVariable):
+            if isinstance(full_covar, InterpolatedLazyVariable):
                 left_interp_indices = test_train_covar.left_interp_indices
                 left_interp_values = test_train_covar.left_interp_values
                 predictive_mean = left_interp(left_interp_indices, left_interp_values, self.alpha) + test_mean
@@ -129,8 +130,11 @@ class ExactGP(Module):
             if gpytorch.functions.fast_pred_var:
                 if not isinstance(test_test_covar, LazyVariable):
                     test_test_covar = NonLazyVariable(test_test_covar)
-                covar_correction = test_train_covar.matmul(self.chol)
-                predictive_covar = test_test_covar + CholLazyVariable(covar_correction).mul(-1)
+                covar_correction_left = test_train_covar.matmul(self.low_rank_left)
+                covar_correction_right = test_train_covar.matmul(self.low_rank_right.transpose(-1, -2))
+                covar_correction_right = covar_correction_right.transpose(-1, -2)
+                covar_correction = MatmulLazyVariable(covar_correction_left, covar_correction_right).mul(-1)
+                predictive_covar = test_test_covar + covar_correction
             else:
                 if isinstance(train_test_covar, LazyVariable):
                     train_test_covar = train_test_covar.evaluate()
