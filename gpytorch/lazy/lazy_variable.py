@@ -274,13 +274,6 @@ class LazyVariable(object):
         """
         return len(self.size())
 
-    def posterior_strategy(self):
-        """
-        Return a PosteriorStrategy object for computing the GP posterior.
-        """
-        from ..posterior import DefaultPosteriorStrategy
-        return DefaultPosteriorStrategy(self)
-
     def representation(self, *args):
         """
         Returns the variables that are used to define the LazyVariable
@@ -318,7 +311,7 @@ class LazyVariable(object):
 
         # Batch case
         if dim1 < ndimension - 2 and dim2 < ndimension - 2:
-            res = self.__class__(*(arg.transpose(dim1, dim2) for arg in self._args))
+            res = self.__class__(*(arg.transpose(dim1, dim2) for arg in self._args), **self._kwargs)
 
         elif dim1 >= ndimension - 2 and dim2 >= ndimension - 2:
             res = self._transpose_nonbatch()
@@ -384,7 +377,7 @@ class LazyVariable(object):
             for i, item in enumerate(components):
                 components[i] = item[batch_index]
 
-        new_lazy_variable = self.__class__(*components)
+        new_lazy_variable = self.__class__(*components, **self._kwargs)
         representation = new_lazy_variable.representation()
         ndimension = new_lazy_variable.ndimension()
 

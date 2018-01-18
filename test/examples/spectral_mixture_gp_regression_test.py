@@ -17,10 +17,9 @@ test_x = Variable(torch.linspace(0, 2, 51))
 test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 
-class SpectralMixtureGPModel(gpytorch.GPModel):
-    def __init__(self):
-        likelihood = GaussianLikelihood(log_noise_bounds=(-5, 5))
-        super(SpectralMixtureGPModel, self).__init__(likelihood)
+class SpectralMixtureGPModel(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y, likelihood):
+        super(SpectralMixtureGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         self.covar_module = SpectralMixtureKernel(
             n_mixtures=3,
@@ -35,30 +34,29 @@ class SpectralMixtureGPModel(gpytorch.GPModel):
         return GaussianRandomVariable(mean_x, covar_x)
 
 
-gp_model = SpectralMixtureGPModel()
-
-
 def test_spectral_mixture_gp_mean_abs_error():
-    gp_model = SpectralMixtureGPModel()
+    likelihood = GaussianLikelihood(log_noise_bounds=(-5, 5))
+    gp_model = SpectralMixtureGPModel(train_x.data, train_y.data, likelihood)
 
     # Optimize the model
     gp_model.train()
-    optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
+    likelihood.train()
+    optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
     optimizer.n_iter = 0
 
     gpytorch.functions.fastest = False
     for i in range(50):
         optimizer.zero_grad()
         output = gp_model(train_x)
-        loss = -gp_model.marginal_log_likelihood(output, train_y)
+        loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
 
     # Test the model
     gp_model.eval()
-    gp_model.condition(train_x, train_y)
-    test_preds = gp_model(test_x).mean()
+    likelihood.eval()
+    test_preds = likelihood(gp_model(test_x)).mean()
     mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
     # The spectral mixture kernel should be trivially able to extrapolate the sine function.

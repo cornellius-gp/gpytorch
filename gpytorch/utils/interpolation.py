@@ -2,7 +2,6 @@ import torch
 
 
 class Interpolation(object):
-
     def _cubic_interpolation_kernel(self, scaled_grid_dist):
         """
         Computes the interpolation kernel u() for points X given the scaled
@@ -32,6 +31,31 @@ class Interpolation(object):
         return U
 
     def interpolate(self, x_grid, x_target, interp_points=range(-2, 2)):
+        # Do some boundary checking
+        grid_mins = x_grid.min(1)[0]
+        grid_maxs = x_grid.max(1)[0]
+        x_target_min = x_target.min(0)[0]
+        x_target_max = x_target.min(0)[0]
+        lt_min_mask = ((x_target_min - grid_mins).lt(-1e-7))
+        gt_max_mask = ((x_target_max - grid_maxs).gt(1e-7))
+        if lt_min_mask.sum():
+            first_out_of_range = lt_min_mask.nonzero().squeeze(1)[0]
+            raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                Grid bounds were ({}, {}), but min = {}, \
+                                max = {}'.format(self.grid_mins[first_out_of_range],
+                                                 self.grid_maxs[first_out_of_range],
+                                                 x_target_min[first_out_of_range],
+                                                 x_target_max[first_out_of_range]))
+        if gt_max_mask.sum():
+            first_out_of_range = gt_max_mask.nonzero().squeeze(1)[0]
+            raise RuntimeError('Received data that was out of bounds for the specified grid. \
+                                Grid bounds were ({}, {}), but min = {}, \
+                                max = {}'.format(self.grid_mins[first_out_of_range],
+                                                 self.grid_maxs[first_out_of_range],
+                                                 x_target_min[first_out_of_range],
+                                                 x_target_max[first_out_of_range]))
+
+        # Now do interpolation
         interp_points_flip = x_grid.new(interp_points[::-1])
         interp_points = x_grid.new(interp_points)
 

@@ -163,7 +163,7 @@ class InterpolatedLazyVariable(LazyVariable):
     def _transpose_nonbatch(self):
         res = self.__class__(self.base_lazy_variable.transpose(-1, -2), self.right_interp_indices,
                              self.right_interp_values,
-                             self.left_interp_indices, self.left_interp_values)
+                             self.left_interp_indices, self.left_interp_values, **self._kwargs)
         return res
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
@@ -267,7 +267,7 @@ class InterpolatedLazyVariable(LazyVariable):
         return self.__class__(self.base_lazy_variable, self.left_interp_indices.repeat(*sizes),
                               self.left_interp_values.repeat(*sizes),
                               self.right_interp_indices.repeat(*sizes),
-                              self.right_interp_values.repeat(*sizes))
+                              self.right_interp_values.repeat(*sizes), **self._kwargs)
 
     def representation(self):
         if not hasattr(self, '__representation_memo'):
@@ -325,7 +325,7 @@ class InterpolatedLazyVariable(LazyVariable):
         right_interp_values = right_interp_values[right_index]
 
         res = self.__class__(base_lazy_variable, left_interp_indices, left_interp_values,
-                             right_interp_indices, right_interp_values)
+                             right_interp_indices, right_interp_values, **self._kwargs)
 
         if squeeze_left or squeeze_right:
             res = res.evaluate()
