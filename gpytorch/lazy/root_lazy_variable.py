@@ -5,6 +5,10 @@ class RootLazyVariable(MatmulLazyVariable):
     def __init__(self, root):
         super(RootLazyVariable, self).__init__(root, root.transpose(-1, -2))
 
+    @property
+    def root(self):
+        return self.lhs
+
     def chol_approx_size(self):
         return self.lhs.size(-1)
 

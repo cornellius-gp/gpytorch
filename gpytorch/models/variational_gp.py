@@ -80,7 +80,8 @@ class VariationalGP(AbstractVariationalGP):
                 q_mat, t_mat = lq_object.lanczos_batch(induc_induc_matmul, init_vector)
                 self.prior_chol = Variable(q_mat[0].matmul(t_mat[0].potrf().inverse()))
 
-                self.variational_chol = gpytorch.inv_matmul(induc_induc_covar, variational_output.covar().lhs)
+                chol_variational_output = variational_output.covar().root.evaluate()
+                self.variational_chol = gpytorch.inv_matmul(induc_induc_covar, chol_variational_output)
                 self.has_computed_chol = True
 
             # Test mean
