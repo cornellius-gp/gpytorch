@@ -2,7 +2,7 @@ import gpytorch
 import torch
 from torch.autograd import Variable
 from ..random_variables import GaussianRandomVariable
-from ..lazy import LazyVariable, CholLazyVariable, MatmulLazyVariable, NonLazyVariable
+from ..lazy import LazyVariable, RootLazyVariable, MatmulLazyVariable, NonLazyVariable
 from ..variational import MVNVariationalStrategy
 from .abstract_variational_gp import AbstractVariationalGP
 from ..utils import StochasticLQ
@@ -92,8 +92,8 @@ class VariationalGP(AbstractVariationalGP):
             else:
                 predictive_covar = test_test_covar
             if gpytorch.functions.fast_pred_var:
-                predictive_covar = predictive_covar + CholLazyVariable(test_induc_covar.matmul(self.prior_chol)).mul(-1)
-                predictive_covar = predictive_covar + CholLazyVariable(test_induc_covar.matmul(self.variational_chol))
+                predictive_covar = predictive_covar + RootLazyVariable(test_induc_covar.matmul(self.prior_chol)).mul(-1)
+                predictive_covar = predictive_covar + RootLazyVariable(test_induc_covar.matmul(self.variational_chol))
             else:
                 if isinstance(induc_test_covar, LazyVariable):
                     induc_test_covar = induc_test_covar.evaluate()

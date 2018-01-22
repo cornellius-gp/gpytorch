@@ -5,7 +5,7 @@ from torch.autograd import Variable
 from ..module import Module
 from ..random_variables import GaussianRandomVariable
 from ..likelihoods import GaussianLikelihood
-from ..lazy import LazyVariable, CholLazyVariable, InterpolatedLazyVariable, MatmulLazyVariable, NonLazyVariable
+from ..lazy import LazyVariable, InterpolatedLazyVariable, MatmulLazyVariable, NonLazyVariable
 from ..utils import StochasticLQ, left_interp
 
 
