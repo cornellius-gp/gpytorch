@@ -12,7 +12,7 @@ class MVNVariationalStrategy(VariationalStrategy):
         variational_covar = self.variational_dist.covar()
         if not isinstance(variational_covar, RootLazyVariable):
             raise RuntimeError('The variational covar for an MVN distribution should be a RootLazyVariable')
-        chol_variational_covar = variational_covar.lhs
+        chol_variational_covar = variational_covar.root.evaluate()
 
         mean_diffs = prior_mean - variational_mean
         chol_variational_covar = chol_variational_covar
