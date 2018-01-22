@@ -22,6 +22,19 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def _t_matmul_closure_factory(self, *args):
+        """
+        Generates a closure that performs a *tensor* TRANSPOSE matrix multiply
+        The closure will take in a *tensor* matrix (not variable) and return the
+        result of a matrix multiply with the lazy variable.
+
+        The arguments into the closure factory are the *tensors* corresponding to
+        the Variables in self.representation()
+
+        Returns:
+        function(tensor) - closure that performs a matrix multiply
+        """
+
     def _derivative_quadratic_form_factory(self, *args):
         """
         Generates a closure that computes the derivatives of uKv^t w.r.t. `args` given u, v
@@ -238,11 +251,9 @@ class LazyVariable(object):
             - tensor
         """
         if not hasattr(self, '_matmul_class'):
-            if hasattr(self, '_derivative_quadratic_form_factory'):
-                dqff = self._derivative_quadratic_form_factory
-            else:
-                dqff = None
-            self._matmul_class = function_factory.matmul_factory(self._matmul_closure_factory, dqff)
+            self._matmul_class = function_factory.matmul_factory(self._matmul_closure_factory,
+                                                                 self._derivative_quadratic_form_factory,
+                                                                 self._t_matmul_closure_factory)
 
         lazy_var = self
         if lazy_var.ndimension() == 3 and tensor.ndimension() == 3:

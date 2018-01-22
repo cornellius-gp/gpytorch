@@ -22,6 +22,9 @@ class DiagLazyVariable(LazyVariable):
 
         return closure
 
+    def _t_matmul_closure_factory(self, diag):
+        return self._matmul_closure_factory(diag)
+
     def _derivative_quadratic_form_factory(self, diag):
         def closure(left_factor, right_factor):
             res = left_factor * right_factor

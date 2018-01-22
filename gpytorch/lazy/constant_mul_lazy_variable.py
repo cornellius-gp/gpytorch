@@ -22,6 +22,16 @@ class ConstantMulLazyVariable(LazyVariable):
             return res
         return closure
 
+    def _t_matmul_closure_factory(self, *args):
+        lazy_var_closure = self.lazy_var._t_matmul_closure_factory(*args[:-1])
+        constant = args[-1]
+
+        def closure(rhs_mat):
+            res = lazy_var_closure(rhs_mat)
+            res = res * constant.expand_as(res)
+            return res
+        return closure
+
     def _derivative_quadratic_form_factory(self, *args):
         lazy_var_closure = self.lazy_var._derivative_quadratic_form_factory(*args[:-1])
         constant = args[-1]
