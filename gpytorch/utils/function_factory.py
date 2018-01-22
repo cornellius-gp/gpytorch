@@ -6,8 +6,12 @@ import torch
 import math
 
 
-def _default_matmul_closure_factor(mat):
+def _default_matmul_closure_factory(mat):
     return mat
+
+
+def _default_t_matmul_closure_factory(mat):
+    return mat.transpose(-1, -2).matmul
 
 
 def _default_derivative_quadratic_form_factory(mat):
@@ -25,7 +29,7 @@ def _default_derivative_quadratic_form_factory(mat):
     return closure
 
 
-def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
+def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
                        derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class InvMatmul(Function):
         def __init__(self, *args):
@@ -68,8 +72,9 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
     return InvMatmul
 
 
-def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
-                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
+                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+                   t_matmul_closure_factory=_default_t_matmul_closure_factory):
     class Matmul(Function):
         def __init__(self, *args):
             self.args = args
@@ -108,14 +113,14 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
-                rhs_grad = matmul_closure_factory(*closure_args)(grad_output)
+                rhs_grad = t_matmul_closure_factory(*closure_args)(grad_output)
 
             return tuple(arg_grads + [rhs_grad])
 
     return Matmul
 
 
-def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closure_factor,
+def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closure_factory,
                                    derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class TraceLogDetQuadForm(Function):
         def forward(self, mu_diff, chol_covar1, *covar2_args):
@@ -222,7 +227,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
     return TraceLogDetQuadForm
 
 
-def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
+def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                          derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class ExactGPMLL(Function):
         def forward(self, *args):
