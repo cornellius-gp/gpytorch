@@ -2,6 +2,7 @@ import gpytorch
 import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
+from .root_lazy_variable import RootLazyVariable
 from ..utils import bdsmm, left_interp
 
 
@@ -262,15 +263,6 @@ class InterpolatedLazyVariable(LazyVariable):
         res = (interp_values * base_var_vals).sum(-1).sum(-1)
         return res
 
-    def chol_approx_size(self):
-        return self.base_lazy_variable.chol_approx_size()
-
-    def chol_matmul(self, tensor):
-        # Assumes the tensor is symmetric
-        res = self.base_lazy_variable.chol_matmul(tensor)
-        res = left_interp(self.left_interp_indices, self.left_interp_values, res)
-        return res
-
     def matmul(self, tensor):
         # We're using a custom matmul here, because it is significantly faster than
         # what we get from the function factory.
@@ -325,6 +317,20 @@ class InterpolatedLazyVariable(LazyVariable):
             representation_memo = list(self.base_lazy_variable.representation()) + [left_interp_t, right_interp_t]
             self.__representation_memo = tuple(representation_memo)
         return self.__representation_memo
+
+    def root_decomposition(self):
+        if isinstance(self.base_lazy_variable, RootLazyVariable):
+            interp_root = InterpolatedLazyVariable(self.base_lazy_variable.root, self.left_interp_indices,
+                                                   self.left_interp_values)
+            return RootLazyVariable(interp_root)
+        else:
+            super(InterpolatedLazyVariable, self).root_decomposition()
+
+    def root_decomposition_size(self):
+        if isinstance(self.base_lazy_variable, RootLazyVariable):
+            return self.base_lazy_variable.root_decomposition_size()
+        else:
+            super(InterpolatedLazyVariable, self).root_decomposition_size()
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]

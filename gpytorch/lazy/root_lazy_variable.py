@@ -9,8 +9,5 @@ class RootLazyVariable(MatmulLazyVariable):
     def root(self):
         return self.lhs
 
-    def chol_approx_size(self):
-        return self.lhs.size(-1)
-
-    def chol_matmul(self, tensor):
-        return self.lhs.matmul(tensor)
+    def root_decomposition(self):
+        return self

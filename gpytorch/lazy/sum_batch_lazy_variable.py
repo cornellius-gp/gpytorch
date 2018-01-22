@@ -115,16 +115,6 @@ class SumBatchLazyVariable(LazyVariable):
     def batch_size(self):
         return self.base_lazy_variable.size(0)
 
-    def chol_approx_size(self):
-        return self.base_lazy_variable.chol_approx_size()
-
-    def chol_matmul(self, tensor):
-        tensor = tensor.unsqueeze(0)
-        tensor_size = list(tensor.size())
-        tensor_size[0] = self.batch_size()
-        tensor = tensor.expand(*tensor_size)
-        return self.base_lazy_variable.chol_matmul(tensor).sum(0)
-
     def __getitem__(self, index):
         if self.sum_batch_size is None:
             return super(SumBatchLazyVariable, self).__getitem__(index)

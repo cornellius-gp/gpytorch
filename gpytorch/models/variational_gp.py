@@ -99,7 +99,7 @@ class VariationalGP(AbstractVariationalGP):
                 if isinstance(induc_test_covar, LazyVariable):
                     induc_test_covar = induc_test_covar.evaluate()
                 inv_product = gpytorch.inv_matmul(induc_induc_covar, induc_test_covar)
-                factor = variational_output.covar().chol_matmul(inv_product)
+                factor = variational_output.covar_root().matmul(inv_product)
                 right_factor = factor - inv_product
                 left_factor = (factor - induc_test_covar).transpose(-1, -2)
                 predictive_covar = predictive_covar + MatmulLazyVariable(left_factor, right_factor)
