@@ -1,5 +1,5 @@
 from .lazy_variable import LazyVariable
-from .chol_lazy_variable import CholLazyVariable
+from .root_lazy_variable import RootLazyVariable
 from .constant_mul_lazy_variable import ConstantMulLazyVariable
 from .diag_lazy_variable import DiagLazyVariable
 from .interpolated_lazy_variable import InterpolatedLazyVariable
@@ -14,7 +14,7 @@ from .toeplitz_lazy_variable import ToeplitzLazyVariable
 
 __all__ = [
     LazyVariable,
-    CholLazyVariable,
+    RootLazyVariable,
     ConstantMulLazyVariable,
     DiagLazyVariable,
     InterpolatedLazyVariable,
