@@ -77,6 +77,12 @@ class InterpolatedLazyVariable(LazyVariable):
             left_interp_indices = Variable(tensor_cls(n_rows).long())
             torch.arange(0, n_rows, out=left_interp_indices.data)
             left_interp_indices = left_interp_indices.unsqueeze(-1)
+            if base_lazy_variable.ndimension() == 3:
+                left_interp_indices = left_interp_indices.unsqueeze(0).expand(base_lazy_variable.size(0),
+                                                                              n_rows, 1)
+            elif right_interp_indices is not None and right_interp_indices.ndimension() == 3:
+                left_interp_indices = left_interp_indices.unsqueeze(0).expand(right_interp_indices.size(0),
+                                                                              n_rows, 1)
 
         if left_interp_values is None:
             left_interp_values = Variable(tensor_cls(left_interp_indices.size()).fill_(1))
@@ -86,6 +92,12 @@ class InterpolatedLazyVariable(LazyVariable):
             right_interp_indices = Variable(tensor_cls(n_rows).long())
             torch.arange(0, n_rows, out=right_interp_indices.data)
             right_interp_indices = right_interp_indices.unsqueeze(-1)
+            if base_lazy_variable.ndimension() == 3:
+                right_interp_indices = right_interp_indices.unsqueeze(0).expand(base_lazy_variable.size(0),
+                                                                                n_rows, 1)
+            elif left_interp_indices.ndimension() == 3:
+                right_interp_indices = right_interp_indices.unsqueeze(0).expand(left_interp_indices.size(0),
+                                                                                n_rows, 1)
 
         if right_interp_values is None:
             right_interp_values = Variable(tensor_cls(right_interp_indices.size()).fill_(1))
