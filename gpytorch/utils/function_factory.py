@@ -337,7 +337,7 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
             slq = StochasticLQ(cls=type(z), max_iter=self.max_iter)
             q_mat, t_mat = slq.lanczos_batch(tensor_matmul_closure, z)
             q_mat = q_mat[0]
-            t_mat = gpytorch.add_jitter(t_mat[0])
+            t_mat = t_mat[0]
 
             if self.batch_size is None:
                 q_mat = q_mat.unsqueeze(0)
@@ -345,6 +345,13 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
 
             # Do cholesky decomposition
             t_mat_chol = tridiag_batch_potrf(t_mat, upper=False)
+            if not torch.equal(t_mat_chol, t_mat_chol):
+                # NaNs detected! Try adding jitter
+                t_mat = gpytorch.add_jitter(t_mat)
+                t_mat_chol = tridiag_batch_potrf(gpytorch.add_jitter(t_mat), upper=False)
+                # If it still doesn't work, then the T matrix is probably not PD
+                if not torch.equal(t_mat_chol, t_mat_chol):
+                    raise RuntimeError('Matrix is not positive definite, even after adding jitter')
 
             # Store q_mat * t_mat_chol
             self.__q_mat = q_mat
