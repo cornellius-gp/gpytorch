@@ -6,6 +6,8 @@ from .inducing_points import AdditiveGridInducingPointModule, InducingPointModul
 from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
 from .posterior import DefaultPosteriorStrategy
+import means
+import kernels
 
 
 _inv_matmul_class = function_factory.inv_matmul_factory()
@@ -131,6 +133,8 @@ def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
 
 
 __all__ = [
+    means,
+    kernels,
     ToeplitzLazyVariable,
     Module,
     GPModel,

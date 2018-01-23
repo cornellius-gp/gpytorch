@@ -1,8 +1,8 @@
 import torch
-import gpytorch
+from ..module import Module
 
 
-class Mean(gpytorch.Module):
+class Mean(Module):
     def initialize(self, **kwargs):
         for param_name, param_value in kwargs.items():
             if hasattr(self, param_name):
