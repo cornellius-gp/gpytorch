@@ -320,10 +320,11 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
 def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_factory,
                                derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class RootDecomposition(Function):
-        def __init__(self, size, max_iter, batch_size=None):
+        def __init__(self, size, max_iter, batch_size=None, inverse=False):
             self.size = size
             self.max_iter = max_iter
             self.batch_size = batch_size
+            self.inverse = inverse
 
         def forward(self, *args):
             z = args[0].new(self.size, 1).normal_()
@@ -354,9 +355,16 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                     raise RuntimeError('Matrix is not positive definite, even after adding jitter')
 
             # Store q_mat * t_mat_chol
-            self.__q_mat = q_mat
-            self.__t_mat_chol = t_mat_chol
-            res = self.__q_mat.matmul(self.__t_mat_chol)
+            # Decide if we're computing the inverse, or the regular root
+            if self.inverse:
+                q_mat_t = q_mat.transpose(-1, -2)
+                t_mat_chol_t = t_mat_chol.transpose(-1, -2)
+                res = t_mat_chol_t.matmul(tridiag_batch_potrs(q_mat_t, t_mat_chol, upper=False)).transpose(-1, -2)
+                self.__root_inverse = res
+            else:
+                self.__q_mat = q_mat
+                self.__t_mat_chol = t_mat_chol
+                res = self.__q_mat.matmul(self.__t_mat_chol)
 
             self.save_for_backward(*args)
 
@@ -368,19 +376,31 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
             # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
             if any(self.needs_input_grad):
                 args = self.saved_tensors
-                q_mat = self.__q_mat
-                t_mat_chol = self.__t_mat_chol
 
                 if grad_output.ndimension() == 2:
                     grad_output = grad_output.unsqueeze(0)
-                t_mat_chol_t = t_mat_chol.transpose(-1, -2)
-                q_mat_t = q_mat.transpose(-1, -2)
 
-                root_inverse = t_mat_chol_t.matmul(tridiag_batch_potrs(q_mat_t, t_mat_chol, upper=False))
-                left_factor = grad_output.transpose(-1, -2)
-                right_factor = root_inverse.div(2.)
+                # Get root inverse
+                if self.inverse:
+                    root_inverse_t = self.__root_inverse.transpose(-1, -2)
+                else:
+                    q_mat = self.__q_mat
+                    t_mat_chol = self.__t_mat_chol
+                    t_mat_chol_t = t_mat_chol.transpose(-1, -2)
+                    q_mat_t = q_mat.transpose(-1, -2)
+                    root_inverse_t = t_mat_chol_t.matmul(tridiag_batch_potrs(q_mat_t, t_mat_chol, upper=False))
+
+                # Left factor:
+                if self.inverse:
+                    # -root^-T grad_output.T root^-T
+                    left_factor = torch.matmul(root_inverse_t, grad_output).matmul(root_inverse_t)
+                    left_factor.mul_(-1)
+                else:
+                    # grad_output.T
+                    left_factor = grad_output.transpose(-1, -2)
+
+                right_factor = root_inverse_t.div(2.)
                 res = derivative_quadratic_form_factory(*args)(left_factor, right_factor)
-
                 return res
 
             else:

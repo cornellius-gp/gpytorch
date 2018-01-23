@@ -348,3 +348,36 @@ def test_root_decomposition_backward():
     a_var_copy.trace().backward()
 
     assert approx_equal(a_var.grad.data, a_var_copy.grad.data)
+
+
+def test_root_decomposition_inv_forward():
+    a = torch.randn(5, 5)
+    a = torch.matmul(a, a.t())
+
+    a_lv = NonLazyVariable(Variable(a, requires_grad=True))
+    a_root = a_lv.root_inv_decomposition().root.evaluate()
+
+    actual = a.inverse()
+    diff = (a_root.matmul(a_root.transpose(-1, -2)).data - actual).abs()
+    assert torch.max(diff / actual) < 1e-2
+
+
+def test_root_decomposition_inv_backward():
+    a = torch.Tensor([
+        [5.0212, 0.5504, -0.1810, 1.5414, 2.9611],
+        [0.5504, 2.8000, 1.9944, 0.6208, -0.8902],
+        [-0.1810, 1.9944, 3.0505, 1.0790, -1.1774],
+        [1.5414, 0.6208, 1.0790, 2.9430, 0.4170],
+        [2.9611, -0.8902, -1.1774, 0.4170, 3.3208],
+    ])
+
+    a_var = Variable(a, requires_grad=True)
+    a_lv = NonLazyVariable(a_var)
+    a_root = a_lv.root_inv_decomposition().root.evaluate()
+    res = a_root.matmul(a_root.transpose(-1, -2))
+    res.trace().backward()
+
+    a_var_copy = Variable(a, requires_grad=True)
+    a_var_copy.inverse().trace().backward()
+
+    assert approx_equal(a_var.grad.data, a_var_copy.grad.data)
