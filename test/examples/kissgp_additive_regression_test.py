@@ -70,4 +70,4 @@ def test_kissgp_gp_mean_abs_error():
     gp_model.condition(train_x, train_y)
     test_preds = gp_model(test_x).mean()
     mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
-    assert(mean_abs_error.data.squeeze()[0] < 0.1)
+    assert(mean_abs_error.data.squeeze()[0] < 0.15)

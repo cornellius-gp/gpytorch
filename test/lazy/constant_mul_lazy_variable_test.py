@@ -16,7 +16,7 @@ def test_exact_gp_mll():
     # Test forward
     mll_res = toeplitz_lazy_var.exact_gp_marginal_log_likelihood(labels_var)
     mll_actual = actual.exact_gp_marginal_log_likelihood(labels_var)
-    assert(math.fabs(mll_res.data.squeeze()[0] - mll_actual.data.squeeze()[0]) < 5e-1)
+    assert(math.fabs(mll_res.data.squeeze()[0] - mll_actual.data.squeeze()[0]) < 6e-1)
 
     # Test backwards
     mll_res.backward()
