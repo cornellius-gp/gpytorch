@@ -291,6 +291,18 @@ class InterpolatedLazyVariable(LazyVariable):
             res = res.squeeze(-1)
         return res
 
+    def mul(self, other):
+        # We're using a custom method here - the constant mul is applied to the base lazy variable
+        # This preserves the interpolated structure
+        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or \
+               (isinstance(other, Variable) and other.numel() == 1):
+            from .constant_mul_lazy_variable import ConstantMulLazyVariable
+            return self.__class__(ConstantMulLazyVariable(self.base_lazy_variable, other),
+                                  self.left_interp_indices, self.left_interp_values,
+                                  self.right_interp_indices, self.right_interp_values)
+        else:
+            return super(InterpolatedLazyVariable, self).mul(other)
+
     def repeat(self, *sizes):
         """
         Repeat elements of the Variable.
