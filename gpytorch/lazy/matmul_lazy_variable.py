@@ -94,7 +94,7 @@ class MatmulLazyVariable(LazyVariable):
 
         left_vals = self.lhs._get_indices(_outer_repeat(left_indices, inner_size),
                                           _inner_repeat(inner_indices, outer_size))
-        right_vals = self.lhs._get_indices(_inner_repeat(inner_indices, outer_size),
+        right_vals = self.rhs._get_indices(_inner_repeat(inner_indices, outer_size),
                                            _outer_repeat(right_indices, inner_size))
 
         return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
