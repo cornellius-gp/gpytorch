@@ -2,6 +2,7 @@ import gpytorch
 import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
+from .root_lazy_variable import RootLazyVariable
 from ..utils import bdsmm, left_interp
 
 
@@ -77,6 +78,12 @@ class InterpolatedLazyVariable(LazyVariable):
             left_interp_indices = Variable(tensor_cls(n_rows).long())
             torch.arange(0, n_rows, out=left_interp_indices.data)
             left_interp_indices = left_interp_indices.unsqueeze(-1)
+            if base_lazy_variable.ndimension() == 3:
+                left_interp_indices = left_interp_indices.unsqueeze(0).expand(base_lazy_variable.size(0),
+                                                                              n_rows, 1)
+            elif right_interp_indices is not None and right_interp_indices.ndimension() == 3:
+                left_interp_indices = left_interp_indices.unsqueeze(0).expand(right_interp_indices.size(0),
+                                                                              n_rows, 1)
 
         if left_interp_values is None:
             left_interp_values = Variable(tensor_cls(left_interp_indices.size()).fill_(1))
@@ -86,6 +93,12 @@ class InterpolatedLazyVariable(LazyVariable):
             right_interp_indices = Variable(tensor_cls(n_rows).long())
             torch.arange(0, n_rows, out=right_interp_indices.data)
             right_interp_indices = right_interp_indices.unsqueeze(-1)
+            if base_lazy_variable.ndimension() == 3:
+                right_interp_indices = right_interp_indices.unsqueeze(0).expand(base_lazy_variable.size(0),
+                                                                                n_rows, 1)
+            elif left_interp_indices.ndimension() == 3:
+                right_interp_indices = right_interp_indices.unsqueeze(0).expand(left_interp_indices.size(0),
+                                                                                n_rows, 1)
 
         if right_interp_values is None:
             right_interp_values = Variable(tensor_cls(right_interp_indices.size()).fill_(1))
@@ -122,6 +135,39 @@ class InterpolatedLazyVariable(LazyVariable):
             else:
                 left_interp_mat = left_interp_t.t()
             res = bdsmm(left_interp_mat, base_res)
+
+            # Squeeze if necessary
+            if is_vector:
+                res = res.squeeze(-1)
+            return res
+
+        return closure
+
+    def _t_matmul_closure_factory(self, *args):
+        base_t_matmul_closure_factory = self.base_lazy_variable._t_matmul_closure_factory
+        base_lazy_variable_representation = args[:-2]
+        base_lazy_variable_t_matmul = base_t_matmul_closure_factory(*base_lazy_variable_representation)
+        left_interp_t, right_interp_t = args[-2:]
+
+        def closure(tensor):
+            if tensor.ndimension() == 1:
+                is_vector = True
+                tensor = tensor.unsqueeze(-1)
+            else:
+                is_vector = False
+
+            # left_interp^T * tensor
+            left_interp_res = bdsmm(left_interp_t, tensor)
+
+            # base_lazy_var * left_interp^T * tensor
+            base_res = base_lazy_variable_t_matmul(left_interp_res)
+
+            # right_interp * base_lazy_var * right_interp^T * tensor
+            if len(right_interp_t.size()) == 3:
+                right_interp_mat = right_interp_t.transpose(1, 2)
+            else:
+                right_interp_mat = right_interp_t.t()
+            res = bdsmm(right_interp_mat, base_res)
 
             # Squeeze if necessary
             if is_vector:
@@ -217,15 +263,6 @@ class InterpolatedLazyVariable(LazyVariable):
         res = (interp_values * base_var_vals).sum(-1).sum(-1)
         return res
 
-    def chol_approx_size(self):
-        return self.base_lazy_variable.chol_approx_size()
-
-    def chol_matmul(self, tensor):
-        # Assumes the tensor is symmetric
-        res = self.base_lazy_variable.chol_matmul(tensor)
-        res = left_interp(self.left_interp_indices, self.left_interp_values, res)
-        return res
-
     def matmul(self, tensor):
         # We're using a custom matmul here, because it is significantly faster than
         # what we get from the function factory.
@@ -254,6 +291,18 @@ class InterpolatedLazyVariable(LazyVariable):
             res = res.squeeze(-1)
         return res
 
+    def mul(self, other):
+        # We're using a custom method here - the constant mul is applied to the base lazy variable
+        # This preserves the interpolated structure
+        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or \
+               (isinstance(other, Variable) and other.numel() == 1):
+            from .constant_mul_lazy_variable import ConstantMulLazyVariable
+            return self.__class__(ConstantMulLazyVariable(self.base_lazy_variable, other),
+                                  self.left_interp_indices, self.left_interp_values,
+                                  self.right_interp_indices, self.right_interp_values)
+        else:
+            return super(InterpolatedLazyVariable, self).mul(other)
+
     def repeat(self, *sizes):
         """
         Repeat elements of the Variable.
@@ -280,6 +329,20 @@ class InterpolatedLazyVariable(LazyVariable):
             representation_memo = list(self.base_lazy_variable.representation()) + [left_interp_t, right_interp_t]
             self.__representation_memo = tuple(representation_memo)
         return self.__representation_memo
+
+    def root_decomposition(self):
+        if isinstance(self.base_lazy_variable, RootLazyVariable):
+            interp_root = InterpolatedLazyVariable(self.base_lazy_variable.root, self.left_interp_indices,
+                                                   self.left_interp_values)
+            return RootLazyVariable(interp_root)
+        else:
+            super(InterpolatedLazyVariable, self).root_decomposition()
+
+    def root_decomposition_size(self):
+        if isinstance(self.base_lazy_variable, RootLazyVariable):
+            return self.base_lazy_variable.root_decomposition_size()
+        else:
+            super(InterpolatedLazyVariable, self).root_decomposition_size()
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]

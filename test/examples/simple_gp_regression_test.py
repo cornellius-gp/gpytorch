@@ -9,9 +9,6 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
 
 
-gpytorch.functions.fast_pred_var = True
-
-
 # Simple training data: let's try to learn a sine function
 train_x = Variable(torch.linspace(0, 1, 11))
 train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
@@ -95,6 +92,48 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
     mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean()))
 
     assert(mean_abs_error.data.squeeze()[0] < 0.05)
+
+
+def test_posterior_latent_gp_and_likelihood_fast_pred_var():
+    fast_pred_var = gpytorch.functions.fast_pred_var
+    gpytorch.functions.fast_pred_var = not fast_pred_var
+
+    # We're manually going to set the hyperparameters to something they shouldn't be
+    likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
+    gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
+    gp_model.covar_module.initialize(log_lengthscale=1)
+    gp_model.mean_module.initialize(constant=0)
+    likelihood.initialize(log_noise=1)
+
+    # Find optimal model hyperparameters
+    gp_model.train()
+    likelihood.train()
+    optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+    optimizer.n_iter = 0
+    for i in range(50):
+        optimizer.zero_grad()
+        output = gp_model(train_x)
+        loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
+        loss.backward()
+        optimizer.n_iter += 1
+        optimizer.step()
+
+    # Test the model
+    gp_model.eval()
+    likelihood.eval()
+    # Set the cache
+    test_function_predictions = likelihood(gp_model(train_x))
+
+    # Now bump up the likelihood to something huge
+    # This will make it easy to calculate the variance
+    likelihood.log_noise.data.fill_(3)
+    test_function_predictions = likelihood(gp_model(train_x))
+
+    gpytorch.functions.fast_pred_var = fast_pred_var
+
+    noise = likelihood.log_noise.exp()
+    var_diff = (test_function_predictions.var() - noise).abs()
+    assert(torch.max(var_diff.data / noise.data) < 0.05)
 
 
 def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():

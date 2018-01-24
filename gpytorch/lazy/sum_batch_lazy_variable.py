@@ -46,6 +46,30 @@ class SumBatchLazyVariable(LazyVariable):
 
         return closure
 
+    def _t_matmul_closure_factory(self, *args):
+        super_closure = self.base_lazy_variable._t_matmul_closure_factory(*args)
+
+        def closure(tensor):
+            isvector = tensor.ndimension() == 1
+            if isvector:
+                tensor = tensor.unsqueeze(1)
+
+            tensor = tensor.unsqueeze(0)
+            tensor_size = list(tensor.size())
+            tensor_size[0] = self.batch_size()
+            tensor = tensor.expand(*tensor_size)
+
+            res = super_closure(tensor)
+            if self.sum_batch_size is not None:
+                res = res.view(self.sum_batch_size, -1, res.size(1), res.size(2))
+            res = res.sum(0)
+
+            if isvector:
+                res = res.squeeze(-1)
+            return res
+
+        return closure
+
     def _derivative_quadratic_form_factory(self, *args):
         super_closure = self.base_lazy_variable._derivative_quadratic_form_factory(*args)
 
@@ -90,16 +114,6 @@ class SumBatchLazyVariable(LazyVariable):
 
     def batch_size(self):
         return self.base_lazy_variable.size(0)
-
-    def chol_approx_size(self):
-        return self.base_lazy_variable.chol_approx_size()
-
-    def chol_matmul(self, tensor):
-        tensor = tensor.unsqueeze(0)
-        tensor_size = list(tensor.size())
-        tensor_size[0] = self.batch_size()
-        tensor = tensor.expand(*tensor_size)
-        return self.base_lazy_variable.chol_matmul(tensor).sum(0)
 
     def __getitem__(self, index):
         if self.sum_batch_size is None:

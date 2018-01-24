@@ -1,7 +1,7 @@
 import torch
 import gpytorch
 from .variational_strategy import VariationalStrategy
-from ..lazy import CholLazyVariable
+from ..lazy import RootLazyVariable
 
 
 class MVNVariationalStrategy(VariationalStrategy):
@@ -10,9 +10,9 @@ class MVNVariationalStrategy(VariationalStrategy):
         prior_covar = self.prior_dist.covar()
         variational_mean = self.variational_dist.mean()
         variational_covar = self.variational_dist.covar()
-        if not isinstance(variational_covar, CholLazyVariable):
-            raise RuntimeError('The variational covar for an MVN distribution should be a CholLazyVariable')
-        chol_variational_covar = variational_covar.lhs
+        if not isinstance(variational_covar, RootLazyVariable):
+            raise RuntimeError('The variational covar for an MVN distribution should be a RootLazyVariable')
+        chol_variational_covar = variational_covar.root.evaluate()
 
         mean_diffs = prior_mean - variational_mean
         chol_variational_covar = chol_variational_covar

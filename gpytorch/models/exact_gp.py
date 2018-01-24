@@ -5,8 +5,8 @@ from torch.autograd import Variable
 from ..module import Module
 from ..random_variables import GaussianRandomVariable
 from ..likelihoods import GaussianLikelihood
-from ..lazy import LazyVariable, CholLazyVariable, InterpolatedLazyVariable, MatmulLazyVariable, NonLazyVariable
-from ..utils import StochasticLQ, left_interp
+from ..lazy import LazyVariable, InterpolatedLazyVariable, MatmulLazyVariable, NonLazyVariable, RootLazyVariable
+from ..utils import left_interp
 
 
 class ExactGP(Module):
@@ -22,7 +22,7 @@ class ExactGP(Module):
         self.likelihood = likelihood
 
         self.has_computed_alpha = False
-        self.has_computed_low_rank = False
+        self.has_computed_root_inv = False
 
     def _apply(self, fn):
         self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
@@ -51,7 +51,7 @@ class ExactGP(Module):
     def train(self, mode=True):
         if mode:
             self.has_computed_alpha = False
-            self.has_computed_low_rank = False
+            self.has_computed_root_inv = False
         return super(ExactGP, self).train(mode)
 
     def __call__(self, *args, **kwargs):
@@ -89,6 +89,8 @@ class ExactGP(Module):
                 train_residual = Variable(self.train_targets) - train_mean
                 alpha = gpytorch.inv_matmul(train_train_covar, train_residual)
                 if isinstance(full_covar, InterpolatedLazyVariable):
+                    # We can get a better alpha cache with InterpolatedLazyVariables (Kiss-GP)
+                    # This allows for constant time predictions
                     right_interp = InterpolatedLazyVariable(test_train_covar.base_lazy_variable,
                                                             left_interp_indices=None, left_interp_values=None,
                                                             right_interp_indices=test_train_covar.right_interp_indices,
@@ -98,44 +100,53 @@ class ExactGP(Module):
                 self.alpha = alpha
                 self.has_computed_alpha = True
 
-            # Calculate low rank cache, if necessary
-            if not self.has_computed_low_rank and gpytorch.functions.fast_pred_var:
-                if isinstance(train_train_covar, LazyVariable):
-                    train_train_representation = [var.data for var in train_train_covar.representation()]
-                    train_train_matmul = train_train_covar._matmul_closure_factory(*train_train_representation)
-                    tensor_cls = train_train_covar.tensor_cls
-                else:
-                    train_train_matmul = train_train_covar.data.matmul
-                    tensor_cls = type(train_train_covar.data)
-                max_iter = min(n_train, gpytorch.functions.max_lanczos_iterations)
-                lq_object = StochasticLQ(cls=tensor_cls, max_iter=max_iter)
-                init_vector = tensor_cls(n_train, 1).normal_()
-                init_vector /= torch.norm(init_vector, 2, 0)
-                q_mat, t_mat = lq_object.lanczos_batch(train_train_matmul, init_vector)
-                self.low_rank_left = Variable(q_mat[0].matmul(t_mat[0].inverse()))
-                self.low_rank_right = Variable(q_mat[0].transpose(-1, -2))
-                self.has_computed_low_rank = True
+            # Calculate root inverse cache, if necessary
+            # This enables fast predictive variances
+            if not self.has_computed_root_inv and gpytorch.functions.fast_pred_var:
+                if not isinstance(train_train_covar, LazyVariable):
+                    train_train_covar = NonLazyVariable(train_train_covar)
+                root_inv = train_train_covar.root_inv_decomposition().root.evaluate()
+                if isinstance(full_covar, InterpolatedLazyVariable):
+                    # We can get a better root_inv cache with InterpolatedLazyVariables (Kiss-GP)
+                    # This allows for constant time predictive variances
+                    right_interp = InterpolatedLazyVariable(test_train_covar.base_lazy_variable,
+                                                            left_interp_indices=None, left_interp_values=None,
+                                                            right_interp_indices=test_train_covar.right_interp_indices,
+                                                            right_interp_values=test_train_covar.right_interp_values)
+                    root_inv = right_interp.matmul(root_inv)
+
+                self.root_inv = root_inv
+                self.has_computed_root_inv = True
 
             # Calculate mean
             if isinstance(full_covar, InterpolatedLazyVariable):
+                # Constant time predictions with InterpolatedLazyVariables (Kiss-GP)
                 left_interp_indices = test_train_covar.left_interp_indices
                 left_interp_values = test_train_covar.left_interp_values
                 predictive_mean = left_interp(left_interp_indices, left_interp_values, self.alpha) + test_mean
-            elif isinstance(test_train_covar, LazyVariable):
-                predictive_mean = test_train_covar.matmul(self.alpha) + test_mean
             else:
-                predictive_mean = torch.addmv(test_mean, test_train_covar, self.alpha)
+                # O(n) predictions with normal LazyVariables
+                predictive_mean = test_train_covar.matmul(self.alpha) + test_mean
 
             # Calculate covar
             if gpytorch.functions.fast_pred_var:
+                # Compute low-rank approximation of covariance matrix - much faster!
                 if not isinstance(test_test_covar, LazyVariable):
                     test_test_covar = NonLazyVariable(test_test_covar)
-                covar_correction_left = test_train_covar.matmul(self.low_rank_left)
-                covar_correction_right = test_train_covar.matmul(self.low_rank_right.transpose(-1, -2))
-                covar_correction_right = covar_correction_right.transpose(-1, -2)
-                covar_correction = MatmulLazyVariable(covar_correction_left, covar_correction_right).mul(-1)
-                predictive_covar = test_test_covar + covar_correction
+
+                if isinstance(full_covar, InterpolatedLazyVariable):
+                    # Constant time predictive var with InterpolatedLazyVariables (Kiss-GP)
+                    left_interp_indices = test_train_covar.left_interp_indices
+                    left_interp_values = test_train_covar.left_interp_values
+                    covar_correction_root = left_interp(left_interp_indices, left_interp_values, self.root_inv)
+                    predictive_covar = test_test_covar + RootLazyVariable(covar_correction_root).mul(-1)
+                else:
+                    # O(n) predictions with normal LazyVariables
+                    covar_correction_root = test_train_covar.matmul(self.root_inv)
+                    covar_correction = RootLazyVariable(covar_correction_root).mul(-1)
+                    predictive_covar = test_test_covar + covar_correction
             else:
+                # Compute full covariance matrix - much slower
                 if isinstance(train_test_covar, LazyVariable):
                     train_test_covar = train_test_covar.evaluate()
                 if isinstance(test_train_covar, LazyVariable):

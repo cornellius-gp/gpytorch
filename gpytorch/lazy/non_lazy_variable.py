@@ -20,6 +20,11 @@ class NonLazyVariable(LazyVariable):
             return torch.matmul(tensor, rhs_tensor)
         return closure
 
+    def _t_matmul_closure_factory(self, tensor):
+        def closure(rhs_tensor):
+            return torch.matmul(tensor.transpose(-1, -2), rhs_tensor)
+        return closure
+
     def _derivative_quadratic_form_factory(self, mat):
         orig_closure = function_factory._default_derivative_quadratic_form_factory(mat)
 

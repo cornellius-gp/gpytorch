@@ -1,6 +1,7 @@
 import torch
 from torch.autograd import Variable
 from ..utils import function_factory
+from ..functions import max_lanczos_iterations
 
 
 class LazyVariable(object):
@@ -21,6 +22,19 @@ class LazyVariable(object):
         function(tensor) - closure that performs a matrix multiply
         """
         raise NotImplementedError
+
+    def _t_matmul_closure_factory(self, *args):
+        """
+        Generates a closure that performs a *tensor* TRANSPOSE matrix multiply
+        The closure will take in a *tensor* matrix (not variable) and return the
+        result of a matrix multiply with the lazy variable.
+
+        The arguments into the closure factory are the *tensors* corresponding to
+        the Variables in self.representation()
+
+        Returns:
+        function(tensor) - closure that performs a matrix multiply
+        """
 
     def _derivative_quadratic_form_factory(self, *args):
         """
@@ -89,24 +103,6 @@ class LazyVariable(object):
         """
         diag = Variable(self.tensor_cls(1).fill_(1e-4))
         return self.add_diag(diag)
-
-    def chol_approx_size(self):
-        """
-        This is used in conjunction with `chol_matmul`.
-        This multiplies a Tensor with a low-rank decomposition of the Cholesky decomposition
-        This function returns the rank of that approximation, so that you can
-        generate Tensors of the appropriate size.
-        """
-        raise NotImplementedError
-
-    def chol_matmul(self, tensor):
-        """
-        Multiplies the cholesky decomposition of the lazy variable with a tensor.
-        This is useful for sampling from multivariate Gaussians.
-
-        Assumes self represents a positive definite matrix, or a batch of PSD matrices.
-        """
-        raise NotImplementedError
 
     def cpu(self):
         new_args = []
@@ -238,11 +234,9 @@ class LazyVariable(object):
             - tensor
         """
         if not hasattr(self, '_matmul_class'):
-            if hasattr(self, '_derivative_quadratic_form_factory'):
-                dqff = self._derivative_quadratic_form_factory
-            else:
-                dqff = None
-            self._matmul_class = function_factory.matmul_factory(self._matmul_closure_factory, dqff)
+            self._matmul_class = function_factory.matmul_factory(self._matmul_closure_factory,
+                                                                 self._derivative_quadratic_form_factory,
+                                                                 self._t_matmul_closure_factory)
 
         lazy_var = self
         if lazy_var.ndimension() == 3 and tensor.ndimension() == 3:
@@ -287,6 +281,43 @@ class LazyVariable(object):
             else:
                 raise RuntimeError('Representation of a LazyVariable should consist only of Variables')
         return tuple(representation)
+
+    def root_decomposition(self):
+        """
+        Returns a (usually low-rank) root decomposotion lazy variable of a PSD matrix.
+        This can be used for sampling from a Gaussian distribution, or for obtaining a
+        low-rank version of a matrix
+        """
+        from .root_lazy_variable import RootLazyVariable
+        dqff = self._derivative_quadratic_form_factory
+        self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
+        batch_size = self.size(0) if self.ndimension() == 3 else None
+        function = self._root_decomp_class(self.size(-1), max_iter=self.root_decomposition_size(),
+                                           batch_size=batch_size)
+        res = RootLazyVariable(function(*self.representation()))
+        return res
+
+    def root_inv_decomposition(self):
+        """
+        Returns a (usually low-rank) root decomposotion lazy variable of a PSD matrix.
+        This can be used for sampling from a Gaussian distribution, or for obtaining a
+        low-rank version of a matrix
+        """
+        from .root_lazy_variable import RootLazyVariable
+        dqff = self._derivative_quadratic_form_factory
+        self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
+        batch_size = self.size(0) if self.ndimension() == 3 else None
+        function = self._root_decomp_class(self.size(-1), max_iter=self.root_decomposition_size(),
+                                           batch_size=batch_size, inverse=True)
+        res = RootLazyVariable(function(*self.representation()))
+        return res
+
+    def root_decomposition_size(self):
+        """
+        This is the inner size of the root decomposition.
+        This is primarily used to determine if it will be cheaper to compute a different root or not
+        """
+        return max_lanczos_iterations
 
     def size(self, val=None):
         """

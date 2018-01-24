@@ -2,10 +2,9 @@ import gpytorch
 import torch
 from torch.autograd import Variable
 from ..random_variables import GaussianRandomVariable
-from ..lazy import LazyVariable, CholLazyVariable, MatmulLazyVariable, NonLazyVariable
+from ..lazy import LazyVariable, RootLazyVariable, MatmulLazyVariable, NonLazyVariable
 from ..variational import MVNVariationalStrategy
 from .abstract_variational_gp import AbstractVariationalGP
-from ..utils import StochasticLQ
 
 
 class VariationalGP(AbstractVariationalGP):
@@ -15,12 +14,12 @@ class VariationalGP(AbstractVariationalGP):
         super(VariationalGP, self).__init__(train_input)
 
         self.has_computed_alpha = False
-        self.has_computed_chol = False
+        self.has_computed_root = False
 
     def train(self, mode=True):
         if mode:
             self.has_computed_alpha = False
-            self.has_computed_chol = False
+            self.has_computed_root = False
         return super(VariationalGP, self).train(mode)
 
     def __call__(self, inputs, **kwargs):
@@ -65,23 +64,14 @@ class VariationalGP(AbstractVariationalGP):
                 self.has_computed_alpha = True
 
             # Compute chol cache, if necessary
-            if not self.has_computed_chol and gpytorch.functions.fast_pred_var:
-                if isinstance(induc_induc_covar, LazyVariable):
-                    induc_induc_representation = [var.data for var in induc_induc_covar.representation()]
-                    induc_induc_matmul = induc_induc_covar._matmul_closure_factory(*induc_induc_representation)
-                    tensor_cls = induc_induc_covar.tensor_cls
-                else:
-                    induc_induc_matmul = induc_induc_covar.data.matmul
-                    tensor_cls = type(induc_induc_covar.data)
-                max_iter = min(n_induc, gpytorch.functions.max_lanczos_iterations)
-                lq_object = StochasticLQ(cls=tensor_cls, max_iter=max_iter)
-                init_vector = tensor_cls(n_induc, 1).normal_()
-                init_vector /= torch.norm(init_vector, 2, 0)
-                q_mat, t_mat = lq_object.lanczos_batch(induc_induc_matmul, init_vector)
-                self.prior_chol = Variable(q_mat[0].matmul(t_mat[0].potrf().inverse()))
+            if not self.has_computed_root and gpytorch.functions.fast_pred_var:
+                if not isinstance(induc_induc_covar, LazyVariable):
+                    induc_induc_covar = NonLazyVariable(induc_induc_covar)
+                self.prior_root_inv = induc_induc_covar.root_inv_decomposition().root.evaluate()
 
-                self.variational_chol = gpytorch.inv_matmul(induc_induc_covar, variational_output.covar().lhs)
-                self.has_computed_chol = True
+                chol_variational_output = variational_output.covar().root.evaluate()
+                self.variational_root = gpytorch.inv_matmul(induc_induc_covar, chol_variational_output)
+                self.has_computed_root = True
 
             # Test mean
             predictive_mean = torch.add(test_mean, test_induc_covar.matmul(self.alpha))
@@ -92,13 +82,14 @@ class VariationalGP(AbstractVariationalGP):
             else:
                 predictive_covar = test_test_covar
             if gpytorch.functions.fast_pred_var:
-                predictive_covar = predictive_covar + CholLazyVariable(test_induc_covar.matmul(self.prior_chol)).mul(-1)
-                predictive_covar = predictive_covar + CholLazyVariable(test_induc_covar.matmul(self.variational_chol))
+                correction = RootLazyVariable(test_induc_covar.matmul(self.prior_root_inv)).mul(-1)
+                correction = correction + RootLazyVariable(test_induc_covar.matmul(self.variational_root))
+                predictive_covar = predictive_covar + correction
             else:
                 if isinstance(induc_test_covar, LazyVariable):
                     induc_test_covar = induc_test_covar.evaluate()
                 inv_product = gpytorch.inv_matmul(induc_induc_covar, induc_test_covar)
-                factor = variational_output.covar().chol_matmul(inv_product)
+                factor = variational_output.covar_root().matmul(inv_product)
                 right_factor = factor - inv_product
                 left_factor = (factor - induc_test_covar).transpose(-1, -2)
                 predictive_covar = predictive_covar + MatmulLazyVariable(left_factor, right_factor)

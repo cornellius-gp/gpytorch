@@ -53,7 +53,7 @@ def add_jitter(mat):
         else:
             return mat + diag
     else:
-        diag = mat.new(len(mat)).fill_(1e-3).diag()
+        diag = mat.new(mat.size(-1)).fill_(1e-3).diag()
         if mat.ndimension() == 3:
             return mat.add_(diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2)))
         else:

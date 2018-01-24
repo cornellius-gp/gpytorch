@@ -1,13 +1,19 @@
+import math
+import torch
+import gpytorch
 from torch.autograd import Function
 from .lincg import LinearCG
 from .lanczos_quadrature import StochasticLQ
 from .trace import trace_components
-import torch
-import math
+from gpytorch.utils import tridiag_batch_potrf, tridiag_batch_potrs
 
 
-def _default_matmul_closure_factor(mat):
+def _default_matmul_closure_factory(mat):
     return mat
+
+
+def _default_t_matmul_closure_factory(mat):
+    return mat.transpose(-1, -2).matmul
 
 
 def _default_derivative_quadratic_form_factory(mat):
@@ -25,7 +31,7 @@ def _default_derivative_quadratic_form_factory(mat):
     return closure
 
 
-def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
+def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
                        derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class InvMatmul(Function):
         def __init__(self, *args):
@@ -68,8 +74,9 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
     return InvMatmul
 
 
-def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
-                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
+                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+                   t_matmul_closure_factory=_default_t_matmul_closure_factory):
     class Matmul(Function):
         def __init__(self, *args):
             self.args = args
@@ -108,14 +115,14 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factor,
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
-                rhs_grad = matmul_closure_factory(*closure_args)(grad_output)
+                rhs_grad = t_matmul_closure_factory(*closure_args)(grad_output)
 
             return tuple(arg_grads + [rhs_grad])
 
     return Matmul
 
 
-def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closure_factor,
+def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closure_factory,
                                    derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class TraceLogDetQuadForm(Function):
         def forward(self, mu_diff, chol_covar1, *covar2_args):
@@ -222,7 +229,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
     return TraceLogDetQuadForm
 
 
-def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
+def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                          derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class ExactGPMLL(Function):
         def forward(self, *args):
@@ -308,3 +315,95 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factor,
             return tuple(closure_arg_grads + [labels_grad])
 
     return ExactGPMLL
+
+
+def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_factory,
+                               derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+    class RootDecomposition(Function):
+        def __init__(self, size, max_iter, batch_size=None, inverse=False):
+            self.size = size
+            self.max_iter = max_iter
+            self.batch_size = batch_size
+            self.inverse = inverse
+
+        def forward(self, *args):
+            z = args[0].new(self.size, 1).normal_()
+            z = z / torch.norm(z, 2, 0)
+            if self.batch_size is not None:
+                z = z.unsqueeze(0).expand(self.batch_size, self.size, 1)
+
+            def tensor_matmul_closure(rhs):
+                return matmul_closure_factory(*args)(rhs)
+
+            slq = StochasticLQ(cls=type(z), max_iter=self.max_iter)
+            q_mat, t_mat = slq.lanczos_batch(tensor_matmul_closure, z)
+            q_mat = q_mat[0]
+            t_mat = t_mat[0]
+
+            if self.batch_size is None:
+                q_mat = q_mat.unsqueeze(0)
+                t_mat = t_mat.unsqueeze(0)
+
+            # Do cholesky decomposition
+            t_mat_chol = tridiag_batch_potrf(t_mat, upper=False)
+            if not torch.equal(t_mat_chol, t_mat_chol):
+                # NaNs detected! Try adding jitter
+                t_mat = gpytorch.add_jitter(t_mat)
+                t_mat_chol = tridiag_batch_potrf(gpytorch.add_jitter(t_mat), upper=False)
+                # If it still doesn't work, then the T matrix is probably not PD
+                if not torch.equal(t_mat_chol, t_mat_chol):
+                    raise RuntimeError('Matrix is not positive definite, even after adding jitter')
+
+            # Store q_mat * t_mat_chol
+            # Decide if we're computing the inverse, or the regular root
+            if self.inverse:
+                q_mat_t = q_mat.transpose(-1, -2)
+                t_mat_chol_t = t_mat_chol.transpose(-1, -2)
+                res = t_mat_chol_t.matmul(tridiag_batch_potrs(q_mat_t, t_mat_chol, upper=False)).transpose(-1, -2)
+                self.__root_inverse = res
+            else:
+                self.__q_mat = q_mat
+                self.__t_mat_chol = t_mat_chol
+                res = self.__q_mat.matmul(self.__t_mat_chol)
+
+            self.save_for_backward(*args)
+
+            if self.batch_size is None:
+                res = res.squeeze(0)
+            return res
+
+        def backward(self, grad_output):
+            # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
+            if any(self.needs_input_grad):
+                args = self.saved_tensors
+
+                if grad_output.ndimension() == 2:
+                    grad_output = grad_output.unsqueeze(0)
+
+                # Get root inverse
+                if self.inverse:
+                    root_inverse_t = self.__root_inverse.transpose(-1, -2)
+                else:
+                    q_mat = self.__q_mat
+                    t_mat_chol = self.__t_mat_chol
+                    t_mat_chol_t = t_mat_chol.transpose(-1, -2)
+                    q_mat_t = q_mat.transpose(-1, -2)
+                    root_inverse_t = t_mat_chol_t.matmul(tridiag_batch_potrs(q_mat_t, t_mat_chol, upper=False))
+
+                # Left factor:
+                if self.inverse:
+                    # -root^-T grad_output.T root^-T
+                    left_factor = torch.matmul(root_inverse_t, grad_output).matmul(root_inverse_t)
+                    left_factor.mul_(-1)
+                else:
+                    # grad_output.T
+                    left_factor = grad_output.transpose(-1, -2)
+
+                right_factor = root_inverse_t.div(2.)
+                res = derivative_quadratic_form_factory(*args)(left_factor, right_factor)
+                return res
+
+            else:
+                pass
+
+    return RootDecomposition
