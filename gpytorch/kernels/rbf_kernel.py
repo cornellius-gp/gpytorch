@@ -11,7 +11,7 @@ class RBFKernel(Kernel):
                                 bounds=log_lengthscale_bounds)
 
     def forward(self, x1, x2):
-        lengthscale = (2 * self.log_lengthscale.exp() + self.eps).sqrt_()
+        lengthscale = (self.log_lengthscale.exp() + self.eps).sqrt_()
         mean = x1.mean(1).mean(0)
         x1_normed = (x1 - mean.unsqueeze(0).unsqueeze(1)).div_(lengthscale)
         x2_normed = (x2 - mean.unsqueeze(0).unsqueeze(1)).div_(lengthscale)
