@@ -3,6 +3,7 @@ import models
 import means
 import kernels
 from torch.autograd import Variable
+from .contexts import fast_pred_var
 from .lazy import LazyVariable
 from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
@@ -125,10 +126,13 @@ def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
 
 
 __all__ = [
-    Module,
+    # Submodules
     models,
     means,
     kernels,
+    # Classes
+    Module,
+    # Functions
     add_diag,
     add_jitter,
     dsmm,
@@ -137,4 +141,6 @@ __all__ = [
     log_normal_cdf,
     normal_cdf,
     trace_logdet_quad_form,
+    # Context managers
+    fast_pred_var,
 ]

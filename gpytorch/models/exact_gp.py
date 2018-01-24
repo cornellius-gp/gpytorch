@@ -2,6 +2,7 @@ import logging
 import gpytorch
 import torch
 from torch.autograd import Variable
+from .. import contexts
 from ..module import Module
 from ..random_variables import GaussianRandomVariable
 from ..likelihoods import GaussianLikelihood
@@ -102,7 +103,7 @@ class ExactGP(Module):
 
             # Calculate root inverse cache, if necessary
             # This enables fast predictive variances
-            if not self.has_computed_root_inv and gpytorch.functions.fast_pred_var:
+            if not self.has_computed_root_inv and contexts.fast_pred_var.on():
                 if not isinstance(train_train_covar, LazyVariable):
                     train_train_covar = NonLazyVariable(train_train_covar)
                 root_inv = train_train_covar.root_inv_decomposition().root.evaluate()
@@ -129,7 +130,7 @@ class ExactGP(Module):
                 predictive_mean = test_train_covar.matmul(self.alpha) + test_mean
 
             # Calculate covar
-            if gpytorch.functions.fast_pred_var:
+            if contexts.fast_pred_var.on():
                 # Compute low-rank approximation of covariance matrix - much faster!
                 if not isinstance(test_test_covar, LazyVariable):
                     test_test_covar = NonLazyVariable(test_test_covar)

@@ -30,9 +30,6 @@ class ExactGPModel(gpytorch.models.ExactGP):
 
 
 def test_posterior_latent_gp_and_likelihood_without_optimization():
-    fast_pred_var = gpytorch.functions.fast_pred_var
-    gpytorch.functions.fast_pred_var = False
-
     # We're manually going to set the hyperparameters to be ridiculous
     likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
     gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
@@ -60,8 +57,6 @@ def test_posterior_latent_gp_and_likelihood_without_optimization():
 
     assert(torch.norm(test_function_predictions.mean().data - 0) < 1e-4)
     assert(torch.norm(test_function_predictions.var().data - 1) < 1e-4)
-
-    fast_pred_var = gpytorch.functions.fast_pred_var = fast_pred_var
 
 
 def test_posterior_latent_gp_and_likelihood_with_optimization():
@@ -95,45 +90,42 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
 
 
 def test_posterior_latent_gp_and_likelihood_fast_pred_var():
-    fast_pred_var = gpytorch.functions.fast_pred_var
-    gpytorch.functions.fast_pred_var = not fast_pred_var
+    with gpytorch.fast_pred_var():
+        # We're manually going to set the hyperparameters to something they shouldn't be
+        likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
+        gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
+        gp_model.covar_module.initialize(log_lengthscale=1)
+        gp_model.mean_module.initialize(constant=0)
+        likelihood.initialize(log_noise=1)
 
-    # We're manually going to set the hyperparameters to something they shouldn't be
-    likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
-    gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
-    gp_model.covar_module.initialize(log_lengthscale=1)
-    gp_model.mean_module.initialize(constant=0)
-    likelihood.initialize(log_noise=1)
+        # Find optimal model hyperparameters
+        gp_model.train()
+        likelihood.train()
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        optimizer.n_iter = 0
+        for i in range(50):
+            optimizer.zero_grad()
+            output = gp_model(train_x)
+            loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
+            loss.backward()
+            optimizer.n_iter += 1
+            optimizer.step()
 
-    # Find optimal model hyperparameters
-    gp_model.train()
-    likelihood.train()
-    optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
-    optimizer.n_iter = 0
-    for i in range(50):
-        optimizer.zero_grad()
-        output = gp_model(train_x)
-        loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
-        loss.backward()
-        optimizer.n_iter += 1
-        optimizer.step()
+        # Test the model
+        gp_model.eval()
+        likelihood.eval()
+        # Set the cache
+        test_function_predictions = likelihood(gp_model(train_x))
 
-    # Test the model
-    gp_model.eval()
-    likelihood.eval()
-    # Set the cache
-    test_function_predictions = likelihood(gp_model(train_x))
+        # Now bump up the likelihood to something huge
+        # This will make it easy to calculate the variance
+        likelihood.log_noise.data.fill_(3)
+        test_function_predictions = likelihood(gp_model(train_x))
 
-    # Now bump up the likelihood to something huge
-    # This will make it easy to calculate the variance
-    likelihood.log_noise.data.fill_(3)
-    test_function_predictions = likelihood(gp_model(train_x))
+        noise = likelihood.log_noise.exp()
+        var_diff = (test_function_predictions.var() - noise).abs()
 
-    gpytorch.functions.fast_pred_var = fast_pred_var
-
-    noise = likelihood.log_noise.exp()
-    var_diff = (test_function_predictions.var() - noise).abs()
-    assert(torch.max(var_diff.data / noise.data) < 0.05)
+        assert(torch.max(var_diff.data / noise.data) < 0.05)
 
 
 def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():

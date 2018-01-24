@@ -60,34 +60,31 @@ def test_kissgp_classification_error():
 
 
 def test_kissgp_classification_fast_pred_var():
-    fast_pred_var = gpytorch.functions.fast_pred_var
-    gpytorch.functions.fast_pred_var = not fast_pred_var
+    with gpytorch.fast_pred_var():
+        train_x, train_y = train_data()
+        likelihood = BernoulliLikelihood()
+        model = GPClassificationModel(train_x.data)
 
-    train_x, train_y = train_data()
-    likelihood = BernoulliLikelihood()
-    model = GPClassificationModel(train_x.data)
+        # Find optimal model hyperparameters
+        model.train()
+        likelihood.train()
+        optimizer = optim.Adam(model.parameters(), lr=0.1)
+        optimizer.n_iter = 0
+        for i in range(50):
+            optimizer.zero_grad()
+            output = model(train_x)
+            loss = -model.marginal_log_likelihood(likelihood, output, train_y)
+            loss.backward()
+            optimizer.n_iter += 1
+            optimizer.step()
 
-    # Find optimal model hyperparameters
-    model.train()
-    likelihood.train()
-    optimizer = optim.Adam(model.parameters(), lr=0.1)
-    optimizer.n_iter = 0
-    for i in range(50):
-        optimizer.zero_grad()
-        output = model(train_x)
-        loss = -model.marginal_log_likelihood(likelihood, output, train_y)
-        loss.backward()
-        optimizer.n_iter += 1
-        optimizer.step()
+        # Set back to eval mode
+        model.eval()
+        likelihood.eval()
+        test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
 
-    # Set back to eval mode
-    model.eval()
-    likelihood.eval()
-    test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
-    gpytorch.functions.fast_pred_var = fast_pred_var
-
-    mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-    assert(mean_abs_error.data.squeeze()[0] < 1e-5)
+        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+        assert(mean_abs_error.data.squeeze()[0] < 1e-5)
 
 
 def test_kissgp_classification_error_cuda():

@@ -67,43 +67,39 @@ def test_kissgp_gp_mean_abs_error():
 
 
 def test_kissgp_gp_fast_pred_var():
-    fast_pred_var = gpytorch.functions.fast_pred_var
-    gpytorch.functions.fast_pred_var = not fast_pred_var
+    with gpytorch.fast_pred_var():
+        train_x, train_y, test_x, test_y = make_data()
+        likelihood = GaussianLikelihood()
+        gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
 
-    train_x, train_y, test_x, test_y = make_data()
-    likelihood = GaussianLikelihood()
-    gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
+        # Optimize the model
+        gp_model.train()
+        likelihood.train()
 
-    # Optimize the model
-    gp_model.train()
-    likelihood.train()
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        optimizer.n_iter = 0
+        for i in range(25):
+            optimizer.zero_grad()
+            output = gp_model(train_x)
+            loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
+            loss.backward()
+            optimizer.n_iter += 1
+            optimizer.step()
 
-    optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
-    optimizer.n_iter = 0
-    for i in range(25):
-        optimizer.zero_grad()
-        output = gp_model(train_x)
-        loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
-        loss.backward()
-        optimizer.n_iter += 1
-        optimizer.step()
+        # Test the model
+        gp_model.eval()
+        likelihood.eval()
+        # Set the cache
+        test_function_predictions = likelihood(gp_model(train_x))
 
-    # Test the model
-    gp_model.eval()
-    likelihood.eval()
-    # Set the cache
-    test_function_predictions = likelihood(gp_model(train_x))
+        # Now bump up the likelihood to something huge
+        # This will make it easy to calculate the variance
+        likelihood.log_noise.data.fill_(3)
+        test_function_predictions = likelihood(gp_model(train_x))
 
-    # Now bump up the likelihood to something huge
-    # This will make it easy to calculate the variance
-    likelihood.log_noise.data.fill_(3)
-    test_function_predictions = likelihood(gp_model(train_x))
-
-    gpytorch.functions.fast_pred_var = fast_pred_var
-
-    noise = likelihood.log_noise.exp()
-    var_diff = (test_function_predictions.var() - noise).abs()
-    assert(torch.max(var_diff.data / noise.data) < 0.05)
+        noise = likelihood.log_noise.exp()
+        var_diff = (test_function_predictions.var() - noise).abs()
+        assert(torch.max(var_diff.data / noise.data) < 0.05)
 
 
 def test_kissgp_gp_mean_abs_error_cuda():
