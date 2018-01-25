@@ -5,7 +5,8 @@ from torch.autograd import Function
 from .lincg import LinearCG
 from .stochastic_lq import StochasticLQ
 from .trace import trace_components
-from gpytorch.utils import tridiag_batch_potrf, tridiag_batch_potrs
+from .lanczos import lanczos_tridiag
+from . import tridiag_batch_potrf, tridiag_batch_potrs
 
 
 def _default_matmul_closure_factory(mat):
@@ -320,23 +321,20 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
 def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_factory,
                                derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class RootDecomposition(Function):
-        def __init__(self, size, max_iter, batch_size=None, inverse=False):
+        def __init__(self, cls, size, max_iter, batch_size=None, inverse=False):
+            self.cls = cls
             self.size = size
             self.max_iter = max_iter
             self.batch_size = batch_size
             self.inverse = inverse
 
         def forward(self, *args):
-            z = args[0].new(self.size, 1).normal_()
-            z = z / torch.norm(z, 2, 0)
-            if self.batch_size is not None:
-                z = z.unsqueeze(0).expand(self.batch_size, self.size, 1)
-
             def tensor_matmul_closure(rhs):
                 return matmul_closure_factory(*args)(rhs)
 
-            slq = StochasticLQ(cls=type(z), max_iter=self.max_iter)
-            q_mat, t_mat = slq.lanczos_batch(tensor_matmul_closure, z)
+            q_mat, t_mat = lanczos_tridiag(tensor_matmul_closure, self.max_iter,
+                                           tensor_cls=self.cls, batch_size=self.batch_size,
+                                           n_dims=self.size)
 
             if self.batch_size is None:
                 q_mat = q_mat.unsqueeze(0)

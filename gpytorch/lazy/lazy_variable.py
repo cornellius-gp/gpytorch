@@ -292,7 +292,7 @@ class LazyVariable(object):
         dqff = self._derivative_quadratic_form_factory
         self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
-        function = self._root_decomp_class(self.size(-1), max_iter=self.root_decomposition_size(),
+        function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
                                            batch_size=batch_size)
         res = RootLazyVariable(function(*self.representation()))
         return res
@@ -307,7 +307,7 @@ class LazyVariable(object):
         dqff = self._derivative_quadratic_form_factory
         self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
-        function = self._root_decomp_class(self.size(-1), max_iter=self.root_decomposition_size(),
+        function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
                                            batch_size=batch_size, inverse=True)
         res = RootLazyVariable(function(*self.representation()))
         return res
