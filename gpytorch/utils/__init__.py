@@ -4,6 +4,7 @@ from torch.autograd import Variable
 from .interpolation import Interpolation
 from .lincg import LinearCG
 from .lanczos_quadrature import StochasticLQ
+from .lanczos_bidiagonalize import LanczosBidiagonalize
 from .trace import trace_components
 
 
@@ -226,6 +227,7 @@ def to_sparse(dense):
 __all__ = [
     Interpolation,
     LinearCG,
+    LanczosBidiagonalize,
     StochasticLQ,
     left_interp,
     reverse,
