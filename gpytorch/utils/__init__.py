@@ -4,7 +4,8 @@ from operator import mul
 from torch.autograd import Variable
 from .interpolation import Interpolation
 from .lincg import LinearCG
-from .lanczos_quadrature import StochasticLQ
+from . import lanczos
+from .stochastic_lq import StochasticLQ
 from .trace import trace_components
 
 
@@ -353,6 +354,7 @@ __all__ = [
     rcumsum,
     approx_equal,
     bdsmm,
+    lanczos,
     sparse_eye,
     sparse_getitem,
     sparse_repeat,

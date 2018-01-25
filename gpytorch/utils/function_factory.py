@@ -3,7 +3,7 @@ import torch
 import gpytorch
 from torch.autograd import Function
 from .lincg import LinearCG
-from .lanczos_quadrature import StochasticLQ
+from .stochastic_lq import StochasticLQ
 from .trace import trace_components
 from gpytorch.utils import tridiag_batch_potrf, tridiag_batch_potrs
 
@@ -337,8 +337,6 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
 
             slq = StochasticLQ(cls=type(z), max_iter=self.max_iter)
             q_mat, t_mat = slq.lanczos_batch(tensor_matmul_closure, z)
-            q_mat = q_mat[0]
-            t_mat = t_mat[0]
 
             if self.batch_size is None:
                 q_mat = q_mat.unsqueeze(0)
