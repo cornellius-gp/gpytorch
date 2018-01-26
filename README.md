@@ -21,7 +21,7 @@ Some things you can do right now:
 
 ### Global installation
 
-The easiest way to install GPyTorch is by installing the dependencies we require, `PyTorch >= 0.2.0` and `libfftw3 > 3.3.6` ([source](http://www.fftw.org/download.html)) using conda, and then installing 
+The easiest way to install GPyTorch is by installing the dependencies we require, `PyTorch >= 0.3.0` and `libfftw3 > 3.3.6` ([source](http://www.fftw.org/download.html)) using conda, and then installing 
 GPyTorch using pip. This can be accomplished globally using one of the two sets of commands below depending on whether you want CUDA support.
 
 For CUDA/GPU support, run:
