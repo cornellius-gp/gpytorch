@@ -13,9 +13,9 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
         inputs = inputs.view(inputs.size(0), inputs.size(1), self.n_components, -1)
         batch_size, n_data, n_components, n_dimensions = inputs.size()
         inputs = inputs.transpose(0, 2).contiguous().view(n_components * batch_size * n_data, n_dimensions)
-        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs.data)
-        interp_indices = Variable(interp_indices).view(n_components * batch_size, n_data, -1)
-        interp_values = Variable(interp_values).view(n_components * batch_size, n_data, -1)
+        interp_indices, interp_values = Interpolation().interpolate(Variable(self.grid), inputs)
+        interp_indices = interp_indices.view(n_components * batch_size, n_data, -1)
+        interp_values = interp_values.view(n_components * batch_size, n_data, -1)
         return interp_indices, interp_values
 
     def _inducing_forward(self):
