@@ -28,9 +28,9 @@ class GridInterpolationKernel(GridKernel):
     def _compute_grid(self, inputs):
         batch_size, n_data, n_dimensions = inputs.size()
         inputs = inputs.view(batch_size * n_data, n_dimensions)
-        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs.data)
-        interp_indices = Variable(interp_indices).view(batch_size, n_data, -1)
-        interp_values = Variable(interp_values).view(batch_size, n_data, -1)
+        interp_indices, interp_values = Interpolation().interpolate(Variable(self.grid), inputs)
+        interp_indices = interp_indices.view(batch_size, n_data, -1)
+        interp_values = interp_values.view(batch_size, n_data, -1)
         return interp_indices, interp_values
 
     def _inducing_forward(self):

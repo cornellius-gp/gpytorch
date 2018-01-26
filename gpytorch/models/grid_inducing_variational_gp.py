@@ -34,9 +34,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(1)
 
-        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs.data)
-        interp_indices = Variable(interp_indices)
-        interp_values = Variable(interp_values)
+        interp_indices, interp_values = Interpolation().interpolate(Variable(self.grid), inputs)
         return interp_indices, interp_values
 
     def __call__(self, inputs, **kwargs):
