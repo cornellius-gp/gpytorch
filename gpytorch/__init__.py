@@ -1,7 +1,7 @@
 from .module import Module
-import models
-import means
-import kernels
+from . import models
+from . import means
+from . import kernels
 from torch.autograd import Variable
 from .contexts import fast_pred_var
 from .lazy import LazyVariable
