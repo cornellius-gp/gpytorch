@@ -1,8 +1,8 @@
+import gpytorch
 import torch
 from torch.autograd import Variable
 from .kernel import Kernel
 from ..lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, NonLazyVariable
-from ..functions import use_toeplitz
 
 
 class GridInterpolationKernel(Kernel):
@@ -31,7 +31,7 @@ class GridInterpolationKernel(Kernel):
             d = x1.size(-1)
             grid_var = Variable(self.grid)
 
-            if use_toeplitz:
+            if gpytorch.functions.use_toeplitz:
                 first_item = grid_var[:, 0].contiguous().view(d, 1, 1)
                 k_UU = self.base_kernel_module(first_item, grid_var.view(d, -1, 1), **kwargs)
                 K_XXs = [ToeplitzLazyVariable(k_UU[i:i + 1].squeeze(-2)) for i in range(d)]
