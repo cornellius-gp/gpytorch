@@ -6,8 +6,8 @@ from .inducing_points import AdditiveGridInducingPointModule, InducingPointModul
 from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
 from .posterior import DefaultPosteriorStrategy
-import means
-import kernels
+from . import means
+from . import kernels
 
 
 _inv_matmul_class = function_factory.inv_matmul_factory()
