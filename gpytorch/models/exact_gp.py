@@ -154,6 +154,6 @@ class ExactGP(Module):
                     test_train_covar = train_test_covar.t()
                 if not isinstance(test_test_covar, LazyVariable):
                     test_test_covar = NonLazyVariable(test_test_covar)
-                covar_correction_rhs = gpytorch.inv_matmul(train_train_covar, train_test_covar).mul_(-1)
+                covar_correction_rhs = gpytorch.inv_matmul(train_train_covar, train_test_covar).mul(-1)
                 predictive_covar = test_test_covar + MatmulLazyVariable(test_train_covar, covar_correction_rhs)
             return GaussianRandomVariable(predictive_mean, predictive_covar)
