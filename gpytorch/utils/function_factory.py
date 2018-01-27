@@ -309,7 +309,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                                                                                               right_vectors.t()))
 
                 for i in range(len(closure_args)):
-                    if self.needs_input_grad[i]:
+                    if self.needs_input_grad[i] and closure_arg_grads[i] is not None:
                         closure_arg_grads[i] = quad_form_part[i].add_(-closure_arg_grads[i])
                         closure_arg_grads[i].mul_(0.5 * grad_output_value)
 
