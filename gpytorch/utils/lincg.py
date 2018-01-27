@@ -89,7 +89,7 @@ class LinearCG(object):
             n, k = rhs.size()
 
         if result is None:
-            result = self.precondition_closure(rhs)
+            result = rhs.new(rhs.size()).zero_()
 
         residuals = rhs - matmul_closure(result)
 
