@@ -18,8 +18,7 @@ train_y = Variable(train_y)
 
 class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
     def __init__(self):
-        super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)],
-                                                    n_components=2, mixing_params=True)
+        super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2)
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
@@ -58,4 +57,4 @@ def test_kissgp_classification_error():
     test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
     mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
     gpytorch.functions.use_toeplitz = True
-    assert(mean_abs_error.data.squeeze()[0] < 1e-1)
+    assert(mean_abs_error.data.squeeze()[0] < 0.15)

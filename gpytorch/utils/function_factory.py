@@ -40,8 +40,11 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
 
         def forward(self, *args):
             closure_args = self.args + args[:-1]
+            matmul_closure = matmul_closure_factory(*closure_args)
             rhs = args[-1]
-            res = LinearCG().solve(matmul_closure_factory(*closure_args), rhs)
+            res = LinearCG().solve(matmul_closure, rhs)
+
+            self.matmul_closure = matmul_closure
             self.save_for_backward(*(list(args) + [res]))
             return res
 
@@ -49,15 +52,15 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
             if derivative_quadratic_form_factory is None:
                 raise NotImplementedError
             args = self.saved_tensors[:-2]
-            closure_args = self.args + args
             res = self.saved_tensors[-1]
+            matmul_closure = self.matmul_closure
 
             arg_grads = [None] * len(args)
             rhs_grad = None
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
-                lhs_matrix_grad = LinearCG().solve(matmul_closure_factory(*closure_args), grad_output)
+                lhs_matrix_grad = LinearCG().solve(matmul_closure, grad_output)
                 lhs_matrix_grad = lhs_matrix_grad.mul_(-1)
                 if res.ndimension() == 1:
                     res = res.unsqueeze(1)
@@ -68,7 +71,7 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
-                rhs_grad = LinearCG().solve(matmul_closure_factory(*closure_args), grad_output)
+                rhs_grad = LinearCG().solve(matmul_closure, grad_output)
 
             return tuple(arg_grads + [rhs_grad])
 
@@ -85,7 +88,9 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
         def forward(self, *args):
             closure_args = self.args + args[:-1]
             rhs = args[-1]
-            res = matmul_closure_factory(*closure_args)(rhs)
+            matmul_closure = matmul_closure_factory(*closure_args)
+            res = matmul_closure(rhs)
+
             self.save_for_backward(*args)
             return res
 
@@ -329,8 +334,10 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
             self.inverse = inverse
 
         def forward(self, *args):
+            matmul_closure = matmul_closure_factory(*args)
+
             def tensor_matmul_closure(rhs):
-                return matmul_closure_factory(*args)(rhs)
+                return matmul_closure(rhs)
 
             q_mat, t_mat = lanczos_tridiag(tensor_matmul_closure, self.max_iter,
                                            tensor_cls=self.cls, batch_size=self.batch_size,

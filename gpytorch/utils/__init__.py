@@ -5,6 +5,7 @@ from torch.autograd import Variable
 from .interpolation import Interpolation
 from .lincg import LinearCG
 from . import lanczos
+from . import sparse
 from .stochastic_lq import StochasticLQ
 from .trace import trace_components
 
@@ -355,6 +356,7 @@ __all__ = [
     approx_equal,
     bdsmm,
     lanczos,
+    sparse,
     sparse_eye,
     sparse_getitem,
     sparse_repeat,
