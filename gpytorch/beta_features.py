@@ -1,4 +1,4 @@
-class fast_pred_var(object):
+class _feature_flag(object):
     _state = False
 
     @classmethod
@@ -18,3 +18,17 @@ class fast_pred_var(object):
     def __exit__(self, *args):
         self.__class__._set_state(False)
         return False
+
+
+class fast_pred_var(_feature_flag):
+    """
+    Fast predictive variances - with Lanczos
+    """
+    pass
+
+
+class lanczos_preconditioners(_feature_flag):
+    """
+    Precondition CG with lanczos
+    """
+    pass

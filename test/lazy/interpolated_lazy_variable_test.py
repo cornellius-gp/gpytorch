@@ -1,4 +1,3 @@
-import gpytorch
 import torch
 from torch.autograd import Variable
 from gpytorch.lazy import NonLazyVariable, InterpolatedLazyVariable
@@ -85,34 +84,44 @@ def test_batch_matmul():
     # assert approx_equal(right_interp_values.grad.data, right_interp_values_copy.grad.data)
 
 
-def pending_test_inv_matmul():
+def test_inv_matmul():
+    torch.manual_seed(0)
     left_interp_indices = Variable(torch.LongTensor([[2, 3], [3, 4], [4, 5]]))
-    left_interp_values = Variable(torch.Tensor([[1, 2], [0.5, 1], [1, 3]]))
+    left_interp_values = Variable(torch.Tensor([[1, 2], [0.5, 1], [1, 3]]), requires_grad=True)
+    left_interp_values_copy = Variable(left_interp_values.data, requires_grad=True)
     right_interp_indices = Variable(torch.LongTensor([[2, 3], [3, 4], [4, 5]]))
-    right_interp_values = Variable(torch.Tensor([[1, 2], [0.5, 1], [1, 3]]))
+    right_interp_values = Variable(torch.Tensor([[1, 2], [0.5, 1], [1, 3]]), requires_grad=True)
+    right_interp_values_copy = Variable(right_interp_values.data, requires_grad=True)
 
     base_lazy_variable_mat = torch.randn(6, 6)
     base_lazy_variable_mat = base_lazy_variable_mat.t().matmul(base_lazy_variable_mat)
-    base_lazy_variable = NonLazyVariable(Variable(base_lazy_variable_mat))
+    base_variable = Variable(base_lazy_variable_mat, requires_grad=True)
+    base_variable_copy = Variable(base_lazy_variable_mat, requires_grad=True)
+    base_lazy_variable = NonLazyVariable(base_variable)
+
     test_matrix = torch.randn(3, 4)
 
     interp_lazy_var = InterpolatedLazyVariable(base_lazy_variable, left_interp_indices, left_interp_values,
                                                right_interp_indices, right_interp_values)
-    res = interp_lazy_var.inv_matmul(Variable(test_matrix)).data
+    res = interp_lazy_var.inv_matmul(Variable(test_matrix))
 
-    left_matrix = torch.Tensor([
-        [0, 0, 1, 2, 0, 0],
-        [0, 0, 0, 0.5, 1, 0],
-        [0, 0, 0, 0, 1, 3],
-    ])
-    right_matrix = torch.Tensor([
-        [0, 0, 1, 2, 0, 0],
-        [0, 0, 0, 0.5, 1, 0],
-        [0, 0, 0, 0, 1, 3],
-    ])
-    actual_mat = Variable(left_matrix.matmul(base_lazy_variable_mat).matmul(right_matrix.t()))
-    actual = gpytorch.inv_matmul(actual_mat, Variable(test_matrix)).data
-    assert approx_equal(res, actual)
+    left_matrix = Variable(torch.zeros(3, 6))
+    right_matrix = Variable(torch.zeros(3, 6))
+    left_matrix.scatter_(1, left_interp_indices, left_interp_values_copy)
+    right_matrix.scatter_(1, right_interp_indices, right_interp_values_copy)
+
+    actual_mat = left_matrix.matmul(base_variable_copy).matmul(right_matrix.t())
+    inverse = actual_mat.inverse()
+    actual = inverse.matmul(Variable(test_matrix))
+
+    assert approx_equal(res.data, actual.data)
+
+    res.sum().backward()
+    actual.sum().backward()
+
+    assert approx_equal(base_variable.grad.data, base_variable_copy.grad.data)
+    assert approx_equal(left_interp_values.grad.data, left_interp_values_copy.grad.data)
+    assert approx_equal(right_interp_values.grad.data, right_interp_values_copy.grad.data)
 
 
 def test_matmul_batch():

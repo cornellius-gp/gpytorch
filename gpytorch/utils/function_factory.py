@@ -2,11 +2,12 @@ import math
 import torch
 import gpytorch
 from torch.autograd import Function
-from .lincg import LinearCG
+from .linear_cg import linear_cg
 from .stochastic_lq import StochasticLQ
 from .trace import trace_components
 from .lanczos import lanczos_tridiag
 from . import tridiag_batch_potrf, tridiag_batch_potrs
+from ..beta_features import lanczos_preconditioners
 
 
 def _default_matmul_closure_factory(mat):
@@ -32,19 +33,59 @@ def _default_derivative_quadratic_form_factory(mat):
     return closure
 
 
+def _default_preconditioner(matmul_closure, tensor_cls, batch_size, n_dims, max_iter=20):
+    # Beta - use Lanczos decomposition
+    if lanczos_preconditioners.on():
+        if torch.is_tensor(matmul_closure):
+            matmul_closure = matmul_closure.matmul
+
+        q_mat, t_mat = lanczos_tridiag(matmul_closure, max_iter,
+                                       tensor_cls=tensor_cls, batch_size=batch_size,
+                                       n_dims=n_dims)
+        if t_mat.ndimension() == 2:
+            t_mat = t_mat.unsqueeze(0)
+        t_mat_chol = tridiag_batch_potrf(t_mat)
+
+        def closure(rhs):
+            res = q_mat.transpose(-1, -2).matmul(rhs)
+            if res.ndimension() == 2:
+                res = tridiag_batch_potrs(res.unsqueeze(0), t_mat_chol).squeeze(0)
+            else:
+                res = tridiag_batch_potrs(res, t_mat_chol)
+            res = q_mat.matmul(res)
+            return res
+
+        return closure
+
+    # Usually - just don't do preconditioning
+    else:
+        return lambda mat: mat
+
+
 def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                       derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+                       derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+                       preconditioner_factory=None):
     class InvMatmul(Function):
         def __init__(self, *args):
             self.args = args
 
         def forward(self, *args):
             closure_args = self.args + args[:-1]
-            matmul_closure = matmul_closure_factory(*closure_args)
             rhs = args[-1]
-            res = LinearCG().solve(matmul_closure, rhs)
+
+            matmul_closure = matmul_closure_factory(*closure_args)
+            if preconditioner_factory is None:
+                batch_size = rhs.size(0) if rhs.ndimension() == 3 else None
+                n_dims = rhs.size(-2) if rhs.ndimension() > 1 else rhs.size(-1)
+                preconditioner = _default_preconditioner(matmul_closure, tensor_cls=rhs.new,
+                                                         batch_size=batch_size, n_dims=n_dims)
+            else:
+                preconditioner = preconditioner_factory(*closure_args)
+
+            res = linear_cg(matmul_closure, rhs, preconditioner=preconditioner)
 
             self.matmul_closure = matmul_closure
+            self.preconditioner = preconditioner
             self.save_for_backward(*(list(args) + [res]))
             return res
 
@@ -54,13 +95,14 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
             args = self.saved_tensors[:-2]
             res = self.saved_tensors[-1]
             matmul_closure = self.matmul_closure
+            preconditioner = self.preconditioner
 
             arg_grads = [None] * len(args)
             rhs_grad = None
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
-                lhs_matrix_grad = LinearCG().solve(matmul_closure, grad_output)
+                lhs_matrix_grad = linear_cg(matmul_closure, grad_output, preconditioner=preconditioner)
                 lhs_matrix_grad = lhs_matrix_grad.mul_(-1)
                 if res.ndimension() == 1:
                     res = res.unsqueeze(1)
@@ -71,7 +113,7 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
-                rhs_grad = LinearCG().solve(matmul_closure, grad_output)
+                rhs_grad = linear_cg(matmul_closure, grad_output, preconditioner=preconditioner)
 
             return tuple(arg_grads + [rhs_grad])
 
@@ -129,10 +171,18 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
 
 
 def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+                                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+                                   preconditioner_factory=None):
     class TraceLogDetQuadForm(Function):
         def forward(self, mu_diff, chol_covar1, *covar2_args):
             covar2_matmul_closure = matmul_closure_factory(*covar2_args)
+
+            if preconditioner_factory is None:
+                batch_size = chol_covar1.size(0) if chol_covar1.ndimension() == 3 else None
+                preconditioner = _default_preconditioner(covar2_matmul_closure, tensor_cls=chol_covar1.new,
+                                                         batch_size=batch_size, n_dims=chol_covar1.size(-2))
+            else:
+                preconditioner = preconditioner_factory(*covar2_args)
 
             # log |K2|
             slq = StochasticLQ(num_random_probes=10, cls=type(covar2_args[0]))
@@ -149,14 +199,15 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                     sample_matrix = sample_matrix.expand(chol_covar1.size(0), sample_matrix.size(1),
                                                          sample_matrix.size(2))
                 rhs_vectors = chol_covar1.transpose(-1, -2).contiguous().matmul(chol_covar1.matmul(sample_matrix))
-                return LinearCG().solve(covar2_matmul_closure, rhs_vectors)
+                return linear_cg(covar2_matmul_closure, rhs_vectors, preconditioner=preconditioner)
 
             sample_matrix, mat_inv_vectors = trace_components(None, matmul_closure, size=mu_diff.size(-1),
                                                               tensor_cls=type(chol_covar1))
             trace = (sample_matrix * mat_inv_vectors).sum(-2).sum(-1)
 
             # Inverse quad form
-            mat_inv_y = LinearCG().solve(covar2_matmul_closure, mu_diff.unsqueeze(-1)).squeeze(-1)
+            mat_inv_y = linear_cg(covar2_matmul_closure, mu_diff.unsqueeze(-1),
+                                  preconditioner=preconditioner).squeeze(-1)
             inv_quad_form = mat_inv_y.mul(mu_diff).sum(-1)
 
             res = log_det_covar2 + trace + inv_quad_form
@@ -164,6 +215,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                 res = res.sum(-1)
 
             self.save_for_backward(*([mu_diff] + [chol_covar1] + list(covar2_args)))
+            self.preconditioner = preconditioner
             self.covar2_matmul_closure = covar2_matmul_closure
             self.mat_inv_y = mat_inv_y
 
@@ -182,6 +234,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
 
             mat_inv_y = self.mat_inv_y.unsqueeze(-2)
             covar2_matmul_closure = self.covar2_matmul_closure
+            preconditioner = self.preconditioner
 
             grad_mu_diff = None
             grad_cholesky_factor = None
@@ -193,8 +246,9 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
 
             if self.needs_input_grad[1]:
                 # Compute gradient with respect to the Cholesky factor L
-                grad_cholesky_factor = 2 * LinearCG().solve(matmul_closure_factory(*covar2_args),
-                                                            chol_covar1.transpose(-1, -2)).transpose(-1, -2)
+                grad_cholesky_factor = 2 * linear_cg(covar2_matmul_closure,
+                                                     chol_covar1.transpose(-1, -2),
+                                                     preconditioner=preconditioner).transpose(-1, -2)
                 grad_cholesky_factor = grad_cholesky_factor.contiguous()
                 grad_cholesky_factor.mul_(grad_output_value)
 
@@ -208,14 +262,14 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
 
                 def right_matmul_closure(sample_matrix):
                     rhs_vectors = chol_covar1.transpose(-1, -2).contiguous().matmul(chol_covar1.matmul(sample_matrix))
-                    return sample_matrix - LinearCG().solve(covar2_matmul_closure, rhs_vectors)
+                    return sample_matrix - linear_cg(covar2_matmul_closure, rhs_vectors, preconditioner=preconditioner)
 
                 def left_matmul_closure(sample_matrix):
                     if chol_covar1.ndimension() == 3:
                         sample_matrix = sample_matrix.unsqueeze(0)
                         sample_matrix = sample_matrix.expand(chol_covar1.size(0), sample_matrix.size(1),
                                                              sample_matrix.size(2))
-                    return LinearCG().solve(covar2_matmul_closure, sample_matrix)
+                    return linear_cg(covar2_matmul_closure, sample_matrix, preconditioner=preconditioner)
 
                 left_vectors, right_vectors = trace_components(left_matmul_closure, right_matmul_closure,
                                                                size=mu_diff.size(-1), tensor_cls=type(mat_inv_y))
@@ -236,7 +290,8 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
 
 
 def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                         derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+                         derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory,
+                         preconditioner_factory=None):
     class ExactGPMLL(Function):
         def forward(self, *args):
             closure_args = args[:-1]
@@ -244,7 +299,14 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             labels = labels.unsqueeze(-1)
 
             matmul_closure = matmul_closure_factory(*closure_args)
-            mat_inv_labels = LinearCG().solve(matmul_closure, labels)
+            if preconditioner_factory is None:
+                batch_size = labels.size(0) if labels.ndimension() == 3 else None
+                preconditioner = _default_preconditioner(matmul_closure, tensor_cls=labels.new,
+                                                         batch_size=batch_size, n_dims=labels.size(-2))
+            else:
+                preconditioner = preconditioner_factory(*closure_args)
+
+            mat_inv_labels = linear_cg(matmul_closure, labels, preconditioner=preconditioner)
             # Inverse quad form
             res = (mat_inv_labels * labels).sum(-1).sum(-1)
             # Log determinant
@@ -260,6 +322,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
 
             self.mat_inv_labels = mat_inv_labels
             self.matmul_closure = matmul_closure
+            self.preconditioner = preconditioner
             self.save_for_backward(*args)
             if torch.is_tensor(res):
                 return res
@@ -275,6 +338,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             grad_output_value = grad_output.squeeze()[0]
 
             matmul_closure = self.matmul_closure
+            preconditioner = self.preconditioner
             closure_arg_grads = [None] * len(closure_args)
             labels_grad = None
 
@@ -294,7 +358,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                     quad_form_part = function(mat_inv_labels.squeeze(1), mat_inv_labels.squeeze(1))
 
                 def left_matmul_closure(sample_matrix):
-                    return LinearCG().solve(matmul_closure, sample_matrix)
+                    return linear_cg(matmul_closure, sample_matrix, preconditioner=preconditioner)
 
                 if labels.ndimension() == 3:
                     left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(1),
