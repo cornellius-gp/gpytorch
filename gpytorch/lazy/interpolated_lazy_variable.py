@@ -347,12 +347,10 @@ class InterpolatedLazyVariable(LazyVariable):
                               self.right_interp_values.repeat(*sizes), **self._kwargs)
 
     def root_decomposition(self):
-        if isinstance(self.base_lazy_variable, RootLazyVariable):
-            interp_root = InterpolatedLazyVariable(self.base_lazy_variable.root, self.left_interp_indices,
+        base_root_decomposition = self.base_lazy_variable.root_decomposition().root
+        root_interp_lazy_variable = self.__class__(base_root_decomposition, self.left_interp_indices,
                                                    self.left_interp_values)
-            return RootLazyVariable(interp_root)
-        else:
-            super(InterpolatedLazyVariable, self).root_decomposition()
+        return RootLazyVariable(root_interp_lazy_variable)
 
     def root_decomposition_size(self):
         if isinstance(self.base_lazy_variable, RootLazyVariable):
