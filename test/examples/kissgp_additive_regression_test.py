@@ -36,11 +36,10 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
         self.covar_module = AdditiveGridInterpolationKernel(self.base_covar_module, grid_size=100,
                                                             grid_bounds=[(0, 1)], n_components=2)
-        self.register_parameter('log_outputscale', torch.nn.Parameter(torch.zeros(1)), bounds=(-5, 5))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x).mul(self.log_outputscale.exp())
+        covar_x = self.covar_module(x)
         return GaussianRandomVariable(mean_x, covar_x)
 
 

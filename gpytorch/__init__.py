@@ -2,9 +2,8 @@ from .module import Module
 from . import models
 from . import means
 from . import kernels
-from . import beta_features
-from .beta_features import fast_pred_var
 from torch.autograd import Variable
+from .contexts import fast_pred_var
 from .lazy import LazyVariable
 from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
@@ -143,6 +142,5 @@ __all__ = [
     normal_cdf,
     trace_logdet_quad_form,
     # Context managers
-    beta_features,
     fast_pred_var,
 ]

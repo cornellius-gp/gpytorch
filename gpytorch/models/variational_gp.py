@@ -1,7 +1,7 @@
 import gpytorch
 import torch
 from torch.autograd import Variable
-from .. import beta_features
+from .. import contexts
 from ..random_variables import GaussianRandomVariable
 from ..lazy import LazyVariable, RootLazyVariable, MatmulLazyVariable, NonLazyVariable
 from ..variational import MVNVariationalStrategy
@@ -65,7 +65,7 @@ class VariationalGP(AbstractVariationalGP):
                 self.has_computed_alpha = True
 
             # Compute chol cache, if necessary
-            if not self.has_computed_root and beta_features.fast_pred_var.on():
+            if not self.has_computed_root and contexts.fast_pred_var.on():
                 if not isinstance(induc_induc_covar, LazyVariable):
                     induc_induc_covar = NonLazyVariable(induc_induc_covar)
                 self.prior_root_inv = induc_induc_covar.root_inv_decomposition().root.evaluate()
@@ -82,7 +82,7 @@ class VariationalGP(AbstractVariationalGP):
                 predictive_covar = NonLazyVariable(test_test_covar)
             else:
                 predictive_covar = test_test_covar
-            if beta_features.fast_pred_var.on():
+            if contexts.fast_pred_var.on():
                 correction = RootLazyVariable(test_induc_covar.matmul(self.prior_root_inv)).mul(-1)
                 correction = correction + RootLazyVariable(test_induc_covar.matmul(self.variational_root))
                 predictive_covar = predictive_covar + correction

@@ -3,7 +3,7 @@ from copy import deepcopy
 from operator import mul
 from torch.autograd import Variable
 from .interpolation import Interpolation
-from .linear_cg import linear_cg
+from .lincg import LinearCG
 from . import lanczos
 from . import sparse
 from .stochastic_lq import StochasticLQ
@@ -348,6 +348,7 @@ def tridiag_batch_potrs(tensor, chol_trid, upper=True):
 
 __all__ = [
     Interpolation,
+    LinearCG,
     StochasticLQ,
     left_interp,
     reverse,
@@ -355,7 +356,6 @@ __all__ = [
     approx_equal,
     bdsmm,
     lanczos,
-    linear_cg,
     sparse,
     sparse_eye,
     sparse_getitem,
