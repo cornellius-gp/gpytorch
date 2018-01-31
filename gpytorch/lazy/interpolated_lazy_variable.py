@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
 from .root_lazy_variable import RootLazyVariable
-from ..utils import bdsmm, left_interp, sparse
+from ..utils import bdsmm, left_interp, left_t_interp, sparse
 
 
 class InterpolatedLazyVariable(LazyVariable):
@@ -303,10 +303,8 @@ class InterpolatedLazyVariable(LazyVariable):
             is_vector = False
 
         # right_interp^T * tensor
-        right_interp_t = Variable(sparse.make_sparse_from_indices_and_values(self.right_interp_indices.data,
-                                                                             self.right_interp_values.data,
-                                                                             self.base_lazy_variable.size()[-1]))
-        right_interp_res = gpytorch.dsmm(right_interp_t, tensor)
+        right_interp_res = left_t_interp(self.right_interp_indices, self.right_interp_values,
+                                         tensor, self.base_lazy_variable.size(-1))
 
         # base_lazy_var * right_interp^T * tensor
         base_res = self.base_lazy_variable.matmul(right_interp_res)

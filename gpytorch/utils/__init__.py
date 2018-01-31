@@ -141,6 +141,57 @@ def left_interp(interp_indices, interp_values, rhs):
             return res.sum(-2)
 
 
+def left_t_interp(interp_indices, interp_values, rhs, output_dim):
+    from .. import dsmm
+
+    is_vector = rhs.ndimension() == 1
+    if is_vector:
+        rhs = rhs.unsqueeze(-1)
+
+    is_batch = rhs.ndimension() == 3
+    if not is_batch:
+        rhs = rhs.unsqueeze(0)
+    if not interp_indices.ndimension() == 3:
+        interp_indices = interp_indices.unsqueeze(0)
+        interp_values = interp_values.unsqueeze(0)
+
+    batch_size, n_data, n_interp = interp_values.size()
+    _, _, n_cols = rhs.size()
+
+    values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1)).view(batch_size, n_data * n_interp, n_cols)
+
+    flat_interp_indices = interp_indices.data.contiguous().view(1, -1)
+    batch_indices = flat_interp_indices.new(batch_size, 1)
+    torch.arange(0, batch_size, out=batch_indices[:, 0])
+    batch_indices = batch_indices.repeat(1, n_data * n_interp).view(1, -1)
+    column_indices = flat_interp_indices.new(n_data * n_interp, 1)
+    torch.arange(0, n_data * n_interp, out=column_indices[:, 0])
+    column_indices = column_indices.repeat(batch_size, 1).view(1, -1)
+
+    summing_matrix_indices = torch.cat([
+        batch_indices,
+        flat_interp_indices,
+        column_indices,
+    ])
+    summing_matrix_values = interp_values.data.new(batch_size * n_data * n_interp).fill_(1)
+    size = torch.Size((batch_size, output_dim, n_data * n_interp))
+
+    if interp_values.is_cuda:
+        summing_matrix = Variable(torch.cuda.sparse.FloatTensor(summing_matrix_indices,
+                                                                summing_matrix_values, size))
+    else:
+        summing_matrix = Variable(torch.sparse.FloatTensor(summing_matrix_indices,
+                                                           summing_matrix_values, size))
+
+    res = dsmm(summing_matrix, values)
+
+    if not is_batch:
+        res = res.squeeze(0)
+    if is_vector:
+        res = res.squeeze(-1)
+    return res
+
+
 def sparse_eye(size):
     """
     Returns the identity matrix as a sparse matrix
