@@ -1,8 +1,7 @@
 import torch
 from torch.autograd import Variable
 from ..utils import function_factory
-from ..functions import max_lanczos_iterations
-from .. import beta_features
+from .. import beta_features, settings
 
 
 class LazyVariable(object):
@@ -377,7 +376,7 @@ class LazyVariable(object):
         This is the inner size of the root decomposition.
         This is primarily used to determine if it will be cheaper to compute a different root or not
         """
-        return max_lanczos_iterations
+        return settings.max_lanczos_iterations.value()
 
     def size(self, val=None):
         """

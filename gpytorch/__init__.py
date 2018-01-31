@@ -3,6 +3,7 @@ from . import models
 from . import means
 from . import kernels
 from . import beta_features
+from . import settings
 from .beta_features import fast_pred_var
 from torch.autograd import Variable
 from .lazy import LazyVariable, NonLazyVariable
@@ -186,4 +187,5 @@ __all__ = [
     # Context managers
     beta_features,
     fast_pred_var,
+    settings,
 ]
