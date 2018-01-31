@@ -305,14 +305,14 @@ class InterpolatedLazyVariable(LazyVariable):
 
             # New root factor
             base_size = self.base_lazy_variable.size(-1)
-            precomptued_cache = self.base_lazy_variable.matmul(left_t_interp(train_interp_indices, train_interp_values,
+            precomputed_cache = self.base_lazy_variable.matmul(left_t_interp(train_interp_indices, train_interp_values,
                                                                              train_train_covar_inv_labels, base_size))
 
         # Compute the exact predictive posterior
         n_test = self.size(-1) - n_train
         test_interp_indices = self.left_interp_indices.narrow(-2, n_train, n_test)
         test_interp_values = self.left_interp_values.narrow(-2, n_train, n_test)
-        res = left_interp(test_interp_indices, test_interp_values, precomptued_cache)
+        res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res, precomputed_cache
 
     def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
@@ -334,14 +334,13 @@ class InterpolatedLazyVariable(LazyVariable):
                                                                 train_train_covar_root, base_size))
 
             # Precomputed factor
-            precomputed_cache = self.base_lazy_variable + RootLazyVariable(root).mul(-1)
+            precomputed_cache = (self.base_lazy_variable + RootLazyVariable(root).mul(-1)).root_decomposition()
 
         # Compute the exact predictive posterior
         n_test = self.size(-2) - n_train
         test_interp_indices = self.left_interp_indices.narrow(-2, n_train, n_test)
         test_interp_values = self.left_interp_values.narrow(-2, n_train, n_test)
-        res = self.__class__(precomputed_cache, test_interp_indices, test_interp_values,
-                             test_interp_indices, test_interp_values)
+        res = RootLazyVariable(left_interp(test_interp_indices, test_interp_values, precomputed_cache))
         return res, precomputed_cache
 
     def matmul(self, tensor):
