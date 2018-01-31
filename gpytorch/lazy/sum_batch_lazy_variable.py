@@ -115,6 +115,15 @@ class SumBatchLazyVariable(LazyVariable):
     def batch_size(self):
         return self.base_lazy_variable.size(0)
 
+    def zero_mean_mvn_samples(self, n_samples):
+        n_dim = self.size(-2)
+        res = self.base_lazy_variable.zero_mean_mvn_samples(n_samples)
+        if self.sum_batch_size is None:
+            res = res.view(-1, n_dim, n_samples).sum(0)
+        else:
+            res = res.view(self.sum_batch_size, -1, n_dim, n_samples).sum(0)
+        return res
+
     def __getitem__(self, index):
         if self.sum_batch_size is None:
             return super(SumBatchLazyVariable, self).__getitem__(index)

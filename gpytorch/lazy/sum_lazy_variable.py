@@ -75,6 +75,9 @@ class SumLazyVariable(LazyVariable):
         lazy_vars.append(self.lazy_vars[-1].add_jitter())
         return SumLazyVariable(*lazy_vars)
 
+    def zero_mean_mvn_samples(self, n_samples):
+        return sum(lazy_var.zero_mean_mvn_samples(n_samples) for lazy_var in self.lazy_vars)
+
     def __add__(self, other):
         if isinstance(other, SumLazyVariable):
             return SumLazyVariable(*(list(self.lazy_vars) + list(other.lazy_vars)))

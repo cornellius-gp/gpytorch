@@ -42,7 +42,7 @@ def test_kissgp_classification_error():
 
     optimizer = optim.Adam(model.parameters(), lr=0.15)
     optimizer.n_iter = 0
-    for i in range(20):
+    for i in range(25):
         optimizer.zero_grad()
         output = model(train_x)
         loss = -model.marginal_log_likelihood(likelihood, output, train_y)
