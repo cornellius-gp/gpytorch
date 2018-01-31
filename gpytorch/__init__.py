@@ -5,7 +5,7 @@ from . import kernels
 from . import beta_features
 from .beta_features import fast_pred_var
 from torch.autograd import Variable
-from .lazy import LazyVariable
+from .lazy import LazyVariable, NonLazyVariable
 from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
 from .utils import function_factory
 
@@ -85,6 +85,45 @@ def exact_gp_marginal_log_likelihood(covar, target):
         return _exact_gp_mll_class()(covar, target)
 
 
+def exact_predictive_mean(full_covar, full_mean, train_labels, noise, precomputed_cache=None):
+    """
+    Computes the posterior predictive mean of a GP
+
+    Args:
+    - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
+        - [ K_XX, K_XX*; K_X*X, K_X*X* ]
+    - full_mean (n + t) - the training and test prior means, stacked on top of each other
+    - train_labels (n) - the training labels minus the training prior mean
+    - noise (1) - the observed noise (from the likelihood)
+    - precomputed_cache - speeds up subsequent computations (default: None)
+
+    Returns:
+    - (t) - the predictive posterior mean of the test points
+    """
+    if not isinstance(full_covar, LazyVariable):
+        full_covar = NonLazyVariable(full_covar)
+    return full_covar.exact_predictive_mean(full_mean, train_labels, noise, precomputed_cache)
+
+
+def exact_predictive_covar(full_covar, n_train, noise, precomputed_cache=None):
+    """
+    Computes the posterior predictive covariance of a GP
+
+    Args:
+    - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
+        - [ K_XX, K_XX*; K_X*X, K_X*X* ]
+    - n_train (int) - how many training points are there in the full covariance matrix
+    - noise (1) - the observed noise (from the likelihood)
+    - precomputed_cache - speeds up subsequent computations (default: None)
+
+    Returns:
+    - LazyVariable (t x t) - the predictive posterior covariance of the test points
+    """
+    if not isinstance(full_covar, LazyVariable):
+        full_covar = NonLazyVariable(full_covar)
+    return full_covar.exact_predictive_covar(n_train, noise, precomputed_cache)
+
+
 def inv_matmul(mat1, rhs):
     """
     Computes a linear solve with several right hand sides.
@@ -138,6 +177,8 @@ __all__ = [
     add_jitter,
     dsmm,
     exact_gp_marginal_log_likelihood,
+    exact_predictive_mean,
+    exact_predictive_covar,
     inv_matmul,
     log_normal_cdf,
     normal_cdf,

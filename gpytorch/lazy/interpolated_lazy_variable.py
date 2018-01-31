@@ -1,9 +1,9 @@
-import gpytorch
 import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
 from .root_lazy_variable import RootLazyVariable
 from ..utils import bdsmm, left_interp, left_t_interp, sparse
+from .. import beta_features
 
 
 class InterpolatedLazyVariable(LazyVariable):
@@ -291,6 +291,59 @@ class InterpolatedLazyVariable(LazyVariable):
         self._sparse_right_interp_t_memo = right_interp_t
         return self._sparse_right_interp_t_memo
 
+    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
+        n_train = train_labels.size(0)
+        if precomputed_cache is None:
+            train_mean = full_mean[:n_train]
+            train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
+            train_interp_values = self.left_interp_values.narrow(-2, 0, n_train)
+
+            # Get inverse root
+            train_train_covar = self.__class__(self.base_lazy_variable, train_interp_indices, train_interp_values,
+                                               train_interp_indices, train_interp_values).add_diag(noise)
+            train_train_covar_inv_labels = train_train_covar.inv_matmul(train_labels - train_mean)
+
+            # New root factor
+            base_size = self.base_lazy_variable.size(-1)
+            precomptued_cache = self.base_lazy_variable.matmul(left_t_interp(train_interp_indices, train_interp_values,
+                                                                             train_train_covar_inv_labels, base_size))
+
+        # Compute the exact predictive posterior
+        n_test = self.size(-1) - n_train
+        test_interp_indices = self.left_interp_indices.narrow(-2, n_train, n_test)
+        test_interp_values = self.left_interp_values.narrow(-2, n_train, n_test)
+        res = left_interp(test_interp_indices, test_interp_values, precomptued_cache)
+        return res, precomputed_cache
+
+    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+        if not beta_features.fast_pred_var.on():
+            return super(InterpolatedLazyVariable, self).exact_predictive_covar(n_train, noise, precomputed_cache)
+
+        if precomputed_cache is None:
+            train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
+            train_interp_values = self.left_interp_values.narrow(-2, 0, n_train)
+
+            # Get inverse root
+            train_train_covar = self.__class__(self.base_lazy_variable, train_interp_indices, train_interp_values,
+                                               train_interp_indices, train_interp_values).add_diag(noise)
+            train_train_covar_root = train_train_covar.root_inv_decomposition().root.evaluate()
+
+            # New root factor
+            base_size = self.base_lazy_variable.size(-1)
+            root = self.base_lazy_variable.matmul(left_t_interp(train_interp_indices, train_interp_values,
+                                                                train_train_covar_root, base_size))
+
+            # Precomputed factor
+            precomputed_cache = self.base_lazy_variable + RootLazyVariable(root).mul(-1)
+
+        # Compute the exact predictive posterior
+        n_test = self.size(-2) - n_train
+        test_interp_indices = self.left_interp_indices.narrow(-2, n_train, n_test)
+        test_interp_values = self.left_interp_values.narrow(-2, n_train, n_test)
+        res = self.__class__(precomputed_cache, test_interp_indices, test_interp_values,
+                             test_interp_indices, test_interp_values)
+        return res, precomputed_cache
+
     def matmul(self, tensor):
         # We're using a custom matmul here, because it is significantly faster than
         # what we get from the function factory.
@@ -303,8 +356,9 @@ class InterpolatedLazyVariable(LazyVariable):
             is_vector = False
 
         # right_interp^T * tensor
+        base_size = self.base_lazy_variable.size(-1)
         right_interp_res = left_t_interp(self.right_interp_indices, self.right_interp_values,
-                                         tensor, self.base_lazy_variable.size(-1))
+                                         tensor, base_size)
 
         # base_lazy_var * right_interp^T * tensor
         base_res = self.base_lazy_variable.matmul(right_interp_res)

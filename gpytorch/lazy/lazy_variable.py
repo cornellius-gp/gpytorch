@@ -2,6 +2,7 @@ import torch
 from torch.autograd import Variable
 from ..utils import function_factory
 from ..functions import max_lanczos_iterations
+from .. import beta_features
 
 
 class LazyVariable(object):
@@ -193,6 +194,67 @@ class LazyVariable(object):
                                                                        dqff)
         args = list(self.representation()) + [target]
         return self._gp_mll_class()(*args)
+
+    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
+        """
+        Computes the posterior predictive covariance of a GP
+        Assumes that self is the block prior covariance matrix of training and testing points
+        [ K_XX, K_XX*; K_X*X, K_X*X* ]
+
+        Args:
+        - full_mean (n + t) - the training and test prior means, stacked on top of each other
+        - train_labels (n) - the training labels minus the training prior mean
+        - noise (1) - the observed noise (from the likelihood)
+        - precomputed_cache - speeds up subsequent computations (default: None)
+
+        Returns:
+        - (t) - the predictive posterior mean of the test points
+        """
+        n_train = train_labels.size(0)
+        if precomputed_cache is None:
+            train_mean = full_mean[:n_train]
+            train_train_covar = self[:n_train, :n_train].add_diag(noise)
+            precomputed_cache = train_train_covar.inv_matmul(train_labels - train_mean)
+
+        test_mean = full_mean[n_train:]
+        test_train_covar = self[n_train:, :n_train]
+        res = test_train_covar.matmul(precomputed_cache) + test_mean
+        return res, precomputed_cache
+
+    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+        """
+        Computes the posterior predictive covariance of a GP
+        Assumes that self is the block prior covariance matrix of training and testing points
+        [ K_XX, K_XX*; K_X*X, K_X*X* ]
+
+        Args:
+        - n_train (int) - how many training points are there in the full covariance matrix
+        - noise (1) - the observed noise (from the likelihood)
+        - precomputed_cache - speeds up subsequent computations (default: None)
+
+        Returns:
+        - LazyVariable (t x t) - the predictive posterior covariance of the test points
+        """
+        from .root_lazy_variable import RootLazyVariable
+        train_train_covar = self[:n_train, :n_train].add_diag(noise)
+        test_train_covar = self[n_train:, :n_train]
+        test_test_covar = self[n_train:, n_train:]
+
+        if not beta_features.fast_pred_var.on():
+            from .matmul_lazy_variable import MatmulLazyVariable
+            test_train_covar = test_train_covar.evaluate()
+            train_test_covar = test_train_covar.t()
+            covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
+            res = test_test_covar + MatmulLazyVariable(test_train_covar, covar_correction_rhs)
+            return res, None
+
+        if precomputed_cache is None:
+            precomputed_cache = train_train_covar.root_inv_decomposition().root.evaluate()
+
+        covar_correction_root = test_train_covar.matmul(precomputed_cache)
+        covar_correction = RootLazyVariable(covar_correction_root).mul(-1)
+        res = test_test_covar + covar_correction
+        return res, precomputed_cache
 
     def inv_matmul(self, tensor):
         """
