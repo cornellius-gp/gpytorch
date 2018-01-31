@@ -324,7 +324,7 @@ def test_root_decomposition_forward():
     a = torch.matmul(a, a.t())
 
     a_lv = NonLazyVariable(Variable(a, requires_grad=True))
-    a_root = a_lv.root_decomposition().root.evaluate()
+    a_root = a_lv.root_decomposition()
 
     assert torch.max(((a_root.matmul(a_root.transpose(-1, -2)).data - a)).abs()) < 1e-2
 
@@ -340,7 +340,7 @@ def test_root_decomposition_backward():
 
     a_var = Variable(a, requires_grad=True)
     a_lv = NonLazyVariable(a_var)
-    a_root = a_lv.root_decomposition().root.evaluate()
+    a_root = a_lv.root_decomposition()
     res = a_root.matmul(a_root.transpose(-1, -2))
     res.trace().backward()
 
@@ -355,7 +355,7 @@ def test_root_decomposition_inv_forward():
     a = torch.matmul(a, a.t())
 
     a_lv = NonLazyVariable(Variable(a, requires_grad=True))
-    a_root = a_lv.root_inv_decomposition().root.evaluate()
+    a_root = a_lv.root_inv_decomposition()
 
     actual = a.inverse()
     diff = (a_root.matmul(a_root.transpose(-1, -2)).data - actual).abs()
@@ -373,7 +373,7 @@ def test_root_decomposition_inv_backward():
 
     a_var = Variable(a, requires_grad=True)
     a_lv = NonLazyVariable(a_var)
-    a_root = a_lv.root_inv_decomposition().root.evaluate()
+    a_root = a_lv.root_inv_decomposition()
     res = a_root.matmul(a_root.transpose(-1, -2))
     res.trace().backward()
 

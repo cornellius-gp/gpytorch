@@ -249,7 +249,7 @@ class LazyVariable(object):
             return res, None
 
         if precomputed_cache is None:
-            precomputed_cache = train_train_covar.root_inv_decomposition().root.evaluate()
+            precomputed_cache = train_train_covar.root_inv_decomposition()
 
         covar_correction_root = test_train_covar.matmul(precomputed_cache)
         covar_correction = RootLazyVariable(covar_correction_root).mul(-1)
@@ -350,13 +350,12 @@ class LazyVariable(object):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        from .root_lazy_variable import RootLazyVariable
         dqff = self._derivative_quadratic_form_factory
         self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
         function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
                                            batch_size=batch_size)
-        res = RootLazyVariable(function(*self.representation()))
+        res = function(*self.representation())
         return res
 
     def root_inv_decomposition(self):
@@ -365,13 +364,12 @@ class LazyVariable(object):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        from .root_lazy_variable import RootLazyVariable
         dqff = self._derivative_quadratic_form_factory
         self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
         function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
                                            batch_size=batch_size, inverse=True)
-        res = RootLazyVariable(function(*self.representation()))
+        res = function(*self.representation())
         return res
 
     def root_decomposition_size(self):
@@ -435,6 +433,27 @@ class LazyVariable(object):
                                                                         self._derivative_quadratic_form_factory)
         covar2_args = self.representation()
         return self._trace_log_det_quad_form_class()(mu_diffs, chol_covar_1, *covar2_args)
+
+    def zero_mean_mvn_samples(self, n_samples):
+        """
+        Assumes that self is a covariance matrix, or a batch of covariance matrices.
+        Returns samples from a zero-mean MVN, defined by self (as covariance matrix)
+
+        Self should be symmetric, either (batch_size x n_dim x n_dim) or (n_dim x n_dim)
+
+        Args:
+        - n_samples: (int)
+
+        Returns:
+        - Samples from MVN (batch_size x n_samples)
+        """
+        covar_root = self.root_decomposition()
+        if self.ndimension() == 3:
+            base_samples = Variable(self.tensor_cls(self.size(0), covar_root.size(-1), n_samples).normal_())
+        else:
+            base_samples = Variable(self.tensor_cls(covar_root.size(-1), n_samples).normal_())
+        samples = covar_root.matmul(base_samples)
+        return samples
 
     def __add__(self, other):
         from .sum_lazy_variable import SumLazyVariable

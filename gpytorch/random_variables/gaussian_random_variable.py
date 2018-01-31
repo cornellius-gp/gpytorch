@@ -29,14 +29,6 @@ class GaussianRandomVariable(RandomVariable):
         self._mean = mean
         self._covar = covar
 
-    def covar_root(self):
-        if not hasattr(self, '_root_lv'):
-            if isinstance(self._covar, Variable):
-                self._root_lv = NonLazyVariable(self._covar).root_decomposition()
-            else:
-                self._root_lv = self._covar.root_decomposition()
-        return self._root_lv.root
-
     def covar(self):
         return self._covar
 
@@ -47,14 +39,10 @@ class GaussianRandomVariable(RandomVariable):
         return self._mean, self._covar
 
     def sample(self, n_samples):
-        covar_root = self.covar_root()
-        if covar_root.ndimension() == 3:
-            base_samples = Variable(self._mean.data.new(covar_root.size(0), covar_root.size(-1), n_samples).normal_())
-        else:
-            base_samples = Variable(self._mean.data.new(covar_root.size(-1), n_samples).normal_())
-        samples = covar_root.matmul(base_samples)
-        samples = samples + self._mean.unsqueeze(-1)
-        return samples
+        covar = self.covar()
+        if not isinstance(covar, LazyVariable):
+            covar = NonLazyVariable(covar)
+        return covar.zero_mean_mvn_samples(n_samples) + self._mean.unsqueeze(-1)
 
     def var(self):
         return self._covar.diag()

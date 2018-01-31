@@ -68,7 +68,7 @@ class VariationalGP(AbstractVariationalGP):
             if not self.has_computed_root and beta_features.fast_pred_var.on():
                 if not isinstance(induc_induc_covar, LazyVariable):
                     induc_induc_covar = NonLazyVariable(induc_induc_covar)
-                self.prior_root_inv = induc_induc_covar.root_inv_decomposition().root.evaluate()
+                self.prior_root_inv = induc_induc_covar.root_inv_decomposition()
 
                 chol_variational_output = variational_output.covar().root.evaluate()
                 self.variational_root = gpytorch.inv_matmul(induc_induc_covar, chol_variational_output)
@@ -90,7 +90,7 @@ class VariationalGP(AbstractVariationalGP):
                 if isinstance(induc_test_covar, LazyVariable):
                     induc_test_covar = induc_test_covar.evaluate()
                 inv_product = gpytorch.inv_matmul(induc_induc_covar, induc_test_covar)
-                factor = variational_output.covar_root().matmul(inv_product)
+                factor = variational_output.covar().root_decomposition().matmul(inv_product)
                 right_factor = factor - inv_product
                 left_factor = (factor - induc_test_covar).transpose(-1, -2)
                 predictive_covar = predictive_covar + MatmulLazyVariable(left_factor, right_factor)

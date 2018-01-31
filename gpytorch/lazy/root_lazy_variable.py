@@ -10,4 +10,4 @@ class RootLazyVariable(MatmulLazyVariable):
         return self.lhs
 
     def root_decomposition(self):
-        return self
+        return self.root.evaluate()

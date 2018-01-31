@@ -326,7 +326,7 @@ class InterpolatedLazyVariable(LazyVariable):
             # Get inverse root
             train_train_covar = self.__class__(self.base_lazy_variable, train_interp_indices, train_interp_values,
                                                train_interp_indices, train_interp_values).add_diag(noise)
-            train_train_covar_root = train_train_covar.root_inv_decomposition().root.evaluate()
+            train_train_covar_root = train_train_covar.root_inv_decomposition()
 
             # New root factor
             base_size = self.base_lazy_variable.size(-1)
@@ -398,17 +398,9 @@ class InterpolatedLazyVariable(LazyVariable):
                               self.right_interp_indices.repeat(*sizes),
                               self.right_interp_values.repeat(*sizes), **self._kwargs)
 
-    def root_decomposition(self):
-        base_root_decomposition = self.base_lazy_variable.root_decomposition().root
-        root_interp_lazy_variable = self.__class__(base_root_decomposition, self.left_interp_indices,
-                                                   self.left_interp_values)
-        return RootLazyVariable(root_interp_lazy_variable)
-
-    def root_decomposition_size(self):
-        if isinstance(self.base_lazy_variable, RootLazyVariable):
-            return self.base_lazy_variable.root_decomposition_size()
-        else:
-            super(InterpolatedLazyVariable, self).root_decomposition_size()
+    def zero_mean_mvn_samples(self, n_samples):
+        return left_interp(self.left_interp_indices, self.left_interp_values,
+                           self.base_lazy_variable.zero_mean_mvn_samples(n_samples))
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]
