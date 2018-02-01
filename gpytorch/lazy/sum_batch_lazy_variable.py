@@ -13,8 +13,8 @@ class SumBatchLazyVariable(LazyVariable):
         By specifying sum_batch_size, you can have two batch variables: one
         that is summed over, and one that is not
         (i.e. the input is the representation of a tensor that is
-         (sum_batch_size * inner_batch_size x _ x _),
-         and will return (inner_batch_size x _ x _))
+         (true_batch_size * sum_batch_size x _ x _),
+         and will return (true_batch_size x _ x _))
         """
         if base_lazy_variable.ndimension() != 3:
             raise RuntimeError('Base lazy variable must be a batch matrix (i.e. 3 dimensions)')
@@ -37,8 +37,10 @@ class SumBatchLazyVariable(LazyVariable):
 
             res = super_closure(tensor)
             if self.sum_batch_size is not None:
-                res = res.view(self.sum_batch_size, -1, res.size(1), res.size(2))
-            res = res.sum(0)
+                res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
+                res = res.sum(1)
+            else:
+                res = res.sum(0)
 
             if isvector:
                 res = res.squeeze(-1)
@@ -61,8 +63,10 @@ class SumBatchLazyVariable(LazyVariable):
 
             res = super_closure(tensor)
             if self.sum_batch_size is not None:
-                res = res.view(self.sum_batch_size, -1, res.size(1), res.size(2))
-            res = res.sum(0)
+                res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
+                res = res.sum(1)
+            else:
+                res = res.sum(0)
 
             if isvector:
                 res = res.squeeze(-1)
@@ -132,8 +136,10 @@ class SumBatchLazyVariable(LazyVariable):
         res = self.base_lazy_variable._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
                                                                                  test_train_covar.base_lazy_variable)
         if self.sum_batch_size is not None:
-            res = res.view(self.sum_batch_size, -1, res.size(1), res.size(2))
-        res = res.sum(0)
+            res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
+            res = res.sum(1)
+        else:
+            res = res.sum(0)
         return res
 
     def mul(self, other):
@@ -153,7 +159,7 @@ class SumBatchLazyVariable(LazyVariable):
         if self.sum_batch_size is None:
             res = res.view(-1, n_dim, n_samples).sum(0)
         else:
-            res = res.view(self.sum_batch_size, -1, n_dim, n_samples).sum(0)
+            res = res.view(-1, self.sum_batch_size, n_dim, n_samples).sum(1)
         return res
 
     def __getitem__(self, index):
@@ -182,8 +188,8 @@ class SumBatchLazyVariable(LazyVariable):
                 if isinstance(res, LazyVariable):
                     return SumBatchLazyVariable(res, sum_batch_size=self.sum_batch_size)
                 else:
-                    res = res.view(self.sum_batch_size, -1, res.size(1), res.size(2))
-                    return res.sum(0)
+                    res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
+                    return res.sum(1)
 
             # Construct a new lazy variable
             # Get rid of sum_batch_index if we're choosing one batch variable
