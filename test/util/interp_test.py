@@ -76,7 +76,6 @@ def test_batch_left_t_interp_on_a_vector():
 
     actual = torch.matmul(batch_interp_matrix.transpose(-1, -2), vector.unsqueeze(-1).unsqueeze(0)).squeeze(0)
     res = left_t_interp(batch_interp_indices, batch_interp_values, Variable(vector), 6).data
-    print(res, actual)
     assert approx_equal(res, actual)
 
 

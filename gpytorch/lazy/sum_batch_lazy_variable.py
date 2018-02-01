@@ -123,7 +123,6 @@ class SumBatchLazyVariable(LazyVariable):
                                                                            train_train_covar_inv_root.size(-1))
         else:
             train_train_covar_inv_root = train_train_covar_inv_root.repeat(self.sum_batch_size, 1, 1)
-        print('woo cache')
         return self.base_lazy_variable._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root,
                                                                                    test_train_covar.base_lazy_variable)
 
@@ -135,7 +134,6 @@ class SumBatchLazyVariable(LazyVariable):
         if self.sum_batch_size is not None:
             res = res.view(self.sum_batch_size, -1, res.size(1), res.size(2))
         res = res.sum(0)
-        print('woo res')
         return res
 
     def mul(self, other):

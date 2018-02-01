@@ -329,7 +329,6 @@ class InterpolatedLazyVariable(LazyVariable):
         # where S S^T = (K_XX + sigma^2 I)^-1
         test_interp_indices = test_train_covar.left_interp_indices
         test_interp_values = test_train_covar.left_interp_values
-        print(test_interp_indices.size(), precomputed_cache.size())
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
 

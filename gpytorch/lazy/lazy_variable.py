@@ -272,11 +272,6 @@ class LazyVariable(object):
             test_train_covar = self[n_train:, :n_train]
             test_test_covar = self[n_train:, n_train:]
 
-        print(self, self.size())
-        print(train_train_covar, train_train_covar.size())
-        print(test_train_covar, test_train_covar.size())
-        print(test_test_covar, test_test_covar.size())
-
         if not beta_features.fast_pred_var.on():
             from .matmul_lazy_variable import MatmulLazyVariable
             test_train_covar = test_train_covar.evaluate()
