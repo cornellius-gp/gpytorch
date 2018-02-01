@@ -358,7 +358,7 @@ class InterpolatedLazyVariable(LazyVariable):
 
         # Compute the exact predictive posterior
         res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
-        return res, precomputed_cache
+        return RootLazyVariable(res), precomputed_cache
 
     def matmul(self, tensor):
         # We're using a custom matmul here, because it is significantly faster than
