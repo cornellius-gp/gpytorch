@@ -9,14 +9,15 @@ class _feature_flag(object):
     def _set_state(cls, state):
         cls._state = state
 
-    def __init__(self):
+    def __init__(self, state=True):
         self.prev = self.__class__.on()
+        self.state = state
 
     def __enter__(self):
-        self.__class__._set_state(True)
+        self.__class__._set_state(self.state)
 
     def __exit__(self, *args):
-        self.__class__._set_state(False)
+        self.__class__._set_state(self.prev)
         return False
 
 
