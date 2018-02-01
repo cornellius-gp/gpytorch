@@ -315,32 +315,50 @@ class InterpolatedLazyVariable(LazyVariable):
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res, precomputed_cache
 
+    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
+        train_interp_indices = test_train_covar.right_interp_indices
+        train_interp_values = test_train_covar.right_interp_values
+        base_lazy_variable = test_train_covar.base_lazy_variable
+        base_size = base_lazy_variable.size(-1)
+        res = base_lazy_variable.matmul(left_t_interp(train_interp_indices, train_interp_values,
+                                                      train_train_covar_inv_root, base_size))
+        return res
+
+    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
+        # Here the precomputed cache represents K_UU W S,
+        # where S S^T = (K_XX + sigma^2 I)^-1
+        test_interp_indices = test_train_covar.left_interp_indices
+        test_interp_values = test_train_covar.left_interp_values
+        print(test_interp_indices.size(), precomputed_cache.size())
+        res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
+        return res
+
     def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
         if not beta_features.fast_pred_var.on():
             return super(InterpolatedLazyVariable, self).exact_predictive_covar(n_train, noise, precomputed_cache)
 
-        if precomputed_cache is None:
-            train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
-            train_interp_values = self.left_interp_values.narrow(-2, 0, n_train)
+        n_test = self.size(-2) - n_train
+        train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
+        train_interp_values = self.left_interp_values.narrow(-2, 0, n_train)
+        test_interp_indices = self.left_interp_indices.narrow(-2, n_train, n_test)
+        test_interp_values = self.left_interp_values.narrow(-2, n_train, n_test)
+        test_train_covar = self.__class__(self.base_lazy_variable, test_interp_indices, test_interp_values,
+                                          train_interp_indices, train_interp_values)
 
+        if precomputed_cache is None:
             # Get inverse root
             train_train_covar = self.__class__(self.base_lazy_variable, train_interp_indices, train_interp_values,
                                                train_interp_indices, train_interp_values).add_diag(noise)
-            train_train_covar_root = train_train_covar.root_inv_decomposition()
+            train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
 
             # New root factor
-            base_size = self.base_lazy_variable.size(-1)
-            root = self.base_lazy_variable.matmul(left_t_interp(train_interp_indices, train_interp_values,
-                                                                train_train_covar_root, base_size))
+            root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar)
 
             # Precomputed factor
             precomputed_cache = (self.base_lazy_variable + RootLazyVariable(root).mul(-1)).root_decomposition()
 
         # Compute the exact predictive posterior
-        n_test = self.size(-2) - n_train
-        test_interp_indices = self.left_interp_indices.narrow(-2, n_train, n_test)
-        test_interp_values = self.left_interp_values.narrow(-2, n_train, n_test)
-        res = RootLazyVariable(left_interp(test_interp_indices, test_interp_values, precomputed_cache))
+        res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         return res, precomputed_cache
 
     def matmul(self, tensor):

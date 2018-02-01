@@ -115,6 +115,40 @@ class SumBatchLazyVariable(LazyVariable):
     def batch_size(self):
         return self.base_lazy_variable.size(0)
 
+    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
+        if self.sum_batch_size is None:
+            train_train_covar_inv_root = train_train_covar_inv_root.unsqueeze(0)
+            train_train_covar_inv_root = train_train_covar_inv_root.expand(self.base_lazy_variable.size(0),
+                                                                           train_train_covar_inv_root.size(-2),
+                                                                           train_train_covar_inv_root.size(-1))
+        else:
+            train_train_covar_inv_root = train_train_covar_inv_root.repeat(self.sum_batch_size, 1, 1)
+        print('woo cache')
+        return self.base_lazy_variable._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root,
+                                                                                   test_train_covar.base_lazy_variable)
+
+    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
+        # Here the precomputed cache is a list
+        # where each component in the list is the precomputed cache for each component lazy variable
+        res = self.base_lazy_variable._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
+                                                                                 test_train_covar.base_lazy_variable)
+        if self.sum_batch_size is not None:
+            res = res.view(self.sum_batch_size, -1, res.size(1), res.size(2))
+        res = res.sum(0)
+        print('woo res')
+        return res
+
+    def mul(self, other):
+        # We're using a custom method here - the constant mul is applied to the base lazy variable
+        # This preserves the sum batch structure
+        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or \
+               (isinstance(other, Variable) and other.numel() == 1):
+            from .constant_mul_lazy_variable import ConstantMulLazyVariable
+            return self.__class__(ConstantMulLazyVariable(self.base_lazy_variable, other),
+                                  sum_batch_size=self.sum_batch_size)
+        else:
+            return super(SumBatchLazyVariable, self).mul(other)
+
     def zero_mean_mvn_samples(self, n_samples):
         n_dim = self.size(-2)
         res = self.base_lazy_variable.zero_mean_mvn_samples(n_samples)
@@ -126,7 +160,18 @@ class SumBatchLazyVariable(LazyVariable):
 
     def __getitem__(self, index):
         if self.sum_batch_size is None:
-            return super(SumBatchLazyVariable, self).__getitem__(index)
+            # Add an all-inclusive batch dimension
+            if isinstance(index, int):
+                index = tuple(slice(None, None, None), int)
+            else:
+                index = tuple([slice(None, None, None)] + list(index))
+
+            # Do a __getitem__ on the base lazy variable
+            res = self.base_lazy_variable.__getitem__(index)
+            if isinstance(res, LazyVariable):
+                return SumBatchLazyVariable(res, sum_batch_size=None)
+            else:
+                return res.sum(0)
 
         # Cases for when there's an inner batch
         else:
@@ -134,7 +179,13 @@ class SumBatchLazyVariable(LazyVariable):
 
             # Keeping all batch dimensions - recursion base case
             if batch_index == slice(None, None, None) or batch_index is None:
-                return super.__getitem__(self, index)
+                # Do a __getitem__ on the base lazy variable
+                res = self.base_lazy_variable.__getitem__(index)
+                if isinstance(res, LazyVariable):
+                    return SumBatchLazyVariable(res, sum_batch_size=self.sum_batch_size)
+                else:
+                    res = res.view(self.sum_batch_size, -1, res.size(1), res.size(2))
+                    return res.sum(0)
 
             # Construct a new lazy variable
             # Get rid of sum_batch_index if we're choosing one batch variable

@@ -97,10 +97,10 @@ def left_interp(interp_indices, interp_values, rhs):
         if interp_indices.is_cuda:
             if interp_indices.ndimension() == 3:
                 n_batch, n_data, n_interp = interp_indices.size()
-                interp_indices = interp_indices.view(-1)
+                interp_indices = interp_indices.contiguous().view(-1)
                 if isinstance(interp_indices, Variable):
                     interp_indices = interp_indices.data
-                interp_values = interp_values.view(-1, 1)
+                interp_values = interp_values.contiguous().view(-1, 1)
 
                 if rhs.ndimension() == 3:
                     if rhs.size(0) == 1 and interp_indices.size(0) > 1:
@@ -116,8 +116,8 @@ def left_interp(interp_indices, interp_values, rhs):
                 return res
             else:
                 n_data, n_interp = interp_indices.size()
-                interp_indices = interp_indices.view(-1)
-                interp_values = interp_values.view(-1, 1)
+                interp_indices = interp_indices.contiguous().view(-1)
+                interp_values = interp_values.contiguous().view(-1, 1)
                 if rhs.ndimension() == 3:
                     n_batch, _, n_cols = rhs.size()
                     rhs = rhs.transpose(0, 1).contiguous().view(-1, n_batch * n_cols)
