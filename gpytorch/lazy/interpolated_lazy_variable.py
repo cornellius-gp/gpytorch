@@ -334,7 +334,7 @@ class InterpolatedLazyVariable(LazyVariable):
         return res
 
     def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
-        if not beta_features.fast_pred_var.on():
+        if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
             return super(InterpolatedLazyVariable, self).exact_predictive_covar(n_train, noise, precomputed_cache)
 
         n_test = self.size(-2) - n_train
@@ -355,11 +355,22 @@ class InterpolatedLazyVariable(LazyVariable):
             root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar)
 
             # Precomputed factor
-            precomputed_cache = (self.base_lazy_variable + RootLazyVariable(root).mul(-1)).root_decomposition()
+            if beta_features.fast_pred_samples.on():
+                precomputed_cache = (self.base_lazy_variable + RootLazyVariable(root).mul(-1)).root_decomposition()
+            else:
+                precomputed_cache = root
 
         # Compute the exact predictive posterior
-        res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
-        return RootLazyVariable(res), precomputed_cache
+        if beta_features.fast_pred_samples.on():
+            res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
+            res = RootLazyVariable(res)
+        else:
+            test_test_prior_covar = InterpolatedLazyVariable(self.base_lazy_variable,
+                                                             test_interp_indices, test_interp_values,
+                                                             test_interp_indices, test_interp_values)
+            root = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
+            res = test_test_prior_covar + RootLazyVariable(root).mul(-1)
+        return res, precomputed_cache
 
     def matmul(self, tensor):
         # We're using a custom matmul here, because it is significantly faster than
