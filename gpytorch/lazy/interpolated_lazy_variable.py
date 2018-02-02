@@ -292,9 +292,9 @@ class InterpolatedLazyVariable(LazyVariable):
         return self._sparse_right_interp_t_memo
 
     def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
-        n_train = train_labels.size(0)
+        n_train = train_labels.size(-1)
         if precomputed_cache is None:
-            train_mean = full_mean[:n_train]
+            train_mean = full_mean.narrow(-1, 0, n_train)
             train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
             train_interp_values = self.left_interp_values.narrow(-2, 0, n_train)
 
@@ -310,9 +310,10 @@ class InterpolatedLazyVariable(LazyVariable):
 
         # Compute the exact predictive posterior
         n_test = self.size(-1) - n_train
+        test_mean = full_mean.narrow(-1, n_train, n_test)
         test_interp_indices = self.left_interp_indices.narrow(-2, n_train, n_test)
         test_interp_values = self.left_interp_values.narrow(-2, n_train, n_test)
-        res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
+        res = left_interp(test_interp_indices, test_interp_values, precomputed_cache) + test_mean
         return res, precomputed_cache
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
