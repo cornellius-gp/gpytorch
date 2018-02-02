@@ -1,12 +1,10 @@
 import math
 import torch
-import gpytorch
 from torch.autograd import Function
 from .lincg import LinearCG
 from .stochastic_lq import StochasticLQ
 from .trace import trace_components
 from .lanczos import lanczos_tridiag
-from . import tridiag_batch_potrf, tridiag_batch_potrs
 
 
 def _default_matmul_closure_factory(mat):
@@ -347,27 +345,26 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                 q_mat = q_mat.unsqueeze(0)
                 t_mat = t_mat.unsqueeze(0)
 
-            # Do cholesky decomposition
-            t_mat_chol = tridiag_batch_potrf(t_mat, upper=False)
-            if not torch.equal(t_mat_chol, t_mat_chol):
-                # NaNs detected! Try adding jitter
-                t_mat = gpytorch.add_jitter(t_mat)
-                t_mat_chol = tridiag_batch_potrf(gpytorch.add_jitter(t_mat), upper=False)
-                # If it still doesn't work, then the T matrix is probably not PD
-                if not torch.equal(t_mat_chol, t_mat_chol):
-                    raise RuntimeError('Matrix is not positive definite, even after adding jitter')
+            evecs_list = []
+            evals_list = []
+            for i in range(t_mat.size(0)):
+                evals, evecs = t_mat[i].symeig(eigenvectors=True)
+                mask = evals.ge(0).type_as(evecs)
+                evals_list.append((evals * mask).unsqueeze(0))
+                evecs_list.append((evecs * mask.unsqueeze(0)).unsqueeze(0))
+
+            q_mat = q_mat.matmul(torch.cat(evecs_list))
+            root_evals = torch.cat(evals_list).sqrt()
 
             # Store q_mat * t_mat_chol
             # Decide if we're computing the inverse, or the regular root
             if self.inverse:
-                q_mat_t = q_mat.transpose(-1, -2)
-                t_mat_chol_t = t_mat_chol.transpose(-1, -2)
-                res = t_mat_chol_t.matmul(tridiag_batch_potrs(q_mat_t, t_mat_chol, upper=False)).transpose(-1, -2)
+                res = q_mat / root_evals.unsqueeze(-2)
                 self.__root_inverse = res
             else:
                 self.__q_mat = q_mat
-                self.__t_mat_chol = t_mat_chol
-                res = self.__q_mat.matmul(self.__t_mat_chol)
+                self.__root_evals = root_evals
+                res = self.__q_mat * root_evals.unsqueeze(-2)
 
             self.save_for_backward(*args)
 
@@ -388,10 +385,9 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                     root_inverse_t = self.__root_inverse.transpose(-1, -2)
                 else:
                     q_mat = self.__q_mat
-                    t_mat_chol = self.__t_mat_chol
-                    t_mat_chol_t = t_mat_chol.transpose(-1, -2)
+                    root_evals = self.__root_evals
                     q_mat_t = q_mat.transpose(-1, -2)
-                    root_inverse_t = t_mat_chol_t.matmul(tridiag_batch_potrs(q_mat_t, t_mat_chol, upper=False))
+                    root_inverse_t = q_mat_t / root_evals.unsqueeze(-1)
 
                 # Left factor:
                 if self.inverse:
