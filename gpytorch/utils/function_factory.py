@@ -1,6 +1,6 @@
 import math
 import torch
-from torch.autograd import Function
+from torch.autograd import Function, Variable
 from .lincg import LinearCG
 from .stochastic_lq import StochasticLQ
 from .trace import trace_components
@@ -324,12 +324,13 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
 def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_factory,
                                derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class RootDecomposition(Function):
-        def __init__(self, cls, size, max_iter, batch_size=None, inverse=False):
+        def __init__(self, cls, size, max_iter, batch_size=None, inverse=False, initial_vector=None):
             self.cls = cls
             self.size = size
             self.max_iter = max_iter
             self.batch_size = batch_size
             self.inverse = inverse
+            self.initial_vector = initial_vector.data if isinstance(initial_vector, Variable) else initial_vector
 
         def forward(self, *args):
             matmul_closure = matmul_closure_factory(*args)
@@ -339,7 +340,7 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
 
             q_mat, t_mat = lanczos_tridiag(tensor_matmul_closure, self.max_iter,
                                            tensor_cls=self.cls, batch_size=self.batch_size,
-                                           n_dims=self.size)
+                                           n_dims=self.size, init_vecs=self.initial_vector)
 
             if self.batch_size is None:
                 q_mat = q_mat.unsqueeze(0)

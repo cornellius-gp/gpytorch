@@ -349,7 +349,15 @@ class InterpolatedLazyVariable(LazyVariable):
             # Get inverse root
             train_train_covar = self.__class__(self.base_lazy_variable, train_interp_indices, train_interp_values,
                                                train_interp_indices, train_interp_values).add_diag(noise)
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
+
+            if self.base_lazy_variable.ndimension() == 3:
+                first_base_vector = self.base_lazy_variable[:, :, 0]
+            else:
+                first_base_vector = self.base_lazy_variable[:, 0]
+            if isinstance(first_base_vector, LazyVariable):
+                first_base_vector = first_base_vector.evaluate()
+            probe_vector = left_interp(train_interp_indices, train_interp_values, first_base_vector)
+            train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vector)
 
             # New root factor
             root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar)
