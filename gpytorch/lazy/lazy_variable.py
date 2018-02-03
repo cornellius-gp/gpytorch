@@ -393,28 +393,65 @@ class LazyVariable(object):
         res, _ = function(*self.representation())
         return res
 
-    def root_inv_decomposition(self, initial_vector=None):
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         """
         Returns a (usually low-rank) root decomposotion lazy variable of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        if initial_vector is not None:
+        if initial_vectors is not None:
             if self.ndimension() == 3:
-                if initial_vector.ndimension() == 2:
-                    initial_vector = initial_vector.unsqueeze(-1)
+                if initial_vectors.ndimension() == 2:
+                    initial_vectors = initial_vectors.unsqueeze(-1)
             else:
-                if initial_vector.ndimension() == 1:
-                    initial_vector = initial_vector.unsqueeze(-1)
+                if initial_vectors.ndimension() == 1:
+                    initial_vectors = initial_vectors.unsqueeze(-1)
+            if initial_vectors.size(-1) > 1 and test_vectors is None:
+                raise RuntimeError('You must supply test vectors if you supply more than one initial vector')
 
         dqff = self._derivative_quadratic_form_factory
         self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
         function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
-                                           batch_size=batch_size, root=False, inverse=True,
-                                           initial_vector=initial_vector)
-        _, res = function(*self.representation())
-        return res
+                                           batch_size=batch_size, root=True, inverse=True,
+                                           initial_vector=initial_vectors)
+
+        roots, inv_roots = function(*self.representation())
+
+        # Choose the best of the inv_roots, if there were more than one initial vectors
+        if initial_vectors is not None and initial_vectors.size(-1) > 1:
+            n_probes = initial_vectors.size(-1)
+            n_dim = self.size(-1)
+            test_vectors = test_vectors.unsqueeze(0)
+
+            # Compute solves
+            solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
+
+            # Compute self * solves
+            if batch_size is None:
+                solves = solves.permute(1, 2, 0).contiguous().view(n_dim, -1)
+                mat_times_solves = self.matmul(solves)
+                mat_times_solves = mat_times_solves.view(n_dim, -1, n_probes).permute(2, 0, 1)
+            else:
+                solves = solves.permute(1, 2, 3, 0).contiguous().view(batch_size, n_dim, -1)
+                mat_times_solves = self.matmul(solves)
+                mat_times_solves = mat_times_solves.view(batch_size, n_dim, -1, n_probes).permute(3, 0, 1, 2)
+
+            # Compute residuals
+            residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
+            if batch_size is None:
+                residuals = residuals.sum(-1)
+            else:
+                residuals = residuals.sum(-1).sum(-1)
+
+            # Choose solve that best fits
+            _, best_solve_index = residuals.min(0)
+            inv_root = inv_roots[best_solve_index].squeeze(0)
+
+        else:
+            inv_root = inv_roots
+
+        return inv_root
 
     def root_decomposition_size(self):
         """

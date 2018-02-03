@@ -350,14 +350,28 @@ class InterpolatedLazyVariable(LazyVariable):
             train_train_covar = self.__class__(self.base_lazy_variable, train_interp_indices, train_interp_values,
                                                train_interp_indices, train_interp_values).add_diag(noise)
 
-            if self.base_lazy_variable.ndimension() == 3:
-                first_base_vector = self.base_lazy_variable[:, :, 0]
-            else:
-                first_base_vector = self.base_lazy_variable[:, 0]
-            if isinstance(first_base_vector, LazyVariable):
-                first_base_vector = first_base_vector.evaluate()
-            probe_vector = left_interp(train_interp_indices, train_interp_values, first_base_vector)
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vector)
+            n_probe_vectors = beta_features.fast_pred_var.n_probe_vectors()
+            batch_size = train_interp_indices.size(0)
+            n_inducing = self.base_lazy_variable.size(-1)
+            vector_indices = torch.randperm(n_inducing).type_as(train_interp_indices.data)
+            probe_vector_indices = vector_indices[:n_probe_vectors]
+            test_vector_indices = vector_indices[n_probe_vectors:2 * n_probe_vectors]
+
+            probe_interp_indices = Variable(probe_vector_indices.unsqueeze(1))
+            probe_test_interp_indices = Variable(test_vector_indices.unsqueeze(1))
+            probe_interp_values = Variable(train_interp_values.data.new(n_probe_vectors, 1).fill_(1))
+            if train_interp_indices.ndimension() == 3:
+                probe_interp_indices = probe_interp_indices.unsqueeze(0).expand(batch_size, n_probe_vectors, 1)
+                probe_test_interp_indices = probe_test_interp_indices.unsqueeze(0)
+                probe_test_interp_indices = probe_test_interp_indices.expand(batch_size, n_probe_vectors, 1)
+                probe_interp_values = probe_interp_values.unsqueeze(0).expand(batch_size, n_probe_vectors, 1)
+
+            probe_vectors = InterpolatedLazyVariable(self.base_lazy_variable, train_interp_indices, train_interp_values,
+                                                     probe_interp_indices, probe_interp_values).evaluate()
+            test_vectors = InterpolatedLazyVariable(self.base_lazy_variable, train_interp_indices, train_interp_values,
+                                                    probe_test_interp_indices, probe_interp_values).evaluate()
+
+            train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors)
 
             # New root factor
             root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar)
