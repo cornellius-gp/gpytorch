@@ -378,19 +378,20 @@ class InterpolatedLazyVariable(LazyVariable):
 
             # Precomputed factor
             if beta_features.fast_pred_samples.on():
-                precomputed_cache = (self.base_lazy_variable + RootLazyVariable(root).mul(-1)).root_decomposition()
+                inside = self.base_lazy_variable + RootLazyVariable(root).mul(-1)
+                precomputed_cache = inside.root_decomposition(), None
             else:
-                precomputed_cache = root
+                precomputed_cache = None, root
 
         # Compute the exact predictive posterior
         if beta_features.fast_pred_samples.on():
-            res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
+            res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache[0], test_train_covar)
             res = RootLazyVariable(res)
         else:
             test_test_prior_covar = InterpolatedLazyVariable(self.base_lazy_variable,
                                                              test_interp_indices, test_interp_values,
                                                              test_interp_indices, test_interp_values)
-            root = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
+            root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1])
             res = test_test_prior_covar + RootLazyVariable(root).mul(-1)
         return res, precomputed_cache
 
