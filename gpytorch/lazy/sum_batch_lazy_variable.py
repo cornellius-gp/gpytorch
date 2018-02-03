@@ -212,7 +212,7 @@ class SumBatchLazyVariable(LazyVariable):
             new_var = self.__class__(*components, sum_batch_size=sum_batch_size)
 
             # If the index was only on the batch index, we're done
-            if isinstance(index, int):
+            if isinstance(index, int) or len(index) == 1:
                 return new_var
 
             # Else - recurse
