@@ -390,7 +390,7 @@ class LazyVariable(object):
         batch_size = self.size(0) if self.ndimension() == 3 else None
         function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
                                            batch_size=batch_size)
-        res = function(*self.representation())
+        res, _ = function(*self.representation())
         return res
 
     def root_inv_decomposition(self, initial_vector=None):
@@ -411,8 +411,9 @@ class LazyVariable(object):
         self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
         function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
-                                           batch_size=batch_size, inverse=True, initial_vector=initial_vector)
-        res = function(*self.representation())
+                                           batch_size=batch_size, root=False, inverse=True,
+                                           initial_vector=initial_vector)
+        _, res = function(*self.representation())
         return res
 
     def root_decomposition_size(self):

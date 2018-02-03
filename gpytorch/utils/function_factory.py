@@ -324,11 +324,12 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
 def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_factory,
                                derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class RootDecomposition(Function):
-        def __init__(self, cls, size, max_iter, batch_size=None, inverse=False, initial_vector=None):
+        def __init__(self, cls, size, max_iter, batch_size=None, root=True, inverse=False, initial_vector=None):
             self.cls = cls
             self.size = size
             self.max_iter = max_iter
             self.batch_size = batch_size
+            self.root = root
             self.inverse = inverse
             self.initial_vector = initial_vector.data if isinstance(initial_vector, Variable) else initial_vector
 
@@ -338,48 +339,73 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
             def tensor_matmul_closure(rhs):
                 return matmul_closure(rhs)
 
+            # Do lanczos
             q_mat, t_mat = lanczos_tridiag(tensor_matmul_closure, self.max_iter,
                                            tensor_cls=self.cls, batch_size=self.batch_size,
                                            n_dims=self.size, init_vecs=self.initial_vector)
-
             if self.batch_size is None:
+                q_mat = q_mat.unsqueeze(-3)
+                t_mat = t_mat.unsqueeze(-3)
+            if t_mat.ndimension() == 3:  # If we only used one probe vector
                 q_mat = q_mat.unsqueeze(0)
                 t_mat = t_mat.unsqueeze(0)
+            n_probes = t_mat.size(0)
 
+            # Eigenvalue correction - remove negative eigenvalues
             evecs_list = []
             evals_list = []
             for i in range(t_mat.size(0)):
-                evals, evecs = t_mat[i].symeig(eigenvectors=True)
-                mask = evals.ge(0).type_as(evecs)
-                evals_list.append((evals * mask).unsqueeze(0))
-                evecs_list.append((evecs * mask.unsqueeze(0)).unsqueeze(0))
+                for j in range(t_mat.size(1)):
+                    evals, evecs = t_mat[i, j].symeig(eigenvectors=True)
+                    mask = evals.ge(0).type_as(evecs)
+                    evals_list.append((evals * mask).unsqueeze(0))
+                    evecs_list.append((evecs * mask.unsqueeze(0)).unsqueeze(0))
 
-            q_mat = q_mat.matmul(torch.cat(evecs_list))
-            root_evals = torch.cat(evals_list).sqrt()
+            # Get orthogonal matrix and eigenvalue roots
+            q_mat = q_mat.matmul(torch.cat(evecs_list).view(*t_mat.size()))
+            root_evals = torch.cat(evals_list).view(n_probes, t_mat.size(1), t_mat.size(2)).sqrt()
 
             # Store q_mat * t_mat_chol
             # Decide if we're computing the inverse, or the regular root
+            root = q_mat.new()
+            inverse = q_mat.new()
             if self.inverse:
-                res = q_mat / root_evals.unsqueeze(-2)
-                self.__root_inverse = res
-            else:
-                self.__q_mat = q_mat
-                self.__root_evals = root_evals
-                res = self.__q_mat * root_evals.unsqueeze(-2)
+                inverse = q_mat / root_evals.unsqueeze(-2)
+                self.__root_inverse = inverse
+            if self.root:
+                root = q_mat * root_evals.unsqueeze(-2)
 
+            self.__q_mat = q_mat
+            self.__root_evals = root_evals
             self.save_for_backward(*args)
 
             if self.batch_size is None:
-                res = res.squeeze(0)
-            return res
+                root = root.squeeze(1) if root.numel() else root
+                inverse = inverse.squeeze(1) if inverse.numel() else inverse
+            if n_probes == 1:
+                root = root.squeeze(0) if root.numel() else root
+                inverse = inverse.squeeze(0) if inverse.numel() else inverse
+            return root, inverse
 
-        def backward(self, grad_output):
+        def backward(self, root_grad_output, inverse_grad_output):
             # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
             if any(self.needs_input_grad):
                 args = self.saved_tensors
+                if root_grad_output.numel() == 1 and root_grad_output[0] == 0:
+                    root_grad_output = None
+                if inverse_grad_output.numel() == 1 and inverse_grad_output[0] == 0:
+                    inverse_grad_output = None
 
-                if grad_output.ndimension() == 2:
-                    grad_output = grad_output.unsqueeze(0)
+                if root_grad_output is not None:
+                    if root_grad_output.ndimension() == 2:
+                        root_grad_output = root_grad_output.unsqueeze(0)
+                    if root_grad_output.ndimension() == 3:
+                        root_grad_output = root_grad_output.unsqueeze(0)
+                if inverse_grad_output is not None:
+                    if inverse_grad_output.ndimension() == 2:
+                        inverse_grad_output = inverse_grad_output.unsqueeze(0)
+                    if inverse_grad_output.ndimension() == 3:
+                        inverse_grad_output = inverse_grad_output.unsqueeze(0)
 
                 # Get root inverse
                 if self.inverse:
@@ -391,15 +417,19 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                     root_inverse_t = q_mat_t / root_evals.unsqueeze(-1)
 
                 # Left factor:
-                if self.inverse:
+                left_factor = root_inverse_t.new(root_inverse_t.size(0), root_inverse_t.size(0),
+                                                 root_inverse_t.size(-2), root_inverse_t.size(-2)).zero_()
+                if root_grad_output is not None:
+                    left_factor.add_(root_grad_output.transpose(-1, -2))
+                if inverse_grad_output is not None:
                     # -root^-T grad_output.T root^-T
-                    left_factor = torch.matmul(root_inverse_t, grad_output).matmul(root_inverse_t)
-                    left_factor.mul_(-1)
-                else:
-                    # grad_output.T
-                    left_factor = grad_output.transpose(-1, -2)
+                    left_factor.sub_(torch.matmul(root_inverse_t, inverse_grad_output).matmul(root_inverse_t))
 
                 right_factor = root_inverse_t.div(2.)
+
+                # Fix batches
+                left_factor = left_factor.view(-1, left_factor.size(-2), left_factor.size(-1))
+                right_factor = right_factor.view(-1, right_factor.size(-2), right_factor.size(-1))
                 res = derivative_quadratic_form_factory(*args)(left_factor, right_factor)
                 return res
 
