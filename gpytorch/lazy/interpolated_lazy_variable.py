@@ -345,11 +345,13 @@ class InterpolatedLazyVariable(LazyVariable):
         test_train_covar = self.__class__(self.base_lazy_variable, test_interp_indices, test_interp_values,
                                           train_interp_indices, train_interp_values)
 
-        if precomputed_cache is None:
+        if precomputed_cache is None or (beta_features.fast_pred_samples.on() and precomputed_cache[0] is None) \
+                or (not beta_features.fast_pred_samples.on() and precomputed_cache[1] is None):
             # Get inverse root
             train_train_covar = self.__class__(self.base_lazy_variable, train_interp_indices, train_interp_values,
                                                train_interp_indices, train_interp_values).add_diag(noise)
 
+            # Get probe vectors for inverse root
             n_probe_vectors = beta_features.fast_pred_var.n_probe_vectors()
             batch_size = train_interp_indices.size(0)
             n_inducing = self.base_lazy_variable.size(-1)
@@ -371,6 +373,7 @@ class InterpolatedLazyVariable(LazyVariable):
             test_vectors = InterpolatedLazyVariable(self.base_lazy_variable, train_interp_indices, train_interp_values,
                                                     probe_test_interp_indices, probe_interp_values).evaluate()
 
+            # Get inverse root
             train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors)
 
             # New root factor
