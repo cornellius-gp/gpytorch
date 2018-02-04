@@ -1,6 +1,5 @@
 from torch.autograd import Variable
 from .grid_interpolation_kernel import GridInterpolationKernel
-from ..lazy import SumBatchLazyVariable
 from ..utils import Interpolation
 
 
@@ -24,4 +23,4 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
 
     def forward(self, x1, x2):
         res = super(AdditiveGridInterpolationKernel, self).forward(x1, x2)
-        return SumBatchLazyVariable(res, sum_batch_size=self.n_components)
+        return res.sum_batch(sum_batch_size=self.n_components)

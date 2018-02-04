@@ -469,6 +469,10 @@ class LazyVariable(object):
             return size[val]
         return size
 
+    def sum_batch(self, sum_batch_size=None):
+        from .sum_batch_lazy_variable import SumBatchLazyVariable
+        return SumBatchLazyVariable(self, sum_batch_size=sum_batch_size)
+
     def transpose(self, dim1, dim2):
         """
         Returns the transpose of the resulting Variable that the lazy variable represents

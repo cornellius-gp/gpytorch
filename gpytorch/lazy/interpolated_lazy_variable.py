@@ -1,5 +1,6 @@
 import torch
 from torch.autograd import Variable
+from .block_diagonal_lazy_variable import BlockDiagonalLazyVariable
 from .lazy_variable import LazyVariable
 from .root_lazy_variable import RootLazyVariable
 from ..utils import bdsmm, left_interp, left_t_interp, sparse
@@ -451,6 +452,59 @@ class InterpolatedLazyVariable(LazyVariable):
                               self.left_interp_values.repeat(*sizes),
                               self.right_interp_indices.repeat(*sizes),
                               self.right_interp_values.repeat(*sizes), **self._kwargs)
+
+    def sum_batch(self, sum_batch_size=None):
+        left_interp_indices = self.left_interp_indices
+        left_interp_values = self.left_interp_values
+        right_interp_indices = self.right_interp_indices
+        right_interp_values = self.right_interp_values
+
+        n_interp = left_interp_indices.size(-1)
+        n_left = left_interp_indices.size(-2)
+        n_right = right_interp_indices.size(-2)
+
+        # Deal with the two batch dimensions, if necessary
+        if sum_batch_size is not None:
+            left_interp_indices = left_interp_indices.view(-1, sum_batch_size, n_left, n_interp)
+            left_interp_values = left_interp_values.view(-1, sum_batch_size, n_left, n_interp)
+            right_interp_indices = right_interp_indices.view(-1, sum_batch_size, n_right, n_interp)
+            right_interp_values = right_interp_values.view(-1, sum_batch_size, n_right, n_interp)
+
+        # Increase interpolation indices appropriately
+        factor = Variable(left_interp_indices.data.new(left_interp_indices.size(-3), 1, 1))
+        torch.arange(0, left_interp_indices.size(-3), out=factor.data[:, 0, 0])
+        factor = factor * self.base_lazy_variable.size(-1)
+        if sum_batch_size is not None:
+            factor = factor.unsqueeze(0)
+        left_interp_indices = left_interp_indices.add(factor)
+        right_interp_indices = right_interp_indices.add(factor)
+
+        # Rearrange the indices and values
+        if sum_batch_size is not None:
+            left_interp_indices = left_interp_indices.permute(0, 2, 3, 1).contiguous()
+            left_interp_indices = left_interp_indices.view(-1, n_left, n_interp * sum_batch_size)
+            left_interp_values = left_interp_values.permute(0, 2, 3, 1).contiguous()
+            left_interp_values = left_interp_values.view(-1, n_left, n_interp * sum_batch_size)
+            right_interp_indices = right_interp_indices.permute(0, 2, 3, 1).contiguous()
+            right_interp_indices = right_interp_indices.view(-1, n_right, n_interp * sum_batch_size)
+            right_interp_values = right_interp_values.permute(0, 2, 3, 1).contiguous()
+            right_interp_values = right_interp_values.view(-1, n_right, n_interp * sum_batch_size)
+        else:
+            left_interp_indices = left_interp_indices.permute(1, 2, 0).contiguous()
+            left_interp_indices = left_interp_indices.view(n_left, -1)
+            left_interp_values = left_interp_values.permute(1, 2, 0).contiguous()
+            left_interp_values = left_interp_values.view(n_left, -1)
+            right_interp_indices = right_interp_indices.permute(1, 2, 0).contiguous()
+            right_interp_indices = right_interp_indices.view(n_right, -1)
+            right_interp_values = right_interp_values.permute(1, 2, 0).contiguous()
+            right_interp_values = right_interp_values.view(n_right, -1)
+
+        # Make the base lazy variable block diagonal
+        block_diag = BlockDiagonalLazyVariable(self.base_lazy_variable, n_blocks=sum_batch_size)
+
+        # Finally! We have an interpolated lazy variable again
+        return InterpolatedLazyVariable(block_diag, left_interp_indices, left_interp_values,
+                                        right_interp_indices, right_interp_values)
 
     def zero_mean_mvn_samples(self, n_samples):
         return left_interp(self.left_interp_indices, self.left_interp_values,

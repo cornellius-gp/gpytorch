@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from ..lazy import SumBatchLazyVariable
 from ..random_variables import GaussianRandomVariable
 from .grid_inducing_variational_gp import GridInducingVariationalGP
 
@@ -60,7 +59,7 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
         output = super(AdditiveGridInducingVariationalGP, self).__call__(inputs, **kwargs)
         if self.sum_output:
             mean = output.mean().sum(0)
-            covar = SumBatchLazyVariable(output.covar())
+            covar = output.covar().sum_batch()
             return GaussianRandomVariable(mean, covar)
         else:
             return output
