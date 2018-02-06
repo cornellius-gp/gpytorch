@@ -311,6 +311,9 @@ class InterpolatedLazyVariable(LazyVariable):
             precomputed_cache = self.base_lazy_variable.matmul(left_t_interp(train_interp_indices, train_interp_values,
                                                                              train_train_covar_inv_labels, base_size))
 
+            # Prevent backprop through this variable
+            precomputed_cache.detach_()
+
         # Compute the exact predictive posterior
         n_test = self.size(-1) - n_train
         test_mean = full_mean.narrow(-1, n_train, n_test)
@@ -385,8 +388,13 @@ class InterpolatedLazyVariable(LazyVariable):
             # Precomputed factor
             if beta_features.fast_pred_samples.on():
                 inside = self.base_lazy_variable + RootLazyVariable(root).mul(-1)
-                precomputed_cache = inside.root_decomposition(), None
+                inside_root = inside.root_decomposition()
+                # Prevent backprop through this variable
+                inside_root.detach_()
+                precomputed_cache = inside_root, None
             else:
+                # Prevent backprop through this variable
+                root.detach_()
                 precomputed_cache = None, root
 
         # Compute the exact predictive posterior
