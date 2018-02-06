@@ -43,7 +43,7 @@ class ExactGP(Module):
             raise RuntimeError('You must train on the training targets!')
 
         mean, covar = likelihood(output).representation()
-        n_data = len(target)
+        n_data = target.size(-1)
         return gpytorch.exact_gp_marginal_log_likelihood(covar, target - mean).div(n_data)
 
     def train(self, mode=True):
