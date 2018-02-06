@@ -28,8 +28,8 @@ class DiagLazyVariable(LazyVariable):
     def _derivative_quadratic_form_factory(self, diag):
         def closure(left_factor, right_factor):
             res = left_factor * right_factor
-            if res.ndimension() == 2:
-                res = res.sum(0)
+            if res.ndimension() > diag.ndimension():
+                res = res.sum(-2)
             return res,
 
         return closure

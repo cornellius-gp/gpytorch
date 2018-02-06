@@ -23,9 +23,7 @@ def _default_derivative_quadratic_form_factory(mat):
         else:
             left_factor = left_vectors.contiguous()
             right_factor = right_vectors.contiguous()
-        left_factor = left_factor.unsqueeze(-1)
-        right_factor = right_factor.unsqueeze(-2)
-        res = (left_factor * right_factor).sum(dim=-3).squeeze_()
+        res = left_factor.transpose(-1, -2).matmul(right_factor).squeeze_()
         return res,
     return closure
 
@@ -65,7 +63,8 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
                 if lhs_matrix_grad.ndimension() == 1:
                     lhs_matrix_grad = lhs_matrix_grad.unsqueeze(1)
 
-                arg_grads = list(derivative_quadratic_form_factory(*args)(lhs_matrix_grad.t(), res.t()))
+                arg_grads = list(derivative_quadratic_form_factory(*args)(lhs_matrix_grad.transpose(-1, -2),
+                                                                          res.transpose(-1, -2)))
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
@@ -270,7 +269,6 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             closure_args = self.saved_tensors[:-1]
             labels = self.saved_tensors[-1].unsqueeze(-1)
             mat_inv_labels = self.mat_inv_labels
-            grad_output_value = grad_output.squeeze()[0]
 
             matmul_closure = self.matmul_closure
             closure_arg_grads = [None] * len(closure_args)
@@ -284,39 +282,44 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                     else:
                         closure_arg_grads[i] = None
 
-                if labels.ndimension() == 3:
-                    function = derivative_quadratic_form_factory(*closure_args)
-                    quad_form_part = function(mat_inv_labels, mat_inv_labels)
-                else:
-                    function = derivative_quadratic_form_factory(*closure_args)
-                    quad_form_part = function(mat_inv_labels.squeeze(1), mat_inv_labels.squeeze(1))
+                function = derivative_quadratic_form_factory(*closure_args)
+                quad_form_part = function(mat_inv_labels.transpose(-1, -2), mat_inv_labels.transpose(-1, -2))
 
                 def left_matmul_closure(sample_matrix):
                     return LinearCG().solve(matmul_closure, sample_matrix)
 
                 if labels.ndimension() == 3:
-                    left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(1),
+                    left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(-2),
                                                                    tensor_cls=type(mat_inv_labels),
                                                                    dim_num=labels.size(0))
-                    function = derivative_quadratic_form_factory(*closure_args)
-                    closure_arg_grads = list(function(left_vectors.transpose(1, 2), right_vectors.transpose(1, 2)))
                 else:
-                    left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(0),
+                    left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(-2),
                                                                    tensor_cls=type(mat_inv_labels))
-                    closure_arg_grads = list(derivative_quadratic_form_factory(*closure_args)(left_vectors.t(),
-                                                                                              right_vectors.t()))
+                function = derivative_quadratic_form_factory(*closure_args)
+                closure_arg_grads = list(function(left_vectors.transpose(-1, -2), right_vectors.transpose(-1, -2)))
 
                 for i in range(len(closure_args)):
                     if self.needs_input_grad[i] and closure_arg_grads[i] is not None:
-                        closure_arg_grads[i] = quad_form_part[i].add_(-closure_arg_grads[i])
-                        closure_arg_grads[i].mul_(0.5 * grad_output_value)
+                        # This check makes sure we're only doing math if we need to (i.e. grads aren't zero)
+                        if closure_arg_grads[i].sum():
+                            closure_arg_grads[i] = quad_form_part[i].add_(-closure_arg_grads[i])
+                            if closure_arg_grads[i].ndimension() == 3:
+                                closure_arg_grads[i].mul_(0.5 * grad_output.unsqueeze(1).unsqueeze(2))
+                            elif closure_arg_grads[i].ndimension() == 2:
+                                closure_arg_grads[i].mul_(0.5 * grad_output.unsqueeze(1))
+                            else:
+                                closure_arg_grads[i].mul_(0.5 * grad_output)
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
                 # Need gradient with respect to labels
-                labels_grad = mat_inv_labels.mul_(-grad_output_value).squeeze(-1)
+                if mat_inv_labels.ndimension() == 3:
+                    labels_grad = mat_inv_labels.squeeze(-1).mul_(-grad_output.unsqueeze(1))
+                else:
+                    labels_grad = mat_inv_labels.squeeze(-1).mul_(-grad_output)
 
-            return tuple(closure_arg_grads + [labels_grad])
+            res = tuple(closure_arg_grads + [labels_grad])
+            return res
 
     return ExactGPMLL
 
@@ -417,8 +420,8 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                     root_inverse_t = q_mat_t / root_evals.unsqueeze(-1)
 
                 # Left factor:
-                left_factor = root_inverse_t.new(root_inverse_t.size(0), root_inverse_t.size(0),
-                                                 root_inverse_t.size(-2), root_inverse_t.size(-2)).zero_()
+                left_factor = root_inverse_t.new(root_inverse_t.size(0), root_inverse_t.size(1),
+                                                 root_inverse_t.size(-2), root_inverse_t.size(-1)).zero_()
                 if root_grad_output is not None:
                     left_factor.add_(root_grad_output.transpose(-1, -2))
                 if inverse_grad_output is not None:
@@ -428,8 +431,10 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                 right_factor = root_inverse_t.div(2.)
 
                 # Fix batches
-                left_factor = left_factor.view(-1, left_factor.size(-2), left_factor.size(-1))
-                right_factor = right_factor.view(-1, right_factor.size(-2), right_factor.size(-1))
+                left_factor = left_factor.permute(1, 0, 2, 3).contiguous()
+                left_factor = left_factor.view(root_inverse_t.size(1), -1, left_factor.size(-1))
+                right_factor = right_factor.permute(1, 0, 2, 3).contiguous()
+                right_factor = right_factor.view(root_inverse_t.size(1), -1, right_factor.size(-1))
                 res = derivative_quadratic_form_factory(*args)(left_factor, right_factor)
                 return res
 
