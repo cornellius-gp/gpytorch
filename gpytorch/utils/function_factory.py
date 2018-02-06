@@ -307,8 +307,10 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                                 closure_arg_grads[i].mul_(0.5 * grad_output.unsqueeze(1).unsqueeze(2))
                             elif closure_arg_grads[i].ndimension() == 2:
                                 closure_arg_grads[i].mul_(0.5 * grad_output.unsqueeze(1))
-                            else:
+                            elif closure_arg_grads[i].numel() > 1:
                                 closure_arg_grads[i].mul_(0.5 * grad_output)
+                            else:
+                                closure_arg_grads[i].mul_(0.5 * grad_output.sum())
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
