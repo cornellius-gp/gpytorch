@@ -96,7 +96,7 @@ class BlockDiagonalLazyVariable(LazyVariable):
         if self.n_blocks is None:
             return torch.Size((base_size[0] * base_size[1], base_size[0] * base_size[2]))
         else:
-            true_batch_size = self.base_lazy_variable.size(0) / self.n_blocks
+            true_batch_size = self.base_lazy_variable.size(0) // self.n_blocks
             return torch.Size((true_batch_size, self.n_blocks * base_size[1], self.n_blocks * base_size[2]))
 
     def _transpose_nonbatch(self):
