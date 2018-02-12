@@ -1,8 +1,8 @@
-import gpytorch
 import torch
 from torch import nn
-from gpytorch.random_variables import GaussianRandomVariable, CategoricalRandomVariable
+from ..random_variables import GaussianRandomVariable, CategoricalRandomVariable
 from .likelihood import Likelihood
+from .. import settings
 
 
 class SoftmaxLikelihood(Likelihood):
@@ -36,7 +36,7 @@ class SoftmaxLikelihood(Likelihood):
                 'distributed latent function to make predictions',
             ]))
 
-        n_samples = gpytorch.functions.num_samples
+        n_samples = settings.num_likelihood_samples.value()
         samples = latent_func.sample(n_samples)
         if samples.ndimension() != 3:
             raise RuntimeError('f should have 3 dimensions: features x data x samples')
@@ -55,7 +55,7 @@ class SoftmaxLikelihood(Likelihood):
         \Phi(y_{i}f_{i}) is computed by averaging over a set of s samples of
         f_{i} drawn from p(f|x).
         """
-        n_samples = gpytorch.functions.num_samples
+        n_samples = settings.num_likelihood_samples.value()
         samples = latent_func.sample(n_samples)
         if samples.ndimension() != 3:
             raise RuntimeError('f should have 3 dimensions: features x data x samples')

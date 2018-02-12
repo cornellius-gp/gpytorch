@@ -1,8 +1,8 @@
-import gpytorch
 import torch
 from torch.autograd import Variable
 from .kernel import Kernel
 from ..lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, NonLazyVariable
+from .. import settings
 
 
 class GridKernel(Kernel):
@@ -30,7 +30,7 @@ class GridKernel(Kernel):
             n_dim = x1.size(-1)
             grid_var = Variable(self.grid.view(n_dim, -1, 1))
 
-            if gpytorch.functions.use_toeplitz:
+            if settings.use_toeplitz.on():
                 first_item = grid_var[:, 0:1].contiguous()
                 covar_columns = self.base_kernel_module(first_item, grid_var, **kwargs)
                 covars = [ToeplitzLazyVariable(covar_columns[i:i + 1].squeeze(-2)) for i in range(n_dim)]
