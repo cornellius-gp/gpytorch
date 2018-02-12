@@ -43,7 +43,7 @@ class ExactGP(Module):
             raise RuntimeError('You must train on the training targets!')
 
         mean, covar = likelihood(output).representation()
-        n_data = len(target)
+        n_data = target.size(-1)
         return gpytorch.exact_gp_marginal_log_likelihood(covar, target - mean).div(n_data)
 
     def train(self, mode=True):
@@ -78,7 +78,7 @@ class ExactGP(Module):
             predictive_mean, mean_cache = gpytorch.exact_predictive_mean(full_covar, full_mean,
                                                                          Variable(self.train_targets),
                                                                          noise, self.mean_cache)
-            predictive_covar, covar_cache = gpytorch.exact_predictive_covar(full_covar, self.train_targets.size(0),
+            predictive_covar, covar_cache = gpytorch.exact_predictive_covar(full_covar, self.train_targets.size(-1),
                                                                             noise, self.covar_cache)
 
             self.mean_cache = mean_cache

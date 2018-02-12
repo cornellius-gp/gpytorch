@@ -195,7 +195,9 @@ class InterpolatedLazyVariable(LazyVariable):
                 selected_left_vals = selected_left_vals.view(n_right_rows, n_right_interp, n_factors)
             right_values_grad = (selected_left_vals * right_factor_t.unsqueeze(-2)).sum(-1)
 
-            res = tuple(base_lv_grad + [None, left_values_grad, None, right_values_grad])
+            # Return zero grad for interp indices
+            res = tuple(base_lv_grad + [torch.zeros_like(left_interp_indices), left_values_grad,
+                                        torch.zeros_like(right_interp_indices), right_values_grad])
             return res
 
         return closure
@@ -302,19 +304,22 @@ class InterpolatedLazyVariable(LazyVariable):
             # Get inverse root
             train_train_covar = self.__class__(self.base_lazy_variable, train_interp_indices, train_interp_values,
                                                train_interp_indices, train_interp_values).add_diag(noise)
-            train_train_covar_inv_labels = train_train_covar.inv_matmul(train_labels - train_mean)
+            train_train_covar_inv_labels = train_train_covar.inv_matmul((train_labels - train_mean).unsqueeze(-1))
 
             # New root factor
             base_size = self.base_lazy_variable.size(-1)
             precomputed_cache = self.base_lazy_variable.matmul(left_t_interp(train_interp_indices, train_interp_values,
                                                                              train_train_covar_inv_labels, base_size))
 
+            # Prevent backprop through this variable
+            precomputed_cache.detach_()
+
         # Compute the exact predictive posterior
         n_test = self.size(-1) - n_train
         test_mean = full_mean.narrow(-1, n_train, n_test)
         test_interp_indices = self.left_interp_indices.narrow(-2, n_train, n_test)
         test_interp_values = self.left_interp_values.narrow(-2, n_train, n_test)
-        res = left_interp(test_interp_indices, test_interp_values, precomputed_cache) + test_mean
+        res = left_interp(test_interp_indices, test_interp_values, precomputed_cache).squeeze(-1) + test_mean
         return res, precomputed_cache
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
@@ -383,8 +388,13 @@ class InterpolatedLazyVariable(LazyVariable):
             # Precomputed factor
             if beta_features.fast_pred_samples.on():
                 inside = self.base_lazy_variable + RootLazyVariable(root).mul(-1)
-                precomputed_cache = inside.root_decomposition(), None
+                inside_root = inside.root_decomposition()
+                # Prevent backprop through this variable
+                inside_root.detach_()
+                precomputed_cache = inside_root, None
             else:
+                # Prevent backprop through this variable
+                root.detach_()
                 precomputed_cache = None, root
 
         # Compute the exact predictive posterior

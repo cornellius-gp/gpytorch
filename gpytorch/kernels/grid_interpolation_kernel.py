@@ -39,6 +39,8 @@ class GridInterpolationKernel(GridKernel):
 
     def forward(self, x1, x2, **kwargs):
         base_lazy_var = self._inducing_forward()
+        if x1.size(0) > 1:
+            base_lazy_var = base_lazy_var.repeat(x1.size(0), 1, 1)
 
         left_interp_indices, left_interp_values = self._compute_grid(x1)
         if torch.equal(x1.data, x2.data):

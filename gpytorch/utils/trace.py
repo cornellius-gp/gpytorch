@@ -1,7 +1,7 @@
 import torch
-import gpytorch
 import math
 from torch.autograd import Variable
+from .. import settings
 
 
 def _identity(x):
@@ -43,7 +43,7 @@ def trace_components(left_matmul_closure, right_matmul_closure, size=None, num_s
             Only required if left_matmul_closure and right_matmul_closures are not Tensors/Variables
 
         - num_samples (int) -> the number of random variable samples to stochastically estimate
-            trace. Defaults to `gpytorch.functions.num_trace_samples`
+            trace. Defaults to `gpytorch.settings.num_trace_samples`
 
         - estimator_type (str) -> Options are 'mub' (Mutually unbiased bases) or
             'hutchinson' (Rademacher random variables). (Default 'mub')
@@ -75,13 +75,13 @@ def trace_components(left_matmul_closure, right_matmul_closure, size=None, num_s
 
     # Default num_samples, tensor_cls
     if num_samples is None:
-        num_samples = gpytorch.functions.num_trace_samples
+        num_samples = settings.num_trace_samples.value()
 
     if tensor_cls is None:
         tensor_cls = torch.Tensor
 
     # Return A and B if we're using deterministic mode
-    if not gpytorch.functions.fastest or size < num_samples:
+    if not settings.num_trace_samples.value() or size < num_samples:
         eye = tensor_cls(size).fill_(1).diag()
         if use_vars:
             eye = Variable(eye)

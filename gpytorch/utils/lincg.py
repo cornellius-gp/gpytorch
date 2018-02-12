@@ -1,6 +1,6 @@
 import torch
-import gpytorch
 from torch.autograd import Variable
+from .. import settings
 
 
 class LinearCG(object):
@@ -16,7 +16,7 @@ class LinearCG(object):
     http://netlib.org/linalg/html_templates/node58.html.
     """
     def __init__(self, tolerance_resid=1e-6, precondition_closure=None):
-        self.max_iter = int(gpytorch.functions.max_cg_iterations)
+        self.max_iter = int(settings.max_cg_iterations.value())
         self.tolerance_resid = tolerance_resid
         self.precondition_closure = precondition_closure
 

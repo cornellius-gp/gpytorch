@@ -32,29 +32,29 @@ class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
 
 
 def test_kissgp_classification_error():
-    gpytorch.functions.use_toeplitz = False
-    model = GPClassificationModel()
-    likelihood = BernoulliLikelihood()
+    with gpytorch.settings.use_toeplitz(False):
+        model = GPClassificationModel()
+        likelihood = BernoulliLikelihood()
 
-    # Find optimal model hyperparameters
-    model.train()
-    likelihood.train()
+        # Find optimal model hyperparameters
+        model.train()
+        likelihood.train()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.15)
-    optimizer.n_iter = 0
-    for i in range(25):
-        optimizer.zero_grad()
-        output = model(train_x)
-        loss = -model.marginal_log_likelihood(likelihood, output, train_y)
-        loss.backward()
-        optimizer.n_iter += 1
-        optimizer.step()
+        optimizer = optim.Adam(model.parameters(), lr=0.15)
+        optimizer.n_iter = 0
+        for i in range(25):
+            optimizer.zero_grad()
+            output = model(train_x)
+            loss = -model.marginal_log_likelihood(likelihood, output, train_y)
+            loss.backward()
+            optimizer.n_iter += 1
+            optimizer.step()
 
-    # Set back to eval mode
-    model.eval()
-    likelihood.eval()
+        # Set back to eval mode
+        model.eval()
+        likelihood.eval()
 
-    test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
-    mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-    gpytorch.functions.use_toeplitz = True
+        test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
+        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+
     assert(mean_abs_error.data.squeeze()[0] < 0.15)

@@ -54,10 +54,10 @@ class MatmulLazyVariable(LazyVariable):
             if left_factor.ndimension() == 1:
                 left_factor = left_factor.unsqueeze(0)
                 right_factor = right_factor.unsqueeze(0)
-            left_grad, = lhs_derivative_closure(left_factor, right_factor)
-            left_grad = rhs_matmul_closure(left_grad.transpose(-1, -2)).transpose(-1, -2)
-            right_grad, = rhs_derivative_closure(left_factor, right_factor)
-            right_grad = lhs_t_matmul_closure(right_grad)
+            right_factor_times_rhs = rhs_matmul_closure(right_factor.transpose(-1, -2)).transpose(-1, -2)
+            left_factor_times_lhs_t = lhs_t_matmul_closure(left_factor.transpose(-1, -2)).transpose(-1, -2)
+            left_grad, = lhs_derivative_closure(left_factor, right_factor_times_rhs)
+            right_grad, = rhs_derivative_closure(left_factor_times_lhs_t, right_factor)
             return left_grad, right_grad
 
         return closure

@@ -7,7 +7,7 @@ from . import settings
 from .beta_features import fast_pred_var
 from torch.autograd import Variable
 from .lazy import LazyVariable, NonLazyVariable
-from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
+from .functions import add_diag as _add_diag, dsmm, log_normal_cdf, normal_cdf
 from .utils import function_factory
 
 
@@ -35,7 +35,7 @@ def add_diag(input, diag):
     if isinstance(input, LazyVariable):
         return input.add_diag(diag)
     else:
-        return AddDiag()(input, diag)
+        return _add_diag(input, diag)
 
 
 def add_jitter(mat):
@@ -61,10 +61,6 @@ def add_jitter(mat):
             return mat.add_(diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2)))
         else:
             return diag.add_(mat)
-
-
-def dsmm(sparse_mat, dense_mat):
-    return DSMM(sparse_mat)(dense_mat)
 
 
 def exact_gp_marginal_log_likelihood(covar, target):
@@ -140,23 +136,6 @@ def inv_matmul(mat1, rhs):
         return mat1.inv_matmul(rhs)
     else:
         return _inv_matmul_class()(mat1, rhs)
-
-
-def log_normal_cdf(x):
-    """
-    Computes the element-wise log standard normal CDF of an input tensor x.
-
-    This function should always be preferred over calling normal_cdf and taking the log
-    manually, as it is more numerically stable.
-    """
-    return LogNormalCDF()(x)
-
-
-def normal_cdf(x):
-    """
-    Computes the element-wise standard normal CDF of an input tensor x.
-    """
-    return NormalCDF()(x)
 
 
 def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
