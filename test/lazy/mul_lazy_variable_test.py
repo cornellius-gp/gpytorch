@@ -1,194 +1,339 @@
-import math
 import torch
-import gpytorch
 from torch.autograd import Variable
-from gpytorch.lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, MulLazyVariable, InterpolatedLazyVariable
-from gpytorch.kernels import RBFKernel
-from gpytorch.means import ConstantMean
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.lazy import MulLazyVariable, RootLazyVariable
+from gpytorch.utils import prod
 
 
-def make_mul_lazy_var():
-    diag = Variable(torch.Tensor([1]), requires_grad=True)
-    c1 = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-    t1 = ToeplitzLazyVariable(c1)
-    c2 = Variable(torch.Tensor([[6, 0], [1, -1]]), requires_grad=True)
-    t2 = KroneckerProductLazyVariable(ToeplitzLazyVariable(c2[0]), ToeplitzLazyVariable(c2[1]))
-    c3 = Variable(torch.Tensor([7, 2, 1, 0]), requires_grad=True)
-    t3 = ToeplitzLazyVariable(c3)
-    return (t1 * t2 * t3).add_diag(diag), diag
+def make_random_mat(size, rank, batch_size=None):
+    if batch_size is None:
+        res = torch.randn(size, rank)
+    else:
+        res = torch.randn(batch_size, size, rank)
+    return Variable(res, requires_grad=True)
 
 
-t1, t2, t3 = make_mul_lazy_var()[0].lazy_vars
-added_diag = make_mul_lazy_var()[0].added_diag.data
-t1_eval = t1.evaluate().data
-t2_eval = t2.evaluate().data
-t3_eval = t3.evaluate().data
-t1_t2_t3_eval = t1_eval * t2_eval * t3_eval
+def test_matmul_vec_with_two_matrices():
+    mat1 = make_random_mat(20, 5)
+    mat2 = make_random_mat(20, 5)
+    vec = Variable(torch.randn(20), requires_grad=True)
+
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    vec_copy = Variable(vec.data, requires_grad=True)
+
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2)).matmul(vec)
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+    ]).matmul(vec_copy)
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+
+    # Backward
+    res.sum().backward()
+    actual.sum().backward()
+    assert torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()) < 0.01
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01
 
 
-def test_add_diag():
-    lazy_var = make_mul_lazy_var()[0]
-    assert torch.equal(lazy_var.evaluate().data, (t1_t2_t3_eval + added_diag.diag()))
+def test_matmul_vec_with_five_matrices():
+    mat1 = make_random_mat(20, 5)
+    mat2 = make_random_mat(20, 5)
+    mat3 = make_random_mat(20, 5)
+    mat4 = make_random_mat(20, 5)
+    mat5 = make_random_mat(20, 5)
+    vec = Variable(torch.randn(20), requires_grad=True)
+
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
+    mat4_copy = Variable(mat4.data, requires_grad=True)
+    mat5_copy = Variable(mat5.data, requires_grad=True)
+    vec_copy = Variable(vec.data, requires_grad=True)
+
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3),
+                          RootLazyVariable(mat4), RootLazyVariable(mat5)).matmul(vec)
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+        mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
+        mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
+    ]).matmul(vec_copy)
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+
+    # Backward
+    res.sum().backward()
+    actual.sum().backward()
+    assert torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()) < 0.01
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01
 
 
-def test_add_jitter():
-    lazy_var = make_mul_lazy_var()[0].add_jitter()
-    assert torch.max(torch.abs(lazy_var.evaluate().data - (t1_t2_t3_eval + added_diag.diag()))) < 1e-1
+def test_matmul_mat_with_two_matrices():
+    mat1 = make_random_mat(20, 5)
+    mat2 = make_random_mat(20, 5)
+    vec = Variable(torch.randn(20, 7), requires_grad=True)
+
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    vec_copy = Variable(vec.data, requires_grad=True)
+
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2)).matmul(vec)
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+    ]).matmul(vec_copy)
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+
+    # Backward
+    res.sum().backward()
+    actual.sum().backward()
+    assert torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()) < 0.01
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01
 
 
-def test_inv_matmul():
-    mat = torch.randn(4, 4)
-    res = make_mul_lazy_var()[0].inv_matmul(Variable(mat))
-    assert torch.norm(res.data - (t1_t2_t3_eval + added_diag.diag()).inverse().matmul(mat)) < 1e-3
+def test_matmul_mat_with_five_matrices():
+    mat1 = make_random_mat(20, 5)
+    mat2 = make_random_mat(20, 5)
+    mat3 = make_random_mat(20, 5)
+    mat4 = make_random_mat(20, 5)
+    mat5 = make_random_mat(20, 5)
+    vec = Variable(torch.eye(20), requires_grad=True)
+
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
+    mat4_copy = Variable(mat4.data, requires_grad=True)
+    mat5_copy = Variable(mat5.data, requires_grad=True)
+    vec_copy = Variable(vec.data, requires_grad=True)
+
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3),
+                          RootLazyVariable(mat4), RootLazyVariable(mat5)).matmul(vec)
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+        mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
+        mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
+    ]).matmul(vec_copy)
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+
+    # Backward
+    res.sum().backward()
+    actual.sum().backward()
+    assert torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()) < 0.01
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01
 
 
-def test_matmul_deterministic():
-    mat = torch.randn(4, 4)
-    res = make_mul_lazy_var()[0].matmul(Variable(mat))
-    assert torch.norm(res.data - (t1_t2_t3_eval + added_diag.diag()).matmul(mat)) < 1e-3
+def test_batch_matmul_mat_with_two_matrices():
+    mat1 = make_random_mat(20, rank=4, batch_size=5)
+    mat2 = make_random_mat(20, rank=4, batch_size=5)
+    vec = Variable(torch.randn(5, 20, 7), requires_grad=True)
+
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    vec_copy = Variable(vec.data, requires_grad=True)
+
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2)).matmul(vec)
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+    ]).matmul(vec_copy)
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+
+    # Backward
+    res.sum().backward()
+    actual.sum().backward()
+    assert torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()) < 0.01
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01
 
 
-def pending_test_matmul_approx():
-    class KissGPModel(gpytorch.GridInducingPointModule):
-        def __init__(self):
-            super(KissGPModel, self).__init__(grid_size=300, grid_bounds=[(0, 1)])
-            self.mean_module = ConstantMean(constant_bounds=(-1, 1))
-            covar_module = RBFKernel(log_lengthscale_bounds=(-100, 100))
-            covar_module.log_lengthscale.data = torch.FloatTensor([-2])
-            self.covar_module = covar_module
+def test_batch_matmul_mat_with_five_matrices():
+    mat1 = make_random_mat(20, rank=4, batch_size=5)
+    mat2 = make_random_mat(20, rank=4, batch_size=5)
+    mat3 = make_random_mat(20, rank=4, batch_size=5)
+    mat4 = make_random_mat(20, rank=4, batch_size=5)
+    mat5 = make_random_mat(20, rank=4, batch_size=5)
+    vec = Variable(torch.randn(5, 20, 7), requires_grad=True)
 
-        def forward(self, x):
-            mean_x = self.mean_module(x)
-            covar_x = self.covar_module(x)
-            return GaussianRandomVariable(mean_x, covar_x)
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
+    mat4_copy = Variable(mat4.data, requires_grad=True)
+    mat5_copy = Variable(mat5.data, requires_grad=True)
+    vec_copy = Variable(vec.data, requires_grad=True)
 
-    model = KissGPModel()
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3),
+                          RootLazyVariable(mat4), RootLazyVariable(mat5)).matmul(vec)
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+        mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
+        mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
+    ]).matmul(vec_copy)
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
 
-    n = 100
-    d = 4
-
-    lazy_var_list = []
-    lazy_var_eval_list = []
-
-    for i in range(d):
-        x = Variable(torch.rand(n))
-        y = Variable(torch.rand(n))
-        model.condition(x, y)
-        toeplitz_var = model(x).covar()
-        lazy_var_list.append(toeplitz_var)
-        lazy_var_eval_list.append(toeplitz_var.evaluate().data)
-
-    mul_lazy_var = MulLazyVariable(*lazy_var_list, matmul_mode='approximate', max_iter=30)
-    mul_lazy_var_eval = torch.ones(n, n)
-    for i in range(d):
-        mul_lazy_var_eval *= (lazy_var_eval_list[i].matmul(torch.eye(lazy_var_eval_list[i].size()[0])))
-
-    vec = torch.randn(n)
-
-    actual = mul_lazy_var_eval.matmul(vec)
-    res = mul_lazy_var.matmul(Variable(vec)).data
-
-    assert torch.norm(actual - res) / torch.norm(actual) < 1e-2
+    # Backward
+    res.sum().backward()
+    actual.sum().backward()
+    assert torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()) < 0.01
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01
 
 
-def pending_test_exact_gp_mll():
-    labels_var = Variable(torch.arange(1, 5, 1))
+def test_mul_adding_another_variable():
+    mat1 = make_random_mat(20, rank=4, batch_size=5)
+    mat2 = make_random_mat(20, rank=4, batch_size=5)
+    mat3 = make_random_mat(20, rank=4, batch_size=5)
 
-    # Test case
-    c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-    c2_var = Variable(torch.Tensor([[6, 0], [1, -1]]), requires_grad=True)
-    c3_var = Variable(torch.Tensor([7, 2, 1, 0]), requires_grad=True)
-    diag_var = Variable(torch.Tensor([1]), requires_grad=True)
-    diag_var_expand = diag_var.expand(4)
-    toeplitz_1 = ToeplitzLazyVariable(c1_var).evaluate()
-    kronecker_product = KroneckerProductLazyVariable(c2_var).evaluate()
-    toeplitz_2 = ToeplitzLazyVariable(c3_var).evaluate()
-    actual = toeplitz_1 * kronecker_product * toeplitz_2 + diag_var_expand.diag()
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
 
-    # Actual case
-    mul_lv, diag = make_mul_lazy_var()
-    t1, t2, t3 = mul_lv.lazy_vars
-
-    # Test forward
-    mll_res = mul_lv.exact_gp_marginal_log_likelihood(labels_var)
-    mll_actual = gpytorch.exact_gp_marginal_log_likelihood(actual, labels_var)
-    assert(math.fabs(mll_res.data.squeeze()[0] - mll_actual.data.squeeze()[0]) < 1)
-    # Test backwards
-    mll_res.backward()
-    mll_actual.backward()
-
-    assert((c1_var.grad.data - t1.column.grad.data).abs().norm() / c1_var.grad.data.abs().norm() < 1e-1)
-    assert((c2_var.grad.data - t2.columns.grad.data).abs().norm() / c2_var.grad.data.abs().norm() < 1e-1)
-    assert((c3_var.grad.data - t3.column.grad.data).abs().norm() / c3_var.grad.data.abs().norm() < 1e-1)
-    assert((diag_var.grad.data - diag.grad.data).abs().norm() / diag_var.grad.data.abs().norm() < 1e-1)
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2))
+    res = res * RootLazyVariable(mat3)
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+    ])
+    assert torch.max(((res.evaluate().data - actual.data) / actual.data).abs()) < 0.01
 
 
-def pending_test_trace_log_det_quad_form():
-    mu_diffs_var = Variable(torch.arange(1, 5, 1))
-    chol_covar_1_var = Variable(torch.eye(4))
+def test_mul_adding_constant_mul():
+    mat1 = make_random_mat(20, rank=4, batch_size=5)
+    mat2 = make_random_mat(20, rank=4, batch_size=5)
+    mat3 = make_random_mat(20, rank=4, batch_size=5)
+    const = Variable(torch.ones(1), requires_grad=True)
 
-    # Test case
-    c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-    c2_var = Variable(torch.Tensor([[6, 0], [1, -1]]), requires_grad=True)
-    c3_var = Variable(torch.Tensor([7, 2, 1, 0]), requires_grad=True)
-    diag_var = Variable(torch.Tensor([1]), requires_grad=True)
-    diag_var_expand = diag_var.expand(4)
-    toeplitz_1 = ToeplitzLazyVariable(c1_var).evaluate()
-    kronecker_product = KroneckerProductLazyVariable(c2_var).evaluate()
-    toeplitz_2 = ToeplitzLazyVariable(c3_var).evaluate()
-    actual = toeplitz_1 * kronecker_product * toeplitz_2 + diag_var_expand.diag()
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
+    const_copy = Variable(const.data, requires_grad=True)
 
-    # Actual case
-    mul_lv, diag = make_mul_lazy_var()
-    t1, t2, t3 = mul_lv.lazy_vars
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3))
+    res = res * const
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+    ]) * const_copy
+    assert torch.max(((res.evaluate().data - actual.data) / actual.data).abs()) < 0.01
 
-    # Test forward
-    tldqf_res = mul_lv.trace_log_det_quad_form(mu_diffs_var, chol_covar_1_var)
-    tldqf_actual = gpytorch._trace_logdet_quad_form_factory_class()(mu_diffs_var, chol_covar_1_var, actual)
-    assert(math.fabs(tldqf_res.data.squeeze()[0] - tldqf_actual.data.squeeze()[0]) < 1.5)
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3))
+    res = res * 2.5
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+    ]) * 2.5
+    assert torch.max(((res.evaluate().data - actual.data) / actual.data).abs()) < 0.01
 
-    # Test backwards
-    tldqf_res.backward()
-    tldqf_actual.backward()
-    assert((c1_var.grad.data - t1.column.grad.data).abs().norm() / c1_var.grad.data.abs().norm() < 1e-1)
-    assert((c2_var.grad.data - t2.columns.grad.data).abs().norm() / c2_var.grad.data.abs().norm() < 1e-1)
-    assert((c3_var.grad.data - t3.column.grad.data).abs().norm() / c3_var.grad.data.abs().norm() < 1e-1)
-    assert((diag_var.grad.data - diag.grad.data).abs().norm() / diag_var.grad.data.abs().norm() < 1e-1)
+
+def test_diag():
+    mat1 = make_random_mat(20, rank=4)
+    mat2 = make_random_mat(20, rank=4)
+    mat3 = make_random_mat(20, rank=4)
+
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
+
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3)).diag()
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+    ]).diag()
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+
+
+def test_batch_diag():
+    mat1 = make_random_mat(20, rank=4, batch_size=5)
+    mat2 = make_random_mat(20, rank=4, batch_size=5)
+    mat3 = make_random_mat(20, rank=4, batch_size=5)
+
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
+
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3)).diag()
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+    ])
+    actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(5)])
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
 
 
 def test_getitem():
-    res = make_mul_lazy_var()[0][1, 1]
-    assert torch.norm(res.evaluate().data - (t1_t2_t3_eval + torch.ones(4))[1, 1]) < 1e-3
+    mat1 = make_random_mat(20, rank=4)
+    mat2 = make_random_mat(20, rank=4)
+    mat3 = make_random_mat(20, rank=4)
+
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
+
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3))
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+    ])
+
+    assert torch.max(((res[5, 3:5].data - actual[5, 3:5].data) / actual[5, 3:5].data).abs()) < 0.01
+    assert torch.max(((res[3:5, 2:].evaluate().data - actual[3:5, 2:].data) / actual[3:5, 2:].data).abs()) < 0.01
+    assert torch.max(((res[2:, 3:5].evaluate().data - actual[2:, 3:5].data) / actual[2:, 3:5].data).abs()) < 0.01
 
 
-def pending_test_exact_posterior():
-    train_mean = Variable(torch.randn(4))
-    train_y = Variable(torch.randn(4))
-    test_mean = Variable(torch.randn(4))
+def test_batch_getitem():
+    mat1 = make_random_mat(20, rank=4, batch_size=5)
+    mat2 = make_random_mat(20, rank=4, batch_size=5)
+    mat3 = make_random_mat(20, rank=4, batch_size=5)
 
-    # Test case
-    c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-    c2_var = Variable(torch.Tensor([[6, 0], [1, -1]]), requires_grad=True)
-    c3_var = Variable(torch.Tensor([7, 2, 1, 0]), requires_grad=True)
-    indices_1 = torch.arange(0, 4).long().view(4, 1)
-    values_1 = torch.ones(4).view(4, 1)
-    indices_2 = torch.arange(0, 2).expand(4, 2).long().view(2, 4, 1)
-    values_2 = torch.ones(8).view(2, 4, 1)
-    indices_3 = torch.arange(0, 4).long().view(4, 1)
-    values_3 = torch.ones(4).view(4, 1)
-    toeplitz_1 = InterpolatedLazyVariable(ToeplitzLazyVariable(c1_var), Variable(indices_1), Variable(values_1),
-                                          Variable(indices_1), Variable(values_1))
-    kronecker_product = KroneckerProductLazyVariable(c2_var, indices_2, values_2, indices_2, values_2)
-    toeplitz_2 = InterpolatedLazyVariable(ToeplitzLazyVariable(c3_var), Variable(indices_3), Variable(values_3),
-                                          Variable(indices_3), Variable(values_3))
-    mul_lv = toeplitz_1 * kronecker_product * toeplitz_2
+    mat1_copy = Variable(mat1.data, requires_grad=True)
+    mat2_copy = Variable(mat2.data, requires_grad=True)
+    mat3_copy = Variable(mat3.data, requires_grad=True)
 
-    # Actual case
-    actual = mul_lv.evaluate()
-    # Test forward
-    actual_alpha = gpytorch.posterior_strategy(actual).exact_posterior_alpha(train_mean, train_y)
-    actual_mean = gpytorch.posterior_strategy(actual).exact_posterior_mean(test_mean, actual_alpha)
-    mul_lv_alpha = mul_lv.posterior_strategy().exact_posterior_alpha(train_mean, train_y)
-    mul_lv_mean = mul_lv.posterior_strategy().exact_posterior_mean(test_mean, mul_lv_alpha)
-    assert(torch.norm(actual_mean.data - mul_lv_mean.data) < 1e-3)
+    # Forward
+    res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3))
+    actual = prod([
+        mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+        mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+        mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+    ])
+
+    assert torch.max(((res[0].evaluate().data - actual[0].data) / actual[0].data).abs()) < 0.01
+    assert torch.max(((res[0:2, 5, 3:5].data - actual[0:2, 5, 3:5].data) / actual[0:2, 5, 3:5].data).abs()) < 0.01
+    assert torch.max(((res[:, 3:5, 2:].evaluate().data - actual[:, 3:5, 2:].data) /
+                      actual[:, 3:5, 2:].data).abs()) < 0.01
+    assert torch.max(((res[:, 2:, 3:5].evaluate().data - actual[:, 2:, 3:5].data) /
+                      actual[:, 2:, 3:5].data).abs()) < 0.01

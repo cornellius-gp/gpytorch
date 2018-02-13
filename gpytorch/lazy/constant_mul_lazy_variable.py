@@ -29,7 +29,7 @@ class ConstantMulLazyVariable(LazyVariable):
         def closure(left_factor, right_factor):
             res = list(lazy_var_closure(left_factor, right_factor))
             for i, item in enumerate(res):
-                if torch.is_tensor(item):
+                if torch.is_tensor(item) and res[i].sum():
                     res[i] = res[i] * constant.expand_as(res[i])
             # Gradient with respect to the constant
             res.append(left_factor.new(1).fill_((left_factor * right_factor).sum()))

@@ -9,6 +9,14 @@ class LazyVariable(object):
         self._args = args
         self._kwargs = kwargs
 
+    @property
+    def _args(self):
+        return self._args_memo
+
+    @_args.setter
+    def _args(self, args):
+        self._args_memo = args
+
     def _matmul_closure_factory(self, *args):
         """
         Generates a closure that performs a *tensor* matrix multiply
