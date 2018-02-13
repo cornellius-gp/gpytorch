@@ -87,44 +87,6 @@ class InterpolatedLazyVariable(LazyVariable):
 
         return closure
 
-    def _t_matmul_closure_factory(self, *args):
-        base_t_matmul_closure_factory = self.base_lazy_variable._t_matmul_closure_factory
-        base_lazy_variable_representation = args[:-4]
-        base_lazy_variable_t_matmul = base_t_matmul_closure_factory(*base_lazy_variable_representation)
-        left_interp_indices, left_interp_values = args[-4:-2]
-        right_interp_indices, right_interp_values = args[-2:]
-
-        # Get sparse tensor representations of left/right interp matrices
-        left_interp_t = self._sparse_left_interp_t(left_interp_indices, left_interp_values)
-        right_interp_t = self._sparse_right_interp_t(right_interp_indices, right_interp_values)
-
-        def closure(tensor):
-            if tensor.ndimension() == 1:
-                is_vector = True
-                tensor = tensor.unsqueeze(-1)
-            else:
-                is_vector = False
-
-            # left_interp^T * tensor
-            left_interp_res = bdsmm(left_interp_t, tensor)
-
-            # base_lazy_var * left_interp^T * tensor
-            base_res = base_lazy_variable_t_matmul(left_interp_res)
-
-            # right_interp * base_lazy_var * right_interp^T * tensor
-            if len(right_interp_t.size()) == 3:
-                right_interp_mat = right_interp_t.transpose(1, 2)
-            else:
-                right_interp_mat = right_interp_t.t()
-            res = bdsmm(right_interp_mat, base_res)
-
-            # Squeeze if necessary
-            if is_vector:
-                res = res.squeeze(-1)
-            return res
-
-        return closure
-
     def _derivative_quadratic_form_factory(self, *args):
         base_lazy_var_repr = args[:-4]
         base_lazy_var_matmul = self.base_lazy_variable._matmul_closure_factory(*base_lazy_var_repr)

@@ -58,28 +58,6 @@ class KroneckerProductLazyVariable(LazyVariable):
 
         return closure
 
-    def _t_matmul_closure_factory(self, *args):
-        sizes = [lazy_var.size(-1) for lazy_var in self.lazy_vars]
-        sub_matmul_closures = []
-        i = 0
-        for lazy_var in self.lazy_vars:
-            len_repr = len(lazy_var.representation())
-            sub_matmul_closure = lazy_var._t_matmul_closure_factory(*args[i:i + len_repr])
-            sub_matmul_closures.append(sub_matmul_closure)
-            i = i + len_repr
-
-        def closure(tensor):
-            is_vec = tensor.ndimension() == 1
-            if is_vec:
-                tensor = tensor.unsqueeze(-1)
-
-            res = _matmul(sub_matmul_closures, sizes, tensor)
-            if is_vec:
-                res = res.squeeze(-1)
-            return res
-
-        return closure
-
     def _derivative_quadratic_form_factory(self, *args):
         sizes = [lazy_var.size(-1) for lazy_var in self.lazy_vars]
         sub_matmul_closures = []
