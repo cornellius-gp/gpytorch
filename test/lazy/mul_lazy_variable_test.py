@@ -337,3 +337,56 @@ def test_batch_getitem():
                       actual[:, 3:5, 2:].data).abs()) < 0.01
     assert torch.max(((res[:, 2:, 3:5].evaluate().data - actual[:, 2:, 3:5].data) /
                       actual[:, 2:, 3:5].data).abs()) < 0.01
+
+
+def test_batch_mode_matmul_mat_with_five_matrices():
+    mats = make_random_mat(6, rank=4, batch_size=6)
+    vec = Variable(torch.randn(6, 7), requires_grad=True)
+
+    mats_copy = Variable(mats.data, requires_grad=True)
+    vec_copy = Variable(vec.data, requires_grad=True)
+
+    # Forward
+    res = RootLazyVariable(mats).mul_batch().matmul(vec)
+    actual = prod([
+        mats_copy[0].matmul(mats_copy[0].transpose(-1, -2)),
+        mats_copy[1].matmul(mats_copy[1].transpose(-1, -2)),
+        mats_copy[2].matmul(mats_copy[2].transpose(-1, -2)),
+        mats_copy[3].matmul(mats_copy[3].transpose(-1, -2)),
+        mats_copy[4].matmul(mats_copy[4].transpose(-1, -2)),
+        mats_copy[5].matmul(mats_copy[5].transpose(-1, -2)),
+    ]).matmul(vec_copy)
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+
+    # Backward
+    res.sum().backward()
+    actual.sum().backward()
+    assert torch.max(((mats.grad.data - mats_copy.grad.data) / mats_copy.grad.data).abs()) < 0.01
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01
+
+
+def test_batch_mode_matmul_batch_mat_with_five_matrices():
+    mats = make_random_mat(6, rank=4, batch_size=30)
+    vec = Variable(torch.randn(5, 6, 7), requires_grad=True)
+
+    mats_copy = Variable(mats.data, requires_grad=True)
+    vec_copy = Variable(vec.data, requires_grad=True)
+
+    # Forward
+    res = RootLazyVariable(mats).mul_batch(mul_batch_size=6).matmul(vec)
+    reshaped_mats_copy = mats_copy.view(5, 6, 6, 4)
+    actual = prod([
+        reshaped_mats_copy[:, 0].matmul(reshaped_mats_copy[:, 0].transpose(-1, -2)).view(5, 6, 6),
+        reshaped_mats_copy[:, 1].matmul(reshaped_mats_copy[:, 1].transpose(-1, -2)).view(5, 6, 6),
+        reshaped_mats_copy[:, 2].matmul(reshaped_mats_copy[:, 2].transpose(-1, -2)).view(5, 6, 6),
+        reshaped_mats_copy[:, 3].matmul(reshaped_mats_copy[:, 3].transpose(-1, -2)).view(5, 6, 6),
+        reshaped_mats_copy[:, 4].matmul(reshaped_mats_copy[:, 4].transpose(-1, -2)).view(5, 6, 6),
+        reshaped_mats_copy[:, 5].matmul(reshaped_mats_copy[:, 5].transpose(-1, -2)).view(5, 6, 6),
+    ]).matmul(vec_copy)
+    assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+
+    # Backward
+    res.sum().backward()
+    actual.sum().backward()
+    assert torch.max(((mats.grad.data - mats_copy.grad.data) / mats_copy.grad.data).abs()) < 0.01
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01

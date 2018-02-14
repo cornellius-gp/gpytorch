@@ -1,3 +1,4 @@
+import math
 import torch
 from torch.autograd import Variable
 from ..utils import function_factory
@@ -367,6 +368,51 @@ class LazyVariable(object):
         else:
             from .mul_lazy_variable import MulLazyVariable
             return MulLazyVariable(self, other)
+
+    def mul_batch(self, mul_batch_size=None):
+        """
+        """
+        from .mul_lazy_variable import MulLazyVariable
+        from .root_lazy_variable import RootLazyVariable
+        if self.ndimension() < 3:
+            raise RuntimeError('mul_batch only works with batched lazy variables')
+        if self.size(0) == 1:
+            return self.sum_batch()
+
+        roots = self.root_decomposition()
+        n_batch = roots.size(0) if mul_batch_size is None else mul_batch_size
+        true_batch_size = roots.size(0) // mul_batch_size if mul_batch_size is not None else 1
+
+        while True:
+            roots = roots.view(true_batch_size, n_batch, roots.size(1), roots.size(2))
+
+            # Take care of extra roots (odd roots), if they exist
+            if n_batch % 2:
+                extra_root = Variable(roots.data.new(roots.size(0), 1, roots.size(2), roots.size(3)))
+                extra_root.data.normal_().mul_(1e-6 / math.sqrt(roots.size(3)))
+                extra_root.data.add_(1. / math.sqrt(roots.size(3)))
+                roots = torch.cat([roots, extra_root], 1)
+                n_batch += 1
+
+            # Divide and conqour
+            # Assumes that there's an even number of roots
+            part1 = roots[:, :n_batch // 2]
+            part1 = part1.contiguous().view(-1, roots.size(2), roots.size(3))
+            part2 = roots[:, n_batch // 2:2 * (n_batch // 2)]
+            part2 = part2.contiguous().view(-1, roots.size(2), roots.size(3))
+
+            if n_batch // 2 == 1:
+                if mul_batch_size is None:
+                    part1 = part1.squeeze(0)
+                    part2 = part2.squeeze(0)
+                res = MulLazyVariable(RootLazyVariable(part1), RootLazyVariable(part2))
+                break
+            else:
+                res = MulLazyVariable(RootLazyVariable(part1), RootLazyVariable(part2))
+                roots = res.root_decomposition()
+                n_batch = n_batch // 2
+
+        return res
 
     def ndimension(self):
         """
