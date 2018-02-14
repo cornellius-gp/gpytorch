@@ -362,9 +362,9 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
             for i in range(t_mat.size(0)):
                 for j in range(t_mat.size(1)):
                     evals, evecs = t_mat[i, j].symeig(eigenvectors=True)
-                    mask = evals.ge(0).type_as(evecs)
-                    evals_list.append((evals * mask).unsqueeze(0))
-                    evecs_list.append((evecs * mask.unsqueeze(0)).unsqueeze(0))
+                    mask = evals.ge(0)
+                    evals_list.append(evals.masked_fill_(1 - mask, 1))
+                    evecs_list.append((evecs * mask.type_as(evecs).unsqueeze(0)).unsqueeze(0))
 
             # Get orthogonal matrix and eigenvalue roots
             q_mat = q_mat.matmul(torch.cat(evecs_list).view(*t_mat.size()))
