@@ -29,7 +29,7 @@ class StochasticLQ(object):
     def lanczos_batch(self, matmul_closure, rhs_vectors):
         return lanczos_tridiag(matmul_closure, self.max_iter, init_vecs=rhs_vectors, tensor_cls=self.cls)
 
-    def evaluate(self, matmul_closure, n, funcs, batch_size=-1):
+    def evaluate(self, q_mats, t_mats, eigenvalues, eigenvectors, funcs):
         """
         Computes tr(f(A)) for an arbitrary list of functions, where f(A) is equivalent to applying the function
         elementwise to the eigenvalues of A, i.e., if A = V\LambdaV^{T}, then f(A) = Vf(\Lambda)V^{T}, where
@@ -50,44 +50,26 @@ class StochasticLQ(object):
             - results (list of scalars) - The trace of each supplied function applied to the matrix, e.g.,
                       [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
         """
-        if torch.is_tensor(matmul_closure):
-            lhs = matmul_closure
-            if lhs.numel() == 1:
-                return [func(lhs).squeeze()[0] for func in funcs]
+        if t_mats.dim() < 4:
+            raise RuntimeError("""StochasticLQ expects t_mat to be (num_probe_vecs x num_batch x k x k),
+                                  but received a Tensor with only {} dimensions. Try unsqueezing to add
+                                  appropriate singleton dimensions if necessary.""".format(t_mats.dim()))
 
-            def default_matmul_closure(tensor):
-                return lhs.matmul(tensor)
-            matmul_closure = default_matmul_closure
+        batch_size = t_mats.size(1)
+        matrix_size = t_mats.size(2)
+        results = [t_mats.new(batch_size).zero_()] * len(funcs)
+        num_random_probes = t_mats.size(0)
+        for j in range(num_random_probes):
+            # These are (num_batch x k) and (num_batch x k x k)
+            eigenvalues_for_probe = eigenvalues[j]
+            eigenvectors_for_probe = eigenvectors[j]
+            for i, func in enumerate(funcs):
+                # First component of eigenvecs is (num_batch x k)
+                eigenvecs_first_component = eigenvectors_for_probe[:, 0, :]
+                func_eigenvalues = func(eigenvalues_for_probe)
 
-        if batch_size != -1:
-            V = self.cls(n, self.num_random_probes).bernoulli_().mul_(2).add_(-1)
-            V.div_(torch.norm(V, 2, dim=0).expand_as(V))
-            V = V.unsqueeze(0).expand(batch_size, n, self.num_random_probes)
-        else:
-            V = self.cls(n, self.num_random_probes).bernoulli_().mul_(2).add_(-1)
-            V.div_(torch.norm(V, 2, dim=0).expand_as(V))
-
-        if V.ndimension() == 3:
-            results = [V.new(V.size(0)).zero_()] * len(funcs)
-        else:
-            results = [0] * len(funcs)
-
-        _, Ts = self.lanczos_batch(matmul_closure, V)
-        Ts = Ts.cpu()
-
-        for j in range(self.num_random_probes):
-            if Ts.ndimension() == 4:
-                for k in range(Ts.size(1)):
-                    T = Ts[j, k, :, :]
-                    [f, Y] = T.symeig(eigenvectors=True)
-                    for i, func in enumerate(funcs):
-                        results[i][k] = results[i][k] + n / float(self.num_random_probes) * \
-                            (Y[0, :].pow(2).dot(func(f + 1.1e-4)))
-
-            else:
-                T = Ts[j, :, :]
-                [f, Y] = T.symeig(eigenvectors=True)
-                for i, func in enumerate(funcs):
-                    results[i] = results[i] + n / float(self.num_random_probes) * (Y[0, :].pow(2).dot(func(f + 1.1e-4)))
+                dot_products = (eigenvecs_first_component.pow(2) * func_eigenvalues).sum(1)
+                results[i] = results[i] + matrix_size / float(num_random_probes) * \
+                    dot_products
 
         return results

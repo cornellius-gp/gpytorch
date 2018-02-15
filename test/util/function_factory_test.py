@@ -210,16 +210,17 @@ def test_normal_trace_log_det_quad_form_backward():
         [0, 0, 1],
     ]), requires_grad=True)
 
-    res = gpytorch.trace_logdet_quad_form(mu_diffs, chol_covar, covar)
-    res.backward()
+    with gpytorch.settings.num_trace_samples(1000):
+        res = gpytorch.trace_logdet_quad_form(mu_diffs, chol_covar, covar)
+        res.backward()
 
     res_covar_grad = covar.grad.data
     res_mu_diffs_grad = mu_diffs.grad.data
     res_chol_covar_grad = chol_covar.grad.data
 
-    assert approx_equal(actual_covar_grad, res_covar_grad)
-    assert approx_equal(actual_mu_diffs_grad, res_mu_diffs_grad)
-    assert approx_equal(actual_chol_covar_grad, res_chol_covar_grad)
+    assert torch.norm(actual_covar_grad - res_covar_grad) < 1e-1
+    assert torch.norm(actual_mu_diffs_grad - res_mu_diffs_grad) < 1e-1
+    assert torch.norm(actual_chol_covar_grad - res_chol_covar_grad) < 1e-1
 
 
 def test_batch_trace_log_det_quad_form_forward():
@@ -307,17 +308,17 @@ def test_batch_trace_log_det_quad_form_backward():
     covar.grad.data.fill_(0)
     mu_diffs.grad.data.fill_(0)
     chol_covar.grad.data.fill_(0)
-
-    res = gpytorch.trace_logdet_quad_form(mu_diffs, chol_covar, covar)
-    res.backward()
+    with gpytorch.settings.num_trace_samples(1000):
+        res = gpytorch.trace_logdet_quad_form(mu_diffs, chol_covar, covar)
+        res.backward()
 
     res_covar_grad = covar.grad.data
     res_mu_diffs_grad = mu_diffs.grad.data
     res_chol_covar_grad = chol_covar.grad.data
 
-    assert approx_equal(actual_covar_grad, res_covar_grad)
-    assert approx_equal(actual_mu_diffs_grad, res_mu_diffs_grad)
-    assert approx_equal(actual_chol_covar_grad, res_chol_covar_grad)
+    assert torch.norm(actual_covar_grad - res_covar_grad) < 1e-1
+    assert torch.norm(actual_mu_diffs_grad - res_mu_diffs_grad) < 1e-1
+    assert torch.norm(actual_chol_covar_grad - res_chol_covar_grad) < 1e-1
 
 
 def test_root_decomposition_forward():

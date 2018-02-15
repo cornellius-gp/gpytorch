@@ -6,7 +6,12 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
     # Determine batch mode
     is_batch = False
     multiple_init_vecs = False
+    if torch.is_tensor(matmul_closure):
+        lhs = matmul_closure
 
+        def default_matmul_closure(tensor):
+            return lhs.matmul(tensor)
+        matmul_closure = default_matmul_closure
     # Get initial probe ectors - and define if not available
     if init_vecs is None:
         if tensor_cls is None:
@@ -128,8 +133,11 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
 
     # Now let's transpose q_mat, t_mat intot the correct shape
     n_iter = k + 1
-    q_mat = q_mat[:n_iter].permute(3, 1, 2, 0).contiguous()  # n_init_vecs x batch_size x n_dims x n_iter
-    t_mat = t_mat[:n_iter, :n_iter].permute(3, 2, 0, 1).contiguous()  # n_init_vecs x batch_size x n_iter x n_iter
+
+    # n_init_vecs x batch_size x n_dims x n_iter
+    q_mat = q_mat[:n_iter + 1].permute(3, 1, 2, 0).contiguous()
+    # n_init_vecs x batch_size x n_iter x n_iter
+    t_mat = t_mat[:n_iter + 1, :n_iter + 1].permute(3, 2, 0, 1).contiguous()
 
     # If we weren't in batch mode, remove batch dimension
     if not is_batch:
@@ -141,3 +149,31 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
 
     # We're done!
     return q_mat, t_mat
+
+
+def lanczos_tridiag_to_diag(t_mat):
+    """
+    Given a num_init_vecs x num_batch x k x k tridiagonal matrix t_mat,
+    returns a num_init_vecs x num_batch x k set of eigenvalues
+    and a num_init_vecs x num_batch x k x k set of eigenvectors.
+
+    TODO: make the eigenvalue computations done in batch mode.
+    """
+
+    if t_mat.dim() == 3:
+        t_mat = t_mat.unsqueeze(0)
+    batch_dim1 = t_mat.size(0)
+    batch_dim2 = t_mat.size(1)
+    n = t_mat.size(2)
+
+    eigenvectors = t_mat.new(*t_mat.shape)
+    eigenvalues = t_mat.new(batch_dim1, batch_dim2, n)
+
+    for i in range(batch_dim1):
+        for j in range(batch_dim2):
+            evals, evecs = t_mat[i, j].symeig(eigenvectors=True)
+            mask = evals.ge(0)
+            eigenvectors[i, j] = evecs * mask.type_as(evecs).unsqueeze(0)
+            eigenvalues[i, j] = evals.masked_fill_(1 - mask, 1)
+
+    return eigenvalues, eigenvectors

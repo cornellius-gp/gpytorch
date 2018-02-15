@@ -64,6 +64,14 @@ class max_lanczos_iterations(_value_context):
     _global_value = 100
 
 
+class max_lanczos_quadrature_iterations(_value_context):
+    """
+    The maximum number of Lanczos iterations to perform when doing stochastic Lanczos
+    quadrature. This is ONLY used for log determinant calculations and computing Tr(K^{-1}dK/d\theta)
+    """
+    _global_value = 15
+
+
 class num_likelihood_samples(_value_context):
     """
     The number of samples to draw from a latent GP when computing a likelihood
