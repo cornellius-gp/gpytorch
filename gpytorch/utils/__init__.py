@@ -177,11 +177,10 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
     size = torch.Size((batch_size, output_dim, n_data * n_interp))
 
     if interp_values.is_cuda:
-        summing_matrix = Variable(torch.cuda.sparse.FloatTensor(summing_matrix_indices,
-                                                                summing_matrix_values, size))
+        cls = getattr(torch.cuda.sparse, summing_matrix_values.__class__.__name__)
     else:
-        summing_matrix = Variable(torch.sparse.FloatTensor(summing_matrix_indices,
-                                                           summing_matrix_values, size))
+        cls = getattr(torch.sparse, summing_matrix_values.__class__.__name__)
+    summing_matrix = Variable(cls(summing_matrix_indices, summing_matrix_values, size))
 
     res = dsmm(summing_matrix, values)
 
@@ -198,7 +197,8 @@ def sparse_eye(size):
     """
     indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
     values = torch.Tensor([1]).expand(size)
-    return torch.sparse.FloatTensor(indices, values, torch.Size([size, size]))
+    cls = getattr(torch.sparse, values.__class__.__name__)
+    return cls(indices, values, torch.Size([size, size]))
 
 
 def sparse_getitem(sparse, idxs):

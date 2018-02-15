@@ -65,9 +65,10 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
 
     # Make the sparse tensor
     if index_tensor.is_cuda:
-        res = torch.cuda.sparse.FloatTensor(index_tensor, value_tensor, interp_size)
+        cls = getattr(torch.cuda.sparse, value_tensor.__class__.__name__)
     else:
-        res = torch.sparse.FloatTensor(index_tensor, value_tensor, interp_size)
+        cls = getattr(torch.sparse, value_tensor.__class__.__name__)
+    res = cls(index_tensor, value_tensor, interp_size)
 
     # Wrap things as a variable, if necessary
     return res
