@@ -20,7 +20,7 @@ def fft1(input):
         output_size = list(orig_size[:-1]) + [(d // 2) + 1, 2]
     else:
         output_size = [(d // 2) + 1, 2]
-    
+
     if not isinstance(output, orig_type):
         return output.view(*output_size).type(orig_type)
     else:
