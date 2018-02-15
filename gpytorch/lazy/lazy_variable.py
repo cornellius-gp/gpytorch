@@ -602,9 +602,9 @@ class LazyVariable(object):
             right_interp_indices.unsqueeze_(0)
 
         left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
-        left_interp_values = left_interp_indices.new(left_interp_indices.size()).fill_(1).float()
+        left_interp_values = self.tensor_cls(left_interp_indices.size()).fill_(1)
         right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
-        right_interp_values = right_interp_indices.new(right_interp_indices.size()).fill_(1).float()
+        right_interp_values = self.tensor_cls(right_interp_indices.size()).fill_(1)
 
         res = InterpolatedLazyVariable(new_lazy_variable, Variable(left_interp_indices),
                                        Variable(left_interp_values),
