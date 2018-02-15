@@ -48,30 +48,6 @@ class BlockDiagonalLazyVariable(LazyVariable):
 
         return closure
 
-    def _t_matmul_closure_factory(self, *args):
-        super_closure = self.base_lazy_variable._t_matmul_closure_factory(*args)
-        block_size = self.base_lazy_variable.size(-1)
-
-        def closure(tensor):
-            isvector = tensor.ndimension() == 1
-            if isvector:
-                tensor = tensor.unsqueeze(1)
-
-            n_cols = tensor.size(-1)
-            tensor = tensor.contiguous().view(-1, block_size, n_cols)
-
-            res = super_closure(tensor)
-            if self.n_blocks is not None:
-                res = res.contiguous().view(-1, self.n_blocks * res.size(1), res.size(2))
-            else:
-                res = res.contiguous().view(res.size(0) * res.size(1), res.size(2))
-
-            if isvector:
-                res = res.squeeze(-1)
-            return res
-
-        return closure
-
     def _derivative_quadratic_form_factory(self, *args):
         super_closure = self.base_lazy_variable._derivative_quadratic_form_factory(*args)
         block_size = self.base_lazy_variable.size(-1)

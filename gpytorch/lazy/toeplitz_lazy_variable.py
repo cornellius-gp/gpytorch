@@ -14,9 +14,6 @@ class ToeplitzLazyVariable(LazyVariable):
             return sym_toeplitz_matmul(column, tensor)
         return closure
 
-    def _t_matmul_closure_factory(self, column):
-        return self._matmul_closure_factory(column)
-
     def _derivative_quadratic_form_factory(self, column):
         def closure(left_vectors, right_vectors):
             if left_vectors.ndimension() == 1:

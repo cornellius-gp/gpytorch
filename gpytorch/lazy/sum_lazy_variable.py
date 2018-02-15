@@ -29,19 +29,6 @@ class SumLazyVariable(LazyVariable):
             return sum(sub_closure(rhs_mat) for sub_closure in sub_closures)
         return closure
 
-    def _t_matmul_closure_factory(self, *args):
-        sub_closures = []
-        i = 0
-        for lazy_var in self.lazy_vars:
-            len_repr = len(lazy_var.representation())
-            sub_closure = lazy_var._t_matmul_closure_factory(*args[i:i + len_repr])
-            sub_closures.append(sub_closure)
-            i = i + len_repr
-
-        def closure(rhs_mat):
-            return sum(sub_closure(rhs_mat) for sub_closure in sub_closures)
-        return closure
-
     def _derivative_quadratic_form_factory(self, *args):
         sub_closures = []
         i = 0

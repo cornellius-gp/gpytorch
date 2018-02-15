@@ -33,16 +33,6 @@ class MatmulLazyVariable(LazyVariable):
 
         return closure
 
-    def _t_matmul_closure_factory(self, *args):
-        len_lhs_repr = len(self.lhs.representation())
-        lhs_matmul_closure = self.lhs._t_matmul_closure_factory(*args[:len_lhs_repr])
-        rhs_matmul_closure = self.rhs._t_matmul_closure_factory(*args[len_lhs_repr:])
-
-        def closure(tensor):
-            return rhs_matmul_closure(lhs_matmul_closure(tensor))
-
-        return closure
-
     def _derivative_quadratic_form_factory(self, *args):
         len_lhs_repr = len(self.lhs.representation())
         lhs_t_matmul_closure = self.lhs.transpose(-1, -2)._t_matmul_closure_factory(*args[:len_lhs_repr])

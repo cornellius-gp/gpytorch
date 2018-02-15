@@ -35,6 +35,7 @@ class LazyVariable(object):
         Returns:
         function(tensor) - closure that performs a matrix multiply
         """
+        return self.transpose(-1, -2)._matmul_closure_factory(*args)
 
     def _derivative_quadratic_form_factory(self, *args):
         """
