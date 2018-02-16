@@ -5,6 +5,7 @@ from .spectral_mixture_kernel import SpectralMixtureKernel
 from .index_kernel import IndexKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .additive_grid_interpolation_kernel import AdditiveGridInterpolationKernel
+from .multiplicative_grid_interpolation_kernel import MultiplicativeGridInterpolationKernel
 
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     IndexKernel,
     GridInterpolationKernel,
     AdditiveGridInterpolationKernel,
+    MultiplicativeGridInterpolationKernel,
 ]
