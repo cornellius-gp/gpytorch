@@ -438,8 +438,7 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                 right_factor = right_factor.permute(1, 0, 2, 3).contiguous()
                 right_factor = right_factor.view(root_inverse_t.size(1), -1, right_factor.size(-1))
                 res = derivative_quadratic_form_factory(*args)(left_factor, right_factor)
-                return res
-
+                return tuple(res)
             else:
                 pass
 
