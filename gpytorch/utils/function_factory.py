@@ -155,7 +155,7 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
 
             slq = StochasticLQ()
-            log_det_covar2, = slq.evaluate(q_mat, t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
+            log_det_covar2, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
 
             # Tr(K2^{-1}K1)
             covar2_inv_chol_covar1 = LinearCG().solve(covar2_matmul_closure, chol_covar1.transpose(-1, -2))
@@ -291,7 +291,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
 
             slq = StochasticLQ()
-            logdet, = slq.evaluate(q_mat, t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
+            logdet, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
 
             res += logdet
             res += math.log(2 * math.pi) * labels.size(-2)
