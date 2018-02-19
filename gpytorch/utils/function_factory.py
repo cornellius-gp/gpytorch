@@ -1,7 +1,7 @@
 import math
 import torch
 from torch.autograd import Function, Variable
-from .lincg import LinearCG
+from .linear_cg import linear_cg
 from .stochastic_lq import StochasticLQ
 from .lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
 from .. import settings
@@ -38,7 +38,7 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
             closure_args = self.args + args[:-1]
             matmul_closure = matmul_closure_factory(*closure_args)
             rhs = args[-1]
-            res = LinearCG().solve(matmul_closure, rhs)
+            res = linear_cg(matmul_closure, rhs)
 
             self.matmul_closure = matmul_closure
             self.save_for_backward(*(list(args) + [res]))
@@ -56,7 +56,7 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
-                lhs_matrix_grad = LinearCG().solve(matmul_closure, grad_output)
+                lhs_matrix_grad = linear_cg(matmul_closure, grad_output)
                 lhs_matrix_grad = lhs_matrix_grad.mul_(-1)
                 if res.ndimension() == 1:
                     res = res.unsqueeze(1)
@@ -68,7 +68,7 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
-                rhs_grad = LinearCG().solve(matmul_closure, grad_output)
+                rhs_grad = linear_cg(matmul_closure, grad_output)
 
             return tuple(arg_grads + [rhs_grad])
 
@@ -158,11 +158,11 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             log_det_covar2, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
 
             # Tr(K2^{-1}K1)
-            covar2_inv_chol_covar1 = LinearCG().solve(covar2_matmul_closure, chol_covar1.transpose(-1, -2))
+            covar2_inv_chol_covar1 = linear_cg(covar2_matmul_closure, chol_covar1.transpose(-1, -2))
             trace = (covar2_inv_chol_covar1 * chol_covar1.transpose(-1, -2)).sum(-2).sum(-1)
 
             # Inverse quad form
-            mat_inv_y = LinearCG().solve(covar2_matmul_closure, mu_diff.unsqueeze(-1)).squeeze(-1)
+            mat_inv_y = linear_cg(covar2_matmul_closure, mu_diff.unsqueeze(-1)).squeeze(-1)
             inv_quad_form = mat_inv_y.mul(mu_diff).sum(-1)
 
             res = log_det_covar2 + trace + inv_quad_form
@@ -263,7 +263,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             labels = labels.unsqueeze(-1)
 
             matmul_closure = matmul_closure_factory(*closure_args)
-            mat_inv_labels = LinearCG().solve(matmul_closure, labels)
+            mat_inv_labels = linear_cg(matmul_closure, labels)
             # Inverse quad form
             res = (mat_inv_labels * labels).sum(-1).sum(-1)
             # Log determinant

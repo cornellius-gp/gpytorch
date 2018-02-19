@@ -87,7 +87,6 @@ def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_i
         prev_alpha_reciprocal = alpha.new(alpha_reciprocal.size())
         prev_beta = alpha.new(alpha_reciprocal.size())
 
-
     # Start the iteration
     for k in range(n_iter):
         # Get next alpha
