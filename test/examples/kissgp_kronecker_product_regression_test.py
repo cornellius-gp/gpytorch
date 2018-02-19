@@ -34,7 +34,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
-        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=20,
+        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=30,
                                                     grid_bounds=[(0, 1), (0, 1)])
 
     def forward(self, x):
