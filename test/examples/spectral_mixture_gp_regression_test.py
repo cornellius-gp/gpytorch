@@ -44,7 +44,7 @@ def test_spectral_mixture_gp_mean_abs_error():
     optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
     optimizer.n_iter = 0
 
-    with gpytorch.settings.num_trace_samples(0):
+    with gpytorch.settings.num_trace_samples(100):
         for i in range(50):
             optimizer.zero_grad()
             output = gp_model(train_x)
@@ -60,4 +60,4 @@ def test_spectral_mixture_gp_mean_abs_error():
         mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
     # The spectral mixture kernel should be trivially able to extrapolate the sine function.
-    assert(mean_abs_error.data.squeeze()[0] < 0.05)
+    assert(mean_abs_error.data.squeeze()[0] < 0.15)

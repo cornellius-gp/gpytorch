@@ -3,8 +3,8 @@ import torch
 from torch.autograd import Function, Variable
 from .lincg import LinearCG
 from .stochastic_lq import StochasticLQ
-from .trace import trace_components
-from .lanczos import lanczos_tridiag
+from .lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
+from .. import settings
 
 
 def _default_matmul_closure_factory(mat):
@@ -132,25 +132,34 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             covar2_matmul_closure = matmul_closure_factory(*covar2_args)
 
             # log |K2|
-            slq = StochasticLQ(num_random_probes=10, cls=type(covar2_args[0]))
-            if mu_diff.ndimension() == 2:
-                log_det_covar2, = slq.evaluate(covar2_matmul_closure, mu_diff.size(-1),
-                                               [lambda x: x.log()], batch_size=mu_diff.size(0))
+            num_random_probes = settings.num_trace_samples.value()
+            matrix_size = mu_diff.size(-1)
+            self.probe_vectors = mu_diff.new(matrix_size, num_random_probes).bernoulli_().mul_(2).add_(-1)
+            self.probe_vector_norms = torch.norm(self.probe_vectors, 2, dim=0)
+            probe_vectors = self.probe_vectors.div(self.probe_vector_norms.expand_as(self.probe_vectors))
+
+            probe_vectors.unsqueeze(0)
+            if mu_diff.dim() == 2:
+                probe_vectors = probe_vectors.expand(mu_diff.size(0), matrix_size, num_random_probes)
+                batch_mode = True
             else:
-                log_det_covar2, = slq.evaluate(covar2_matmul_closure, mu_diff.size(-1), [lambda x: x.log()])
+                batch_mode = False
+
+            q_mat, t_mat = lanczos_tridiag(covar2_matmul_closure,
+                                           max_iter=settings.max_lanczos_quadrature_iterations.value(),
+                                           init_vecs=probe_vectors)
+            if not batch_mode:
+                t_mat = t_mat.unsqueeze(1)
+                q_mat = q_mat.unsqueeze(1)
+
+            eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
+
+            slq = StochasticLQ()
+            log_det_covar2, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
 
             # Tr(K2^{-1}K1)
-            def matmul_closure(sample_matrix):
-                if chol_covar1.ndimension() == 3:
-                    sample_matrix = sample_matrix.unsqueeze(0)
-                    sample_matrix = sample_matrix.expand(chol_covar1.size(0), sample_matrix.size(1),
-                                                         sample_matrix.size(2))
-                rhs_vectors = chol_covar1.transpose(-1, -2).contiguous().matmul(chol_covar1.matmul(sample_matrix))
-                return LinearCG().solve(covar2_matmul_closure, rhs_vectors)
-
-            sample_matrix, mat_inv_vectors = trace_components(None, matmul_closure, size=mu_diff.size(-1),
-                                                              tensor_cls=type(chol_covar1))
-            trace = (sample_matrix * mat_inv_vectors).sum(-2).sum(-1)
+            covar2_inv_chol_covar1 = LinearCG().solve(covar2_matmul_closure, chol_covar1.transpose(-1, -2))
+            trace = (covar2_inv_chol_covar1 * chol_covar1.transpose(-1, -2)).sum(-2).sum(-1)
 
             # Inverse quad form
             mat_inv_y = LinearCG().solve(covar2_matmul_closure, mu_diff.unsqueeze(-1)).squeeze(-1)
@@ -161,7 +170,12 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                 res = res.sum(-1)
 
             self.save_for_backward(*([mu_diff] + [chol_covar1] + list(covar2_args)))
+            self.t_mat_eigenvalues = eigenvalues
+            self.t_mat_eigenvectors = eigenvectors
+            self.q_mat = q_mat
+            self.t_mat = t_mat
             self.covar2_matmul_closure = covar2_matmul_closure
+            self.covar2_inv_chol_covar1 = covar2_inv_chol_covar1
             self.mat_inv_y = mat_inv_y
 
             return res
@@ -173,12 +187,10 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
 
             args = self.saved_tensors
 
-            mu_diff = args[0]
-            chol_covar1 = args[1]
+            covar2_inv_chol_covar1 = self.covar2_inv_chol_covar1
             covar2_args = args[2:]
 
             mat_inv_y = self.mat_inv_y.unsqueeze(-2)
-            covar2_matmul_closure = self.covar2_matmul_closure
 
             grad_mu_diff = None
             grad_cholesky_factor = None
@@ -189,9 +201,8 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                 grad_mu_diff = mat_inv_y.mul(2 * grad_output_value).squeeze(-2)
 
             if self.needs_input_grad[1]:
-                # Compute gradient with respect to the Cholesky factor L
-                grad_cholesky_factor = 2 * LinearCG().solve(matmul_closure_factory(*covar2_args),
-                                                            chol_covar1.transpose(-1, -2)).transpose(-1, -2)
+                # Compute gradient with respect to the Cholesky factor R
+                grad_cholesky_factor = 2 * covar2_inv_chol_covar1.transpose(-1, -2)
                 grad_cholesky_factor = grad_cholesky_factor.contiguous()
                 grad_cholesky_factor.mul_(grad_output_value)
 
@@ -201,28 +212,39 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                     if self.needs_input_grad[i + 2]:
                         grad_covar2_args[i] = covar2_args[i].new().resize_as_(covar2_args[i]).zero_()
 
-                quad_part = derivative_quadratic_form_factory(*covar2_args)(mat_inv_y, mat_inv_y)
-
-                def right_matmul_closure(sample_matrix):
-                    rhs_vectors = chol_covar1.transpose(-1, -2).contiguous().matmul(chol_covar1.matmul(sample_matrix))
-                    return sample_matrix - LinearCG().solve(covar2_matmul_closure, rhs_vectors)
-
-                def left_matmul_closure(sample_matrix):
-                    if chol_covar1.ndimension() == 3:
-                        sample_matrix = sample_matrix.unsqueeze(0)
-                        sample_matrix = sample_matrix.expand(chol_covar1.size(0), sample_matrix.size(1),
-                                                             sample_matrix.size(2))
-                    return LinearCG().solve(covar2_matmul_closure, sample_matrix)
-
-                left_vectors, right_vectors = trace_components(left_matmul_closure, right_matmul_closure,
-                                                               size=mu_diff.size(-1), tensor_cls=type(mat_inv_y))
-
                 grad_covar2_fn = derivative_quadratic_form_factory(*covar2_args)
-                grad_covar2_args = list(grad_covar2_fn(left_vectors.transpose(-1, -2),
-                                                       right_vectors.transpose(-1, -2)))
+
+                # Get dK/dargs \mu^{\top}K^{-1}\mu^{\top}
+                quad_part = grad_covar2_fn(mat_inv_y, mat_inv_y)
+
+                # Get dK/dargs Tr(K^{-1}S)
+                left_vectors_trace = covar2_inv_chol_covar1.transpose(-1, -2)
+                right_vectors_trace = covar2_inv_chol_covar1.transpose(-1, -2)
+                trace_part = grad_covar2_fn(left_vectors_trace, right_vectors_trace)
+
+                # Get dK/dargs log |K|
+                num_probes, batch_size, matrix_size, _ = self.t_mat_eigenvectors.size()
+                e1_norm_z = self.t_mat_eigenvectors.new(num_probes, batch_size, matrix_size, 1).zero_()
+                probe_norms = self.probe_vector_norms.unsqueeze(1).unsqueeze(1).expand(num_probes, batch_size, 1)
+                e1_norm_z[:, :, 0, :] = probe_norms
+
+                eigenvecs_times_probes = self.t_mat_eigenvectors.transpose(-2, -1).matmul(e1_norm_z)
+                evp_times_inverse_eigenvals = (1 / self.t_mat_eigenvalues.unsqueeze(-1)) * eigenvecs_times_probes
+                t_mat_inverse_times_probes = self.t_mat_eigenvectors.matmul(evp_times_inverse_eigenvals)
+                covar_inverse_times_probes = self.q_mat.matmul(t_mat_inverse_times_probes)
+                coef = math.sqrt(1. / self.probe_vectors.size(-1))
+                if batch_size > 1:
+                    left_vectors_logdet = covar_inverse_times_probes.squeeze().mul(coef).permute(1, 0, 2)
+                    right_vectors_logdet = self.probe_vectors.mul(coef).t().unsqueeze(0).expand_as(left_vectors_logdet)
+                else:
+                    left_vectors_logdet = covar_inverse_times_probes.squeeze().mul(coef)
+                    right_vectors_logdet = self.probe_vectors.mul(coef).t()
+
+                grad_covar2_args = list(grad_covar2_fn(left_vectors_logdet, right_vectors_logdet))
 
                 for i in range(len(covar2_args)):
                     if grad_covar2_args[i] is not None:
+                        grad_covar2_args[i].add_(-trace_part[i])
                         grad_covar2_args[i].add_(-quad_part[i])
                         grad_covar2_args[i].mul_(grad_output_value)
 
@@ -245,16 +267,39 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             # Inverse quad form
             res = (mat_inv_labels * labels).sum(-1).sum(-1)
             # Log determinant
-            slq = StochasticLQ(num_random_probes=10, cls=type(closure_args[0]))
-            if labels.ndimension() == 3:
-                logdet, = slq.evaluate(matmul_closure, labels.size(1), [lambda x: x.log()], batch_size=labels.size(0))
+            num_random_probes = settings.num_trace_samples.value()
+            matrix_size = labels.size(-2)
+            self.probe_vectors = labels.new(matrix_size, num_random_probes).bernoulli_().mul_(2).add_(-1)
+            self.probe_vector_norms = torch.norm(self.probe_vectors, 2, dim=0)
+
+            probe_vectors = self.probe_vectors.div(self.probe_vector_norms.expand_as(self.probe_vectors))
+            probe_vectors.unsqueeze(0)
+            if labels.dim() == 3:
+                probe_vectors = probe_vectors.expand(labels.size(0), matrix_size, num_random_probes)
+                batch_mode = True
             else:
-                logdet, = slq.evaluate(matmul_closure, labels.size(0), [lambda x: x.log()])
+                batch_mode = False
+
+            q_mat, t_mat = lanczos_tridiag(matmul_closure,
+                                           max_iter=settings.max_lanczos_quadrature_iterations.value(),
+                                           init_vecs=probe_vectors)
+
+            if not batch_mode:
+                t_mat = t_mat.unsqueeze(1)
+                q_mat = q_mat.unsqueeze(1)
+
+            eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
+
+            slq = StochasticLQ()
+            logdet, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
 
             res += logdet
             res += math.log(2 * math.pi) * labels.size(-2)
             res *= -0.5
 
+            self.t_mat_eigenvalues = eigenvalues
+            self.t_mat_eigenvectors = eigenvectors
+            self.q_mat = q_mat
             self.mat_inv_labels = mat_inv_labels
             self.matmul_closure = matmul_closure
             self.save_for_backward(*args)
@@ -267,10 +312,8 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                 raise NotImplementedError
 
             closure_args = self.saved_tensors[:-1]
-            labels = self.saved_tensors[-1].unsqueeze(-1)
             mat_inv_labels = self.mat_inv_labels
 
-            matmul_closure = self.matmul_closure
             closure_arg_grads = [None] * len(closure_args)
             labels_grad = None
 
@@ -285,18 +328,19 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                 function = derivative_quadratic_form_factory(*closure_args)
                 quad_form_part = function(mat_inv_labels.transpose(-1, -2), mat_inv_labels.transpose(-1, -2))
 
-                def left_matmul_closure(sample_matrix):
-                    return LinearCG().solve(matmul_closure, sample_matrix)
-
-                if labels.ndimension() == 3:
-                    left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(-2),
-                                                                   tensor_cls=type(mat_inv_labels),
-                                                                   dim_num=labels.size(0))
-                else:
-                    left_vectors, right_vectors = trace_components(left_matmul_closure, None, size=labels.size(-2),
-                                                                   tensor_cls=type(mat_inv_labels))
-                function = derivative_quadratic_form_factory(*closure_args)
-                closure_arg_grads = list(function(left_vectors.transpose(-1, -2), right_vectors.transpose(-1, -2)))
+                # probe_vectors is (batch_size x matrix_size x num_probes)
+                # t_mat_eigenvectors is (num_probes x batch_size x matrix_size x matrix_size)
+                num_probes, batch_size, matrix_size, _ = self.t_mat_eigenvectors.size()
+                e1_norm_z = self.t_mat_eigenvectors.new(num_probes, batch_size, matrix_size, 1).zero_()
+                e1_norm_z[:, :, 0, :] = self.probe_vector_norms
+                eigenvecs_times_probes = self.t_mat_eigenvectors.transpose(-2, -1).matmul(e1_norm_z)
+                evp_times_inverse_eigenvals = (1 / self.t_mat_eigenvalues.unsqueeze(-1)) * eigenvecs_times_probes
+                t_mat_inverse_times_probes = self.t_mat_eigenvectors.matmul(evp_times_inverse_eigenvals)
+                covar_inverse_times_probes = self.q_mat.matmul(t_mat_inverse_times_probes)
+                coef = math.sqrt(1. / self.probe_vectors.size(-1))
+                left_vectors = covar_inverse_times_probes.squeeze().mul(coef)
+                right_vectors = self.probe_vectors.mul(coef)
+                closure_arg_grads = list(function(left_vectors, right_vectors.transpose(-1, -2)))
 
                 for i in range(len(closure_args)):
                     if self.needs_input_grad[i] and closure_arg_grads[i] is not None:
@@ -356,19 +400,11 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                 t_mat = t_mat.unsqueeze(0)
             n_probes = t_mat.size(0)
 
-            # Eigenvalue correction - remove negative eigenvalues
-            evecs_list = []
-            evals_list = []
-            for i in range(t_mat.size(0)):
-                for j in range(t_mat.size(1)):
-                    evals, evecs = t_mat[i, j].symeig(eigenvectors=True)
-                    mask = evals.ge(0)
-                    evals_list.append(evals.masked_fill_(1 - mask, 1))
-                    evecs_list.append((evecs * mask.type_as(evecs).unsqueeze(0)).unsqueeze(0))
+            eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
 
             # Get orthogonal matrix and eigenvalue roots
-            q_mat = q_mat.matmul(torch.cat(evecs_list).view(*t_mat.size()))
-            root_evals = torch.cat(evals_list).view(n_probes, t_mat.size(1), t_mat.size(2)).sqrt()
+            q_mat = q_mat.matmul(eigenvectors)
+            root_evals = eigenvalues.sqrt()
 
             # Store q_mat * t_mat_chol
             # Decide if we're computing the inverse, or the regular root

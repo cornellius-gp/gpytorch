@@ -7,7 +7,6 @@ from .lincg import LinearCG
 from . import lanczos
 from . import sparse
 from .stochastic_lq import StochasticLQ
-from .trace import trace_components
 
 
 def reverse(input, dim=0):
@@ -418,7 +417,6 @@ __all__ = [
     sparse_eye,
     sparse_getitem,
     sparse_repeat,
-    trace_components,
     to_sparse,
     tridiag_batch_potrf,
     tridiag_batch_potrs,
