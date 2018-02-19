@@ -11,6 +11,7 @@ addons:
 branches:
   only:
     - master
+    - alpha_release
 
 before_install:
   - sudo apt-get update
