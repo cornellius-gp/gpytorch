@@ -159,6 +159,8 @@ def lanczos_tridiag_to_diag(t_mat):
 
     TODO: make the eigenvalue computations done in batch mode.
     """
+    t_mat_orig = t_mat
+    t_mat = t_mat.cpu()
 
     if t_mat.dim() == 3:
         t_mat = t_mat.unsqueeze(0)
@@ -176,4 +178,4 @@ def lanczos_tridiag_to_diag(t_mat):
             eigenvectors[i, j] = evecs * mask.type_as(evecs).unsqueeze(0)
             eigenvalues[i, j] = evals.masked_fill_(1 - mask, 1)
 
-    return eigenvalues, eigenvectors
+    return eigenvalues.type_as(t_mat_orig), eigenvectors.type_as(t_mat_orig)
