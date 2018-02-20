@@ -96,9 +96,9 @@ def test_backward_inv_mv():
 
 def test_normal_gp_mll_forward():
     covar = torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ])
     y = torch.randn(3)
 
@@ -116,9 +116,9 @@ def test_normal_gp_mll_forward():
 
 def test_normal_gp_mll_backward():
     covar = torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ])
     y = torch.randn(3)
 
@@ -154,9 +154,9 @@ def test_normal_gp_mll_backward():
 
 def test_normal_trace_log_det_quad_form_forward():
     covar = torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ])
     mu_diffs = torch.Tensor([0, -1, 1])
     chol_covar = torch.Tensor([
@@ -179,9 +179,9 @@ def test_normal_trace_log_det_quad_form_forward():
 
 def test_normal_trace_log_det_quad_form_backward():
     covar = Variable(torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ]), requires_grad=True)
     mu_diffs = Variable(torch.Tensor([0, -1, 1]), requires_grad=True)
     chol_covar = Variable(torch.Tensor([
@@ -199,9 +199,9 @@ def test_normal_trace_log_det_quad_form_backward():
     actual_chol_covar_grad = chol_covar.grad.data.clone()
 
     covar = Variable(torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ]), requires_grad=True)
     mu_diffs = Variable(torch.Tensor([0, -1, 1]), requires_grad=True)
     chol_covar = Variable(torch.Tensor([
@@ -226,9 +226,9 @@ def test_normal_trace_log_det_quad_form_backward():
 def test_batch_trace_log_det_quad_form_forward():
     covar = torch.Tensor([
         [
-            [5, -3, 0],
-            [-3, 5, 0],
-            [0, 0, 2],
+            [3, -1, 0],
+            [-1, 3, 0],
+            [0, 0, 3],
         ], [
             [10, -2, 1],
             [-2, 10, 0],
@@ -269,9 +269,9 @@ def test_batch_trace_log_det_quad_form_forward():
 def test_batch_trace_log_det_quad_form_backward():
     covar = Variable(torch.Tensor([
         [
-            [5, -3, 0],
-            [-3, 5, 0],
-            [0, 0, 2],
+            [3, -1, 0],
+            [-1, 3, 0],
+            [0, 0, 3],
         ], [
             [10, -2, 1],
             [-2, 10, 0],

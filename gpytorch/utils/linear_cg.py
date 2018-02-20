@@ -108,7 +108,7 @@ def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_i
         # If residual are sufficiently small, then exit loop
         # Alternatively, exit if this is our last iteration
         torch.norm(residual, 2, dim=-2, out=residual_norm)
-        if not (torch.sum(residual_norm > tolerance)):
+        if not (torch.sum(residual_norm > tolerance)) and not n_tridiag:
             break
 
         # Update precond_residual
