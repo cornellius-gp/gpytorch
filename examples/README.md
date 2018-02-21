@@ -8,7 +8,7 @@ If you're just starting work with Gaussian processes, check out the simple [regr
 [classification](simple_gp_classification.ipynb). These show the most basic usage of GPyTorch and provide links to
 useful reading material.
 
-If you have a specific task in mind, then check out this [flowchart](GPyTorch flowchart.pdf) to find which notebook will help you.
+If you have a specific task in mind, then check out this [flowchart](flowchart.pdf) to find which notebook will help you.
 
 Here's a verbal summary of the flow chart:
 
