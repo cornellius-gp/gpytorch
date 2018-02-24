@@ -12,21 +12,24 @@ class LanczosBidiagonalize(object):
         product tolerance.
         """
         norms = matrix.t().matmul(vector)
-        while any(torch.abs(norms) > tol):
+        tries = 0
+        while any(torch.abs(norms) > tol) and tries < 10:
             vector = vector - torch.sum(norms * matrix, dim=1)
             vector = vector / torch.norm(vector)
             norms = matrix.t().matmul(vector)
+            tries = tries + 1
 
         return vector
 
-    def lanczos_bidiagonalize(self, matmul_closure, initial_vector):
+    def lanczos_bidiagonalize(self, matmul_closure, matmul_t_closure, initial_vector, num_rows, num_columns):
         matrix_size = len(initial_vector)
         # For now just do num_iters iterations
-        num_iters = self.max_iter
+        num_iters = min(self.max_iter, num_rows, num_columns)
 
         initial_vector = initial_vector / torch.norm(initial_vector)
-        Q = self.cls(matrix_size, num_iters).zero_()
-        P = self.cls(matrix_size, num_iters).zero_()
+        assert(len(initial_vector) == num_columns)
+        Q = self.cls(num_columns, num_iters).zero_()
+        P = self.cls(num_rows, num_iters).zero_()
         beta = self.cls(num_iters).zero_()
         alpha = self.cls(num_iters).zero_()
 
@@ -46,7 +49,7 @@ class LanczosBidiagonalize(object):
 
             if i < num_iters - 1:
                 # Compute next right vector
-                Q[:, i + 1] = matmul_closure(P[:, i])
+                Q[:, i + 1] = matmul_t_closure(P[:, i])
 
                 # Reorthogonalize
                 norms = Q[:, :i + 1].t().matmul(Q[:, i + 1])

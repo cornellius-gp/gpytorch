@@ -406,12 +406,8 @@ def tridiag_batch_potrs(tensor, chol_trid, upper=True):
 
 __all__ = [
     Interpolation,
-<<<<<<< 96b0dc0fb6d4867790ce4ff5d76888e8ce8aae4a
     linear_cg,
-=======
-    LinearCG,
     LanczosBidiagonalize,
->>>>>>> Working on stable Lanczos bidiagonalization
     StochasticLQ,
     left_interp,
     reverse,
