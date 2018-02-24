@@ -137,6 +137,9 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             probe_vectors = self.probe_vectors.div(self.probe_vector_norms.expand_as(self.probe_vectors))
             if mu_diff.dim() == 2:
                 probe_vectors = probe_vectors.unsqueeze(0).expand(mu_diff.size(0), matrix_size, num_random_probes)
+                self.probe_vectors = self.probe_vectors.unsqueeze(0).expand(mu_diff.size(0),
+                                                                            matrix_size,
+                                                                            num_random_probes)
 
             # Perform solves and tridiagonalization
             matmul_closure = matmul_closure_factory(*covar2_args)
@@ -244,6 +247,9 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             probe_vectors = self.probe_vectors.div(self.probe_vector_norms.expand_as(self.probe_vectors))
             if labels.dim() == 3:
                 probe_vectors = probe_vectors.unsqueeze(0).expand(labels.size(0), matrix_size, num_random_probes)
+                self.probe_vectors = self.probe_vectors.unsqueeze(0).expand(labels.size(0),
+                                                                            matrix_size,
+                                                                            num_random_probes)
 
             matmul_closure = matmul_closure_factory(*closure_args)
             rhs = torch.cat([probe_vectors, labels], -1)
