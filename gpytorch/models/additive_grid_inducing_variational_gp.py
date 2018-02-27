@@ -33,6 +33,18 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
             interp_values = interp_values.mul(self.mixing_params.unsqueeze(1).unsqueeze(2))
         return interp_indices, interp_values
 
+    def _initalize_variational_parameters(self, prior_output):
+        batch_size = self.chol_variational_covar.size(0)
+        mean_init = prior_output.mean().data
+        mean_init += mean_init.new(mean_init.size()).normal_().mul_(1e-1)
+
+        chol_covar_init = torch.eye(mean_init.size(-1)).type_as(mean_init)
+        chol_covar_init = chol_covar_init.unsqueeze_(0).repeat(batch_size, 1, 1)
+        chol_covar_init += chol_covar_init.new(chol_covar_init.size()).normal_().mul_(1e-1)
+
+        self.variational_mean.data.copy_(mean_init)
+        self.chol_variational_covar.data.copy_(chol_covar_init)
+
     def prior_output(self):
         out = super(AdditiveGridInducingVariationalGP, self).prior_output()
         mean = out.mean()
