@@ -37,6 +37,7 @@ def test_kissgp_classification_error():
     train_x, train_y = train_data()
     likelihood = BernoulliLikelihood()
     model = GPClassificationModel(train_x.data)
+    mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
     # Find optimal model hyperparameters
     model.train()
@@ -46,7 +47,7 @@ def test_kissgp_classification_error():
     for i in range(50):
         optimizer.zero_grad()
         output = model(train_x)
-        loss = -model.marginal_log_likelihood(likelihood, output, train_y)
+        loss = -mll(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
@@ -64,6 +65,7 @@ def test_kissgp_classification_fast_pred_var():
         train_x, train_y = train_data()
         likelihood = BernoulliLikelihood()
         model = GPClassificationModel(train_x.data)
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
@@ -73,7 +75,7 @@ def test_kissgp_classification_fast_pred_var():
         for i in range(50):
             optimizer.zero_grad()
             output = model(train_x)
-            loss = -model.marginal_log_likelihood(likelihood, output, train_y)
+            loss = -mll(output, train_y)
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()
@@ -92,6 +94,7 @@ def test_kissgp_classification_error_cuda():
         train_x, train_y = train_data(cuda=True)
         likelihood = BernoulliLikelihood().cuda()
         model = GPClassificationModel(train_x.data).cuda()
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
@@ -100,7 +103,7 @@ def test_kissgp_classification_error_cuda():
         for i in range(50):
             optimizer.zero_grad()
             output = model(train_x)
-            loss = -model.marginal_log_likelihood(likelihood, output, train_y)
+            loss = -mll(output, train_y)
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()

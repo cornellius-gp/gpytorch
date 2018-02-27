@@ -20,25 +20,15 @@ class AbstractVariationalGP(Module):
         self.register_variational_strategy('inducing_point_strategy')
 
     def marginal_log_likelihood(self, likelihood, output, target, n_data=None):
-        """
-        Returns the marginal log likelihood of the data
-
-        Args:
-        - likelihood: (Likelihood) - the likelihood for the model
-        - output: (GaussianRandomVariable) - the output of the GP model
-        - target: (Variable) - target
-        - n_data: (int) - total number of data points in the set (required only for SGD)
-        """
+        from ..mlls import VariationalMarginalLogLikelihood
+        if not hasattr(self, '_has_warned') or not self._has_warned:
+            import warnings
+            warnings.warn("model.marginal_log_likelihood is now deprecated. "
+                          "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead.")
+            self._has_warned = True
         if n_data is None:
-            n_data = len(target)
-        n_batch = target.size(0)
-
-        log_likelihood = likelihood.log_probability(output, target).div(n_batch)
-        kl_divergence = sum(variational_strategy.kl_divergence()
-                            for variational_strategy in self.variational_strategies()).div(n_data)
-
-        res = log_likelihood - kl_divergence
-        return res
+            n_data = target.size(-1)
+        return VariationalMarginalLogLikelihood(likelihood, self, n_data)(output, target)
 
     def prior_output(self):
         res = super(AbstractVariationalGP, self).__call__(Variable(self.inducing_points))

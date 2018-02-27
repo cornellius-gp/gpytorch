@@ -5,7 +5,7 @@ from . import mlls
 from . import kernels
 from . import beta_features
 from . import settings
-from .mlls import ExactMarginalLogLikelihood
+from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 from .beta_features import fast_pred_var
 from torch.autograd import Variable
 from .lazy import LazyVariable, NonLazyVariable
@@ -136,6 +136,7 @@ __all__ = [
     # Classes
     Module,
     ExactMarginalLogLikelihood,
+    VariationalMarginalLogLikelihood,
     # Functions
     add_diag,
     add_jitter,
