@@ -1,18 +1,20 @@
-from torch.autograd import Variable
-from .lazy import LazyVariable, ToeplitzLazyVariable
 from .module import Module
-from .gp_model import GPModel
-from .inducing_points import AdditiveGridInducingPointModule, InducingPointModule, GridInducingPointModule
-from .functions import AddDiag, DSMM, NormalCDF, LogNormalCDF
-from .utils import function_factory
-from .posterior import DefaultPosteriorStrategy
+from . import models
 from . import means
+from . import mlls
 from . import kernels
+from . import beta_features
+from . import settings
+from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
+from .beta_features import fast_pred_var
+from torch.autograd import Variable
+from .lazy import LazyVariable, NonLazyVariable
+from .functions import add_diag as _add_diag, dsmm, log_normal_cdf, normal_cdf
+from .utils import function_factory
 
 
 _inv_matmul_class = function_factory.inv_matmul_factory()
 _trace_logdet_quad_form_factory_class = function_factory.trace_logdet_quad_form_factory()
-_exact_gp_mll_class = function_factory.exact_gp_mll_factory()
 
 
 def add_diag(input, diag):
@@ -34,7 +36,7 @@ def add_diag(input, diag):
     if isinstance(input, LazyVariable):
         return input.add_diag(diag)
     else:
-        return AddDiag()(input, diag)
+        return _add_diag(input, diag)
 
 
 def add_jitter(mat):
@@ -55,34 +57,50 @@ def add_jitter(mat):
         else:
             return mat + diag
     else:
-        diag = mat.new(len(mat)).fill_(1e-3).diag()
+        diag = mat.new(mat.size(-1)).fill_(1e-3).diag()
         if mat.ndimension() == 3:
             return mat.add_(diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2)))
         else:
             return diag.add_(mat)
 
 
-def dsmm(sparse_mat, dense_mat):
-    return DSMM(sparse_mat)(dense_mat)
-
-
-def exact_gp_marginal_log_likelihood(covar, target):
+def exact_predictive_mean(full_covar, full_mean, train_labels, noise, precomputed_cache=None):
     """
-    Computes the log marginal likelihood of the data with a GP prior and Gaussian noise model
-    given a label vector and covariance matrix.
+    Computes the posterior predictive mean of a GP
 
     Args:
-        - covar (matrix nxn) - Variable or LazyVariable representing the covariance matrix of the observations.
-                               Usually, this is K + s*I, where s is the noise variance, and K is the prior covariance.
-        - target (vector n) - Training label vector.
+    - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
+        - [ K_XX, K_XX*; K_X*X, K_X*X* ]
+    - full_mean (n + t) - the training and test prior means, stacked on top of each other
+    - train_labels (n) - the training labels minus the training prior mean
+    - noise (1) - the observed noise (from the likelihood)
+    - precomputed_cache - speeds up subsequent computations (default: None)
 
     Returns:
-        - scalar - The marginal log likelihood of the data.
+    - (t) - the predictive posterior mean of the test points
     """
-    if isinstance(covar, LazyVariable):
-        return covar.exact_gp_marginal_log_likelihood(target)
-    else:
-        return _exact_gp_mll_class()(covar, target)
+    if not isinstance(full_covar, LazyVariable):
+        full_covar = NonLazyVariable(full_covar)
+    return full_covar.exact_predictive_mean(full_mean, train_labels, noise, precomputed_cache)
+
+
+def exact_predictive_covar(full_covar, n_train, noise, precomputed_cache=None):
+    """
+    Computes the posterior predictive covariance of a GP
+
+    Args:
+    - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
+        - [ K_XX, K_XX*; K_X*X, K_X*X* ]
+    - n_train (int) - how many training points are there in the full covariance matrix
+    - noise (1) - the observed noise (from the likelihood)
+    - precomputed_cache - speeds up subsequent computations (default: None)
+
+    Returns:
+    - LazyVariable (t x t) - the predictive posterior covariance of the test points
+    """
+    if not isinstance(full_covar, LazyVariable):
+        full_covar = NonLazyVariable(full_covar)
+    return full_covar.exact_predictive_covar(n_train, noise, precomputed_cache)
 
 
 def inv_matmul(mat1, rhs):
@@ -102,29 +120,6 @@ def inv_matmul(mat1, rhs):
         return _inv_matmul_class()(mat1, rhs)
 
 
-def log_normal_cdf(x):
-    """
-    Computes the element-wise log standard normal CDF of an input tensor x.
-
-    This function should always be preferred over calling normal_cdf and taking the log
-    manually, as it is more numerically stable.
-    """
-    return LogNormalCDF()(x)
-
-
-def normal_cdf(x):
-    """
-    Computes the element-wise standard normal CDF of an input tensor x.
-    """
-    return NormalCDF()(x)
-
-
-def posterior_strategy(obj):
-    if isinstance(obj, LazyVariable):
-        return obj.posterior_strategy()
-    return DefaultPosteriorStrategy(obj)
-
-
 def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
     if isinstance(covar_2, LazyVariable):
         return covar_2.trace_log_det_quad_form(mean_diffs, chol_covar_1)
@@ -133,21 +128,27 @@ def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
 
 
 __all__ = [
+    # Submodules
+    models,
+    mlls,
     means,
     kernels,
-    ToeplitzLazyVariable,
+    # Classes
     Module,
-    GPModel,
-    AdditiveGridInducingPointModule,
-    GridInducingPointModule,
-    InducingPointModule,
+    ExactMarginalLogLikelihood,
+    VariationalMarginalLogLikelihood,
+    # Functions
     add_diag,
     add_jitter,
     dsmm,
-    exact_gp_marginal_log_likelihood,
+    exact_predictive_mean,
+    exact_predictive_covar,
     inv_matmul,
     log_normal_cdf,
     normal_cdf,
-    posterior_strategy,
     trace_logdet_quad_form,
+    # Context managers
+    beta_features,
+    fast_pred_var,
+    settings,
 ]

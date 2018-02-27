@@ -3,9 +3,10 @@ from copy import deepcopy
 from operator import mul
 from torch.autograd import Variable
 from .interpolation import Interpolation
-from .lincg import LinearCG
-from .lanczos_quadrature import StochasticLQ
-from .trace import trace_components
+from .linear_cg import linear_cg
+from . import lanczos
+from . import sparse
+from .stochastic_lq import StochasticLQ
 
 
 def reverse(input, dim=0):
@@ -95,10 +96,10 @@ def left_interp(interp_indices, interp_values, rhs):
         if interp_indices.is_cuda:
             if interp_indices.ndimension() == 3:
                 n_batch, n_data, n_interp = interp_indices.size()
-                interp_indices = interp_indices.view(-1)
+                interp_indices = interp_indices.contiguous().view(-1)
                 if isinstance(interp_indices, Variable):
                     interp_indices = interp_indices.data
-                interp_values = interp_values.view(-1, 1)
+                interp_values = interp_values.contiguous().view(-1, 1)
 
                 if rhs.ndimension() == 3:
                     if rhs.size(0) == 1 and interp_indices.size(0) > 1:
@@ -114,8 +115,8 @@ def left_interp(interp_indices, interp_values, rhs):
                 return res
             else:
                 n_data, n_interp = interp_indices.size()
-                interp_indices = interp_indices.view(-1)
-                interp_values = interp_values.view(-1, 1)
+                interp_indices = interp_indices.contiguous().view(-1)
+                interp_values = interp_values.contiguous().view(-1, 1)
                 if rhs.ndimension() == 3:
                     n_batch, _, n_cols = rhs.size()
                     rhs = rhs.transpose(0, 1).contiguous().view(-1, n_batch * n_cols)
@@ -139,13 +140,71 @@ def left_interp(interp_indices, interp_values, rhs):
             return res.sum(-2)
 
 
+def left_t_interp(interp_indices, interp_values, rhs, output_dim):
+    from .. import dsmm
+
+    is_vector = rhs.ndimension() == 1
+    if is_vector:
+        rhs = rhs.unsqueeze(-1)
+
+    is_batch = rhs.ndimension() == 3
+    if not is_batch:
+        rhs = rhs.unsqueeze(0)
+    if not interp_indices.ndimension() == 3:
+        interp_indices = interp_indices.unsqueeze(0)
+        interp_values = interp_values.unsqueeze(0)
+
+    batch_size, n_data, n_interp = interp_values.size()
+    _, _, n_cols = rhs.size()
+
+    values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1)).view(batch_size, n_data * n_interp, n_cols)
+
+    flat_interp_indices = interp_indices.data.contiguous().view(1, -1)
+    batch_indices = flat_interp_indices.new(batch_size, 1)
+    torch.arange(0, batch_size, out=batch_indices[:, 0])
+    batch_indices = batch_indices.repeat(1, n_data * n_interp).view(1, -1)
+    column_indices = flat_interp_indices.new(n_data * n_interp, 1)
+    torch.arange(0, n_data * n_interp, out=column_indices[:, 0])
+    column_indices = column_indices.repeat(batch_size, 1).view(1, -1)
+
+    summing_matrix_indices = torch.cat([
+        batch_indices,
+        flat_interp_indices,
+        column_indices,
+    ])
+    summing_matrix_values = interp_values.data.new(batch_size * n_data * n_interp).fill_(1)
+    size = torch.Size((batch_size, output_dim, n_data * n_interp))
+
+    if interp_values.is_cuda:
+        cls = getattr(torch.cuda.sparse, summing_matrix_values.__class__.__name__)
+    else:
+        cls = getattr(torch.sparse, summing_matrix_values.__class__.__name__)
+    summing_matrix = Variable(cls(summing_matrix_indices, summing_matrix_values, size))
+
+    res = dsmm(summing_matrix, values)
+
+    if not is_batch:
+        res = res.squeeze(0)
+    if is_vector:
+        res = res.squeeze(-1)
+    return res
+
+
+def prod(items):
+    res = items[0]
+    for item in items[1:]:
+        res = res * item
+    return res
+
+
 def sparse_eye(size):
     """
     Returns the identity matrix as a sparse matrix
     """
     indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
     values = torch.Tensor([1]).expand(size)
-    return torch.sparse.FloatTensor(indices, values, torch.Size([size, size]))
+    cls = getattr(torch.sparse, values.__class__.__name__)
+    return cls(indices, values, torch.Size([size, size]))
 
 
 def sparse_getitem(sparse, idxs):
@@ -260,17 +319,105 @@ def to_sparse(dense):
     return res
 
 
+def tridiag_batch_potrf(trid, upper=False):
+    if not torch.is_tensor(trid):
+        raise RuntimeError('tridiag_batch_potrf is only defined for tensors')
+
+    batch_size, diag_size, _ = trid.size()
+    batch_index = trid.new(batch_size).long()
+    torch.arange(0, batch_size, out=batch_index)
+    off_batch_index = batch_index.unsqueeze(1).repeat(diag_size - 1, 1).view(-1)
+    batch_index = batch_index.unsqueeze(1).repeat(diag_size, 1).view(-1)
+    diag_index = trid.new(diag_size).long()
+    torch.arange(0, diag_size, out=diag_index)
+    diag_index = diag_index.unsqueeze(1).repeat(1, batch_size).view(-1)
+    off_diag_index = trid.new(diag_size - 1).long()
+    torch.arange(0, diag_size - 1, out=off_diag_index)
+    off_diag_index = off_diag_index.unsqueeze(1).repeat(1, batch_size).view(-1)
+
+    t_main_diag = trid[batch_index, diag_index, diag_index].view(diag_size, batch_size)
+    t_off_diag = trid[off_batch_index, off_diag_index + 1, off_diag_index].view(diag_size - 1, batch_size)
+
+    chol_main_diag = t_main_diag.new(*t_main_diag.size())
+    chol_off_diag = t_off_diag.new(*t_off_diag.size())
+
+    chol_main_diag[0].copy_(t_main_diag[0].sqrt())
+    for i in range(1, diag_size):
+        chol_off_diag[i - 1].copy_(t_off_diag[i - 1] / chol_main_diag[i - 1])
+        sq_value = t_main_diag[i] - chol_off_diag[i - 1] ** 2
+        chol_main_diag[i].copy_(torch.sqrt(sq_value))
+
+    res = trid.new(*trid.size()).zero_()
+    main_flattened_indices = batch_index * (batch_size * diag_size) + diag_index * (diag_size + 1)
+    off_flattened_indices = sum([
+        off_batch_index * (batch_size * (diag_size - 1)),
+        (off_diag_index + 1) * diag_size,
+        off_diag_index
+    ])
+    res.view(-1).index_copy_(0, main_flattened_indices, chol_main_diag.view(-1))
+    res.view(-1).index_copy_(0, off_flattened_indices, chol_off_diag.view(-1))
+
+    if upper:
+        res = res.transpose(-1, -2)
+    return res
+
+
+def tridiag_batch_potrs(tensor, chol_trid, upper=True):
+    if not torch.is_tensor(chol_trid):
+        raise RuntimeError('tridiag_batch_potrf is only defined for tensors')
+
+    if not tensor.ndimension() == 3:
+        raise RuntimeError('Tensor should be 3 dimensional')
+
+    batch_size, diag_size, _ = chol_trid.size()
+    batch_index = chol_trid.new(batch_size).long()
+    torch.arange(0, batch_size, out=batch_index)
+    off_batch_index = batch_index.unsqueeze(1).repeat(1, diag_size - 1).view(-1)
+    batch_index = batch_index.unsqueeze(1).repeat(1, diag_size).view(-1)
+    diag_index = chol_trid.new(diag_size).long()
+    torch.arange(0, diag_size, out=diag_index)
+    diag_index = diag_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
+    off_diag_index = chol_trid.new(diag_size - 1).long()
+    torch.arange(0, diag_size - 1, out=off_diag_index)
+    off_diag_index = off_diag_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
+
+    if upper:
+        chol_trid = chol_trid.transpose(-1, -2)
+
+    chol_main_diag = chol_trid[batch_index, diag_index, diag_index].view(batch_size, diag_size)
+    chol_off_diag = chol_trid[off_batch_index, off_diag_index + 1, off_diag_index].view(batch_size, diag_size - 1)
+
+    chol_solution = tensor.new(*tensor.size())
+    chol_solution[:, 0, :].copy_(tensor[:, 0, :] / chol_main_diag[:, 0].unsqueeze(-1))
+    for i in range(1, diag_size):
+        inner_part = tensor[:, i, :]
+        inner_part = inner_part - chol_off_diag[:, i - 1].unsqueeze(-1) * chol_solution[:, i - 1, :]
+        chol_solution[:, i, :].copy_(inner_part / chol_main_diag[:, i].unsqueeze(-1))
+
+    solution = chol_solution.new(*chol_solution.size())
+    solution[:, -1, :].copy_(chol_solution[:, -1, :] / chol_main_diag[:, -1].unsqueeze(-1))
+    for i in range(diag_size - 2, -1, -1):
+        inner_part = chol_solution[:, i, :] - chol_off_diag[:, i].unsqueeze(-1) * solution[:, i + 1, :]
+        solution[:, i, :].copy_(inner_part / chol_main_diag[:, i].unsqueeze(-1))
+
+    return solution
+
+
 __all__ = [
     Interpolation,
-    LinearCG,
+    linear_cg,
     StochasticLQ,
     left_interp,
     reverse,
     rcumsum,
     approx_equal,
     bdsmm,
+    lanczos,
+    sparse,
     sparse_eye,
     sparse_getitem,
     sparse_repeat,
-    trace_components,
+    to_sparse,
+    tridiag_batch_potrf,
+    tridiag_batch_potrs,
 ]

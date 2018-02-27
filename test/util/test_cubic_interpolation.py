@@ -1,4 +1,5 @@
 import torch
+from torch.autograd import Variable
 from gpytorch.utils.interpolation import Interpolation
 from gpytorch import utils
 
@@ -6,13 +7,13 @@ from gpytorch import utils
 def test_interpolation():
     x = torch.linspace(0.01, 1, 100).unsqueeze(1)
     grid = torch.linspace(-0.05, 1.05, 50).unsqueeze(0)
-    indices, values = Interpolation().interpolate(grid, x)
-    indices.squeeze_(0)
-    values.squeeze_(0)
+    indices, values = Interpolation().interpolate(Variable(grid), Variable(x))
+    indices = indices.squeeze_(0)
+    values = values.squeeze_(0)
     test_func_grid = grid.squeeze(0).pow(2)
     test_func_x = x.pow(2).squeeze(-1)
 
-    interp_func_x = utils.left_interp(indices, values, test_func_grid.unsqueeze(1)).squeeze()
+    interp_func_x = utils.left_interp(indices.data, values.data, test_func_grid.unsqueeze(1)).squeeze()
 
     assert utils.approx_equal(interp_func_x, test_func_x)
 
@@ -25,7 +26,7 @@ def test_multidim_interpolation():
     ]).t().contiguous()
     grid = torch.linspace(0., 1., 11).unsqueeze(0).repeat(3, 1)
 
-    indices, values = Interpolation().interpolate(grid, x)
+    indices, values = Interpolation().interpolate(Variable(grid), Variable(x))
 
     actual_indices = torch.cat([
         torch.LongTensor([
@@ -59,7 +60,7 @@ def test_multidim_interpolation():
             [1259, 1260, 1261, 1262, 1270, 1271, 1272, 1273, 1281, 1282, 1283, 1284],
         ])
     ], 1)
-    assert utils.approx_equal(indices, actual_indices)
+    assert utils.approx_equal(indices.data, actual_indices)
 
     actual_values = torch.cat([
         torch.Tensor([
@@ -105,4 +106,4 @@ def test_multidim_interpolation():
             [0.0000, 0.0015, 0.0000, 0.0000],
         ]),
     ], 1)
-    assert utils.approx_equal(values, actual_values)
+    assert utils.approx_equal(values.data, actual_values)

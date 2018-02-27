@@ -62,6 +62,18 @@ class SumLazyVariable(LazyVariable):
         lazy_vars.append(self.lazy_vars[-1].add_jitter())
         return SumLazyVariable(*lazy_vars)
 
+    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
+        return tuple(lazy_var._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root,
+                                                                          test_train_covar_comp)
+                     for lazy_var, test_train_covar_comp in zip(self.lazy_vars, test_train_covar.lazy_vars))
+
+    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
+        # Here the precomputed cache is a list
+        # where each component in the list is the precomputed cache for each component lazy variable
+        return sum(lazy_var._exact_predictive_covar_inv_quad_form_root(cache_comp, test_train_covar_comp)
+                   for lazy_var, cache_comp, test_train_covar_comp in zip(self.lazy_vars, precomputed_cache,
+                                                                          test_train_covar.lazy_vars))
+
     def __add__(self, other):
         if isinstance(other, SumLazyVariable):
             return SumLazyVariable(*(list(self.lazy_vars) + list(other.lazy_vars)))
@@ -72,3 +84,10 @@ class SumLazyVariable(LazyVariable):
 
     def diag(self):
         return sum(lazy_var.diag() for lazy_var in self.lazy_vars)
+
+    def __getitem__(self, index):
+        results = tuple(lazy_var.__getitem__(index) for lazy_var in self.lazy_vars)
+        if isinstance(results[0], LazyVariable):
+            return SumLazyVariable(*results)
+        else:
+            return sum(results)

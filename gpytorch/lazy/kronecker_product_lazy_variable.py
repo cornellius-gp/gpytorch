@@ -151,7 +151,7 @@ class KroneckerProductLazyVariable(LazyVariable):
             return torch.Size((left_size, right_size))
 
     def _transpose_nonbatch(self):
-        return self.__class__(*(lazy_var._transpose_nonbatch() for lazy_var in self.lazy_vars))
+        return self.__class__(*(lazy_var._transpose_nonbatch() for lazy_var in self.lazy_vars), **self._kwargs)
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         res = Variable(self._tensor_cls(left_indices.size()).fill_(1))
@@ -178,3 +178,6 @@ class KroneckerProductLazyVariable(LazyVariable):
             left_indices = left_indices - (left_indices_i * size)
             right_indices = right_indices - (right_indices_i * size)
         return res
+
+    def repeat(self, *sizes):
+        return KroneckerProductLazyVariable(*[lazy_var.repeat(*sizes) for lazy_var in self.lazy_vars])

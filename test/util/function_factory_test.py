@@ -3,7 +3,11 @@ import torch
 import gpytorch
 import numpy as np
 from torch.autograd import Variable
-from gpytorch.utils import approx_equal
+from gpytorch.utils import approx_equal, function_factory
+from gpytorch.lazy import NonLazyVariable
+
+
+_exact_gp_mll_class = function_factory.exact_gp_mll_factory()
 
 
 def test_forward_inv_mm():
@@ -95,9 +99,9 @@ def test_backward_inv_mv():
 
 def test_normal_gp_mll_forward():
     covar = torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ])
     y = torch.randn(3)
 
@@ -109,15 +113,15 @@ def test_normal_gp_mll_forward():
     covarvar = Variable(covar)
     yvar = Variable(y)
 
-    res = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar)
+    res = _exact_gp_mll_class()(covarvar, yvar)
     assert(all(torch.abs(actual - res.data).div(res.data) < 0.1))
 
 
 def test_normal_gp_mll_backward():
     covar = torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ])
     y = torch.randn(3)
 
@@ -133,18 +137,19 @@ def test_normal_gp_mll_backward():
 
     covarvar = Variable(covar, requires_grad=True)
     yvar = Variable(y, requires_grad=True)
-    gpytorch.functions.num_trace_samples = 1000
-    output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar) * 3
-    output.backward()
+    with gpytorch.settings.num_trace_samples(1000):
+        output = _exact_gp_mll_class()(covarvar, yvar) * 3
+        output.backward()
 
     assert(torch.norm(actual_mat_grad - covarvar.grad.data) < 1e-1)
     assert(torch.norm(actual_y_grad - yvar.grad.data) < 1e-4)
 
-    gpytorch.functions.fastest = False
-    covarvar = Variable(covar, requires_grad=True)
-    yvar = Variable(y, requires_grad=True)
-    output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar) * 3
-    output.backward()
+    with gpytorch.settings.num_trace_samples(0):
+        covarvar = Variable(covar, requires_grad=True)
+        yvar = Variable(y, requires_grad=True)
+        with gpytorch.settings.num_trace_samples(1000):
+            output = _exact_gp_mll_class()(covarvar, yvar) * 3
+            output.backward()
 
     assert(torch.norm(actual_mat_grad - covarvar.grad.data) < 1e-1)
     assert(torch.norm(actual_y_grad - yvar.grad.data) < 1e-4)
@@ -152,9 +157,9 @@ def test_normal_gp_mll_backward():
 
 def test_normal_trace_log_det_quad_form_forward():
     covar = torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ])
     mu_diffs = torch.Tensor([0, -1, 1])
     chol_covar = torch.Tensor([
@@ -177,9 +182,9 @@ def test_normal_trace_log_det_quad_form_forward():
 
 def test_normal_trace_log_det_quad_form_backward():
     covar = Variable(torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ]), requires_grad=True)
     mu_diffs = Variable(torch.Tensor([0, -1, 1]), requires_grad=True)
     chol_covar = Variable(torch.Tensor([
@@ -197,9 +202,9 @@ def test_normal_trace_log_det_quad_form_backward():
     actual_chol_covar_grad = chol_covar.grad.data.clone()
 
     covar = Variable(torch.Tensor([
-        [5, -3, 0],
-        [-3, 5, 0],
-        [0, 0, 2],
+        [3, -1, 0],
+        [-1, 3, 0],
+        [0, 0, 3],
     ]), requires_grad=True)
     mu_diffs = Variable(torch.Tensor([0, -1, 1]), requires_grad=True)
     chol_covar = Variable(torch.Tensor([
@@ -208,24 +213,25 @@ def test_normal_trace_log_det_quad_form_backward():
         [0, 0, 1],
     ]), requires_grad=True)
 
-    res = gpytorch.trace_logdet_quad_form(mu_diffs, chol_covar, covar)
-    res.backward()
+    with gpytorch.settings.num_trace_samples(1000):
+        res = gpytorch.trace_logdet_quad_form(mu_diffs, chol_covar, covar)
+        res.backward()
 
     res_covar_grad = covar.grad.data
     res_mu_diffs_grad = mu_diffs.grad.data
     res_chol_covar_grad = chol_covar.grad.data
 
-    assert approx_equal(actual_covar_grad, res_covar_grad)
-    assert approx_equal(actual_mu_diffs_grad, res_mu_diffs_grad)
-    assert approx_equal(actual_chol_covar_grad, res_chol_covar_grad)
+    assert torch.norm(actual_covar_grad - res_covar_grad) < 1e-1
+    assert torch.norm(actual_mu_diffs_grad - res_mu_diffs_grad) < 1e-1
+    assert torch.norm(actual_chol_covar_grad - res_chol_covar_grad) < 1e-1
 
 
 def test_batch_trace_log_det_quad_form_forward():
     covar = torch.Tensor([
         [
-            [5, -3, 0],
-            [-3, 5, 0],
-            [0, 0, 2],
+            [3, -1, 0],
+            [-1, 3, 0],
+            [0, 0, 3],
         ], [
             [10, -2, 1],
             [-2, 10, 0],
@@ -266,9 +272,9 @@ def test_batch_trace_log_det_quad_form_forward():
 def test_batch_trace_log_det_quad_form_backward():
     covar = Variable(torch.Tensor([
         [
-            [5, -3, 0],
-            [-3, 5, 0],
-            [0, 0, 2],
+            [3, -1, 0],
+            [-1, 3, 0],
+            [0, 0, 3],
         ], [
             [10, -2, 1],
             [-2, 10, 0],
@@ -305,14 +311,78 @@ def test_batch_trace_log_det_quad_form_backward():
     covar.grad.data.fill_(0)
     mu_diffs.grad.data.fill_(0)
     chol_covar.grad.data.fill_(0)
-
-    res = gpytorch.trace_logdet_quad_form(mu_diffs, chol_covar, covar)
-    res.backward()
+    with gpytorch.settings.num_trace_samples(1000):
+        res = gpytorch.trace_logdet_quad_form(mu_diffs, chol_covar, covar)
+        res.backward()
 
     res_covar_grad = covar.grad.data
     res_mu_diffs_grad = mu_diffs.grad.data
     res_chol_covar_grad = chol_covar.grad.data
 
-    assert approx_equal(actual_covar_grad, res_covar_grad)
-    assert approx_equal(actual_mu_diffs_grad, res_mu_diffs_grad)
-    assert approx_equal(actual_chol_covar_grad, res_chol_covar_grad)
+    assert torch.norm(actual_covar_grad - res_covar_grad) < 1e-1
+    assert torch.norm(actual_mu_diffs_grad - res_mu_diffs_grad) < 1e-1
+    assert torch.norm(actual_chol_covar_grad - res_chol_covar_grad) < 1e-1
+
+
+def test_root_decomposition_forward():
+    a = torch.randn(5, 5)
+    a = torch.matmul(a, a.t())
+
+    a_lv = NonLazyVariable(Variable(a, requires_grad=True))
+    a_root = a_lv.root_decomposition()
+
+    assert torch.max(((a_root.matmul(a_root.transpose(-1, -2)).data - a)).abs()) < 1e-2
+
+
+def test_root_decomposition_backward():
+    a = torch.Tensor([
+        [5.0212, 0.5504, -0.1810, 1.5414, 2.9611],
+        [0.5504, 2.8000, 1.9944, 0.6208, -0.8902],
+        [-0.1810, 1.9944, 3.0505, 1.0790, -1.1774],
+        [1.5414, 0.6208, 1.0790, 2.9430, 0.4170],
+        [2.9611, -0.8902, -1.1774, 0.4170, 3.3208],
+    ])
+
+    a_var = Variable(a, requires_grad=True)
+    a_lv = NonLazyVariable(a_var)
+    a_root = a_lv.root_decomposition()
+    res = a_root.matmul(a_root.transpose(-1, -2))
+    res.trace().backward()
+
+    a_var_copy = Variable(a, requires_grad=True)
+    a_var_copy.trace().backward()
+
+    assert approx_equal(a_var.grad.data, a_var_copy.grad.data)
+
+
+def test_root_decomposition_inv_forward():
+    a = torch.randn(5, 5)
+    a = torch.matmul(a, a.t())
+
+    a_lv = NonLazyVariable(Variable(a, requires_grad=True))
+    a_root = a_lv.root_inv_decomposition()
+
+    actual = a.inverse()
+    diff = (a_root.matmul(a_root.transpose(-1, -2)).data - actual).abs()
+    assert torch.max(diff / actual) < 1e-2
+
+
+def test_root_decomposition_inv_backward():
+    a = torch.Tensor([
+        [5.0212, 0.5504, -0.1810, 1.5414, 2.9611],
+        [0.5504, 2.8000, 1.9944, 0.6208, -0.8902],
+        [-0.1810, 1.9944, 3.0505, 1.0790, -1.1774],
+        [1.5414, 0.6208, 1.0790, 2.9430, 0.4170],
+        [2.9611, -0.8902, -1.1774, 0.4170, 3.3208],
+    ])
+
+    a_var = Variable(a, requires_grad=True)
+    a_lv = NonLazyVariable(a_var)
+    a_root = a_lv.root_inv_decomposition()
+    res = a_root.matmul(a_root.transpose(-1, -2))
+    res.trace().backward()
+
+    a_var_copy = Variable(a, requires_grad=True)
+    a_var_copy.inverse().trace().backward()
+
+    assert approx_equal(a_var.grad.data, a_var_copy.grad.data)

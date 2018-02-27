@@ -20,7 +20,11 @@ def fft1(input):
         output_size = list(orig_size[:-1]) + [(d // 2) + 1, 2]
     else:
         output_size = [(d // 2) + 1, 2]
-    return output.view(*output_size).type(orig_type)
+
+    if not isinstance(output, orig_type):
+        return output.view(*output_size).type(orig_type)
+    else:
+        return output.view(*output_size)
 
 
 def ifft1(input, size=None):
@@ -42,4 +46,7 @@ def ifft1(input, size=None):
         output = output.float()
         libfft.fft1_c2r(input.float(), output)
     output.div_(d)
-    return output.view(size).type(orig_type)
+    if not isinstance(output, orig_type):
+        return output.view(size).type(orig_type)
+    else:
+        return output.view(size)

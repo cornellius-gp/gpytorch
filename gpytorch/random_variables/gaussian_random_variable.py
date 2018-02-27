@@ -1,6 +1,6 @@
-from .random_variable import RandomVariable
 from torch.autograd import Variable
-from gpytorch.lazy import LazyVariable
+from .random_variable import RandomVariable
+from ..lazy import LazyVariable, NonLazyVariable
 
 
 class GaussianRandomVariable(RandomVariable):
@@ -39,10 +39,10 @@ class GaussianRandomVariable(RandomVariable):
         return self._mean, self._covar
 
     def sample(self, n_samples):
-        base_samples = Variable(self._mean.data.new(self._covar.chol_approx_size(), n_samples).normal_())
-        samples = self._covar.chol_matmul(base_samples)
-        samples = samples + self._mean.unsqueeze(-1)
-        return samples
+        covar = self.covar()
+        if not isinstance(covar, LazyVariable):
+            covar = NonLazyVariable(covar)
+        return covar.zero_mean_mvn_samples(n_samples) + self._mean.unsqueeze(-1)
 
     def var(self):
         return self._covar.diag()
