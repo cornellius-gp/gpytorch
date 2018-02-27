@@ -37,6 +37,7 @@ class SpectralMixtureGPModel(gpytorch.models.ExactGP):
 def test_spectral_mixture_gp_mean_abs_error():
     likelihood = GaussianLikelihood(log_noise_bounds=(-5, 5))
     gp_model = SpectralMixtureGPModel(train_x.data, train_y.data, likelihood)
+    mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
     # Optimize the model
     gp_model.train()
@@ -48,7 +49,7 @@ def test_spectral_mixture_gp_mean_abs_error():
         for i in range(50):
             optimizer.zero_grad()
             output = gp_model(train_x)
-            loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
+            loss = -mll(output, train_y)
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()

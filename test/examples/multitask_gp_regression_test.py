@@ -42,6 +42,7 @@ def test_multitask_gp_mean_abs_error():
     gp_model = MultitaskGPModel((torch.cat([train_x.data, train_x.data]),
                                  torch.cat([y1_inds.data, y2_inds.data])),
                                 torch.cat([train_y1.data, train_y2.data]), likelihood)
+    mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
     # Optimize the model
     gp_model.train()
@@ -51,7 +52,7 @@ def test_multitask_gp_mean_abs_error():
     for i in range(100):
         optimizer.zero_grad()
         output = gp_model(torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds]))
-        loss = -gp_model.marginal_log_likelihood(likelihood, output, torch.cat([train_y1, train_y2]))
+        loss = -mll(output, torch.cat([train_y1, train_y2]))
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()

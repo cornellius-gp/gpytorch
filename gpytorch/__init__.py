@@ -1,9 +1,11 @@
 from .module import Module
 from . import models
 from . import means
+from . import mlls
 from . import kernels
 from . import beta_features
 from . import settings
+from .mlls import ExactMarginalLogLikelihood
 from .beta_features import fast_pred_var
 from torch.autograd import Variable
 from .lazy import LazyVariable, NonLazyVariable
@@ -13,7 +15,6 @@ from .utils import function_factory
 
 _inv_matmul_class = function_factory.inv_matmul_factory()
 _trace_logdet_quad_form_factory_class = function_factory.trace_logdet_quad_form_factory()
-_exact_gp_mll_class = function_factory.exact_gp_mll_factory()
 
 
 def add_diag(input, diag):
@@ -61,25 +62,6 @@ def add_jitter(mat):
             return mat.add_(diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2)))
         else:
             return diag.add_(mat)
-
-
-def exact_gp_marginal_log_likelihood(covar, target):
-    """
-    Computes the log marginal likelihood of the data with a GP prior and Gaussian noise model
-    given a label vector and covariance matrix.
-
-    Args:
-        - covar (matrix nxn) - Variable or LazyVariable representing the covariance matrix of the observations.
-                               Usually, this is K + s*I, where s is the noise variance, and K is the prior covariance.
-        - target (vector n) - Training label vector.
-
-    Returns:
-        - scalar - The marginal log likelihood of the data.
-    """
-    if isinstance(covar, LazyVariable):
-        return covar.exact_gp_marginal_log_likelihood(target)
-    else:
-        return _exact_gp_mll_class()(covar, target)
 
 
 def exact_predictive_mean(full_covar, full_mean, train_labels, noise, precomputed_cache=None):
@@ -148,15 +130,16 @@ def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
 __all__ = [
     # Submodules
     models,
+    mlls,
     means,
     kernels,
     # Classes
     Module,
+    ExactMarginalLogLikelihood,
     # Functions
     add_diag,
     add_jitter,
     dsmm,
-    exact_gp_marginal_log_likelihood,
     exact_predictive_mean,
     exact_predictive_covar,
     inv_matmul,

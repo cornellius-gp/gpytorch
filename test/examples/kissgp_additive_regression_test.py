@@ -46,6 +46,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 def test_kissgp_gp_mean_abs_error():
     likelihood = GaussianLikelihood()
     gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
+    mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
     # Optimize the model
     gp_model.train()
@@ -56,7 +57,7 @@ def test_kissgp_gp_mean_abs_error():
     for i in range(20):
         optimizer.zero_grad()
         output = gp_model(train_x)
-        loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
+        loss = -mll(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
