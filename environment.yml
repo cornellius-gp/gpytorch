@@ -1,10 +1,10 @@
 name: gpytorch
 channels:
   - conda-forge
-  - soumith
+  - pytorch
 dependencies:
   - cffi
   - fftw
-  - pytorch>=0.2.0
+  - pytorch>=0.3.0
   - torchvision
 
