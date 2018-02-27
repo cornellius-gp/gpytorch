@@ -13,6 +13,8 @@ class ExactGP(Module):
             train_inputs = train_inputs,
         if not all(torch.is_tensor(train_input) for train_input in train_inputs):
             raise RuntimeError('Train inputs must be a tensor, or a list/tuple of tensors')
+        if not isinstance(likelihood, GaussianLikelihood):
+            raise RuntimeError('ExactGP can only handle GaussianLikelihood')
 
         super(ExactGP, self).__init__()
         self.train_inputs = train_inputs
@@ -28,23 +30,13 @@ class ExactGP(Module):
         return super(ExactGP, self)._apply(fn)
 
     def marginal_log_likelihood(self, likelihood, output, target, n_data=None):
-        """
-        A special MLL designed for exact inference
-
-        Args:
-        - likelihood: (Likelihood) - the likelihood for the model
-        - output: (GaussianRandomVariable) - the output of the GP model
-        - target: (Variable) - target
-        """
-        if not isinstance(likelihood, GaussianLikelihood):
-            raise RuntimeError('Likelihood must be Gaussian for exact inference')
-
-        if not torch.equal(target.data, self.train_targets):
-            raise RuntimeError('You must train on the training targets!')
-
-        mean, covar = likelihood(output).representation()
-        n_data = target.size(-1)
-        return gpytorch.exact_gp_marginal_log_likelihood(covar, target - mean).div(n_data)
+        from ..mlls import ExactMarginalLogLikelihood
+        if not hasattr(self, '_has_warned') or not self._has_warned:
+            import warnings
+            warnings.warn("model.marginal_log_likelihood is now deprecated. "
+                          "Please use gpytorch.mll.ExactMarginalLogLikelihood instead.")
+            self._has_warned = True
+        return ExactMarginalLogLikelihood(likelihood, self)(output, target)
 
     def train(self, mode=True):
         if mode:

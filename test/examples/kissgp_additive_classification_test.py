@@ -35,6 +35,7 @@ def test_kissgp_classification_error():
     with gpytorch.settings.use_toeplitz(False):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
@@ -45,7 +46,7 @@ def test_kissgp_classification_error():
         for i in range(25):
             optimizer.zero_grad()
             output = model(train_x)
-            loss = -model.marginal_log_likelihood(likelihood, output, train_y)
+            loss = -mll(output, train_y)
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()

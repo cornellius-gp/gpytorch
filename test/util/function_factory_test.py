@@ -3,8 +3,11 @@ import torch
 import gpytorch
 import numpy as np
 from torch.autograd import Variable
-from gpytorch.utils import approx_equal
+from gpytorch.utils import approx_equal, function_factory
 from gpytorch.lazy import NonLazyVariable
+
+
+_exact_gp_mll_class = function_factory.exact_gp_mll_factory()
 
 
 def test_forward_inv_mm():
@@ -110,7 +113,7 @@ def test_normal_gp_mll_forward():
     covarvar = Variable(covar)
     yvar = Variable(y)
 
-    res = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar)
+    res = _exact_gp_mll_class()(covarvar, yvar)
     assert(all(torch.abs(actual - res.data).div(res.data) < 0.1))
 
 
@@ -135,7 +138,7 @@ def test_normal_gp_mll_backward():
     covarvar = Variable(covar, requires_grad=True)
     yvar = Variable(y, requires_grad=True)
     with gpytorch.settings.num_trace_samples(1000):
-        output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar) * 3
+        output = _exact_gp_mll_class()(covarvar, yvar) * 3
         output.backward()
 
     assert(torch.norm(actual_mat_grad - covarvar.grad.data) < 1e-1)
@@ -145,7 +148,7 @@ def test_normal_gp_mll_backward():
         covarvar = Variable(covar, requires_grad=True)
         yvar = Variable(y, requires_grad=True)
         with gpytorch.settings.num_trace_samples(1000):
-            output = gpytorch.exact_gp_marginal_log_likelihood(covarvar, yvar) * 3
+            output = _exact_gp_mll_class()(covarvar, yvar) * 3
             output.backward()
 
     assert(torch.norm(actual_mat_grad - covarvar.grad.data) < 1e-1)

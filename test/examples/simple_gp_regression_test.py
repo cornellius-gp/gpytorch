@@ -63,6 +63,7 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
     # We're manually going to set the hyperparameters to something they shouldn't be
     likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
     gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
+    mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
     gp_model.covar_module.initialize(log_lengthscale=1)
     gp_model.mean_module.initialize(constant=0)
     likelihood.initialize(log_noise=1)
@@ -75,7 +76,7 @@ def test_posterior_latent_gp_and_likelihood_with_optimization():
     for i in range(50):
         optimizer.zero_grad()
         output = gp_model(train_x)
-        loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
+        loss = -mll(output, train_y)
         loss.backward()
         optimizer.n_iter += 1
         optimizer.step()
@@ -94,6 +95,7 @@ def test_posterior_latent_gp_and_likelihood_fast_pred_var():
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
         gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
         gp_model.covar_module.initialize(log_lengthscale=1)
         gp_model.mean_module.initialize(constant=0)
         likelihood.initialize(log_noise=1)
@@ -106,7 +108,7 @@ def test_posterior_latent_gp_and_likelihood_fast_pred_var():
         for i in range(50):
             optimizer.zero_grad()
             output = gp_model(train_x)
-            loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y)
+            loss = -mll(output, train_y)
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()
@@ -133,6 +135,7 @@ def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3)).cuda()
         gp_model = ExactGPModel(train_x.data.cuda(), train_y.data.cuda(), likelihood).cuda()
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
         gp_model.covar_module.initialize(log_lengthscale=1)
         gp_model.mean_module.initialize(constant=0)
         likelihood.initialize(log_noise=1)
@@ -145,7 +148,7 @@ def test_posterior_latent_gp_and_likelihood_with_optimization_cuda():
         for i in range(50):
             optimizer.zero_grad()
             output = gp_model(train_x.cuda())
-            loss = -gp_model.marginal_log_likelihood(likelihood, output, train_y.cuda())
+            loss = -mll(output, train_y.cuda())
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()
