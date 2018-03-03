@@ -388,5 +388,5 @@ def test_batch_mode_matmul_batch_mat_with_five_matrices():
     # Backward
     res.sum().backward()
     actual.sum().backward()
-    assert torch.max(((mats.grad.data - mats_copy.grad.data) / mats_copy.grad.data).abs()) < 0.01
-    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.01
+    assert torch.max(((mats.grad.data - mats_copy.grad.data) / mats_copy.grad.data).abs()) < 0.05
+    assert torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()) < 0.05
