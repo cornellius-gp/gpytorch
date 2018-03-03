@@ -1,5 +1,6 @@
 import math
 import torch
+import gpytorch
 from gpytorch.lazy import ToeplitzLazyVariable
 from torch.autograd import Variable
 
@@ -14,13 +15,15 @@ def test_exact_gp_mll():
     actual = ToeplitzLazyVariable(c2_var)
 
     # Test forward
-    mll_res = toeplitz_lazy_var.exact_gp_marginal_log_likelihood(labels_var)
-    mll_actual = actual.exact_gp_marginal_log_likelihood(labels_var)
-    assert(math.fabs(mll_res.data.squeeze()[0] - mll_actual.data.squeeze()[0]) < 6e-1)
+    with gpytorch.settings.num_trace_samples(1000):
+        mll_res = toeplitz_lazy_var.exact_gp_marginal_log_likelihood(labels_var)
+        mll_actual = actual.exact_gp_marginal_log_likelihood(labels_var)
 
     # Test backwards
     mll_res.backward()
     mll_actual.backward()
+
+    assert(math.fabs(mll_res.data.squeeze()[0] - mll_actual.data.squeeze()[0]) < 6e-1)
     assert(math.fabs(c1_var.grad.data[0] - c2_var.grad.data[0]) < 1)
 
 
