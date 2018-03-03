@@ -133,13 +133,14 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
             num_random_probes = settings.num_trace_samples.value()
             matrix_size = mu_diff.size(-1)
             self.probe_vectors = mu_diff.new(matrix_size, num_random_probes).bernoulli_().mul_(2).add_(-1)
-            self.probe_vector_norms = torch.norm(self.probe_vectors, 2, dim=0)
-            probe_vectors = self.probe_vectors.div(self.probe_vector_norms.expand_as(self.probe_vectors))
+            self.probe_vector_norms = torch.norm(self.probe_vectors, 2, dim=-2, keepdim=True)
             if mu_diff.dim() == 2:
-                probe_vectors = probe_vectors.unsqueeze(0).expand(mu_diff.size(0), matrix_size, num_random_probes)
                 self.probe_vectors = self.probe_vectors.unsqueeze(0).expand(mu_diff.size(0),
                                                                             matrix_size,
                                                                             num_random_probes)
+                self.probe_vector_norms = self.probe_vector_norms.unsqueeze(0).expand(mu_diff.size(0), 1,
+                                                                                      num_random_probes)
+            probe_vectors = self.probe_vectors.div(self.probe_vector_norms)
 
             # Perform solves and tridiagonalization
             matmul_closure = matmul_closure_factory(*covar2_args)
@@ -212,9 +213,8 @@ def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closur
                 trace_part = grad_covar2_fn(left_vectors_trace, right_vectors_trace)
 
                 # Get dK/dargs log |K|
-                coef = math.sqrt(1. / probe_vectors.size(-1))
-                probe_vectors.mul_(coef)
-                probe_vector_solves.mul_(coef).mul_(probe_vector_norms.unsqueeze(-2))
+                coef = 1. / probe_vectors.size(-1)
+                probe_vector_solves.mul_(coef).mul_(probe_vector_norms)
                 log_det_part = grad_covar2_fn(probe_vector_solves.transpose(-1, -2), probe_vectors.transpose(-1, -2))
 
                 for i in range(len(covar2_args)):
@@ -246,10 +246,12 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             self.probe_vector_norms = torch.norm(self.probe_vectors, 2, dim=0)
             probe_vectors = self.probe_vectors.div(self.probe_vector_norms.expand_as(self.probe_vectors))
             if labels.dim() == 3:
-                probe_vectors = probe_vectors.unsqueeze(0).expand(labels.size(0), matrix_size, num_random_probes)
                 self.probe_vectors = self.probe_vectors.unsqueeze(0).expand(labels.size(0),
                                                                             matrix_size,
                                                                             num_random_probes)
+                self.probe_vector_norms = self.probe_vector_norms.unsqueeze(0).expand(labels.size(0), 1,
+                                                                                      num_random_probes)
+            probe_vectors = self.probe_vectors.div(self.probe_vector_norms)
 
             matmul_closure = matmul_closure_factory(*closure_args)
             rhs = torch.cat([probe_vectors, labels], -1)
@@ -303,9 +305,8 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
                 quad_form_grads = function(mat_inv_labels.transpose(-1, -2), mat_inv_labels.transpose(-1, -2))
 
                 # Log det derivatives
-                coef = math.sqrt(1. / self.probe_vectors.size(-1))
+                coef = 1. / self.probe_vectors.size(-1)
                 probe_vector_solves = solves.narrow(-1, 0, solves.size(-1) - 1)
-                probe_vectors.mul_(coef)
                 probe_vector_solves.mul_(coef).mul_(self.probe_vector_norms.unsqueeze(-2))
                 log_det_grads = function(probe_vector_solves.transpose(-1, -2), probe_vectors.transpose(-1, -2))
 
