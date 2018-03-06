@@ -1,0 +1,69 @@
+import math
+import torch
+import gpytorch
+from torch import optim
+from torch.autograd import Variable
+from torch.utils.data import TensorDataset, DataLoader
+from gpytorch.kernels import RBFKernel
+from gpytorch.means import ConstantMean
+from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.random_variables import GaussianRandomVariable
+
+
+# Simple training data: let's try to learn a sine function, but with KISS-GP let's use 100 training examples.
+def make_data():
+    train_x = torch.linspace(0, 1, 1000)
+    train_y = torch.sin(train_x * (2 * math.pi))
+    test_x = torch.linspace(0, 1, 51)
+    test_y = torch.sin(test_x * (2 * math.pi))
+    return train_x, train_y, test_x, test_y
+
+
+class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
+    def __init__(self):
+        super(GPRegressionModel, self).__init__(grid_size=20, grid_bounds=[(-0.05, 1.05)])
+        self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
+        self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
+        self.register_parameter('log_outputscale', torch.nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x) * self.log_outputscale.exp()
+        return GaussianRandomVariable(mean_x, covar_x)
+
+
+def test_kissgp_gp_mean_abs_error():
+    train_x, train_y, test_x, test_y = make_data()
+    train_dataset = TensorDataset(train_x, train_y)
+    loader = DataLoader(train_dataset, shuffle=True, batch_size=64)
+
+    gp_model = GPRegressionModel()
+    likelihood = GaussianLikelihood()
+    mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, gp_model, n_data=len(train_y))
+
+    # Optimize the model
+    gp_model.train()
+    likelihood.train()
+
+    optimizer = optim.SGD(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15], gamma=0.1)
+    for i in range(20):
+        scheduler.step()
+        for x_batch, y_batch in loader:
+            x_batch = Variable(x_batch.float())
+            y_batch = Variable(y_batch.float())
+
+            optimizer.zero_grad()
+            output = gp_model(x_batch)
+            loss = -mll(output, y_batch)
+            loss.backward()
+            optimizer.step()
+
+    # Test the model
+    gp_model.eval()
+    likelihood.eval()
+
+    test_preds = likelihood(gp_model(Variable(test_x))).mean()
+    mean_abs_error = torch.mean(torch.abs(Variable(test_y) - test_preds))
+
+    assert(mean_abs_error.data.squeeze()[0] < 0.1)
