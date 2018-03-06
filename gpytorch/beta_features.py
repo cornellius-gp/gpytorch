@@ -29,6 +29,13 @@ class fast_pred_var(_feature_flag):
         return super(fast_pred_var, self).__exit__()
 
 
+class diagonal_correction(_feature_flag):
+    """
+    Fast predictive samples - with Lanczos
+    """
+    pass
+
+
 class fast_pred_samples(_feature_flag):
     """
     Fast predictive samples - with Lanczos
@@ -37,6 +44,7 @@ class fast_pred_samples(_feature_flag):
 
 
 __all__ = [
+    diagonal_correction,
     fast_pred_var,
     fast_pred_samples,
 ]

@@ -45,25 +45,26 @@ def test_kissgp_gp_mean_abs_error():
     gp_model.train()
     likelihood.train()
 
-    optimizer = optim.SGD(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15], gamma=0.1)
-    for i in range(20):
-        scheduler.step()
-        for x_batch, y_batch in loader:
-            x_batch = Variable(x_batch.float())
-            y_batch = Variable(y_batch.float())
+    with gpytorch.beta_features.diagonal_correction():
+        optimizer = optim.SGD(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15], gamma=0.1)
+        for i in range(20):
+            scheduler.step()
+            for x_batch, y_batch in loader:
+                x_batch = Variable(x_batch.float())
+                y_batch = Variable(y_batch.float())
 
-            optimizer.zero_grad()
-            output = gp_model(x_batch)
-            loss = -mll(output, y_batch)
-            loss.backward()
-            optimizer.step()
+                optimizer.zero_grad()
+                output = gp_model(x_batch)
+                loss = -mll(output, y_batch)
+                loss.backward()
+                optimizer.step()
 
-    # Test the model
-    gp_model.eval()
-    likelihood.eval()
+        # Test the model
+        gp_model.eval()
+        likelihood.eval()
 
-    test_preds = likelihood(gp_model(Variable(test_x))).mean()
-    mean_abs_error = torch.mean(torch.abs(Variable(test_y) - test_preds))
+        test_preds = likelihood(gp_model(Variable(test_x))).mean()
+        mean_abs_error = torch.mean(torch.abs(Variable(test_y) - test_preds))
 
     assert(mean_abs_error.data.squeeze()[0] < 0.1)
