@@ -85,6 +85,9 @@ class SumLazyVariable(LazyVariable):
     def diag(self):
         return sum(lazy_var.diag() for lazy_var in self.lazy_vars)
 
+    def sum_batch(self, sum_batch_size=None):
+        return self.__class__(*(lazy_var.sum_batch(sum_batch_size) for lazy_var in self.lazy_vars))
+
     def __getitem__(self, index):
         results = tuple(lazy_var.__getitem__(index) for lazy_var in self.lazy_vars)
         if isinstance(results[0], LazyVariable):

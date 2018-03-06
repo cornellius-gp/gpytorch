@@ -7,6 +7,7 @@ from .kronecker_product_lazy_variable import KroneckerProductLazyVariable
 from .matmul_lazy_variable import MatmulLazyVariable
 from .mul_lazy_variable import MulLazyVariable
 from .non_lazy_variable import NonLazyVariable
+from .psd_sum_lazy_variable import PsdSumLazyVariable
 from .root_lazy_variable import RootLazyVariable
 from .sum_lazy_variable import SumLazyVariable
 from .sum_batch_lazy_variable import SumBatchLazyVariable
@@ -23,6 +24,7 @@ __all__ = [
     MatmulLazyVariable,
     MulLazyVariable,
     NonLazyVariable,
+    PsdSumLazyVariable,
     RootLazyVariable,
     SumLazyVariable,
     SumBatchLazyVariable,
