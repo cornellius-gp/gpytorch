@@ -32,7 +32,13 @@ Here's a verbal summary of the flow chart:
 
 **No**: Try Deep Kernel regression (example pending)
 
-## Regression
+### Variational Regression (new!)
+
+Try this if:
+- You have too much data for exact inference, even with KissGP/Deep kernel learning/etc.
+- Your model will need variational inference anyways (e.g. if you're doing some sort of clustering)
+
+## Classification
 
 *Do you have lots of data?*
 
