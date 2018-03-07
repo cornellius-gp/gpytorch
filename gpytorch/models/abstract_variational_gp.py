@@ -3,7 +3,7 @@ from torch import nn
 from torch.autograd import Variable
 from ..module import Module
 from ..random_variables import GaussianRandomVariable
-from ..lazy import RootLazyVariable
+from ..lazy import LazyVariable, RootLazyVariable
 
 
 class AbstractVariationalGP(Module):
@@ -29,6 +29,23 @@ class AbstractVariationalGP(Module):
         if n_data is None:
             n_data = target.size(-1)
         return VariationalMarginalLogLikelihood(likelihood, self, n_data)(output, target)
+
+    def covar_diag(self, inputs):
+        if inputs.ndimension() == 1:
+            inputs = inputs.unsqueeze(1)
+        orig_size = list(inputs.size())
+
+        # Resize inputs so that everything is batch
+        inputs = inputs.unsqueeze(-2).view(-1, 1, inputs.size(-1))
+
+        # Get diagonal of covar
+        res = super(AbstractVariationalGP, self).__call__(inputs)
+        covar_diag = res.covar()
+        if isinstance(covar_diag, LazyVariable):
+            covar_diag = covar_diag.evaluate()
+        covar_diag = covar_diag.view(orig_size[:-1])
+
+        return covar_diag
 
     def prior_output(self):
         res = super(AbstractVariationalGP, self).__call__(Variable(self.inducing_points))
