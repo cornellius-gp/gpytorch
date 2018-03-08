@@ -58,7 +58,13 @@ Still a work in progress. For now, please refer to the following [example Jupyte
 
 To run the unit tests:
 ```bash
-python -m pytest
+python -m unittest discover -s test/
+```
+
+Please lint the code with `flake8`.
+```bash
+pip install flake8  # if not already installed
+flake8
 ```
 
 ## Acknowledgements
