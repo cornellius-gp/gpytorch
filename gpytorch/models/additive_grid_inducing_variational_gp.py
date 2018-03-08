@@ -45,6 +45,11 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
         self.variational_mean.data.copy_(mean_init)
         self.chol_variational_covar.data.copy_(chol_covar_init)
 
+    def covar_diag(self, inputs):
+        n_data, n_components, n_dimensions = inputs.size()
+        inputs = inputs.transpose(0, 1).contiguous()
+        return super(AdditiveGridInducingVariationalGP, self).covar_diag(inputs)
+
     def prior_output(self):
         out = super(AdditiveGridInducingVariationalGP, self).prior_output()
         mean = out.mean()

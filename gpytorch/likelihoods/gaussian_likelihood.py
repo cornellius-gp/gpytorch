@@ -1,4 +1,5 @@
 import torch
+import math
 import gpytorch
 from torch import nn
 from gpytorch.random_variables import GaussianRandomVariable
@@ -15,3 +16,8 @@ class GaussianLikelihood(Likelihood):
         mean, covar = input.representation()
         noise = gpytorch.add_diag(covar, self.log_noise.exp())
         return GaussianRandomVariable(mean, noise)
+
+    def log_probability(self, input, target):
+        res = -0.5 * ((target - input.mean()) ** 2 + input.var()) / self.log_noise.exp()
+        res += -0.5 * self.log_noise - 0.5 * math.log(2 * math.pi)
+        return res.sum(0)
