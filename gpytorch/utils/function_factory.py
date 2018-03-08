@@ -404,12 +404,15 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
             return root, inverse
 
         def backward(self, root_grad_output, inverse_grad_output):
+            def is_empty(tensor):
+                return tensor.numel() == 0 or (tensor.numel() == 1 and tensor[0] == 0)
+
             # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
             if any(self.needs_input_grad):
                 args = self.saved_tensors
-                if root_grad_output.numel() == 0 or (root_grad_output.numel() == 1 and root_grad_output[0] == 0):
+                if is_empty(root_grad_output):
                     root_grad_output = None
-                if inverse_grad_output.numel() == 0 or (inverse_grad_output.numel() == 1 and inverse_grad_output[0] == 0):
+                if is_empty(inverse_grad_output):
                     inverse_grad_output = None
 
                 if root_grad_output is not None:

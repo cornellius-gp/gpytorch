@@ -1,5 +1,4 @@
 import torch
-from torch.autograd import Variable
 
 
 def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):

@@ -679,6 +679,7 @@ class LazyVariable(object):
                 raise RuntimeError('Cannot assign %s to LazyVariable before calling LazyVariable.__init__()' % name)
         object.__setattr__(self, name, val)
 
+
 def _import_dotted_name(name):
     components = name.split('.')
     obj = __import__(components[0])
