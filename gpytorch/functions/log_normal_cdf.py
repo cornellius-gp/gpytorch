@@ -31,7 +31,7 @@ class LogNormalCDF(Function):
         if z_near_zero.sum() > 0:
             log_phi_first = -z.masked_select(z_near_zero).div_(math.sqrt(2 * math.pi))
             f = 0
-            for c_i in self.c:
+            for c_i in self.c.tolist():
                 f = log_phi_first.mul(c_i + f)
 
             log_phi_z.masked_scatter_(z_near_zero, f.mul_(-2).sub_(math.log(2)))

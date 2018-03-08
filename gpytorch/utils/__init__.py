@@ -63,8 +63,8 @@ def bdsmm(sparse, dense):
         indices = sparse._indices()[1:].clone()
         indices[0].add_(n_rows, batch_assignment)
         indices[1].add_(n_cols, batch_assignment)
-        sparse_2d = sparse.__class__(indices, sparse._values(),
-                                     torch.Size((batch_size * n_rows, batch_size * n_cols)))
+        sparse_2d = sparse.new(indices, sparse._values(),
+                               torch.Size((batch_size * n_rows, batch_size * n_cols)))
 
         if dense.size(0) == 1:
             dense = dense.repeat(batch_size, 1, 1)
@@ -175,10 +175,11 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
     summing_matrix_values = interp_values.data.new(batch_size * n_data * n_interp).fill_(1)
     size = torch.Size((batch_size, output_dim, n_data * n_interp))
 
+    type_name = summing_matrix_values.type().split('.')[-1]  # e.g. FloatTensor
     if interp_values.is_cuda:
-        cls = getattr(torch.cuda.sparse, summing_matrix_values.__class__.__name__)
+        cls = getattr(torch.cuda.sparse, type_name)
     else:
-        cls = getattr(torch.sparse, summing_matrix_values.__class__.__name__)
+        cls = getattr(torch.sparse, type_name)
     summing_matrix = Variable(cls(summing_matrix_indices, summing_matrix_values, size))
 
     res = dsmm(summing_matrix, values)
@@ -203,7 +204,7 @@ def sparse_eye(size):
     """
     indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
     values = torch.Tensor([1]).expand(size)
-    cls = getattr(torch.sparse, values.__class__.__name__)
+    cls = getattr(torch.sparse, values.type().split('.')[-1])
     return cls(indices, values, torch.Size([size, size]))
 
 
@@ -261,7 +262,7 @@ def sparse_getitem(sparse, idxs):
         else:
             raise RuntimeError('Unknown index type')
 
-    return sparse.__class__(indices, values, torch.Size(size))
+    return sparse.new(indices, values, torch.Size(size))
 
 
 def sparse_repeat(sparse, *repeat_sizes):
@@ -290,7 +291,7 @@ def sparse_repeat(sparse, *repeat_sizes):
             new_indices[i, unit_size * j:unit_size * (j + 1)] += j * size[i]
         unit_size *= repeat_size
 
-    return sparse.__class__(new_indices, new_values, torch.Size(new_size))
+    return sparse.new(new_indices, new_values, torch.Size(new_size))
 
 
 def scale_to_bounds(x, lower_bound, upper_bound):
@@ -312,7 +313,7 @@ def to_sparse(dense):
         values = dense.new().resize_(1).zero_()
 
     # Construct sparse tensor
-    klass = getattr(torch.sparse, dense.__class__.__name__)
+    klass = getattr(torch.sparse, dense.type().split('.')[-1])
     res = klass(indices.t(), values, dense.size())
     if dense.is_cuda:
         res = res.cuda()

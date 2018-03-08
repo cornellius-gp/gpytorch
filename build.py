@@ -31,5 +31,6 @@ ffi = create_extension(
     library_dirs=library_dirs,
     with_cuda=with_cuda,
     package=True,
+    extra_compile_args=["-std=c99"],
     relative_to=__file__,
 )

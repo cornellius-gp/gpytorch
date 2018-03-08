@@ -179,7 +179,7 @@ class TestFunctionFactory(unittest.TestCase):
         mu_diffsvar = Variable(mu_diffs)
 
         res = gpytorch.trace_logdet_quad_form(mu_diffsvar, chol_covarvar, covarvar)
-        self.assertTrue(all(torch.abs(actual - res.data).div(res.data) < 0.1))
+        self.assertTrue((torch.abs(actual - res.data).div(res.data) < 0.1).all())
 
     def test_normal_trace_log_det_quad_form_backward(self):
         covar = Variable(torch.Tensor([
@@ -279,7 +279,7 @@ class TestFunctionFactory(unittest.TestCase):
         mu_diffsvar = Variable(mu_diffs)
 
         res = gpytorch.trace_logdet_quad_form(mu_diffsvar, chol_covarvar, covarvar)
-        self.assertTrue(all(torch.abs(actual - res.data).div(res.data) < 0.1))
+        self.assertTrue((torch.abs(actual - res.data).div(res.data) < 0.1).all())
 
     def test_batch_trace_log_det_quad_form_backward(self):
         covar = Variable(torch.Tensor([
