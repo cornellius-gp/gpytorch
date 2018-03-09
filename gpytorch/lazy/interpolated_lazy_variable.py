@@ -274,7 +274,7 @@ class InterpolatedLazyVariable(LazyVariable):
                                                                              train_train_covar_inv_labels, base_size))
 
             # Prevent backprop through this variable
-            precomputed_cache.detach_()
+            precomputed_cache = precomputed_cache.detach()
 
         # Compute the exact predictive posterior
         n_test = self.size(-1) - n_train
@@ -352,11 +352,11 @@ class InterpolatedLazyVariable(LazyVariable):
                 inside = self.base_lazy_variable + RootLazyVariable(root).mul(-1)
                 inside_root = inside.root_decomposition()
                 # Prevent backprop through this variable
-                inside_root.detach_()
+                inside_root = inside_root.detach()
                 precomputed_cache = inside_root, None
             else:
                 # Prevent backprop through this variable
-                root.detach_()
+                root = root.detach()
                 precomputed_cache = None, root
 
         # Compute the exact predictive posterior

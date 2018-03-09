@@ -94,7 +94,7 @@ class TestInterp(unittest.TestCase):
         actual = torch.matmul(
             self.batch_interp_matrix,
             vector.unsqueeze(-1).unsqueeze(0)
-        ).squeeze(0)
+        ).squeeze(-1)
         res = left_interp(
             self.batch_interp_indices,
             self.batch_interp_values,
@@ -108,7 +108,7 @@ class TestInterp(unittest.TestCase):
         actual = torch.matmul(
             self.batch_interp_matrix.transpose(-1, -2),
             vector.unsqueeze(-1).unsqueeze(0)
-        ).squeeze(0)
+        ).squeeze(-1)
         res = left_t_interp(
             self.batch_interp_indices,
             self.batch_interp_values,

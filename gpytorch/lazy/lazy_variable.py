@@ -563,7 +563,7 @@ class LazyVariable(object):
     @property
     def tensor_cls(self):
         if not hasattr(self, '_tensor_cls'):
-            self._tensor_cls = type(self.representation()[0].data)
+            self._tensor_cls = _import_dotted_name(self.representation()[0].data.type())
         return self._tensor_cls
 
     def trace_log_det_quad_form(self, mu_diffs, chol_covar_1):
@@ -678,3 +678,11 @@ class LazyVariable(object):
             if not hasattr(self, '_args'):
                 raise RuntimeError('Cannot assign %s to LazyVariable before calling LazyVariable.__init__()' % name)
         object.__setattr__(self, name, val)
+
+
+def _import_dotted_name(name):
+    components = name.split('.')
+    obj = __import__(components[0])
+    for component in components[1:]:
+        obj = getattr(obj, component)
+    return obj

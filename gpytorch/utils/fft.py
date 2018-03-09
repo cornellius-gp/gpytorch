@@ -4,7 +4,7 @@ from .. import libfft
 def fft1(input):
     # [..., d]
     orig_size = input.size()
-    orig_type = type(input)
+    orig_type = input.type()
 
     input = input.view(-1, input.size(-1))
     n, d = input.size()
@@ -21,15 +21,12 @@ def fft1(input):
     else:
         output_size = [(d // 2) + 1, 2]
 
-    if not isinstance(output, orig_type):
-        return output.view(*output_size).type(orig_type)
-    else:
-        return output.view(*output_size)
+    return output.view(*output_size).type(orig_type)
 
 
 def ifft1(input, size=None):
     # [..., d, 2]
-    orig_type = type(input)
+    orig_type = input.type()
 
     if not size:
         size = list(input.size())[:-1]
@@ -46,7 +43,4 @@ def ifft1(input, size=None):
         output = output.float()
         libfft.fft1_c2r(input.float(), output)
     output.div_(d)
-    if not isinstance(output, orig_type):
-        return output.view(size).type(orig_type)
-    else:
-        return output.view(size)
+    return output.view(size).type(orig_type)

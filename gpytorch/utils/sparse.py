@@ -1,5 +1,4 @@
 import torch
-from torch.autograd import Variable
 
 
 def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
@@ -17,7 +16,7 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
         SparseTensor - (batch_size) x n_cols x n_rows
     """
 
-    if isinstance(interp_indices, Variable):
+    if not torch.is_tensor(interp_indices):
         raise RuntimeError('interp_indices and interp_values should be tensors')
 
     # Is it batch mode?
@@ -64,10 +63,11 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
         interp_size = torch.Size([n_rows, n_target_points])
 
     # Make the sparse tensor
+    type_name = value_tensor.type().split('.')[-1]  # e.g. FloatTensor
     if index_tensor.is_cuda:
-        cls = getattr(torch.cuda.sparse, value_tensor.__class__.__name__)
+        cls = getattr(torch.cuda.sparse, type_name)
     else:
-        cls = getattr(torch.sparse, value_tensor.__class__.__name__)
+        cls = getattr(torch.sparse, type_name)
     res = cls(index_tensor, value_tensor, interp_size)
 
     # Wrap things as a variable, if necessary

@@ -96,6 +96,7 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
                 raise NotImplementedError
             args = self.saved_tensors[:-1]
             rhs = self.saved_tensors[-1]
+            rhs_shape = rhs.shape
             closure_args = self.args + args
 
             arg_grads = [None] * len(args)
@@ -119,6 +120,9 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
             # input_2 gradient
             if self.needs_input_grad[-1]:
                 rhs_grad = t_matmul_closure_factory(*closure_args)(grad_output)
+                # TODO: the matmul closure factory should return the same
+                # shape as rhs.
+                rhs_grad = rhs_grad.view(rhs_shape)
 
             return tuple(arg_grads + [rhs_grad])
 
@@ -261,6 +265,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             mat_inv_labels = solves.narrow(-1, num_random_probes, 1)
             # Inverse quad form
             res = (mat_inv_labels * labels).sum(-1).sum(-1)
+            res = float(res)
 
             # Log det
             if not labels.dim() == 3:
@@ -276,7 +281,7 @@ def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
             self.solves = solves
             self.save_for_backward(*args)
             if torch.is_tensor(res):
-                return res
+                return res.view(1)
             return labels.new().resize_(1).fill_(res)
 
         def backward(self, grad_output):
@@ -399,12 +404,15 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
             return root, inverse
 
         def backward(self, root_grad_output, inverse_grad_output):
+            def is_empty(tensor):
+                return tensor.numel() == 0 or (tensor.numel() == 1 and tensor[0] == 0)
+
             # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
             if any(self.needs_input_grad):
                 args = self.saved_tensors
-                if root_grad_output.numel() == 1 and root_grad_output[0] == 0:
+                if is_empty(root_grad_output):
                     root_grad_output = None
-                if inverse_grad_output.numel() == 1 and inverse_grad_output[0] == 0:
+                if is_empty(inverse_grad_output):
                     inverse_grad_output = None
 
                 if root_grad_output is not None:
