@@ -1,5 +1,5 @@
-# GPyTorch (Pre-release, under development)
-![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)
+# GPyTorch (Alpha Relase)
+[![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
 
 GPyTorch is a Gaussian Process library, implemented using PyTorch.
 It is designed for creating flexible and modular Gaussian Process models with ease,
@@ -8,14 +8,24 @@ so that you don't have to be an expert to use GPs.
 This package is currently under development, and is likely to change.
 Some things you can do right now:
 
-- Simple GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_gp_regression.ipynb))
-- Simple GP classification ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/simple_gp_classification.ipynb))
-- Multitask GP regression ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/multitask_gp_regression.ipynb))
-- Extrapolation using the spectral mixture kernel ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/spectral_mixture_gp_regression.ipynb))
-- Scalable GP regression using kernel interpolation ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/kissgp_gp_regression.ipynb))
-- Scalable GP classification using kernel interpolation ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/kissgp_gp_classification.ipynb))
-- Scalable GP regression in multiple dimensions ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/kissgp_kronecker_product_regression.ipynb))
-- Scalable GP classification in multiple dimensions ([example here](https://nbviewer.jupyter.org/github/jrg365/gpytorch/blob/master/examples/kissgp_kronecker_product_classification.ipynb))
+- Simple GP regression ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/simple_gp_regression.ipynb))
+- Simple GP classification ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/simple_gp_classification.ipynb))
+- Multitask GP regression ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/multitask_gp_regression.ipynb))
+- Scalable GP regression using kernel interpolation ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/kissgp_gp_regression.ipynb))
+- Scalable GP classification using kernel interpolation ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/kissgp_gp_classification.ipynb))
+- Deep kernel learning ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/dkl_mnist.ipynb))
+- And ([more!](http://github.com/cornellius-gp/gpytorch/blob/master/examples))
+
+If you use GPyTorch, please cite the following paper:
+> Gardner, Jacob R., Geoff Pleiss, Ruihan Wu, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Product Kernel Interpolation for Scalable Gaussian Processes." In *AISTATS* (2018).
+```
+@inproceedings{gardner2018product,
+  title={Product Kernel Interpolation for Scalable Gaussian Processes},
+  author={Gardner, Jacob R and Pleiss, Geoff and Wu, Ruihan and Weinberger, Kilian Q and Wilson, Andrew Gordon},
+  booktitle={AISTATS},
+  year={2018}
+}
+```
 
 ## Installation
 
@@ -26,14 +36,14 @@ GPyTorch using pip. This can be accomplished globally using one of the two sets 
 
 For CUDA/GPU support, run:
 ```bash
-conda install fftw cffi pytorch torchvision cuda80 -c conda-forge -c soumith
-pip install git+https://github.com/jrg365/gpytorch.git
+conda install fftw cffi pytorch torchvision cuda80 -c conda-forge -c pytorch
+pip install git+https://github.com/cornellius-gp/gpytorch.git
 ```
 
 If you do not have or do not wish to use CUDA, instead run:
 ```bash
-conda install fftw cffi pytorch torchvision -c conda-forge -c soumith
-pip install git+https://github.com/jrg365/gpytorch.git
+conda install fftw cffi pytorch torchvision -c conda-forge -c pytorch
+pip install git+https://github.com/cornellius-gp/gpytorch.git
 ```
 
 If you install libfftw3 from source, be sure to run `configure` with `--enable-shared`. To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.
@@ -43,7 +53,7 @@ If you install libfftw3 from source, be sure to run `configure` with `--enable-s
 We also provide two conda environment files, `environment.yml` and `environment_cuda.yml`. As an example, to install GPyTorch in a conda environment with cuda support, run:
 
 ```bash
-git clone git+https://github.com/jrg365/gpytorch.git
+git clone git+https://github.com/cornellius-gp/gpytorch.git
 conda create -f gpytorch/environment_cuda.yml
 source activate gpytorch
 pip install gpytorch/
@@ -51,20 +61,20 @@ pip install gpytorch/
 
 ## Documentation
 
-Still a work in progress. For now, please refer to the following [example Jupyter notebooks](https://nbviewer.jupyter.org/github/jrg365/gpytorch/tree/master/examples/).
+Still a work in progress. For now, please refer to the following [example Jupyter notebooks](https://github.com/cornellius-gp/gpytorch/tree/master/examples/).
 
 
 ## Development
 
 To run the unit tests:
 ```bash
-python -m unittest discover -s test/
+python -m unittest
 ```
 
 By default, the random seeds are locked down for some of the tests.
 If you want to run the tests without locking down the seed, run
 ```bash
-UNLOCK_SEED=true python -m unittest discover -s test/
+UNLOCK_SEED=true python -m unittest
 ```
 
 
