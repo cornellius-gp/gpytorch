@@ -16,7 +16,7 @@ Some things you can do right now:
 - Deep kernel learning ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/dkl_mnist.ipynb))
 - And ([more!](http://github.com/cornellius-gp/gpytorch/blob/master/examples))
 
-If you use GPyTorch, please cite the following paper:
+If you use GPyTorch, please cite the [following paper](https://arxiv.org/abs/1802.08903):
 > Gardner, Jacob R., Geoff Pleiss, Ruihan Wu, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Product Kernel Interpolation for Scalable Gaussian Processes." In *AISTATS* (2018).
 ```
 @inproceedings{gardner2018product,
