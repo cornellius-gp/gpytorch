@@ -61,6 +61,13 @@ To run the unit tests:
 python -m unittest discover -s test/
 ```
 
+By default, the random seeds are locked down for some of the tests.
+If you want to run the tests without locking down the seed, run
+```bash
+UNLOCK_SEED=true python -m unittest discover -s test/
+```
+
+
 Please lint the code with `flake8`.
 ```bash
 pip install flake8  # if not already installed

@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import unittest
@@ -15,9 +16,17 @@ def make_sum_lazy_var():
 
 class TestSumLazyVariable(unittest.TestCase):
     def setUp(self):
+        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+
         self.t1, self.t2 = make_sum_lazy_var().lazy_vars
         self.t1_eval = self.t1.evaluate().data
         self.t2_eval = self.t2.evaluate().data
+
+    def tearDown(self):
+        if hasattr(self, 'rng_state'):
+            torch.set_rng_state(self.rng_state)
 
     def test_add_diag(self):
         diag = Variable(torch.Tensor([4]))

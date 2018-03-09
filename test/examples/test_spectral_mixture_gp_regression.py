@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import unittest
@@ -37,6 +38,15 @@ class SpectralMixtureGPModel(gpytorch.models.ExactGP):
 
 
 class TestSpectralMixtureGPRegression(unittest.TestCase):
+    def setUp(self):
+        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(1)
+
+    def tearDown(self):
+        if hasattr(self, 'rng_state'):
+            torch.set_rng_state(self.rng_state)
+
     def test_spectral_mixture_gp_mean_abs_error(self):
         likelihood = GaussianLikelihood(log_noise_bounds=(-5, 5))
         gp_model = SpectralMixtureGPModel(train_x.data, train_y.data, likelihood)

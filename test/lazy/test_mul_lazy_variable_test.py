@@ -1,3 +1,4 @@
+import os
 import torch
 import unittest
 from torch.autograd import Variable
@@ -14,6 +15,15 @@ def make_random_mat(size, rank, batch_size=None):
 
 
 class TestMulLazyVariable(unittest.TestCase):
+    def setUp(self):
+        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(2)
+
+    def tearDown(self):
+        if hasattr(self, 'rng_state'):
+            torch.set_rng_state(self.rng_state)
+
     def test_matmul_vec_with_two_matrices(self):
         mat1 = make_random_mat(20, 5)
         mat2 = make_random_mat(20, 5)
