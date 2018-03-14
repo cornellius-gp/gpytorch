@@ -1,10 +1,7 @@
+import math
 from .marginal_log_likelihood import MarginalLogLikelihood
-from ..lazy import LazyVariable
+from ..lazy import LazyVariable, NonLazyVariable
 from ..likelihoods import GaussianLikelihood
-from ..utils import function_factory
-
-
-_exact_gp_mll_class = function_factory.exact_gp_mll_factory()
 
 
 class ExactMarginalLogLikelihood(MarginalLogLikelihood):
@@ -24,8 +21,14 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
     def forward(self, output, target):
         mean, covar = self.likelihood(output).representation()
         n_data = target.size(-1)
-        if isinstance(covar, LazyVariable):
-            res = covar.exact_gp_marginal_log_likelihood(target - mean)
-        else:
-            res = _exact_gp_mll_class()(covar, target - mean)
+        if not isinstance(covar, LazyVariable):
+            covar = NonLazyVariable(covar)
+
+        # Get log determininat and first part of quadratic form
+        inv_quad, log_det = covar.inv_quad_log_det(inv_quad_rhs=target.unsqueeze(-1), log_det=True)
+        res = -0.5 * sum([
+            inv_quad,
+            log_det,
+            n_data * math.log(2 * math.pi)
+        ])
         return res.div(n_data)

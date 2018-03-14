@@ -1,4 +1,3 @@
-import math
 import torch
 from torch.autograd import Function, Variable
 from .linear_cg import linear_cg
@@ -26,53 +25,6 @@ def _default_derivative_quadratic_form_factory(mat):
         res = left_factor.transpose(-1, -2).matmul(right_factor).squeeze_()
         return res,
     return closure
-
-
-def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                       derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
-    class InvMatmul(Function):
-        def __init__(self, *args):
-            self.args = args
-
-        def forward(self, *args):
-            closure_args = self.args + args[:-1]
-            matmul_closure = matmul_closure_factory(*closure_args)
-            rhs = args[-1]
-            res = linear_cg(matmul_closure, rhs)
-
-            self.matmul_closure = matmul_closure
-            self.save_for_backward(*(list(args) + [res]))
-            return res
-
-        def backward(self, grad_output):
-            if derivative_quadratic_form_factory is None:
-                raise NotImplementedError
-            args = self.saved_tensors[:-2]
-            res = self.saved_tensors[-1]
-            matmul_closure = self.matmul_closure
-
-            arg_grads = [None] * len(args)
-            rhs_grad = None
-
-            # input_1 gradient
-            if any(self.needs_input_grad[:-1]):
-                lhs_matrix_grad = linear_cg(matmul_closure, grad_output)
-                lhs_matrix_grad = lhs_matrix_grad.mul_(-1)
-                if res.ndimension() == 1:
-                    res = res.unsqueeze(1)
-                if lhs_matrix_grad.ndimension() == 1:
-                    lhs_matrix_grad = lhs_matrix_grad.unsqueeze(1)
-
-                arg_grads = list(derivative_quadratic_form_factory(*args)(lhs_matrix_grad.transpose(-1, -2),
-                                                                          res.transpose(-1, -2)))
-
-            # input_2 gradient
-            if self.needs_input_grad[-1]:
-                rhs_grad = linear_cg(matmul_closure, grad_output)
-
-            return tuple(arg_grads + [rhs_grad])
-
-    return InvMatmul
 
 
 def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
@@ -129,220 +81,243 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
     return Matmul
 
 
-def trace_logdet_quad_form_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
-    class TraceLogDetQuadForm(Function):
-        def forward(self, mu_diff, chol_covar1, *covar2_args):
-            # Probe vector for lanczos quadrature
-            num_random_probes = settings.num_trace_samples.value()
-            matrix_size = mu_diff.size(-1)
-            self.probe_vectors = mu_diff.new(matrix_size, num_random_probes).bernoulli_().mul_(2).add_(-1)
-            self.probe_vector_norms = torch.norm(self.probe_vectors, 2, dim=-2, keepdim=True)
-            if mu_diff.dim() == 2:
-                self.probe_vectors = self.probe_vectors.unsqueeze(0).expand(mu_diff.size(0),
-                                                                            matrix_size,
-                                                                            num_random_probes)
-                self.probe_vector_norms = self.probe_vector_norms.unsqueeze(0).expand(mu_diff.size(0), 1,
-                                                                                      num_random_probes)
-            probe_vectors = self.probe_vectors.div(self.probe_vector_norms)
-
-            # Perform solves and tridiagonalization
-            matmul_closure = matmul_closure_factory(*covar2_args)
-            rhs = torch.cat([probe_vectors, chol_covar1.transpose(-1, -2), mu_diff.unsqueeze(-1)], -1)
-            solves, t_mat = linear_cg(matmul_closure, rhs, n_tridiag=num_random_probes,
-                                      max_iter=settings.max_lanczos_quadrature_iterations.value())
-
-            # Log det
-            if not chol_covar1.dim() == 3:
-                t_mat = t_mat.unsqueeze(1)
-            eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
-            slq = StochasticLQ()
-            log_det_covar2, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
-
-            # Tr(K2^{-1}K1)
-            covar2_inv_chol_covar1 = solves.narrow(-1, num_random_probes, chol_covar1.size(-1))
-            trace = (covar2_inv_chol_covar1 * chol_covar1.transpose(-1, -2)).sum(-2).sum(-1)
-
-            # Inverse quad form
-            mat_inv_y = solves.narrow(-1, solves.size(-1) - 1, 1).squeeze_(-1)
-            inv_quad_form = mat_inv_y.mul(mu_diff).sum(-1)
-
-            res = log_det_covar2 + trace + inv_quad_form
-            if res.numel() > 1:
-                res = res.sum(-1)
-
-            self.save_for_backward(*([mu_diff] + [chol_covar1] + list(covar2_args)))
-            self.solves = solves
-            return res
-
-        def backward(self, grad_output):
-            if derivative_quadratic_form_factory is None:
-                raise NotImplementedError
-            grad_output_value = grad_output.squeeze()[0]
-
-            # Get data that was saved
-            args = self.saved_tensors
-            chol_covar = args[1]
-            covar2_args = args[2:]
-            probe_vectors = self.probe_vectors
-            probe_vector_norms = self.probe_vector_norms
-            probe_vector_solves = self.solves.narrow(-1, 0, self.probe_vectors.size(-1))
-            covar2_inv_chol_covar1 = self.solves.narrow(-1, self.probe_vectors.size(-1), chol_covar.size(-1))
-            mat_inv_y = self.solves.narrow(-1, self.solves.size(-1) - 1, 1)
-
-            # Create gradients
-            grad_mu_diff = None
-            grad_cholesky_factor = None
-            grad_covar2_args = [None] * len(covar2_args)
-
-            if self.needs_input_grad[0]:
-                # Need gradient with respect to mu_diff
-                grad_mu_diff = mat_inv_y.mul(2 * grad_output_value).squeeze_(-1)
-
-            if self.needs_input_grad[1]:
-                # Compute gradient with respect to the Cholesky factor R
-                grad_cholesky_factor = 2 * covar2_inv_chol_covar1.transpose(-1, -2)
-                grad_cholesky_factor = grad_cholesky_factor.contiguous()
-                grad_cholesky_factor.mul_(grad_output_value)
-
-            if any(self.needs_input_grad[2:]):
-                grad_covar2_fn = derivative_quadratic_form_factory(*covar2_args)
-
-                # Get dK/dargs \mu^{\top}K^{-1}\mu^{\top}
-                quad_part = grad_covar2_fn(mat_inv_y.transpose(-1, -2), mat_inv_y.transpose(-1, -2))
-
-                # Get dK/dargs Tr(K^{-1}S)
-                left_vectors_trace = covar2_inv_chol_covar1.transpose(-1, -2)
-                right_vectors_trace = covar2_inv_chol_covar1.transpose(-1, -2)
-                trace_part = grad_covar2_fn(left_vectors_trace, right_vectors_trace)
-
-                # Get dK/dargs log |K|
-                coef = 1. / probe_vectors.size(-1)
-                probe_vector_solves.mul_(coef).mul_(probe_vector_norms)
-                log_det_part = grad_covar2_fn(probe_vector_solves.transpose(-1, -2), probe_vectors.transpose(-1, -2))
-
-                for i in range(len(covar2_args)):
-                    # This check makes sure we're only doing math if we need to (i.e. grads aren't zero)
-                    if log_det_part[i] is not None and log_det_part[i].sum():
-                        grad_covar2_args[i] = log_det_part[i]
-                        grad_covar2_args[i].sub_(trace_part[i])
-                        grad_covar2_args[i].sub_(quad_part[i])
-                        grad_covar2_args[i].mul_(grad_output_value)
-
-            res = tuple([grad_mu_diff] + [grad_cholesky_factor] + grad_covar2_args)
-            return res
-
-    return TraceLogDetQuadForm
-
-
-def exact_gp_mll_factory(matmul_closure_factory=_default_matmul_closure_factory,
-                         derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
-    class ExactGPMLL(Function):
+def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
+                       derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+    class InvMatmul(Function):
         def forward(self, *args):
             closure_args = args[:-1]
-            labels = args[-1]
-            labels = labels.unsqueeze(-1)
-
-            # Probe vector for lanczos quadrature
-            num_random_probes = settings.num_trace_samples.value()
-            matrix_size = labels.size(-2)
-            self.probe_vectors = labels.new(matrix_size, num_random_probes).bernoulli_().mul_(2).add_(-1)
-            self.probe_vector_norms = torch.norm(self.probe_vectors, 2, dim=0)
-            probe_vectors = self.probe_vectors.div(self.probe_vector_norms.expand_as(self.probe_vectors))
-            if labels.dim() == 3:
-                self.probe_vectors = self.probe_vectors.unsqueeze(0).expand(labels.size(0),
-                                                                            matrix_size,
-                                                                            num_random_probes)
-                self.probe_vector_norms = self.probe_vector_norms.unsqueeze(0).expand(labels.size(0), 1,
-                                                                                      num_random_probes)
-            probe_vectors = self.probe_vectors.div(self.probe_vector_norms)
-
+            rhs = args[-1]
             matmul_closure = matmul_closure_factory(*closure_args)
-            rhs = torch.cat([probe_vectors, labels], -1)
-            solves, t_mat = linear_cg(matmul_closure, rhs, n_tridiag=num_random_probes,
-                                      max_iter=settings.max_lanczos_quadrature_iterations.value())
 
-            mat_inv_labels = solves.narrow(-1, num_random_probes, 1)
-            # Inverse quad form
-            res = (mat_inv_labels * labels).sum(-1).sum(-1)
-            res = float(res)
+            self.is_vector = False
+            if rhs.ndimension() == 1:
+                rhs = rhs.unsqueeze(-1)
+                self.is_vector = True
 
-            # Log det
-            if not labels.dim() == 3:
-                t_mat = t_mat.unsqueeze(1)
-            eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
-            slq = StochasticLQ()
-            logdet, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
+            # Perform solves (for inv_quad) and tridiagonalization (for estimating log_det)
+            res = linear_cg(matmul_closure, rhs, max_iter=settings.max_cg_iterations.value())
 
-            res += logdet
-            res += math.log(2 * math.pi) * labels.size(-2)
-            res *= -0.5
+            if self.is_vector:
+                res.squeeze_(-1)
 
-            self.solves = solves
-            self.save_for_backward(*args)
-            if torch.is_tensor(res):
-                return res.view(1)
-            return labels.new().resize_(1).fill_(res)
+            self.matmul_closure = matmul_closure
+            self.save_for_backward(*(list(args) + [res]))
+            return res
 
         def backward(self, grad_output):
             if derivative_quadratic_form_factory is None:
                 raise NotImplementedError
 
-            closure_args = self.saved_tensors[:-1]
-            solves = self.solves
-            probe_vectors = self.probe_vectors
+            # Extract items that were saved
+            closure_args = self.saved_tensors[:-2]
+            rhs = self.saved_tensors[-2]
+            rhs_solves = self.saved_tensors[-1]
 
-            closure_arg_grads = [None] * len(closure_args)
-            labels_grad = None
+            # Define gradient placeholders
+            arg_grads = [None] * len(closure_args)
+            rhs_grad = None
+            if not any(self.needs_input_grad):
+                return arg_grads, rhs_grad
+
+            # De-vectorize objects
+            if self.is_vector:
+                rhs = rhs.unsqueeze(-1)
+                rhs_solves = rhs_solves.unsqueeze(-1)
+                grad_output = grad_output.unsqueeze(-1)
+
+            # Compute self^{-1} grad_output
+            grad_output_solves = linear_cg(self.matmul_closure, grad_output,
+                                           max_iter=settings.max_cg_iterations.value())
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
-                for i in range(len(closure_args)):
-                    if self.needs_input_grad[i]:
-                        closure_arg_grads[i] = closure_args[i].new().resize_as_(closure_args[i]).zero_()
-                    else:
-                        closure_arg_grads[i] = None
-
-                function = derivative_quadratic_form_factory(*closure_args)
-
-                # Quadratic form derivatives
-                mat_inv_labels = solves.narrow(-1, solves.size(-1) - 1, 1)
-                quad_form_grads = function(mat_inv_labels.transpose(-1, -2), mat_inv_labels.transpose(-1, -2))
-
-                # Log det derivatives
-                coef = 1. / self.probe_vectors.size(-1)
-                probe_vector_solves = solves.narrow(-1, 0, solves.size(-1) - 1)
-                probe_vector_solves.mul_(coef).mul_(self.probe_vector_norms.unsqueeze(-2))
-                log_det_grads = function(probe_vector_solves.transpose(-1, -2), probe_vectors.transpose(-1, -2))
-
-                # Combine quadratic form and log det dererivatives, also with grad output
-                for i in range(len(closure_args)):
-                    if self.needs_input_grad[i] and quad_form_grads[i] is not None:
-                        # This check makes sure we're only doing math if we need to (i.e. grads aren't zero)
-                        if quad_form_grads[i].sum():
-                            closure_arg_grads[i] = quad_form_grads[i].sub_(log_det_grads[i])
-                            if closure_arg_grads[i].ndimension() == 3:
-                                closure_arg_grads[i].mul_(0.5 * grad_output.unsqueeze(1).unsqueeze(2))
-                            elif closure_arg_grads[i].ndimension() == 2:
-                                closure_arg_grads[i].mul_(0.5 * grad_output.unsqueeze(1))
-                            elif closure_arg_grads[i].numel() > 1:
-                                closure_arg_grads[i].mul_(0.5 * grad_output)
-                            else:
-                                closure_arg_grads[i].mul_(0.5 * grad_output.sum())
+                derivative_fn = derivative_quadratic_form_factory(*closure_args)
+                arg_grads = list(derivative_fn(grad_output_solves.transpose(-1, -2),
+                                               rhs_solves.mul(-1).transpose(-1, -2)))
 
             # input_2 gradient
             if self.needs_input_grad[-1]:
-                # Need gradient with respect to labels
-                mat_inv_labels.squeeze_(-1)
-                if mat_inv_labels.ndimension() == 3:
-                    labels_grad = mat_inv_labels.mul_(-grad_output.unsqueeze(1))
-                else:
-                    labels_grad = mat_inv_labels.mul_(-grad_output)
+                rhs_grad = grad_output_solves
+                if self.is_vector:
+                    rhs_grad.squeeze_(-1)
 
-            res = tuple(list(closure_arg_grads) + [labels_grad])
+            return tuple(arg_grads + [rhs_grad])
+
+    return InvMatmul
+
+
+def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_factory,
+                             derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+    class InvQuadLogDet(Function):
+        """
+        Given a PSD matrix A (or a batch of PSD matrices A), this function computes one or both
+        of the following
+        - The matrix solves A^{-1} b
+        - logdet(A)
+        """
+        def __init__(self, matrix_size=0, batch_size=None, tensor_cls=None, inv_quad=False, log_det=False):
+            if not matrix_size:
+                raise RuntimeError('Matrix size must be set')
+            if tensor_cls is None:
+                raise RuntimeError('tensor_cls must be set')
+            if not (inv_quad or log_det):
+                raise RuntimeError('Either inv_quad or log_det must be true (or both)')
+            self.matrix_size = matrix_size
+            self.batch_size = batch_size
+            self.tensor_cls = tensor_cls
+            self.inv_quad = inv_quad
+            self.log_det = log_det
+
+        def forward(self, *args):
+            """
+            *args - The arguments representing the PSD matrix A (or batch of PSD matrices A)
+            If self.inv_quad is true, the last entry in *args is inv_quad_rhs (Tensor)
+            - the RHS of the matrix solves.
+
+            Returns:
+            - (Tensor) The solves (or None, if self.inv_quad is False)
+            - (Scalar) The log determinant (or None, self.if log_det is False)
+            """
+            closure_args = None
+            inv_quad_rhs = None
+            if self.inv_quad:
+                closure_args = args[:-1]
+                inv_quad_rhs = args[-1]
+            else:
+                closure_args = args
+            matmul_closure = matmul_closure_factory(*closure_args)
+
+            # Collect terms for LinearCG
+            # We use LinearCG for both matrix solves and for stochastically estimating the log det
+            rhs_list = []
+            num_random_probes = 0
+            num_inv_quad_solves = 0
+
+            # Probe vector for lanczos quadrature (log_det estimation)
+            if self.log_det:
+                num_random_probes = settings.num_trace_samples.value()
+                self.probe_vectors = self.tensor_cls(self.matrix_size, num_random_probes).bernoulli_().mul_(2).add_(-1)
+                self.probe_vector_norms = torch.norm(self.probe_vectors, 2, dim=-2, keepdim=True)
+                if self.batch_size is not None:
+                    self.probe_vectors = self.probe_vectors.unsqueeze(0).expand(self.batch_size,
+                                                                                self.matrix_size,
+                                                                                num_random_probes)
+                    self.probe_vector_norms = self.probe_vector_norms.unsqueeze(0).expand(self.batch_size, 1,
+                                                                                          num_random_probes)
+                probe_vectors = self.probe_vectors.div(self.probe_vector_norms)
+                rhs_list.append(probe_vectors)
+
+            # RHS for inv_quad
+            self.is_vector = False
+            if self.inv_quad:
+                if inv_quad_rhs.ndimension() == 1:
+                    inv_quad_rhs = inv_quad_rhs.unsqueeze(-1)
+                    self.is_vector = True
+                rhs_list.append(inv_quad_rhs)
+                num_inv_quad_solves = inv_quad_rhs.size(-1)
+
+            # Perform solves (for inv_quad) and tridiagonalization (for estimating log_det)
+            rhs = torch.cat(rhs_list, -1)
+            t_mat = None
+            if self.log_det:
+                solves, t_mat = linear_cg(matmul_closure, rhs, n_tridiag=num_random_probes,
+                                          max_iter=settings.max_lanczos_quadrature_iterations.value())
+            else:
+                solves = linear_cg(matmul_closure, rhs, n_tridiag=num_random_probes,
+                                   max_iter=settings.max_lanczos_quadrature_iterations.value())
+
+            # Final values to return
+            log_det_term = self.tensor_cls()
+            inv_quad_term = self.tensor_cls()
+
+            # Compute log_det from tridiagonalization
+            if self.log_det:
+                if self.batch_size is None:
+                    t_mat = t_mat.unsqueeze(1)
+                eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
+                slq = StochasticLQ()
+                log_det_term, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
+
+            # Extract inv_quad solves from all the solves
+            if self.inv_quad:
+                inv_quad_solves = solves.narrow(-1, num_random_probes, num_inv_quad_solves)
+                inv_quad_term = (inv_quad_solves * inv_quad_rhs).sum(-1).sum(-1, keepdim=(self.batch_size is None))
+
+            self.matmul_closure = matmul_closure
+            self.num_random_probes = num_random_probes
+            self.num_inv_quad_solves = num_inv_quad_solves
+            self.solves = solves
+            self.save_for_backward(*closure_args)
+
+            return inv_quad_term, log_det_term
+
+        def backward(self, inv_quad_grad_output, log_det_grad_output):
+            if derivative_quadratic_form_factory is None:
+                raise NotImplementedError
+            closure_arg_grads = None
+            inv_quad_rhs_grad = None
+
+            # Which backward passes should we compute?
+            compute_inv_quad_grad = inv_quad_grad_output.sum() and self.inv_quad
+            compute_log_det_grad = log_det_grad_output.sum() and self.log_det
+
+            # Get input arguments, and get gradients in the proper form
+            closure_args = None
+            closure_args = self.saved_tensors
+            if self.inv_quad:
+                inv_quad_grad_output = inv_quad_grad_output.unsqueeze(-1)
+                if self.batch_size is not None:
+                    inv_quad_grad_output.unsqueeze_(-1)
+            if compute_log_det_grad:
+                log_det_grad_output = log_det_grad_output.unsqueeze(-1)
+                if self.batch_size is not None:
+                    log_det_grad_output.unsqueeze_(-1)
+
+            # Divide up the solves
+            probe_vector_solves = None
+            probe_vectors = None
+            inv_quad_solves = None
+            neg_inv_quad_solves_times_grad_out = None
+            if compute_log_det_grad:
+                coef = 1. / self.probe_vectors.size(-1)
+                probe_vector_solves = self.solves.narrow(-1, 0, self.num_random_probes).mul(coef)
+                probe_vector_solves.mul_(self.probe_vector_norms).mul_(log_det_grad_output)
+                probe_vectors = self.probe_vectors
+            if self.inv_quad:
+                inv_quad_solves = self.solves.narrow(-1, self.num_random_probes, self.num_inv_quad_solves)
+                neg_inv_quad_solves_times_grad_out = inv_quad_solves.mul(inv_quad_grad_output).mul_(-1)
+
+            # input_1 gradient
+            if any(self.needs_input_grad[:len(closure_args)]):
+                # Collect terms for arg grads
+                left_factors_list = []
+                right_factors_list = []
+
+                if compute_log_det_grad:
+                    left_factors_list.append(probe_vector_solves)
+                    right_factors_list.append(probe_vectors)
+
+                if compute_inv_quad_grad:
+                    left_factors_list.append(neg_inv_quad_solves_times_grad_out)
+                    right_factors_list.append(inv_quad_solves)
+
+                left_factors = torch.cat(left_factors_list, -1).transpose(-1, -2)
+                right_factors = torch.cat(right_factors_list, -1).transpose(-1, -2)
+                closure_arg_grads = list(derivative_quadratic_form_factory(*closure_args)(left_factors,
+                                                                                          right_factors))
+
+            # input_2 gradient
+            if compute_inv_quad_grad and self.needs_input_grad[-1]:
+                inv_quad_rhs_grad = neg_inv_quad_solves_times_grad_out.mul_(-2)
+            elif self.inv_quad:
+                inv_quad_rhs_grad = inv_quad_solves.new(*inv_quad_solves.size()).zero_()
+            if self.is_vector:
+                inv_quad_rhs_grad.squeeze_(-1)
+
+            res = tuple(closure_arg_grads + [inv_quad_rhs_grad])
             return res
 
-    return ExactGPMLL
+    return InvQuadLogDet
 
 
 def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_factory,

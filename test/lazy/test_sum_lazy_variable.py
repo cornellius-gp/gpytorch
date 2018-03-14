@@ -1,5 +1,4 @@
 import os
-import math
 import torch
 import unittest
 from torch.autograd import Variable
@@ -53,73 +52,6 @@ class TestSumLazyVariable(unittest.TestCase):
                 res.data - (self.t1_eval + self.t2_eval).inverse().matmul(mat)
             ),
             1e-3,
-        )
-
-    def test_exact_gp_mll(self):
-        labels_var = Variable(torch.randn(4))
-
-        # Test case
-        c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-        c2_var = Variable(torch.Tensor([6, 0, 1, -1]), requires_grad=True)
-        actual = ToeplitzLazyVariable(c1_var + c2_var)
-
-        # Actual case
-        sum_lv = make_sum_lazy_var()
-        t1, t2 = sum_lv.lazy_vars
-
-        # Test forward
-        mll_res = sum_lv.exact_gp_marginal_log_likelihood(labels_var)
-        mll_actual = actual.exact_gp_marginal_log_likelihood(labels_var)
-        self.assertLess(
-            math.fabs(mll_res.data.squeeze()[0] - mll_actual.data.squeeze()[0]),
-            5e-1,
-        )
-
-        # Test backwards
-        mll_res.backward()
-        mll_actual.backward()
-        self.assertLess(
-            math.fabs(c1_var.grad.data[0] - t1.column.grad.data[0]),
-            1e-1,
-        )
-        self.assertLess(
-            math.fabs(c2_var.grad.data[0] - t2.column.grad.data[0]),
-            1e-1,
-        )
-
-    def test_trace_log_det_quad_form(self):
-        mu_diffs_var = Variable(torch.randn(4))
-        chol_covar_1_var = Variable(torch.eye(4))
-
-        # Test case
-        c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-        c2_var = Variable(torch.Tensor([6, 0, 1, -1]), requires_grad=True)
-        actual = ToeplitzLazyVariable(c1_var + c2_var)
-
-        # Actual case
-        sum_lv = make_sum_lazy_var()
-        t1, t2 = sum_lv.lazy_vars
-
-        # Test forward
-        tldqf_res = sum_lv.trace_log_det_quad_form(mu_diffs_var, chol_covar_1_var)
-        tldqf_actual = actual.trace_log_det_quad_form(mu_diffs_var, chol_covar_1_var)
-        self.assertLess(
-            math.fabs(
-                tldqf_res.data.squeeze()[0] - tldqf_actual.data.squeeze()[0]
-            ),
-            1.5,
-        )
-
-        # Test backwards
-        tldqf_res.backward()
-        tldqf_actual.backward()
-        self.assertLess(
-            math.fabs(c1_var.grad.data[0] - t1.column.grad.data[0]),
-            1e-1,
-        )
-        self.assertLess(
-            math.fabs(c2_var.grad.data[0] - t2.column.grad.data[0]),
-            1e-1,
         )
 
     def test_getitem(self):
