@@ -1,20 +1,22 @@
-from .kernel import Kernel
-from .rbf_kernel import RBFKernel
-from .matern_kernel import MaternKernel
-from .spectral_mixture_kernel import SpectralMixtureKernel
-from .index_kernel import IndexKernel
-from .grid_interpolation_kernel import GridInterpolationKernel
 from .additive_grid_interpolation_kernel import AdditiveGridInterpolationKernel
+from .grid_interpolation_kernel import GridInterpolationKernel
+from .index_kernel import IndexKernel
+from .kernel import Kernel
+from .linear_kernel import LinearKernel
+from .matern_kernel import MaternKernel
 from .multiplicative_grid_interpolation_kernel import MultiplicativeGridInterpolationKernel
+from .periodic_kernel import PeriodicKernel
+from .rbf_kernel import RBFKernel
+from .spectral_mixture_kernel import SpectralMixtureKernel
 
 
 __all__ = [
-    Kernel,
-    RBFKernel,
-    MaternKernel,
-    SpectralMixtureKernel,
-    IndexKernel,
-    GridInterpolationKernel,
     AdditiveGridInterpolationKernel,
-    MultiplicativeGridInterpolationKernel,
+    GridInterpolationKernel,
+    IndexKernel,
+    Kernel,
+    LinearKernel,
+    MaternKernel,
+    PeriodicKernel,
+    SpectralMixtureKernel,
 ]

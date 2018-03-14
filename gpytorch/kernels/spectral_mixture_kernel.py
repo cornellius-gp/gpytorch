@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import math
 import torch
 from torch import nn
@@ -5,12 +10,19 @@ from .kernel import Kernel
 
 
 class SpectralMixtureKernel(Kernel):
-    def __init__(self, n_mixtures, n_dims=1, log_mixture_weight_bounds=(-100, 100),
-                 log_mixture_mean_bounds=(-100, 100), log_mixture_scale_bounds=(-100, 100)):
+    def __init__(
+        self,
+        n_mixtures,
+        n_dims=1,
+        log_mixture_weight_bounds=(-100, 100),
+        log_mixture_mean_bounds=(-100, 100),
+        log_mixture_scale_bounds=(-100, 100),
+        active_dims=None,
+    ):
         self.n_mixtures = n_mixtures
         self.n_dims = n_dims
 
-        super(SpectralMixtureKernel, self).__init__()
+        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
         self.register_parameter('log_mixture_weights', nn.Parameter(torch.zeros(self.n_mixtures)),
                                 bounds=log_mixture_weight_bounds)
         self.register_parameter('log_mixture_means', nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),

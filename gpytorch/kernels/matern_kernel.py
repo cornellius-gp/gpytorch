@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import math
 import torch
 from torch import nn
@@ -5,12 +10,21 @@ from gpytorch.kernels import Kernel
 
 
 class MaternKernel(Kernel):
-    def __init__(self, nu, log_lengthscale_bounds=(-10000, 10000)):
-        super(MaternKernel, self).__init__()
+    def __init__(
+        self,
+        nu,
+        log_lengthscale_bounds=(-10000, 10000),
+        active_dims=None,
+    ):
+        super(MaternKernel, self).__init__(active_dims=active_dims)
         if nu not in [0.5, 1.5, 2.5]:
             raise RuntimeError('nu expected to be 0.5, 1.5, or 2.5')
         self.nu = nu
-        self.register_parameter('log_lengthscale', nn.Parameter(torch.zeros(1, 1, 1)), bounds=log_lengthscale_bounds)
+        self.register_parameter(
+            'log_lengthscale',
+            nn.Parameter(torch.zeros(1, 1, 1)),
+            bounds=log_lengthscale_bounds,
+        )
 
     def forward(self, x1, x2):
         lengthscale = (self.log_lengthscale.exp()).sqrt()

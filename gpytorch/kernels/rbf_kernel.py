@@ -1,11 +1,21 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 from torch import nn
 from .kernel import Kernel
 
 
 class RBFKernel(Kernel):
-    def __init__(self, log_lengthscale_bounds=(-10000, 10000), eps=1e-5):
-        super(RBFKernel, self).__init__()
+    def __init__(
+        self,
+        log_lengthscale_bounds=(-10000, 10000),
+        eps=1e-5,
+        active_dims=None,
+    ):
+        super(RBFKernel, self).__init__(active_dims=active_dims)
         self.eps = eps
         self.register_parameter('log_lengthscale', nn.Parameter(torch.zeros(1, 1)),
                                 bounds=log_lengthscale_bounds)
