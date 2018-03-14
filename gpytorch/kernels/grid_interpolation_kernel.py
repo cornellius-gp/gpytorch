@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 from torch.autograd import Variable
 from .grid_kernel import GridKernel
@@ -6,7 +11,7 @@ from ..utils import Interpolation
 
 
 class GridInterpolationKernel(GridKernel):
-    def __init__(self, base_kernel_module, grid_size, grid_bounds):
+    def __init__(self, base_kernel_module, grid_size, grid_bounds, active_dims=None):
         grid = torch.zeros(len(grid_bounds), grid_size)
         for i in range(len(grid_bounds)):
             grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
@@ -23,7 +28,12 @@ class GridInterpolationKernel(GridKernel):
                     inducing_points[j * grid_size ** i:(j + 1) * grid_size ** i, :i].copy_(prev_points)
             prev_points = inducing_points[:grid_size ** (i + 1), :(i + 1)]
 
-        super(GridInterpolationKernel, self).__init__(base_kernel_module, inducing_points, grid)
+        super(GridInterpolationKernel, self).__init__(
+            base_kernel_module,
+            inducing_points,
+            grid,
+            active_dims=active_dims,
+        )
 
     def _compute_grid(self, inputs):
         batch_size, n_data, n_dimensions = inputs.size()

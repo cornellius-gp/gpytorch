@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 from torch.autograd import Variable
 from .kernel import Kernel
@@ -6,8 +11,8 @@ from .. import settings
 
 
 class GridKernel(Kernel):
-    def __init__(self, base_kernel_module, inducing_points, grid):
-        super(GridKernel, self).__init__()
+    def __init__(self, base_kernel_module, inducing_points, grid, active_dims=None):
+        super(GridKernel, self).__init__(active_dims=active_dims)
         self.base_kernel_module = base_kernel_module
         if inducing_points.ndimension() != 2:
             raise RuntimeError('Inducing points should be 2 dimensional')

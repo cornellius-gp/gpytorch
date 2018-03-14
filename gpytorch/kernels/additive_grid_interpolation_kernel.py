@@ -1,11 +1,28 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from torch.autograd import Variable
 from .grid_interpolation_kernel import GridInterpolationKernel
 from ..utils import Interpolation
 
 
 class AdditiveGridInterpolationKernel(GridInterpolationKernel):
-    def __init__(self, base_kernel_module, grid_size, grid_bounds, n_components):
-        super(AdditiveGridInterpolationKernel, self).__init__(base_kernel_module, grid_size, grid_bounds)
+    def __init__(
+        self,
+        base_kernel_module,
+        grid_size,
+        grid_bounds,
+        n_components,
+        active_dims=None,
+    ):
+        super(AdditiveGridInterpolationKernel, self).__init__(
+            base_kernel_module,
+            grid_size,
+            grid_bounds,
+            active_dims=active_dims,
+        )
         self.n_components = n_components
 
     def _compute_grid(self, inputs):
