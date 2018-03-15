@@ -17,6 +17,8 @@ __all__ = [
     Kernel,
     LinearKernel,
     MaternKernel,
+    MultiplicativeGridInterpolationKernel,
     PeriodicKernel,
+    RBFKernel,
     SpectralMixtureKernel,
 ]

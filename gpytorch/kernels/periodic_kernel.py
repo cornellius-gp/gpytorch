@@ -38,4 +38,3 @@ class PeriodicKernel(Kernel):
         diff = torch.sum((x1.unsqueeze(2) - x2.unsqueeze(1)).abs(), -1)
         res = - 2 * torch.sin(math.pi * diff / period_length).pow(2) / lengthscale
         return res.exp()
-
