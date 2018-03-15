@@ -58,7 +58,10 @@ class NonLazyVariable(LazyVariable):
         return NonLazyVariable(gpytorch.add_diag(self.var, diag))
 
     def diag(self):
-        return self.var.diag()
+        if self.var.ndimension() < 3:
+            return self.var.diag()
+        else:
+            return super(NonLazyVariable, self).diag()
 
     def evaluate(self):
         return self.var
