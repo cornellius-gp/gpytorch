@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from torch import nn
-from ..lazy.matmul_lazy_variable import MatmulLazyVariable
+from ..lazy import MatmulLazyVariable, RootLazyVariable
 from .kernel import Kernel
 
 
@@ -32,9 +32,14 @@ class LinearKernel(Kernel):
         )
 
     def forward(self, x1, x2):
-        prod = MatmulLazyVariable(
-            x1 - self.offset,
-            (x2 - self.offset).transpose(2, 1)
-        )
+        if x1.size() == x2.size() and torch.equal(x1, x2):
+            # Use RootLazyVariable when x1 == x2 for efficiency when composing
+            # with other kernels
+            prod = RootLazyVariable(x1 - self.offset)
+        else:
+            prod = MatmulLazyVariable(
+                x1 - self.offset,
+                (x2 - self.offset).transpose(2, 1)
+            )
 
         return prod + self.variance.expand_as(prod)
