@@ -10,6 +10,7 @@ from .kernel import Kernel
 
 
 class SpectralMixtureKernel(Kernel):
+
     def __init__(
         self,
         n_mixtures,
@@ -23,12 +24,21 @@ class SpectralMixtureKernel(Kernel):
         self.n_dims = n_dims
 
         super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
-        self.register_parameter('log_mixture_weights', nn.Parameter(torch.zeros(self.n_mixtures)),
-                                bounds=log_mixture_weight_bounds)
-        self.register_parameter('log_mixture_means', nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
-                                bounds=log_mixture_mean_bounds)
-        self.register_parameter('log_mixture_scales', nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
-                                bounds=log_mixture_scale_bounds)
+        self.register_parameter(
+            'log_mixture_weights',
+            nn.Parameter(torch.zeros(self.n_mixtures)),
+            bounds=log_mixture_weight_bounds,
+        )
+        self.register_parameter(
+            'log_mixture_means',
+            nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
+            bounds=log_mixture_mean_bounds,
+        )
+        self.register_parameter(
+            'log_mixture_scales',
+            nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
+            bounds=log_mixture_scale_bounds,
+        )
 
     def initialize(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
@@ -53,7 +63,9 @@ class SpectralMixtureKernel(Kernel):
         batch_size, n, n_dims = x1.size()
         _, m, _ = x2.size()
         if not n_dims == self.n_dims:
-            raise RuntimeError('The number of dimensions doesn\'t match what was supplied!')
+            raise RuntimeError(
+                "The number of dimensions doesn't match what was supplied!"
+            )
 
         mixture_weights = self.log_mixture_weights.view(self.n_mixtures, 1, 1, 1).exp()
         mixture_means = self.log_mixture_means.view(self.n_mixtures, 1, 1, 1, self.n_dims).exp()

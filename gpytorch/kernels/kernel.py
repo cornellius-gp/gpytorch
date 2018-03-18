@@ -3,13 +3,36 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import torch
 from ..module import Module
 
 
 class Kernel(Module):
-    def __init__(self, active_dims=None):
-        self.active_dims = active_dims
+
+    def __init__(
+        self,
+        has_lengthscale=False,
+        ard_num_dims=None,
+        log_lengthscale_bounds=(-10000, 10000),
+        active_dims=None,
+    ):
         super(Kernel, self).__init__()
+        self.active_dims = active_dims
+        self.ard_num_dims = ard_num_dims
+        if has_lengthscale:
+            lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
+            self.register_parameter(
+                'log_lengthscale',
+                torch.nn.Parameter(torch.Tensor(1, 1, lengthscale_num_dims)),
+                bounds=log_lengthscale_bounds,
+            )
+
+    @property
+    def lengthscale(self):
+        if 'log_lengthscale' in self.named_parameters().keys():
+            return self.log_lengthscale.exp()
+        else:
+            return None
 
     def forward(self, x1, x2, **params):
         raise NotImplementedError()
@@ -53,6 +76,7 @@ class Kernel(Module):
 
 
 class AdditiveKernel(Kernel):
+
     def __init__(self, kernel_1, kernel_2):
         super(AdditiveKernel, self).__init__()
         self.kernel_1 = kernel_1
@@ -63,6 +87,7 @@ class AdditiveKernel(Kernel):
 
 
 class ProductKernel(Kernel):
+
     def __init__(self, kernel_1, kernel_2):
         super(ProductKernel, self).__init__()
         self.kernel_1 = kernel_1
