@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import unittest
@@ -43,6 +44,15 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 
 
 class TestKISSGPRegreesion(unittest.TestCase):
+    def setUp(self):
+        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+
+    def tearDown(self):
+        if hasattr(self, 'rng_state'):
+            torch.set_rng_state(self.rng_state)
+
     def test_kissgp_gp_mean_abs_error(self):
         train_x, train_y, test_x, test_y = make_data()
         likelihood = GaussianLikelihood()

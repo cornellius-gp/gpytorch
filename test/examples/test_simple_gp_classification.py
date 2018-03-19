@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import unittest
@@ -39,7 +40,16 @@ class GPClassificationModel(gpytorch.models.VariationalGP):
 
 
 class TestSimpleGPClassification(unittest.TestCase):
-    def test_kissgp_classification_error(self):
+    def setUp(self):
+        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+
+    def tearDown(self):
+        if hasattr(self, 'rng_state'):
+            torch.set_rng_state(self.rng_state)
+
+    def test_classification_error(self):
         train_x, train_y = train_data()
         likelihood = BernoulliLikelihood()
         model = GPClassificationModel(train_x.data)
@@ -72,7 +82,7 @@ class TestSimpleGPClassification(unittest.TestCase):
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         assert(mean_abs_error.data.squeeze()[0] < 1e-5)
 
-    def test_kissgp_classification_fast_pred_var(self):
+    def test_classification_fast_pred_var(self):
         with gpytorch.fast_pred_var():
             train_x, train_y = train_data()
             likelihood = BernoulliLikelihood()
@@ -107,7 +117,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
             self.assertLess(mean_abs_error.data.squeeze()[0], 1e-5)
 
-    def test_kissgp_classification_error_cuda(self):
+    def test_classification_error_cuda(self):
         if torch.cuda.is_available():
             train_x, train_y = train_data(cuda=True)
             likelihood = BernoulliLikelihood().cuda()

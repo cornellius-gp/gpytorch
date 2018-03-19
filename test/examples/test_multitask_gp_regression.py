@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import unittest
@@ -44,6 +45,15 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
 
 
 class TestMultiTaskGPRegression(unittest.TestCase):
+    def setUp(self):
+        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+
+    def tearDown(self):
+        if hasattr(self, 'rng_state'):
+            torch.set_rng_state(self.rng_state)
+
     def test_multitask_gp_mean_abs_error(self):
         likelihood = GaussianLikelihood(log_noise_bounds=(-6, 6))
         gp_model = MultitaskGPModel(
