@@ -19,13 +19,12 @@ class PeriodicKernel(Kernel):
         eps=1e-5,
         active_dims=None,
     ):
-        super(PeriodicKernel, self).__init__(active_dims=active_dims)
-        self.eps = eps
-        self.register_parameter(
-            'log_lengthscale',
-            nn.Parameter(torch.zeros(1, 1, 1)),
-            bounds=log_lengthscale_bounds,
+        super(PeriodicKernel, self).__init__(
+            has_lengthscale=True,
+            log_lengthscale_bounds=log_lengthscale_bounds,
+            active_dims=active_dims,
         )
+        self.eps = eps
         self.register_parameter(
             'log_period_length',
             nn.Parameter(torch.zeros(1, 1, 1)),

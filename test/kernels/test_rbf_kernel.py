@@ -11,6 +11,20 @@ from gpytorch.kernels import RBFKernel
 
 
 class TestRBFKernel(unittest.TestCase):
+
+    def test_ard(self):
+        a = torch.Tensor([[1, 2], [2, 4]])
+        b = torch.Tensor([1, 3]).view(1, 1, 2)
+        lengthscales = torch.Tensor([1, 2]).view(1, 1, 2)
+
+        kernel = RBFKernel(ard_num_dims=2)
+        kernel.initialize(log_lengthscale=lengthscales.log())
+        kernel.eval()
+        actual = (a - b).pow(2).div_(lengthscales).sum(dim=-1).mul_(-1).exp()
+
+        res = kernel(Variable(a), Variable(b)).data
+        self.assertLess(torch.norm(res - actual.unsqueeze(-1)), 1e-5)
+
     def test_subset_active_compute_radial_basis_function(self):
         a = torch.Tensor([4, 2, 8]).view(3, 1)
         a_p = torch.Tensor([1, 2, 3]).view(3, 1)
@@ -18,7 +32,8 @@ class TestRBFKernel(unittest.TestCase):
         b = torch.Tensor([0, 2]).view(2, 1)
         lengthscale = 2
 
-        kernel = RBFKernel(active_dims=[0]).initialize(log_lengthscale=math.log(lengthscale))
+        kernel = RBFKernel(active_dims=[0])
+        kernel.initialize(log_lengthscale=math.log(lengthscale))
         kernel.eval()
         actual = torch.Tensor([
             [16, 4],
@@ -73,7 +88,8 @@ class TestRBFKernel(unittest.TestCase):
         b = torch.Tensor([0, 2, 2]).view(3, 1)
         lengthscale = 2
 
-        kernel = RBFKernel(active_dims=[0]).initialize(log_lengthscale=math.log(lengthscale))
+        kernel = RBFKernel(active_dims=[0])
+        kernel.initialize(log_lengthscale=math.log(lengthscale))
         kernel.eval()
         param = Variable(
             torch.Tensor(3, 3).fill_(math.log(lengthscale)),

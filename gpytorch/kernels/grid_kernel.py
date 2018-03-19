@@ -11,7 +11,14 @@ from .. import settings
 
 
 class GridKernel(Kernel):
-    def __init__(self, base_kernel_module, inducing_points, grid, active_dims=None):
+
+    def __init__(
+        self,
+        base_kernel_module,
+        inducing_points,
+        grid,
+        active_dims=None,
+    ):
         super(GridKernel, self).__init__(active_dims=active_dims)
         self.base_kernel_module = base_kernel_module
         if inducing_points.ndimension() != 2:
@@ -25,8 +32,13 @@ class GridKernel(Kernel):
         return super(GridKernel, self).train(mode)
 
     def forward(self, x1, x2, **kwargs):
-        if not torch.equal(x1.data, self.inducing_points) or not torch.equal(x2.data, self.inducing_points):
-            raise RuntimeError('The kernel should only receive the inducing points as input')
+        if (
+            not torch.equal(x1.data, self.inducing_points) or
+            not torch.equal(x2.data, self.inducing_points)
+        ):
+            raise RuntimeError(
+                'The kernel should only receive the inducing points as input'
+            )
 
         if not self.training and hasattr(self, '_cached_kernel_mat'):
             return self._cached_kernel_mat
@@ -38,7 +50,10 @@ class GridKernel(Kernel):
             if settings.use_toeplitz.on():
                 first_item = grid_var[:, 0:1].contiguous()
                 covar_columns = self.base_kernel_module(first_item, grid_var, **kwargs)
-                covars = [ToeplitzLazyVariable(covar_columns[i:i + 1].squeeze(-2)) for i in range(n_dim)]
+                covars = [
+                    ToeplitzLazyVariable(covar_columns[i:i + 1].squeeze(-2))
+                    for i in range(n_dim)
+                ]
             else:
                 grid_var = grid_var.view(n_dim, -1, 1)
                 covars = self.base_kernel_module(grid_var, grid_var, **kwargs)

@@ -9,6 +9,7 @@ from .kernel import Kernel
 
 
 class IndexKernel(Kernel):
+
     def __init__(
         self,
         n_tasks,

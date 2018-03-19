@@ -9,6 +9,7 @@ from ..utils import Interpolation
 
 
 class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
+
     def __init__(
         self,
         base_kernel_module,
@@ -18,9 +19,9 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
         active_dims=None,
     ):
         super(MultiplicativeGridInterpolationKernel, self).__init__(
-            base_kernel_module,
-            grid_size,
-            grid_bounds,
+            base_kernel_module=base_kernel_module,
+            grid_size=grid_size,
+            grid_bounds=grid_bounds,
             active_dims=active_dims
         )
         self.n_components = n_components
