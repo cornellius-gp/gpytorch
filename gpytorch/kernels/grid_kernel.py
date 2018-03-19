@@ -33,8 +33,8 @@ class GridKernel(Kernel):
 
     def forward(self, x1, x2, **kwargs):
         if (
-            not torch.equal(x1.data, self.inducing_points)
-            or not torch.equal(x2.data, self.inducing_points)
+            not torch.equal(x1.data, self.inducing_points) or
+            not torch.equal(x2.data, self.inducing_points)
         ):
             raise RuntimeError(
                 'The kernel should only receive the inducing points as input'
