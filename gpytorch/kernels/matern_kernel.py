@@ -38,9 +38,9 @@ class MaternKernel(Kernel):
         x1_t_x_2 = torch.matmul(x1_normed, x2_normed.transpose(-1, -2))
 
         distance_over_rho = (
-            x1_squared.unsqueeze(-1)
-            + x2_squared.unsqueeze(-2)
-            - x1_t_x_2.mul(2)
+            x1_squared.unsqueeze(-1) +
+            x2_squared.unsqueeze(-2) -
+            x1_t_x_2.mul(2)
         )
         distance_over_rho = distance_over_rho.clamp(0, 1e10).sqrt()
         exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance_over_rho)
