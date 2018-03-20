@@ -7,8 +7,9 @@ from torch.autograd import Variable
 
 
 class TestConstantMulLazyVariable(unittest.TestCase):
-    def test_exact_gp_mll(self):
+    def test_inv_matmul(self):
         labels_var = Variable(torch.randn(4))
+        grad_output = torch.randn(4)
 
         # Test case
         c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
@@ -17,16 +18,16 @@ class TestConstantMulLazyVariable(unittest.TestCase):
         actual = ToeplitzLazyVariable(c2_var)
 
         # Test forward
-        with gpytorch.settings.num_trace_samples(1000):
-            mll_res = toeplitz_lazy_var.exact_gp_marginal_log_likelihood(labels_var)
-            mll_actual = actual.exact_gp_marginal_log_likelihood(labels_var)
+        with gpytorch.settings.max_cg_iterations(1000):
+            res = toeplitz_lazy_var.inv_matmul(labels_var)
+            actual = gpytorch.inv_matmul(actual, labels_var)
 
         # Test backwards
-        mll_res.backward()
-        mll_actual.backward()
+        res.backward(grad_output)
+        actual.backward(grad_output)
 
         self.assertLess(
-            math.fabs(mll_res.data.squeeze()[0] - mll_actual.data.squeeze()[0]),
+            math.fabs(res.data.squeeze()[0] - actual.data.squeeze()[0]),
             6e-1,
         )
         self.assertLess(math.fabs(c1_var.grad.data[0] - c2_var.grad.data[0]), 1)
