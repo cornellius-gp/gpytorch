@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
 from torch.autograd import Variable

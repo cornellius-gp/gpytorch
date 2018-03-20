@@ -9,6 +9,7 @@ from ..utils import Interpolation
 
 
 class AdditiveGridInterpolationKernel(GridInterpolationKernel):
+
     def __init__(
         self,
         base_kernel_module,
