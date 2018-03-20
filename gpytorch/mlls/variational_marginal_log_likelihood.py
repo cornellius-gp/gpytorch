@@ -7,7 +7,7 @@ from .marginal_log_likelihood import MarginalLogLikelihood
 
 
 class VariationalMarginalLogLikelihood(MarginalLogLikelihood):
-    def __init__(self, likelihood, model, n_data):
+    def __init__(self, likelihood, model, n_data, combine_terms=True):
         """
         A special MLL designed for variational inference
 
@@ -15,9 +15,11 @@ class VariationalMarginalLogLikelihood(MarginalLogLikelihood):
         - likelihood: (Likelihood) - the likelihood for the model
         - model: (Module) - the variational GP model
         - n_data: (int) - the total number of training data points (necessary for SGD)
+        - combine_terms: (bool) - whether or not to sum the expected NLL with the KL terms (default True)
         """
         super(VariationalMarginalLogLikelihood, self).__init__(likelihood, model)
         self.n_data = n_data
+        self.combine_terms = combine_terms
 
     def forward(self, output, target, **kwargs):
         n_batch = target.size(0)
@@ -26,5 +28,8 @@ class VariationalMarginalLogLikelihood(MarginalLogLikelihood):
         kl_divergence = sum(variational_strategy.kl_divergence().sum()
                             for variational_strategy in self.model.variational_strategies()).div(self.n_data)
 
-        res = log_likelihood - kl_divergence
-        return res
+        if self.combine_terms:
+            res = log_likelihood - kl_divergence
+            return res
+        else:
+            return log_likelihood, kl_divergence
