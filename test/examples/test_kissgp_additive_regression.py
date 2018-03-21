@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import math
 import torch
@@ -45,6 +50,7 @@ test_y = Variable(
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
 class GPRegressionModel(gpytorch.models.ExactGP):
+
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
@@ -63,6 +69,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 
 
 class TestKISSGPAdditiveRegression(unittest.TestCase):
+
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
             self.rng_state = torch.get_rng_state()

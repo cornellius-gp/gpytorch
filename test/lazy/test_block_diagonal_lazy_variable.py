@@ -1,14 +1,21 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 from torch.autograd import Variable
 from gpytorch.lazy import BlockDiagonalLazyVariable, NonLazyVariable
 from gpytorch.utils import approx_equal
 
+
 blocks = torch.randn(8, 4, 4)
 blocks = blocks.transpose(-1, -2).matmul(blocks)
 
 
 class TestBlockDiagonalLazyVariable(unittest.TestCase):
+
     def test_matmul(self):
         rhs = torch.randn(4 * 8, 4)
         rhs_var = Variable(rhs, requires_grad=True)

@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import math
 import torch
@@ -25,6 +30,7 @@ test_y2 = Variable(torch.cos(test_x.data * (2 * math.pi)))
 
 
 class MultitaskGPModel(gpytorch.models.ExactGP):
+
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
@@ -45,6 +51,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
 
 
 class TestMultiTaskGPRegression(unittest.TestCase):
+
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
             self.rng_state = torch.get_rng_state()

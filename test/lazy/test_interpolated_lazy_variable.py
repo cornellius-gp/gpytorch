@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import gpytorch
 import torch
 import unittest
@@ -7,6 +12,7 @@ from gpytorch.utils import approx_equal
 
 
 class TestInterpolatedLazyVariable(unittest.TestCase):
+
     def test_matmul(self):
         left_interp_indices = Variable(
             torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(3, 1)

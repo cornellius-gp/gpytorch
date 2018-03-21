@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 import gpytorch
@@ -5,6 +10,7 @@ from torch.autograd import Variable
 
 
 class DSMMTest(unittest.TestCase):
+
     def test_forward(self):
         i = torch.LongTensor([[0, 1, 1],
                               [2, 0, 2]])

@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import math
 import torch
 import unittest
@@ -6,6 +11,7 @@ from gpytorch.kernels import RBFKernel
 
 
 class TestAdditiveKernel(unittest.TestCase):
+
     def test_computes_product_of_radial_basis_function(self):
         a = torch.Tensor([4, 2, 8]).view(3, 1)
         b = torch.Tensor([0, 2]).view(2, 1)

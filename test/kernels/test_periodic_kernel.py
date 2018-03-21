@@ -11,6 +11,7 @@ from gpytorch.kernels import PeriodicKernel
 
 
 class TestPeriodicKernel(unittest.TestCase):
+
     def test_computes_periodic_function(self):
         a = torch.Tensor([4, 2, 8]).view(3, 1)
         b = torch.Tensor([0, 2]).view(2, 1)

@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import math
 import torch
@@ -23,6 +28,7 @@ def make_data():
 
 
 class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
+
     def __init__(self):
         super(GPRegressionModel, self).__init__(
             grid_size=20,

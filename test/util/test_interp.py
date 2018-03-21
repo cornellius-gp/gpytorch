@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 from torch.autograd import Variable
@@ -5,6 +10,7 @@ from gpytorch.utils import left_interp, left_t_interp, approx_equal
 
 
 class TestInterp(unittest.TestCase):
+
     def setUp(self):
         self.interp_indices = Variable(torch.LongTensor(
             [[2, 3], [3, 4], [4, 5]]

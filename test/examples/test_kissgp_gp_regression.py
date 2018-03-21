@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import math
 import torch
@@ -27,6 +32,7 @@ def make_data(cuda=False):
 
 
 class GPRegressionModel(gpytorch.models.ExactGP):
+
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])

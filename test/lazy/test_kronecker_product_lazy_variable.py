@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 from torch.autograd import Variable
@@ -41,6 +46,7 @@ def kron(a, b):
 
 
 class TestKroneckerProductLazyVariable(unittest.TestCase):
+
     def test_matmul_vec(self):
         avar = Variable(a, requires_grad=True)
         bvar = Variable(b, requires_grad=True)
