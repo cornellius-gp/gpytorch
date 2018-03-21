@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+
 import math
 from .marginal_log_likelihood import MarginalLogLikelihood
 from ..lazy import LazyVariable, NonLazyVariable
