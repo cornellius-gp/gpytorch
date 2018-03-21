@@ -23,7 +23,7 @@ class Kernel(Module):
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
                 'log_lengthscale',
-                torch.nn.Parameter(torch.Tensor(1, 1, lengthscale_num_dims)),
+                torch.nn.Parameter(torch.Tensor(1, 1, lengthscale_num_dims).zero_()),
                 bounds=log_lengthscale_bounds,
             )
 
