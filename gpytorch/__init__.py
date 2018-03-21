@@ -14,7 +14,7 @@ from .utils import function_factory
 
 
 _inv_matmul_class = function_factory.inv_matmul_factory()
-_trace_logdet_quad_form_factory_class = function_factory.trace_logdet_quad_form_factory()
+_inv_quad_log_det_class = function_factory.inv_quad_log_det_factory()
 
 
 def add_diag(input, diag):
@@ -120,11 +120,57 @@ def inv_matmul(mat1, rhs):
         return _inv_matmul_class()(mat1, rhs)
 
 
-def trace_logdet_quad_form(mean_diffs, chol_covar_1, covar_2):
-    if isinstance(covar_2, LazyVariable):
-        return covar_2.trace_log_det_quad_form(mean_diffs, chol_covar_1)
+def inv_quad(mat, tensor):
+    """
+    Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
+    I.e. computes tr( tensor^T mat^{-1} tensor )
+
+    Args:
+        - tensor (tensor nxk) - Vector (or matrix) for inverse quad
+
+    Returns:
+        - tensor - tr( tensor^T (mat)^{-1} tensor )
+    """
+    res, _ = inv_quad_log_det(mat, inv_quad_rhs=tensor, log_det=False)
+    return res
+
+
+def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
+    """
+    Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
+    I.e. computes tr( tensor^T mat^{-1} tensor )
+    In addition, computes an (approximate) log determinant of the the matrix
+
+    Args:
+        - tensor (tensor nxk) - Vector (or matrix) for inverse quad
+
+    Returns:
+        - scalar - tr( tensor^T (mat)^{-1} tensor )
+        - scalar - log determinant
+    """
+    if isinstance(mat, LazyVariable):
+        return mat.inv_quad_log_det(inv_quad_rhs=inv_quad_rhs, log_det=log_det)
     else:
-        return _trace_logdet_quad_form_factory_class()(mean_diffs, chol_covar_1, covar_2)
+        batch_size = mat.size(0) if mat.ndimension() == 3 else None
+        if inv_quad_rhs is None:
+            return _inv_quad_log_det_class(matrix_size=mat.size(-1), batch_size=batch_size,
+                                           tensor_cls=mat.new, inv_quad=False,
+                                           log_det=log_det)(mat)
+        else:
+            return _inv_quad_log_det_class(matrix_size=mat.size(-1), batch_size=batch_size,
+                                           tensor_cls=mat.new, inv_quad=True,
+                                           log_det=log_det)(mat, inv_quad_rhs)
+
+
+def log_det(mat):
+    """
+    Computes an (approximate) log determinant of the matrix
+
+    Returns:
+        - scalar - log determinant
+    """
+    _, res = inv_quad_log_det(mat, inv_quad_rhs=None, log_det=True)
+    return res
 
 
 __all__ = [
@@ -144,9 +190,11 @@ __all__ = [
     exact_predictive_mean,
     exact_predictive_covar,
     inv_matmul,
+    inv_quad,
+    inv_quad_log_det,
+    log_det,
     log_normal_cdf,
     normal_cdf,
-    trace_logdet_quad_form,
     # Context managers
     beta_features,
     fast_pred_var,

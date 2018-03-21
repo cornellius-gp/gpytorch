@@ -116,7 +116,7 @@ class LazyVariable(object):
         This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
         so this should only be done at the user's risk.
         """
-        diag = Variable(self.tensor_cls(1).fill_(1e-4))
+        diag = Variable(self.tensor_cls(1).fill_(1e-3))
         return self.add_diag(diag)
 
     def cpu(self):
@@ -323,6 +323,7 @@ class LazyVariable(object):
                 dqff = None
             self._inv_matmul_class = function_factory.inv_matmul_factory(self._matmul_closure_factory, dqff)
 
+        # Work out batch dimension, if necessary
         lazy_var = self
         if lazy_var.ndimension() == 3 and tensor.ndimension() == 3:
             if lazy_var.size(0) == 1 and tensor.size(0) > 1:
@@ -332,8 +333,84 @@ class LazyVariable(object):
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
 
-        args = list(lazy_var.representation()) + [tensor]
-        return lazy_var._inv_matmul_class()(*args)
+        res = lazy_var._inv_matmul_class()(*(list(lazy_var.representation()) + [tensor]))
+        return res
+
+    def inv_quad(self, tensor):
+        """
+        Computes an inverse quadratic form (w.r.t self) with several right hand sides.
+        I.e. computes tr( tensor^T self^{-1} tensor )
+
+        NOTE: Don't overwrite this function!
+        Instead, overwrite inv_quad_log_det
+
+        Args:
+            - tensor (tensor nxk) - Vector (or matrix) for inverse quad
+
+        Returns:
+            - tensor - tr( tensor^T (self)^{-1} tensor )
+        """
+        res, _ = self.inv_quad_log_det(inv_quad_rhs=tensor, log_det=False)
+        return res
+
+    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False):
+        """
+        Computes an inverse quadratic form (w.r.t self) with several right hand sides.
+        I.e. computes tr( tensor^T self^{-1} tensor )
+        In addition, computes an (approximate) log determinant of the the matrix
+
+        Args:
+            - tensor (tensor nxk) - Vector (or matrix) for inverse quad
+
+        Returns:
+            - scalar - tr( tensor^T (self)^{-1} tensor )
+            - scalar - log determinant
+        """
+        if not hasattr(self, '_inv_quad_log_det_class'):
+            if hasattr(self, '_derivative_quadratic_form_factory'):
+                dqff = self._derivative_quadratic_form_factory
+            else:
+                dqff = None
+            self._inv_quad_log_det_class = function_factory.inv_quad_log_det_factory(self._matmul_closure_factory,
+                                                                                     dqff)
+
+        # Work out batch dimension, if necessary
+        lazy_var = self
+        if inv_quad_rhs is not None:
+            if lazy_var.ndimension() == 3 and inv_quad_rhs.ndimension() == 3:
+                if lazy_var.size(0) == 1 and inv_quad_rhs.size(0) > 1:
+                    lazy_var = lazy_var.repeat(inv_quad_rhs.size(0), 1, 1)
+                elif inv_quad_rhs.size(0) == 1:
+                    inv_quad_rhs = inv_quad_rhs.expand(lazy_var.size(0), inv_quad_rhs.size(1),
+                                                       inv_quad_rhs.size(2))
+            elif self.ndimension() > 3 or inv_quad_rhs.ndimension() > 3:
+                raise RuntimeError
+
+        args = lazy_var.representation()
+        matrix_size = self.size(-1)
+        batch_size = self.size(0) if self.ndimension() == 3 else None
+        tensor_cls = self.tensor_cls
+        if inv_quad_rhs is None:
+            return lazy_var._inv_quad_log_det_class(matrix_size=matrix_size, batch_size=batch_size,
+                                                    tensor_cls=tensor_cls, inv_quad=False,
+                                                    log_det=log_det)(*args)
+        else:
+            return lazy_var._inv_quad_log_det_class(matrix_size=matrix_size, batch_size=batch_size,
+                                                    tensor_cls=tensor_cls, inv_quad=True,
+                                                    log_det=log_det)(*(list(args) + [inv_quad_rhs]))
+
+    def log_det(self):
+        """
+        Computes an (approximate) log determinant of the matrix
+
+        NOTE: Don't overwrite this function!
+        Instead, overwrite inv_quad_log_det
+
+        Returns:
+            - scalar - log determinant
+        """
+        _, res = self.inv_quad_log_det(inv_quad_rhs=None, log_det=True)
+        return res
 
     def matmul(self, tensor):
         """

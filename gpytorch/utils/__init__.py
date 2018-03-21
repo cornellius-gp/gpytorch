@@ -46,6 +46,8 @@ def approx_equal(self, other, epsilon=1e-4):
     Returns:
         - bool
     """
+    if self.size() != other.size():
+        raise RuntimeError('Size mismatch between self (%s) and other (%s)' % (str(self.size()), str(other.size())))
     if isinstance(self, Variable):
         self = self.data
     if isinstance(other, Variable):
