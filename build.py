@@ -1,13 +1,20 @@
 import os
+import sys
 import torch
 from torch.utils.ffi import create_extension
+
+# Get the anaconda directory, if applicable
+conda_directory = os.path.join(os.path.dirname(os.path.dirname(sys.executable)))
+conda_lib = os.path.join(conda_directory, 'lib')
+conda_include = os.path.join(conda_directory, 'include')
 
 headers = ['gpytorch/csrc/fft.h']
 sources = ['gpytorch/csrc/fft.c']
 defines = []
 with_cuda = False
 libraries = ['fftw3']
-library_dirs = ['/usr/local/lib', '/usr/local/include']
+library_dirs = [conda_lib, '/usr/local/lib']
+include_dirs = [conda_include, '/usr/local/include']
 
 if torch.cuda.is_available():
     cuda_home = os.getenv('CUDA_HOME') or '/usr/local/cuda'
@@ -29,6 +36,7 @@ ffi = create_extension(
     define_macros=defines,
     libraries=libraries,
     library_dirs=library_dirs,
+    include_dirs=include_dirs,
     with_cuda=with_cuda,
     package=True,
     extra_compile_args=["-std=c99"],
