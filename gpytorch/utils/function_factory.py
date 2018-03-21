@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import math
 import torch
 from torch.autograd import Function, Variable
 from .linear_cg import linear_cg
