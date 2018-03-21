@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 import gpytorch
@@ -21,6 +26,7 @@ train_y = Variable(train_y)
 
 
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
+
     def __init__(self):
         super(GPClassificationModel, self).__init__(
             grid_size=8,
@@ -43,6 +49,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
 
 class TestKissGPKroneckerProductClassification(unittest.TestCase):
+
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()

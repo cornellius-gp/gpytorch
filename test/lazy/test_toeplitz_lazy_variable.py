@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import gpytorch
 import torch
 import unittest
@@ -7,6 +12,7 @@ from gpytorch.lazy import ToeplitzLazyVariable
 
 
 class TestToeplitzLazyVariable(unittest.TestCase):
+
     def setUp(self):
         self.toeplitz_column = torch.Tensor([2, 0, 4, 1])
         self.batch_toeplitz_column = torch.Tensor([

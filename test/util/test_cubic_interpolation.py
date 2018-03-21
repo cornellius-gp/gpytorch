@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 from torch.autograd import Variable
@@ -6,6 +11,7 @@ from gpytorch import utils
 
 
 class TestCubicInterpolation(unittest.TestCase):
+
     def test_interpolation(self):
         x = torch.linspace(0.01, 1, 100).unsqueeze(1)
         grid = torch.linspace(-0.05, 1.05, 50).unsqueeze(0)

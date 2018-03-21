@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 import numpy as np
@@ -6,6 +11,7 @@ from gpytorch.utils import fft
 
 
 class TestFFT(unittest.TestCase):
+
     def test_fft1_computes_fft_of_1d_input(self):
         d = 8
         input = torch.randn(d)

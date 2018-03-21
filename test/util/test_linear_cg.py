@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 from gpytorch.utils import approx_equal
@@ -5,6 +10,7 @@ from gpytorch.utils.linear_cg import linear_cg
 
 
 class TestLinearCG(unittest.TestCase):
+
     def test_cg(self):
         size = 100
         matrix = torch.DoubleTensor(size, size).normal_()

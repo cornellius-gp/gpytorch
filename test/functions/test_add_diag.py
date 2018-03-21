@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import math
 import torch
 import unittest
@@ -7,6 +12,7 @@ from torch import nn
 
 
 class AddDiagTest(unittest.TestCase):
+
     def test_forward(self):
         a = nn.Parameter(torch.Tensor([5]))
         b = Variable(torch.ones(3, 3))

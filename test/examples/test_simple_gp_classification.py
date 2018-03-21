@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import math
 import torch
@@ -21,6 +26,7 @@ def train_data(cuda=False):
 
 
 class GPClassificationModel(gpytorch.models.VariationalGP):
+
     def __init__(self, train_x):
         super(GPClassificationModel, self).__init__(train_x)
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
@@ -40,6 +46,7 @@ class GPClassificationModel(gpytorch.models.VariationalGP):
 
 
 class TestSimpleGPClassification(unittest.TestCase):
+
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
             self.rng_state = torch.get_rng_state()

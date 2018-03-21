@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import math
 import torch
@@ -10,6 +15,7 @@ from gpytorch.lazy import NonLazyVariable
 
 
 class TestMatmulNonBatch(unittest.TestCase):
+
     def setUp(self):
         mat = torch.Tensor([
             [3, -1, 0],
@@ -54,6 +60,7 @@ class TestMatmulNonBatch(unittest.TestCase):
 
 
 class TestMatmulBatch(unittest.TestCase):
+
     def setUp(self):
         mats = torch.Tensor([
             [
@@ -88,6 +95,7 @@ class TestMatmulBatch(unittest.TestCase):
 
 
 class TestInvMatmulNonBatch(unittest.TestCase):
+
     def setUp(self):
         mat = torch.Tensor([
             [3, -1, 0],
@@ -132,6 +140,7 @@ class TestInvMatmulNonBatch(unittest.TestCase):
 
 
 class TestInvMatmulBatch(unittest.TestCase):
+
     def setUp(self):
         mats = torch.Tensor([
             [
@@ -169,6 +178,7 @@ class TestInvMatmulBatch(unittest.TestCase):
 
 
 class TestInvQuadLogDetNonBatch(unittest.TestCase):
+
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
             self.rng_state = torch.get_rng_state()
@@ -276,6 +286,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
 
 
 class TestInvQuadLogDetBatch(unittest.TestCase):
+
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
             self.rng_state = torch.get_rng_state()
@@ -371,6 +382,7 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
 
 
 class TestRootDecomposition(unittest.TestCase):
+
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
             self.rng_state = torch.get_rng_state()

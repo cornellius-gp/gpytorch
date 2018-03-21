@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 from torch.autograd import Variable
@@ -6,6 +11,7 @@ from gpytorch.utils import approx_equal
 
 
 class TestRootLazyVariable(unittest.TestCase):
+
     def test_matmul(self):
         root = Variable(torch.randn(5, 3), requires_grad=True)
         covar = RootLazyVariable(root)

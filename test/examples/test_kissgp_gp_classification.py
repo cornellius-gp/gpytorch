@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import math
 import torch
 import unittest
@@ -15,6 +20,7 @@ train_y = Variable(torch.sign(torch.cos(train_x.data * (8 * math.pi))))
 
 
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
+
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
@@ -34,6 +40,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
 
 class TestKISSGPClassification(unittest.TestCase):
+
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()

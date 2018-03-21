@@ -1,9 +1,15 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 from gpytorch import utils
 
 
 class TestTeoplitz(unittest.TestCase):
+
     def test_sym_toeplitz_constructs_tensor_from_vector(self):
         c = torch.Tensor([1, 6, 4, 5])
 

@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import math
 import torch
 import unittest
@@ -19,6 +24,7 @@ test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
+
     def __init__(self, train_inputs, train_targets, likelihood):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
@@ -31,6 +37,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
 
 
 class TestSimpleGPRegression(unittest.TestCase):
+
     def test_posterior_latent_gp_and_likelihood_without_optimization(self):
         # We're manually going to set the hyperparameters to be ridiculous
         likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))

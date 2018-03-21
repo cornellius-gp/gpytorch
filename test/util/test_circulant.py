@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import math
 import torch
 import unittest
@@ -6,6 +11,7 @@ from gpytorch import utils
 
 
 class TestCirculant(unittest.TestCase):
+
     def test_rotate_vector_forward(self):
         a = torch.randn(5)
         Q0 = torch.zeros(5, 5)

@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 import gpytorch
@@ -9,6 +14,7 @@ diag = torch.Tensor([1, 2, 3])
 
 
 class TestDiagLazyVariable(unittest.TestCase):
+
     def test_evaluate(self):
         diag_lv = DiagLazyVariable(Variable(diag))
         self.assertTrue(torch.equal(diag_lv.evaluate().data, diag.diag()))

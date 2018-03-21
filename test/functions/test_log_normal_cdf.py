@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 import gpytorch
@@ -7,6 +12,7 @@ from torch import nn
 
 
 class LogNormalCDFTest(unittest.TestCase):
+
     def test_forward(self):
         inputs = torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5])
         output = gpytorch.log_normal_cdf(Variable(inputs)).data

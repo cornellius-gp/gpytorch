@@ -1,9 +1,15 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 import unittest
 from gpytorch.utils import sparse_eye, sparse_getitem, sparse_repeat, to_sparse
 
 
 class TestSparse(unittest.TestCase):
+
     def setUp(self):
         self.indices = torch.LongTensor([[0, 1, 2, 3, 4], [2, 1, 0, 0, 1]])
         self.values = torch.FloatTensor([3, 4, 5, 2, 6])
