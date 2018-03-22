@@ -11,6 +11,7 @@ from .. import beta_features, settings
 
 
 class LazyVariable(object):
+
     def __init__(self, *args, **kwargs):
         self._args = args
         self._kwargs = kwargs
@@ -733,7 +734,7 @@ class LazyVariable(object):
 
         left_interp_len = len(left_interp_indices)
         right_interp_len = len(right_interp_indices)
-        for i in range(ndimension - 2):
+        for _ in range(ndimension - 2):
             left_interp_indices.unsqueeze_(0)
             right_interp_indices.unsqueeze_(0)
 
