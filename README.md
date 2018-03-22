@@ -16,13 +16,22 @@ Some things you can do right now:
 - Deep kernel learning ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/dkl_mnist.ipynb))
 - And ([more!](http://github.com/cornellius-gp/gpytorch/blob/master/examples))
 
-If you use GPyTorch, please cite the [following paper](https://arxiv.org/abs/1802.08903):
-> Gardner, Jacob R., Geoff Pleiss, Ruihan Wu, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Product Kernel Interpolation for Scalable Gaussian Processes." In *AISTATS* (2018).
+If you use GPyTorch, please cite the following papers:
+> [Gardner, Jacob R., Geoff Pleiss, Ruihan Wu, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Product Kernel Interpolation for Scalable Gaussian Processes." In *AISTATS* (2018).](https://arxiv.org/abs/1802.08903)
 ```
 @inproceedings{gardner2018product,
   title={Product Kernel Interpolation for Scalable Gaussian Processes},
   author={Gardner, Jacob R and Pleiss, Geoff and Wu, Ruihan and Weinberger, Kilian Q and Wilson, Andrew Gordon},
   booktitle={AISTATS},
+  year={2018}
+
+```
+> [Pleiss, Geoff, Jacob R. Gardner, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Constant-Time Predictive Distributions for Gaussian Processes." arXiv preprint arXiv:1803.06058 (2018).](https://arxiv.org/abs/1803.06058)
+```
+@article{pleiss2018constant,
+  title={Constant-Time Predictive Distributions for Gaussian Processes},
+  author={Pleiss, Geoff and Gardner, Jacob R and Weinberger, Kilian Q and Wilson, Andrew Gordon},
+  journal={arXiv preprint arXiv:1803.06058},
   year={2018}
 }
 ```
