@@ -15,7 +15,7 @@ from gpytorch.lazy import NonLazyVariable
 
 
 class PyTorchCompatibleTestCase(unittest.TestCase):
-    # Writing a separate function for compatability with PyTorch 0.3 and PyTorch 0.4
+    # Writing a separate function for compatibility with PyTorch 0.3 and PyTorch 0.4
     def assert_scalar_almost_equal(self, scalar1, scalar2, **kwargs):
         # PyTorch 0.3 - make everything tensors
         if isinstance(scalar1, Variable):
