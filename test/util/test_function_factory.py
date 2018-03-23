@@ -14,8 +14,28 @@ from gpytorch.utils import approx_equal
 from gpytorch.lazy import NonLazyVariable
 
 
-class TestMatmulNonBatch(unittest.TestCase):
+class PyTorchCompatibleTestCase(unittest.TestCase):
+    # Writing a separate function for compatability with PyTorch 0.3 and PyTorch 0.4
+    def assert_scalar_almost_equal(self, scalar1, scalar2, **kwargs):
+        # PyTorch 0.3 - make everything tensors
+        if isinstance(scalar1, Variable):
+            scalar1 = scalar1.data
+        if isinstance(scalar2, Variable):
+            scalar2 = scalar2.data
+        if not torch.is_tensor(scalar1):
+            scalar1 = torch.Tensor([scalar1])
+        if not torch.is_tensor(scalar2):
+            scalar2 = torch.Tensor([scalar2])
 
+        # PyTorch 0.4
+        if hasattr(scalar1, 'item'):
+            self.assertAlmostEqual(scalar1.item(), scalar2.item(), **kwargs)
+        # PyTorch 0.3
+        else:
+            self.assertAlmostEqual(scalar1[0], scalar2[0], **kwargs)
+
+
+class TestMatmulNonBatch(PyTorchCompatibleTestCase):
     def setUp(self):
         mat = torch.Tensor([
             [3, -1, 0],
@@ -59,7 +79,7 @@ class TestMatmulNonBatch(unittest.TestCase):
         self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
 
 
-class TestMatmulBatch(unittest.TestCase):
+class TestMatmulBatch(PyTorchCompatibleTestCase):
 
     def setUp(self):
         mats = torch.Tensor([
@@ -139,7 +159,7 @@ class TestInvMatmulNonBatch(unittest.TestCase):
         self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
 
 
-class TestInvMatmulBatch(unittest.TestCase):
+class TestInvMatmulBatch(PyTorchCompatibleTestCase):
 
     def setUp(self):
         mats = torch.Tensor([
@@ -177,7 +197,7 @@ class TestInvMatmulBatch(unittest.TestCase):
         self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
 
 
-class TestInvQuadLogDetNonBatch(unittest.TestCase):
+class TestInvQuadLogDetNonBatch(PyTorchCompatibleTestCase):
 
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
@@ -206,12 +226,18 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
 
     def test_inv_quad_log_det_vector(self):
         # Forward pass
-        actual_inv_quad = self.mat_var_clone.inverse().matmul(self.vec_var_clone).dot(self.vec_var_clone)
+        actual_inv_quad = (
+            self.mat_var_clone.
+            inverse().
+            matmul(self.vec_var_clone).
+            mul(self.vec_var_clone).
+            sum()
+        )
         with gpytorch.settings.num_trace_samples(1000):
             nlv = NonLazyVariable(self.mat_var)
             res_inv_quad, res_log_det = nlv.inv_quad_log_det(inv_quad_rhs=self.vec_var, log_det=True)
-        self.assertAlmostEqual(res_inv_quad.data[0], actual_inv_quad.data[0], places=1)
-        self.assertAlmostEqual(res_log_det.data[0], self.log_det, places=1)
+        self.assert_scalar_almost_equal(res_inv_quad, actual_inv_quad, places=1)
+        self.assert_scalar_almost_equal(res_log_det, self.log_det, places=1)
 
         # Backward
         inv_quad_grad_output = torch.Tensor([3])
@@ -228,7 +254,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         # Forward pass
         res = NonLazyVariable(self.mat_var).inv_quad(self.vec_var)
         actual = self.mat_var_clone.inverse().matmul(self.vec_var_clone).mul(self.vec_var_clone).sum()
-        self.assertAlmostEqual(res.data[0], actual.data[0], places=1)
+        self.assert_scalar_almost_equal(res, actual, places=1)
 
         # Backward
         inv_quad_grad_output = torch.randn(1)
@@ -240,12 +266,18 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
 
     def test_inv_quad_log_det_many_vectors(self):
         # Forward pass
-        actual_inv_quad = self.mat_var_clone.inverse().matmul(self.vecs_var_clone).dot(self.vecs_var_clone)
+        actual_inv_quad = (
+            self.mat_var_clone.
+            inverse().
+            matmul(self.vecs_var_clone).
+            mul(self.vecs_var_clone).
+            sum()
+        )
         with gpytorch.settings.num_trace_samples(1000):
             nlv = NonLazyVariable(self.mat_var)
             res_inv_quad, res_log_det = nlv.inv_quad_log_det(inv_quad_rhs=self.vecs_var, log_det=True)
-        self.assertAlmostEqual(res_inv_quad.data[0], actual_inv_quad.data[0], places=1)
-        self.assertAlmostEqual(res_log_det.data[0], self.log_det, places=1)
+        self.assert_scalar_almost_equal(res_inv_quad, actual_inv_quad, places=1)
+        self.assert_scalar_almost_equal(res_log_det, self.log_det, places=1)
 
         # Backward
         inv_quad_grad_output = torch.Tensor([3])
@@ -262,7 +294,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         # Forward pass
         res = NonLazyVariable(self.mat_var).inv_quad(self.vecs_var)
         actual = self.mat_var_clone.inverse().matmul(self.vecs_var_clone).mul(self.vecs_var_clone).sum()
-        self.assertAlmostEqual(res.data[0], actual.data[0], places=1)
+        self.assert_scalar_almost_equal(res, actual, places=1)
 
         # Backward
         inv_quad_grad_output = torch.randn(1)
@@ -276,7 +308,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         # Forward pass
         with gpytorch.settings.num_trace_samples(1000):
             res = NonLazyVariable(self.mat_var).log_det()
-        self.assertAlmostEqual(res.data[0], self.log_det, places=1)
+        self.assert_scalar_almost_equal(res, self.log_det, places=1)
 
         # Backward
         grad_output = torch.Tensor([3])
@@ -285,7 +317,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         self.assertTrue(approx_equal(actual_mat_grad, self.mat_var.grad.data, epsilon=1e-1))
 
 
-class TestInvQuadLogDetBatch(unittest.TestCase):
+class TestInvQuadLogDetBatch(PyTorchCompatibleTestCase):
 
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
@@ -328,8 +360,8 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
             nlv = NonLazyVariable(self.mats_var)
             res_inv_quad, res_log_det = nlv.inv_quad_log_det(inv_quad_rhs=self.vecs_var, log_det=True)
         for i in range(self.mats_var.size(0)):
-            self.assertAlmostEqual(res_inv_quad.data[i], actual_inv_quad.data[i], places=1)
-            self.assertAlmostEqual(res_log_det.data[i], self.log_dets[i], places=1)
+            self.assert_scalar_almost_equal(res_inv_quad.data[i], actual_inv_quad.data[i], places=1)
+            self.assert_scalar_almost_equal(res_log_det.data[i], self.log_dets[i], places=1)
 
         # Backward
         inv_quad_grad_output = torch.Tensor([3, 4])
@@ -354,7 +386,7 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
             self.mats_var_clone[1].inverse().unsqueeze(0),
         ]).matmul(self.vecs_var_clone).mul(self.vecs_var_clone).sum(2).sum(1)
         for i in range(self.mats_var.size(0)):
-            self.assertAlmostEqual(res.data[i], actual.data[i], places=1)
+            self.assert_scalar_almost_equal(res.data[i], actual.data[i], places=1)
 
         # Backward
         inv_quad_grad_output = torch.randn(2)
@@ -369,7 +401,7 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
         with gpytorch.settings.num_trace_samples(1000):
             res = NonLazyVariable(self.mats_var).log_det()
         for i in range(self.mats_var.size(0)):
-            self.assertAlmostEqual(res.data[i], self.log_dets[i], places=1)
+            self.assert_scalar_almost_equal(res.data[i], self.log_dets[i], places=1)
 
         # Backward
         grad_output = torch.Tensor([3, 4])
@@ -381,7 +413,7 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
         self.assertTrue(approx_equal(actual_mat_grad, self.mats_var.grad.data, epsilon=1e-1))
 
 
-class TestRootDecomposition(unittest.TestCase):
+class TestRootDecomposition(PyTorchCompatibleTestCase):
 
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
