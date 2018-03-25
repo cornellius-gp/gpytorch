@@ -5,6 +5,8 @@ from __future__ import unicode_literals
 
 from .sum_lazy_variable import SumLazyVariable
 from .diag_lazy_variable import DiagLazyVariable
+from ..utils import pivoted_cholesky
+import gpytorch
 
 
 class AddedDiagLazyVariable(SumLazyVariable):
@@ -28,3 +30,18 @@ class AddedDiagLazyVariable(SumLazyVariable):
             self._lazy_var = lazy_vars[0]
         else:
             raise RuntimeError('One of the LazyVariables input to AddedDiagLazyVariable must be a DiagLazyVariable!')
+
+        if not all(self._diag_var.diag().data == self._diag_var.diag().data[0]):
+            raise RuntimeError('AddedDiagLazyVariable only supports constant shifts (e.g. s in K + s*I)')
+
+    def _preconditioner(self):
+        if not hasattr(self, '_woodbury_cache'):
+            max_iter = gpytorch.settings.max_preconditioner_size.value()
+            self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_var, max_iter)
+            diag = self._diag_var.diag().data[0]
+            self._woodbury_cache = pivoted_cholesky.woodbury_factor(self._piv_chol_self, diag)
+
+        def precondition_closure(tensor):
+            return pivoted_cholesky.woodbury_solve(tensor, self._piv_chol_self, self._woodbury_cache, diag)
+
+        return precondition_closure

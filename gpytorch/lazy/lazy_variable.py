@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import math
 import torch
 from torch.autograd import Variable
-from ..utils import function_factory
+from ..utils import function_factory, pivoted_cholesky
 from .. import beta_features, settings
 
 
@@ -37,6 +37,9 @@ class LazyVariable(object):
         function(tensor) - closure that performs a matrix multiply
         """
         raise NotImplementedError
+
+    def _preconditioner(self):
+        return None
 
     def _t_matmul_closure_factory(self, *args):
         """
@@ -519,6 +522,13 @@ class LazyVariable(object):
             else:
                 raise RuntimeError('Representation of a LazyVariable should consist only of Variables')
         return tuple(representation)
+
+    def pivoted_cholesky_decomposition(self):
+        """
+        Returns a RootLazyVariable containing a pivoted cholesky decomposition of this
+        LazyVariable. Intended to potentially supercede root_decomposition.
+        """
+        return pivoted_cholesky.pivoted_cholesky(self, gpytorch.settings.max_precond_size.value())
 
     def root_decomposition(self):
         """
