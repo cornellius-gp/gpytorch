@@ -77,7 +77,7 @@ class max_preconditioner_size(_value_context):
     More values results in higher accuracy
     Default: 100
     """
-    _global_value = 10
+    _global_value = 0
 
 class max_lanczos_quadrature_iterations(_value_context):
     """

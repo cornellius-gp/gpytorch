@@ -160,7 +160,7 @@ def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_fact
         - The matrix solves A^{-1} b
         - logdet(A)
         """
-        def __init__(self, matrix_size=0, batch_size=None, tensor_cls=None, inv_quad=False, log_det=False):
+        def __init__(self, matrix_size=0, batch_size=None, tensor_cls=None, inv_quad=False, log_det=False, preconditioner=None):
             if not matrix_size:
                 raise RuntimeError('Matrix size must be set')
             if tensor_cls is None:
@@ -172,6 +172,7 @@ def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_fact
             self.tensor_cls = tensor_cls
             self.inv_quad = inv_quad
             self.log_det = log_det
+            self.preconditioner = preconditioner
 
         def forward(self, *args):
             """
@@ -226,10 +227,12 @@ def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_fact
             t_mat = None
             if self.log_det:
                 solves, t_mat = linear_cg(matmul_closure, rhs, n_tridiag=num_random_probes,
-                                          max_iter=settings.max_lanczos_quadrature_iterations.value())
+                                          max_iter=settings.max_lanczos_quadrature_iterations.value(),
+                                          preconditioner=self.preconditioner)
             else:
                 solves = linear_cg(matmul_closure, rhs, n_tridiag=num_random_probes,
-                                   max_iter=settings.max_lanczos_quadrature_iterations.value())
+                                   max_iter=settings.max_lanczos_quadrature_iterations.value(),
+                                   preconditioner=self.preconditioner)
 
             # Final values to return
             log_det_term = self.tensor_cls()

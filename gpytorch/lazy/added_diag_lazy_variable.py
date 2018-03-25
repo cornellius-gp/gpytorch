@@ -31,10 +31,13 @@ class AddedDiagLazyVariable(SumLazyVariable):
         else:
             raise RuntimeError('One of the LazyVariables input to AddedDiagLazyVariable must be a DiagLazyVariable!')
 
-        if not all(self._diag_var.diag().data == self._diag_var.diag().data[0]):
+        if not (self._diag_var.diag().data == self._diag_var.diag().data[0]).all():
             raise RuntimeError('AddedDiagLazyVariable only supports constant shifts (e.g. s in K + s*I)')
 
     def _preconditioner(self):
+        if gpytorch.settings.max_preconditioner_size.value() == 0:
+            return None
+
         if not hasattr(self, '_woodbury_cache'):
             max_iter = gpytorch.settings.max_preconditioner_size.value()
             self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_var, max_iter)

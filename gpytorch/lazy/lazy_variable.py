@@ -400,11 +400,15 @@ class LazyVariable(object):
         if inv_quad_rhs is None:
             return lazy_var._inv_quad_log_det_class(matrix_size=matrix_size, batch_size=batch_size,
                                                     tensor_cls=tensor_cls, inv_quad=False,
-                                                    log_det=log_det)(*args)
+                                                    log_det=log_det,
+                                                    preconditioner=self._preconditioner()
+                                                    )(*args)
         else:
             return lazy_var._inv_quad_log_det_class(matrix_size=matrix_size, batch_size=batch_size,
                                                     tensor_cls=tensor_cls, inv_quad=True,
-                                                    log_det=log_det)(*(list(args) + [inv_quad_rhs]))
+                                                    log_det=log_det,
+                                                    preconditioner=self._preconditioner()
+                                                    )(*(list(args) + [inv_quad_rhs]))
 
     def log_det(self):
         """
