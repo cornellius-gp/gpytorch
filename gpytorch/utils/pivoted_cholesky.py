@@ -1,6 +1,6 @@
 import torch
 from torch.autograd import Variable
-from gpytorch.lazy import LazyVariable, NonLazyVariable
+from ..lazy import LazyVariable, NonLazyVariable
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-5):

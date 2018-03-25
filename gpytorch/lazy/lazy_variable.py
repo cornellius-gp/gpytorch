@@ -104,12 +104,15 @@ class LazyVariable(object):
             - diag (Scalar Variable)
         """
         from .diag_lazy_variable import DiagLazyVariable
+        from .added_diag_lazy_variable import AddedDiagLazyVariable
         if self.size(-1) != self.size(-2):
             raise RuntimeError('add_diag only defined for square matrices')
         if self.ndimension() == 3:
-            return self + DiagLazyVariable(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
+            diag_lazy_var = DiagLazyVariable(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
+            return AddedDiagLazyVariable(self, diag_lazy_var)
         else:
-            return self + DiagLazyVariable(diag.expand(self.size(0)))
+            diag_lazy_var = DiagLazyVariable(diag.expand(self.size(0)))
+            return AddedDiagLazyVariable(self, diag_lazy_var)
 
     def add_jitter(self):
         """
