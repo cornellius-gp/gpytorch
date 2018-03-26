@@ -340,7 +340,7 @@ class LazyVariable(object):
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
 
-        res = lazy_var._inv_matmul_class()(*(list(lazy_var.representation()) + [tensor]))
+        res = lazy_var._inv_matmul_class(preconditioner=self._preconditioner())(*(list(lazy_var.representation()) + [tensor]))
         return res
 
     def inv_quad(self, tensor):
