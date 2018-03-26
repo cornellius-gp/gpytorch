@@ -54,7 +54,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
         permutation[full_batch_slice, max_diag_indices] = old_pi_m
         pi_m = permutation[:, m]
 
-        L_m = L[:, m] # Will be all zeros -- should we use torch.zeros?
+        L_m = L[:, m]  # Will be all zeros -- should we use torch.zeros?
         L_m[full_batch_slice, pi_m] = torch.sqrt(max_diag_values)
 
         if not batch_mode:
@@ -91,6 +91,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
     else:
         return L[:, :m, :]
 
+
 def woodbury_factor(low_rank_mat, shift):
     """
     Given a low rank (k x n) matrix V and a shift, returns the
@@ -98,7 +99,6 @@ def woodbury_factor(low_rank_mat, shift):
         R = (I_k + 1/shift VV')^{-1}V
     to be used in solves with (V'V + shift I) via the Woodbury formula
     """
-    n = low_rank_mat.size(-1)
     k = low_rank_mat.size(-2)
     shifted_mat = (1 / shift) * low_rank_mat.matmul(low_rank_mat.t())
     shifted_mat = shifted_mat + shifted_mat.new(k).fill_(1).diag()

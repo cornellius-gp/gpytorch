@@ -69,6 +69,7 @@ class max_lanczos_iterations(_value_context):
     """
     _global_value = 100
 
+
 class max_preconditioner_size(_value_context):
     """
     The maximum number of Lanczos iterations to perform
@@ -78,6 +79,7 @@ class max_preconditioner_size(_value_context):
     Default: 100
     """
     _global_value = 0
+
 
 class max_lanczos_quadrature_iterations(_value_context):
     """

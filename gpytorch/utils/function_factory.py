@@ -167,7 +167,8 @@ def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_fact
         - The matrix solves A^{-1} b
         - logdet(A)
         """
-        def __init__(self, matrix_size=0, batch_size=None, tensor_cls=None, inv_quad=False, log_det=False, preconditioner=None):
+        def __init__(self, matrix_size=0, batch_size=None, tensor_cls=None,
+                     inv_quad=False, log_det=False, preconditioner=None):
             if not matrix_size:
                 raise RuntimeError('Matrix size must be set')
             if tensor_cls is None:

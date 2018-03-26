@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import math
 import torch
 from torch.autograd import Variable
-from ..utils import function_factory, pivoted_cholesky
+from ..utils import function_factory
 from .. import beta_features, settings
 
 
@@ -340,7 +340,8 @@ class LazyVariable(object):
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
 
-        res = lazy_var._inv_matmul_class(preconditioner=self._preconditioner())(*(list(lazy_var.representation()) + [tensor]))
+        inv_mm_cls = lazy_var._inv_matmul_class(preconditioner=self._preconditioner())
+        res = inv_mm_cls(*(list(lazy_var.representation()) + [tensor]))
         return res
 
     def inv_quad(self, tensor):
@@ -526,13 +527,6 @@ class LazyVariable(object):
             else:
                 raise RuntimeError('Representation of a LazyVariable should consist only of Variables')
         return tuple(representation)
-
-    def pivoted_cholesky_decomposition(self):
-        """
-        Returns a RootLazyVariable containing a pivoted cholesky decomposition of this
-        LazyVariable. Intended to potentially supercede root_decomposition.
-        """
-        return pivoted_cholesky.pivoted_cholesky(self, gpytorch.settings.max_precond_size.value())
 
     def root_decomposition(self):
         """
