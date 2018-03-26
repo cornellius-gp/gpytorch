@@ -72,11 +72,9 @@ class max_lanczos_iterations(_value_context):
 
 class max_preconditioner_size(_value_context):
     """
-    The maximum number of Lanczos iterations to perform
-    This is used when 1) computing variance estiamtes 2) when drawing from MVNs, or
-    3) for kernel multiplication
-    More values results in higher accuracy
-    Default: 100
+    The maximum size of preconditioner to use. 0 corresponds to turning preconditioning off.
+    When enabled, usually a value of around ~10 works fairly well.
+    Default: 0
     """
     _global_value = 0
 
