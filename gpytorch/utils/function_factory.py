@@ -241,7 +241,8 @@ def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_fact
                     t_mat = t_mat.unsqueeze(1)
                 eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
                 slq = StochasticLQ()
-                log_det_term, = slq.evaluate(t_mat, eigenvalues, eigenvectors, [lambda x: x.log()])
+                matrix_size = rhs.size(-2)
+                log_det_term, = slq.evaluate(t_mat, matrix_size, eigenvalues, eigenvectors, [lambda x: x.log()])
 
             # Extract inv_quad solves from all the solves
             if self.inv_quad:

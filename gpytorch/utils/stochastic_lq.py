@@ -34,7 +34,7 @@ class StochasticLQ(object):
     def lanczos_batch(self, matmul_closure, rhs_vectors):
         return lanczos_tridiag(matmul_closure, self.max_iter, init_vecs=rhs_vectors, tensor_cls=self.cls)
 
-    def evaluate(self, t_mats, eigenvalues, eigenvectors, funcs):
+    def evaluate(self, t_mats, matrix_size, eigenvalues, eigenvectors, funcs):
         """
         Computes tr(f(A)) for an arbitrary list of functions, where f(A) is equivalent to applying the function
         elementwise to the eigenvalues of A, i.e., if A = V\LambdaV^{T}, then f(A) = Vf(\Lambda)V^{T}, where
@@ -61,7 +61,6 @@ class StochasticLQ(object):
                                   appropriate singleton dimensions if necessary.""".format(t_mats.dim()))
 
         batch_size = t_mats.size(1)
-        matrix_size = t_mats.size(2)
         results = [t_mats.new(batch_size).zero_()] * len(funcs)
         num_random_probes = t_mats.size(0)
         for j in range(num_random_probes):
