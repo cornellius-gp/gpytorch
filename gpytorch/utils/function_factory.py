@@ -89,6 +89,9 @@ def matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
 def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
                        derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class InvMatmul(Function):
+        def __init__(self, preconditioner=None):
+            self.preconditioner = preconditioner
+
         def forward(self, *args):
             closure_args = args[:-1]
             rhs = args[-1]
@@ -100,7 +103,10 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
                 self.is_vector = True
 
             # Perform solves (for inv_quad) and tridiagonalization (for estimating log_det)
-            res = linear_cg(matmul_closure, rhs, max_iter=settings.max_cg_iterations.value())
+            res = linear_cg(matmul_closure,
+                            rhs,
+                            max_iter=settings.max_cg_iterations.value(),
+                            preconditioner=self.preconditioner)
 
             if self.is_vector:
                 res.squeeze_(-1)
@@ -132,7 +138,8 @@ def inv_matmul_factory(matmul_closure_factory=_default_matmul_closure_factory,
 
             # Compute self^{-1} grad_output
             grad_output_solves = linear_cg(self.matmul_closure, grad_output,
-                                           max_iter=settings.max_cg_iterations.value())
+                                           max_iter=settings.max_cg_iterations.value(),
+                                           preconditioner=self.preconditioner)
 
             # input_1 gradient
             if any(self.needs_input_grad[:-1]):
@@ -160,7 +167,8 @@ def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_fact
         - The matrix solves A^{-1} b
         - logdet(A)
         """
-        def __init__(self, matrix_size=0, batch_size=None, tensor_cls=None, inv_quad=False, log_det=False):
+        def __init__(self, matrix_size=0, batch_size=None, tensor_cls=None,
+                     inv_quad=False, log_det=False, preconditioner=None):
             if not matrix_size:
                 raise RuntimeError('Matrix size must be set')
             if tensor_cls is None:
@@ -172,6 +180,7 @@ def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_fact
             self.tensor_cls = tensor_cls
             self.inv_quad = inv_quad
             self.log_det = log_det
+            self.preconditioner = preconditioner
 
         def forward(self, *args):
             """
@@ -226,10 +235,12 @@ def inv_quad_log_det_factory(matmul_closure_factory=_default_matmul_closure_fact
             t_mat = None
             if self.log_det:
                 solves, t_mat = linear_cg(matmul_closure, rhs, n_tridiag=num_random_probes,
-                                          max_iter=settings.max_lanczos_quadrature_iterations.value())
+                                          max_iter=settings.max_lanczos_quadrature_iterations.value(),
+                                          preconditioner=self.preconditioner)
             else:
                 solves = linear_cg(matmul_closure, rhs, n_tridiag=num_random_probes,
-                                   max_iter=settings.max_lanczos_quadrature_iterations.value())
+                                   max_iter=settings.max_lanczos_quadrature_iterations.value(),
+                                   preconditioner=self.preconditioner)
 
             # Final values to return
             log_det_term = self.tensor_cls()

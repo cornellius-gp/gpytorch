@@ -12,6 +12,7 @@ from .root_lazy_variable import RootLazyVariable
 from .sum_lazy_variable import SumLazyVariable
 from .sum_batch_lazy_variable import SumBatchLazyVariable
 from .toeplitz_lazy_variable import ToeplitzLazyVariable
+from .added_diag_lazy_variable import AddedDiagLazyVariable
 
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     SumLazyVariable,
     SumBatchLazyVariable,
     ToeplitzLazyVariable,
+    AddedDiagLazyVariable,
 ]

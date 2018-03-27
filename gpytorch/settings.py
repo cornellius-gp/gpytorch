@@ -70,6 +70,15 @@ class max_lanczos_iterations(_value_context):
     _global_value = 100
 
 
+class max_preconditioner_size(_value_context):
+    """
+    The maximum size of preconditioner to use. 0 corresponds to turning preconditioning off.
+    When enabled, usually a value of around ~10 works fairly well.
+    Default: 0
+    """
+    _global_value = 0
+
+
 class max_lanczos_quadrature_iterations(_value_context):
     """
     The maximum number of Lanczos iterations to perform when doing stochastic Lanczos

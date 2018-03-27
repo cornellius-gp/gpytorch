@@ -38,6 +38,9 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def _preconditioner(self):
+        return None
+
     def _t_matmul_closure_factory(self, *args):
         """
         Generates a closure that performs a *tensor* TRANSPOSE matrix multiply
@@ -104,12 +107,15 @@ class LazyVariable(object):
             - diag (Scalar Variable)
         """
         from .diag_lazy_variable import DiagLazyVariable
+        from .added_diag_lazy_variable import AddedDiagLazyVariable
         if self.size(-1) != self.size(-2):
             raise RuntimeError('add_diag only defined for square matrices')
         if self.ndimension() == 3:
-            return self + DiagLazyVariable(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
+            diag_lazy_var = DiagLazyVariable(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
+            return AddedDiagLazyVariable(self, diag_lazy_var)
         else:
-            return self + DiagLazyVariable(diag.expand(self.size(0)))
+            diag_lazy_var = DiagLazyVariable(diag.expand(self.size(0)))
+            return AddedDiagLazyVariable(self, diag_lazy_var)
 
     def add_jitter(self):
         """
@@ -334,7 +340,8 @@ class LazyVariable(object):
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
 
-        res = lazy_var._inv_matmul_class()(*(list(lazy_var.representation()) + [tensor]))
+        inv_mm_cls = lazy_var._inv_matmul_class(preconditioner=self._preconditioner())
+        res = inv_mm_cls(*(list(lazy_var.representation()) + [tensor]))
         return res
 
     def inv_quad(self, tensor):
@@ -394,11 +401,15 @@ class LazyVariable(object):
         if inv_quad_rhs is None:
             return lazy_var._inv_quad_log_det_class(matrix_size=matrix_size, batch_size=batch_size,
                                                     tensor_cls=tensor_cls, inv_quad=False,
-                                                    log_det=log_det)(*args)
+                                                    log_det=log_det,
+                                                    preconditioner=self._preconditioner()
+                                                    )(*args)
         else:
             return lazy_var._inv_quad_log_det_class(matrix_size=matrix_size, batch_size=batch_size,
                                                     tensor_cls=tensor_cls, inv_quad=True,
-                                                    log_det=log_det)(*(list(args) + [inv_quad_rhs]))
+                                                    log_det=log_det,
+                                                    preconditioner=self._preconditioner()
+                                                    )(*(list(args) + [inv_quad_rhs]))
 
     def log_det(self):
         """
