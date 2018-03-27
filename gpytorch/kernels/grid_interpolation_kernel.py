@@ -82,8 +82,8 @@ class GridInterpolationKernel(GridKernel):
             right_interp_indices, right_interp_values = self._compute_grid(x2)
         return InterpolatedLazyVariable(
             base_lazy_var,
-            left_interp_indices,
+            left_interp_indices.detach(),
             left_interp_values,
-            right_interp_indices,
+            right_interp_indices.detach(),
             right_interp_values,
         )
