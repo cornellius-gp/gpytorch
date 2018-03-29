@@ -64,7 +64,7 @@ class Kernel(Module):
             x2 = x2.unsqueeze(0)
 
         res = super(Kernel, self).__call__(x1, x2, **params)
-        if not is_batch:
+        if not is_batch and res.ndimension() > 2:
             res = res[0]
         return res
 

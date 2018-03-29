@@ -4,6 +4,7 @@ from .block_diagonal_lazy_variable import BlockDiagonalLazyVariable
 from .chol_lazy_variable import CholLazyVariable
 from .constant_mul_lazy_variable import ConstantMulLazyVariable
 from .diag_lazy_variable import DiagLazyVariable
+from .implicit_mul_batch_lazy_variable import ImplicitMulBatchLazyVariable
 from .interpolated_lazy_variable import InterpolatedLazyVariable
 from .kronecker_product_lazy_variable import KroneckerProductLazyVariable
 from .matmul_lazy_variable import MatmulLazyVariable
@@ -23,6 +24,7 @@ __all__ = [
     CholLazyVariable,
     ConstantMulLazyVariable,
     DiagLazyVariable,
+    ImplicitMulBatchLazyVariable,
     InterpolatedLazyVariable,
     KroneckerProductLazyVariable,
     MatmulLazyVariable,
