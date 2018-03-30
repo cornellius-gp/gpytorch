@@ -19,10 +19,10 @@ class VariationalMarginalLogLikelihood(MarginalLogLikelihood):
         super(VariationalMarginalLogLikelihood, self).__init__(likelihood, model)
         self.n_data = n_data
 
-    def forward(self, output, target):
+    def forward(self, output, target, **kwargs):
         n_batch = target.size(0)
 
-        log_likelihood = self.likelihood.log_probability(output, target).div(n_batch)
+        log_likelihood = self.likelihood.log_probability(output, target, **kwargs).div(n_batch)
         kl_divergence = sum(variational_strategy.kl_divergence().sum()
                             for variational_strategy in self.model.variational_strategies()).div(self.n_data)
 
