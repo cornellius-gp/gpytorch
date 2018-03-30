@@ -8,7 +8,7 @@ from torch import nn
 from torch.autograd import Variable
 from ..module import Module
 from ..random_variables import GaussianRandomVariable
-from ..lazy import LazyVariable, RootLazyVariable
+from ..lazy import LazyVariable, CholLazyVariable
 
 
 class AbstractVariationalGP(Module):
@@ -88,4 +88,5 @@ class AbstractVariationalGP(Module):
             raise RuntimeError('Invalid number of variational covar dimensions')
 
         chol_variational_covar = inside.mul(chol_variational_covar)
-        return GaussianRandomVariable(self.variational_mean, RootLazyVariable(chol_variational_covar))
+        variational_covar = CholLazyVariable(chol_variational_covar.transpose(-1, -2))
+        return GaussianRandomVariable(self.variational_mean, variational_covar)

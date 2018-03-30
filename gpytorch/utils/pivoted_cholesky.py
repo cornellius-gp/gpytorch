@@ -1,9 +1,10 @@
 import torch
 from torch.autograd import Variable
-from ..lazy import LazyVariable, NonLazyVariable
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
+    from ..lazy import LazyVariable, NonLazyVariable
+
     # matrix is assumed to be batch_size x n x n
     if matrix.ndimension() < 3:
         batch_size = 1
