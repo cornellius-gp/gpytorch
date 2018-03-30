@@ -51,7 +51,7 @@ class SumLazyVariable(LazyVariable):
         return self.lazy_vars[0].size()
 
     def _transpose_nonbatch(self):
-        lazy_vars_t = list(lazy_var.t() for lazy_var in self.lazy_var)
+        lazy_vars_t = list(lazy_var.transpose(-1, -2) for lazy_var in self.lazy_vars)
         return SumLazyVariable(*lazy_vars_t)
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):

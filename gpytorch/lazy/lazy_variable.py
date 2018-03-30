@@ -199,23 +199,6 @@ class LazyVariable(object):
                 eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
 
-    def exact_gp_marginal_log_likelihood(self, target):
-        """
-        Computes the marginal log likelihood of a Gaussian process whose covariance matrix
-        plus the diagonal noise term (added using add_diag above) is stored as this lazy variable
-
-        Args:
-            - target (vector n) - training label vector to be used in the marginal log likelihood calculation.
-        Returns:
-            - scalar - The GP marginal log likelihood where (K+\sigma^{2}I) is represented by this LazyVariable.
-        """
-        if not hasattr(self, '_gp_mll_class'):
-            dqff = self._derivative_quadratic_form_factory
-            self._gp_mll_class = function_factory.exact_gp_mll_factory(self._matmul_closure_factory,
-                                                                       dqff)
-        args = list(self.representation()) + [target]
-        return self._gp_mll_class()(*args)
-
     def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
         """
         Computes the posterior predictive covariance of a GP
@@ -659,14 +642,6 @@ class LazyVariable(object):
         if not hasattr(self, '_tensor_cls'):
             self._tensor_cls = _import_dotted_name(self.representation()[0].data.type())
         return self._tensor_cls
-
-    def trace_log_det_quad_form(self, mu_diffs, chol_covar_1):
-        if not hasattr(self, '_trace_log_det_quad_form_class'):
-            tlqf_function_factory = function_factory.trace_logdet_quad_form_factory
-            self._trace_log_det_quad_form_class = tlqf_function_factory(self._matmul_closure_factory,
-                                                                        self._derivative_quadratic_form_factory)
-        covar2_args = self.representation()
-        return self._trace_log_det_quad_form_class()(mu_diffs, chol_covar_1, *covar2_args)
 
     def zero_mean_mvn_samples(self, n_samples):
         """
