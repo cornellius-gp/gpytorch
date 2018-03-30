@@ -1,4 +1,5 @@
 from .lazy_variable import LazyVariable
+from .added_diag_lazy_variable import AddedDiagLazyVariable
 from .block_diagonal_lazy_variable import BlockDiagonalLazyVariable
 from .chol_lazy_variable import CholLazyVariable
 from .constant_mul_lazy_variable import ConstantMulLazyVariable
@@ -13,11 +14,11 @@ from .root_lazy_variable import RootLazyVariable
 from .sum_lazy_variable import SumLazyVariable
 from .sum_batch_lazy_variable import SumBatchLazyVariable
 from .toeplitz_lazy_variable import ToeplitzLazyVariable
-from .added_diag_lazy_variable import AddedDiagLazyVariable
 
 
 __all__ = [
     LazyVariable,
+    AddedDiagLazyVariable,
     BlockDiagonalLazyVariable,
     CholLazyVariable,
     ConstantMulLazyVariable,
@@ -32,5 +33,4 @@ __all__ = [
     SumLazyVariable,
     SumBatchLazyVariable,
     ToeplitzLazyVariable,
-    AddedDiagLazyVariable,
 ]

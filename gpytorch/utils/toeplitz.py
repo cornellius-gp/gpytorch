@@ -4,8 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-import gpytorch.utils.fft as fft
-import gpytorch.utils as utils
+from ..utils import fft, reverse
 
 
 def toeplitz(toeplitz_column, toeplitz_row):
@@ -140,7 +139,7 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
 
     else:
         batch_size, orig_size, num_rhs = tensor.size()
-        r_reverse = utils.reverse(toeplitz_row[:, 1:], dim=1)
+        r_reverse = reverse(toeplitz_row[:, 1:], dim=1)
 
         c_r_rev = toeplitz_column.new(batch_size, orig_size + r_reverse.size(1)).zero_()
         c_r_rev[:, :orig_size] = toeplitz_column
@@ -220,9 +219,9 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
     columns = left_vectors.new(s, m).fill_(0)
     columns[:, 0] = left_vectors[:, 0]
     res = toeplitz_matmul(columns, left_vectors, right_vectors)
-    rows = utils.reverse(left_vectors, dim=1)
+    rows = reverse(left_vectors, dim=1)
     columns[:, 0] = rows[:, 0]
-    res += toeplitz_matmul(columns, rows, utils.reverse(right_vectors, dim=1))
+    res += toeplitz_matmul(columns, rows, reverse(right_vectors, dim=1))
 
     if not batch:
         res = res.sum(0)
