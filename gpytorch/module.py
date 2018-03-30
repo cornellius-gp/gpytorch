@@ -158,10 +158,6 @@ class Module(nn.Module):
         self._variational_strategies[name] = variational_strategy
 
     def __call__(self, *inputs, **kwargs):
-        for input in inputs:
-            if not(isinstance(input, RandomVariable) or isinstance(input, Variable)):
-                raise RuntimeError('Input must be a RandomVariable or Variable, was a %s' %
-                                   input.__class__.__name__)
         outputs = self.forward(*inputs, **kwargs)
         if isinstance(outputs, Variable) or isinstance(outputs, RandomVariable) or isinstance(outputs, LazyVariable):
             return outputs

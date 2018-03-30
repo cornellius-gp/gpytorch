@@ -29,3 +29,11 @@ class SamplesRandomVariable(RandomVariable):
 
     def representation(self):
         return self._samples
+
+    def mean(self):
+        return self._samples.mean(-1)
+
+    def var(self):
+        if self._samples.size(-1) == 1:
+            return Variable(self._samples.data.new(self._samples.squeeze(-1).size()).zero_())
+        return self._samples.var(-1)
