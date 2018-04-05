@@ -1,4 +1,4 @@
-# GPyTorch (Alpha Relase)
+# GPyTorch (Alpha Release)
 [![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
 
 GPyTorch is a Gaussian Process library, implemented using PyTorch.
