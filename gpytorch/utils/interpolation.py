@@ -45,21 +45,21 @@ class Interpolation(object):
         lt_min_mask = ((x_target_min - grid_mins).lt(-1e-7))
         gt_max_mask = ((x_target_max - grid_maxs).gt(1e-7))
         if lt_min_mask.data.sum():
-            first_out_of_range = lt_min_mask.nonzero().squeeze(1)[0]
-            raise RuntimeError('Received data that was out of bounds for the specified grid. \
-                                Grid bounds were ({}, {}), but min = {}, \
-                                max = {}'.format(self.grid_mins[first_out_of_range],
-                                                 self.grid_maxs[first_out_of_range],
-                                                 x_target_min[first_out_of_range],
-                                                 x_target_max[first_out_of_range]))
+            first_out_of_range = lt_min_mask.nonzero().squeeze(1)[0].data
+            raise RuntimeError(('Received data that was out of bounds for the specified grid. '
+                                'Grid bounds were ({0:.3f}, {0:.3f}), but min = {0:.3f}, '
+                                'max = {0:.3f}').format(grid_mins[first_out_of_range].data[0],
+                                                        grid_maxs[first_out_of_range].data[0],
+                                                        x_target_min[first_out_of_range].data[0],
+                                                        x_target_max[first_out_of_range].data[0]))
         if gt_max_mask.data.sum():
-            first_out_of_range = gt_max_mask.nonzero().squeeze(1)[0]
-            raise RuntimeError('Received data that was out of bounds for the specified grid. \
-                                Grid bounds were ({}, {}), but min = {}, \
-                                max = {}'.format(self.grid_mins[first_out_of_range],
-                                                 self.grid_maxs[first_out_of_range],
-                                                 x_target_min[first_out_of_range],
-                                                 x_target_max[first_out_of_range]))
+            first_out_of_range = gt_max_mask.nonzero().squeeze(1)[0].data
+            raise RuntimeError(('Received data that was out of bounds for the specified grid. '
+                                'Grid bounds were ({0:.3f}, {0:.3f}), but min = {0:.3f}, '
+                                'max = {0:.3f}').format(grid_mins[first_out_of_range].data[0],
+                                                        grid_maxs[first_out_of_range].data[0],
+                                                        x_target_min[first_out_of_range].data[0],
+                                                        x_target_max[first_out_of_range].data[0]))
 
         # Now do interpolation
         interp_points_flip = Variable(x_grid.data.new(interp_points[::-1]))
