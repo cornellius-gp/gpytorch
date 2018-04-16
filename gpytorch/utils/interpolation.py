@@ -78,6 +78,7 @@ class Interpolation(object):
             lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i, 0]) / grid_delta).squeeze()
             lower_pt_rel_dists = (x_target[:, i] - x_grid[i, 0]) / grid_delta - lower_grid_pt_idxs
             lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points.max()
+            lower_grid_pt_idxs.detach_()
 
             scaled_dist = lower_pt_rel_dists.unsqueeze(-1) + interp_points_flip.unsqueeze(-2)
             dim_interp_values = self._cubic_interpolation_kernel(scaled_dist)
