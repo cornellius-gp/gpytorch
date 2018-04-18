@@ -101,10 +101,15 @@ def woodbury_factor(low_rank_mat, shift):
     to be used in solves with (V'V + shift I) via the Woodbury formula
     """
     k = low_rank_mat.size(-2)
-    shifted_mat = (1 / shift) * low_rank_mat.matmul(low_rank_mat.t())
+    shifted_mat = (1 / shift) * low_rank_mat.matmul(low_rank_mat.transpose(-1, -2))
+
     shifted_mat = shifted_mat + shifted_mat.new(k).fill_(1).diag()
 
-    R = torch.potrs(low_rank_mat, shifted_mat.potrf())
+    if low_rank_mat.ndimension() == 3:
+        R = torch.cat([torch.potrs(low_rank_mat[i], shifted_mat[i].potrf()).unsqueeze(0)
+                       for i in range(shifted_mat.size(0))])
+    else:
+        R = torch.potrs(low_rank_mat, shifted_mat.potrf())
 
     return R
 
@@ -121,5 +126,5 @@ def woodbury_solve(vector, low_rank_mat, woodbury_factor, shift):
           and the shift, \sigma
         - shift (scalar) - shift value sigma
     """
-    right = (1 / shift) * low_rank_mat.t().matmul(woodbury_factor.matmul(vector))
+    right = (1 / shift) * low_rank_mat.transpose(-1, -2).matmul(woodbury_factor.matmul(vector))
     return (1 / shift) * (vector - right)
