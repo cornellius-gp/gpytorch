@@ -491,8 +491,9 @@ def root_decomposition_pc_factory(get_indices_closure_factory=_default_get_indic
             R^{-1} grad_output^T = d( tr( R^{-T} A grad_output ) ) / dA
             to use the derivative quadratic form factory
 
-            We'll use QR to efficiently compute R^{-T}
-            (Unfortunately there's not CUDA trtrs - so that has to be done on the CPU for now)
+            Unfortunately, there's no good way to use gels or QR without transferring
+            back and forth between the CPU, so we use the normal equations to compute
+            the pseudoinverse directly.
             """
 
             # Get R
@@ -501,19 +502,9 @@ def root_decomposition_pc_factory(get_indices_closure_factory=_default_get_indic
             if root.ndimension() == 3:
                 root_inv = root.new(root.size(0), root.size(-1), root.size(-2)).cpu()
                 for i in range(root.size(0)):
-                    q_mat, r_mat = root[i].qr()
-                    root_inv[i].copy_(torch.trtrs(
-                        q_mat.transpose(-1, -2).cpu(),
-                        r_mat.cpu(),
-                        upper=True
-                    )[0])
+                    root_inv[i] = torch.potrs(root[i].t(), torch.potrf(root[i].t().matmul(root[i])))
             else:
-                q_mat, r_mat = root.qr()
-                root_inv = torch.trtrs(
-                    q_mat.transpose(-1, -2).cpu(),
-                    r_mat.cpu(),
-                    upper=True
-                )[0]
+                root_inv = torch.potrs(root.t(), torch.potrf(root.t().matmul(root)))
 
             if root.is_cuda:
                 root_inv = root_inv.cuda()
