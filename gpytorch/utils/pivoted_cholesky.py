@@ -31,6 +31,9 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
         matrix_diag.unsqueeze_(0)
     # matrix_diag is now batch_size x n
 
+    # Make sure max_iter isn't bigger than the matrix
+    max_iter = min(max_iter, matrix_size)
+
     errors = torch.norm(matrix_diag, 1, dim=1)
     permutation = matrix_diag.new(matrix_size).long()
     torch.arange(0, matrix_size, out=permutation)
@@ -70,21 +73,22 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
         if isinstance(row, torch.autograd.Variable):
             row = row.data
 
-        pi_i = permutation[:, m + 1:]
-        L_m_new = row.gather(1, pi_i)
-        if m > 0:
-            L_prev = L[:, :m].gather(2, pi_i.unsqueeze(1).repeat(1, m, 1))
-            update = L[:, :m].gather(2, pi_m.unsqueeze(1).unsqueeze(1).repeat(1, m, 1))
-            L_m_new -= torch.sum(update * L_prev, dim=1)
+        if m + 1 < matrix_size:
+            pi_i = permutation[:, m + 1:]
+            L_m_new = row.gather(1, pi_i)
+            if m > 0:
+                L_prev = L[:, :m].gather(2, pi_i.unsqueeze(1).repeat(1, m, 1))
+                update = L[:, :m].gather(2, pi_m.unsqueeze(1).unsqueeze(1).repeat(1, m, 1))
+                L_m_new -= torch.sum(update * L_prev, dim=1)
 
-        L_m_new /= L_m.gather(1, pi_m.unsqueeze(1))
-        L_m.scatter_(1, pi_i, L_m_new)
+            L_m_new /= L_m.gather(1, pi_m.unsqueeze(1))
+            L_m.scatter_(1, pi_i, L_m_new)
 
-        matrix_diag_current = matrix_diag.gather(1, pi_i)
-        matrix_diag.scatter_(1, pi_i, matrix_diag_current - L_m_new ** 2)
-        L[:, m] = L_m
+            matrix_diag_current = matrix_diag.gather(1, pi_i)
+            matrix_diag.scatter_(1, pi_i, matrix_diag_current - L_m_new ** 2)
+            L[:, m] = L_m
 
-        errors = torch.norm(matrix_diag.gather(1, pi_i), 1, dim=1)
+            errors = torch.norm(matrix_diag.gather(1, pi_i), 1, dim=1)
         m = m + 1
 
     if not batch_mode:
