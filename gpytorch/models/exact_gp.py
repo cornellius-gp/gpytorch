@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import logging
+import warnings
 import gpytorch
 import torch
 from torch.autograd import Variable
@@ -61,8 +61,8 @@ class ExactGP(Module):
         # Posterior mode
         else:
             if all([torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)]):
-                logging.warning('The input matches the stored training data. '
-                                'Did you forget to call model.train()?')
+                warnings.warn('The input matches the stored training data. '
+                              'Did you forget to call model.train()?', UserWarning)
 
             # Exact inference
             full_inputs = tuple(torch.cat([train_input, input]) for train_input, input in zip(train_inputs, args))
