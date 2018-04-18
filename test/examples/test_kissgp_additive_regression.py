@@ -84,30 +84,31 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
         gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
-        # Optimize the model
-        gp_model.train()
-        likelihood.train()
+        with gpytorch.settings.max_preconditioner_size(5):
+            # Optimize the model
+            gp_model.train()
+            likelihood.train()
 
-        optimizer = optim.Adam(
-            list(gp_model.parameters()) + list(likelihood.parameters()),
-            lr=0.2,
-        )
-        optimizer.n_iter = 0
-        for _ in range(20):
-            optimizer.zero_grad()
-            output = gp_model(train_x)
-            loss = -mll(output, train_y)
-            loss.backward()
-            optimizer.n_iter += 1
-            optimizer.step()
+            optimizer = optim.Adam(
+                list(gp_model.parameters()) + list(likelihood.parameters()),
+                lr=0.2,
+            )
+            optimizer.n_iter = 0
+            for _ in range(20):
+                optimizer.zero_grad()
+                output = gp_model(train_x)
+                loss = -mll(output, train_y)
+                loss.backward()
+                optimizer.n_iter += 1
+                optimizer.step()
 
-        # Test the model
-        gp_model.eval()
-        likelihood.eval()
+            # Test the model
+            gp_model.eval()
+            likelihood.eval()
 
-        test_preds = likelihood(gp_model(test_x)).mean()
-        mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
-        self.assertLess(mean_abs_error.data.squeeze()[0], 0.15)
+            test_preds = likelihood(gp_model(test_x)).mean()
+            mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
+            self.assertLess(mean_abs_error.data.squeeze()[0], 0.15)
 
 
 if __name__ == '__main__':
