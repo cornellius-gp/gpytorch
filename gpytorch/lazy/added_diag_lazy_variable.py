@@ -41,7 +41,13 @@ class AddedDiagLazyVariable(SumLazyVariable):
 
         if not hasattr(self, '_woodbury_cache'):
             max_iter = gpytorch.settings.max_preconditioner_size.value()
-            self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_var, max_iter)
+            self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(
+                self._lazy_var._get_indices_closure_factory(),
+                max_iter=max_iter,
+                tensor_cls=(self.tensor_cls),
+                batch_size=(self.size(0) if self.ndimension() == 3 else None),
+                matrix_size=(self.size(-1)),
+            )
             self._woodbury_cache = pivoted_cholesky.woodbury_factor(self._piv_chol_self, self._diag_var.diag().data[0])
 
         def precondition_closure(tensor):

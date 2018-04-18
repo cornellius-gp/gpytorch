@@ -1,49 +1,82 @@
 import torch
-from torch.autograd import Variable
 
 
-def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
-    from ..lazy import LazyVariable, NonLazyVariable
+def pivoted_cholesky(get_indices_closure, max_iter, error_tol=1e-3,
+                     tensor_cls=None, batch_size=None, matrix_size=None):
+    """
+        get_indices_closure - either the matrix itself, or a function to get a list of elements
+            from a matrix
+        max_iter - maximum number of iterations to run
+        error_tol - tolerance to error out on
 
-    # matrix is assumed to be batch_size x n x n
-    if matrix.ndimension() < 3:
-        batch_size = 1
-        batch_mode = False
+        tensor_cls - class of tensor (doesn't need to be defined if get_indices_closure is a matrix)
+        batch_size - how many matrices in batch (None means non-batch) (doesn't need
+            to be defined if get_indices_closure is a matrix)
+        matrix_size - number of rows/columns of matrix (doesn't need to be defined if get_indices_closure is a matrix)
+    """
+    batch_mode = False
+
+    # Make sure get_indices_closure is a function, and all arguments are defined
+    if torch.is_tensor(get_indices_closure):
+        matrix = get_indices_closure
+
+        def default_getinidices_closure(*args):
+            return matrix[args]
+
+        get_indices_closure = default_getinidices_closure
+        tensor_cls = matrix.new
+        matrix_size = matrix.size(-1)
+        if matrix.ndimension() == 3:
+            batch_size = matrix.size(0)
+            batch_mode = True
+        else:
+            batch_size = 1
+
     else:
-        batch_size = matrix.size(0)
-        batch_mode = True
-    matrix_size = matrix.size(-1)
-
-    # Need to get diagonals. This is easy if it's a LazyVariable, since
-    # LazyVariable.diag() operates in batch mode.
-    if isinstance(matrix, LazyVariable):
-        matrix_diag = matrix.diag()
-    elif isinstance(matrix, Variable):
-        matrix_diag = NonLazyVariable(matrix).diag()
-    elif torch.is_tensor(matrix):
-        matrix_diag = NonLazyVariable(Variable(matrix)).diag()
-
-    # TODO: This check won't be necessary in PyTorch 0.4
-    if isinstance(matrix_diag, torch.autograd.Variable):
-        matrix_diag = matrix_diag.data
-
-    if not batch_mode:
-        matrix_diag.unsqueeze_(0)
-    # matrix_diag is now batch_size x n
+        if tensor_cls is None:
+            raise RuntimeError('tensor_cls must be defined')
+        if matrix_size is None:
+            raise RuntimeError('matrix_size must be defined')
+        if batch_size is not None:
+            batch_mode = True
+        else:
+            batch_size = 1
 
     # Make sure max_iter isn't bigger than the matrix
     max_iter = min(max_iter, matrix_size)
 
-    errors = torch.norm(matrix_diag, 1, dim=1)
-    permutation = matrix_diag.new(matrix_size).long()
+    # Define matrix which stores the permutation
+    permutation = tensor_cls(matrix_size).long()
     torch.arange(0, matrix_size, out=permutation)
     permutation = permutation.repeat(batch_size, 1)
 
-    m = 0
-    # TODO: pivoted_cholesky should take tensor_cls and use that here instead
-    L = matrix_diag.new(batch_size, max_iter, matrix_size).zero_()
+    # Define a matrix for slicing into a batch
     full_batch_slice = permutation.new(batch_size)
     torch.arange(batch_size, out=full_batch_slice)
+
+    # Define matrices to get indices index
+    batch_indices = full_batch_slice.unsqueeze(-1).repeat(1, matrix_size).view(-1) if batch_mode else None
+    row_indices = permutation.new(batch_size, matrix_size)  # This one is filled later
+    column_indices = permutation.new(matrix_size, 1)
+    torch.arange(0, matrix_size, out=column_indices[:, 0])
+    column_indices = column_indices.repeat(batch_size, 1).view(-1)
+
+    # Get diagonal of matrix
+    if batch_mode:
+        matrix_diag = get_indices_closure(batch_indices, column_indices, column_indices)
+    else:
+        matrix_diag = get_indices_closure(column_indices, column_indices)
+    matrix_diag = matrix_diag.view(batch_size, matrix_size)
+
+    # The result will be stored here
+    # TODO: pivoted_cholesky should take tensor_cls and use that here instead
+    L = tensor_cls(batch_size, max_iter, matrix_size).zero_()
+
+    # Compute the errors
+    errors = torch.norm(matrix_diag, 1, dim=1)
+
+    # Start the iteration
+    m = 0
     while m < max_iter and torch.max(errors) > error_tol:
         permuted_diags = torch.gather(matrix_diag, 1, permutation)[:, m:]
         max_diag_values, max_diag_indices = torch.max(permuted_diags, 1)
@@ -61,17 +94,13 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
         L_m = L[:, m]  # Will be all zeros -- should we use torch.zeros?
         L_m[full_batch_slice, pi_m] = torch.sqrt(max_diag_values)
 
+        # Get the appropriate row from the matrix
+        row_indices.copy_(pi_m.unsqueeze(-1))  # Populate row indices
         if not batch_mode:
-            row = matrix[pi_m, :]
-            if row.ndimension() < 2:
-                row.unsqueeze_(0)
+            row = get_indices_closure(row_indices.view(-1), column_indices)
         else:
-            row = matrix[full_batch_slice, pi_m, :]
-
-        if isinstance(row, LazyVariable):
-            row = row.evaluate()
-        if isinstance(row, torch.autograd.Variable):
-            row = row.data
+            row = get_indices_closure(batch_indices, row_indices.view(-1), column_indices)
+        row = row.view(batch_size, -1)
 
         if m + 1 < matrix_size:
             pi_i = permutation[:, m + 1:]

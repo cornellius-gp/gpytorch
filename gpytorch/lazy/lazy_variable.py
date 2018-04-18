@@ -99,6 +99,30 @@ class LazyVariable(object):
         """
         raise NotImplementedError
 
+    def _get_indices_closure_factory(self, *args):
+        """
+        Right now, this is a function that is only used by Pivoted Cholesky.
+        It's a bit hacky right now - eventually it'd be a nice replacement to _get_indices
+            and _batched_get_indices
+        """
+        if self.ndimension() == 3:
+            def closure(batch_indices, left_indices, right_indices):
+                return self._batch_get_indices(
+                    Variable(batch_indices),
+                    Variable(left_indices),
+                    Variable(right_indices),
+                ).data
+
+            return closure
+        else:
+            def closure(left_indices, right_indices):
+                return self._get_indices(
+                    Variable(left_indices),
+                    Variable(right_indices,)
+                ).data
+
+            return closure
+
     def add_diag(self, diag):
         """
         Adds an element to the diagonal of the matrix.

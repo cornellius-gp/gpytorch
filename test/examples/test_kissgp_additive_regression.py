@@ -61,10 +61,11 @@ class GPRegressionModel(gpytorch.models.ExactGP):
             grid_bounds=[(0, 1)],
             n_components=2,
         )
+        self.register_parameter('log_outputscale', torch.nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
+        covar_x = self.covar_module(x).mul(self.log_outputscale.exp())
         return GaussianRandomVariable(mean_x, covar_x)
 
 
@@ -84,14 +85,14 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
         gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
-        with gpytorch.settings.max_preconditioner_size(5):
+        with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.use_toeplitz(False):
             # Optimize the model
             gp_model.train()
             likelihood.train()
 
             optimizer = optim.Adam(
                 list(gp_model.parameters()) + list(likelihood.parameters()),
-                lr=0.2,
+                lr=0.1,
             )
             optimizer.n_iter = 0
             for _ in range(20):
