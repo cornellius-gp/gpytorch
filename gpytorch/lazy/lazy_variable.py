@@ -549,6 +549,20 @@ class LazyVariable(object):
         res, _ = function(*self.representation())
         return res
 
+    def root_decomposition_pc(self):
+        self._root_decomp_class = function_factory.root_decomposition_pc_factory(
+            self._get_indices_closure_factory,
+            self._derivative_quadratic_form_factory
+        )
+        function = self._root_decomp_class(
+            max_iter=self.root_decomposition_size(),
+            tensor_cls=self.tensor_cls,
+            batch_size=(self.size(0) if self.ndimension() == 3 else None),
+            matrix_size=(self.size(-1)),
+        )
+        res = function(*self.representation())
+        return res
+
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         """
         Returns a (usually low-rank) root decomposotion lazy variable of a PSD matrix.

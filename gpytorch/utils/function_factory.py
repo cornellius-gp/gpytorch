@@ -8,10 +8,15 @@ from torch.autograd import Function, Variable
 from .linear_cg import linear_cg
 from .stochastic_lq import StochasticLQ
 from .lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
+from .pivoted_cholesky import pivoted_cholesky
 from .. import settings
 
 
 def _default_matmul_closure_factory(mat):
+    return mat
+
+
+def _default_get_indices_closure_factory(mat):
     return mat
 
 
@@ -449,3 +454,74 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
                 pass
 
     return RootDecomposition
+
+
+def root_decomposition_pc_factory(get_indices_closure_factory=_default_get_indices_closure_factory,
+                                  derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
+    class RootDecompositionPc(Function):
+        def __init__(self, max_iter, tensor_cls, batch_size, matrix_size):
+            self.max_iter = max_iter
+            self.tensor_cls = tensor_cls
+            self.batch_size = batch_size
+            self.matrix_size = matrix_size
+
+        def forward(self, *args):
+            self.get_indices_closure = get_indices_closure_factory(*args)
+            res = pivoted_cholesky(
+                self.get_indices_closure,
+                max_iter=self.max_iter,
+                tensor_cls=self.tensor_cls,
+                batch_size=self.batch_size,
+                matrix_size=self.matrix_size,
+            ).transpose(-1, -2)
+
+            to_save = list(args)
+            to_save.append(res)
+            self.save_for_backward(*to_save)
+            return res
+
+        def backward(self, grad_output):
+            """
+            Given that R is the pivoted cholesky computation
+            I.e. R R^T \approx mat
+            Our goal is to return 1/2 R^{-1} grad_output^T
+            where R^{-1} is a pseudo inverse
+
+            We're actually going to take advantage of the fact that
+            R^{-1} grad_output^T = d( tr( R^{-T} A grad_output ) ) / dA
+            to use the derivative quadratic form factory
+
+            We'll use QR to efficiently compute R^{-T}
+            (Unfortunately there's not CUDA trtrs - so that has to be done on the CPU for now)
+            """
+
+            # Get R
+            args = self.saved_tensors[:-1]
+            root = self.saved_tensors[-1]
+            if root.ndimension() == 3:
+                root_inv = root.new(root.size(0), root.size(-1), root.size(-2)).cpu()
+                for i in range(root.size(0)):
+                    q_mat, r_mat = root[i].qr()
+                    root_inv[i].copy_(torch.trtrs(
+                        q_mat.transpose(-1, -2).cpu(),
+                        r_mat.cpu(),
+                        upper=True
+                    )[0])
+            else:
+                q_mat, r_mat = root.qr()
+                root_inv = torch.trtrs(
+                    q_mat.transpose(-1, -2).cpu(),
+                    r_mat.cpu(),
+                    upper=True
+                )[0]
+
+            if root.is_cuda:
+                root_inv = root_inv.cuda()
+
+            # Now we'll use the quadratic form factory to compute the derivative
+            left_vectors = 0.5 * root_inv
+            right_vectors = grad_output.transpose(-1, -2)
+            res = derivative_quadratic_form_factory(*args)(left_vectors, right_vectors)
+            return res
+
+    return RootDecompositionPc
