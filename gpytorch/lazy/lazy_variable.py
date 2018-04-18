@@ -590,7 +590,7 @@ class LazyVariable(object):
         This is the inner size of the root decomposition.
         This is primarily used to determine if it will be cheaper to compute a different root or not
         """
-        return settings.max_lanczos_iterations.value()
+        return settings.max_root_decomposition_size.value()
 
     def size(self, val=None):
         """
