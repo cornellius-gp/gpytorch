@@ -1,7 +1,7 @@
 import torch
 
 
-def pivoted_cholesky(get_indices_closure, max_iter, error_tol=1e-3,
+def pivoted_cholesky(get_item_closure, matrix_diag, max_iter, error_tol=1e-3,
                      tensor_cls=None, batch_size=None, matrix_size=None):
     """
         get_indices_closure - either the matrix itself, or a function to get a list of elements
@@ -15,15 +15,17 @@ def pivoted_cholesky(get_indices_closure, max_iter, error_tol=1e-3,
         matrix_size - number of rows/columns of matrix (doesn't need to be defined if get_indices_closure is a matrix)
     """
     batch_mode = False
+    if matrix_diag.ndimension() == 1:
+        matrix_diag = matrix_diag.unsqueeze(0)
 
     # Make sure get_indices_closure is a function, and all arguments are defined
-    if torch.is_tensor(get_indices_closure):
-        matrix = get_indices_closure
+    if torch.is_tensor(get_item_closure):
+        matrix = get_item_closure
 
-        def default_getinidices_closure(*args):
+        def default_getitem_closure(*args):
             return matrix[args]
 
-        get_indices_closure = default_getinidices_closure
+        get_item_closure = default_getitem_closure
         tensor_cls = matrix.new
         matrix_size = matrix.size(-1)
         if matrix.ndimension() == 3:
@@ -54,20 +56,6 @@ def pivoted_cholesky(get_indices_closure, max_iter, error_tol=1e-3,
     full_batch_slice = permutation.new(batch_size)
     torch.arange(batch_size, out=full_batch_slice)
 
-    # Define matrices to get indices index
-    batch_indices = full_batch_slice.unsqueeze(-1).repeat(1, matrix_size).view(-1) if batch_mode else None
-    row_indices = permutation.new(batch_size, matrix_size)  # This one is filled later
-    column_indices = permutation.new(matrix_size, 1)
-    torch.arange(0, matrix_size, out=column_indices[:, 0])
-    column_indices = column_indices.repeat(batch_size, 1).view(-1)
-
-    # Get diagonal of matrix
-    if batch_mode:
-        matrix_diag = get_indices_closure(batch_indices, column_indices, column_indices)
-    else:
-        matrix_diag = get_indices_closure(column_indices, column_indices)
-    matrix_diag = matrix_diag.view(batch_size, matrix_size)
-
     # The result will be stored here
     # TODO: pivoted_cholesky should take tensor_cls and use that here instead
     L = tensor_cls(batch_size, max_iter, matrix_size).zero_()
@@ -94,13 +82,10 @@ def pivoted_cholesky(get_indices_closure, max_iter, error_tol=1e-3,
         L_m = L[:, m]  # Will be all zeros -- should we use torch.zeros?
         L_m[full_batch_slice, pi_m] = torch.sqrt(max_diag_values)
 
-        # Get the appropriate row from the matrix
-        row_indices.copy_(pi_m.unsqueeze(-1))  # Populate row indices
         if not batch_mode:
-            row = get_indices_closure(row_indices.view(-1), column_indices)
+            row = get_item_closure([pi_m])
         else:
-            row = get_indices_closure(batch_indices, row_indices.view(-1), column_indices)
-        row = row.view(batch_size, -1)
+            row = get_item_closure([full_batch_slice, pi_m, slice(None)])
 
         if m + 1 < matrix_size:
             pi_i = permutation[:, m + 1:]

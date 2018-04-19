@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import pdb
 import math
 import torch
 from torch.autograd import Variable
@@ -98,6 +99,20 @@ class LazyVariable(object):
         Only works for non-batch lazy variables
         """
         raise NotImplementedError
+
+    def _get_item_closure_factory(self, *args):
+        """
+        Right now, this is a function that is only used by Pivoted Cholesky.
+        It's a bit hacky right now - eventually it'd be a nice replacement to _get_indices
+            and _batched_get_indices
+        """
+        def closure(index):
+            var_out = self.__getitem__(index)
+            if isinstance(var_out, LazyVariable):
+                var_out = var_out.evaluate()
+            return var_out.data
+
+        return closure
 
     def _get_indices_closure_factory(self, *args):
         """
@@ -551,14 +566,16 @@ class LazyVariable(object):
 
     def root_decomposition_pc(self):
         self._root_decomp_class = function_factory.root_decomposition_pc_factory(
-            self._get_indices_closure_factory,
+            self._get_item_closure_factory,
             self._derivative_quadratic_form_factory
         )
+
         function = self._root_decomp_class(
             max_iter=self.root_decomposition_size(),
             tensor_cls=self.tensor_cls,
             batch_size=(self.size(0) if self.ndimension() == 3 else None),
             matrix_size=(self.size(-1)),
+            matrix_diag=self.tensor_cls(self.size(0)).fill_(1),
         )
         res = function(*self.representation())
         return res

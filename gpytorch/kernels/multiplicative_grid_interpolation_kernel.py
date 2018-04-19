@@ -3,14 +3,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import torch
 import gpytorch
 from torch.autograd import Variable
 from .grid_interpolation_kernel import GridInterpolationKernel
 from ..utils import Interpolation
-from ..utils.pivoted_cholesky import pivoted_cholesky
 from gpytorch.lazy import ImplicitMulBatchLazyVariable, RootLazyVariable
-import pdb
 
 
 class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
@@ -53,11 +50,10 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
 
     def forward(self, x1, x2):
         res = super(MultiplicativeGridInterpolationKernel, self).forward(x1, x2)
-        if x1.size() == x2.size() and torch.equal(x1, x2):
+        if x1.size() == x2.size() and gpytorch.utils.approx_equal(x1, x2):
             temp_lv = ImplicitMulBatchLazyVariable(res)
-            root = pivoted_cholesky(temp_lv, gpytorch.settings.max_pc_root_size.value())
-            new_res = RootLazyVariable(root.t())
-            pdb.set_trace()
+            root = temp_lv.root_decomposition_pc()
+            new_res = RootLazyVariable(root)
             return new_res
         else:
             res = res.mul_batch(mul_batch_size=self.n_components)

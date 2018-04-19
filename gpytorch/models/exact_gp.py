@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import warnings
 import gpytorch
 import torch
+import pdb
 from torch.autograd import Variable
 from ..module import Module
 from ..random_variables import GaussianRandomVariable
@@ -54,7 +55,7 @@ class ExactGP(Module):
 
         # Training mode: optimizing
         if self.training:
-            if not all([torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)]):
+            if not all([gpytorch.utils.approx_equal(train_input, input) for train_input, input in zip(train_inputs, args)]):
                 raise RuntimeError('You must train on the training inputs!')
             return super(ExactGP, self).__call__(*args, **kwargs)
 

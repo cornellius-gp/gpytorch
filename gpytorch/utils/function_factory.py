@@ -459,16 +459,18 @@ def root_decomposition_factory(matmul_closure_factory=_default_matmul_closure_fa
 def root_decomposition_pc_factory(get_indices_closure_factory=_default_get_indices_closure_factory,
                                   derivative_quadratic_form_factory=_default_derivative_quadratic_form_factory):
     class RootDecompositionPc(Function):
-        def __init__(self, max_iter, tensor_cls, batch_size, matrix_size):
+        def __init__(self, max_iter, tensor_cls, batch_size, matrix_size, matrix_diag):
             self.max_iter = max_iter
             self.tensor_cls = tensor_cls
             self.batch_size = batch_size
             self.matrix_size = matrix_size
+            self.matrix_diag = matrix_diag
 
         def forward(self, *args):
             self.get_indices_closure = get_indices_closure_factory(*args)
             res = pivoted_cholesky(
                 self.get_indices_closure,
+                matrix_diag=self.matrix_diag,
                 max_iter=self.max_iter,
                 tensor_cls=self.tensor_cls,
                 batch_size=self.batch_size,
