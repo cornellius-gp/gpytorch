@@ -11,7 +11,7 @@ addons:
 branches:
   only:
     - master
-    - alpha_release
+    - travis_fix
 
 before_install:
   - sudo apt-get update
