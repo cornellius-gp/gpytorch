@@ -16,6 +16,7 @@ class MaternKernel(Kernel):
         ard_num_dims=None,
         log_lengthscale_bounds=(-10000, 10000),
         active_dims=None,
+        eps=1e-8,
     ):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError('nu expected to be 0.5, 1.5, or 2.5')
@@ -26,6 +27,7 @@ class MaternKernel(Kernel):
             active_dims=active_dims,
         )
         self.nu = nu
+        self.eps = eps
 
     def forward(self, x1, x2):
         lengthscale = (self.log_lengthscale.exp()).sqrt()
@@ -42,7 +44,7 @@ class MaternKernel(Kernel):
             x2_squared.unsqueeze(-2) -
             x1_t_x_2.mul(2)
         )
-        distance_over_rho = distance_over_rho.clamp(0, 1e10).sqrt()
+        distance_over_rho = distance_over_rho.clamp(self.eps, 1e10).sqrt()
         exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance_over_rho)
 
         if self.nu == 0.5:

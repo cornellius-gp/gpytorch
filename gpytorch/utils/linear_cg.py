@@ -63,9 +63,13 @@ def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_i
     # residual: residual_{0} = b_vec - lhs x_{0}
     residual = rhs - matmul_closure(result)
 
+    # Check for NaNs
+    if not torch.equal(residual, residual):
+        raise RuntimeError('NaNs encounterd when trying to perform matrix-vector multiplication')
+
     # Sometime we're lucky and the preconditioner solves the system right away
     residual_norm = residual.norm(2, dim=-2)
-    if not torch.sum(residual_norm > tolerance):
+    if not torch.sum(residual_norm > tolerance) and not n_tridiag:
         n_iter = 0  # Skip the iteration!
 
     # Otherwise, let's define precond_residual and curr_conjugate_vec
