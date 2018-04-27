@@ -49,7 +49,7 @@ class ExactGP(Module):
             if getattr(train_targets, attr) != getattr(self.train_targets, attr):
                 raise RuntimeError(
                     'Cannot modify {attr} of train_targets'.format(attr=attr)
-              )
+                )
         self.train_targets = train_targets
         self.mean_cache = None
         self.covar_cache = None
