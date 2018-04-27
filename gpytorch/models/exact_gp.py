@@ -13,11 +13,14 @@ from ..likelihoods import GaussianLikelihood
 
 
 class ExactGP(Module):
+
     def __init__(self, train_inputs, train_targets, likelihood):
         if torch.is_tensor(train_inputs):
             train_inputs = train_inputs,
         if not all(torch.is_tensor(train_input) for train_input in train_inputs):
-            raise RuntimeError('Train inputs must be a tensor, or a list/tuple of tensors')
+            raise RuntimeError(
+                'Train inputs must be a tensor, or a list/tuple of tensors'
+            )
         if not isinstance(likelihood, GaussianLikelihood):
             raise RuntimeError('ExactGP can only handle GaussianLikelihood')
 
@@ -38,19 +41,32 @@ class ExactGP(Module):
         from ..mlls import ExactMarginalLogLikelihood
         if not hasattr(self, '_has_warned') or not self._has_warned:
             import warnings
-            warnings.warn("model.marginal_log_likelihood is now deprecated. "
-                          "Please use gpytorch.mll.ExactMarginalLogLikelihood instead.")
+            warnings.warn(
+                'model.marginal_log_likelihood is now deprecated. '
+                'Please use gpytorch.mll.ExactMarginalLogLikelihood instead.'
+            )
             self._has_warned = True
         return ExactMarginalLogLikelihood(likelihood, self)(output, target)
 
-    def set_train_targets(self, train_targets):
-        """Set training targets (does not re-fit model parameters)"""
-        for attr in {'shape', 'dtype', 'device'}:
-            if getattr(train_targets, attr) != getattr(self.train_targets, attr):
-                raise RuntimeError(
-                    'Cannot modify {attr} of train_targets'.format(attr=attr)
-                )
-        self.train_targets = train_targets
+    def set_train_data(self, inputs=None, targets=None):
+        """Set training data (does not re-fit model hyper-parameters)"""
+        if inputs is not None:
+            if torch.is_tensor(inputs):
+                inputs = inputs,
+            for input, t_input in zip(inputs, self.train_inputs):
+                for attr in {'shape', 'dtype', 'device'}:
+                    if getattr(input, attr) != getattr(t_input, attr):
+                        raise RuntimeError(
+                            'Cannot modify {attr} of inputs'.format(attr=attr)
+                        )
+            self.train_inputs = inputs
+        if targets is not None:
+            for attr in {'shape', 'dtype', 'device'}:
+                if getattr(targets, attr) != getattr(self.train_targets, attr):
+                    raise RuntimeError(
+                        'Cannot modify {attr} of targets'.format(attr=attr)
+                    )
+            self.train_targets = targets
         self.mean_cache = None
         self.covar_cache = None
 
@@ -65,13 +81,13 @@ class ExactGP(Module):
 
         # Training mode: optimizing
         if self.training:
-            if not all([torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)]):
+            if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)):
                 raise RuntimeError('You must train on the training inputs!')
             return super(ExactGP, self).__call__(*args, **kwargs)
 
         # Posterior mode
         else:
-            if all([torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)]):
+            if all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)):
                 warnings.warn('The input matches the stored training data. '
                               'Did you forget to call model.train()?', UserWarning)
 
