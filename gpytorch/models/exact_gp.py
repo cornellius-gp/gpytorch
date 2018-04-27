@@ -43,6 +43,17 @@ class ExactGP(Module):
             self._has_warned = True
         return ExactMarginalLogLikelihood(likelihood, self)(output, target)
 
+    def set_train_targets(self, train_targets):
+        """Set training targets (does not re-fit model parameters)"""
+        for attr in {'shape', 'dtype', 'device'}:
+            if getattr(train_targets, attr) != getattr(self.train_targets, attr):
+                raise RuntimeError(
+                    'Cannot modify {attr} of train_targets'.format(attr=attr)
+              )
+        self.train_targets = train_targets
+        self.mean_cache = None
+        self.covar_cache = None
+
     def train(self, mode=True):
         if mode:
             self.mean_cache = None
