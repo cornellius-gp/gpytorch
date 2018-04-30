@@ -10,21 +10,20 @@ import torch
 
 
 class LogNormalCDF(Function):
-    def __init__(self):
-        self.c = torch.Tensor([0.00048204, -0.00142906, 0.0013200243174, 0.0009461589032,
-                               -0.0045563339802, 0.00556964649138, 0.00125993961762116,
-                               -0.01621575378835404, 0.02629651521057465, -0.001829764677455021,
-                               2 * (1 - math.pi / 3), (4 - math.pi) / 3, 1, 1])
-
-        self.r = torch.Tensor([1.2753666447299659525, 5.019049726784267463450,
-                               6.1602098531096305441, 7.409740605964741794425,
-                               2.9788656263939928886])
-
-        self.q = torch.Tensor([2.260528520767326969592, 9.3960340162350541504,
-                               12.048951927855129036034, 17.081440747466004316,
-                               9.608965327192787870698, 3.3690752069827527677])
-
     def forward(self, z):
+        c = z.new([0.00048204, -0.00142906, 0.0013200243174, 0.0009461589032,
+                   -0.0045563339802, 0.00556964649138, 0.00125993961762116,
+                   -0.01621575378835404, 0.02629651521057465, -0.001829764677455021,
+                   2 * (1 - math.pi / 3), (4 - math.pi) / 3, 1, 1])
+
+        r = z.new([1.2753666447299659525, 5.019049726784267463450,
+                   6.1602098531096305441, 7.409740605964741794425,
+                   2.9788656263939928886])
+
+        q = z.new([2.260528520767326969592, 9.3960340162350541504,
+                   12.048951927855129036034, 17.081440747466004316,
+                   9.608965327192787870698, 3.3690752069827527677])
+
         log_phi_z = z.new(*z.size()).zero_()
 
         # Three cases to handle: An entry of z is near zero, an entry of z is small, or an entry of z neither of these.
@@ -36,7 +35,7 @@ class LogNormalCDF(Function):
         if z_near_zero.sum() > 0:
             log_phi_first = -z.masked_select(z_near_zero).div_(math.sqrt(2 * math.pi))
             f = 0
-            for c_i in self.c.tolist():
+            for c_i in c.tolist():
                 f = log_phi_first.mul(c_i + f)
 
             log_phi_z.masked_scatter_(z_near_zero, f.mul_(-2).sub_(math.log(2)))
@@ -47,10 +46,10 @@ class LogNormalCDF(Function):
             numerator = z.new([0.5641895835477550741]).expand_as(z_where_z_is_small)
             denominator = z.new([1.0]).expand_as(z_where_z_is_small)
 
-            for r_i in self.r:
+            for r_i in r:
                 numerator = -z_where_z_is_small.mul(numerator.div(math.sqrt(2))) + r_i
 
-            for q_i in self.q:
+            for q_i in q:
                 denominator = -z_where_z_is_small.mul(denominator.div(math.sqrt(2))) + q_i
 
             e = numerator.div(denominator)
