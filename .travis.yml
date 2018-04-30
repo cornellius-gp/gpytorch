@@ -9,31 +9,20 @@ python:
   - "3.6"
 env:
   - PYTORCH_VERSION=4
-  - PYTORCH_VERSION=3
 
 before_install:
   - sudo apt-get -qq update
-  - sudo apt-get install fftw3 fftw3-dev
 
 install:
-  - pip install cffi
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
-        if [[ $PYTORCH_VERSION == 4 ]]; then
             pip install http://download.pytorch.org/whl/cpu/torch-0.4.0-cp27-cp27mu-linux_x86_64.whl;
-        else
-            pip install http://download.pytorch.org/whl/cpu/torch-0.3.1-cp27-cp27mu-linux_x86_64.whl;
-        fi
     else
-        if [[ $PYTORCH_VERSION == 4 ]]; then
             pip install http://download.pytorch.org/whl/cpu/torch-0.4.0-cp36-cp36m-linux_x86_64.whl;
-        else
-            pip install http://download.pytorch.org/whl/cpu/torch-0.3.1-cp36-cp36m-linux_x86_64.whl;
-        fi
     fi
   - python setup.py build develop
 
 script:
-  - python -m unittest discover -s test/
+  - python -m unittest
 
 matrix:
   include:

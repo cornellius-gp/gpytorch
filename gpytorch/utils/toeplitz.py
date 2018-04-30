@@ -157,7 +157,7 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
         fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 0])
         fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 1])
 
-        output = fft.ifft1(fft_product, (batch_size, num_rhs, 2 * orig_size - 1)).transpose(1, 2)
+        output = fft.ifft1(fft_product).transpose(1, 2)
         output = output[:, :orig_size, :]
 
     if output_dims == 2:

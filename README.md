@@ -40,26 +40,17 @@ If you use GPyTorch, please cite the following papers:
 
 ### Global installation
 
-The easiest way to install GPyTorch is by installing the dependencies we require, `PyTorch >= 0.3.0` and `libfftw3 > 3.3.6` ([source](http://www.fftw.org/download.html)) using conda, and then installing 
-GPyTorch using pip. This can be accomplished globally using one of the two sets of commands below depending on whether you want CUDA support.
+The easiest way to install GPyTorch is by installing `PyTorch >= 0.4.0` using the appropriate command from [here](http://pytorch.org), and then installing 
+GPyTorch using pip:
 
-For CUDA/GPU support, run:
 ```bash
-conda install fftw cffi pytorch torchvision cuda80 -c conda-forge -c pytorch
 pip install git+https://github.com/cornellius-gp/gpytorch.git
 ```
-
-If you do not have or do not wish to use CUDA, instead run:
-```bash
-conda install fftw cffi pytorch torchvision -c conda-forge -c pytorch
-pip install git+https://github.com/cornellius-gp/gpytorch.git
-```
-
-If you install libfftw3 from source, be sure to run `configure` with `--enable-shared`. To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.
+To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.
 
 ### Installation in a conda environment
 
-We also provide two conda environment files, `environment.yml` and `environment_cuda.yml`. As an example, to install GPyTorch in a conda environment with cuda support, run:
+We also provide two conda environment files, `environment.yml` and `environment_cuda90.yml`. As an example, to install GPyTorch in a conda environment with cuda support, run:
 
 ```bash
 git clone git+https://github.com/cornellius-gp/gpytorch.git

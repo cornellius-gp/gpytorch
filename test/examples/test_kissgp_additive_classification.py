@@ -81,7 +81,7 @@ class TestKissGPAdditiveClassification(unittest.TestCase):
             test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
 
-        self.assertLess(mean_abs_error.data.squeeze()[0], 0.15)
+        self.assertLess(mean_abs_error.data.squeeze().item(), 0.15)
 
 
 if __name__ == '__main__':

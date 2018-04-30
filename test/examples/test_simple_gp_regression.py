@@ -106,7 +106,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             torch.abs(test_y - test_function_predictions.mean())
         )
 
-        self.assertLess(mean_abs_error.data.squeeze()[0], 0.05)
+        self.assertLess(mean_abs_error.data.squeeze().item(), 0.05)
 
     def test_posterior_latent_gp_and_likelihood_fast_pred_var(self):
         with gpytorch.fast_pred_var():
@@ -187,7 +187,7 @@ class TestSimpleGPRegression(unittest.TestCase):
                 torch.abs(test_y.cuda() - test_function_predictions.mean())
             )
 
-            self.assertLess(mean_abs_error.data.squeeze()[0], 0.05)
+            self.assertLess(mean_abs_error.data.squeeze().item(), 0.05)
 
 
 if __name__ == '__main__':
