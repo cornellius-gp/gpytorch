@@ -104,7 +104,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
             test_preds = likelihood(gp_model(Variable(test_x))).mean()
             mean_abs_error = torch.mean(torch.abs(Variable(test_y) - test_preds))
 
-        self.assertLess(mean_abs_error.data.squeeze()[0], 0.1)
+        self.assertLess(mean_abs_error.data.squeeze().item(), 0.1)
 
 
 if __name__ == '__main__':

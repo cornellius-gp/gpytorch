@@ -89,7 +89,7 @@ class TestKISSGPRegreesion(unittest.TestCase):
         test_preds = likelihood(gp_model(test_x)).mean()
         mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
-        self.assertLess(mean_abs_error.data.squeeze()[0], 0.05)
+        self.assertLess(mean_abs_error.data.squeeze().item(), 0.05)
 
     def test_kissgp_gp_fast_pred_var(self):
         with gpytorch.fast_pred_var():
@@ -160,7 +160,7 @@ class TestKISSGPRegreesion(unittest.TestCase):
             test_preds = likelihood(gp_model(test_x)).mean()
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
-            self.assertLess(mean_abs_error.data.squeeze()[0], 0.02)
+            self.assertLess(mean_abs_error.data.squeeze().item(), 0.02)
 
 
 if __name__ == '__main__':

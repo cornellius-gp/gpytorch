@@ -85,7 +85,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
 
         # The spectral mixture kernel should be trivially able to
         # extrapolate the sine function.
-        self.assertLess(mean_abs_error.data.squeeze()[0], 0.15)
+        self.assertLess(mean_abs_error.data.squeeze().item(), 0.15)
 
 
 if __name__ == '__main__':

@@ -87,7 +87,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             mul(2).sub(1).squeeze()
         )
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        assert(mean_abs_error.data.squeeze()[0] < 1e-5)
+        assert(mean_abs_error.data.squeeze().item() < 1e-5)
 
     def test_classification_fast_pred_var(self):
         with gpytorch.fast_pred_var():
@@ -122,7 +122,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             )
 
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-            self.assertLess(mean_abs_error.data.squeeze()[0], 1e-5)
+            self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
 
     def test_classification_error_cuda(self):
         if torch.cuda.is_available():
@@ -154,7 +154,7 @@ class TestSimpleGPClassification(unittest.TestCase):
                 mul(2).sub(1).squeeze()
             )
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-            self.assertLess(mean_abs_error.data.squeeze()[0], 1e-5)
+            self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
 
 
 if __name__ == '__main__':

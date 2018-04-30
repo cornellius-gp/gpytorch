@@ -1,9 +1,0 @@
-name: gpytorch
-channels:
-  - conda-forge
-  - pytorch
-dependencies:
-  - cffi
-  - fftw
-  - pytorch>=0.3.0
-  - torchvision

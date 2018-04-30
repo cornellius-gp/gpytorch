@@ -105,7 +105,7 @@ def circulant_matmul(circulant_column, tensor):
         fft_product[:, :, 1].addcmul_(fft_c[:, :, 1], fft_M[:, :, 0])
         fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
 
-        output = fft.ifft1(fft_product, tensor.size()).t()
+        output = fft.ifft1(fft_product).t()
 
     if output_dims == 1:
         output = output.squeeze(1)
@@ -149,7 +149,7 @@ def circulant_inv_matmul(circulant_column, matrix):
     fft_product[:, :, 1].addcmul_(fft_c[:, :, 1], fft_M[:, :, 0])
     fft_product[:, :, 1].addcmul_(fft_c[:, :, 0], fft_M[:, :, 1])
 
-    res = fft.ifft1(fft_product, matrix.size()).t()
+    res = fft.ifft1(fft_product).t()
 
     return res
 

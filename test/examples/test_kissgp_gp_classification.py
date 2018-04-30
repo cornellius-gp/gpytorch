@@ -72,7 +72,7 @@ class TestKISSGPClassification(unittest.TestCase):
             mul(2).sub(1).squeeze()
         )
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        self.assertLess(mean_abs_error.data.squeeze()[0], 1e-5)
+        self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
 
 
 if __name__ == '__main__':

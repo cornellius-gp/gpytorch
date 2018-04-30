@@ -18,12 +18,12 @@ class TestFFT(unittest.TestCase):
 
         res = fft.fft1(input)
         actual = np.fft.fft(input.numpy())
-        self.assertEqual(tuple(res.size()), (5, 2))
+        self.assertEqual(tuple(res.size()), (8, 2))
 
         res_real = res[:, 0]
         res_imag = res[:, 1]
-        actual_real = torch.from_numpy(actual.real[:5]).float()
-        actual_imag = torch.from_numpy(actual.imag[:5]).float()
+        actual_real = torch.from_numpy(actual.real).float()
+        actual_imag = torch.from_numpy(actual.imag).float()
 
         assert torch.norm(res_real - actual_real) < 1e-5
         assert torch.norm(res_imag - actual_imag) < 1e-5
@@ -34,12 +34,12 @@ class TestFFT(unittest.TestCase):
 
         res = fft.fft1(input)
         actual = np.fft.fft(input.numpy())
-        self.assertEqual(tuple(res.size()), (3, 6, 5, 2))
+        self.assertEqual(tuple(res.size()), (3, 6, 8, 2))
 
         res_real = res[:, :, :, 0]
         res_imag = res[:, :, :, 1]
-        actual_real = torch.from_numpy(actual.real[:, :, :5]).float()
-        actual_imag = torch.from_numpy(actual.imag[:, :, :5]).float()
+        actual_real = torch.from_numpy(actual.real[:, :, :]).float()
+        actual_imag = torch.from_numpy(actual.imag[:, :, :]).float()
 
         self.assertLess(torch.norm(res_real - actual_real), 1e-5)
         self.assertLess(torch.norm(res_imag - actual_imag), 1e-5)
@@ -65,7 +65,7 @@ class TestFFT(unittest.TestCase):
         input = torch.randn(d)
 
         res = fft.fft1(input)
-        recon = fft.ifft1(res, input.size())
+        recon = fft.ifft1(res)
         self.assertEqual(input.size(), recon.size())
         self.assertLess(torch.norm(input - recon), 1e-5)
 

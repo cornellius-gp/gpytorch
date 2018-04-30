@@ -11,7 +11,7 @@ class AddDiag(Function):
     def forward(self, input, diag):
         if diag.numel() != 1:
             raise RuntimeError('Input must be a single-element tensor')
-        val = diag.squeeze()[0]
+        val = diag.item()
 
         diag_mat = torch.eye(input.size(-2), input.size(-1)).type_as(input)
         if input.ndimension() == 3:
@@ -28,7 +28,7 @@ class AddDiag(Function):
         if self.needs_input_grad[1]:
             diag_grad = grad_output.new().resize_(1).zero_()
             if grad_output.numel() == 1:
-                diag_grad.fill_(grad_output.squeeze()[0])
+                diag_grad.fill_(grad_output.item())
             elif grad_output.ndimension() == 3:
                 batch_indices = grad_output.new(grad_output.size(0), 1)
                 torch.arange(0, grad_output.size(0), out=batch_indices[:, 0])
