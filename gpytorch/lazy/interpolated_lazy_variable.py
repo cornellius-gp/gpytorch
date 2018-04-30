@@ -55,119 +55,120 @@ class InterpolatedLazyVariable(LazyVariable):
         self.right_interp_indices = right_interp_indices
         self.right_interp_values = right_interp_values
 
-    def _matmul_closure_factory(self, *args):
-        base_lazy_variable_representation = args[:-4]
-        base_lazy_variable_matmul = self.base_lazy_variable._matmul_closure_factory(*base_lazy_variable_representation)
-        left_interp_indices, left_interp_values = args[-4:-2]
-        right_interp_indices, right_interp_values = args[-2:]
-
+    def _matmul(self, rhs):
         # Get sparse tensor representations of left/right interp matrices
-        left_interp_t = self._sparse_left_interp_t(left_interp_indices, left_interp_values)
-        right_interp_t = self._sparse_right_interp_t(right_interp_indices, right_interp_values)
+        left_interp_t = self._sparse_left_interp_t(self.left_interp_indices, self.left_interp_values)
+        right_interp_t = self._sparse_right_interp_t(self.right_interp_indices, self.right_interp_values)
 
-        def closure(tensor):
-            if tensor.ndimension() == 1:
-                is_vector = True
-                tensor = tensor.unsqueeze(-1)
-            else:
-                is_vector = False
+        if rhs.ndimension() == 1:
+            is_vector = True
+            rhs = rhs.unsqueeze(-1)
+        else:
+            is_vector = False
 
-            # right_interp^T * tensor
-            right_interp_res = bdsmm(right_interp_t, tensor)
+        # right_interp^T * rhs
+        right_interp_res = bdsmm(right_interp_t, rhs)
 
-            # base_lazy_var * right_interp^T * tensor
-            base_res = base_lazy_variable_matmul(right_interp_res)
+        # base_lazy_var * right_interp^T * rhs
+        base_res = self.base_lazy_variable._matmul(right_interp_res)
 
-            # left_interp * base_lazy_var * right_interp^T * tensor
-            if len(left_interp_t.size()) == 3:
-                left_interp_mat = left_interp_t.transpose(1, 2)
-            else:
-                left_interp_mat = left_interp_t.t()
-            res = bdsmm(left_interp_mat, base_res)
+        # left_interp * base_lazy_var * right_interp^T * rhs
+        left_interp_mat = left_interp_t.transpose(-1, -2)
+        res = bdsmm(left_interp_mat, base_res)
 
-            # Squeeze if necessary
-            if is_vector:
-                res = res.squeeze(-1)
-            return res
+        # Squeeze if necessary
+        if is_vector:
+            res = res.squeeze(-1)
+        return res
 
-        return closure
-
-    def _derivative_quadratic_form_factory(self, *args):
-        base_lazy_var_repr = args[:-4]
-        base_lazy_var_matmul = self.base_lazy_variable._matmul_closure_factory(*base_lazy_var_repr)
-        base_lazy_var_t_matmul = self.base_lazy_variable._t_matmul_closure_factory(*base_lazy_var_repr)
-        base_lazy_var_deriv = self.base_lazy_variable._derivative_quadratic_form_factory(*base_lazy_var_repr)
-        left_interp_indices, left_interp_values = args[-4:-2]
-        right_interp_indices, right_interp_values = args[-2:]
-
+    def _t_matmul(self, rhs):
         # Get sparse tensor representations of left/right interp matrices
-        left_interp_t = self._sparse_left_interp_t(left_interp_indices, left_interp_values)
-        right_interp_t = self._sparse_right_interp_t(right_interp_indices, right_interp_values)
+        left_interp_t = self._sparse_left_interp_t(self.left_interp_indices, self.left_interp_values)
+        right_interp_t = self._sparse_right_interp_t(self.right_interp_indices, self.right_interp_values)
 
-        def closure(left_factor, right_factor):
-            if left_factor.ndimension() == 1:
-                left_factor = left_factor.unsqueeze(0)
-                right_factor = right_factor.unsqueeze(0)
+        if rhs.ndimension() == 1:
+            is_vector = True
+            rhs = rhs.unsqueeze(-1)
+        else:
+            is_vector = False
 
-            left_factor_t = left_factor.transpose(-1, -2)
-            right_factor_t = right_factor.transpose(-1, -2)
+        # right_interp^T * rhs
+        left_interp_res = bdsmm(left_interp_t, rhs)
 
-            # base_lazy_variable grad
-            left_res = bdsmm(left_interp_t, left_factor_t)
-            right_res = bdsmm(right_interp_t, right_factor_t)
-            base_lv_grad = list(base_lazy_var_deriv(left_res.transpose(-1, -2).contiguous(),
-                                                    right_res.transpose(-1, -2).contiguous()))
+        # base_lazy_var * right_interp^T * rhs
+        base_res = self.base_lazy_variable._t_matmul(left_interp_res)
 
-            # left_interp_values grad
-            n_factors = right_res.size(-1)
-            n_left_rows = left_interp_indices.size(-2)
-            n_right_rows = right_interp_indices.size(-2)
-            n_left_interp = left_interp_indices.size(-1)
-            n_right_interp = right_interp_indices.size(-1)
-            n_inducing = right_res.size(-2)
-            if left_interp_indices.ndimension() == 3:
-                batch_size = left_interp_indices.size(0)
+        # left_interp * base_lazy_var * right_interp^T * rhs
+        right_interp_mat = right_interp_t.transpose(-1, -2)
+        res = bdsmm(right_interp_mat, base_res)
 
-            # left_interp_values grad
-            right_interp_right_res = base_lazy_var_matmul(right_res).contiguous()
-            if left_interp_indices.ndimension() == 3:
-                batch_offset = left_interp_indices.new(batch_size, 1, 1)
-                torch.arange(0, batch_size, out=batch_offset[:, 0, 0])
-                batch_offset.mul_(n_inducing)
+        # Squeeze if necessary
+        if is_vector:
+            res = res.squeeze(-1)
+        return res
 
-                batched_left_interp_indices = (left_interp_indices + batch_offset).view(-1)
-                flattened_right_interp_right_res = right_interp_right_res.view(batch_size * n_inducing, n_factors)
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        # Get sparse tensor representations of left/right interp matrices
+        left_interp_t = self._sparse_left_interp_t(self.left_interp_indices, self.left_interp_values)
+        right_interp_t = self._sparse_right_interp_t(self.right_interp_indices, self.right_interp_values)
 
-                selected_right_vals = flattened_right_interp_right_res.index_select(0, batched_left_interp_indices)
-                selected_right_vals = selected_right_vals.view(batch_size, n_left_rows, n_left_interp, n_factors)
-            else:
-                selected_right_vals = right_interp_right_res.index_select(0, left_interp_indices.view(-1))
-                selected_right_vals = selected_right_vals.view(n_left_rows, n_left_interp, n_factors)
-            left_values_grad = (selected_right_vals * left_factor_t.unsqueeze(-2)).sum(-1)
+        if left_vecs.ndimension() == 1:
+            left_vecs = left_vecs.unsqueeze(1)
+            right_vecs = right_vecs.unsqueeze(1)
 
-            # right_interp_values_grad
-            left_interp_left_res = base_lazy_var_t_matmul(left_res).contiguous()
-            if right_interp_indices.ndimension() == 3:
-                batch_offset = right_interp_indices.new(batch_size, 1, 1)
-                torch.arange(0, batch_size, out=batch_offset[:, 0, 0])
-                batch_offset.mul_(n_inducing)
+        # base_lazy_variable grad
+        left_res = bdsmm(left_interp_t, left_vecs)
+        right_res = bdsmm(right_interp_t, right_vecs)
+        base_lv_grad = list(self.base_lazy_variable._quad_form_derivative(left_res, right_res))
 
-                batched_right_interp_indices = (right_interp_indices + batch_offset).view(-1)
-                flattened_left_interp_left_res = left_interp_left_res.view(batch_size * n_inducing, n_factors)
+        # left_interp_values grad
+        n_vecs = right_res.size(-1)
+        n_left_rows = self.left_interp_indices.size(-2)
+        n_right_rows = self.right_interp_indices.size(-2)
+        n_left_interp = self.left_interp_indices.size(-1)
+        n_right_interp = self.right_interp_indices.size(-1)
+        n_inducing = right_res.size(-2)
+        if self.left_interp_indices.ndimension() == 3:
+            batch_size = self.left_interp_indices.size(0)
 
-                selected_left_vals = flattened_left_interp_left_res.index_select(0, batched_right_interp_indices)
-                selected_left_vals = selected_left_vals.view(batch_size, n_right_rows, n_right_interp, n_factors)
-            else:
-                selected_left_vals = left_interp_left_res.index_select(0, right_interp_indices.view(-1))
-                selected_left_vals = selected_left_vals.view(n_right_rows, n_right_interp, n_factors)
-            right_values_grad = (selected_left_vals * right_factor_t.unsqueeze(-2)).sum(-1)
+        # left_interp_values grad
+        right_interp_right_res = self.base_lazy_variable._matmul(right_res).contiguous()
+        if self.left_interp_indices.ndimension() == 3:
+            batch_offset = self.left_interp_indices.new(batch_size, 1, 1)
+            torch.arange(0, batch_size, out=batch_offset[:, 0, 0])
+            batch_offset.mul_(n_inducing)
 
-            # Return zero grad for interp indices
-            res = tuple(base_lv_grad + [torch.zeros_like(left_interp_indices), left_values_grad,
-                                        torch.zeros_like(right_interp_indices), right_values_grad])
-            return res
+            batched_left_interp_indices = (self.left_interp_indices + batch_offset).view(-1)
+            flattened_right_interp_right_res = right_interp_right_res.view(batch_size * n_inducing, n_vecs)
 
-        return closure
+            selected_right_vals = flattened_right_interp_right_res.index_select(0, batched_left_interp_indices)
+            selected_right_vals = selected_right_vals.view(batch_size, n_left_rows, n_left_interp, n_vecs)
+        else:
+            selected_right_vals = right_interp_right_res.index_select(0, self.left_interp_indices.view(-1))
+            selected_right_vals = selected_right_vals.view(n_left_rows, n_left_interp, n_vecs)
+        left_values_grad = (selected_right_vals * left_vecs.unsqueeze(-2)).sum(-1)
+
+        # right_interp_values_grad
+        left_interp_left_res = self.base_lazy_variable._t_matmul(left_res).contiguous()
+        if self.right_interp_indices.ndimension() == 3:
+            batch_offset = self.right_interp_indices.new(batch_size, 1, 1)
+            torch.arange(0, batch_size, out=batch_offset[:, 0, 0])
+            batch_offset.mul_(n_inducing)
+
+            batched_right_interp_indices = (self.right_interp_indices + batch_offset).view(-1)
+            flattened_left_interp_left_res = left_interp_left_res.view(batch_size * n_inducing, n_vecs)
+
+            selected_left_vals = flattened_left_interp_left_res.index_select(0, batched_right_interp_indices)
+            selected_left_vals = selected_left_vals.view(batch_size, n_right_rows, n_right_interp, n_vecs)
+        else:
+            selected_left_vals = left_interp_left_res.index_select(0, self.right_interp_indices.view(-1))
+            selected_left_vals = selected_left_vals.view(n_right_rows, n_right_interp, n_vecs)
+        right_values_grad = (selected_left_vals * right_vecs.unsqueeze(-2)).sum(-1)
+
+        # Return zero grad for interp indices
+        res = tuple(base_lv_grad + [torch.zeros_like(self.left_interp_indices), left_values_grad,
+                                    torch.zeros_like(self.right_interp_indices), right_values_grad])
+        return res
 
     def _size(self):
         if self.left_interp_indices.ndimension() == 3:

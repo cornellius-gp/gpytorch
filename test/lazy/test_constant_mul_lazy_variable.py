@@ -14,7 +14,8 @@ from torch.autograd import Variable
 class TestConstantMulLazyVariable(unittest.TestCase):
 
     def test_inv_matmul(self):
-        labels_var = Variable(torch.randn(4))
+        labels_var = Variable(torch.randn(4), requires_grad=True)
+        labels_var_copy = Variable(labels_var.data, requires_grad=True)
         grad_output = torch.randn(4)
 
         # Test case
@@ -26,7 +27,7 @@ class TestConstantMulLazyVariable(unittest.TestCase):
         # Test forward
         with gpytorch.settings.max_cg_iterations(1000):
             res = toeplitz_lazy_var.inv_matmul(labels_var)
-            actual = gpytorch.inv_matmul(actual, labels_var)
+            actual = gpytorch.inv_matmul(actual, labels_var_copy)
 
         # Test backwards
         res.backward(grad_output)

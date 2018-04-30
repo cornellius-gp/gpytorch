@@ -21,31 +21,15 @@ class SumLazyVariable(LazyVariable):
 
         self.lazy_vars = lazy_vars
 
-    def _matmul_closure_factory(self, *args):
-        sub_closures = []
-        i = 0
-        for lazy_var in self.lazy_vars:
-            len_repr = len(lazy_var.representation())
-            sub_closure = lazy_var._matmul_closure_factory(*args[i:i + len_repr])
-            sub_closures.append(sub_closure)
-            i = i + len_repr
+    def _matmul(self, rhs):
+        return sum(lazy_var._matmul(rhs) for lazy_var in self.lazy_vars)
 
-        def closure(rhs_mat):
-            return sum(sub_closure(rhs_mat) for sub_closure in sub_closures)
-        return closure
+    def _t_matmul(self, rhs):
+        return sum(lazy_var._t_matmul(rhs) for lazy_var in self.lazy_vars)
 
-    def _derivative_quadratic_form_factory(self, *args):
-        sub_closures = []
-        i = 0
-        for lazy_var in self.lazy_vars:
-            len_repr = len(lazy_var.representation())
-            sub_closure = lazy_var._derivative_quadratic_form_factory(*args[i:i + len_repr])
-            sub_closures.append(sub_closure)
-            i = i + len_repr
-
-        def closure(*closure_args):
-            return tuple(var for sub_closure in sub_closures for var in sub_closure(*closure_args))
-        return closure
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        return tuple(var for lazy_var in self.lazy_vars
+                     for var in lazy_var._quad_form_derivative(left_vecs, right_vecs))
 
     def _size(self):
         return self.lazy_vars[0].size()

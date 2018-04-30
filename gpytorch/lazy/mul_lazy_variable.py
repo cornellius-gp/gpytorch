@@ -11,7 +11,7 @@ from ..utils import prod
 
 
 class MulLazyVariable(LazyVariable):
-    def __init__(self, *lazy_vars, **kwargs):
+    def __init__(self, *lazy_vars):
         '''
         Args:
             - lazy_vars (A list of LazyVariable) - A list of LazyVariable to multiplicate with.
@@ -32,11 +32,11 @@ class MulLazyVariable(LazyVariable):
 
     @property
     def left_lazy_var(self):
-        return self._mul_args_memo[0]
+        return self._args[0]
 
     @property
     def right_lazy_var(self):
-        return self._mul_args_memo[1]
+        return self._args[1]
 
     @property
     def _args(self):
@@ -87,88 +87,83 @@ class MulLazyVariable(LazyVariable):
         # This is a no-op. We do something different here
         pass
 
-    def _matmul_closure_factory(self, left_repr, right_repr):
-        right_matmul_closure = self.right_lazy_var._matmul_closure_factory(right_repr)
+    def _matmul(self, rhs):
+        is_vector = False
+        if rhs.ndimension() == 1:
+            rhs = rhs.unsqueeze(1)
+            is_vector = True
+        batch_size = max(rhs.size(0), self.size(0)) if rhs.ndimension() == 3 else None
 
-        def closure(rhs_mat):
-            is_vector = False
-            if rhs_mat.ndimension() == 1:
-                rhs_mat = rhs_mat.unsqueeze(1)
-                is_vector = True
-            batch_size = max(rhs_mat.size(0), self.size(0)) if rhs_mat.ndimension() == 3 else None
+        # Here we have a root decomposition
+        if isinstance(self.left_lazy_var, RootLazyVariable):
+            left_root = self.left_lazy_var.root.evaluate()
+            rank = left_root.size(-1)
+            n = self.size(-1)
+            m = rhs.size(-1)
+            # Now implement the formula (A . B) v = diag(A D_v B)
+            left_res = (rhs.unsqueeze(-2) * left_root.unsqueeze(-1))
+            left_res = left_res.view(n, rank * m) if batch_size is None else left_res.view(batch_size, n, rank * m)
+            left_res = self.right_lazy_var._matmul(left_res)
+            left_res = left_res.view(n, rank, m) if batch_size is None else left_res.view(batch_size, n, rank, m)
+            res = left_res.mul_(left_root.unsqueeze(-1)).sum(-2)
+        # This is the case where we're not doing a root decomposition, because the matrix is too small
+        else:
+            res = (self.left_lazy_var.evaluate() * self.right_lazy_var.evaluate()).matmul(rhs)
+        res = res.squeeze(-1) if is_vector else res
+        return res
 
-            # Here we have a root decomposition
-            if isinstance(self.left_lazy_var, RootLazyVariable):
-                rank = left_repr.size(-1)
-                n = self.size(-1)
-                m = rhs_mat.size(-1)
-                # Now implement the formula (A . B) v = diag(A D_v B)
-                left_res = (rhs_mat.unsqueeze(-2) * left_repr.unsqueeze(-1))
-                left_res = left_res.view(n, rank * m) if batch_size is None else left_res.view(batch_size, n, rank * m)
-                left_res = right_matmul_closure(left_res)
-                left_res = left_res.view(n, rank, m) if batch_size is None else left_res.view(batch_size, n, rank, m)
-                res = left_res.mul_(left_repr.unsqueeze(-1)).sum(-2)
-            # This is the case where we're not doing a root decomposition, because the matrix is too small
-            else:
-                res = (left_repr * right_repr).matmul(rhs_mat)
-            res = res.squeeze(-1) if is_vector else res
-            return res
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        if left_vecs.ndimension() == 1:
+            left_vecs = left_vecs.unsqueeze(1)
+            right_vecs = right_vecs.unsqueeze(1)
+        batch_size = self.size(0) if self.ndimension() == 3 else None
 
-        return closure
+        n = None
+        num_vecs = None
+        if self.ndimension() == 3:
+            _, n, num_vecs = left_vecs.size()
+        else:
+            n, num_vecs = left_vecs.size()
 
-    def _derivative_quadratic_form_factory(self, left_repr, right_repr):
-        left_deriv_closure = self.left_lazy_var._derivative_quadratic_form_factory(left_repr)
-        right_deriv_closure = self.right_lazy_var._derivative_quadratic_form_factory(right_repr)
+        if isinstance(self.right_lazy_var, RootLazyVariable):
+            right_root = self.right_lazy_var.root.evaluate()
+            right_rank = right_root.size(-1)
+            left_factor = left_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
+            right_factor = right_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
+        else:
+            right_rank = n
+            eye = self.right_lazy_var.tensor_cls(n).fill_(1).diag()
+            left_factor = left_vecs.unsqueeze(-2) * self.right_lazy_var.evaluate().unsqueeze(-1)
+            right_factor = right_vecs.unsqueeze(-2) * eye.unsqueeze(-1)
 
-        def closure(left_vecs, right_vecs):
-            if left_vecs.ndimension() == 1:
-                left_vecs = left_vecs.unsqueeze(0)
-                right_vecs = right_vecs.unsqueeze(0)
-            left_vecs_t = left_vecs.transpose(-1, -2)
-            right_vecs_t = right_vecs.transpose(-1, -2)
-            batch_size = self.size(0) if self.ndimension() == 3 else None
+        if batch_size is None:
+            left_factor = left_factor.view(n, num_vecs * right_rank)
+            right_factor = right_factor.view(n, num_vecs * right_rank)
+        else:
+            left_factor = left_factor.view(batch_size, n, num_vecs * right_rank)
+            right_factor = right_factor.view(batch_size, n, num_vecs * right_rank)
+        left_deriv_args = self.left_lazy_var._quad_form_derivative(left_factor, right_factor)
 
-            n = left_vecs.size(-1)
-            vecs_num = left_vecs.size(-2)
+        if isinstance(self.left_lazy_var, RootLazyVariable):
+            left_root = self.left_lazy_var.root.evaluate()
+            left_rank = left_root.size(-1)
+            left_factor = left_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
+            right_factor = right_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
+        else:
+            left_rank = n
+            eye = self.left_lazy_var.tensor_cls(n).fill_(1).diag()
+            left_factor = left_vecs.unsqueeze(-2) * self.left_lazy_var.evaluate().unsqueeze(-1)
+            right_factor = right_vecs.unsqueeze(-2) * eye.unsqueeze(-1)
 
-            if isinstance(self.right_lazy_var, RootLazyVariable):
-                right_rank = right_repr.size(-1)
-                left_factor = left_vecs_t.unsqueeze(-2) * right_repr.unsqueeze(-1)
-                right_factor = right_vecs_t.unsqueeze(-2) * right_repr.unsqueeze(-1)
-            else:
-                right_rank = n
-                eye = right_repr.new(n).fill_(1).diag()
-                left_factor = left_vecs_t.unsqueeze(-2) * right_repr.unsqueeze(-1)
-                right_factor = right_vecs_t.unsqueeze(-2) * eye.unsqueeze(-1)
+        if batch_size is None:
+            left_factor = left_factor.view(n, num_vecs * left_rank)
+            right_factor = right_factor.view(n, num_vecs * left_rank)
+        else:
+            left_factor = left_factor.view(batch_size, n, num_vecs * left_rank)
+            right_factor = right_factor.view(batch_size, n, num_vecs * left_rank)
+        right_deriv_args = self.right_lazy_var._quad_form_derivative(left_factor, right_factor)
 
-            if batch_size is None:
-                left_factor = left_factor.view(n, vecs_num * right_rank)
-                right_factor = right_factor.view(n, vecs_num * right_rank)
-            else:
-                left_factor = left_factor.view(batch_size, n, vecs_num * right_rank)
-                right_factor = right_factor.view(batch_size, n, vecs_num * right_rank)
-            left_deriv_args = left_deriv_closure(left_factor.transpose(-1, -2), right_factor.transpose(-1, -2))
-
-            if isinstance(self.left_lazy_var, RootLazyVariable):
-                left_rank = left_repr.size(-1)
-                left_factor = left_vecs_t.unsqueeze(-2) * left_repr.unsqueeze(-1)
-                right_factor = right_vecs_t.unsqueeze(-2) * left_repr.unsqueeze(-1)
-            else:
-                left_rank = n
-                eye = left_repr.new(n).fill_(1).diag()
-                left_factor = left_vecs_t.unsqueeze(-2) * left_repr.unsqueeze(-1)
-                right_factor = right_vecs_t.unsqueeze(-2) * eye.unsqueeze(-1)
-
-            if batch_size is None:
-                left_factor = left_factor.view(n, vecs_num * left_rank)
-                right_factor = right_factor.view(n, vecs_num * left_rank)
-            else:
-                left_factor = left_factor.view(batch_size, n, vecs_num * left_rank)
-                right_factor = right_factor.view(batch_size, n, vecs_num * left_rank)
-            right_deriv_args = right_deriv_closure(left_factor.transpose(-1, -2), right_factor.transpose(-1, -2))
-
-            return tuple(list(left_deriv_args) + list(right_deriv_args))
-        return closure
+        return tuple(list(left_deriv_args) + list(right_deriv_args))
 
     def diag(self):
         res = prod([lazy_var.diag() for lazy_var in self.lazy_vars])

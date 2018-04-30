@@ -14,25 +14,22 @@ class ToeplitzLazyVariable(LazyVariable):
         super(ToeplitzLazyVariable, self).__init__(column)
         self.column = column
 
-    def _matmul_closure_factory(self, column):
-        def closure(tensor):
-            return sym_toeplitz_matmul(column, tensor)
-        return closure
+    def _matmul(self, rhs):
+        return sym_toeplitz_matmul(self.column, rhs)
 
-    def _derivative_quadratic_form_factory(self, column):
-        def closure(left_vectors, right_vectors):
-            if left_vectors.ndimension() == 1:
-                left_factor = left_vectors.unsqueeze(0)
-                right_factor = right_vectors.unsqueeze(0)
-            else:
-                left_factor = left_vectors
-                right_factor = right_vectors
+    def _t_matmul(self, rhs):
+        # Matrix is symmetric
+        return self._matmul(rhs)
 
-            res = sym_toeplitz_derivative_quadratic_form(left_factor, right_factor),
-            if self.column.ndimension() == 1 and res[0].ndimension() == 2:
-                res = res[0].sum(0),
-            return res
-        return closure
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        if left_vecs.ndimension() == 1:
+            left_vecs = left_vecs.unsqueeze(1)
+            right_vecs = right_vecs.unsqueeze(1)
+
+        res = sym_toeplitz_derivative_quadratic_form(left_vecs, right_vecs),
+        if self.column.ndimension() == 1 and res[0].ndimension() == 2:
+            res = res[0].sum(0),
+        return res
 
     def _size(self):
         if self.column.ndimension() == 2:

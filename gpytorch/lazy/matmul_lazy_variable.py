@@ -28,34 +28,21 @@ class MatmulLazyVariable(LazyVariable):
         self.lhs = lhs
         self.rhs = rhs
 
-    def _matmul_closure_factory(self, *args):
-        len_lhs_repr = len(self.lhs.representation())
-        lhs_matmul_closure = self.lhs._matmul_closure_factory(*args[:len_lhs_repr])
-        rhs_matmul_closure = self.rhs._matmul_closure_factory(*args[len_lhs_repr:])
+    def _matmul(self, rhs):
+        return self.lhs._matmul(self.rhs._matmul(rhs))
 
-        def closure(tensor):
-            return lhs_matmul_closure(rhs_matmul_closure(tensor))
+    def _t_matmul(self, rhs):
+        return self.rhs._t_matmul(self.lhs._t_matmul(rhs))
 
-        return closure
-
-    def _derivative_quadratic_form_factory(self, *args):
-        len_lhs_repr = len(self.lhs.representation())
-        lhs_t_matmul_closure = self.lhs.transpose(-1, -2)._t_matmul_closure_factory(*args[:len_lhs_repr])
-        rhs_matmul_closure = self.rhs._matmul_closure_factory(*args[len_lhs_repr:])
-        lhs_derivative_closure = self.lhs._derivative_quadratic_form_factory(*args[:len_lhs_repr])
-        rhs_derivative_closure = self.rhs._derivative_quadratic_form_factory(*args[len_lhs_repr:])
-
-        def closure(left_factor, right_factor):
-            if left_factor.ndimension() == 1:
-                left_factor = left_factor.unsqueeze(0)
-                right_factor = right_factor.unsqueeze(0)
-            right_factor_times_rhs = rhs_matmul_closure(right_factor.transpose(-1, -2)).transpose(-1, -2)
-            left_factor_times_lhs_t = lhs_t_matmul_closure(left_factor.transpose(-1, -2)).transpose(-1, -2)
-            left_grad, = lhs_derivative_closure(left_factor, right_factor_times_rhs)
-            right_grad, = rhs_derivative_closure(left_factor_times_lhs_t, right_factor)
-            return left_grad, right_grad
-
-        return closure
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        if left_vecs.ndimension() == 1:
+            left_vecs = left_vecs.unsqueeze(1)
+            right_vecs = right_vecs.unsqueeze(1)
+        right_vecs_times_rhs = self.rhs._matmul(right_vecs)
+        left_vecs_times_lhs_t = self.lhs._t_matmul(left_vecs)
+        left_grad, = self.lhs._quad_form_derivative(left_vecs, right_vecs_times_rhs)
+        right_grad, = self.rhs._quad_form_derivative(left_vecs_times_lhs_t, right_vecs)
+        return left_grad, right_grad
 
     def _size(self):
         if self.lhs.ndimension() > 2:
@@ -96,7 +83,7 @@ class MatmulLazyVariable(LazyVariable):
 
     def diag(self):
         if isinstance(self.lhs, NonLazyVariable) and isinstance(self.rhs, NonLazyVariable):
-            return (self.lhs.var * self.rhs.var.transpose(-1, -2)).sum(-1)
+            return (self.lhs.tensor * self.rhs.tensor.transpose(-1, -2)).sum(-1)
         else:
             return super(MatmulLazyVariable, self).diag()
 

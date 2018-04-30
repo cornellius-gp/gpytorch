@@ -17,29 +17,19 @@ class ConstantMulLazyVariable(LazyVariable):
         self.lazy_var = lazy_var
         self.constant = constant
 
-    def _matmul_closure_factory(self, *args):
-        lazy_var_closure = self.lazy_var._matmul_closure_factory(*args[:-1])
-        constant = args[-1]
+    def _matmul(self, rhs):
+        res = self.lazy_var._matmul(rhs)
+        res = res * self.constant.expand_as(res)
+        return res
 
-        def closure(rhs_mat):
-            res = lazy_var_closure(rhs_mat)
-            res = res * constant.expand_as(res)
-            return res
-        return closure
-
-    def _derivative_quadratic_form_factory(self, *args):
-        lazy_var_closure = self.lazy_var._derivative_quadratic_form_factory(*args[:-1])
-        constant = args[-1]
-
-        def closure(left_factor, right_factor):
-            res = list(lazy_var_closure(left_factor, right_factor))
-            for i, item in enumerate(res):
-                if torch.is_tensor(item) and res[i].sum():
-                    res[i] = res[i] * constant.expand_as(res[i])
-            # Gradient with respect to the constant
-            res.append(left_factor.new(1).fill_((left_factor * right_factor).sum()))
-            return res
-        return closure
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        res = list(self.lazy_var._quad_form_derivative(left_vecs, right_vecs))
+        for i, item in enumerate(res):
+            if torch.is_tensor(item) and res[i].sum():
+                res[i] = res[i] * self.constant.expand_as(res[i])
+        # Gradient with respect to the constant
+        res.append(left_vecs.new(1).fill_((left_vecs * right_vecs).sum()))
+        return res
 
     def _size(self):
         return self.lazy_var.size()

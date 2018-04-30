@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import torch
 import gpytorch
 from gpytorch.lazy import LazyVariable
-from gpytorch.utils import function_factory
 
 
 class NonLazyVariable(LazyVariable):
@@ -18,56 +17,51 @@ class NonLazyVariable(LazyVariable):
         - var (Variable: matrix) a variable
         """
         super(NonLazyVariable, self).__init__(var)
-        self.var = var
+        self.tensor = var
 
-    def _matmul_closure_factory(self, tensor):
-        def closure(rhs_tensor):
-            return torch.matmul(tensor, rhs_tensor)
-        return closure
+    def _matmul(self, rhs):
+        return torch.matmul(self.tensor, rhs)
 
-    def _t_matmul_closure_factory(self, tensor):
-        def closure(rhs_tensor):
-            return torch.matmul(tensor.transpose(-1, -2), rhs_tensor)
-        return closure
+    def _t_matmul(self, rhs):
+        return torch.matmul(self.tensor.transpose(-1, -2), rhs)
 
-    def _derivative_quadratic_form_factory(self, mat):
-        orig_closure = function_factory._default_derivative_quadratic_form_factory(mat)
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        if left_vecs.ndimension() < self.tensor.ndimension():
+            left_vecs = left_vecs.unsqueeze(-1)
+            right_vecs = right_vecs.unsqueeze(-1)
 
-        def closure(*stuff):
-            res = orig_closure(*stuff)[0]
-            # Batch mode?
-            if res.ndimension() > self.var.ndimension():
-                res = res.sum(0)
-            return res,
+        res = left_vecs.unsqueeze(-2) * right_vecs.unsqueeze(-3)
 
-        return closure
+        # Were there multiple vectors? If so, let's squeeze them
+        res = res.sum(-1)
+        return res,
 
     def _size(self):
-        return self.var.size()
+        return self.tensor.size()
 
     def _transpose_nonbatch(self):
-        return NonLazyVariable(self.var.transpose(-1, -2))
+        return NonLazyVariable(self.tensor.transpose(-1, -2))
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        return self.var[batch_indices.data, left_indices.data, right_indices.data]
+        return self.tensor[batch_indices.data, left_indices.data, right_indices.data]
 
     def _get_indices(self, left_indices, right_indices):
-        return self.var[left_indices.data, right_indices.data]
+        return self.tensor[left_indices.data, right_indices.data]
 
     def add_diag(self, diag):
-        return NonLazyVariable(gpytorch.add_diag(self.var, diag))
+        return NonLazyVariable(gpytorch.add_diag(self.tensor, diag))
 
     def diag(self):
-        if self.var.ndimension() < 3:
-            return self.var.diag()
+        if self.tensor.ndimension() < 3:
+            return self.tensor.diag()
         else:
             return super(NonLazyVariable, self).diag()
 
     def evaluate(self):
-        return self.var
+        return self.tensor
 
     def repeat(self, *sizes):
-        return NonLazyVariable(self.var.repeat(*sizes))
+        return NonLazyVariable(self.tensor.repeat(*sizes))
 
     def __getitem__(self, index):
-        return NonLazyVariable(self.var[index])
+        return NonLazyVariable(self.tensor[index])

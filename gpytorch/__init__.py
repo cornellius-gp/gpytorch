@@ -10,11 +10,7 @@ from .beta_features import fast_pred_var
 from torch.autograd import Variable
 from .lazy import LazyVariable, NonLazyVariable
 from .functions import add_diag as _add_diag, dsmm, log_normal_cdf, normal_cdf
-from .utils import function_factory
-
-
-_inv_matmul_class = function_factory.inv_matmul_factory()
-_inv_quad_log_det_class = function_factory.inv_quad_log_det_factory()
+from .functions import inv_matmul, inv_quad, inv_quad_log_det, log_det
 
 
 def add_diag(input, diag):
@@ -101,76 +97,6 @@ def exact_predictive_covar(full_covar, n_train, noise, precomputed_cache=None):
     if not isinstance(full_covar, LazyVariable):
         full_covar = NonLazyVariable(full_covar)
     return full_covar.exact_predictive_covar(n_train, noise, precomputed_cache)
-
-
-def inv_matmul(mat1, rhs):
-    """
-    Computes a linear solve with several right hand sides.
-
-    Args:
-        - mat1 (matrix nxn) - Matrix to solve with
-        - rhs (matrix nxk) - rhs matrix or vector
-
-    Returns:
-        - matrix nxk - (mat1)^{-1} rhs
-    """
-    if isinstance(mat1, LazyVariable):
-        return mat1.inv_matmul(rhs)
-    else:
-        return _inv_matmul_class()(mat1, rhs)
-
-
-def inv_quad(mat, tensor):
-    """
-    Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
-    I.e. computes tr( tensor^T mat^{-1} tensor )
-
-    Args:
-        - tensor (tensor nxk) - Vector (or matrix) for inverse quad
-
-    Returns:
-        - tensor - tr( tensor^T (mat)^{-1} tensor )
-    """
-    res, _ = inv_quad_log_det(mat, inv_quad_rhs=tensor, log_det=False)
-    return res
-
-
-def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
-    """
-    Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
-    I.e. computes tr( tensor^T mat^{-1} tensor )
-    In addition, computes an (approximate) log determinant of the the matrix
-
-    Args:
-        - tensor (tensor nxk) - Vector (or matrix) for inverse quad
-
-    Returns:
-        - scalar - tr( tensor^T (mat)^{-1} tensor )
-        - scalar - log determinant
-    """
-    if isinstance(mat, LazyVariable):
-        return mat.inv_quad_log_det(inv_quad_rhs=inv_quad_rhs, log_det=log_det)
-    else:
-        batch_size = mat.size(0) if mat.ndimension() == 3 else None
-        if inv_quad_rhs is None:
-            return _inv_quad_log_det_class(matrix_size=mat.size(-1), batch_size=batch_size,
-                                           tensor_cls=mat.new, inv_quad=False,
-                                           log_det=log_det)(mat)
-        else:
-            return _inv_quad_log_det_class(matrix_size=mat.size(-1), batch_size=batch_size,
-                                           tensor_cls=mat.new, inv_quad=True,
-                                           log_det=log_det)(mat, inv_quad_rhs)
-
-
-def log_det(mat):
-    """
-    Computes an (approximate) log determinant of the matrix
-
-    Returns:
-        - scalar - log determinant
-    """
-    _, res = inv_quad_log_det(mat, inv_quad_rhs=None, log_det=True)
-    return res
 
 
 __all__ = [

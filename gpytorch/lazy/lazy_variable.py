@@ -6,8 +6,12 @@ from __future__ import unicode_literals
 import math
 import torch
 from torch.autograd import Variable
-from ..utils import function_factory
+from ..functions.inv_matmul import InvMatmul
+from ..functions.inv_quad_log_det import InvQuadLogDet
+from ..functions.root_decomposition import RootDecomposition
+from ..functions.matmul import Matmul
 from .. import beta_features, settings
+from .lazy_variable_representation_tree import LazyVariableRepresentationTree
 
 
 class LazyVariable(object):
@@ -24,48 +28,31 @@ class LazyVariable(object):
     def _args(self, args):
         self._args_memo = args
 
-    def _matmul_closure_factory(self, *args):
-        """
-        Generates a closure that performs a *tensor* matrix multiply
-        The closure will take in a *tensor* matrix (not variable) and return the
-        result of a matrix multiply with the lazy variable.
-
-        The arguments into the closure factory are the *tensors* corresponding to
-        the Variables in self.representation()
-
-        Returns:
-        function(tensor) - closure that performs a matrix multiply
-        """
-        raise NotImplementedError
-
     def _preconditioner(self):
         return None
 
-    def _t_matmul_closure_factory(self, *args):
+    def _matmul(self, rhs):
         """
-        Generates a closure that performs a *tensor* TRANSPOSE matrix multiply
-        The closure will take in a *tensor* matrix (not variable) and return the
-        result of a matrix multiply with the lazy variable.
-
-        The arguments into the closure factory are the *tensors* corresponding to
-        the Variables in self.representation()
-
-        Returns:
-        function(tensor) - closure that performs a matrix multiply
+        Returns: matrix * rhs
         """
-        return self.transpose(-1, -2)._matmul_closure_factory(*args)
+        raise NotImplementedError('The class %s requires a _matmul function!' % self.__class__.__name__)
 
-    def _derivative_quadratic_form_factory(self, *args):
+    def _t_matmul(self, rhs):
         """
-        Generates a closure that computes the derivatives of uKv^t w.r.t. `args` given u, v
+        Returns: matrix^T * rhs
 
-        K is a square matrix corresponding to the Variables in self.representation()
-
-        Returns:
-        function(vector u, vector v) - closure that computes the derivatives of uKv^t w.r.t.
-        `args` given u, v
+        Implementing this is not necessary, but it improves performance
         """
-        raise NotImplementedError
+        return self.transpose(-1, -2)._matmul(rhs)
+
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        """
+        Given u (left_vecs) and v (right_vecs),
+        Computes the derivatives of (u^t K v) w.r.t. K
+
+        Returns: derivative w.r.t. the arguments
+        """
+        raise NotImplementedError('The class %s requires a _quad_form_derivative function!' % self.__class__.__name__)
 
     def _size(self):
         """
@@ -74,13 +61,16 @@ class LazyVariable(object):
         Implement this method, rather than size().
         This is because size does some additional work
         """
-        raise NotImplementedError
+        raise NotImplementedError('The class %s requires a _size function!' % self.__class__.__name__)
 
     def _transpose_nonbatch(self):
         """
         Transposes non-batch dimensions (e.g. last two)
+
+        Implement this method, rather than transpose() or t().
+        This is because size does some additional work
         """
-        raise NotImplementedError
+        raise NotImplementedError('The class %s requires a _transpose_nonbatch function!' % self.__class__.__name__)
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         """
@@ -90,14 +80,14 @@ class LazyVariable(object):
         Only works for batch lazy variables
 
         """
-        raise NotImplementedError
+        raise NotImplementedError('The class %s requires a _batch_get_indices function!' % self.__class__.__name__)
 
     def _get_indices(self, left_indices, right_indices):
         """
         Returns entries of the matrix, indexed by left and right indices
         Only works for non-batch lazy variables
         """
-        raise NotImplementedError
+        raise NotImplementedError('The class %s requires a _get_indices function!' % self.__class__.__name__)
 
     def add_diag(self, diag):
         """
@@ -187,14 +177,18 @@ class LazyVariable(object):
             batch_size, n_rows, n_cols = size
 
         if n_rows < n_cols:
-            eye = Variable(self.tensor_cls(n_rows).fill_(1)).diag()
+            eye = self.tensor_cls(n_rows).fill_(1).diag()
+            if isinstance(self.representation()[0], Variable):
+                eye = Variable(eye)
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_rows)
                 return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
             else:
                 return self.t().matmul(eye).t().contiguous()
         else:
-            eye = Variable(self.tensor_cls(n_cols).fill_(1)).diag()
+            eye = self.tensor_cls(n_cols).fill_(1).diag()
+            if isinstance(self.representation()[0], Variable):
+                eye = Variable(eye)
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
@@ -306,13 +300,6 @@ class LazyVariable(object):
         Returns:
             - tensor - (self)^{-1} tensor
         """
-        if not hasattr(self, '_inv_matmul_class'):
-            if hasattr(self, '_derivative_quadratic_form_factory'):
-                dqff = self._derivative_quadratic_form_factory
-            else:
-                dqff = None
-            self._inv_matmul_class = function_factory.inv_matmul_factory(self._matmul_closure_factory, dqff)
-
         # Work out batch dimension, if necessary
         lazy_var = self
         if lazy_var.ndimension() == 3 and tensor.ndimension() == 3:
@@ -323,9 +310,8 @@ class LazyVariable(object):
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
 
-        inv_mm_cls = lazy_var._inv_matmul_class(preconditioner=self._preconditioner())
-        res = inv_mm_cls(*(list(lazy_var.representation()) + [tensor]))
-        return res
+        func = InvMatmul(self.representation_tree())
+        return func(tensor, *self.representation())
 
     def inv_quad(self, tensor):
         """
@@ -357,14 +343,6 @@ class LazyVariable(object):
             - scalar - tr( tensor^T (self)^{-1} tensor )
             - scalar - log determinant
         """
-        if not hasattr(self, '_inv_quad_log_det_class'):
-            if hasattr(self, '_derivative_quadratic_form_factory'):
-                dqff = self._derivative_quadratic_form_factory
-            else:
-                dqff = None
-            self._inv_quad_log_det_class = function_factory.inv_quad_log_det_factory(self._matmul_closure_factory,
-                                                                                     dqff)
-
         # Work out batch dimension, if necessary
         lazy_var = self
         if inv_quad_rhs is not None:
@@ -377,22 +355,24 @@ class LazyVariable(object):
             elif self.ndimension() > 3 or inv_quad_rhs.ndimension() > 3:
                 raise RuntimeError
 
-        args = lazy_var.representation()
         matrix_size = self.size(-1)
         batch_size = self.size(0) if self.ndimension() == 3 else None
         tensor_cls = self.tensor_cls
-        if inv_quad_rhs is None:
-            return lazy_var._inv_quad_log_det_class(matrix_size=matrix_size, batch_size=batch_size,
-                                                    tensor_cls=tensor_cls, inv_quad=False,
-                                                    log_det=log_det,
-                                                    preconditioner=self._preconditioner()
-                                                    )(*args)
-        else:
-            return lazy_var._inv_quad_log_det_class(matrix_size=matrix_size, batch_size=batch_size,
-                                                    tensor_cls=tensor_cls, inv_quad=True,
-                                                    log_det=log_det,
-                                                    preconditioner=self._preconditioner()
-                                                    )(*(list(args) + [inv_quad_rhs]))
+
+        args = lazy_var.representation()
+        if inv_quad_rhs is not None:
+            args = [inv_quad_rhs] + list(args)
+
+        res = InvQuadLogDet(
+            representation_tree=self.representation_tree(),
+            matrix_size=matrix_size,
+            batch_size=batch_size,
+            tensor_cls=tensor_cls,
+            inv_quad=(inv_quad_rhs is not None),
+            log_det=log_det,
+            preconditioner=self._preconditioner()
+        )(*args)
+        return res
 
     def log_det(self):
         """
@@ -417,11 +397,8 @@ class LazyVariable(object):
         Returns:
             - tensor
         """
-        if not hasattr(self, '_matmul_class'):
-            self._matmul_class = function_factory.matmul_factory(self._matmul_closure_factory,
-                                                                 self._derivative_quadratic_form_factory,
-                                                                 self._t_matmul_closure_factory)
 
+        # Work out batch dimension, if necessary
         lazy_var = self
         if lazy_var.ndimension() == 3 and tensor.ndimension() == 3:
             if lazy_var.size(0) == 1 and tensor.size(0) > 1:
@@ -431,8 +408,8 @@ class LazyVariable(object):
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
 
-        args = list(lazy_var.representation()) + [tensor]
-        return lazy_var._matmul_class()(*args)
+        func = Matmul(self.representation_tree())
+        return func(tensor, *self.representation())
 
     def mul(self, other):
         """
@@ -497,7 +474,7 @@ class LazyVariable(object):
         """
         return len(self.size())
 
-    def representation(self, *args):
+    def representation(self):
         """
         Returns the variables that are used to define the LazyVariable
         """
@@ -511,18 +488,23 @@ class LazyVariable(object):
                 raise RuntimeError('Representation of a LazyVariable should consist only of Variables')
         return tuple(representation)
 
+    def representation_tree(self):
+        return LazyVariableRepresentationTree(self)
+
     def root_decomposition(self):
         """
         Returns a (usually low-rank) root decomposotion lazy variable of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        dqff = self._derivative_quadratic_form_factory
-        self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
-        function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
-                                           batch_size=batch_size)
-        res, _ = function(*self.representation())
+        res, _ = RootDecomposition(
+            self.representation_tree(),
+            cls=self.tensor_cls,
+            size=self.size(-1),
+            max_iter=self.root_decomposition_size(),
+            batch_size=batch_size
+        )(*self.representation())
         return res
 
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
@@ -541,14 +523,16 @@ class LazyVariable(object):
             if initial_vectors.size(-1) > 1 and test_vectors is None:
                 raise RuntimeError('You must supply test vectors if you supply more than one initial vector')
 
-        dqff = self._derivative_quadratic_form_factory
-        self._root_decomp_class = function_factory.root_decomposition_factory(self._matmul_closure_factory, dqff)
         batch_size = self.size(0) if self.ndimension() == 3 else None
-        function = self._root_decomp_class(self.tensor_cls, self.size(-1), max_iter=self.root_decomposition_size(),
-                                           batch_size=batch_size, root=True, inverse=True,
-                                           initial_vector=initial_vectors)
-
-        roots, inv_roots = function(*self.representation())
+        roots, inv_roots = RootDecomposition(
+            self.representation_tree(),
+            cls=self.tensor_cls,
+            size=self.size(-1),
+            max_iter=self.root_decomposition_size(),
+            root=True,
+            inverse=True,
+            batch_size=batch_size
+        )(*self.representation())
 
         # Choose the best of the inv_roots, if there were more than one initial vectors
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
@@ -640,7 +624,10 @@ class LazyVariable(object):
     @property
     def tensor_cls(self):
         if not hasattr(self, '_tensor_cls'):
-            self._tensor_cls = _import_dotted_name(self.representation()[0].data.type())
+            first_item = self.representation()[0]
+            if isinstance(first_item, Variable):
+                first_item = first_item.data
+            self._tensor_cls = _import_dotted_name(first_item.type())
         return self._tensor_cls
 
     def zero_mean_mvn_samples(self, n_samples):

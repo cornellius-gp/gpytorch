@@ -24,35 +24,27 @@ class RootLazyVariable(LazyVariable):
         super(RootLazyVariable, self).__init__(root)
         self.root = root
 
-    def _matmul_closure_factory(self, *args):
-        super_closure = self.root._matmul_closure_factory(*args)
-        super_t_closure = self.root._t_matmul_closure_factory(*args)
+    def _matmul(self, rhs):
+        return self.root._matmul(self.root._t_matmul(rhs))
 
-        def closure(tensor):
-            return super_closure(super_t_closure(tensor))
+    def _t_matmul(self, rhs):
+        # Matrix is symmetric
+        return self._matmul(rhs)
 
-        return closure
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        if left_vecs.ndimension() == 1:
+            left_vecs = left_vecs.unsqueeze(0)
+            right_vecs = right_vecs.unsqueeze(0)
+        right_vecs_times_rhs = self.root._t_matmul(right_vecs)
+        left_vecs_times_lhs_t = self.root._t_matmul(left_vecs)
 
-    def _derivative_quadratic_form_factory(self, *args):
-        super_t_matmul_closure = self.root._t_matmul_closure_factory(*args)
-        super_deriv_closure = self.root._derivative_quadratic_form_factory(*args)
+        deriv_part_1 = self.root._quad_form_derivative(left_vecs, right_vecs_times_rhs)
+        deriv_part_2 = self.root._quad_form_derivative(right_vecs, left_vecs_times_lhs_t)
 
-        def closure(left_factor, right_factor):
-            if left_factor.ndimension() == 1:
-                left_factor = left_factor.unsqueeze(0)
-                right_factor = right_factor.unsqueeze(0)
-            right_factor_times_rhs = super_t_matmul_closure(right_factor.transpose(-1, -2)).transpose(-1, -2)
-            left_factor_times_lhs_t = super_t_matmul_closure(left_factor.transpose(-1, -2)).transpose(-1, -2)
-
-            deriv_part_1 = super_deriv_closure(left_factor, right_factor_times_rhs)
-            deriv_part_2 = super_deriv_closure(right_factor, left_factor_times_lhs_t)
-
-            deriv = []
-            for item_part_1, item_part_2 in zip(deriv_part_1, deriv_part_2):
-                deriv.append(item_part_1 + item_part_2)
-            return tuple(deriv)
-
-        return closure
+        deriv = []
+        for item_part_1, item_part_2 in zip(deriv_part_1, deriv_part_2):
+            deriv.append(item_part_1 + item_part_2)
+        return tuple(deriv)
 
     def _size(self):
         if self.root.ndimension() > 2:
@@ -93,7 +85,7 @@ class RootLazyVariable(LazyVariable):
 
     def diag(self):
         if isinstance(self.root, NonLazyVariable):
-            return (self.root.var ** 2).sum(-1)
+            return (self.root.tensor ** 2).sum(-1)
         else:
             return super(RootLazyVariable, self).diag()
 

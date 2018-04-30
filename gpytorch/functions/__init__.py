@@ -1,5 +1,6 @@
 from .add_diag import AddDiag
 from .dsmm import DSMM
+from .inv_matmul import InvMatmul
 from .normal_cdf import NormalCDF
 from .log_normal_cdf import LogNormalCDF
 
@@ -45,6 +46,71 @@ def log_normal_cdf(x):
     return LogNormalCDF()(x)
 
 
+def inv_matmul(mat, rhs):
+    """
+    Computes a linear solve with several right hand sides.
+
+    Args:
+        - mat (matrix nxn) - Matrix to solve with
+        - rhs (matrix nxk) - rhs matrix or vector
+
+    Returns:
+        - matrix nxk - (mat)^{-1} rhs
+    """
+    # Does the mat have its own way to do inv_matmuls?
+    if hasattr(mat, 'inv_matmul'):
+        return mat.inv_matmul(rhs)
+    else:
+        return InvMatmul(representation_tree=None)(rhs, mat)
+
+
+def inv_quad(mat, tensor):
+    """
+    Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
+    I.e. computes tr( tensor^T mat^{-1} tensor )
+
+    Args:
+        - tensor (tensor nxk) - Vector (or matrix) for inverse quad
+
+    Returns:
+        - tensor - tr( tensor^T (mat)^{-1} tensor )
+    """
+    res, _ = inv_quad_log_det(mat, inv_quad_rhs=tensor, log_det=False)
+    return res
+
+
+def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
+    """
+    Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
+    I.e. computes tr( tensor^T mat^{-1} tensor )
+    In addition, computes an (approximate) log determinant of the the matrix
+
+    Args:
+        - tensor (tensor nxk) - Vector (or matrix) for inverse quad
+
+    Returns:
+        - scalar - tr( tensor^T (mat)^{-1} tensor )
+        - scalar - log determinant
+    """
+    # Does the mat have its own way to do inv_matmuls?
+    if hasattr(mat, 'inv_quad_log_det'):
+        return mat.inv_quad_log_det(inv_quad_rhs, log_det)
+    else:
+        from ..lazy.non_lazy_variable import NonLazyVariable
+        return NonLazyVariable(mat).inv_quad_log_det(inv_quad_rhs, log_det)
+
+
+def log_det(mat):
+    """
+    Computes an (approximate) log determinant of the matrix
+
+    Returns:
+        - scalar - log determinant
+    """
+    _, res = inv_quad_log_det(mat, inv_quad_rhs=None, log_det=True)
+    return res
+
+
 def normal_cdf(x):
     """
     Computes the element-wise standard normal CDF of an input tensor x.
@@ -55,6 +121,8 @@ def normal_cdf(x):
 __all__ = [
     add_diag,
     dsmm,
+    inv_matmul,
+    inv_quad_log_det,
     log_normal_cdf,
     normal_cdf,
 ]
