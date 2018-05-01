@@ -127,6 +127,9 @@ class InvQuadLogDet(Function):
         to_save = list(matrix_args) + [solves, probe_vectors, probe_vector_norms]
         self.save_for_backward(*to_save)
 
+        if not settings.memory_efficient.on():
+            self._lazy_var = lazy_var
+
         return inv_quad_term, log_det_term
 
     def backward(self, inv_quad_grad_output, log_det_grad_output):
@@ -142,7 +145,11 @@ class InvQuadLogDet(Function):
         solves = self.saved_tensors[-3]
         probe_vectors = self.saved_tensors[-2]
         probe_vector_norms = self.saved_tensors[-1]
-        lazy_var = self.representation_tree(*matrix_args)
+
+        if hasattr(self, '_lazy_var'):
+            lazy_var = self._lazy_var
+        else:
+            lazy_var = self.representation_tree(*matrix_args)
 
         # Fix grad_output sizes
         if self.inv_quad:

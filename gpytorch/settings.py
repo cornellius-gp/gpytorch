@@ -135,3 +135,12 @@ class use_toeplitz(_feature_flag):
     Cons: slower on GPUs with < 10000 inducing points
     """
     _state = True
+
+
+class memory_efficient(_feature_flag):
+    """
+    Whether or not to use Toeplitz math with gridded data, grid inducing point modules
+    Pros: memory efficient, faster on CPU
+    Cons: slower on GPUs with < 10000 inducing points
+    """
+    _state = False

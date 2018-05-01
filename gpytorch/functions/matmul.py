@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from torch.autograd import Function
+from .. import settings
 
 
 class Matmul(Function):
@@ -11,10 +12,14 @@ class Matmul(Function):
         self.representation_tree = representation_tree
 
     def forward(self, rhs, *matrix_args):
-        res = self.representation_tree(*matrix_args)._matmul(rhs)
+        lazy_var = self.representation_tree(*matrix_args)
+        res = lazy_var._matmul(rhs)
 
         to_save = [rhs] + list(matrix_args)
         self.save_for_backward(*to_save)
+        if not settings.memory_efficient.on():
+            self._lazy_var = lazy_var
+
         return res
 
     def backward(self, grad_output):
@@ -36,7 +41,10 @@ class Matmul(Function):
 
         # input_2 gradient
         if self.needs_input_grad[0]:
-            lazy_var = self.representation_tree(*matrix_args)
+            if hasattr(self, '_lazy_var'):
+                lazy_var = self._lazy_var
+            else:
+                lazy_var = self.representation_tree(*matrix_args)
             rhs_grad = lazy_var._t_matmul(grad_output)
             rhs_grad = rhs_grad.view(rhs_shape)
 

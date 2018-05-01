@@ -15,13 +15,8 @@ class InvMatmul(Function):
         self.preconditioner = preconditioner
 
     def forward(self, rhs, *matrix_args):
-        matmul_closure = None
-        if self.representation_tree is None:
-            mat = matrix_args[0]
-            matmul_closure = mat.matmul
-        else:
-            lazy_var = self.representation_tree(*matrix_args)
-            matmul_closure = lazy_var._matmul
+        lazy_var = self.representation_tree(*matrix_args)
+        matmul_closure = lazy_var._matmul
 
         self.is_vector = False
         if rhs.ndimension() == 1:
@@ -42,6 +37,9 @@ class InvMatmul(Function):
 
         args = [res, rhs] + list(matrix_args)
         self.save_for_backward(*args)
+        if not settings.memory_efficient.on():
+            self._lazy_var = lazy_var
+
         return res
 
     def backward(self, grad_output):
@@ -51,14 +49,11 @@ class InvMatmul(Function):
         matrix_args = self.saved_tensors[2:]
 
         # Get matrix functions
-        lazy_var = None
-        matmul_closure = None
-        if self.representation_tree is None:
-            mat = matrix_args[0]
-            matmul_closure = mat.matmul
+        if hasattr(self, '_lazy_var'):
+            lazy_var = self._lazy_var
         else:
             lazy_var = self.representation_tree(*matrix_args)
-            matmul_closure = lazy_var._matmul
+        matmul_closure = lazy_var._matmul
 
         # Define gradient placeholders
         arg_grads = [None] * len(matrix_args)

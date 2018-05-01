@@ -1,6 +1,5 @@
 from .add_diag import AddDiag
 from .dsmm import DSMM
-from .inv_matmul import InvMatmul
 from .normal_cdf import NormalCDF
 from .log_normal_cdf import LogNormalCDF
 
@@ -61,7 +60,8 @@ def inv_matmul(mat, rhs):
     if hasattr(mat, 'inv_matmul'):
         return mat.inv_matmul(rhs)
     else:
-        return InvMatmul(representation_tree=None)(rhs, mat)
+        from ..lazy.non_lazy_variable import NonLazyVariable
+        return NonLazyVariable(mat).inv_matmul(rhs)
 
 
 def inv_quad(mat, tensor):

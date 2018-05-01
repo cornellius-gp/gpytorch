@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import torch
 from torch.autograd import Function, Variable
 from ..utils.lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
+from .. import settings
 
 
 class RootDecomposition(Function):
@@ -61,6 +62,8 @@ class RootDecomposition(Function):
 
         to_save = list(matrix_args) + [q_mat, root_evals, inverse]
         self.save_for_backward(*to_save)
+        if not settings.memory_efficient.on():
+            self._lazy_var = lazy_var
 
         if self.batch_size is None:
             root = root.squeeze(1) if root.numel() else root
@@ -105,7 +108,10 @@ class RootDecomposition(Function):
             inverse = self.saved_tensors[-1]
 
             # Get closure for matmul
-            lazy_var = self.representation_tree(*matrix_args)
+            if hasattr(self, '_lazy_var'):
+                lazy_var = self._lazy_var
+            else:
+                lazy_var = self.representation_tree(*matrix_args)
 
             # Get root inverse
             if not self.inverse:
