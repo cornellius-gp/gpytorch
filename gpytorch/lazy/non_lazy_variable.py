@@ -30,10 +30,7 @@ class NonLazyVariable(LazyVariable):
             left_vecs = left_vecs.unsqueeze(-1)
             right_vecs = right_vecs.unsqueeze(-1)
 
-        res = left_vecs.unsqueeze(-2) * right_vecs.unsqueeze(-3)
-
-        # Were there multiple vectors? If so, let's squeeze them
-        res = res.sum(-1)
+        res = left_vecs.matmul(right_vecs.transpose(-1, -2))
         return res,
 
     def _size(self):

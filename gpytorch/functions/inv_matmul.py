@@ -86,10 +86,10 @@ class InvMatmul(Function):
                         rhs_solves.mul_(-1)
                     )
                 else:
-                    arg_grads = torch.mul(
-                        grad_output_solves.unsqueeze(-2),
-                        rhs_solves.mul_(-1).unsqueeze(-3),
-                    ).sum(-1),
+                    arg_grads = torch.matmul(
+                        grad_output_solves,
+                        rhs_solves.mul_(-1).transpose(-1, -2),
+                    ),
 
             # input_2 gradient
             if self.needs_input_grad[0]:
