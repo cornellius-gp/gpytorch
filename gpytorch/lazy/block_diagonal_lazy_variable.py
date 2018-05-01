@@ -29,48 +29,34 @@ class BlockDiagonalLazyVariable(LazyVariable):
         self.base_lazy_variable = base_lazy_variable
         self.n_blocks = n_blocks
 
-    def _matmul_closure_factory(self, *args):
-        super_closure = self.base_lazy_variable._matmul_closure_factory(*args)
+    def _matmul(self, rhs):
         block_size = self.base_lazy_variable.size(-1)
+        isvector = rhs.ndimension() == 1
+        if isvector:
+            rhs = rhs.unsqueeze(1)
 
-        def closure(tensor):
-            isvector = tensor.ndimension() == 1
-            if isvector:
-                tensor = tensor.unsqueeze(1)
+        n_cols = rhs.size(-1)
+        rhs = rhs.contiguous().view(-1, block_size, n_cols)
 
-            n_cols = tensor.size(-1)
-            tensor = tensor.contiguous().view(-1, block_size, n_cols)
+        res = self.base_lazy_variable._matmul(rhs)
+        if self.n_blocks is not None:
+            res = res.contiguous().view(-1, self.n_blocks * res.size(1), res.size(2))
+        else:
+            res = res.contiguous().view(res.size(0) * res.size(1), res.size(2))
 
-            res = super_closure(tensor)
-            if self.n_blocks is not None:
-                res = res.contiguous().view(-1, self.n_blocks * res.size(1), res.size(2))
-            else:
-                res = res.contiguous().view(res.size(0) * res.size(1), res.size(2))
+        if isvector:
+            res = res.squeeze(-1)
+        return res
 
-            if isvector:
-                res = res.squeeze(-1)
-            return res
-
-        return closure
-
-    def _derivative_quadratic_form_factory(self, *args):
-        super_closure = self.base_lazy_variable._derivative_quadratic_form_factory(*args)
+    def _quad_form_derivative(self, left_vecs, right_vecs):
         block_size = self.base_lazy_variable.size(-1)
-
-        def closure(left_factor, right_factor):
-            if left_factor.ndimension() == 1:
-                left_factor = left_factor.unsqueeze(0)
-                right_factor = right_factor.unsqueeze(0)
-            left_factor = left_factor.transpose(-1, -2).contiguous()
-            left_factor = left_factor.view(-1, block_size, left_factor.size(-1))
-            left_factor = left_factor.transpose(-1, -2).contiguous()
-            right_factor = right_factor.transpose(-1, -2).contiguous()
-            right_factor = right_factor.view(-1, block_size, right_factor.size(-1))
-            right_factor = right_factor.transpose(-1, -2).contiguous()
-            res = super_closure(left_factor, right_factor)
-            return res
-
-        return closure
+        if left_vecs.ndimension() == 1:
+            left_vecs = left_vecs.unsqueeze(1)
+            right_vecs = right_vecs.unsqueeze(1)
+        left_vecs = left_vecs.view(-1, block_size, left_vecs.size(-1))
+        right_vecs = right_vecs.view(-1, block_size, right_vecs.size(-1))
+        res = self.base_lazy_variable._quad_form_derivative(left_vecs, right_vecs)
+        return res
 
     def _size(self):
         base_size = self.base_lazy_variable.size()

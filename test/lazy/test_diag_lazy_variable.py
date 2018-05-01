@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-import gpytorch
 from torch.autograd import Variable
 from gpytorch.lazy import DiagLazyVariable
 
@@ -29,8 +28,8 @@ class TestDiagLazyVariable(unittest.TestCase):
         diag_ev = DiagLazyVariable(diag_var2).evaluate()
 
         # Forward
-        res = diag_lv.inv_matmul(Variable(test_mat))
-        actual = gpytorch.inv_matmul(diag_ev, Variable(test_mat))
+        res = diag_lv.matmul(Variable(test_mat))
+        actual = torch.matmul(diag_ev, Variable(test_mat))
         self.assertLess(torch.norm(res.data - actual.data), 1e-4)
 
         # Backward
@@ -50,8 +49,8 @@ class TestDiagLazyVariable(unittest.TestCase):
         diag_ev = DiagLazyVariable(diag_var2).evaluate()
 
         # Forward
-        res = diag_lv.inv_matmul(Variable(test_mat))
-        actual = gpytorch.inv_matmul(diag_ev, Variable(test_mat))
+        res = diag_lv.matmul(Variable(test_mat))
+        actual = torch.matmul(diag_ev, Variable(test_mat))
         self.assertLess(torch.norm(res.data - actual.data), 1e-4)
 
         # Backward

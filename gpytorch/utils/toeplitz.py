@@ -201,8 +201,12 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
         - vector m - a vector so that the ith element is the result of \sum_j(u[j]*(dT/dc_i)*v[j])
     """
     if left_vectors.ndimension() == 1:
-        left_vectors = left_vectors.unsqueeze(0)
-        right_vectors = right_vectors.unsqueeze(0)
+        left_vectors = left_vectors.unsqueeze(1)
+        right_vectors = right_vectors.unsqueeze(1)
+
+    left_vectors = left_vectors.transpose(-1, -2)
+    right_vectors = right_vectors.transpose(-1, -2)
+
     if left_vectors.ndimension() == 3:
         batch = True
         batch_size, s, _ = left_vectors.size()

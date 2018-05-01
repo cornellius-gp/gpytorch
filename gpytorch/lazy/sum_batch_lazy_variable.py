@@ -23,54 +23,65 @@ class SumBatchLazyVariable(LazyVariable):
         """
         if base_lazy_variable.ndimension() != 3:
             raise RuntimeError('Base lazy variable must be a batch matrix (i.e. 3 dimensions)')
-        super(SumBatchLazyVariable, self).__init__(base_lazy_variable)
+        super(SumBatchLazyVariable, self).__init__(base_lazy_variable, sum_batch_size=sum_batch_size)
         self.base_lazy_variable = base_lazy_variable
         self.sum_batch_size = sum_batch_size
 
-    def _matmul_closure_factory(self, *args):
-        super_closure = self.base_lazy_variable._matmul_closure_factory(*args)
+    def _matmul(self, rhs):
+        isvector = rhs.ndimension() == 1
+        if isvector:
+            rhs = rhs.unsqueeze(1)
 
-        def closure(tensor):
-            isvector = tensor.ndimension() == 1
-            if isvector:
-                tensor = tensor.unsqueeze(1)
+        rhs = rhs.unsqueeze(0)
+        rhs_size = list(rhs.size())
+        rhs_size[0] = self.batch_size()
+        rhs = rhs.expand(*rhs_size)
 
-            tensor = tensor.unsqueeze(0)
-            tensor_size = list(tensor.size())
-            tensor_size[0] = self.batch_size()
-            tensor = tensor.expand(*tensor_size)
+        res = self.base_lazy_variable._matmul(rhs)
+        if self.sum_batch_size is not None:
+            res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
+            res = res.sum(1)
+        else:
+            res = res.sum(0)
 
-            res = super_closure(tensor)
-            if self.sum_batch_size is not None:
-                res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
-                res = res.sum(1)
-            else:
-                res = res.sum(0)
+        if isvector:
+            res = res.squeeze(-1)
+        return res
 
-            if isvector:
-                res = res.squeeze(-1)
-            return res
+    def _t_matmul(self, rhs):
+        isvector = rhs.ndimension() == 1
+        if isvector:
+            rhs = rhs.unsqueeze(1)
 
-        return closure
+        rhs = rhs.unsqueeze(0)
+        rhs_size = list(rhs.size())
+        rhs_size[0] = self.batch_size()
+        rhs = rhs.expand(*rhs_size)
 
-    def _derivative_quadratic_form_factory(self, *args):
-        super_closure = self.base_lazy_variable._derivative_quadratic_form_factory(*args)
+        res = self.base_lazy_variable._t_matmul(rhs)
+        if self.sum_batch_size is not None:
+            res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
+            res = res.sum(1)
+        else:
+            res = res.sum(0)
 
-        def closure(left_factor, right_factor):
-            left_factor = left_factor.unsqueeze(0)
-            left_factor_size = list(left_factor.size())
-            left_factor_size[0] = self.batch_size()
-            left_factor = left_factor.expand(*left_factor_size)
+        if isvector:
+            res = res.squeeze(-1)
+        return res
 
-            right_factor = right_factor.unsqueeze(0)
-            right_factor_size = list(right_factor.size())
-            right_factor_size[0] = self.batch_size()
-            right_factor = right_factor.expand(*right_factor_size)
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        left_vecs = left_vecs.unsqueeze(0)
+        left_vecs_size = list(left_vecs.size())
+        left_vecs_size[0] = self.batch_size()
+        left_vecs = left_vecs.expand(*left_vecs_size)
 
-            res = super_closure(left_factor, right_factor)
-            return res
+        right_vecs = right_vecs.unsqueeze(0)
+        right_vecs_size = list(right_vecs.size())
+        right_vecs_size[0] = self.batch_size()
+        right_vecs = right_vecs.expand(*right_vecs_size)
 
-        return closure
+        res = self.base_lazy_variable._quad_form_derivative(left_vecs, right_vecs)
+        return res
 
     def _size(self):
         base_size = self.base_lazy_variable.size()

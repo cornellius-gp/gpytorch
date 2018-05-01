@@ -18,24 +18,22 @@ class DiagLazyVariable(LazyVariable):
         super(DiagLazyVariable, self).__init__(diag)
         self._diag = diag
 
-    def _matmul_closure_factory(self, diag):
-        def closure(tensor):
-            if tensor.ndimension() == 1 and self.ndimension() == 2:
-                return diag * tensor
-            else:
-                res = diag.unsqueeze(-1).expand_as(tensor) * tensor
-                return res
+    def _matmul(self, rhs):
+        if rhs.ndimension() == 1 and self.ndimension() == 2:
+            return self._diag * rhs
+        else:
+            res = self._diag.unsqueeze(-1).expand_as(rhs) * rhs
+            return res
 
-        return closure
+    def _t_matmul(self, rhs):
+        # Matrix is symmetric
+        return self._matmul(rhs)
 
-    def _derivative_quadratic_form_factory(self, diag):
-        def closure(left_factor, right_factor):
-            res = left_factor * right_factor
-            if res.ndimension() > diag.ndimension():
-                res = res.sum(-2)
-            return res,
-
-        return closure
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        res = left_vecs * right_vecs
+        if res.ndimension() > self._diag.ndimension():
+            res = res.sum(-1)
+        return res,
 
     def _size(self):
         if self._diag.ndimension() == 2:
