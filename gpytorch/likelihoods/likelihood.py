@@ -3,10 +3,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import gpytorch
+from ..module import Module
 
 
-class Likelihood(gpytorch.Module):
+class Likelihood(Module):
     """
     A Likelihood in GPyTorch specifies the mapping from latent function values
     f to observed labels y.

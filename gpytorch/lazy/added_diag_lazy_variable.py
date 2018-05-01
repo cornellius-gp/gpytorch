@@ -3,11 +3,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from torch.autograd import Variable
 from .sum_lazy_variable import SumLazyVariable
 from .diag_lazy_variable import DiagLazyVariable
 from ..utils import pivoted_cholesky
-from torch.autograd import Variable
-import gpytorch
+from .. import settings
 
 
 class AddedDiagLazyVariable(SumLazyVariable):
@@ -36,11 +36,11 @@ class AddedDiagLazyVariable(SumLazyVariable):
             raise RuntimeError('AddedDiagLazyVariable only supports constant shifts (e.g. s in K + s*I)')
 
     def _preconditioner(self):
-        if gpytorch.settings.max_preconditioner_size.value() == 0:
+        if settings.max_preconditioner_size.value() == 0:
             return None
 
         if not hasattr(self, '_woodbury_cache'):
-            max_iter = gpytorch.settings.max_preconditioner_size.value()
+            max_iter = settings.max_preconditioner_size.value()
             self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_var, max_iter)
             self._woodbury_cache = pivoted_cholesky.woodbury_factor(self._piv_chol_self, self._diag_var.diag().data[0])
 
@@ -53,7 +53,7 @@ class AddedDiagLazyVariable(SumLazyVariable):
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False):
         inv_quad_term, log_det_term = super(AddedDiagLazyVariable, self).inv_quad_log_det(inv_quad_rhs, log_det)
 
-        if gpytorch.settings.max_preconditioner_size.value() > 0:
+        if settings.max_preconditioner_size.value() > 0:
             lr_flipped = self._piv_chol_self.matmul(self._piv_chol_self.transpose(-2, -1))
             lr_flipped.div_(self._diag_var.diag().data[0])
             lr_flipped = lr_flipped + lr_flipped.new(lr_flipped.size(0)).fill_(1).diag()

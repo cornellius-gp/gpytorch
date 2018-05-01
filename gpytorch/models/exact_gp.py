@@ -4,10 +4,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import warnings
-import gpytorch
 import torch
 from torch.autograd import Variable
 from ..module import Module
+from ..functions import exact_predictive_mean, exact_predictive_covar
 from ..random_variables import GaussianRandomVariable
 from ..likelihoods import GaussianLikelihood
 
@@ -99,11 +99,16 @@ class ExactGP(Module):
             full_mean, full_covar = full_output.representation()
 
             noise = self.likelihood.log_noise.exp()
-            predictive_mean, mean_cache = gpytorch.exact_predictive_mean(full_covar, full_mean,
-                                                                         Variable(self.train_targets),
-                                                                         noise, self.mean_cache)
-            predictive_covar, covar_cache = gpytorch.exact_predictive_covar(full_covar, self.train_targets.size(-1),
-                                                                            noise, self.covar_cache)
+            predictive_mean, mean_cache = exact_predictive_mean(
+                full_covar, full_mean,
+                Variable(self.train_targets),
+                noise, self.mean_cache
+            )
+            predictive_covar, covar_cache = exact_predictive_covar(
+                full_covar,
+                self.train_targets.size(-1),
+                noise, self.covar_cache
+            )
 
             self.mean_cache = mean_cache
             self.covar_cache = covar_cache

@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-import gpytorch
-from gpytorch.lazy import LazyVariable
+from ..functions import add_diag
+from ..lazy import LazyVariable
 
 
 class NonLazyVariable(LazyVariable):
@@ -46,7 +46,7 @@ class NonLazyVariable(LazyVariable):
         return self.tensor[left_indices.data, right_indices.data]
 
     def add_diag(self, diag):
-        return NonLazyVariable(gpytorch.add_diag(self.tensor, diag))
+        return NonLazyVariable(add_diag(self.tensor, diag))
 
     def diag(self):
         if self.tensor.ndimension() < 3:

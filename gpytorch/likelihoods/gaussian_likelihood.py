@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import torch
 import math
-import gpytorch
 from torch import nn
-from gpytorch.random_variables import GaussianRandomVariable
+from ..functions import add_diag
+from ..random_variables import GaussianRandomVariable
 from .likelihood import Likelihood
 
 
@@ -19,7 +19,7 @@ class GaussianLikelihood(Likelihood):
     def forward(self, input):
         assert(isinstance(input, GaussianRandomVariable))
         mean, covar = input.representation()
-        noise = gpytorch.add_diag(covar, self.log_noise.exp())
+        noise = add_diag(covar, self.log_noise.exp())
         return GaussianRandomVariable(mean, noise)
 
     def log_probability(self, input, target):

@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .. import Module
+from ..module import Module
 
 
 class MarginalLogLikelihood(Module):

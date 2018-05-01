@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 import math
 import torch
 from torch.autograd import Variable
-from ..functions.inv_matmul import InvMatmul
-from ..functions.inv_quad_log_det import InvQuadLogDet
-from ..functions.root_decomposition import RootDecomposition
-from ..functions.matmul import Matmul
+from ..functions._inv_matmul import InvMatmul
+from ..functions._inv_quad_log_det import InvQuadLogDet
+from ..functions._root_decomposition import RootDecomposition
+from ..functions._matmul import Matmul
 from .. import beta_features, settings
 from .lazy_variable_representation_tree import LazyVariableRepresentationTree
 

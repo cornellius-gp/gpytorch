@@ -3,10 +3,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import gpytorch
 import torch
 from torch.autograd import Variable
 from .. import beta_features
+from ..functions import inv_matmul
 from ..random_variables import GaussianRandomVariable
 from ..lazy import LazyVariable, RootLazyVariable, MatmulLazyVariable, NonLazyVariable
 from ..variational import MVNVariationalStrategy
@@ -66,7 +66,7 @@ class VariationalGP(AbstractVariationalGP):
 
             # Compute alpha cache
             if not self.has_computed_alpha:
-                self.alpha = gpytorch.inv_matmul(induc_induc_covar, variational_output.mean() - induc_mean)
+                self.alpha = inv_matmul(induc_induc_covar, variational_output.mean() - induc_mean)
                 self.has_computed_alpha = True
 
             # Compute chol cache, if necessary
@@ -76,7 +76,7 @@ class VariationalGP(AbstractVariationalGP):
                 self.prior_root_inv = induc_induc_covar.root_inv_decomposition()
 
                 chol_variational_output = variational_output.covar().root.evaluate()
-                self.variational_root = gpytorch.inv_matmul(induc_induc_covar, chol_variational_output)
+                self.variational_root = inv_matmul(induc_induc_covar, chol_variational_output)
                 self.has_computed_root = True
 
             # Test mean
@@ -94,7 +94,7 @@ class VariationalGP(AbstractVariationalGP):
             else:
                 if isinstance(induc_test_covar, LazyVariable):
                     induc_test_covar = induc_test_covar.evaluate()
-                inv_product = gpytorch.inv_matmul(induc_induc_covar, induc_test_covar)
+                inv_product = inv_matmul(induc_induc_covar, induc_test_covar)
                 factor = variational_output.covar().root_decomposition().matmul(inv_product)
                 right_factor = factor - inv_product
                 left_factor = (factor - induc_test_covar).transpose(-1, -2)
