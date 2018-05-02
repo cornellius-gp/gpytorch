@@ -1,3 +1,8 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from torch.autograd import Variable
 from ._add_diag import AddDiag
 from ._dsmm import DSMM
