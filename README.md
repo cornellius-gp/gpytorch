@@ -24,7 +24,7 @@ If you use GPyTorch, please cite the following papers:
   author={Gardner, Jacob R and Pleiss, Geoff and Wu, Ruihan and Weinberger, Kilian Q and Wilson, Andrew Gordon},
   booktitle={AISTATS},
   year={2018}
-
+}
 ```
 > [Pleiss, Geoff, Jacob R. Gardner, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Constant-Time Predictive Distributions for Gaussian Processes." arXiv preprint arXiv:1803.06058 (2018).](https://arxiv.org/abs/1803.06058)
 ```
