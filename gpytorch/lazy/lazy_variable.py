@@ -74,16 +74,21 @@ class LazyVariable(object):
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         """
+        This function is necessary if you're using a LazyVariable as part of
+        and InterpolatedLazyVariable
+
         Batch version of _get_indices
         For each matrix in batch_indices, returns entries of the matrix,
         indexed by left and right indices
         Only works for batch lazy variables
-
         """
         raise NotImplementedError('The class %s requires a _batch_get_indices function!' % self.__class__.__name__)
 
     def _get_indices(self, left_indices, right_indices):
         """
+        This function is necessary if you're using a LazyVariable as part of
+        and InterpolatedLazyVariable
+
         Returns entries of the matrix, indexed by left and right indices
         Only works for non-batch lazy variables
         """

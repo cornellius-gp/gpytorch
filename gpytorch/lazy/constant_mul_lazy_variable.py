@@ -22,6 +22,11 @@ class ConstantMulLazyVariable(LazyVariable):
         res = res * self.constant.expand_as(res)
         return res
 
+    def _t_matmul(self, rhs):
+        res = self.lazy_var._t_matmul(rhs)
+        res = res * self.constant.expand_as(res)
+        return res
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         res = list(self.lazy_var._quad_form_derivative(left_vecs, right_vecs))
         for i, item in enumerate(res):
@@ -44,6 +49,11 @@ class ConstantMulLazyVariable(LazyVariable):
     def _get_indices(self, left_indices, right_indices):
         res = self.lazy_var._get_indices(left_indices, right_indices)
         return self.constant.expand_as(res) * res
+
+    def diag(self):
+        res = self.lazy_var.diag()
+        res = res * self.constant.expand_as(res)
+        return res
 
     def repeat(self, *sizes):
         return ConstantMulLazyVariable(self.lazy_var.repeat(*sizes), self.constant)

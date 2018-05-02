@@ -262,6 +262,67 @@ class InterpolatedLazyVariable(LazyVariable):
         self._sparse_right_interp_t_memo = right_interp_t
         return self._sparse_right_interp_t_memo
 
+    def diag(self):
+        if isinstance(self.base_lazy_variable, RootLazyVariable):
+            res = left_interp(
+                self.left_interp_indices,
+                self.left_interp_values,
+                self.base_lazy_variable.root.evaluate()
+            )
+            return res.pow(2).sum(-1)
+        else:
+            batch_size = None
+            n_data = None
+            n_interp = None
+            if self.left_interp_indices.ndimension() == 3:
+                batch_size, n_data, n_interp = self.left_interp_indices.size()
+            else:
+                n_data, n_interp = self.left_interp_indices.size()
+
+            # Batch compute the non-zero values of the outer products w_left^k w_right^k^T
+            left_interp_values = self.left_interp_values.unsqueeze(-1)
+            right_interp_values = self.right_interp_values.unsqueeze(-2)
+            interp_values = torch.matmul(left_interp_values, right_interp_values).view(-1)
+
+            # Batch compute indicies that will be non-zero for row k
+            if batch_size is None:
+                left_interp_indices = self.left_interp_indices.unsqueeze(-1).expand(n_data, n_interp, n_interp)
+                right_interp_indices = self.right_interp_indices.unsqueeze(-2).expand(n_data, n_interp, n_interp)
+            else:
+                left_interp_indices = (
+                    self.left_interp_indices.unsqueeze(-1).
+                    expand(batch_size, n_data, n_interp, n_interp)
+                )
+                right_interp_indices = (
+                    self.right_interp_indices.unsqueeze(-2).
+                    expand(batch_size, n_data, n_interp, n_interp)
+                )
+
+            left_interp_indices = left_interp_indices.contiguous().view(-1)
+            right_interp_indices = right_interp_indices.contiguous().view(-1)
+
+            if self.base_lazy_variable.ndimension() == 3:
+                batch_indices = left_interp_indices.new(batch_size, 1)
+                torch.arange(0, batch_size, out=batch_indices)
+                batch_indices = batch_indices.repeat(1, n_data * n_interp * n_interp).view(-1)
+                base_var_vals = self.base_lazy_variable._batch_get_indices(
+                    batch_indices,
+                    left_interp_indices,
+                    right_interp_indices,
+                )
+            else:
+                base_var_vals = self.base_lazy_variable._get_indices(
+                    left_interp_indices,
+                    right_interp_indices,
+                )
+
+            res = (interp_values * base_var_vals)
+            if batch_size is None:
+                res = res.view(n_data, -1).sum(-1)
+            else:
+                res = res.view(batch_size, n_data, -1).sum(-1)
+            return res
+
     def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
         n_train = train_labels.size(-1)
         if precomputed_cache is None:

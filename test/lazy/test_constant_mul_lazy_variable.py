@@ -39,6 +39,15 @@ class TestConstantMulLazyVariable(unittest.TestCase):
         )
         self.assertLess(math.fabs(c1_var.grad.data[0] - c2_var.grad.data[0]), 1)
 
+    def test_diag(self):
+        c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
+        c2_var = Variable(torch.Tensor([12.5, 2.5, 5, 0]), requires_grad=True)
+        toeplitz_lazy_var = ToeplitzLazyVariable(c1_var) * 2.5
+        actual = ToeplitzLazyVariable(c2_var)
+
+        diff = torch.norm(actual.diag() - toeplitz_lazy_var.diag())
+        self.assertLess(diff, 1e-3)
+
     def test_getitem(self):
         c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
         c2_var = Variable(torch.Tensor([12.5, 2.5, 5, 0]), requires_grad=True)

@@ -85,14 +85,6 @@ class TestDiagLazyVariable(unittest.TestCase):
         diag_ev = diag_lv.evaluate()
         self.assertTrue(torch.equal(diag_lv[0:2].evaluate().data, diag_ev[0:2].data))
 
-    def test_get_indices(self):
-        diag_lv = DiagLazyVariable(Variable(diag))
-        res = diag_lv._get_indices(
-            Variable(torch.LongTensor([1, 2, 0])),
-            Variable(torch.LongTensor([0, 2, 0])),
-        )
-        self.assertTrue(torch.equal(res.data, torch.Tensor([0, 3, 1])))
-
 
 if __name__ == '__main__':
     unittest.main()

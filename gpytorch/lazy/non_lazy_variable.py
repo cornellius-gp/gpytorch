@@ -52,7 +52,14 @@ class NonLazyVariable(LazyVariable):
         if self.tensor.ndimension() < 3:
             return self.tensor.diag()
         else:
-            return super(NonLazyVariable, self).diag()
+            size = self.size()
+            row_col_iter = self.tensor_cls(size[-1]).long()
+            torch.arange(0, size[-1], out=row_col_iter)
+            batch_iter = self.tensor_cls(size[0]).long()
+            torch.arange(0, size[0], out=batch_iter)
+            batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
+            row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
+            return self.tensor[batch_iter, row_col_iter, row_col_iter].view(size[0], size[1])
 
     def evaluate(self):
         return self.tensor

@@ -48,6 +48,25 @@ class BlockDiagonalLazyVariable(LazyVariable):
             res = res.squeeze(-1)
         return res
 
+    def _t_matmul(self, rhs):
+        block_size = self.base_lazy_variable.size(-1)
+        isvector = rhs.ndimension() == 1
+        if isvector:
+            rhs = rhs.unsqueeze(1)
+
+        n_cols = rhs.size(-1)
+        rhs = rhs.contiguous().view(-1, block_size, n_cols)
+
+        res = self.base_lazy_variable._t_matmul(rhs)
+        if self.n_blocks is not None:
+            res = res.contiguous().view(-1, self.n_blocks * res.size(1), res.size(2))
+        else:
+            res = res.contiguous().view(res.size(0) * res.size(1), res.size(2))
+
+        if isvector:
+            res = res.squeeze(-1)
+        return res
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         block_size = self.base_lazy_variable.size(-1)
         if left_vecs.ndimension() == 1:
@@ -90,6 +109,14 @@ class BlockDiagonalLazyVariable(LazyVariable):
 
         res = self.base_lazy_variable._batch_get_indices(left_batch_indices, left_indices, right_indices)
         res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)
+        return res
+
+    def diag(self):
+        res = self.base_lazy_variable.diag()
+        if self.n_blocks:
+            res = res.view(res.size(0) // self.n_blocks, -1)
+        else:
+            res = res.view(-1)
         return res
 
     def mul(self, other):
