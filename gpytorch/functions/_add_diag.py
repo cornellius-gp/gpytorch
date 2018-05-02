@@ -13,10 +13,10 @@ class AddDiag(Function):
             raise RuntimeError('Input must be a single-element tensor')
         val = diag.item()
 
-        diag_mat = torch.eye(input.size(-2), input.size(-1)).type_as(input)
+        diag_mat = input.new(input.size(-2)).fill_(1).diag()
         if input.ndimension() == 3:
             diag_mat = diag_mat.unsqueeze(0).expand_as(input)
-        return diag_mat.mul_(val).add_(input)
+        return diag_mat.mul(val).add_(input)
 
     def backward(self, grad_output):
         input_grad = None

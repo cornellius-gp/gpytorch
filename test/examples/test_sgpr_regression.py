@@ -86,7 +86,7 @@ class TestSGPRRegression(unittest.TestCase):
 
         self.assertLess(mean_abs_error.data.squeeze().item(), 0.05)
 
-    def test_sgpsgpr_abs_error_cuda(self):
+    def test_sgpr_mean_abs_error_cuda(self):
         if torch.cuda.is_available():
             train_x, train_y, test_x, test_y = make_data(cuda=True)
             likelihood = GaussianLikelihood().cuda()
