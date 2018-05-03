@@ -25,5 +25,5 @@ class RBFKernel(Kernel):
 
     def forward(self, x1, x2):
         lengthscales = self.log_lengthscale.exp() + self.eps
-        diff = (x1.unsqueeze(2) - x2.unsqueeze(1)).div_(lengthscales.sqrt())
-        return diff.pow_(2).sum(-1).mul_(-1).exp_()
+        diff = (x1.unsqueeze(2) - x2.unsqueeze(1)).div_(lengthscales)
+        return diff.pow_(2).sum(-1).mul_(-0.5).exp_()

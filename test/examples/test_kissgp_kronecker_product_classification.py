@@ -33,7 +33,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
             grid_bounds=[(0, 3), (0, 3)],
         )
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
+        self.covar_module = RBFKernel(log_lengthscale_bounds=(-2.5, 3))
         self.register_parameter(
             'log_outputscale',
             nn.Parameter(torch.Tensor([0])),
@@ -79,7 +79,7 @@ class TestKissGPKroneckerProductClassification(unittest.TestCase):
 
         test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
+        self.assertLess(mean_abs_error.squeeze().item(), 1e-5)
 
 
 if __name__ == '__main__':
