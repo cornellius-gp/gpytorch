@@ -14,7 +14,7 @@ class MaternKernel(Kernel):
         self,
         nu,
         ard_num_dims=None,
-        log_lengthscale_bounds=(-10000, 10000),
+        log_lengthscale_bounds=(-100, 100),
         active_dims=None,
         eps=1e-8,
     ):
@@ -30,7 +30,7 @@ class MaternKernel(Kernel):
         self.eps = eps
 
     def forward(self, x1, x2):
-        lengthscale = (self.log_lengthscale.exp()).sqrt()
+        lengthscale = self.log_lengthscale.exp()
         mean = x1.mean(1).mean(0)
         x1_normed = (x1 - mean.unsqueeze(0).unsqueeze(1)).div(lengthscale)
         x2_normed = (x2 - mean.unsqueeze(0).unsqueeze(1)).div(lengthscale)
@@ -50,7 +50,7 @@ class MaternKernel(Kernel):
         if self.nu == 0.5:
             constant_component = 1
         elif self.nu == 1.5:
-            constant_component = ((math.sqrt(3) * distance_over_rho).add(1))
+            constant_component = (math.sqrt(3) * distance_over_rho).add(1)
         elif self.nu == 2.5:
             constant_component = (
                 (math.sqrt(5) * distance_over_rho).
