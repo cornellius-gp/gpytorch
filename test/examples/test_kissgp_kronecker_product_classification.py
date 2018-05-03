@@ -33,11 +33,11 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
             grid_bounds=[(0, 3), (0, 3)],
         )
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
+        self.covar_module = RBFKernel(log_lengthscale_bounds=(-10, 12))
         self.register_parameter(
             'log_outputscale',
             nn.Parameter(torch.Tensor([0])),
-            bounds=(-5, 6),
+            bounds=(-10, 12),
         )
 
     def forward(self, x):

@@ -47,11 +47,12 @@ def approx_equal(self, other, epsilon=1e-4):
         - bool
     """
     if self.size() != other.size():
-        raise RuntimeError('Size mismatch between self (%s) and other (%s)' % (str(self.size()), str(other.size())))
-    if isinstance(self, Variable):
-        self = self.data
-    if isinstance(other, Variable):
-        other = other.data
+        raise RuntimeError(
+            'Size mismatch between self ({self}) and other ({other})'.format(
+                self=self.size(),
+                other=other.size(),
+            )
+        )
     return torch.max((self - other).abs()) <= epsilon
 
 
@@ -65,8 +66,11 @@ def bdsmm(sparse, dense):
         indices = sparse._indices()[1:].clone()
         indices[0].add_(n_rows, batch_assignment)
         indices[1].add_(n_cols, batch_assignment)
-        sparse_2d = sparse.new(indices, sparse._values(),
-                               torch.Size((batch_size * n_rows, batch_size * n_cols)))
+        sparse_2d = sparse.new(
+            indices,
+            sparse._values(),
+            torch.Size((batch_size * n_rows, batch_size * n_cols)),
+        )
 
         if dense.size(0) == 1:
             dense = dense.repeat(batch_size, 1, 1)
@@ -273,8 +277,10 @@ def sparse_repeat(sparse, *repeat_sizes):
     orig_nvalues = sparse._indices().size(1)
 
     # Expand the number of dimensions to match repeat_sizes
-    indices = torch.cat([sparse._indices().new().resize_(new_ndim - orig_ndim, orig_nvalues).zero_(),
-                         sparse._indices()])
+    indices = torch.cat([
+        sparse._indices().new().resize_(new_ndim - orig_ndim, orig_nvalues).zero_(),
+        sparse._indices(),
+    ])
     values = sparse._values()
     size = [1] * (new_ndim - orig_ndim) + list(sparse.size())
 
