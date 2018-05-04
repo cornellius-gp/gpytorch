@@ -12,12 +12,13 @@ class CholLazyVariable(RootLazyVariable):
         # Check that we have a lower triangular matrix
         mask = Variable(
             chol.data.new(chol.size(-2), chol.size(-2)).
-            fill_(1).
-            tril_()
+            fill_(-1).
+            tril_().
+            add_(1)
         )
         if chol.ndimension() == 3:
             mask.data.unsqueeze_(0)
-        if not torch.equal(chol, chol.mul(mask)):
+        if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
             raise RuntimeError('CholLazyVaraiable should take a lower-triangular matrix in the constructor.')
 
         # Run super constructor
