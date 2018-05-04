@@ -135,7 +135,7 @@ class BlockDiagonalLazyVariable(LazyVariable):
         if self.n_blocks is None:
             res = res.view(-1, n_samples)
         else:
-            res = res.view(self.size(0) / self.n_blocks, -1, n_samples)
+            res = res.view(self.base_lazy_variable.size(0) // self.n_blocks, -1, n_samples)
         return res
 
     def __getitem__(self, index):
