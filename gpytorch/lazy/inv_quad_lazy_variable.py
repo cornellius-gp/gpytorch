@@ -4,6 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
+import gpytorch
+from ..utils import pivoted_cholesky
 from .lazy_variable import LazyVariable
 from ..functions import inv_matmul, inv_quad_log_det
 
@@ -28,6 +30,12 @@ class InvQuadLazyVariable(LazyVariable):
         self.right_mat = right_mat
         self.added_diag = added_diag
 
+    def mul(self, other):
+        if isinstance(other, int) or isinstance(other, float) or (torch.is_tensor(other) and other.numel() == 1):
+            return InvQuadLazyVariable(self.inv_mat, self.left_mat * other, self.right_mat, self.added_diag * other)
+        else:
+            return super(InvQuadLazyVariable, self).mul(other)
+
     def _matmul(self, rhs):
         res = self.right_mat.transpose(-1, -2).matmul(rhs)
         res = inv_matmul(self.inv_mat, res)
@@ -37,6 +45,22 @@ class InvQuadLazyVariable(LazyVariable):
         else:
             res.addcmul_(self.added_diag.unsqueeze(-1), rhs)
         return res
+
+    def _preconditioner(self):
+        if gpytorch.settings.max_preconditioner_size.value() == 0:
+            return None
+
+        if not hasattr(self, '_woodbury_cache'):
+            max_iter = gpytorch.settings.max_preconditioner_size.value()
+            lv_no_diag = InvQuadLazyVariable(self.inv_mat, self.left_mat, self.right_mat, None)
+            self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(lv_no_diag, max_iter)
+            self._woodbury_cache = pivoted_cholesky.woodbury_factor(self._piv_chol_self, self.added_diag)
+
+        def precondition_closure(tensor):
+            return pivoted_cholesky.woodbury_solve(tensor, self._piv_chol_self,
+                                                   self._woodbury_cache, self.added_diag)
+
+        return precondition_closure
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         left_mat_left_vecs = self.left_mat.transpose(-1, -2).matmul(left_vecs)

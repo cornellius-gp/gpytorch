@@ -4,7 +4,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import math
+import warnings
 import torch
+import gpytorch
 from torch.autograd import Variable
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
@@ -29,6 +31,8 @@ class LazyVariable(object):
         self._args_memo = args
 
     def _preconditioner(self):
+        if gpytorch.settings.max_preconditioner_size.value() > 0:
+            warnings.warn('Max preconditioner size was >0, but this lazy Variable does not define a preconditioner.')
         return None
 
     def _matmul(self, rhs):
