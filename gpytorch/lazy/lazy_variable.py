@@ -315,7 +315,7 @@ class LazyVariable(object):
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
 
-        func = InvMatmul(self.representation_tree())
+        func = InvMatmul(self.representation_tree(), preconditioner=self._preconditioner())
         return func(tensor, *self.representation())
 
     def inv_quad(self, tensor):
