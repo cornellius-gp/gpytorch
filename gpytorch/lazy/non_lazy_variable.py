@@ -48,6 +48,10 @@ class NonLazyVariable(LazyVariable):
     def add_diag(self, diag):
         return NonLazyVariable(add_diag(self.tensor, diag))
 
+    def _preconditioner(self):
+        # For a NonLazyVariable, it is intended to not use preconditioning, even when called for.
+        return None
+
     def diag(self):
         if self.tensor.ndimension() < 3:
             return self.tensor.diag()
