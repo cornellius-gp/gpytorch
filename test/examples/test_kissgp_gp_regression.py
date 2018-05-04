@@ -82,6 +82,13 @@ class TestKISSGPRegression(unittest.TestCase):
             optimizer.n_iter += 1
             optimizer.step()
 
+        for param in gp_model.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        for param in likelihood.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+
         # Test the model
         gp_model.eval()
         likelihood.eval()
@@ -114,6 +121,13 @@ class TestKISSGPRegression(unittest.TestCase):
                 loss.backward()
                 optimizer.n_iter += 1
                 optimizer.step()
+
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
 
             # Test the model
             gp_model.eval()
@@ -153,6 +167,13 @@ class TestKISSGPRegression(unittest.TestCase):
                 loss.backward()
                 optimizer.n_iter += 1
                 optimizer.step()
+
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
 
             # Test the model
             gp_model.eval()

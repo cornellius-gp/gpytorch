@@ -67,7 +67,7 @@ class TestKissGPKroneckerProductRegression(unittest.TestCase):
     def setUp(self):
         if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
             self.rng_state = torch.get_rng_state()
-            torch.manual_seed(3)
+            torch.manual_seed(0)
 
     def tearDown(self):
         if hasattr(self, 'rng_state'):
@@ -82,19 +82,26 @@ class TestKissGPKroneckerProductRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        with gpytorch.settings.max_preconditioner_size(10):
+        with gpytorch.settings.max_preconditioner_size(5):
             optimizer = optim.Adam(
                 list(gp_model.parameters()) + list(likelihood.parameters()),
                 lr=0.1,
             )
             optimizer.n_iter = 0
-            for _ in range(20):
+            for _ in range(10):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
                 loss = -mll(output, train_y)
                 loss.backward()
                 optimizer.n_iter += 1
                 optimizer.step()
+
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
 
             # Test the model
             gp_model.eval()
