@@ -698,7 +698,8 @@ class LazyVariable(object):
         left_index = index[-2]
         right_index = index[-1]
 
-        if left_index == slice(None, None, None) and right_index == slice(None, None, None):
+        if not torch.is_tensor(left_index) and left_index == slice(None, None, None) and \
+                not torch.is_tensor(right_index) and right_index == slice(None, None, None):
             return new_lazy_variable
 
         batch_sizes = list(new_lazy_variable.size()[:-2])
