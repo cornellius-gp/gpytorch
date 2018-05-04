@@ -31,7 +31,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         n_data = target.size(-1)
 
         # Get log determininat and first part of quadratic form
-        inv_quad, log_det = covar.inv_quad_log_det(inv_quad_rhs=target.unsqueeze(-1), log_det=True)
+        inv_quad, log_det = covar.inv_quad_log_det(inv_quad_rhs=(target - mean).unsqueeze(-1), log_det=True)
         res = -0.5 * sum([
             inv_quad,
             log_det,
