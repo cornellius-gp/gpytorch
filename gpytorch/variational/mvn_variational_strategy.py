@@ -34,3 +34,8 @@ class MVNVariationalStrategy(VariationalStrategy):
             -float(mean_diffs.size(-1)),
         ])
         return res
+
+    def trace_diff(self):
+        prior_covar = self.prior_dist.covar()
+        variational_covar = self.variational_dist.covar()
+        return (prior_covar.diag() - variational_covar.diag()).sum()

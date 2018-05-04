@@ -4,10 +4,12 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import math
+import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
 from ..lazy import LazyVariable, NonLazyVariable
 from ..likelihoods import GaussianLikelihood
 from ..random_variables import GaussianRandomVariable
+from ..variational import MVNVariationalStrategy
 
 
 class ExactMarginalLogLikelihood(MarginalLogLikelihood):
@@ -32,9 +34,19 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
         # Get log determininat and first part of quadratic form
         inv_quad, log_det = covar.inv_quad_log_det(inv_quad_rhs=(target - mean).unsqueeze(-1), log_det=True)
+
+        # Add terms for SGPR / when inducing points are learned
+        trace_diff = torch.zeros_like(inv_quad)
+        for variational_strategy in self.model.variational_strategies():
+            if isinstance(variational_strategy, MVNVariationalStrategy):
+                trace_diff = trace_diff.add(variational_strategy.trace_diff())
+        trace_diff = trace_diff / self.likelihood.log_noise.exp()
+
         res = -0.5 * sum([
             inv_quad,
             log_det,
-            n_data * math.log(2 * math.pi)
+            n_data * math.log(2 * math.pi),
+            -trace_diff
         ])
+
         return res.div(n_data)
