@@ -30,9 +30,9 @@ class AddDiag(Function):
             if grad_output.numel() == 1:
                 diag_grad.fill_(grad_output.item())
             elif grad_output.ndimension() == 3:
-                batch_indices = grad_output.new(grad_output.size(0), 1)
+                batch_indices = grad_output.new(grad_output.size(0), 1).long()
                 torch.arange(0, grad_output.size(0), out=batch_indices[:, 0])
-                diag_indices = grad_output.new(grad_output.size(1), 1)
+                diag_indices = grad_output.new(grad_output.size(1), 1).long()
                 torch.arange(0, grad_output.size(1), out=diag_indices[:, 0])
 
                 batch_indices = batch_indices.repeat(1, grad_output.size(1)).view(-1)
