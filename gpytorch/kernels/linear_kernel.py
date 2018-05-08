@@ -42,4 +42,4 @@ class LinearKernel(Kernel):
                 (x2 - self.offset).transpose(2, 1)
             )
 
-        return prod + self.variance.expand_as(prod)
+        return prod + self.variance.expand(prod.size())
