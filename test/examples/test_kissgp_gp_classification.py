@@ -26,9 +26,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.register_parameter(
-            'log_outputscale',
-            nn.Parameter(torch.Tensor([0])),
-            bounds=(-5, 6),
+            "log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
         )
 
     def forward(self, x):
@@ -45,9 +43,7 @@ class TestKISSGPClassification(unittest.TestCase):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
         mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-            likelihood,
-            model,
-            n_data=len(train_y),
+            likelihood, model, n_data=len(train_y)
         )
 
         # Find optimal model hyperparameters
@@ -75,12 +71,11 @@ class TestKISSGPClassification(unittest.TestCase):
         model.eval()
         likelihood.eval()
         test_preds = (
-            likelihood(model(train_x)).mean().ge(0.5).float().
-            mul(2).sub(1).squeeze()
+            likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
         )
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

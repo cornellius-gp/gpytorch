@@ -38,9 +38,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.covar_module = GridInterpolationKernel(
-            self.base_covar_module,
-            grid_size=50,
-            grid_bounds=[(0, 1)],
+            self.base_covar_module, grid_size=50, grid_bounds=[(0, 1)]
         )
 
     def forward(self, x):
@@ -50,13 +48,17 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 
 
 class TestKISSGPRegression(unittest.TestCase):
+
     def setUp(self):
-        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+        if (
+            os.getenv("UNLOCK_SEED") is None
+            or os.getenv("UNLOCK_SEED").lower() == "false"
+        ):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
     def tearDown(self):
-        if hasattr(self, 'rng_state'):
+        if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
     def test_kissgp_gp_mean_abs_error(self):
@@ -70,8 +72,7 @@ class TestKISSGPRegression(unittest.TestCase):
         likelihood.train()
 
         optimizer = optim.Adam(
-            list(gp_model.parameters()) + list(likelihood.parameters()),
-            lr=0.1,
+            list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
         )
         optimizer.n_iter = 0
         for _ in range(25):
@@ -110,8 +111,7 @@ class TestKISSGPRegression(unittest.TestCase):
             likelihood.train()
 
             optimizer = optim.Adam(
-                list(gp_model.parameters()) + list(likelihood.parameters()),
-                lr=0.1,
+                list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
             )
             optimizer.n_iter = 0
             for _ in range(25):
@@ -156,8 +156,7 @@ class TestKISSGPRegression(unittest.TestCase):
             likelihood.train()
 
             optimizer = optim.Adam(
-                list(gp_model.parameters()) + list(likelihood.parameters()),
-                lr=0.1,
+                list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
             )
             optimizer.n_iter = 0
             for _ in range(25):
@@ -184,5 +183,5 @@ class TestKISSGPRegression(unittest.TestCase):
             self.assertLess(mean_abs_error.data.squeeze().item(), 0.02)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

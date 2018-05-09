@@ -43,12 +43,14 @@ class TestMatmulLazyVariable(unittest.TestCase):
         lhs = Variable(torch.randn(4, 5, 3))
         rhs = Variable(torch.randn(4, 3, 5))
         actual = lhs.matmul(rhs)
-        actual_diag = torch.cat([
-            actual[0].diag().unsqueeze(0),
-            actual[1].diag().unsqueeze(0),
-            actual[2].diag().unsqueeze(0),
-            actual[3].diag().unsqueeze(0),
-        ])
+        actual_diag = torch.cat(
+            [
+                actual[0].diag().unsqueeze(0),
+                actual[1].diag().unsqueeze(0),
+                actual[2].diag().unsqueeze(0),
+                actual[3].diag().unsqueeze(0),
+            ]
+        )
 
         res = MatmulLazyVariable(lhs, rhs)
         self.assertTrue(approx_equal(actual_diag.data, res.diag().data))
@@ -68,5 +70,5 @@ class TestMatmulLazyVariable(unittest.TestCase):
         self.assertTrue(approx_equal(actual.t().data, res.t().evaluate().data))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -10,21 +10,9 @@ from gpytorch.lazy import KroneckerProductLazyVariable, NonLazyVariable
 from gpytorch.utils import approx_equal
 
 
-a = torch.Tensor([
-    [4, 0, 2],
-    [0, 1, -1],
-    [2, -1, 3],
-])
-b = torch.Tensor([
-    [2, 1],
-    [1, 2],
-])
-c = torch.Tensor([
-    [4, 0, 1, 0],
-    [0, 1, -1, 0],
-    [1, -1, 3, 0],
-    [0, 0, 0, 1],
-])
+a = torch.Tensor([[4, 0, 2], [0, 1, -1], [2, -1, 3]])
+b = torch.Tensor([[2, 1], [1, 2]])
+c = torch.Tensor([[4, 0, 1, 0], [0, 1, -1, 0], [1, -1, 3, 0], [0, 0, 0, 1]])
 
 
 def kron(a, b):
@@ -53,9 +41,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         cvar = Variable(c, requires_grad=True)
         vec = Variable(torch.randn(24), requires_grad=True)
         kp_lazy_var = KroneckerProductLazyVariable(
-            NonLazyVariable(avar),
-            NonLazyVariable(bvar),
-            NonLazyVariable(cvar),
+            NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar)
         )
         res = kp_lazy_var.matmul(vec)
 
@@ -80,9 +66,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         cvar = Variable(c, requires_grad=True)
         mat = Variable(torch.randn(24, 5), requires_grad=True)
         kp_lazy_var = KroneckerProductLazyVariable(
-            NonLazyVariable(avar),
-            NonLazyVariable(bvar),
-            NonLazyVariable(cvar),
+            NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar)
         )
         res = kp_lazy_var.matmul(mat)
 
@@ -106,9 +90,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         cvar = Variable(c.repeat(3, 1, 1), requires_grad=True)
         mat = Variable(torch.randn(3, 24, 5), requires_grad=True)
         kp_lazy_var = KroneckerProductLazyVariable(
-            NonLazyVariable(avar),
-            NonLazyVariable(bvar),
-            NonLazyVariable(cvar),
+            NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar)
         )
         res = kp_lazy_var.matmul(mat)
 
@@ -131,9 +113,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         bvar = Variable(b)
         cvar = Variable(c)
         kp_lazy_var = KroneckerProductLazyVariable(
-            NonLazyVariable(avar),
-            NonLazyVariable(bvar),
-            NonLazyVariable(cvar),
+            NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar)
         )
         res = kp_lazy_var.evaluate()
         actual = kron(kron(avar, bvar), cvar)
@@ -143,9 +123,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         bvar = Variable(b.repeat(3, 1, 1))
         cvar = Variable(c.repeat(3, 1, 1))
         kp_lazy_var = KroneckerProductLazyVariable(
-            NonLazyVariable(avar),
-            NonLazyVariable(bvar),
-            NonLazyVariable(cvar),
+            NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar)
         )
         res = kp_lazy_var.evaluate()
         actual = kron(kron(avar, bvar), cvar)
@@ -156,9 +134,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         bvar = Variable(b)
         cvar = Variable(c)
         kp_lazy_var = KroneckerProductLazyVariable(
-            NonLazyVariable(avar),
-            NonLazyVariable(bvar),
-            NonLazyVariable(cvar),
+            NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar)
         )
         res = kp_lazy_var.diag()
         actual = kron(kron(avar, bvar), cvar).diag()
@@ -168,9 +144,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         bvar = Variable(b.repeat(3, 1, 1))
         cvar = Variable(c.repeat(3, 1, 1))
         kp_lazy_var = KroneckerProductLazyVariable(
-            NonLazyVariable(avar),
-            NonLazyVariable(bvar),
-            NonLazyVariable(cvar),
+            NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar)
         )
         res = kp_lazy_var.diag()
         actual_mat = kron(kron(avar, bvar), cvar)
@@ -180,5 +154,5 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         self.assertTrue(approx_equal(res.data, actual.data))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

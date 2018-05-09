@@ -14,9 +14,7 @@ class TestSparse(unittest.TestCase):
         self.indices = torch.LongTensor([[0, 1, 2, 3, 4], [2, 1, 0, 0, 1]])
         self.values = torch.FloatTensor([3, 4, 5, 2, 6])
         self.sparse = torch.sparse.FloatTensor(
-            self.indices,
-            self.values,
-            torch.Size((5, 3)),
+            self.indices, self.values, torch.Size((5, 3))
         )
         self.dense = self.sparse.to_dense()
 
@@ -83,5 +81,5 @@ class TestSparse(unittest.TestCase):
         self.assertTrue(torch.equal(actual.to_dense(), res.to_dense()))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

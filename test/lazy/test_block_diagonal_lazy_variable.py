@@ -26,7 +26,11 @@ class TestBlockDiagonalLazyVariable(unittest.TestCase):
 
         actual_block_diagonal = Variable(torch.zeros(32, 32))
         for i in range(8):
-            actual_block_diagonal[i * 4:(i + 1) * 4, i * 4:(i + 1) * 4] = block_var_copy[i]
+            actual_block_diagonal[
+                i * 4 : (i + 1) * 4, i * 4 : (i + 1) * 4
+            ] = block_var_copy[
+                i
+            ]
 
         res = BlockDiagonalLazyVariable(NonLazyVariable(block_var)).matmul(rhs_var)
         actual = actual_block_diagonal.matmul(rhs_var_copy)
@@ -50,9 +54,15 @@ class TestBlockDiagonalLazyVariable(unittest.TestCase):
         actual_block_diagonal = Variable(torch.zeros(2, 16, 16))
         for i in range(2):
             for j in range(4):
-                actual_block_diagonal[i, j * 4:(j + 1) * 4, j * 4:(j + 1) * 4] = block_var_copy[i * 4 + j]
+                actual_block_diagonal[
+                    i, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4
+                ] = block_var_copy[
+                    i * 4 + j
+                ]
 
-        res = BlockDiagonalLazyVariable(NonLazyVariable(block_var), n_blocks=4).matmul(rhs_var)
+        res = BlockDiagonalLazyVariable(NonLazyVariable(block_var), n_blocks=4).matmul(
+            rhs_var
+        )
         actual = actual_block_diagonal.matmul(rhs_var_copy)
 
         self.assertTrue(approx_equal(res.data, actual.data))
@@ -67,7 +77,9 @@ class TestBlockDiagonalLazyVariable(unittest.TestCase):
         block_var = Variable(blocks, requires_grad=True)
         actual_block_diagonal = Variable(torch.zeros(32, 32))
         for i in range(8):
-            actual_block_diagonal[i * 4:(i + 1) * 4, i * 4:(i + 1) * 4] = block_var[i]
+            actual_block_diagonal[i * 4 : (i + 1) * 4, i * 4 : (i + 1) * 4] = block_var[
+                i
+            ]
 
         res = BlockDiagonalLazyVariable(NonLazyVariable(block_var)).diag()
         actual = actual_block_diagonal.diag()
@@ -78,20 +90,28 @@ class TestBlockDiagonalLazyVariable(unittest.TestCase):
         actual_block_diagonal = Variable(torch.zeros(2, 16, 16))
         for i in range(2):
             for j in range(4):
-                actual_block_diagonal[i, j * 4:(j + 1) * 4, j * 4:(j + 1) * 4] = block_var[i * 4 + j]
+                actual_block_diagonal[
+                    i, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4
+                ] = block_var[
+                    i * 4 + j
+                ]
 
         res = BlockDiagonalLazyVariable(NonLazyVariable(block_var), n_blocks=4).diag()
-        actual = torch.cat([
-            actual_block_diagonal[0].diag().unsqueeze(0),
-            actual_block_diagonal[1].diag().unsqueeze(0),
-        ])
+        actual = torch.cat(
+            [
+                actual_block_diagonal[0].diag().unsqueeze(0),
+                actual_block_diagonal[1].diag().unsqueeze(0),
+            ]
+        )
         self.assertTrue(approx_equal(actual.data, res.data))
 
     def test_getitem(self):
         block_var = Variable(blocks, requires_grad=True)
         actual_block_diagonal = Variable(torch.zeros(32, 32))
         for i in range(8):
-            actual_block_diagonal[i * 4:(i + 1) * 4, i * 4:(i + 1) * 4] = block_var[i]
+            actual_block_diagonal[i * 4 : (i + 1) * 4, i * 4 : (i + 1) * 4] = block_var[
+                i
+            ]
 
         res = BlockDiagonalLazyVariable(NonLazyVariable(block_var))[:5, 2]
         actual = actual_block_diagonal[:5, 2]
@@ -103,31 +123,29 @@ class TestBlockDiagonalLazyVariable(unittest.TestCase):
         for i in range(2):
             for j in range(4):
                 actual_block_diagonal[
-                    i, j * 4:(j + 1) * 4,
-                    j * 4:(j + 1) * 4
-                ] = block_var[i * 4 + j]
+                    i, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4
+                ] = block_var[
+                    i * 4 + j
+                ]
 
-        res = BlockDiagonalLazyVariable(
-            NonLazyVariable(block_var),
-            n_blocks=4,
-        )[0].evaluate()
+        res = BlockDiagonalLazyVariable(NonLazyVariable(block_var), n_blocks=4)[
+            0
+        ].evaluate()
         actual = actual_block_diagonal[0]
         self.assertTrue(approx_equal(actual.data, res.data))
 
-        res = BlockDiagonalLazyVariable(
-            NonLazyVariable(block_var),
-            n_blocks=4,
-        )[0, :5].evaluate()
+        res = BlockDiagonalLazyVariable(NonLazyVariable(block_var), n_blocks=4)[
+            0, :5
+        ].evaluate()
         actual = actual_block_diagonal[0, :5]
         self.assertTrue(approx_equal(actual.data, res.data))
 
-        res = BlockDiagonalLazyVariable(
-            NonLazyVariable(block_var),
-            n_blocks=4,
-        )[1:, :5, 2]
+        res = BlockDiagonalLazyVariable(NonLazyVariable(block_var), n_blocks=4)[
+            1:, :5, 2
+        ]
         actual = actual_block_diagonal[1:, :5, 2]
         self.assertTrue(approx_equal(actual.data, res.data))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

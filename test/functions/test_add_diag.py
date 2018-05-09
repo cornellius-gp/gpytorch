@@ -18,11 +18,7 @@ class AddDiagTest(unittest.TestCase):
         b = Variable(torch.ones(3, 3))
         output = gpytorch.add_diag(b, a)
 
-        actual = torch.Tensor([
-            [6, 1, 1],
-            [1, 6, 1],
-            [1, 1, 6],
-        ])
+        actual = torch.Tensor([[6, 1, 1], [1, 6, 1], [1, 1, 6]])
         self.assertLess(torch.norm(output.data - actual), 1e-7)
 
     def test_backward(self):
@@ -37,5 +33,5 @@ class AddDiagTest(unittest.TestCase):
         self.assertLess(torch.norm(b.grad.data - grad), 1e-6)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

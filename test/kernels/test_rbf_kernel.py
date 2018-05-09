@@ -35,11 +35,9 @@ class TestRBFKernel(unittest.TestCase):
         kernel.initialize(log_lengthscale=math.log(lengthscale))
         kernel.eval()
 
-        actual = torch.Tensor([
-            [16, 4],
-            [4, 0],
-            [64, 36],
-        ]).mul_(-0.5).div_(lengthscale**2).exp()
+        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
+            lengthscale ** 2
+        ).exp()
         res = kernel(a, b)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -51,11 +49,9 @@ class TestRBFKernel(unittest.TestCase):
         kernel = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel.eval()
 
-        actual = torch.Tensor([
-            [16, 4],
-            [4, 0],
-            [64, 36],
-        ]).mul_(-0.5).div_(lengthscale**2).exp()
+        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
+            lengthscale ** 2
+        ).exp()
         res = kernel(a, b)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -104,5 +100,5 @@ class TestRBFKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual_param_grad), 1e-5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

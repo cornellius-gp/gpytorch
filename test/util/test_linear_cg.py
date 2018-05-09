@@ -35,11 +35,7 @@ class TestLinearCG(unittest.TestCase):
 
         rhs = torch.DoubleTensor(size, 50).normal_()
         solves, t_mats = linear_cg(
-            matrix.matmul,
-            rhs=rhs,
-            n_tridiag=5,
-            max_iter=size,
-            tolerance=0,
+            matrix.matmul, rhs=rhs, n_tridiag=5, max_iter=size, tolerance=0
         )
 
         # Check cg
@@ -66,9 +62,9 @@ class TestLinearCG(unittest.TestCase):
 
         # Check cg
         matrix_chol = torch.cat([matrix[i].potrf().unsqueeze(0) for i in range(5)])
-        actual = torch.cat([
-            torch.potrs(rhs[i], matrix_chol[i]).unsqueeze(0) for i in range(5)
-        ])
+        actual = torch.cat(
+            [torch.potrs(rhs[i], matrix_chol[i]).unsqueeze(0) for i in range(5)]
+        )
         self.assertTrue(approx_equal(solves, actual))
 
     def test_batch_cg_with_tridiag(self):
@@ -81,18 +77,14 @@ class TestLinearCG(unittest.TestCase):
 
         rhs = torch.DoubleTensor(batch, size, 50).normal_()
         solves, t_mats = linear_cg(
-            matrix.matmul,
-            rhs=rhs,
-            n_tridiag=8,
-            max_iter=size,
-            tolerance=0,
+            matrix.matmul, rhs=rhs, n_tridiag=8, max_iter=size, tolerance=0
         )
 
         # Check cg
         matrix_chol = torch.cat([matrix[i].potrf().unsqueeze(0) for i in range(5)])
-        actual = torch.cat([
-            torch.potrs(rhs[i], matrix_chol[i]).unsqueeze(0) for i in range(5)
-        ])
+        actual = torch.cat(
+            [torch.potrs(rhs[i], matrix_chol[i]).unsqueeze(0) for i in range(5)]
+        )
         self.assertTrue(approx_equal(solves, actual))
 
         # Check tridiag
@@ -101,10 +93,9 @@ class TestLinearCG(unittest.TestCase):
             for j in range(8):
                 approx_eigs = t_mats[j, i].symeig()[0]
                 self.assertLess(
-                    torch.mean(torch.abs((eigs - approx_eigs) / eigs)),
-                    0.05,
+                    torch.mean(torch.abs((eigs - approx_eigs) / eigs)), 0.05
                 )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
