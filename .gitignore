@@ -110,3 +110,6 @@ ENV/
 
 # vim
 *.swp
+
+# watchman
+.watchmanconfig
