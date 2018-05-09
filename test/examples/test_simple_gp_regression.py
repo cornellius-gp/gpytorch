@@ -59,18 +59,14 @@ class TestSimpleGPRegression(unittest.TestCase):
         function_predictions = likelihood(gp_model(train_x))
 
         self.assertLess(
-            torch.norm(function_predictions.mean().data - train_y.data),
-            1e-3,
+            torch.norm(function_predictions.mean().data - train_y.data), 1e-3
         )
         self.assertLess(torch.norm(function_predictions.var().data), 1e-3)
 
         # It shouldn't fit much else though
         test_function_predictions = gp_model(Variable(torch.Tensor([1.1])))
 
-        self.assertLess(
-            torch.norm(test_function_predictions.mean().data - 0),
-            1e-4,
-        )
+        self.assertLess(torch.norm(test_function_predictions.mean().data - 0), 1e-4)
         self.assertLess(torch.norm(test_function_predictions.var().data - 1), 1e-4)
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self):
@@ -86,8 +82,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
         optimizer = optim.Adam(
-            list(gp_model.parameters()) + list(likelihood.parameters()),
-            lr=0.1,
+            list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
         )
         optimizer.n_iter = 0
         for _ in range(50):
@@ -131,8 +126,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             gp_model.train()
             likelihood.train()
             optimizer = optim.Adam(
-                list(gp_model.parameters()) + list(likelihood.parameters()),
-                lr=0.1,
+                list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
             )
             optimizer.n_iter = 0
             for _ in range(50):
@@ -173,9 +167,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             # something they shouldn't be
             likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3)).cuda()
             gp_model = ExactGPModel(
-                train_x.data.cuda(),
-                train_y.data.cuda(),
-                likelihood
+                train_x.data.cuda(), train_y.data.cuda(), likelihood
             ).cuda()
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
             gp_model.covar_module.initialize(log_lengthscale=1)
@@ -214,5 +206,5 @@ class TestSimpleGPRegression(unittest.TestCase):
             self.assertLess(mean_abs_error.data.squeeze().item(), 0.05)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

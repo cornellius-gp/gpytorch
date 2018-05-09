@@ -14,12 +14,7 @@ class TestTeoplitz(unittest.TestCase):
         c = torch.Tensor([1, 6, 4, 5])
 
         res = utils.toeplitz.sym_toeplitz(c)
-        actual = torch.Tensor([
-            [1, 6, 4, 5],
-            [6, 1, 6, 4],
-            [4, 6, 1, 6],
-            [5, 4, 6, 1],
-        ])
+        actual = torch.Tensor([[1, 6, 4, 5], [6, 1, 6, 4], [4, 6, 1, 6], [5, 4, 6, 1]])
 
         self.assertTrue(torch.equal(res, actual))
 
@@ -37,16 +32,8 @@ class TestTeoplitz(unittest.TestCase):
         self.assertTrue(utils.approx_equal(res, actual))
 
     def test_toeplitz_matmul_batch(self):
-        cols = torch.Tensor([
-            [1, 6, 4, 5],
-            [2, 3, 1, 0],
-            [1, 2, 3, 1],
-        ])
-        rows = torch.Tensor([
-            [1, 2, 1, 1],
-            [2, 0, 0, 1],
-            [1, 5, 1, 0],
-        ])
+        cols = torch.Tensor([[1, 6, 4, 5], [2, 3, 1, 0], [1, 2, 3, 1]])
+        rows = torch.Tensor([[1, 2, 1, 1], [2, 0, 0, 1], [1, 5, 1, 0]])
 
         rhs_mats = torch.randn(3, 4, 2)
 
@@ -71,33 +58,20 @@ class TestTeoplitz(unittest.TestCase):
 
         # Fast toeplitz
         res = utils.toeplitz.toeplitz_matmul(
-            col.unsqueeze(0), row.unsqueeze(0),
-            rhs_mat,
+            col.unsqueeze(0), row.unsqueeze(0), rhs_mat
         )
         self.assertTrue(utils.approx_equal(res, actual))
 
     def test_reverse(self):
-        input = torch.Tensor([
-            [1, 2, 3],
-            [4, 5, 6],
-        ])
-        res = torch.Tensor([
-            [3, 2, 1],
-            [6, 5, 4],
-        ])
+        input = torch.Tensor([[1, 2, 3], [4, 5, 6]])
+        res = torch.Tensor([[3, 2, 1], [6, 5, 4]])
         self.assertTrue(torch.equal(utils.reverse(input, dim=1), res))
 
     def test_rcumsum(self):
-        input = torch.Tensor([
-            [1, 2, 3],
-            [4, 5, 6],
-        ])
-        res = torch.Tensor([
-            [6, 5, 3],
-            [15, 11, 6],
-        ])
+        input = torch.Tensor([[1, 2, 3], [4, 5, 6]])
+        res = torch.Tensor([[6, 5, 3], [15, 11, 6]])
         self.assertTrue(torch.equal(utils.rcumsum(input, dim=1), res))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

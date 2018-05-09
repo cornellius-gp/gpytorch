@@ -39,12 +39,14 @@ class TestRootLazyVariable(unittest.TestCase):
     def test_batch_diag(self):
         root = Variable(torch.randn(4, 5, 3))
         actual = root.matmul(root.transpose(-1, -2))
-        actual_diag = torch.cat([
-            actual[0].diag().unsqueeze(0),
-            actual[1].diag().unsqueeze(0),
-            actual[2].diag().unsqueeze(0),
-            actual[3].diag().unsqueeze(0),
-        ])
+        actual_diag = torch.cat(
+            [
+                actual[0].diag().unsqueeze(0),
+                actual[1].diag().unsqueeze(0),
+                actual[2].diag().unsqueeze(0),
+                actual[3].diag().unsqueeze(0),
+            ]
+        )
 
         res = RootLazyVariable(root)
         self.assertTrue(approx_equal(actual_diag.data, res.diag().data))
@@ -56,5 +58,5 @@ class TestRootLazyVariable(unittest.TestCase):
         self.assertTrue(approx_equal(actual.data, res.evaluate().data))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

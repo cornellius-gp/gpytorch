@@ -22,12 +22,15 @@ def make_random_mat(size, rank, batch_size=None):
 class TestMulLazyVariable(unittest.TestCase):
 
     def setUp(self):
-        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+        if (
+            os.getenv("UNLOCK_SEED") is None
+            or os.getenv("UNLOCK_SEED").lower() == "false"
+        ):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(2)
 
     def tearDown(self):
-        if hasattr(self, 'rng_state'):
+        if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
     def test_matmul_vec_with_two_matrices(self):
@@ -40,46 +43,37 @@ class TestMulLazyVariable(unittest.TestCase):
         vec_copy = Variable(vec.data, requires_grad=True)
 
         # Forward
-        res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2),
-        ).matmul(vec)
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-        ]).matmul(vec_copy)
-        self.assertLess(
-            torch.max(((res.data - actual.data) / actual.data).abs()),
-            0.01,
+        res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2)).matmul(
+            vec
         )
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+            ]
+        ).matmul(
+            vec_copy
+        )
+        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
         self.assertLess(
             torch.max(
-                (
-                    (mat1.grad.data - mat1_copy.grad.data) /
-                    mat1_copy.grad.data
-                ).abs()
+                ((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat2.grad.data - mat2_copy.grad.data) /
-                    mat2_copy.grad.data
-                ).abs()
+                ((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (vec.grad.data - vec_copy.grad.data) /
-                    vec_copy.grad.data
-                ).abs()
+                ((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()
             ),
             0.01,
         )
@@ -106,73 +100,58 @@ class TestMulLazyVariable(unittest.TestCase):
             RootLazyVariable(mat3),
             RootLazyVariable(mat4),
             RootLazyVariable(mat5),
-        ).matmul(vec)
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-            mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
-            mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
-        ]).matmul(vec_copy)
-        self.assertLess(
-            torch.max(((res.data - actual.data) / actual.data).abs()),
-            0.01,
+        ).matmul(
+            vec
         )
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+                mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
+                mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
+            ]
+        ).matmul(
+            vec_copy
+        )
+        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
         self.assertLess(
             torch.max(
-                (
-                    (mat1.grad.data - mat1_copy.grad.data) /
-                    mat1_copy.grad.data
-                ).abs()
+                ((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat2.grad.data - mat2_copy.grad.data) /
-                    mat2_copy.grad.data
-                ).abs()
+                ((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat3.grad.data - mat3_copy.grad.data) /
-                    mat3_copy.grad.data
-                ).abs()
+                ((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat4.grad.data - mat4_copy.grad.data) /
-                    mat4_copy.grad.data
-                ).abs()
+                ((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat5.grad.data - mat5_copy.grad.data) /
-                    mat5_copy.grad.data
-                ).abs()
+                ((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (vec.grad.data - vec_copy.grad.data) /
-                    vec_copy.grad.data
-                ).abs()
+                ((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()
             ),
             0.01,
         )
@@ -187,14 +166,17 @@ class TestMulLazyVariable(unittest.TestCase):
         vec_copy = Variable(vec.data, requires_grad=True)
 
         # Forward
-        res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2)
-        ).matmul(vec)
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-        ]).matmul(vec_copy)
+        res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2)).matmul(
+            vec
+        )
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+            ]
+        ).matmul(
+            vec_copy
+        )
         assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
 
         # Backward
@@ -202,28 +184,19 @@ class TestMulLazyVariable(unittest.TestCase):
         actual.sum().backward()
         self.assertLess(
             torch.max(
-                (
-                    (mat1.grad.data - mat1_copy.grad.data) /
-                    mat1_copy.grad.data
-                ).abs()
+                ((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat2.grad.data - mat2_copy.grad.data) /
-                    mat2_copy.grad.data
-                ).abs()
+                ((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (vec.grad.data - vec_copy.grad.data) /
-                    vec_copy.grad.data
-                ).abs()
+                ((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()
             ),
             0.01,
         )
@@ -249,74 +222,59 @@ class TestMulLazyVariable(unittest.TestCase):
             RootLazyVariable(mat2),
             RootLazyVariable(mat3),
             RootLazyVariable(mat4),
-            RootLazyVariable(mat5)
-        ).matmul(vec)
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-            mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
-            mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
-        ]).matmul(vec_copy)
-        self.assertLess(
-            torch.max(((res.data - actual.data) / actual.data).abs()),
-            0.01,
+            RootLazyVariable(mat5),
+        ).matmul(
+            vec
         )
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+                mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
+                mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
+            ]
+        ).matmul(
+            vec_copy
+        )
+        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
         self.assertLess(
             torch.max(
-                (
-                    (mat1.grad.data - mat1_copy.grad.data) /
-                    mat1_copy.grad.data
-                ).abs()
+                ((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat2.grad.data - mat2_copy.grad.data) /
-                    mat2_copy.grad.data
-                ).abs()
+                ((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat3.grad.data - mat3_copy.grad.data) /
-                    mat3_copy.grad.data
-                ).abs()
+                ((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat4.grad.data - mat4_copy.grad.data) /
-                    mat4_copy.grad.data
-                ).abs()
+                ((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat5.grad.data - mat5_copy.grad.data) /
-                    mat5_copy.grad.data
-                ).abs()
+                ((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (vec.grad.data - vec_copy.grad.data) /
-                    vec_copy.grad.data
-                ).abs()
+                ((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()
             ),
             0.01,
         )
@@ -331,46 +289,37 @@ class TestMulLazyVariable(unittest.TestCase):
         vec_copy = Variable(vec.data, requires_grad=True)
 
         # Forward
-        res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2)
-        ).matmul(vec)
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-        ]).matmul(vec_copy)
-        self.assertLess(
-            torch.max(((res.data - actual.data) / actual.data).abs()),
-            0.01,
+        res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2)).matmul(
+            vec
         )
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+            ]
+        ).matmul(
+            vec_copy
+        )
+        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
         self.assertLess(
             torch.max(
-                (
-                    (mat1.grad.data - mat1_copy.grad.data) /
-                    mat1_copy.grad.data
-                ).abs()
+                ((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat2.grad.data - mat2_copy.grad.data) /
-                    mat2_copy.grad.data
-                ).abs()
+                ((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (vec.grad.data - vec_copy.grad.data) /
-                    vec_copy.grad.data
-                ).abs()
+                ((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()
             ),
             0.01,
         )
@@ -396,74 +345,59 @@ class TestMulLazyVariable(unittest.TestCase):
             RootLazyVariable(mat2),
             RootLazyVariable(mat3),
             RootLazyVariable(mat4),
-            RootLazyVariable(mat5)
-        ).matmul(vec)
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-            mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
-            mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
-        ]).matmul(vec_copy)
-        self.assertLess(
-            torch.max(((res.data - actual.data) / actual.data).abs()),
-            0.01,
+            RootLazyVariable(mat5),
+        ).matmul(
+            vec
         )
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+                mat4_copy.matmul(mat4_copy.transpose(-1, -2)),
+                mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
+            ]
+        ).matmul(
+            vec_copy
+        )
+        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
         self.assertLess(
             torch.max(
-                (
-                    (mat1.grad.data - mat1_copy.grad.data) /
-                    mat1_copy.grad.data
-                ).abs()
+                ((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat2.grad.data - mat2_copy.grad.data) /
-                    mat2_copy.grad.data
-                ).abs()
+                ((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat3.grad.data - mat3_copy.grad.data) /
-                    mat3_copy.grad.data
-                ).abs()
+                ((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat4.grad.data - mat4_copy.grad.data) /
-                    mat4_copy.grad.data
-                ).abs()
+                ((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (mat5.grad.data - mat5_copy.grad.data) /
-                    mat5_copy.grad.data
-                ).abs()
+                ((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (vec.grad.data - vec_copy.grad.data) /
-                    vec_copy.grad.data
-                ).abs()
+                ((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()
             ),
             0.01,
         )
@@ -480,14 +414,15 @@ class TestMulLazyVariable(unittest.TestCase):
         # Forward
         res = MulLazyVariable(RootLazyVariable(mat1), RootLazyVariable(mat2))
         res = res * RootLazyVariable(mat3)
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-        ])
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+            ]
+        )
         self.assertLess(
-            torch.max(((res.evaluate().data - actual.data) / actual.data).abs()),
-            0.01,
+            torch.max(((res.evaluate().data - actual.data) / actual.data).abs()), 0.01
         )
 
     def test_mul_adding_constant_mul(self):
@@ -503,40 +438,34 @@ class TestMulLazyVariable(unittest.TestCase):
 
         # Forward
         res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2),
-            RootLazyVariable(mat3),
+            RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3)
         )
         res = res * const
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-        ]) * const_copy
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+            ]
+        ) * const_copy
         self.assertLess(
-            torch.max(
-                ((res.evaluate().data - actual.data) / actual.data).abs()
-            ),
-            0.01,
+            torch.max(((res.evaluate().data - actual.data) / actual.data).abs()), 0.01
         )
 
         # Forward
         res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2),
-            RootLazyVariable(mat3),
+            RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3)
         )
         res = res * 2.5
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-        ]) * 2.5
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+            ]
+        ) * 2.5
         self.assertLess(
-            torch.max(
-                ((res.evaluate().data - actual.data) / actual.data).abs()
-            ),
-            0.01,
+            torch.max(((res.evaluate().data - actual.data) / actual.data).abs()), 0.01
         )
 
     def test_diag(self):
@@ -550,15 +479,15 @@ class TestMulLazyVariable(unittest.TestCase):
 
         # Forward
         res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2),
-            RootLazyVariable(mat3),
+            RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3)
         ).diag()
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-        ]).diag()
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+            ]
+        ).diag()
         assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
 
     def test_batch_diag(self):
@@ -572,22 +501,17 @@ class TestMulLazyVariable(unittest.TestCase):
 
         # Forward
         res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2),
-            RootLazyVariable(mat3),
+            RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3)
         ).diag()
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-        ])
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(5)])
-        self.assertLess(
-            torch.max(
-                ((res.data - actual.data) / actual.data).abs()
-            ),
-            0.01,
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+            ]
         )
+        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(5)])
+        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
 
     def test_getitem(self):
         mat1 = make_random_mat(20, rank=4)
@@ -600,21 +524,27 @@ class TestMulLazyVariable(unittest.TestCase):
 
         # Forward
         res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2),
-            RootLazyVariable(mat3),
+            RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3)
         )
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-        ])
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+            ]
+        )
 
         self.assertLess(
             torch.max(
+                ((res[5, 3:5].data - actual[5, 3:5].data) / actual[5, 3:5].data).abs()
+            ),
+            0.01,
+        )
+        self.assertLess(
+            torch.max(
                 (
-                    (res[5, 3:5].data - actual[5, 3:5].data) /
-                    actual[5, 3:5].data
+                    (res[3:5, 2:].evaluate().data - actual[3:5, 2:].data)
+                    / actual[3:5, 2:].data
                 ).abs()
             ),
             0.01,
@@ -622,17 +552,8 @@ class TestMulLazyVariable(unittest.TestCase):
         self.assertLess(
             torch.max(
                 (
-                    (res[3:5, 2:].evaluate().data - actual[3:5, 2:].data) /
-                    actual[3:5, 2:].data
-                ).abs()
-            ),
-            0.01,
-        )
-        self.assertLess(
-            torch.max(
-                (
-                    (res[2:, 3:5].evaluate().data - actual[2:, 3:5].data) /
-                    actual[2:, 3:5].data
+                    (res[2:, 3:5].evaluate().data - actual[2:, 3:5].data)
+                    / actual[2:, 3:5].data
                 ).abs()
             ),
             0.01,
@@ -649,15 +570,15 @@ class TestMulLazyVariable(unittest.TestCase):
 
         # Forward
         res = MulLazyVariable(
-            RootLazyVariable(mat1),
-            RootLazyVariable(mat2),
-            RootLazyVariable(mat3),
+            RootLazyVariable(mat1), RootLazyVariable(mat2), RootLazyVariable(mat3)
         )
-        actual = prod([
-            mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
-            mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
-            mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
-        ])
+        actual = prod(
+            [
+                mat1_copy.matmul(mat1_copy.transpose(-1, -2)),
+                mat2_copy.matmul(mat2_copy.transpose(-1, -2)),
+                mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
+            ]
+        )
 
         self.assertLess(
             torch.max(
@@ -666,24 +587,30 @@ class TestMulLazyVariable(unittest.TestCase):
             0.01,
         )
         self.assertLess(
-            torch.max((
-                (res[0:2, 5, 3:5].data - actual[0:2, 5, 3:5].data) /
-                actual[0:2, 5, 3:5].data).abs()
+            torch.max(
+                (
+                    (res[0:2, 5, 3:5].data - actual[0:2, 5, 3:5].data)
+                    / actual[0:2, 5, 3:5].data
+                ).abs()
             ),
             0.01,
         )
         self.assertLess(
-            torch.max(((
-                res[:, 3:5, 2:].evaluate().data - actual[:, 3:5, 2:].data) /
-                actual[:, 3:5, 2:].data
-            ).abs()),
+            torch.max(
+                (
+                    (res[:, 3:5, 2:].evaluate().data - actual[:, 3:5, 2:].data)
+                    / actual[:, 3:5, 2:].data
+                ).abs()
+            ),
             0.01,
         )
         self.assertLess(
-            torch.max(((
-                res[:, 2:, 3:5].evaluate().data - actual[:, 2:, 3:5].data) /
-                actual[:, 2:, 3:5].data
-            ).abs()),
+            torch.max(
+                (
+                    (res[:, 2:, 3:5].evaluate().data - actual[:, 2:, 3:5].data)
+                    / actual[:, 2:, 3:5].data
+                ).abs()
+            ),
             0.01,
         )
 
@@ -696,37 +623,32 @@ class TestMulLazyVariable(unittest.TestCase):
 
         # Forward
         res = RootLazyVariable(mats).mul_batch().matmul(vec)
-        actual = prod([
-            mats_copy[0].matmul(mats_copy[0].transpose(-1, -2)),
-            mats_copy[1].matmul(mats_copy[1].transpose(-1, -2)),
-            mats_copy[2].matmul(mats_copy[2].transpose(-1, -2)),
-            mats_copy[3].matmul(mats_copy[3].transpose(-1, -2)),
-            mats_copy[4].matmul(mats_copy[4].transpose(-1, -2)),
-            mats_copy[5].matmul(mats_copy[5].transpose(-1, -2)),
-        ]).matmul(vec_copy)
-        self.assertLess(
-            torch.max(((res.data - actual.data) / actual.data).abs()),
-            0.01,
+        actual = prod(
+            [
+                mats_copy[0].matmul(mats_copy[0].transpose(-1, -2)),
+                mats_copy[1].matmul(mats_copy[1].transpose(-1, -2)),
+                mats_copy[2].matmul(mats_copy[2].transpose(-1, -2)),
+                mats_copy[3].matmul(mats_copy[3].transpose(-1, -2)),
+                mats_copy[4].matmul(mats_copy[4].transpose(-1, -2)),
+                mats_copy[5].matmul(mats_copy[5].transpose(-1, -2)),
+            ]
+        ).matmul(
+            vec_copy
         )
+        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
         self.assertLess(
             torch.max(
-                (
-                    (mats.grad.data - mats_copy.grad.data) /
-                    mats_copy.grad.data
-                ).abs()
+                ((mats.grad.data - mats_copy.grad.data) / mats_copy.grad.data).abs()
             ),
             0.01,
         )
         self.assertLess(
             torch.max(
-                (
-                    (vec.grad.data - vec_copy.grad.data) /
-                    vec_copy.grad.data
-                ).abs()
+                ((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()
             ),
             0.01,
         )
@@ -741,54 +663,55 @@ class TestMulLazyVariable(unittest.TestCase):
         # Forward
         res = RootLazyVariable(mats).mul_batch(mul_batch_size=6).matmul(vec)
         reshaped_mats_copy = mats_copy.view(5, 6, 6, 4)
-        actual = prod([
-            (
-                reshaped_mats_copy[:, 0].
-                matmul(
-                    reshaped_mats_copy[:, 0].
-                    transpose(-1, -2)
-                ).view(5, 6, 6)
-            ),
-            (
-                reshaped_mats_copy[:, 1].
-                matmul(
-                    reshaped_mats_copy[:, 1].
-                    transpose(-1, -2)
-                ).view(5, 6, 6)
-            ),
-            (
-                reshaped_mats_copy[:, 2].
-                matmul(
-                    reshaped_mats_copy[:, 2].
-                    transpose(-1, -2)
-                ).view(5, 6, 6)
-            ),
-            (
-                reshaped_mats_copy[:, 3].
-                matmul(
-                    reshaped_mats_copy[:, 3].
-                    transpose(-1, -2)
-                ).view(5, 6, 6)
-            ),
-            (
-                reshaped_mats_copy[:, 4].
-                matmul(
-                    reshaped_mats_copy[:, 4].
-                    transpose(-1, -2)
-                ).view(5, 6, 6)
-            ),
-            (
-                reshaped_mats_copy[:, 5].
-                matmul(
-                    reshaped_mats_copy[:, 5].
-                    transpose(-1, -2)
-                ).view(5, 6, 6)
-            ),
-        ]).matmul(vec_copy)
-        self.assertLess(
-            torch.max(((res.data - actual.data) / actual.data).abs()),
-            0.01,
+        actual = prod(
+            [
+                (
+                    reshaped_mats_copy[:, 0].matmul(
+                        reshaped_mats_copy[:, 0].transpose(-1, -2)
+                    ).view(
+                        5, 6, 6
+                    )
+                ),
+                (
+                    reshaped_mats_copy[:, 1].matmul(
+                        reshaped_mats_copy[:, 1].transpose(-1, -2)
+                    ).view(
+                        5, 6, 6
+                    )
+                ),
+                (
+                    reshaped_mats_copy[:, 2].matmul(
+                        reshaped_mats_copy[:, 2].transpose(-1, -2)
+                    ).view(
+                        5, 6, 6
+                    )
+                ),
+                (
+                    reshaped_mats_copy[:, 3].matmul(
+                        reshaped_mats_copy[:, 3].transpose(-1, -2)
+                    ).view(
+                        5, 6, 6
+                    )
+                ),
+                (
+                    reshaped_mats_copy[:, 4].matmul(
+                        reshaped_mats_copy[:, 4].transpose(-1, -2)
+                    ).view(
+                        5, 6, 6
+                    )
+                ),
+                (
+                    reshaped_mats_copy[:, 5].matmul(
+                        reshaped_mats_copy[:, 5].transpose(-1, -2)
+                    ).view(
+                        5, 6, 6
+                    )
+                ),
+            ]
+        ).matmul(
+            vec_copy
         )
+        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
 
         # Backward
         res.sum().backward()
@@ -807,5 +730,5 @@ class TestMulLazyVariable(unittest.TestCase):
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

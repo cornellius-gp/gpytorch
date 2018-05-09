@@ -8,19 +8,24 @@ from gpytorch.utils import approx_equal
 
 
 class TestCholLazyVariable(unittest.TestCase):
+
     def setUp(self):
-        chol = torch.Tensor([
-            [3, 0, 0, 0, 0],
-            [-1, 2, 0, 0, 0],
-            [1, 4, 1, 0, 0],
-            [0, 2, 3, 2, 0],
-            [-4, -2, 1, 3, 4],
-        ])
+        chol = torch.Tensor(
+            [
+                [3, 0, 0, 0, 0],
+                [-1, 2, 0, 0, 0],
+                [1, 4, 1, 0, 0],
+                [0, 2, 3, 2, 0],
+                [-4, -2, 1, 3, 4],
+            ]
+        )
         vecs = torch.randn(5, 2)
 
         self.chol_var = Variable(chol, requires_grad=True)
         self.chol_var_copy = Variable(chol, requires_grad=True)
-        self.actual_mat = self.chol_var_copy.matmul(self.chol_var_copy.transpose(-1, -2))
+        self.actual_mat = self.chol_var_copy.matmul(
+            self.chol_var_copy.transpose(-1, -2)
+        )
         self.vecs = Variable(vecs, requires_grad=True)
         self.vecs_copy = Variable(vecs, requires_grad=True)
 
@@ -34,21 +39,28 @@ class TestCholLazyVariable(unittest.TestCase):
         grad_output = torch.randn(*self.vecs.size())
         res.backward(gradient=grad_output)
         actual.backward(gradient=grad_output)
-        self.assertTrue(approx_equal(self.chol_var.grad.data, self.chol_var_copy.grad.data))
+        self.assertTrue(
+            approx_equal(self.chol_var.grad.data, self.chol_var_copy.grad.data)
+        )
         self.assertTrue(approx_equal(self.vecs.grad.data, self.vecs_copy.grad.data))
 
     def test_inv_matmul(self):
         # Forward
         res = CholLazyVariable(self.chol_var).inv_matmul(self.vecs)
         actual = self.actual_mat.inverse().matmul(self.vecs_copy)
-        self.assertLess(torch.max((res.data - actual.data).abs() / actual.data.norm()), 1e-2)
+        self.assertLess(
+            torch.max((res.data - actual.data).abs() / actual.data.norm()), 1e-2
+        )
 
     def test_inv_quad_log_det(self):
         # Forward
-        res_inv_quad, res_log_det = CholLazyVariable(self.chol_var).inv_quad_log_det(inv_quad_rhs=self.vecs,
-                                                                                     log_det=True)
+        res_inv_quad, res_log_det = CholLazyVariable(self.chol_var).inv_quad_log_det(
+            inv_quad_rhs=self.vecs, log_det=True
+        )
         res = res_inv_quad + res_log_det
-        actual_inv_quad = self.actual_mat.inverse().matmul(self.vecs_copy).mul(self.vecs_copy).sum()
+        actual_inv_quad = self.actual_mat.inverse().matmul(self.vecs_copy).mul(
+            self.vecs_copy
+        ).sum()
         actual = actual_inv_quad + math.log(np.linalg.det(self.actual_mat.data))
         self.assertLess(((res.data - actual.data) / actual.data).abs()[0], 1e-2)
 
@@ -69,31 +81,40 @@ class TestCholLazyVariable(unittest.TestCase):
 
 
 class TestCholLazyVariableBatch(unittest.TestCase):
+
     def setUp(self):
-        chol = torch.Tensor([
+        chol = torch.Tensor(
             [
-                [3, 0, 0, 0, 0],
-                [-1, 2, 0, 0, 0],
-                [1, 4, 1, 0, 0],
-                [0, 2, 3, 2, 0],
-                [-4, -2, 1, 3, 4],
-            ], [
-                [2, 0, 0, 0, 0],
-                [3, 1, 0, 0, 0],
-                [-2, 3, 2, 0, 0],
-                [-2, 1, -1, 3, 0],
-                [-4, -4, 5, 2, 3],
-            ],
-        ])
+                [
+                    [3, 0, 0, 0, 0],
+                    [-1, 2, 0, 0, 0],
+                    [1, 4, 1, 0, 0],
+                    [0, 2, 3, 2, 0],
+                    [-4, -2, 1, 3, 4],
+                ],
+                [
+                    [2, 0, 0, 0, 0],
+                    [3, 1, 0, 0, 0],
+                    [-2, 3, 2, 0, 0],
+                    [-2, 1, -1, 3, 0],
+                    [-4, -4, 5, 2, 3],
+                ],
+            ]
+        )
         vecs = torch.randn(2, 5, 3)
 
         self.chol_var = Variable(chol, requires_grad=True)
         self.chol_var_copy = Variable(chol, requires_grad=True)
-        self.actual_mat = self.chol_var_copy.matmul(self.chol_var_copy.transpose(-1, -2))
-        self.actual_mat_inv = torch.cat([
-            self.actual_mat[0].inverse().unsqueeze(0),
-            self.actual_mat[1].inverse().unsqueeze(0),
-        ], 0)
+        self.actual_mat = self.chol_var_copy.matmul(
+            self.chol_var_copy.transpose(-1, -2)
+        )
+        self.actual_mat_inv = torch.cat(
+            [
+                self.actual_mat[0].inverse().unsqueeze(0),
+                self.actual_mat[1].inverse().unsqueeze(0),
+            ],
+            0,
+        )
 
         self.vecs = Variable(vecs, requires_grad=True)
         self.vecs_copy = Variable(vecs, requires_grad=True)
@@ -108,39 +129,52 @@ class TestCholLazyVariableBatch(unittest.TestCase):
         grad_output = torch.randn(*self.vecs.size())
         res.backward(gradient=grad_output)
         actual.backward(gradient=grad_output)
-        self.assertTrue(approx_equal(self.chol_var.grad.data, self.chol_var_copy.grad.data))
+        self.assertTrue(
+            approx_equal(self.chol_var.grad.data, self.chol_var_copy.grad.data)
+        )
         self.assertTrue(approx_equal(self.vecs.grad.data, self.vecs_copy.grad.data))
 
     def test_inv_matmul(self):
         # Forward
         res = CholLazyVariable(self.chol_var).inv_matmul(self.vecs)
         actual = self.actual_mat_inv.matmul(self.vecs_copy)
-        self.assertLess(torch.max((res.data - actual.data).abs() / actual.data.norm()), 1e-2)
+        self.assertLess(
+            torch.max((res.data - actual.data).abs() / actual.data.norm()), 1e-2
+        )
 
     def test_inv_quad_log_det(self):
         # Forward
-        res_inv_quad, res_log_det = CholLazyVariable(self.chol_var).inv_quad_log_det(inv_quad_rhs=self.vecs,
-                                                                                     log_det=True)
+        res_inv_quad, res_log_det = CholLazyVariable(self.chol_var).inv_quad_log_det(
+            inv_quad_rhs=self.vecs, log_det=True
+        )
         res = res_inv_quad + res_log_det
         actual_inv_quad = (
-            self.actual_mat_inv.
-            matmul(self.vecs_copy).
-            mul(self.vecs_copy).
-            sum(-1).sum(-1)
+            self.actual_mat_inv.matmul(self.vecs_copy).mul(self.vecs_copy).sum(-1).sum(
+                -1
+            )
         )
-        actual_log_det = Variable(torch.Tensor([
-            math.log(np.linalg.det(self.actual_mat[0].data)),
-            math.log(np.linalg.det(self.actual_mat[1].data)),
-        ]))
+        actual_log_det = Variable(
+            torch.Tensor(
+                [
+                    math.log(np.linalg.det(self.actual_mat[0].data)),
+                    math.log(np.linalg.det(self.actual_mat[1].data)),
+                ]
+            )
+        )
         actual = actual_inv_quad + actual_log_det
-        self.assertLess(torch.max((res.data - actual.data).abs() / actual.data.norm()), 1e-2)
+        self.assertLess(
+            torch.max((res.data - actual.data).abs() / actual.data.norm()), 1e-2
+        )
 
     def test_diag(self):
         res = CholLazyVariable(self.chol_var).diag()
-        actual = torch.cat([
-            self.actual_mat[0].diag().unsqueeze(0),
-            self.actual_mat[1].diag().unsqueeze(0),
-        ], 0)
+        actual = torch.cat(
+            [
+                self.actual_mat[0].diag().unsqueeze(0),
+                self.actual_mat[1].diag().unsqueeze(0),
+            ],
+            0,
+        )
         self.assertTrue(approx_equal(res.data, actual.data))
 
     def test_getitem(self):
@@ -154,5 +188,5 @@ class TestCholLazyVariableBatch(unittest.TestCase):
         self.assertTrue(approx_equal(res.data, actual.data))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

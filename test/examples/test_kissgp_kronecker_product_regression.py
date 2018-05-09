@@ -25,12 +25,7 @@ for i in range(n):
         train_x[i * n + j][1] = float(j) / (n - 1)
 train_x = Variable(train_x)
 train_y = Variable(
-    torch.sin(
-        (
-            (train_x.data[:, 0] + train_x.data[:, 1]) *
-            (2 * math.pi)
-        )
-    )
+    torch.sin(((train_x.data[:, 0] + train_x.data[:, 1]) * (2 * math.pi)))
 )
 
 m = 10
@@ -51,9 +46,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
         self.covar_module = GridInterpolationKernel(
-            self.base_covar_module,
-            grid_size=64,
-            grid_bounds=[(0, 1), (0, 1)],
+            self.base_covar_module, grid_size=64, grid_bounds=[(0, 1), (0, 1)]
         )
 
     def forward(self, x):
@@ -65,12 +58,15 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 class TestKissGPKroneckerProductRegression(unittest.TestCase):
 
     def setUp(self):
-        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+        if (
+            os.getenv("UNLOCK_SEED") is None
+            or os.getenv("UNLOCK_SEED").lower() == "false"
+        ):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
     def tearDown(self):
-        if hasattr(self, 'rng_state'):
+        if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
     def test_kissgp_gp_mean_abs_error(self):
@@ -84,8 +80,7 @@ class TestKissGPKroneckerProductRegression(unittest.TestCase):
 
         with gpytorch.settings.max_preconditioner_size(5):
             optimizer = optim.Adam(
-                list(gp_model.parameters()) + list(likelihood.parameters()),
-                lr=0.1,
+                list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
             )
             optimizer.n_iter = 0
             for _ in range(10):
@@ -112,5 +107,5 @@ class TestKissGPKroneckerProductRegression(unittest.TestCase):
             self.assertLess(mean_abs_error.data.squeeze().item(), 0.1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

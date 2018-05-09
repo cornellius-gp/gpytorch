@@ -15,10 +15,7 @@ class TestToeplitzLazyVariable(unittest.TestCase):
 
     def setUp(self):
         self.toeplitz_column = torch.Tensor([2, 0, 4, 1])
-        self.batch_toeplitz_column = torch.Tensor([
-            [2, 0, 4, 1],
-            [1, 1, -1, 3],
-        ])
+        self.batch_toeplitz_column = torch.Tensor([[2, 0, 4, 1], [1, 1, -1, 3]])
 
     def test_inv_matmul(self):
         c_1 = Variable(torch.Tensor([4, 1, 1]), requires_grad=True)
@@ -37,60 +34,41 @@ class TestToeplitzLazyVariable(unittest.TestCase):
         res_1.backward()
         res_2.backward()
 
-        self.assertLess(
-            torch.norm(res_1.data - res_2.data),
-            1e-4,
-        )
-        self.assertLess(
-            torch.norm(c_1.grad.data - c_2.grad.data),
-            1e-4,
-        )
+        self.assertLess(torch.norm(res_1.data - res_2.data), 1e-4)
+        self.assertLess(torch.norm(c_1.grad.data - c_2.grad.data), 1e-4)
 
     def test_evaluate(self):
         lazy_toeplitz_var = ToeplitzLazyVariable(Variable(self.toeplitz_column))
         res = lazy_toeplitz_var.evaluate()
-        actual = torch.Tensor([
-            [2, 0, 4, 1],
-            [0, 2, 0, 4],
-            [4, 0, 2, 0],
-            [1, 4, 0, 2],
-        ])
+        actual = torch.Tensor([[2, 0, 4, 1], [0, 2, 0, 4], [4, 0, 2, 0], [1, 4, 0, 2]])
         self.assertTrue(utils.approx_equal(res, actual))
 
         lazy_toeplitz_var = ToeplitzLazyVariable(Variable(self.batch_toeplitz_column))
         res = lazy_toeplitz_var.evaluate()
-        actual = torch.Tensor([
+        actual = torch.Tensor(
             [
-                [2, 0, 4, 1],
-                [0, 2, 0, 4],
-                [4, 0, 2, 0],
-                [1, 4, 0, 2],
-            ],
-            [
-                [1, 1, -1, 3],
-                [1, 1, 1, -1],
-                [-1, 1, 1, 1],
-                [3, -1, 1, 1],
-            ],
-        ])
+                [[2, 0, 4, 1], [0, 2, 0, 4], [4, 0, 2, 0], [1, 4, 0, 2]],
+                [[1, 1, -1, 3], [1, 1, 1, -1], [-1, 1, 1, 1], [3, -1, 1, 1]],
+            ]
+        )
         self.assertTrue(utils.approx_equal(res, actual))
 
     def test_get_item_square_on_variable(self):
         toeplitz_var = ToeplitzLazyVariable(Variable(torch.Tensor([1, 2, 3, 4])))
         evaluated = toeplitz_var.evaluate().data
 
-        self.assertTrue(utils.approx_equal(
-            toeplitz_var[2:4, 2:4].evaluate().data,
-            evaluated[2:4, 2:4],
-        ))
+        self.assertTrue(
+            utils.approx_equal(
+                toeplitz_var[2:4, 2:4].evaluate().data, evaluated[2:4, 2:4]
+            )
+        )
 
     def test_get_item_on_batch(self):
         toeplitz_var = ToeplitzLazyVariable(Variable(self.batch_toeplitz_column))
         evaluated = toeplitz_var.evaluate().data
-        self.assertTrue(utils.approx_equal(
-            toeplitz_var[0, 1:3].evaluate().data,
-            evaluated[0, 1:3],
-        ))
+        self.assertTrue(
+            utils.approx_equal(toeplitz_var[0, 1:3].evaluate().data, evaluated[0, 1:3])
+        )
 
     def test_get_item_scalar_on_batch(self):
         toeplitz_var = ToeplitzLazyVariable(Variable(torch.Tensor([[1, 2, 3, 4]])))
@@ -100,5 +78,5 @@ class TestToeplitzLazyVariable(unittest.TestCase):
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

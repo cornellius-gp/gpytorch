@@ -20,11 +20,9 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel = kernel_1 * kernel_2
 
-        actual = torch.Tensor([
-            [16, 4],
-            [4, 0],
-            [64, 36],
-        ]).mul_(-0.5).div_(lengthscale**2).exp() ** 2
+        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
+            lengthscale ** 2
+        ).exp() ** 2
 
         kernel.eval()
         res = kernel(a, b)
@@ -39,11 +37,9 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel = kernel_1 + kernel_2
 
-        actual = torch.Tensor([
-            [16, 4],
-            [4, 0],
-            [64, 36],
-        ]).mul_(-0.5).div_(lengthscale**2).exp() * 2
+        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
+            lengthscale ** 2
+        ).exp() * 2
 
         kernel.eval()
         res = kernel(a, b)
@@ -69,11 +65,10 @@ class TestAdditiveKernel(unittest.TestCase):
         output = kernel(a, b)
         output.backward(gradient=torch.eye(3))
         res = (
-            kernel.kernel_1.log_lengthscale.grad +
-            kernel.kernel_2.log_lengthscale.grad
+            kernel.kernel_1.log_lengthscale.grad + kernel.kernel_2.log_lengthscale.grad
         )
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

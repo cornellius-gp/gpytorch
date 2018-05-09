@@ -36,10 +36,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-6, 6))
         self.task_covar_module = IndexKernel(
-            n_tasks=2,
-            rank=1,
-            covar_factor_bounds=(-6, 6),
-            log_var_bounds=(-6, 6),
+            n_tasks=2, rank=1, covar_factor_bounds=(-6, 6), log_var_bounds=(-6, 6)
         )
 
     def forward(self, x, i):
@@ -53,12 +50,15 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
 class TestMultiTaskGPRegression(unittest.TestCase):
 
     def setUp(self):
-        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+        if (
+            os.getenv("UNLOCK_SEED") is None
+            or os.getenv("UNLOCK_SEED").lower() == "false"
+        ):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
     def tearDown(self):
-        if hasattr(self, 'rng_state'):
+        if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_gp_mean_abs_error(self):
@@ -66,7 +66,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         gp_model = MultitaskGPModel(
             (
                 torch.cat([train_x.data, train_x.data]),
-                torch.cat([y1_inds.data, y2_inds.data])
+                torch.cat([y1_inds.data, y2_inds.data]),
             ),
             torch.cat([train_y1.data, train_y2.data]),
             likelihood,
@@ -77,8 +77,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         gp_model.train()
         likelihood.eval()
         optimizer = optim.Adam(
-            list(gp_model.parameters()) + list(likelihood.parameters()),
-            lr=0.1,
+            list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
         )
         optimizer.n_iter = 0
         for _ in range(100):
@@ -113,5 +112,5 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         self.assertLess(mean_abs_error_task_2.data.squeeze().item(), 0.05)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

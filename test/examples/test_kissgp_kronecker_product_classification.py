@@ -30,15 +30,12 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
     def __init__(self):
         super(GPClassificationModel, self).__init__(
-            grid_size=8,
-            grid_bounds=[(0, 3), (0, 3)],
+            grid_size=8, grid_bounds=[(0, 3), (0, 3)]
         )
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-2.5, 3))
         self.register_parameter(
-            'log_outputscale',
-            nn.Parameter(torch.Tensor([0])),
-            bounds=(-5, 6),
+            "log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
         )
 
     def forward(self, x):
@@ -52,21 +49,22 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 class TestKissGPKroneckerProductClassification(unittest.TestCase):
 
     def setUp(self):
-        if os.getenv('UNLOCK_SEED') is None or os.getenv('UNLOCK_SEED').lower() == 'false':
+        if (
+            os.getenv("UNLOCK_SEED") is None
+            or os.getenv("UNLOCK_SEED").lower() == "false"
+        ):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
     def tearDown(self):
-        if hasattr(self, 'rng_state'):
+        if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
         mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-            likelihood,
-            model,
-            n_data=len(train_y),
+            likelihood, model, n_data=len(train_y)
         )
 
         # Find optimal model hyperparameters
@@ -100,5 +98,5 @@ class TestKissGPKroneckerProductClassification(unittest.TestCase):
             self.assertLess(mean_abs_error.squeeze().item(), 1e-5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

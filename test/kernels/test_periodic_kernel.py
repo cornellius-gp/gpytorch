@@ -18,8 +18,7 @@ class TestPeriodicKernel(unittest.TestCase):
         lengthscale = 2
         period = 1
         kernel = PeriodicKernel().initialize(
-            log_lengthscale=math.log(lengthscale),
-            log_period_length=math.log(period),
+            log_lengthscale=math.log(lengthscale), log_period_length=math.log(period)
         )
         kernel.eval()
 
@@ -33,5 +32,5 @@ class TestPeriodicKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual), 1e-5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

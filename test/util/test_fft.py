@@ -88,5 +88,5 @@ class TestFFT(unittest.TestCase):
         self.assertTrue(isinstance(res, torch.DoubleTensor))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

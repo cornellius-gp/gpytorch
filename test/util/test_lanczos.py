@@ -18,15 +18,12 @@ class TestLanczos(unittest.TestCase):
         matrix.div_(matrix.norm())
         matrix.add_(torch.ones(matrix.size(-1)).mul(1e-6).diag())
         q_mat, t_mat = lanczos_tridiag(
-            matrix.matmul,
-            max_iter=size,
-            tensor_cls=matrix.new,
-            n_dims=matrix.size(-1),
+            matrix.matmul, max_iter=size, tensor_cls=matrix.new, n_dims=matrix.size(-1)
         )
 
         approx = q_mat.matmul(t_mat).matmul(q_mat.transpose(-1, -2))
         self.assertTrue(approx_equal(approx, matrix))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

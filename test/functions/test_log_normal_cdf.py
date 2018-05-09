@@ -35,16 +35,9 @@ class LogNormalCDFTest(unittest.TestCase):
         output.backward(torch.ones(8))
 
         gradient = inputs.grad.data
-        expected_gradient = torch.Tensor([
-            6.1585,
-            5.1865,
-            3.2831,
-            1.5251,
-            0.7979,
-            0.2876,
-            0.0044,
-            0.0000,
-        ])
+        expected_gradient = torch.Tensor(
+            [6.1585, 5.1865, 3.2831, 1.5251, 0.7979, 0.2876, 0.0044, 0.0000]
+        )
 
         # Should be reasonable for small values
         for d in torch.abs(gradient[:3] - expected_gradient[:3]):
@@ -55,5 +48,5 @@ class LogNormalCDFTest(unittest.TestCase):
             self.assertLess(d, 5e-4)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

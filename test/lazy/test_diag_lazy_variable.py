@@ -35,10 +35,7 @@ class TestDiagLazyVariable(unittest.TestCase):
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(
-            torch.norm(diag_var1.grad.data - diag_var2.grad.data),
-            1e-3,
-        )
+        self.assertLess(torch.norm(diag_var1.grad.data - diag_var2.grad.data), 1e-3)
 
         # 2d
         diag_var1 = Variable(diag, requires_grad=True)
@@ -56,10 +53,7 @@ class TestDiagLazyVariable(unittest.TestCase):
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(
-            torch.norm(diag_var1.grad.data - diag_var2.grad.data),
-            1e-3,
-        )
+        self.assertLess(torch.norm(diag_var1.grad.data - diag_var2.grad.data), 1e-3)
 
     def test_batch_function_factory(self):
         # 2d
@@ -86,5 +80,5 @@ class TestDiagLazyVariable(unittest.TestCase):
         self.assertTrue(torch.equal(diag_lv[0:2].evaluate().data, diag_ev[0:2].data))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
