@@ -4,8 +4,5 @@ from .grid_inducing_variational_gp import GridInducingVariationalGP
 from .additive_grid_inducing_variational_gp import AdditiveGridInducingVariationalGP
 
 __all__ = [
-    ExactGP,
-    VariationalGP,
-    GridInducingVariationalGP,
-    AdditiveGridInducingVariationalGP,
+    ExactGP, VariationalGP, GridInducingVariationalGP, AdditiveGridInducingVariationalGP
 ]

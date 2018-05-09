@@ -25,17 +25,17 @@ class SpectralMixtureKernel(Kernel):
 
         super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
         self.register_parameter(
-            'log_mixture_weights',
+            "log_mixture_weights",
             nn.Parameter(torch.zeros(self.n_mixtures)),
             bounds=log_mixture_weight_bounds,
         )
         self.register_parameter(
-            'log_mixture_means',
+            "log_mixture_means",
             nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
             bounds=log_mixture_mean_bounds,
         )
         self.register_parameter(
-            'log_mixture_scales',
+            "log_mixture_scales",
             nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
             bounds=log_mixture_scale_bounds,
         )
@@ -49,7 +49,7 @@ class SpectralMixtureKernel(Kernel):
             )
 
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
-            raise RuntimeError('train_x and train_y should be tensors')
+            raise RuntimeError("train_x and train_y should be tensors")
         if train_x.ndimension() == 1:
             train_x = train_x.unsqueeze(-1)
         if train_x.ndimension() == 2:
@@ -61,7 +61,9 @@ class SpectralMixtureKernel(Kernel):
         min_dist = torch.zeros(1, self.n_dims)
 
         for ind in range(self.n_dims):
-            min_dist[:, ind] = min_dist_sort[(torch.nonzero(min_dist_sort[:, ind]))[0], ind]
+            min_dist[:, ind] = min_dist_sort[
+                (torch.nonzero(min_dist_sort[:, ind]))[0], ind
+            ]
 
         # Inverse of lengthscales should be drawn from truncated Gaussian | N(0, max_dist^2) |
         self.log_mixture_scales.data.normal_().mul_(max_dist).abs_().pow_(-1).log_()
@@ -79,9 +81,15 @@ class SpectralMixtureKernel(Kernel):
             )
 
         mixture_weights = self.log_mixture_weights.view(self.n_mixtures, 1, 1, 1).exp()
-        mixture_means = self.log_mixture_means.view(self.n_mixtures, 1, 1, 1, self.n_dims).exp()
-        mixture_scales = self.log_mixture_scales.view(self.n_mixtures, 1, 1, 1, self.n_dims).exp()
-        distance = (x1.unsqueeze(-2) - x2.unsqueeze(-3)).abs()  # distance = x^(i) - z^(i)
+        mixture_means = self.log_mixture_means.view(
+            self.n_mixtures, 1, 1, 1, self.n_dims
+        ).exp()
+        mixture_scales = self.log_mixture_scales.view(
+            self.n_mixtures, 1, 1, 1, self.n_dims
+        ).exp()
+        distance = (
+            x1.unsqueeze(-2) - x2.unsqueeze(-3)
+        ).abs()  # distance = x^(i) - z^(i)
 
         exp_term = (distance * mixture_scales).pow_(2).mul_(-2 * math.pi ** 2)
         cos_term = (distance * mixture_means).mul_(2 * math.pi)

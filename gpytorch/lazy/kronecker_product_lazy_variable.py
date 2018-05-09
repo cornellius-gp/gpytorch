@@ -24,20 +24,27 @@ def _matmul(lazy_vars, rhs):
             res = res.view(n_batch, lazy_var.size(-1), -1)
             factor = lazy_var._matmul(res)
             n_batch = factor.size(0)
-            factor = factor.view(n_batch, lazy_var.size(-1), -1, n_cols).transpose(-3, -2)
+            factor = factor.view(n_batch, lazy_var.size(-1), -1, n_cols).transpose(
+                -3, -2
+            )
             res = factor.contiguous().view(n_batch, -1, n_cols)
         else:
             res = res.view(lazy_var.size(-1), -1)
             factor = lazy_var._matmul(res)
-            factor = factor.contiguous().view(lazy_var.size(-1), -1, n_cols).transpose(-3, -2)
+            factor = factor.contiguous().view(lazy_var.size(-1), -1, n_cols).transpose(
+                -3, -2
+            )
             res = factor.contiguous().view(-1, n_cols)
     return res
 
 
 class KroneckerProductLazyVariable(LazyVariable):
+
     def __init__(self, *lazy_vars):
         if not all(isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars):
-            raise RuntimeError('KroneckerProductLazyVariable is intended to wrap lazy variables.')
+            raise RuntimeError(
+                "KroneckerProductLazyVariable is intended to wrap lazy variables."
+            )
         super(KroneckerProductLazyVariable, self).__init__(*lazy_vars)
         self.lazy_vars = lazy_vars
 
@@ -67,32 +74,42 @@ class KroneckerProductLazyVariable(LazyVariable):
             _, s = left_vecs.size()
 
             for i, lazy_var in enumerate(self.lazy_vars):
-                m_left = _prod(sizes[i + 1:])
+                m_left = _prod(sizes[i + 1 :])
                 m_right = _prod(sizes[:i])
                 m_i = sizes[i]
 
-                right_vecs_i = right_vecs.view(m_left, m_i, m_right, s).transpose(0, 1).contiguous()
+                right_vecs_i = right_vecs.view(m_left, m_i, m_right, s).transpose(
+                    0, 1
+                ).contiguous()
                 right_vecs_i = right_vecs_i.view(m_i, m_left * m_right * s)
 
                 left_vecs_i = left_vecs.view(m_left, m_i * m_right, s)
                 if i != len(self.lazy_vars) - 1:
                     left_vecs_i = left_vecs_i.view(m_left, m_i * m_right * s)
-                    left_vecs_i = _matmul(self.lazy_vars[i + 1:], left_vecs_i)
+                    left_vecs_i = _matmul(self.lazy_vars[i + 1 :], left_vecs_i)
                     left_vecs_i = left_vecs_i.view(m_left, m_i * m_right, s)
 
                 left_vecs_i = left_vecs_i.view(m_left, m_i, m_right, s).transpose(0, 1)
                 if i != 0:
-                    left_vecs_i = left_vecs_i.transpose(0, 2).contiguous().view(m_right, m_left * m_i * s)
+                    left_vecs_i = left_vecs_i.transpose(0, 2).contiguous().view(
+                        m_right, m_left * m_i * s
+                    )
                     left_vecs_i = _matmul(self.lazy_vars[:i], left_vecs_i)
-                    left_vecs_i = left_vecs_i.view(m_right, m_left, m_i, s).transpose(0, 2)
+                    left_vecs_i = left_vecs_i.view(m_right, m_left, m_i, s).transpose(
+                        0, 2
+                    )
 
-                left_vecs_i = left_vecs_i.contiguous().view(m_i, m_left * m_right * s).contiguous()
-                res = res + list(lazy_var._quad_form_derivative(left_vecs_i, right_vecs_i))
+                left_vecs_i = left_vecs_i.contiguous().view(
+                    m_i, m_left * m_right * s
+                ).contiguous()
+                res = res + list(
+                    lazy_var._quad_form_derivative(left_vecs_i, right_vecs_i)
+                )
         else:
             batch_size, _, s = left_vecs.size()
 
             for i, lazy_var in enumerate(self.lazy_vars):
-                m_left = _prod(sizes[i + 1:])
+                m_left = _prod(sizes[i + 1 :])
                 m_right = _prod(sizes[:i])
                 m_i = sizes[i]
 
@@ -102,21 +119,31 @@ class KroneckerProductLazyVariable(LazyVariable):
 
                 left_vecs_i = left_vecs.view(batch_size, m_left, m_i * m_right, s)
                 if i != len(self.lazy_vars) - 1:
-                    left_vecs_i = left_vecs_i.view(batch_size, m_left, m_i * m_right * s)
-                    left_vecs_i = _matmul(self.lazy_vars[i + 1:], left_vecs_i)
-                    left_vecs_i = left_vecs_i.contiguous().view(batch_size, m_left, m_i * m_right, s)
+                    left_vecs_i = left_vecs_i.view(
+                        batch_size, m_left, m_i * m_right * s
+                    )
+                    left_vecs_i = _matmul(self.lazy_vars[i + 1 :], left_vecs_i)
+                    left_vecs_i = left_vecs_i.contiguous().view(
+                        batch_size, m_left, m_i * m_right, s
+                    )
 
                 left_vecs_i = left_vecs_i.view(batch_size, m_left, m_i, m_right, s)
                 left_vecs_i = left_vecs_i.transpose(1, 2)
                 if i != 0:
                     left_vecs_i = left_vecs_i.transpose(1, 3).contiguous()
-                    left_vecs_i = left_vecs_i.view(batch_size, m_right, m_left * m_i * s)
+                    left_vecs_i = left_vecs_i.view(
+                        batch_size, m_right, m_left * m_i * s
+                    )
                     left_vecs_i = _matmul(self.lazy_vars[:i], left_vecs_i)
                     left_vecs_i = left_vecs_i.view(batch_size, m_right, m_left, m_i, s)
                     left_vecs_i = left_vecs_i.transpose(1, 3)
-                left_vecs_i = left_vecs_i.contiguous().view(batch_size, m_i, m_left * m_right * s)
+                left_vecs_i = left_vecs_i.contiguous().view(
+                    batch_size, m_i, m_left * m_right * s
+                )
                 left_vecs_i = left_vecs_i.contiguous()
-                res = res + list(lazy_var._quad_form_derivative(left_vecs_i, right_vecs_i))
+                res = res + list(
+                    lazy_var._quad_form_derivative(left_vecs_i, right_vecs_i)
+                )
 
         return res
 
@@ -131,7 +158,10 @@ class KroneckerProductLazyVariable(LazyVariable):
             return torch.Size((left_size, right_size))
 
     def _transpose_nonbatch(self):
-        return self.__class__(*(lazy_var._transpose_nonbatch() for lazy_var in self.lazy_vars), **self._kwargs)
+        return self.__class__(
+            *(lazy_var._transpose_nonbatch() for lazy_var in self.lazy_vars),
+            **self._kwargs
+        )
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         res = Variable(self.tensor_cls(left_indices.size()).fill_(1))
@@ -141,7 +171,9 @@ class KroneckerProductLazyVariable(LazyVariable):
             left_indices_i = left_indices.float().div(size).floor().long()
             right_indices_i = right_indices.float().div(size).floor().long()
 
-            res = res * lazy_var._batch_get_indices(batch_indices, left_indices_i, right_indices_i)
+            res = res * lazy_var._batch_get_indices(
+                batch_indices, left_indices_i, right_indices_i
+            )
             left_indices = left_indices - (left_indices_i * size)
             right_indices = right_indices - (right_indices_i * size)
         return res
@@ -160,4 +192,6 @@ class KroneckerProductLazyVariable(LazyVariable):
         return res
 
     def repeat(self, *sizes):
-        return KroneckerProductLazyVariable(*[lazy_var.repeat(*sizes) for lazy_var in self.lazy_vars])
+        return KroneckerProductLazyVariable(
+            *[lazy_var.repeat(*sizes) for lazy_var in self.lazy_vars]
+        )

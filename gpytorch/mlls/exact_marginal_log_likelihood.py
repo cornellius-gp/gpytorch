@@ -13,6 +13,7 @@ from ..variational import MVNVariationalStrategy
 
 
 class ExactMarginalLogLikelihood(MarginalLogLikelihood):
+
     def __init__(self, likelihood, model):
         """
         A special MLL designed for exact inference
@@ -23,17 +24,21 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         """
 
         if not isinstance(likelihood, GaussianLikelihood):
-            raise RuntimeError('Likelihood must be Gaussian for exact inference')
+            raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
 
     def forward(self, output, target):
         if not isinstance(output.covar(), LazyVariable):
-            output = GaussianRandomVariable(output.mean(), NonLazyVariable(output.covar()))
+            output = GaussianRandomVariable(
+                output.mean(), NonLazyVariable(output.covar())
+            )
         mean, covar = self.likelihood(output).representation()
         n_data = target.size(-1)
 
         # Get log determininat and first part of quadratic form
-        inv_quad, log_det = covar.inv_quad_log_det(inv_quad_rhs=(target - mean).unsqueeze(-1), log_det=True)
+        inv_quad, log_det = covar.inv_quad_log_det(
+            inv_quad_rhs=(target - mean).unsqueeze(-1), log_det=True
+        )
 
         # Add terms for SGPR / when inducing points are learned
         trace_diff = torch.zeros_like(inv_quad)
@@ -42,11 +47,8 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
                 trace_diff = trace_diff.add(variational_strategy.trace_diff())
         trace_diff = trace_diff / self.likelihood.log_noise.exp()
 
-        res = -0.5 * sum([
-            inv_quad,
-            log_det,
-            n_data * math.log(2 * math.pi),
-            -trace_diff
-        ])
+        res = -0.5 * sum(
+            [inv_quad, log_det, n_data * math.log(2 * math.pi), -trace_diff]
+        )
 
         return res.div(n_data)

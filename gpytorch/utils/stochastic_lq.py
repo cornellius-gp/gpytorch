@@ -14,6 +14,7 @@ class StochasticLQ(object):
     compute the trace of the inverse using the same probe vector the log determinant was computed
     with. For more details, see Dong et al. 2017 (in submission).
     """
+
     def __init__(self, cls=None, max_iter=15, num_random_probes=10):
         """
         The nature of stochastic Lanczos quadrature is that the calculation of tr(f(A)) is both inaccurate and
@@ -32,7 +33,9 @@ class StochasticLQ(object):
         self.num_random_probes = num_random_probes
 
     def lanczos_batch(self, matmul_closure, rhs_vectors):
-        return lanczos_tridiag(matmul_closure, self.max_iter, init_vecs=rhs_vectors, tensor_cls=self.cls)
+        return lanczos_tridiag(
+            matmul_closure, self.max_iter, init_vecs=rhs_vectors, tensor_cls=self.cls
+        )
 
     def evaluate(self, t_mats, matrix_size, eigenvalues, eigenvectors, funcs):
         """
@@ -56,9 +59,13 @@ class StochasticLQ(object):
                       [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
         """
         if t_mats.dim() < 4:
-            raise RuntimeError("""StochasticLQ expects t_mat to be (num_probe_vecs x num_batch x k x k),
+            raise RuntimeError(
+                """StochasticLQ expects t_mat to be (num_probe_vecs x num_batch x k x k),
                                   but received a Tensor with only {} dimensions. Try unsqueezing to add
-                                  appropriate singleton dimensions if necessary.""".format(t_mats.dim()))
+                                  appropriate singleton dimensions if necessary.""".format(
+                    t_mats.dim()
+                )
+            )
 
         batch_size = t_mats.size(1)
         results = [t_mats.new(batch_size).zero_()] * len(funcs)
@@ -72,8 +79,13 @@ class StochasticLQ(object):
                 eigenvecs_first_component = eigenvectors_for_probe[:, 0, :]
                 func_eigenvalues = func(eigenvalues_for_probe)
 
-                dot_products = (eigenvecs_first_component.pow(2) * func_eigenvalues).sum(1)
-                results[i] = results[i] + matrix_size / float(num_random_probes) * \
-                    dot_products
+                dot_products = (
+                    eigenvecs_first_component.pow(2) * func_eigenvalues
+                ).sum(
+                    1
+                )
+                results[i] = results[i] + matrix_size / float(
+                    num_random_probes
+                ) * dot_products
 
         return results

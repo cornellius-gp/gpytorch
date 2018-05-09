@@ -17,21 +17,27 @@ def toeplitz(toeplitz_column, toeplitz_row):
         - Matrix (n x n) - matrix representation
     """
     if toeplitz_column.ndimension() != 1:
-        raise RuntimeError('toeplitz_column must be a vector.')
+        raise RuntimeError("toeplitz_column must be a vector.")
 
     if toeplitz_row.ndimension() != 1:
-        raise RuntimeError('toeplitz_row must be a vector.')
+        raise RuntimeError("toeplitz_row must be a vector.")
 
     if toeplitz_column[0] != toeplitz_row[0]:
-        raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first \
+        raise RuntimeError(
+            "The first column and first row of the Toeplitz matrix should have the same first \
                             otherwise the value of T[0,0] is ambiguous. \
-                            Got: c[0]={} and r[0]={}'.format(toeplitz_column[0], toeplitz_row[0]))
+                            Got: c[0]={} and r[0]={}".format(
+                toeplitz_column[0], toeplitz_row[0]
+            )
+        )
 
     if len(toeplitz_column) != len(toeplitz_row):
-        raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
+        raise RuntimeError(
+            "c and r should have the same length (Toeplitz matrices are necessarily square)."
+        )
 
     if type(toeplitz_column) != type(toeplitz_row):
-        raise RuntimeError('toeplitz_column and toeplitz_row should be the same type.')
+        raise RuntimeError("toeplitz_column and toeplitz_row should be the same type.")
 
     if len(toeplitz_column) == 1:
         return toeplitz_column.view(1, 1)
@@ -99,7 +105,9 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
         - tensor (n x p or b x n x p) - The result of the matrix multiply T * M.
     """
     if toeplitz_column.size() != toeplitz_row.size():
-        raise RuntimeError('c and r should have the same length (Toeplitz matrices are necessarily square).')
+        raise RuntimeError(
+            "c and r should have the same length (Toeplitz matrices are necessarily square)."
+        )
 
     is_batch = True
     if toeplitz_column.ndimension() == 1:
@@ -110,25 +118,40 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
         is_batch = False
 
     if toeplitz_column.ndimension() != 2:
-        raise RuntimeError('The first two inputs to ToeplitzMV should be vectors \
+        raise RuntimeError(
+            "The first two inputs to ToeplitzMV should be vectors \
                             (or matrices, representing batch) \
-                            (first column c and row r of the Toeplitz matrix)')
+                            (first column c and row r of the Toeplitz matrix)"
+        )
 
     if toeplitz_column.size(0) == 1:
-        toeplitz_column = toeplitz_column.expand(tensor.size(0), toeplitz_column.size(1))
+        toeplitz_column = toeplitz_column.expand(
+            tensor.size(0), toeplitz_column.size(1)
+        )
         toeplitz_row = toeplitz_row.expand(tensor.size(0), toeplitz_row.size(1))
 
     if toeplitz_column.size()[:2] != tensor.size()[:2]:
-        raise RuntimeError('Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with \
-                            leading dimension {}.'.format(len(toeplitz_column), len(toeplitz_column), len(tensor)))
+        raise RuntimeError(
+            "Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with \
+                            leading dimension {}.".format(
+                len(toeplitz_column), len(toeplitz_column), len(tensor)
+            )
+        )
 
     if not torch.equal(toeplitz_column[:, 0], toeplitz_row[:, 0]):
-        raise RuntimeError('The first column and first row of the Toeplitz matrix should have the same first element, \
+        raise RuntimeError(
+            "The first column and first row of the Toeplitz matrix should have the same first element, \
                             otherwise the value of T[0,0] is ambiguous. \
-                            Got: c[0]={} and r[0]={}'.format(toeplitz_column[0], toeplitz_row[0]))
+                            Got: c[0]={} and r[0]={}".format(
+                toeplitz_column[0], toeplitz_row[0]
+            )
+        )
 
-    if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(tensor):
-        raise RuntimeError('The types of all inputs to ToeplitzMV must match.')
+    if (
+        type(toeplitz_column) != type(toeplitz_row)
+        or type(toeplitz_column) != type(tensor)
+    ):
+        raise RuntimeError("The types of all inputs to ToeplitzMV must match.")
 
     output_dims = tensor.ndimension()
     if output_dims == 2:
@@ -145,7 +168,9 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
         c_r_rev[:, :orig_size] = toeplitz_column
         c_r_rev[:, orig_size:] = r_reverse
 
-        temp_tensor = toeplitz_column.new(batch_size, 2 * orig_size - 1, num_rhs).zero_()
+        temp_tensor = toeplitz_column.new(
+            batch_size, 2 * orig_size - 1, num_rhs
+        ).zero_()
         temp_tensor[:, :orig_size, :] = tensor
 
         fft_M = fft.fft1(temp_tensor.transpose(1, 2).contiguous())

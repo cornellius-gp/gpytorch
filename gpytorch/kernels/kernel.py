@@ -22,14 +22,14 @@ class Kernel(Module):
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
-                'log_lengthscale',
+                "log_lengthscale",
                 torch.nn.Parameter(torch.Tensor(1, 1, lengthscale_num_dims).zero_()),
                 bounds=log_lengthscale_bounds,
             )
 
     @property
     def lengthscale(self):
-        if 'log_lengthscale' in self.named_parameters().keys():
+        if "log_lengthscale" in self.named_parameters().keys():
             return self.log_lengthscale.exp()
         else:
             return None
@@ -55,7 +55,7 @@ class Kernel(Module):
         if x2.data.ndimension() == 1:
             x2 = x2.unsqueeze(1)
         if not x1.size(-1) == x2.size(-1):
-            raise RuntimeError('x1 and x2 must have the same number of dimensions!')
+            raise RuntimeError("x1 and x2 must have the same number of dimensions!")
 
         # Do everything in batch mode by default
         is_batch = x1.ndimension() == 3

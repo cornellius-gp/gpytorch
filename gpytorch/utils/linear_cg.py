@@ -11,8 +11,16 @@ def _default_preconditioner(x):
     return x.clone()
 
 
-def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_iter=None,
-              initial_guess=None, preconditioner=None):
+def linear_cg(
+    matmul_closure,
+    rhs,
+    n_tridiag=0,
+    tolerance=1e-6,
+    eps=1e-20,
+    max_iter=None,
+    initial_guess=None,
+    preconditioner=None,
+):
     """
     Implements the linear conjugate gradients method for (approximately) solving systems of the form
 
@@ -51,7 +59,7 @@ def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_i
     if torch.is_tensor(matmul_closure):
         matmul_closure = matmul_closure.matmul
     elif not callable(matmul_closure):
-        raise RuntimeError('matmul_closure must be a tensor, or a callable object!')
+        raise RuntimeError("matmul_closure must be a tensor, or a callable object!")
 
     # Get some constants
     n_rows = rhs.size(-2)
@@ -65,7 +73,9 @@ def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_i
 
     # Check for NaNs
     if not torch.equal(residual, residual):
-        raise RuntimeError('NaNs encounterd when trying to perform matrix-vector multiplication')
+        raise RuntimeError(
+            "NaNs encounterd when trying to perform matrix-vector multiplication"
+        )
 
     # Sometime we're lucky and the preconditioner solves the system right away
     residual_norm = residual.norm(2, dim=-2)
@@ -81,7 +91,11 @@ def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_i
 
         # Define storage matrices
         mul_storage = residual.new(residual.size())
-        alpha = residual.new(rhs.size(0), 1, rhs.size(-1)) if rhs.ndimension() == 3 else residual.new(1, rhs.size(-1))
+        alpha = residual.new(
+            rhs.size(0), 1, rhs.size(-1)
+        ) if rhs.ndimension() == 3 else residual.new(
+            1, rhs.size(-1)
+        )
         beta = alpha.new(alpha.size())
 
     # Define tridiagonal matrices, if applicable
@@ -144,7 +158,9 @@ def linear_cg(matmul_closure, rhs, n_tridiag=0, tolerance=1e-6, eps=1e-20, max_i
             if k == 0:
                 t_mat[k, k].copy_(alpha_reciprocal)
             else:
-                torch.addcmul(alpha_reciprocal, prev_beta, prev_alpha_reciprocal, out=t_mat[k, k])
+                torch.addcmul(
+                    alpha_reciprocal, prev_beta, prev_alpha_reciprocal, out=t_mat[k, k]
+                )
                 torch.mul(prev_beta.sqrt_(), prev_alpha_reciprocal, out=t_mat[k, k - 1])
                 t_mat[k - 1, k].copy_(t_mat[k, k - 1])
 

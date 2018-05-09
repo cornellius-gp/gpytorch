@@ -22,7 +22,7 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
     """
 
     if not torch.is_tensor(interp_indices):
-        raise RuntimeError('interp_indices and interp_values should be tensors')
+        raise RuntimeError("interp_indices and interp_values should be tensors")
 
     # Is it batch mode?
     is_batch = interp_indices.ndimension() > 2
@@ -42,13 +42,23 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
 
         row_tensor = row_tensor.repeat(batch_size, 1, n_coefficients)
         batch_tensor = batch_tensor.repeat(1, n_target_points, n_coefficients)
-        index_tensor = torch.stack([batch_tensor.contiguous().view(-1),
-                                    interp_indices.contiguous().view(-1),
-                                    row_tensor.contiguous().view(-1)], 0)
+        index_tensor = torch.stack(
+            [
+                batch_tensor.contiguous().view(-1),
+                interp_indices.contiguous().view(-1),
+                row_tensor.contiguous().view(-1),
+            ],
+            0,
+        )
     else:
         row_tensor = row_tensor.repeat(1, n_coefficients)
-        index_tensor = torch.cat([interp_indices.contiguous().view(1, -1),
-                                  row_tensor.contiguous().view(1, -1)], 0)
+        index_tensor = torch.cat(
+            [
+                interp_indices.contiguous().view(1, -1),
+                row_tensor.contiguous().view(1, -1),
+            ],
+            0,
+        )
 
     # Value tensor
     value_tensor = interp_values.contiguous().view(-1)
@@ -68,7 +78,7 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
         interp_size = torch.Size([n_rows, n_target_points])
 
     # Make the sparse tensor
-    type_name = value_tensor.type().split('.')[-1]  # e.g. FloatTensor
+    type_name = value_tensor.type().split(".")[-1]  # e.g. FloatTensor
     if index_tensor.is_cuda:
         cls = getattr(torch.cuda.sparse, type_name)
     else:

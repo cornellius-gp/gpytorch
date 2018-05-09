@@ -9,6 +9,7 @@ from .lazy_variable import LazyVariable
 
 
 class BlockDiagonalLazyVariable(LazyVariable):
+
     def __init__(self, base_lazy_variable, n_blocks=None):
         """
         Represents a lazy variable that is the block diagonal of square matrices
@@ -24,8 +25,12 @@ class BlockDiagonalLazyVariable(LazyVariable):
          and will return (true_batch_size x _ x _))
         """
         if base_lazy_variable.ndimension() != 3:
-            raise RuntimeError('Base lazy variable must be a batch matrix (i.e. 3 dimensions)')
-        super(BlockDiagonalLazyVariable, self).__init__(base_lazy_variable, n_blocks=n_blocks)
+            raise RuntimeError(
+                "Base lazy variable must be a batch matrix (i.e. 3 dimensions)"
+            )
+        super(BlockDiagonalLazyVariable, self).__init__(
+            base_lazy_variable, n_blocks=n_blocks
+        )
         self.base_lazy_variable = base_lazy_variable
         self.n_blocks = n_blocks
 
@@ -80,10 +85,18 @@ class BlockDiagonalLazyVariable(LazyVariable):
     def _size(self):
         base_size = self.base_lazy_variable.size()
         if self.n_blocks is None:
-            return torch.Size((base_size[0] * base_size[1], base_size[0] * base_size[2]))
+            return torch.Size(
+                (base_size[0] * base_size[1], base_size[0] * base_size[2])
+            )
         else:
             true_batch_size = self.base_lazy_variable.size(0) // self.n_blocks
-            return torch.Size((true_batch_size, self.n_blocks * base_size[1], self.n_blocks * base_size[2]))
+            return torch.Size(
+                (
+                    true_batch_size,
+                    self.n_blocks * base_size[1],
+                    self.n_blocks * base_size[2],
+                )
+            )
 
     def _transpose_nonbatch(self):
         return BlockDiagonalLazyVariable(self.base_lazy_variable._transpose_nonbatch())
@@ -96,7 +109,9 @@ class BlockDiagonalLazyVariable(LazyVariable):
         left_indices = left_indices.fmod(block_size)
         right_indices = left_indices.fmod(block_size)
 
-        res = self.base_lazy_variable._batch_get_indices(batch_indices, left_indices, right_indices)
+        res = self.base_lazy_variable._batch_get_indices(
+            batch_indices, left_indices, right_indices
+        )
         res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)
         return res
 
@@ -107,7 +122,9 @@ class BlockDiagonalLazyVariable(LazyVariable):
         left_indices = left_indices.fmod(block_size)
         right_indices = left_indices.fmod(block_size)
 
-        res = self.base_lazy_variable._batch_get_indices(left_batch_indices, left_indices, right_indices)
+        res = self.base_lazy_variable._batch_get_indices(
+            left_batch_indices, left_indices, right_indices
+        )
         res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)
         return res
 
@@ -122,11 +139,16 @@ class BlockDiagonalLazyVariable(LazyVariable):
     def mul(self, other):
         # We're using a custom method here - the constant mul is applied to the base lazy variable
         # This preserves the sum batch structure
-        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or \
-               (isinstance(other, Variable) and other.numel() == 1):
+        if (
+            not (isinstance(other, Variable) or isinstance(other, LazyVariable))
+            or (isinstance(other, Variable) and other.numel() == 1)
+        ):
             from .constant_mul_lazy_variable import ConstantMulLazyVariable
-            return self.__class__(ConstantMulLazyVariable(self.base_lazy_variable, other),
-                                  n_blocks=self.n_blocks)
+
+            return self.__class__(
+                ConstantMulLazyVariable(self.base_lazy_variable, other),
+                n_blocks=self.n_blocks,
+            )
         else:
             return super(BlockDiagonalLazyVariable, self).mul(other)
 
@@ -135,7 +157,9 @@ class BlockDiagonalLazyVariable(LazyVariable):
         if self.n_blocks is None:
             res = res.view(-1, n_samples)
         else:
-            res = res.view(self.base_lazy_variable.size(0) // self.n_blocks, -1, n_samples)
+            res = res.view(
+                self.base_lazy_variable.size(0) // self.n_blocks, -1, n_samples
+            )
         return res
 
     def __getitem__(self, index):
@@ -154,7 +178,9 @@ class BlockDiagonalLazyVariable(LazyVariable):
             # Construct a new lazy variable
             # Get rid of sum_batch_index if we're choosing one batch variable
             if isinstance(batch_index, int):
-                batch_index = slice(batch_index * self.n_blocks, (batch_index + 1) * self.n_blocks, None)
+                batch_index = slice(
+                    batch_index * self.n_blocks, (batch_index + 1) * self.n_blocks, None
+                )
                 n_blocks = None
 
             # Keep sum_batch_index, because we still have an inner batch
@@ -164,7 +190,7 @@ class BlockDiagonalLazyVariable(LazyVariable):
                 n_blocks = self.n_blocks
 
             else:
-                raise RuntimeError('Unknown batch index type')
+                raise RuntimeError("Unknown batch index type")
 
             # Now construct a new sum batch lazy variable, and recurse
             components = tuple(component[batch_index] for component in self._args)

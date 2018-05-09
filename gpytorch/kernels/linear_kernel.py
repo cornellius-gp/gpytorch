@@ -10,6 +10,7 @@ from .kernel import Kernel
 
 
 class LinearKernel(Kernel):
+
     def __init__(
         self,
         num_dimensions,
@@ -21,12 +22,10 @@ class LinearKernel(Kernel):
         super(LinearKernel, self).__init__(active_dims=active_dims)
         self.eps = eps
         self.register_parameter(
-            'variance',
-            nn.Parameter(torch.zeros(1)),
-            bounds=variance_bounds,
+            "variance", nn.Parameter(torch.zeros(1)), bounds=variance_bounds
         )
         self.register_parameter(
-            'offset',
+            "offset",
             nn.Parameter(torch.zeros(1, 1, num_dimensions)),
             bounds=offset_bounds,
         )
@@ -38,8 +37,7 @@ class LinearKernel(Kernel):
             prod = RootLazyVariable(x1 - self.offset)
         else:
             prod = MatmulLazyVariable(
-                x1 - self.offset,
-                (x2 - self.offset).transpose(2, 1)
+                x1 - self.offset, (x2 - self.offset).transpose(2, 1)
             )
 
         return prod + self.variance.expand(prod.size())

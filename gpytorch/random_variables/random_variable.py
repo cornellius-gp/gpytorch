@@ -9,6 +9,7 @@ from ..lazy import LazyVariable
 
 
 class RandomVariable(object):
+
     def __init__(self, *args, **kwargs):
         self._args = args
         self._kwargs = kwargs
@@ -31,12 +32,12 @@ class RandomVariable(object):
         new_args = []
         new_kwargs = {}
         for arg in self._args:
-            if hasattr(arg, 'cpu'):
+            if hasattr(arg, "cpu"):
                 new_args.append(arg.cpu())
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
-            if hasattr(val, 'cpu'):
+            if hasattr(val, "cpu"):
                 new_kwargs[name] = val.cpu()
             else:
                 new_kwargs[name] = val
@@ -46,12 +47,12 @@ class RandomVariable(object):
         new_args = []
         new_kwargs = {}
         for arg in self._args:
-            if hasattr(arg, 'cuda'):
+            if hasattr(arg, "cuda"):
                 new_args.append(arg.cuda(device_id))
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
-            if hasattr(val, 'cuda'):
+            if hasattr(val, "cuda"):
                 new_kwargs[name] = val.cuda(device_id)
             else:
                 new_kwargs[name] = val
@@ -137,7 +138,14 @@ class RandomVariable(object):
         raise NotImplementedError
 
     def __setattr__(self, name, val):
-        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):
-            if not hasattr(self, '_args'):
-                raise RuntimeError('Cannot assign %s to LazyVariable before calling LazyVariable.__init__()' % name)
+        if (
+            torch.is_tensor(val)
+            or isinstance(val, Variable)
+            or isinstance(val, LazyVariable)
+        ):
+            if not hasattr(self, "_args"):
+                raise RuntimeError(
+                    "Cannot assign %s to LazyVariable before calling LazyVariable.__init__()"
+                    % name
+                )
         object.__setattr__(self, name, val)
