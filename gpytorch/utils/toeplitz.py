@@ -24,16 +24,15 @@ def toeplitz(toeplitz_column, toeplitz_row):
 
     if toeplitz_column[0] != toeplitz_row[0]:
         raise RuntimeError(
-            "The first column and first row of the Toeplitz matrix should have the same first \
-                            otherwise the value of T[0,0] is ambiguous. \
-                            Got: c[0]={} and r[0]={}".format(
-                toeplitz_column[0], toeplitz_row[0]
-            )
+            "The first column and first row of the Toeplitz matrix should have "
+            "the same first otherwise the value of T[0,0] is ambiguous. "
+            "Got: c[0]={} and r[0]={}".format(toeplitz_column[0], toeplitz_row[0])
         )
 
     if len(toeplitz_column) != len(toeplitz_row):
         raise RuntimeError(
-            "c and r should have the same length (Toeplitz matrices are necessarily square)."
+            "c and r should have the same length "
+            "(Toeplitz matrices are necessarily square)."
         )
 
     if type(toeplitz_column) != type(toeplitz_row):
@@ -132,19 +131,17 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
 
     if toeplitz_column.size()[:2] != tensor.size()[:2]:
         raise RuntimeError(
-            "Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix against a matrix with \
-                            leading dimension {}.".format(
+            "Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix "
+            "against a matrix with leading dimension {}.".format(
                 len(toeplitz_column), len(toeplitz_column), len(tensor)
             )
         )
 
     if not torch.equal(toeplitz_column[:, 0], toeplitz_row[:, 0]):
         raise RuntimeError(
-            "The first column and first row of the Toeplitz matrix should have the same first element, \
-                            otherwise the value of T[0,0] is ambiguous. \
-                            Got: c[0]={} and r[0]={}".format(
-                toeplitz_column[0], toeplitz_row[0]
-            )
+            "The first column and first row of the Toeplitz matrix should have "
+            "the same first element, otherwise the value of T[0,0] is ambiguous. "
+            "Got: c[0]={} and r[0]={}".format(toeplitz_column[0], toeplitz_row[0])
         )
 
     if (

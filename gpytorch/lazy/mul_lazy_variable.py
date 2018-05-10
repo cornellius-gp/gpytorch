@@ -29,7 +29,8 @@ class MulLazyVariable(LazyVariable):
                     lazy_vars[i] = NonLazyVariable(lazy_var)
                 else:
                     raise RuntimeError(
-                        "All arguments of a MulLazyVariable should be lazy variables or vairables"
+                        "All arguments of a MulLazyVariable should be lazy "
+                        "variables or variables"
                     )
 
         super(MulLazyVariable, self).__init__(*lazy_vars)

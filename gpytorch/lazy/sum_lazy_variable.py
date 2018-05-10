@@ -18,7 +18,8 @@ class SumLazyVariable(LazyVariable):
                     lazy_vars[i] = NonLazyVariable(lazy_var)
                 else:
                     raise RuntimeError(
-                        "All arguments of a SumLazyVariable should be lazy variables or vairables"
+                        "All arguments of a SumLazyVariable should be lazy "
+                        "variables or variables"
                     )
         super(SumLazyVariable, self).__init__(*lazy_vars)
 

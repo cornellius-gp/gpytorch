@@ -55,8 +55,8 @@ class _value_context(object):
 
 class max_cg_iterations(_value_context):
     """
-    The maximum number of conjugate gradient iterations to perform (when computing matrix solves)
-    More values results in more accurate solves
+    The maximum number of conjugate gradient iterations to perform (when computing
+    matrix solves). More values results in more accurate solves
     Default: 20
     """
     _global_value = 20
@@ -65,8 +65,8 @@ class max_cg_iterations(_value_context):
 class max_root_decomposition_size(_value_context):
     """
     The maximum number of Lanczos iterations to perform
-    This is used when 1) computing variance estiamtes 2) when drawing from MVNs, or
-    3) for kernel multiplication
+    This is used when 1) computing variance estiamtes 2) when drawing from MVNs,
+    or 3) for kernel multiplication
     More values results in higher accuracy
     Default: 100
     """
@@ -76,8 +76,8 @@ class max_root_decomposition_size(_value_context):
 class max_lanczos_iterations(max_root_decomposition_size):
     """
     The maximum number of Lanczos iterations to perform
-    This is used when 1) computing variance estiamtes 2) when drawing from MVNs, or
-    3) for kernel multiplication
+    This is used when 1) computing variance estiamtes 2) when drawing from MVNs,
+    or 3) for kernel multiplication
     More values results in higher accuracy
     Default: 100
 
@@ -86,7 +86,8 @@ class max_lanczos_iterations(max_root_decomposition_size):
 
     def __enter__(self,):
         warnings.warn(
-            "max_lanczos_iterations is deprecated. Use max_root_decomposition_size instead.",
+            "max_lanczos_iterations is deprecated. "
+            "Use max_root_decomposition_size instead.",
             DeprecationWarning,
         )
         return super(max_lanczos_iterations, self).__enter__()
@@ -94,8 +95,8 @@ class max_lanczos_iterations(max_root_decomposition_size):
 
 class max_preconditioner_size(_value_context):
     """
-    The maximum size of preconditioner to use. 0 corresponds to turning preconditioning off.
-    When enabled, usually a value of around ~10 works fairly well.
+    The maximum size of preconditioner to use. 0 corresponds to turning
+    preconditioning off. When enabled, usually a value of around ~10 works fairly well.
     Default: 0
     """
     _global_value = 0
@@ -103,8 +104,9 @@ class max_preconditioner_size(_value_context):
 
 class max_lanczos_quadrature_iterations(_value_context):
     """
-    The maximum number of Lanczos iterations to perform when doing stochastic Lanczos
-    quadrature. This is ONLY used for log determinant calculations and computing Tr(K^{-1}dK/d\theta)
+    The maximum number of Lanczos iterations to perform when doing stochastic
+    Lanczos quadrature. This is ONLY used for log determinant calculations and
+    computing Tr(K^{-1}dK/d\theta)
     """
     _global_value = 15
 

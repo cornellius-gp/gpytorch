@@ -60,11 +60,9 @@ class StochasticLQ(object):
         """
         if t_mats.dim() < 4:
             raise RuntimeError(
-                """StochasticLQ expects t_mat to be (num_probe_vecs x num_batch x k x k),
-                                  but received a Tensor with only {} dimensions. Try unsqueezing to add
-                                  appropriate singleton dimensions if necessary.""".format(
-                    t_mats.dim()
-                )
+                "StochasticLQ expects t_mat to be (num_probe_vecs x num_batch x k x k), "
+                "but received a Tensor with only {} dimensions. Try unsqueezing to add "
+                "appropriate singleton dimensions if necessary.".format(t_mats.dim())
             )
 
         batch_size = t_mats.size(1)
