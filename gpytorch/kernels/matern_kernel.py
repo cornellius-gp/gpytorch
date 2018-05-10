@@ -19,7 +19,7 @@ class MaternKernel(Kernel):
         eps=1e-8,
     ):
         if nu not in {0.5, 1.5, 2.5}:
-            raise RuntimeError('nu expected to be 0.5, 1.5, or 2.5')
+            raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
         super(MaternKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
@@ -40,9 +40,7 @@ class MaternKernel(Kernel):
         x1_t_x_2 = torch.matmul(x1_normed, x2_normed.transpose(-1, -2))
 
         distance_over_rho = (
-            x1_squared.unsqueeze(-1) +
-            x2_squared.unsqueeze(-2) -
-            x1_t_x_2.mul(2)
+            x1_squared.unsqueeze(-1) + x2_squared.unsqueeze(-2) - x1_t_x_2.mul(2)
         )
         distance_over_rho = distance_over_rho.clamp(self.eps, 1e10).sqrt()
         exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance_over_rho)
@@ -53,8 +51,8 @@ class MaternKernel(Kernel):
             constant_component = (math.sqrt(3) * distance_over_rho).add(1)
         elif self.nu == 2.5:
             constant_component = (
-                (math.sqrt(5) * distance_over_rho).
-                add(1).
-                add(5. / 3. * distance_over_rho ** 2)
+                (math.sqrt(5) * distance_over_rho).add(1).add(
+                    5. / 3. * distance_over_rho ** 2
+                )
             )
         return constant_component * exp_component

@@ -10,6 +10,7 @@ from torch.nn import functional as F
 
 
 class CategoricalRandomVariable(RandomVariable):
+
     def __init__(self, mass_function):
         """
         Constructs a categorical random variable
@@ -24,17 +25,19 @@ class CategoricalRandomVariable(RandomVariable):
         """
         super(CategoricalRandomVariable, self).__init__(mass_function)
         if not isinstance(mass_function, Variable):
-            raise RuntimeError('mass_function should be a Variable')
+            raise RuntimeError("mass_function should be a Variable")
 
         ndimension = mass_function.ndimension()
         if ndimension not in [1, 2]:
-            raise RuntimeError('mass_function should be a vector or a matrix')
+            raise RuntimeError("mass_function should be a vector or a matrix")
 
         # Assert that probabilities sum to 1
         if ndimension == 1:
             mass_function = mass_function.unsqueeze(0)
         if torch.abs(mass_function.data.sum(1) - 1).gt(1e-5).sum():
-            raise RuntimeError('mass_function probabilties (in each row) should sum to 1!')
+            raise RuntimeError(
+                "mass_function probabilties (in each row) should sum to 1!"
+            )
         if ndimension == 1:
             mass_function = mass_function.squeeze(0)
 
@@ -63,14 +66,20 @@ class CategoricalRandomVariable(RandomVariable):
             lower_mass_function = upper_mass_function - mass_function
 
             samples = Variable(mass_function.data.new(1, 1, n_samples).uniform_())
-            samples = samples.clamp(1e-5, 1)  # Make sure that everything is strictly greater than zero
+            samples = samples.clamp(
+                1e-5, 1
+            )  # Make sure that everything is strictly greater than zero
             lower_mask = samples.gt(lower_mass_function.unsqueeze(-1))
             upper_mask = samples.le(upper_mass_function.unsqueeze(-1))
             res = (lower_mask * upper_mask)
         else:
-            samples = Variable(mass_function.data.new(1, mass_function.size(-1), n_samples).uniform_())
+            samples = Variable(
+                mass_function.data.new(1, mass_function.size(-1), n_samples).uniform_()
+            )
             gumbel_samples = samples.log().mul_(-1).log_().mul_(-1)
-            softmax_weights = (mass_function.log().unsqueeze(-1) + gumbel_samples).div(gumbel_softmax_temp)
+            softmax_weights = (mass_function.log().unsqueeze(-1) + gumbel_samples).div(
+                gumbel_softmax_temp
+            )
             res = F.softmax(softmax_weights, 1)
 
         # Sample dimension is first

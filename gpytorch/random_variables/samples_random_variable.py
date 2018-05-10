@@ -9,6 +9,7 @@ import random
 
 
 class SamplesRandomVariable(RandomVariable):
+
     def __init__(self, samples):
         """
         Constructs a random variable from samples
@@ -20,7 +21,7 @@ class SamplesRandomVariable(RandomVariable):
         """
         super(SamplesRandomVariable, self).__init__(samples)
         if not isinstance(samples, Variable):
-            raise RuntimeError('samples should be a Variable')
+            raise RuntimeError("samples should be a Variable")
         self._samples = samples
 
     def sample(self):
@@ -35,5 +36,7 @@ class SamplesRandomVariable(RandomVariable):
 
     def var(self):
         if self._samples.size(-1) == 1:
-            return Variable(self._samples.data.new(self._samples.squeeze(-1).size()).zero_())
+            return Variable(
+                self._samples.data.new(self._samples.squeeze(-1).size()).zero_()
+            )
         return self._samples.var(-1)

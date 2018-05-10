@@ -45,7 +45,7 @@ class _value_context(object):
         self._orig_value = self.__class__.value()
         self._instance_value = value
 
-    def __enter__(self, ):
+    def __enter__(self,):
         self.__class__._set_value(self._instance_value)
 
     def __exit__(self, *args):
@@ -84,9 +84,9 @@ class max_lanczos_iterations(max_root_decomposition_size):
     DEPRECATED: Use max_root_decomposition_size instead
     """
 
-    def __enter__(self, ):
+    def __enter__(self,):
         warnings.warn(
-            'max_lanczos_iterations is deprecated. Use max_root_decomposition_size instead.',
+            "max_lanczos_iterations is deprecated. Use max_root_decomposition_size instead.",
             DeprecationWarning,
         )
         return super(max_lanczos_iterations, self).__enter__()

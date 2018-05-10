@@ -6,8 +6,16 @@ from __future__ import unicode_literals
 import torch
 
 
-def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
-                    tensor_cls=None, batch_size=None, n_dims=None, n_init_vecs=None):
+def lanczos_tridiag(
+    matmul_closure,
+    max_iter,
+    tol=1e-5,
+    init_vecs=None,
+    tensor_cls=None,
+    batch_size=None,
+    n_dims=None,
+    n_init_vecs=None,
+):
     # Determine batch mode
     is_batch = False
     multiple_init_vecs = False
@@ -16,13 +24,16 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
 
         def default_matmul_closure(tensor):
             return lhs.matmul(tensor)
+
         matmul_closure = default_matmul_closure
     # Get initial probe ectors - and define if not available
     if init_vecs is None:
         if tensor_cls is None:
-            raise RuntimeError('You must supply tensor_cls if you don\'t supply init_vecs')
+            raise RuntimeError(
+                "You must supply tensor_cls if you don't supply init_vecs"
+            )
         if n_dims is None:
-            raise RuntimeError('You must supply n_dims if you don\'t supply init_vecs')
+            raise RuntimeError("You must supply n_dims if you don't supply init_vecs")
 
         if batch_size is not None:
             is_batch = True
@@ -67,7 +78,9 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
 
     # Begin algorithm
     # Initial Q vector: q_0_vec
-    q_0_vec = init_vecs / torch.norm(init_vecs, 2, dim=dim_dimension).unsqueeze(dim_dimension)
+    q_0_vec = init_vecs / torch.norm(init_vecs, 2, dim=dim_dimension).unsqueeze(
+        dim_dimension
+    )
     q_mat[0].copy_(q_0_vec)
 
     # Initial alpha value: alpha_0
@@ -104,8 +117,10 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
             # Compute next residual value
             r_vec.sub_(alpha_curr.mul(q_curr_vec))
             # Full reorthogonalization: r <- r - Q (Q^T r)
-            correction = r_vec.unsqueeze(0).mul(q_mat[:k + 1]).sum(dim_dimension, keepdim=True)
-            correction = q_mat[:k + 1].mul(correction).sum(0)
+            correction = r_vec.unsqueeze(0).mul(q_mat[: k + 1]).sum(
+                dim_dimension, keepdim=True
+            )
+            correction = q_mat[: k + 1].mul(correction).sum(0)
             r_vec.sub_(correction)
             r_vec_norm = torch.norm(r_vec, 2, dim=dim_dimension, keepdim=True)
             r_vec.div_(r_vec_norm)
@@ -117,18 +132,22 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
             t_mat[k + 1, k].copy_(beta_curr)
 
             # Run more reorthoganilzation if necessary
-            inner_products = q_mat[:k + 1].mul(r_vec.unsqueeze(0)).sum(dim_dimension)
+            inner_products = q_mat[: k + 1].mul(r_vec.unsqueeze(0)).sum(dim_dimension)
             could_reorthogonalize = False
             for i in range(10):
                 if not torch.sum(inner_products > tol):
                     could_reorthogonalize = True
                     break
-                correction = r_vec.unsqueeze(0).mul(q_mat[:k + 1]).sum(dim_dimension, keepdim=True)
-                correction = q_mat[:k + 1].mul(correction).sum(0)
+                correction = r_vec.unsqueeze(0).mul(q_mat[: k + 1]).sum(
+                    dim_dimension, keepdim=True
+                )
+                correction = q_mat[: k + 1].mul(correction).sum(0)
                 r_vec.sub_(correction)
                 r_vec_norm = torch.norm(r_vec, 2, dim=dim_dimension, keepdim=True)
                 r_vec.div_(r_vec_norm)
-                inner_products = q_mat[:k + 1].mul(r_vec.unsqueeze(0)).sum(dim_dimension)
+                inner_products = q_mat[: k + 1].mul(r_vec.unsqueeze(0)).sum(
+                    dim_dimension
+                )
 
             # Update q_mat with new q value
             q_mat[k + 1].copy_(r_vec)
@@ -140,9 +159,9 @@ def lanczos_tridiag(matmul_closure, max_iter, tol=1e-5, init_vecs=None,
     n_iter = k + 1
 
     # n_init_vecs x batch_size x n_dims x n_iter
-    q_mat = q_mat[:n_iter + 1].permute(3, 1, 2, 0).contiguous()
+    q_mat = q_mat[: n_iter + 1].permute(3, 1, 2, 0).contiguous()
     # n_init_vecs x batch_size x n_iter x n_iter
-    t_mat = t_mat[:n_iter + 1, :n_iter + 1].permute(3, 2, 0, 1).contiguous()
+    t_mat = t_mat[: n_iter + 1, : n_iter + 1].permute(3, 2, 0, 1).contiguous()
 
     # If we weren't in batch mode, remove batch dimension
     if not is_batch:

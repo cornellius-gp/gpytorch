@@ -10,6 +10,7 @@ from .. import settings
 
 
 class InvMatmul(Function):
+
     def __init__(self, representation_tree, preconditioner=None):
         self.representation_tree = representation_tree
         self.preconditioner = preconditioner
@@ -28,7 +29,7 @@ class InvMatmul(Function):
             matmul_closure,
             rhs,
             max_iter=settings.max_cg_iterations.value(),
-            preconditioner=self.preconditioner
+            preconditioner=self.preconditioner,
         )
 
         if self.is_vector:
@@ -49,7 +50,7 @@ class InvMatmul(Function):
         matrix_args = self.saved_tensors[2:]
 
         # Get matrix functions
-        if hasattr(self, '_lazy_var'):
+        if hasattr(self, "_lazy_var"):
             lazy_var = self._lazy_var
         else:
             lazy_var = self.representation_tree(*matrix_args)
@@ -70,20 +71,18 @@ class InvMatmul(Function):
                 matmul_closure,
                 grad_output,
                 max_iter=settings.max_cg_iterations.value(),
-                preconditioner=self.preconditioner
+                preconditioner=self.preconditioner,
             )
 
             # input_1 gradient
             if any(self.needs_input_grad[1:]):
                 if lazy_var is not None:
                     arg_grads = lazy_var._quad_form_derivative(
-                        grad_output_solves,
-                        rhs_solves.mul_(-1)
+                        grad_output_solves, rhs_solves.mul_(-1)
                     )
                 else:
                     arg_grads = torch.matmul(
-                        grad_output_solves,
-                        rhs_solves.mul_(-1).transpose(-1, -2),
+                        grad_output_solves, rhs_solves.mul_(-1).transpose(-1, -2)
                     ),
 
             # input_2 gradient

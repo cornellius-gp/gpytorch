@@ -9,6 +9,7 @@ from .lazy_variable import LazyVariable
 
 
 class ConstantMulLazyVariable(LazyVariable):
+
     def __init__(self, lazy_var, constant):
         if not isinstance(constant, Variable):
             tensor_cls = lazy_var.tensor_cls
@@ -40,10 +41,14 @@ class ConstantMulLazyVariable(LazyVariable):
         return self.lazy_var.size()
 
     def _transpose_nonbatch(self):
-        return ConstantMulLazyVariable(self.lazy_var._transpose_nonbatch(), self.constant)
+        return ConstantMulLazyVariable(
+            self.lazy_var._transpose_nonbatch(), self.constant
+        )
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        res = self.lazy_var._batch_get_indices(batch_indices, left_indices, right_indices)
+        res = self.lazy_var._batch_get_indices(
+            batch_indices, left_indices, right_indices
+        )
         return self.constant.expand_as(res) * res
 
     def _get_indices(self, left_indices, right_indices):

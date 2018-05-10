@@ -10,8 +10,18 @@ from .. import settings
 
 
 class RootDecomposition(Function):
-    def __init__(self, representation_tree, cls, size, max_iter,
-                 batch_size=None, root=True, inverse=False, initial_vector=None):
+
+    def __init__(
+        self,
+        representation_tree,
+        cls,
+        size,
+        max_iter,
+        batch_size=None,
+        root=True,
+        inverse=False,
+        initial_vector=None,
+    ):
         self.representation_tree = representation_tree
         self.cls = cls
         self.size = size
@@ -19,7 +29,11 @@ class RootDecomposition(Function):
         self.batch_size = batch_size
         self.root = root
         self.inverse = inverse
-        self.initial_vector = initial_vector.data if isinstance(initial_vector, Variable) else initial_vector
+        self.initial_vector = (
+            initial_vector.data
+            if isinstance(initial_vector, Variable)
+            else initial_vector
+        )
 
     def forward(self, *matrix_args):
         """
@@ -34,9 +48,14 @@ class RootDecomposition(Function):
         matmul_closure = lazy_var._matmul
 
         # Do lanczos
-        q_mat, t_mat = lanczos_tridiag(matmul_closure, self.max_iter,
-                                       tensor_cls=self.cls, batch_size=self.batch_size,
-                                       n_dims=self.size, init_vecs=self.initial_vector)
+        q_mat, t_mat = lanczos_tridiag(
+            matmul_closure,
+            self.max_iter,
+            tensor_cls=self.cls,
+            batch_size=self.batch_size,
+            n_dims=self.size,
+            init_vecs=self.initial_vector,
+        )
         if self.batch_size is None:
             q_mat = q_mat.unsqueeze(-3)
             t_mat = t_mat.unsqueeze(-3)
@@ -76,6 +95,7 @@ class RootDecomposition(Function):
     def backward(self, root_grad_output, inverse_grad_output):
         # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
         if any(self.needs_input_grad):
+
             def is_empty(tensor):
                 return tensor.numel() == 0 or (tensor.numel() == 1 and tensor[0] == 0)
 
@@ -108,7 +128,7 @@ class RootDecomposition(Function):
             inverse = self.saved_tensors[-1]
 
             # Get closure for matmul
-            if hasattr(self, '_lazy_var'):
+            if hasattr(self, "_lazy_var"):
                 lazy_var = self._lazy_var
             else:
                 lazy_var = self.representation_tree(*matrix_args)
@@ -124,8 +144,9 @@ class RootDecomposition(Function):
             if inverse_grad_output is not None:
                 # -root^-T grad_output.T root^-T
                 left_factor.sub_(
-                    torch.matmul(inverse, inverse_grad_output.transpose(-1, -2)).
-                    matmul(inverse)
+                    torch.matmul(inverse, inverse_grad_output.transpose(-1, -2)).matmul(
+                        inverse
+                    )
                 )
 
             # Right factor

@@ -34,10 +34,14 @@ class BernoulliLikelihood(Likelihood):
             p(y|x) = \Phi(\frac{\mu}{\sqrt{1+\sigma^2_f}})
         """
         if not isinstance(input, GaussianRandomVariable):
-            raise RuntimeError(' '.join([
-                'BernoulliLikelihood expects a Gaussian',
-                'distributed latent function to make predictions',
-            ]))
+            raise RuntimeError(
+                " ".join(
+                    [
+                        "BernoulliLikelihood expects a Gaussian",
+                        "distributed latent function to make predictions",
+                    ]
+                )
+            )
 
         mean = input.mean()
         var = input.var()

@@ -10,6 +10,7 @@ from .random_variable import RandomVariable
 
 
 class DirichletRandomVariable(RandomVariable):
+
     def __init__(self, alpha):
         """
         Constructs a Dirichlet random variable
@@ -23,11 +24,11 @@ class DirichletRandomVariable(RandomVariable):
         """
         super(DirichletRandomVariable, self).__init__(alpha)
         if not isinstance(alpha, Variable):
-            raise RuntimeError('alpha should be a Variable')
+            raise RuntimeError("alpha should be a Variable")
 
         ndimension = alpha.ndimension()
         if ndimension not in [1, 2]:
-            raise RuntimeError('alpha should be a vector or a matrix')
+            raise RuntimeError("alpha should be a vector or a matrix")
         self.alpha = alpha
 
     def representation(self):

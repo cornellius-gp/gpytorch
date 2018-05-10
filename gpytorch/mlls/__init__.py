@@ -4,7 +4,5 @@ from .variational_marginal_log_likelihood import VariationalMarginalLogLikelihoo
 
 
 __all__ = [
-    MarginalLogLikelihood,
-    ExactMarginalLogLikelihood,
-    VariationalMarginalLogLikelihood
+    MarginalLogLikelihood, ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 ]

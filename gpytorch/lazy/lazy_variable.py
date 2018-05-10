@@ -32,14 +32,18 @@ class LazyVariable(object):
 
     def _preconditioner(self):
         if gpytorch.settings.max_preconditioner_size.value() > 0:
-            warnings.warn('Max preconditioner size was >0, but this lazy Variable does not define a preconditioner.')
+            warnings.warn(
+                "Max preconditioner size was >0, but this lazy Variable does not define a preconditioner."
+            )
         return None
 
     def _matmul(self, rhs):
         """
         Returns: matrix * rhs
         """
-        raise NotImplementedError('The class %s requires a _matmul function!' % self.__class__.__name__)
+        raise NotImplementedError(
+            "The class %s requires a _matmul function!" % self.__class__.__name__
+        )
 
     def _t_matmul(self, rhs):
         """
@@ -56,7 +60,10 @@ class LazyVariable(object):
 
         Returns: derivative w.r.t. the arguments
         """
-        raise NotImplementedError('The class %s requires a _quad_form_derivative function!' % self.__class__.__name__)
+        raise NotImplementedError(
+            "The class %s requires a _quad_form_derivative function!"
+            % self.__class__.__name__
+        )
 
     def _size(self):
         """
@@ -65,7 +72,9 @@ class LazyVariable(object):
         Implement this method, rather than size().
         This is because size does some additional work
         """
-        raise NotImplementedError('The class %s requires a _size function!' % self.__class__.__name__)
+        raise NotImplementedError(
+            "The class %s requires a _size function!" % self.__class__.__name__
+        )
 
     def _transpose_nonbatch(self):
         """
@@ -74,7 +83,10 @@ class LazyVariable(object):
         Implement this method, rather than transpose() or t().
         This is because size does some additional work
         """
-        raise NotImplementedError('The class %s requires a _transpose_nonbatch function!' % self.__class__.__name__)
+        raise NotImplementedError(
+            "The class %s requires a _transpose_nonbatch function!"
+            % self.__class__.__name__
+        )
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         """
@@ -86,7 +98,10 @@ class LazyVariable(object):
         indexed by left and right indices
         Only works for batch lazy variables
         """
-        raise NotImplementedError('The class %s requires a _batch_get_indices function!' % self.__class__.__name__)
+        raise NotImplementedError(
+            "The class %s requires a _batch_get_indices function!"
+            % self.__class__.__name__
+        )
 
     def _get_indices(self, left_indices, right_indices):
         """
@@ -96,7 +111,9 @@ class LazyVariable(object):
         Returns entries of the matrix, indexed by left and right indices
         Only works for non-batch lazy variables
         """
-        raise NotImplementedError('The class %s requires a _get_indices function!' % self.__class__.__name__)
+        raise NotImplementedError(
+            "The class %s requires a _get_indices function!" % self.__class__.__name__
+        )
 
     def add_diag(self, diag):
         """
@@ -107,10 +124,13 @@ class LazyVariable(object):
         """
         from .diag_lazy_variable import DiagLazyVariable
         from .added_diag_lazy_variable import AddedDiagLazyVariable
+
         if self.size(-1) != self.size(-2):
-            raise RuntimeError('add_diag only defined for square matrices')
+            raise RuntimeError("add_diag only defined for square matrices")
         if self.ndimension() == 3:
-            diag_lazy_var = DiagLazyVariable(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
+            diag_lazy_var = DiagLazyVariable(
+                diag.unsqueeze(0).expand(self.size(0), self.size(1))
+            )
             return AddedDiagLazyVariable(self, diag_lazy_var)
         else:
             diag_lazy_var = DiagLazyVariable(diag.expand(self.size(0)))
@@ -129,12 +149,12 @@ class LazyVariable(object):
         new_args = []
         new_kwargs = {}
         for arg in self._args:
-            if hasattr(arg, 'cpu'):
+            if hasattr(arg, "cpu"):
                 new_args.append(arg.cpu())
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
-            if hasattr(val, 'cpu'):
+            if hasattr(val, "cpu"):
                 new_kwargs[name] = val.cpu()
             else:
                 new_kwargs[name] = val
@@ -144,12 +164,12 @@ class LazyVariable(object):
         new_args = []
         new_kwargs = {}
         for arg in self._args:
-            if hasattr(arg, 'cuda'):
+            if hasattr(arg, "cuda"):
                 new_args.append(arg.cuda(device_id))
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
-            if hasattr(val, 'cuda'):
+            if hasattr(val, "cuda"):
                 new_kwargs[name] = val.cuda(device_id)
             else:
                 new_kwargs[name] = val
@@ -158,7 +178,7 @@ class LazyVariable(object):
     def diag(self):
         size = self.size()
         if size[-1] != size[-2]:
-            raise RuntimeError('Diag works on square matrices (or batches)')
+            raise RuntimeError("Diag works on square matrices (or batches)")
 
         row_col_iter = Variable(self.tensor_cls(size[-1]).long())
         torch.arange(0, size[-1], out=row_col_iter.data)
@@ -167,7 +187,9 @@ class LazyVariable(object):
             torch.arange(0, size[0], out=batch_iter.data)
             batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
             row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
-            return self._batch_get_indices(batch_iter, row_col_iter, row_col_iter).view(size[0], size[1])
+            return self._batch_get_indices(batch_iter, row_col_iter, row_col_iter).view(
+                size[0], size[1]
+            )
         else:
             return self._get_indices(row_col_iter, row_col_iter)
 
@@ -202,7 +224,9 @@ class LazyVariable(object):
                 eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
 
-    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
+    def exact_predictive_mean(
+        self, full_mean, train_labels, noise, precomputed_cache=None
+    ):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -228,7 +252,9 @@ class LazyVariable(object):
         res = test_train_covar.matmul(precomputed_cache) + test_mean
         return res, precomputed_cache
 
-    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
+    def _exact_predictive_covar_inv_quad_form_cache(
+        self, train_train_covar_inv_root, test_train_covar
+    ):
         """
         Computes a cache for K_X*X (K_XX + sigma^2 I)^-1 K_X*X
 
@@ -241,7 +267,9 @@ class LazyVariable(object):
         """
         return train_train_covar_inv_root
 
-    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
+    def _exact_predictive_covar_inv_quad_form_root(
+        self, precomputed_cache, test_train_covar
+    ):
         """
         Computes K_X*X S given a precomputed cache
         Where S is a tensor such that S S^T = (K_XX + sigma^2 I)^-1
@@ -282,20 +310,28 @@ class LazyVariable(object):
 
         if not beta_features.fast_pred_var.on():
             from .matmul_lazy_variable import MatmulLazyVariable
+
             test_train_covar = test_train_covar.evaluate()
             train_test_covar = test_train_covar.transpose(-1, -2)
-            covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
-            res = test_test_covar + MatmulLazyVariable(test_train_covar, covar_correction_rhs)
+            covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(
+                -1
+            )
+            res = test_test_covar + MatmulLazyVariable(
+                test_train_covar, covar_correction_rhs
+            )
             return res, None
 
         if precomputed_cache is None:
             train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
-            precomputed_cache = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root,
-                                                                                 test_train_covar)
+            precomputed_cache = self._exact_predictive_covar_inv_quad_form_cache(
+                train_train_covar_inv_root, test_train_covar
+            )
 
         from .root_lazy_variable import RootLazyVariable
-        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
-                                                                                   test_train_covar)
+
+        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(
+            precomputed_cache, test_train_covar
+        )
         res = test_test_covar + RootLazyVariable(covar_inv_quad_form_root).mul(-1)
         return res, precomputed_cache
 
@@ -319,7 +355,9 @@ class LazyVariable(object):
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
 
-        func = InvMatmul(self.representation_tree(), preconditioner=self._preconditioner())
+        func = InvMatmul(
+            self.representation_tree(), preconditioner=self._preconditioner()
+        )
         return func(tensor, *self.representation())
 
     def inv_quad(self, tensor):
@@ -359,8 +397,9 @@ class LazyVariable(object):
                 if lazy_var.size(0) == 1 and inv_quad_rhs.size(0) > 1:
                     lazy_var = lazy_var.repeat(inv_quad_rhs.size(0), 1, 1)
                 elif inv_quad_rhs.size(0) == 1:
-                    inv_quad_rhs = inv_quad_rhs.expand(lazy_var.size(0), inv_quad_rhs.size(1),
-                                                       inv_quad_rhs.size(2))
+                    inv_quad_rhs = inv_quad_rhs.expand(
+                        lazy_var.size(0), inv_quad_rhs.size(1), inv_quad_rhs.size(2)
+                    )
             elif self.ndimension() > 3 or inv_quad_rhs.ndimension() > 3:
                 raise RuntimeError
 
@@ -379,8 +418,10 @@ class LazyVariable(object):
             tensor_cls=tensor_cls,
             inv_quad=(inv_quad_rhs is not None),
             log_det=log_det,
-            preconditioner=self._preconditioner()
-        )(*args)
+            preconditioner=self._preconditioner(),
+        )(
+            *args
+        )
         return res
 
     def log_det(self):
@@ -424,12 +465,16 @@ class LazyVariable(object):
         """
         Multiplies the matrix by a constant, or elementwise the matrix by another matrix
         """
-        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or \
-               (isinstance(other, Variable) and other.numel() == 1):
+        if (
+            not (isinstance(other, Variable) or isinstance(other, LazyVariable))
+            or (isinstance(other, Variable) and other.numel() == 1)
+        ):
             from .constant_mul_lazy_variable import ConstantMulLazyVariable
+
             return ConstantMulLazyVariable(self, other)
         else:
             from .mul_lazy_variable import MulLazyVariable
+
             return MulLazyVariable(self, other)
 
     def mul_batch(self, mul_batch_size=None):
@@ -437,21 +482,26 @@ class LazyVariable(object):
         """
         from .mul_lazy_variable import MulLazyVariable
         from .root_lazy_variable import RootLazyVariable
+
         if self.ndimension() < 3:
-            raise RuntimeError('mul_batch only works with batched lazy variables')
+            raise RuntimeError("mul_batch only works with batched lazy variables")
         if self.size(0) == 1:
             return self.sum_batch()
 
         roots = self.root_decomposition()
         n_batch = roots.size(0) if mul_batch_size is None else mul_batch_size
-        true_batch_size = roots.size(0) // mul_batch_size if mul_batch_size is not None else 1
+        true_batch_size = roots.size(
+            0
+        ) // mul_batch_size if mul_batch_size is not None else 1
 
         while True:
             roots = roots.view(true_batch_size, n_batch, roots.size(1), roots.size(2))
 
             # Take care of extra roots (odd roots), if they exist
             if n_batch % 2:
-                extra_root = Variable(roots.data.new(roots.size(0), 1, roots.size(2), roots.size(3)))
+                extra_root = Variable(
+                    roots.data.new(roots.size(0), 1, roots.size(2), roots.size(3))
+                )
                 extra_root.data.normal_().mul_(1e-6 / math.sqrt(roots.size(3)))
                 extra_root.data.add_(1. / math.sqrt(roots.size(3)))
                 roots = torch.cat([roots, extra_root], 1)
@@ -459,9 +509,9 @@ class LazyVariable(object):
 
             # Divide and conqour
             # Assumes that there's an even number of roots
-            part1 = roots[:, :n_batch // 2]
+            part1 = roots[:, : n_batch // 2]
             part1 = part1.contiguous().view(-1, roots.size(2), roots.size(3))
-            part2 = roots[:, n_batch // 2:2 * (n_batch // 2)]
+            part2 = roots[:, n_batch // 2 : 2 * (n_batch // 2)]
             part2 = part2.contiguous().view(-1, roots.size(2), roots.size(3))
 
             if n_batch // 2 == 1:
@@ -494,7 +544,9 @@ class LazyVariable(object):
             elif isinstance(arg, LazyVariable):
                 representation += list(arg.representation())
             else:
-                raise RuntimeError('Representation of a LazyVariable should consist only of Variables')
+                raise RuntimeError(
+                    "Representation of a LazyVariable should consist only of Variables"
+                )
         return tuple(representation)
 
     def representation_tree(self):
@@ -512,8 +564,10 @@ class LazyVariable(object):
             cls=self.tensor_cls,
             size=self.size(-1),
             max_iter=self.root_decomposition_size(),
-            batch_size=batch_size
-        )(*self.representation())
+            batch_size=batch_size,
+        )(
+            *self.representation()
+        )
         return res
 
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
@@ -530,7 +584,9 @@ class LazyVariable(object):
                 if initial_vectors.ndimension() == 1:
                     initial_vectors = initial_vectors.unsqueeze(-1)
             if initial_vectors.size(-1) > 1 and test_vectors is None:
-                raise RuntimeError('You must supply test vectors if you supply more than one initial vector')
+                raise RuntimeError(
+                    "You must supply test vectors if you supply more than one initial vector"
+                )
 
         batch_size = self.size(0) if self.ndimension() == 3 else None
         roots, inv_roots = RootDecomposition(
@@ -540,8 +596,10 @@ class LazyVariable(object):
             max_iter=self.root_decomposition_size(),
             root=True,
             inverse=True,
-            batch_size=batch_size
-        )(*self.representation())
+            batch_size=batch_size,
+        )(
+            *self.representation()
+        )
 
         # Choose the best of the inv_roots, if there were more than one initial vectors
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
@@ -556,11 +614,19 @@ class LazyVariable(object):
             if batch_size is None:
                 solves = solves.permute(1, 2, 0).contiguous().view(n_dim, -1)
                 mat_times_solves = self.matmul(solves)
-                mat_times_solves = mat_times_solves.view(n_dim, -1, n_probes).permute(2, 0, 1)
+                mat_times_solves = mat_times_solves.view(n_dim, -1, n_probes).permute(
+                    2, 0, 1
+                )
             else:
-                solves = solves.permute(1, 2, 3, 0).contiguous().view(batch_size, n_dim, -1)
+                solves = solves.permute(1, 2, 3, 0).contiguous().view(
+                    batch_size, n_dim, -1
+                )
                 mat_times_solves = self.matmul(solves)
-                mat_times_solves = mat_times_solves.view(batch_size, n_dim, -1, n_probes).permute(3, 0, 1, 2)
+                mat_times_solves = mat_times_solves.view(
+                    batch_size, n_dim, -1, n_probes
+                ).permute(
+                    3, 0, 1, 2
+                )
 
             # Compute residuals
             residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
@@ -596,6 +662,7 @@ class LazyVariable(object):
 
     def sum_batch(self, sum_batch_size=None):
         from .sum_batch_lazy_variable import SumBatchLazyVariable
+
         return SumBatchLazyVariable(self, sum_batch_size=sum_batch_size)
 
     def transpose(self, dim1, dim2):
@@ -607,18 +674,27 @@ class LazyVariable(object):
             dim1 = ndimension + dim1
         if dim2 < 0:
             dim2 = ndimension + dim2
-        if dim1 >= ndimension or dim2 >= ndimension or not isinstance(dim1, int) or not isinstance(dim2, int):
-            raise RuntimeError('Invalid dimension')
+        if (
+            dim1 >= ndimension
+            or dim2 >= ndimension
+            or not isinstance(dim1, int)
+            or not isinstance(dim2, int)
+        ):
+            raise RuntimeError("Invalid dimension")
 
         # Batch case
         if dim1 < ndimension - 2 and dim2 < ndimension - 2:
-            res = self.__class__(*(arg.transpose(dim1, dim2) for arg in self._args), **self._kwargs)
+            res = self.__class__(
+                *(arg.transpose(dim1, dim2) for arg in self._args), **self._kwargs
+            )
 
         elif dim1 >= ndimension - 2 and dim2 >= ndimension - 2:
             res = self._transpose_nonbatch()
 
         else:
-            raise RuntimeError('Cannot transpose batch dimension with non-batch dimension')
+            raise RuntimeError(
+                "Cannot transpose batch dimension with non-batch dimension"
+            )
 
         return res
 
@@ -627,12 +703,12 @@ class LazyVariable(object):
         Returns the transpose of the resulting Variable that the lazy variable represents
         """
         if self.ndimension() != 2:
-            raise RuntimeError('Cannot call t for more than 2 dimensions')
+            raise RuntimeError("Cannot call t for more than 2 dimensions")
         return self.transpose(0, 1)
 
     @property
     def tensor_cls(self):
-        if not hasattr(self, '_tensor_cls'):
+        if not hasattr(self, "_tensor_cls"):
             first_item = self.representation()[0]
             if isinstance(first_item, Variable):
                 first_item = first_item.data
@@ -654,14 +730,19 @@ class LazyVariable(object):
         """
         covar_root = self.root_decomposition()
         if self.ndimension() == 3:
-            base_samples = Variable(self.tensor_cls(self.size(0), covar_root.size(-1), n_samples).normal_())
+            base_samples = Variable(
+                self.tensor_cls(self.size(0), covar_root.size(-1), n_samples).normal_()
+            )
         else:
-            base_samples = Variable(self.tensor_cls(covar_root.size(-1), n_samples).normal_())
+            base_samples = Variable(
+                self.tensor_cls(covar_root.size(-1), n_samples).normal_()
+            )
         samples = covar_root.matmul(base_samples)
         return samples
 
     def __add__(self, other):
         from .sum_lazy_variable import SumLazyVariable
+
         return SumLazyVariable(self, other)
 
     def __div__(self, other):
@@ -702,8 +783,12 @@ class LazyVariable(object):
         left_index = index[-2]
         right_index = index[-1]
 
-        if not torch.is_tensor(left_index) and left_index == slice(None, None, None) and \
-                not torch.is_tensor(right_index) and right_index == slice(None, None, None):
+        if (
+            not torch.is_tensor(left_index)
+            and left_index == slice(None, None, None)
+            and not torch.is_tensor(right_index)
+            and right_index == slice(None, None, None)
+        ):
             return new_lazy_variable
 
         batch_sizes = list(new_lazy_variable.size()[:-2])
@@ -721,14 +806,22 @@ class LazyVariable(object):
             left_interp_indices.unsqueeze_(0)
             right_interp_indices.unsqueeze_(0)
 
-        left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
+        left_interp_indices = left_interp_indices.expand(
+            *(batch_sizes + [left_interp_len, 1])
+        )
         left_interp_values = self.tensor_cls(left_interp_indices.size()).fill_(1)
-        right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
+        right_interp_indices = right_interp_indices.expand(
+            *(batch_sizes + [right_interp_len, 1])
+        )
         right_interp_values = self.tensor_cls(right_interp_indices.size()).fill_(1)
 
-        res = InterpolatedLazyVariable(new_lazy_variable, Variable(left_interp_indices),
-                                       Variable(left_interp_values),
-                                       Variable(right_interp_indices), Variable(right_interp_values))
+        res = InterpolatedLazyVariable(
+            new_lazy_variable,
+            Variable(left_interp_indices),
+            Variable(left_interp_values),
+            Variable(right_interp_indices),
+            Variable(right_interp_values),
+        )
 
         if squeeze_left or squeeze_right:
             res = res.evaluate()
@@ -740,14 +833,21 @@ class LazyVariable(object):
         return res
 
     def __setattr__(self, name, val):
-        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):
-            if not hasattr(self, '_args'):
-                raise RuntimeError('Cannot assign %s to LazyVariable before calling LazyVariable.__init__()' % name)
+        if (
+            torch.is_tensor(val)
+            or isinstance(val, Variable)
+            or isinstance(val, LazyVariable)
+        ):
+            if not hasattr(self, "_args"):
+                raise RuntimeError(
+                    "Cannot assign %s to LazyVariable before calling LazyVariable.__init__()"
+                    % name
+                )
         object.__setattr__(self, name, val)
 
 
 def _import_dotted_name(name):
-    components = name.split('.')
+    components = name.split(".")
     obj = __import__(components[0])
     for component in components[1:]:
         obj = getattr(obj, component)

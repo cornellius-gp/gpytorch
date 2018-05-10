@@ -11,18 +11,13 @@ from ..utils import Interpolation
 class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
 
     def __init__(
-        self,
-        base_kernel_module,
-        grid_size,
-        grid_bounds,
-        n_components,
-        active_dims=None,
+        self, base_kernel_module, grid_size, grid_bounds, n_components, active_dims=None
     ):
         super(MultiplicativeGridInterpolationKernel, self).__init__(
             base_kernel_module=base_kernel_module,
             grid_size=grid_size,
             grid_bounds=grid_bounds,
-            active_dims=active_dims
+            active_dims=active_dims,
         )
         self.n_components = n_components
 
@@ -30,13 +25,12 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
         inputs = inputs.view(inputs.size(0), inputs.size(1), self.n_components, -1)
         batch_size, n_data, n_components, n_dimensions = inputs.size()
         inputs = (
-            inputs.transpose(0, 2).
-            contiguous().
-            view(n_components * batch_size * n_data, n_dimensions)
+            inputs.transpose(0, 2).contiguous().view(
+                n_components * batch_size * n_data, n_dimensions
+            )
         )
         interp_indices, interp_values = (
-            Interpolation().
-            interpolate(Variable(self.grid), inputs)
+            Interpolation().interpolate(Variable(self.grid), inputs)
         )
         interp_indices = interp_indices.view(n_components * batch_size, n_data, -1)
         interp_values = interp_values.view(n_components * batch_size, n_data, -1)

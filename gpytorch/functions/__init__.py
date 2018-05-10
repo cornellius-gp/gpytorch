@@ -24,9 +24,9 @@ def add_diag(input, diag):
                        component added.
     """
     if not isinstance(diag, Variable):
-        raise RuntimeError('Expected a variable for the diagonal component.')
+        raise RuntimeError("Expected a variable for the diagonal component.")
 
-    if hasattr(input, 'add_diag'):
+    if hasattr(input, "add_diag"):
         return input.add_diag(diag)
     else:
         return AddDiag()(input, diag)
@@ -41,7 +41,7 @@ def add_jitter(mat):
         - mat (matrix nxn) - Positive definite matrxi
     Returns: (matrix nxn)
     """
-    if hasattr(mat, 'add_jitter'):
+    if hasattr(mat, "add_jitter"):
         return mat.add_jitter()
     else:
         diag = Variable(mat.data.new(mat.size(-1)).fill_(1e-3).diag())
@@ -66,7 +66,9 @@ def dsmm(sparse_mat, dense_mat):
     return DSMM(sparse_mat)(dense_mat)
 
 
-def exact_predictive_mean(full_covar, full_mean, train_labels, noise, precomputed_cache=None):
+def exact_predictive_mean(
+    full_covar, full_mean, train_labels, noise, precomputed_cache=None
+):
     """
     Computes the posterior predictive mean of a GP
 
@@ -81,10 +83,13 @@ def exact_predictive_mean(full_covar, full_mean, train_labels, noise, precompute
     Returns:
     - (t) - the predictive posterior mean of the test points
     """
-    if not hasattr(full_covar, 'exact_predictive_mean'):
+    if not hasattr(full_covar, "exact_predictive_mean"):
         from ..lazy.non_lazy_variable import NonLazyVariable
+
         full_covar = NonLazyVariable(full_covar)
-    return full_covar.exact_predictive_mean(full_mean, train_labels, noise, precomputed_cache)
+    return full_covar.exact_predictive_mean(
+        full_mean, train_labels, noise, precomputed_cache
+    )
 
 
 def exact_predictive_covar(full_covar, n_train, noise, precomputed_cache=None):
@@ -101,8 +106,9 @@ def exact_predictive_covar(full_covar, n_train, noise, precomputed_cache=None):
     Returns:
     - LazyVariable (t x t) - the predictive posterior covariance of the test points
     """
-    if not hasattr(full_covar, 'exact_predictive_covar'):
+    if not hasattr(full_covar, "exact_predictive_covar"):
         from ..lazy.non_lazy_variable import NonLazyVariable
+
         full_covar = NonLazyVariable(full_covar)
     return full_covar.exact_predictive_covar(n_train, noise, precomputed_cache)
 
@@ -144,10 +150,11 @@ def inv_matmul(mat, rhs):
     Returns:
         - matrix nxk - (mat)^{-1} rhs
     """
-    if hasattr(mat, 'inv_matmul'):
+    if hasattr(mat, "inv_matmul"):
         return mat.inv_matmul(rhs)
     else:
         from ..lazy.non_lazy_variable import NonLazyVariable
+
         return NonLazyVariable(mat).inv_matmul(rhs)
 
 
@@ -179,10 +186,11 @@ def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
         - scalar - tr( tensor^T (mat)^{-1} tensor )
         - scalar - log determinant
     """
-    if hasattr(mat, 'inv_quad_log_det'):
+    if hasattr(mat, "inv_quad_log_det"):
         return mat.inv_quad_log_det(inv_quad_rhs, log_det)
     else:
         from ..lazy.non_lazy_variable import NonLazyVariable
+
         return NonLazyVariable(mat).inv_quad_log_det(inv_quad_rhs, log_det)
 
 
@@ -210,10 +218,11 @@ def root_decomposition(mat):
     This can be used for sampling from a Gaussian distribution, or for obtaining a
     low-rank version of a matrix
     """
-    if hasattr(mat, 'root_decomposition'):
+    if hasattr(mat, "root_decomposition"):
         return mat.root_decomposition()
     else:
         from ..lazy.non_lazy_variable import NonLazyVariable
+
         return NonLazyVariable(mat).root_decomposition()
 
 
@@ -223,11 +232,14 @@ def root_inv_decomposition(mat, initial_vectors=None, test_vectors=None):
     This can be used for sampling from a Gaussian distribution, or for obtaining a
     low-rank version of a matrix
     """
-    if hasattr(mat, 'root_inv_decomposition'):
+    if hasattr(mat, "root_inv_decomposition"):
         return mat.root_inv_decomposition(initial_vectors, test_vectors)
     else:
         from ..lazy.non_lazy_variable import NonLazyVariable
-        return NonLazyVariable(mat).root_inv_decomposition(initial_vectors, test_vectors)
+
+        return NonLazyVariable(mat).root_inv_decomposition(
+            initial_vectors, test_vectors
+        )
 
 
 __all__ = [

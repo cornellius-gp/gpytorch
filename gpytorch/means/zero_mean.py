@@ -8,5 +8,6 @@ from .mean import Mean
 
 
 class ZeroMean(Mean):
+
     def forward(self, input):
         return torch.zeros_like(input)
