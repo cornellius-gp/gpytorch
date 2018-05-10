@@ -16,7 +16,8 @@ class BernoulliRandomVariable(RandomVariable):
         probability represents the weight of a positive outcome
 
         Passing a scalar mass function corresponds to a single Bernoulli variable
-        Passing a vector mass function corresponds to a batch of independent Bernoulli variables
+        Passing a vector mass function corresponds to a batch of independent
+        Bernoulli variables
 
         Params:
         - probability (Variable: scalar or vector n) weights of Bernoulli distribution

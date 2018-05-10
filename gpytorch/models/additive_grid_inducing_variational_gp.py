@@ -89,7 +89,8 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
         n_data, n_components, n_dimensions = inputs.size()
         if n_dimensions != self.grid.size(0):
             raise RuntimeError(
-                "The number of dimensions should match the inducing points number of dimensions."
+                "The number of dimensions should match the inducing points "
+                " number of dimensions."
             )
         if n_components != self.n_components:
             raise RuntimeError(
@@ -97,8 +98,8 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
             )
         if n_dimensions != 1:
             raise RuntimeError(
-                "At the moment, AdditiveGridInducingVariationalGP only supports 1d"
-                " (Toeplitz) interpolation."
+                "At the moment, AdditiveGridInducingVariationalGP only supports "
+                "1d (Toeplitz) interpolation."
             )
 
         output = super(AdditiveGridInducingVariationalGP, self).__call__(

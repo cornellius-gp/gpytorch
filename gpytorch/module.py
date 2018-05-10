@@ -196,8 +196,8 @@ class Module(nn.Module):
                 or isinstance(output, LazyVariable)
             ):
                 raise RuntimeError(
-                    "Output must be a RandomVariable, Variable, or LazyVariable. Was a %s"
-                    % input.__class__.__name__
+                    "Output must be a RandomVariable, Variable, or LazyVariable. "
+                    "Was a {}".format(input.__class__.__name__)
                 )
         if len(outputs) == 1:
             outputs = outputs[0]

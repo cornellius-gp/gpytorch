@@ -33,7 +33,8 @@ class LazyVariable(object):
     def _preconditioner(self):
         if gpytorch.settings.max_preconditioner_size.value() > 0:
             warnings.warn(
-                "Max preconditioner size was >0, but this lazy Variable does not define a preconditioner."
+                "Max preconditioner size was >0, but this lazy Variable does "
+                "not define a preconditioner."
             )
         return None
 
@@ -138,9 +139,10 @@ class LazyVariable(object):
 
     def add_jitter(self):
         """
-        Adds jitter (i.e., a small diagonal component) to the matrix this LazyVariable represents.
-        This could potentially be implemented as a no-op, however this could lead to numerical instabilities,
-        so this should only be done at the user's risk.
+        Adds jitter (i.e., a small diagonal component) to the matrix this
+        LazyVariable represents. This could potentially be implemented as a no-op,
+        however this could lead to numerical instabilities, so this should only
+        be done at the user's risk.
         """
         diag = Variable(self.tensor_cls(1).fill_(1e-3))
         return self.add_diag(diag)
@@ -585,7 +587,8 @@ class LazyVariable(object):
                     initial_vectors = initial_vectors.unsqueeze(-1)
             if initial_vectors.size(-1) > 1 and test_vectors is None:
                 raise RuntimeError(
-                    "You must supply test vectors if you supply more than one initial vector"
+                    "You must supply test vectors if you supply more than one "
+                    "initial vector"
                 )
 
         batch_size = self.size(0) if self.ndimension() == 3 else None
@@ -647,7 +650,8 @@ class LazyVariable(object):
     def root_decomposition_size(self):
         """
         This is the inner size of the root decomposition.
-        This is primarily used to determine if it will be cheaper to compute a different root or not
+        This is primarily used to determine if it will be cheaper to compute a
+        different root or not
         """
         return settings.max_root_decomposition_size.value()
 
@@ -840,8 +844,8 @@ class LazyVariable(object):
         ):
             if not hasattr(self, "_args"):
                 raise RuntimeError(
-                    "Cannot assign %s to LazyVariable before calling LazyVariable.__init__()"
-                    % name
+                    "Cannot assign {name} to LazyVariable before calling "
+                    "LazyVariable.__init__()".format(name=name)
                 )
         object.__setattr__(self, name, val)
 

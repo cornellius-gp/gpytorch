@@ -145,7 +145,7 @@ class RandomVariable(object):
         ):
             if not hasattr(self, "_args"):
                 raise RuntimeError(
-                    "Cannot assign %s to LazyVariable before calling LazyVariable.__init__()"
-                    % name
+                    "Cannot assign {name} to LazyVariable before calling "
+                    "LazyVariable.__init__()".format(name=name)
                 )
         object.__setattr__(self, name, val)
