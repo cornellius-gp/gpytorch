@@ -27,7 +27,8 @@ class AddedDiagLazyVariable(SumLazyVariable):
             and isinstance(lazy_vars[1], DiagLazyVariable)
         ):
             raise RuntimeError(
-                "Trying to lazily add two DiagLazyVariables. Create a single DiagLazyVariable instead."
+                "Trying to lazily add two DiagLazyVariables. "
+                "Create a single DiagLazyVariable instead."
             )
         elif isinstance(lazy_vars[0], DiagLazyVariable):
             self._diag_var = lazy_vars[0]
@@ -37,12 +38,14 @@ class AddedDiagLazyVariable(SumLazyVariable):
             self._lazy_var = lazy_vars[0]
         else:
             raise RuntimeError(
-                "One of the LazyVariables input to AddedDiagLazyVariable must be a DiagLazyVariable!"
+                "One of the LazyVariables input to AddedDiagLazyVariable "
+                " must be a DiagLazyVariable!"
             )
 
         if not (self._diag_var.diag().data == self._diag_var.diag().data[0]).all():
             raise RuntimeError(
-                "AddedDiagLazyVariable only supports constant shifts (e.g. s in K + s*I)"
+                "AddedDiagLazyVariable only supports constant shifts "
+                "(e.g. s in K + s*I)"
             )
 
     def _preconditioner(self):

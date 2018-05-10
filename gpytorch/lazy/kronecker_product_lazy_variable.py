@@ -166,7 +166,7 @@ class KroneckerProductLazyVariable(LazyVariable):
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         res = Variable(self.tensor_cls(left_indices.size()).fill_(1))
         size = self.size(-1)
-        for i, lazy_var in enumerate(list(self.lazy_vars)[::-1]):
+        for lazy_var in list(self.lazy_vars)[::-1]:
             size = size / lazy_var.size(-1)
             left_indices_i = left_indices.float().div(size).floor().long()
             right_indices_i = right_indices.float().div(size).floor().long()
@@ -181,7 +181,7 @@ class KroneckerProductLazyVariable(LazyVariable):
     def _get_indices(self, left_indices, right_indices):
         res = Variable(self.tensor_cls(left_indices.size()).fill_(1))
         size = self.size(-1)
-        for i, lazy_var in enumerate(list(self.lazy_vars)[::-1]):
+        for lazy_var in list(self.lazy_vars)[::-1]:
             size = size / lazy_var.size(-1)
             left_indices_i = left_indices.float().div(size).floor().long()
             right_indices_i = right_indices.float().div(size).floor().long()

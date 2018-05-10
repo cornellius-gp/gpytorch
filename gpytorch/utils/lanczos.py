@@ -96,7 +96,7 @@ def lanczos_tridiag(
     t_mat[0, 1].copy_(beta_0)
     t_mat[1, 0].copy_(beta_0)
 
-    # Compute teh first new vector
+    # Compute the first new vector
     q_mat[1].copy_(r_vec.div_(beta_0.unsqueeze(dim_dimension)))
 
     # Now we start the iteration
@@ -134,7 +134,7 @@ def lanczos_tridiag(
             # Run more reorthoganilzation if necessary
             inner_products = q_mat[: k + 1].mul(r_vec.unsqueeze(0)).sum(dim_dimension)
             could_reorthogonalize = False
-            for i in range(10):
+            for _ in range(10):
                 if not torch.sum(inner_products > tol):
                     could_reorthogonalize = True
                     break
