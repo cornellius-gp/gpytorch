@@ -76,5 +76,5 @@ class DiagLazyVariable(LazyVariable):
             base_samples = Variable(
                 self.tensor_cls(self._diag.size(0), n_samples).normal_()
             )
-        samples = self._diag.unsqueeze(-1) * base_samples
+        samples = self._diag.unsqueeze(-1).sqrt() * base_samples
         return samples
