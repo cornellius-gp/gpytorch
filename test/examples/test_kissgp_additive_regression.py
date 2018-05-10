@@ -65,7 +65,7 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
             or os.getenv("UNLOCK_SEED").lower() == "false"
         ):
             self.rng_state = torch.get_rng_state()
-            torch.manual_seed(3)
+            torch.manual_seed(0)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
