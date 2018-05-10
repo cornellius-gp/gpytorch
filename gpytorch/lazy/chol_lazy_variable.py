@@ -18,7 +18,8 @@ class CholLazyVariable(RootLazyVariable):
             mask.data.unsqueeze_(0)
         if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
             raise RuntimeError(
-                "CholLazyVaraiable should take a lower-triangular matrix in the constructor."
+                "CholLazyVaraiable should take a lower-triangular "
+                "matrix in the constructor."
             )
 
         # Run super constructor

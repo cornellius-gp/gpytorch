@@ -106,7 +106,7 @@ class Module(nn.Module):
         Returns an iterator over module parameters bounds.
         This is typically passed to an optimizer.
         """
-        for name, bound in self.named_parameter_bounds():
+        for _, bound in self.named_parameter_bounds():
             yield bound
 
     def register_parameter(self, name, param, bounds, prior=None):
