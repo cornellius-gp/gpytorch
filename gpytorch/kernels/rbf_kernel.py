@@ -8,11 +8,11 @@ from .kernel import Kernel
 
 
 class RBFKernel(Kernel):
-    def __init__(self, ard_num_dims=None, log_lengthscale_bounds=(-10000, 10000), eps=1e-6, active_dims=None):
+    def __init__(self, ard_num_dims=None, log_lengthscale_prior=None, eps=1e-5, active_dims=None):
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
-            log_lengthscale_bounds=log_lengthscale_bounds,
+            log_lengthscale_prior=log_lengthscale_prior,
             active_dims=active_dims,
         )
         self.eps = eps

@@ -4,10 +4,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch import nn
-from ..random_variables import GaussianRandomVariable, CategoricalRandomVariable
-from .likelihood import Likelihood
-from .. import settings
+from gpytorch.likelihoods import Likelihood
+from gpytorch.priors.smoothed_box import SmoothedBoxPrior
+from gpytorch.random_variables import GaussianRandomVariable, CategoricalRandomVariable
+from gpytorch import settings
 
 
 class SoftmaxLikelihood(Likelihood):
@@ -19,9 +19,11 @@ class SoftmaxLikelihood(Likelihood):
         super(SoftmaxLikelihood, self).__init__()
         self.n_features = n_features
         self.n_classes = n_classes
-
-        mixing_weights = nn.Parameter(torch.ones(n_classes, n_features).fill_(1. / n_features))
-        self.register_parameter("mixing_weights", mixing_weights, bounds=(-2, 2))
+        self.register_parameter(
+            name="mixing_weights",
+            parameter=torch.nn.Parameter(torch.ones(n_classes, n_features).fill_(1. / n_features)),
+            prior=SmoothedBoxPrior(-2, 2, sigma=0.025),
+        )
 
     def forward(self, latent_func):
         """
@@ -37,9 +39,7 @@ class SoftmaxLikelihood(Likelihood):
             p(y|x) = \Phi(\frac{\mu}{\sqrt{1+\sigma^2_f}})
         """
         if not isinstance(latent_func, GaussianRandomVariable):
-            raise RuntimeError(
-                " ".join(["SoftmaxLikelihood expects a Gaussian", "distributed latent function to make predictions"])
-            )
+            raise RuntimeError("SoftmaxLikelihood expects a Gaussian distributed latent function to make predictions")
 
         n_samples = settings.num_likelihood_samples.value()
         samples = latent_func.sample(n_samples)
@@ -50,7 +50,7 @@ class SoftmaxLikelihood(Likelihood):
             raise RuntimeError("There should be %d features" % self.n_features)
 
         mixed_fs = self.mixing_weights.matmul(samples.view(n_features, n_samples * n_data))
-        softmax = nn.functional.softmax(mixed_fs.t()).view(n_data, n_samples, self.n_classes)
+        softmax = torch.nn.functional.softmax(mixed_fs.t()).view(n_data, n_samples, self.n_classes)
         softmax = softmax.mean(1)
         return CategoricalRandomVariable(softmax)
 
@@ -69,7 +69,7 @@ class SoftmaxLikelihood(Likelihood):
             raise RuntimeError("There should be %d features" % self.n_features)
 
         mixed_fs = self.mixing_weights.matmul(samples.view(n_features, n_samples * n_data))
-        log_prob = -nn.functional.cross_entropy(
+        log_prob = -torch.nn.functional.cross_entropy(
             mixed_fs.t(), target.unsqueeze(1).repeat(1, n_samples).view(-1), size_average=False
         )
         return log_prob.div(n_samples)

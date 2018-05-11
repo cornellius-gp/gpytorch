@@ -4,17 +4,18 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch import nn
-from .kernel import Kernel
+from gpytorch.kernels import Kernel
 
 
 class IndexKernel(Kernel):
-    def __init__(self, n_tasks, rank=1, covar_factor_bounds=(-100, 100), log_var_bounds=(-100, 100), active_dims=None):
+    def __init__(self, n_tasks, rank=1, covar_factor_prior=None, log_var_prior=None, active_dims=None):
         if active_dims is not None and len(active_dims) > 1:
             raise ValueError("Index must be with respect to a single column. Received {}".format(active_dims))
         super(IndexKernel, self).__init__(active_dims=active_dims)
-        self.register_parameter("covar_factor", nn.Parameter(torch.randn(n_tasks, rank)), bounds=covar_factor_bounds)
-        self.register_parameter("log_var", nn.Parameter(torch.randn(n_tasks)), bounds=log_var_bounds)
+        self.register_parameter(
+            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)), prior=covar_factor_prior
+        )
+        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(n_tasks)), prior=log_var_prior)
 
     def forward(self, i1, i2):
         covar_matrix = self.covar_factor.matmul(self.covar_factor.transpose(-1, -2))

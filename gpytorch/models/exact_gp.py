@@ -96,11 +96,7 @@ class ExactGP(Module):
 
             noise = self.likelihood.log_noise.exp()
             predictive_mean, mean_cache = exact_predictive_mean(
-                full_covar=full_covar,
-                full_mean=full_mean,
-                train_labels=Variable(self.train_targets),
-                noise=noise,
-                precomputed_cache=self.mean_cache,
+                full_covar, full_mean, Variable(self.train_targets), noise, self.mean_cache
             )
             predictive_covar, covar_cache = exact_predictive_covar(
                 full_covar=full_covar,

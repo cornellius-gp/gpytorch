@@ -3,23 +3,24 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from math import exp, pi
+
 import os
-import math
 import torch
 import unittest
 import gpytorch
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
-from gpytorch.lazy import ConstantMulLazyVariable
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 
 def train_data(cuda=False):
     train_x = Variable(torch.linspace(0, 1, 10))
-    train_y = Variable(torch.sign(torch.cos(train_x.data * (4 * math.pi))))
+    train_y = Variable(torch.sign(torch.cos(train_x.data * (4 * pi))))
     if cuda:
         return train_x.cuda(), train_y.cuda()
     else:
@@ -29,13 +30,20 @@ def train_data(cuda=False):
 class GPClassificationModel(gpytorch.models.VariationalGP):
     def __init__(self, train_x):
         super(GPClassificationModel, self).__init__(train_x)
-        self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.register_parameter("log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
+        )
+        self.register_parameter(
+            name="log_outputscale",
+            parameter=torch.nn.Parameter(torch.Tensor([0])),
+            prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
+        )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = ConstantMulLazyVariable(self.covar_module(x), self.log_outputscale.exp())
+        covar_x = self.covar_module(x)
+        covar_x = covar_x.mul(self.log_outputscale.exp())
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred
 

@@ -52,7 +52,6 @@ class LazyEvaluatedKernelVariable(LazyVariable):
                 x1 = self.x1
                 x2 = self.x2
             res = super(Kernel, self.kernel).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3))
-
             if isinstance(res, LazyVariable):
                 res = res.evaluate()
             self._cached_kernel_diag = res.transpose(-3, -2).squeeze()

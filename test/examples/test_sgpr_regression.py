@@ -3,16 +3,18 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from math import exp, pi
+
 import os
-import math
 import torch
 import unittest
 import gpytorch
 from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, InducingPointKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 
@@ -21,9 +23,9 @@ from gpytorch.random_variables import GaussianRandomVariable
 # let's use 100 training examples.
 def make_data(cuda=False):
     train_x = Variable(torch.linspace(0, 1, 100))
-    train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
+    train_y = Variable(torch.sin(train_x.data * (2 * pi)))
     test_x = Variable(torch.linspace(0, 1, 51))
-    test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
+    test_y = Variable(torch.sin(test_x.data * (2 * pi)))
     if cuda:
         train_x = train_x.cuda()
         train_y = train_y.cuda()
@@ -35,8 +37,10 @@ def make_data(cuda=False):
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.base_covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
+        )
         self.covar_module = InducingPointKernel(self.base_covar_module, inducing_points=torch.linspace(0, 1, 32))
 
     def forward(self, x):
