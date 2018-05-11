@@ -79,7 +79,7 @@ def linear_cg(
 
     # Sometime we're lucky and the preconditioner solves the system right away
     residual_norm = residual.norm(2, dim=-2)
-    if torch.all(residual_norm < tolerance) and not n_tridiag:
+    if (residual_norm < tolerance).all() and not n_tridiag:
         n_iter = 0  # Skip the iteration!
 
     # Otherwise, let's define precond_residual and curr_conjugate_vec
@@ -131,7 +131,7 @@ def linear_cg(
         # If residual are sufficiently small, then exit loop
         # Alternatively, exit if this is our last iteration
         torch.norm(residual, 2, dim=-2, out=residual_norm)
-        if torch.all(residual_norm < tolerance) and not n_tridiag:
+        if (residual_norm < tolerance).all() and not n_tridiag:
             break
 
         # Update precond_residual
