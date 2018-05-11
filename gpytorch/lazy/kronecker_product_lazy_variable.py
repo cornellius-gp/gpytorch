@@ -168,8 +168,8 @@ class KroneckerProductLazyVariable(LazyVariable):
         size = self.size(-1)
         for lazy_var in list(self.lazy_vars)[::-1]:
             size = size / lazy_var.size(-1)
-            left_indices_i = left_indices.float().div(size).floor().long()
-            right_indices_i = right_indices.float().div(size).floor().long()
+            left_indices_i = left_indices.div(size)
+            right_indices_i = right_indices.div(size)
 
             res = res * lazy_var._batch_get_indices(
                 batch_indices, left_indices_i, right_indices_i
@@ -183,8 +183,8 @@ class KroneckerProductLazyVariable(LazyVariable):
         size = self.size(-1)
         for lazy_var in list(self.lazy_vars)[::-1]:
             size = size / lazy_var.size(-1)
-            left_indices_i = left_indices.float().div(size).floor().long()
-            right_indices_i = right_indices.float().div(size).floor().long()
+            left_indices_i = left_indices.div(size)
+            right_indices_i = right_indices.div(size)
 
             res = res * lazy_var._get_indices(left_indices_i, right_indices_i)
             left_indices = left_indices - (left_indices_i * size)
