@@ -107,7 +107,7 @@ def woodbury_factor(low_rank_mat, shift):
     to be used in solves with (V'V + shift I) via the Woodbury formula
     """
     k = low_rank_mat.size(-2)
-    shifted_mat = (1 / shift) * low_rank_mat.matmul(low_rank_mat.transpose(-1, -2))
+    shifted_mat = low_rank_mat.matmul(low_rank_mat.transpose(-1, -2) / shift.unsqueeze(-1))
 
     shifted_mat = shifted_mat + shifted_mat.new(k).fill_(1).diag()
 
@@ -134,9 +134,12 @@ def woodbury_solve(vector, low_rank_mat, woodbury_factor, shift):
         - vector (size n) - right hand side vector b to solve with.
         - woodbury_factor (k x n) - The result of calling woodbury_factor on V
           and the shift, \sigma
-        - shift (scalar) - shift value sigma
+        - shift (vector) - shift value sigma
     """
-    right = (1 / shift) * low_rank_mat.transpose(-1, -2).matmul(
+    if vector.ndimension() > 1:
+        shift = shift.unsqueeze(-1)
+
+    right = low_rank_mat.transpose(-1, -2).matmul(
         woodbury_factor.matmul(vector)
-    )
-    return (1 / shift) * (vector - right)
+    ) / shift
+    return (vector - right) / shift

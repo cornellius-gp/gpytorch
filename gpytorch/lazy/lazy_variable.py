@@ -33,8 +33,8 @@ class LazyVariable(object):
     def _preconditioner(self):
         if gpytorch.settings.max_preconditioner_size.value() > 0:
             warnings.warn(
-                "Max preconditioner size was >0, but this lazy Variable does "
-                "not define a preconditioner."
+                "Max preconditioner size was >0, but this lazy Variable (%s) does "
+                "not define a preconditioner." % (self.__class__.__name__)
             )
         return None
 
