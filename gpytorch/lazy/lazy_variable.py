@@ -38,6 +38,55 @@ class LazyVariable(object):
             )
         return None
 
+    def _getitem_nonbatch(self, row_index, col_index):
+        """
+        Given an index over rows and columns,
+        Returns a LazyVariable with those rows and columns selected
+
+        Implementing this is not necessary, but it improves performance
+
+        Args:
+            - row_index (slice or LongTensor) - index over rows
+            - col_index (slice or LongTensor) - index over columns
+        """
+        from .interpolated_lazy_variable import InterpolatedLazyVariable
+
+        representation = self.representation()
+        ndimension = self.ndimension()
+
+        batch_sizes = list(self.size()[:-2])
+        left_row_iter = representation[0].data.new(self.size()[-2]).long()
+        right_row_iter = representation[0].data.new(self.size()[-1]).long()
+        torch.arange(0, self.size()[-2], out=left_row_iter)
+        torch.arange(0, self.size()[-1], out=right_row_iter)
+
+        left_interp_indices = left_row_iter[row_index].unsqueeze(-1)
+        right_interp_indices = right_row_iter[col_index].unsqueeze(-1)
+
+        left_interp_len = len(left_interp_indices)
+        right_interp_len = len(right_interp_indices)
+        for _ in range(ndimension - 2):
+            left_interp_indices.unsqueeze_(0)
+            right_interp_indices.unsqueeze_(0)
+
+        left_interp_indices = left_interp_indices.expand(
+            *(batch_sizes + [left_interp_len, 1])
+        )
+        left_interp_values = self.tensor_cls(left_interp_indices.size()).fill_(1)
+        right_interp_indices = right_interp_indices.expand(
+            *(batch_sizes + [right_interp_len, 1])
+        )
+        right_interp_values = self.tensor_cls(right_interp_indices.size()).fill_(1)
+
+        res = InterpolatedLazyVariable(
+            self,
+            Variable(left_interp_indices),
+            Variable(left_interp_values),
+            Variable(right_interp_indices),
+            Variable(right_interp_values),
+        )
+        return res
+
     def _matmul(self, rhs):
         """
         Returns: matrix * rhs
@@ -756,8 +805,6 @@ class LazyVariable(object):
         return self.mul(other)
 
     def __getitem__(self, index):
-        from .interpolated_lazy_variable import InterpolatedLazyVariable
-
         index = list(index) if isinstance(index, tuple) else [index]
         ndimension = self.ndimension()
         index += [slice(None, None, None)] * (ndimension - len(index))
@@ -780,8 +827,6 @@ class LazyVariable(object):
                 components[i] = item[batch_index]
 
         new_lazy_variable = self.__class__(*components, **self._kwargs)
-        representation = new_lazy_variable.representation()
-        ndimension = new_lazy_variable.ndimension()
 
         # Handle index
         left_index = index[-2]
@@ -795,38 +840,7 @@ class LazyVariable(object):
         ):
             return new_lazy_variable
 
-        batch_sizes = list(new_lazy_variable.size()[:-2])
-        left_row_iter = representation[0].data.new(new_lazy_variable.size()[-2]).long()
-        right_row_iter = representation[0].data.new(new_lazy_variable.size()[-1]).long()
-        torch.arange(0, new_lazy_variable.size()[-2], out=left_row_iter)
-        torch.arange(0, new_lazy_variable.size()[-1], out=right_row_iter)
-
-        left_interp_indices = left_row_iter[left_index].unsqueeze(-1)
-        right_interp_indices = right_row_iter[right_index].unsqueeze(-1)
-
-        left_interp_len = len(left_interp_indices)
-        right_interp_len = len(right_interp_indices)
-        for _ in range(ndimension - 2):
-            left_interp_indices.unsqueeze_(0)
-            right_interp_indices.unsqueeze_(0)
-
-        left_interp_indices = left_interp_indices.expand(
-            *(batch_sizes + [left_interp_len, 1])
-        )
-        left_interp_values = self.tensor_cls(left_interp_indices.size()).fill_(1)
-        right_interp_indices = right_interp_indices.expand(
-            *(batch_sizes + [right_interp_len, 1])
-        )
-        right_interp_values = self.tensor_cls(right_interp_indices.size()).fill_(1)
-
-        res = InterpolatedLazyVariable(
-            new_lazy_variable,
-            Variable(left_interp_indices),
-            Variable(left_interp_values),
-            Variable(right_interp_indices),
-            Variable(right_interp_values),
-        )
-
+        res = new_lazy_variable._getitem_nonbatch(left_index, right_index)
         if squeeze_left or squeeze_right:
             res = res.evaluate()
             if squeeze_left:
