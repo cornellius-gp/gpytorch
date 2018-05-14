@@ -5,11 +5,10 @@ from __future__ import unicode_literals
 
 import torch
 from .kernel import Kernel
-from ..functions import root_inv_decomposition
+from ..functions import add_jitter
 from ..lazy import LazyVariable, DiagLazyVariable, MatmulLazyVariable, RootLazyVariable
 from ..random_variables import GaussianRandomVariable
 from ..variational import MVNVariationalStrategy
-from .. import settings
 
 
 class InducingPointKernel(Kernel):
@@ -49,8 +48,13 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_inv_root"):
             return self._cached_kernel_inv_root
         else:
-            with settings.max_root_decomposition_size(self._inducing_mat.size(-1)):
-                res = root_inv_decomposition(self._inducing_mat)
+            inv_roots_list = []
+            for i in range(self._inducing_mat.size(0)):
+                jitter_mat = add_jitter(self._inducing_mat[i])
+                chol = torch.potrf(jitter_mat)
+                inv_roots_list.append(chol.inverse())
+
+            res = torch.cat(inv_roots_list, 0)
             if not self.training:
                 self._cached_kernel_inv_root = res
             return res
