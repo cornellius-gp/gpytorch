@@ -6,6 +6,7 @@ from .interpolation import Interpolation
 from .linear_cg import linear_cg
 from . import lanczos
 from . import sparse
+from .eig import batch_symeig
 from .stochastic_lq import StochasticLQ
 
 
@@ -460,6 +461,7 @@ __all__ = [
     rcumsum,
     approx_equal,
     bdsmm,
+    batch_symeig,
     lanczos,
     sparse,
     sparse_eye,

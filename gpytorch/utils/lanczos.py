@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
+from .eig import batch_symeig
 
 
 def lanczos_tridiag(
@@ -183,23 +184,4 @@ def lanczos_tridiag_to_diag(t_mat):
 
     TODO: make the eigenvalue computations done in batch mode.
     """
-    t_mat_orig = t_mat
-    t_mat = t_mat.cpu()
-
-    if t_mat.dim() == 3:
-        t_mat = t_mat.unsqueeze(0)
-    batch_dim1 = t_mat.size(0)
-    batch_dim2 = t_mat.size(1)
-    n = t_mat.size(2)
-
-    eigenvectors = t_mat.new(*t_mat.shape)
-    eigenvalues = t_mat.new(batch_dim1, batch_dim2, n)
-
-    for i in range(batch_dim1):
-        for j in range(batch_dim2):
-            evals, evecs = t_mat[i, j].symeig(eigenvectors=True)
-            mask = evals.ge(0)
-            eigenvectors[i, j] = evecs * mask.type_as(evecs).unsqueeze(0)
-            eigenvalues[i, j] = evals.masked_fill_(1 - mask, 1)
-
-    return eigenvalues.type_as(t_mat_orig), eigenvectors.type_as(t_mat_orig)
+    return batch_symeig(t_mat)
