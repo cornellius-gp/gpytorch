@@ -5,7 +5,6 @@ from .chol_lazy_variable import CholLazyVariable
 from .constant_mul_lazy_variable import ConstantMulLazyVariable
 from .diag_lazy_variable import DiagLazyVariable
 from .interpolated_lazy_variable import InterpolatedLazyVariable
-from .inv_quad_lazy_variable import InvQuadLazyVariable
 from .kronecker_product_lazy_variable import KroneckerProductLazyVariable
 from .matmul_lazy_variable import MatmulLazyVariable
 from .mul_lazy_variable import MulLazyVariable
@@ -25,7 +24,6 @@ __all__ = [
     ConstantMulLazyVariable,
     DiagLazyVariable,
     InterpolatedLazyVariable,
-    InvQuadLazyVariable,
     KroneckerProductLazyVariable,
     MatmulLazyVariable,
     MulLazyVariable,

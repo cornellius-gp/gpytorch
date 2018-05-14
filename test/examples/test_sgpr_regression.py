@@ -96,6 +96,46 @@ class TestSGPRRegression(unittest.TestCase):
 
         self.assertLess(mean_abs_error.data.squeeze().item(), 0.05)
 
+    def test_sgpr_fast_pred_var(self):
+        train_x, train_y, test_x, test_y = make_data()
+        likelihood = GaussianLikelihood()
+        gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
+
+        # Optimize the model
+        gp_model.train()
+        likelihood.train()
+
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
+        for _ in range(50):
+            optimizer.zero_grad()
+            output = gp_model(train_x)
+            loss = -mll(output, train_y)
+            loss.backward()
+            optimizer.step()
+
+        for param in gp_model.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        for param in likelihood.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+
+        # Test the model
+        gp_model.eval()
+        likelihood.eval()
+
+        with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.max_cg_iterations(50):
+            with gpytorch.fast_pred_var(True):
+                fast_var = gp_model(test_x).var()
+                fast_var_cache = gp_model(test_x).var()
+                self.assertLess(torch.max((fast_var_cache - fast_var).abs()), 1e-3)
+
+            with gpytorch.fast_pred_var(False):
+                slow_var = gp_model(test_x).var()
+
+        self.assertLess(torch.max((fast_var_cache - slow_var).abs()), 1e-3)
+
     def test_sgpr_mean_abs_error_cuda(self):
         if torch.cuda.is_available():
             train_x, train_y, test_x, test_y = make_data(cuda=True)

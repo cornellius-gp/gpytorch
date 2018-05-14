@@ -5,9 +5,11 @@ from __future__ import unicode_literals
 
 import torch
 from .kernel import Kernel
-from ..lazy import LazyVariable, DiagLazyVariable, InvQuadLazyVariable
+from ..functions import root_inv_decomposition
+from ..lazy import LazyVariable, DiagLazyVariable, MatmulLazyVariable, RootLazyVariable
 from ..random_variables import GaussianRandomVariable
 from ..variational import MVNVariationalStrategy
+from .. import settings
 
 
 class InducingPointKernel(Kernel):
@@ -32,7 +34,8 @@ class InducingPointKernel(Kernel):
             del self._cached_kernel_mat
         return super(InducingPointKernel, self).train(mode)
 
-    def _inducing_forward(self):
+    @property
+    def _inducing_mat(self):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat
         else:
@@ -41,15 +44,27 @@ class InducingPointKernel(Kernel):
                 self._cached_kernel_mat = res
             return res
 
+    @property
+    def _inducing_inv_root(self):
+        if not self.training and hasattr(self, "_cached_kernel_inv_root"):
+            return self._cached_kernel_inv_root
+        else:
+            with settings.max_root_decomposition_size(self._inducing_mat.size(-1)):
+                res = root_inv_decomposition(self._inducing_mat)
+            if not self.training:
+                self._cached_kernel_inv_root = res
+            return res
+
     def _get_covariance(self, x1, x2):
-        k_uu = self._inducing_forward()
         k_ux1 = self.base_kernel_module(x1, self.inducing_points)
         if torch.equal(x1, x2):
-            k_ux2 = k_ux1
+            covar = RootLazyVariable(k_ux1.matmul(self._inducing_inv_root))
         else:
             k_ux2 = self.base_kernel_module(x2, self.inducing_points)
-
-        covar = InvQuadLazyVariable(k_uu, k_ux1, k_ux2)
+            covar = MatmulLazyVariable(
+                k_ux1.matmul(self._inducing_inv_root),
+                k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2),
+            )
         return covar
 
     def _covar_diag(self, inputs):
