@@ -116,15 +116,17 @@ class InvQuadLogDet(Function):
                 matmul_closure,
                 rhs,
                 n_tridiag=num_random_probes,
-                max_iter=settings.max_lanczos_quadrature_iterations.value(),
+                max_iter=settings.max_cg_iterations.value(),
+                max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
                 preconditioner=self.preconditioner,
             )
+
         else:
             solves = linear_cg(
                 matmul_closure,
                 rhs,
                 n_tridiag=num_random_probes,
-                max_iter=settings.max_lanczos_quadrature_iterations.value(),
+                max_iter=settings.max_cg_iterations.value(),
                 preconditioner=self.preconditioner,
             )
 
