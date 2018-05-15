@@ -52,7 +52,8 @@ class InducingPointKernel(Kernel):
             for i in range(self._inducing_mat.size(0)):
                 jitter_mat = add_jitter(self._inducing_mat[i])
                 chol = torch.potrf(jitter_mat)
-                inv_roots_list.append(chol.inverse())
+                eye = torch.eye(chol.size(-1), device=chol.device)
+                inv_roots_list.append(torch.trtrs(eye, chol)[0])
 
             res = torch.cat(inv_roots_list, 0)
             if not self.training:
@@ -63,6 +64,7 @@ class InducingPointKernel(Kernel):
         k_ux1 = self.base_kernel_module(x1, self.inducing_points)
         if torch.equal(x1, x2):
             covar = RootLazyVariable(k_ux1.matmul(self._inducing_inv_root))
+#            covar = RootLazyVariable(torch.trtrs(k_ux1.t(), self._inducing_root, transpose=True)[0].t().unsqueeze(0))
         else:
             k_ux2 = self.base_kernel_module(x2, self.inducing_points)
             covar = MatmulLazyVariable(
