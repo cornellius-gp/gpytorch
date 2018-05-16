@@ -64,7 +64,6 @@ class InducingPointKernel(Kernel):
         k_ux1 = self.base_kernel_module(x1, self.inducing_points)
         if torch.equal(x1, x2):
             covar = RootLazyVariable(k_ux1.matmul(self._inducing_inv_root))
-#            covar = RootLazyVariable(torch.trtrs(k_ux1.t(), self._inducing_root, transpose=True)[0].t().unsqueeze(0))
         else:
             k_ux2 = self.base_kernel_module(x2, self.inducing_points)
             covar = MatmulLazyVariable(
