@@ -5,11 +5,10 @@ from __future__ import unicode_literals
 
 import torch
 from .kernel import Kernel
-from ..functions import root_inv_decomposition
+from ..functions import add_jitter
 from ..lazy import LazyVariable, DiagLazyVariable, MatmulLazyVariable, RootLazyVariable
 from ..random_variables import GaussianRandomVariable
 from ..variational import MVNVariationalStrategy
-from .. import settings
 
 
 class InducingPointKernel(Kernel):
@@ -49,8 +48,14 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_inv_root"):
             return self._cached_kernel_inv_root
         else:
-            with settings.max_root_decomposition_size(self._inducing_mat.size(-1)):
-                res = root_inv_decomposition(self._inducing_mat)
+            inv_roots_list = []
+            for i in range(self._inducing_mat.size(0)):
+                jitter_mat = add_jitter(self._inducing_mat[i])
+                chol = torch.potrf(jitter_mat)
+                eye = torch.eye(chol.size(-1), device=chol.device)
+                inv_roots_list.append(torch.trtrs(eye, chol)[0])
+
+            res = torch.cat(inv_roots_list, 0)
             if not self.training:
                 self._cached_kernel_inv_root = res
             return res
@@ -59,6 +64,7 @@ class InducingPointKernel(Kernel):
         k_ux1 = self.base_kernel_module(x1, self.inducing_points)
         if torch.equal(x1, x2):
             covar = RootLazyVariable(k_ux1.matmul(self._inducing_inv_root))
+#            covar = RootLazyVariable(torch.trtrs(k_ux1.t(), self._inducing_root, transpose=True)[0].t().unsqueeze(0))
         else:
             k_ux2 = self.base_kernel_module(x2, self.inducing_points)
             covar = MatmulLazyVariable(
