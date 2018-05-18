@@ -106,7 +106,9 @@ def linear_cg(
     # Define tridiagonal matrices, if applicable
     if n_tridiag:
         if rhs.ndimension() == 3:
-            t_mat = residual.new(n_tridiag_iter, n_tridiag_iter, rhs.size(0), n_tridiag).zero_()
+            t_mat = residual.new(
+                n_tridiag_iter, n_tridiag_iter, rhs.size(0), n_tridiag
+            ).zero_()
             alpha_reciprocal = alpha.new(rhs.size(0), n_tridiag)
         else:
             t_mat = residual.new(n_tridiag_iter, n_tridiag_iter, n_tridiag).zero_()
