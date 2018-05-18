@@ -107,7 +107,9 @@ def woodbury_factor(low_rank_mat, shift):
     to be used in solves with (V'V + shift I) via the Woodbury formula
     """
     k = low_rank_mat.size(-2)
-    shifted_mat = low_rank_mat.matmul(low_rank_mat.transpose(-1, -2) / shift.unsqueeze(-1))
+    shifted_mat = low_rank_mat.matmul(
+        low_rank_mat.transpose(-1, -2) / shift.unsqueeze(-1)
+    )
 
     shifted_mat = shifted_mat + shifted_mat.new(k).fill_(1).diag()
 

@@ -76,7 +76,11 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
         gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
-        with gpytorch.settings.max_preconditioner_size(10), gpytorch.settings.max_cg_iterations(30):
+        with gpytorch.settings.max_preconditioner_size(
+            10
+        ), gpytorch.settings.max_cg_iterations(
+            30
+        ):
             # Optimize the model
             gp_model.train()
             likelihood.train()

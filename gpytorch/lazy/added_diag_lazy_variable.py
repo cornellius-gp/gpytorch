@@ -63,10 +63,7 @@ class AddedDiagLazyVariable(SumLazyVariable):
 
         def precondition_closure(tensor):
             return pivoted_cholesky.woodbury_solve(
-                tensor,
-                self._piv_chol_self,
-                self._woodbury_cache,
-                self._diag_var.diag(),
+                tensor, self._piv_chol_self, self._woodbury_cache, self._diag_var.diag()
             )
 
         return precondition_closure
