@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from torch.autograd import Variable
+import torch
 from .sum_lazy_variable import SumLazyVariable
 from .diag_lazy_variable import DiagLazyVariable
 from ..utils import pivoted_cholesky
@@ -50,7 +50,7 @@ class AddedDiagLazyVariable(SumLazyVariable):
 
     def _preconditioner(self):
         if settings.max_preconditioner_size.value() == 0:
-            return None
+            return None, None
 
         if not hasattr(self, "_woodbury_cache"):
             max_iter = settings.max_preconditioner_size.value()
@@ -61,29 +61,23 @@ class AddedDiagLazyVariable(SumLazyVariable):
                 self._piv_chol_self, self._diag_var.diag()
             )
 
+        # preconditioner
         def precondition_closure(tensor):
             return pivoted_cholesky.woodbury_solve(
                 tensor, self._piv_chol_self, self._woodbury_cache, self._diag_var.diag()
             )
 
-        return precondition_closure
-
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False):
-        inv_quad_term, log_det_term = super(
-            AddedDiagLazyVariable, self
-        ).inv_quad_log_det(
-            inv_quad_rhs, log_det
-        )
-
-        if settings.max_preconditioner_size.value() > 0:
+        # log_det correction
+        if not hasattr(self, "_precond_log_det_cache"):
             lr_flipped = self._piv_chol_self.matmul(
-                self._piv_chol_self.transpose(-2, -1)
+                self._piv_chol_self.transpose(-2, -1).
+                div(self._diag_var.diag().unsqueeze(1))
             )
-            lr_flipped.div_(self._diag_var.diag().data[0])
-            lr_flipped = lr_flipped + lr_flipped.new(lr_flipped.size(0)).fill_(1).diag()
+            lr_flipped = lr_flipped + torch.eye(
+                n=lr_flipped.size(0), dtype=lr_flipped.dtype, device=lr_flipped.device
+            )
             ld_one = lr_flipped.potrf().diag().log().sum() * 2
             ld_two = self._diag_var.diag().data.log().sum()
-            ld_adjustment = log_det_term.data.new(1).fill_(ld_one + ld_two)
-            log_det_term = log_det_term + Variable(ld_adjustment, requires_grad=False)
+            self._precond_log_det_cache = ld_one + ld_two
 
-        return inv_quad_term, log_det_term
+        return precondition_closure, self._precond_log_det_cache

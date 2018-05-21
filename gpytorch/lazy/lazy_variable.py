@@ -31,12 +31,19 @@ class LazyVariable(object):
         self._args_memo = args
 
     def _preconditioner(self):
+        """
+        (Optional) define a preconditioner (P) for linear conjugate gradients
+
+        Returns:
+        - precond_fn (function) - a function on x which performs P^{-1}(x)
+        - predond_log_det (scalar) - the log determinant of P
+        """
         if gpytorch.settings.max_preconditioner_size.value() > 0:
             warnings.warn(
                 "Max preconditioner size was >0, but this lazy Variable (%s) does "
                 "not define a preconditioner." % (self.__class__.__name__)
             )
-        return None
+        return None, None
 
     def _getitem_nonbatch(self, row_index, col_index):
         """
@@ -407,7 +414,7 @@ class LazyVariable(object):
             raise RuntimeError
 
         func = InvMatmul(
-            self.representation_tree(), preconditioner=self._preconditioner()
+            self.representation_tree(), preconditioner=self._preconditioner()[0]
         )
         return func(tensor, *self.representation())
 
@@ -469,7 +476,8 @@ class LazyVariable(object):
             tensor_cls=tensor_cls,
             inv_quad=(inv_quad_rhs is not None),
             log_det=log_det,
-            preconditioner=self._preconditioner(),
+            preconditioner=self._preconditioner()[0],
+            log_det_correction=self._preconditioner()[1],
         )(
             *args
         )
