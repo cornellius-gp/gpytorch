@@ -75,6 +75,17 @@ class InterpolatedLazyVariable(LazyVariable):
         self.right_interp_indices = right_interp_indices
         self.right_interp_values = right_interp_values
 
+    def _approx_diag(self):
+        base_diag_root = self.base_lazy_variable.diag().sqrt()
+        left_res = left_interp(
+            self.left_interp_indices, self.left_interp_values, base_diag_root
+        )
+        right_res = left_interp(
+            self.right_interp_indices, self.right_interp_values, base_diag_root
+        )
+        res = left_res * right_res
+        return res
+
     def _matmul(self, rhs):
         # Get sparse tensor representations of left/right interp matrices
         left_interp_t = self._sparse_left_interp_t(

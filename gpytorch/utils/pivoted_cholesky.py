@@ -17,7 +17,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
     # Need to get diagonals. This is easy if it's a LazyVariable, since
     # LazyVariable.diag() operates in batch mode.
     if isinstance(matrix, LazyVariable):
-        matrix_diag = matrix.diag()
+        matrix_diag = matrix._approx_diag()
     elif isinstance(matrix, Variable):
         matrix_diag = NonLazyVariable(matrix).diag()
     elif torch.is_tensor(matrix):

@@ -45,6 +45,21 @@ class LazyVariable(object):
             )
         return None, None
 
+    def _approx_diag(self):
+        """
+        (Optional) returns an (approximate) diagonal of the matrix
+
+        Sometimes computing an exact diagonal is a bit computationally slow
+        When we don't need an exact diagonal (e.g. for the pivoted cholesky decomposition,
+        this function is called
+
+        Defaults to calling the exact diagonal function
+
+        Returns:
+        - diag (tensor) - the diagonal (or batch of diagonals)
+        """
+        return self.diag()
+
     def _getitem_nonbatch(self, row_index, col_index):
         """
         Given an index over rows and columns,
