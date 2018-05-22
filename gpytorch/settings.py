@@ -99,7 +99,7 @@ class max_preconditioner_size(_value_context):
     preconditioning off. When enabled, usually a value of around ~10 works fairly well.
     Default: 0
     """
-    _global_value = 5
+    _global_value = 0
 
 
 class max_lanczos_quadrature_iterations(_value_context):
