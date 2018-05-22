@@ -7,6 +7,7 @@ from .linear_cg import linear_cg
 from . import lanczos
 from . import sparse
 from .eig import batch_symeig
+from .cholesky import batch_potrf, batch_potrs
 from .stochastic_lq import StochasticLQ
 
 
@@ -461,6 +462,8 @@ __all__ = [
     rcumsum,
     approx_equal,
     bdsmm,
+    batch_potrf,
+    batch_potrs,
     batch_symeig,
     lanczos,
     sparse,

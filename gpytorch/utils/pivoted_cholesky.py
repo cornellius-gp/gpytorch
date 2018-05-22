@@ -1,5 +1,6 @@
 import torch
 from torch.autograd import Variable
+from .cholesky import batch_potrf, batch_potrs
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
@@ -114,12 +115,7 @@ def woodbury_factor(low_rank_mat, shift):
     shifted_mat = shifted_mat + shifted_mat.new(k).fill_(1).diag()
 
     if low_rank_mat.ndimension() == 3:
-        R = torch.cat(
-            [
-                torch.potrs(low_rank_mat[i], shifted_mat[i].potrf()).unsqueeze(0)
-                for i in range(shifted_mat.size(0))
-            ]
-        )
+        R = batch_potrs(low_rank_mat, batch_potrf(shifted_mat))
     else:
         R = torch.potrs(low_rank_mat, shifted_mat.potrf())
 

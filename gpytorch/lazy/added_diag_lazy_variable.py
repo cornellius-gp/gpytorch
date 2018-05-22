@@ -4,9 +4,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
+from .non_lazy_variable import NonLazyVariable
 from .sum_lazy_variable import SumLazyVariable
 from .diag_lazy_variable import DiagLazyVariable
-from ..utils import pivoted_cholesky
+from ..utils import pivoted_cholesky, batch_potrf
 from .. import settings
 
 
@@ -71,12 +72,18 @@ class AddedDiagLazyVariable(SumLazyVariable):
         if not hasattr(self, "_precond_log_det_cache"):
             lr_flipped = self._piv_chol_self.matmul(
                 self._piv_chol_self.transpose(-2, -1).
-                div(self._diag_var.diag().unsqueeze(1))
+                div(self._diag_var.diag().unsqueeze(-1))
             )
             lr_flipped = lr_flipped + torch.eye(
-                n=lr_flipped.size(0), dtype=lr_flipped.dtype, device=lr_flipped.device
+                n=lr_flipped.size(-2), dtype=lr_flipped.dtype, device=lr_flipped.device
             )
-            ld_one = lr_flipped.potrf().diag().log().sum() * 2
+            if lr_flipped.ndimension() == 3:
+                ld_one = (
+                    NonLazyVariable(batch_potrf(lr_flipped)).
+                    diag().log().sum()
+                ) * 2
+            else:
+                ld_one = lr_flipped.potrf().diag().log().sum() * 2
             ld_two = self._diag_var.diag().data.log().sum()
             self._precond_log_det_cache = ld_one + ld_two
 
