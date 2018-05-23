@@ -4,9 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import math
-import warnings
 import torch
-import gpytorch
 from torch.autograd import Variable
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
