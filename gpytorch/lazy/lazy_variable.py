@@ -290,6 +290,13 @@ class LazyVariable(object):
                 eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
 
+    def evaluate_kernel(self):
+        """
+        Return a new LazyVariable representing the same one as this one, but with all lazily evaluated kernels
+        actually evaluated.
+        """
+        return self.representation_tree()(*self.representation())
+
     def exact_predictive_mean(
         self, full_mean, train_labels, noise, precomputed_cache=None
     ):

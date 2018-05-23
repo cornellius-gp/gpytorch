@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 from torch.autograd import Variable
 from .kernel import Kernel
-from ..lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable, NonLazyVariable
+from ..lazy import ToeplitzLazyVariable, KroneckerProductLazyVariable
 from .. import settings
 
 
@@ -43,15 +43,15 @@ class GridKernel(Kernel):
 
             if settings.use_toeplitz.on():
                 first_item = grid_var[:, 0:1].contiguous()
-                covar_columns = self.base_kernel_module(first_item, grid_var, **kwargs)
+                covar_columns = self.base_kernel_module(first_item, grid_var, **kwargs).evaluate()
                 covars = [
                     ToeplitzLazyVariable(covar_columns[i : i + 1].squeeze(-2))
                     for i in range(n_dim)
                 ]
             else:
                 grid_var = grid_var.view(n_dim, -1, 1)
-                covars = self.base_kernel_module(grid_var, grid_var, **kwargs)
-                covars = [NonLazyVariable(covars[i : i + 1]) for i in range(n_dim)]
+                covars = self.base_kernel_module(grid_var, grid_var, **kwargs).evaluate()
+                covars = [covars[i : i + 1] for i in range(n_dim)]
 
             if n_dim > 1:
                 covar = KroneckerProductLazyVariable(*covars)

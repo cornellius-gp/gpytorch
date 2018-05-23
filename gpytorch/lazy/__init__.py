@@ -6,6 +6,7 @@ from .constant_mul_lazy_variable import ConstantMulLazyVariable
 from .diag_lazy_variable import DiagLazyVariable
 from .interpolated_lazy_variable import InterpolatedLazyVariable
 from .kronecker_product_lazy_variable import KroneckerProductLazyVariable
+from .lazy_evaluated_kernel_variable import LazyEvaluatedKernelVariable
 from .matmul_lazy_variable import MatmulLazyVariable
 from .mul_lazy_variable import MulLazyVariable
 from .non_lazy_variable import NonLazyVariable
@@ -25,6 +26,7 @@ __all__ = [
     DiagLazyVariable,
     InterpolatedLazyVariable,
     KroneckerProductLazyVariable,
+    LazyEvaluatedKernelVariable,
     MatmulLazyVariable,
     MulLazyVariable,
     NonLazyVariable,

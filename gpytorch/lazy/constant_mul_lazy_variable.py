@@ -59,6 +59,10 @@ class ConstantMulLazyVariable(LazyVariable):
         res = self.lazy_var._approx_diag()
         return res * self.constant.expand_as(res)
 
+    def evaluate(self):
+        res = self.lazy_var.evaluate()
+        return res * self.constant.expand_as(res)
+
     def diag(self):
         res = self.lazy_var.diag()
         res = res * self.constant.expand_as(res)

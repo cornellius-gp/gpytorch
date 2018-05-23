@@ -28,10 +28,12 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
 
     def forward(self, output, target):
-        if not isinstance(output.covar(), LazyVariable):
-            output = GaussianRandomVariable(
-                output.mean(), NonLazyVariable(output.covar())
-            )
+        prior_mean, prior_covar = output.representation()
+        prior_covar = prior_covar
+        if not isinstance(prior_covar, LazyVariable):
+            prior_covar = NonLazyVariable(prior_covar)
+
+        output = GaussianRandomVariable(prior_mean, prior_covar)
         mean, covar = self.likelihood(output).representation()
         n_data = target.size(-1)
 

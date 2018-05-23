@@ -28,7 +28,7 @@ class TestPeriodicKernel(unittest.TestCase):
                 val = 2 * torch.pow(torch.sin(math.pi * (a[i] - b[j])), 2) / lengthscale
                 actual[i, j] = torch.exp(-val)[0]
 
-        res = kernel(Variable(a), Variable(b)).data
+        res = kernel(Variable(a), Variable(b)).evaluate().data
         self.assertLess(torch.norm(res - actual), 1e-5)
 
 

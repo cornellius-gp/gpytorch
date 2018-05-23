@@ -25,7 +25,7 @@ class TestAdditiveKernel(unittest.TestCase):
         ).exp() ** 2
 
         kernel.eval()
-        res = kernel(a, b)
+        res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_of_radial_basis_function(self):
@@ -42,7 +42,7 @@ class TestAdditiveKernel(unittest.TestCase):
         ).exp() * 2
 
         kernel.eval()
-        res = kernel(a, b)
+        res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_radial_basis_function_gradient(self):
@@ -62,7 +62,7 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel = kernel_1 + kernel_2
         kernel.eval()
 
-        output = kernel(a, b)
+        output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
         res = (
             kernel.kernel_1.log_lengthscale.grad + kernel.kernel_2.log_lengthscale.grad

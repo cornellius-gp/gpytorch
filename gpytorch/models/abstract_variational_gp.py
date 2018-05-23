@@ -75,6 +75,8 @@ class AbstractVariationalGP(Module):
                 "%s.forward must return a GaussianRandomVariable"
                 % self.__class__.__name__
             )
+
+        res = GaussianRandomVariable(res.mean(), res.covar().evaluate_kernel())
         return res
 
     def variational_output(self):
