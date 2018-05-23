@@ -38,11 +38,6 @@ class LazyVariable(object):
         - precond_fn (function) - a function on x which performs P^{-1}(x)
         - predond_log_det (scalar) - the log determinant of P
         """
-        if gpytorch.settings.max_preconditioner_size.value() > 0:
-            warnings.warn(
-                "Max preconditioner size was >0, but this lazy Variable (%s) does "
-                "not define a preconditioner." % (self.__class__.__name__)
-            )
         return None, None
 
     def _approx_diag(self):
