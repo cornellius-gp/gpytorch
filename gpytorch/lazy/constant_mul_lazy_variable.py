@@ -55,6 +55,10 @@ class ConstantMulLazyVariable(LazyVariable):
         res = self.lazy_var._get_indices(left_indices, right_indices)
         return self.constant.expand_as(res) * res
 
+    def _approx_diag(self):
+        res = self.lazy_var._approx_diag()
+        return res * self.constant.expand_as(res)
+
     def diag(self):
         res = self.lazy_var.diag()
         res = res * self.constant.expand_as(res)
