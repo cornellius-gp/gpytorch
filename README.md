@@ -84,5 +84,15 @@ pip install flake8  # if not already installed
 flake8
 ```
 
+## Contributors
+
+GPyTorch is developed at Cornell university by
+- [Jake Gardner](http://github.com/jacobrgardner)
+- [Geoff Pleiss](http://github.com/gpleiss)
+
+<img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
+
+We would like to thank our other contributors including (but not limited to) Max Balandat, Ruihan Wu, Bram Wallace, Jared Frank, and Andrew Wilson.
+
 ## Acknowledgements
 Development of GPyTorch is supported by funding from the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/).
