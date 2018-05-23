@@ -28,6 +28,7 @@ class InvQuadLogDet(Function):
         inv_quad=False,
         log_det=False,
         preconditioner=None,
+        log_det_correction=None,
     ):
         if not matrix_size:
             raise RuntimeError("Matrix size must be set")
@@ -43,6 +44,7 @@ class InvQuadLogDet(Function):
         self.inv_quad = inv_quad
         self.log_det = log_det
         self.preconditioner = preconditioner
+        self.log_det_correction = log_det_correction
 
     def forward(self, *args):
         """
@@ -144,6 +146,10 @@ class InvQuadLogDet(Function):
             log_det_term, = slq.evaluate(
                 t_mat, matrix_size, eigenvalues, eigenvectors, [lambda x: x.log()]
             )
+
+            # Add correction
+            if self.log_det_correction is not None:
+                log_det_term = log_det_term + self.log_det_correction
 
         # Extract inv_quad solves from all the solves
         if self.inv_quad:

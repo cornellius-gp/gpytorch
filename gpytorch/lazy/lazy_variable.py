@@ -4,9 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import math
-import warnings
 import torch
-import gpytorch
 from torch.autograd import Variable
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
@@ -31,12 +29,29 @@ class LazyVariable(object):
         self._args_memo = args
 
     def _preconditioner(self):
-        if gpytorch.settings.max_preconditioner_size.value() > 0:
-            warnings.warn(
-                "Max preconditioner size was >0, but this lazy Variable (%s) does "
-                "not define a preconditioner." % (self.__class__.__name__)
-            )
-        return None
+        """
+        (Optional) define a preconditioner (P) for linear conjugate gradients
+
+        Returns:
+        - precond_fn (function) - a function on x which performs P^{-1}(x)
+        - predond_log_det (scalar) - the log determinant of P
+        """
+        return None, None
+
+    def _approx_diag(self):
+        """
+        (Optional) returns an (approximate) diagonal of the matrix
+
+        Sometimes computing an exact diagonal is a bit computationally slow
+        When we don't need an exact diagonal (e.g. for the pivoted cholesky decomposition,
+        this function is called
+
+        Defaults to calling the exact diagonal function
+
+        Returns:
+        - diag (tensor) - the diagonal (or batch of diagonals)
+        """
+        return self.diag()
 
     def _getitem_nonbatch(self, row_index, col_index):
         """
@@ -407,7 +422,7 @@ class LazyVariable(object):
             raise RuntimeError
 
         func = InvMatmul(
-            self.representation_tree(), preconditioner=self._preconditioner()
+            self.representation_tree(), preconditioner=self._preconditioner()[0]
         )
         return func(tensor, *self.representation())
 
@@ -469,7 +484,8 @@ class LazyVariable(object):
             tensor_cls=tensor_cls,
             inv_quad=(inv_quad_rhs is not None),
             log_det=log_det,
-            preconditioner=self._preconditioner(),
+            preconditioner=self._preconditioner()[0],
+            log_det_correction=self._preconditioner()[1],
         )(
             *args
         )

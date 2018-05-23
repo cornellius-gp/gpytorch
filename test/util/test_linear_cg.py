@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from gpytorch.utils import approx_equal
+from gpytorch.utils import approx_equal, batch_potrf, batch_potrs
 from gpytorch.utils.linear_cg import linear_cg
 
 
@@ -61,10 +61,8 @@ class TestLinearCG(unittest.TestCase):
         solves = linear_cg(matrix.matmul, rhs=rhs, max_iter=size)
 
         # Check cg
-        matrix_chol = torch.cat([matrix[i].potrf().unsqueeze(0) for i in range(5)])
-        actual = torch.cat(
-            [torch.potrs(rhs[i], matrix_chol[i]).unsqueeze(0) for i in range(5)]
-        )
+        matrix_chol = batch_potrf(matrix)
+        actual = batch_potrs(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
     def test_batch_cg_with_tridiag(self):
@@ -81,10 +79,8 @@ class TestLinearCG(unittest.TestCase):
         )
 
         # Check cg
-        matrix_chol = torch.cat([matrix[i].potrf().unsqueeze(0) for i in range(5)])
-        actual = torch.cat(
-            [torch.potrs(rhs[i], matrix_chol[i]).unsqueeze(0) for i in range(5)]
-        )
+        matrix_chol = batch_potrf(matrix)
+        actual = batch_potrs(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
         # Check tridiag

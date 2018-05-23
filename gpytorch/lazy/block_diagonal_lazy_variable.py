@@ -129,7 +129,7 @@ class BlockDiagonalLazyVariable(LazyVariable):
         return res
 
     def diag(self):
-        res = self.base_lazy_variable.diag()
+        res = self.base_lazy_variable.diag().contiguous()
         if self.n_blocks:
             res = res.view(res.size(0) // self.n_blocks, -1)
         else:
