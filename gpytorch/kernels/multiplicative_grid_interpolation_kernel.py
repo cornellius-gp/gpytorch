@@ -47,7 +47,7 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
 
     def __call__(self, x1_, x2_=None, **params):
         """
-        We cannot lazily evaluate actual kernel calls when using SKIP, because we cannot root decompose rectangular
+        We cannot lazily evaluate actual kernel calls when using SKIP, because we cannot root decompose
         rectangular matrices.
 
         Because we slice in to the kernel during prediction to get the test x train covar before
