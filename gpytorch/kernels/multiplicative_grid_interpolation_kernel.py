@@ -25,12 +25,12 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
         inputs = inputs.view(inputs.size(0), inputs.size(1), self.n_components, -1)
         batch_size, n_data, n_components, n_dimensions = inputs.size()
         inputs = (
-            inputs.transpose(0, 2).contiguous().view(
-                n_components * batch_size * n_data, n_dimensions
-            )
+            inputs.transpose(0, 2)
+            .contiguous()
+            .view(n_components * batch_size * n_data, n_dimensions)
         )
-        interp_indices, interp_values = (
-            Interpolation().interpolate(Variable(self.grid), inputs)
+        interp_indices, interp_values = Interpolation().interpolate(
+            Variable(self.grid), inputs
         )
         interp_indices = interp_indices.view(n_components * batch_size, n_data, -1)
         interp_values = interp_values.view(n_components * batch_size, n_data, -1)
@@ -47,12 +47,18 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
 
     def __call__(self, x1_, x2_=None, **params):
         """
-        We cannot lazily evaluate actual kernel calls when using SKIP, because we cannot root decompose
-        rectangular matrices.
+        We cannot lazily evaluate actual kernel calls when using SKIP, because we
+        cannot root decompose rectangular matrices.
 
-        Because we slice in to the kernel during prediction to get the test x train covar before
-        calling evaluate_kernel, the order of operations would mean we would get a MulLazyVariable representing a
-        rectangular matrix, which we cannot matmul with because we cannot root decompose it. Thus, SKIP actually
-        *requires* that we work with the full (train + test) x (train + test) kernel matrix.
+        Because we slice in to the kernel during prediction to get the test x train
+        covar before calling evaluate_kernel, the order of operations would mean we
+        would get a MulLazyVariable representing a rectangular matrix, which we
+        cannot matmul with because we cannot root decompose it. Thus, SKIP actually
+        *requires* that we work with the full (train + test) x (train + test)
+        kernel matrix.
         """
-        return super(MultiplicativeGridInterpolationKernel, self).__call__(x1_, x2_, **params).evaluate_kernel()
+        return (
+            super(MultiplicativeGridInterpolationKernel, self)
+            .__call__(x1_, x2_, **params)
+            .evaluate_kernel()
+        )

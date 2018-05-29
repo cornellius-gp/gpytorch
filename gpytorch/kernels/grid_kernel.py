@@ -26,9 +26,8 @@ class GridKernel(Kernel):
         return super(GridKernel, self).train(mode)
 
     def forward(self, x1, x2, **kwargs):
-        if (
-            not torch.equal(x1.data, self.inducing_points)
-            or not torch.equal(x2.data, self.inducing_points)
+        if not torch.equal(x1.data, self.inducing_points) or not torch.equal(
+            x2.data, self.inducing_points
         ):
             raise RuntimeError(
                 "The kernel should only receive the inducing points as input"
@@ -43,14 +42,18 @@ class GridKernel(Kernel):
 
             if settings.use_toeplitz.on():
                 first_item = grid_var[:, 0:1].contiguous()
-                covar_columns = self.base_kernel_module(first_item, grid_var, **kwargs).evaluate()
+                covar_columns = self.base_kernel_module(
+                    first_item, grid_var, **kwargs
+                ).evaluate()
                 covars = [
                     ToeplitzLazyVariable(covar_columns[i : i + 1].squeeze(-2))
                     for i in range(n_dim)
                 ]
             else:
                 grid_var = grid_var.view(n_dim, -1, 1)
-                covars = self.base_kernel_module(grid_var, grid_var, **kwargs).evaluate_kernel()
+                covars = self.base_kernel_module(
+                    grid_var, grid_var, **kwargs
+                ).evaluate_kernel()
                 covars = [covars[i : i + 1] for i in range(n_dim)]
 
             if n_dim > 1:
