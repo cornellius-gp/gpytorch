@@ -44,3 +44,15 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
         res = super(MultiplicativeGridInterpolationKernel, self).forward(x1, x2)
         res = res.mul_batch(mul_batch_size=self.n_components)
         return res
+
+    def __call__(self, x1_, x2_=None, **params):
+        """
+        We cannot lazily evaluate actual kernel calls when using SKIP, because we cannot root decompose
+        rectangular matrices.
+
+        Because we slice in to the kernel during prediction to get the test x train covar before
+        calling evaluate_kernel, the order of operations would mean we would get a MulLazyVariable representing a
+        rectangular matrix, which we cannot matmul with because we cannot root decompose it. Thus, SKIP actually
+        *requires* that we work with the full (train + test) x (train + test) kernel matrix.
+        """
+        return super(MultiplicativeGridInterpolationKernel, self).__call__(x1_, x2_, **params).evaluate_kernel()

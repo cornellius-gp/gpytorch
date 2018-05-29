@@ -38,7 +38,7 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat
         else:
-            res = self.base_kernel_module(self.inducing_points, self.inducing_points)
+            res = self.base_kernel_module(self.inducing_points, self.inducing_points).evaluate()
             if not self.training:
                 self._cached_kernel_mat = res
             return res
@@ -61,11 +61,11 @@ class InducingPointKernel(Kernel):
             return res
 
     def _get_covariance(self, x1, x2):
-        k_ux1 = self.base_kernel_module(x1, self.inducing_points)
+        k_ux1 = self.base_kernel_module(x1, self.inducing_points).evaluate()
         if torch.equal(x1, x2):
             covar = RootLazyVariable(k_ux1.matmul(self._inducing_inv_root))
         else:
-            k_ux2 = self.base_kernel_module(x2, self.inducing_points)
+            k_ux2 = self.base_kernel_module(x2, self.inducing_points).evaluate()
             covar = MatmulLazyVariable(
                 k_ux1.matmul(self._inducing_inv_root),
                 k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2),

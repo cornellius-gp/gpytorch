@@ -18,7 +18,7 @@ class LazyVariableRepresentationTree(object):
                 self.children.append(
                     (
                         slice(counter, counter + representation_size, None),
-                        LazyVariableRepresentationTree(arg),
+                        arg.representation_tree(),
                     )
                 )
                 counter += representation_size

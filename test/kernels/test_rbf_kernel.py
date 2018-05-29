@@ -21,7 +21,7 @@ class TestRBFKernel(unittest.TestCase):
         kernel.eval()
 
         actual = (a - b).div_(lengthscales).pow(2).sum(dim=-1).mul_(-0.5).exp()
-        res = kernel(a, b)
+        res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual.unsqueeze(-1)), 1e-5)
 
     def test_subset_active_compute_radial_basis_function(self):
@@ -38,7 +38,7 @@ class TestRBFKernel(unittest.TestCase):
         actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
             lengthscale ** 2
         ).exp()
-        res = kernel(a, b)
+        res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_computes_radial_basis_function(self):
@@ -52,7 +52,7 @@ class TestRBFKernel(unittest.TestCase):
         actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
             lengthscale ** 2
         ).exp()
-        res = kernel(a, b)
+        res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_computes_radial_basis_function_gradient(self):
@@ -70,7 +70,7 @@ class TestRBFKernel(unittest.TestCase):
         actual_output.backward(gradient=torch.eye(3))
         actual_param_grad = param.grad.sum()
 
-        output = kernel(a, b)
+        output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
         res = kernel.log_lengthscale.grad
 
@@ -93,7 +93,7 @@ class TestRBFKernel(unittest.TestCase):
         kernel = RBFKernel(active_dims=[0])
         kernel.initialize(log_lengthscale=math.log(lengthscale))
         kernel.eval()
-        output = kernel(a, b)
+        output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
         res = kernel.log_lengthscale.grad
 
