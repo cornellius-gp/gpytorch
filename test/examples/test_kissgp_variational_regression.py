@@ -21,7 +21,7 @@ from gpytorch.random_variables import GaussianRandomVariable
 # but with KISS-GP let's use 100 training examples.
 def make_data():
     train_x = torch.linspace(0, 1, 1000)
-    train_y = torch.sin(train_x * (2 * math.pi))
+    train_y = torch.sin(train_x * (2 * math.pi)) + 0.01 * torch.randn(1000)
     test_x = torch.linspace(0, 1, 51)
     test_y = torch.sin(test_x * (2 * math.pi))
     return train_x, train_y, test_x, test_y
@@ -53,7 +53,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
             or os.getenv("UNLOCK_SEED").lower() == "false"
         ):
             self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
+            torch.manual_seed(1)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
