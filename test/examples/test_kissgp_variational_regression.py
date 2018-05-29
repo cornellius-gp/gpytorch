@@ -21,7 +21,7 @@ from gpytorch.random_variables import GaussianRandomVariable
 # but with KISS-GP let's use 100 training examples.
 def make_data():
     train_x = torch.linspace(0, 1, 1000)
-    train_y = torch.sin(train_x * (2 * math.pi))
+    train_y = torch.sin(train_x * (2 * math.pi)) + 0.01 * torch.randn(1000)
     test_x = torch.linspace(0, 1, 51)
     test_y = torch.sin(test_x * (2 * math.pi))
     return train_x, train_y, test_x, test_y
@@ -81,7 +81,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
             scheduler = optim.lr_scheduler.MultiStepLR(
                 optimizer, milestones=[15], gamma=0.1
             )
-            for _ in range(20):
+            for  i in range(20):
                 scheduler.step()
                 for x_batch, y_batch in loader:
                     x_batch = Variable(x_batch.float())
