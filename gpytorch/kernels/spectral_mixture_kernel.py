@@ -40,7 +40,7 @@ class SpectralMixtureKernel(Kernel):
             bounds=log_mixture_scale_bounds,
         )
 
-    def initialize(self, train_x, train_y, **kwargs):
+    def initialize_from_data(self, train_x, train_y, **kwargs):
         _, n_dims = train_x.size()
 
         if not n_dims == self.n_dims:
