@@ -81,7 +81,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
             scheduler = optim.lr_scheduler.MultiStepLR(
                 optimizer, milestones=[15], gamma=0.1
             )
-            for  i in range(20):
+            for _ in range(20):
                 scheduler.step()
                 for x_batch, y_batch in loader:
                     x_batch = Variable(x_batch.float())
