@@ -43,8 +43,8 @@ class LazyVariable(object):
         (Optional) returns an (approximate) diagonal of the matrix
 
         Sometimes computing an exact diagonal is a bit computationally slow
-        When we don't need an exact diagonal (e.g. for the pivoted cholesky decomposition,
-        this function is called
+        When we don't need an exact diagonal (e.g. for the pivoted cholesky
+        decomposition, this function is called
 
         Defaults to calling the exact diagonal function
 
@@ -292,8 +292,8 @@ class LazyVariable(object):
 
     def evaluate_kernel(self):
         """
-        Return a new LazyVariable representing the same one as this one, but with all lazily evaluated kernels
-        actually evaluated.
+        Return a new LazyVariable representing the same one as this one, but with
+        all lazily evaluated kernels actually evaluated.
         """
         return self.representation_tree()(*self.representation())
 

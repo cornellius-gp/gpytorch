@@ -38,7 +38,9 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat
         else:
-            res = self.base_kernel_module(self.inducing_points, self.inducing_points).evaluate()
+            res = self.base_kernel_module(
+                self.inducing_points, self.inducing_points
+            ).evaluate()
             if not self.training:
                 self._cached_kernel_mat = res
             return res
