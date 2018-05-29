@@ -50,7 +50,7 @@ class GridKernel(Kernel):
                 ]
             else:
                 grid_var = grid_var.view(n_dim, -1, 1)
-                covars = self.base_kernel_module(grid_var, grid_var, **kwargs).evaluate()
+                covars = self.base_kernel_module(grid_var, grid_var, **kwargs).evaluate_kernel()
                 covars = [covars[i : i + 1] for i in range(n_dim)]
 
             if n_dim > 1:
