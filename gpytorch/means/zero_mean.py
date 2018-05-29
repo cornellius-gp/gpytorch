@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .mean import Mean
+from gpytorch.means import Mean
 
 
 class ZeroMean(Mean):

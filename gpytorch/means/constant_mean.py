@@ -4,8 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch import nn
-from .mean import Mean
+from gpytorch.means import Mean
 
 
 class ConstantMean(Mean):
@@ -15,12 +14,12 @@ class ConstantMean(Mean):
         self.batch_size = batch_size
         if batch_size is None:
             self.register_parameter(
-                "constant", nn.Parameter(torch.zeros(1)), bounds=constant_bounds
+                "constant", torch.nn.Parameter(torch.zeros(1)), bounds=constant_bounds
             )
         else:
             self.register_parameter(
                 "constant",
-                nn.Parameter(torch.zeros(batch_size, 1)),
+                torch.nn.Parameter(torch.zeros(batch_size, 1)),
                 bounds=constant_bounds,
             )
 
