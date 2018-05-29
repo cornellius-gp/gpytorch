@@ -26,11 +26,28 @@ class LazyEvaluatedKernelVariable(LazyVariable):
 
     def diag(self):
         """
-        TODO: Can be handled by calling the kernel after creating some new batch dimensions and transposing.
-
-        Hopefully, this can be easily used to add a 'variance_only' prediction mode.
+        Getting the diagonal of a kernel can be handled more efficiently by transposing the batch and data dimension
+        before calling the kernel. Implementing it this way allows us to compute predictions more efficiently in cases
+        where only the variances are required.
         """
-        return self.evaluate_kernel().diag()
+        from ..kernels import Kernel
+        if hasattr(self, '_cached_kernel_diag'):
+            return self._cached_kernel_diag
+        elif hasattr(self, '_cached_kernel_eval'):
+            return self._cached_kernel_eval.diag()
+        else:
+            if not self.is_batch:
+                x1 = self.x1.unsqueeze(0)
+                x2 = self.x2.unsqueeze(0)
+            else:
+                x1 = self.x1
+                x2 = self.x2
+
+            res = super(Kernel, self.kernel).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3))
+            if isinstance(res, LazyVariable):
+                res = res.evaluate()
+            self._cached_kernel_diag = res.transpose(-3, -2).squeeze()
+            return self._cached_kernel_diag
 
     def evaluate_kernel(self):
         """
