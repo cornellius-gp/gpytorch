@@ -53,7 +53,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
             or os.getenv("UNLOCK_SEED").lower() == "false"
         ):
             self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
+            torch.manual_seed(1)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
