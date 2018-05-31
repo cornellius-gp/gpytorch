@@ -57,10 +57,6 @@ class LazyEvaluatedKernelVariable(LazyVariable):
                 x1.transpose(-2, -3), x2.transpose(-2, -3)
             )
 
-            if res is None:
-                self._cached_kernel_diag = None
-                return None
-
             if isinstance(res, LazyVariable):
                 res = res.evaluate()
             self._cached_kernel_diag = res.transpose(-3, -2).squeeze()
@@ -83,9 +79,6 @@ class LazyEvaluatedKernelVariable(LazyVariable):
                 x1 = self.x1
                 x2 = self.x2
             self._cached_kernel_eval = super(Kernel, self.kernel).__call__(x1, x2)
-
-            if self._cached_kernel_eval is None:
-                return None
 
             if not self.is_batch:
                 self._cached_kernel_eval = self._cached_kernel_eval[0]

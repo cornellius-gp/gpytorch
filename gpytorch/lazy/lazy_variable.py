@@ -818,18 +818,24 @@ class LazyVariable(object):
 
     def __add__(self, other):
         from .sum_lazy_variable import SumLazyVariable
-        if other is None:
+        from .zero_lazy_variable import ZeroLazyVariable
+        if isinstance(other, ZeroLazyVariable):
             return self
+
         return SumLazyVariable(self, other)
 
     def __div__(self, other):
-        if other is None:
-            return self
+        from .zero_lazy_variable import ZeroLazyVariable
+        if isinstance(other, ZeroLazyVariable):
+            raise RuntimeError('Attempted to divide by a ZeroLazyVariable (divison by zero)')
+
         return self.mul(1. / other)
 
     def __mul__(self, other):
-        if other is None:
-            return self
+        from .zero_lazy_variable import ZeroLazyVariable
+        if isinstance(other, ZeroLazyVariable):
+            return other
+
         return self.mul(other)
 
     def __getitem__(self, index):

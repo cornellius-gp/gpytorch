@@ -186,7 +186,6 @@ class Module(nn.Module):
             isinstance(outputs, Variable)
             or isinstance(outputs, RandomVariable)
             or isinstance(outputs, LazyVariable)
-            or outputs is None
         ):
             return outputs
         for output in outputs:
