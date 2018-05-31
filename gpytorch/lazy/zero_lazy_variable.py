@@ -61,7 +61,7 @@ class ZeroLazyVariable(LazyVariable):
         raise RuntimeError('ZeroLazyVariables are not invertible!')
 
     def log_det(self):
-        return 0
+        return torch.log(torch.tensor(0.0))
 
     def matmul(self, tensor):
         return tensor * 0
