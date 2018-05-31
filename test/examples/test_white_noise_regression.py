@@ -172,7 +172,7 @@ class TestSimpleGPRegression(unittest.TestCase):
                 train_x.data.cuda(), train_y.data.cuda(), likelihood
             ).cuda()
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
-            gp_model.covar_module.initialize(log_lengthscale=1)
+            gp_model.rbf_covar_module.initialize(log_lengthscale=1)
             gp_model.mean_module.initialize(constant=0)
             likelihood.initialize(log_noise=1)
 
