@@ -89,6 +89,8 @@ class SumLazyVariable(LazyVariable):
         )
 
     def __add__(self, other):
+        if other is None:
+            return self
         if isinstance(other, SumLazyVariable):
             return SumLazyVariable(*(list(self.lazy_vars) + list(other.lazy_vars)))
         elif isinstance(other, LazyVariable):
