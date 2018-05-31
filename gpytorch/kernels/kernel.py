@@ -75,7 +75,7 @@ class AdditiveKernel(Kernel):
         self.kernel_2 = kernel_2
 
     def forward(self, x1, x2):
-        return self.kernel_1(x1, x2) + self.kernel_2(x1, x2)
+        return self.kernel_1(x1, x2).evaluate_kernel() + self.kernel_2(x1, x2).evaluate_kernel()
 
 
 class ProductKernel(Kernel):
@@ -86,4 +86,4 @@ class ProductKernel(Kernel):
         self.kernel_2 = kernel_2
 
     def forward(self, x1, x2):
-        return self.kernel_1(x1, x2) * self.kernel_2(x1, x2)
+        return self.kernel_1(x1, x2).evaluate_kernel() * self.kernel_2(x1, x2).evaluate_kernel()
