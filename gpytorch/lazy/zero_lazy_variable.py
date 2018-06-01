@@ -17,9 +17,15 @@ class ZeroLazyVariable(LazyVariable):
         self.device = device
 
     def _matmul(self, rhs):
+        rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
+        if self.size(-1) != rhs.size(rhs_size_ind):
+            raise RuntimeError('Size mismatch, self: {}, rhs: {}'.format(self.size(), rhs.size()))
         return rhs * 0
 
     def _t_matmul(self, rhs):
+        rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
+        if self.size(-1) != rhs.size(rhs_size_ind):
+            raise RuntimeError('Size mismatch, self: {}, rhs: {}'.format(self.size(), rhs.size()))
         return rhs * 0
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
@@ -30,9 +36,12 @@ class ZeroLazyVariable(LazyVariable):
 
     def add_diag(self, diag):
         from .diag_lazy_variable import DiagLazyVariable
+        if diag.size(-1) != self.size(-1):
+            raise RuntimeError('Size mismatch, self: {}, diag {}'.format(self.size(), diag.size()))
 
         if self.size(-1) != self.size(-2):
             raise RuntimeError("add_diag only defined for square matrices")
+
         if self.ndimension() == 3:
             return DiagLazyVariable(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
         else:
@@ -64,6 +73,9 @@ class ZeroLazyVariable(LazyVariable):
         return torch.log(torch.tensor(0.0))
 
     def matmul(self, tensor):
+        tensor_size_ind = -2 if tensor.ndimension() > 1 else -1
+        if self.size(-1) != tensor.size(tensor_size_ind):
+            raise RuntimeError('Size mismatch, self: {}, tensor: {}'.format(self.size(), tensor.size()))
         return tensor * 0
 
     def mul(self, other):
