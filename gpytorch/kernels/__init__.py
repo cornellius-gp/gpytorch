@@ -11,7 +11,7 @@ from .linear_kernel import LinearKernel
 from .multiplicative_grid_interpolation_kernel import (
     MultiplicativeGridInterpolationKernel
 )
-
+from .white_noise_kernel import WhiteNoiseKernel
 
 __all__ = [
     Kernel,
@@ -25,4 +25,5 @@ __all__ = [
     InducingPointKernel,
     AdditiveGridInterpolationKernel,
     MultiplicativeGridInterpolationKernel,
+    WhiteNoiseKernel,
 ]

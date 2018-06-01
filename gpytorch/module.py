@@ -188,7 +188,6 @@ class Module(nn.Module):
             or isinstance(outputs, LazyVariable)
         ):
             return outputs
-
         for output in outputs:
             if not (
                 isinstance(output, RandomVariable)

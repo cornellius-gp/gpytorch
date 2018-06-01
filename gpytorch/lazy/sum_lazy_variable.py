@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
+from .zero_lazy_variable import ZeroLazyVariable
 from torch.autograd import Variable
 
 
@@ -89,6 +90,8 @@ class SumLazyVariable(LazyVariable):
         )
 
     def __add__(self, other):
+        if isinstance(other, ZeroLazyVariable):
+            return self
         if isinstance(other, SumLazyVariable):
             return SumLazyVariable(*(list(self.lazy_vars) + list(other.lazy_vars)))
         elif isinstance(other, LazyVariable):

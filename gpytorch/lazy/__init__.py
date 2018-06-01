@@ -15,6 +15,7 @@ from .root_lazy_variable import RootLazyVariable
 from .sum_lazy_variable import SumLazyVariable
 from .sum_batch_lazy_variable import SumBatchLazyVariable
 from .toeplitz_lazy_variable import ToeplitzLazyVariable
+from .zero_lazy_variable import ZeroLazyVariable
 
 
 __all__ = [
@@ -35,4 +36,5 @@ __all__ = [
     SumLazyVariable,
     SumBatchLazyVariable,
     ToeplitzLazyVariable,
+    ZeroLazyVariable,
 ]
