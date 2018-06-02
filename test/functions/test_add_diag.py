@@ -12,7 +12,6 @@ from torch import nn
 
 
 class AddDiagTest(unittest.TestCase):
-
     def test_forward(self):
         a = nn.Parameter(torch.Tensor([5]))
         b = Variable(torch.ones(3, 3))

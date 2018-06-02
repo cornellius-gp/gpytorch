@@ -10,13 +10,11 @@ import torch
 
 
 LAZY_KERNEL_TENSOR_WARNING = (
-    "A LazyEvaluatedKernelVariable is not intended to be used directly "
-    "as a tensor! Call evaluate() first."
+    "A LazyEvaluatedKernelVariable is not intended to be used directly " "as a tensor! Call evaluate() first."
 )
 
 
 class LazyEvaluatedKernelVariable(LazyVariable):
-
     def __init__(self, kernel, x1, x2, **params):
         super(LazyEvaluatedKernelVariable, self).__init__(kernel, x1, x2, **params)
         self.kernel = kernel
@@ -53,9 +51,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             else:
                 x1 = self.x1
                 x2 = self.x2
-            res = super(Kernel, self.kernel).__call__(
-                x1.transpose(-2, -3), x2.transpose(-2, -3)
-            )
+            res = super(Kernel, self.kernel).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3))
 
             if isinstance(res, LazyVariable):
                 res = res.evaluate()
@@ -104,16 +100,12 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             left_index = index[1]
             right_index = index[2]
             return LazyEvaluatedKernelVariable(
-                self.kernel,
-                self.x1[batch_index, left_index, :],
-                self.x2[batch_index, right_index, :],
+                self.kernel, self.x1[batch_index, left_index, :], self.x2[batch_index, right_index, :]
             )
         else:
             left_index = index[0]
             right_index = index[1]
-            return LazyEvaluatedKernelVariable(
-                self.kernel, self.x1[left_index, :], self.x2[right_index, :]
-            )
+            return LazyEvaluatedKernelVariable(self.kernel, self.x1[left_index, :], self.x2[right_index, :])
 
     def _size(self):
         if self.is_batch:

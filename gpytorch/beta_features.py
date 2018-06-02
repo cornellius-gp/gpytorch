@@ -10,6 +10,7 @@ class fast_pred_var(_feature_flag):
     """
     Fast predictive variances - with Lanczos
     """
+
     _n_probe_vectors = 1
 
     @classmethod
@@ -38,6 +39,7 @@ class diagonal_correction(_feature_flag):
     """
     Fast predictive samples - with Lanczos
     """
+
     pass
 
 
@@ -45,6 +47,7 @@ class fast_pred_samples(_feature_flag):
     """
     Fast predictive samples - with Lanczos
     """
+
     pass
 
 

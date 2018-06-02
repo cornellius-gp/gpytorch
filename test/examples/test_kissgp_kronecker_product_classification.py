@@ -27,16 +27,11 @@ train_y = Variable(train_y)
 
 
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
-
     def __init__(self):
-        super(GPClassificationModel, self).__init__(
-            grid_size=8, grid_bounds=[(0, 3), (0, 3)]
-        )
+        super(GPClassificationModel, self).__init__(grid_size=8, grid_bounds=[(0, 3), (0, 3)])
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-2.5, 3))
-        self.register_parameter(
-            "log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
-        )
+        self.register_parameter("log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -47,12 +42,8 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
 
 class TestKissGPKroneckerProductClassification(unittest.TestCase):
-
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
@@ -63,9 +54,7 @@ class TestKissGPKroneckerProductClassification(unittest.TestCase):
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-            likelihood, model, n_data=len(train_y)
-        )
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()

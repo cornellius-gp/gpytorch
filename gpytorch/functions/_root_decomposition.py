@@ -10,17 +10,8 @@ from .. import settings
 
 
 class RootDecomposition(Function):
-
     def __init__(
-        self,
-        representation_tree,
-        cls,
-        size,
-        max_iter,
-        batch_size=None,
-        root=True,
-        inverse=False,
-        initial_vector=None,
+        self, representation_tree, cls, size, max_iter, batch_size=None, root=True, inverse=False, initial_vector=None
     ):
         self.representation_tree = representation_tree
         self.cls = cls
@@ -29,11 +20,7 @@ class RootDecomposition(Function):
         self.batch_size = batch_size
         self.root = root
         self.inverse = inverse
-        self.initial_vector = (
-            initial_vector.data
-            if isinstance(initial_vector, Variable)
-            else initial_vector
-        )
+        self.initial_vector = initial_vector.data if isinstance(initial_vector, Variable) else initial_vector
 
     def forward(self, *matrix_args):
         """
@@ -143,11 +130,7 @@ class RootDecomposition(Function):
                 left_factor.add_(root_grad_output)
             if inverse_grad_output is not None:
                 # -root^-T grad_output.T root^-T
-                left_factor.sub_(
-                    torch.matmul(inverse, inverse_grad_output.transpose(-1, -2)).matmul(
-                        inverse
-                    )
-                )
+                left_factor.sub_(torch.matmul(inverse, inverse_grad_output.transpose(-1, -2)).matmul(inverse))
 
             # Right factor
             right_factor = inverse.div(2.)

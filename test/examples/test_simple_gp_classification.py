@@ -27,32 +27,22 @@ def train_data(cuda=False):
 
 
 class GPClassificationModel(gpytorch.models.VariationalGP):
-
     def __init__(self, train_x):
         super(GPClassificationModel, self).__init__(train_x)
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.register_parameter(
-            "log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
-        )
+        self.register_parameter("log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = ConstantMulLazyVariable(
-            self.covar_module(x),
-            self.log_outputscale.exp(),
-        )
+        covar_x = ConstantMulLazyVariable(self.covar_module(x), self.log_outputscale.exp())
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred
 
 
 class TestSimpleGPClassification(unittest.TestCase):
-
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
@@ -64,9 +54,7 @@ class TestSimpleGPClassification(unittest.TestCase):
         train_x, train_y = train_data()
         likelihood = BernoulliLikelihood()
         model = GPClassificationModel(train_x.data)
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-            likelihood, model, n_data=len(train_y)
-        )
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
@@ -92,9 +80,7 @@ class TestSimpleGPClassification(unittest.TestCase):
         # Set back to eval mode
         model.eval()
         likelihood.eval()
-        test_preds = (
-            likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
-        )
+        test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         assert mean_abs_error.data.squeeze().item() < 1e-5
 
@@ -103,9 +89,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             train_x, train_y = train_data()
             likelihood = BernoulliLikelihood()
             model = GPClassificationModel(train_x.data)
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-                likelihood, model, n_data=len(train_y)
-            )
+            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()
@@ -131,11 +115,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             # Set back to eval mode
             model.eval()
             likelihood.eval()
-            test_preds = (
-                likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(
-                    1
-                ).squeeze()
-            )
+            test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
 
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
             self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
@@ -145,9 +125,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             train_x, train_y = train_data(cuda=True)
             likelihood = BernoulliLikelihood().cuda()
             model = GPClassificationModel(train_x.data).cuda()
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-                likelihood, model, n_data=len(train_y)
-            )
+            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()
@@ -171,11 +149,7 @@ class TestSimpleGPClassification(unittest.TestCase):
 
             # Set back to eval mode
             model.eval()
-            test_preds = (
-                likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(
-                    1
-                ).squeeze()
-            )
+            test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
             self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
 

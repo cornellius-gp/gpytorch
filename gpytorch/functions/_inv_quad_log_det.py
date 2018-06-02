@@ -79,25 +79,11 @@ class InvQuadLogDet(Function):
         probe_vector_norms = None
         if self.log_det:
             num_random_probes = settings.num_trace_samples.value()
-            probe_vectors = self.tensor_cls(
-                self.matrix_size, num_random_probes
-            ).bernoulli_().mul_(
-                2
-            ).add_(
-                -1
-            )
+            probe_vectors = self.tensor_cls(self.matrix_size, num_random_probes).bernoulli_().mul_(2).add_(-1)
             probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
             if self.batch_size is not None:
-                probe_vectors = (
-                    probe_vectors.unsqueeze(0).expand(
-                        self.batch_size, self.matrix_size, num_random_probes
-                    )
-                )
-                probe_vector_norms = (
-                    probe_vector_norms.unsqueeze(0).expand(
-                        self.batch_size, 1, num_random_probes
-                    )
-                )
+                probe_vectors = probe_vectors.unsqueeze(0).expand(self.batch_size, self.matrix_size, num_random_probes)
+                probe_vector_norms = probe_vector_norms.unsqueeze(0).expand(self.batch_size, 1, num_random_probes)
             probe_vectors = probe_vectors.div(probe_vector_norms)
             rhs_list.append(probe_vectors)
 
@@ -143,9 +129,7 @@ class InvQuadLogDet(Function):
             eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
             slq = StochasticLQ()
             matrix_size = rhs.size(-2)
-            log_det_term, = slq.evaluate(
-                t_mat, matrix_size, eigenvalues, eigenvectors, [lambda x: x.log()]
-            )
+            log_det_term, = slq.evaluate(t_mat, matrix_size, eigenvalues, eigenvectors, [lambda x: x.log()])
 
             # Add correction
             if self.log_det_correction is not None:
@@ -154,9 +138,7 @@ class InvQuadLogDet(Function):
         # Extract inv_quad solves from all the solves
         if self.inv_quad:
             inv_quad_solves = solves.narrow(-1, num_random_probes, num_inv_quad_solves)
-            inv_quad_term = (inv_quad_solves * inv_quad_rhs).sum(-1).sum(
-                -1, keepdim=(self.batch_size is None)
-            )
+            inv_quad_term = (inv_quad_solves * inv_quad_rhs).sum(-1).sum(-1, keepdim=(self.batch_size is None))
 
         self.num_random_probes = num_random_probes
         self.num_inv_quad_solves = num_inv_quad_solves
@@ -208,14 +190,8 @@ class InvQuadLogDet(Function):
             probe_vector_solves.mul_(probe_vector_norms).mul_(log_det_grad_output)
             probe_vectors = probe_vectors.mul(probe_vector_norms)
         if self.inv_quad:
-            inv_quad_solves = solves.narrow(
-                -1, self.num_random_probes, self.num_inv_quad_solves
-            )
-            neg_inv_quad_solves_times_grad_out = inv_quad_solves.mul(
-                inv_quad_grad_output
-            ).mul_(
-                -1
-            )
+            inv_quad_solves = solves.narrow(-1, self.num_random_probes, self.num_inv_quad_solves)
+            neg_inv_quad_solves_times_grad_out = inv_quad_solves.mul(inv_quad_grad_output).mul_(-1)
 
         # input_1 gradient
         if any(self.needs_input_grad):
@@ -233,9 +209,7 @@ class InvQuadLogDet(Function):
 
             left_factors = torch.cat(left_factors_list, -1)
             right_factors = torch.cat(right_factors_list, -1)
-            matrix_arg_grads = lazy_var._quad_form_derivative(
-                left_factors, right_factors
-            )
+            matrix_arg_grads = lazy_var._quad_form_derivative(left_factors, right_factors)
 
         # input_2 gradients
         if compute_inv_quad_grad and self.needs_input_grad[0]:

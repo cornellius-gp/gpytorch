@@ -80,9 +80,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
             L_m_new = row.gather(1, pi_i)
             if m > 0:
                 L_prev = L[:, :m].gather(2, pi_i.unsqueeze(1).repeat(1, m, 1))
-                update = L[:, :m].gather(
-                    2, pi_m.unsqueeze(1).unsqueeze(1).repeat(1, m, 1)
-                )
+                update = L[:, :m].gather(2, pi_m.unsqueeze(1).unsqueeze(1).repeat(1, m, 1))
                 L_m_new -= torch.sum(update * L_prev, dim=1)
 
             L_m_new /= L_m.gather(1, pi_m.unsqueeze(1))
@@ -109,9 +107,7 @@ def woodbury_factor(low_rank_mat, shift):
     to be used in solves with (V'V + shift I) via the Woodbury formula
     """
     k = low_rank_mat.size(-2)
-    shifted_mat = low_rank_mat.matmul(
-        low_rank_mat.transpose(-1, -2) / shift.unsqueeze(-1)
-    )
+    shifted_mat = low_rank_mat.matmul(low_rank_mat.transpose(-1, -2) / shift.unsqueeze(-1))
 
     shifted_mat = shifted_mat + shifted_mat.new(k).fill_(1).diag()
 
@@ -138,7 +134,5 @@ def woodbury_solve(vector, low_rank_mat, woodbury_factor, shift):
     if vector.ndimension() > 1:
         shift = shift.unsqueeze(-1)
 
-    right = low_rank_mat.transpose(-1, -2).matmul(
-        woodbury_factor.matmul(vector)
-    ) / shift
+    right = low_rank_mat.transpose(-1, -2).matmul(woodbury_factor.matmul(vector)) / shift
     return (vector - right) / shift

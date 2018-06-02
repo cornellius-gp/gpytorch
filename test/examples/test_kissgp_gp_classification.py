@@ -20,14 +20,11 @@ train_y = Variable(torch.sign(torch.cos(train_x.data * (8 * math.pi))))
 
 
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
-
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.register_parameter(
-            "log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
-        )
+        self.register_parameter("log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -38,13 +35,10 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
 
 class TestKISSGPClassification(unittest.TestCase):
-
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-            likelihood, model, n_data=len(train_y)
-        )
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
@@ -70,9 +64,7 @@ class TestKISSGPClassification(unittest.TestCase):
         # Set back to eval mode
         model.eval()
         likelihood.eval()
-        test_preds = (
-            likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
-        )
+        test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
 

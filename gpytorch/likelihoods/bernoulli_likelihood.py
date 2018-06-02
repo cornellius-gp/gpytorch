@@ -35,12 +35,7 @@ class BernoulliLikelihood(Likelihood):
         """
         if not isinstance(input, GaussianRandomVariable):
             raise RuntimeError(
-                " ".join(
-                    [
-                        "BernoulliLikelihood expects a Gaussian",
-                        "distributed latent function to make predictions",
-                    ]
-                )
+                " ".join(["BernoulliLikelihood expects a Gaussian", "distributed latent function to make predictions"])
             )
 
         mean = input.mean()

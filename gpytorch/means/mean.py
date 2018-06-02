@@ -7,6 +7,5 @@ from gpytorch.module import Module
 
 
 class Mean(Module):
-
     def forward(self, x):
         raise NotImplementedError()

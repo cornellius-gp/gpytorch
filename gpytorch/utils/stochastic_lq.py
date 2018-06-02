@@ -33,9 +33,7 @@ class StochasticLQ(object):
         self.num_random_probes = num_random_probes
 
     def lanczos_batch(self, matmul_closure, rhs_vectors):
-        return lanczos_tridiag(
-            matmul_closure, self.max_iter, init_vecs=rhs_vectors, tensor_cls=self.cls
-        )
+        return lanczos_tridiag(matmul_closure, self.max_iter, init_vecs=rhs_vectors, tensor_cls=self.cls)
 
     def evaluate(self, t_mats, matrix_size, eigenvalues, eigenvectors, funcs):
         """
@@ -77,13 +75,7 @@ class StochasticLQ(object):
                 eigenvecs_first_component = eigenvectors_for_probe[:, 0, :]
                 func_eigenvalues = func(eigenvalues_for_probe)
 
-                dot_products = (
-                    eigenvecs_first_component.pow(2) * func_eigenvalues
-                ).sum(
-                    1
-                )
-                results[i] = results[i] + matrix_size / float(
-                    num_random_probes
-                ) * dot_products
+                dot_products = (eigenvecs_first_component.pow(2) * func_eigenvalues).sum(1)
+                results[i] = results[i] + matrix_size / float(num_random_probes) * dot_products
 
         return results

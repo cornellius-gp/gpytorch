@@ -8,9 +8,7 @@ from .grid_interpolation_kernel import GridInterpolationKernel
 from .inducing_point_kernel import InducingPointKernel
 from .additive_grid_interpolation_kernel import AdditiveGridInterpolationKernel
 from .linear_kernel import LinearKernel
-from .multiplicative_grid_interpolation_kernel import (
-    MultiplicativeGridInterpolationKernel
-)
+from .multiplicative_grid_interpolation_kernel import MultiplicativeGridInterpolationKernel
 from .white_noise_kernel import WhiteNoiseKernel
 
 __all__ = [

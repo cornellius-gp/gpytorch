@@ -9,7 +9,6 @@ from ..lazy import LazyVariable
 
 
 class NonLazyVariable(LazyVariable):
-
     def __init__(self, var):
         """
         Not a lazy variable
@@ -32,7 +31,7 @@ class NonLazyVariable(LazyVariable):
             right_vecs = right_vecs.unsqueeze(-1)
 
         res = left_vecs.matmul(right_vecs.transpose(-1, -2))
-        return res,
+        return (res,)
 
     def _size(self):
         return self.tensor.size()
@@ -64,9 +63,7 @@ class NonLazyVariable(LazyVariable):
             torch.arange(0, size[0], out=batch_iter)
             batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
             row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
-            return self.tensor[batch_iter, row_col_iter, row_col_iter].view(
-                size[0], size[1]
-            )
+            return self.tensor[batch_iter, row_col_iter, row_col_iter].view(size[0], size[1])
 
     def evaluate(self):
         return self.tensor

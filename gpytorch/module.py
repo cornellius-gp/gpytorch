@@ -13,7 +13,6 @@ from .variational import VariationalStrategy
 
 
 class Module(nn.Module):
-
     def __init__(self):
         super(Module, self).__init__()
         self._bounds = OrderedDict()
@@ -31,16 +30,14 @@ class Module(nn.Module):
                 return self.__getattr__(module).bound_for(name)
             else:
                 raise AttributeError(
-                    "Invalid bound name %s. "
-                    "%s has no module %s" % (name, type(self).__name__, module)
+                    "Invalid bound name %s. " "%s has no module %s" % (name, type(self).__name__, module)
                 )
         else:
             if name in self._parameters:
                 return self._bounds[name]
             else:
                 raise AttributeError(
-                    "Invalid bound name %s. "
-                    "%s has no parameter %s" % (name, type(self).__name__, module)
+                    "Invalid bound name %s. " "%s has no parameter %s" % (name, type(self).__name__, module)
                 )
 
     def forward(self, *inputs, **kwargs):
@@ -55,17 +52,13 @@ class Module(nn.Module):
         """
         for name, val in kwargs.items():
             if name not in self._parameters:
-                raise AttributeError(
-                    "Unknown parameter %s for %s" % (name, self.__class__.__name__)
-                )
+                raise AttributeError("Unknown parameter %s for %s" % (name, self.__class__.__name__))
             if torch.is_tensor(val):
                 self.__getattr__(name).data.copy_(val)
             elif isinstance(val, float) or isinstance(val, int):
                 self.__getattr__(name).data.fill_(val)
             else:
-                raise AttributeError(
-                    "Type %s not valid to initialize parameter %s" % (type(val), name)
-                )
+                raise AttributeError("Type %s not valid to initialize parameter %s" % (type(val), name))
 
             # Ensure initializion is within bounds
             param = self._parameters[name]
@@ -96,9 +89,7 @@ class Module(nn.Module):
         for mname, module in self.named_children():
             submodule_prefix = prefix + ("." if prefix else "") + mname
             if hasattr(module, "named_variational_strategies"):
-                for name, strategy in module.named_variational_strategies(
-                    memo, submodule_prefix
-                ):
+                for name, strategy in module.named_variational_strategies(memo, submodule_prefix):
                     yield name, strategy
 
     def parameter_bounds(self):
@@ -120,9 +111,7 @@ class Module(nn.Module):
         prior (RandomVariable): prior for parameter (default: None)
         """
         if "_parameters" not in self.__dict__:
-            raise AttributeError(
-                "cannot assign parameter before Module.__init__() call"
-            )
+            raise AttributeError("cannot assign parameter before Module.__init__() call")
         super(Module, self).register_parameter(name, param)
         kwargs = {}
         kwargs[name] = bounds
@@ -140,28 +129,17 @@ class Module(nn.Module):
         """
         for name, bounds in kwargs.items():
             if name not in self._parameters:
-                raise AttributeError(
-                    "Unknown parameter %s for %s" % (name, self.__class__.__name__)
-                )
+                raise AttributeError("Unknown parameter %s for %s" % (name, self.__class__.__name__))
             param = self._parameters[name]
             # Set bounds
             lower_bound, upper_bound = bounds
             if torch.is_tensor(lower_bound) and torch.is_tensor(upper_bound):
-                if (
-                    lower_bound.size() != upper_bound.size()
-                    or lower_bound.size() != param.size()
-                ):
-                    raise AttributeError(
-                        "Lower bound, upper bound, and param should have the same size"
-                    )
-            elif not (
-                isinstance(lower_bound, int) or isinstance(lower_bound, float)
-            ) or not (
+                if lower_bound.size() != upper_bound.size() or lower_bound.size() != param.size():
+                    raise AttributeError("Lower bound, upper bound, and param should have the same size")
+            elif not (isinstance(lower_bound, int) or isinstance(lower_bound, float)) or not (
                 isinstance(upper_bound, int) or isinstance(upper_bound, float)
             ):
-                raise AttributeError(
-                    "Unsupported argument types for parameter %s" % name
-                )
+                raise AttributeError("Unsupported argument types for parameter %s" % name)
 
             if name not in self._bounds:
                 self._bounds[name] = [None, None]
@@ -182,17 +160,11 @@ class Module(nn.Module):
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
-        if (
-            isinstance(outputs, Variable)
-            or isinstance(outputs, RandomVariable)
-            or isinstance(outputs, LazyVariable)
-        ):
+        if isinstance(outputs, Variable) or isinstance(outputs, RandomVariable) or isinstance(outputs, LazyVariable):
             return outputs
         for output in outputs:
             if not (
-                isinstance(output, RandomVariable)
-                or isinstance(output, Variable)
-                or isinstance(output, LazyVariable)
+                isinstance(output, RandomVariable) or isinstance(output, Variable) or isinstance(output, LazyVariable)
             ):
                 raise RuntimeError(
                     "Output must be a RandomVariable, Variable, or LazyVariable. "
@@ -230,14 +202,9 @@ class Module(nn.Module):
             modules = self.__dict__["_modules"]
             if name in modules:
                 return modules[name]
-        raise AttributeError(
-            "'{}' object has no attribute '{}'".format(type(self).__name__, name)
-        )
+        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, name))
 
     def __setattr__(self, name, value):
         if isinstance(value, nn.Parameter):
-            raise RuntimeError(
-                "Please assign torch.nn.Parameters using"
-                "gpytorch.module.register_parameters()"
-            )
+            raise RuntimeError("Please assign torch.nn.Parameters using" "gpytorch.module.register_parameters()")
         super(Module, self).__setattr__(name, value)

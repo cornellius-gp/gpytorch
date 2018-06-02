@@ -10,7 +10,6 @@ from gpytorch.utils.linear_cg import linear_cg
 
 
 class TestLinearCG(unittest.TestCase):
-
     def test_cg(self):
         size = 100
         matrix = torch.DoubleTensor(size, size).normal_()
@@ -34,9 +33,7 @@ class TestLinearCG(unittest.TestCase):
         matrix.add_(torch.DoubleTensor(matrix.size(-1)).fill_(1e-1).diag())
 
         rhs = torch.DoubleTensor(size, 50).normal_()
-        solves, t_mats = linear_cg(
-            matrix.matmul, rhs=rhs, n_tridiag=5, max_iter=size, tolerance=0
-        )
+        solves, t_mats = linear_cg(matrix.matmul, rhs=rhs, n_tridiag=5, max_iter=size, tolerance=0)
 
         # Check cg
         matrix_chol = matrix.potrf()
@@ -74,9 +71,7 @@ class TestLinearCG(unittest.TestCase):
         matrix.add_(torch.DoubleTensor(matrix.size(-1)).fill_(1e-1).diag())
 
         rhs = torch.DoubleTensor(batch, size, 50).normal_()
-        solves, t_mats = linear_cg(
-            matrix.matmul, rhs=rhs, n_tridiag=8, max_iter=size, tolerance=0
-        )
+        solves, t_mats = linear_cg(matrix.matmul, rhs=rhs, n_tridiag=8, max_iter=size, tolerance=0)
 
         # Check cg
         matrix_chol = batch_potrf(matrix)
@@ -88,9 +83,7 @@ class TestLinearCG(unittest.TestCase):
             eigs = matrix[i].symeig()[0]
             for j in range(8):
                 approx_eigs = t_mats[j, i].symeig()[0]
-                self.assertLess(
-                    torch.mean(torch.abs((eigs - approx_eigs) / eigs)), 0.05
-                )
+                self.assertLess(torch.mean(torch.abs((eigs - approx_eigs) / eigs)), 0.05)
 
 
 if __name__ == "__main__":

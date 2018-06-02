@@ -9,7 +9,6 @@ from gpytorch import utils
 
 
 class TestTeoplitz(unittest.TestCase):
-
     def test_sym_toeplitz_constructs_tensor_from_vector(self):
         c = torch.Tensor([1, 6, 4, 5])
 
@@ -57,9 +56,7 @@ class TestTeoplitz(unittest.TestCase):
         actual = torch.matmul(lhs_mat.unsqueeze(0), rhs_mat)
 
         # Fast toeplitz
-        res = utils.toeplitz.toeplitz_matmul(
-            col.unsqueeze(0), row.unsqueeze(0), rhs_mat
-        )
+        res = utils.toeplitz.toeplitz_matmul(col.unsqueeze(0), row.unsqueeze(0), rhs_mat)
         self.assertTrue(utils.approx_equal(res, actual))
 
     def test_reverse(self):

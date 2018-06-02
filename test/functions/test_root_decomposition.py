@@ -12,12 +12,8 @@ from gpytorch.utils import approx_equal
 
 
 class TestRootDecomposition(unittest.TestCase):
-
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
@@ -46,9 +42,7 @@ class TestRootDecomposition(unittest.TestCase):
         # Backward
         res.trace().backward()
         self.mat_var_clone.trace().backward()
-        self.assertTrue(
-            approx_equal(self.mat_var.grad.data, self.mat_var_clone.grad.data)
-        )
+        self.assertTrue(approx_equal(self.mat_var.grad.data, self.mat_var_clone.grad.data))
 
     def test_root_inv_decomposition(self):
         # Forward
@@ -60,9 +54,7 @@ class TestRootDecomposition(unittest.TestCase):
         # Backward
         res.trace().backward()
         actual.trace().backward()
-        self.assertTrue(
-            approx_equal(self.mat_var.grad.data, self.mat_var_clone.grad.data)
-        )
+        self.assertTrue(approx_equal(self.mat_var.grad.data, self.mat_var_clone.grad.data))
 
 
 if __name__ == "__main__":

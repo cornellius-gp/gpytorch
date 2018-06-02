@@ -12,7 +12,6 @@ from ..lazy import LazyVariable, CholLazyVariable
 
 
 class AbstractVariationalGP(Module):
-
     def __init__(self, inducing_points):
         super(AbstractVariationalGP, self).__init__()
         if not torch.is_tensor(inducing_points):
@@ -20,15 +19,9 @@ class AbstractVariationalGP(Module):
         n_inducing = inducing_points.size(0)
         self.register_buffer("inducing_points", inducing_points)
         self.register_buffer("variational_params_initialized", torch.zeros(1))
+        self.register_parameter("variational_mean", nn.Parameter(torch.zeros(n_inducing)), bounds=(-1e4, 1e4))
         self.register_parameter(
-            "variational_mean",
-            nn.Parameter(torch.zeros(n_inducing)),
-            bounds=(-1e4, 1e4),
-        )
-        self.register_parameter(
-            "chol_variational_covar",
-            nn.Parameter(torch.eye(n_inducing, n_inducing)),
-            bounds=(-100, 100),
+            "chol_variational_covar", nn.Parameter(torch.eye(n_inducing, n_inducing)), bounds=(-100, 100)
         )
         self.register_variational_strategy("inducing_point_strategy")
 
@@ -45,9 +38,7 @@ class AbstractVariationalGP(Module):
             self._has_warned = True
         if n_data is None:
             n_data = target.size(-1)
-        return VariationalMarginalLogLikelihood(likelihood, self, n_data)(
-            output, target
-        )
+        return VariationalMarginalLogLikelihood(likelihood, self, n_data)(output, target)
 
     def covar_diag(self, inputs):
         if inputs.ndimension() == 1:
@@ -67,14 +58,9 @@ class AbstractVariationalGP(Module):
         return covar_diag
 
     def prior_output(self):
-        res = super(AbstractVariationalGP, self).__call__(
-            Variable(self.inducing_points)
-        )
+        res = super(AbstractVariationalGP, self).__call__(Variable(self.inducing_points))
         if not isinstance(res, GaussianRandomVariable):
-            raise RuntimeError(
-                "%s.forward must return a GaussianRandomVariable"
-                % self.__class__.__name__
-            )
+            raise RuntimeError("%s.forward must return a GaussianRandomVariable" % self.__class__.__name__)
 
         res = GaussianRandomVariable(res.mean(), res.covar().evaluate_kernel())
         return res
@@ -86,22 +72,14 @@ class AbstractVariationalGP(Module):
         # of a matrix requires that the diagonal elements be positive).
         if chol_variational_covar.ndimension() == 2:
             chol_variational_covar = chol_variational_covar.triu()
-            inside = chol_variational_covar.diag().sign().unsqueeze(1).expand_as(
-                chol_variational_covar
-            ).triu()
+            inside = chol_variational_covar.diag().sign().unsqueeze(1).expand_as(chol_variational_covar).triu()
         elif chol_variational_covar.ndimension() == 3:
             batch_size, diag_size, _ = chol_variational_covar.size()
 
             # Batch mode
             chol_variational_covar_size = list(chol_variational_covar.size())[-2:]
-            mask = chol_variational_covar.data.new(*chol_variational_covar_size).fill_(
-                1
-            ).triu()
-            mask = Variable(
-                mask.unsqueeze(0).expand(
-                    *([chol_variational_covar.size(0)] + chol_variational_covar_size)
-                )
-            )
+            mask = chol_variational_covar.data.new(*chol_variational_covar_size).fill_(1).triu()
+            mask = Variable(mask.unsqueeze(0).expand(*([chol_variational_covar.size(0)] + chol_variational_covar_size)))
 
             batch_index = chol_variational_covar.data.new(batch_size).long()
             torch.arange(0, batch_size, out=batch_index)
@@ -109,14 +87,10 @@ class AbstractVariationalGP(Module):
             diag_index = chol_variational_covar.data.new(diag_size).long()
             torch.arange(0, diag_size, out=diag_index)
             diag_index = diag_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-            diag = chol_variational_covar[batch_index, diag_index, diag_index].view(
-                batch_size, diag_size
-            )
+            diag = chol_variational_covar[batch_index, diag_index, diag_index].view(batch_size, diag_size)
 
             chol_variational_covar = chol_variational_covar.mul(mask)
-            inside = diag.sign().unsqueeze(-1).expand_as(chol_variational_covar).mul(
-                mask
-            )
+            inside = diag.sign().unsqueeze(-1).expand_as(chol_variational_covar).mul(mask)
         else:
             raise RuntimeError("Invalid number of variational covar dimensions")
 

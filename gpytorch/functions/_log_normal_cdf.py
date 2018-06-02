@@ -10,7 +10,6 @@ import torch
 
 
 class LogNormalCDF(Function):
-
     def forward(self, z):
         c = z.new(
             [
@@ -78,22 +77,15 @@ class LogNormalCDF(Function):
                 numerator = -z_where_z_is_small.mul(numerator.div(math.sqrt(2))) + r_i
 
             for q_i in q:
-                denominator = -z_where_z_is_small.mul(
-                    denominator.div(math.sqrt(2))
-                ) + q_i
+                denominator = -z_where_z_is_small.mul(denominator.div(math.sqrt(2))) + q_i
 
             e = numerator.div(denominator)
-            log_phi_z.masked_scatter_(
-                z_is_small, torch.log(e / 2) - z_where_z_is_small.pow(2).div_(2)
-            )
+            log_phi_z.masked_scatter_(z_is_small, torch.log(e / 2) - z_where_z_is_small.pow(2).div_(2))
 
             self.denominator = denominator
             self.numerator = numerator
 
-        log_phi_z.masked_scatter_(
-            z_is_ordinary,
-            torch.log(NormalCDF().forward(z.masked_select(z_is_ordinary))),
-        )
+        log_phi_z.masked_scatter_(z_is_ordinary, torch.log(NormalCDF().forward(z.masked_select(z_is_ordinary))))
 
         self.save_for_backward(z, log_phi_z)
         return log_phi_z
@@ -106,15 +98,9 @@ class LogNormalCDF(Function):
         z_is_not_small = 1 - z_is_small
 
         if z_is_small.sum() > 0:
-            log_phi_z_grad[z_is_small] = torch.abs(
-                self.denominator.div(self.numerator)
-            ).mul(
-                math.sqrt(2 / math.pi)
-            )
+            log_phi_z_grad[z_is_small] = torch.abs(self.denominator.div(self.numerator)).mul(math.sqrt(2 / math.pi))
 
-        exp = z[z_is_not_small].pow(2).div(-2).sub(log_phi_z[z_is_not_small]).add(
-            math.log(0.5)
-        )
+        exp = z[z_is_not_small].pow(2).div(-2).sub(log_phi_z[z_is_not_small]).add(math.log(0.5))
 
         log_phi_z_grad[z_is_not_small] = torch.exp(exp).mul(math.sqrt(2 / math.pi))
 

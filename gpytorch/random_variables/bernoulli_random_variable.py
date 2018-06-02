@@ -9,7 +9,6 @@ from .random_variable import RandomVariable
 
 
 class BernoulliRandomVariable(RandomVariable):
-
     def __init__(self, probability):
         """
         Constructs a Bernoulli random variable
@@ -36,9 +35,7 @@ class BernoulliRandomVariable(RandomVariable):
 
     def sample(self, n_samples=1):
         prob = torch.rand(n_samples, len(self.probability))
-        res = prob < self.probability.data.unsqueeze(0).expand(
-            n_samples, len(self.probability)
-        )
+        res = prob < self.probability.data.unsqueeze(0).expand(n_samples, len(self.probability))
         if len(self.probability) == 1:
             res.squeeze_(1)
         return res

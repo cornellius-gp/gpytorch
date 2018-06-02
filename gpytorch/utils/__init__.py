@@ -36,9 +36,7 @@ def rcumsum(input, dim=0):
         - rcumsum on input
     """
     reverse_index = torch.LongTensor(list(range(input.size(dim))[::-1]))
-    return torch.index_select(input, dim, reverse_index).cumsum(dim).index_select(
-        dim, reverse_index
-    )
+    return torch.index_select(input, dim, reverse_index).cumsum(dim).index_select(dim, reverse_index)
 
 
 def approx_equal(self, other, epsilon=1e-4):
@@ -52,9 +50,7 @@ def approx_equal(self, other, epsilon=1e-4):
     """
     if self.size() != other.size():
         raise RuntimeError(
-            "Size mismatch between self ({self}) and other ({other})".format(
-                self=self.size(), other=other.size()
-            )
+            "Size mismatch between self ({self}) and other ({other})".format(self=self.size(), other=other.size())
         )
     return torch.max((self - other).abs()) <= epsilon
 
@@ -69,11 +65,7 @@ def bdsmm(sparse, dense):
         indices = sparse._indices()[1:].clone()
         indices[0].add_(n_rows, batch_assignment)
         indices[1].add_(n_cols, batch_assignment)
-        sparse_2d = sparse.new(
-            indices,
-            sparse._values(),
-            torch.Size((batch_size * n_rows, batch_size * n_cols)),
-        )
+        sparse_2d = sparse.new(indices, sparse._values(), torch.Size((batch_size * n_rows, batch_size * n_cols)))
 
         if dense.size(0) == 1:
             dense = dense.repeat(batch_size, 1, 1)
@@ -83,9 +75,7 @@ def bdsmm(sparse, dense):
         return res
     elif dense.ndimension() == 3:
         batch_size, _, n_cols = dense.size()
-        res = torch.dsmm(
-            sparse, dense.transpose(0, 1).contiguous().view(-1, batch_size * n_cols)
-        )
+        res = torch.dsmm(sparse, dense.transpose(0, 1).contiguous().view(-1, batch_size * n_cols))
         res = res.view(-1, batch_size, n_cols)
         res = res.transpose(0, 1).contiguous()
         return res
@@ -114,9 +104,7 @@ def left_interp(interp_indices, interp_values, rhs):
 
                 if rhs.ndimension() == 3:
                     if rhs.size(0) == 1 and interp_indices.size(0) > 1:
-                        rhs = rhs.expand(
-                            interp_indices.size(0), rhs.size(1), rhs.size(2)
-                        )
+                        rhs = rhs.expand(interp_indices.size(0), rhs.size(1), rhs.size(2))
                     batch_indices = interp_indices.new(n_batch, 1)
                     torch.arange(0, n_batch, out=batch_indices[:, 0])
                     batch_indices = batch_indices.repeat(1, n_data * n_interp).view(-1)
@@ -148,9 +136,7 @@ def left_interp(interp_indices, interp_values, rhs):
             rhs_size = deepcopy(interp_size)
             rhs_size[-3] = rhs.size()[-2]
             interp_indices_expanded = interp_indices.unsqueeze(-1).expand(*interp_size)
-            res = rhs.unsqueeze(-2).expand(*rhs_size).gather(
-                -3, interp_indices_expanded
-            )
+            res = rhs.unsqueeze(-2).expand(*rhs_size).gather(-3, interp_indices_expanded)
             res = res.mul(interp_values.unsqueeze(-1).expand(interp_size))
             return res.sum(-2)
 
@@ -172,9 +158,7 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
     batch_size, n_data, n_interp = interp_values.size()
     _, _, n_cols = rhs.size()
 
-    values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1)).view(
-        batch_size, n_data * n_interp, n_cols
-    )
+    values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1)).view(batch_size, n_data * n_interp, n_cols)
 
     flat_interp_indices = interp_indices.data.contiguous().view(1, -1)
     batch_indices = flat_interp_indices.new(batch_size, 1)
@@ -184,14 +168,8 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
     torch.arange(0, n_data * n_interp, out=column_indices[:, 0])
     column_indices = column_indices.repeat(batch_size, 1).view(1, -1)
 
-    summing_matrix_indices = torch.cat(
-        [batch_indices, flat_interp_indices, column_indices]
-    )
-    summing_matrix_values = interp_values.data.new(
-        batch_size * n_data * n_interp
-    ).fill_(
-        1
-    )
+    summing_matrix_indices = torch.cat([batch_indices, flat_interp_indices, column_indices])
+    summing_matrix_values = interp_values.data.new(batch_size * n_data * n_interp).fill_(1)
     size = torch.Size((batch_size, output_dim, n_data * n_interp))
 
     type_name = summing_matrix_values.type().split(".")[-1]  # e.g. FloatTensor
@@ -229,7 +207,7 @@ def sparse_eye(size):
 
 def sparse_getitem(sparse, idxs):
     if not isinstance(idxs, tuple):
-        idxs = idxs,
+        idxs = (idxs,)
 
     if not sparse.ndimension() <= 2:
         raise RuntimeError("Must be a 1d or 2d sparse tensor")
@@ -246,9 +224,7 @@ def sparse_getitem(sparse, idxs):
             del size[i]
             mask = indices[i].eq(idx)
             if sum(mask):
-                new_indices = indices.new().resize_(
-                    indices.size(0) - 1, sum(mask)
-                ).zero_()
+                new_indices = indices.new().resize_(indices.size(0) - 1, sum(mask)).zero_()
                 for j in range(indices.size(0)):
                     if i > j:
                         new_indices[j].copy_(indices[j][mask])
@@ -293,22 +269,15 @@ def sparse_repeat(sparse, *repeat_sizes):
 
     # Expand the number of dimensions to match repeat_sizes
     indices = torch.cat(
-        [
-            sparse._indices().new().resize_(new_ndim - orig_ndim, orig_nvalues).zero_(),
-            sparse._indices(),
-        ]
+        [sparse._indices().new().resize_(new_ndim - orig_ndim, orig_nvalues).zero_(), sparse._indices()]
     )
     values = sparse._values()
     size = [1] * (new_ndim - orig_ndim) + list(sparse.size())
 
     # Expand each dimension
-    new_indices = indices.new().resize_(
-        indices.size(0), indices.size(1) * mul(*repeat_sizes)
-    ).zero_()
+    new_indices = indices.new().resize_(indices.size(0), indices.size(1) * mul(*repeat_sizes)).zero_()
     new_values = values.repeat(mul(*repeat_sizes))
-    new_size = [
-        dim_size * repeat_size for dim_size, repeat_size in zip(size, repeat_sizes)
-    ]
+    new_size = [dim_size * repeat_size for dim_size, repeat_size in zip(size, repeat_sizes)]
 
     # Fill in new indices
     new_indices[:, :orig_nvalues].copy_(indices)
@@ -316,9 +285,7 @@ def sparse_repeat(sparse, *repeat_sizes):
     for i in range(new_ndim)[::-1]:
         repeat_size = repeat_sizes[i]
         for j in range(1, repeat_size):
-            new_indices[:, unit_size * j : unit_size * (j + 1)].copy_(
-                new_indices[:, :unit_size]
-            )
+            new_indices[:, unit_size * j : unit_size * (j + 1)].copy_(new_indices[:, :unit_size])
             new_indices[i, unit_size * j : unit_size * (j + 1)] += j * size[i]
         unit_size *= repeat_size
 
@@ -368,9 +335,7 @@ def tridiag_batch_potrf(trid, upper=False):
     off_diag_index = off_diag_index.unsqueeze(1).repeat(1, batch_size).view(-1)
 
     t_main_diag = trid[batch_index, diag_index, diag_index].view(diag_size, batch_size)
-    t_off_diag = trid[off_batch_index, off_diag_index + 1, off_diag_index].view(
-        diag_size - 1, batch_size
-    )
+    t_off_diag = trid[off_batch_index, off_diag_index + 1, off_diag_index].view(diag_size - 1, batch_size)
 
     chol_main_diag = t_main_diag.new(*t_main_diag.size())
     chol_off_diag = t_off_diag.new(*t_off_diag.size())
@@ -382,15 +347,9 @@ def tridiag_batch_potrf(trid, upper=False):
         chol_main_diag[i].copy_(torch.sqrt(sq_value))
 
     res = trid.new(*trid.size()).zero_()
-    main_flattened_indices = batch_index * (batch_size * diag_size) + diag_index * (
-        diag_size + 1
-    )
+    main_flattened_indices = batch_index * (batch_size * diag_size) + diag_index * (diag_size + 1)
     off_flattened_indices = sum(
-        [
-            off_batch_index * (batch_size * (diag_size - 1)),
-            (off_diag_index + 1) * diag_size,
-            off_diag_index,
-        ]
+        [off_batch_index * (batch_size * (diag_size - 1)), (off_diag_index + 1) * diag_size, off_diag_index]
     )
     res.view(-1).index_copy_(0, main_flattened_indices, chol_main_diag.view(-1))
     res.view(-1).index_copy_(0, off_flattened_indices, chol_off_diag.view(-1))
@@ -422,32 +381,20 @@ def tridiag_batch_potrs(tensor, chol_trid, upper=True):
     if upper:
         chol_trid = chol_trid.transpose(-1, -2)
 
-    chol_main_diag = chol_trid[batch_index, diag_index, diag_index].view(
-        batch_size, diag_size
-    )
-    chol_off_diag = chol_trid[off_batch_index, off_diag_index + 1, off_diag_index].view(
-        batch_size, diag_size - 1
-    )
+    chol_main_diag = chol_trid[batch_index, diag_index, diag_index].view(batch_size, diag_size)
+    chol_off_diag = chol_trid[off_batch_index, off_diag_index + 1, off_diag_index].view(batch_size, diag_size - 1)
 
     chol_solution = tensor.new(*tensor.size())
     chol_solution[:, 0, :].copy_(tensor[:, 0, :] / chol_main_diag[:, 0].unsqueeze(-1))
     for i in range(1, diag_size):
         inner_part = tensor[:, i, :]
-        inner_part = inner_part - chol_off_diag[:, i - 1].unsqueeze(-1) * chol_solution[
-            :, i - 1, :
-        ]
+        inner_part = inner_part - chol_off_diag[:, i - 1].unsqueeze(-1) * chol_solution[:, i - 1, :]
         chol_solution[:, i, :].copy_(inner_part / chol_main_diag[:, i].unsqueeze(-1))
 
     solution = chol_solution.new(*chol_solution.size())
-    solution[:, -1, :].copy_(
-        chol_solution[:, -1, :] / chol_main_diag[:, -1].unsqueeze(-1)
-    )
+    solution[:, -1, :].copy_(chol_solution[:, -1, :] / chol_main_diag[:, -1].unsqueeze(-1))
     for i in range(diag_size - 2, -1, -1):
-        inner_part = chol_solution[:, i, :] - chol_off_diag[:, i].unsqueeze(
-            -1
-        ) * solution[
-            :, i + 1, :
-        ]
+        inner_part = chol_solution[:, i, :] - chol_off_diag[:, i].unsqueeze(-1) * solution[:, i + 1, :]
         solution[:, i, :].copy_(inner_part / chol_main_diag[:, i].unsqueeze(-1))
 
     return solution

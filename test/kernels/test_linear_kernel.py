@@ -10,7 +10,6 @@ from gpytorch.kernels import LinearKernel
 
 
 class TestLinearKernel(unittest.TestCase):
-
     def test_computes_linear_function_rectangular(self):
         a = torch.Tensor([4, 2, 8]).view(3, 1)
         b = torch.Tensor([0, 2]).view(2, 1)

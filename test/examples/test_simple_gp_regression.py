@@ -24,7 +24,6 @@ test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
-
     def __init__(self, train_inputs, train_targets, likelihood):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
@@ -37,7 +36,6 @@ class ExactGPModel(gpytorch.models.ExactGP):
 
 
 class TestSimpleGPRegression(unittest.TestCase):
-
     def test_posterior_latent_gp_and_likelihood_without_optimization(self):
         # We're manually going to set the hyperparameters to be ridiculous
         likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
@@ -58,9 +56,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         # The posterior should fit all the data
         function_predictions = likelihood(gp_model(train_x))
 
-        self.assertLess(
-            torch.norm(function_predictions.mean().data - train_y.data), 1e-3
-        )
+        self.assertLess(torch.norm(function_predictions.mean().data - train_y.data), 1e-3)
         self.assertLess(torch.norm(function_predictions.var().data), 1e-3)
 
         # It shouldn't fit much else though
@@ -81,9 +77,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(
-            list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
-        )
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
         optimizer.n_iter = 0
         for _ in range(50):
             optimizer.zero_grad()
@@ -105,9 +99,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model.eval()
         likelihood.eval()
         test_function_predictions = likelihood(gp_model(test_x))
-        mean_abs_error = torch.mean(
-            torch.abs(test_y - test_function_predictions.mean())
-        )
+        mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean()))
 
         self.assertLess(mean_abs_error.data.squeeze().item(), 0.05)
 
@@ -125,9 +117,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             # Find optimal model hyperparameters
             gp_model.train()
             likelihood.train()
-            optimizer = optim.Adam(
-                list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
-            )
+            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
             optimizer.n_iter = 0
             for _ in range(50):
                 optimizer.zero_grad()
@@ -166,9 +156,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             # We're manually going to set the hyperparameters to
             # something they shouldn't be
             likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3)).cuda()
-            gp_model = ExactGPModel(
-                train_x.data.cuda(), train_y.data.cuda(), likelihood
-            ).cuda()
+            gp_model = ExactGPModel(train_x.data.cuda(), train_y.data.cuda(), likelihood).cuda()
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
             gp_model.covar_module.initialize(log_lengthscale=1)
             gp_model.mean_module.initialize(constant=0)
@@ -199,9 +187,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             gp_model.eval()
             likelihood.eval()
             test_function_predictions = likelihood(gp_model(test_x.cuda()))
-            mean_abs_error = torch.mean(
-                torch.abs(test_y.cuda() - test_function_predictions.mean())
-            )
+            mean_abs_error = torch.mean(torch.abs(test_y.cuda() - test_function_predictions.mean()))
 
             self.assertLess(mean_abs_error.data.squeeze().item(), 0.05)
 

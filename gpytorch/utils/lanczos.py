@@ -8,14 +8,7 @@ from .eig import batch_symeig
 
 
 def lanczos_tridiag(
-    matmul_closure,
-    max_iter,
-    tol=1e-5,
-    init_vecs=None,
-    tensor_cls=None,
-    batch_size=None,
-    n_dims=None,
-    n_init_vecs=None,
+    matmul_closure, max_iter, tol=1e-5, init_vecs=None, tensor_cls=None, batch_size=None, n_dims=None, n_init_vecs=None
 ):
     # Determine batch mode
     is_batch = False
@@ -30,9 +23,7 @@ def lanczos_tridiag(
     # Get initial probe ectors - and define if not available
     if init_vecs is None:
         if tensor_cls is None:
-            raise RuntimeError(
-                "You must supply tensor_cls if you don't supply init_vecs"
-            )
+            raise RuntimeError("You must supply tensor_cls if you don't supply init_vecs")
         if n_dims is None:
             raise RuntimeError("You must supply n_dims if you don't supply init_vecs")
 
@@ -79,9 +70,7 @@ def lanczos_tridiag(
 
     # Begin algorithm
     # Initial Q vector: q_0_vec
-    q_0_vec = init_vecs / torch.norm(init_vecs, 2, dim=dim_dimension).unsqueeze(
-        dim_dimension
-    )
+    q_0_vec = init_vecs / torch.norm(init_vecs, 2, dim=dim_dimension).unsqueeze(dim_dimension)
     q_mat[0].copy_(q_0_vec)
 
     # Initial alpha value: alpha_0
@@ -118,9 +107,7 @@ def lanczos_tridiag(
             # Compute next residual value
             r_vec.sub_(alpha_curr.mul(q_curr_vec))
             # Full reorthogonalization: r <- r - Q (Q^T r)
-            correction = r_vec.unsqueeze(0).mul(q_mat[: k + 1]).sum(
-                dim_dimension, keepdim=True
-            )
+            correction = r_vec.unsqueeze(0).mul(q_mat[: k + 1]).sum(dim_dimension, keepdim=True)
             correction = q_mat[: k + 1].mul(correction).sum(0)
             r_vec.sub_(correction)
             r_vec_norm = torch.norm(r_vec, 2, dim=dim_dimension, keepdim=True)
@@ -139,16 +126,12 @@ def lanczos_tridiag(
                 if not torch.sum(inner_products > tol):
                     could_reorthogonalize = True
                     break
-                correction = r_vec.unsqueeze(0).mul(q_mat[: k + 1]).sum(
-                    dim_dimension, keepdim=True
-                )
+                correction = r_vec.unsqueeze(0).mul(q_mat[: k + 1]).sum(dim_dimension, keepdim=True)
                 correction = q_mat[: k + 1].mul(correction).sum(0)
                 r_vec.sub_(correction)
                 r_vec_norm = torch.norm(r_vec, 2, dim=dim_dimension, keepdim=True)
                 r_vec.div_(r_vec_norm)
-                inner_products = q_mat[: k + 1].mul(r_vec.unsqueeze(0)).sum(
-                    dim_dimension
-                )
+                inner_products = q_mat[: k + 1].mul(r_vec.unsqueeze(0)).sum(dim_dimension)
 
             # Update q_mat with new q value
             q_mat[k + 1].copy_(r_vec)

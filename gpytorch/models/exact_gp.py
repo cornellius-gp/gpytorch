@@ -13,14 +13,11 @@ from ..likelihoods import GaussianLikelihood
 
 
 class ExactGP(Module):
-
     def __init__(self, train_inputs, train_targets, likelihood):
         if torch.is_tensor(train_inputs):
-            train_inputs = train_inputs,
+            train_inputs = (train_inputs,)
         if not all(torch.is_tensor(train_input) for train_input in train_inputs):
-            raise RuntimeError(
-                "Train inputs must be a tensor, or a list/tuple of tensors"
-            )
+            raise RuntimeError("Train inputs must be a tensor, or a list/tuple of tensors")
         if not isinstance(likelihood, GaussianLikelihood):
             raise RuntimeError("ExactGP can only handle GaussianLikelihood")
 
@@ -54,20 +51,16 @@ class ExactGP(Module):
         """Set training data (does not re-fit model hyper-parameters)"""
         if inputs is not None:
             if torch.is_tensor(inputs):
-                inputs = inputs,
+                inputs = (inputs,)
             for input, t_input in zip(inputs, self.train_inputs):
                 for attr in {"shape", "dtype", "device"}:
                     if getattr(input, attr) != getattr(t_input, attr):
-                        raise RuntimeError(
-                            "Cannot modify {attr} of inputs".format(attr=attr)
-                        )
+                        raise RuntimeError("Cannot modify {attr} of inputs".format(attr=attr))
             self.train_inputs = inputs
         if targets is not None:
             for attr in {"shape", "dtype", "device"}:
                 if getattr(targets, attr) != getattr(self.train_targets, attr):
-                    raise RuntimeError(
-                        "Cannot modify {attr} of targets".format(attr=attr)
-                    )
+                    raise RuntimeError("Cannot modify {attr} of targets".format(attr=attr))
             self.train_targets = targets
         self.mean_cache = None
         self.covar_cache = None
@@ -83,44 +76,27 @@ class ExactGP(Module):
 
         # Training mode: optimizing
         if self.training:
-            if not all(
-                torch.equal(train_input, input)
-                for train_input, input in zip(train_inputs, args)
-            ):
+            if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)):
                 raise RuntimeError("You must train on the training inputs!")
             return super(ExactGP, self).__call__(*args, **kwargs)
 
         # Posterior mode
         else:
-            if all(
-                torch.equal(train_input, input)
-                for train_input, input in zip(train_inputs, args)
-            ):
+            if all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)):
                 warnings.warn(
-                    "The input matches the stored training data. "
-                    "Did you forget to call model.train()?",
-                    UserWarning,
+                    "The input matches the stored training data. " "Did you forget to call model.train()?", UserWarning
                 )
 
             # Exact inference
-            full_inputs = tuple(
-                torch.cat([train_input, input])
-                for train_input, input in zip(train_inputs, args)
-            )
+            full_inputs = tuple(torch.cat([train_input, input]) for train_input, input in zip(train_inputs, args))
             full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
             if not isinstance(full_output, GaussianRandomVariable):
-                raise RuntimeError(
-                    "ExactGP.forward must return a GaussianRandomVariable"
-                )
+                raise RuntimeError("ExactGP.forward must return a GaussianRandomVariable")
             full_mean, full_covar = full_output.representation()
 
             noise = self.likelihood.log_noise.exp()
             predictive_mean, mean_cache = exact_predictive_mean(
-                full_covar,
-                full_mean,
-                Variable(self.train_targets),
-                noise,
-                self.mean_cache,
+                full_covar, full_mean, Variable(self.train_targets), noise, self.mean_cache
             )
             predictive_covar, covar_cache = exact_predictive_covar(
                 full_covar, self.train_targets.size(-1), noise, self.covar_cache

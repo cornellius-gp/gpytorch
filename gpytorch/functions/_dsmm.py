@@ -9,7 +9,6 @@ from ..utils import bdsmm
 
 
 class DSMM(Function):
-
     def __init__(self, sparse):
         if isinstance(sparse, Variable):
             sparse = sparse.data

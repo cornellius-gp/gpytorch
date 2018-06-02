@@ -26,7 +26,6 @@ test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
 
 
 class SpectralMixtureGPModel(gpytorch.models.ExactGP):
-
     def __init__(self, train_x, train_y, likelihood):
         super(SpectralMixtureGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
@@ -44,12 +43,8 @@ class SpectralMixtureGPModel(gpytorch.models.ExactGP):
 
 
 class TestSpectralMixtureGPRegression(unittest.TestCase):
-
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(1)
 
@@ -65,9 +60,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
         # Optimize the model
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(
-            list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
-        )
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
         optimizer.n_iter = 0
 
         with gpytorch.settings.num_trace_samples(100):

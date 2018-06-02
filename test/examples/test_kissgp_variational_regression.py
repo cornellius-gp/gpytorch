@@ -28,16 +28,11 @@ def make_data():
 
 
 class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
-
     def __init__(self):
-        super(GPRegressionModel, self).__init__(
-            grid_size=20, grid_bounds=[(-0.05, 1.05)]
-        )
+        super(GPRegressionModel, self).__init__(grid_size=20, grid_bounds=[(-0.05, 1.05)])
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.register_parameter(
-            "log_outputscale", torch.nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
-        )
+        self.register_parameter("log_outputscale", torch.nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -46,12 +41,8 @@ class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
 
 
 class TestKissGPVariationalRegression(unittest.TestCase):
-
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(1)
 
@@ -66,21 +57,15 @@ class TestKissGPVariationalRegression(unittest.TestCase):
 
         gp_model = GPRegressionModel()
         likelihood = GaussianLikelihood()
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-            likelihood, gp_model, n_data=len(train_y)
-        )
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, gp_model, n_data=len(train_y))
 
         # Optimize the model
         gp_model.train()
         likelihood.train()
 
         with gpytorch.beta_features.diagonal_correction():
-            optimizer = optim.SGD(
-                list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
-            )
-            scheduler = optim.lr_scheduler.MultiStepLR(
-                optimizer, milestones=[15], gamma=0.1
-            )
+            optimizer = optim.SGD(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15], gamma=0.1)
             for _ in range(20):
                 scheduler.step()
                 for x_batch, y_batch in loader:

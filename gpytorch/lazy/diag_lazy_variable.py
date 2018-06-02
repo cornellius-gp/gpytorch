@@ -8,7 +8,6 @@ from .lazy_variable import LazyVariable
 
 
 class DiagLazyVariable(LazyVariable):
-
     def __init__(self, diag):
         """
         Diagonal lazy variable
@@ -34,7 +33,7 @@ class DiagLazyVariable(LazyVariable):
         res = left_vecs * right_vecs
         if res.ndimension() > self._diag.ndimension():
             res = res.sum(-1)
-        return res,
+        return (res,)
 
     def _size(self):
         if self._diag.ndimension() == 2:
@@ -67,14 +66,8 @@ class DiagLazyVariable(LazyVariable):
 
     def zero_mean_mvn_samples(self, n_samples):
         if self.ndimension() == 3:
-            base_samples = Variable(
-                self.tensor_cls(
-                    self._diag.size(0), self._diag.size(1), n_samples
-                ).normal_()
-            )
+            base_samples = Variable(self.tensor_cls(self._diag.size(0), self._diag.size(1), n_samples).normal_())
         else:
-            base_samples = Variable(
-                self.tensor_cls(self._diag.size(0), n_samples).normal_()
-            )
+            base_samples = Variable(self.tensor_cls(self._diag.size(0), n_samples).normal_())
         samples = self._diag.unsqueeze(-1).sqrt() * base_samples
         return samples
