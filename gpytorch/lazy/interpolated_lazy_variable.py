@@ -202,7 +202,7 @@ class InterpolatedLazyVariable(LazyVariable):
             self.right_interp_values,
             self.left_interp_indices,
             self.left_interp_values,
-            **self._kwargs,
+            **self._kwargs
         )
         return res
 
@@ -546,7 +546,7 @@ class InterpolatedLazyVariable(LazyVariable):
             self.left_interp_values.repeat(*sizes),
             self.right_interp_indices.repeat(*sizes),
             self.right_interp_values.repeat(*sizes),
-            **self._kwargs,
+            **self._kwargs
         )
 
     def sum_batch(self, sum_batch_size=None):
@@ -657,7 +657,7 @@ class InterpolatedLazyVariable(LazyVariable):
             left_interp_values,
             right_interp_indices,
             right_interp_values,
-            **self._kwargs,
+            **self._kwargs
         )
 
         if squeeze_left or squeeze_right:

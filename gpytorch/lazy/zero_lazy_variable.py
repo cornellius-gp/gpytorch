@@ -12,10 +12,9 @@ class ZeroLazyVariable(LazyVariable):
     Special LazyVariable representing zero.
     """
 
-    def __init__(self, *sizes, device):
+    def __init__(self, *sizes):
         super(ZeroLazyVariable, self).__init__(*sizes)
         self.sizes = list(sizes)
-        self.device = device
 
     def _matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
@@ -60,7 +59,7 @@ class ZeroLazyVariable(LazyVariable):
             return torch.zeros(size[-2])
 
     def evaluate(self):
-        return torch.zeros(*self.sizes, device=self.device)
+        return torch.zeros(*self.sizes)
 
     def inv_matmul(self, tensor):
         raise RuntimeError("ZeroLazyVariables are not invertible!")
@@ -84,7 +83,7 @@ class ZeroLazyVariable(LazyVariable):
         return self
 
     def mul_batch(self, mul_batch_size=None):
-        return ZeroLazyVariable(*self.sizes[-2:], self.device)
+        return ZeroLazyVariable(*self.sizes[-2:])
 
     def root_decomposition(self):
         raise RuntimeError("ZeroLazyVariables are not positive definite!")
@@ -115,7 +114,7 @@ class ZeroLazyVariable(LazyVariable):
         sizes[dim1] = sizes[dim2]
         sizes[dim2] = tmp
 
-        return ZeroLazyVariable(*sizes, device=self.device)
+        return ZeroLazyVariable(*sizes)
 
     def __add__(self, other):
         return other
