@@ -9,7 +9,6 @@ from ..lazy import LazyVariable, NonLazyVariable
 
 
 class GaussianRandomVariable(RandomVariable):
-
     def __init__(self, mean, covar):
         """
         Constructs a multivariate Gaussian random variable, based on mean and covariance
@@ -23,19 +22,11 @@ class GaussianRandomVariable(RandomVariable):
         - covar (Variable: matrix n x n or batch matrix b x n x n) covariance of Gaussian distribution
         """
         super(GaussianRandomVariable, self).__init__(mean, covar)
-        if (
-            not isinstance(mean, Variable)
-            and not isinstance(mean, LazyVariable)
-            and mean is not None
-        ):
-            raise RuntimeError(
-                "The mean of a GaussianRandomVariable must be a Variable"
-            )
+        if not isinstance(mean, Variable) and not isinstance(mean, LazyVariable) and mean is not None:
+            raise RuntimeError("The mean of a GaussianRandomVariable must be a Variable")
 
         if not isinstance(covar, Variable) and not isinstance(covar, LazyVariable):
-            raise RuntimeError(
-                "The covariance of a GaussianRandomVariable must be a Variable"
-            )
+            raise RuntimeError("The covariance of a GaussianRandomVariable must be a Variable")
 
         if mean is not None and not (mean.ndimension() == 1 or mean.ndimension() == 2):
             raise RuntimeError("mean should be a vector or a matrix (batch mode)")
@@ -53,11 +44,7 @@ class GaussianRandomVariable(RandomVariable):
         if self._mean is None:
             self._mean = self._covar.tensor_cls(self._covar.size(-1)).zero_()
             if self._covar.ndimension() == 3:
-                self._mean = (
-                    self._mean.unsqueeze(0).expand(
-                        self._covar.size(0), self._covar.size(-1)
-                    )
-                )
+                self._mean = self._mean.unsqueeze(0).expand(self._covar.size(0), self._covar.size(-1))
         return self._mean
 
     def representation(self):
@@ -77,15 +64,11 @@ class GaussianRandomVariable(RandomVariable):
 
     def __add__(self, other):
         if isinstance(other, GaussianRandomVariable):
-            return GaussianRandomVariable(
-                self._mean + other.mean(), self._covar + other.covar()
-            )
+            return GaussianRandomVariable(self._mean + other.mean(), self._covar + other.covar())
         elif isinstance(other, int) or isinstance(other, float):
             return GaussianRandomVariable(self._mean + other, self._covar)
         else:
-            raise RuntimeError(
-                "Unsupported type for addition w/ Gaussian random variables"
-            )
+            raise RuntimeError("Unsupported type for addition w/ Gaussian random variables")
 
     def __radd__(self, other):
         if other == 0:

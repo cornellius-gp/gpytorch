@@ -25,16 +25,11 @@ train_y = Variable(train_y)
 
 
 class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
-
     def __init__(self):
-        super(GPClassificationModel, self).__init__(
-            grid_size=16, grid_bounds=[(-1, 1)], n_components=2
-        )
+        super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2)
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.register_parameter(
-            "log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
-        )
+        self.register_parameter("log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -45,14 +40,11 @@ class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
 
 
 class TestKissGPAdditiveClassification(unittest.TestCase):
-
     def test_kissgp_classification_error(self):
         with gpytorch.settings.use_toeplitz(False), gpytorch.settings.max_preconditioner_size(5):
             model = GPClassificationModel()
             likelihood = BernoulliLikelihood()
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(
-                likelihood, model, n_data=len(train_y)
-            )
+            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()

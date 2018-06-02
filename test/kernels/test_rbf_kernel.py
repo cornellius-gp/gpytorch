@@ -10,7 +10,6 @@ from gpytorch.kernels import RBFKernel
 
 
 class TestRBFKernel(unittest.TestCase):
-
     def test_ard(self):
         a = torch.Tensor([[1, 2], [2, 4]])
         b = torch.Tensor([1, 3]).view(1, 1, 2)
@@ -35,9 +34,7 @@ class TestRBFKernel(unittest.TestCase):
         kernel.initialize(log_lengthscale=math.log(lengthscale))
         kernel.eval()
 
-        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
-            lengthscale ** 2
-        ).exp()
+        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(lengthscale ** 2).exp()
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -49,9 +46,7 @@ class TestRBFKernel(unittest.TestCase):
         kernel = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel.eval()
 
-        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
-            lengthscale ** 2
-        ).exp()
+        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(lengthscale ** 2).exp()
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 

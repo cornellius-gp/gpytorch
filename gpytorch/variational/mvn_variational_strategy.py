@@ -9,7 +9,6 @@ from ..lazy import LazyVariable, NonLazyVariable
 
 
 class MVNVariationalStrategy(VariationalStrategy):
-
     def kl_divergence(self):
         prior_mean = self.prior_dist.mean()
         prior_covar = self.prior_dist.covar()

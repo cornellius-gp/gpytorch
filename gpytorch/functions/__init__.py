@@ -66,9 +66,7 @@ def dsmm(sparse_mat, dense_mat):
     return DSMM(sparse_mat)(dense_mat)
 
 
-def exact_predictive_mean(
-    full_covar, full_mean, train_labels, noise, precomputed_cache=None
-):
+def exact_predictive_mean(full_covar, full_mean, train_labels, noise, precomputed_cache=None):
     """
     Computes the posterior predictive mean of a GP
 
@@ -87,9 +85,7 @@ def exact_predictive_mean(
         from ..lazy.non_lazy_variable import NonLazyVariable
 
         full_covar = NonLazyVariable(full_covar)
-    return full_covar.exact_predictive_mean(
-        full_mean, train_labels, noise, precomputed_cache
-    )
+    return full_covar.exact_predictive_mean(full_mean, train_labels, noise, precomputed_cache)
 
 
 def exact_predictive_covar(full_covar, n_train, noise, precomputed_cache=None):
@@ -237,9 +233,7 @@ def root_inv_decomposition(mat, initial_vectors=None, test_vectors=None):
     else:
         from ..lazy.non_lazy_variable import NonLazyVariable
 
-        return NonLazyVariable(mat).root_inv_decomposition(
-            initial_vectors, test_vectors
-        )
+        return NonLazyVariable(mat).root_inv_decomposition(initial_vectors, test_vectors)
 
 
 __all__ = [

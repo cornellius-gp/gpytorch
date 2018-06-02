@@ -7,7 +7,6 @@ from ..module import Module
 
 
 class MarginalLogLikelihood(Module):
-
     def __init__(self, likelihood, model):
         """
         A module to compute marginal log likelihoods of data

@@ -30,14 +30,11 @@ test_y2 = Variable(torch.cos(test_x.data * (2 * math.pi)))
 
 
 class MultitaskGPModel(gpytorch.models.ExactGP):
-
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
         self.covar_module = RBFKernel(log_lengthscale_bounds=(-6, 6))
-        self.task_covar_module = IndexKernel(
-            n_tasks=2, rank=1, covar_factor_bounds=(-6, 6), log_var_bounds=(-6, 6)
-        )
+        self.task_covar_module = IndexKernel(n_tasks=2, rank=1, covar_factor_bounds=(-6, 6), log_var_bounds=(-6, 6))
 
     def forward(self, x, i):
         mean_x = self.mean_module(x)
@@ -48,12 +45,8 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
 
 
 class TestMultiTaskGPRegression(unittest.TestCase):
-
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
@@ -64,10 +57,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
     def test_multitask_gp_mean_abs_error(self):
         likelihood = GaussianLikelihood(log_noise_bounds=(-6, 6))
         gp_model = MultitaskGPModel(
-            (
-                torch.cat([train_x.data, train_x.data]),
-                torch.cat([y1_inds.data, y2_inds.data]),
-            ),
+            (torch.cat([train_x.data, train_x.data]), torch.cat([y1_inds.data, y2_inds.data])),
             torch.cat([train_y1.data, train_y2.data]),
             likelihood,
         )
@@ -76,15 +66,11 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         # Optimize the model
         gp_model.train()
         likelihood.eval()
-        optimizer = optim.Adam(
-            list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1
-        )
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
         optimizer.n_iter = 0
         for _ in range(100):
             optimizer.zero_grad()
-            output = gp_model(
-                torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds])
-            )
+            output = gp_model(torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds]))
             loss = -mll(output, torch.cat([train_y1, train_y2]))
             loss.backward()
             optimizer.n_iter += 1

@@ -9,7 +9,6 @@ from .lazy_variable import LazyVariable
 
 
 class SumBatchLazyVariable(LazyVariable):
-
     def __init__(self, base_lazy_variable, sum_batch_size=None):
         """
         Representat a lazy variable that is the sum of many lazy variables
@@ -23,12 +22,8 @@ class SumBatchLazyVariable(LazyVariable):
          and will return (true_batch_size x _ x _))
         """
         if base_lazy_variable.ndimension() != 3:
-            raise RuntimeError(
-                "Base lazy variable must be a batch matrix (i.e. 3 dimensions)"
-            )
-        super(SumBatchLazyVariable, self).__init__(
-            base_lazy_variable, sum_batch_size=sum_batch_size
-        )
+            raise RuntimeError("Base lazy variable must be a batch matrix (i.e. 3 dimensions)")
+        super(SumBatchLazyVariable, self).__init__(base_lazy_variable, sum_batch_size=sum_batch_size)
         self.base_lazy_variable = base_lazy_variable
         self.sum_batch_size = sum_batch_size
 
@@ -108,17 +103,13 @@ class SumBatchLazyVariable(LazyVariable):
         batch_indices = batch_indices.unsqueeze(1).repeat(1, len(left_indices)).view(-1)
         left_indices = left_indices.unsqueeze(1).repeat(self.batch_size(), 1).view(-1)
         right_indices = right_indices.unsqueeze(1).repeat(self.batch_size(), 1).view(-1)
-        res = self.base_lazy_variable._batch_get_indices(
-            batch_indices, left_indices, right_indices
-        )
+        res = self.base_lazy_variable._batch_get_indices(batch_indices, left_indices, right_indices)
         return res.view(self.batch_size(), -1).sum(0)
 
     def batch_size(self):
         return self.base_lazy_variable.size(0)
 
-    def _exact_predictive_covar_inv_quad_form_cache(
-        self, train_train_covar_inv_root, test_train_covar
-    ):
+    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         if self.sum_batch_size is None:
             train_train_covar_inv_root = train_train_covar_inv_root.unsqueeze(0)
             train_train_covar_inv_root = train_train_covar_inv_root.expand(
@@ -127,16 +118,12 @@ class SumBatchLazyVariable(LazyVariable):
                 train_train_covar_inv_root.size(-1),
             )
         else:
-            train_train_covar_inv_root = train_train_covar_inv_root.repeat(
-                self.sum_batch_size, 1, 1
-            )
+            train_train_covar_inv_root = train_train_covar_inv_root.repeat(self.sum_batch_size, 1, 1)
         return self.base_lazy_variable._exact_predictive_covar_inv_quad_form_cache(
             train_train_covar_inv_root, test_train_covar.base_lazy_variable
         )
 
-    def _exact_predictive_covar_inv_quad_form_root(
-        self, precomputed_cache, test_train_covar
-    ):
+    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         # Here the precomputed cache is a list
         # where each component in the list is the precomputed cache for each component lazy variable
         res = self.base_lazy_variable._exact_predictive_covar_inv_quad_form_root(
@@ -152,15 +139,13 @@ class SumBatchLazyVariable(LazyVariable):
     def mul(self, other):
         # We're using a custom method here - the constant mul is applied to the base lazy variable
         # This preserves the sum batch structure
-        if (
-            not (isinstance(other, Variable) or isinstance(other, LazyVariable))
-            or (isinstance(other, Variable) and other.numel() == 1)
+        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or (
+            isinstance(other, Variable) and other.numel() == 1
         ):
             from .constant_mul_lazy_variable import ConstantMulLazyVariable
 
             return self.__class__(
-                ConstantMulLazyVariable(self.base_lazy_variable, other),
-                sum_batch_size=self.sum_batch_size,
+                ConstantMulLazyVariable(self.base_lazy_variable, other), sum_batch_size=self.sum_batch_size
             )
         else:
             return super(SumBatchLazyVariable, self).mul(other)
@@ -206,20 +191,14 @@ class SumBatchLazyVariable(LazyVariable):
             # Construct a new lazy variable
             # Get rid of sum_batch_index if we're choosing one batch variable
             if isinstance(batch_index, int):
-                batch_index = slice(
-                    batch_index * self.sum_batch_size,
-                    (batch_index + 1) * self.sum_batch_size,
-                    None,
-                )
+                batch_index = slice(batch_index * self.sum_batch_size, (batch_index + 1) * self.sum_batch_size, None)
                 sum_batch_size = None
 
             # Keep sum_batch_index, because we still have an inner batch
             elif isinstance(batch_index, slice):
                 start = batch_index.start
                 stop = batch_index.stop
-                batch_index = slice(
-                    start * self.sum_batch_size, stop * self.sum_batch_size, None
-                )
+                batch_index = slice(start * self.sum_batch_size, stop * self.sum_batch_size, None)
                 sum_batch_size = self.sum_batch_size
 
             else:

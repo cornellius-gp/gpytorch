@@ -11,7 +11,6 @@ from .kernel import Kernel
 
 
 class PeriodicKernel(Kernel):
-
     def __init__(
         self,
         log_lengthscale_bounds=(-10000, 10000),
@@ -20,15 +19,11 @@ class PeriodicKernel(Kernel):
         active_dims=None,
     ):
         super(PeriodicKernel, self).__init__(
-            has_lengthscale=True,
-            log_lengthscale_bounds=log_lengthscale_bounds,
-            active_dims=active_dims,
+            has_lengthscale=True, log_lengthscale_bounds=log_lengthscale_bounds, active_dims=active_dims
         )
         self.eps = eps
         self.register_parameter(
-            "log_period_length",
-            nn.Parameter(torch.zeros(1, 1, 1)),
-            bounds=log_period_length_bounds,
+            "log_period_length", nn.Parameter(torch.zeros(1, 1, 1)), bounds=log_period_length_bounds
         )
 
     def forward(self, x1, x2):

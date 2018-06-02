@@ -10,7 +10,6 @@ from gpytorch.kernels import RBFKernel
 
 
 class TestAdditiveKernel(unittest.TestCase):
-
     def test_computes_product_of_radial_basis_function(self):
         a = torch.Tensor([4, 2, 8]).view(3, 1)
         b = torch.Tensor([0, 2]).view(2, 1)
@@ -20,9 +19,7 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel = kernel_1 * kernel_2
 
-        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
-            lengthscale ** 2
-        ).exp() ** 2
+        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(lengthscale ** 2).exp() ** 2
 
         kernel.eval()
         res = kernel(a, b).evaluate()
@@ -37,9 +34,7 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel = kernel_1 + kernel_2
 
-        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(
-            lengthscale ** 2
-        ).exp() * 2
+        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(lengthscale ** 2).exp() * 2
 
         kernel.eval()
         res = kernel(a, b).evaluate()
@@ -64,9 +59,7 @@ class TestAdditiveKernel(unittest.TestCase):
 
         output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
-        res = (
-            kernel.kernel_1.log_lengthscale.grad + kernel.kernel_2.log_lengthscale.grad
-        )
+        res = kernel.kernel_1.log_lengthscale.grad + kernel.kernel_2.log_lengthscale.grad
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
 
 

@@ -12,6 +12,4 @@ class PsdSumLazyVariable(SumLazyVariable):
     """
 
     def zero_mean_mvn_samples(self, n_samples):
-        return sum(
-            lazy_var.zero_mean_mvn_samples(n_samples) for lazy_var in self.lazy_vars
-        )
+        return sum(lazy_var.zero_mean_mvn_samples(n_samples) for lazy_var in self.lazy_vars)

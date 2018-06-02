@@ -11,7 +11,6 @@ from gpytorch.utils import approx_equal
 
 
 class TestRootLazyVariable(unittest.TestCase):
-
     def test_matmul(self):
         root = Variable(torch.randn(5, 3), requires_grad=True)
         covar = RootLazyVariable(root)

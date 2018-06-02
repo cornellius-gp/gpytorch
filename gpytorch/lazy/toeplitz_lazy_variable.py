@@ -10,7 +10,6 @@ from ..utils.toeplitz import sym_toeplitz_matmul, sym_toeplitz_derivative_quadra
 
 
 class ToeplitzLazyVariable(LazyVariable):
-
     def __init__(self, column):
         super(ToeplitzLazyVariable, self).__init__(column)
         self.column = column
@@ -27,16 +26,14 @@ class ToeplitzLazyVariable(LazyVariable):
             left_vecs = left_vecs.unsqueeze(1)
             right_vecs = right_vecs.unsqueeze(1)
 
-        res = sym_toeplitz_derivative_quadratic_form(left_vecs, right_vecs),
+        res = (sym_toeplitz_derivative_quadratic_form(left_vecs, right_vecs),)
         if self.column.ndimension() == 1 and res[0].ndimension() == 2:
-            res = res[0].sum(0),
+            res = (res[0].sum(0),)
         return res
 
     def _size(self):
         if self.column.ndimension() == 2:
-            return torch.Size(
-                (self.column.size(0), self.column.size(-1), self.column.size(-1))
-            )
+            return torch.Size((self.column.size(0), self.column.size(-1), self.column.size(-1)))
         else:
             return torch.Size((self.column.size(-1), self.column.size(-1)))
 

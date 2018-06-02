@@ -11,6 +11,7 @@ class ZeroLazyVariable(LazyVariable):
     """
     Special LazyVariable representing zero.
     """
+
     def __init__(self, *sizes, device):
         super(ZeroLazyVariable, self).__init__(*sizes)
         self.sizes = list(sizes)
@@ -19,25 +20,26 @@ class ZeroLazyVariable(LazyVariable):
     def _matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
         if self.size(-1) != rhs.size(rhs_size_ind):
-            raise RuntimeError('Size mismatch, self: {}, rhs: {}'.format(self.size(), rhs.size()))
+            raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
         return rhs * 0
 
     def _t_matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
         if self.size(-1) != rhs.size(rhs_size_ind):
-            raise RuntimeError('Size mismatch, self: {}, rhs: {}'.format(self.size(), rhs.size()))
+            raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
         return rhs * 0
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
-        raise RuntimeError('Backwards through a ZeroLazyVariable is not possible')
+        raise RuntimeError("Backwards through a ZeroLazyVariable is not possible")
 
     def _size(self):
         return torch.Size(self.sizes)
 
     def add_diag(self, diag):
         from .diag_lazy_variable import DiagLazyVariable
+
         if diag.size(-1) != self.size(-1):
-            raise RuntimeError('Size mismatch, self: {}, diag {}'.format(self.size(), diag.size()))
+            raise RuntimeError("Size mismatch, self: {}, diag {}".format(self.size(), diag.size()))
 
         if self.size(-1) != self.size(-2):
             raise RuntimeError("add_diag only defined for square matrices")
@@ -61,13 +63,13 @@ class ZeroLazyVariable(LazyVariable):
         return torch.zeros(*self.sizes, device=self.device)
 
     def inv_matmul(self, tensor):
-        raise RuntimeError('ZeroLazyVariables are not invertible!')
+        raise RuntimeError("ZeroLazyVariables are not invertible!")
 
     def inv_quad(self, tensor):
-        raise RuntimeError('ZeroLazyVariables are not invertible!')
+        raise RuntimeError("ZeroLazyVariables are not invertible!")
 
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False):
-        raise RuntimeError('ZeroLazyVariables are not invertible!')
+        raise RuntimeError("ZeroLazyVariables are not invertible!")
 
     def log_det(self):
         return torch.log(torch.tensor(0.0))
@@ -75,7 +77,7 @@ class ZeroLazyVariable(LazyVariable):
     def matmul(self, tensor):
         tensor_size_ind = -2 if tensor.ndimension() > 1 else -1
         if self.size(-1) != tensor.size(tensor_size_ind):
-            raise RuntimeError('Size mismatch, self: {}, tensor: {}'.format(self.size(), tensor.size()))
+            raise RuntimeError("Size mismatch, self: {}, tensor: {}".format(self.size(), tensor.size()))
         return tensor * 0
 
     def mul(self, other):
@@ -85,13 +87,13 @@ class ZeroLazyVariable(LazyVariable):
         return ZeroLazyVariable(*self.sizes[-2:], self.device)
 
     def root_decomposition(self):
-        raise RuntimeError('ZeroLazyVariables are not positive definite!')
+        raise RuntimeError("ZeroLazyVariables are not positive definite!")
 
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
-        raise RuntimeError('ZeroLazyVariables are not positive definite!')
+        raise RuntimeError("ZeroLazyVariables are not positive definite!")
 
     def root_decomposition_size(self):
-        raise RuntimeError('ZeroLazyVariables are not positive definite!')
+        raise RuntimeError("ZeroLazyVariables are not positive definite!")
 
     def size(self, val=None):
         """

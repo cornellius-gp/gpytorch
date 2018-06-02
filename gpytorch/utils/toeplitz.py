@@ -30,10 +30,7 @@ def toeplitz(toeplitz_column, toeplitz_row):
         )
 
     if len(toeplitz_column) != len(toeplitz_row):
-        raise RuntimeError(
-            "c and r should have the same length "
-            "(Toeplitz matrices are necessarily square)."
-        )
+        raise RuntimeError("c and r should have the same length " "(Toeplitz matrices are necessarily square).")
 
     if type(toeplitz_column) != type(toeplitz_row):
         raise RuntimeError("toeplitz_column and toeplitz_row should be the same type.")
@@ -104,9 +101,7 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
         - tensor (n x p or b x n x p) - The result of the matrix multiply T * M.
     """
     if toeplitz_column.size() != toeplitz_row.size():
-        raise RuntimeError(
-            "c and r should have the same length (Toeplitz matrices are necessarily square)."
-        )
+        raise RuntimeError("c and r should have the same length (Toeplitz matrices are necessarily square).")
 
     is_batch = True
     if toeplitz_column.ndimension() == 1:
@@ -124,9 +119,7 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
         )
 
     if toeplitz_column.size(0) == 1:
-        toeplitz_column = toeplitz_column.expand(
-            tensor.size(0), toeplitz_column.size(1)
-        )
+        toeplitz_column = toeplitz_column.expand(tensor.size(0), toeplitz_column.size(1))
         toeplitz_row = toeplitz_row.expand(tensor.size(0), toeplitz_row.size(1))
 
     if toeplitz_column.size()[:2] != tensor.size()[:2]:
@@ -144,10 +137,7 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
             "Got: c[0]={} and r[0]={}".format(toeplitz_column[0], toeplitz_row[0])
         )
 
-    if (
-        type(toeplitz_column) != type(toeplitz_row)
-        or type(toeplitz_column) != type(tensor)
-    ):
+    if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(tensor):
         raise RuntimeError("The types of all inputs to ToeplitzMV must match.")
 
     output_dims = tensor.ndimension()
@@ -165,9 +155,7 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
         c_r_rev[:, :orig_size] = toeplitz_column
         c_r_rev[:, orig_size:] = r_reverse
 
-        temp_tensor = toeplitz_column.new(
-            batch_size, 2 * orig_size - 1, num_rhs
-        ).zero_()
+        temp_tensor = toeplitz_column.new(batch_size, 2 * orig_size - 1, num_rhs).zero_()
         temp_tensor[:, :orig_size, :] = tensor
 
         fft_M = fft.fft1(temp_tensor.transpose(1, 2).contiguous())

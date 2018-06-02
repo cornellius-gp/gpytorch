@@ -8,7 +8,6 @@ from torch.autograd import Function
 
 
 class AddDiag(Function):
-
     def forward(self, input, diag):
         if diag.numel() != 1:
             raise RuntimeError("Input must be a single-element tensor")

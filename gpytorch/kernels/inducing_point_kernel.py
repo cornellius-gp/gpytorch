@@ -12,7 +12,6 @@ from ..variational import MVNVariationalStrategy
 
 
 class InducingPointKernel(Kernel):
-
     def __init__(self, base_kernel_module, inducing_points, active_dims=None):
         super(InducingPointKernel, self).__init__(active_dims=active_dims)
         self.base_kernel_module = base_kernel_module
@@ -22,9 +21,7 @@ class InducingPointKernel(Kernel):
         if inducing_points.ndimension() != 2:
             raise RuntimeError("Inducing points should be 2 dimensional")
         self.register_parameter(
-            "inducing_points",
-            torch.nn.Parameter(inducing_points.unsqueeze(0)),
-            bounds=(-1e10, 1e10),
+            "inducing_points", torch.nn.Parameter(inducing_points.unsqueeze(0)), bounds=(-1e10, 1e10)
         )
         self.register_variational_strategy("inducing_point_strategy")
 
@@ -38,9 +35,7 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat
         else:
-            res = self.base_kernel_module(
-                self.inducing_points, self.inducing_points
-            ).evaluate()
+            res = self.base_kernel_module(self.inducing_points, self.inducing_points).evaluate()
             if not self.training:
                 self._cached_kernel_mat = res
             return res
@@ -69,8 +64,7 @@ class InducingPointKernel(Kernel):
         else:
             k_ux2 = self.base_kernel_module(x2, self.inducing_points).evaluate()
             covar = MatmulLazyVariable(
-                k_ux1.matmul(self._inducing_inv_root),
-                k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2),
+                k_ux1.matmul(self._inducing_inv_root), k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2)
             )
         return covar
 
@@ -97,11 +91,8 @@ class InducingPointKernel(Kernel):
                 raise RuntimeError("x1 should equal x2 in training mode")
             zero_mean = torch.zeros_like(x1.select(-1, 0))
             new_variational_strategy = MVNVariationalStrategy(
-                GaussianRandomVariable(zero_mean, self._covar_diag(x1)),
-                GaussianRandomVariable(zero_mean, covar),
+                GaussianRandomVariable(zero_mean, self._covar_diag(x1)), GaussianRandomVariable(zero_mean, covar)
             )
-            self.update_variational_strategy(
-                "inducing_point_strategy", new_variational_strategy
-            )
+            self.update_variational_strategy("inducing_point_strategy", new_variational_strategy)
 
         return covar

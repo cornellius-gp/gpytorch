@@ -20,9 +20,7 @@ class SoftmaxLikelihood(Likelihood):
         self.n_features = n_features
         self.n_classes = n_classes
 
-        mixing_weights = nn.Parameter(
-            torch.ones(n_classes, n_features).fill_(1. / n_features)
-        )
+        mixing_weights = nn.Parameter(torch.ones(n_classes, n_features).fill_(1. / n_features))
         self.register_parameter("mixing_weights", mixing_weights, bounds=(-2, 2))
 
     def forward(self, latent_func):
@@ -40,12 +38,7 @@ class SoftmaxLikelihood(Likelihood):
         """
         if not isinstance(latent_func, GaussianRandomVariable):
             raise RuntimeError(
-                " ".join(
-                    [
-                        "SoftmaxLikelihood expects a Gaussian",
-                        "distributed latent function to make predictions",
-                    ]
-                )
+                " ".join(["SoftmaxLikelihood expects a Gaussian", "distributed latent function to make predictions"])
             )
 
         n_samples = settings.num_likelihood_samples.value()
@@ -56,12 +49,8 @@ class SoftmaxLikelihood(Likelihood):
         if n_features != self.n_features:
             raise RuntimeError("There should be %d features" % self.n_features)
 
-        mixed_fs = self.mixing_weights.matmul(
-            samples.view(n_features, n_samples * n_data)
-        )
-        softmax = nn.functional.softmax(mixed_fs.t()).view(
-            n_data, n_samples, self.n_classes
-        )
+        mixed_fs = self.mixing_weights.matmul(samples.view(n_features, n_samples * n_data))
+        softmax = nn.functional.softmax(mixed_fs.t()).view(n_data, n_samples, self.n_classes)
         softmax = softmax.mean(1)
         return CategoricalRandomVariable(softmax)
 
@@ -79,12 +68,8 @@ class SoftmaxLikelihood(Likelihood):
         if n_features != self.n_features:
             raise RuntimeError("There should be %d features" % self.n_features)
 
-        mixed_fs = self.mixing_weights.matmul(
-            samples.view(n_features, n_samples * n_data)
-        )
+        mixed_fs = self.mixing_weights.matmul(samples.view(n_features, n_samples * n_data))
         log_prob = -nn.functional.cross_entropy(
-            mixed_fs.t(),
-            target.unsqueeze(1).repeat(1, n_samples).view(-1),
-            size_average=False,
+            mixed_fs.t(), target.unsqueeze(1).repeat(1, n_samples).view(-1), size_average=False
         )
         return log_prob.div(n_samples)

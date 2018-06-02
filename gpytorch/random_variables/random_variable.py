@@ -9,7 +9,6 @@ from ..lazy import LazyVariable
 
 
 class RandomVariable(object):
-
     def __init__(self, *args, **kwargs):
         self._args = args
         self._kwargs = kwargs
@@ -138,14 +137,9 @@ class RandomVariable(object):
         raise NotImplementedError
 
     def __setattr__(self, name, val):
-        if (
-            torch.is_tensor(val)
-            or isinstance(val, Variable)
-            or isinstance(val, LazyVariable)
-        ):
+        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):
             if not hasattr(self, "_args"):
                 raise RuntimeError(
-                    "Cannot assign {name} to LazyVariable before calling "
-                    "LazyVariable.__init__()".format(name=name)
+                    "Cannot assign {name} to LazyVariable before calling " "LazyVariable.__init__()".format(name=name)
                 )
         object.__setattr__(self, name, val)

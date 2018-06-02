@@ -7,7 +7,6 @@ from ..module import Module
 
 
 class GP(Module):
-
     def marginal_log_likelihood(self, likelihood, output, target, n_data=None):
         """
         Returns the marginal log likelihood of the data

@@ -13,7 +13,6 @@ diag = torch.Tensor([1, 2, 3])
 
 
 class TestDiagLazyVariable(unittest.TestCase):
-
     def test_evaluate(self):
         diag_lv = DiagLazyVariable(Variable(diag))
         self.assertTrue(torch.equal(diag_lv.evaluate().data, diag.diag()))

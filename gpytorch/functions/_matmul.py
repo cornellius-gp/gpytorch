@@ -8,7 +8,6 @@ from .. import settings
 
 
 class Matmul(Function):
-
     def __init__(self, representation_tree):
         self.representation_tree = representation_tree
 
@@ -34,14 +33,8 @@ class Matmul(Function):
         # input_1 gradient
         if any(self.needs_input_grad[1:]):
             rhs = rhs.unsqueeze(-1) if (rhs.ndimension() == 1) else rhs
-            grad_output_matrix = (
-                grad_output.unsqueeze(-1)
-                if grad_output.ndimension() == 1
-                else grad_output
-            )
-            arg_grads = self.representation_tree(*matrix_args)._quad_form_derivative(
-                grad_output_matrix, rhs
-            )
+            grad_output_matrix = grad_output.unsqueeze(-1) if grad_output.ndimension() == 1 else grad_output
+            arg_grads = self.representation_tree(*matrix_args)._quad_form_derivative(grad_output_matrix, rhs)
 
         # input_2 gradient
         if self.needs_input_grad[0]:

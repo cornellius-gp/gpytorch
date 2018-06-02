@@ -59,6 +59,7 @@ class max_cg_iterations(_value_context):
     matrix solves). More values results in more accurate solves
     Default: 20
     """
+
     _global_value = 20
 
 
@@ -70,6 +71,7 @@ class max_root_decomposition_size(_value_context):
     More values results in higher accuracy
     Default: 100
     """
+
     _global_value = 100
 
 
@@ -86,9 +88,7 @@ class max_lanczos_iterations(max_root_decomposition_size):
 
     def __enter__(self,):
         warnings.warn(
-            "max_lanczos_iterations is deprecated. "
-            "Use max_root_decomposition_size instead.",
-            DeprecationWarning,
+            "max_lanczos_iterations is deprecated. " "Use max_root_decomposition_size instead.", DeprecationWarning
         )
         return super(max_lanczos_iterations, self).__enter__()
 
@@ -99,6 +99,7 @@ class max_preconditioner_size(_value_context):
     preconditioning off. When enabled, usually a value of around ~10 works fairly well.
     Default: 0
     """
+
     _global_value = 5
 
 
@@ -108,6 +109,7 @@ class max_lanczos_quadrature_iterations(_value_context):
     Lanczos quadrature. This is ONLY used for log determinant calculations and
     computing Tr(K^{-1}dK/d\theta)
     """
+
     _global_value = 15
 
 
@@ -117,6 +119,7 @@ class num_likelihood_samples(_value_context):
     This is used in variational inference and training
     Default: 10
     """
+
     _global_value = 10
 
 
@@ -127,6 +130,7 @@ class num_trace_samples(_value_context):
     If the value is set to 0, then the trace will be deterministically computed
     Default: 10
     """
+
     _global_value = 10
 
 
@@ -136,6 +140,7 @@ class use_toeplitz(_feature_flag):
     Pros: memory efficient, faster on CPU
     Cons: slower on GPUs with < 10000 inducing points
     """
+
     _state = True
 
 
@@ -145,4 +150,5 @@ class memory_efficient(_feature_flag):
     Pros: memory efficient, faster on CPU
     Cons: slower on GPUs with < 10000 inducing points
     """
+
     _state = False

@@ -9,13 +9,8 @@ from ..lazy import LazyEvaluatedKernelVariable
 
 
 class Kernel(Module):
-
     def __init__(
-        self,
-        has_lengthscale=False,
-        ard_num_dims=None,
-        log_lengthscale_bounds=(-10000, 10000),
-        active_dims=None,
+        self, has_lengthscale=False, ard_num_dims=None, log_lengthscale_bounds=(-10000, 10000), active_dims=None
     ):
         super(Kernel, self).__init__()
         self.active_dims = active_dims
@@ -68,7 +63,6 @@ class Kernel(Module):
 
 
 class AdditiveKernel(Kernel):
-
     def __init__(self, kernel_1, kernel_2):
         super(AdditiveKernel, self).__init__()
         self.kernel_1 = kernel_1
@@ -79,7 +73,6 @@ class AdditiveKernel(Kernel):
 
 
 class ProductKernel(Kernel):
-
     def __init__(self, kernel_1, kernel_2):
         super(ProductKernel, self).__init__()
         self.kernel_1 = kernel_1

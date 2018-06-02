@@ -10,7 +10,6 @@ from .. import settings
 
 
 class InvMatmul(Function):
-
     def __init__(self, representation_tree, preconditioner=None):
         self.representation_tree = representation_tree
         self.preconditioner = preconditioner
@@ -26,10 +25,7 @@ class InvMatmul(Function):
 
         # Perform solves (for inv_quad) and tridiagonalization (for estimating log_det)
         res = linear_cg(
-            matmul_closure,
-            rhs,
-            max_iter=settings.max_cg_iterations.value(),
-            preconditioner=self.preconditioner,
+            matmul_closure, rhs, max_iter=settings.max_cg_iterations.value(), preconditioner=self.preconditioner
         )
 
         if self.is_vector:
@@ -77,13 +73,9 @@ class InvMatmul(Function):
             # input_1 gradient
             if any(self.needs_input_grad[1:]):
                 if lazy_var is not None:
-                    arg_grads = lazy_var._quad_form_derivative(
-                        grad_output_solves, rhs_solves.mul_(-1)
-                    )
+                    arg_grads = lazy_var._quad_form_derivative(grad_output_solves, rhs_solves.mul_(-1))
                 else:
-                    arg_grads = torch.matmul(
-                        grad_output_solves, rhs_solves.mul_(-1).transpose(-1, -2)
-                    ),
+                    arg_grads = (torch.matmul(grad_output_solves, rhs_solves.mul_(-1).transpose(-1, -2)),)
 
             # input_2 gradient
             if self.needs_input_grad[0]:

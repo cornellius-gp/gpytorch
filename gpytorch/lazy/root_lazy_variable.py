@@ -18,7 +18,6 @@ def _outer_repeat(tensor, amt):
 
 
 class RootLazyVariable(LazyVariable):
-
     def __init__(self, root):
         if not isinstance(root, LazyVariable):
             root = NonLazyVariable(root)
@@ -40,9 +39,7 @@ class RootLazyVariable(LazyVariable):
         left_vecs_times_lhs_t = self.root._t_matmul(left_vecs)
 
         deriv_part_1 = self.root._quad_form_derivative(left_vecs, right_vecs_times_rhs)
-        deriv_part_2 = self.root._quad_form_derivative(
-            right_vecs, left_vecs_times_lhs_t
-        )
+        deriv_part_2 = self.root._quad_form_derivative(right_vecs, left_vecs_times_lhs_t)
 
         deriv = []
         for item_part_1, item_part_2 in zip(deriv_part_1, deriv_part_2):
@@ -75,9 +72,7 @@ class RootLazyVariable(LazyVariable):
             _outer_repeat(right_indices, inner_size),
         )
 
-        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(
-            -1
-        )
+        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def _get_indices(self, left_indices, right_indices):
         outer_size = left_indices.size(0)
@@ -86,17 +81,13 @@ class RootLazyVariable(LazyVariable):
         torch.arange(0, inner_size, out=inner_indices.data)
 
         left_vals = self.root._get_indices(
-            _outer_repeat(left_indices, inner_size),
-            _inner_repeat(inner_indices, outer_size),
+            _outer_repeat(left_indices, inner_size), _inner_repeat(inner_indices, outer_size)
         )
         right_vals = self.root.t()._get_indices(
-            _inner_repeat(inner_indices, outer_size),
-            _outer_repeat(right_indices, inner_size),
+            _inner_repeat(inner_indices, outer_size), _outer_repeat(right_indices, inner_size)
         )
 
-        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(
-            -1
-        )
+        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def diag(self):
         if isinstance(self.root, NonLazyVariable):
@@ -105,9 +96,7 @@ class RootLazyVariable(LazyVariable):
             return super(RootLazyVariable, self).diag()
 
     def evaluate(self):
-        return torch.matmul(
-            self.root.evaluate(), self.root.transpose(-1, -2).evaluate()
-        )
+        return torch.matmul(self.root.evaluate(), self.root.transpose(-1, -2).evaluate())
 
     def root_decomposition_size(self):
         return self.root.size(-1)

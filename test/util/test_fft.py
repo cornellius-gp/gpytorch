@@ -11,7 +11,6 @@ from gpytorch.utils import fft
 
 
 class TestFFT(unittest.TestCase):
-
     def test_fft1_computes_fft_of_1d_input(self):
         d = 8
         input = torch.randn(d)

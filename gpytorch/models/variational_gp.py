@@ -14,7 +14,6 @@ from .abstract_variational_gp import AbstractVariationalGP
 
 
 class VariationalGP(AbstractVariationalGP):
-
     def __init__(self, train_input):
         if not torch.is_tensor(train_input):
             raise RuntimeError("VariationalGP must take a single tensor train_input")
@@ -45,12 +44,8 @@ class VariationalGP(AbstractVariationalGP):
                 self.variational_params_initialized.fill_(1)
 
             variational_output = self.variational_output()
-            new_variational_strategy = MVNVariationalStrategy(
-                variational_output, prior_output
-            )
-            self.update_variational_strategy(
-                "inducing_point_strategy", new_variational_strategy
-            )
+            new_variational_strategy = MVNVariationalStrategy(variational_output, prior_output)
+            self.update_variational_strategy("inducing_point_strategy", new_variational_strategy)
             return variational_output
 
         # Posterior mode
@@ -71,9 +66,7 @@ class VariationalGP(AbstractVariationalGP):
 
             # Compute alpha cache
             if not self.has_computed_alpha:
-                self.alpha = inv_matmul(
-                    induc_induc_covar, variational_output.mean() - induc_mean
-                )
+                self.alpha = inv_matmul(induc_induc_covar, variational_output.mean() - induc_mean)
                 self.has_computed_alpha = True
 
             # Compute chol cache, if necessary
@@ -83,9 +76,7 @@ class VariationalGP(AbstractVariationalGP):
                 self.prior_root_inv = induc_induc_covar.root_inv_decomposition()
 
                 chol_variational_output = variational_output.covar().root.evaluate()
-                self.variational_root = inv_matmul(
-                    induc_induc_covar, chol_variational_output
-                )
+                self.variational_root = inv_matmul(induc_induc_covar, chol_variational_output)
                 self.has_computed_root = True
 
             # Test mean
@@ -97,27 +88,17 @@ class VariationalGP(AbstractVariationalGP):
             else:
                 predictive_covar = test_test_covar
             if beta_features.fast_pred_var.on():
-                correction = RootLazyVariable(
-                    test_induc_covar.matmul(self.prior_root_inv)
-                ).mul(
-                    -1
-                )
-                correction = correction + RootLazyVariable(
-                    test_induc_covar.matmul(self.variational_root)
-                )
+                correction = RootLazyVariable(test_induc_covar.matmul(self.prior_root_inv)).mul(-1)
+                correction = correction + RootLazyVariable(test_induc_covar.matmul(self.variational_root))
                 predictive_covar = predictive_covar + correction
             else:
                 if isinstance(induc_test_covar, LazyVariable):
                     induc_test_covar = induc_test_covar.evaluate()
                 inv_product = inv_matmul(induc_induc_covar, induc_test_covar)
-                factor = variational_output.covar().root_decomposition().matmul(
-                    inv_product
-                )
+                factor = variational_output.covar().root_decomposition().matmul(inv_product)
                 right_factor = factor - inv_product
                 left_factor = (factor - induc_test_covar).transpose(-1, -2)
-                predictive_covar = predictive_covar + MatmulLazyVariable(
-                    left_factor, right_factor
-                )
+                predictive_covar = predictive_covar + MatmulLazyVariable(left_factor, right_factor)
 
             output = GaussianRandomVariable(predictive_mean, predictive_covar)
             return output

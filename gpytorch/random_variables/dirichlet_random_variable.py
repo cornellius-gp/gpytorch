@@ -10,7 +10,6 @@ from .random_variable import RandomVariable
 
 
 class DirichletRandomVariable(RandomVariable):
-
     def __init__(self, alpha):
         """
         Constructs a Dirichlet random variable

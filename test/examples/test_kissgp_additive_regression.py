@@ -24,9 +24,7 @@ for i in range(n):
         train_x[i * n + j][0] = float(i) / (n - 1)
         train_x[i * n + j][1] = float(j) / (n - 1)
 train_x = Variable(train_x)
-train_y = Variable(
-    (torch.sin(train_x.data[:, 0]) + torch.cos(train_x.data[:, 1])) * (2 * math.pi)
-)
+train_y = Variable((torch.sin(train_x.data[:, 0]) + torch.cos(train_x.data[:, 1])) * (2 * math.pi))
 
 m = 10
 test_x = torch.zeros(pow(m, 2), 2)
@@ -35,14 +33,11 @@ for i in range(m):
         test_x[i * m + j][0] = float(i) / (m - 1)
         test_x[i * m + j][1] = float(j) / (m - 1)
 test_x = Variable(test_x)
-test_y = Variable(
-    (torch.sin(test_x.data[:, 0]) + torch.cos(test_x.data[:, 1])) * (2 * math.pi)
-)
+test_y = Variable((torch.sin(test_x.data[:, 0]) + torch.cos(test_x.data[:, 1])) * (2 * math.pi))
 
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
 class GPRegressionModel(gpytorch.models.ExactGP):
-
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(constant_bounds=(-1, 1))
@@ -58,12 +53,8 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 
 
 class TestKISSGPAdditiveRegression(unittest.TestCase):
-
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
 
@@ -76,18 +67,12 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
         gp_model = GPRegressionModel(train_x.data, train_y.data, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
-        with gpytorch.settings.max_preconditioner_size(
-            10
-        ), gpytorch.settings.max_cg_iterations(
-            30
-        ):
+        with gpytorch.settings.max_preconditioner_size(10), gpytorch.settings.max_cg_iterations(30):
             # Optimize the model
             gp_model.train()
             likelihood.train()
 
-            optimizer = optim.Adam(
-                list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2
-            )
+            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
             optimizer.n_iter = 0
             for _ in range(20):
                 optimizer.zero_grad()

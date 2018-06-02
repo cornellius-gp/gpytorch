@@ -52,13 +52,7 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
         )
     else:
         row_tensor = row_tensor.repeat(1, n_coefficients)
-        index_tensor = torch.cat(
-            [
-                interp_indices.contiguous().view(1, -1),
-                row_tensor.contiguous().view(1, -1),
-            ],
-            0,
-        )
+        index_tensor = torch.cat([interp_indices.contiguous().view(1, -1), row_tensor.contiguous().view(1, -1)], 0)
 
     # Value tensor
     value_tensor = interp_values.contiguous().view(-1)

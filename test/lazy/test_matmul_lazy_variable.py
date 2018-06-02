@@ -11,7 +11,6 @@ from gpytorch.utils import approx_equal
 
 
 class TestMatmulLazyVariable(unittest.TestCase):
-
     def test_matmul(self):
         lhs = Variable(torch.randn(5, 3), requires_grad=True)
         rhs = Variable(torch.randn(3, 4), requires_grad=True)

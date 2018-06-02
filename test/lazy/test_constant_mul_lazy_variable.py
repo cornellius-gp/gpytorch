@@ -12,7 +12,6 @@ from torch.autograd import Variable
 
 
 class TestConstantMulLazyVariable(unittest.TestCase):
-
     def test_inv_matmul(self):
         labels_var = Variable(torch.randn(4), requires_grad=True)
         labels_var_copy = Variable(labels_var.data, requires_grad=True)
@@ -33,9 +32,7 @@ class TestConstantMulLazyVariable(unittest.TestCase):
         res.backward(grad_output)
         actual.backward(grad_output)
 
-        self.assertLess(
-            math.fabs(res.data.squeeze()[0] - actual.data.squeeze()[0]), 6e-1
-        )
+        self.assertLess(math.fabs(res.data.squeeze()[0] - actual.data.squeeze()[0]), 6e-1)
         self.assertLess(math.fabs(c1_var.grad.data[0] - c2_var.grad.data[0]), 1)
 
     def test_diag(self):
@@ -53,12 +50,7 @@ class TestConstantMulLazyVariable(unittest.TestCase):
         toeplitz_lazy_var = ToeplitzLazyVariable(c1_var) * 2.5
         actual = ToeplitzLazyVariable(c2_var)
 
-        diff = (
-            torch.norm(
-                actual[2:, 2:].evaluate().data
-                - toeplitz_lazy_var[2:, 2:].evaluate().data
-            )
-        )
+        diff = torch.norm(actual[2:, 2:].evaluate().data - toeplitz_lazy_var[2:, 2:].evaluate().data)
         self.assertLess(diff, 1e-3)
 
 
