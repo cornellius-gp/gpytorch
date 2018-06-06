@@ -59,6 +59,10 @@ def linear_cg(
     if preconditioner is None:
         preconditioner = _default_preconditioner
 
+    # If we are running m CG iterations, we obviously can't get more than m Lanczos coefficients
+    if max_tridiag_iter >= max_iter:
+        raise RuntimeError("Getting a tridiagonalization larger than the number of CG iterations run is not possible!")
+
     # Check matmul_closure object
     if torch.is_tensor(matmul_closure):
         matmul_closure = matmul_closure.matmul
