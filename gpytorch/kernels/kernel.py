@@ -8,6 +8,7 @@ import torch
 from gpytorch.module import Module
 from ..lazy import LazyEvaluatedKernelVariable
 
+
 class Kernel(Module):
     def __init__(self, has_lengthscale=False, ard_num_dims=None, log_lengthscale_prior=None, active_dims=None):
         super(Kernel, self).__init__()
