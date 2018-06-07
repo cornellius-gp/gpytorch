@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from gpytorch.likelihoods import Likelihood
-from gpytorch.priors.smoothed_box import SmoothedBoxPrior
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable, CategoricalRandomVariable
 from gpytorch import settings
 

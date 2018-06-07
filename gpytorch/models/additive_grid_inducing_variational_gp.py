@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from gpytorch.models.grid_inducing_variational_gp import GridInducingVariationalGP
-from gpytorch.priors.smoothed_box import SmoothedBoxPrior
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 
