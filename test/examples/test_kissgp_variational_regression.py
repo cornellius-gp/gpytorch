@@ -71,8 +71,8 @@ class TestKissGPVariationalRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        with gpytorch.beta_features.diagonal_correction():
-            optimizer = optim.SGD(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        with gpytorch.beta_features.diagonal_correction(False):
+            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15], gamma=0.1)
             for _ in range(20):
                 scheduler.step()

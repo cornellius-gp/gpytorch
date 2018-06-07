@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from math import exp, pi
+import os
 
 import torch
 import unittest
@@ -17,8 +18,8 @@ from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 
-train_x = Variable(torch.linspace(0, 1, 10))
-train_y = Variable(torch.sign(torch.cos(train_x.data * (8 * pi))))
+train_x = Variable(torch.linspace(0, 1, 11))
+train_y = Variable(torch.sign(torch.cos(train_x.data * (2 * pi))))
 
 
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
@@ -43,6 +44,15 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
 
 class TestKISSGPClassification(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
@@ -52,7 +62,7 @@ class TestKISSGPClassification(unittest.TestCase):
         model.train()
         likelihood.train()
 
-        optimizer = optim.SGD(model.parameters(), lr=0.1)
+        optimizer = optim.Adam(model.parameters(), lr=0.1)
         optimizer.n_iter = 0
         for _ in range(200):
             optimizer.zero_grad()
