@@ -22,13 +22,13 @@ class GaussianRandomVariable(RandomVariable):
         - covar (Variable: matrix n x n or batch matrix b x n x n) covariance of Gaussian distribution
         """
         super(GaussianRandomVariable, self).__init__(mean, covar)
-        if not isinstance(mean, Variable) and not isinstance(mean, LazyVariable) and mean is not None:
+        if not isinstance(mean, Variable) and not isinstance(mean, LazyVariable):
             raise RuntimeError("The mean of a GaussianRandomVariable must be a Variable")
 
         if not isinstance(covar, Variable) and not isinstance(covar, LazyVariable):
             raise RuntimeError("The covariance of a GaussianRandomVariable must be a Variable")
 
-        if mean is not None and not (mean.ndimension() == 1 or mean.ndimension() == 2):
+        if not (mean.ndimension() == 1 or mean.ndimension() == 2):
             raise RuntimeError("mean should be a vector or a matrix (batch mode)")
 
         if not isinstance(covar, LazyVariable):
@@ -41,10 +41,6 @@ class GaussianRandomVariable(RandomVariable):
         return self._covar
 
     def mean(self):
-        if self._mean is None:
-            self._mean = self._covar.tensor_cls(self._covar.size(-1)).zero_()
-            if self._covar.ndimension() == 3:
-                self._mean = self._mean.unsqueeze(0).expand(self._covar.size(0), self._covar.size(-1))
         return self._mean
 
     def representation(self):

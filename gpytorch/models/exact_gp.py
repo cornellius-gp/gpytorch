@@ -84,7 +84,7 @@ class ExactGP(Module):
         else:
             if all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, args)):
                 warnings.warn(
-                    "The input matches the stored training data. " "Did you forget to call model.train()?", UserWarning
+                    "The input matches the stored training data. Did you forget to call model.train()?", UserWarning
                 )
 
             # Exact inference
@@ -96,10 +96,17 @@ class ExactGP(Module):
 
             noise = self.likelihood.log_noise.exp()
             predictive_mean, mean_cache = exact_predictive_mean(
-                full_covar, full_mean, Variable(self.train_targets), noise, self.mean_cache
+                full_covar=full_covar,
+                full_mean=full_mean,
+                train_labels=Variable(self.train_targets),
+                noise=noise,
+                precomputed_cache=self.mean_cache,
             )
             predictive_covar, covar_cache = exact_predictive_covar(
-                full_covar, self.train_targets.size(-1), noise, self.covar_cache
+                full_covar=full_covar,
+                n_train=self.train_targets.size(-1),
+                noise=noise,
+                precomputed_cache=self.covar_cache,
             )
 
             self.mean_cache = mean_cache
