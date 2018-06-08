@@ -288,15 +288,28 @@ class LazyVariable(object):
         Returns:
         - (t) - the predictive posterior mean of the test points
         """
-        n_train = train_labels.size(0)
+        n_train = train_labels.size(-1)
         if precomputed_cache is None:
-            train_mean = full_mean[:n_train]
-            train_train_covar = self[:n_train, :n_train].add_diag(noise)
-            precomputed_cache = train_train_covar.inv_matmul(train_labels - train_mean)
+            train_mean = full_mean.narrow(-1, 0, n_train)
+            if self.ndimension() == 3:
+                train_train_covar = self[:, :n_train, :n_train].add_diag(noise)
+            else:
+                train_train_covar = self[:n_train, :n_train].add_diag(noise)
 
-        test_mean = full_mean[n_train:]
-        test_train_covar = self[n_train:, :n_train]
-        res = test_train_covar.matmul(precomputed_cache) + test_mean
+            train_labels_offset = train_labels - train_mean
+            if self.ndimension() == 3:
+                train_labels_offset = train_labels_offset.unsqueeze(-1)
+            precomputed_cache = train_train_covar.inv_matmul(train_labels_offset)
+
+        test_mean = full_mean.narrow(-1, n_train, full_mean.size(-1) - n_train)
+        if self.ndimension() == 3:
+            test_train_covar = self[:, n_train:, :n_train]
+        else:
+            test_train_covar = self[n_train:, :n_train]
+        res = test_train_covar.matmul(precomputed_cache)
+        if res.ndimension() == 3:
+            res = res.squeeze(-1)
+        res = res + test_mean
         return res, precomputed_cache
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
