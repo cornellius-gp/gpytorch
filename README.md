@@ -1,9 +1,11 @@
 # GPyTorch (Alpha Release)
 [![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
 
-GPyTorch is a Gaussian Process library, implemented using PyTorch.
-It is designed for creating flexible and modular Gaussian Process models with ease,
-so that you don't have to be an expert to use GPs.
+GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease. 
+
+GPyTorch primarily works by creating an accurate kernel approximation (typically via [SKI](http://proceedings.mlr.press/v37/wilson15.pdf)) which admits fast matrix vector multiplies (MVMs) for iterative pre-conditioned MVM-based scalable inference and learning.
+
+GPyTorch provides (1) significant GPU acceleration (through MVM based inference); (2) state-of-the-art implementations of the latest algorithmic advances for scalability and flexibility ([SKI/KISS-GP](http://proceedings.mlr.press/v37/wilson15.pdf), [stochastic Lanczos expansions](https://arxiv.org/abs/1711.03481), [LOVE](https://arxiv.org/pdf/1803.06058.pdf), [SKIP](https://arxiv.org/pdf/1802.08903.pdf), [stochastic variational](https://arxiv.org/pdf/1611.00336.pdf) [deep kernel learning](http://proceedings.mlr.press/v51/wilson16.pdf), ...); (3) easy integration with deep learning frameworks.
 
 This package is currently under development, and is likely to change.
 Some things you can do right now:
@@ -84,15 +86,17 @@ pip install flake8  # if not already installed
 flake8
 ```
 
-## Contributors
+## Founding Team
 
-GPyTorch is developed at Cornell university by
-- [Jake Gardner](http://github.com/jacobrgardner)
-- [Geoff Pleiss](http://github.com/gpleiss)
+GPyTorch is developed at Cornell University by
+- [Jake Gardner](http://github.com/jacobrgardner) (lead developer)
+- [Geoff Pleiss](http://github.com/gpleiss) (lead developer)
+- [Kilian Weinberger](http://kilian.cs.cornell.edu/)
+- [Andrew Gordon Wilson](https://people.orie.cornell.edu/andrew/)
 
 <img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
 
-We would like to thank our other contributors including (but not limited to) Max Balandat, Ruihan Wu, Bram Wallace, Jared Frank, and Andrew Wilson.
+We would like to thank our other contributors including (but not limited to) Max Balandat, Ruihan Wu, Bram Wallace, Jared Frank.
 
 ## Acknowledgements
 Development of GPyTorch is supported by funding from the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/).
