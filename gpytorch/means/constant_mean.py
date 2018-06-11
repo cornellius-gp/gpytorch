@@ -12,12 +12,9 @@ class ConstantMean(Mean):
         super(ConstantMean, self).__init__()
         self.batch_size = batch_size
         if batch_size is None:
-            self.register_parameter("constant", torch.nn.Parameter(torch.zeros(1)), bounds=constant_bounds)
+            self.register_parameter("constant", torch.nn.Parameter(torch.zeros(1, 1)), bounds=constant_bounds)
         else:
             self.register_parameter("constant", torch.nn.Parameter(torch.zeros(batch_size, 1)), bounds=constant_bounds)
 
     def forward(self, input):
-        if self.batch_size is None:
-            return self.constant.expand(input.size(0))
-        else:
-            return self.constant.expand(input.size(0), input.size(1))
+        return self.constant.expand(input.size(0), input.size(1))

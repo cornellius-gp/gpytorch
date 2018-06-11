@@ -46,9 +46,9 @@ class Kernel(Module):
             x2 = x1
 
         # Give x1 and x2 a last dimension, if necessary
-        if x1.data.ndimension() == 1:
+        if x1.ndimension() == 1:
             x1 = x1.unsqueeze(1)
-        if x2.data.ndimension() == 1:
+        if x2.ndimension() == 1:
             x2 = x2.unsqueeze(1)
         if not x1.size(-1) == x2.size(-1):
             raise RuntimeError("x1 and x2 must have the same number of dimensions!")
