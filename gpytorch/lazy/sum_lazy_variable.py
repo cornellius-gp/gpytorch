@@ -68,6 +68,7 @@ class SumLazyVariable(LazyVariable):
                 self.lazy_vars, precomputed_cache, test_train_covar.lazy_vars
             )
         )
+
     def evaluate(self):
         return sum(lazy_var.evaluate() for lazy_var in self.lazy_vars)
 
