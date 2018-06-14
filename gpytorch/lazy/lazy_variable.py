@@ -744,11 +744,15 @@ class LazyVariable(object):
         Returns:
         - Samples from MVN (batch_size x n_samples)
         """
-        covar_root = self.root_decomposition()
-        if self.ndimension() == 3:
-            base_samples = Variable(self.tensor_cls(self.size(0), covar_root.size(-1), n_samples).normal_())
+        if self.size()[-2:] == torch.Size([1, 1]):
+            covar_root = self.evaluate().sqrt()
         else:
-            base_samples = Variable(self.tensor_cls(covar_root.size(-1), n_samples).normal_())
+            covar_root = self.root_decomposition()
+
+        if self.ndimension() == 3:
+            base_samples = self.tensor_cls(self.size(0), covar_root.size(-1), n_samples).normal_()
+        else:
+            base_samples = self.tensor_cls(covar_root.size(-1), n_samples).normal_()
         samples = covar_root.matmul(base_samples)
         return samples
 
