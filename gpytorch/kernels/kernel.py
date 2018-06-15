@@ -5,7 +5,8 @@ from __future__ import unicode_literals
 
 import torch
 from ..module import Module
-from ..lazy import LazyEvaluatedKernelVariable
+from ..lazy import LazyEvaluatedKernelVariable, ZeroLazyVariable
+import gpytorch
 
 
 class Kernel(Module):
@@ -63,20 +64,22 @@ class Kernel(Module):
 
 
 class AdditiveKernel(Kernel):
-    def __init__(self, kernel_1, kernel_2):
+    def __init__(self, *kernels):
         super(AdditiveKernel, self).__init__()
-        self.kernel_1 = kernel_1
-        self.kernel_2 = kernel_2
+        self.kernels = kernels
 
     def forward(self, x1, x2):
-        return self.kernel_1(x1, x2).evaluate_kernel() + self.kernel_2(x1, x2).evaluate_kernel()
+        res = ZeroLazyVariable()
+        for kern in self.kernels:
+            res = res + kern(x1, x2).evaluate_kernel()
+
+        return res
 
 
 class ProductKernel(Kernel):
-    def __init__(self, kernel_1, kernel_2):
+    def __init__(self, *kernels):
         super(ProductKernel, self).__init__()
-        self.kernel_1 = kernel_1
-        self.kernel_2 = kernel_2
+        self.kernels = kernels
 
     def forward(self, x1, x2):
-        return self.kernel_1(x1, x2).evaluate_kernel() * self.kernel_2(x1, x2).evaluate_kernel()
+        return gpytorch.utils.prod([k(x1, x2).evaluate_kernel() for k in self.kernels])
