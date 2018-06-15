@@ -8,7 +8,6 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
@@ -17,15 +16,15 @@ from gpytorch.random_variables import GaussianRandomVariable
 
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
 # in parallel.
-train_x1 = Variable(torch.linspace(0, 1, 11)).unsqueeze(-1)
-train_y1 = Variable(torch.sin(train_x1.data * (2 * math.pi))).squeeze()
-test_x1 = Variable(torch.linspace(0, 1, 51)).unsqueeze(-1)
-test_y1 = Variable(torch.sin(test_x1.data * (2 * math.pi))).squeeze()
+train_x1 = torch.linspace(0, 1, 11).unsqueeze(-1)
+train_y1 = torch.sin(train_x1.data * (2 * math.pi)).squeeze()
+test_x1 = torch.linspace(0, 1, 51).unsqueeze(-1)
+test_y1 = torch.sin(test_x1.data * (2 * math.pi)).squeeze()
 
-train_x2 = Variable(torch.linspace(0, 1, 11)).unsqueeze(-1)
-train_y2 = Variable(torch.cos(train_x2.data * (2 * math.pi))).squeeze()
-test_x2 = Variable(torch.linspace(0, 1, 51)).unsqueeze(-1)
-test_y2 = Variable(torch.cos(test_x2.data * (2 * math.pi))).squeeze()
+train_x2 = torch.linspace(0, 1, 11).unsqueeze(-1)
+train_y2 = torch.cos(train_x2.data * (2 * math.pi)).squeeze()
+test_x2 = torch.linspace(0, 1, 51).unsqueeze(-1)
+test_y2 = torch.cos(test_x2.data * (2 * math.pi)).squeeze()
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
@@ -46,9 +45,9 @@ class TestBatchGPRegression(unittest.TestCase):
         likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
         gp_model = ExactGPModel(train_x1.data, train_y1.data, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
-        gp_model.covar_module.initialize(log_lengthscale=1)
+        gp_model.covar_module.initialize(log_lengthscale=-1)
         gp_model.mean_module.initialize(constant=0)
-        likelihood.initialize(log_noise=1)
+        likelihood.initialize(log_noise=0)
 
         # Find optimal model hyperparameters
         gp_model.train()
