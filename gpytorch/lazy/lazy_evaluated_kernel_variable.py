@@ -38,7 +38,9 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         Implementing it this way allows us to compute predictions more efficiently
         in cases where only the variances are required.
         """
-        from ..kernels import Kernel
+        from ..kernels import Kernel, GridInterpolationKernel
+        if isinstance(self.kernel, GridInterpolationKernel):
+            return self.evaluate_kernel().diag()
 
         if hasattr(self, "_cached_kernel_diag"):
             return self._cached_kernel_diag
