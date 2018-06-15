@@ -59,7 +59,7 @@ class TestAdditiveKernel(unittest.TestCase):
 
         output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
-        res = kernel.kernel_1.log_lengthscale.grad + kernel.kernel_2.log_lengthscale.grad
+        res = kernel.kernels[0].log_lengthscale.grad + kernel.kernels[1].log_lengthscale.grad
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
 
 
