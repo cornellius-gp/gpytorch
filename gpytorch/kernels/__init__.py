@@ -1,4 +1,4 @@
-from .kernel import Kernel
+from .kernel import Kernel, AdditiveKernel, ProductKernel
 from .rbf_kernel import RBFKernel
 from .matern_kernel import MaternKernel
 from .periodic_kernel import PeriodicKernel
@@ -12,11 +12,13 @@ from .multiplicative_grid_interpolation_kernel import MultiplicativeGridInterpol
 from .white_noise_kernel import WhiteNoiseKernel
 
 __all__ = [
+    AdditiveKernel,
     Kernel,
     LinearKernel,
     RBFKernel,
     MaternKernel,
     PeriodicKernel,
+    ProductKernel,
     SpectralMixtureKernel,
     IndexKernel,
     GridInterpolationKernel,
