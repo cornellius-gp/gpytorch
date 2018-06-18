@@ -33,7 +33,7 @@ class ConstantMulLazyVariable(LazyVariable):
             if torch.is_tensor(item) and res[i].sum():
                 res[i] = res[i] * self.constant.expand_as(res[i])
         # Gradient with respect to the constant
-        res.append(left_vecs.new(1).fill_((left_vecs * right_vecs).sum()))
+        res.append(left_vecs.new(1).fill_((left_vecs * self.lazy_var._matmul(right_vecs)).sum()))
         return res
 
     def _size(self):
