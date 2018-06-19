@@ -14,6 +14,8 @@ class Kernel(Module):
         self, has_lengthscale=False, ard_num_dims=None, log_lengthscale_bounds=(-10000, 10000), active_dims=None
     ):
         super(Kernel, self).__init__()
+        if active_dims is not None and not torch.is_tensor(active_dims):
+            active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.active_dims = active_dims
         self.ard_num_dims = ard_num_dims
         if has_lengthscale:
@@ -36,9 +38,9 @@ class Kernel(Module):
 
     def __call__(self, x1_, x2_=None, **params):
         if self.active_dims is not None:
-            x1 = x1_[:, self.active_dims]
+            x1 = x1_.index_select(-1, self.active_dims)
             if x2_ is not None:
-                x2 = x2_[:, self.active_dims]
+                x2 = x2_.index_select(-1, self.active_dims)
         else:
             x1 = x1_
             x2 = x2_
