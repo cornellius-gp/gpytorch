@@ -52,6 +52,7 @@ class ExactGP(Module):
         if inputs is not None:
             if torch.is_tensor(inputs):
                 inputs = (inputs,)
+            inputs = tuple(input_.unsqueeze(-1) if input_.ndimension() == 1 else input_ for input_ in inputs)
             for input, t_input in zip(inputs, self.train_inputs):
                 for attr in {"shape", "dtype", "device"}:
                     if strict and getattr(input, attr) != getattr(t_input, attr):
