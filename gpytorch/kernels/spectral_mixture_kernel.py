@@ -36,11 +36,6 @@ class SpectralMixtureKernel(Kernel):
         )
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
-        _, n_dims = train_x.size()
-
-        if not n_dims == self.n_dims:
-            raise RuntimeError("The number of dimensions doesn't match what was supplied!")
-
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
             raise RuntimeError("train_x and train_y should be tensors")
         if train_x.ndimension() == 1:
@@ -50,9 +45,8 @@ class SpectralMixtureKernel(Kernel):
 
         train_x_sort = train_x.sort(1)[0]
         max_dist = train_x_sort[:, -1, :] - train_x_sort[:, 0, :]
-        min_dist_sort = (train_x_sort[:, 1:, :] - train_x_sort[:, :-1, :]).squeeze()
+        min_dist_sort = (train_x_sort[:, 1:, :] - train_x_sort[:, :-1, :]).squeeze(0)
         min_dist = torch.zeros(1, self.n_dims)
-
         for ind in range(self.n_dims):
             min_dist[:, ind] = min_dist_sort[(torch.nonzero(min_dist_sort[:, ind]))[0], ind]
 
