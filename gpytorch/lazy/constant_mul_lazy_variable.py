@@ -4,15 +4,15 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .lazy_variable import LazyVariable
 
 
 class ConstantMulLazyVariable(LazyVariable):
     def __init__(self, lazy_var, constant):
-        if not isinstance(constant, Variable):
-            tensor_cls = lazy_var.tensor_cls
-            constant = Variable(tensor_cls(1).fill_(constant))
+        if torch.is_tensor(constant):
+            constant = constant
+        else:
+            constant = torch.Tensor([constant], device=lazy_var.device)
         super(ConstantMulLazyVariable, self).__init__(lazy_var, constant)
         self.lazy_var = lazy_var
         self.constant = constant
@@ -33,8 +33,20 @@ class ConstantMulLazyVariable(LazyVariable):
             if torch.is_tensor(item) and res[i].sum():
                 res[i] = res[i] * self.constant.expand_as(res[i])
         # Gradient with respect to the constant
-        res.append(left_vecs.new(1).fill_((left_vecs * self.lazy_var._matmul(right_vecs)).sum()))
+        if self.constant.numel() == 1:
+            constant_deriv = (left_vecs * self.lazy_var._matmul(right_vecs)).sum()
+        else:
+            constant_deriv = (left_vecs * self.lazy_var._matmul(right_vecs)).sum(-2, keepdim=True).sum(-1, keepdim=True)
+
+        res.append(constant_deriv)
         return res
+
+    def _constant_as(self, other):
+        constant = self.constant
+        if constant.ndimension() > other.ndimension():
+            constant = constant.squeeze(-1)
+
+        return constant.expand_as(other)
 
     def _size(self):
         return self.lazy_var.size()
@@ -52,15 +64,15 @@ class ConstantMulLazyVariable(LazyVariable):
 
     def _approx_diag(self):
         res = self.lazy_var._approx_diag()
-        return res * self.constant.expand_as(res)
+        return res * self._constant_as(res)
 
     def evaluate(self):
         res = self.lazy_var.evaluate()
-        return res * self.constant.expand_as(res)
+        return res * self._constant_as(res)
 
     def diag(self):
         res = self.lazy_var.diag()
-        res = res * self.constant.expand_as(res)
+        res = res * self._constant_as(res)
         return res
 
     def repeat(self, *sizes):

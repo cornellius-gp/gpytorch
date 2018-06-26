@@ -637,7 +637,7 @@ class LazyVariable(object):
             another matrix, this will likely be a :obj:`gpytorch.lazy.MulLazyVariable`.
         """
         if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or (
-            isinstance(other, Variable) and other.numel() == 1
+            torch.is_tensor(other) and (other.numel() == 1 or (other.numel() == self.size(0)))
         ):
             from .constant_mul_lazy_variable import ConstantMulLazyVariable
 
