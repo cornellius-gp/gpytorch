@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import torch
 from collections import OrderedDict
 from torch import nn
-from torch.autograd import Variable
 from .random_variables import RandomVariable
 from .lazy import LazyVariable
 from .variational import VariationalStrategy
