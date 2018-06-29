@@ -689,7 +689,7 @@ class LazyVariable(object):
         """
         representation = []
         for arg in self._args:
-            if isinstance(arg, Variable):
+            if torch.is_tensor(arg):
                 representation.append(arg)
             elif isinstance(arg, LazyVariable):
                 representation += list(arg.representation())
