@@ -12,8 +12,13 @@ import gpytorch
 
 class Kernel(Module):
     def __init__(
-            self, has_lengthscale=False, ard_num_dims=None, log_lengthscale_bounds=(-10000, 10000), active_dims=None
-            , batch_size=1):
+        self,
+        has_lengthscale=False,
+        ard_num_dims=None,
+        log_lengthscale_bounds=(-10000, 10000),
+        active_dims=None,
+        batch_size=1,
+    ):
         super(Kernel, self).__init__()
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)

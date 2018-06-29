@@ -8,14 +8,15 @@ from .kernel import Kernel
 
 
 class RBFKernel(Kernel):
-    def __init__(self, ard_num_dims=None, log_lengthscale_bounds=(-10000, 10000),
-                 eps=1e-6, active_dims=None, batch_size=1):
+    def __init__(
+        self, ard_num_dims=None, log_lengthscale_bounds=(-10000, 10000), eps=1e-6, active_dims=None, batch_size=1
+    ):
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
             log_lengthscale_bounds=log_lengthscale_bounds,
             active_dims=active_dims,
-            batch_size=batch_size
+            batch_size=batch_size,
         )
         self.eps = eps
 

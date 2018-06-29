@@ -162,9 +162,7 @@ class Module(nn.Module):
         if torch.is_tensor(outputs) or isinstance(outputs, RandomVariable) or isinstance(outputs, LazyVariable):
             return outputs
         for output in outputs:
-            if not (
-                isinstance(output, RandomVariable) or torch.is_tensor(output) or isinstance(output, LazyVariable)
-            ):
+            if not (isinstance(output, RandomVariable) or torch.is_tensor(output) or isinstance(output, LazyVariable)):
                 raise RuntimeError(
                     "Output must be a RandomVariable, torch.Tensor, or LazyVariable. "
                     "Was a {}".format(input.__class__.__name__)

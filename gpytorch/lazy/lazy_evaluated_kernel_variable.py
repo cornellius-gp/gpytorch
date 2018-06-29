@@ -39,6 +39,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         in cases where only the variances are required.
         """
         from ..kernels import Kernel, GridInterpolationKernel
+
         if isinstance(self.kernel, GridInterpolationKernel):
             return self.evaluate_kernel().diag()
 

@@ -151,9 +151,7 @@ class TestInterpolatedLazyVariable(unittest.TestCase):
 
     def test_inv_matmul_batch(self):
         base_lazy_variable = torch.randn(6, 6)
-        base_lazy_variable = (
-            (base_lazy_variable.t().matmul(base_lazy_variable)).unsqueeze(0).repeat(5, 1, 1)
-        )
+        base_lazy_variable = (base_lazy_variable.t().matmul(base_lazy_variable)).unsqueeze(0).repeat(5, 1, 1)
         base_lazy_variable_copy = base_lazy_variable.clone()
         base_lazy_variable.requires_grad = True
         base_lazy_variable_copy.requires_grad = True
