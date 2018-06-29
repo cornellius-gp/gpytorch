@@ -59,6 +59,7 @@ class LazyVariable(object):
         LazyVariable may be (for example) :math:`b \times n \times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
     """
+
     def __init__(self, *args, **kwargs):
         self._args = args
         self._kwargs = kwargs
@@ -303,6 +304,24 @@ class LazyVariable(object):
             else:
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
+
+    @property
+    def device(self):
+        device = None
+        device_set = False
+        for arg in self._args:
+            if hasattr(arg, "device"):
+                if not device_set:
+                    device = arg.device
+                    device_set = True
+                elif device == arg.device:
+                    continue
+                else:
+                    raise RuntimeError(
+                        "Default behavior for LazyVariable.device failed: found that this LazyVariable was created "
+                        "using args with different devices."
+                    )
+        return device
 
     def diag(self):
         """
