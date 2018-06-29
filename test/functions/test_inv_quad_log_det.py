@@ -7,7 +7,6 @@ import os
 import torch
 import unittest
 import gpytorch
-from torch.autograd import Variable
 from gpytorch.lazy import NonLazyVariable
 from gpytorch.utils import approx_equal
 
@@ -18,16 +17,18 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(1)
 
-        mat = torch.Tensor([[3, -1, 0], [-1, 3, 0], [0, 0, 3]])
-        vec = torch.randn(3)
-        vecs = torch.randn(3, 4)
-
-        self.mat_var = Variable(mat, requires_grad=True)
-        self.vec_var = Variable(vec, requires_grad=True)
-        self.vecs_var = Variable(vecs, requires_grad=True)
-        self.mat_var_clone = Variable(mat, requires_grad=True)
-        self.vec_var_clone = Variable(vec, requires_grad=True)
-        self.vecs_var_clone = Variable(vecs, requires_grad=True)
+        self.mat_var = torch.Tensor([[3, -1, 0], [-1, 3, 0], [0, 0, 3]])
+        self.mat_var_clone = self.mat_var.clone()
+        self.vec_var = torch.randn(3)
+        self.vec_var_clone = self.vec_var.clone()
+        self.vecs_var = torch.randn(3, 4)
+        self.vecs_var_clone = self.vecs_var.clone()
+        self.mat_var.requires_grad = True
+        self.mat_var_clone.requires_grad = True
+        self.vec_var.requires_grad = True
+        self.vec_var_clone.requires_grad = True
+        self.vecs_var.requires_grad = True
+        self.vecs_var_clone.requires_grad = True
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
@@ -44,12 +45,10 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         self.assertAlmostEqual(res_log_det.item(), actual_log_det.item(), places=1)
 
         # Backward
-        inv_quad_grad_output = torch.Tensor([3])
-        log_det_grad_output = torch.Tensor([4])
-        actual_inv_quad.backward(gradient=inv_quad_grad_output)
-        actual_log_det.backward(log_det_grad_output)
-        res_inv_quad.backward(gradient=inv_quad_grad_output, retain_graph=True)
-        res_log_det.backward(gradient=log_det_grad_output)
+        actual_inv_quad.backward()
+        actual_log_det.backward()
+        res_inv_quad.backward(retain_graph=True)
+        res_log_det.backward()
 
         self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
         self.assertTrue(approx_equal(self.vec_var_clone.grad.data, self.vec_var.grad.data))
@@ -61,9 +60,8 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         self.assertAlmostEqual(res.item(), actual.item(), places=1)
 
         # Backward
-        inv_quad_grad_output = torch.randn(1)
-        actual.backward(gradient=inv_quad_grad_output)
-        res.backward(gradient=inv_quad_grad_output)
+        actual.backward()
+        res.backward()
 
         self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
         self.assertTrue(approx_equal(self.vec_var_clone.grad.data, self.vec_var.grad.data))
@@ -79,12 +77,10 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         self.assertAlmostEqual(res_log_det.item(), actual_log_det.item(), places=1)
 
         # Backward
-        inv_quad_grad_output = torch.Tensor([3])
-        log_det_grad_output = torch.Tensor([4])
-        actual_inv_quad.backward(gradient=inv_quad_grad_output)
-        actual_log_det.backward(log_det_grad_output)
-        res_inv_quad.backward(gradient=inv_quad_grad_output, retain_graph=True)
-        res_log_det.backward(gradient=log_det_grad_output)
+        actual_inv_quad.backward()
+        actual_log_det.backward()
+        res_inv_quad.backward(retain_graph=True)
+        res_log_det.backward()
 
         self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
         self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
@@ -96,9 +92,8 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         self.assertAlmostEqual(res.item(), actual.item(), places=1)
 
         # Backward
-        inv_quad_grad_output = torch.randn(1)
-        actual.backward(gradient=inv_quad_grad_output)
-        res.backward(gradient=inv_quad_grad_output)
+        actual.backward()
+        res.backward()
 
         self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
         self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
@@ -111,9 +106,8 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         self.assertAlmostEqual(res.item(), actual.item(), places=1)
 
         # Backward
-        grad_output = torch.Tensor([3])
-        actual.backward(gradient=grad_output)
-        res.backward(gradient=grad_output)
+        actual.backward()
+        res.backward()
         self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
 
 
@@ -123,13 +117,15 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(1)
 
-        mats = torch.Tensor([[[3, -1, 0], [-1, 3, 0], [0, 0, 3]], [[10, -2, 1], [-2, 10, 0], [1, 0, 10]]])
-        vecs = torch.randn(2, 3, 4)
+        self.mats_var = torch.Tensor([[[3, -1, 0], [-1, 3, 0], [0, 0, 3]], [[10, -2, 1], [-2, 10, 0], [1, 0, 10]]])
+        self.mats_var_clone = self.mats_var.clone()
+        self.vecs_var = torch.randn(2, 3, 4)
+        self.vecs_var_clone = self.vecs_var.clone()
 
-        self.mats_var = Variable(mats, requires_grad=True)
-        self.vecs_var = Variable(vecs, requires_grad=True)
-        self.mats_var_clone = Variable(mats, requires_grad=True)
-        self.vecs_var_clone = Variable(vecs, requires_grad=True)
+        self.mats_var.requires_grad = True
+        self.mats_var_clone.requires_grad = True
+        self.vecs_var.requires_grad = True
+        self.vecs_var_clone.requires_grad = True
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
@@ -166,20 +162,18 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
 
     def test_inv_quad_only_many_vectors(self):
         # Forward pass
-        res = NonLazyVariable(self.mats_var).inv_quad(self.vecs_var)
+        res = NonLazyVariable(self.mats_var).inv_quad(self.vecs_var).sum()
         actual = (
             torch.cat([self.mats_var_clone[0].inverse().unsqueeze(0), self.mats_var_clone[1].inverse().unsqueeze(0)])
             .matmul(self.vecs_var_clone)
             .mul(self.vecs_var_clone)
             .sum(2)
             .sum(1)
-        )
+        ).sum()
         self.assertTrue(approx_equal(res.data, actual.data, epsilon=1e-1))
-
         # Backward
-        inv_quad_grad_output = torch.randn(2)
-        actual.backward(gradient=inv_quad_grad_output)
-        res.backward(gradient=inv_quad_grad_output)
+        actual.backward()
+        res.backward()
 
         self.assertTrue(approx_equal(self.mats_var_clone.grad.data, self.mats_var.grad.data, epsilon=1e-1))
         self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
