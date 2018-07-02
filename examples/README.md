@@ -24,19 +24,18 @@ Here's a verbal summary of the flow chart:
 
 *Does your output decompose additively?*
 
-**Yes:** Use [Additive Grid Interpolation](kissgp_additive_regression_cuda.ipynb)
+**Yes:** Use [Additive Grid Interpolation with KISS-GP](kissgp_additive_regression_cuda.ipynb)
 
-*Is your trainng data three-dimensional or less?*
+*Is your training data three-dimensional or less?*
 
 **Yes**: Exploit [Kronecker structure](kissgp_kronecker_product_regression.ipynb)
 
 **No**: Try Deep Kernel regression (example pending)
 
-### Variational Regression (new!)
+### SKI/KISS-GP + Via(new!)
 
 Try this if:
-- You have too much data for exact inference, even with KissGP/Deep kernel learning/etc.
-- Your model will need variational inference anyways (e.g. if you're doing some sort of clustering)
+- Your model will need variational inference anyways (e.g. if you're doing some sort of clustering, point process, or classification)
 
 See [the example](kissgp_variational_regression_cuda.ipynb) for more info.
 
