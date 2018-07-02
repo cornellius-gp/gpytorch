@@ -32,10 +32,11 @@ Here's a verbal summary of the flow chart:
 
 **No**: Try Deep Kernel regression (example pending)
 
-### SKI/KISS-GP + Via(new!)
+### SKI/KISS-GP + Variational Inference
 
-Try this if:
-- Your model will need variational inference anyways (e.g. if you're doing some sort of clustering, point process, or classification)
+Notes:
+- Try this if our model will need variational inference anyways (e.g. if you're doing some sort of clustering, point process, or classification)
+- Works for high dimensional problems and stochastic variational deep kernel learning.
 
 See [the example](kissgp_variational_regression_cuda.ipynb) for more info.
 
