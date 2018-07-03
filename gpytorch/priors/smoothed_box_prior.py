@@ -40,14 +40,19 @@ class SmoothedBoxPrior(Prior):
         self.register_buffer("b", b.view(-1).clone())
         self.register_buffer(
             "sigma",
-            torch.full_like(self.a, float(sigma)) if isinstance(sigma, Number) else sigma.view(self.a.shape).clone(),
+            torch.full_like(self.a, float(sigma))
+            if isinstance(sigma, Number)
+            else sigma.view(self.a.shape).clone(),
         )
         self.register_buffer("_loc", torch.zeros_like(self.sigma))
         self._initialize_distributions()
         self._log_transform = log_transform
 
     def _initialize_distributions(self):
-        self._tails = [Normal(loc=l, scale=s, validate_args=True) for l, s in zip(self._loc, self.sigma)]
+        self._tails = [
+            Normal(loc=l, scale=s, validate_args=True)
+            for l, s in zip(self._loc, self.sigma)
+        ]
 
     @property
     def _c(self):

@@ -41,11 +41,11 @@ class ExactGPModel(gpytorch.models.ExactGP):
         return GaussianRandomVariable(mean_x, covar_x)
 
 
-class TestSimpleGPRegressionWithWhiteNoise(unittest.TestCase):
+class TestSimpleGPRegression(unittest.TestCase):
     def test_posterior_latent_gp_and_likelihood_without_optimization(self):
         # We're manually going to set the hyperparameters to be ridiculous
         likelihood = GaussianLikelihood(
-            log_noise_prior=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5, log_transform=True)
+            log_noise_prior=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.25, log_transform=True)
         )
         gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
@@ -53,6 +53,7 @@ class TestSimpleGPRegressionWithWhiteNoise(unittest.TestCase):
             log_lengthscale=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5, log_transform=True)
         )
         gp_model.rbf_covar_module.initialize(log_lengthscale=-10)
+        gp_model.mean_module.initialize(constant=0)
         likelihood.initialize(log_noise=-10)
 
         # Compute posterior distribution

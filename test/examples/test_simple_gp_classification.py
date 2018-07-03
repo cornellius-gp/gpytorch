@@ -12,6 +12,7 @@ import gpytorch
 from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
+from gpytorch.lazy import ConstantMulLazyVariable
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
@@ -42,8 +43,7 @@ class GPClassificationModel(gpytorch.models.VariationalGP):
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
-        covar_x = covar_x.mul(self.log_outputscale.exp())
+        covar_x = ConstantMulLazyVariable(self.covar_module(x), self.log_outputscale.exp())
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred
 

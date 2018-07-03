@@ -50,7 +50,7 @@ class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
 
 class TestKissGPAdditiveClassification(unittest.TestCase):
     def test_kissgp_classification_error(self):
-        with gpytorch.settings.use_toeplitz(False):
+        with gpytorch.settings.use_toeplitz(False), gpytorch.settings.max_preconditioner_size(5):
             model = GPClassificationModel()
             likelihood = BernoulliLikelihood()
             mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))

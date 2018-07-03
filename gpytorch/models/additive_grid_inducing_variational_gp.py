@@ -25,8 +25,8 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
         if mixing_params:
             self.register_parameter(
                 name="mixing_params",
-                parameter=torch.nn.Parameter(torch.Tensor(n_components).fill_(1. / n_components)),
-                prior=SmoothedBoxPrior(-2, 2, sigma=0.01),
+                parameter=torch.nn.Parameter(torch.ones(n_components) / n_components),
+                prior=SmoothedBoxPrior(-2, 2, sigma=0.01, size=n_components),
             )
 
     def _compute_grid(self, inputs):

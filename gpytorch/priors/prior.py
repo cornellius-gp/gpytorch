@@ -55,7 +55,10 @@ class TorchDistributionPrior(Prior):
     """
 
     def _log_prob(self, parameter):
-        return sum(d.log_prob(p) for d, p in zip(self._distributions, parameter.view(self.size)))
+        return sum(
+            d.log_prob(p)
+            for d, p in zip(self._distributions, parameter.view(self.size))
+        )
 
     @property
     def size(self):

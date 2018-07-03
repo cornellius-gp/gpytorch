@@ -15,8 +15,7 @@ class VariationalMarginalLogLikelihood(MarginalLogLikelihood):
         - likelihood: (Likelihood) - the likelihood for the model
         - model: (Module) - the variational GP model
         - n_data: (int) - the total number of training data points (necessary for SGD)
-        - combine_terms: (bool) - whether or not to sum the expected NLL with the
-            KL terms (default True)
+        - combine_terms: (bool) - whether or not to sum the expected NLL with the KL terms (default True)
         """
         super(VariationalMarginalLogLikelihood, self).__init__(likelihood, model)
         self.n_data = n_data
@@ -32,9 +31,9 @@ class VariationalMarginalLogLikelihood(MarginalLogLikelihood):
 
         if self.combine_terms:
             res = log_likelihood - kl_divergence
-            return res
             for _, param, prior in self.named_parameter_priors():
                 res.add_(prior.log_prob(param).sum())
+            return res
         else:
             log_prior = log_likelihood.new_zeros(1)
             for _, param, prior in self.named_parameter_priors():

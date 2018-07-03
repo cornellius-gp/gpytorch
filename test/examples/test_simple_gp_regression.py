@@ -43,7 +43,7 @@ class TestSimpleGPRegression(unittest.TestCase):
     def test_posterior_latent_gp_and_likelihood_without_optimization(self):
         # We're manually going to set the hyperparameters to be ridiculous
         likelihood = GaussianLikelihood(
-            log_noise_prior=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5, log_transform=True)
+            log_noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True)
         )
         gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
         # Update lengthscale prior to accommodate extreme parameters

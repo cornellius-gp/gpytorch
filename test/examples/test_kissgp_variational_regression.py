@@ -23,7 +23,7 @@ from gpytorch.random_variables import GaussianRandomVariable
 # but with KISS-GP let's use 100 training examples.
 def make_data():
     train_x = torch.linspace(0, 1, 1000)
-    train_y = torch.sin(train_x * (2 * pi))
+    train_y = torch.sin(train_x * (2 * pi)) + 0.01 * torch.randn(1000)
     test_x = torch.linspace(0, 1, 51)
     test_y = torch.sin(test_x * (2 * pi))
     return train_x, train_y, test_x, test_y
@@ -52,7 +52,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
+            torch.manual_seed(2)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
@@ -71,8 +71,8 @@ class TestKissGPVariationalRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        with gpytorch.beta_features.diagonal_correction(False):
-            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        with gpytorch.beta_features.diagonal_correction():
+            optimizer = optim.SGD(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15], gamma=0.1)
             for _ in range(20):
                 scheduler.step()

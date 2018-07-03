@@ -1,4 +1,9 @@
-from .kernel import Kernel
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from .kernel import Kernel, AdditiveKernel, ProductKernel
 from .rbf_kernel import RBFKernel
 from .matern_kernel import MaternKernel
 from .periodic_kernel import PeriodicKernel
@@ -11,13 +16,14 @@ from .linear_kernel import LinearKernel
 from .multiplicative_grid_interpolation_kernel import MultiplicativeGridInterpolationKernel
 from .white_noise_kernel import WhiteNoiseKernel
 
-
 __all__ = [
+    AdditiveKernel,
     Kernel,
     LinearKernel,
     RBFKernel,
     MaternKernel,
     PeriodicKernel,
+    ProductKernel,
     SpectralMixtureKernel,
     IndexKernel,
     GridInterpolationKernel,

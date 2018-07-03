@@ -1,0 +1,96 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import math
+import torch
+import unittest
+import gpytorch
+from torch import optim
+from gpytorch.kernels import RBFKernel
+from gpytorch.means import ConstantMean
+from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.random_variables import GaussianRandomVariable
+
+
+# Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
+# in parallel.
+train_x1 = torch.linspace(0, 1, 11).unsqueeze(-1)
+train_y1 = torch.sin(train_x1.data * (2 * math.pi)).squeeze()
+test_x1 = torch.linspace(0, 1, 51).unsqueeze(-1)
+test_y1 = torch.sin(test_x1.data * (2 * math.pi)).squeeze()
+
+train_x2 = torch.linspace(0, 1, 11).unsqueeze(-1)
+train_y2 = torch.cos(train_x2.data * (2 * math.pi)).squeeze()
+test_x2 = torch.linspace(0, 1, 51).unsqueeze(-1)
+test_y2 = torch.cos(test_x2.data * (2 * math.pi)).squeeze()
+
+
+class ExactGPModel(gpytorch.models.ExactGP):
+    def __init__(self, train_inputs, train_targets, likelihood):
+        super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
+        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
+        self.covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return GaussianRandomVariable(mean_x, covar_x)
+
+
+class TestBatchGPRegression(unittest.TestCase):
+    def test_posterior_latent_gp_and_likelihood_with_optimization(self):
+        # We're manually going to set the hyperparameters to something they shouldn't be
+        likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
+        gp_model = ExactGPModel(train_x1.data, train_y1.data, likelihood)
+        mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
+        gp_model.covar_module.initialize(log_lengthscale=-1)
+        gp_model.mean_module.initialize(constant=0)
+        likelihood.initialize(log_noise=0)
+
+        # Find optimal model hyperparameters
+        gp_model.train()
+        likelihood.train()
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        optimizer.n_iter = 0
+        for _ in range(50):
+            optimizer.zero_grad()
+            output = gp_model(train_x1)
+            loss = -mll(output, train_y1)
+            loss.backward()
+            optimizer.n_iter += 1
+            optimizer.step()
+
+        for param in gp_model.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        for param in likelihood.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        optimizer.step()
+
+        # Test the model
+        gp_model.eval()
+        likelihood.eval()
+
+        # Create data batches
+        train_x12 = torch.cat((train_x1.unsqueeze(0), train_x2.unsqueeze(0)), dim=0).contiguous()
+        train_y12 = torch.cat((train_y1.unsqueeze(0), train_y2.unsqueeze(0)), dim=0).contiguous()
+        test_x12 = torch.cat((test_x1.unsqueeze(0), test_x2.unsqueeze(0)), dim=0).contiguous()
+
+        # Update gp model to use both sine and cosine training data as train data
+        gp_model.set_train_data(train_x12, train_y12, strict=False)
+
+        # Make predictions for both sets of test points, and check MAEs.
+        batch_predictions = likelihood(gp_model(test_x12))
+        preds1 = batch_predictions.mean()[0]
+        preds2 = batch_predictions.mean()[1]
+        mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
+        mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
+        self.assertLess(mean_abs_error1.data.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error2.data.squeeze().item(), 0.05)
+
+
+if __name__ == "__main__":
+    unittest.main()
