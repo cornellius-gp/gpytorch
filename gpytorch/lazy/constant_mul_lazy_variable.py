@@ -34,7 +34,7 @@ class ConstantMulLazyVariable(LazyVariable):
                 res[i] = res[i] * self.constant.expand_as(res[i])
         # Gradient with respect to the constant
         if self.constant.numel() == 1:
-            constant_deriv = (left_vecs * self.lazy_var._matmul(right_vecs)).sum()
+            constant_deriv = (left_vecs * self.lazy_var._matmul(right_vecs)).sum().expand_as(self.constant)
         else:
             constant_deriv = (left_vecs * self.lazy_var._matmul(right_vecs)).sum(-2, keepdim=True).sum(-1, keepdim=True)
 
