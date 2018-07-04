@@ -18,13 +18,12 @@ from gpytorch.random_variables import GaussianRandomVariable
 
 
 train_x = Variable(torch.linspace(0, 1, 10))
-train_y = Variable(torch.sign(torch.cos(train_x.data * (8 * pi))))
-
+train_y = Variable(torch.sign(torch.cos(train_x.data * (16 * pi))))
 
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-5, 5))
         self.covar_module = RBFKernel(
             log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
         )

@@ -32,7 +32,7 @@ def make_data():
 class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
     def __init__(self):
         super(GPRegressionModel, self).__init__(grid_size=20, grid_bounds=[(-0.05, 1.05)])
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-5, 5))
         self.covar_module = RBFKernel(
             log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
         )
@@ -72,11 +72,13 @@ class TestKissGPVariationalRegression(unittest.TestCase):
         likelihood.train()
 
         with gpytorch.beta_features.diagonal_correction():
-            optimizer = optim.SGD(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+            optimizer = optim.SGD(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.001)
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15], gamma=0.1)
             for _ in range(20):
                 scheduler.step()
+                batchnum = 0
                 for x_batch, y_batch in loader:
+                    batchnum += 1
                     x_batch = Variable(x_batch.float())
                     y_batch = Variable(y_batch.float())
 
@@ -84,9 +86,12 @@ class TestKissGPVariationalRegression(unittest.TestCase):
                     output = gp_model(x_batch)
                     loss = -mll(output, y_batch)
                     loss.backward()
+                    for name, param in gp_model.named_parameters():
+                        print('minibatch {} grad norm'.format(batchnum), name, param.grad.norm())
                     optimizer.step()
 
-            for param in gp_model.parameters():
+            for name, param in gp_model.named_parameters():
+                print(name, param.grad.norm())
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
             for param in likelihood.parameters():
