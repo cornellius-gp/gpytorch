@@ -73,9 +73,9 @@ class InvMatmul(Function):
             # input_1 gradient
             if any(self.needs_input_grad[1:]):
                 if lazy_var is not None:
-                    arg_grads = lazy_var._quad_form_derivative(grad_output_solves, rhs_solves.mul_(-1))
+                    arg_grads = lazy_var._quad_form_derivative(grad_output_solves, rhs_solves.mul(-1))
                 else:
-                    arg_grads = (torch.matmul(grad_output_solves, rhs_solves.mul_(-1).transpose(-1, -2)),)
+                    arg_grads = (torch.matmul(grad_output_solves, rhs_solves.mul(-1).transpose(-1, -2)),)
 
             # input_2 gradient
             if self.needs_input_grad[0]:
