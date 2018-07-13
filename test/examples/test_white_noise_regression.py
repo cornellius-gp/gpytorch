@@ -49,7 +49,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         )
         gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
-        gp_model.rbf_covar_module.set_priors(
+        gp_model.rbf_covar_module.set_parameter_priors(
             log_lengthscale=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5, log_transform=True)
         )
         gp_model.rbf_covar_module.initialize(log_lengthscale=-10)

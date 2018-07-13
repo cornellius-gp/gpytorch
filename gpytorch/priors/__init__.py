@@ -7,5 +7,13 @@ from .gamma_prior import GammaPrior
 from .multivariate_normal_prior import MultivariateNormalPrior
 from .normal_prior import NormalPrior
 from .smoothed_box_prior import SmoothedBoxPrior
+from .wishart_prior import InverseWishartPrior, WishartPrior
 
-__all__ = [GammaPrior, MultivariateNormalPrior, NormalPrior, SmoothedBoxPrior]
+__all__ = [
+    GammaPrior,
+    InverseWishartPrior,
+    MultivariateNormalPrior,
+    NormalPrior,
+    SmoothedBoxPrior,
+    WishartPrior,
+]

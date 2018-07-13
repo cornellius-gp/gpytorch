@@ -20,6 +20,7 @@ from gpytorch.random_variables import GaussianRandomVariable
 train_x = Variable(torch.linspace(0, 1, 10))
 train_y = Variable(torch.sign(torch.cos(train_x.data * (16 * pi))))
 
+
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])

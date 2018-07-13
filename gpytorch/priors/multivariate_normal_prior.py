@@ -45,5 +45,5 @@ class MultivariateNormalPrior(TorchDistributionPrior):
         return True
 
     @property
-    def size(self):
-        return self.loc.nelement()
+    def shape(self):
+        return torch.Size([self.loc.nelement()])

@@ -76,5 +76,5 @@ class SmoothedBoxPrior(Prior):
         return True
 
     @property
-    def size(self):
-        return len(self.tails)
+    def shape(self):
+        return torch.Size([len(self.tails)])
