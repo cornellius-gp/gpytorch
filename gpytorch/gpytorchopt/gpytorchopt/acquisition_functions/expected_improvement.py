@@ -1,11 +1,6 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
+from torch.distributions import Normal
 import torch
 from .acquisition_function import AcquisitionFunction
-from torch.distributions.normal import Normal
 
 
 class ExpectedImprovement(AcquisitionFunction):
@@ -14,8 +9,6 @@ class ExpectedImprovement(AcquisitionFunction):
         self.best_y = best_y
 
     def forward(self, candidate_set):
-        self.grid_size = 10000
-
         self.gp_model.eval()
         self.gp_model.likelihood.eval()
 

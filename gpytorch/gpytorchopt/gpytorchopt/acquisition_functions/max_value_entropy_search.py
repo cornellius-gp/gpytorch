@@ -1,18 +1,13 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
+from torch.distributions import Normal
 import torch
 from .acquisition_function import AcquisitionFunction
-from torch.distributions.normal import Normal
 
 
 class MaxValueEntropySearch(AcquisitionFunction):
-    def __init__(self, gp_model, K):
+    def __init__(self, gp_model, num_samples):
         # K: # of sampled function maxima
         super(MaxValueEntropySearch, self).__init__(gp_model)
-        self.K = K
+        self.num_samples = num_samples
 
     def forward(self, candidate_set):
         self.gp_model.eval()
@@ -24,15 +19,15 @@ class MaxValueEntropySearch(AcquisitionFunction):
         sigma = pred.std().detach()
 
         # K samples of the posterior function f
-        f_samples = pred.sample(self.K)
+        f_samples = pred.sample(self.num_samples)
 
         # K samples of y_star
         ys = f_samples.max(dim=0)[0]
-        ysArray = ys.unsqueeze(0).expand(candidate_set.shape[0], self.K)
+        ysArray = ys.unsqueeze(0).expand(candidate_set.shape[0], self.num_samples)
 
         # compute gamma_y_star
-        muArray = mu.unsqueeze(1).expand(candidate_set.shape[0], self.K)
-        sigmaArray = sigma.unsqueeze(1).expand(candidate_set.shape[0], self.K)
+        muArray = mu.unsqueeze(1).expand(candidate_set.shape[0], self.num_samples)
+        sigmaArray = sigma.unsqueeze(1).expand(candidate_set.shape[0], self.num_samples)
         gamma = (ysArray - muArray) / sigmaArray
 
         # Compute the acquisition function of MES.
