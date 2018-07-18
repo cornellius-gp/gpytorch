@@ -134,14 +134,15 @@ class Module(nn.Module):
         for name, (prior, pnames, tf) in self._derived_priors.items():
             if prior is not None and prior not in memo:
                 memo.add(prior)
-                yield prefix + ("." if prefix else "") + name, prior, pnames, tf
+                parameters = tuple(getattr(self, pname) for pname in pnames)
+                yield prefix + ("." if prefix else "") + name, prior, parameters, tf
         for mname, module in self.named_children():
             submodule_prefix = prefix + ("." if prefix else "") + mname
             if hasattr(module, "_derived_priors"):
-                for name, prior, pnames, tf in module.named_derived_priors(
+                for name, prior, parameters, tf in module.named_derived_priors(
                     memo, submodule_prefix
                 ):
-                    yield name, prior, pnames, tf
+                    yield name, prior, parameters, tf
 
     def named_variational_strategies(self, memo=None, prefix=""):
         """Returns an iterator over module variational strategies, yielding both

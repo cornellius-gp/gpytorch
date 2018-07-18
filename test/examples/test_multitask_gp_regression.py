@@ -14,7 +14,7 @@ from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, IndexKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
-from gpytorch.priors import SmoothedBoxPrior
+from gpytorch.priors import InverseWishartPrior, SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
@@ -41,12 +41,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
         self.task_covar_module = IndexKernel(
             n_tasks=2,
             rank=1,
-            covar_factor_prior=SmoothedBoxPrior(
-                torch.ones(2).fill_(-6).exp_(), torch.ones(2).fill_(6).exp_(), sigma=0.1, log_transform=True
-            ),
-            log_var_prior=SmoothedBoxPrior(
-                torch.ones(2).fill_(-6).exp_(), torch.ones(2).fill_(6).exp_(), sigma=0.1, log_transform=True
-            ),
+            prior=InverseWishartPrior(nu=2, K=torch.eye(2)),
         )
 
     def forward(self, x, i):
