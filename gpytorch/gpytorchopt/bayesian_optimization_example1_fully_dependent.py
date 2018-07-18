@@ -1,8 +1,8 @@
 import torch
 import gpytorch
 from gpytorchopt.additive.additive_structure_gp_model import ExactGPModel
-from gpytorchopt.acquisition_functions import ExpectedImprovement
-from gpytorchopt.acquisition_function_strategies.discrete_set import (
+from gpytorchopt.acquisition import ExpectedImprovement
+from gpytorchopt.acquisition.strategy.discrete_set import (
     DiscreteSetEvaluationStrategy,
     DiscreteSetRandomStrategy,
 )
