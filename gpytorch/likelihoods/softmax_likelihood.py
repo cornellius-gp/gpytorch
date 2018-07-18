@@ -39,7 +39,7 @@ class SoftmaxLikelihood(Likelihood):
         """
         if not isinstance(latent_func, GaussianRandomVariable):
             raise RuntimeError(
-                "SoftmaxLikelihood expects a Gaussian distributed latent " "function to make predictions"
+                "SoftmaxLikelihood expects a Gaussian distributed latent function to make predictions"
             )
 
         n_samples = settings.num_likelihood_samples.value()

@@ -88,7 +88,7 @@ class Module(nn.Module):
                 param = self._parameters[name]
                 if not prior.is_in_support(param):
                     raise ValueError(
-                        "Value of parameter {param} not contained in support " "of specified prior".format(param=param)
+                        "Value of parameter {param} not contained in support of specified prior".format(param=param)
                     )
         return self
 
@@ -165,6 +165,19 @@ class Module(nn.Module):
 
     def register_derived_prior(self, name, prior, parameter_names, transform):
         """
+        Adds a derived prior to the module.
+        The prior can be accessed as an attribute using the given name.
+
+        name (str): name of the derived prior
+        prior (Prior): the prior object
+        parameter_names (tuple(str)): The parameters the transform operaters on,
+            in the same order as expected by the transform callable.
+        transform (Callable): The function called on the specified parameters. The
+            log-pdf of the prior will be evaluating on the output of this transform.
+
+        A derived prior operates on a transform of one or multiple parameters.
+        This can be used, for instance, to put a prior over the ICM Kernel
+        covariance matrix generated from covar_factor and log_var parameters.
 
         """
         self.add_module(name, prior)
@@ -175,7 +188,8 @@ class Module(nn.Module):
 
     def set_parameter_priors(self, **kwargs):
         """
-        Set prior for a parameter
+        Set prior for a parameter.
+        The prior can be accessed as an attribute using <PARAMETER_NAME>_prior.
 
         kwargs: (param_name, prior) - parameter to initialize
         prior must be a gpytorch Prior
