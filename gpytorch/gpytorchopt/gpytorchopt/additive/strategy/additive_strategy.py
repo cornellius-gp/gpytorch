@@ -1,5 +1,5 @@
 import torch
-from gpytorchopt.acquisition_function_strategies import AcquisitionFunctionStrategy
+from gpytorchopt.acquisition.strategy import AcquisitionFunctionStrategy
 
 
 class AdditiveStrategy(AcquisitionFunctionStrategy):

@@ -1,15 +1,15 @@
 import torch
 import gpytorch
 from gpytorchopt.additive.additive_structure_gp_model import AdditiveStructureGPModel
-from gpytorchopt.acquisition_function_strategies.discrete_set import (
+from gpytorchopt.acquisition.strategy.discrete_set import (
     EnsembleDiscreteSetEvaluationStrategy,
     DiscreteSetRandomStrategy,
 )
-from gpytorchopt.additive.acquisition_function_strategies import AdditiveStrategy, DimScanAdditiveStrategy
+from gpytorchopt.additive.strategy import DimScanAdditiveStrategy
 from gpytorchopt import BayesianOptimization
 from gpytorchopt.additive.structure_discovery import MetropolisHastingAdditiveStructureSelector
 import ghalton
-from gpytorchopt.acquisition_functions import ExpectedImprovement
+from gpytorchopt.acquisition import ExpectedImprovement
 
 # Define the function
 func1 = False

@@ -1,9 +1,9 @@
 import torch
 import gpytorch
 from gpytorchopt.additive.additive_structure_gp_model import ExactGPModel
-from gpytorchopt.acquisition_functions import ExpectedImprovement
-from gpytorchopt.acquisition_function_strategies.discrete_set import DiscreteSetRandomStrategy
-from gpytorchopt.additive.acquisition_function_strategies import AdditiveStrategy, DimScanAdditiveStrategy
+from gpytorchopt.acquisition import ExpectedImprovement
+from gpytorchopt.acquisition.strategy.discrete_set import DiscreteSetRandomStrategy
+from gpytorchopt.additive.strategy import AdditiveStrategy, DimScanAdditiveStrategy
 from gpytorchopt import BayesianOptimization
 from gpytorchopt.additive.structure_discovery import BagofModelsAdditiveStructureSelector
 import ghalton
@@ -69,7 +69,7 @@ class BayesianOptimizationRandom(BayesianOptimization):
         return true_candidate, function_value
 
 
-initial_kernel = gpytorch.kernels.AdditiveKernel(gpytorch.kernels.RBFKernel(active_dims=list(range(n_dims))))
+initial_kernel = gpytorch.kernels.RBFKernel(active_dims=list(range(n_dims)))
 likelihood = gpytorch.likelihoods.GaussianLikelihood(log_noise_bounds=(-5, 1))  # .cuda()
 initial_model = ExactGPModel(
     torch.Tensor([0]), torch.Tensor(), likelihood, initial_kernel

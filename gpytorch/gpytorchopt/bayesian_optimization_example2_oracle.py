@@ -1,9 +1,9 @@
 import torch
 import gpytorch
 from gpytorchopt.additive.additive_structure_gp_model import AdditiveStructureGPModel
-from gpytorchopt.acquisition_functions import ExpectedImprovement
-from gpytorchopt.acquisition_function_strategies.discrete_set import DiscreteSetRandomStrategy
-from gpytorchopt.additive.acquisition_function_strategies import AdditiveStrategy, DimScanAdditiveStrategy
+from gpytorchopt.acquisition import ExpectedImprovement
+from gpytorchopt.acquisition.strategy.discrete_set import DiscreteSetRandomStrategy
+from gpytorchopt.additive.strategy import AdditiveStrategy, DimScanAdditiveStrategy
 from gpytorchopt import BayesianOptimization
 import ghalton
 
