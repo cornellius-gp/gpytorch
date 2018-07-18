@@ -34,7 +34,7 @@ class BayesianOptimizationOracle(BayesianOptimization):
         oracle_kernel_list = []
         for i in range(self.n_dims):
             oracle_kernel_list.append(gpytorch.kernels.RBFKernel(log_lengthscale_bounds=(-10, 10), active_dims=[i]))
-            oracle_kernel = gpytorch.kernels.kernel.AdditiveKernel(*oracle_kernel_list)
+            oracle_kernel = gpytorch.kernels.AdditiveKernel(*oracle_kernel_list)
             likelihood = gpytorch.likelihoods.GaussianLikelihood(log_noise_bounds=(-5, 1))
             self.model = AdditiveStructureGPModel(self._samples, self._function_values, likelihood, oracle_kernel)
         super(BayesianOptimizationOracle, self).update_model(refit_hyper, lr, optim_steps, verbose, update_mode)
@@ -61,7 +61,7 @@ class BayesianOptimizationOracle(BayesianOptimization):
 oracle_kernel_list = []
 for i in range(n_dims):
     oracle_kernel_list.append(gpytorch.kernels.RBFKernel(log_lengthscale_bounds=(-10, 10), active_dims=[i]))
-oracle_kernel = gpytorch.kernels.kernel.AdditiveKernel(*oracle_kernel_list)
+oracle_kernel = gpytorch.kernels.AdditiveKernel(*oracle_kernel_list)
 likelihood = gpytorch.likelihoods.GaussianLikelihood(log_noise_bounds=(-5, 1))  # .cuda()
 initial_model = AdditiveStructureGPModel(
     torch.Tensor([0]), torch.Tensor(), likelihood, oracle_kernel

@@ -129,7 +129,7 @@ class BagofModelsAdditiveStructureSelector:
         for i in range(num_models):
             # propose a kernel
             proposed_sample, _, _ = self.proposer.propose(self.current_kernel.kernels)
-            proposed_kernel = gpytorch.kernels.kernel.AdditiveKernel(*proposed_sample)
+            proposed_kernel = gpytorch.kernels.AdditiveKernel(*proposed_sample)
 
             # construct a GP model
             likelihood = gpytorch.likelihoods.GaussianLikelihood(log_noise_bounds=(-5, 1))  # .cuda()
