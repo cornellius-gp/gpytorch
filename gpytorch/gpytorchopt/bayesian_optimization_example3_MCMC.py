@@ -105,7 +105,7 @@ class BayesianOptimizationModelMCMC(BayesianOptimization):
         return true_candidate, function_value
 
 
-initial_kernel = gpytorch.kernels.kernel.AdditiveKernel(gpytorch.kernels.RBFKernel(active_dims=list(range(n_dims))))
+initial_kernel = gpytorch.kernels.AdditiveKernel(gpytorch.kernels.RBFKernel(active_dims=list(range(n_dims))))
 likelihood = gpytorch.likelihoods.GaussianLikelihood(log_noise_bounds=(-5, 1))  # .cuda()
 initial_model = AdditiveStructureGPModel(
     torch.Tensor([0]), torch.Tensor(), likelihood, initial_kernel

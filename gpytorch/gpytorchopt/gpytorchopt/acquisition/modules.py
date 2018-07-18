@@ -14,7 +14,7 @@ class AcquisitionFunction(Module):
 
     def forward(self, candidate_set: torch.Tensor) -> torch.tensor:
         # takes in an n*d candidate_set tensor and return an n*1 tensor
-        pass
+        raise NotImplementedError("AcquisitionFunction cannot be used directly")
 
 
 class ExpectedImprovement(AcquisitionFunction):

@@ -49,6 +49,8 @@ def posterior_mean(
         candidate_set (torch.Tensor): 'r x n' dimensional tensor where r is the number of
         points to evaluate, and n is the number of parameters
     """
+    model.eval()
+    model.likelihood.eval()
     pred_rv = model(candidate_set)
     mean = pred_rv.mean()
     return mean
@@ -69,6 +71,8 @@ def probability_of_improvement(
         points to evaluate, and n is the number of parameters,
         fbest: previous best point
     """
+    model.eval()
+    model.likelihood.eval()
     normal = torch.distributions.Normal(0, 1)
     pred_rv = model(candidate_set)
     mean = pred_rv.mean()
@@ -92,6 +96,8 @@ def upper_confidence_bound(
         points to evaluate, and n is the number of parameters
         beta: used to trade-off mean versus covariance
     """
+    model.eval()
+    model.likelihood.eval()
     pred_rv = model(candidate_set)
     mean = pred_rv.mean()
     var = pred_rv.covar().diag() * beta

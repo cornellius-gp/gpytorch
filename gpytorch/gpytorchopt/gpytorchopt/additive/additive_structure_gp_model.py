@@ -1,5 +1,5 @@
 import gpytorch
-from gpytorch.kernels.kernel import AdditiveKernel
+from gpytorch.kernels import AdditiveKernel
 import torch
 from torch import nn
 import copy
