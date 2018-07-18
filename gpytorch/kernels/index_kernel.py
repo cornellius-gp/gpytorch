@@ -15,30 +15,12 @@ def _eval_covar_matrix(covar_factor, log_var):
 
 
 class IndexKernel(Kernel):
-    def __init__(
-        self,
-        n_tasks,
-        rank=1,
-        prior=None,
-        active_dims=None,
-        covar_factor_bounds=(-100, 100),
-        log_var_bounds=(-100, 100),
-    ):
+    def __init__(self, n_tasks, rank=1, prior=None, active_dims=None):
         if active_dims is not None and len(active_dims) > 1:
-            raise ValueError(
-                "Index must be with respect to a single column. Received {}".format(
-                    active_dims
-                )
-            )
+            raise ValueError("Index must be with respect to a single column. Received {}".format(active_dims))
         super(IndexKernel, self).__init__(active_dims=active_dims)
-        self.register_parameter(
-            name="covar_factor",
-            parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)),
-        )
-        self.register_parameter(
-            name="log_var",
-            parameter=torch.nn.Parameter(torch.randn(n_tasks)),
-        )
+        self.register_parameter(name="covar_factor", parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)))
+        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(n_tasks)))
         if prior is not None:
             self.register_derived_prior(
                 name="IndexKernelPrior",
@@ -46,8 +28,6 @@ class IndexKernel(Kernel):
                 parameter_names=("covar_factor", "log_var"),
                 transform=_eval_covar_matrix,
             )
-        else:
-            logger.warning("Cannot infer appropriate prior from bounds. Ignoring bounds.")
 
     def forward(self, i1, i2):
         covar_matrix = _eval_covar_matrix(self.covar_factor, self.log_var).unsqueeze(0)

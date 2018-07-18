@@ -25,9 +25,7 @@ class Module(nn.Module):
             return self.__getattr__(module), name
         else:
             raise AttributeError(
-                "Invalid parameter name {}. {} has no module {}".format(
-                    parameter_name, type(self).__name__, module
-                )
+                "Invalid parameter name {}. {} has no module {}".format(parameter_name, type(self).__name__, module)
             )
 
     def _get_prior_for(self, parameter_name):
@@ -44,9 +42,7 @@ class Module(nn.Module):
                 return self._priors.get(parameter_name)
             else:
                 raise AttributeError(
-                    "Module {module} has no parameter {name}".format(
-                        module=type(self).__name__, name=parameter_name
-                    )
+                    "Module {module} has no parameter {name}".format(module=type(self).__name__, name=parameter_name)
                 )
 
     def _get_derived_prior(self, prior_name):
@@ -63,9 +59,7 @@ class Module(nn.Module):
                 return self._derived_priors.get(prior_name)
             else:
                 raise AttributeError(
-                    "Module {module} has no derived prior {name}".format(
-                        module=type(self).__name__, name=prior_name
-                    )
+                    "Module {module} has no derived prior {name}".format(module=type(self).__name__, name=prior_name)
                 )
 
     def forward(self, *inputs, **kwargs):
@@ -80,21 +74,13 @@ class Module(nn.Module):
         """
         for name, val in kwargs.items():
             if name not in self._parameters:
-                raise AttributeError(
-                    "Unknown parameter {p} for {c}".format(
-                        p=name, c=self.__class__.__name__
-                    )
-                )
+                raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
             if torch.is_tensor(val):
                 self.__getattr__(name).data.copy_(val)
             elif isinstance(val, float) or isinstance(val, int):
                 self.__getattr__(name).data.fill_(val)
             else:
-                raise AttributeError(
-                    "Type {t} not valid to initialize parameter {p}".format(
-                        t=type(val), p=name
-                    )
-                )
+                raise AttributeError("Type {t} not valid to initialize parameter {p}".format(t=type(val), p=name))
 
             # Ensure value is contained in support of prior (if present)
             prior = self._priors.get(name)
@@ -102,8 +88,7 @@ class Module(nn.Module):
                 param = self._parameters[name]
                 if not prior.is_in_support(param):
                     raise ValueError(
-                        "Value of parameter {param} not contained in support "
-                        "of specified prior".format(param=param)
+                        "Value of parameter {param} not contained in support " "of specified prior".format(param=param)
                     )
         return self
 
@@ -139,9 +124,7 @@ class Module(nn.Module):
         for mname, module in self.named_children():
             submodule_prefix = prefix + ("." if prefix else "") + mname
             if hasattr(module, "_derived_priors"):
-                for name, prior, parameters, tf in module.named_derived_priors(
-                    memo, submodule_prefix
-                ):
+                for name, prior, parameters, tf in module.named_derived_priors(memo, submodule_prefix):
                     yield name, prior, parameters, tf
 
     def named_variational_strategies(self, memo=None, prefix=""):
@@ -162,9 +145,7 @@ class Module(nn.Module):
         for mname, module in self.named_children():
             submodule_prefix = prefix + ("." if prefix else "") + mname
             if hasattr(module, "named_variational_strategies"):
-                for name, strategy in module.named_variational_strategies(
-                    memo, submodule_prefix
-                ):
+                for name, strategy in module.named_variational_strategies(memo, submodule_prefix):
                     yield name, strategy
 
     def register_parameter(self, name, parameter, prior=None):
@@ -177,9 +158,7 @@ class Module(nn.Module):
         prior (Prior): prior for parameter (default: None)
         """
         if "_parameters" not in self.__dict__:
-            raise AttributeError(
-                "Cannot assign parameter before Module.__init__() call"
-            )
+            raise AttributeError("Cannot assign parameter before Module.__init__() call")
         super(Module, self).register_parameter(name, parameter)
         if prior is not None:
             self.set_parameter_priors(**{name: prior})
@@ -204,9 +183,7 @@ class Module(nn.Module):
         for name, prior in kwargs.items():
             if name not in self._parameters:
                 raise AttributeError(
-                    "Unknown parameter {name} for {module}".format(
-                        name=name, module=self.__class__.__name__
-                    )
+                    "Unknown parameter {name} for {module}".format(name=name, module=self.__class__.__name__)
                 )
             self.add_module("_".join([name, "prior"]), prior)
             self._priors[name] = prior
@@ -225,18 +202,10 @@ class Module(nn.Module):
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
-        if (
-            torch.is_tensor(outputs)
-            or isinstance(outputs, RandomVariable)
-            or isinstance(outputs, LazyVariable)
-        ):
+        if torch.is_tensor(outputs) or isinstance(outputs, RandomVariable) or isinstance(outputs, LazyVariable):
             return outputs
         for output in outputs:
-            if not (
-                isinstance(output, RandomVariable)
-                or torch.is_tensor(output)
-                or isinstance(output, LazyVariable)
-            ):
+            if not (isinstance(output, RandomVariable) or torch.is_tensor(output) or isinstance(output, LazyVariable)):
                 raise RuntimeError(
                     "Output must be a RandomVariable, torch.Tensor, or LazyVariable. "
                     "Was a {}".format(input.__class__.__name__)
@@ -258,14 +227,9 @@ class Module(nn.Module):
             modules = self.__dict__["_modules"]
             if name in modules:
                 return modules[name]
-        raise AttributeError(
-            "'{}' object has no attribute '{}'".format(type(self).__name__, name)
-        )
+        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, name))
 
     def __setattr__(self, name, value):
         if isinstance(value, nn.Parameter):
-            raise RuntimeError(
-                "Please assign torch.nn.Parameters using"
-                "gpytorch.module.register_parameters()"
-            )
+            raise RuntimeError("Please assign torch.nn.Parameters using" "gpytorch.module.register_parameters()")
         super(Module, self).__setattr__(name, value)

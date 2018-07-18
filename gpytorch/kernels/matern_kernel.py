@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import math
 import torch
 from .kernel import Kernel
-from gpytorch.priors._compatibility import _bounds_to_prior
 
 
 class MaternKernel(Kernel):
@@ -17,20 +16,16 @@ class MaternKernel(Kernel):
         log_lengthscale_prior=None,
         active_dims=None,
         eps=1e-8,
-        log_lengthscale_bounds=(-100, 100),
+        log_lengthscale_bounds=None,
     ):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
-        # TODO: Remove deprecated log_lengthscale_bounds kwarg
-        log_lengthscale_prior = _bounds_to_prior(
-            prior=log_lengthscale_prior,
-            bounds=log_lengthscale_bounds,
-        )
         super(MaternKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
             log_lengthscale_prior=log_lengthscale_prior,
             active_dims=active_dims,
+            log_lengthscale_bounds=log_lengthscale_bounds,
         )
         self.nu = nu
         self.eps = eps
@@ -45,9 +40,7 @@ class MaternKernel(Kernel):
         x2_squared = x2_normed.norm(2, -1).pow(2)
         x1_t_x_2 = torch.matmul(x1_normed, x2_normed.transpose(-1, -2))
 
-        distance_over_rho = (
-            x1_squared.unsqueeze(-1) + x2_squared.unsqueeze(-2) - x1_t_x_2.mul(2)
-        )
+        distance_over_rho = x1_squared.unsqueeze(-1) + x2_squared.unsqueeze(-2) - x1_t_x_2.mul(2)
         distance_over_rho = distance_over_rho.clamp(self.eps, 1e10).sqrt()
         exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance_over_rho)
 
@@ -56,9 +49,5 @@ class MaternKernel(Kernel):
         elif self.nu == 1.5:
             constant_component = (math.sqrt(3) * distance_over_rho).add(1)
         elif self.nu == 2.5:
-            constant_component = (
-                (math.sqrt(5) * distance_over_rho)
-                .add(1)
-                .add(5. / 3. * distance_over_rho ** 2)
-            )
+            constant_component = (math.sqrt(5) * distance_over_rho).add(1).add(5. / 3. * distance_over_rho ** 2)
         return constant_component * exp_component

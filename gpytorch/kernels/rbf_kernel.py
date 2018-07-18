@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import math
 from gpytorch.kernels.kernel import Kernel
-from gpytorch.priors._compatibility import _bounds_to_prior
 
 
 class RBFKernel(Kernel):
@@ -16,20 +15,15 @@ class RBFKernel(Kernel):
         eps=1e-6,
         active_dims=None,
         batch_size=1,
-        log_lengthscale_bounds=(-10000, 10000),
+        log_lengthscale_bounds=None,
     ):
-        # TODO: Remove deprecated log_lengthscale_bounds kwarg
-        log_lengthscale_prior = _bounds_to_prior(
-            prior=log_lengthscale_prior,
-            bounds=log_lengthscale_bounds,
-            batch_size=batch_size,
-        )
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
             log_lengthscale_prior=log_lengthscale_prior,
             active_dims=active_dims,
             batch_size=batch_size,
+            log_lengthscale_bounds=log_lengthscale_bounds,
         )
         self.eps = eps
 

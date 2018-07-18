@@ -9,7 +9,7 @@ from gpytorch.priors._compatibility import _bounds_to_prior
 
 
 class ConstantMean(Mean):
-    def __init__(self, prior=None, batch_size=None, constant_bounds=(-1e10, 1e10)):
+    def __init__(self, prior=None, batch_size=None, constant_bounds=None):
         # TODO: Remove deprecated bounds kwarg
         prior = _bounds_to_prior(
             prior=prior, bounds=constant_bounds, batch_size=batch_size, log_transform=False

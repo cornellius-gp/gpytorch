@@ -20,26 +20,23 @@ class SpectralMixtureKernel(Kernel):
         log_mixture_mean_prior=None,
         log_mixture_scale_prior=None,
         active_dims=None,
-        log_mixture_weight_bounds=(-100, 100),
-        log_mixture_mean_bounds=(-100, 100),
-        log_mixture_scale_bounds=(-100, 100),
     ):
         self.n_mixtures = n_mixtures
         self.n_dims = n_dims
-        logger.warning("Priors not implemented for SpectralMixtureKernel")
+        if (
+            log_mixture_mean_prior is not None
+            or log_mixture_scale_prior is not None
+            or log_mixture_weight_prior is not None
+        ):
+            logger.warning("Priors not implemented for SpectralMixtureKernel")
 
         super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
+        self.register_parameter(name="log_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures)))
         self.register_parameter(
-            name="log_mixture_weights",
-            parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures)),
+            name="log_mixture_means", parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims))
         )
         self.register_parameter(
-            name="log_mixture_means",
-            parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
-        )
-        self.register_parameter(
-            name="log_mixture_scales",
-            parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
+            name="log_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims))
         )
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
@@ -55,9 +52,7 @@ class SpectralMixtureKernel(Kernel):
         min_dist_sort = (train_x_sort[:, 1:, :] - train_x_sort[:, :-1, :]).squeeze(0)
         min_dist = torch.zeros(1, self.n_dims)
         for ind in range(self.n_dims):
-            min_dist[:, ind] = min_dist_sort[
-                (torch.nonzero(min_dist_sort[:, ind]))[0], ind
-            ]
+            min_dist[:, ind] = min_dist_sort[(torch.nonzero(min_dist_sort[:, ind]))[0], ind]
 
         # Inverse of lengthscales should be drawn from truncated Gaussian | N(0, max_dist^2) |
         self.log_mixture_scales.data.normal_().mul_(max_dist).abs_().pow_(-1).log_()
@@ -70,20 +65,12 @@ class SpectralMixtureKernel(Kernel):
         batch_size, n, n_dims = x1.size()
         _, m, _ = x2.size()
         if not n_dims == self.n_dims:
-            raise RuntimeError(
-                "The number of dimensions doesn't match what was supplied!"
-            )
+            raise RuntimeError("The number of dimensions doesn't match what was supplied!")
 
         mixture_weights = self.log_mixture_weights.view(self.n_mixtures, 1, 1, 1).exp()
-        mixture_means = self.log_mixture_means.view(
-            self.n_mixtures, 1, 1, 1, self.n_dims
-        ).exp()
-        mixture_scales = self.log_mixture_scales.view(
-            self.n_mixtures, 1, 1, 1, self.n_dims
-        ).exp()
-        distance = (
-            x1.unsqueeze(-2) - x2.unsqueeze(-3)
-        ).abs()  # distance = x^(i) - z^(i)
+        mixture_means = self.log_mixture_means.view(self.n_mixtures, 1, 1, 1, self.n_dims).exp()
+        mixture_scales = self.log_mixture_scales.view(self.n_mixtures, 1, 1, 1, self.n_dims).exp()
+        distance = (x1.unsqueeze(-2) - x2.unsqueeze(-3)).abs()  # distance = x^(i) - z^(i)
 
         exp_term = (distance * mixture_scales).pow_(2).mul_(-2 * math.pi ** 2)
         cos_term = (distance * mixture_means).mul_(2 * math.pi)

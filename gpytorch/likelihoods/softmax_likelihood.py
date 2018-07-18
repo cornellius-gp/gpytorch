@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 from gpytorch.likelihoods import Likelihood
-from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable, CategoricalRandomVariable
 from gpytorch import settings
 
@@ -15,14 +14,14 @@ class SoftmaxLikelihood(Likelihood):
     Implements the Softmax (multiclass) likelihood used for GP classification.
     """
 
-    def __init__(self, n_features, n_classes):
+    def __init__(self, n_features, n_classes, mixing_weights_prior=None):
         super(SoftmaxLikelihood, self).__init__()
         self.n_features = n_features
         self.n_classes = n_classes
         self.register_parameter(
             name="mixing_weights",
             parameter=torch.nn.Parameter(torch.ones(n_classes, n_features).fill_(1. / n_features)),
-            prior=SmoothedBoxPrior(-2, 2, sigma=0.025),
+            prior=mixing_weights_prior,
         )
 
     def forward(self, latent_func):
@@ -40,8 +39,7 @@ class SoftmaxLikelihood(Likelihood):
         """
         if not isinstance(latent_func, GaussianRandomVariable):
             raise RuntimeError(
-                "SoftmaxLikelihood expects a Gaussian distributed latent "
-                "function to make predictions"
+                "SoftmaxLikelihood expects a Gaussian distributed latent " "function to make predictions"
             )
 
         n_samples = settings.num_likelihood_samples.value()

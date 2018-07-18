@@ -20,7 +20,7 @@ class Kernel(Module):
         log_lengthscale_prior=None,
         active_dims=None,
         batch_size=1,
-        log_lengthscale_bounds=(-10000, 10000),
+        log_lengthscale_bounds=None,
     ):
         super(Kernel, self).__init__()
         if active_dims is not None and not torch.is_tensor(active_dims):
@@ -29,14 +29,10 @@ class Kernel(Module):
         self.ard_num_dims = ard_num_dims
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
-            log_lengthscale_prior = _bounds_to_prior(
-                prior=log_lengthscale_prior, bounds=log_lengthscale_bounds
-            )
+            log_lengthscale_prior = _bounds_to_prior(prior=log_lengthscale_prior, bounds=log_lengthscale_bounds)
             self.register_parameter(
                 name="log_lengthscale",
-                parameter=torch.nn.Parameter(
-                    torch.zeros(batch_size, 1, lengthscale_num_dims)
-                ),
+                parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims)),
                 prior=log_lengthscale_prior,
             )
 
