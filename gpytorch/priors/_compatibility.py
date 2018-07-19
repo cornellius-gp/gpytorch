@@ -15,7 +15,8 @@ def _bounds_to_prior(prior, bounds, batch_size=None, log_transform=True):
         return prior
     elif bounds is not None:
         logger.warning(
-            "Parameter bounds have been deprecated and will be removed in a future release. Please either remove them or use a SmoothedBoxPrior instead!"
+            "Parameter bounds have been deprecated and will be removed in a future release. "
+            "Please either remove them or use a SmoothedBoxPrior instead!"
         )
         a = torch.full((batch_size or 1,), float(bounds[0]))
         b = torch.full((batch_size or 1,), float(bounds[1]))
