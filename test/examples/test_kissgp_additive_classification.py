@@ -3,14 +3,17 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from math import exp
+
 import torch
 import unittest
 import gpytorch
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 n = 64
@@ -27,9 +30,15 @@ train_y = Variable(train_y)
 class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2)
-        self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.register_parameter("log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
+        )
+        self.register_parameter(
+            name="log_outputscale",
+            parameter=torch.nn.Parameter(torch.Tensor([0])),
+            prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
+        )
 
     def forward(self, x):
         mean_x = self.mean_module(x)

@@ -4,11 +4,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch import nn
 from torch.autograd import Variable
-from ..module import Module
-from ..random_variables import GaussianRandomVariable
-from ..lazy import LazyVariable, CholLazyVariable
+from gpytorch.lazy import LazyVariable, CholLazyVariable
+from gpytorch.module import Module
+from gpytorch.random_variables import GaussianRandomVariable
 
 
 class AbstractVariationalGP(Module):
@@ -19,9 +18,9 @@ class AbstractVariationalGP(Module):
         n_inducing = inducing_points.size(0)
         self.register_buffer("inducing_points", inducing_points)
         self.register_buffer("variational_params_initialized", torch.zeros(1))
-        self.register_parameter("variational_mean", nn.Parameter(torch.zeros(n_inducing)), bounds=(-1e4, 1e4))
+        self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(torch.zeros(n_inducing)))
         self.register_parameter(
-            "chol_variational_covar", nn.Parameter(torch.eye(n_inducing, n_inducing)), bounds=(-100, 100)
+            name="chol_variational_covar", parameter=torch.nn.Parameter(torch.eye(n_inducing, n_inducing))
         )
         self.register_variational_strategy("inducing_point_strategy")
 

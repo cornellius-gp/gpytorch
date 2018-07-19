@@ -5,16 +5,18 @@ from __future__ import unicode_literals
 
 import torch
 from gpytorch.means import Mean
+from gpytorch.priors._compatibility import _bounds_to_prior
 
 
 class ConstantMean(Mean):
-    def __init__(self, constant_bounds=(-1e10, 1e10), batch_size=None):
+    def __init__(self, prior=None, batch_size=None, constant_bounds=None):
+        # TODO: Remove deprecated bounds kwarg
+        prior = _bounds_to_prior(prior=prior, bounds=constant_bounds, batch_size=batch_size, log_transform=False)
         super(ConstantMean, self).__init__()
         self.batch_size = batch_size
-        if batch_size is None:
-            self.register_parameter("constant", torch.nn.Parameter(torch.zeros(1, 1)), bounds=constant_bounds)
-        else:
-            self.register_parameter("constant", torch.nn.Parameter(torch.zeros(batch_size, 1)), bounds=constant_bounds)
+        self.register_parameter(
+            name="constant", parameter=torch.nn.Parameter(torch.zeros(batch_size or 1, 1)), prior=prior
+        )
 
     def forward(self, input):
         return self.constant.expand(input.size(0), input.size(1))

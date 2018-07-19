@@ -4,11 +4,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .kernel import Kernel
-from ..functions import add_jitter
-from ..lazy import LazyVariable, DiagLazyVariable, MatmulLazyVariable, RootLazyVariable
-from ..random_variables import GaussianRandomVariable
-from ..variational import MVNVariationalStrategy
+from gpytorch.kernels import Kernel
+from gpytorch.functions import add_jitter
+from gpytorch.lazy import DiagLazyVariable, LazyVariable, MatmulLazyVariable, RootLazyVariable
+from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.variational import MVNVariationalStrategy
 
 
 class InducingPointKernel(Kernel):
@@ -20,9 +20,7 @@ class InducingPointKernel(Kernel):
             inducing_points = inducing_points.unsqueeze(-1)
         if inducing_points.ndimension() != 2:
             raise RuntimeError("Inducing points should be 2 dimensional")
-        self.register_parameter(
-            "inducing_points", torch.nn.Parameter(inducing_points.unsqueeze(0)), bounds=(-1e10, 1e10)
-        )
+        self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points.unsqueeze(0)))
         self.register_variational_strategy("inducing_point_strategy")
 
     def train(self, mode=True):
