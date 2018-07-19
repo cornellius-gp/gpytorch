@@ -11,7 +11,6 @@ from gpytorch.priors.wishart_prior import log_mv_gamma
 
 
 class TestWishartPrior(unittest.TestCase):
-
     def setUp(self):
         self.nu = 3
         self.K = torch.Tensor([[1, 0], [0, 1]])
@@ -29,14 +28,13 @@ class TestWishartPrior(unittest.TestCase):
         self.assertEqual(prior.shape, self.K.shape)
         self.assertTrue(torch.equal(prior.K_inv, torch.inverse(self.K)))
         self.assertEqual(prior.nu, self.nu)
-        self.assertEqual(prior.C, - (3 * math.log(2) + log_mv_gamma(2, 3 / 2)))
+        self.assertEqual(prior.C, -(3 * math.log(2) + log_mv_gamma(2, 3 / 2)))
         self.assertTrue(prior.is_in_support(self.K))
         self.assertFalse(prior.is_in_support(self.K_bad))
         self.assertAlmostEqual(prior.log_prob(self.K).item(), -3.531024, places=4)
 
 
 class TestInverseWishartPrior(unittest.TestCase):
-
     def setUp(self):
         self.nu = 1
         self.K = torch.Tensor([[1, 0], [0, 1]])

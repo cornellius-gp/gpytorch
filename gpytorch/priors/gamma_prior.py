@@ -17,9 +17,7 @@ class GammaPrior(TorchDistributionPrior):
             concentration = torch.full((size or 1,), float(concentration))
             rate = torch.full((size or 1,), float(rate))
         elif not (torch.is_tensor(concentration) and torch.is_tensor(rate)):
-            raise ValueError(
-                "concentration and rate must be both either scalars or Tensors"
-            )
+            raise ValueError("concentration and rate must be both either scalars or Tensors")
         elif concentration.shape != rate.shape:
             raise ValueError("concentration and rate must have the same shape")
         elif size is not None:
@@ -31,8 +29,7 @@ class GammaPrior(TorchDistributionPrior):
 
     def _initialize_distributions(self):
         self._distributions = [
-            Gamma(concentration=c, rate=r, validate_args=True)
-            for c, r in zip(self.concentration, self.rate)
+            Gamma(concentration=c, rate=r, validate_args=True) for c, r in zip(self.concentration, self.rate)
         ]
 
     def is_in_support(self, parameter):

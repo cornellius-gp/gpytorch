@@ -24,11 +24,7 @@ class WishartPrior(Prior):
             raise ValueError("Must have nu > n - 1")
         self.register_buffer("nu", torch.Tensor([nu]))
         # normalization constant
-        C = -(
-            nu / 2 * torch.log(torch.det(K))
-            + nu * n / 2 * math.log(2)
-            + log_mv_gamma(n, nu / 2)
-        )
+        C = -(nu / 2 * torch.log(torch.det(K)) + nu * n / 2 * math.log(2) + log_mv_gamma(n, nu / 2))
         self.register_buffer("C", C)
         self._log_transform = False
 
@@ -36,8 +32,7 @@ class WishartPrior(Prior):
         if not positive_definite.check(parameter):
             raise ValueError("parameter must be positive definite for Wishart prior")
         return self.C + 0.5 * (
-            (self.nu - self.shape[0] - 1) * torch.log(torch.det(parameter))
-            - torch.trace(self.K_inv.matmul(parameter))
+            (self.nu - self.shape[0] - 1) * torch.log(torch.det(parameter)) - torch.trace(self.K_inv.matmul(parameter))
         )
 
     def is_in_support(self, parameter):

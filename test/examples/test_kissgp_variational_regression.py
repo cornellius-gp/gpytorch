@@ -68,10 +68,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
         n_iter = 40
         # We use SGD here, rather than Adam
         # Emperically, we find that SGD is better for variational regression
-        optimizer = torch.optim.SGD([
-            {'params': model.parameters()},
-            {'params': likelihood.parameters()},
-        ], lr=0.1)
+        optimizer = torch.optim.SGD([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.1)
 
         # We use a Learning rate scheduler from PyTorch to lower the learning rate during optimization
         # We're going to drop the learning rate by 1/10 after 3/4 of training

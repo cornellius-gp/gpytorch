@@ -10,9 +10,7 @@ from gpytorch.priors import SmoothedBoxPrior
 logger = logging.getLogger()
 
 
-def _bounds_to_prior(
-    prior, bounds, batch_size=None, log_transform=True
-):
+def _bounds_to_prior(prior, bounds, batch_size=None, log_transform=True):
     if prior is None:
         if bounds is not None:
             logger.warning("bounds are deprecated, use a prior instead!")

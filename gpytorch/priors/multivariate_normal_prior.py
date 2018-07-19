@@ -9,14 +9,7 @@ from .prior import TorchDistributionPrior
 
 
 class MultivariateNormalPrior(TorchDistributionPrior):
-    def __init__(
-        self,
-        loc,
-        covariance_matrix=None,
-        precision_matrix=None,
-        scale_tril=None,
-        log_transform=False,
-    ):
+    def __init__(self, loc, covariance_matrix=None, precision_matrix=None, scale_tril=None, log_transform=False):
         if not torch.is_tensor(loc):
             raise ValueError("loc must be a torch Tensor")
         super(MultivariateNormalPrior, self).__init__()
@@ -34,9 +27,7 @@ class MultivariateNormalPrior(TorchDistributionPrior):
         self._log_transform = log_transform
 
     def _initialize_distributions(self):
-        self._distribution = MultivariateNormal(
-            loc=self.loc, scale_tril=self.scale_tril
-        )
+        self._distribution = MultivariateNormal(loc=self.loc, scale_tril=self.scale_tril)
 
     def _log_prob(self, parameter):
         return self._distribution.log_prob(parameter.view(-1))

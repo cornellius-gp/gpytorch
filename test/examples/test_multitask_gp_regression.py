@@ -38,11 +38,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
         self.covar_module = RBFKernel(
             log_lengthscale_prior=SmoothedBoxPrior(exp(-6), exp(6), sigma=0.1, log_transform=True)
         )
-        self.task_covar_module = IndexKernel(
-            n_tasks=2,
-            rank=1,
-            prior=InverseWishartPrior(nu=2, K=torch.eye(2)),
-        )
+        self.task_covar_module = IndexKernel(n_tasks=2, rank=1, prior=InverseWishartPrior(nu=2, K=torch.eye(2)))
 
     def forward(self, x, i):
         mean_x = self.mean_module(x)

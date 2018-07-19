@@ -12,9 +12,7 @@ class TestPriorUtils(unittest.TestCase):
     def test_bounds_to_prior(self):
         prior = GammaPrior(1, 1)
         self.assertEqual(prior, _bounds_to_prior(prior=prior, bounds=None))
-        self.assertIsInstance(
-            _bounds_to_prior(prior=None, bounds=(-10, 10)), SmoothedBoxPrior
-        )
+        self.assertIsInstance(_bounds_to_prior(prior=None, bounds=(-10, 10)), SmoothedBoxPrior)
 
 
 if __name__ == "__main__":

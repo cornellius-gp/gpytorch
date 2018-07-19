@@ -11,15 +11,11 @@ from gpytorch.priors._compatibility import _bounds_to_prior
 class ConstantMean(Mean):
     def __init__(self, prior=None, batch_size=None, constant_bounds=None):
         # TODO: Remove deprecated bounds kwarg
-        prior = _bounds_to_prior(
-            prior=prior, bounds=constant_bounds, batch_size=batch_size, log_transform=False
-        )
+        prior = _bounds_to_prior(prior=prior, bounds=constant_bounds, batch_size=batch_size, log_transform=False)
         super(ConstantMean, self).__init__()
         self.batch_size = batch_size
         self.register_parameter(
-            name="constant",
-            parameter=torch.nn.Parameter(torch.zeros(batch_size or 1, 1)),
-            prior=prior,
+            name="constant", parameter=torch.nn.Parameter(torch.zeros(batch_size or 1, 1)), prior=prior
         )
 
     def forward(self, input):

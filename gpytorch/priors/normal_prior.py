@@ -28,10 +28,7 @@ class NormalPrior(TorchDistributionPrior):
         self._log_transform = log_transform
 
     def _initialize_distributions(self):
-        self._distributions = [
-            Normal(loc=lc, scale=sc, validate_args=True)
-            for lc, sc in zip(self.loc, self.scale)
-        ]
+        self._distributions = [Normal(loc=lc, scale=sc, validate_args=True) for lc, sc in zip(self.loc, self.scale)]
 
     def is_in_support(self, parameter):
         return True
