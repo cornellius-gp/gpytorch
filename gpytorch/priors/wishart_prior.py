@@ -10,18 +10,21 @@ from gpytorch.priors.prior import Prior
 
 
 class WishartPrior(Prior):
-    """TODO
+    """Wishart prior over n x n positive definite matrices
 
+    pdf(Sigma) ~ |Sigma|^(nu - n - 1)/2 * exp(-0.5 * Trace(K^-1 Sigma))
+
+    where nu > n - 1 are the degrees of freedom and K > 0 is the p x p scale matrix
     """
 
     def __init__(self, nu, K):
-        super(WishartPrior, self).__init__()
-        n = K.shape[0]
         if not positive_definite.check(K):
             raise ValueError("K must be positive definite")
-        self.register_buffer("K_inv", torch.inverse(K))
+        n = K.shape[0]
         if nu <= n:
             raise ValueError("Must have nu > n - 1")
+        super(WishartPrior, self).__init__()
+        self.register_buffer("K_inv", torch.inverse(K))
         self.register_buffer("nu", torch.Tensor([nu]))
         # normalization constant
         C = -(nu / 2 * torch.log(torch.det(K)) + nu * n / 2 * math.log(2) + log_mv_gamma(n, nu / 2))
@@ -38,24 +41,26 @@ class WishartPrior(Prior):
     def is_in_support(self, parameter):
         return bool(positive_definite.check(parameter))
 
-    @property
-    def shape(self):
+    def size(self):
         return self.K_inv.shape
 
 
 class InverseWishartPrior(Prior):
-    """TODO
+    """Inverse Wishart prior over n x n positive definite matrices
 
+    pdf(Sigma) ~ |Sigma|^-(nu + 2 * n)/2 * exp(-0.5 * Trace(K Sigma^-1))
+
+    where nu > 0 are the degrees of freedom and K > 0 is the p x p scale matrix
     """
 
     def __init__(self, nu, K):
-        super(InverseWishartPrior, self).__init__()
         n = K.shape[0]
         if not positive_definite.check(K):
             raise ValueError("K must be positive definite")
-        self.register_buffer("K", K)
         if nu <= 0:
             raise ValueError("Must have nu > 0")
+        super(InverseWishartPrior, self).__init__()
+        self.register_buffer("K", K)
         self.register_buffer("nu", torch.Tensor([nu]))
         # normalization constant
         c = (nu + n - 1) / 2
@@ -74,8 +79,7 @@ class InverseWishartPrior(Prior):
     def is_in_support(self, parameter):
         return bool(positive_definite.check(parameter))
 
-    @property
-    def shape(self):
+    def size(self):
         return self.K.shape
 
 

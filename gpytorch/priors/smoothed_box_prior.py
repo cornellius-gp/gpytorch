@@ -19,7 +19,7 @@ class SmoothedBoxPrior(Prior):
         B = {x: a_i <= x_i <= b_i}
         d(x, B) = min_{x' in B} |x - x'|
 
-        pdf(x) ~ exp(- d(x, B)**2 / sqrt(2 * pi * sigma**2))
+        pdf(x) ~ exp(- d(x, B)**2 / sqrt(2 * pi * sigma^2))
 
     """
 
@@ -43,8 +43,8 @@ class SmoothedBoxPrior(Prior):
             torch.full_like(self.a, float(sigma)) if isinstance(sigma, Number) else sigma.view(self.a.shape).clone(),
         )
         self.register_buffer("_loc", torch.zeros_like(self.sigma))
-        self._initialize_distributions()
         self._log_transform = log_transform
+        self._initialize_distributions()
 
     def _initialize_distributions(self):
         self._tails = [Normal(loc=l, scale=s, validate_args=True) for l, s in zip(self._loc, self.sigma)]
@@ -70,6 +70,5 @@ class SmoothedBoxPrior(Prior):
     def is_in_support(self, parameter):
         return True
 
-    @property
-    def shape(self):
+    def size(self):
         return torch.Size([len(self.tails)])
