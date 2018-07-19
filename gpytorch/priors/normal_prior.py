@@ -11,6 +11,13 @@ from gpytorch.priors.prior import TorchDistributionPrior
 
 
 class NormalPrior(TorchDistributionPrior):
+    """Normal (Gaussian) Prior
+
+    pdf(x) = (2 * pi * sigma^2)^-0.5 * exp(-(x - mu)^2 / (2 * sigma^2))
+
+    where mu is the mean and sigma^2 is the variance.
+    """
+
     def __init__(self, loc, scale, log_transform=False, size=None):
         if isinstance(loc, Number) and isinstance(scale, Number):
             loc = torch.full((size or 1,), float(loc))
@@ -24,8 +31,8 @@ class NormalPrior(TorchDistributionPrior):
         super(NormalPrior, self).__init__()
         self.register_buffer("loc", loc.view(-1).clone())
         self.register_buffer("scale", scale.view(-1).clone())
-        self._initialize_distributions()
         self._log_transform = log_transform
+        self._initialize_distributions()
 
     def _initialize_distributions(self):
         self._distributions = [Normal(loc=lc, scale=sc, validate_args=True) for lc, sc in zip(self.loc, self.scale)]

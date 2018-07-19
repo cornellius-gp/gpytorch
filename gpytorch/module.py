@@ -245,5 +245,5 @@ class Module(nn.Module):
 
     def __setattr__(self, name, value):
         if isinstance(value, nn.Parameter):
-            raise RuntimeError("Please assign torch.nn.Parameters using" "gpytorch.module.register_parameters()")
+            raise RuntimeError("Please assign torch.nn.Parameters using gpytorch.module.register_parameters()")
         super(Module, self).__setattr__(name, value)

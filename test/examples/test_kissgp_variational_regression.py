@@ -81,7 +81,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
 
         # The training loop
         def train():
-            for i in range(n_iter):
+            for _ in range(n_iter):
                 scheduler.step()
                 for x_batch, y_batch in train_loader:
                     x_batch = torch.autograd.Variable(x_batch.float())
@@ -95,7 +95,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
 
         train()
 
-        for name, param in model.named_parameters():
+        for _, param in model.named_parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
         for param in likelihood.parameters():
