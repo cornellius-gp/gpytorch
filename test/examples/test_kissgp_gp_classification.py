@@ -58,6 +58,7 @@ class TestKISSGPClassification(unittest.TestCase):
             optimizer.n_iter += 1
             optimizer.step()
 
+        self.assertTrue(model.log_outputscale.grad is not None)
         for param in model.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
