@@ -7,3 +7,9 @@ from .modules import (
     ProbabilityOfImprovement,
     UpperConfidenceBound,
 )
+
+from .batch_modules import (
+    qExpectedImprovement,
+    qProbabilityOfImprovement,
+    qUpperConfidenceBound,
+)
