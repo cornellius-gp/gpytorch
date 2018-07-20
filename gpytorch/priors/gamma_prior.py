@@ -11,8 +11,14 @@ from gpytorch.priors.prior import TorchDistributionPrior
 
 
 class GammaPrior(TorchDistributionPrior):
+    """Gamma Prior parameterized by concentration and rate
+
+    pdf(x) = beta^alpha / Gamma(alpha) * x^(alpha - 1) * exp(-beta * x)
+
+    were alpha > 0 and beta > 0 are the concentration and rate parameters, respectively.
+    """
+
     def __init__(self, concentration, rate, log_transform=False, size=None):
-        super(GammaPrior, self).__init__()
         if isinstance(concentration, Number) and isinstance(rate, Number):
             concentration = torch.full((size or 1,), float(concentration))
             rate = torch.full((size or 1,), float(rate))
@@ -22,10 +28,11 @@ class GammaPrior(TorchDistributionPrior):
             raise ValueError("concentration and rate must have the same shape")
         elif size is not None:
             raise ValueError("can only set size for scalar concentration and rate")
+        super(GammaPrior, self).__init__()
         self.register_buffer("concentration", concentration.view(-1).clone())
         self.register_buffer("rate", rate.view(-1).clone())
-        self._initialize_distributions()
         self._log_transform = log_transform
+        self._initialize_distributions()
 
     def _initialize_distributions(self):
         self._distributions = [
