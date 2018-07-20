@@ -31,6 +31,15 @@ class VariationalMarginalLogLikelihood(MarginalLogLikelihood):
 
         if self.combine_terms:
             res = log_likelihood - kl_divergence
+            for _, param, prior in self.named_parameter_priors():
+                res.add_(prior.log_prob(param).sum())
+            for _, params, transform, prior in self.named_derived_priors():
+                res.add_(prior.log_prob(transform(*params)).sum())
             return res
         else:
-            return log_likelihood, kl_divergence
+            log_prior = log_likelihood.new_zeros(1)
+            for _, param, prior in self.named_parameter_priors():
+                log_prior.add_(prior.log_prob(param).sum())
+            for _, params, transform, prior in self.named_derived_priors():
+                log_prior.add_(prior.log_prob(transform(*params)).sum())
+            return log_likelihood, kl_divergence, log_prior

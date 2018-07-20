@@ -3,6 +3,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
+import random
 import math
 import torch
 import unittest
@@ -30,8 +32,8 @@ test_y2 = torch.cos(test_x2.data * (2 * math.pi)).squeeze()
 class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
-        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
+        self.mean_module = ConstantMean()
+        self.covar_module = RBFKernel()
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -40,9 +42,21 @@ class ExactGPModel(gpytorch.models.ExactGP):
 
 
 class TestBatchGPRegression(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_posterior_latent_gp_and_likelihood_with_optimization(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
-        likelihood = GaussianLikelihood(log_noise_bounds=(-3, 3))
+        likelihood = GaussianLikelihood()
         gp_model = ExactGPModel(train_x1.data, train_y1.data, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
         gp_model.covar_module.initialize(log_lengthscale=-1)

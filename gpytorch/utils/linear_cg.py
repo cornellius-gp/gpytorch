@@ -113,6 +113,8 @@ def linear_cg(
         prev_alpha_reciprocal = alpha.new(alpha_reciprocal.size())
         prev_beta = alpha.new(alpha_reciprocal.size())
 
+    update_tridiag = True
+    last_tridiag_iter = 0
     # Start the iteration
     for k in range(n_iter):
         # Get next alpha
@@ -134,7 +136,7 @@ def linear_cg(
         # If residual are sufficiently small, then exit loop
         # Alternatively, exit if this is our last iteration
         torch.norm(residual, 2, dim=-2, out=residual_norm)
-        if (residual_norm < tolerance).all() and not n_tridiag:
+        if (residual_norm < tolerance).all() and not (n_tridiag and k < n_tridiag_iter):
             break
 
         # Update precond_residual
@@ -153,7 +155,7 @@ def linear_cg(
         curr_conjugate_vec.mul_(beta).add_(precond_residual)
 
         # Update tridiagonal matrices, if applicable
-        if n_tridiag and k < n_tridiag_iter:
+        if n_tridiag and k < n_tridiag_iter and update_tridiag:
             alpha_tridiag = alpha.squeeze_(-2).narrow(-1, 0, n_tridiag)
             beta_tridiag = beta.squeeze_(-2).narrow(-1, 0, n_tridiag)
             torch.reciprocal(alpha_tridiag, out=alpha_reciprocal)
@@ -165,6 +167,11 @@ def linear_cg(
                 torch.mul(prev_beta.sqrt_(), prev_alpha_reciprocal, out=t_mat[k, k - 1])
                 t_mat[k - 1, k].copy_(t_mat[k, k - 1])
 
+                if t_mat[k - 1, k].max() < 1e-6:
+                    update_tridiag = False
+
+            last_tridiag_iter = k
+
             prev_alpha_reciprocal.copy_(alpha_reciprocal)
             prev_beta.copy_(beta_tridiag)
 
@@ -172,6 +179,7 @@ def linear_cg(
         result = result.squeeze(-1)
 
     if n_tridiag:
+        t_mat = t_mat[:last_tridiag_iter + 1, :last_tridiag_iter + 1]
         if rhs.ndimension() == 3:
             return result, t_mat.permute(3, 2, 0, 1).contiguous()
         else:

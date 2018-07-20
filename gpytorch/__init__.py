@@ -2,6 +2,7 @@ from . import models
 from . import means
 from . import mlls
 from . import kernels
+from . import priors
 from .module import Module
 from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 from .functions import add_diag, add_jitter, dsmm, log_normal_cdf, normal_cdf
@@ -19,6 +20,7 @@ __all__ = [
     mlls,
     means,
     kernels,
+    priors,
     # Classes
     Module,
     ExactMarginalLogLikelihood,

@@ -4,19 +4,26 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import math
-from .kernel import Kernel
+from gpytorch.kernels.kernel import Kernel
 
 
 class RBFKernel(Kernel):
     def __init__(
-        self, ard_num_dims=None, log_lengthscale_bounds=(-10000, 10000), eps=1e-6, active_dims=None, batch_size=1
+        self,
+        ard_num_dims=None,
+        log_lengthscale_prior=None,
+        eps=1e-6,
+        active_dims=None,
+        batch_size=1,
+        log_lengthscale_bounds=None,
     ):
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
-            log_lengthscale_bounds=log_lengthscale_bounds,
+            log_lengthscale_prior=log_lengthscale_prior,
             active_dims=active_dims,
             batch_size=batch_size,
+            log_lengthscale_bounds=log_lengthscale_bounds,
         )
         self.eps = eps
 
