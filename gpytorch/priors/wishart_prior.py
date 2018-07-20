@@ -73,7 +73,7 @@ class InverseWishartPrior(Prior):
             raise ValueError("parameter must be positive definite for Inverse Wishart prior")
         return self.C - 0.5 * (
             (self.nu + 2 * self.shape[0]) * torch.log(torch.det(parameter))
-            + torch.trace(self.K.matmul(torch.inverse(parameter)))
+            + torch.trace(torch.gesv(self.K, parameter)[0])
         )
 
     def is_in_support(self, parameter):
