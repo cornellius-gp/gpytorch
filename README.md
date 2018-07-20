@@ -28,12 +28,12 @@ If you use GPyTorch, please cite the following papers:
   year={2018}
 }
 ```
-> [Pleiss, Geoff, Jacob R. Gardner, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Constant-Time Predictive Distributions for Gaussian Processes." arXiv preprint arXiv:1803.06058 (2018).](https://arxiv.org/abs/1803.06058)
+> [Pleiss, Geoff, Jacob R. Gardner, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Constant-Time Predictive Distributions for Gaussian Processes." In *ICML* (2018).](https://arxiv.org/abs/1803.06058)
 ```
-@article{pleiss2018constant,
+@inproceedings{pleiss2018constant,
   title={Constant-Time Predictive Distributions for Gaussian Processes},
   author={Pleiss, Geoff and Gardner, Jacob R and Weinberger, Kilian Q and Wilson, Andrew Gordon},
-  journal={arXiv preprint arXiv:1803.06058},
+  booktitle={ICML},
   year={2018}
 }
 ```

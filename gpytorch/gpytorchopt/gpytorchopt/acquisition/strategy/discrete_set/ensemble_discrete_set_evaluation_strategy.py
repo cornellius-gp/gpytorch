@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import torch
 from .discrete_set_strategy import DiscreteSetStrategy
 
@@ -10,7 +12,7 @@ class EnsembleDiscreteSetEvaluationStrategy(DiscreteSetStrategy):
 
     def maximize(self):
         acq_val_array = torch.zeros(len(self.gp_model_list), self._candidate_set.shape[0])
-        for i, gp_model in enumerate(self.gp_model_list):
+        for i, _ in enumerate(self.gp_model_list):
             acq_func = self.acquisition_function_list[i]
             acq_val = acq_func(self._candidate_set)
             acq_val_array[i, :] = acq_val

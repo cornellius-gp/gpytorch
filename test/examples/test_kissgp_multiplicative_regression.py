@@ -3,16 +3,19 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from math import exp, pi
+
 import os
-import math
+import random
 import torch
 import unittest
 import gpytorch
 from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, MultiplicativeGridInterpolationKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function,
@@ -24,7 +27,7 @@ for i in range(n):
         train_x[i * n + j][0] = float(i) / (n - 1)
         train_x[i * n + j][1] = float(j) / (n - 1)
 train_x = Variable(train_x)
-train_y = Variable((torch.sin(train_x.data[:, 0]) + torch.cos(train_x.data[:, 1])) * (2 * math.pi))
+train_y = Variable((torch.sin(train_x.data[:, 0]) + torch.cos(train_x.data[:, 1])) * (2 * pi))
 
 m = 10
 test_x = torch.zeros(pow(m, 2), 2)
@@ -33,15 +36,17 @@ for i in range(m):
         test_x[i * m + j][0] = float(i) / (m - 1)
         test_x[i * m + j][1] = float(j) / (m - 1)
 test_x = Variable(test_x)
-test_y = Variable((torch.sin(test_x.data[:, 0]) + torch.cos(test_x.data[:, 1])) * (2 * math.pi))
+test_y = Variable((torch.sin(test_x.data[:, 0]) + torch.cos(test_x.data[:, 1])) * (2 * pi))
 
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
-        self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
+        self.base_covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True)
+        )
         self.covar_module = MultiplicativeGridInterpolationKernel(
             self.base_covar_module, grid_size=100, grid_bounds=[(0, 1)], n_components=2
         )
@@ -57,6 +62,9 @@ class TestKissGPMultiplicativeRegression(unittest.TestCase):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):

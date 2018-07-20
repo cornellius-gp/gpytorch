@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import torch
 from .discrete_set_strategy import DiscreteSetStrategy
 

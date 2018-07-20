@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import torch
 from gpytorchopt.acquisition.strategy import AcquisitionFunctionStrategy
 
@@ -11,7 +13,7 @@ class AdditiveStrategy(AcquisitionFunctionStrategy):
         self.additive_structure = additive_structure
 
     def maximize(self):
-        num_dims = sum([len(group) for group in self.additive_structure])
+        num_dims = sum(len(group) for group in self.additive_structure)
         best_cand = torch.zeros(1, num_dims)
 
         for i, group in enumerate(self.additive_structure):

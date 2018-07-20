@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 from gpytorch import Module
 import torch
 from .functional import expected_improvement
@@ -23,11 +24,7 @@ class ExpectedImprovement(AcquisitionFunction):
         self.best_y = best_y
 
     def forward(self, candidate_set: torch.Tensor) -> torch.Tensor:
-        return expected_improvement(
-            self.gp_model,
-            candidate_set,
-            self.best_y,
-        )
+        return expected_improvement(self.gp_model, candidate_set, self.best_y)
 
 
 class MaxValueEntropySearch(AcquisitionFunction):
@@ -37,11 +34,7 @@ class MaxValueEntropySearch(AcquisitionFunction):
         self.num_samples = num_samples
 
     def forward(self, candidate_set):
-        return max_value_entropy_search(
-            self.gp_model,
-            candidate_set,
-            self.num_samples,
-        )
+        return max_value_entropy_search(self.gp_model, candidate_set, self.num_samples)
 
 
 class ProbabilityOfImprovement(AcquisitionFunction):
@@ -49,11 +42,7 @@ class ProbabilityOfImprovement(AcquisitionFunction):
         super(ProbabilityOfImprovement, self).__init__(gp_model)
 
     def forward(self, candidate_set: torch.Tensor) -> torch.Tensor:
-        return probability_of_improvement(
-            self.gp_model,
-            candidate_set,
-            self.best_y,
-        )
+        return probability_of_improvement(self.gp_model, candidate_set, self.best_y)
 
 
 class UpperConfidenceBound(AcquisitionFunction):
@@ -62,8 +51,4 @@ class UpperConfidenceBound(AcquisitionFunction):
         self.beta = beta
 
     def forward(self, candidate_set: torch.Tensor) -> torch.Tensor:
-        return upper_confidence_bound(
-            self.gp_model,
-            candidate_set,
-            self.beta,
-        )
+        return upper_confidence_bound(self.gp_model, candidate_set, self.beta)

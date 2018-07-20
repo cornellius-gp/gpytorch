@@ -3,28 +3,34 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import math
+from math import exp, pi
+
+import os
+import random
 import torch
 import unittest
 import gpytorch
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 
 train_x = Variable(torch.linspace(0, 1, 10))
-train_y = Variable(torch.sign(torch.cos(train_x.data * (8 * math.pi))))
+train_y = Variable(torch.sign(torch.cos(train_x.data * (16 * pi))))
 
 
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])
-        self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.register_parameter("log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-5, 5))
+        self.covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
+        )
+        self.log_outputscale = torch.nn.Parameter(torch.Tensor([0]))
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -35,6 +41,18 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
 
 class TestKISSGPClassification(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
@@ -54,6 +72,7 @@ class TestKISSGPClassification(unittest.TestCase):
             optimizer.n_iter += 1
             optimizer.step()
 
+        self.assertTrue(model.log_outputscale.grad is not None)
         for param in model.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)

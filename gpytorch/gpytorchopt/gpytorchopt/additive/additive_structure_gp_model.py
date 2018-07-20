@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import gpytorch
 from gpytorch.kernels import AdditiveKernel
 import torch

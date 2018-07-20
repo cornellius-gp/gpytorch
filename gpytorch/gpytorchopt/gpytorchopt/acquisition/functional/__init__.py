@@ -14,3 +14,15 @@ from .batch_acquisition import (
     batch_upper_confidence_bound,
     batch_simple_regret,
 )
+
+__all__ = [
+    expected_improvement,
+    max_value_entropy_search,
+    posterior_mean,
+    probability_of_improvement,
+    upper_confidence_bound,
+    batch_expected_improvement,
+    batch_probability_of_improvement,
+    batch_upper_confidence_bound,
+    batch_simple_regret,
+]

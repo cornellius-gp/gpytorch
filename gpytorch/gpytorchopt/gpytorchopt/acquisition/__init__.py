@@ -13,3 +13,14 @@ from .batch_modules import (
     qProbabilityOfImprovement,
     qUpperConfidenceBound,
 )
+
+__all__ = [
+    AcquisitionFunction,
+    ExpectedImprovement,
+    MaxValueEntropySearch,
+    ProbabilityOfImprovement,
+    UpperConfidenceBound,
+    qExpectedImprovement,
+    qProbabilityOfImprovement,
+    qUpperConfidenceBound,
+]

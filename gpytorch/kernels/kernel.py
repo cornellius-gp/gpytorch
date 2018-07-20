@@ -3,11 +3,13 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from abc import abstractmethod
 import torch
 from torch.nn import ModuleList
-from ..module import Module
-from ..lazy import LazyEvaluatedKernelVariable, ZeroLazyVariable
-import gpytorch
+from gpytorch.lazy import LazyEvaluatedKernelVariable, ZeroLazyVariable
+from gpytorch.module import Module
+from gpytorch.priors._compatibility import _bounds_to_prior
+from gpytorch.utils import prod
 
 
 class Kernel(Module):
@@ -15,9 +17,10 @@ class Kernel(Module):
         self,
         has_lengthscale=False,
         ard_num_dims=None,
-        log_lengthscale_bounds=(-10000, 10000),
+        log_lengthscale_prior=None,
         active_dims=None,
         batch_size=1,
+        log_lengthscale_bounds=None,
     ):
         super(Kernel, self).__init__()
         if active_dims is not None and not torch.is_tensor(active_dims):
@@ -26,10 +29,11 @@ class Kernel(Module):
         self.ard_num_dims = ard_num_dims
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
+            log_lengthscale_prior = _bounds_to_prior(prior=log_lengthscale_prior, bounds=log_lengthscale_bounds)
             self.register_parameter(
-                "log_lengthscale",
-                torch.nn.Parameter(torch.Tensor(batch_size, 1, lengthscale_num_dims).zero_()),
-                bounds=log_lengthscale_bounds,
+                name="log_lengthscale",
+                parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims)),
+                prior=log_lengthscale_prior,
             )
 
     @property
@@ -39,6 +43,7 @@ class Kernel(Module):
         else:
             return None
 
+    @abstractmethod
     def forward(self, x1, x2, **params):
         raise NotImplementedError()
 
@@ -90,4 +95,4 @@ class ProductKernel(Kernel):
         self.kernels = ModuleList(kernels)
 
     def forward(self, x1, x2):
-        return gpytorch.utils.prod([k(x1, x2).evaluate_kernel() for k in self.kernels])
+        return prod([k(x1, x2).evaluate_kernel() for k in self.kernels])
