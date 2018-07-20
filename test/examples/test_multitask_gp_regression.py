@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from math import exp, pi
 
 import os
+import random
 import torch
 import unittest
 import gpytorch
@@ -53,6 +54,9 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
