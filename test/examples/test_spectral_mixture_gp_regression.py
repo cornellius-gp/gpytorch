@@ -17,6 +17,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
+from collections import OrderedDict
 
 # Simple training data: let's try to learn a sine function
 train_x = Variable(torch.linspace(0, 1, 15))
@@ -26,6 +27,16 @@ train_y = Variable(torch.sin(train_x.data * (2 * pi)))
 # data up to x=0.75, but test on data up to x=2
 test_x = Variable(torch.linspace(0, 1.5, 51))
 test_y = Variable(torch.sin(test_x.data * (2 * pi)))
+
+good_state_dict = OrderedDict(
+    [
+        ("likelihood.log_noise", torch.tensor([-13.4054])),
+        ("mean_module.constant", torch.tensor([[0.4615]])),
+        ("covar_module.log_mixture_weights", torch.tensor([-0.7277, -15.1212, -0.5511, -6.3787])),
+        ("covar_module.log_mixture_means", torch.tensor([[-0.1201], [0.6013], [-3.7319], [0.2380]])),
+        ("covar_module.log_mixture_scales", torch.tensor([[-1.9713], [2.6217], [-3.9268], [-4.7071]])),
+    ]
+)
 
 
 class SpectralMixtureGPModel(gpytorch.models.ExactGP):
@@ -84,8 +95,8 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
                 self.assertGreater(param.grad.norm().item(), 0)
             optimizer.step()
 
-            state_dict = torch.load('sm_kernel_state_dict.pth')
-            gp_model.load_state_dict(state_dict)
+            gp_model.load_state_dict(good_state_dict, strict=False)
+
             # Test the model
             gp_model.eval()
             likelihood.eval()
