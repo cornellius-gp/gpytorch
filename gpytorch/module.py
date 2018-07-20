@@ -227,23 +227,3 @@ class Module(nn.Module):
         if len(outputs) == 1:
             outputs = outputs[0]
         return outputs
-
-    def __getattr__(self, name):
-        if "_parameters" in self.__dict__:
-            _parameters = self.__dict__["_parameters"]
-            if name in _parameters:
-                return _parameters[name]
-        if "_buffers" in self.__dict__:
-            _buffers = self.__dict__["_buffers"]
-            if name in _buffers:
-                return _buffers[name]
-        if "_modules" in self.__dict__:
-            modules = self.__dict__["_modules"]
-            if name in modules:
-                return modules[name]
-        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, name))
-
-    def __setattr__(self, name, value):
-        if isinstance(value, nn.Parameter):
-            raise RuntimeError("Please assign torch.nn.Parameters using gpytorch.module.register_parameters()")
-        super(Module, self).__setattr__(name, value)
