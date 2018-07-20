@@ -5,6 +5,8 @@ from __future__ import unicode_literals
 
 from math import exp
 
+import os
+import random
 import torch
 import unittest
 import gpytorch
@@ -49,6 +51,18 @@ class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
 
 
 class TestKissGPAdditiveClassification(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_kissgp_classification_error(self):
         with gpytorch.settings.use_toeplitz(False), gpytorch.settings.max_preconditioner_size(5):
             model = GPClassificationModel()

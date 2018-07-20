@@ -3,6 +3,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
+import random
 import math
 import torch
 import unittest
@@ -40,6 +42,18 @@ class ExactGPModel(gpytorch.models.ExactGP):
 
 
 class TestBatchGPRegression(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_posterior_latent_gp_and_likelihood_with_optimization(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood()

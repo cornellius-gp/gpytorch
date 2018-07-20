@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from math import exp, pi
 
 import os
+import random
 import torch
 import unittest
 import gpytorch
@@ -45,6 +46,9 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(4)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(4)
+            random.seed(4)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
@@ -80,6 +84,8 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
                 self.assertGreater(param.grad.norm().item(), 0)
             optimizer.step()
 
+            state_dict = torch.load('sm_kernel_state_dict.pth')
+            gp_model.load_state_dict(state_dict)
             # Test the model
             gp_model.eval()
             likelihood.eval()
