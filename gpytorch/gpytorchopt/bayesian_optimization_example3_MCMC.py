@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import torch
 import gpytorch
 from gpytorchopt.additive.additive_structure_gp_model import AdditiveStructureGPModel
@@ -58,9 +60,9 @@ class MyAcquisitionFunctionStrategy:
             cand = acq_func_strategy.maximize()
             cands.append(cand)
 
-        acq_func_strategy = EnsembleDiscreteSetEvaluationStrategy(self.acquisition_function_list,
-                                                                  torch.cat(cands),
-                                                                  self.models)
+        acq_func_strategy = EnsembleDiscreteSetEvaluationStrategy(
+            self.acquisition_function_list, torch.cat(cands), self.models
+        )
         candidate = acq_func_strategy.maximize()
         return candidate
 
@@ -93,7 +95,7 @@ class BayesianOptimizationModelMCMC(BayesianOptimization):
                 [ExpectedImprovement(model, self.min_value) for model in models],
                 [model.additive_structure for model in models],
                 self.cand_generator,
-                models
+                models,
             ).maximize()
 
         true_candidate = self.unscale_point(candidate)
@@ -121,8 +123,15 @@ bo_model = BayesianOptimizationModelMCMC(initial_model, n_dims, min_bound, max_b
 for i in range(num_iters):
     candidate, function_value = bo_model.step(func, 2)
     if candidate.ndimension() == 1 or candidate.shape[0] == 1:
-        print("Iteration %d: objective value = %.3f, current best = %.3f" % (i, function_value, bo_model.min_value.item()))
+        print(
+            "Iteration {it}: objective value = {fval:.3f}, current best = {best:.3f}".format(
+                it=i, fval=function_value, best=bo_model.min_value.item()
+            )
+        )
     else:
         for j in range(candidate.shape[0]):
-            print("Iteration %d: objective value = %.3f, current best = %.3f" % (
-            i, function_value[j], bo_model.min_value.item()))
+            print(
+                "Iteration {it}: objective value = {fval:.3f}, current best = {best:.3f}".format(
+                    it=i, fval=function_value[j], best=bo_model.min_value.item()
+                )
+            )

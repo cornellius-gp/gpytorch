@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import torch
 from ..acquisition_function_strategy import AcquisitionFunctionStrategy
 

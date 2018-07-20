@@ -7,3 +7,11 @@ from .modules import (
     ProbabilityOfImprovement,
     UpperConfidenceBound,
 )
+
+__all__ = [
+    AcquisitionFunction,
+    ExpectedImprovement,
+    MaxValueEntropySearch,
+    ProbabilityOfImprovement,
+    UpperConfidenceBound,
+]

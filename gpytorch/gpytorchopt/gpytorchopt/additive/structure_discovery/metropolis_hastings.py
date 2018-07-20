@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from math import log
 import gpytorch
 import random
@@ -121,7 +123,7 @@ class MetropolisHastingAdditiveStructureSelector:
         self.current_kernel = kernel
 
     def get_models(self, num_models):
-        for i in range(num_models):
+        for _ in range(num_models):
             proposed_sample, logprop, logrev = self.proposer.propose(self.current_kernel.kernels)
 
             proposed_kernel = gpytorch.kernels.kernel.AdditiveKernel(*proposed_sample)
@@ -138,7 +140,7 @@ class MetropolisHastingAdditiveStructureSelector:
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, proposed_model)
 
             training_iter = 300
-            for i in range(training_iter):
+            for _ in range(training_iter):
                 optimizer.zero_grad()
                 output = proposed_model(self.X)
                 loss = -mll(output, self.y)

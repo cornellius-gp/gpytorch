@@ -7,3 +7,11 @@ from .acquisition import (
     probability_of_improvement,
     upper_confidence_bound,
 )
+
+__all__ = [
+    expected_improvement,
+    max_value_entropy_search,
+    posterior_mean,
+    probability_of_improvement,
+    upper_confidence_bound,
+]

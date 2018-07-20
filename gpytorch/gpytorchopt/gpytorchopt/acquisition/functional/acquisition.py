@@ -5,11 +5,7 @@ import torch
 from torch.distributions import Normal
 
 
-def expected_improvement(
-    model: Module,
-    candidate_set: torch.Tensor,
-    f_best: float,
-) -> torch.Tensor:
+def expected_improvement(model: Module, candidate_set: torch.Tensor, f_best: float) -> torch.Tensor:
     """
     Parallel evaluation of single-point expected improvement, assumes
     maximization
@@ -37,10 +33,7 @@ def expected_improvement(
     return ei
 
 
-def posterior_mean(
-    model: Module,
-    candidate_set: torch.Tensor,
-) -> torch.Tensor:
+def posterior_mean(model: Module, candidate_set: torch.Tensor) -> torch.Tensor:
     """
     Parallel evaluation of single-point posterior mean
 
@@ -56,11 +49,7 @@ def posterior_mean(
     return mean
 
 
-def probability_of_improvement(
-    model: Module,
-    candidate_set: torch.Tensor,
-    fbest: float,
-) -> torch.Tensor:
+def probability_of_improvement(model: Module, candidate_set: torch.Tensor, fbest: float) -> torch.Tensor:
     """
     Parallel evaluation of single-point probability of improvement, assumes
     maximization
@@ -82,11 +71,7 @@ def probability_of_improvement(
     return normal.cdf(u)
 
 
-def upper_confidence_bound(
-    model: Module,
-    candidate_set: torch.Tensor,
-    beta: float,
-) -> torch.Tensor:
+def upper_confidence_bound(model: Module, candidate_set: torch.Tensor, beta: float) -> torch.Tensor:
     """
     Parallel evaluation of single-point UCB, assumes maximization
 
@@ -104,11 +89,7 @@ def upper_confidence_bound(
     return mean + var.sqrt()
 
 
-def max_value_entropy_search(
-    model: Module,
-    candidate_set: torch.Tensor,
-    num_samples: int,
-) -> torch.Tensor:
+def max_value_entropy_search(model: Module, candidate_set: torch.Tensor, num_samples: int) -> torch.Tensor:
     model.eval()
     model.likelihood.eval()
 

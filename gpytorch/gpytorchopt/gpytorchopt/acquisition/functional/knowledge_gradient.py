@@ -5,9 +5,7 @@ import torch
 from gpytorch import Module
 
 
-def knowledge_gradient(
-    model: Module, noise_model: Module, X: torch.Tensor, Xprev: torch.Tensor
-) -> torch.Tensor:
+def knowledge_gradient(model: Module, noise_model: Module, X: torch.Tensor, Xprev: torch.Tensor) -> torch.Tensor:
     """
         Parallel evaluation of single-point KG, assumes maximization
 
@@ -27,35 +25,26 @@ def knowledge_gradient(
     # All means and covariances with X
     mean = pred_rv.mean()  # (r + m)
     all_covar = pred_rv.covar()  # lazy variable: (r + m) x (r + m)
-    covar_with_point = torch.stack(
-        [all_covar[i, X.shape[0]:] for i in range(X.shape[0])],
-    )  # r x m
-    var_point = all_covar.diag()[:X.shape[0]].unsqueeze(1)  # r x 1
+    covar_with_point = torch.stack([all_covar[i, X.shape[0] :] for i in range(X.shape[0])])  # r x m
+    var_point = all_covar.diag()[: X.shape[0]].unsqueeze(1)  # r x 1
 
-    covar_with_point = torch.cat(
-        [var_point, covar_with_point],
-        dim=1
-    )  # r x (1 + m)
+    covar_with_point = torch.cat([var_point, covar_with_point], dim=1)  # r x (1 + m)
 
     # Deterministic prediction of noise at new points.  Sample size adjustment
     # is assumed to happen implicitly through a feature in X.
     mean_noise = noise_model(X).mean().squeeze(1)  # r
-    denom = (
-        torch.max(mean_noise, torch.zeros_like(mean_noise)) +
-        covar_with_point[:, 0]
-    ).unsqueeze(1).sqrt()  # r x 1
+    denom = (torch.max(mean_noise, torch.zeros_like(mean_noise)) + covar_with_point[:, 0]).unsqueeze(1).sqrt()  # r x 1
 
-    tmp = mean[X.shape[0]:]  # m
-    a = torch.stack([torch.cat([mean[i : i + 1], tmp])  # (1 + m)
-                    for i in range(X.shape[0])])  # r x (1 + m)
-    b = covar_with_point / denom   # r x (1 + m)
+    tmp = mean[X.shape[0] :]  # m
+    a = torch.stack([torch.cat([mean[i : i + 1], tmp]) for i in range(X.shape[0])])  # (1 + m)  # r x (1 + m)
+    b = covar_with_point / denom  # r x (1 + m)
 
     # TODO: figure out how to implement below
     a_filter, b_filter = _filter_a_and_b(a, b)
     c, A = _compute_c_and_A(a_filter, b_filter)
 
     b_filter = b_filter[A]
-    c = - torch.abs(c)
+    c = -torch.abs(c)
 
     normal = torch.distributions.Normal(0, 1)
     # TODO: ensure works with c = infinity
@@ -75,7 +64,7 @@ def knowledge_gradient(
 
 
 def _filter_a_and_b(a, b):
-    assert False, 'Needs to be converted'
+    assert False, "Needs to be converted"
     b_a_pairs = list(zip(b, a))
     b_a_pairs.sort()
 
@@ -85,14 +74,11 @@ def _filter_a_and_b(a, b):
             filtered_b_a_pairs.append(b_a_pairs[j])
     filtered_b_a_pairs.append(b_a_pairs[-1])
 
-    return torch.Tensor(
-        [tmp[0] for tmp in filtered_b_a_pairs],
-        [tmp[1] for tmp in filtered_b_a_pairs],
-    )
+    return torch.Tensor([tmp[0] for tmp in filtered_b_a_pairs], [tmp[1] for tmp in filtered_b_a_pairs])
 
 
 def _compute_c_and_A(a, b):
-    assert False, 'Needs to be converted'
+    assert False, "Needs to be converted"
     c = np.zeros(len(b) + 1)
     c[0] = -np.inf
     c[1] = np.inf

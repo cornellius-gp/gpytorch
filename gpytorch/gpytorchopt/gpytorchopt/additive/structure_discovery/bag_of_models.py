@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from math import log
 import gpytorch
 import random
@@ -12,7 +14,7 @@ class ShiftDimAdditiveStructureProposer:
 
     def propose(self, kernel_list):
         if self.num_dims is None:
-            self.num_dims = sum([len(k.active_dims) for k in kernel_list])
+            self.num_dims = sum(len(k.active_dims) for k in kernel_list)
 
         rand_dim = random.randrange(0, self.num_dims)
         old_ind = -1
@@ -69,7 +71,7 @@ class KShiftDimAdditiveStructureProposer:
         new_kl, pl, rl = self.sd_proposal.propose(kernel_list)
         plp.append(pl)
         rlp.append(rl)
-        for i in range(self.K - 1):
+        for _ in range(self.K - 1):
             new_kl, pl, rl = self.sd_proposal.propose(new_kl)
             plp.append(pl)
             rlp.append(rl)
@@ -108,7 +110,7 @@ class BagofModelsAdditiveStructureSelector:
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(mcmc_model.likelihood, mcmc_model)
 
         training_iter = 300
-        for i in range(training_iter):
+        for _ in range(training_iter):
             optimizer.zero_grad()
             output = mcmc_model(self.X)
             loss = -mll(output, self.y)
@@ -126,7 +128,7 @@ class BagofModelsAdditiveStructureSelector:
         self.current_kernel = kernel
 
     def get_models(self, num_models):
-        for i in range(num_models):
+        for _ in range(num_models):
             # propose a kernel
             proposed_sample, _, _ = self.proposer.propose(self.current_kernel.kernels)
             proposed_kernel = gpytorch.kernels.AdditiveKernel(*proposed_sample)
@@ -144,7 +146,7 @@ class BagofModelsAdditiveStructureSelector:
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, proposed_model)
 
             training_iter = 300
-            for i in range(training_iter):
+            for _ in range(training_iter):
                 optimizer.zero_grad()
                 output = proposed_model(self.X)
                 loss = -mll(output, self.y)

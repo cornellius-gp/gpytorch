@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import torch
 from .additive_strategy import AdditiveStrategy
 
@@ -7,7 +9,7 @@ class DimScanAdditiveStrategy(AdditiveStrategy):
         super(DimScanAdditiveStrategy, self).__init__(acquisition_function, candidate_set_factory, additive_structure)
 
         # Set up a base candidate set over the full dimensionality that we will write in to to do dimscan
-        total_dim_length = sum([len(group) for group in additive_structure])
+        total_dim_length = sum(len(group) for group in additive_structure)
         self.base_candidate_set = self.candidate_set_factory(total_dim_length)
 
     def maximize(self):
