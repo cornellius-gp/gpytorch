@@ -104,6 +104,7 @@ class ExactGP(Module):
                 n_train=self.train_targets.size(-1),
                 noise=noise,
                 precomputed_cache=self.covar_cache,
+                train_train_covar_inv_root=self.train_train_covar_inv_root,
             )
             predictive_mean, mean_cache = exact_predictive_mean(
                 full_covar=full_covar,
@@ -111,6 +112,7 @@ class ExactGP(Module):
                 train_labels=Variable(self.train_targets),
                 noise=noise,
                 precomputed_cache=self.mean_cache,
+                train_train_covar_inv_root=train_train_covar_inv_root,
             )
 
             self.mean_cache = mean_cache

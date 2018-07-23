@@ -344,7 +344,9 @@ class InterpolatedLazyVariable(LazyVariable):
                 res = res.view(batch_size, n_data, -1).sum(-1)
             return res
 
-    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
+    def exact_predictive_mean(
+        self, full_mean, train_labels, noise, precomputed_cache=None, train_train_covar_inv_root=None
+    ):
         n_train = train_labels.size(-1)
         if precomputed_cache is None:
             train_mean = full_mean.narrow(-1, 0, n_train)
@@ -359,7 +361,18 @@ class InterpolatedLazyVariable(LazyVariable):
                 train_interp_indices,
                 train_interp_values,
             ).add_diag(noise)
-            train_train_covar_inv_labels = train_train_covar.inv_matmul((train_labels - train_mean).unsqueeze(-1))
+
+            precondition_closure = None
+            if train_train_covar_inv_root is not None:
+
+                def precondition_closure(tensor):
+                    return train_train_covar_inv_root.matmul(
+                        train_train_covar_inv_root.transpose(-2, -1).matmul(tensor)
+                    )
+
+            train_train_covar_inv_labels = train_train_covar.inv_matmul(
+                (train_labels - train_mean).unsqueeze(-1), preconditioner=precondition_closure
+            )
 
             # New root factor
             base_size = self.base_lazy_variable.size(-1)
