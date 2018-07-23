@@ -454,7 +454,7 @@ class LazyVariable(object):
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
 
-    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None, train_train_covar_inv_root=None):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -485,10 +485,11 @@ class LazyVariable(object):
             train_test_covar = test_train_covar.transpose(-1, -2)
             covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
             res = test_test_covar + MatmulLazyVariable(test_train_covar, covar_correction_rhs)
-            return res, None
+            return res, None, None
 
         if precomputed_cache is None:
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
+            if train_train_covar_inv_root is None:
+                train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
             precomputed_cache = self._exact_predictive_covar_inv_quad_form_cache(
                 train_train_covar_inv_root, test_train_covar
             )
@@ -497,7 +498,7 @@ class LazyVariable(object):
 
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         res = test_test_covar + RootLazyVariable(covar_inv_quad_form_root).mul(-1)
-        return res, precomputed_cache
+        return res, precomputed_cache, train_train_covar_inv_root
 
     def inv_matmul(self, tensor):
         """

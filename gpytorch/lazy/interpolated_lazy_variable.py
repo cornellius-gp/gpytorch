@@ -396,7 +396,7 @@ class InterpolatedLazyVariable(LazyVariable):
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
 
-    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None, train_train_covar_inv_root=None):
         if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
             return super(InterpolatedLazyVariable, self).exact_predictive_covar(n_train, noise, precomputed_cache)
 
@@ -456,7 +456,8 @@ class InterpolatedLazyVariable(LazyVariable):
             ).evaluate()
 
             # Get inverse root
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors)
+            if train_train_covar_inv_root is None:
+                train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors)
 
             # New root factor
             root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar)
@@ -487,7 +488,7 @@ class InterpolatedLazyVariable(LazyVariable):
             )
             root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1])
             res = test_test_prior_covar + RootLazyVariable(root).mul(-1)
-        return res, precomputed_cache
+        return res, precomputed_cache, train_train_covar_inv_root
 
     def matmul(self, tensor):
         # We're using a custom matmul here, because it is significantly faster than
