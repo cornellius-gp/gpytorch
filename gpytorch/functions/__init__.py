@@ -87,7 +87,9 @@ def exact_predictive_mean(
         from ..lazy.non_lazy_variable import NonLazyVariable
 
         full_covar = NonLazyVariable(full_covar)
-    return full_covar.exact_predictive_mean(full_mean, train_labels, noise, precomputed_cache, train_train_covar_inv_root=train_train_covar_inv_root)
+    return full_covar.exact_predictive_mean(
+        full_mean, train_labels, noise, precomputed_cache, train_train_covar_inv_root=train_train_covar_inv_root
+    )
 
 
 def exact_predictive_covar(full_covar, n_train, noise, precomputed_cache=None, train_train_covar_inv_root=None):
@@ -108,7 +110,9 @@ def exact_predictive_covar(full_covar, n_train, noise, precomputed_cache=None, t
         from ..lazy.non_lazy_variable import NonLazyVariable
 
         full_covar = NonLazyVariable(full_covar)
-    return full_covar.exact_predictive_covar(n_train, noise, precomputed_cache, train_train_covar_inv_root=train_train_covar_inv_root)
+    return full_covar.exact_predictive_covar(
+        n_train, noise, precomputed_cache, train_train_covar_inv_root=train_train_covar_inv_root
+    )
 
 
 def log_normal_cdf(x):
