@@ -54,8 +54,6 @@ def linear_cg(
         max_iter = settings.max_cg_iterations.value()
     if max_tridiag_iter is None:
         max_tridiag_iter = settings.max_lanczos_quadrature_iterations.value()
-    if initial_guess is None:
-        initial_guess = rhs.new(rhs.size()).zero_()
     if preconditioner is None:
         preconditioner = _default_preconditioner
 
@@ -74,11 +72,27 @@ def linear_cg(
     n_iter = min(max_iter, n_rows)
     n_tridiag_iter = min(max_tridiag_iter, n_rows)
 
+    if initial_guess is None:
+        initial_guess_zero = rhs.new(rhs.size()).zero_()
+        initial_guess_precond = preconditioner(rhs)
+        # residual: residual_{0} = b_vec - lhs x_{0}
+        residual_pre = rhs - matmul_closure(initial_guess_precond)
+        residual_zero = rhs - matmul_closure(initial_guess_zero)
+
+        residual_pre_norm = residual_pre.norm(2, dim=-2)
+        residual_zero_norm = residual_zero.norm(2, dim=-2)
+
+        if residual_pre_norm.max() < residual_zero_norm.max():
+            initial_guess = initial_guess_precond
+            residual = residual_pre
+            residual_norm = residual_pre_norm
+        else:
+            initial_guess = initial_guess_zero
+            residual = residual_zero
+            residual_norm = residual_zero_norm
+
     # result <- x_{0}
     result = initial_guess
-
-    # residual: residual_{0} = b_vec - lhs x_{0}
-    residual = rhs - matmul_closure(result)
 
     # Check for NaNs
     if not torch.equal(residual, residual):
