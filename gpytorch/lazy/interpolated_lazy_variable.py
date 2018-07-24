@@ -7,6 +7,7 @@ import torch
 from torch.autograd import Variable
 from .block_diagonal_lazy_variable import BlockDiagonalLazyVariable
 from .lazy_variable import LazyVariable
+from .non_lazy_variable import NonLazyVariable
 from .root_lazy_variable import RootLazyVariable
 from ..utils import bdsmm, left_interp, left_t_interp, sparse
 from .. import beta_features
@@ -21,6 +22,8 @@ class InterpolatedLazyVariable(LazyVariable):
         right_interp_indices=None,
         right_interp_values=None,
     ):
+        if torch.is_tensor(base_lazy_variable):
+            base_lazy_variable = NonLazyVariable(base_lazy_variable)
         tensor_cls = base_lazy_variable.tensor_cls
 
         if left_interp_indices is None:
