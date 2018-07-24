@@ -3,11 +3,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import logging
 import torch
-from gpytorch.kernels import Kernel
-
-logger = logging.getLogger()
+from .kernel import Kernel
+from ..lazy import InterpolatedLazyVariable
 
 
 def _eval_covar_matrix(covar_factor, log_var):
@@ -17,10 +15,19 @@ def _eval_covar_matrix(covar_factor, log_var):
 class IndexKernel(Kernel):
     def __init__(self, n_tasks, rank=1, prior=None, active_dims=None):
         if active_dims is not None and len(active_dims) > 1:
-            raise ValueError("Index must be with respect to a single column. Received {}".format(active_dims))
+            raise ValueError(
+                "Index must be with respect to a single column. Received {}".format(
+                    active_dims
+                )
+            )
         super(IndexKernel, self).__init__(active_dims=active_dims)
-        self.register_parameter(name="covar_factor", parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)))
-        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(n_tasks)))
+        self.register_parameter(
+            name="covar_factor",
+            parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)),
+        )
+        self.register_parameter(
+            name="log_var", parameter=torch.nn.Parameter(torch.randn(n_tasks))
+        )
         if prior is not None:
             self.register_derived_prior(
                 name="IndexKernelPrior",
@@ -30,5 +37,12 @@ class IndexKernel(Kernel):
             )
 
     def forward(self, i1, i2):
-        covar_matrix = _eval_covar_matrix(self.covar_factor, self.log_var).unsqueeze(0)
-        return covar_matrix.index_select(-2, i1.view(-1)).index_select(-1, i2.view(-1))
+        covar_matrix = _eval_covar_matrix(self.covar_factor, self.log_var)
+        if covar_matrix.ndimension() == 2:
+            covar_matrix = covar_matrix.unsqueeze(0)
+        res = InterpolatedLazyVariable(
+            base_lazy_variable=covar_matrix,
+            left_interp_indices=i1,
+            right_interp_indices=i2,
+        )
+        return res
