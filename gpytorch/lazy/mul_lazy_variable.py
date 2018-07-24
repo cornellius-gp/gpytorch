@@ -18,17 +18,29 @@ class MulLazyVariable(LazyVariable):
         """
         lazy_vars = list(lazy_vars)
         if len(lazy_vars) == 1:
-            raise RuntimeError("MulLazyVariable should have more than one lazy variables")
-
-        for i, lazy_var in enumerate(lazy_vars):
-            if not isinstance(lazy_var, LazyVariable):
-                if isinstance(lazy_var, Variable):
-                    lazy_vars[i] = NonLazyVariable(lazy_var)
-                else:
-                    raise RuntimeError("All arguments of a MulLazyVariable should be lazy " "variables or variables")
+            if isinstance(lazy_vars[0], NonLazyVariable):
+                self._non_lazy_self = lazy_vars
+            else:
+                raise RuntimeError("MulLazyVariable should have more than one lazy variables")
+        else:
+            for i, lazy_var in enumerate(lazy_vars):
+                if not isinstance(lazy_var, LazyVariable):
+                    if isinstance(lazy_var, Variable):
+                        lazy_vars[i] = NonLazyVariable(lazy_var)
+                    else:
+                        raise RuntimeError("All arguments of a MulLazyVariable should be lazy variables or variables")
 
         super(MulLazyVariable, self).__init__(*lazy_vars)
         self.lazy_vars = lazy_vars
+
+    @property
+    def non_lazy_self(self):
+        if hasattr(self, "_non_lazy_self"):
+            return self._non_lazy_self[0]
+        elif len(self._args) == 1:
+            return self._args[0]
+        else:
+            return None
 
     @property
     def left_lazy_var(self):
@@ -40,44 +52,53 @@ class MulLazyVariable(LazyVariable):
 
     @property
     def _args(self):
-        if not hasattr(self, "_mul_args_memo"):
-            # Sort lazy variables by root decomposition size (rank)
-            lazy_vars = sorted(self.lazy_vars, key=lambda lv: lv.root_decomposition_size())
+        if not hasattr(self, "_mul_args_memo") and not hasattr(self, "_non_lazy_self"):
+            lazy_vars = sorted(
+                [lv.evaluate_kernel() for lv in self.lazy_vars], key=lambda lv: lv.root_decomposition_size()
+            )
 
-            # Recursively construct lazy variables
-            # Make sure the recursive components get a mix of low_rank and high_rank variables
-            if len(lazy_vars) > 2:
-                interleaved_lazy_vars = lazy_vars[0::2] + lazy_vars[1::2]
-                if len(interleaved_lazy_vars) > 3:
-                    left_lazy_var = MulLazyVariable(*interleaved_lazy_vars[: len(interleaved_lazy_vars) // 2])
-                    if left_lazy_var.root_decomposition_size() < left_lazy_var.size(-1):
-                        left_lazy_var = RootLazyVariable(left_lazy_var.root_decomposition())
+            if any([isinstance(lv, NonLazyVariable) for lv in lazy_vars]):
+                self._non_lazy_self = [NonLazyVariable(prod([lv.evaluate() for lv in lazy_vars]))]
+            else:
+                # Sort lazy variables by root decomposition size (rank)
+
+                # Recursively construct lazy variables
+                # Make sure the recursive components get a mix of low_rank and high_rank variables
+                if len(lazy_vars) > 2:
+                    interleaved_lazy_vars = lazy_vars[0::2] + lazy_vars[1::2]
+                    if len(interleaved_lazy_vars) > 3:
+                        left_lazy_var = MulLazyVariable(*interleaved_lazy_vars[: len(interleaved_lazy_vars) // 2])
+                        if left_lazy_var.root_decomposition_size() < left_lazy_var.size(-1):
+                            left_lazy_var = RootLazyVariable(left_lazy_var.root_decomposition())
+                        else:
+                            left_lazy_var = NonLazyVariable(left_lazy_var.evaluate())
                     else:
-                        left_lazy_var = NonLazyVariable(left_lazy_var.evaluate())
-                else:
-                    # Make sure we're not constructing a MulLazyVariable of length 1
-                    left_lazy_var = interleaved_lazy_vars[0]
+                        # Make sure we're not constructing a MulLazyVariable of length 1
+                        left_lazy_var = interleaved_lazy_vars[0]
 
-                right_lazy_var = MulLazyVariable(*interleaved_lazy_vars[len(interleaved_lazy_vars) // 2 :])
-                if right_lazy_var.root_decomposition_size() < right_lazy_var.size(-1):
+                    right_lazy_var = MulLazyVariable(*interleaved_lazy_vars[len(interleaved_lazy_vars) // 2 :])
+                    if right_lazy_var.root_decomposition_size() < right_lazy_var.size(-1):
+                        right_lazy_var = RootLazyVariable(right_lazy_var.root_decomposition())
+                    else:
+                        right_lazy_var = NonLazyVariable(right_lazy_var.evaluate())
+                else:
+                    left_lazy_var = lazy_vars[0]
+                    right_lazy_var = lazy_vars[1]
+
+                # Choose which we're doing: root decomposition or exact
+                if left_lazy_var.root_decomposition_size() < left_lazy_var.size(-1):
+                    left_lazy_var = RootLazyVariable(left_lazy_var.root_decomposition())
                     right_lazy_var = RootLazyVariable(right_lazy_var.root_decomposition())
+
+                if isinstance(left_lazy_var, NonLazyVariable) and isinstance(right_lazy_var, NonLazyVariable):
+                    self._non_lazy_self = [NonLazyVariable(left_lazy_var.evaluate() * right_lazy_var.evaluate())]
                 else:
-                    right_lazy_var = NonLazyVariable(right_lazy_var.evaluate())
-            else:
-                left_lazy_var = lazy_vars[0]
-                right_lazy_var = lazy_vars[1]
+                    self._mul_args_memo = [left_lazy_var, right_lazy_var]
 
-            # Choose which we're doing: root decomposition or exact
-            if left_lazy_var.root_decomposition_size() < left_lazy_var.size(-1):
-                left_lazy_var = RootLazyVariable(left_lazy_var.root_decomposition())
-                right_lazy_var = RootLazyVariable(right_lazy_var.root_decomposition())
-            else:
-                left_lazy_var = NonLazyVariable(left_lazy_var.evaluate())
-                right_lazy_var = NonLazyVariable(right_lazy_var.evaluate())
-
-            self._mul_args_memo = [left_lazy_var, right_lazy_var]
-
-        return self._mul_args_memo
+        if hasattr(self, "_mul_args_memo"):
+            return self._mul_args_memo
+        else:
+            return self._non_lazy_self
 
     @_args.setter
     def _args(self, args):
@@ -85,6 +106,9 @@ class MulLazyVariable(LazyVariable):
         pass
 
     def _matmul(self, rhs):
+        if self.non_lazy_self is not None:
+            return self.non_lazy_self._matmul(rhs)
+
         is_vector = False
         if rhs.ndimension() == 1:
             rhs = rhs.unsqueeze(1)
@@ -110,6 +134,9 @@ class MulLazyVariable(LazyVariable):
         return res
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
+        if self.non_lazy_self is not None:
+            return self.non_lazy_self._quad_form_derivative(left_vecs, right_vecs)
+
         if left_vecs.ndimension() == 1:
             left_vecs = left_vecs.unsqueeze(1)
             right_vecs = right_vecs.unsqueeze(1)
@@ -178,6 +205,10 @@ class MulLazyVariable(LazyVariable):
         elif isinstance(other, MulLazyVariable):
             res = list(self.lazy_vars) + list(other.lazy_vars)
             return MulLazyVariable(*res)
+        elif isinstance(other, NonLazyVariable):
+            return NonLazyVariable(self.evaluate() * other.evaluate())
+        elif self.non_lazy_self is not None:
+            return NonLazyVariable(self.non_lazy_self.evaluate() * other.evaluate())
         elif isinstance(other, LazyVariable):
             return MulLazyVariable(*(list(self.lazy_vars) + [other]))
         else:
@@ -199,3 +230,18 @@ class MulLazyVariable(LazyVariable):
     def _transpose_nonbatch(self):
         # mul_lazy_variable only works with symmetric matrices
         return self
+
+    def representation(self):
+        """
+        Returns the variables that are used to define the LazyVariable
+        """
+        if self.non_lazy_self is not None:
+            return self.non_lazy_self.representation()
+        else:
+            return super(MulLazyVariable, self).representation()
+
+    def representation_tree(self):
+        if self.non_lazy_self is not None:
+            return self.non_lazy_self.representation_tree()
+        else:
+            return super(MulLazyVariable, self).representation_tree()

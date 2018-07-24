@@ -19,9 +19,9 @@ from gpytorch.priors import InverseWishartPrior, SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
-train_x = Variable(torch.linspace(0, 1, 11))
-y1_inds = Variable(torch.zeros(11).long())
-y2_inds = Variable(torch.ones(11).long())
+train_x = Variable(torch.linspace(0, 1, 100))
+y1_inds = Variable(torch.zeros(100).long())
+y2_inds = Variable(torch.ones(100).long())
 train_y1 = Variable(torch.sin(train_x.data * (2 * pi)))
 train_y2 = Variable(torch.cos(train_x.data * (2 * pi)))
 
