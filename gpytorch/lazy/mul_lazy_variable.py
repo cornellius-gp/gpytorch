@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import torch
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
