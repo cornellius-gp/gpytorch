@@ -21,11 +21,11 @@ class MulLazyVariable(LazyVariable):
             if isinstance(lazy_vars[0], NonLazyVariable):
                 self._non_lazy_self = lazy_vars
             else:
-                raise RuntimeError("MulLazyVariable should have more than one lazy variables")
+                raise RuntimeError("MulLazyVariable can only have one LazyVariable if it is a NonLazyVariable")
         else:
             for i, lazy_var in enumerate(lazy_vars):
                 if not isinstance(lazy_var, LazyVariable):
-                    if isinstance(lazy_var, Variable):
+                    if torch.is_tensor(lazy_var):
                         lazy_vars[i] = NonLazyVariable(lazy_var)
                     else:
                         raise RuntimeError("All arguments of a MulLazyVariable should be lazy variables or variables")
@@ -54,10 +54,10 @@ class MulLazyVariable(LazyVariable):
     def _args(self):
         if not hasattr(self, "_mul_args_memo") and not hasattr(self, "_non_lazy_self"):
             lazy_vars = sorted(
-                [lv.evaluate_kernel() for lv in self.lazy_vars], key=lambda lv: lv.root_decomposition_size()
+                lv.evaluate_kernel() for lv in self.lazy_vars, key=lambda lv: lv.root_decomposition_size()
             )
 
-            if any([isinstance(lv, NonLazyVariable) for lv in lazy_vars]):
+            if any(isinstance(lv, NonLazyVariable) for lv in lazy_vars):
                 self._non_lazy_self = [NonLazyVariable(prod([lv.evaluate() for lv in lazy_vars]))]
             else:
                 # Sort lazy variables by root decomposition size (rank)
