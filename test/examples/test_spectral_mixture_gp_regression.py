@@ -19,6 +19,8 @@ from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 from collections import OrderedDict
 
+torch.set_default_tensor_type(torch.DoubleTensor)
+
 # Simple training data: let's try to learn a sine function
 train_x = Variable(torch.linspace(0, 1, 15))
 train_y = Variable(torch.sin(train_x.data * (2 * pi)))
