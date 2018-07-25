@@ -19,8 +19,6 @@ from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 from collections import OrderedDict
 
-torch.set_default_tensor_type(torch.DoubleTensor)
-
 # Simple training data: let's try to learn a sine function
 train_x = Variable(torch.linspace(0, 1, 15))
 train_y = Variable(torch.sin(train_x.data * (2 * pi)))
@@ -77,7 +75,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
         # Optimize the model
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()), lr=0.1)
+        optimizer = optim.SGD(list(gp_model.parameters()), lr=0.1)
         optimizer.n_iter = 0
 
         with gpytorch.settings.num_trace_samples(100):
