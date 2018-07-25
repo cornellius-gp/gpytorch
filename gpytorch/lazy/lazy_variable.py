@@ -423,6 +423,11 @@ class LazyVariable(object):
                     )
 
             precomputed_cache = train_train_covar.inv_matmul(train_labels_offset, preconditioner=precondition_closure)
+            if precondition_closure is not None:
+                residual_one = train_train_covar.matmul(precomputed_cache) - train_labels_offset
+                old_solve = train_train_covar.inv_matmul(train_labels_offset)
+                residual_two = train_train_covar.matmul(old_solve) - train_labels_offset
+                print('New solve residual: {}, old solve: {}'.format(residual_one.norm(), residual_two.norm()))
 
         test_mean = full_mean.narrow(-1, n_train, full_mean.size(-1) - n_train)
         if self.ndimension() == 3:
