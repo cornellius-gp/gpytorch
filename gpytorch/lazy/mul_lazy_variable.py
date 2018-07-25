@@ -55,7 +55,7 @@ class MulLazyVariable(LazyVariable):
     def _args(self):
         if not hasattr(self, "_mul_args_memo") and not hasattr(self, "_non_lazy_self"):
             lazy_vars = sorted(
-                lv.evaluate_kernel() for lv in self.lazy_vars, key=lambda lv: lv.root_decomposition_size()
+                (lv.evaluate_kernel() for lv in self.lazy_vars), key=lambda lv: lv.root_decomposition_size()
             )
 
             if any(isinstance(lv, NonLazyVariable) for lv in lazy_vars):
