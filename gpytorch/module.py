@@ -28,40 +28,6 @@ class Module(nn.Module):
                 "Invalid parameter name {}. {} has no module {}".format(parameter_name, type(self).__name__, module)
             )
 
-    def _get_prior_for(self, parameter_name):
-        """
-        Get prior for parameter
-
-        parameter_name (str): parameter name
-        """
-        if "." in parameter_name:
-            module, parameter_name = self._get_module_and_name(parameter_name)
-            return module._get_prior_for(parameter_name)
-        else:
-            if parameter_name in self._parameters:
-                return self._priors.get(parameter_name)
-            else:
-                raise AttributeError(
-                    "Module {module} has no parameter {name}".format(module=type(self).__name__, name=parameter_name)
-                )
-
-    def _get_derived_prior(self, prior_name):
-        """
-        Get derived prior from prior name
-
-        prior_name (str): the name of the derived prior
-        """
-        if "." in prior_name:
-            module, prior_name = self._get_module_and_name(prior_name)
-            return module._get_derived_prior(prior_name)
-        else:
-            if prior_name in self._parameters:
-                return self._derived_priors.get(prior_name)
-            else:
-                raise AttributeError(
-                    "Module {module} has no derived prior {name}".format(module=type(self).__name__, name=prior_name)
-                )
-
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
 
@@ -92,16 +58,24 @@ class Module(nn.Module):
                     )
         return self
 
-    def named_parameter_priors(self):
+    def named_parameter_priors(self, memo=None, prefix=""):
         """
         Returns an iterator over module parameter priors, yielding the name of
         the parameter, the parameter itself, as well as the associated prior
         (excludes parameters for which no prior has been registered)
         """
-        for name, param in self.named_parameters():
-            prior = self._get_prior_for(name)
-            if prior is not None:
-                yield name, param, prior
+        if memo is None:
+            memo = set()
+        for name, parameter in self._parameters.items():
+            if name in self._priors and self._priors[name] not in memo:
+                prior = self._priors[name]
+                memo.add(prior)
+                yield prefix + ("." if prefix else "") + name, parameter, prior
+        for mname, module in self.named_children():
+            submodule_prefix = prefix + ("." if prefix else "") + mname
+            if hasattr(module, "named_parameter_priors"):
+                for name, parameter, prior in module.named_parameter_priors(memo, submodule_prefix):
+                    yield name, parameter, prior
 
     def named_derived_priors(self, memo=None, prefix=""):
         """Returns an iterator over module derived priors, yielding both the

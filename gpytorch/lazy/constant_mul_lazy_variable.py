@@ -12,7 +12,7 @@ class ConstantMulLazyVariable(LazyVariable):
         if torch.is_tensor(constant):
             constant = constant
         else:
-            constant = torch.Tensor([constant], device=lazy_var.device)
+            constant = torch.tensor([constant], device=lazy_var.device, dtype=torch.float32)
         super(ConstantMulLazyVariable, self).__init__(lazy_var, constant)
         self.lazy_var = lazy_var
         self.constant = constant

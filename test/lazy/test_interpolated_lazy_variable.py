@@ -6,11 +6,25 @@ from __future__ import unicode_literals
 import gpytorch
 import torch
 import unittest
+import os
+import random
 from gpytorch.lazy import NonLazyVariable, InterpolatedLazyVariable
 from gpytorch.utils import approx_equal
 
 
 class TestInterpolatedLazyVariable(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_matmul(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(3, 1)
         left_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]]).repeat(3, 1)
