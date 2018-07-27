@@ -21,6 +21,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         self.x1 = x1
         self.x2 = x2
         self.is_batch = self.x1.ndimension() == 3
+        self.params = params
 
     def _matmul(self, rhs):
         raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
@@ -30,6 +31,9 @@ class LazyEvaluatedKernelVariable(LazyVariable):
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
+
+    def _transpose_nonbatch(self):
+        return self.__class__(self.kernel, self.x2, self.x1, **self.params)
 
     def diag(self):
         """
@@ -77,7 +81,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             else:
                 x1 = self.x1
                 x2 = self.x2
-            self._cached_kernel_eval = super(Kernel, self.kernel).__call__(x1, x2)
+            self._cached_kernel_eval = super(Kernel, self.kernel).__call__(x1, x2, **self.params)
 
             if not self.is_batch:
                 self._cached_kernel_eval = self._cached_kernel_eval[0]
@@ -103,12 +107,12 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             left_index = index[1]
             right_index = index[2]
             return LazyEvaluatedKernelVariable(
-                self.kernel, self.x1[batch_index, left_index, :], self.x2[batch_index, right_index, :]
+                self.kernel, self.x1[batch_index, left_index, :], self.x2[batch_index, right_index, :], **self.params
             )
         else:
             left_index = index[0]
             right_index = index[1]
-            return LazyEvaluatedKernelVariable(self.kernel, self.x1[left_index, :], self.x2[right_index, :])
+            return LazyEvaluatedKernelVariable(self.kernel, self.x1[left_index, :], self.x2[right_index, :], **self.params)
 
     def _size(self):
         if self.is_batch:
