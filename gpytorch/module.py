@@ -3,11 +3,13 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import torch
 from collections import OrderedDict
+
+import torch
 from torch import nn
-from .random_variables import RandomVariable
+
 from .lazy import LazyVariable
+from .random_variables import RandomVariable
 from .variational import VariationalStrategy
 
 
@@ -58,24 +60,13 @@ class Module(nn.Module):
                     )
         return self
 
-    def named_parameter_priors(self, memo=None, prefix=""):
+    def named_parameter_priors(self):
         """
         Returns an iterator over module parameter priors, yielding the name of
         the parameter, the parameter itself, as well as the associated prior
         (excludes parameters for which no prior has been registered)
         """
-        if memo is None:
-            memo = set()
-        for name, parameter in self._parameters.items():
-            if name in self._priors and self._priors[name] not in memo:
-                prior = self._priors[name]
-                memo.add(prior)
-                yield prefix + ("." if prefix else "") + name, parameter, prior
-        for mname, module in self.named_children():
-            submodule_prefix = prefix + ("." if prefix else "") + mname
-            if hasattr(module, "named_parameter_priors"):
-                for name, parameter, prior in module.named_parameter_priors(memo, submodule_prefix):
-                    yield name, parameter, prior
+        return _extract_named_parameter_priors(module=self, memo=None, prefix="")
 
     def named_derived_priors(self, memo=None, prefix=""):
         """Returns an iterator over module derived priors, yielding both the
@@ -88,20 +79,9 @@ class Module(nn.Module):
                 to be called on the parameters.
 
         """
-        if memo is None:
-            memo = set()
-        for name, (prior, pnames, tf) in self._derived_priors.items():
-            if prior is not None and prior not in memo:
-                memo.add(prior)
-                parameters = tuple(getattr(self, pname) for pname in pnames)
-                yield prefix + ("." if prefix else "") + name, prior, parameters, tf
-        for mname, module in self.named_children():
-            submodule_prefix = prefix + ("." if prefix else "") + mname
-            if hasattr(module, "_derived_priors"):
-                for name, prior, parameters, tf in module.named_derived_priors(memo, submodule_prefix):
-                    yield name, prior, parameters, tf
+        return _extract_named_derived_priors(module=self, memo=None, prefix="")
 
-    def named_variational_strategies(self, memo=None, prefix=""):
+    def named_variational_strategies(self):
         """Returns an iterator over module variational strategies, yielding both
         the name of the variational strategy as well as the strategy itself.
 
@@ -110,17 +90,7 @@ class Module(nn.Module):
                 strategy and the strategy
 
         """
-        if memo is None:
-            memo = set()
-        for name, strategy in self._variational_strategies.items():
-            if strategy is not None and strategy not in memo:
-                memo.add(strategy)
-                yield prefix + ("." if prefix else "") + name, strategy
-        for mname, module in self.named_children():
-            submodule_prefix = prefix + ("." if prefix else "") + mname
-            if hasattr(module, "named_variational_strategies"):
-                for name, strategy in module.named_variational_strategies(memo, submodule_prefix):
-                    yield name, strategy
+        return _extract_named_variational_strategies(module=self, memo=None, prefix="")
 
     def register_parameter(self, name, parameter, prior=None):
         """
@@ -201,3 +171,49 @@ class Module(nn.Module):
         if len(outputs) == 1:
             outputs = outputs[0]
         return outputs
+
+
+def _extract_named_parameter_priors(module, memo=None, prefix=""):
+    if memo is None:
+        memo = set()
+    if hasattr(module, "_priors"):
+        for name, parameter in module._parameters.items():
+            if name in module._priors and module._priors[name] not in memo:
+                prior = module._priors[name]
+                memo.add(prior)
+                yield prefix + ("." if prefix else "") + name, parameter, prior
+    for mname, module_ in module.named_children():
+        submodule_prefix = prefix + ("." if prefix else "") + mname
+        for name, parameter, prior in _extract_named_parameter_priors(
+            module=module_, memo=memo, prefix=submodule_prefix
+        ):
+            yield name, parameter, prior
+
+
+def _extract_named_variational_strategies(module, memo=None, prefix=""):
+    if memo is None:
+        memo = set()
+    if hasattr(module, "_variational_strategies"):
+        for name, strategy in module._variational_strategies.items():
+            if strategy is not None and strategy not in memo:
+                memo.add(strategy)
+                yield prefix + ("." if prefix else "") + name, strategy
+    for mname, module_ in module.named_children():
+        submodule_prefix = prefix + ("." if prefix else "") + mname
+        for name, strategy in _extract_named_variational_strategies(module=module_, memo=memo, prefix=submodule_prefix):
+            yield name, strategy
+
+
+def _extract_named_derived_priors(module, memo=None, prefix=""):
+    if memo is None:
+        memo = set()
+    if hasattr(module, "_derived_priors"):
+        for name, (prior, pnames, tf) in module._derived_priors.items():
+            if prior is not None and prior not in memo:
+                memo.add(prior)
+                parameters = tuple(getattr(module, pname) for pname in pnames)
+                yield prefix + ("." if prefix else "") + name, prior, parameters, tf
+    for mname, module_ in module.named_children():
+        submodule_prefix = prefix + ("." if prefix else "") + mname
+        for name, prior, parameters, tf in _extract_named_derived_priors(module_, memo=memo, prefix=submodule_prefix):
+            yield name, prior, parameters, tf
