@@ -58,7 +58,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             else:
                 x1 = self.x1
                 x2 = self.x2
-            res = super(Kernel, self.kernel).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3))
+            res = super(Kernel, self.kernel).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3), **self.params)
 
             if isinstance(res, LazyVariable):
                 res = res.evaluate()
@@ -112,7 +112,9 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         else:
             left_index = index[0]
             right_index = index[1]
-            return LazyEvaluatedKernelVariable(self.kernel, self.x1[left_index, :], self.x2[right_index, :], **self.params)
+            return LazyEvaluatedKernelVariable(
+                self.kernel, self.x1[left_index, :], self.x2[right_index, :], **self.params
+            )
 
     def _size(self):
         if self.is_batch:
