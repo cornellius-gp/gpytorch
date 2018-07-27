@@ -36,14 +36,17 @@ def make_data(cuda=False):
 
 data_dim = 1
 
-class SmallFeatureExtractor(nn.Sequential):           
-    def __init__(self):                                      
-        super(SmallFeatureExtractor, self).__init__()        
-        self.add_module('linear1', nn.Linear(data_dim, 10))
-        self.add_module('relu3', nn.ReLU())                  
-        self.add_module('linear4', nn.Linear(10, 1))         
-                                                             
+
+class SmallFeatureExtractor(nn.Sequential):
+    def __init__(self):
+        super(SmallFeatureExtractor, self).__init__()
+        self.add_module("linear1", nn.Linear(data_dim, 10))
+        self.add_module("relu3", nn.ReLU())
+        self.add_module("linear4", nn.Linear(10, 1))
+
+
 feature_extractor = SmallFeatureExtractor()
+
 
 class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
