@@ -17,38 +17,58 @@ as outlined by:
 
 
 class qExpectedImprovement(AcquisitionFunction):
-    def __init__(self, gp_model: Module, best_y) -> None:
+    def __init__(self, gp_model: Module, best_y, mc_samples: int = 1000) -> None:
         super(qExpectedImprovement, self).__init__(gp_model)
         self.best_y = best_y
+        self.mc_samples = mc_samples
 
     def forward(self, candidate_set: torch.Tensor) -> torch.Tensor:
         return batch_expected_improvement(
-            self.gp_model,
-            candidate_set,
-            self.best_y,
+            model=self.gp_model,
+            x=candidate_set,
+            alpha=self.best_y,
+            mc_samples=self.mc_samples,
         )
 
 
 class qProbabilityOfImprovement(AcquisitionFunction):
-    def __init__(self, gp_model: Module, best_y) -> None:
+    def __init__(self, gp_model: Module, best_y, mc_samples: int = 1000) -> None:
         super(qProbabilityOfImprovement, self).__init__(gp_model)
+        self.best_y = best_y
+        self.mc_samples = mc_samples
 
     def forward(self, candidate_set: torch.Tensor) -> torch.Tensor:
         return batch_probability_of_improvement(
-            self.gp_model,
-            candidate_set,
-            self.best_y,
+            model=self.gp_model,
+            x=candidate_set,
+            alpha=self.best_y,
+            mc_samples=self.mc_samples,
         )
 
 
 class qUpperConfidenceBound(AcquisitionFunction):
-    def __init__(self, gp_model: Module, beta: float) -> None:
+    def __init__(self, gp_model: Module, beta: float, mc_samples: int = 1000) -> None:
         super(qUpperConfidenceBound, self).__init__(gp_model)
         self.beta = beta
+        self.mc_samples = mc_samples
 
     def forward(self, candidate_set: torch.Tensor) -> torch.Tensor:
         return batch_upper_confidence_bound(
-            self.gp_model,
-            candidate_set,
-            self.beta,
+            model=self.gp_model,
+            x=candidate_set,
+            beta=self.beta,
+            mc_samples=self.mc_samples,
+        )
+
+
+class qSimpleRegret(AcquisitionFunction):
+    def __init__(self, gp_model: Module, mc_samples: int = 1000) -> None:
+        super(qSimpleRegret, self).__init__(gp_model)
+        self.mc_samples = mc_samples
+
+    def forward(self, candidate_set: torch.Tensor) -> torch.Tensor:
+        return batch_simple_regret(
+            x=candidate_set,
+            model=self.gp_model,
+            mc_samples=self.mc_samples,
         )
