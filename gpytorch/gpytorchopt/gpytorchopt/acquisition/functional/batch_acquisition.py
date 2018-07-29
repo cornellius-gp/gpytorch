@@ -16,7 +16,7 @@ def batch_simple_regret(
     # let's be paranoid
     x.requires_grad = True
     model.eval()
-    val = model.forward(x).sample(mc_samples).max(0)[0].mean()
+    val = model(x).sample(mc_samples).max(0)[0].mean()
     return val
 
 
@@ -29,7 +29,7 @@ def batch_probability_of_improvement(
     # let's be paranoid
     x.requires_grad = True
     model.eval()
-    val = F.sigmoid(model.forward(x).sample(mc_samples).max(0)[0] - alpha).mean()
+    val = F.sigmoid(model(x).sample(mc_samples).max(0)[0] - alpha).mean()
     return val
 
 
@@ -42,7 +42,7 @@ def batch_expected_improvement(
     # let's be paranoid
     x.requires_grad = True
     model.eval()
-    val = (model.forward(x).sample(mc_samples).max(0)[0] - alpha).clamp(0, inf).mean()
+    val = (model(x).sample(mc_samples).max(0)[0] - alpha).clamp(0, inf).mean()
     return val
 
 
@@ -54,7 +54,7 @@ def batch_upper_confidence_bound(
 ) -> torch.Tensor:
     x.requires_grad = True
     model.eval()
-    mvn = model.forward(x)
+    mvn = model(x)
     val = (
         sqrt(beta * pi / 2) * mvn.covar().zero_mean_mvn_samples(mc_samples).abs() +
         mvn._mean.view(-1, 1)
