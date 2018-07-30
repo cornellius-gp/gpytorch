@@ -35,6 +35,16 @@ class LazyEvaluatedKernelVariable(LazyVariable):
     def _transpose_nonbatch(self):
         return self.__class__(self.kernel, self.x2, self.x1, **self.params)
 
+    def _get_indices(self, left_indices, right_indices):
+        from ..kernels import Kernel
+        x1 = self.x1[left_indices, :].unsqueeze(0)
+        x2 = self.x2[right_indices, :].unsqueeze(0)
+        res = super(Kernel, self.kernel).__call__(x1.transpose(0, 1), x2.transpose(0, 1))
+        if isinstance(res, LazyVariable):
+            res = res.evaluate()
+        res = res.view(-1)
+        return res
+
     def diag(self):
         """
         Getting the diagonal of a kernel can be handled more efficiently by
