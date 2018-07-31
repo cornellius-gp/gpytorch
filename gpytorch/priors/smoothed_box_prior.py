@@ -19,7 +19,7 @@ class SmoothedBoxPrior(Prior):
         B = {x: a_i <= x_i <= b_i}
         d(x, B) = min_{x' in B} |x - x'|
 
-        pdf(x) ~ exp(- d(x, B)**2 / sqrt(2 * pi * sigma^2))
+        pdf(x) ~ exp(- d(x, B)**2 / sqrt(2 * sigma^2))
 
     """
 
