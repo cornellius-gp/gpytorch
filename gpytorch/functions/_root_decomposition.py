@@ -33,7 +33,6 @@ class RootDecomposition(Function):
         # Get closure for matmul
         lazy_var = self.representation_tree(*matrix_args)
         matmul_closure = lazy_var._matmul
-
         # Do lanczos
         q_mat, t_mat = lanczos_tridiag(
             matmul_closure,
@@ -56,7 +55,6 @@ class RootDecomposition(Function):
         # Get orthogonal matrix and eigenvalue roots
         q_mat = q_mat.matmul(eigenvectors)
         root_evals = eigenvalues.sqrt()
-
         # Store q_mat * t_mat_chol
         # Decide if we're computing the inverse, or the regular root
         root = q_mat.new()
@@ -66,17 +64,24 @@ class RootDecomposition(Function):
         if self.root:
             root = q_mat * root_evals.unsqueeze(-2)
 
-        to_save = list(matrix_args) + [q_mat, root_evals, inverse]
-        self.save_for_backward(*to_save)
         if not settings.memory_efficient.on():
             self._lazy_var = lazy_var
 
         if self.batch_size is None:
             root = root.squeeze(1) if root.numel() else root
+            q_mat = q_mat.squeeze(1)
+            t_mat = t_mat.squeeze(1)
+            root_evals = root_evals.squeeze(1)
             inverse = inverse.squeeze(1) if inverse.numel() else inverse
         if n_probes == 1:
             root = root.squeeze(0) if root.numel() else root
+            q_mat = q_mat.squeeze(0)
+            t_mat = t_mat.squeeze(0)
+            root_evals = root_evals.squeeze(0)
             inverse = inverse.squeeze(0) if inverse.numel() else inverse
+
+        to_save = list(matrix_args) + [q_mat, root_evals, inverse]
+        self.save_for_backward(*to_save)
         return root, inverse
 
     def backward(self, root_grad_output, inverse_grad_output):
@@ -92,27 +97,27 @@ class RootDecomposition(Function):
             if is_empty(inverse_grad_output):
                 inverse_grad_output = None
 
-            is_batch = True
-            if root_grad_output is not None:
-                if root_grad_output.ndimension() == 2:
-                    root_grad_output = root_grad_output.unsqueeze(0)
-                    is_batch = False
-                if root_grad_output.ndimension() == 3:
-                    root_grad_output = root_grad_output.unsqueeze(0)
-                    is_batch = False
-            if inverse_grad_output is not None:
-                if inverse_grad_output.ndimension() == 2:
-                    inverse_grad_output = inverse_grad_output.unsqueeze(0)
-                    is_batch = False
-                if inverse_grad_output.ndimension() == 3:
-                    inverse_grad_output = inverse_grad_output.unsqueeze(0)
-                    is_batch = False
-
-            # Get saed tensors
+            # Get saved tensors
             matrix_args = self.saved_tensors[:-3]
             q_mat = self.saved_tensors[-3]
             root_evals = self.saved_tensors[-2]
             inverse = self.saved_tensors[-1]
+            is_batch = False
+
+            if root_grad_output is not None:
+                if root_grad_output.ndimension() == 2 and q_mat.ndimension() > 2:
+                    root_grad_output = root_grad_output.unsqueeze(0)
+                    is_batch = True
+                if root_grad_output.ndimension() == 3 and q_mat.ndimension() > 3:
+                    root_grad_output = root_grad_output.unsqueeze(0)
+                    is_batch = True
+            if inverse_grad_output is not None:
+                if inverse_grad_output.ndimension() == 2 and q_mat.ndimension() > 2:
+                    inverse_grad_output = inverse_grad_output.unsqueeze(0)
+                    is_batch = True
+                if inverse_grad_output.ndimension() == 3 and q_mat.ndimension() > 3:
+                    inverse_grad_output = inverse_grad_output.unsqueeze(0)
+                    is_batch = True
 
             # Get closure for matmul
             if hasattr(self, "_lazy_var"):
@@ -123,7 +128,6 @@ class RootDecomposition(Function):
             # Get root inverse
             if not self.inverse:
                 inverse = q_mat / root_evals.unsqueeze(-2)
-
             # Left factor:
             left_factor = inverse.new(inverse.size()).zero_()
             if root_grad_output is not None:
@@ -136,10 +140,14 @@ class RootDecomposition(Function):
             right_factor = inverse.div(2.)
 
             # Fix batches
-            left_factor = left_factor.permute(1, 0, 2, 3).contiguous()
-            left_factor = left_factor.view(inverse.size(1), -1, left_factor.size(-1))
-            right_factor = right_factor.permute(1, 0, 2, 3).contiguous()
-            right_factor = right_factor.view(inverse.size(1), -1, right_factor.size(-1))
+            if is_batch:
+                left_factor = left_factor.permute(1, 0, 2, 3).contiguous()
+                left_factor = left_factor.view(inverse.size(1), -1, left_factor.size(-1))
+                right_factor = right_factor.permute(1, 0, 2, 3).contiguous()
+                right_factor = right_factor.view(inverse.size(1), -1, right_factor.size(-1))
+            else:
+                left_factor = left_factor.contiguous()
+                right_factor = right_factor.contiguous()
             res = lazy_var._quad_form_derivative(left_factor, right_factor)
 
             if not is_batch:
