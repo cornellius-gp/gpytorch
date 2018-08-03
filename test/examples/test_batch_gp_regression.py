@@ -90,7 +90,7 @@ class TestBatchGPRegression(unittest.TestCase):
 
         # Create data batches
         train_x12 = torch.cat((train_x1.unsqueeze(0), train_x2.unsqueeze(0)), dim=0).contiguous()
-        train_y12 = torch.cat((train_y1.unsqueeze(0), train_y2.unsqueeze(0)), dim=0).contiguous()
+        train_y12 = torch.cat((train_y1.unsqueeze(0), train_y2.unsqueeze(0)), dim=0).contiguous().unsqueeze(-1)
         test_x12 = torch.cat((test_x1.unsqueeze(0), test_x2.unsqueeze(0)), dim=0).contiguous()
 
         # Update gp model to use both sine and cosine training data as train data

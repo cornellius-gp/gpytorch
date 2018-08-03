@@ -92,6 +92,10 @@ class Kernel(Module):
             return torch.Size((x1.size(-2), x2.size(-2)))
 
     @abstractmethod
+    def forward_diag(self, x1, x2, **params):
+        return super(Kernel, self).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3), **params)
+
+    @abstractmethod
     def forward(self, x1, x2, **params):
         raise NotImplementedError()
 

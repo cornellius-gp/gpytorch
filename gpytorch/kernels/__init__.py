@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from .kernel import Kernel, AdditiveKernel, ProductKernel
 from .rbf_kernel import RBFKernel
 from .matern_kernel import MaternKernel
+from .multitask_kernel import MultitaskKernel
 from .periodic_kernel import PeriodicKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 from .index_kernel import IndexKernel
@@ -22,6 +23,7 @@ __all__ = [
     LinearKernel,
     RBFKernel,
     MaternKernel,
+    MultitaskKernel,
     PeriodicKernel,
     ProductKernel,
     SpectralMixtureKernel,

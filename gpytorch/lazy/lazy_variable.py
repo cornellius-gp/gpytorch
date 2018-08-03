@@ -385,7 +385,7 @@ class LazyVariable(object):
         """
         return self.representation_tree()(*self.representation())
 
-    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
+    def exact_predictive_mean(self, full_mean, train_labels, n_train, noise, precomputed_cache=None):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -400,20 +400,18 @@ class LazyVariable(object):
         Returns:
             :obj:`torch.tensor`: The predictive posterior mean of the test points
         """
-        n_train = train_labels.size(-1)
         if precomputed_cache is None:
-            train_mean = full_mean.narrow(-1, 0, n_train)
             if self.ndimension() == 3:
                 train_train_covar = self[:, :n_train, :n_train].add_diag(noise)
             else:
                 train_train_covar = self[:n_train, :n_train].add_diag(noise)
-
+            train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
             train_labels_offset = train_labels - train_mean
             if self.ndimension() == 3:
                 train_labels_offset = train_labels_offset.unsqueeze(-1)
             precomputed_cache = train_train_covar.inv_matmul(train_labels_offset)
 
-        test_mean = full_mean.narrow(-1, n_train, full_mean.size(-1) - n_train)
+        test_mean = full_mean.narrow(-1, train_labels.size(-1), full_mean.size(-1) - train_labels.size(-1))
         if self.ndimension() == 3:
             test_train_covar = self[:, n_train:, :n_train]
         else:

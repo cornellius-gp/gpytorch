@@ -97,17 +97,30 @@ class ExactGP(Module):
                 raise RuntimeError("ExactGP.forward must return a GaussianRandomVariable")
             full_mean, full_covar = full_output.representation()
 
+            if self.train_targets.ndimension() == 2:
+                # Multitask
+                n_train = self.train_targets.size(0)
+                train_targets = self.train_targets.view(-1)
+            elif self.train_targets.ndimension() == 3:
+                # batch mode
+                n_train = self.train_targets.size(1)
+                train_targets = self.train_targets.view(self.train_targets.size(0), -1)
+            else:
+                n_train = self.train_targets.size(-1)
+                train_targets = self.train_targets
+
             noise = self.likelihood.log_noise.exp()
             predictive_mean, mean_cache = exact_predictive_mean(
                 full_covar=full_covar,
                 full_mean=full_mean,
-                train_labels=Variable(self.train_targets),
+                train_labels=train_targets,
+                n_train=n_train,
                 noise=noise,
                 precomputed_cache=self.mean_cache,
             )
             predictive_covar, covar_cache = exact_predictive_covar(
                 full_covar=full_covar,
-                n_train=self.train_targets.size(-1),
+                n_train=n_train,
                 noise=noise,
                 precomputed_cache=self.covar_cache,
             )
