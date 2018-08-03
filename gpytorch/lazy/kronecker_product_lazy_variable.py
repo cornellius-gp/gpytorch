@@ -4,10 +4,14 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
+from IPython.core.debugger import Pdb
 import operator
 from torch.autograd import Variable
 from .lazy_variable import LazyVariable
 from functools import reduce
+
+
+ipdb = Pdb()
 
 
 def _prod(iterable):
@@ -21,15 +25,13 @@ def _matmul(lazy_vars, rhs):
     for lazy_var in list(lazy_vars)[::-1]:
         if is_batch:
             n_batch = res.size(0)
-            res = res.view(n_batch, lazy_var.size(-1), -1)
-            factor = lazy_var._matmul(res)
-            n_batch = factor.size(0)
-            factor = factor.view(n_batch, lazy_var.size(-1), -1, n_cols).transpose(-3, -2)
+            res = res.transpose(-2, -1).contiguous().view(n_batch, n_cols, lazy_var.size(-1), -1).transpose(0, 1).contiguous()
+            # ipdb.set_trace()
+            factor = lazy_var._matmul(res).permute(1, 3, 2, 0)
             res = factor.contiguous().view(n_batch, -1, n_cols)
         else:
-            res = res.view(lazy_var.size(-1), -1)
-            factor = lazy_var._matmul(res)
-            factor = factor.contiguous().view(lazy_var.size(-1), -1, n_cols).transpose(-3, -2)
+            res = res.t().contiguous().view(n_cols, lazy_var.size(-1), -1)
+            factor = lazy_var._matmul(res).permute(2, 1, 0)
             res = factor.contiguous().view(-1, n_cols)
     return res
 
