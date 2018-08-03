@@ -344,7 +344,9 @@ class InterpolatedLazyVariable(LazyVariable):
                 res = res.view(batch_size, n_data, -1).sum(-1)
             return res
 
-    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
+    def exact_predictive_mean(
+        self, full_mean, train_labels, noise, precomputed_cache=None, train_train_covar_inv_root=None
+    ):
         n_train = train_labels.size(-1)
         if precomputed_cache is None:
             train_mean = full_mean.narrow(-1, 0, n_train)
@@ -359,7 +361,18 @@ class InterpolatedLazyVariable(LazyVariable):
                 train_interp_indices,
                 train_interp_values,
             ).add_diag(noise)
-            train_train_covar_inv_labels = train_train_covar.inv_matmul((train_labels - train_mean).unsqueeze(-1))
+
+            precondition_closure = None
+            if train_train_covar_inv_root is not None:
+
+                def precondition_closure(tensor):
+                    return train_train_covar_inv_root.matmul(
+                        train_train_covar_inv_root.transpose(-2, -1).matmul(tensor)
+                    )
+
+            train_train_covar_inv_labels = train_train_covar.inv_matmul(
+                (train_labels - train_mean).unsqueeze(-1), preconditioner=precondition_closure
+            )
 
             # New root factor
             base_size = self.base_lazy_variable.size(-1)
@@ -396,7 +409,7 @@ class InterpolatedLazyVariable(LazyVariable):
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
 
-    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None, train_train_covar_inv_root=None):
         if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
             return super(InterpolatedLazyVariable, self).exact_predictive_covar(n_train, noise, precomputed_cache)
 
@@ -456,7 +469,8 @@ class InterpolatedLazyVariable(LazyVariable):
             ).evaluate()
 
             # Get inverse root
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors)
+            if train_train_covar_inv_root is None:
+                train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors)
 
             # New root factor
             root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar)
@@ -487,7 +501,7 @@ class InterpolatedLazyVariable(LazyVariable):
             )
             root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1])
             res = test_test_prior_covar + RootLazyVariable(root).mul(-1)
-        return res, precomputed_cache
+        return res, precomputed_cache, train_train_covar_inv_root
 
     def matmul(self, tensor):
         # We're using a custom matmul here, because it is significantly faster than

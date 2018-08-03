@@ -28,6 +28,7 @@ class ExactGP(Module):
 
         self.mean_cache = None
         self.covar_cache = None
+        self.train_train_covar_inv_root = None
 
     def _apply(self, fn):
         self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
@@ -98,20 +99,23 @@ class ExactGP(Module):
             full_mean, full_covar = full_output.representation()
 
             noise = self.likelihood.log_noise.exp()
+            predictive_covar, covar_cache, train_train_covar_inv_root = exact_predictive_covar(
+                full_covar=full_covar,
+                n_train=self.train_targets.size(-1),
+                noise=noise,
+                precomputed_cache=self.covar_cache,
+                train_train_covar_inv_root=self.train_train_covar_inv_root,
+            )
             predictive_mean, mean_cache = exact_predictive_mean(
                 full_covar=full_covar,
                 full_mean=full_mean,
                 train_labels=Variable(self.train_targets),
                 noise=noise,
                 precomputed_cache=self.mean_cache,
-            )
-            predictive_covar, covar_cache = exact_predictive_covar(
-                full_covar=full_covar,
-                n_train=self.train_targets.size(-1),
-                noise=noise,
-                precomputed_cache=self.covar_cache,
+                train_train_covar_inv_root=train_train_covar_inv_root,
             )
 
             self.mean_cache = mean_cache
             self.covar_cache = covar_cache
+            self.train_train_covar_inv_root = train_train_covar_inv_root
             return GaussianRandomVariable(predictive_mean, predictive_covar)

@@ -385,7 +385,9 @@ class LazyVariable(object):
         """
         return self.representation_tree()(*self.representation())
 
-    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
+    def exact_predictive_mean(
+        self, full_mean, train_labels, noise, precomputed_cache=None, train_train_covar_inv_root=None
+    ):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -411,7 +413,21 @@ class LazyVariable(object):
             train_labels_offset = train_labels - train_mean
             if self.ndimension() == 3:
                 train_labels_offset = train_labels_offset.unsqueeze(-1)
-            precomputed_cache = train_train_covar.inv_matmul(train_labels_offset)
+
+            precondition_closure = None
+            if train_train_covar_inv_root is not None:
+
+                def precondition_closure(tensor):
+                    return train_train_covar_inv_root.matmul(
+                        train_train_covar_inv_root.transpose(-2, -1).matmul(tensor)
+                    )
+
+            precomputed_cache = train_train_covar.inv_matmul(train_labels_offset, preconditioner=precondition_closure)
+            if precondition_closure is not None:
+                residual_one = train_train_covar.matmul(precomputed_cache) - train_labels_offset
+                old_solve = train_train_covar.inv_matmul(train_labels_offset)
+                residual_two = train_train_covar.matmul(old_solve) - train_labels_offset
+                print('New solve residual: {}, old solve: {}'.format(residual_one.norm(), residual_two.norm()))
 
         test_mean = full_mean.narrow(-1, n_train, full_mean.size(-1) - n_train)
         if self.ndimension() == 3:
@@ -454,7 +470,7 @@ class LazyVariable(object):
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
 
-    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None, train_train_covar_inv_root=None):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -485,10 +501,11 @@ class LazyVariable(object):
             train_test_covar = test_train_covar.transpose(-1, -2)
             covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
             res = test_test_covar + MatmulLazyVariable(test_train_covar, covar_correction_rhs)
-            return res, None
+            return res, None, None
 
         if precomputed_cache is None:
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
+            if train_train_covar_inv_root is None:
+                train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
             precomputed_cache = self._exact_predictive_covar_inv_quad_form_cache(
                 train_train_covar_inv_root, test_train_covar
             )
@@ -497,9 +514,9 @@ class LazyVariable(object):
 
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         res = test_test_covar + RootLazyVariable(covar_inv_quad_form_root).mul(-1)
-        return res, precomputed_cache
+        return res, precomputed_cache, train_train_covar_inv_root
 
-    def inv_matmul(self, tensor):
+    def inv_matmul(self, tensor, preconditioner=None):
         """
         Computes a linear solve (w.r.t self) with several right hand sides.
 
@@ -518,8 +535,10 @@ class LazyVariable(object):
                 tensor = tensor.expand(lazy_var.size(0), tensor.size(1), tensor.size(2))
         elif self.ndimension() > 3 or tensor.ndimension() > 3:
             raise RuntimeError
-
-        func = InvMatmul(self.representation_tree(), preconditioner=self._preconditioner()[0])
+        if preconditioner is None:
+            func = InvMatmul(self.representation_tree(), preconditioner=self._preconditioner()[0])
+        else:
+            func = InvMatmul(self.representation_tree(), preconditioner=preconditioner)
         return func(tensor, *self.representation())
 
     def inv_quad(self, tensor):
