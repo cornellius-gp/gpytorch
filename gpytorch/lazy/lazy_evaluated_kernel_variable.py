@@ -143,7 +143,4 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             )
 
     def _size(self):
-        if self.is_batch:
-            return torch.Size((self.x1.size(0), self.x1.size(-2), self.x2.size(-2)))
-        else:
-            return torch.Size((self.x1.size(-2), self.x2.size(-2)))
+        return self.kernel.size(self.x1, self.x2)
