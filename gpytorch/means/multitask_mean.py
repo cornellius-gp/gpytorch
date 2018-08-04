@@ -15,7 +15,7 @@ class MultitaskMean(Mean):
             base_means = [base_means]
 
         if not isinstance(base_means, list) or (len(base_means) != 1 and len(base_means) != n_tasks):
-            raise RuntimeError('base_means should be a list of means of length either 1 or n_tasks')
+            raise RuntimeError("base_means should be a list of means of length either 1 or n_tasks")
 
         if len(base_means) == 1:
             base_means = base_means * n_tasks

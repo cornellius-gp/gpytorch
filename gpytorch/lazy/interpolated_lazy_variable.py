@@ -404,6 +404,7 @@ class InterpolatedLazyVariable(LazyVariable):
 
     def exact_predictive_covar(self, n_train, likelihood, precomputed_cache=None):
         from ..random_variables import GaussianRandomVariable
+
         if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
             return super(InterpolatedLazyVariable, self).exact_predictive_covar(n_train, likelihood, precomputed_cache)
 

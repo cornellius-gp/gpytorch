@@ -401,6 +401,7 @@ class LazyVariable(object):
             :obj:`torch.tensor`: The predictive posterior mean of the test points
         """
         from ..random_variables import GaussianRandomVariable
+
         if precomputed_cache is None:
             train_mean = full_mean.narrow(-1, 0, n_train)
             if self.ndimension() == 3:
@@ -475,6 +476,7 @@ class LazyVariable(object):
                                                test points
         """
         from ..random_variables import GaussianRandomVariable
+
         if self.ndimension() == 3:
             train_train_covar = likelihood(GaussianRandomVariable(torch.zeros(1), self[:, :n_train, :n_train])).covar()
             test_train_covar = self[:, n_train:, :n_train]

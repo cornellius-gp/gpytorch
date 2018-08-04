@@ -55,9 +55,7 @@ class MultitaskGaussianRandomVariable(GaussianRandomVariable):
 
     def sample(self, n_samples):
         samples = (
-            self
-            ._covar
-            .zero_mean_mvn_samples(n_samples)
+            self._covar.zero_mean_mvn_samples(n_samples)
             .view(self._t, self._n, n_samples)
             .transpose(0, 1)
             .contiguous()

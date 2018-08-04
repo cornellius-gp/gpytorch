@@ -6,10 +6,6 @@ from __future__ import unicode_literals
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
 from .lazy_variable_representation_tree import LazyVariableRepresentationTree
-import torch
-
-from IPython.core.debugger import Pdb
-ipdb = Pdb()
 
 
 LAZY_KERNEL_TENSOR_WARNING = (
@@ -108,23 +104,21 @@ class LazyEvaluatedKernelVariable(LazyVariable):
 
     def exact_predictive_mean(self, full_mean, train_labels, n_train, likelihood, precomputed_cache=None):
         if self.kernel.has_custom_exact_predictions:
-            return self.evaluate_kernel().exact_predictive_mean(full_mean,
-                                                                train_labels,
-                                                                n_train,
-                                                                likelihood,
-                                                                precomputed_cache)
+            return self.evaluate_kernel().exact_predictive_mean(
+                full_mean, train_labels, n_train, likelihood, precomputed_cache
+            )
         else:
-            return super(LazyEvaluatedKernelVariable, self).exact_predictive_mean(full_mean,
-                                                                                  train_labels,
-                                                                                  n_train,
-                                                                                  likelihood,
-                                                                                  precomputed_cache)
+            return super(LazyEvaluatedKernelVariable, self).exact_predictive_mean(
+                full_mean, train_labels, n_train, likelihood, precomputed_cache
+            )
 
     def exact_predictive_covar(self, n_train, likelihood, precomputed_cache=None):
         if self.kernel.has_custom_exact_predictions:
             return self.evaluate_kernel().exact_predictive_covar(n_train, likelihood, precomputed_cache)
         else:
-            return super(LazyEvaluatedKernelVariable, self).exact_predictive_covar(n_train, likelihood, precomputed_cache)
+            return super(LazyEvaluatedKernelVariable, self).exact_predictive_covar(
+                n_train, likelihood, precomputed_cache
+            )
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]
