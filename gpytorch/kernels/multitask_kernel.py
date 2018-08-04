@@ -21,11 +21,16 @@ class MultitaskKernel(Kernel):
         x2 = x2.transpose(-2, -3)
         task_indices = torch.arange(self.n_tasks, device=x1.device).long()
         task_indices = task_indices.unsqueeze(-1).unsqueeze(-1)
-        covar_i = self.task_covar_module(task_indices).evaluate_kernel()
+
+        # These are small because they are vectors, therefore it is safe to evaluate them
+        covar_i = self.task_covar_module(task_indices).evaluate().squeeze(-1)
         covar_x = self.data_covar_module.forward(x1, x2)
-        if not isinstance(covar_x, LazyVariable):
-            covar_x = NonLazyVariable(covar_x)
-        res = KroneckerProductLazyVariable(covar_i, covar_x).matmul(torch.eye(1, device=x1.device)).unsqueeze(-1)
+        if isinstance(covar_x, LazyVariable):
+            covar_x = covar_x.evaluate()
+        covar_x = covar_x.squeeze(-1)
+
+        # Take the Kronecker product of the two diagonals
+        res = KroneckerProductLazyVariable(NonLazyVariable(covar_i), NonLazyVariable(covar_x)).evaluate().unsqueeze(-1)
         return res
 
     def forward(self, x1, x2):
