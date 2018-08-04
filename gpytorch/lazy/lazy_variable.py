@@ -385,7 +385,7 @@ class LazyVariable(object):
         """
         return self.representation_tree()(*self.representation())
 
-    def exact_predictive_mean(self, full_mean, train_labels, n_train, noise, precomputed_cache=None):
+    def exact_predictive_mean(self, full_mean, train_labels, n_train, likelihood, precomputed_cache=None):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -400,12 +400,19 @@ class LazyVariable(object):
         Returns:
             :obj:`torch.tensor`: The predictive posterior mean of the test points
         """
+        from ..random_variables import GaussianRandomVariable
         if precomputed_cache is None:
+            train_mean = full_mean.narrow(-1, 0, n_train)
             if self.ndimension() == 3:
-                train_train_covar = self[:, :n_train, :n_train].add_diag(noise)
+                train_train_covar = self[:, :n_train, :n_train]
+                train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
+                grv = GaussianRandomVariable(train_mean, train_train_covar)
+                train_mean, train_train_covar = likelihood(grv).representation()
             else:
-                train_train_covar = self[:n_train, :n_train].add_diag(noise)
-            train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
+                train_train_covar = self[:n_train, :n_train]
+                train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
+                grv = GaussianRandomVariable(train_mean, train_train_covar)
+                train_mean, train_train_covar = likelihood(grv).representation()
             train_labels_offset = train_labels - train_mean
             if self.ndimension() == 3:
                 train_labels_offset = train_labels_offset.unsqueeze(-1)
@@ -452,7 +459,7 @@ class LazyVariable(object):
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
 
-    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+    def exact_predictive_covar(self, n_train, likelihood, precomputed_cache=None):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -467,12 +474,13 @@ class LazyVariable(object):
             :obj:`gpytorch.lazy.LazyVariable`: A LazyVariable representing the predictive posterior covariance of the
                                                test points
         """
+        from ..random_variables import GaussianRandomVariable
         if self.ndimension() == 3:
-            train_train_covar = self[:, :n_train, :n_train].add_diag(noise)
+            train_train_covar = likelihood(GaussianRandomVariable(torch.zeros(1), self[:, :n_train, :n_train])).covar()
             test_train_covar = self[:, n_train:, :n_train]
             test_test_covar = self[:, n_train:, n_train:]
         else:
-            train_train_covar = self[:n_train, :n_train].add_diag(noise)
+            train_train_covar = likelihood(GaussianRandomVariable(torch.zeros(1), self[:n_train, :n_train])).covar()
             test_train_covar = self[n_train:, :n_train]
             test_test_covar = self[n_train:, n_train:]
 

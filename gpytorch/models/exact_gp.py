@@ -121,13 +121,13 @@ class ExactGP(Module):
                 full_mean=full_mean,
                 train_labels=train_targets,
                 n_train=n_train,
-                noise=noise,
+                likelihood=self.likelihood,
                 precomputed_cache=self.mean_cache,
             )
             predictive_covar, covar_cache = exact_predictive_covar(
                 full_covar=full_covar,
                 n_train=n_train,
-                noise=noise,
+                likelihood=self.likelihood,
                 precomputed_cache=self.covar_cache,
             )
 
