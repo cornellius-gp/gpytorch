@@ -26,7 +26,7 @@ class MultitaskKernel(Kernel):
         task_indices = torch.range(0, self.n_tasks - 1, device=x1.device).long()
         task_indices = task_indices.unsqueeze(-1).unsqueeze(-1)
         covar_i = self.task_covar_module(task_indices).evaluate_kernel()
-        covar_x = self.data_covar_module.forward(x1, x2).squeeze(0)
+        covar_x = self.data_covar_module.forward(x1, x2)
         if not isinstance(covar_x, LazyVariable):
             covar_x = NonLazyVariable(covar_x)
         res = KroneckerProductLazyVariable(covar_i, covar_x).matmul(torch.eye(1, device=x1.device)).unsqueeze(-1)
@@ -35,7 +35,9 @@ class MultitaskKernel(Kernel):
     def forward(self, x1, x2):
         task_indices = torch.range(0, self.n_tasks - 1, device=x1.device).long()
         covar_i = self.task_covar_module(task_indices).evaluate_kernel()
-        covar_x = self.data_covar_module.forward(x1, x2).squeeze(0)
+        covar_x = self.data_covar_module.forward(x1, x2)
+        if covar_x.size(0) == 1:
+            covar_x = covar_x[0]
         if not isinstance(covar_x, LazyVariable):
             covar_x = NonLazyVariable(covar_x)
         res = KroneckerProductLazyVariable(covar_i, covar_x)
