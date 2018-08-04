@@ -15,19 +15,10 @@ def _eval_covar_matrix(covar_factor, log_var):
 class IndexKernel(Kernel):
     def __init__(self, n_tasks, rank=1, prior=None, active_dims=None):
         if active_dims is not None and len(active_dims) > 1:
-            raise ValueError(
-                "Index must be with respect to a single column. Received {}".format(
-                    active_dims
-                )
-            )
+            raise ValueError("Index must be with respect to a single column. Received {}".format(active_dims))
         super(IndexKernel, self).__init__(active_dims=active_dims)
-        self.register_parameter(
-            name="covar_factor",
-            parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)),
-        )
-        self.register_parameter(
-            name="log_var", parameter=torch.nn.Parameter(torch.randn(n_tasks))
-        )
+        self.register_parameter(name="covar_factor", parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)))
+        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(n_tasks)))
         if prior is not None:
             self.register_derived_prior(
                 name="IndexKernelPrior",
@@ -40,9 +31,5 @@ class IndexKernel(Kernel):
         covar_matrix = _eval_covar_matrix(self.covar_factor, self.log_var)
         if covar_matrix.ndimension() == 2:
             covar_matrix = covar_matrix.unsqueeze(0)
-        res = InterpolatedLazyVariable(
-            base_lazy_variable=covar_matrix,
-            left_interp_indices=i1,
-            right_interp_indices=i2,
-        )
+        res = InterpolatedLazyVariable(base_lazy_variable=covar_matrix, left_interp_indices=i1, right_interp_indices=i2)
         return res

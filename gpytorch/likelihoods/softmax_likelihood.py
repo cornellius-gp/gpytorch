@@ -38,9 +38,7 @@ class SoftmaxLikelihood(Likelihood):
             p(y|x) = \Phi(\frac{\mu}{\sqrt{1+\sigma^2_f}})
         """
         if not isinstance(latent_func, GaussianRandomVariable):
-            raise RuntimeError(
-                "SoftmaxLikelihood expects a Gaussian distributed latent function to make predictions"
-            )
+            raise RuntimeError("SoftmaxLikelihood expects a Gaussian distributed latent function to make predictions")
 
         n_samples = settings.num_likelihood_samples.value()
         samples = latent_func.sample(n_samples)

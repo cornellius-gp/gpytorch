@@ -37,6 +37,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
 
     def _get_indices(self, left_indices, right_indices):
         from ..kernels import Kernel
+
         x1 = self.x1[left_indices, :].unsqueeze(0)
         x2 = self.x2[right_indices, :].unsqueeze(0)
         res = super(Kernel, self.kernel).__call__(x1.transpose(0, 1), x2.transpose(0, 1))

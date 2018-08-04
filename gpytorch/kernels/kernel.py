@@ -37,6 +37,7 @@ class Kernel(Module):
         >>> lazy_covar_matrix = covar_module(x1) # Returns a RootLazyVariable
         >>> tensor_covar_matrix = lazy_covar_matrix.evaluate() # Gets the actual tensor for this kernel matrix
     """
+
     def __init__(
         self,
         has_lengthscale=False,
@@ -122,6 +123,7 @@ class AdditiveKernel(Kernel):
         >>> x1 = torch.randn(50, 2)
         >>> additive_kernel_matrix = covar_module(x1)
     """
+
     def __init__(self, *kernels):
         super(AdditiveKernel, self).__init__()
         self.kernels = ModuleList(kernels)
@@ -143,6 +145,7 @@ class ProductKernel(Kernel):
         >>> x1 = torch.randn(50, 2)
         >>> kernel_matrix = covar_module(x1) # The RBF Kernel already decomposes multiplicatively, so this is foolish!
     """
+
     def __init__(self, *kernels):
         super(ProductKernel, self).__init__()
         self.kernels = ModuleList(kernels)
