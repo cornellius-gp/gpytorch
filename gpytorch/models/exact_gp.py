@@ -100,17 +100,18 @@ class ExactGP(Module):
             n_tasks = 1
             if isinstance(full_output, MultitaskGaussianRandomVariable):
                 n_tasks = full_output.n_tasks
-                if self.train_targets.ndimension() == 2:
-                    # Multitask
-                    n_train = self.train_targets.size(0)
-                    train_targets = self.train_targets.view(-1)
-                    full_mean = full_mean.view(-1)
-                    print(full_mean.size())
-                elif self.train_targets.ndimension() == 3:
-                    # batch mode
-                    n_train = self.train_targets.size(1)
-                    train_targets = self.train_targets.view(self.train_targets.size(0), -1)
-                    full_mean = full_mean.view(full_mean.size(0), -1)
+
+            if self.train_targets.ndimension() == 2:
+                # Multitask
+                n_train = self.train_targets.size(0)
+                train_targets = self.train_targets.view(-1)
+                full_mean = full_mean.view(-1)
+                print(full_mean.size())
+            elif self.train_targets.ndimension() == 3:
+                # batch mode
+                n_train = self.train_targets.size(1)
+                train_targets = self.train_targets.view(self.train_targets.size(0), -1)
+                full_mean = full_mean.view(full_mean.size(0), -1)
             else:
                 n_train = self.train_targets.size(-1)
                 train_targets = self.train_targets
