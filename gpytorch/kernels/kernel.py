@@ -81,6 +81,10 @@ class Kernel(Module):
         else:
             return None
 
+    @property
+    def has_custom_exact_predictions(self):
+        return False
+
     @abstractmethod
     def forward(self, x1, x2, **params):
         raise NotImplementedError()
