@@ -115,7 +115,6 @@ class ExactGP(Module):
                 n_train = self.train_targets.size(-1)
                 train_targets = self.train_targets
 
-            noise = self.likelihood.log_noise.exp()
             predictive_mean, mean_cache = exact_predictive_mean(
                 full_covar=full_covar,
                 full_mean=full_mean,
