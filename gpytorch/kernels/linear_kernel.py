@@ -19,6 +19,7 @@ class LinearKernel(Kernel):
     :math:`Kv` can be computed as :math:`Kv=X(X^{\top}v)`, where the base multiply :math:`Xv` takes only :math:`O(nd)`
     time and space.
     """
+
     def __init__(
         self,
         num_dimensions,

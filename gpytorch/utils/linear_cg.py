@@ -179,7 +179,7 @@ def linear_cg(
         result = result.squeeze(-1)
 
     if n_tridiag:
-        t_mat = t_mat[:last_tridiag_iter + 1, :last_tridiag_iter + 1]
+        t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
         if rhs.ndimension() == 3:
             return result, t_mat.permute(3, 2, 0, 1).contiguous()
         else:

@@ -14,11 +14,11 @@ from gpytorch.utils.linear_cg import linear_cg
 class TestLinearCG(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
-                self.rng_state = torch.get_rng_state()
-                torch.manual_seed(0)
-                if torch.cuda.is_available():
-                    torch.cuda.manual_seed_all(0)
-                random.seed(0)
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):

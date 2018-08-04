@@ -21,7 +21,13 @@ def _matmul(lazy_vars, rhs):
     for lazy_var in list(lazy_vars)[::-1]:
         if is_batch:
             n_batch = res.size(0)
-            res = res.transpose(-2, -1).contiguous().view(n_batch, n_cols, lazy_var.size(-1), -1).transpose(0, 1).contiguous()
+            res = (
+                res.transpose(-2, -1)
+                .contiguous()
+                .view(n_batch, n_cols, lazy_var.size(-1), -1)
+                .transpose(0, 1)
+                .contiguous()
+            )
             factor = lazy_var._matmul(res).permute(1, 3, 2, 0)
             res = factor.contiguous().view(n_batch, -1, n_cols)
         else:
@@ -42,7 +48,13 @@ def _t_matmul(lazy_vars, rhs):
     for lazy_var in list(lazy_vars)[::-1]:
         if is_batch:
             n_batch = res.size(0)
-            res = res.transpose(-2, -1).contiguous().view(n_batch, n_cols, lazy_var.size(-2), -1).transpose(0, 1).contiguous()
+            res = (
+                res.transpose(-2, -1)
+                .contiguous()
+                .view(n_batch, n_cols, lazy_var.size(-2), -1)
+                .transpose(0, 1)
+                .contiguous()
+            )
             factor = lazy_var._t_matmul(res).permute(1, 3, 2, 0)
             res = factor.contiguous().view(n_batch, -1, n_cols)
         else:
