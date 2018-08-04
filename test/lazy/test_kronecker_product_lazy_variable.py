@@ -51,21 +51,17 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         self.assertTrue(approx_equal(res.data, actual.data))
 
         actual.sum().backward()
-        print('first', avar.grad)
         res.sum().backward()
-        print('second', avar_copy.grad)
         self.assertTrue(approx_equal(avar_copy.grad.data, avar.grad.data))
         self.assertTrue(approx_equal(bvar_copy.grad.data, bvar.grad.data))
         self.assertTrue(approx_equal(cvar_copy.grad.data, cvar.grad.data))
         self.assertTrue(approx_equal(vec_copy.grad.data, vec.grad.data))
 
     def test_matmul_vec_new(self):
-        ax = torch.randn(3, 3)
-        print(ax)
-        bx = torch.randn(2, 2)
-        cx = torch.randn(4, 4)
-        print(cx)
-        rhsx = torch.randn(3 * 2 * 4)
+        ax = torch.randn(4, 2, 3)
+        bx = torch.randn(4, 5, 2)
+        cx = torch.randn(4, 6, 4)
+        rhsx = torch.randn(4, 3 * 2 * 4, 1)
         rhsx = rhsx / torch.norm(rhsx)
         ax_copy = Variable(ax, requires_grad=True)
         bx_copy = bx.clone()
@@ -86,17 +82,12 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
 
         actual_mat = kron(kron(ax_copy, bx_copy), cx_copy)
         actual_eval = kp_lazy_var.evaluate()
-        print(torch.norm(actual_mat - actual_eval))
         actual = actual_mat.matmul(rhsx_copy)
 
         self.assertTrue(approx_equal(res.data, actual.data))
 
         actual.sum().backward()
-        print('11', ax.grad, ax_copy.grad)
         res.sum().backward()
-        print('22', ax.grad, ax_copy.grad)
-        print(ax_copy.grad, ax.grad)
-        print(bx_copy.grad, bx.grad)
         self.assertTrue(approx_equal(ax_copy.grad.data, ax.grad.data))
         self.assertTrue(approx_equal(bx_copy.grad.data, bx.grad.data))
         self.assertTrue(approx_equal(cx_copy.grad.data, cx.grad.data))
