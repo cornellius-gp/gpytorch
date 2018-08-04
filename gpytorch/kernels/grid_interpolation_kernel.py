@@ -30,6 +30,10 @@ class GridInterpolationKernel(GridKernel):
             base_kernel_module=base_kernel_module, inducing_points=inducing_points, grid=grid, active_dims=active_dims
         )
 
+    @property
+    def has_custom_exact_predictions(self):
+        return True
+
     def _compute_grid(self, inputs):
         batch_size, n_data, n_dimensions = inputs.size()
         inputs = inputs.view(batch_size * n_data, n_dimensions)
