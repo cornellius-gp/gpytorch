@@ -344,10 +344,10 @@ class InterpolatedLazyVariable(LazyVariable):
                 res = res.view(batch_size, n_data, -1).sum(-1)
             return res
 
-    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
-        n_train = train_labels.size(-1)
+    def exact_predictive_mean(self, full_mean, train_labels, n_train, likelihood, precomputed_cache=None):
+        from ..random_variables import GaussianRandomVariable
+
         if precomputed_cache is None:
-            train_mean = full_mean.narrow(-1, 0, n_train)
             train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
             train_interp_values = self.left_interp_values.narrow(-2, 0, n_train)
 
@@ -358,7 +358,13 @@ class InterpolatedLazyVariable(LazyVariable):
                 train_interp_values,
                 train_interp_indices,
                 train_interp_values,
-            ).add_diag(noise)
+            )
+
+            train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
+
+            grv = GaussianRandomVariable(train_mean, train_train_covar)
+            train_mean, train_train_covar = likelihood(grv).representation()
+
             train_train_covar_inv_labels = train_train_covar.inv_matmul((train_labels - train_mean).unsqueeze(-1))
 
             # New root factor
@@ -396,9 +402,10 @@ class InterpolatedLazyVariable(LazyVariable):
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
 
-    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+    def exact_predictive_covar(self, n_train, likelihood, precomputed_cache=None):
+        from ..random_variables import GaussianRandomVariable
         if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
-            return super(InterpolatedLazyVariable, self).exact_predictive_covar(n_train, noise, precomputed_cache)
+            return super(InterpolatedLazyVariable, self).exact_predictive_covar(n_train, likelihood, precomputed_cache)
 
         n_test = self.size(-2) - n_train
         train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
@@ -421,7 +428,10 @@ class InterpolatedLazyVariable(LazyVariable):
                 train_interp_values,
                 train_interp_indices,
                 train_interp_values,
-            ).add_diag(noise)
+            )
+
+            grv = GaussianRandomVariable(torch.zeros(1), train_train_covar)
+            train_train_covar = likelihood(grv).covar()
 
             # Get probe vectors for inverse root
             n_probe_vectors = beta_features.fast_pred_var.n_probe_vectors()
