@@ -38,8 +38,8 @@ class AddedDiagLazyVariable(SumLazyVariable):
                 "One of the LazyVariables input to AddedDiagLazyVariable " " must be a DiagLazyVariable!"
             )
 
-        if not (self._diag_var.diag().data == self._diag_var.diag().data[0]).all():
-            raise RuntimeError("AddedDiagLazyVariable only supports constant shifts " "(e.g. s in K + s*I)")
+    def add_diag(self, added_diag):
+        return AddedDiagLazyVariable(self._lazy_var, self._diag_var.add_diag(added_diag))
 
     def _preconditioner(self):
         if settings.max_preconditioner_size.value() == 0:
