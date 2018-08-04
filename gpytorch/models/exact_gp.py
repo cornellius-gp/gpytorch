@@ -8,7 +8,7 @@ import torch
 from torch.autograd import Variable
 from ..module import Module
 from ..functions import exact_predictive_mean, exact_predictive_covar
-from ..random_variables import GaussianRandomVariable
+from ..random_variables import GaussianRandomVariable, MultitaskGaussianRandomVariable
 from ..likelihoods import GaussianLikelihood
 
 
@@ -97,14 +97,20 @@ class ExactGP(Module):
                 raise RuntimeError("ExactGP.forward must return a GaussianRandomVariable")
             full_mean, full_covar = full_output.representation()
 
-            if self.train_targets.ndimension() == 2:
-                # Multitask
-                n_train = self.train_targets.size(0)
-                train_targets = self.train_targets.view(-1)
-            elif self.train_targets.ndimension() == 3:
-                # batch mode
-                n_train = self.train_targets.size(1)
-                train_targets = self.train_targets.view(self.train_targets.size(0), -1)
+            n_tasks = 1
+            if isinstance(full_output, MultitaskGaussianRandomVariable):
+                n_tasks = full_output.n_tasks
+                if self.train_targets.ndimension() == 2:
+                    # Multitask
+                    n_train = self.train_targets.size(0)
+                    train_targets = self.train_targets.view(-1)
+                    full_mean = full_mean.view(-1)
+                    print(full_mean.size())
+                elif self.train_targets.ndimension() == 3:
+                    # batch mode
+                    n_train = self.train_targets.size(1)
+                    train_targets = self.train_targets.view(self.train_targets.size(0), -1)
+                    full_mean = full_mean.view(full_mean.size(0), -1)
             else:
                 n_train = self.train_targets.size(-1)
                 train_targets = self.train_targets
@@ -127,4 +133,6 @@ class ExactGP(Module):
 
             self.mean_cache = mean_cache
             self.covar_cache = covar_cache
-            return GaussianRandomVariable(predictive_mean, predictive_covar)
+            if n_tasks > 1:
+                predictive_mean = predictive_mean.view(-1, n_tasks).contiguous()
+            return full_output.__class__(predictive_mean, predictive_covar)

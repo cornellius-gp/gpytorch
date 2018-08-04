@@ -8,7 +8,7 @@ import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
 from ..lazy import LazyVariable, NonLazyVariable
 from ..likelihoods import GaussianLikelihood
-from ..random_variables import GaussianRandomVariable
+from ..random_variables import GaussianRandomVariable, MultitaskGaussianRandomVariable
 from ..variational import MVNVariationalStrategy
 
 
@@ -26,10 +26,26 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
 
     def forward(self, output, target):
+        if not isinstance(output, GaussianRandomVariable) and not isinstance(output, MultitaskGaussianRandomVariable):
+            raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
         if not isinstance(output.covar(), LazyVariable):
-            output = GaussianRandomVariable(output.mean(), NonLazyVariable(output.covar()))
+            output = output.__class__(output.mean(), NonLazyVariable(output.covar()))
+
         mean, covar = self.likelihood(output).representation()
         n_data = target.size(-1)
+
+        if target.size() != mean.size():
+            raise RuntimeError(
+                "Expected target size to equal mean size, but got {} and {}".format(target.size(), mean.size())
+            )
+
+        if isinstance(output, MultitaskGaussianRandomVariable):
+            if target.ndimension() == 2:
+                mean = mean.view(-1)
+                target = target.view(-1)
+            elif target.ndimension() == 3:
+                mean = mean.view(mean.size(0), -1)
+                target = target.view(target.size(0), -1)
 
         # Get log determininat and first part of quadratic form
         inv_quad, log_det = covar.inv_quad_log_det(inv_quad_rhs=(target - mean).unsqueeze(-1), log_det=True)
