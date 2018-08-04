@@ -406,14 +406,13 @@ class LazyVariable(object):
             train_mean = full_mean.narrow(-1, 0, n_train)
             if self.ndimension() == 3:
                 train_train_covar = self[:, :n_train, :n_train]
-                train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
-                grv = GaussianRandomVariable(train_mean, train_train_covar)
-                train_mean, train_train_covar = likelihood(grv).representation()
             else:
                 train_train_covar = self[:n_train, :n_train]
-                train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
-                grv = GaussianRandomVariable(train_mean, train_train_covar)
-                train_mean, train_train_covar = likelihood(grv).representation()
+
+            train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
+            grv = GaussianRandomVariable(train_mean, train_train_covar)
+            train_mean, train_train_covar = likelihood(grv).representation()
+
             train_labels_offset = train_labels - train_mean
             if self.ndimension() == 3:
                 train_labels_offset = train_labels_offset.unsqueeze(-1)
@@ -478,14 +477,15 @@ class LazyVariable(object):
         from ..random_variables import GaussianRandomVariable
 
         if self.ndimension() == 3:
-            train_train_covar = likelihood(GaussianRandomVariable(torch.zeros(1), self[:, :n_train, :n_train])).covar()
+            train_train_covar = self[:, :n_train, :n_train]
             test_train_covar = self[:, n_train:, :n_train]
             test_test_covar = self[:, n_train:, n_train:]
         else:
-            train_train_covar = likelihood(GaussianRandomVariable(torch.zeros(1), self[:n_train, :n_train])).covar()
+            train_train_covar = self[:n_train, :n_train]
             test_train_covar = self[n_train:, :n_train]
             test_test_covar = self[n_train:, n_train:]
 
+        train_train_covar = likelihood(GaussianRandomVariable(torch.zeros(1), train_train_covar)).covar()
         if not beta_features.fast_pred_var.on():
             from .matmul_lazy_variable import MatmulLazyVariable
 

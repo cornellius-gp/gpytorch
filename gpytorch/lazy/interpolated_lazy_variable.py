@@ -346,7 +346,6 @@ class InterpolatedLazyVariable(LazyVariable):
 
     def exact_predictive_mean(self, full_mean, train_labels, n_train, likelihood, precomputed_cache=None):
         from ..random_variables import GaussianRandomVariable
-
         if precomputed_cache is None:
             train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
             train_interp_values = self.left_interp_values.narrow(-2, 0, n_train)

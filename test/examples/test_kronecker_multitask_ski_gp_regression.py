@@ -14,6 +14,8 @@ from gpytorch.kernels import RBFKernel, MultitaskKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.random_variables import MultitaskGaussianRandomVariable
+
+
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 100)
 
