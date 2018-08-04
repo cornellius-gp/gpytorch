@@ -10,12 +10,12 @@ from gpytorch.lazy import DiagLazyVariable, KroneckerProductLazyVariable
 
 
 class MultitaskGaussianLikelihood(GaussianLikelihood):
-    def __init__(self, n_tasks, log_shared_noise_prior=None, log_task_noises_prior=None):
+    def __init__(self, n_tasks, log_noise_prior=None, log_task_noises_prior=None):
         # TODO: Remove deprecated log_noise_bounds kwarg
-        super(MultitaskGaussianLikelihood, self).__init__()
-        self.register_parameter(
-            name="log_task_noises", parameter=torch.nn.Parameter(torch.zeros(n_tasks)), prior=log_task_noises_prior
-        )
+        super(MultitaskGaussianLikelihood, self).__init__(log_noise_prior=log_noise_prior)
+        self.register_parameter(name="log_task_noises",
+                                parameter=torch.nn.Parameter(torch.zeros(n_tasks)),
+                                prior=log_task_noises_prior)
         self.n_tasks = n_tasks
 
     def forward(self, input):
