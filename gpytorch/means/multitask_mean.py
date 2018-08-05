@@ -4,6 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
+from torch.nn import ModuleList
+from copy import deepcopy
 from gpytorch.means import Mean
 
 
@@ -18,9 +20,9 @@ class MultitaskMean(Mean):
             raise RuntimeError("base_means should be a list of means of length either 1 or n_tasks")
 
         if len(base_means) == 1:
-            base_means = base_means * n_tasks
+            base_means = base_means + deepcopy([base_means[i] for i in range(n_tasks - 1)])
 
-        self.base_means = base_means
+        self.base_means = ModuleList(base_means)
         self.n_tasks = n_tasks
 
     def forward(self, input):
