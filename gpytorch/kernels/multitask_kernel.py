@@ -10,13 +10,34 @@ from ..lazy import LazyVariable, NonLazyVariable, KroneckerProductLazyVariable
 
 
 class MultitaskKernel(Kernel):
+    """
+    Kernel supporting Kronecker style multitask Gaussian processes (where every data point is evaluated at every
+    task) using :class:`gpytorch.kernels.IndexKernel` as a basic multitask kernel.
+
+    Given a base covariance module to be used for the data, :math:`K_{XX}`, this kernel computes a task kernel of
+    specified size :math:`K_{TT}` and returns :math:`K = K_{TT} \otimes K_{XX}`. as an
+    :obj:`gpytorch.lazy.KroneckerProductLazyVariable`.
+    """
     def __init__(self, data_covar_module, n_tasks, rank=1, task_covar_prior=None):
+        """
+        Args:
+            data_covar_module (:obj:`gpytorch.kernels.Kernel`): Kernel to use as the data kernel.
+            n_tasks (int): Number of tasks
+            rank (int): Rank of index kernel to use for task covariance matrix.
+            task_covar_prior (:obj:`gpytorch.priors.Prior`): Prior to use for task kernel. See
+                :class:`gpytorch.kernels.IndexKernel` for details.
+        """
         super(MultitaskKernel, self).__init__()
         self.task_covar_module = IndexKernel(n_tasks=n_tasks, rank=rank, prior=task_covar_prior)
         self.data_covar_module = data_covar_module
         self.n_tasks = n_tasks
 
     def forward_diag(self, x1, x2):
+        """
+        Returns the diagonal of the covariance matrix only. This overrides the default behavior for this supplied
+        in :class:`gpytorch.kernels.Kernel` because we need to take the Kronecker product of the diagonals of the
+        base data kernel and the task kernel.
+        """
         x1 = x1.transpose(-2, -3)
         x2 = x2.transpose(-2, -3)
         task_indices = torch.arange(self.n_tasks, device=x1.device).long()
@@ -45,6 +66,10 @@ class MultitaskKernel(Kernel):
         return res
 
     def size(self, x1, x2):
+        """
+        Given `n` data points `x1` and `m` datapoints `x2`, this multitask kernel returns an `(n*n_tasks) x (m*n_tasks)`
+        covariance matrix.
+        """
         non_batch_size = (self.n_tasks * x1.size(-2), self.n_tasks * x2.size(-2))
         if x1.ndimension() == 3:
             return torch.Size((x1.size(0),) + non_batch_size)

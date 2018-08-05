@@ -10,7 +10,18 @@ from gpytorch.means import Mean
 
 
 class MultitaskMean(Mean):
+    """
+    Convenience :class:`gpytorch.means.Mean` implementation for defining a different mean for each task in a multitask
+    model. Expects a list of `n_tasks` different mean functions, each of which is applied to the given data in
+    :func:`~gpytorch.means.MultitaskMean.forward` and returned as an `n x t` matrix of means, one for each task.
+    """
     def __init__(self, base_means, n_tasks):
+        """
+        Args:
+            base_means (:obj:`list` or :obj:`gpytorch.means.Mean`): If a list, each mean is applied to the data.
+                If a single mean (or a list containing a single mean), that mean is copied `t` times.
+            n_tasks (int): Number of tasks. If base_means is a list, this should equal its length.
+        """
         super(MultitaskMean, self).__init__()
 
         if isinstance(base_means, Mean):
@@ -26,4 +37,7 @@ class MultitaskMean(Mean):
         self.n_tasks = n_tasks
 
     def forward(self, input):
+        """
+        Evaluate each mean in self.base_means on the input data, and return as an `n x t` matrix of means.
+        """
         return torch.cat([sub_mean(input).unsqueeze(-1) for sub_mean in self.base_means], dim=-1)

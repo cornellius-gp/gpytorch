@@ -18,8 +18,9 @@ class MultitaskGaussianRandomVariable(GaussianRandomVariable):
         Passing a matrix mean corresponds to a batch of multivariate Gaussians
 
         Params:
-        - mean (Tensor: matrix n x t, or batch matrix b x n x t) mean of Gaussian distribution
-        - covar (Tensor: matrix nt x nt, or batch matrix b x nt x nt) covariance of Gaussian distribution
+            mean (:obj:`torch.tensor`): An `n x t` or batch `b x n x t` matrix of means for the Gaussian distribution.
+            covar (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyVariable`): An `nt x nt` or batch `b x nt x nt`
+                covariance matrix of Gaussian distribution.
         """
         super(MultitaskGaussianRandomVariable, self).__init__(mean, covar)
         if not torch.is_tensor(mean) and not isinstance(mean, LazyVariable):
