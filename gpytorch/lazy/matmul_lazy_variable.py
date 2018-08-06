@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
 
@@ -27,6 +26,18 @@ class MatmulLazyVariable(LazyVariable):
         super(MatmulLazyVariable, self).__init__(lhs, rhs)
         self.lhs = lhs
         self.rhs = rhs
+
+    @property
+    def _evaluated_lhs(self):
+        if not hasattr(self, '_evaluated_lhs_memo'):
+            self._evaluated_lhs_memo = self.lhs.evaluate()
+        return self._evaluated_lhs_memo
+
+    @property
+    def _evaluated_rhs(self):
+        if not hasattr(self, '_evaluated_rhs_memo'):
+            self._evaluated_rhs_memo = self.rhs.evaluate()
+        return self._evaluated_rhs_memo
 
     def _matmul(self, rhs):
         return self.lhs._matmul(self.rhs._matmul(rhs))
@@ -54,38 +65,48 @@ class MatmulLazyVariable(LazyVariable):
         return self.__class__(self.rhs._transpose_nonbatch(), self.lhs._transpose_nonbatch())
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        outer_size = batch_indices.size(0)
-        inner_size = self.lhs.size(-1)
-        inner_indices = Variable(right_indices.data.new(inner_size))
-        torch.arange(0, inner_size, out=inner_indices.data)
+        n_indices = left_indices.numel()
+        if n_indices > self.size(-1) * self.size(-2) * self.size(-3):
+            return self._evaluated[batch_indices, left_indices, right_indices]
 
-        left_vals = self.lhs._batch_get_indices(
-            _outer_repeat(batch_indices, inner_size),
-            _outer_repeat(left_indices, inner_size),
-            _inner_repeat(inner_indices, outer_size),
-        )
-        right_vals = self.rhs._batch_get_indices(
-            _outer_repeat(batch_indices, inner_size),
-            _inner_repeat(inner_indices, outer_size),
-            _outer_repeat(right_indices, inner_size),
-        )
+        else:
+            outer_size = batch_indices.size(0)
+            inner_size = self.lhs.size(-1)
+            inner_indices = right_indices.new(inner_size)
+            torch.arange(0, inner_size, out=inner_indices.data)
 
-        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
+            left_vals = self.lhs._batch_get_indices(
+                _outer_repeat(batch_indices, inner_size),
+                _outer_repeat(left_indices, inner_size),
+                _inner_repeat(inner_indices, outer_size),
+            )
+            right_vals = self.rhs._batch_get_indices(
+                _outer_repeat(batch_indices, inner_size),
+                _inner_repeat(inner_indices, outer_size),
+                _outer_repeat(right_indices, inner_size),
+            )
+
+            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def _get_indices(self, left_indices, right_indices):
-        outer_size = left_indices.size(0)
-        inner_size = self.lhs.size(-1)
-        inner_indices = Variable(right_indices.data.new(inner_size))
-        torch.arange(0, inner_size, out=inner_indices.data)
+        n_indices = left_indices.numel()
+        if n_indices > self.size(-1) * self.size(-2):
+            return self._evaluated[left_indices, right_indices]
 
-        left_vals = self.lhs._get_indices(
-            _outer_repeat(left_indices, inner_size), _inner_repeat(inner_indices, outer_size)
-        )
-        right_vals = self.rhs._get_indices(
-            _inner_repeat(inner_indices, outer_size), _outer_repeat(right_indices, inner_size)
-        )
+        else:
+            outer_size = left_indices.size(0)
+            inner_size = self.lhs.size(-1)
+            inner_indices = right_indices.new(inner_size)
+            torch.arange(0, inner_size, out=inner_indices.data)
 
-        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
+            left_vals = self.lhs._get_indices(
+                _outer_repeat(left_indices, inner_size), _inner_repeat(inner_indices, outer_size)
+            )
+            right_vals = self.rhs._get_indices(
+                _inner_repeat(inner_indices, outer_size), _outer_repeat(right_indices, inner_size)
+            )
+
+            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def diag(self):
         if isinstance(self.lhs, NonLazyVariable) and isinstance(self.rhs, NonLazyVariable):
@@ -94,4 +115,9 @@ class MatmulLazyVariable(LazyVariable):
             return super(MatmulLazyVariable, self).diag()
 
     def evaluate(self):
-        return torch.matmul(self.lhs.evaluate(), self.rhs.evaluate())
+        if not hasattr(self, '_evaluated_memo'):
+            self._evaluated_memo = torch.matmul(
+                self._evaluated_lhs,
+                self._evaluated_rhs,
+            )
+        return self._evaluated_memo

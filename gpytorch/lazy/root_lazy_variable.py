@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
 
@@ -23,6 +22,12 @@ class RootLazyVariable(LazyVariable):
             root = NonLazyVariable(root)
         super(RootLazyVariable, self).__init__(root)
         self.root = root
+
+    @property
+    def _evaluated_root(self):
+        if not hasattr(self, '_evaluated_root_memo'):
+            self._evaluated_root_memo = self.root.evaluate()
+        return self._evaluated_root_memo
 
     def _matmul(self, rhs):
         return self.root._matmul(self.root._t_matmul(rhs))
@@ -56,36 +61,46 @@ class RootLazyVariable(LazyVariable):
         return self
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        outer_size = batch_indices.size(0)
-        inner_size = self.root.size(-1)
-        inner_indices = Variable(right_indices.data.new(inner_size))
-        torch.arange(0, inner_size, out=inner_indices.data)
+        n_indices = left_indices.numel()
+        if n_indices > self.size(-1) * self.size(-2) * self.size(-3):
+            return self._evaluated[batch_indices, left_indices, right_indices]
 
-        left_vals = self.root._batch_get_indices(
-            _outer_repeat(batch_indices, inner_size),
-            _outer_repeat(left_indices, inner_size),
-            _inner_repeat(inner_indices, outer_size),
-        )
-        right_vals = self.root.transpose(-1, -2)._batch_get_indices(
-            _outer_repeat(batch_indices, inner_size),
-            _inner_repeat(inner_indices, outer_size),
-            _outer_repeat(right_indices, inner_size),
-        )
+        else:
+            outer_size = batch_indices.size(0)
+            inner_size = self.root.size(-1)
+            inner_indices = right_indices.new(inner_size)
+            torch.arange(0, inner_size, out=inner_indices.data)
 
-        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
+            left_vals = self.root._batch_get_indices(
+                _outer_repeat(batch_indices, inner_size),
+                _outer_repeat(left_indices, inner_size),
+                _inner_repeat(inner_indices, outer_size),
+            )
+            right_vals = self.root.transpose(-1, -2)._batch_get_indices(
+                _outer_repeat(batch_indices, inner_size),
+                _inner_repeat(inner_indices, outer_size),
+                _outer_repeat(right_indices, inner_size),
+            )
+
+            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def _get_indices(self, left_indices, right_indices):
-        outer_size = left_indices.size(0)
-        inner_size = self.root.size(-1)
-        inner_indices = Variable(right_indices.data.new(inner_size))
-        torch.arange(0, inner_size, out=inner_indices.data)
+        n_indices = left_indices.numel()
+        if n_indices > self.size(-1) * self.size(-2):
+            return self._evaluated[left_indices, right_indices]
 
-        left_vals = self.root._get_indices(
-            _outer_repeat(left_indices, inner_size), _inner_repeat(inner_indices, outer_size)
-        )
-        right_vals = self.root.t()._get_indices(
-            _inner_repeat(inner_indices, outer_size), _outer_repeat(right_indices, inner_size)
-        )
+        else:
+            outer_size = left_indices.size(0)
+            inner_size = self.root.size(-1)
+            inner_indices = right_indices.new(inner_size)
+            torch.arange(0, inner_size, out=inner_indices.data)
+
+            left_vals = self.root._get_indices(
+                _outer_repeat(left_indices, inner_size), _inner_repeat(inner_indices, outer_size)
+            )
+            right_vals = self.root.t()._get_indices(
+                _inner_repeat(inner_indices, outer_size), _outer_repeat(right_indices, inner_size)
+            )
 
         return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
@@ -96,7 +111,12 @@ class RootLazyVariable(LazyVariable):
             return super(RootLazyVariable, self).diag()
 
     def evaluate(self):
-        return torch.matmul(self.root.evaluate(), self.root.transpose(-1, -2).evaluate())
+        if not hasattr(self, '_evaluated_memo'):
+            self._evaluated_memo = torch.matmul(
+                self._evaluated_root,
+                self._evaluated_root.transpose(-1, -2)
+            )
+        return self._evaluated_memo
 
     def root_decomposition_size(self):
         return self.root.size(-1)
