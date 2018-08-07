@@ -5,42 +5,44 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from torch.autograd import Variable
 from gpytorch.lazy import MatmulLazyVariable
 from gpytorch.utils import approx_equal
 
 
 class TestMatmulLazyVariable(unittest.TestCase):
     def test_matmul(self):
-        lhs = Variable(torch.randn(5, 3), requires_grad=True)
-        rhs = Variable(torch.randn(3, 4), requires_grad=True)
+        lhs = torch.randn(5, 3, requires_grad=True)
+        rhs = torch.randn(3, 4, requires_grad=True)
         covar = MatmulLazyVariable(lhs, rhs)
-        mat = Variable(torch.randn(4, 10))
+        mat = torch.randn(4, 10)
         res = covar.matmul(mat)
 
-        lhs_clone = Variable(lhs.data.clone(), requires_grad=True)
-        rhs_clone = Variable(rhs.data.clone(), requires_grad=True)
-        mat_clone = Variable(mat.data.clone())
+        lhs_clone = lhs.clone().detach()
+        rhs_clone = rhs.clone().detach()
+        mat_clone = mat.clone().detach()
+        lhs_clone.requires_grad = True
+        rhs_clone.requires_grad = True
+        mat_clone.requires_grad = True
         actual = lhs_clone.matmul(rhs_clone).matmul(mat_clone)
 
-        self.assertTrue(approx_equal(res.data, actual.data))
+        self.assertTrue(approx_equal(res, actual))
 
         actual.sum().backward()
 
         res.sum().backward()
-        self.assertTrue(approx_equal(lhs.grad.data, lhs_clone.grad.data))
-        self.assertTrue(approx_equal(rhs.grad.data, rhs_clone.grad.data))
+        self.assertTrue(approx_equal(lhs.grad, lhs_clone.grad))
+        self.assertTrue(approx_equal(rhs.grad, rhs_clone.grad))
 
     def test_diag(self):
-        lhs = Variable(torch.randn(5, 3))
-        rhs = Variable(torch.randn(3, 5))
+        lhs = torch.randn(5, 3)
+        rhs = torch.randn(3, 5)
         actual = lhs.matmul(rhs)
         res = MatmulLazyVariable(lhs, rhs)
-        self.assertTrue(approx_equal(actual.diag().data, res.diag().data))
+        self.assertTrue(approx_equal(actual.diag(), res.diag()))
 
     def test_batch_diag(self):
-        lhs = Variable(torch.randn(4, 5, 3))
-        rhs = Variable(torch.randn(4, 3, 5))
+        lhs = torch.randn(4, 5, 3)
+        rhs = torch.randn(4, 3, 5)
         actual = lhs.matmul(rhs)
         actual_diag = torch.cat(
             [
@@ -52,21 +54,67 @@ class TestMatmulLazyVariable(unittest.TestCase):
         )
 
         res = MatmulLazyVariable(lhs, rhs)
-        self.assertTrue(approx_equal(actual_diag.data, res.diag().data))
+        self.assertTrue(approx_equal(actual_diag, res.diag()))
+
+    def test_batch_get_indices(self):
+        lhs = torch.randn(2, 5, 1)
+        rhs = torch.randn(2, 1, 5)
+        actual = lhs.matmul(rhs)
+        res = MatmulLazyVariable(lhs, rhs)
+
+        batch_indices = torch.LongTensor([0, 1, 0, 1])
+        left_indices = torch.LongTensor([1, 2, 4, 0])
+        right_indices = torch.LongTensor([0, 1, 3, 2])
+
+        self.assertTrue(approx_equal(
+            actual[batch_indices, left_indices, right_indices],
+            res._batch_get_indices(batch_indices, left_indices, right_indices)
+        ))
+
+        batch_indices = torch.LongTensor([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+        left_indices = torch.LongTensor([1, 2, 4, 0, 1, 2, 3, 1, 2, 2, 1, 1, 0, 0, 4, 4, 4, 4])
+        right_indices = torch.LongTensor([0, 1, 3, 2, 3, 4, 2, 2, 1, 1, 2, 1, 2, 4, 4, 3, 3, 0])
+
+        self.assertTrue(approx_equal(
+            actual[batch_indices, left_indices, right_indices],
+            res._batch_get_indices(batch_indices, left_indices, right_indices)
+        ))
+
+    def test_get_indices(self):
+        lhs = torch.randn(5, 1)
+        rhs = torch.randn(1, 5)
+        actual = lhs.matmul(rhs)
+        res = MatmulLazyVariable(lhs, rhs)
+
+        left_indices = torch.LongTensor([1, 2, 4, 0])
+        right_indices = torch.LongTensor([0, 1, 3, 2])
+
+        self.assertTrue(approx_equal(
+            actual[left_indices, right_indices],
+            res._get_indices(left_indices, right_indices)
+        ))
+
+        left_indices = torch.LongTensor([1, 2, 4, 0, 1, 2, 3, 1, 2, 2, 1, 1, 0, 0, 4, 4, 4, 4])
+        right_indices = torch.LongTensor([0, 1, 3, 2, 3, 4, 2, 2, 1, 1, 2, 1, 2, 4, 4, 3, 3, 0])
+
+        self.assertTrue(approx_equal(
+            actual[left_indices, right_indices],
+            res._get_indices(left_indices, right_indices)
+        ))
 
     def test_evaluate(self):
-        lhs = Variable(torch.randn(5, 3))
-        rhs = Variable(torch.randn(3, 5))
+        lhs = torch.randn(5, 3)
+        rhs = torch.randn(3, 5)
         actual = lhs.matmul(rhs)
         res = MatmulLazyVariable(lhs, rhs)
-        self.assertTrue(approx_equal(actual.data, res.evaluate().data))
+        self.assertTrue(approx_equal(actual, res.evaluate()))
 
     def test_transpose(self):
-        lhs = Variable(torch.randn(5, 3))
-        rhs = Variable(torch.randn(3, 5))
+        lhs = torch.randn(5, 3)
+        rhs = torch.randn(3, 5)
         actual = lhs.matmul(rhs)
         res = MatmulLazyVariable(lhs, rhs)
-        self.assertTrue(approx_equal(actual.t().data, res.t().evaluate().data))
+        self.assertTrue(approx_equal(actual.t(), res.t().evaluate()))
 
 
 if __name__ == "__main__":

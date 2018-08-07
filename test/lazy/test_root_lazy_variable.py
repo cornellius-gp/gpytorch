@@ -5,38 +5,39 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from torch.autograd import Variable
 from gpytorch.lazy import RootLazyVariable
 from gpytorch.utils import approx_equal
 
 
 class TestRootLazyVariable(unittest.TestCase):
     def test_matmul(self):
-        root = Variable(torch.randn(5, 3), requires_grad=True)
+        root = torch.randn(5, 3, requires_grad=True)
         covar = RootLazyVariable(root)
-        mat = Variable(torch.eye(5))
+        mat = torch.eye(5)
         res = covar.matmul(mat)
 
-        root_clone = Variable(root.data.clone(), requires_grad=True)
-        mat_clone = Variable(mat.data.clone())
+        root_clone = root.clone().detach()
+        root_clone.requires_grad = True
+        mat_clone = mat.clone().detach()
+        mat_clone.requires_grad = True
         actual = root_clone.matmul(root_clone.transpose(-1, -2)).matmul(mat_clone)
 
-        self.assertTrue(approx_equal(res.data, actual.data))
+        self.assertTrue(approx_equal(res, actual))
 
         gradient = torch.randn(5, 5)
-        actual.backward(gradient=Variable(gradient))
-        res.backward(gradient=Variable(gradient))
+        actual.backward(gradient=gradient)
+        res.backward(gradient=gradient)
 
-        self.assertTrue(approx_equal(root.grad.data, root_clone.grad.data))
+        self.assertTrue(approx_equal(root.grad, root_clone.grad))
 
     def test_diag(self):
-        root = Variable(torch.randn(5, 3))
+        root = torch.randn(5, 3)
         actual = root.matmul(root.transpose(-1, -2))
         res = RootLazyVariable(root)
-        self.assertTrue(approx_equal(actual.diag().data, res.diag().data))
+        self.assertTrue(approx_equal(actual.diag(), res.diag()))
 
     def test_batch_diag(self):
-        root = Variable(torch.randn(4, 5, 3))
+        root = torch.randn(4, 5, 3)
         actual = root.matmul(root.transpose(-1, -2))
         actual_diag = torch.cat(
             [
@@ -48,13 +49,57 @@ class TestRootLazyVariable(unittest.TestCase):
         )
 
         res = RootLazyVariable(root)
-        self.assertTrue(approx_equal(actual_diag.data, res.diag().data))
+        self.assertTrue(approx_equal(actual_diag, res.diag()))
 
-    def test_evaluate(self):
-        root = Variable(torch.randn(5, 3))
+    def test_batch_get_indices(self):
+        root = torch.randn(2, 5, 1)
         actual = root.matmul(root.transpose(-1, -2))
         res = RootLazyVariable(root)
-        self.assertTrue(approx_equal(actual.data, res.evaluate().data))
+
+        batch_indices = torch.LongTensor([0, 1, 0, 1])
+        left_indices = torch.LongTensor([1, 2, 4, 0])
+        right_indices = torch.LongTensor([0, 1, 3, 2])
+
+        self.assertTrue(approx_equal(
+            actual[batch_indices, left_indices, right_indices],
+            res._batch_get_indices(batch_indices, left_indices, right_indices)
+        ))
+
+        batch_indices = torch.LongTensor([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+        left_indices = torch.LongTensor([1, 2, 4, 0, 1, 2, 3, 1, 2, 2, 1, 1, 0, 0, 4, 4, 4, 4])
+        right_indices = torch.LongTensor([0, 1, 3, 2, 3, 4, 2, 2, 1, 1, 2, 1, 2, 4, 4, 3, 3, 0])
+
+        self.assertTrue(approx_equal(
+            actual[batch_indices, left_indices, right_indices],
+            res._batch_get_indices(batch_indices, left_indices, right_indices)
+        ))
+
+    def test_get_indices(self):
+        root = torch.randn(5, 3)
+        actual = root.matmul(root.transpose(-1, -2))
+        res = RootLazyVariable(root)
+
+        left_indices = torch.LongTensor([1, 2, 4, 0])
+        right_indices = torch.LongTensor([0, 1, 3, 2])
+
+        self.assertTrue(approx_equal(
+            actual[left_indices, right_indices],
+            res._get_indices(left_indices, right_indices)
+        ))
+
+        left_indices = torch.LongTensor([1, 2, 4, 0, 1, 2, 3, 1, 2, 2, 1, 1, 0, 0, 4, 4, 4, 4])
+        right_indices = torch.LongTensor([0, 1, 3, 2, 3, 4, 2, 2, 1, 1, 2, 1, 2, 4, 4, 3, 3, 0])
+
+        self.assertTrue(approx_equal(
+            actual[left_indices, right_indices],
+            res._get_indices(left_indices, right_indices)
+        ))
+
+    def test_evaluate(self):
+        root = torch.randn(5, 3)
+        actual = root.matmul(root.transpose(-1, -2))
+        res = RootLazyVariable(root)
+        self.assertTrue(approx_equal(actual, res.evaluate()))
 
 
 if __name__ == "__main__":
