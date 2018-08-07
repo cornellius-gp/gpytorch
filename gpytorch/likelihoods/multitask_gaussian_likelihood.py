@@ -15,6 +15,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     for a different `log_noise` parameter for each task. Like the Gaussian likelihood, this object can be used with
     exact inference.
     """
+
     def __init__(self, n_tasks, log_task_noises_prior=None):
         """
         Args:
@@ -23,9 +24,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         """
         super(MultitaskGaussianLikelihood, self).__init__()
         self.register_parameter(
-            name="log_task_noises",
-            parameter=torch.nn.Parameter(torch.zeros(n_tasks)),
-            prior=log_task_noises_prior,
+            name="log_task_noises", parameter=torch.nn.Parameter(torch.zeros(n_tasks)), prior=log_task_noises_prior
         )
         self.n_tasks = n_tasks
 

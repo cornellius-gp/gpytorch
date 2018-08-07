@@ -15,6 +15,7 @@ class MultitaskMean(Mean):
     model. Expects a list of `n_tasks` different mean functions, each of which is applied to the given data in
     :func:`~gpytorch.means.MultitaskMean.forward` and returned as an `n x t` matrix of means, one for each task.
     """
+
     def __init__(self, base_means, n_tasks):
         """
         Args:

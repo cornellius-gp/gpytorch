@@ -18,6 +18,7 @@ class MultitaskKernel(Kernel):
     specified size :math:`K_{TT}` and returns :math:`K = K_{TT} \otimes K_{XX}`. as an
     :obj:`gpytorch.lazy.KroneckerProductLazyVariable`.
     """
+
     def __init__(self, data_covar_module, n_tasks, rank=1, task_covar_prior=None):
         """
         Args:
