@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 from .lazy_variable import LazyVariable
 from .non_lazy_variable import NonLazyVariable
 from .lazy_variable_representation_tree import LazyVariableRepresentationTree
-import torch
 
 
 LAZY_KERNEL_TENSOR_WARNING = (
@@ -53,11 +52,6 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         Implementing it this way allows us to compute predictions more efficiently
         in cases where only the variances are required.
         """
-        from ..kernels import Kernel, GridInterpolationKernel
-
-        if isinstance(self.kernel, GridInterpolationKernel):
-            return self.evaluate_kernel().diag()
-
         if hasattr(self, "_cached_kernel_diag"):
             return self._cached_kernel_diag
         elif hasattr(self, "_cached_kernel_eval"):
@@ -69,8 +63,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             else:
                 x1 = self.x1
                 x2 = self.x2
-            res = super(Kernel, self.kernel).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3), **self.params)
-
+            res = self.kernel.forward_diag(x1, x2, **self.params)
             if isinstance(res, LazyVariable):
                 res = res.evaluate()
             self._cached_kernel_diag = res.transpose(-3, -2).squeeze()
@@ -94,7 +87,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
                 x2 = self.x2
             self._cached_kernel_eval = super(Kernel, self.kernel).__call__(x1, x2, **self.params)
 
-            if not self.is_batch:
+            if not self.is_batch and self._cached_kernel_eval.ndimension() == 3:
                 self._cached_kernel_eval = self._cached_kernel_eval[0]
             if not isinstance(self._cached_kernel_eval, LazyVariable):
                 self._cached_kernel_eval = NonLazyVariable(self._cached_kernel_eval)
@@ -109,20 +102,23 @@ class LazyEvaluatedKernelVariable(LazyVariable):
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 
-    def exact_predictive_mean(self, full_mean, train_labels, noise, precomputed_cache=None):
+    def exact_predictive_mean(self, full_mean, train_labels, n_train, likelihood, precomputed_cache=None):
         if self.kernel.has_custom_exact_predictions:
-            return self.evaluate_kernel().exact_predictive_mean(full_mean, train_labels, noise, precomputed_cache)
+            return self.evaluate_kernel().exact_predictive_mean(
+                full_mean, train_labels, n_train, likelihood, precomputed_cache
+            )
         else:
-            return super(LazyEvaluatedKernelVariable, self).exact_predictive_mean(full_mean,
-                                                                                  train_labels,
-                                                                                  noise,
-                                                                                  precomputed_cache)
+            return super(LazyEvaluatedKernelVariable, self).exact_predictive_mean(
+                full_mean, train_labels, n_train, likelihood, precomputed_cache
+            )
 
-    def exact_predictive_covar(self, n_train, noise, precomputed_cache=None):
+    def exact_predictive_covar(self, n_train, likelihood, precomputed_cache=None):
         if self.kernel.has_custom_exact_predictions:
-            return self.evaluate_kernel().exact_predictive_covar(n_train, noise, precomputed_cache)
+            return self.evaluate_kernel().exact_predictive_covar(n_train, likelihood, precomputed_cache)
         else:
-            return super(LazyEvaluatedKernelVariable, self).exact_predictive_covar(n_train, noise, precomputed_cache)
+            return super(LazyEvaluatedKernelVariable, self).exact_predictive_covar(
+                n_train, likelihood, precomputed_cache
+            )
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]
@@ -143,7 +139,4 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             )
 
     def _size(self):
-        if self.is_batch:
-            return torch.Size((self.x1.size(0), self.x1.size(-2), self.x2.size(-2)))
-        else:
-            return torch.Size((self.x1.size(-2), self.x2.size(-2)))
+        return self.kernel.size(self.x1, self.x2)

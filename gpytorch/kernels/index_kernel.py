@@ -14,6 +14,8 @@ def _eval_covar_matrix(covar_factor, log_var):
 
 class IndexKernel(Kernel):
     def __init__(self, n_tasks, rank=1, prior=None, active_dims=None):
+        if rank > n_tasks:
+            raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
         if active_dims is not None and len(active_dims) > 1:
             raise ValueError("Index must be with respect to a single column. Received {}".format(active_dims))
         super(IndexKernel, self).__init__(active_dims=active_dims)

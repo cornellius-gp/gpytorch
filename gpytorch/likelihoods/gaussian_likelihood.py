@@ -22,7 +22,7 @@ class GaussianLikelihood(Likelihood):
         assert isinstance(input, GaussianRandomVariable)
         mean, covar = input.representation()
         noise = add_diag(covar, self.log_noise.exp())
-        return GaussianRandomVariable(mean, noise)
+        return input.__class__(mean, noise)
 
     def log_probability(self, input, target):
         res = -0.5 * ((target - input.mean()) ** 2 + input.var()) / self.log_noise.exp()

@@ -134,5 +134,5 @@ def woodbury_solve(vector, low_rank_mat, woodbury_factor, shift):
     if vector.ndimension() > 1:
         shift = shift.unsqueeze(-1)
 
-    right = low_rank_mat.transpose(-1, -2).matmul(woodbury_factor.matmul(vector)) / shift
+    right = low_rank_mat.transpose(-1, -2).matmul(woodbury_factor.matmul(vector / shift))
     return (vector - right) / shift

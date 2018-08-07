@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from torch.autograd import Variable
+from .kernel import Kernel
 from .grid_kernel import GridKernel
 from ..lazy import InterpolatedLazyVariable
 from ..utils import Interpolation
@@ -45,6 +46,9 @@ class GridInterpolationKernel(GridKernel):
     def _inducing_forward(self):
         inducing_points_var = Variable(self.inducing_points)
         return super(GridInterpolationKernel, self).forward(inducing_points_var, inducing_points_var)
+
+    def forward_diag(self, x1, x2, **kwargs):
+        return super(Kernel, self).__call__(x1, x2, **kwargs).diag().unsqueeze(-1)
 
     def forward(self, x1, x2, **kwargs):
         base_lazy_var = self._inducing_forward()

@@ -85,6 +85,17 @@ class Kernel(Module):
     def has_custom_exact_predictions(self):
         return False
 
+    def size(self, x1, x2):
+        non_batch_size = (x1.size(-2), x2.size(-2))
+        if x1.ndimension() == 3:
+            return torch.Size((x1.size(0),) + non_batch_size)
+        else:
+            return torch.Size(non_batch_size)
+
+    @abstractmethod
+    def forward_diag(self, x1, x2, **params):
+        return super(Kernel, self).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3), **params)
+
     @abstractmethod
     def forward(self, x1, x2, **params):
         raise NotImplementedError()
