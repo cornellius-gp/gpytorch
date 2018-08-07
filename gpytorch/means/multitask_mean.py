@@ -31,7 +31,7 @@ class MultitaskMean(Mean):
             raise RuntimeError("base_means should be a list of means of length either 1 or n_tasks")
 
         if len(base_means) == 1:
-            base_means = base_means + deepcopy([base_means[i] for i in range(n_tasks - 1)])
+            base_means = base_means + [deepcopy(base_means[0]) for i in range(n_tasks - 1)]
 
         self.base_means = ModuleList(base_means)
         self.n_tasks = n_tasks
