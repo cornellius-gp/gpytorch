@@ -29,13 +29,13 @@ class MatmulLazyVariable(LazyVariable):
 
     @property
     def _evaluated_lhs(self):
-        if not hasattr(self, '_evaluated_lhs_memo'):
+        if not hasattr(self, "_evaluated_lhs_memo"):
             self._evaluated_lhs_memo = self.lhs.evaluate()
         return self._evaluated_lhs_memo
 
     @property
     def _evaluated_rhs(self):
-        if not hasattr(self, '_evaluated_rhs_memo'):
+        if not hasattr(self, "_evaluated_rhs_memo"):
             self._evaluated_rhs_memo = self.rhs.evaluate()
         return self._evaluated_rhs_memo
 
@@ -62,7 +62,9 @@ class MatmulLazyVariable(LazyVariable):
             return torch.Size((self.lhs.size(0), self.rhs.size(1)))
 
     def _transpose_nonbatch(self, *args):
-        return self.__class__(self.rhs._transpose_nonbatch(), self.lhs._transpose_nonbatch())
+        return self.__class__(
+            self.rhs._transpose_nonbatch(), self.lhs._transpose_nonbatch()
+        )
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         n_indices = left_indices.numel()
@@ -75,18 +77,22 @@ class MatmulLazyVariable(LazyVariable):
             inner_indices = right_indices.new(inner_size)
             torch.arange(0, inner_size, out=inner_indices.data)
 
+            # Repeat the indices to get all the appropriate terms
+            batch_indices = _outer_repeat(batch_indices, inner_size)
+            left_indices = _outer_repeat(left_indices, inner_size)
+            right_indices = _outer_repeat(right_indices, inner_size)
+            inner_indices = _inner_repeat(inner_indices, outer_size)
+
             left_vals = self.lhs._batch_get_indices(
-                _outer_repeat(batch_indices, inner_size),
-                _outer_repeat(left_indices, inner_size),
-                _inner_repeat(inner_indices, outer_size),
+                batch_indices, left_indices, inner_indices
             )
             right_vals = self.rhs._batch_get_indices(
-                _outer_repeat(batch_indices, inner_size),
-                _inner_repeat(inner_indices, outer_size),
-                _outer_repeat(right_indices, inner_size),
+                batch_indices, inner_indices, right_indices
             )
 
-            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
+            return (
+                left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)
+            ).sum(-1)
 
     def _get_indices(self, left_indices, right_indices):
         n_indices = left_indices.numel()
@@ -99,25 +105,29 @@ class MatmulLazyVariable(LazyVariable):
             inner_indices = right_indices.new(inner_size)
             torch.arange(0, inner_size, out=inner_indices.data)
 
-            left_vals = self.lhs._get_indices(
-                _outer_repeat(left_indices, inner_size), _inner_repeat(inner_indices, outer_size)
-            )
-            right_vals = self.rhs._get_indices(
-                _inner_repeat(inner_indices, outer_size), _outer_repeat(right_indices, inner_size)
-            )
+            # Repeat the indices to get all the appropriate terms
+            left_indices = _outer_repeat(left_indices, inner_size)
+            right_indices = _outer_repeat(right_indices, inner_size)
+            inner_indices = _inner_repeat(inner_indices, outer_size)
 
-            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
+            left_vals = self.lhs._get_indices(left_indices, inner_indices)
+            right_vals = self.rhs._get_indices(inner_indices, right_indices)
+
+            return (
+                left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)
+            ).sum(-1)
 
     def diag(self):
-        if isinstance(self.lhs, NonLazyVariable) and isinstance(self.rhs, NonLazyVariable):
+        if isinstance(self.lhs, NonLazyVariable) and isinstance(
+            self.rhs, NonLazyVariable
+        ):
             return (self.lhs.tensor * self.rhs.tensor.transpose(-1, -2)).sum(-1)
         else:
             return super(MatmulLazyVariable, self).diag()
 
     def evaluate(self):
-        if not hasattr(self, '_evaluated_memo'):
+        if not hasattr(self, "_evaluated_memo"):
             self._evaluated_memo = torch.matmul(
-                self._evaluated_lhs,
-                self._evaluated_rhs,
+                self._evaluated_lhs, self._evaluated_rhs
             )
         return self._evaluated_memo

@@ -25,7 +25,7 @@ class RootLazyVariable(LazyVariable):
 
     @property
     def _evaluated_root(self):
-        if not hasattr(self, '_evaluated_root_memo'):
+        if not hasattr(self, "_evaluated_root_memo"):
             self._evaluated_root_memo = self.root.evaluate()
         return self._evaluated_root_memo
 
@@ -44,7 +44,9 @@ class RootLazyVariable(LazyVariable):
         left_vecs_times_lhs_t = self.root._t_matmul(left_vecs)
 
         deriv_part_1 = self.root._quad_form_derivative(left_vecs, right_vecs_times_rhs)
-        deriv_part_2 = self.root._quad_form_derivative(right_vecs, left_vecs_times_lhs_t)
+        deriv_part_2 = self.root._quad_form_derivative(
+            right_vecs, left_vecs_times_lhs_t
+        )
 
         deriv = []
         for item_part_1, item_part_2 in zip(deriv_part_1, deriv_part_2):
@@ -71,18 +73,22 @@ class RootLazyVariable(LazyVariable):
             inner_indices = right_indices.new(inner_size)
             torch.arange(0, inner_size, out=inner_indices.data)
 
+            # Repeat the indices to get all the appropriate terms
+            batch_indices = _outer_repeat(batch_indices, inner_size)
+            left_indices = _outer_repeat(left_indices, inner_size)
+            right_indices = _outer_repeat(right_indices, inner_size)
+            inner_indices = _inner_repeat(inner_indices, outer_size)
+
             left_vals = self.root._batch_get_indices(
-                _outer_repeat(batch_indices, inner_size),
-                _outer_repeat(left_indices, inner_size),
-                _inner_repeat(inner_indices, outer_size),
+                batch_indices, left_indices, inner_indices
             )
             right_vals = self.root.transpose(-1, -2)._batch_get_indices(
-                _outer_repeat(batch_indices, inner_size),
-                _inner_repeat(inner_indices, outer_size),
-                _outer_repeat(right_indices, inner_size),
+                batch_indices, inner_indices, right_indices
             )
 
-            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
+            return (
+                left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)
+            ).sum(-1)
 
     def _get_indices(self, left_indices, right_indices):
         n_indices = left_indices.numel()
@@ -95,14 +101,17 @@ class RootLazyVariable(LazyVariable):
             inner_indices = right_indices.new(inner_size)
             torch.arange(0, inner_size, out=inner_indices.data)
 
-            left_vals = self.root._get_indices(
-                _outer_repeat(left_indices, inner_size), _inner_repeat(inner_indices, outer_size)
-            )
-            right_vals = self.root.t()._get_indices(
-                _inner_repeat(inner_indices, outer_size), _outer_repeat(right_indices, inner_size)
-            )
+            # Repeat the indices to get all the appropriate terms
+            left_indices = _outer_repeat(left_indices, inner_size)
+            right_indices = _outer_repeat(right_indices, inner_size)
+            inner_indices = _inner_repeat(inner_indices, outer_size)
 
-        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
+            left_vals = self.root._get_indices(left_indices, inner_indices)
+            right_vals = self.root.t()._get_indices(inner_indices, right_indices)
+
+        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(
+            -1
+        )
 
     def diag(self):
         if isinstance(self.root, NonLazyVariable):
@@ -111,10 +120,9 @@ class RootLazyVariable(LazyVariable):
             return super(RootLazyVariable, self).diag()
 
     def evaluate(self):
-        if not hasattr(self, '_evaluated_memo'):
+        if not hasattr(self, "_evaluated_memo"):
             self._evaluated_memo = torch.matmul(
-                self._evaluated_root,
-                self._evaluated_root.transpose(-1, -2)
+                self._evaluated_root, self._evaluated_root.transpose(-1, -2)
             )
         return self._evaluated_memo
 
