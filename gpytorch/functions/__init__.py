@@ -81,6 +81,9 @@ def exact_predictive_mean(full_covar, full_mean, train_labels, n_train, likeliho
     Returns:
     - (t) - the predictive posterior mean of the test points
     """
+    if not n_train:
+        return full_mean, None
+
     if not hasattr(full_covar, "exact_predictive_mean"):
         from ..lazy.non_lazy_variable import NonLazyVariable
 
@@ -102,6 +105,9 @@ def exact_predictive_covar(full_covar, n_train, likelihood, precomputed_cache=No
     Returns:
     - LazyVariable (t x t) - the predictive posterior covariance of the test points
     """
+    if not n_train:
+        return full_covar, None
+
     if not hasattr(full_covar, "exact_predictive_covar"):
         from ..lazy.non_lazy_variable import NonLazyVariable
 
