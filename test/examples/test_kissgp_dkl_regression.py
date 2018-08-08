@@ -91,7 +91,7 @@ class TestDKLRegression(unittest.TestCase):
 
         optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
         optimizer.n_iter = 0
-        for _ in range(25):
+        for _ in range(30):
             optimizer.zero_grad()
             output = gp_model(train_x)
             loss = -mll(output, train_y)
@@ -128,7 +128,7 @@ class TestDKLRegression(unittest.TestCase):
 
             optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
             optimizer.n_iter = 0
-            for _ in range(25):
+            for _ in range(30):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
                 loss = -mll(output, train_y)
