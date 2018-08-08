@@ -124,3 +124,18 @@ class ZeroLazyVariable(LazyVariable):
 
     def __mul__(self, other):
         return self
+
+    def __getitem__(self, index):
+        index = list(index) if isinstance(index, tuple) else [index]
+        ndimension = self.ndimension()
+        index += [slice(None, None, None)] * (ndimension - len(index))
+        new_sizes = []
+        for ix, sub_index in enumerate(index):
+            if isinstance(sub_index, int):
+                continue
+            elif isinstance(sub_index, slice):
+                new_sizes += [len(torch.arange(self.size(ix))[sub_index])]
+            else:
+                new_sizes += [len(sub_index)]
+
+        return ZeroLazyVariable(*new_sizes)

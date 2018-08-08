@@ -14,9 +14,15 @@ class WhiteNoiseKernel(Kernel):
         self.register_buffer("variances", variances)
 
     def forward(self, x1, x2):
-        if self.training:
-            return DiagLazyVariable(self.variances.view(-1).unsqueeze(0))
-        elif x1.size(-2) == x2.size(-2) and x1.size(-2) == self.variances.size(0) and torch.equal(x1, x2):
-            return DiagLazyVariable(self.variances.view(-1).unsqueeze(0))
+        if self.training and torch.equal(x1, x2):
+            if self.variances.ndimension() == 2:
+                return DiagLazyVariable(self.variances.view(self.variances.size(0), -1))
+            else:
+                return DiagLazyVariable(self.variances.view(-1).unsqueeze(0))
+        elif x1.size(-2) == x2.size(-2) and x1.size(-2) == self.variances.size(-1) and torch.equal(x1, x2):
+            if self.variances.ndimension() == 2:
+                return DiagLazyVariable(self.variances.view(self.variances.size(0), -1))
+            else:
+                return DiagLazyVariable(self.variances.view(-1).unsqueeze(0))
         else:
             return ZeroLazyVariable(x1.size(-3), x1.size(-2), x2.size(-2))
