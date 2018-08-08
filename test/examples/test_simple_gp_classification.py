@@ -11,7 +11,6 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
 from gpytorch.lazy import ConstantMulLazyVariable
 from gpytorch.likelihoods import BernoulliLikelihood
@@ -21,8 +20,8 @@ from gpytorch.random_variables import GaussianRandomVariable
 
 
 def train_data(cuda=False):
-    train_x = Variable(torch.linspace(0, 1, 10))
-    train_y = Variable(torch.sign(torch.cos(train_x.data * (4 * pi))))
+    train_x = torch.linspace(0, 1, 10)
+    train_y = torch.sign(torch.cos(train_x * (4 * pi)))
     if cuda:
         return train_x.cuda(), train_y.cuda()
     else:
@@ -65,7 +64,7 @@ class TestSimpleGPClassification(unittest.TestCase):
     def test_classification_error(self):
         train_x, train_y = train_data()
         likelihood = BernoulliLikelihood()
-        model = GPClassificationModel(train_x.data)
+        model = GPClassificationModel(train_x)
         mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
         # Find optimal model hyperparameters
@@ -94,13 +93,13 @@ class TestSimpleGPClassification(unittest.TestCase):
         likelihood.eval()
         test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        assert mean_abs_error.data.squeeze().item() < 1e-5
+        assert mean_abs_error.item() < 1e-5
 
     def test_classification_fast_pred_var(self):
         with gpytorch.fast_pred_var():
             train_x, train_y = train_data()
             likelihood = BernoulliLikelihood()
-            model = GPClassificationModel(train_x.data)
+            model = GPClassificationModel(train_x)
             mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
             # Find optimal model hyperparameters
@@ -130,13 +129,13 @@ class TestSimpleGPClassification(unittest.TestCase):
             test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
 
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-            self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
+            self.assertLess(mean_abs_error.item(), 1e-5)
 
     def test_classification_error_cuda(self):
         if torch.cuda.is_available():
             train_x, train_y = train_data(cuda=True)
             likelihood = BernoulliLikelihood().cuda()
-            model = GPClassificationModel(train_x.data).cuda()
+            model = GPClassificationModel(train_x).cuda()
             mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
             # Find optimal model hyperparameters
@@ -163,7 +162,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             model.eval()
             test_preds = likelihood(model(train_x)).mean().ge(0.5).float().mul(2).sub(1).squeeze()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-            self.assertLess(mean_abs_error.data.squeeze().item(), 1e-5)
+            self.assertLess(mean_abs_error.item(), 1e-5)
 
 
 if __name__ == "__main__":

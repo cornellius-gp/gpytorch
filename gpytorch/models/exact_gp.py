@@ -5,33 +5,38 @@ from __future__ import unicode_literals
 
 import warnings
 import torch
-from torch.autograd import Variable
 from ..module import Module
 from ..functions import exact_predictive_mean, exact_predictive_covar
 from ..random_variables import GaussianRandomVariable, MultitaskGaussianRandomVariable
 from ..likelihoods import GaussianLikelihood
+from .. import settings
 
 
 class ExactGP(Module):
     def __init__(self, train_inputs, train_targets, likelihood):
-        if torch.is_tensor(train_inputs):
+        if train_inputs is not None and torch.is_tensor(train_inputs):
             train_inputs = (train_inputs,)
-        if not all(torch.is_tensor(train_input) for train_input in train_inputs):
+        if train_inputs is not None and not all(torch.is_tensor(train_input) for train_input in train_inputs):
             raise RuntimeError("Train inputs must be a tensor, or a list/tuple of tensors")
         if not isinstance(likelihood, GaussianLikelihood):
             raise RuntimeError("ExactGP can only handle GaussianLikelihood")
 
         super(ExactGP, self).__init__()
-        self.train_inputs = tuple(tri.unsqueeze(-1) if tri.ndimension() == 1 else tri for tri in train_inputs)
-        self.train_targets = train_targets
+        if train_inputs is not None:
+            self.train_inputs = tuple(tri.unsqueeze(-1) if tri.ndimension() == 1 else tri for tri in train_inputs)
+            self.train_targets = train_targets
+        else:
+            self.train_inputs = None
+            self.train_targets = None
         self.likelihood = likelihood
 
         self.mean_cache = None
         self.covar_cache = None
 
     def _apply(self, fn):
-        self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
-        self.train_targets = fn(self.train_targets)
+        if self.train_inputs is not None:
+            self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
+            self.train_targets = fn(self.train_targets)
         return super(ExactGP, self)._apply(fn)
 
     def marginal_log_likelihood(self, likelihood, output, target, n_data=None):
@@ -73,47 +78,62 @@ class ExactGP(Module):
         return super(ExactGP, self).train(mode)
 
     def __call__(self, *args, **kwargs):
-        train_inputs = tuple(Variable(train_input) for train_input in self.train_inputs)
-        inputs = tuple(tri.unsqueeze(-1) if tri.ndimension() == 1 else tri for tri in args)
+        train_inputs = self.train_inputs
+        inputs = tuple(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args)
+
         # Training mode: optimizing
         if self.training:
-            if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
-                raise RuntimeError("You must train on the training inputs!")
+            if self.train_inputs is None:
+                raise RuntimeError(
+                    "train_inputs, train_targets cannot be None in training mode. "
+                    "Call .eval() for prior predictions, or call .set_train_data() to add training data."
+                )
+            if settings.debug.on():
+                if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
+                    raise RuntimeError("You must train on the training inputs!")
             return super(ExactGP, self).__call__(*inputs, **kwargs)
 
         # Posterior mode
         else:
-            if all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
-                warnings.warn(
-                    "The input matches the stored training data. Did you forget to call model.train()?", UserWarning
-                )
+            if settings.debug.on() and self.train_inputs is not None:
+                if all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
+                    warnings.warn(
+                        "The input matches the stored training data. Did you forget to call model.train()?", UserWarning
+                    )
 
             # Exact inference
-            full_inputs = tuple(
-                torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)
-            )
+            if self.train_inputs is None:
+                full_inputs = args
+            else:
+                full_inputs = tuple(
+                    torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)
+                )
             full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
-            if not isinstance(full_output, GaussianRandomVariable):
-                raise RuntimeError("ExactGP.forward must return a GaussianRandomVariable")
+            if settings.debug().on():
+                if not isinstance(full_output, GaussianRandomVariable):
+                    raise RuntimeError("ExactGP.forward must return a GaussianRandomVariable")
             full_mean, full_covar = full_output.representation()
 
             n_tasks = 1
             if isinstance(full_output, MultitaskGaussianRandomVariable):
                 n_tasks = full_output.n_tasks
 
-            if self.train_targets.ndimension() == 2:
-                # Multitask
-                n_train = self.train_targets.size(0)
-                train_targets = self.train_targets.view(-1)
-                full_mean = full_mean.view(-1)
-            elif self.train_targets.ndimension() == 3:
-                # batch mode
-                n_train = self.train_targets.size(1)
-                train_targets = self.train_targets.view(self.train_targets.size(0), -1)
-                full_mean = full_mean.view(full_mean.size(0), -1)
-            else:
-                n_train = self.train_targets.size(-1)
-                train_targets = self.train_targets
+            n_train = 0
+            train_targets = None
+            if self.train_targets is not None:
+                if self.train_targets.ndimension() == 2:
+                    # Multitask
+                    full_mean = full_mean.view(-1)
+                    n_train = self.train_targets.size(0)
+                    train_targets = self.train_targets.view(-1)
+                elif self.train_targets.ndimension() == 3:
+                    # batch mode
+                    full_mean = full_mean.view(full_mean.size(0), -1)
+                    n_train = self.train_targets.size(1)
+                    train_targets = self.train_targets.view(self.train_targets.size(0), -1)
+                else:
+                    n_train = self.train_targets.size(-1)
+                    train_targets = self.train_targets
 
             predictive_mean, mean_cache = exact_predictive_mean(
                 full_covar=full_covar,

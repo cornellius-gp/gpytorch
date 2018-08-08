@@ -53,6 +53,17 @@ class _value_context(object):
         return False
 
 
+class debug(_feature_flag):
+    """
+    Whether or not to perform "safety" checks on the supplied data.
+    (For example, that the correct training data is supplied in Exact GP training mode)
+    Pros: fewer data checks, fewer warning messages
+    Cons: possibility of supplying incorrect data, model accidentially in wrong mode
+    """
+
+    _state = True
+
+
 class max_cg_iterations(_value_context):
     """
     The maximum number of conjugate gradient iterations to perform (when computing
@@ -78,9 +89,8 @@ class max_root_decomposition_size(_value_context):
 class max_lanczos_iterations(max_root_decomposition_size):
     """
     The maximum number of Lanczos iterations to perform
-    This is used when 1) computing variance estiamtes 2) when drawing from MVNs,
-    or 3) for kernel multiplication
-    More values results in higher accuracy
+    This is used when 1) computing variance estiamtes 2) when drawing from
+    MVNs, or 3) for kernel multiplication More values results in higher accuracy
     Default: 100
 
     DEPRECATED: Use max_root_decomposition_size instead
@@ -113,6 +123,16 @@ class max_lanczos_quadrature_iterations(_value_context):
     _global_value = 15
 
 
+class memory_efficient(_feature_flag):
+    """
+    Whether or not to use Toeplitz math with gridded data, grid inducing point modules
+    Pros: memory efficient, faster on CPU
+    Cons: slower on GPUs with < 10000 inducing points
+    """
+
+    _state = False
+
+
 class num_likelihood_samples(_value_context):
     """
     The number of samples to draw from a latent GP when computing a likelihood
@@ -142,13 +162,3 @@ class use_toeplitz(_feature_flag):
     """
 
     _state = True
-
-
-class memory_efficient(_feature_flag):
-    """
-    Whether or not to use Toeplitz math with gridded data, grid inducing point modules
-    Pros: memory efficient, faster on CPU
-    Cons: slower on GPUs with < 10000 inducing points
-    """
-
-    _state = False
