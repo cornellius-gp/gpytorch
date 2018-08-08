@@ -19,9 +19,11 @@ class TestWhiteNoiseKernel(unittest.TestCase):
 
     def test_computes_diag_train_batch(self):
         a = torch.Tensor([[4, 2, 8], [4, 2, 8]]).view(2, 3, 1)
-        variances = torch.randn(2, 3)
+        variances = torch.randn(2, 3, 1)
         kernel = WhiteNoiseKernel(variances=variances)
-        actual = torch.cat((torch.diag(variances[0]).unsqueeze(0), torch.diag(variances[1]).unsqueeze(0)))
+        actual = torch.cat(
+            (torch.diag(variances[0].squeeze(-1)).unsqueeze(0), torch.diag(variances[1].squeeze(-1)).unsqueeze(0))
+        )
         res = kernel(a).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -41,7 +43,7 @@ class TestWhiteNoiseKernel(unittest.TestCase):
     def test_computes_zero_eval_batch(self):
         a = torch.Tensor([[4, 2, 8], [4, 2, 8]]).view(2, 3, 1)
         b = torch.Tensor([[3, 7], [3, 7]]).view(2, 2, 1)
-        variances = torch.randn(3)
+        variances = torch.randn(2, 3, 1)
         kernel = WhiteNoiseKernel(variances=variances)
         kernel.eval()
         actual_one = torch.zeros(3, 2)
@@ -62,10 +64,12 @@ class TestWhiteNoiseKernel(unittest.TestCase):
 
     def test_computes_diag_eval_batch(self):
         a = torch.Tensor([[4, 2, 8], [4, 2, 8]]).view(2, 3, 1)
-        variances = torch.randn(2, 3)
+        variances = torch.randn(2, 3, 1)
         kernel = WhiteNoiseKernel(variances=variances)
         kernel.eval()
-        actual = torch.cat((torch.diag(variances[0]).unsqueeze(0), torch.diag(variances[1]).unsqueeze(0)))
+        actual = torch.cat(
+            (torch.diag(variances[0].squeeze(-1)).unsqueeze(0), torch.diag(variances[1].squeeze(-1)).unsqueeze(0))
+        )
         res = kernel(a).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
