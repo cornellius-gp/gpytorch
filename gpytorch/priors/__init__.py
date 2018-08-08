@@ -8,6 +8,8 @@ from .multivariate_normal_prior import MultivariateNormalPrior
 from .normal_prior import NormalPrior
 from .smoothed_box_prior import SmoothedBoxPrior
 from .wishart_prior import InverseWishartPrior, WishartPrior
+from .lkj_prior import LKJCovariancePrior
 
 
-__all__ = [GammaPrior, InverseWishartPrior, MultivariateNormalPrior, NormalPrior, SmoothedBoxPrior, WishartPrior]
+__all__ = [GammaPrior, InverseWishartPrior, MultivariateNormalPrior, NormalPrior,
+           SmoothedBoxPrior, WishartPrior, LKJCovariancePrior]
