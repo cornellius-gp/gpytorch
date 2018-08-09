@@ -427,7 +427,7 @@ class LazyVariable(object):
         if res.ndimension() == 3:
             res = res.squeeze(-1)
         res = res + test_mean
-        return res, precomputed_cache
+        return res, precomputed_cache.detach()
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         """
@@ -505,7 +505,7 @@ class LazyVariable(object):
 
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         res = test_test_covar + RootLazyVariable(covar_inv_quad_form_root).mul(-1)
-        return res, precomputed_cache
+        return res, precomputed_cache.detach()
 
     def inv_matmul(self, tensor):
         """
