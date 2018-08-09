@@ -63,7 +63,7 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
             or os.getenv("UNLOCK_SEED").lower() == "false"
         ):
             self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
+            torch.manual_seed(1)
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(0)
             random.seed(0)
