@@ -58,7 +58,6 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         trace_diff = trace_diff / self.likelihood.log_noise.exp()
 
         res = -0.5 * sum([inv_quad, log_det, n_data * math.log(2 * math.pi), -trace_diff])
-        res.div_(n_data)
 
         # Add log probs of priors on the parameters
         for _, param, prior in self.named_parameter_priors():
@@ -66,4 +65,4 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         for _, prior, params, transform in self.named_derived_priors():
             res.add_(prior.log_prob(transform(*params)).sum())
 
-        return res
+        return res.div_(n_data)
