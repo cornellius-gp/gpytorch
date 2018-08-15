@@ -10,9 +10,12 @@ from .lazy_variable import LazyVariable
 class ConstantMulLazyVariable(LazyVariable):
     def __init__(self, lazy_var, constant):
         if torch.is_tensor(constant):
+            if constant.numel() == 1:
+                constant = constant.squeeze()
             constant = constant
         else:
-            constant = torch.tensor([constant], device=lazy_var.device, dtype=torch.float32)
+            constant = torch.tensor(constant, device=lazy_var.device, dtype=torch.float32)
+
         super(ConstantMulLazyVariable, self).__init__(lazy_var, constant)
         self.lazy_var = lazy_var
         self.constant = constant
