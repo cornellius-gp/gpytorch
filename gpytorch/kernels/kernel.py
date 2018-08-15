@@ -105,6 +105,8 @@ class Kernel(Module):
             x1 = x1_.index_select(-1, self.active_dims)
             if x2_ is not None:
                 x2 = x2_.index_select(-1, self.active_dims)
+            else:
+                x2 = None
         else:
             x1 = x1_
             x2 = x2_
