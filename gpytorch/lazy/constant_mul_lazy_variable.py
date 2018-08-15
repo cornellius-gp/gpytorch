@@ -12,7 +12,6 @@ class ConstantMulLazyVariable(LazyVariable):
         if torch.is_tensor(constant):
             if constant.numel() == 1:
                 constant = constant.squeeze()
-            constant = constant
         else:
             constant = torch.tensor(constant, device=lazy_var.device, dtype=torch.float32)
 
