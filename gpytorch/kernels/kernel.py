@@ -101,15 +101,12 @@ class Kernel(Module):
         raise NotImplementedError()
 
     def __call__(self, x1_, x2_=None, **params):
+        x1, x2 = x1_, x2_
+
         if self.active_dims is not None:
             x1 = x1_.index_select(-1, self.active_dims)
             if x2_ is not None:
                 x2 = x2_.index_select(-1, self.active_dims)
-            else:
-                x2 = None
-        else:
-            x1 = x1_
-            x2 = x2_
 
         if x2 is None:
             x2 = x1
