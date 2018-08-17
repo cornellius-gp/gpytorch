@@ -6,26 +6,38 @@ from __future__ import unicode_literals
 import torch
 from gpytorch.functions import add_diag
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.lazy import DiagLazyVariable, KroneckerProductLazyVariable
+from gpytorch.lazy import DiagLazyVariable, KroneckerProductLazyVariable, RootLazyVariable
+
+
+def _eval_covar_matrix(task_noise_covar_factor, log_noise):
+    n_tasks = task_noise_covar_factor.size(0)
+    return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + log_noise.exp() * torch.eye(n_tasks)
 
 
 class MultitaskGaussianLikelihood(GaussianLikelihood):
     """
     A convenient extension of the :class:`gpytorch.likelihoods.GaussianLikelihood` to the multitask setting that allows
-    for a different `log_noise` parameter for each task. Like the Gaussian likelihood, this object can be used with
-    exact inference.
+    for a full cross-task covariance structure for the noise. The fitted covariance matrix has rank `rank`. Like the Gaussian 
+    likelihood, this object can be used with exact inference.
     """
 
-    def __init__(self, n_tasks, log_task_noises_prior=None):
+    def __init__(self, n_tasks, rank=1, task_covar_prior=None):
         """
         Args:
-            n_tasks (int): Number of tasks. This likelihood will create a log noise parameter for each task.
-            log_task_noises_prior (:obj:`gpytorch.priors.Prior`): Prior to use over the log task noises.
+            n_tasks (int): Number of tasks. This likelihood will create a rank `rank` covariance matrix for task noises.
+            log_task_noises_prior (:obj:`gpytorch.priors.Prior`): Prior to use over the task noise covariance matrix.
         """
         super(MultitaskGaussianLikelihood, self).__init__()
         self.register_parameter(
-            name="log_task_noises", parameter=torch.nn.Parameter(torch.zeros(n_tasks)), prior=log_task_noises_prior
+            name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.zeros([n_tasks, rank]))
         )
+        if task_covar_prior is not None:
+            self.register_derived_prior(
+                name="MultitaskErrorCovariancePrior",
+                prior=task_covar_prior,
+                parameter_names=("task_noise_covar_factor", "log_noise"),
+                transform=_eval_covar_matrix,
+            ) 
         self.n_tasks = n_tasks
 
     def forward(self, input):
@@ -35,7 +47,8 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         :obj:`gpytorch.random_variables.MultitaskGaussianRandomVariable`.
 
         To accomplish this, we form a new :obj:`gpytorch.lazy.KroneckerProductLazyVariable` between :math:`I_{n}`,
-        an identity matrix with size equal to the data and a diagonal matrix containing the task noises :math:`D_{t}`.
+        an identity matrix with size equal to the data and a (not necessarily diagonal) matrix containing the task 
+        noises :math:`D_{t}`.
 
         We also incorporate a shared `log_noise` parameter from the base
         :class:`gpytorch.likelihoods.GaussianLikelihood` that we extend.
@@ -52,7 +65,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         """
         mean, covar = input.representation()
         eye_lv = DiagLazyVariable(torch.ones(covar.size(-1) // self.n_tasks, device=self.log_noise.device))
-        task_var_lv = DiagLazyVariable(self.log_task_noises.exp())
+        task_var_lv = RootLazyVariable(self.task_noise_covar_factor)
         diag_kron_lv = KroneckerProductLazyVariable(task_var_lv, eye_lv)
         noise = covar + diag_kron_lv
         noise = add_diag(noise, self.log_noise.exp())
