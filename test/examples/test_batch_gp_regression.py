@@ -10,7 +10,7 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from gpytorch.kernels import RBFKernel
+from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.random_variables import GaussianRandomVariable
@@ -19,21 +19,21 @@ from gpytorch.random_variables import GaussianRandomVariable
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
 # in parallel.
 train_x1 = torch.linspace(0, 1, 11).unsqueeze(-1)
-train_y1 = torch.sin(train_x1.data * (2 * math.pi)).squeeze()
+train_y1 = torch.sin(train_x1 * (2 * math.pi)).squeeze()
 test_x1 = torch.linspace(0, 1, 51).unsqueeze(-1)
-test_y1 = torch.sin(test_x1.data * (2 * math.pi)).squeeze()
+test_y1 = torch.sin(test_x1 * (2 * math.pi)).squeeze()
 
 train_x2 = torch.linspace(0, 1, 11).unsqueeze(-1)
-train_y2 = torch.cos(train_x2.data * (2 * math.pi)).squeeze()
+train_y2 = torch.cos(train_x2 * (2 * math.pi)).squeeze()
 test_x2 = torch.linspace(0, 1, 51).unsqueeze(-1)
-test_y2 = torch.cos(test_x2.data * (2 * math.pi)).squeeze()
+test_y2 = torch.cos(test_x2 * (2 * math.pi)).squeeze()
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean()
-        self.covar_module = RBFKernel()
+        self.covar_module = ScaleKernel(RBFKernel())
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -57,9 +57,9 @@ class TestBatchGPRegression(unittest.TestCase):
     def test_posterior_latent_gp_and_likelihood_with_optimization(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood()
-        gp_model = ExactGPModel(train_x1.data, train_y1.data, likelihood)
+        gp_model = ExactGPModel(train_x1, train_y1, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
-        gp_model.covar_module.initialize(log_lengthscale=-1)
+        gp_model.covar_module.base_kernel.initialize(log_lengthscale=-1)
         gp_model.mean_module.initialize(constant=0)
         likelihood.initialize(log_noise=0)
 
@@ -102,8 +102,8 @@ class TestBatchGPRegression(unittest.TestCase):
         preds2 = batch_predictions.mean()[1]
         mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
-        self.assertLess(mean_abs_error1.data.squeeze().item(), 0.05)
-        self.assertLess(mean_abs_error2.data.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error1.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error2.squeeze().item(), 0.05)
 
 
 if __name__ == "__main__":
