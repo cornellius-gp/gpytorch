@@ -65,7 +65,7 @@ class RootLazyVariable(LazyVariable):
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         n_indices = left_indices.numel()
         if n_indices > self.size(-1) * self.size(-2) * self.size(-3):
-            return self._evaluated[batch_indices, left_indices, right_indices]
+            return self.evaluate()[batch_indices, left_indices, right_indices]
 
         else:
             outer_size = batch_indices.size(0)
@@ -93,7 +93,7 @@ class RootLazyVariable(LazyVariable):
     def _get_indices(self, left_indices, right_indices):
         n_indices = left_indices.numel()
         if n_indices > self.size(-1) * self.size(-2):
-            return self._evaluated[left_indices, right_indices]
+            return self.evaluate()[left_indices, right_indices]
 
         else:
             outer_size = left_indices.size(0)
