@@ -18,7 +18,7 @@ from gpytorch.random_variables import MultitaskGaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 100)
-latent_error = torch.rand(train_x.size()) * 0.5
+latent_error = torch.randn(train_x.size()) * 0.5
 
 # y1 function is sin(2*pi*x) with noise N(0, 0.04)
 train_y1 = torch.sin(train_x.data * (2 * pi)) + latent_error + torch.randn(train_x.size()) * 0.1
