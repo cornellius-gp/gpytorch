@@ -20,9 +20,9 @@ def _eval_covar_matrix(task_noise_covar_factor, log_noise):
 class MultitaskGaussianLikelihood(GaussianLikelihood):
     """
     A convenient extension of the :class:`gpytorch.likelihoods.GaussianLikelihood` to the multitask setting that allows
-    for a full cross-task covariance structure for the noise. The fitted covariance matrix has rank `rank`. If a strictly
-    diagonal task noise covariance matrix is desired, then rank=0 should be set. (This option still allows for a different
-    `log_noise` parameter for each task.)
+    for a full cross-task covariance structure for the noise. The fitted covariance matrix has rank `rank`.
+    If a strictly diagonal task noise covariance matrix is desired, then rank=0 should be set. (This option still
+    allows for a different `log_noise` parameter for each task.)
 
     Like the Gaussian likelihood, this object can be used with exact inference.
     """
