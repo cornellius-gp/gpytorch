@@ -11,8 +11,7 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from torch.autograd import Variable
-from gpytorch.kernels import RBFKernel
+from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
@@ -25,27 +24,20 @@ train_x[:, 1].copy_(torch.linspace(-1, 1, n).unsqueeze(1).repeat(1, n).view(-1))
 train_y = train_x[:, 0].abs().lt(0.5).float()
 train_y = train_y * (train_x[:, 1].abs().lt(0.5)).float()
 train_y = train_y.float() * 2 - 1
-train_x = Variable(train_x)
-train_y = Variable(train_y)
 
 
 class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.covar_module = RBFKernel(
-            log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
-        )
-        self.register_parameter(
-            name="log_outputscale",
-            parameter=torch.nn.Parameter(torch.Tensor([0])),
-            prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
+        self.covar_module = ScaleKernel(
+            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),
+            log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
         )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        covar_x = covar_x.mul(self.log_outputscale.exp())
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred
 
@@ -97,7 +89,7 @@ class TestKissGPAdditiveClassification(unittest.TestCase):
             test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
 
-        self.assertLess(mean_abs_error.data.squeeze().item(), 0.15)
+        self.assertLess(mean_abs_error.squeeze().item(), 0.15)
 
 
 if __name__ == "__main__":

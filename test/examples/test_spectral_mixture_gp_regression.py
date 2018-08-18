@@ -11,7 +11,6 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from torch.autograd import Variable
 from gpytorch.kernels import SpectralMixtureKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
@@ -20,13 +19,13 @@ from gpytorch.random_variables import GaussianRandomVariable
 from collections import OrderedDict
 
 # Simple training data: let's try to learn a sine function
-train_x = Variable(torch.linspace(0, 1, 15))
-train_y = Variable(torch.sin(train_x.data * (2 * pi)))
+train_x = torch.linspace(0, 1, 15)
+train_y = torch.sin(train_x * (2 * pi))
 
 # Spectral mixture kernel should be able to train on
 # data up to x=0.75, but test on data up to x=2
-test_x = Variable(torch.linspace(0, 1.5, 51))
-test_y = Variable(torch.sin(test_x.data * (2 * pi)))
+test_x = torch.linspace(0, 1.5, 51)
+test_y = torch.sin(test_x * (2 * pi))
 
 good_state_dict = OrderedDict(
     [
@@ -69,7 +68,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
         likelihood = GaussianLikelihood(
             log_noise_prior=SmoothedBoxPrior(exp(-5), exp(3), sigma=0.1, log_transform=True)
         )
-        gp_model = SpectralMixtureGPModel(train_x.data, train_y.data, likelihood)
+        gp_model = SpectralMixtureGPModel(train_x, train_y, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
         # Optimize the model
@@ -105,7 +104,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
 
         # The spectral mixture kernel should be trivially able to
         # extrapolate the sine function.
-        self.assertLess(mean_abs_error.data.squeeze().item(), 0.2)
+        self.assertLess(mean_abs_error.squeeze().item(), 0.2)
 
 
 if __name__ == "__main__":

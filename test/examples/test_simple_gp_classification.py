@@ -31,9 +31,10 @@ class GPClassificationModel(gpytorch.models.VariationalGP):
     def __init__(self, train_x):
         super(GPClassificationModel, self).__init__(train_x)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.covar_module = ScaleKernel(RBFKernel(
-            log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
-        ), log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True))
+        self.covar_module = ScaleKernel(
+            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),
+            log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
+        )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
