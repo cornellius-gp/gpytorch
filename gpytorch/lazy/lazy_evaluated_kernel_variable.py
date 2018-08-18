@@ -21,7 +21,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         self.x2 = x2
         self.squeeze_row = squeeze_row
         self.squeeze_col = squeeze_col
-        self.is_batch = self.x1.ndimension() == 3 or (self.x1.ndimension() == 2 and self.squeeze_row)
+        self.is_batch = (self.x1.ndimension() == 3 or (self.x1.ndimension() == 2 and self.squeeze_row))
         self.params = params
 
     def _matmul(self, rhs):
@@ -133,6 +133,29 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             return super(LazyEvaluatedKernelVariable, self).exact_predictive_covar(
                 n_train, likelihood, precomputed_cache
             )
+
+    def repeat(self, *sizes):
+        """
+        Repeat elements of the Variable.
+        Right now it only works to create a batched version of a ToeplitzLazyVariable.
+
+        e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
+        """
+
+        if self.squeeze_row or self.squeeze_col:
+            raise RuntimeError('Can\'t repeat a row/col of a LazyEvaluatedKernelVariable')
+        elif len(sizes) == 3:
+            x1 = self.x1.repeat(sizes[0], sizes[1], 1)
+            x2 = self.x2.repeat(sizes[0], sizes[1], 1)
+        elif len(sizes) == 2 and x1.ndim() == 2:
+            x1 = self.x1.repeat(sizes[0], 1)
+            x2 = self.x2.repeat(sizes[0], 1)
+        else:
+            raise RuntimeError('Invalid number of sizes (expected 2 or 3)')
+
+        return LazyEvaluatedKernelVariable(
+            self.kernel, x1, x2, **self.params
+        )
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]
