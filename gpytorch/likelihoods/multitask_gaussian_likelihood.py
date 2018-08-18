@@ -27,7 +27,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     Like the Gaussian likelihood, this object can be used with exact inference.
     """
 
-    def __init__(self, n_tasks, rank=1, task_prior=None):
+    def __init__(self, n_tasks, rank=0, task_prior=None):
         """
         Args:
             n_tasks (int): Number of tasks.
@@ -93,8 +93,8 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
             task_var_lv = DiagLazyVariable(self.log_task_noises.exp())
         else:
             task_var_lv = RootLazyVariable(self.task_noise_covar_factor)
-        diag_kron_lv = KroneckerProductLazyVariable(task_var_lv, eye_lv)
-        noise = covar + diag_kron_lv
+        covar_kron_lv = KroneckerProductLazyVariable(task_var_lv, eye_lv)
+        noise = covar + covar_kron_lv
         noise = add_diag(noise, self.log_noise.exp())
         return input.__class__(mean, noise)
 
