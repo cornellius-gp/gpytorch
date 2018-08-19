@@ -10,9 +10,8 @@ import random
 import torch
 import unittest
 import gpytorch
-from torch.autograd import Variable
 from torch.utils.data import TensorDataset, DataLoader
-from gpytorch.kernels import RBFKernel
+from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
@@ -33,18 +32,13 @@ class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
     def __init__(self):
         super(GPRegressionModel, self).__init__(grid_size=20, grid_bounds=[(-0.05, 1.05)])
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-10, 10))
-        self.covar_module = RBFKernel(
-            log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(6), sigma=0.1, log_transform=True)
-        )
-        self.register_parameter(
-            name="log_outputscale",
-            parameter=torch.nn.Parameter(torch.Tensor([0])),
-            prior=SmoothedBoxPrior(exp(-5), exp(1), sigma=0.1, log_transform=True),
+        self.covar_module = ScaleKernel(
+            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(6), sigma=0.1, log_transform=True))
         )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x) * self.log_outputscale.exp()
+        covar_x = self.covar_module(x)
         return GaussianRandomVariable(mean_x, covar_x)
 
 
@@ -88,8 +82,8 @@ class TestKissGPVariationalRegression(unittest.TestCase):
             for _ in range(n_iter):
                 scheduler.step()
                 for x_batch, y_batch in train_loader:
-                    x_batch = torch.autograd.Variable(x_batch.float())
-                    y_batch = torch.autograd.Variable(y_batch.float())
+                    x_batch = x_batch.float()
+                    y_batch = y_batch.float()
                     optimizer.zero_grad()
                     with gpytorch.settings.use_toeplitz(False), gpytorch.beta_features.diagonal_correction():
                         output = model(x_batch)
@@ -110,10 +104,10 @@ class TestKissGPVariationalRegression(unittest.TestCase):
             model.eval()
             likelihood.eval()
 
-            test_preds = likelihood(model(Variable(test_x))).mean()
-            mean_abs_error = torch.mean(torch.abs(Variable(test_y) - test_preds))
+            test_preds = likelihood(model(test_x)).mean()
+            mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
-        self.assertLess(mean_abs_error.data.squeeze().item(), 0.1)
+        self.assertLess(mean_abs_error.squeeze().item(), 0.1)
 
 
 if __name__ == "__main__":

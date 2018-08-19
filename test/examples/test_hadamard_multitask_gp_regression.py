@@ -31,9 +31,9 @@ test_y1 = torch.sin(test_x * (2 * pi))
 test_y2 = torch.cos(test_x * (2 * pi))
 
 
-class MultitaskGPModel(gpytorch.models.ExactGP):
+class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
-        super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
+        super(HadamardMultitaskGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
         self.covar_module = RBFKernel(
             log_lengthscale_prior=SmoothedBoxPrior(exp(-6), exp(6), sigma=0.1, log_transform=True)
@@ -48,7 +48,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
         return GaussianRandomVariable(mean_x, covar_xi)
 
 
-class TestMultiTaskGPRegression(unittest.TestCase):
+class TestHadamardMultitaskGPRegression(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
@@ -63,7 +63,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
 
     def test_multitask_gp_mean_abs_error(self):
         likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(-6, 6))
-        gp_model = MultitaskGPModel(
+        gp_model = HadamardMultitaskGPModel(
             (torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds])), torch.cat([train_y1, train_y2]), likelihood
         )
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)

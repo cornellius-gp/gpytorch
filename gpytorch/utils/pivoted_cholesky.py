@@ -1,5 +1,4 @@
 import torch
-from torch.autograd import Variable
 from .cholesky import batch_potrf, batch_potrs
 
 
@@ -20,14 +19,8 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
     if isinstance(matrix, LazyVariable):
         matrix = matrix.evaluate_kernel()
         matrix_diag = matrix._approx_diag()
-    elif isinstance(matrix, Variable):
-        matrix_diag = NonLazyVariable(matrix).diag()
     elif torch.is_tensor(matrix):
-        matrix_diag = NonLazyVariable(Variable(matrix)).diag()
-
-    # TODO: This check won't be necessary in PyTorch 0.4
-    if isinstance(matrix_diag, torch.autograd.Variable):
-        matrix_diag = matrix_diag.data
+        matrix_diag = NonLazyVariable(matrix).diag()
 
     if not batch_mode:
         matrix_diag.unsqueeze_(0)
@@ -72,11 +65,10 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
 
         if isinstance(row, LazyVariable):
             row = row.evaluate()
-        if isinstance(row, torch.autograd.Variable):
-            row = row.data
 
         if m + 1 < matrix_size:
             pi_i = permutation[:, m + 1 :]
+
             L_m_new = row.gather(1, pi_i)
             if m > 0:
                 L_prev = L[:, :m].gather(2, pi_i.unsqueeze(1).repeat(1, m, 1))

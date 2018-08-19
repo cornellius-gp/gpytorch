@@ -10,9 +10,8 @@ import random
 import torch
 import unittest
 import gpytorch
-from torch import nn, optim
-from torch.autograd import Variable
-from gpytorch.kernels import RBFKernel
+from torch import optim
+from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.priors import SmoothedBoxPrior
@@ -26,27 +25,21 @@ for i in range(n):
         train_x[i * n + j][0] = float(i) / (n - 1)
         train_x[i * n + j][1] = float(j) / (n - 1)
         train_y[i * n + j] = pow(-1, int(i / 2) + int(j / 2))
-train_x = Variable(train_x)
-train_y = Variable(train_y)
+train_x = train_x
+train_y = train_y
 
 
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=8, grid_bounds=[(0, 3), (0, 3)])
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.covar_module = RBFKernel(
-            log_lengthscale_prior=SmoothedBoxPrior(exp(-2.5), exp(3), sigma=0.1, log_transform=True)
-        )
-        self.register_parameter(
-            name="log_outputscale",
-            parameter=nn.Parameter(torch.Tensor([0])),
-            prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
+        self.covar_module = ScaleKernel(
+            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-2.5), exp(3), sigma=0.1, log_transform=True))
         )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        covar_x = covar_x.mul(self.log_outputscale.exp())
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred
 

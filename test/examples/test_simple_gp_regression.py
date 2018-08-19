@@ -11,7 +11,7 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from gpytorch.kernels import RBFKernel
+from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
@@ -30,8 +30,8 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
-        self.covar_module = RBFKernel(
-            log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True)
+        self.covar_module = ScaleKernel(
+            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True))
         )
 
     def forward(self, x):
@@ -60,11 +60,11 @@ class TestSimpleGPRegression(unittest.TestCase):
         )
         gp_model = ExactGPModel(None, None, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
-        gp_model.covar_module.set_parameter_priors(
+        gp_model.covar_module.base_kernel.set_parameter_priors(
             log_lengthscale=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5, log_transform=True)
         )
         gp_model.mean_module.initialize(constant=1.5)
-        gp_model.covar_module.initialize(log_lengthscale=0)
+        gp_model.covar_module.base_kernel.initialize(log_lengthscale=0)
         likelihood.initialize(log_noise=0)
 
         # Compute posterior distribution
@@ -84,10 +84,10 @@ class TestSimpleGPRegression(unittest.TestCase):
         )
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
-        gp_model.covar_module.set_parameter_priors(
+        gp_model.covar_module.base_kernel.set_parameter_priors(
             log_lengthscale=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5, log_transform=True)
         )
-        gp_model.covar_module.initialize(log_lengthscale=-10)
+        gp_model.covar_module.base_kernel.initialize(log_lengthscale=-10)
         likelihood.initialize(log_noise=-10)
 
         # Compute posterior distribution
@@ -115,7 +115,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         )
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
-        gp_model.covar_module.initialize(log_lengthscale=1)
+        gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
         gp_model.mean_module.initialize(constant=0)
         likelihood.initialize(log_noise=1)
 
@@ -158,7 +158,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             )
             gp_model = ExactGPModel(train_x, train_y, likelihood)
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
-            gp_model.covar_module.initialize(log_lengthscale=1)
+            gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
             gp_model.mean_module.initialize(constant=0)
             likelihood.initialize(log_noise=1)
 
@@ -208,7 +208,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             ).cuda()
             gp_model = ExactGPModel(train_x.cuda(), train_y.cuda(), likelihood).cuda()
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
-            gp_model.covar_module.initialize(log_lengthscale=1)
+            gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
             gp_model.mean_module.initialize(constant=0)
             likelihood.initialize(log_noise=1)
 

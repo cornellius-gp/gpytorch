@@ -4,33 +4,35 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from .kernel import Kernel, AdditiveKernel, ProductKernel
-from .rbf_kernel import RBFKernel
+from .additive_grid_interpolation_kernel import AdditiveGridInterpolationKernel
+from .grid_interpolation_kernel import GridInterpolationKernel
+from .index_kernel import IndexKernel
+from .inducing_point_kernel import InducingPointKernel
+from .linear_kernel import LinearKernel
 from .matern_kernel import MaternKernel
+from .multiplicative_grid_interpolation_kernel import MultiplicativeGridInterpolationKernel
 from .multitask_kernel import MultitaskKernel
 from .periodic_kernel import PeriodicKernel
+from .rbf_kernel import RBFKernel
+from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
-from .index_kernel import IndexKernel
-from .grid_interpolation_kernel import GridInterpolationKernel
-from .inducing_point_kernel import InducingPointKernel
-from .additive_grid_interpolation_kernel import AdditiveGridInterpolationKernel
-from .linear_kernel import LinearKernel
-from .multiplicative_grid_interpolation_kernel import MultiplicativeGridInterpolationKernel
 from .white_noise_kernel import WhiteNoiseKernel
 
 __all__ = [
-    AdditiveKernel,
     Kernel,
+    AdditiveKernel,
+    AdditiveGridInterpolationKernel,
+    GridInterpolationKernel,
     LinearKernel,
-    RBFKernel,
+    IndexKernel,
+    InducingPointKernel,
     MaternKernel,
+    MultiplicativeGridInterpolationKernel,
     MultitaskKernel,
     PeriodicKernel,
     ProductKernel,
+    RBFKernel,
+    ScaleKernel,
     SpectralMixtureKernel,
-    IndexKernel,
-    GridInterpolationKernel,
-    InducingPointKernel,
-    AdditiveGridInterpolationKernel,
-    MultiplicativeGridInterpolationKernel,
     WhiteNoiseKernel,
 ]

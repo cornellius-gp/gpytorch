@@ -20,9 +20,9 @@ from gpytorch.random_variables import MultitaskGaussianRandomVariable
 train_x = torch.linspace(0, 1, 100)
 
 # y1 function is sin(2*pi*x) with noise N(0, 0.04)
-train_y1 = torch.sin(train_x.data * (2 * pi)) + torch.randn(train_x.size()) * 0.1
+train_y1 = torch.sin(train_x * (2 * pi)) + torch.randn(train_x.size()) * 0.1
 # y2 function is cos(2*pi*x) with noise N(0, 0.04)
-train_y2 = torch.cos(train_x.data * (2 * pi)) + torch.randn(train_x.size()) * 0.1
+train_y2 = torch.cos(train_x * (2 * pi)) + torch.randn(train_x.size()) * 0.1
 
 # Create a train_y which interleaves the two
 train_y = torch.stack([train_y1, train_y2], -1)
@@ -62,9 +62,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         likelihood.train()
 
         # Use the adam optimizer
-        optimizer = torch.optim.Adam([
-            {'params': model.parameters()},  # Includes GaussianLikelihood parameters
-        ], lr=0.1)
+        optimizer = torch.optim.Adam([{"params": model.parameters()}], lr=0.1)  # Includes GaussianLikelihood parameters
 
         # "Loss" for GPs - the marginal log likelihood
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
@@ -85,14 +83,14 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         model.eval()
         likelihood.eval()
         test_x = torch.linspace(0, 1, 51)
-        test_y1 = torch.sin(test_x.data * (2 * pi))
-        test_y2 = torch.cos(test_x.data * (2 * pi))
+        test_y1 = torch.sin(test_x * (2 * pi))
+        test_y2 = torch.cos(test_x * (2 * pi))
         test_preds = likelihood(model(test_x)).mean()
         mean_abs_error_task_1 = torch.mean(torch.abs(test_y1 - test_preds[:, 0]))
         mean_abs_error_task_2 = torch.mean(torch.abs(test_y2 - test_preds[:, 1]))
 
-        self.assertLess(mean_abs_error_task_1.data.squeeze().item(), 0.05)
-        self.assertLess(mean_abs_error_task_2.data.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error_task_1.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error_task_2.squeeze().item(), 0.05)
 
 
 if __name__ == "__main__":
