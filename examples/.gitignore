@@ -1,0 +1,5 @@
+*.ipynb_checkpoints
+*.mat
+*.pth
+*.dat
+**/_data
