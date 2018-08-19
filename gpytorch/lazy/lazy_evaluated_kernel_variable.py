@@ -135,13 +135,6 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             )
 
     def repeat(self, *sizes):
-        """
-        Repeat elements of the Variable.
-        Right now it only works to create a batched version of a ToeplitzLazyVariable.
-
-        e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
-        """
-
         if self.squeeze_row or self.squeeze_col:
             raise RuntimeError('Can\'t repeat a row/col of a LazyEvaluatedKernelVariable')
         elif len(sizes) == 3:
