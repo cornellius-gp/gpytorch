@@ -75,7 +75,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
             res = self.kernel.forward_diag(x1, x2, **self.params)
             if isinstance(res, LazyVariable):
                 res = res.evaluate()
-            self._cached_kernel_diag = res.transpose(-3, -2).squeeze()
+            self._cached_kernel_diag = res.squeeze()
             return self._cached_kernel_diag
 
     def evaluate_kernel(self):

@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 from abc import abstractmethod
 import torch
 from torch.nn import ModuleList
-from gpytorch.lazy import LazyEvaluatedKernelVariable, ZeroLazyVariable
+from gpytorch.lazy import LazyVariable, LazyEvaluatedKernelVariable, ZeroLazyVariable
 from gpytorch.module import Module
 from gpytorch.priors._compatibility import _bounds_to_prior
 from gpytorch.utils import prod
@@ -94,7 +94,11 @@ class Kernel(Module):
 
     @abstractmethod
     def forward_diag(self, x1, x2, **params):
-        return super(Kernel, self).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3), **params)
+        res = super(Kernel, self).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3), **params)
+        if isinstance(res, LazyVariable):
+            res = res.evaluate()
+        res = res.transpose(-2, -3)
+        return res
 
     @abstractmethod
     def forward(self, x1, x2, **params):

@@ -121,12 +121,12 @@ class ExactGP(Module):
             n_train = 0
             train_targets = None
             if self.train_targets is not None:
-                if self.train_targets.ndimension() == 2:
+                if self.train_targets.ndimension() == 2 and n_tasks > 1:
                     # Multitask
                     full_mean = full_mean.view(-1)
                     n_train = self.train_targets.size(0)
                     train_targets = self.train_targets.view(-1)
-                elif self.train_targets.ndimension() == 3:
+                elif self.train_targets.ndimension() > 1:
                     # batch mode
                     full_mean = full_mean.view(full_mean.size(0), -1)
                     n_train = self.train_targets.size(1)
