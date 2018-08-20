@@ -65,6 +65,7 @@ class Kernel(Module):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.active_dims = active_dims
         self.ard_num_dims = ard_num_dims
+        self.has_lengthscale = has_lengthscale
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             log_lengthscale_prior = _bounds_to_prior(prior=log_lengthscale_prior, bounds=log_lengthscale_bounds)

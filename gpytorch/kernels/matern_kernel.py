@@ -31,6 +31,7 @@ class MaternKernel(Kernel):
         )
         self.nu = nu
         self.eps = eps
+
     def forward_diag(self, x1, x2):
         lengthscale = self.log_lengthscale.exp()
         mean = x1.mean(1).mean(0)

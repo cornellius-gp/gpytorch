@@ -2,19 +2,15 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import torch
 from gpytorch.functions import add_diag
-from gpytorch.lazy import (
-    DiagLazyVariable,
-    KroneckerProductLazyVariable,
-    RootLazyVariable,
-)
+from gpytorch.lazy import DiagLazyVariable, KroneckerProductLazyVariable, RootLazyVariable
 from gpytorch.likelihoods import GaussianLikelihood
 
 
 def _eval_covar_matrix(task_noise_covar_factor, log_noise):
     n_tasks = task_noise_covar_factor.size(0)
-    return task_noise_covar_factor.matmul(
-        task_noise_covar_factor.transpose(-1, -2)
-    ) + log_noise.exp() * torch.eye(n_tasks)
+    return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + log_noise.exp() * torch.eye(
+        n_tasks
+    )
 
 
 class MultitaskGaussianLikelihood(GaussianLikelihood):
@@ -43,14 +39,11 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
 
         if rank == 0:
             self.register_parameter(
-                name="log_task_noises",
-                parameter=torch.nn.Parameter(torch.zeros(n_tasks)),
-                prior=task_prior,
+                name="log_task_noises", parameter=torch.nn.Parameter(torch.zeros(n_tasks)), prior=task_prior
             )
         else:
             self.register_parameter(
-                name="task_noise_covar_factor",
-                parameter=torch.nn.Parameter(torch.randn([n_tasks, rank])),
+                name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn([n_tasks, rank]))
             )
             if task_prior is not None:
                 self.register_derived_prior(
@@ -86,9 +79,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
             added.
         """
         mean, covar = input.representation()
-        eye_lv = DiagLazyVariable(
-            torch.ones(covar.size(-1) // self.n_tasks, device=self.log_noise.device)
-        )
+        eye_lv = DiagLazyVariable(torch.ones(covar.size(-1) // self.n_tasks, device=self.log_noise.device))
         if hasattr(self, "log_task_noises"):
             task_var_lv = DiagLazyVariable(self.log_task_noises.exp())
         else:
@@ -99,6 +90,4 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         return input.__class__(mean, noise)
 
     def log_probability(self, input, target):
-        raise NotImplementedError(
-            "Variational inference with Multitask Gaussian likelihood is not yet supported"
-        )
+        raise NotImplementedError("Variational inference with Multitask Gaussian likelihood is not yet supported")
