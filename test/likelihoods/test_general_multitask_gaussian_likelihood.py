@@ -63,7 +63,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_multitask_gp_mean_abs_error(self):
+    def test_multitask_low_rank_noise_covar(self):
         likelihood = MultitaskGaussianLikelihood(n_tasks=2, rank=1)
         model = MultitaskGPModel(train_x, train_y, likelihood)
         # Find optimal model hyperparameters
