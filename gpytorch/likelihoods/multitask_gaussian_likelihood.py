@@ -50,7 +50,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         else:
             self.register_parameter(
                 name="task_noise_covar_factor",
-                parameter=torch.nn.Parameter(torch.zeros([n_tasks, rank])),
+                parameter=torch.nn.Parameter(torch.randn([n_tasks, rank])),
             )
             if task_prior is not None:
                 self.register_derived_prior(
