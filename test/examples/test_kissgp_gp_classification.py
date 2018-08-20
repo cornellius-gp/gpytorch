@@ -70,7 +70,7 @@ class TestKISSGPClassification(unittest.TestCase):
             optimizer.n_iter += 1
             optimizer.step()
 
-        for name, param in model.named_parameters():
+        for _, param in model.named_parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
 

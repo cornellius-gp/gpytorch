@@ -68,7 +68,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
         n_iter = 50
-        for i in range(n_iter):
+        for _ in range(n_iter):
             # Zero prev backpropped gradients
             optimizer.zero_grad()
             # Make predictions from training data
