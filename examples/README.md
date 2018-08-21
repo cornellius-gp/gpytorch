@@ -1,61 +1,71 @@
-# Intro
+# GPyTorch Examples and Tutorials
 
 This `examples` directory provides numerous ipython notebooks that demonstrate the use of GPyTorch.
 
-# Which notebooks to read
+1. [Getting started](#getting-started)
+1. [Specialty Models/Tasks](#specialty-models-and-tasks)
+1. [Scalable GP Regression Models](#scalable-gp-regression-models)
+1. [Scalable GP Classification Models](#scalable-gp-classification-models)
+1. [Deep Kernel Learning](#deep-kernel-learning)
 
-If you're just starting work with Gaussian processes, check out the simple [regression](simple_gp_regression.ipynb) and
-[classification](simple_gp_classification.ipynb). These show the most basic usage of GPyTorch and provide links to
-useful reading material.
+## Getting started
 
-If you have a specific task in mind, then check out this [flowchart](flowchart.pdf) to find which notebook will help you.
+These are no-frills GP models, which will work in most small data applications.
+If you are looking to get familiar with GPyTorch, start here.
 
-Here's a verbal summary of the flow chart:
+- **Regression** - check out the [simple regression example](01_Simple_GP_Regression/Simple_GP_Regression.ipynb)
+- **Classification** - check out the [simple classification example](02_Simple_GP_Classification/Simple_GP_Classification.ipynb)
 
-## Regression
+Some advanced techniques that you can apply to soup up these simple models:
 
-*Do you have lots of data?*
+- **GPU Acceleration** - see [how to use CUDA with GPyTorch](01_Simple_GP_Regression/Simple_GP_Regression_CUDA.ipynb)
+- **Fast Predictive Variances w/ LOVE** - see [how to get really fast predictions with LOVE](01_Simple_GP_Regression/Simple_GP_Regression_With_LOVE_Fast_Variances_CUDA.ipynb)
 
-**No:** Start with the [basic example](simple_gp_regression.ipynb)
 
-*Is your training data one-dimensional?*
+## Specialty Models and Tasks
 
-**Yes:** Use [KissGP regression](kissgp_gp_regression.ipynb)
+- **Multitask GP Regression** - check out the examples in the [multitask GP folder](03_Multitask_GP_Regression)
+- **Bayesian Optimization** - example coming soon!
 
-*Does your output decompose additively?*
 
-**Yes:** Use [Additive Grid Interpolation with KISS-GP](kissgp_additive_regression_cuda.ipynb)
+## Scalable GP Regression Models
 
-*Is your training data three-dimensional or less?*
+If you have more than ~1,000 training data points, the simple GP models might start acting a bit slow.
+There are multiple methods to scale up GP regression, and the correct choice depends on your application.
+GPyTorch supports the following inducing point methods:
+- **KISS-GP Regression** - [more info](https://arxiv.org/abs/1503.01057)
+    - A [simple KISS-GP example](04_Scalable_GP_Regression_1D/KISSGP_Regression_1D.ipynb) for one-dimensional data
+    - [An example](05_Scalable_GP_Regression_Multidimensional/KISSGP_Kronecker_Regression.ipynb) for low-dimensional data
+    - An [example that combines KISS-GP with Deep Kernel Learning](05_Scalable_GP_Regression_Multidimensional/KISSGP_Deep_Kernel_Regression_CUDA.ipynb)
+    - And [more](05_Scalable_GP_Regression_Multidimensional)!
+- **SGPR** - [more info](http://proceedings.mlr.press/v5/titsias09a/titsias09a.pdf)
+    - Example coming soon!
 
-**Yes**: Exploit [Kronecker structure](kissgp_kronecker_product_regression.ipynb)
+While there are lots of different choices, switching between methods requires a quick one-line change to your model.
+In addition, it is fairly straightforward to create your own custom scalable GP method. (Tutorial coming soon!)
+This is especially useful if your data is structured (e.g. if your data lies on a regularly-spaced grid).
 
-**No**: Try Deep Kernel regression (example pending)
+Additionally, it is possible to use strochastic variational inference for regression problems.
+This is useful if you have an extremely large dataset.
+Some examples:
+- A [1D example combining KISS-GP and stochastic variational inference](04_Scalable_GP_Regression_1D/KISSGP_Regression_1D_With_Stochastic_Variational_Inference_CUDA.ipynb)
+- An [example combining KISS-GP, Deep Kernel Learning, and stochastic variational inference](05_Scalable_GP_Regression_Multidimensional/KISSGP_Deep_Kernel_Regression_With_Stochastic_Variational_Inference_CUDA.ipynb)
 
-### SKI/KISS-GP + Variational Inference
 
-Notes:
-- Try this if our model will need variational inference anyways (e.g. if you're doing some sort of clustering, point process, or classification)
-- Works for high dimensional problems and stochastic variational deep kernel learning.
+## Scalable GP Classification Models
 
-See [the example](kissgp_variational_regression_cuda.ipynb) for more info.
+There are multiple methods for scalable GP classification, and the correct choice depends on your application.
+Some examples:
+- **KISS-GP Classification**
+    - A [simple KISSGP example](06_Scalable_GP_Classification_1D/KISSGP_Classification_1D.ipynb) for one-dimensional data
+    - [An example](07_Scalable_GP_Classification_Multidimensional/KISSGP_Kronecker_Classification.ipynb) for low-dimensional data
+    - And [more](07_Scalable_GP_Classification_Multidimensional)!
 
-## Classification
 
-*Do you have lots of data?*
+## Deep Kernel Learning
 
-**No:** Start with the [basic example](simple_gp_classification.ipynb)
-
-*Is your training data one-dimensional?*
-
-**Yes:** Use [KissGP classification](kissgp_gp_classification.ipynb)
-
-*Does your output decompose additively?*
-
-**Yes:** Use [Additive Grid Interpolation](kissgp_additive_classification_cuda.ipynb)
-
-*Is your training data three-dimensional or less?*
-
-**Yes**: Exploit [Kronecker structure](kissgp_kronecker_product_classification.ipynb)
-
-**No**: Try Deep Kernel [classification]dkl_mnist.ipynb)
+GPyTorch seemlessly integrates with PyTorch, making it extremely easy to combine GPs with neural networks.
+The following examples use **[Deep Kernel Learning](https://arxiv.org/abs/1511.02222)**:
+- A [large-scale regression problem](05_Scalable_GP_Regression_Multidimensional/KISSGP_Deep_Kernel_Regression_CUDA.ipynb) with Deep Kernel Learning
+- Training [a GP for CIFAR image classification](08_Deep_Kernel_Learning/Deep_Kernel_Learning_DenseNet_CIFAR_Tutorial.ipynb) with Deep Kernel Learning
+- And [more](08_Deep_Kernel_Learning)!
