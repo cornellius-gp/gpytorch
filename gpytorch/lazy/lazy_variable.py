@@ -253,14 +253,14 @@ class LazyVariable(object):
             diag_lazy_var = DiagLazyVariable(diag.expand(self.size(0)))
             return AddedDiagLazyVariable(self, diag_lazy_var)
 
-    def add_jitter(self):
+    def add_jitter(self, jitter_val=1e-3):
         """
         Adds jitter (i.e., a small diagonal component) to the matrix this
         LazyVariable represents. This could potentially be implemented as a no-op,
         however this could lead to numerical instabilities, so this should only
         be done at the user's risk.
         """
-        diag = Variable(self.tensor_cls(1).fill_(1e-3))
+        diag = self.tensor_cls(1).fill_(jitter_val)
         return self.add_diag(diag)
 
     def cpu(self):
