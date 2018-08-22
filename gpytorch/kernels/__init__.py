@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 from .kernel import Kernel, AdditiveKernel, ProductKernel
 from .additive_grid_interpolation_kernel import AdditiveGridInterpolationKernel
+from .grid_kernel import GridKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .index_kernel import IndexKernel
 from .inducing_point_kernel import InducingPointKernel
@@ -19,20 +20,21 @@ from .spectral_mixture_kernel import SpectralMixtureKernel
 from .white_noise_kernel import WhiteNoiseKernel
 
 __all__ = [
-    Kernel,
-    AdditiveKernel,
-    AdditiveGridInterpolationKernel,
-    GridInterpolationKernel,
-    LinearKernel,
-    IndexKernel,
-    InducingPointKernel,
-    MaternKernel,
-    MultiplicativeGridInterpolationKernel,
-    MultitaskKernel,
-    PeriodicKernel,
-    ProductKernel,
-    RBFKernel,
-    ScaleKernel,
-    SpectralMixtureKernel,
-    WhiteNoiseKernel,
+    "Kernel",
+    "AdditiveKernel",
+    "AdditiveGridInterpolationKernel",
+    "GridKernel",
+    "GridInterpolationKernel",
+    "LinearKernel",
+    "IndexKernel",
+    "InducingPointKernel",
+    "MaternKernel",
+    "MultiplicativeGridInterpolationKernel",
+    "MultitaskKernel",
+    "PeriodicKernel",
+    "ProductKernel",
+    "RBFKernel",
+    "ScaleKernel",
+    "SpectralMixtureKernel",
+    "WhiteNoiseKernel",
 ]

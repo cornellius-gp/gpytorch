@@ -5,6 +5,8 @@ from __future__ import unicode_literals
 
 
 def batch_symeig(mat):
+    """
+    """
     mat_orig = mat
     if mat.size(-1) <= 32:
         mat = mat.cpu()

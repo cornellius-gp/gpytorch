@@ -4,6 +4,7 @@ from operator import mul
 from torch.autograd import Variable
 from .interpolation import Interpolation
 from .linear_cg import linear_cg
+from . import pivoted_cholesky
 from . import lanczos
 from . import sparse
 from .eig import batch_symeig
@@ -84,6 +85,8 @@ def bdsmm(sparse, dense):
 
 
 def left_interp(interp_indices, interp_values, rhs):
+    """
+    """
     is_vector = rhs.ndimension() == 1
 
     if is_vector:
@@ -142,6 +145,8 @@ def left_interp(interp_indices, interp_values, rhs):
 
 
 def left_t_interp(interp_indices, interp_values, rhs, output_dim):
+    """
+    """
     from .. import dsmm
 
     is_vector = rhs.ndimension() == 1
@@ -189,6 +194,8 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
 
 
 def prod(items):
+    """
+    """
     res = items[0]
     for item in items[1:]:
         res = res * item
@@ -206,6 +213,8 @@ def sparse_eye(size):
 
 
 def sparse_getitem(sparse, idxs):
+    """
+    """
     if not isinstance(idxs, tuple):
         idxs = (idxs,)
 
@@ -263,6 +272,8 @@ def sparse_getitem(sparse, idxs):
 
 
 def sparse_repeat(sparse, *repeat_sizes):
+    """
+    """
     orig_ndim = sparse.ndimension()
     new_ndim = len(repeat_sizes)
     orig_nvalues = sparse._indices().size(1)
@@ -293,6 +304,8 @@ def sparse_repeat(sparse, *repeat_sizes):
 
 
 def scale_to_bounds(x, lower_bound, upper_bound):
+    """
+    """
     # Scale features so they fit inside grid bounds
     min_val = x.data.min()
     max_val = x.data.max()
@@ -302,6 +315,8 @@ def scale_to_bounds(x, lower_bound, upper_bound):
 
 
 def to_sparse(dense):
+    """
+    """
     mask = dense.ne(0)
     indices = mask.nonzero()
     if indices.storage():
@@ -319,6 +334,8 @@ def to_sparse(dense):
 
 
 def tridiag_batch_potrf(trid, upper=False):
+    """
+    """
     if not torch.is_tensor(trid):
         raise RuntimeError("tridiag_batch_potrf is only defined for tensors")
 
@@ -360,6 +377,8 @@ def tridiag_batch_potrf(trid, upper=False):
 
 
 def tridiag_batch_potrs(tensor, chol_trid, upper=True):
+    """
+    """
     if not torch.is_tensor(chol_trid):
         raise RuntimeError("tridiag_batch_potrf is only defined for tensors")
 
@@ -401,23 +420,24 @@ def tridiag_batch_potrs(tensor, chol_trid, upper=True):
 
 
 __all__ = [
-    Interpolation,
-    linear_cg,
-    StochasticLQ,
-    left_interp,
-    reverse,
-    rcumsum,
-    approx_equal,
-    bdsmm,
-    batch_potrf,
-    batch_potrs,
-    batch_symeig,
-    lanczos,
-    sparse,
-    sparse_eye,
-    sparse_getitem,
-    sparse_repeat,
-    to_sparse,
-    tridiag_batch_potrf,
-    tridiag_batch_potrs,
+    "Interpolation",
+    "linear_cg",
+    "StochasticLQ",
+    "left_interp",
+    "reverse",
+    "rcumsum",
+    "approx_equal",
+    "bdsmm",
+    "batch_potrf",
+    "batch_potrs",
+    "batch_symeig",
+    "lanczos",
+    "pivoted_cholesky",
+    "sparse",
+    "sparse_eye",
+    "sparse_getitem",
+    "sparse_repeat",
+    "to_sparse",
+    "tridiag_batch_potrf",
+    "tridiag_batch_potrs",
 ]

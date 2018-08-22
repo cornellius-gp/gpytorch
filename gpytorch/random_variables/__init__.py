@@ -8,12 +8,12 @@ from .multitask_gaussian_random_variable import MultitaskGaussianRandomVariable
 from .samples_random_variable import SamplesRandomVariable
 
 __all__ = [
-    RandomVariable,
-    BernoulliRandomVariable,
-    CategoricalRandomVariable,
-    DirichletRandomVariable,
-    GaussianRandomVariable,
-    MixtureRandomVariable,
-    MultitaskGaussianRandomVariable,
-    SamplesRandomVariable,
+    "RandomVariable",
+    "BernoulliRandomVariable",
+    "CategoricalRandomVariable",
+    "DirichletRandomVariable",
+    "GaussianRandomVariable",
+    "MixtureRandomVariable",
+    "MultitaskGaussianRandomVariable",
+    "SamplesRandomVariable",
 ]

@@ -1,8 +1,13 @@
 from . import models
+from . import likelihoods
 from . import means
 from . import mlls
 from . import kernels
 from . import priors
+from . import random_variables
+from . import lazy
+from . import variational
+from . import utils
 from .module import Module
 from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 from .functions import add_diag, add_jitter, dsmm, log_normal_cdf, normal_cdf
@@ -16,32 +21,37 @@ from .beta_features import fast_pred_var
 
 __all__ = [
     # Submodules
-    models,
-    mlls,
-    means,
-    kernels,
-    priors,
+    'models',
+    'likelihoods',
+    'mlls',
+    'means',
+    'kernels',
+    'priors',
+    'random_variables',
+    'lazy',
+    'variational',
+    'utils',
     # Classes
-    Module,
-    ExactMarginalLogLikelihood,
-    VariationalMarginalLogLikelihood,
+    'Module',
+    'ExactMarginalLogLikelihood',
+    'VariationalMarginalLogLikelihood',
     # Functions
-    add_diag,
-    add_jitter,
-    dsmm,
-    exact_predictive_mean,
-    exact_predictive_covar,
-    inv_matmul,
-    inv_quad,
-    inv_quad_log_det,
-    matmul,
-    log_det,
-    log_normal_cdf,
-    normal_cdf,
-    root_decomposition,
-    root_inv_decomposition,
+    'add_diag',
+    'add_jitter',
+    'dsmm',
+    'exact_predictive_mean',
+    'exact_predictive_covar',
+    'inv_matmul',
+    'inv_quad',
+    'inv_quad_log_det',
+    'matmul',
+    'log_det',
+    'log_normal_cdf',
+    'normal_cdf',
+    'root_decomposition',
+    'root_inv_decomposition',
     # Context managers
-    beta_features,
-    fast_pred_var,
-    settings,
+    'beta_features',
+    'fast_pred_var',
+    'settings',
 ]

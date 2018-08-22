@@ -10,6 +10,8 @@ from .eig import batch_symeig
 def lanczos_tridiag(
     matmul_closure, max_iter, tol=1e-5, init_vecs=None, tensor_cls=None, batch_size=None, n_dims=None, n_init_vecs=None
 ):
+    """
+    """
     # Determine batch mode
     is_batch = False
     multiple_init_vecs = False
