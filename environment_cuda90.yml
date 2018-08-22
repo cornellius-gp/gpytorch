@@ -2,6 +2,6 @@ name: gpytorch
 channels:
   - pytorch
 dependencies:
-  - pytorch>=0.4.0
+  - pytorch>=0.4.1
   - torchvision
   - cuda90
