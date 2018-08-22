@@ -13,7 +13,9 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import gpytorch
+import sys
+sys.path.append(os.path.abspath(os.path.join(__file__, '..', '..', '..')))
+print(sys.path)
 import sphinx_rtd_theme
 
 
