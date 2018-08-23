@@ -25,7 +25,12 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
         return MagicMock()
 
-MOCK_MODULES = ['torch', 'torch.autograd']
+MOCK_MODULES = [
+    'torch', 'torch.autograd', 'torch.nn', 'torch.optim', 'torch.utils',
+    'torch.utils.data', 'torch.distributions.constraints', 'torch.distributions.gamma',
+    'torch.distributions.normal', 'torch.distributions.multivariate_normal',
+    'torch.optim.lr_scheduler',
+]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 
