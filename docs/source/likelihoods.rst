@@ -15,7 +15,7 @@ Likelihood
    :members:
 
 
-Basic Likelihoods
+Standard Likelihoods
 -----------------------------
 
 :hidden:`GaussianLikelihood`

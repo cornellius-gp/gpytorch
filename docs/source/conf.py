@@ -20,10 +20,21 @@ import sphinx_rtd_theme
 # Mock
 from unittest.mock import MagicMock
 
+
+class ModuleMock(object):
+    def __init__(*args, **kwargs):
+        pass
+
+
 class Mock(MagicMock):
     @classmethod
     def __getattr__(cls, name):
-        return MagicMock()
+        if 'Module' == name:
+            return ModuleMock
+        else:
+            res = MagicMock()
+            res.Module = ModuleMock
+            return res
 
 MOCK_MODULES = [
     'torch', 'torch.autograd', 'torch.nn', 'torch.optim', 'torch.utils',

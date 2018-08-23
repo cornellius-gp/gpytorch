@@ -9,18 +9,19 @@ from ..lazy import LazyVariable, NonLazyVariable
 
 
 class GaussianRandomVariable(RandomVariable):
+    """
+    Constructs a multivariate Gaussian random variable, based on mean and covariance
+    Can be multivariate, or a batch of multivariate gaussians
+
+    Passing a vector mean corresponds to a multivariate Gaussian
+    Passing a matrix mean corresponds to a batch of multivariate Gaussians
+
+    Params:
+    - mean (Variable: vector n or matrix b x n) mean of Gaussian distribution
+    - covar (Variable: matrix n x n or batch matrix b x n x n) covariance of Gaussian distribution
+    """
+
     def __init__(self, mean, covar):
-        """
-        Constructs a multivariate Gaussian random variable, based on mean and covariance
-        Can be multivariate, or a batch of multivariate gaussians
-
-        Passing a vector mean corresponds to a multivariate Gaussian
-        Passing a matrix mean corresponds to a batch of multivariate Gaussians
-
-        Params:
-        - mean (Variable: vector n or matrix b x n) mean of Gaussian distribution
-        - covar (Variable: matrix n x n or batch matrix b x n x n) covariance of Gaussian distribution
-        """
         super(GaussianRandomVariable, self).__init__(mean, covar)
         if not isinstance(mean, Variable) and not isinstance(mean, LazyVariable):
             raise RuntimeError("The mean of a GaussianRandomVariable must be a Variable")

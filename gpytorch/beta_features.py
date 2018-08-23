@@ -37,7 +37,7 @@ class fast_pred_var(_feature_flag):
 
 class diagonal_correction(_feature_flag):
     """
-    Fast predictive samples - with Lanczos
+    Add a diagonal correction to scalable inducing point methods
     """
 
     pass

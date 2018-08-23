@@ -12,6 +12,9 @@ from gpytorch.random_variables import GaussianRandomVariable
 
 
 class GaussianLikelihood(Likelihood):
+    """
+    """
+
     def __init__(self, log_noise_prior=None, log_noise_bounds=None):
         # TODO: Remove deprecated log_noise_bounds kwarg
         log_noise_prior = _bounds_to_prior(prior=log_noise_prior, bounds=log_noise_bounds)
