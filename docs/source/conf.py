@@ -14,11 +14,11 @@
 #
 import os
 import sys
-
-sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
+import shutil
 import sphinx_rtd_theme # noqa
+sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
 
-# Mock
+# Mock - so RTD doesn't have to import torch
 from unittest.mock import MagicMock # noqa
 
 
@@ -54,6 +54,28 @@ MOCK_MODULES = [
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
+
+# - Copy over examples folder to docs/source
+# This makes it so that nbsphinx properly loads the notebook images
+
+examples_source = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'examples'))
+examples_dest = os.path.abspath(os.path.join(os.path.dirname(__file__), 'examples'))
+
+if os.path.exists(examples_dest):
+    print('Removing existing %s' % examples_dest)
+    shutil.rmtree(examples_dest)
+os.mkdir(examples_dest)
+
+print('Copying over gpytorch/examples folder...')
+for root, dirs, files in os.walk(examples_source):
+    for dr in dirs:
+        os.mkdir(os.path.join(root.replace(examples_source, examples_dest), dr))
+    for fil in files:
+        if os.path.splitext(fil)[1] in ['.ipynb', '.md', '.rst']:
+            source_filename = os.path.join(root, fil)
+            dest_filename = source_filename.replace(examples_source, examples_dest)
+            shutil.copyfile(source_filename, dest_filename)
+print('Done')
 
 # -- Project information -----------------------------------------------------
 
