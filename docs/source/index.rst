@@ -22,7 +22,6 @@ GPyTorch's documentation
    :caption: Examples:
 
    examples/README.md
-   examples/01_Simple_GP_Regression/index
    examples/**/index
 
 .. toctree::
