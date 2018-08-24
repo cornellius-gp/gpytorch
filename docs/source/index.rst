@@ -28,7 +28,6 @@ GPyTorch's documentation
    :maxdepth: 1
    :caption: Package Reference
 
-   module
    models
    likelihoods
    kernels
@@ -48,6 +47,7 @@ GPyTorch's documentation
    :maxdepth: 1
    :caption: Advanced Package Reference
 
+   module
    lazy
    functions
    variational
