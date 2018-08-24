@@ -1,4 +1,4 @@
-# GPyTorch Examples and Tutorials
+# Overview of Examples
 
 This `examples` directory provides numerous ipython notebooks that demonstrate the use of GPyTorch.
 

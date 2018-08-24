@@ -13,7 +13,17 @@ GPyTorch's documentation
    :maxdepth: 1
    :caption: Tutorials:
 
-   tutorials/*
+   examples/01_Simple_GP_Regression/Simple_GP_Regression.ipynb
+   examples/02_Simple_GP_Classification/Simple_GP_Classification.ipynb
+
+.. toctree::
+   :glob:
+   :maxdepth: 2
+   :caption: Examples:
+
+   examples/README.md
+   examples/01_Simple_GP_Regression/index
+   examples/**/index
 
 .. toctree::
    :maxdepth: 1
