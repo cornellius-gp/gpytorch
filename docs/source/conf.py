@@ -62,11 +62,9 @@ examples_source = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 
 examples_dest = os.path.abspath(os.path.join(os.path.dirname(__file__), 'examples'))
 
 if os.path.exists(examples_dest):
-    print('Removing existing %s' % examples_dest)
     shutil.rmtree(examples_dest)
 os.mkdir(examples_dest)
 
-print('Copying over gpytorch/examples folder...')
 for root, dirs, files in os.walk(examples_source):
     for dr in dirs:
         os.mkdir(os.path.join(root.replace(examples_source, examples_dest), dr))
@@ -75,7 +73,6 @@ for root, dirs, files in os.walk(examples_source):
             source_filename = os.path.join(root, fil)
             dest_filename = source_filename.replace(examples_source, examples_dest)
             shutil.copyfile(source_filename, dest_filename)
-print('Done')
 
 # -- Project information -----------------------------------------------------
 
