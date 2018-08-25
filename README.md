@@ -60,7 +60,8 @@ pip install gpytorch/
 
 ## Documentation
 
-Still a work in progress. For now, please refer to the following [example Jupyter notebooks](https://github.com/cornellius-gp/gpytorch/tree/master/examples/).
+- For **tutorials and examples**, check out [the examples folder](https://github.com/cornellius-gp/gpytorch/tree/master/examples).
+- For in-depth **documentation**, check out our [read the docs](http://gpytorch.readthedocs.io/).
 
 
 ## Development
