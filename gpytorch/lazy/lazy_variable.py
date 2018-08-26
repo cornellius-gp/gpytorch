@@ -45,7 +45,7 @@ class LazyVariable(object):
     :func:`~gpytorch.lazy.LazyVariable._get_indices`, and :func:`~gpytorch.lazy.LazyVariable._batch_get_indices`
     functions in special cases. See the documentation for these methods for details.
 
-    ..note::
+    .. note::
         The base LazyVariable class provides default implementations of many other operations in order to mimic the
         behavior of a standard tensor as closely as possible. For example, we provide default implementations of
         :func:`~gpytorch.lazy.LazyVariable.__getitem__`, :func:`~gpytorch.lazy.LazyVariable.__add__`, etc that either
@@ -54,7 +54,7 @@ class LazyVariable(object):
         While these implementations are provided for convenience, it is advisable in many cases to override them for the
         sake of efficiency.
 
-    ..note::
+    .. note::
         LazyVariables are designed by default to optionally represent batches of matrices. Thus, the size of a
         LazyVariable may be (for example) :math:`b \times n \times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
@@ -266,7 +266,7 @@ class LazyVariable(object):
     def cpu(self):
         """
         Returns:
-            :obj:`gpytorch.lazy.LazyVariable`: a new LazyVariable identical to ``self``, but on the CPU.
+            :obj:`~gpytorch.lazy.LazyVariable`: a new LazyVariable identical to ``self``, but on the CPU.
         """
         new_args = []
         new_kwargs = {}
@@ -289,7 +289,7 @@ class LazyVariable(object):
         Args:
             device_id (:obj:`str`, optional): Device ID of GPU to use.
         Returns:
-            :obj:`gpytorch.lazy.LazyVariable`: a new LazyVariable identical to ``self``, but on the GPU.
+            :obj:`~gpytorch.lazy.LazyVariable`: a new LazyVariable identical to ``self``, but on the GPU.
         """
         new_args = []
         new_kwargs = {}
@@ -448,15 +448,15 @@ class LazyVariable(object):
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         """
-        Computes K_X*X S given a precomputed cache
-        Where S is a tensor such that S S^T = (K_XX + sigma^2 I)^-1
+        Computes :math:`K_{X^{*}X} S` given a precomputed cache
+        Where :math:`S` is a tensor such that :math:`SS^{\\top} = (K_{XX} + \sigma^2 I)^{-1}`
 
         Args:
             precomputed_cache (:obj:`torch.tensor`): What was computed in _exact_predictive_covar_inv_quad_form_cache
             test_train_covar (:obj:`torch.tensor`): The observed noise (from the likelihood)
 
         Returns
-            :obj:`gpytorch.lazy.LazyVariable`: K_X^*X S
+            :obj:`~gpytorch.lazy.LazyVariable`: :math:`K_{X^{*}X} S`
         """
         # Here the precomputed cache represents S,
         # where S S^T = (K_XX + sigma^2 I)^-1
@@ -512,13 +512,13 @@ class LazyVariable(object):
 
     def inv_matmul(self, tensor):
         """
-        Computes a linear solve (w.r.t self) with several right hand sides.
+        Computes a linear solve (w.r.t self = :math:`K`) with several right hand sides :math:`M`.
 
         Args:
-            - tensor (tensor nxk) - Matrix or tensor
+            - :obj:`torch.tensor` (n x k) - Matrix :math:`M` right hand sides
 
         Returns:
-            - tensor - (self)^{-1} tensor
+            - :obj:`torch.tensor` - :math:`K^{-1}M`
         """
         # Work out batch dimension, if necessary
         lazy_var = self
@@ -739,7 +739,7 @@ class LazyVariable(object):
 
     def representation_tree(self):
         """
-        Returns a `:obj:gpytorch.lazy.LazyVariableRepresentationTree` tree object that recursively encodes the
+        Returns a :obj:`gpytorch.lazy.LazyVariableRepresentationTree` tree object that recursively encodes the
         representation of this lazy variable. In particular, if the definition of this lazy variable depends on other
         lazy variables, the tree is an object that can be used to reconstruct the full structure of this lazy variable,
         including all subobjects. This is used internally.
