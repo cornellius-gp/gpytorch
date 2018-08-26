@@ -23,10 +23,10 @@ class LazyVariable(object):
     typically differs in two ways:
 
     #. A tensor represented by a LazyVariable can typically be represented more efficiently than storing a full matrix.
-       For example, a LazyVariable representing :math:`K=XX^{\top}` where :math:`K` is :math:`n \times n` but
-       :math:`X` is :math:`n \times d` might store :math:`X` instead of :math:`K` directly.
+       For example, a LazyVariable representing :math:`K=XX^{\\top}` where :math:`K` is :math:`n \\times n` but
+       :math:`X` is :math:`n \\times d` might store :math:`X` instead of :math:`K` directly.
     #. A LazyVariable typically defines a matmul routine that performs :math:`KM` that is more efficient than storing
-       the full matrix. Using the above example, performing :math:`KM=X(X^{\top}M)` requires only :math:`O(nd)` time,
+       the full matrix. Using the above example, performing :math:`KM=X(X^{\\top}M)` requires only :math:`O(nd)` time,
        rather than the :math:`O(n^2)` time required if we were storing :math:`K` directly.
 
     In order to define a new LazyVariable class that can be used as a covariance matrix in GPyTorch, a user must define
@@ -34,10 +34,10 @@ class LazyVariable(object):
 
     * :func:`~gpytorch.lazy.LazyVariable._matmul`, which performs a matrix multiplication :math:`KM`
     * :func:`~gpytorch.lazy.LazyVariable._quad_form_derivative`, which computes a quadratic form with the derivative,
-      :math:`\mathbf{v}^{\top}\frac{dK}{dR}\mathbf{v}`, where :math:`R` denotes the actual tensors used to represent
-      :math:`K`. In the linear kernel example, :math:`K=XX^{\top}`, this would be :math:`\frac{dK}{dX}`. If :math:`K`
+      :math:`\mathbf{v}^{\\top}\\frac{dK}{dR}\mathbf{v}`, where :math:`R` denotes the actual tensors used to represent
+      :math:`K`. In the linear kernel example, :math:`K=XX^{\\top}`, this would be :math:`\\frac{dK}{dX}`. If :math:`K`
       is a Toeplitz matrix (see :class:`gpytorch.lazy.ToeplitzLazyVariable`) represented by its first column
-      :math:`\mathbf{c}`, this would return :math:`\mathbf{v}^{\top}\frac{dK}{d\mathbf{c}}\mathbf{v}`.
+      :math:`\mathbf{c}`, this would return :math:`\mathbf{v}^{\\top}\\frac{dK}{d\mathbf{c}}\mathbf{v}`.
     * :func:`~gpytorch.lazy.LazyVariable._size`, which returns a :class:`torch.Size` containing the dimensions of
       :math:`K`.
 
@@ -163,7 +163,7 @@ class LazyVariable(object):
 
     def _t_matmul(self, rhs):
         """
-        Performs a transpose matrix multiplication :math:`K^{\top}M` with the matrix :math:`K` that this
+        Performs a transpose matrix multiplication :math:`K^{\\top}M` with the matrix :math:`K` that this
         LazyVariable represents.
 
         Args:
