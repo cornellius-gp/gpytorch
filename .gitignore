@@ -5,6 +5,9 @@
 *.tags
 *.tags1
 
+# VS Code settings stuff
+.vscode
+
 # Project specific
 gpytorch/libfft
 .pytest_cache
