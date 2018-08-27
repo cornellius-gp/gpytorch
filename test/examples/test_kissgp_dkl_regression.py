@@ -156,7 +156,7 @@ class TestDKLRegression(unittest.TestCase):
 
             noise = likelihood.log_noise.exp()
             var_diff = (test_function_predictions.var() - noise).abs()
-            self.assertLess(torch.max(var_diff / noise), 0.05)
+            self.assertLess(torch.max(var_diff / noise), 0.15)
 
 
 if __name__ == "__main__":
