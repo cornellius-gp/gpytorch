@@ -7,13 +7,7 @@ Internally, GPyTorch differs from many existing approaches to GP inference by pe
 
 GPyTorch provides (1) significant GPU acceleration (through MVM based inference); (2) state-of-the-art implementations of the latest algorithmic advances for scalability and flexibility ([SKI/KISS-GP](http://proceedings.mlr.press/v37/wilson15.pdf), [stochastic Lanczos expansions](https://arxiv.org/abs/1711.03481), [LOVE](https://arxiv.org/pdf/1803.06058.pdf), [SKIP](https://arxiv.org/pdf/1802.08903.pdf), [stochastic variational](https://arxiv.org/pdf/1611.00336.pdf) [deep kernel learning](http://proceedings.mlr.press/v51/wilson16.pdf), ...); (3) easy integration with deep learning frameworks.
 
-Right now, the package is in alpha release, and while we believe that the interface is reasonably stable, things may change. For now, see our numerous [examples and tutorials](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. Here are some examples:
-
-- Simple GP [regression](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/simple_gp_regression.ipynb) and [classification](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/simple_gp_classification.ipynb)
-- Multitask GP regression ([example here](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/multitask_gp_regression.ipynb))
-- Scalable GP [regression](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/kissgp_gp_regression.ipynb)  and [classification](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/kissgp_gp_classification.ipynb) using kernel interpolation
-- Deep kernel learning for [regression](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/DKL_Regression.ipynb)
-- Large scale stochastic deep kernel learning for [classification](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/DKL_DenseNet_CIFAR_Tutorial.ipynb) and [regression](https://nbviewer.jupyter.org/github/cornellius-gp/gpytorch/blob/master/examples/Large_Scale_Stochastic_Variational_DKL_Regression.ipynb)
+Right now, the package is in alpha release, and while we believe that the interface is reasonably stable, things may change. For now, see our numerous [examples and tutorials](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. These example notebooks and a walk through of GPyTorch are also available at our readthedocs page [here](https://gpytorch.readthedocs.io/en/latest/index.html)
 
 If you use GPyTorch, please cite the following papers:
 > [Gardner, Jacob R., Geoff Pleiss, Ruihan Wu, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Product Kernel Interpolation for Scalable Gaussian Processes." In *AISTATS* (2018).](https://arxiv.org/abs/1802.08903)
