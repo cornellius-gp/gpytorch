@@ -7,27 +7,9 @@ Internally, GPyTorch differs from many existing approaches to GP inference by pe
 
 GPyTorch provides (1) significant GPU acceleration (through MVM based inference); (2) state-of-the-art implementations of the latest algorithmic advances for scalability and flexibility ([SKI/KISS-GP](http://proceedings.mlr.press/v37/wilson15.pdf), [stochastic Lanczos expansions](https://arxiv.org/abs/1711.03481), [LOVE](https://arxiv.org/pdf/1803.06058.pdf), [SKIP](https://arxiv.org/pdf/1802.08903.pdf), [stochastic variational](https://arxiv.org/pdf/1611.00336.pdf) [deep kernel learning](http://proceedings.mlr.press/v51/wilson16.pdf), ...); (3) easy integration with deep learning frameworks.
 
-Right now, the package is in alpha release, and while we believe that the interface is reasonably stable, things may change. For now, see our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. These example notebooks and a walk through of GPyTorch are also available at our **ReadTheDocs page [here](https://gpytorch.readthedocs.io/en/latest/index.html)**
+## Examples and Tutorials
 
-If you use GPyTorch, please cite the following papers:
-> [Gardner, Jacob R., Geoff Pleiss, Ruihan Wu, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Product Kernel Interpolation for Scalable Gaussian Processes." In *AISTATS* (2018).](https://arxiv.org/abs/1802.08903)
-```
-@inproceedings{gardner2018product,
-  title={Product Kernel Interpolation for Scalable Gaussian Processes},
-  author={Gardner, Jacob R and Pleiss, Geoff and Wu, Ruihan and Weinberger, Kilian Q and Wilson, Andrew Gordon},
-  booktitle={AISTATS},
-  year={2018}
-}
-```
-> [Pleiss, Geoff, Jacob R. Gardner, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Constant-Time Predictive Distributions for Gaussian Processes." In *ICML* (2018).](https://arxiv.org/abs/1803.06058)
-```
-@inproceedings{pleiss2018constant,
-  title={Constant-Time Predictive Distributions for Gaussian Processes},
-  author={Pleiss, Geoff and Gardner, Jacob R and Weinberger, Kilian Q and Wilson, Andrew Gordon},
-  booktitle={ICML},
-  year={2018}
-}
-```
+Right now, the package is in alpha release, and while we believe that the interface is reasonably stable, things may change. For now, see our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. These example notebooks and a walk through of GPyTorch are also available at our **ReadTheDocs page [here](https://gpytorch.readthedocs.io/en/latest/index.html)**
 
 ## Installation
 
@@ -50,6 +32,28 @@ git clone git+https://github.com/cornellius-gp/gpytorch.git
 conda create -f gpytorch/environment_cuda.yml
 source activate gpytorch
 pip install gpytorch/
+```
+
+## Citing Us
+
+If you use GPyTorch, please cite the following papers:
+> [Gardner, Jacob R., Geoff Pleiss, Ruihan Wu, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Product Kernel Interpolation for Scalable Gaussian Processes." In *AISTATS* (2018).](https://arxiv.org/abs/1802.08903)
+```
+@inproceedings{gardner2018product,
+  title={Product Kernel Interpolation for Scalable Gaussian Processes},
+  author={Gardner, Jacob R and Pleiss, Geoff and Wu, Ruihan and Weinberger, Kilian Q and Wilson, Andrew Gordon},
+  booktitle={AISTATS},
+  year={2018}
+}
+```
+> [Pleiss, Geoff, Jacob R. Gardner, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Constant-Time Predictive Distributions for Gaussian Processes." In *ICML* (2018).](https://arxiv.org/abs/1803.06058)
+```
+@inproceedings{pleiss2018constant,
+  title={Constant-Time Predictive Distributions for Gaussian Processes},
+  author={Pleiss, Geoff and Gardner, Jacob R and Weinberger, Kilian Q and Wilson, Andrew Gordon},
+  booktitle={ICML},
+  year={2018}
+}
 ```
 
 ## Documentation
