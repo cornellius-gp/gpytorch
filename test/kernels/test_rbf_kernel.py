@@ -63,7 +63,6 @@ class TestRBFKernel(unittest.TestCase):
 
         self.assertLess(torch.norm(res - actual), 1e-5)
 
-
     def test_computes_radial_basis_function_gradient(self):
         a = torch.Tensor([4, 2, 8]).view(3, 1)
         b = torch.Tensor([0, 2, 2]).view(3, 1)
