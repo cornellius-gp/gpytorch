@@ -113,7 +113,7 @@ class TestDKLRegression(unittest.TestCase):
             test_preds = likelihood(gp_model(test_x)).mean()
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
-            self.assertLess(mean_abs_error.squeeze().item(), 0.05)
+            self.assertLess(mean_abs_error.squeeze().item(), 0.15)
 
     def test_dkl_gp_fast_pred_var(self):
         with gpytorch.fast_pred_var(), gpytorch.settings.debug(False):

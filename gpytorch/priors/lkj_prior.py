@@ -30,16 +30,16 @@ class LKJPrior(Prior):
         # Normalization constant
         # Reference: Bayesian Data Analysis, 3rd ed., Gelman et al., p. 576
         i = torch.arange(n).float()
-        C = (torch.sum((2 * eta - 2 + i) * i) * math.log(2) +
-             n * torch.sum(2 * torch.lgamma(i / 2 + 1) - torch.lgamma(i + 2)))
+        C = torch.sum((2 * eta - 2 + i) * i) * math.log(2) + n * torch.sum(
+            2 * torch.lgamma(i / 2 + 1) - torch.lgamma(i + 2)
+        )
         self.register_buffer("C", C)
         self._log_transform = False
 
     def _log_prob(self, parameter):
         if not is_valid_correlation_matrix(parameter):
             raise ValueError("Input is not a valid correlation matrix")
-        return self.C + (
-            self.eta - 1) * parameter.potrf().diag().log().sum() * 2
+        return self.C + (self.eta - 1) * parameter.potrf().diag().log().sum() * 2
 
     def size(self):
         return torch.Size([self.n, self.n])
@@ -62,8 +62,7 @@ class LKJCholeskyFactorPrior(Prior):
         LKJPrior.__init__(self, n=n, eta=eta)
 
     def _log_prob(self, parameter):
-        if not is_valid_correlation_matrix(
-                parameter.matmul(parameter.transpose(0, 1))):
+        if not is_valid_correlation_matrix(parameter.matmul(parameter.transpose(0, 1))):
             raise ValueError("Input is not a valid correlation matrix")
         Ldiag = parameter.diag()
         return self.C + (self.eta - 1) * 2 * Ldiag.log().sum()
@@ -118,5 +117,4 @@ def is_valid_correlation_matrix(Sigma, tol=1e-6):
     """
 
     pdef = positive_definite.check(Sigma)
-    return bool(
-        torch.all(torch.abs(Sigma.diag() - 1) < tol)) if pdef else False
+    return bool(torch.all(torch.abs(Sigma.diag() - 1) < tol)) if pdef else False

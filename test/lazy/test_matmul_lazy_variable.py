@@ -66,19 +66,23 @@ class TestMatmulLazyVariable(unittest.TestCase):
         left_indices = torch.LongTensor([1, 2, 4, 0])
         right_indices = torch.LongTensor([0, 1, 3, 2])
 
-        self.assertTrue(approx_equal(
-            actual[batch_indices, left_indices, right_indices],
-            res._batch_get_indices(batch_indices, left_indices, right_indices)
-        ))
+        self.assertTrue(
+            approx_equal(
+                actual[batch_indices, left_indices, right_indices],
+                res._batch_get_indices(batch_indices, left_indices, right_indices),
+            )
+        )
 
         batch_indices = torch.LongTensor([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
         left_indices = torch.LongTensor([1, 2, 4, 0, 1, 2, 3, 1, 2, 2, 1, 1, 0, 0, 4, 4, 4, 4])
         right_indices = torch.LongTensor([0, 1, 3, 2, 3, 4, 2, 2, 1, 1, 2, 1, 2, 4, 4, 3, 3, 0])
 
-        self.assertTrue(approx_equal(
-            actual[batch_indices, left_indices, right_indices],
-            res._batch_get_indices(batch_indices, left_indices, right_indices)
-        ))
+        self.assertTrue(
+            approx_equal(
+                actual[batch_indices, left_indices, right_indices],
+                res._batch_get_indices(batch_indices, left_indices, right_indices),
+            )
+        )
 
     def test_get_indices(self):
         lhs = torch.randn(5, 1)
@@ -89,18 +93,16 @@ class TestMatmulLazyVariable(unittest.TestCase):
         left_indices = torch.LongTensor([1, 2, 4, 0])
         right_indices = torch.LongTensor([0, 1, 3, 2])
 
-        self.assertTrue(approx_equal(
-            actual[left_indices, right_indices],
-            res._get_indices(left_indices, right_indices)
-        ))
+        self.assertTrue(
+            approx_equal(actual[left_indices, right_indices], res._get_indices(left_indices, right_indices))
+        )
 
         left_indices = torch.LongTensor([1, 2, 4, 0, 1, 2, 3, 1, 2, 2, 1, 1, 0, 0, 4, 4, 4, 4])
         right_indices = torch.LongTensor([0, 1, 3, 2, 3, 4, 2, 2, 1, 1, 2, 1, 2, 4, 4, 3, 3, 0])
 
-        self.assertTrue(approx_equal(
-            actual[left_indices, right_indices],
-            res._get_indices(left_indices, right_indices)
-        ))
+        self.assertTrue(
+            approx_equal(actual[left_indices, right_indices], res._get_indices(left_indices, right_indices))
+        )
 
     def test_evaluate(self):
         lhs = torch.randn(5, 3)

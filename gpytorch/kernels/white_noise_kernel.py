@@ -28,10 +28,10 @@ class WhiteNoiseKernel(Kernel):
 
     def forward(self, x1, x2):
         if self.training and torch.equal(x1, x2):
-                # Reshape into a batch of batch_size diagonal matrices, each of which is
-                # (data_size * task_size) x (data_size * task_size)
-                return DiagLazyVariable(self.variances.view(self.variances.size(0), -1))
+            # Reshape into a batch of batch_size diagonal matrices, each of which is
+            # (data_size * task_size) x (data_size * task_size)
+            return DiagLazyVariable(self.variances.view(self.variances.size(0), -1))
         elif x1.size(-2) == x2.size(-2) and x1.size(-2) == self.variances.size(1) and torch.equal(x1, x2):
-                return DiagLazyVariable(self.variances.view(self.variances.size(0), -1))
+            return DiagLazyVariable(self.variances.view(self.variances.size(0), -1))
         else:
             return ZeroLazyVariable(x1.size(-3), x1.size(-2), x2.size(-2))

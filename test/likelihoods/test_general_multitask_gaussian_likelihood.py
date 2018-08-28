@@ -18,17 +18,9 @@ train_x = torch.linspace(0, 1, 100)
 latent_error = torch.randn(train_x.size()) * 0.5
 
 # y1 function is sin(2*pi*x) with noise N(0, 0.04)
-train_y1 = (
-    torch.sin(train_x.data * (2 * pi))
-    + latent_error
-    + torch.randn(train_x.size()) * 0.1
-)
+train_y1 = torch.sin(train_x.data * (2 * pi)) + latent_error + torch.randn(train_x.size()) * 0.1
 # y2 function is cos(2*pi*x) with noise N(0, 0.04)
-train_y2 = (
-    torch.cos(train_x.data * (2 * pi))
-    + latent_error
-    + torch.randn(train_x.size()) * 0.1
-)
+train_y2 = torch.cos(train_x.data * (2 * pi)) + latent_error + torch.randn(train_x.size()) * 0.1
 
 # Create a train_y which interleaves the two
 train_y = torch.stack([train_y1, train_y2], -1)
@@ -49,10 +41,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
 
 class TestMultiTaskGPRegression(unittest.TestCase):
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
             if torch.cuda.is_available():
@@ -71,10 +60,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         likelihood.train()
 
         # Use the adam optimizer
-        optimizer = torch.optim.Adam(
-            [{"params": model.parameters()}],  # Includes GaussianLikelihood parameters
-            lr=0.1,
-        )
+        optimizer = torch.optim.Adam([{"params": model.parameters()}], lr=0.1)  # Includes GaussianLikelihood parameters
 
         # "Loss" for GPs - the marginal log likelihood
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)

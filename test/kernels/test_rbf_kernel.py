@@ -50,6 +50,19 @@ class TestRBFKernel(unittest.TestCase):
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
+    def test_forward_diag(self):
+        a = torch.Tensor([4, 2, 8]).view(1, 3, 1)
+        b = torch.Tensor([2, 0, 6]).view(1, 3, 1)
+        lengthscale = 2
+
+        kernel = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel.eval()
+
+        res = kernel.forward_diag(a, b).squeeze()
+        actual = torch.Tensor([0.60653066, 0.60653066, 0.60653066])
+
+        self.assertLess(torch.norm(res - actual), 1e-5)
+
     def test_computes_radial_basis_function_gradient(self):
         a = torch.Tensor([4, 2, 8]).view(3, 1)
         b = torch.Tensor([0, 2, 2]).view(3, 1)

@@ -62,9 +62,7 @@ class MatmulLazyVariable(LazyVariable):
             return torch.Size((self.lhs.size(0), self.rhs.size(1)))
 
     def _transpose_nonbatch(self, *args):
-        return self.__class__(
-            self.rhs._transpose_nonbatch(), self.lhs._transpose_nonbatch()
-        )
+        return self.__class__(self.rhs._transpose_nonbatch(), self.lhs._transpose_nonbatch())
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         n_indices = left_indices.numel()
@@ -83,16 +81,10 @@ class MatmulLazyVariable(LazyVariable):
             right_indices = _outer_repeat(right_indices, inner_size)
             inner_indices = _inner_repeat(inner_indices, outer_size)
 
-            left_vals = self.lhs._batch_get_indices(
-                batch_indices, left_indices, inner_indices
-            )
-            right_vals = self.rhs._batch_get_indices(
-                batch_indices, inner_indices, right_indices
-            )
+            left_vals = self.lhs._batch_get_indices(batch_indices, left_indices, inner_indices)
+            right_vals = self.rhs._batch_get_indices(batch_indices, inner_indices, right_indices)
 
-            return (
-                left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)
-            ).sum(-1)
+            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def _get_indices(self, left_indices, right_indices):
         n_indices = left_indices.numel()
@@ -113,21 +105,15 @@ class MatmulLazyVariable(LazyVariable):
             left_vals = self.lhs._get_indices(left_indices, inner_indices)
             right_vals = self.rhs._get_indices(inner_indices, right_indices)
 
-            return (
-                left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)
-            ).sum(-1)
+            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def diag(self):
-        if isinstance(self.lhs, NonLazyVariable) and isinstance(
-            self.rhs, NonLazyVariable
-        ):
+        if isinstance(self.lhs, NonLazyVariable) and isinstance(self.rhs, NonLazyVariable):
             return (self.lhs.tensor * self.rhs.tensor.transpose(-1, -2)).sum(-1)
         else:
             return super(MatmulLazyVariable, self).diag()
 
     def evaluate(self):
         if not hasattr(self, "_evaluated_memo"):
-            self._evaluated_memo = torch.matmul(
-                self._evaluated_lhs, self._evaluated_rhs
-            )
+            self._evaluated_memo = torch.matmul(self._evaluated_lhs, self._evaluated_rhs)
         return self._evaluated_memo
