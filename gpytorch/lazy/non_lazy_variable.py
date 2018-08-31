@@ -14,8 +14,11 @@ class NonLazyVariable(LazyVariable):
         Not a lazy variable
 
         Args:
-        - var (Variable: matrix) a variable
+        - var (Tensor: matrix) a variable
         """
+        if not torch.is_tensor(var):
+            raise RuntimeError("NonLazyVariable must take a torch.Tensor; got %s" % var.__class__.__name__)
+
         super(NonLazyVariable, self).__init__(var)
         self.tensor = var
 

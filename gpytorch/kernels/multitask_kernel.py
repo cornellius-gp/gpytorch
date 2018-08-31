@@ -59,8 +59,7 @@ class MultitaskKernel(Kernel):
         return res.unsqueeze(-1)
 
     def forward(self, x1, x2):
-        task_indices = torch.arange(self.n_tasks, device=x1.device).long()
-        covar_i = self.task_covar_module(task_indices).evaluate_kernel()
+        covar_i = self.task_covar_module.covar_matrix
         covar_x = self.data_covar_module.forward(x1, x2)
         if covar_x.size(0) == 1:
             covar_x = covar_x[0]

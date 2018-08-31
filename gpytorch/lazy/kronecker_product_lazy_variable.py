@@ -21,22 +21,14 @@ def _matmul(lazy_vars, rhs):
     for lazy_var in list(lazy_vars)[::-1]:
         if is_batch:
             n_batch = res.size(0)
-            res = (
-                res.transpose(-2, -1)
-                .contiguous()
-                .view(n_batch, n_cols, lazy_var.size(-1), -1)
-                .transpose(0, 1)
-                .contiguous()
-            )
-            factor = lazy_var._matmul(res).permute(1, 3, 2, 0)
+            res = res.view(n_batch, lazy_var.size(-1), -1)
+            factor = lazy_var._matmul(res)
+            factor = factor.view(n_batch, lazy_var.size(-2), -1, n_cols).transpose(-3, -2).contiguous().view(-1, n_cols)
             res = factor.contiguous().view(n_batch, -1, n_cols)
         else:
-            res = res.t().contiguous().view(n_cols, lazy_var.size(-1), -1)
+            res = res.view(lazy_var.size(-1), -1)
             factor = lazy_var._matmul(res)
-            if factor.ndimension() == 3:
-                factor = factor.permute(2, 1, 0)
-            else:
-                factor = factor.transpose(-2, -1)
+            factor = factor.view(lazy_var.size(-2), -1, n_cols).transpose(-3, -2).contiguous().view(-1, n_cols)
             res = factor.contiguous().view(-1, n_cols)
     return res
 
@@ -48,18 +40,14 @@ def _t_matmul(lazy_vars, rhs):
     for lazy_var in list(lazy_vars)[::-1]:
         if is_batch:
             n_batch = res.size(0)
-            res = (
-                res.transpose(-2, -1)
-                .contiguous()
-                .view(n_batch, n_cols, lazy_var.size(-2), -1)
-                .transpose(0, 1)
-                .contiguous()
-            )
-            factor = lazy_var._t_matmul(res).permute(1, 3, 2, 0)
+            res = res.view(n_batch, lazy_var.size(-2), -1)
+            factor = lazy_var._t_matmul(res)
+            factor = factor.view(n_batch, lazy_var.size(-1), -1, n_cols).transpose(-3, -2).contiguous().view(-1, n_cols)
             res = factor.contiguous().view(n_batch, -1, n_cols)
         else:
-            res = res.t().contiguous().view(n_cols, lazy_var.size(-2), -1)
-            factor = lazy_var._t_matmul(res).permute(2, 1, 0)
+            res = res.view(lazy_var.size(-2), -1)
+            factor = lazy_var._t_matmul(res)
+            factor = factor.view(lazy_var.size(-1), -1, n_cols).transpose(-3, -2).contiguous().view(-1, n_cols)
             res = factor.contiguous().view(-1, n_cols)
     return res
 
@@ -68,6 +56,12 @@ class KroneckerProductLazyVariable(LazyVariable):
     def __init__(self, *lazy_vars):
         if not all(isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars):
             raise RuntimeError("KroneckerProductLazyVariable is intended to wrap lazy variables.")
+        for prev_lazy_var, curr_lazy_var in zip(lazy_vars[:-1], lazy_vars[1:]):
+            if prev_lazy_var.ndimension() != curr_lazy_var.ndimension():
+                raise RuntimeError(
+                    "KroneckerProductLazyVariable expects lazy variables with the "
+                    "same number of dimensions. Got %s. " % str([lv.ndimension() for lv in lazy_vars])
+                )
         super(KroneckerProductLazyVariable, self).__init__(*lazy_vars)
         self.lazy_vars = lazy_vars
 

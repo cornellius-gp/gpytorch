@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from .kernel import Kernel
-from ..lazy import InterpolatedLazyVariable
+from ..lazy import DiagLazyVariable, InterpolatedLazyVariable, PsdSumLazyVariable, RootLazyVariable
 
 
 def _eval_covar_matrix(covar_factor, log_var):
@@ -28,6 +28,10 @@ class IndexKernel(Kernel):
                 parameter_names=("covar_factor", "log_var"),
                 transform=_eval_covar_matrix,
             )
+
+    @property
+    def covar_matrix(self):
+        return PsdSumLazyVariable(RootLazyVariable(self.covar_factor), DiagLazyVariable(self.log_var.exp()))
 
     def forward(self, i1, i2):
         covar_matrix = _eval_covar_matrix(self.covar_factor, self.log_var)

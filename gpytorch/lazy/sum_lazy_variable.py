@@ -83,7 +83,11 @@ class SumLazyVariable(LazyVariable):
             raise AttributeError("other must be a LazyVariable")
 
     def diag(self):
-        return sum(lazy_var.diag() for lazy_var in self.lazy_vars)
+        diags = [lazy_var.diag().contiguous() for lazy_var in self.lazy_vars]
+        size = diags[0].size()
+        res = sum(diag.view(-1) for diag in diags)
+        res = res.view(size)
+        return res
 
     def sum_batch(self, sum_batch_size=None):
         return self.__class__(*(lazy_var.sum_batch(sum_batch_size) for lazy_var in self.lazy_vars))
