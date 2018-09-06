@@ -11,19 +11,23 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
+
+from __future__ import absolute_import, division, print_function, unicode_literals
 import os
-import sys
 import shutil
-import sphinx_rtd_theme # noqa
-sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
+import sys
 
 # Mock - so RTD doesn't have to import torch
-from unittest.mock import MagicMock # noqa
+from unittest.mock import MagicMock  # noqa
+
+import sphinx_rtd_theme  # noqa
+
+
+sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
 
 
 class ModuleMock(object):
-    def __init__(*args, **kwargs):
+    def __init__(self, *args, **kwargs):
         pass
 
 
@@ -58,8 +62,8 @@ sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 # - Copy over examples folder to docs/source
 # This makes it so that nbsphinx properly loads the notebook images
 
-examples_source = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'examples'))
-examples_dest = os.path.abspath(os.path.join(os.path.dirname(__file__), 'examples'))
+examples_source = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "examples"))
+examples_dest = os.path.abspath(os.path.join(os.path.dirname(__file__), "examples"))
 
 if os.path.exists(examples_dest):
     shutil.rmtree(examples_dest)
@@ -69,7 +73,7 @@ for root, dirs, files in os.walk(examples_source):
     for dr in dirs:
         os.mkdir(os.path.join(root.replace(examples_source, examples_dest), dr))
     for fil in files:
-        if os.path.splitext(fil)[1] in ['.ipynb', '.md', '.rst']:
+        if os.path.splitext(fil)[1] in [".ipynb", ".md", ".rst"]:
             source_filename = os.path.join(root, fil)
             dest_filename = source_filename.replace(examples_source, examples_dest)
             shutil.copyfile(source_filename, dest_filename)
@@ -96,13 +100,13 @@ release = "0.0.1 (alpha)"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
-    'sphinx.ext.autodoc',
-    'nbsphinx',
-    'm2r',
+    "sphinx.ext.coverage",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.autodoc",
+    "nbsphinx",
+    "m2r",
 ]
 
 # Disable docstring inheritance
@@ -114,7 +118,7 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = ['.rst', '.md']
+source_suffix = [".rst", ".md"]
 
 # The master toctree document.
 master_doc = "index"
@@ -129,7 +133,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = ['_build', '**.ipynb_checkpoints']
+exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -196,9 +200,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-    (master_doc, "GPyTorch.tex", "GPyTorch Documentation", "Cornellius GP", "manual")
-]
+latex_documents = [(master_doc, "GPyTorch.tex", "GPyTorch Documentation", "Cornellius GP", "manual")]
 
 
 # -- Options for manual page output ------------------------------------------
