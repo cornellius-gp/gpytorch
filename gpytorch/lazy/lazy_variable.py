@@ -912,6 +912,13 @@ class LazyVariable(object):
         samples = covar_root.matmul(base_samples)
         return samples
 
+    def correlate_mvn_base_samples(self, base_samples):
+        if self.size()[-2:] == torch.Size([1, 1]):
+            covar_root = self.evaluate().sqrt()
+        else:
+            covar_root = self.root_decomposition()
+        return covar_root.matmul(base_samples)
+
     def __add__(self, other):
         """
         Return a :obj:`gpytorch.lazy.LazyVariable` that represents the sum of this lazy variable and another matrix

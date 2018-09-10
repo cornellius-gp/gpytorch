@@ -64,5 +64,16 @@ class MultitaskGaussianRandomVariable(GaussianRandomVariable):
         )
         return samples
 
+    def correlate_base_samples(self, base_samples):
+        corr_samples = self._covar.correlate_mvn_base_samples(base_samples)
+        samples = (
+            corr_samples
+            .view(self._t, self._n, base_samples.shape[-1])
+            .transpose(0, 1)
+            .contiguous()
+            .add(self._mean.unsqueeze(-1))
+        )
+        return samples
+
     def var(self):
         return self._covar.diag().view(self._n, self._t)
