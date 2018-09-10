@@ -18,14 +18,14 @@ class LKJPrior(Prior):
     correlation matrix.
     """
 
-    def __init__(self, n, eta=1):
+    def __init__(self, n, eta=1.0):
         if eta <= 0:
             raise ValueError("Shape parameter of LKJ prior must be positive")
 
         if n < 1:
             raise ValueError("Dimension n must be a positive integer")
         super(LKJPrior, self).__init__()
-        self.register_buffer("eta", torch.tensor(eta))
+        self.register_buffer("eta", torch.tensor(float(eta)))
         self.register_buffer("n", torch.tensor(n))
         # Normalization constant
         # Reference: Bayesian Data Analysis, 3rd ed., Gelman et al., p. 576
