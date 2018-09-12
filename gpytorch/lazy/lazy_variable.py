@@ -444,7 +444,7 @@ class LazyVariable(object):
         Returns
             - A precomputed cache
         """
-        return train_train_covar_inv_root
+        return train_train_covar_inv_root.detach()
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         """
@@ -508,7 +508,7 @@ class LazyVariable(object):
 
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         res = test_test_covar + RootLazyVariable(covar_inv_quad_form_root).mul(-1)
-        return res, precomputed_cache.detach()
+        return res, precomputed_cache
 
     def inv_matmul(self, tensor):
         """
