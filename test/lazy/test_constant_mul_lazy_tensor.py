@@ -7,11 +7,11 @@ import math
 import torch
 import unittest
 import gpytorch
-from gpytorch.lazy import ToeplitzLazyVariable
+from gpytorch.lazy import ToeplitzLazyTensor
 from torch.autograd import Variable
 
 
-class TestConstantMulLazyVariable(unittest.TestCase):
+class TestConstantMulLazyTensor(unittest.TestCase):
     def test_inv_matmul(self):
         labels_var = Variable(torch.randn(4), requires_grad=True)
         labels_var_copy = Variable(labels_var.data, requires_grad=True)
@@ -20,8 +20,8 @@ class TestConstantMulLazyVariable(unittest.TestCase):
         # Test case
         c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
         c2_var = Variable(torch.Tensor([12.5, 2.5, 5, 0]), requires_grad=True)
-        toeplitz_lazy_var = ToeplitzLazyVariable(c1_var) * 2.5
-        actual = ToeplitzLazyVariable(c2_var)
+        toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * 2.5
+        actual = ToeplitzLazyTensor(c2_var)
 
         # Test forward
         with gpytorch.settings.max_cg_iterations(1000):
@@ -38,8 +38,8 @@ class TestConstantMulLazyVariable(unittest.TestCase):
     def test_diag(self):
         c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
         c2_var = Variable(torch.Tensor([12.5, 2.5, 5, 0]), requires_grad=True)
-        toeplitz_lazy_var = ToeplitzLazyVariable(c1_var) * 2.5
-        actual = ToeplitzLazyVariable(c2_var)
+        toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * 2.5
+        actual = ToeplitzLazyTensor(c2_var)
 
         diff = torch.norm(actual.diag() - toeplitz_lazy_var.diag())
         self.assertLess(diff, 1e-3)
@@ -47,8 +47,8 @@ class TestConstantMulLazyVariable(unittest.TestCase):
     def test_getitem(self):
         c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
         c2_var = Variable(torch.Tensor([12.5, 2.5, 5, 0]), requires_grad=True)
-        toeplitz_lazy_var = ToeplitzLazyVariable(c1_var) * 2.5
-        actual = ToeplitzLazyVariable(c2_var)
+        toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * 2.5
+        actual = ToeplitzLazyTensor(c2_var)
 
         diff = torch.norm(actual[2:, 2:].evaluate().data - toeplitz_lazy_var[2:, 2:].evaluate().data)
         self.assertLess(diff, 1e-3)

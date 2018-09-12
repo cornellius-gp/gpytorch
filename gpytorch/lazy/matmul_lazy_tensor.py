@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .lazy_variable import LazyVariable
-from .non_lazy_variable import NonLazyVariable
+from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import NonLazyTensor
 
 
 def _inner_repeat(tensor, amt):
@@ -16,14 +16,14 @@ def _outer_repeat(tensor, amt):
     return tensor.unsqueeze(-1).repeat(1, amt).view(-1)
 
 
-class MatmulLazyVariable(LazyVariable):
+class MatmulLazyTensor(LazyTensor):
     def __init__(self, lhs, rhs):
-        if not isinstance(lhs, LazyVariable):
-            lhs = NonLazyVariable(lhs)
-        if not isinstance(rhs, LazyVariable):
-            rhs = NonLazyVariable(rhs)
+        if not isinstance(lhs, LazyTensor):
+            lhs = NonLazyTensor(lhs)
+        if not isinstance(rhs, LazyTensor):
+            rhs = NonLazyTensor(rhs)
 
-        super(MatmulLazyVariable, self).__init__(lhs, rhs)
+        super(MatmulLazyTensor, self).__init__(lhs, rhs)
         self.lhs = lhs
         self.rhs = rhs
 
@@ -108,10 +108,10 @@ class MatmulLazyVariable(LazyVariable):
             return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def diag(self):
-        if isinstance(self.lhs, NonLazyVariable) and isinstance(self.rhs, NonLazyVariable):
+        if isinstance(self.lhs, NonLazyTensor) and isinstance(self.rhs, NonLazyTensor):
             return (self.lhs.tensor * self.rhs.tensor.transpose(-1, -2)).sum(-1)
         else:
-            return super(MatmulLazyVariable, self).diag()
+            return super(MatmulLazyTensor, self).diag()
 
     def evaluate(self):
         if not hasattr(self, "_evaluated_memo"):

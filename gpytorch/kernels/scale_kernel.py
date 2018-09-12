@@ -43,7 +43,7 @@ class ScaleKernel(Kernel):
         >>> x = torch.randn(10, 5)
         >>> base_covar_module = gpytorch.kernels.RBFKernel()
         >>> scaled_covar_module = gpytorch.kernels.ScaleKernel(base_covar_module)
-        >>> covar = scaled_covar_module(x)  # Output: LazyVariable of size (10 x 10)
+        >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
 
     def __init__(self, base_kernel, batch_size=1, log_outputscale_prior=None):

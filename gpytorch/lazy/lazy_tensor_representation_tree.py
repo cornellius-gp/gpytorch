@@ -4,15 +4,15 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 
-class LazyVariableRepresentationTree(object):
-    def __init__(self, lazy_var):
-        self._cls = lazy_var.__class__
-        self._kwargs = lazy_var._kwargs
+class LazyTensorRepresentationTree(object):
+    def __init__(self, lazy_tsr):
+        self._cls = lazy_tsr.__class__
+        self._kwargs = lazy_tsr._kwargs
 
         counter = 0
         self.children = []
-        for arg in lazy_var._args:
-            if hasattr(arg, "representation"):  # Is it a lazy variable?
+        for arg in lazy_tsr._args:
+            if hasattr(arg, "representation"):  # Is it a lazy tensor?
                 representation_size = len(arg.representation())
                 self.children.append((slice(counter, counter + representation_size, None), arg.representation_tree()))
                 counter += representation_size

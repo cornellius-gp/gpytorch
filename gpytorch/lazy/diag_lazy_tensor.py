@@ -4,18 +4,18 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from torch.autograd import Variable
-from .lazy_variable import LazyVariable
+from .lazy_tensor import LazyTensor
 
 
-class DiagLazyVariable(LazyVariable):
+class DiagLazyTensor(LazyTensor):
     def __init__(self, diag):
         """
-        Diagonal lazy variable
+        Diagonal lazy tensor
 
         Args:
         - diag (Variable: n) diagonal of matrix
         """
-        super(DiagLazyVariable, self).__init__(diag)
+        super(DiagLazyTensor, self).__init__(diag)
         self._diag = diag
 
     def _matmul(self, rhs):
@@ -53,7 +53,7 @@ class DiagLazyVariable(LazyVariable):
         return self._diag[left_indices] * equal_indices
 
     def add_diag(self, added_diag):
-        return DiagLazyVariable(self._diag + added_diag.expand_as(self._diag))
+        return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
 
     def diag(self):
         return self._diag
@@ -62,7 +62,7 @@ class DiagLazyVariable(LazyVariable):
         if self.ndimension() == 2:
             return self._diag.diag()
         else:
-            return super(DiagLazyVariable, self).evaluate()
+            return super(DiagLazyTensor, self).evaluate()
 
     def zero_mean_mvn_samples(self, n_samples):
         if self.ndimension() == 3:

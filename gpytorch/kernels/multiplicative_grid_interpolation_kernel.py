@@ -40,7 +40,7 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
 
         Because we slice in to the kernel during prediction to get the test x train
         covar before calling evaluate_kernel, the order of operations would mean we
-        would get a MulLazyVariable representing a rectangular matrix, which we
+        would get a MulLazyTensor representing a rectangular matrix, which we
         cannot matmul with because we cannot root decompose it. Thus, SKIP actually
         *requires* that we work with the full (train + test) x (train + test)
         kernel matrix.

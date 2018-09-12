@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 from .kernel import Kernel
 from .index_kernel import IndexKernel
-from ..lazy import LazyVariable, NonLazyVariable, KroneckerProductLazyVariable
+from ..lazy import LazyTensor, NonLazyTensor, KroneckerProductLazyTensor
 
 
 class MultitaskKernel(Kernel):
@@ -16,7 +16,7 @@ class MultitaskKernel(Kernel):
 
     Given a base covariance module to be used for the data, :math:`K_{XX}`, this kernel computes a task kernel of
     specified size :math:`K_{TT}` and returns :math:`K = K_{TT} \otimes K_{XX}`. as an
-    :obj:`gpytorch.lazy.KroneckerProductLazyVariable`.
+    :obj:`gpytorch.lazy.KroneckerProductLazyTensor`.
     """
 
     def __init__(self, data_covar_module, n_tasks, rank=1, task_covar_prior=None):
@@ -46,16 +46,16 @@ class MultitaskKernel(Kernel):
         covar_i_diag = self.task_covar_module.forward_diag(task_indices, task_indices)
         covar_x_diag = self.data_covar_module.forward_diag(x1, x2)
 
-        if isinstance(covar_x_diag, LazyVariable):
+        if isinstance(covar_x_diag, LazyTensor):
             covar_x_diag = covar_x_diag.evaluate()
-        if isinstance(covar_i_diag, LazyVariable):
+        if isinstance(covar_i_diag, LazyTensor):
             covar_i_diag = covar_i_diag.evaluate()
 
         covar_x_diag = covar_x_diag.squeeze(-1)
         covar_i_diag = covar_i_diag.squeeze(-1)
 
         # Take the Kronecker product of the two diagonals
-        res = KroneckerProductLazyVariable(NonLazyVariable(covar_i_diag), NonLazyVariable(covar_x_diag)).evaluate()
+        res = KroneckerProductLazyTensor(NonLazyTensor(covar_i_diag), NonLazyTensor(covar_x_diag)).evaluate()
         return res.unsqueeze(-1)
 
     def forward(self, x1, x2):
@@ -63,9 +63,9 @@ class MultitaskKernel(Kernel):
         covar_x = self.data_covar_module.forward(x1, x2)
         if covar_x.size(0) == 1:
             covar_x = covar_x[0]
-        if not isinstance(covar_x, LazyVariable):
-            covar_x = NonLazyVariable(covar_x)
-        res = KroneckerProductLazyVariable(covar_i, covar_x)
+        if not isinstance(covar_x, LazyTensor):
+            covar_x = NonLazyTensor(covar_x)
+        res = KroneckerProductLazyTensor(covar_i, covar_x)
         return res
 
     def size(self, x1, x2):

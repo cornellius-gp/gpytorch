@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 import operator
 from torch.autograd import Variable
-from .lazy_variable import LazyVariable
+from .lazy_tensor import LazyTensor
 from functools import reduce
 
 
@@ -52,17 +52,17 @@ def _t_matmul(lazy_vars, rhs):
     return res
 
 
-class KroneckerProductLazyVariable(LazyVariable):
+class KroneckerProductLazyTensor(LazyTensor):
     def __init__(self, *lazy_vars):
-        if not all(isinstance(lazy_var, LazyVariable) for lazy_var in lazy_vars):
-            raise RuntimeError("KroneckerProductLazyVariable is intended to wrap lazy variables.")
+        if not all(isinstance(lazy_var, LazyTensor) for lazy_var in lazy_vars):
+            raise RuntimeError("KroneckerProductLazyTensor is intended to wrap lazy tensors.")
         for prev_lazy_var, curr_lazy_var in zip(lazy_vars[:-1], lazy_vars[1:]):
             if prev_lazy_var.ndimension() != curr_lazy_var.ndimension():
                 raise RuntimeError(
-                    "KroneckerProductLazyVariable expects lazy variables with the "
+                    "KroneckerProductLazyTensor expects lazy tensors with the "
                     "same number of dimensions. Got %s. " % str([lv.ndimension() for lv in lazy_vars])
                 )
-        super(KroneckerProductLazyVariable, self).__init__(*lazy_vars)
+        super(KroneckerProductLazyTensor, self).__init__(*lazy_vars)
         self.lazy_vars = lazy_vars
 
     def _matmul(self, rhs):
@@ -215,4 +215,4 @@ class KroneckerProductLazyVariable(LazyVariable):
         return res
 
     def repeat(self, *sizes):
-        return KroneckerProductLazyVariable(*[lazy_var.repeat(*sizes) for lazy_var in self.lazy_vars])
+        return KroneckerProductLazyTensor(*[lazy_var.repeat(*sizes) for lazy_var in self.lazy_vars])

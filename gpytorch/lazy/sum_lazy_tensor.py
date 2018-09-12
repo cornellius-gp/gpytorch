@@ -3,22 +3,22 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .lazy_variable import LazyVariable
-from .non_lazy_variable import NonLazyVariable
-from .zero_lazy_variable import ZeroLazyVariable
+from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import NonLazyTensor
+from .zero_lazy_tensor import ZeroLazyTensor
 from torch.autograd import Variable
 
 
-class SumLazyVariable(LazyVariable):
+class SumLazyTensor(LazyTensor):
     def __init__(self, *lazy_vars):
         lazy_vars = list(lazy_vars)
         for i, lazy_var in enumerate(lazy_vars):
-            if not isinstance(lazy_var, LazyVariable):
+            if not isinstance(lazy_var, LazyTensor):
                 if isinstance(lazy_var, Variable):
-                    lazy_vars[i] = NonLazyVariable(lazy_var)
+                    lazy_vars[i] = NonLazyTensor(lazy_var)
                 else:
-                    raise RuntimeError("All arguments of a SumLazyVariable should be lazy " "variables or variables")
-        super(SumLazyVariable, self).__init__(*lazy_vars)
+                    raise RuntimeError("All arguments of a SumLazyTensor should be lazy " "variables or variables")
+        super(SumLazyTensor, self).__init__(*lazy_vars)
 
         self.lazy_vars = lazy_vars
 
@@ -38,7 +38,7 @@ class SumLazyVariable(LazyVariable):
 
     def _transpose_nonbatch(self):
         lazy_vars_t = list(lazy_var.transpose(-1, -2) for lazy_var in self.lazy_vars)
-        return SumLazyVariable(*lazy_vars_t)
+        return SumLazyTensor(*lazy_vars_t)
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         return sum(
@@ -51,7 +51,7 @@ class SumLazyVariable(LazyVariable):
     def add_jitter(self):
         lazy_vars = list(self.lazy_vars[:-1])
         lazy_vars.append(self.lazy_vars[-1].add_jitter())
-        return SumLazyVariable(*lazy_vars)
+        return SumLazyTensor(*lazy_vars)
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         return tuple(
@@ -63,7 +63,7 @@ class SumLazyVariable(LazyVariable):
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         # Here the precomputed cache is a list
-        # where each component in the list is the precomputed cache for each component lazy variable
+        # where each component in the list is the precomputed cache for each component lazy tensor
         return sum(
             lazy_var._exact_predictive_covar_inv_quad_form_root(cache_comp, test_train_covar_comp)
             for lazy_var, cache_comp, test_train_covar_comp in zip(
@@ -75,14 +75,14 @@ class SumLazyVariable(LazyVariable):
         return sum(lazy_var.evaluate() for lazy_var in self.lazy_vars)
 
     def __add__(self, other):
-        if isinstance(other, ZeroLazyVariable):
+        if isinstance(other, ZeroLazyTensor):
             return self
-        if isinstance(other, SumLazyVariable):
-            return SumLazyVariable(*(list(self.lazy_vars) + list(other.lazy_vars)))
-        elif isinstance(other, LazyVariable):
-            return SumLazyVariable(*(list(self.lazy_vars) + [other]))
+        if isinstance(other, SumLazyTensor):
+            return SumLazyTensor(*(list(self.lazy_vars) + list(other.lazy_vars)))
+        elif isinstance(other, LazyTensor):
+            return SumLazyTensor(*(list(self.lazy_vars) + [other]))
         else:
-            raise AttributeError("other must be a LazyVariable")
+            raise AttributeError("other must be a LazyTensor")
 
     def diag(self):
         diags = [lazy_var.diag().contiguous() for lazy_var in self.lazy_vars]
@@ -96,7 +96,7 @@ class SumLazyVariable(LazyVariable):
 
     def __getitem__(self, index):
         results = tuple(lazy_var.__getitem__(index) for lazy_var in self.lazy_vars)
-        if isinstance(results[0], LazyVariable):
-            return SumLazyVariable(*results)
+        if isinstance(results[0], LazyTensor):
+            return SumLazyTensor(*results)
         else:
             return sum(results)

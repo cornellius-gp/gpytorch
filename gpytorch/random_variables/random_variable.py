@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from torch.autograd import Variable
-from ..lazy import LazyVariable
+from ..lazy import LazyTensor
 
 
 class RandomVariable(object):
@@ -120,7 +120,7 @@ class RandomVariable(object):
 
     def __len__(self):
         """
-        Returns the batch size of the lazy variable
+        Returns the batch size of the lazy tensor
         """
         raise NotImplementedError
 
@@ -137,9 +137,9 @@ class RandomVariable(object):
         raise NotImplementedError
 
     def __setattr__(self, name, val):
-        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):
+        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyTensor):
             if not hasattr(self, "_args"):
                 raise RuntimeError(
-                    "Cannot assign {name} to LazyVariable before calling " "LazyVariable.__init__()".format(name=name)
+                    "Cannot assign {name} to LazyTensor before calling " "LazyTensor.__init__()".format(name=name)
                 )
         object.__setattr__(self, name, val)

@@ -7,7 +7,7 @@ import os
 import torch
 import unittest
 from torch.autograd import Variable
-from gpytorch.lazy import NonLazyVariable
+from gpytorch.lazy import NonLazyTensor
 from gpytorch.utils import approx_equal
 
 
@@ -35,7 +35,7 @@ class TestRootDecomposition(unittest.TestCase):
 
     def test_root_decomposition(self):
         # Forward
-        root = NonLazyVariable(self.mat_var).root_decomposition()
+        root = NonLazyTensor(self.mat_var).root_decomposition()
         res = root.matmul(root.transpose(-1, -2))
         self.assertTrue(approx_equal(res.data, self.mat_var.data))
 
@@ -46,7 +46,7 @@ class TestRootDecomposition(unittest.TestCase):
 
     def test_root_inv_decomposition(self):
         # Forward
-        root = NonLazyVariable(self.mat_var).root_inv_decomposition()
+        root = NonLazyTensor(self.mat_var).root_inv_decomposition()
         res = root.matmul(root.transpose(-1, -2))
         actual = self.mat_var_clone.inverse()
         self.assertTrue(approx_equal(res.data, actual.data))

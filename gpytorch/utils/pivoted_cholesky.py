@@ -3,7 +3,7 @@ from .cholesky import batch_potrf, batch_potrs
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
-    from ..lazy import LazyVariable, NonLazyVariable
+    from ..lazy import LazyTensor, NonLazyTensor
 
     # matrix is assumed to be batch_size x n x n
     if matrix.ndimension() < 3:
@@ -14,13 +14,13 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
         batch_mode = True
     matrix_size = matrix.size(-1)
 
-    # Need to get diagonals. This is easy if it's a LazyVariable, since
-    # LazyVariable.diag() operates in batch mode.
-    if isinstance(matrix, LazyVariable):
+    # Need to get diagonals. This is easy if it's a LazyTensor, since
+    # LazyTensor.diag() operates in batch mode.
+    if isinstance(matrix, LazyTensor):
         matrix = matrix.evaluate_kernel()
         matrix_diag = matrix._approx_diag()
     elif torch.is_tensor(matrix):
-        matrix_diag = NonLazyVariable(matrix).diag()
+        matrix_diag = NonLazyTensor(matrix).diag()
 
     if not batch_mode:
         matrix_diag.unsqueeze_(0)
@@ -63,7 +63,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
         else:
             row = matrix[full_batch_slice, pi_m, :]
 
-        if isinstance(row, LazyVariable):
+        if isinstance(row, LazyTensor):
             row = row.evaluate()
 
         if m + 1 < matrix_size:

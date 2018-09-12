@@ -8,113 +8,113 @@ gpytorch.lazy
 .. currentmodule:: gpytorch.lazy
 
 
-LazyVariable
+LazyTensor
 ----------------
 
-.. autoclass:: LazyVariable
+.. autoclass:: LazyTensor
    :members:
 
 
-Kernel LazyVariables
+Kernel LazyTensors
 -----------------------------
 
-.. autoclass:: LazyEvaluatedKernelVariable
+.. autoclass:: LazyEvaluatedKernelTensor
    :members:
 
 
-Structured LazyVariables
+Structured LazyTensors
 -----------------------------------
 
-:hidden:`BlockDiagonalLazyVariable`
+:hidden:`BlockDiagonalLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: BlockDiagonalLazyVariable
+.. autoclass:: BlockDiagonalLazyTensor
    :members:
 
-:hidden:`CholLazyVariable`
+:hidden:`CholLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: CholLazyVariable
+.. autoclass:: CholLazyTensor
    :members:
 
-:hidden:`DiagLazyVariable`
+:hidden:`DiagLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: DiagLazyVariable
+.. autoclass:: DiagLazyTensor
    :members:
 
-:hidden:`MatmulLazyVariable`
+:hidden:`MatmulLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: MatmulLazyVariable
+.. autoclass:: MatmulLazyTensor
    :members:
 
-:hidden:`RootLazyVariable`
+:hidden:`RootLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: RootLazyVariable
+.. autoclass:: RootLazyTensor
    :members:
 
-:hidden:`NonLazyVariable`
+:hidden:`NonLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: NonLazyVariable
+.. autoclass:: NonLazyTensor
    :members:
 
-:hidden:`ToeplitzLazyVariable`
+:hidden:`ToeplitzLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: ToeplitzLazyVariable
+.. autoclass:: ToeplitzLazyTensor
    :members:
 
-:hidden:`ZeroLazyVariable`
+:hidden:`ZeroLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: ZeroLazyVariable
+.. autoclass:: ZeroLazyTensor
    :members:
 
 
-Composition/Decoration LazyVariables
+Composition/Decoration LazyTensors
 ---------------------------------------
 
-:hidden:`AddedDiagLazyVariable`
+:hidden:`AddedDiagLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: AddedDiagLazyVariable
+.. autoclass:: AddedDiagLazyTensor
    :members:
 
-:hidden:`ConstantMulLazyVariable`
+:hidden:`ConstantMulLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: ConstantMulLazyVariable
+.. autoclass:: ConstantMulLazyTensor
    :members:
 
-:hidden:`InterpolatedLazyVariable`
+:hidden:`InterpolatedLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: InterpolatedLazyVariable
+.. autoclass:: InterpolatedLazyTensor
    :members:
 
-:hidden:`KroneckerProductLazyVariable`
+:hidden:`KroneckerProductLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: KroneckerProductLazyVariable
+.. autoclass:: KroneckerProductLazyTensor
    :members:
 
-:hidden:`MulLazyVariable`
+:hidden:`MulLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: MulLazyVariable
+.. autoclass:: MulLazyTensor
    :members:
 
-:hidden:`PsdSumLazyVariable`
+:hidden:`PsdSumLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: PsdSumLazyVariable
+.. autoclass:: PsdSumLazyTensor
    :members:
 
-:hidden:`SumBatchLazyVariable`
+:hidden:`SumBatchLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: SumBatchLazyVariable
+.. autoclass:: SumBatchLazyTensor
    :members:

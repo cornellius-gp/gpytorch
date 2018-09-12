@@ -15,12 +15,12 @@ def add_diag(input, diag):
     Adds a diagonal matrix s*I to the input matrix input.
 
     Args:
-        - input (matrix nxn) - Variable or LazyVariable wrapping matrix to add diagonal \
+        - input (matrix nxn) - Variable or LazyTensor wrapping matrix to add diagonal \
                                component to.
         - diag (scalar) - Scalar s so that s*I is added to the input matrix.
 
     Returns:
-        - matrix nxn - Variable or LazyVariable wrapping a new matrix with the diagonal \
+        - matrix nxn - Variable or LazyTensor wrapping a new matrix with the diagonal \
                        component added.
     """
     if not isinstance(diag, Variable):
@@ -85,9 +85,9 @@ def exact_predictive_mean(full_covar, full_mean, train_labels, n_train, likeliho
         return full_mean, None
 
     if not hasattr(full_covar, "exact_predictive_mean"):
-        from ..lazy.non_lazy_variable import NonLazyVariable
+        from ..lazy.non_lazy_tensor import NonLazyTensor
 
-        full_covar = NonLazyVariable(full_covar)
+        full_covar = NonLazyTensor(full_covar)
     return full_covar.exact_predictive_mean(full_mean, train_labels, n_train, likelihood, precomputed_cache)
 
 
@@ -103,15 +103,15 @@ def exact_predictive_covar(full_covar, n_train, likelihood, precomputed_cache=No
     - precomputed_cache - speeds up subsequent computations (default: None)
 
     Returns:
-    - LazyVariable (t x t) - the predictive posterior covariance of the test points
+    - LazyTensor (t x t) - the predictive posterior covariance of the test points
     """
     if not n_train:
         return full_covar, None
 
     if not hasattr(full_covar, "exact_predictive_covar"):
-        from ..lazy.non_lazy_variable import NonLazyVariable
+        from ..lazy.non_lazy_tensor import NonLazyTensor
 
-        full_covar = NonLazyVariable(full_covar)
+        full_covar = NonLazyTensor(full_covar)
     return full_covar.exact_predictive_covar(n_train, likelihood, precomputed_cache)
 
 
@@ -129,7 +129,7 @@ def matmul(mat, rhs):
     """
     Computes a matrix multiplication between a matrix (mat) and a right hand side (rhs).
     If mat is a tensor, then this is the same as torch.matmul.
-    This function can work on lazy variables though
+    This function can work on lazy tensors though
 
     Args:
         - mat (matrix nxn) - left hand size matrix
@@ -155,9 +155,9 @@ def inv_matmul(mat, rhs):
     if hasattr(mat, "inv_matmul"):
         return mat.inv_matmul(rhs)
     else:
-        from ..lazy.non_lazy_variable import NonLazyVariable
+        from ..lazy.non_lazy_tensor import NonLazyTensor
 
-        return NonLazyVariable(mat).inv_matmul(rhs)
+        return NonLazyTensor(mat).inv_matmul(rhs)
 
 
 def inv_quad(mat, tensor):
@@ -191,9 +191,9 @@ def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
     if hasattr(mat, "inv_quad_log_det"):
         return mat.inv_quad_log_det(inv_quad_rhs, log_det)
     else:
-        from ..lazy.non_lazy_variable import NonLazyVariable
+        from ..lazy.non_lazy_tensor import NonLazyTensor
 
-        return NonLazyVariable(mat).inv_quad_log_det(inv_quad_rhs, log_det)
+        return NonLazyTensor(mat).inv_quad_log_det(inv_quad_rhs, log_det)
 
 
 def log_det(mat):
@@ -216,30 +216,30 @@ def normal_cdf(x):
 
 def root_decomposition(mat):
     """
-    Returns a (usually low-rank) root decomposotion lazy variable of a PSD matrix.
+    Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
     This can be used for sampling from a Gaussian distribution, or for obtaining a
     low-rank version of a matrix
     """
     if hasattr(mat, "root_decomposition"):
         return mat.root_decomposition()
     else:
-        from ..lazy.non_lazy_variable import NonLazyVariable
+        from ..lazy.non_lazy_tensor import NonLazyTensor
 
-        return NonLazyVariable(mat).root_decomposition()
+        return NonLazyTensor(mat).root_decomposition()
 
 
 def root_inv_decomposition(mat, initial_vectors=None, test_vectors=None):
     """
-    Returns a (usually low-rank) root decomposotion lazy variable of a PSD matrix.
+    Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
     This can be used for sampling from a Gaussian distribution, or for obtaining a
     low-rank version of a matrix
     """
     if hasattr(mat, "root_inv_decomposition"):
         return mat.root_inv_decomposition(initial_vectors, test_vectors)
     else:
-        from ..lazy.non_lazy_variable import NonLazyVariable
+        from ..lazy.non_lazy_tensor import NonLazyTensor
 
-        return NonLazyVariable(mat).root_inv_decomposition(initial_vectors, test_vectors)
+        return NonLazyTensor(mat).root_inv_decomposition(initial_vectors, test_vectors)
 
 
 __all__ = [

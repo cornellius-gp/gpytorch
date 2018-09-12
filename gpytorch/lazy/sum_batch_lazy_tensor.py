@@ -5,14 +5,14 @@ from __future__ import unicode_literals
 
 import torch
 from torch.autograd import Variable
-from .lazy_variable import LazyVariable
+from .lazy_tensor import LazyTensor
 
 
-class SumBatchLazyVariable(LazyVariable):
-    def __init__(self, base_lazy_variable, sum_batch_size=None):
+class SumBatchLazyTensor(LazyTensor):
+    def __init__(self, base_lazy_tensor, sum_batch_size=None):
         """
-        Representat a lazy variable that is the sum of many lazy variables
-        Unlike with a SumLazyVariable, this variable is stored as a batch
+        Representat a lazy tensor that is the sum of many lazy tensors
+        Unlike with a SumLazyTensor, this variable is stored as a batch
         (i.e. a tensor of batch_size x _ x _)
 
         By specifying sum_batch_size, you can have two batch variables: one
@@ -21,10 +21,10 @@ class SumBatchLazyVariable(LazyVariable):
          (true_batch_size * sum_batch_size x _ x _),
          and will return (true_batch_size x _ x _))
         """
-        if base_lazy_variable.ndimension() != 3:
-            raise RuntimeError("Base lazy variable must be a batch matrix (i.e. 3 dimensions)")
-        super(SumBatchLazyVariable, self).__init__(base_lazy_variable, sum_batch_size=sum_batch_size)
-        self.base_lazy_variable = base_lazy_variable
+        if base_lazy_tensor.ndimension() != 3:
+            raise RuntimeError("Base lazy tensor must be a batch matrix (i.e. 3 dimensions)")
+        super(SumBatchLazyTensor, self).__init__(base_lazy_tensor, sum_batch_size=sum_batch_size)
+        self.base_lazy_tensor = base_lazy_tensor
         self.sum_batch_size = sum_batch_size
 
     def _matmul(self, rhs):
@@ -37,7 +37,7 @@ class SumBatchLazyVariable(LazyVariable):
         rhs_size[0] = self.batch_size()
         rhs = rhs.expand(*rhs_size)
 
-        res = self.base_lazy_variable._matmul(rhs)
+        res = self.base_lazy_tensor._matmul(rhs)
         if self.sum_batch_size is not None:
             res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
             res = res.sum(1)
@@ -58,7 +58,7 @@ class SumBatchLazyVariable(LazyVariable):
         rhs_size[0] = self.batch_size()
         rhs = rhs.expand(*rhs_size)
 
-        res = self.base_lazy_variable._t_matmul(rhs)
+        res = self.base_lazy_tensor._t_matmul(rhs)
         if self.sum_batch_size is not None:
             res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
             res = res.sum(1)
@@ -80,11 +80,11 @@ class SumBatchLazyVariable(LazyVariable):
         right_vecs_size[0] = self.batch_size()
         right_vecs = right_vecs.expand(*right_vecs_size)
 
-        res = self.base_lazy_variable._quad_form_derivative(left_vecs, right_vecs)
+        res = self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
         return res
 
     def _size(self):
-        base_size = self.base_lazy_variable.size()
+        base_size = self.base_lazy_tensor.size()
         if self.sum_batch_size is None:
             return torch.Size(list(base_size)[1:])
         else:
@@ -92,7 +92,7 @@ class SumBatchLazyVariable(LazyVariable):
             return torch.Size(list([inner_batch_size]) + list(base_size)[1:])
 
     def _transpose_nonbatch(self):
-        return SumBatchLazyVariable(self.base_lazy_variable._transpose_nonbatch())
+        return SumBatchLazyTensor(self.base_lazy_tensor._transpose_nonbatch())
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         raise RuntimeError("Batch get indices is not implmeneted yet")
@@ -103,31 +103,31 @@ class SumBatchLazyVariable(LazyVariable):
         batch_indices = batch_indices.unsqueeze(1).repeat(1, len(left_indices)).view(-1)
         left_indices = left_indices.unsqueeze(1).repeat(self.batch_size(), 1).view(-1)
         right_indices = right_indices.unsqueeze(1).repeat(self.batch_size(), 1).view(-1)
-        res = self.base_lazy_variable._batch_get_indices(batch_indices, left_indices, right_indices)
+        res = self.base_lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
         return res.view(self.batch_size(), -1).sum(0)
 
     def batch_size(self):
-        return self.base_lazy_variable.size(0)
+        return self.base_lazy_tensor.size(0)
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         if self.sum_batch_size is None:
             train_train_covar_inv_root = train_train_covar_inv_root.unsqueeze(0)
             train_train_covar_inv_root = train_train_covar_inv_root.expand(
-                self.base_lazy_variable.size(0),
+                self.base_lazy_tensor.size(0),
                 train_train_covar_inv_root.size(-2),
                 train_train_covar_inv_root.size(-1),
             )
         else:
             train_train_covar_inv_root = train_train_covar_inv_root.repeat(self.sum_batch_size, 1, 1)
-        return self.base_lazy_variable._exact_predictive_covar_inv_quad_form_cache(
-            train_train_covar_inv_root, test_train_covar.base_lazy_variable
+        return self.base_lazy_tensor._exact_predictive_covar_inv_quad_form_cache(
+            train_train_covar_inv_root, test_train_covar.base_lazy_tensor
         )
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         # Here the precomputed cache is a list
-        # where each component in the list is the precomputed cache for each component lazy variable
-        res = self.base_lazy_variable._exact_predictive_covar_inv_quad_form_root(
-            precomputed_cache, test_train_covar.base_lazy_variable
+        # where each component in the list is the precomputed cache for each component lazy tensor
+        res = self.base_lazy_tensor._exact_predictive_covar_inv_quad_form_root(
+            precomputed_cache, test_train_covar.base_lazy_tensor
         )
         if self.sum_batch_size is not None:
             res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
@@ -137,22 +137,22 @@ class SumBatchLazyVariable(LazyVariable):
         return res
 
     def mul(self, other):
-        # We're using a custom method here - the constant mul is applied to the base lazy variable
+        # We're using a custom method here - the constant mul is applied to the base_lazy tensor
         # This preserves the sum batch structure
-        if not (isinstance(other, Variable) or isinstance(other, LazyVariable)) or (
+        if not (isinstance(other, Variable) or isinstance(other, LazyTensor)) or (
             isinstance(other, Variable) and other.numel() == 1
         ):
-            from .constant_mul_lazy_variable import ConstantMulLazyVariable
+            from .constant_mul_lazy_tensor import ConstantMulLazyTensor
 
             return self.__class__(
-                ConstantMulLazyVariable(self.base_lazy_variable, other), sum_batch_size=self.sum_batch_size
+                ConstantMulLazyTensor(self.base_lazy_tensor, other), sum_batch_size=self.sum_batch_size
             )
         else:
-            return super(SumBatchLazyVariable, self).mul(other)
+            return super(SumBatchLazyTensor, self).mul(other)
 
     def zero_mean_mvn_samples(self, n_samples):
         n_dim = self.size(-2)
-        res = self.base_lazy_variable.zero_mean_mvn_samples(n_samples)
+        res = self.base_lazy_tensor.zero_mean_mvn_samples(n_samples)
         if self.sum_batch_size is None:
             res = res.view(-1, n_dim, n_samples).sum(0)
         else:
@@ -167,10 +167,10 @@ class SumBatchLazyVariable(LazyVariable):
             else:
                 index = tuple([slice(None, None, None)] + list(index))
 
-            # Do a __getitem__ on the base lazy variable
-            res = self.base_lazy_variable.__getitem__(index)
-            if isinstance(res, LazyVariable):
-                return SumBatchLazyVariable(res, sum_batch_size=None)
+            # Do a __getitem__ on the base_lazy tensor
+            res = self.base_lazy_tensor.__getitem__(index)
+            if isinstance(res, LazyTensor):
+                return SumBatchLazyTensor(res, sum_batch_size=None)
             else:
                 return res.sum(0)
 
@@ -180,15 +180,15 @@ class SumBatchLazyVariable(LazyVariable):
 
             # Keeping all batch dimensions - recursion base case
             if batch_index == slice(None, None, None) or batch_index is None:
-                # Do a __getitem__ on the base lazy variable
-                res = self.base_lazy_variable.__getitem__(index)
-                if isinstance(res, LazyVariable):
-                    return SumBatchLazyVariable(res, sum_batch_size=self.sum_batch_size)
+                # Do a __getitem__ on the base_lazy tensor
+                res = self.base_lazy_tensor.__getitem__(index)
+                if isinstance(res, LazyTensor):
+                    return SumBatchLazyTensor(res, sum_batch_size=self.sum_batch_size)
                 else:
                     res = res.view(-1, self.sum_batch_size, res.size(1), res.size(2))
                     return res.sum(1)
 
-            # Construct a new lazy variable
+            # Construct a new lazy tensor
             # Get rid of sum_batch_index if we're choosing one batch variable
             if isinstance(batch_index, int):
                 batch_index = slice(batch_index * self.sum_batch_size, (batch_index + 1) * self.sum_batch_size, None)
@@ -204,7 +204,7 @@ class SumBatchLazyVariable(LazyVariable):
             else:
                 raise RuntimeError("Unknown batch index type")
 
-            # Now construct a new sum batch lazy variable, and recurse
+            # Now construct a new sum batch lazy tensor, and recurse
             components = tuple(component[batch_index] for component in self._args)
             new_var = self.__class__(*components, sum_batch_size=sum_batch_size)
 

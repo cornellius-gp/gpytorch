@@ -7,7 +7,7 @@ import os
 import torch
 import unittest
 import gpytorch
-from gpytorch.lazy import NonLazyVariable
+from gpytorch.lazy import NonLazyTensor
 from gpytorch.utils import approx_equal
 
 
@@ -39,7 +39,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         actual_inv_quad = self.mat_var_clone.inverse().matmul(self.vec_var_clone).mul(self.vec_var_clone).sum()
         actual_log_det = self.mat_var_clone.det().log()
         with gpytorch.settings.num_trace_samples(1000):
-            nlv = NonLazyVariable(self.mat_var)
+            nlv = NonLazyTensor(self.mat_var)
             res_inv_quad, res_log_det = nlv.inv_quad_log_det(inv_quad_rhs=self.vec_var, log_det=True)
         self.assertAlmostEqual(res_inv_quad, actual_inv_quad, places=1)
         self.assertAlmostEqual(res_log_det.item(), actual_log_det.item(), places=1)
@@ -55,7 +55,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
 
     def test_inv_quad_only_vector(self):
         # Forward pass
-        res = NonLazyVariable(self.mat_var).inv_quad(self.vec_var)
+        res = NonLazyTensor(self.mat_var).inv_quad(self.vec_var)
         actual = self.mat_var_clone.inverse().matmul(self.vec_var_clone).mul(self.vec_var_clone).sum()
         self.assertAlmostEqual(res.item(), actual.item(), places=1)
 
@@ -71,7 +71,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         actual_inv_quad = self.mat_var_clone.inverse().matmul(self.vecs_var_clone).mul(self.vecs_var_clone).sum()
         actual_log_det = self.mat_var_clone.det().log()
         with gpytorch.settings.num_trace_samples(1000):
-            nlv = NonLazyVariable(self.mat_var)
+            nlv = NonLazyTensor(self.mat_var)
             res_inv_quad, res_log_det = nlv.inv_quad_log_det(inv_quad_rhs=self.vecs_var, log_det=True)
         self.assertAlmostEqual(res_inv_quad.item(), actual_inv_quad.item(), places=1)
         self.assertAlmostEqual(res_log_det.item(), actual_log_det.item(), places=1)
@@ -87,7 +87,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
 
     def test_inv_quad_only_many_vectors(self):
         # Forward pass
-        res = NonLazyVariable(self.mat_var).inv_quad(self.vecs_var)
+        res = NonLazyTensor(self.mat_var).inv_quad(self.vecs_var)
         actual = self.mat_var_clone.inverse().matmul(self.vecs_var_clone).mul(self.vecs_var_clone).sum()
         self.assertAlmostEqual(res.item(), actual.item(), places=1)
 
@@ -101,7 +101,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
     def test_log_det_only(self):
         # Forward pass
         with gpytorch.settings.num_trace_samples(1000):
-            res = NonLazyVariable(self.mat_var).log_det()
+            res = NonLazyTensor(self.mat_var).log_det()
         actual = self.mat_var_clone.det().log()
         self.assertAlmostEqual(res.item(), actual.item(), places=1)
 
@@ -144,7 +144,7 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
             [self.mats_var_clone[0].det().log().unsqueeze(0), self.mats_var_clone[1].det().log().unsqueeze(0)]
         )
         with gpytorch.settings.num_trace_samples(1000):
-            nlv = NonLazyVariable(self.mats_var)
+            nlv = NonLazyTensor(self.mats_var)
             res_inv_quad, res_log_det = nlv.inv_quad_log_det(inv_quad_rhs=self.vecs_var, log_det=True)
         self.assertTrue(approx_equal(res_inv_quad.data, actual_inv_quad.data, epsilon=1e-1))
         self.assertTrue(approx_equal(res_log_det.data, actual_log_det.data, epsilon=1e-1))
@@ -162,7 +162,7 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
 
     def test_inv_quad_only_many_vectors(self):
         # Forward pass
-        res = NonLazyVariable(self.mats_var).inv_quad(self.vecs_var).sum()
+        res = NonLazyTensor(self.mats_var).inv_quad(self.vecs_var).sum()
         actual = (
             torch.cat([self.mats_var_clone[0].inverse().unsqueeze(0), self.mats_var_clone[1].inverse().unsqueeze(0)])
             .matmul(self.vecs_var_clone)
@@ -181,7 +181,7 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
     def test_log_det_only(self):
         # Forward pass
         with gpytorch.settings.num_trace_samples(1000):
-            res = NonLazyVariable(self.mats_var).log_det()
+            res = NonLazyTensor(self.mats_var).log_det()
         actual = torch.cat(
             [self.mats_var_clone[0].det().log().unsqueeze(0), self.mats_var_clone[1].det().log().unsqueeze(0)]
         )
