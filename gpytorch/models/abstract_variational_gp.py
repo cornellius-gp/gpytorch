@@ -32,7 +32,7 @@ class AbstractVariationalGP(Module):
 
             warnings.warn(
                 "model.marginal_log_likelihood is now deprecated. "
-                "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead."
+                "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead.", DeprecationWarning
             )
             self._has_warned = True
         if n_data is None:

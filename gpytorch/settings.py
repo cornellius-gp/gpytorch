@@ -98,7 +98,7 @@ class max_lanczos_iterations(max_root_decomposition_size):
 
     def __enter__(self,):
         warnings.warn(
-            "max_lanczos_iterations is deprecated. " "Use max_root_decomposition_size instead.", DeprecationWarning
+            "max_lanczos_iterations is deprecated. Use max_root_decomposition_size instead.", DeprecationWarning
         )
         return super(max_lanczos_iterations, self).__enter__()
 
