@@ -1,9 +1,9 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import torch
-from gpytorch.functions import add_diag
-from gpytorch.lazy import DiagLazyVariable, KroneckerProductLazyVariable, RootLazyVariable
-from gpytorch.likelihoods import GaussianLikelihood
+from ..functions import add_diag
+from ..lazy import DiagLazyVariable, KroneckerProductLazyVariable, RootLazyVariable
+from ..likelihoods import GaussianLikelihood
 
 
 def _eval_covar_matrix(task_noise_covar_factor, log_noise):
@@ -57,8 +57,8 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     def forward(self, input):
         """
         Adds the log task noises to the diagonal of the covariance matrix of the supplied
-        :obj:`gpytorch.random_variables.GaussianRandomVariable` or
-        :obj:`gpytorch.random_variables.MultitaskGaussianRandomVariable`, in case of
+        :obj:`gpytorch.random_variables.MultivariateNormal` or
+        :obj:`gpytorch.random_variables.MultitaskMultivariateNormal`, in case of
         `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
 
         To accomplish this, we form a new :obj:`gpytorch.lazy.KroneckerProductLazyVariable` between :math:`I_{n}`,
@@ -71,10 +71,10 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         The final covariance matrix after this method is then :math:`K + D_{t} \otimes I_{n} + \sigma^{2}I_{nt}`.
 
         Args:
-            input (:obj:`gpytorch.random_variables.MultitaskGaussianRandomVariable`): Random variable whose covariance
+            input (:obj:`gpytorch.random_variables.MultitaskMultivariateNormal`): Random variable whose covariance
                 matrix is a :obj:`gpytorch.lazy.LazyVariable` we intend to augment.
         Returns:
-            :obj:`gpytorch.random_variables.MultitaskGaussianRandomVariable`: A new random variable whose covariance
+            :obj:`gpytorch.random_variables.MultitaskMultivariateNormal`: A new random variable whose covariance
             matrix is a :obj:`gpytorch.lazy.LazyVariable` with :math:`D_{t} \otimes I_{n}` and :math:`\sigma^{2}I_{nt}`
             added.
         """
@@ -85,9 +85,9 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         else:
             task_var_lv = RootLazyVariable(self.task_noise_covar_factor)
         covar_kron_lv = KroneckerProductLazyVariable(task_var_lv, eye_lv)
-        noise = covar + covar_kron_lv
-        noise = add_diag(noise, self.log_noise.exp())
-        return input.__class__(mean, noise)
+        covariance_matrix = covar + covar_kron_lv
+        covariance_matrix = add_diag(covariance_matrix, self.log_noise.exp())
+        return input.__class__(mean, covariance_matrix)
 
     def log_probability(self, input, target):
         raise NotImplementedError("Variational inference with Multitask Gaussian likelihood is not yet supported")

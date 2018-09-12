@@ -1,12 +1,10 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import torch
-from gpytorch.models.grid_inducing_variational_gp import GridInducingVariationalGP
-from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+
+from ..distributions import MultivariateNormal
+from ..models.grid_inducing_variational_gp import GridInducingVariationalGP
+from ..priors import SmoothedBoxPrior
 
 
 class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
@@ -61,7 +59,7 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
         out = super(AdditiveGridInducingVariationalGP, self).prior_output()
         mean = out.mean()
         covar = out.covar().repeat(self.n_components, 1, 1)
-        return GaussianRandomVariable(mean, covar)
+        return MultivariateNormal(mean, covar)
 
     def __call__(self, inputs, **kwargs):
         if inputs.ndimension() == 1:
@@ -85,6 +83,6 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
         if self.sum_output:
             mean = output.mean().sum(0)
             covar = output.covar().sum_batch()
-            return GaussianRandomVariable(mean, covar)
+            return MultivariateNormal(mean, covar)
         else:
             return output

@@ -1,13 +1,10 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import torch
-from torch.autograd import Variable
-from gpytorch.lazy import LazyVariable, CholLazyVariable
-from gpytorch.module import Module
-from gpytorch.random_variables import GaussianRandomVariable
+
+from ..distributions import MultivariateNormal
+from ..lazy import CholLazyVariable, LazyVariable
+from ..module import Module
 
 
 class AbstractVariationalGP(Module):
@@ -57,11 +54,11 @@ class AbstractVariationalGP(Module):
         return covar_diag
 
     def prior_output(self):
-        res = super(AbstractVariationalGP, self).__call__(Variable(self.inducing_points))
-        if not isinstance(res, GaussianRandomVariable):
-            raise RuntimeError("%s.forward must return a GaussianRandomVariable" % self.__class__.__name__)
+        res = super(AbstractVariationalGP, self).__call__(self.inducing_points)
+        if not isinstance(res, MultivariateNormal):
+            raise RuntimeError("{}.forward must return a MultivariateNormal".format(self.__class__.__name__))
 
-        res = GaussianRandomVariable(res.mean(), res.covar().evaluate_kernel())
+        res = MultivariateNormal(res.mean(), res.covar().evaluate_kernel())
         return res
 
     def variational_output(self):
@@ -78,7 +75,7 @@ class AbstractVariationalGP(Module):
             # Batch mode
             chol_variational_covar_size = list(chol_variational_covar.size())[-2:]
             mask = chol_variational_covar.data.new(*chol_variational_covar_size).fill_(1).triu()
-            mask = Variable(mask.unsqueeze(0).expand(*([chol_variational_covar.size(0)] + chol_variational_covar_size)))
+            mask = mask.unsqueeze(0).expand(*([chol_variational_covar.size(0)] + chol_variational_covar_size))
 
             batch_index = chol_variational_covar.data.new(batch_size).long()
             torch.arange(0, batch_size, out=batch_index)
@@ -95,4 +92,4 @@ class AbstractVariationalGP(Module):
 
         chol_variational_covar = inside.mul(chol_variational_covar)
         variational_covar = CholLazyVariable(chol_variational_covar.transpose(-1, -2))
-        return GaussianRandomVariable(self.variational_mean, variational_covar)
+        return MultivariateNormal(self.variational_mean, variational_covar)

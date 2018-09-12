@@ -10,6 +10,7 @@ from torch.autograd import Variable
 class Interpolation(object):
     """
     """
+
     def _cubic_interpolation_kernel(self, scaled_grid_dist):
         """
         Computes the interpolation kernel u() for points X given the scaled
