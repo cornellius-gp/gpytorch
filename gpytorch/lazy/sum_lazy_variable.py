@@ -55,7 +55,9 @@ class SumLazyVariable(LazyVariable):
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         return tuple(
-            lazy_var._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar_comp)
+            lazy_var._exact_predictive_covar_inv_quad_form_cache(
+                train_train_covar_inv_root, test_train_covar_comp
+            ).detach()
             for lazy_var, test_train_covar_comp in zip(self.lazy_vars, test_train_covar.lazy_vars)
         )
 
