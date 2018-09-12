@@ -6,34 +6,26 @@ from __future__ import unicode_literals
 import math
 import torch
 from .kernel import Kernel
-from ..priors._compatibility import _bounds_to_prior
 
 
-class PeriodicKernel(Kernel):
-    r""" Computes a covariance matrix based on the periodic kernel
+class CosineKernel(Kernel):
+    r"""
+    Computes a covariance matrix based on the cosine kernel
     between inputs :math:`mathbf{x_1}` and :math:`mathbf{x_2}`:
 
     .. math::
 
        \begin{equation*}
-          k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
-            \frac{2 \sin^2 \left( \pi \Vert mathbf{x_1} - mathbf{x_2} \Vert_1 / p \right) }
-            { \ell^2 }
+          k_{\text{Cosine}}(\mathbf{x_1}, \mathbf{x_2}) = \cos \left(
+            \pi \Vert mathbf{x_1} - mathbf{x_2} \Vert_2 / p \right)
        \end{equation*}
 
-    where
-
-    * :math:`p` is the periord length parameter.
-    * :math:`\ell` is a lengthscale parameter.
+    where :math:`p` is the periord length parameter.
 
     .. note::
 
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
-
-    .. note::
-
-        This kernel does not have an ARD lengthscale option.
 
     Args:
         :attr:`batch_size` (int, optional): Set this if you want a separate lengthscale for each
@@ -43,47 +35,28 @@ class PeriodicKernel(Kernel):
             corresponds to the indices of the dimensions. Default: `None`.
         :attr:`log_period_length_prior` (Prior, optional): Set this if you want
             to apply a prior to the period length parameter.  Default: `None`
-        :attr:`log_lengthscale_prior` (Prior, optional): Set this if you want
-            to apply a prior to the lengthscale parameter.  Default: `None`
         :attr:`eps` (float): The minimum value that the lengthscale/period length can take
             (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
-        :attr:`lengthscale` (Tensor): The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`batch_size` arguments.
         :attr:`period_length` (Tensor): The period length parameter. Size/shape of parameter depends on the
             :attr:`batch_size` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
         >>> # Non-batch: Simple option
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.PeriodicKernel())
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.CosineKernel())
         >>>
         >>> batch_x = torch.randn(2, 10, 5)
         >>> # Batch: Simple option
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.PeriodicKernel())
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.CosineKernel())
         >>> # Batch: different lengthscale for each batch
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.PeriodicKernel(batch_size=2))
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.CosineKernel(batch_size=2))
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(
-        self,
-        active_dims=None,
-        batch_size=1,
-        eps=1e-6,
-        log_lengthscale_prior=None,
-        log_period_length_prior=None,
-        log_lengthscale_bounds=None,
-        log_period_length_bounds=None,
-    ):
-        log_period_length_prior = _bounds_to_prior(prior=log_period_length_prior, bounds=log_period_length_bounds)
-        super(PeriodicKernel, self).__init__(
-            has_lengthscale=True,
-            active_dims=active_dims,
-            log_lengthscale_prior=log_lengthscale_prior,
-            log_lengthscale_bounds=log_lengthscale_bounds,
-        )
+    def __init__(self, active_dims=None, batch_size=1, log_period_length_prior=None, eps=1e-6):
+        super(CosineKernel, self).__init__(has_lengthscale=False, active_dims=active_dims)
         self.eps = eps
         self.register_parameter(
             name="log_period_length",
@@ -95,11 +68,12 @@ class PeriodicKernel(Kernel):
     def period_length(self):
         return self.log_period_length.exp().clamp(self.eps, 1e5)
 
-    def forward(self, x1, x2):
-        x1_, x2_ = self._create_input_grid(x1, x2)
-        x1_ = x1_.div(self.period_length)
-        x2_ = x2_.div(self.period_length)
+    def preprocess_data(self, x1, x2):
+        # Override the default behavior:
+        # Here the lengthscale scales the sine, not the inputs directly
+        return x1.div(self.period_length), x2.div(self.period_length)
 
-        diff = torch.sum((x1_ - x2_).abs(), -1)
-        res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
+    def forward(self, x1, x2):
+        diff = torch.norm((x1.unsqueeze(2) - x2.unsqueeze(1)), 2, dim=-1)
+        res = torch.cos(diff.mul(math.pi))
         return res

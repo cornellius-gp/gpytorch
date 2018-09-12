@@ -19,7 +19,7 @@ install:
   - python setup.py build develop
 
 script:
-  - python -m unittest discover test/
+  - python -m unittest discover
 
 matrix:
   include:

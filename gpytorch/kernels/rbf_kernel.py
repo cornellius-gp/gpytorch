@@ -10,33 +10,17 @@ from .kernel import Kernel
 class RBFKernel(Kernel):
     r"""
     Computes a covariance matrix based on the RBF (squared exponential) kernel
-    between inputs :math:`x_1` and :math:`x_2`:
+    between inputs :math:`mathbf{x_1}` and :math:`mathbf{x_2}`:
 
     .. math::
 
        \begin{equation*}
-          K_{\text{RBF}} = \exp \left( -\frac{1}{2} (x_1 - x_2)^\top \Theta^{-1} (x_1 - x_2) \right)
+          k_{\text{RBF}}(mathbf{x_1}, mathbf{x_2}) = \exp \left( -\frac{1}{2}
+          (mathbf{x_1} - mathbf{x_2})^\top \Theta^{-1} (mathbf{x_1} - mathbf{x_2}) \right)
        \end{equation*}
 
     where :math:`\Theta` is a :attr:`lengthscale` parameter.
-    There are a few options for the lengthscale:
-
-    * Default: One lengthscale can be applied to all input dimensions/batches
-      (i.e. :math:`\Theta` is a constant diagonal matrix).
-
-    * ARD: Each input dimension gets its own separate lengthscale
-      (i.e. :math:`\Theta` is a non-constant diagonal matrix).
-      This is controlled by the `ard_num_dims` keyword argument.
-
-    In batch-mode (i.e. when :math:`x_1` and :math:`x_2` are batches of input matrices), each
-    batch of data can have its own lengthscale parameter by setting the `batch_size`
-    keyword argument to the appropriate number of batches.
-
-    .. note::
-
-        The :attr:`lengthscale` parameter is parameterized on a log scale to constrain it to be positive.
-        You can set a prior on this parameter using the :attr:`log_lengthscale_prior` argument, but
-        be sure that the prior has :attr:`log_transform=True` set.
+    See :class:`gpytorch.kernels.Kernel` for descriptions of the lengthscale options.
 
     .. note::
 
@@ -63,16 +47,16 @@ class RBFKernel(Kernel):
     Example:
         >>> x = torch.randn(10, 5)
         >>> # Non-batch: Simple option
-        >>> covar_module = gpytorch.kernels.RBFKernel()
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         >>> # Non-batch: ARD (different lengthscale for each input dimension)
-        >>> covar_module = gpytorch.kernels.RBFKernel(ard_num_dims=5)
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=5))
         >>> covar = covar_module(x)  # Output: LazyTensor of size (10 x 10)
         >>>
         >>> batch_x = torch.randn(2, 10, 5)
         >>> # Batch: Simple option
-        >>> covar_module = gpytorch.kernels.RBFKernel()
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         >>> # Batch: different lengthscale for each batch
-        >>> covar_module = gpytorch.kernels.RBFKernel(batch_size=2)
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_size=2))
         >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
 
@@ -102,6 +86,9 @@ class RBFKernel(Kernel):
         return res
 
     def forward(self, x1, x2):
-        lengthscales = self.log_lengthscale.exp().mul(math.sqrt(2)).clamp(self.eps, 1e5)
-        diff = (x1.unsqueeze(2) - x2.unsqueeze(1)).div_(lengthscales.unsqueeze(1))
-        return diff.pow_(2).sum(-1).mul_(-1).exp_()
+        x1_, x2_ = self._create_input_grid(x1, x2)
+        x1_ = x1_.div(self.lengthscale)
+        x2_ = x2_.div(self.lengthscale)
+
+        diff = (x1_ - x2_).norm(2, dim=-1)
+        return diff.pow(2).div_(-2).exp_()

@@ -21,6 +21,12 @@ Kernel
 Standard Kernels
 -----------------------------
 
+:hidden:`CosineKernel`
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: CosineKernel
+   :members:
+
 :hidden:`LinearKernel`
 ~~~~~~~~~~~~~~~~~~~~~~
 
