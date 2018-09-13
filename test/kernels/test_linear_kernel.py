@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from torch.autograd import Variable
 from gpytorch.kernels import LinearKernel
 
 
@@ -17,7 +16,7 @@ class TestLinearKernel(unittest.TestCase):
         kernel = LinearKernel(num_dimensions=1).initialize(offset=0, variance=1.0)
         kernel.eval()
         actual = 1 + torch.matmul(a, b.t())
-        res = kernel(Variable(a), Variable(b)).evaluate()
+        res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res.data - actual), 1e-5)
 
     def test_computes_linear_function_square(self):
@@ -26,7 +25,7 @@ class TestLinearKernel(unittest.TestCase):
         kernel = LinearKernel(num_dimensions=1).initialize(offset=0, variance=1.0)
         kernel.eval()
         actual = 1 + torch.matmul(a, a.t())
-        res = kernel(Variable(a), Variable(a)).evaluate()
+        res = kernel(a, a).evaluate()
         self.assertLess(torch.norm(res.data - actual), 1e-5)
 
 

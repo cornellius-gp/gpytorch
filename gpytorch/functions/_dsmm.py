@@ -4,14 +4,12 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Function, Variable
+from torch.autograd import Function
 from ..utils import bdsmm
 
 
 class DSMM(Function):
     def __init__(self, sparse):
-        if isinstance(sparse, Variable):
-            sparse = sparse.data
         self.sparse = sparse
 
     def forward(self, dense):

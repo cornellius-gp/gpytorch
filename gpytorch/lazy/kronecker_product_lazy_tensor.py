@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 import operator
-from torch.autograd import Variable
 from .lazy_tensor import LazyTensor
 from functools import reduce
 
@@ -189,7 +188,7 @@ class KroneckerProductLazyTensor(LazyTensor):
         return self.__class__(*(lazy_var._transpose_nonbatch() for lazy_var in self.lazy_vars), **self._kwargs)
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        res = Variable(self.tensor_cls(left_indices.size()).fill_(1))
+        res = self.tensor_cls(left_indices.size()).fill_(1)
         size = self.size(-1)
         for lazy_var in list(self.lazy_vars)[::-1]:
             size = size / lazy_var.size(-1)

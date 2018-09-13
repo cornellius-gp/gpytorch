@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
+from torch import Tensor
 from .random_variable import RandomVariable
 from torch.nn import functional as F
 
@@ -20,11 +20,11 @@ class CategoricalRandomVariable(RandomVariable):
             variables.
 
         Params:
-        - mass_function (Variable: vector k or matrix n x k) weights of categorical distribution
+        - mass_function (Tensor: vector k or matrix n x k) weights of categorical distribution
         """
         super(CategoricalRandomVariable, self).__init__(mass_function)
-        if not isinstance(mass_function, Variable):
-            raise RuntimeError("mass_function should be a Variable")
+        if not isinstance(mass_function, Tensor):
+            raise RuntimeError("mass_function should be a Tensor")
 
         ndimension = mass_function.ndimension()
         if ndimension not in [1, 2]:
@@ -62,13 +62,13 @@ class CategoricalRandomVariable(RandomVariable):
             upper_mass_function = mass_function.cumsum(1)
             lower_mass_function = upper_mass_function - mass_function
 
-            samples = Variable(mass_function.data.new(1, 1, n_samples).uniform_())
+            samples = mass_function.data.new(1, 1, n_samples).uniform_()
             samples = samples.clamp(1e-5, 1)  # Make sure that everything is strictly greater than zero
             lower_mask = samples.gt(lower_mass_function.unsqueeze(-1))
             upper_mask = samples.le(upper_mass_function.unsqueeze(-1))
             res = lower_mask * upper_mask
         else:
-            samples = Variable(mass_function.data.new(1, mass_function.size(-1), n_samples).uniform_())
+            samples = mass_function.data.new(1, mass_function.size(-1), n_samples).uniform_()
             gumbel_samples = samples.log().mul_(-1).log_().mul_(-1)
             softmax_weights = (mass_function.log().unsqueeze(-1) + gumbel_samples).div(gumbel_softmax_temp)
             res = F.softmax(softmax_weights, 1)

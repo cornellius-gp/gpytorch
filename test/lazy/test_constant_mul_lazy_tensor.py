@@ -8,18 +8,17 @@ import torch
 import unittest
 import gpytorch
 from gpytorch.lazy import ToeplitzLazyTensor
-from torch.autograd import Variable
 
 
 class TestConstantMulLazyTensor(unittest.TestCase):
     def test_inv_matmul(self):
-        labels_var = Variable(torch.randn(4), requires_grad=True)
-        labels_var_copy = Variable(labels_var.data, requires_grad=True)
+        labels_var = torch.tensor(torch.randn(4), requires_grad=True)
+        labels_var_copy = torch.tensor(labels_var.data, requires_grad=True)
         grad_output = torch.randn(4)
 
         # Test case
-        c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-        c2_var = Variable(torch.Tensor([12.5, 2.5, 5, 0]), requires_grad=True)
+        c1_var = torch.tensor([5, 1, 2, 0], dtype=torch.float, requires_grad=True)
+        c2_var = torch.tensor([12.5, 2.5, 5, 0], dtype=torch.float, requires_grad=True)
         toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * 2.5
         actual = ToeplitzLazyTensor(c2_var)
 
@@ -36,8 +35,8 @@ class TestConstantMulLazyTensor(unittest.TestCase):
         self.assertLess(math.fabs(c1_var.grad.data[0] - c2_var.grad.data[0]), 1)
 
     def test_diag(self):
-        c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-        c2_var = Variable(torch.Tensor([12.5, 2.5, 5, 0]), requires_grad=True)
+        c1_var = torch.tensor([5, 1, 2, 0], dtype=torch.float, requires_grad=True)
+        c2_var = torch.tensor([12.5, 2.5, 5, 0], dtype=torch.float, requires_grad=True)
         toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * 2.5
         actual = ToeplitzLazyTensor(c2_var)
 
@@ -45,8 +44,8 @@ class TestConstantMulLazyTensor(unittest.TestCase):
         self.assertLess(diff, 1e-3)
 
     def test_getitem(self):
-        c1_var = Variable(torch.Tensor([5, 1, 2, 0]), requires_grad=True)
-        c2_var = Variable(torch.Tensor([12.5, 2.5, 5, 0]), requires_grad=True)
+        c1_var = torch.tensor([5, 1, 2, 0], dtype=torch.float, requires_grad=True)
+        c2_var = torch.tensor([12.5, 2.5, 5, 0], dtype=torch.float, requires_grad=True)
         toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * 2.5
         actual = ToeplitzLazyTensor(c2_var)
 

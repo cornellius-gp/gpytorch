@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .lazy_tensor import LazyTensor
 from ..utils.toeplitz import sym_toeplitz_matmul, sym_toeplitz_derivative_quadratic_form
 
@@ -53,7 +52,7 @@ class ToeplitzLazyTensor(LazyTensor):
     def add_jitter(self):
         jitter = self.column.data.new(self.column.size(-1)).zero_()
         jitter.narrow(-1, 0, 1).fill_(1e-4)
-        return ToeplitzLazyTensor(self.column.add(Variable(jitter)))
+        return ToeplitzLazyTensor(self.column.add(jitter))
 
     def diag(self):
         """
@@ -66,7 +65,7 @@ class ToeplitzLazyTensor(LazyTensor):
 
     def repeat(self, *sizes):
         """
-        Repeat elements of the Variable.
+        Repeat elements of the Tensor.
         Right now it only works to create a batched version of a ToeplitzLazyTensor.
 
         e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3

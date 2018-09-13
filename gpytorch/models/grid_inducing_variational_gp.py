@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from ..random_variables import GaussianRandomVariable
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor
 from ..variational import MVNVariationalStrategy
@@ -41,7 +40,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(1)
 
-        interp_indices, interp_values = Interpolation().interpolate(Variable(self.grid), inputs)
+        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
         return interp_indices, interp_values
 
     def _initalize_variational_parameters(self, prior_output):
