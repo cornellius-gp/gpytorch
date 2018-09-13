@@ -25,10 +25,8 @@ class GaussianRandomVariable(RandomVariable):
         super(GaussianRandomVariable, self).__init__(mean, covar)
         if not torch.is_tensor(mean) and not isinstance(mean, LazyTensor):
             raise RuntimeError("The mean of a GaussianRandomVariable must be a Tensor")
-
         if not torch.is_tensor(covar) and not isinstance(covar, LazyTensor):
             raise RuntimeError("The covariance of a GaussianRandomVariable must be a Tensor")
-
         if not (mean.ndimension() == 1 or mean.ndimension() == 2):
             raise RuntimeError("mean should be a vector or a matrix (batch mode)")
 

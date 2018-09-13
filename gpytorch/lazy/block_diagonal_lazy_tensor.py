@@ -120,6 +120,7 @@ class BlockDiagonalLazyTensor(LazyTensor):
     def mul(self, other):
         # We're using a custom method here - the constant mul is applied to the base_lazy tensor
         # This preserves the sum batch structure
+
         if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
             torch.is_tensor(other) and other.numel() == 1
         ):

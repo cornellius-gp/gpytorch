@@ -24,6 +24,7 @@ class CategoricalRandomVariable(RandomVariable):
         if not torch.is_tensor(mass_function):
             raise RuntimeError("mass_function should be a Tensor")
         super(CategoricalRandomVariable, self).__init__(mass_function)
+
         ndimension = mass_function.ndimension()
         if ndimension not in [1, 2]:
             raise RuntimeError("mass_function should be a vector or a matrix")
