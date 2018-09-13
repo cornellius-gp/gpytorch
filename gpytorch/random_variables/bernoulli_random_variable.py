@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .random_variable import RandomVariable
 
 
@@ -19,11 +18,11 @@ class BernoulliRandomVariable(RandomVariable):
         Bernoulli variables
 
         Params:
-        - probability (Variable: scalar or vector n) weights of Bernoulli distribution
+        - probability (Tensor: scalar or vector n) weights of Bernoulli distribution
         """
         super(BernoulliRandomVariable, self).__init__(probability)
-        if not isinstance(probability, Variable):
-            raise RuntimeError("probability should be a Variable")
+        if not torch.is_tensor(probability):
+            raise RuntimeError("probability should be a Tensor")
         if not probability.ndimension() == 1:
             raise RuntimeError("BernoulliRandomVariable should be a scalar or a vector")
         if probability.data.lt(0).sum() or probability.data.gt(1).sum():

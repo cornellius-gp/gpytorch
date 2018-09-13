@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
+from torch import Tensor
 from .block_diagonal_lazy_tensor import BlockDiagonalLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
@@ -28,7 +28,7 @@ class InterpolatedLazyTensor(LazyTensor):
 
         if left_interp_indices is None:
             n_rows = base_lazy_tensor.size()[-2]
-            left_interp_indices = Variable(tensor_cls(n_rows).long())
+            left_interp_indices = tensor_cls(n_rows).long()
             torch.arange(0, n_rows, out=left_interp_indices.data)
             left_interp_indices = left_interp_indices.unsqueeze(-1)
             if base_lazy_tensor.ndimension() == 3:
@@ -37,11 +37,11 @@ class InterpolatedLazyTensor(LazyTensor):
                 left_interp_indices = left_interp_indices.unsqueeze(0).expand(right_interp_indices.size(0), n_rows, 1)
 
         if left_interp_values is None:
-            left_interp_values = Variable(tensor_cls(left_interp_indices.size()).fill_(1))
+            left_interp_values = tensor_cls(left_interp_indices.size()).fill_(1)
 
         if right_interp_indices is None:
             n_rows = base_lazy_tensor.size()[-2]
-            right_interp_indices = Variable(tensor_cls(n_rows).long())
+            right_interp_indices = tensor_cls(n_rows).long()
             torch.arange(0, n_rows, out=right_interp_indices.data)
             right_interp_indices = right_interp_indices.unsqueeze(-1)
             if base_lazy_tensor.ndimension() == 3:
@@ -50,7 +50,7 @@ class InterpolatedLazyTensor(LazyTensor):
                 right_interp_indices = right_interp_indices.unsqueeze(0).expand(left_interp_indices.size(0), n_rows, 1)
 
         if right_interp_values is None:
-            right_interp_values = Variable(tensor_cls(right_interp_indices.size()).fill_(1))
+            right_interp_values = tensor_cls(right_interp_indices.size()).fill_(1)
 
         super(InterpolatedLazyTensor, self).__init__(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
@@ -442,9 +442,9 @@ class InterpolatedLazyTensor(LazyTensor):
             probe_vector_indices = vector_indices[:n_probe_vectors]
             test_vector_indices = vector_indices[n_probe_vectors : 2 * n_probe_vectors]
 
-            probe_interp_indices = Variable(probe_vector_indices.unsqueeze(1))
-            probe_test_interp_indices = Variable(test_vector_indices.unsqueeze(1))
-            probe_interp_values = Variable(train_interp_values.data.new(n_probe_vectors, 1).fill_(1))
+            probe_interp_indices = probe_vector_indices.unsqueeze(1)
+            probe_test_interp_indices = test_vector_indices.unsqueeze(1)
+            probe_interp_values = train_interp_values.data.new(n_probe_vectors, 1).fill_(1)
             if train_interp_indices.ndimension() == 3:
                 probe_interp_indices = probe_interp_indices.unsqueeze(0).expand(batch_size, n_probe_vectors, 1)
                 probe_test_interp_indices = probe_test_interp_indices.unsqueeze(0)
@@ -529,8 +529,8 @@ class InterpolatedLazyTensor(LazyTensor):
     def mul(self, other):
         # We're using a custom method here - the constant mul is applied to the base_lazy tensor
         # This preserves the interpolated structure
-        if not (isinstance(other, Variable) or isinstance(other, LazyTensor)) or (
-            isinstance(other, Variable) and other.numel() == 1
+        if not (isinstance(other, Tensor) or isinstance(other, LazyTensor)) or (
+            isinstance(other, Tensor) and other.numel() == 1
         ):
             from .constant_mul_lazy_tensor import ConstantMulLazyTensor
 
@@ -546,7 +546,7 @@ class InterpolatedLazyTensor(LazyTensor):
 
     def repeat(self, *sizes):
         """
-        Repeat elements of the Variable.
+        Repeat elements of the Tensor.
         Right now it only works to create a batched version of a InterpolatedLazyTensor.
 
         e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
@@ -581,7 +581,7 @@ class InterpolatedLazyTensor(LazyTensor):
             right_interp_values = right_interp_values.view(-1, sum_batch_size, n_right, n_interp)
 
         # Increase interpolation indices appropriately
-        factor = Variable(left_interp_indices.data.new(left_interp_indices.size(-3), 1, 1))
+        factor = left_interp_indices.data.new(left_interp_indices.size(-3), 1, 1)
         torch.arange(0, left_interp_indices.size(-3), out=factor.data[:, 0, 0])
         factor = factor * self.base_lazy_tensor.size(-1)
         if sum_batch_size is not None:

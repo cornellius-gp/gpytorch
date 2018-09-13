@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Function, Variable
+from torch.autograd import Function
 from ..utils.lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
 from .. import settings
 
@@ -20,7 +20,7 @@ class RootDecomposition(Function):
         self.batch_size = batch_size
         self.root = root
         self.inverse = inverse
-        self.initial_vector = initial_vector.data if isinstance(initial_vector, Variable) else initial_vector
+        self.initial_vector = initial_vector
 
     def forward(self, *matrix_args):
         """

@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .lazy_tensor import LazyTensor
 
 
@@ -12,7 +11,7 @@ class SumBatchLazyTensor(LazyTensor):
     def __init__(self, base_lazy_tensor, sum_batch_size=None):
         """
         Representat a lazy tensor that is the sum of many lazy tensors
-        Unlike with a SumLazyTensor, this variable is stored as a batch
+        Unlike with a SumLazyTensor, this tensor is stored as a batch
         (i.e. a tensor of batch_size x _ x _)
 
         By specifying sum_batch_size, you can have two batch variables: one
@@ -89,7 +88,7 @@ class SumBatchLazyTensor(LazyTensor):
             return torch.Size(list(base_size)[1:])
         else:
             inner_batch_size = self.batch_size() - self.sum_batch_size
-            return torch.Size(list([inner_batch_size]) + list(base_size)[1:])
+            return torch.Size([inner_batch_size] + list(base_size)[1:])
 
     def _transpose_nonbatch(self):
         return SumBatchLazyTensor(self.base_lazy_tensor._transpose_nonbatch())
@@ -98,7 +97,7 @@ class SumBatchLazyTensor(LazyTensor):
         raise RuntimeError("Batch get indices is not implmeneted yet")
 
     def _get_indices(self, left_indices, right_indices):
-        batch_indices = Variable(self.tensor_cls(self.batch_size()).long())
+        batch_indices = self.tensor_cls(self.batch_size()).long()
         torch.arange(0, self.batch_size(), out=batch_indices.data)
         batch_indices = batch_indices.unsqueeze(1).repeat(1, len(left_indices)).view(-1)
         left_indices = left_indices.unsqueeze(1).repeat(self.batch_size(), 1).view(-1)
@@ -139,8 +138,8 @@ class SumBatchLazyTensor(LazyTensor):
     def mul(self, other):
         # We're using a custom method here - the constant mul is applied to the base_lazy tensor
         # This preserves the sum batch structure
-        if not (isinstance(other, Variable) or isinstance(other, LazyTensor)) or (
-            isinstance(other, Variable) and other.numel() == 1
+        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
+            torch.is_tensor(other) and other.numel() == 1
         ):
             from .constant_mul_lazy_tensor import ConstantMulLazyTensor
 

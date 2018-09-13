@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 
-from torch.autograd import Variable
 from .lazy_tensor import LazyTensor
 from .root_lazy_tensor import RootLazyTensor
 
@@ -16,7 +15,7 @@ class CholLazyTensor(RootLazyTensor):
             chol = chol.evaluate()
 
         # Check that we have a lower triangular matrix
-        mask = Variable(chol.data.new(chol.size(-2), chol.size(-2)).fill_(-1).tril_().add_(1))
+        mask = chol.data.new(chol.size(-2), chol.size(-2)).fill_(-1).tril_().add_(1)
         if chol.ndimension() == 3:
             mask.data.unsqueeze_(0)
         if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):

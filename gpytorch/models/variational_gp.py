@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .. import beta_features
 from ..functions import inv_matmul
 from ..random_variables import GaussianRandomVariable
@@ -53,7 +52,7 @@ class VariationalGP(AbstractVariationalGP):
             variational_output = self.variational_output()
 
             n_induc = len(self.inducing_points)
-            full_inputs = torch.cat([Variable(self.inducing_points), inputs])
+            full_inputs = torch.cat([self.inducing_points, inputs])
             full_output = super(VariationalGP, self).__call__(full_inputs)
             full_mean, full_covar = full_output.representation()
 

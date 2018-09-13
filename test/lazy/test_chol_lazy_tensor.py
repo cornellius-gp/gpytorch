@@ -1,8 +1,12 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import math
 import numpy as np
 import torch
 import unittest
-from torch.autograd import Variable
 from gpytorch.lazy import CholLazyTensor
 from gpytorch.utils import approx_equal
 
@@ -12,11 +16,11 @@ class TestCholLazyTensor(unittest.TestCase):
         chol = torch.Tensor([[3, 0, 0, 0, 0], [-1, 2, 0, 0, 0], [1, 4, 1, 0, 0], [0, 2, 3, 2, 0], [-4, -2, 1, 3, 4]])
         vecs = torch.randn(5, 2)
 
-        self.chol_var = Variable(chol, requires_grad=True)
-        self.chol_var_copy = Variable(chol, requires_grad=True)
+        self.chol_var = torch.tensor(chol.data, requires_grad=True)
+        self.chol_var_copy = torch.tensor(chol.data, requires_grad=True)
         self.actual_mat = self.chol_var_copy.matmul(self.chol_var_copy.transpose(-1, -2))
-        self.vecs = Variable(vecs, requires_grad=True)
-        self.vecs_copy = Variable(vecs, requires_grad=True)
+        self.vecs = torch.tensor(vecs.data, requires_grad=True)
+        self.vecs_copy = torch.tensor(vecs.data, requires_grad=True)
 
     def test_matmul(self):
         # Forward
@@ -73,15 +77,15 @@ class TestCholLazyTensorBatch(unittest.TestCase):
         )
         vecs = torch.randn(2, 5, 3)
 
-        self.chol_var = Variable(chol, requires_grad=True)
-        self.chol_var_copy = Variable(chol, requires_grad=True)
+        self.chol_var = torch.tensor(chol.data, requires_grad=True)
+        self.chol_var_copy = torch.tensor(chol.data, requires_grad=True)
         self.actual_mat = self.chol_var_copy.matmul(self.chol_var_copy.transpose(-1, -2))
         self.actual_mat_inv = torch.cat(
             [self.actual_mat[0].inverse().unsqueeze(0), self.actual_mat[1].inverse().unsqueeze(0)], 0
         )
 
-        self.vecs = Variable(vecs, requires_grad=True)
-        self.vecs_copy = Variable(vecs, requires_grad=True)
+        self.vecs = torch.tensor(vecs.data, requires_grad=True)
+        self.vecs_copy = torch.tensor(vecs.data, requires_grad=True)
 
     def test_matmul(self):
         # Forward
@@ -109,11 +113,10 @@ class TestCholLazyTensorBatch(unittest.TestCase):
         )
         res = res_inv_quad + res_log_det
         actual_inv_quad = self.actual_mat_inv.matmul(self.vecs_copy).mul(self.vecs_copy).sum(-1).sum(-1)
-        actual_log_det = Variable(
-            torch.Tensor(
-                [math.log(np.linalg.det(self.actual_mat[0].data)), math.log(np.linalg.det(self.actual_mat[1].data))]
-            )
+        actual_log_det = torch.Tensor(
+            [math.log(np.linalg.det(self.actual_mat[0].data)), math.log(np.linalg.det(self.actual_mat[1].data))]
         )
+
         actual = actual_inv_quad + actual_log_det
         self.assertLess(torch.max((res.data - actual.data).abs() / actual.data.norm()), 1e-2)
 

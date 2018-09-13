@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from gpytorch.lazy import LazyTensor, CholLazyTensor
 from gpytorch.module import Module
 from gpytorch.random_variables import GaussianRandomVariable
@@ -57,7 +56,7 @@ class AbstractVariationalGP(Module):
         return covar_diag
 
     def prior_output(self):
-        res = super(AbstractVariationalGP, self).__call__(Variable(self.inducing_points))
+        res = super(AbstractVariationalGP, self).__call__(self.inducing_points)
         if not isinstance(res, GaussianRandomVariable):
             raise RuntimeError("%s.forward must return a GaussianRandomVariable" % self.__class__.__name__)
 
@@ -78,7 +77,7 @@ class AbstractVariationalGP(Module):
             # Batch mode
             chol_variational_covar_size = list(chol_variational_covar.size())[-2:]
             mask = chol_variational_covar.data.new(*chol_variational_covar_size).fill_(1).triu()
-            mask = Variable(mask.unsqueeze(0).expand(*([chol_variational_covar.size(0)] + chol_variational_covar_size)))
+            mask = mask.unsqueeze(0).expand(*([chol_variational_covar.size(0)] + chol_variational_covar_size))
 
             batch_index = chol_variational_covar.data.new(batch_size).long()
             torch.arange(0, batch_size, out=batch_index)
