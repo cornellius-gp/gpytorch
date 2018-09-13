@@ -12,13 +12,13 @@ class Matmul(Function):
         self.representation_tree = representation_tree
 
     def forward(self, rhs, *matrix_args):
-        lazy_var = self.representation_tree(*matrix_args)
-        res = lazy_var._matmul(rhs)
+        lazy_tsr = self.representation_tree(*matrix_args)
+        res = lazy_tsr._matmul(rhs)
 
         to_save = [rhs] + list(matrix_args)
         self.save_for_backward(*to_save)
         if not settings.memory_efficient.on():
-            self._lazy_var = lazy_var
+            self._lazy_tsr = lazy_tsr
 
         return res
 
@@ -38,11 +38,11 @@ class Matmul(Function):
 
         # input_2 gradient
         if self.needs_input_grad[0]:
-            if hasattr(self, "_lazy_var"):
-                lazy_var = self._lazy_var
+            if hasattr(self, "_lazy_tsr"):
+                lazy_tsr = self._lazy_tsr
             else:
-                lazy_var = self.representation_tree(*matrix_args)
-            rhs_grad = lazy_var._t_matmul(grad_output)
+                lazy_tsr = self.representation_tree(*matrix_args)
+            rhs_grad = lazy_tsr._t_matmul(grad_output)
             rhs_grad = rhs_grad.view(rhs_shape)
 
         return tuple([rhs_grad] + list(arg_grads))

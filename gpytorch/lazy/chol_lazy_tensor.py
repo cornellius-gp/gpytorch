@@ -1,12 +1,18 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
+
 from torch.autograd import Variable
-from .lazy_variable import LazyVariable
-from .root_lazy_variable import RootLazyVariable
+from .lazy_tensor import LazyTensor
+from .root_lazy_tensor import RootLazyTensor
 
 
-class CholLazyVariable(RootLazyVariable):
+class CholLazyTensor(RootLazyTensor):
     def __init__(self, chol):
-        if isinstance(chol, LazyVariable):  # Probably is an instance of NonLazyVariable
+        if isinstance(chol, LazyTensor):  # Probably is an instance of NonLazyTensor
             chol = chol.evaluate()
 
         # Check that we have a lower triangular matrix
@@ -17,7 +23,7 @@ class CholLazyVariable(RootLazyVariable):
             raise RuntimeError("CholLazyVaraiable should take a lower-triangular " "matrix in the constructor.")
 
         # Run super constructor
-        super(CholLazyVariable, self).__init__(chol)
+        super(CholLazyTensor, self).__init__(chol)
 
         # Check that the diagonal is
         if not torch.equal(self._chol_diag.abs(), self._chol_diag):
@@ -49,7 +55,7 @@ class CholLazyVariable(RootLazyVariable):
         if self.ndimension() == 2:
             res = torch.potrs(rhs, self._chol, upper=False)
         else:
-            res = super(CholLazyVariable, self).inv_matmul(rhs)
+            res = super(CholLazyTensor, self).inv_matmul(rhs)
         return res
 
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False):

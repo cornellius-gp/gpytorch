@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 import unittest
 from torch.autograd import Variable
-from gpytorch.lazy import NonLazyVariable
+from gpytorch.lazy import NonLazyTensor
 from gpytorch.utils import approx_equal
 
 
@@ -25,7 +25,7 @@ class TestMatmulNonBatch(unittest.TestCase):
 
     def test_matmul_vec(self):
         # Forward
-        res = NonLazyVariable(self.mat_var).matmul(self.vec_var)
+        res = NonLazyTensor(self.mat_var).matmul(self.vec_var)
         actual = self.mat_var_clone.matmul(self.vec_var_clone)
         self.assertTrue(approx_equal(res, actual))
 
@@ -38,7 +38,7 @@ class TestMatmulNonBatch(unittest.TestCase):
 
     def test_matmul_multiple_vecs(self):
         # Forward
-        res = NonLazyVariable(self.mat_var).matmul(self.vecs_var)
+        res = NonLazyTensor(self.mat_var).matmul(self.vecs_var)
         actual = self.mat_var_clone.matmul(self.vecs_var_clone)
         self.assertTrue(approx_equal(res, actual))
 
@@ -62,7 +62,7 @@ class TestMatmulBatch(unittest.TestCase):
 
     def test_matmul_multiple_vecs(self):
         # Forward
-        res = NonLazyVariable(self.mats_var).matmul(self.vecs_var)
+        res = NonLazyTensor(self.mats_var).matmul(self.vecs_var)
         actual = self.mats_var_clone.matmul(self.vecs_var_clone)
         self.assertTrue(approx_equal(res, actual))
 

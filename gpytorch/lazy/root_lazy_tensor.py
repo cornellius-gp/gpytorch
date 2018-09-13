@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .lazy_variable import LazyVariable
-from .non_lazy_variable import NonLazyVariable
+from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import NonLazyTensor
 
 
 def _inner_repeat(tensor, amt):
@@ -16,11 +16,11 @@ def _outer_repeat(tensor, amt):
     return tensor.unsqueeze(-1).repeat(1, amt).view(-1)
 
 
-class RootLazyVariable(LazyVariable):
+class RootLazyTensor(LazyTensor):
     def __init__(self, root):
-        if not isinstance(root, LazyVariable):
-            root = NonLazyVariable(root)
-        super(RootLazyVariable, self).__init__(root)
+        if not isinstance(root, LazyTensor):
+            root = NonLazyTensor(root)
+        super(RootLazyTensor, self).__init__(root)
         self.root = root
 
     @property
@@ -104,10 +104,10 @@ class RootLazyVariable(LazyVariable):
         return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def diag(self):
-        if isinstance(self.root, NonLazyVariable):
+        if isinstance(self.root, NonLazyTensor):
             return (self.root.tensor ** 2).sum(-1)
         else:
-            return super(RootLazyVariable, self).diag()
+            return super(RootLazyTensor, self).diag()
 
     def evaluate(self):
         if not hasattr(self, "_evaluated_memo"):

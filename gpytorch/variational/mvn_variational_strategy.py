@@ -5,15 +5,15 @@ from __future__ import unicode_literals
 
 import torch
 from .variational_strategy import VariationalStrategy
-from ..lazy import LazyVariable, NonLazyVariable
+from ..lazy import LazyTensor, NonLazyTensor
 
 
 class MVNVariationalStrategy(VariationalStrategy):
     def kl_divergence(self):
         prior_mean = self.prior_dist.mean()
         prior_covar = self.prior_dist.covar()
-        if not isinstance(prior_covar, LazyVariable):
-            prior_covar = NonLazyVariable(prior_covar)
+        if not isinstance(prior_covar, LazyTensor):
+            prior_covar = NonLazyTensor(prior_covar)
         prior_covar = prior_covar.add_jitter()
 
         variational_mean = self.variational_dist.mean()

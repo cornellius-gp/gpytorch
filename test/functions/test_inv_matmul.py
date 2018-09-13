@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 import unittest
 from torch.autograd import Variable
-from gpytorch.lazy import NonLazyVariable
+from gpytorch.lazy import NonLazyTensor
 from gpytorch.utils import approx_equal
 
 
@@ -25,7 +25,7 @@ class TestInvMatmulNonBatch(unittest.TestCase):
 
     def test_inv_matmul_vec(self):
         # Forward
-        res = NonLazyVariable(self.mat_var).inv_matmul(self.vec_var)
+        res = NonLazyTensor(self.mat_var).inv_matmul(self.vec_var)
         actual = self.mat_var_clone.inverse().matmul(self.vec_var_clone)
         self.assertTrue(approx_equal(res, actual))
 
@@ -38,7 +38,7 @@ class TestInvMatmulNonBatch(unittest.TestCase):
 
     def test_inv_matmul_multiple_vecs(self):
         # Forward
-        res = NonLazyVariable(self.mat_var).inv_matmul(self.vecs_var)
+        res = NonLazyTensor(self.mat_var).inv_matmul(self.vecs_var)
         actual = self.mat_var_clone.inverse().matmul(self.vecs_var_clone)
         self.assertTrue(approx_equal(res, actual))
 
@@ -62,7 +62,7 @@ class TestInvMatmulBatch(unittest.TestCase):
 
     def test_inv_matmul_multiple_vecs(self):
         # Forward
-        res = NonLazyVariable(self.mats_var).inv_matmul(self.vecs_var)
+        res = NonLazyTensor(self.mats_var).inv_matmul(self.vecs_var)
         actual = torch.cat(
             [self.mats_var_clone[0].inverse().unsqueeze(0), self.mats_var_clone[1].inverse().unsqueeze(0)]
         ).matmul(self.vecs_var_clone)

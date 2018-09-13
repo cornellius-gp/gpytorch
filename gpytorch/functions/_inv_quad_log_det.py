@@ -65,8 +65,8 @@ class InvQuadLogDet(Function):
             matrix_args = args
 
         # Get closure for matmul
-        lazy_var = self.representation_tree(*matrix_args)
-        matmul_closure = lazy_var._matmul
+        lazy_tsr = self.representation_tree(*matrix_args)
+        matmul_closure = lazy_tsr._matmul
 
         # Collect terms for LinearCG
         # We use LinearCG for both matrix solves and for stochastically estimating the log det
@@ -147,7 +147,7 @@ class InvQuadLogDet(Function):
         self.save_for_backward(*to_save)
 
         if not settings.memory_efficient.on():
-            self._lazy_var = lazy_var
+            self._lazy_tsr = lazy_tsr
 
         return inv_quad_term, log_det_term
 
@@ -165,10 +165,10 @@ class InvQuadLogDet(Function):
         probe_vectors = self.saved_tensors[-2]
         probe_vector_norms = self.saved_tensors[-1]
 
-        if hasattr(self, "_lazy_var"):
-            lazy_var = self._lazy_var
+        if hasattr(self, "_lazy_tsr"):
+            lazy_tsr = self._lazy_tsr
         else:
-            lazy_var = self.representation_tree(*matrix_args)
+            lazy_tsr = self.representation_tree(*matrix_args)
 
         # Fix grad_output sizes
         if self.inv_quad:
@@ -209,7 +209,7 @@ class InvQuadLogDet(Function):
 
             left_factors = torch.cat(left_factors_list, -1)
             right_factors = torch.cat(right_factors_list, -1)
-            matrix_arg_grads = lazy_var._quad_form_derivative(left_factors, right_factors)
+            matrix_arg_grads = lazy_tsr._quad_form_derivative(left_factors, right_factors)
 
         # input_2 gradients
         if compute_inv_quad_grad and self.needs_input_grad[0]:

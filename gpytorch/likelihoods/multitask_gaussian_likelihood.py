@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import torch
 from gpytorch.functions import add_diag
-from gpytorch.lazy import DiagLazyVariable, KroneckerProductLazyVariable, RootLazyVariable
+from gpytorch.lazy import DiagLazyTensor, KroneckerProductLazyTensor, RootLazyTensor
 from gpytorch.likelihoods import GaussianLikelihood
 
 
@@ -61,7 +61,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         :obj:`gpytorch.random_variables.MultitaskGaussianRandomVariable`, in case of
         `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
 
-        To accomplish this, we form a new :obj:`gpytorch.lazy.KroneckerProductLazyVariable` between :math:`I_{n}`,
+        To accomplish this, we form a new :obj:`gpytorch.lazy.KroneckerProductLazyTensor` between :math:`I_{n}`,
         an identity matrix with size equal to the data and a (not necessarily diagonal) matrix containing the task
         noises :math:`D_{t}`.
 
@@ -72,19 +72,19 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
 
         Args:
             input (:obj:`gpytorch.random_variables.MultitaskGaussianRandomVariable`): Random variable whose covariance
-                matrix is a :obj:`gpytorch.lazy.LazyVariable` we intend to augment.
+                matrix is a :obj:`gpytorch.lazy.LazyTensor` we intend to augment.
         Returns:
             :obj:`gpytorch.random_variables.MultitaskGaussianRandomVariable`: A new random variable whose covariance
-            matrix is a :obj:`gpytorch.lazy.LazyVariable` with :math:`D_{t} \otimes I_{n}` and :math:`\sigma^{2}I_{nt}`
+            matrix is a :obj:`gpytorch.lazy.LazyTensor` with :math:`D_{t} \otimes I_{n}` and :math:`\sigma^{2}I_{nt}`
             added.
         """
         mean, covar = input.representation()
-        eye_lv = DiagLazyVariable(torch.ones(covar.size(-1) // self.n_tasks, device=self.log_noise.device))
+        eye_lv = DiagLazyTensor(torch.ones(covar.size(-1) // self.n_tasks, device=self.log_noise.device))
         if hasattr(self, "log_task_noises"):
-            task_var_lv = DiagLazyVariable(self.log_task_noises.exp())
+            task_var_lv = DiagLazyTensor(self.log_task_noises.exp())
         else:
-            task_var_lv = RootLazyVariable(self.task_noise_covar_factor)
-        covar_kron_lv = KroneckerProductLazyVariable(task_var_lv, eye_lv)
+            task_var_lv = RootLazyTensor(self.task_noise_covar_factor)
+        covar_kron_lv = KroneckerProductLazyTensor(task_var_lv, eye_lv)
         noise = covar + covar_kron_lv
         noise = add_diag(noise, self.log_noise.exp())
         return input.__class__(mean, noise)

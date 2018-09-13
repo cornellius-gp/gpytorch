@@ -5,13 +5,13 @@ from __future__ import unicode_literals
 
 import torch
 from torch.autograd import Variable
-from .lazy_variable import LazyVariable
+from .lazy_tensor import LazyTensor
 from ..utils.toeplitz import sym_toeplitz_matmul, sym_toeplitz_derivative_quadratic_form
 
 
-class ToeplitzLazyVariable(LazyVariable):
+class ToeplitzLazyTensor(LazyTensor):
     def __init__(self, column):
-        super(ToeplitzLazyVariable, self).__init__(column)
+        super(ToeplitzLazyTensor, self).__init__(column)
         self.column = column
 
     def _matmul(self, rhs):
@@ -38,7 +38,7 @@ class ToeplitzLazyVariable(LazyVariable):
             return torch.Size((self.column.size(-1), self.column.size(-1)))
 
     def _transpose_nonbatch(self):
-        return ToeplitzLazyVariable(self.column)
+        return ToeplitzLazyTensor(self.column)
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         n_grid = self.column.size(-1)
@@ -53,7 +53,7 @@ class ToeplitzLazyVariable(LazyVariable):
     def add_jitter(self):
         jitter = self.column.data.new(self.column.size(-1)).zero_()
         jitter.narrow(-1, 0, 1).fill_(1e-4)
-        return ToeplitzLazyVariable(self.column.add(Variable(jitter)))
+        return ToeplitzLazyTensor(self.column.add(Variable(jitter)))
 
     def diag(self):
         """
@@ -67,9 +67,9 @@ class ToeplitzLazyVariable(LazyVariable):
     def repeat(self, *sizes):
         """
         Repeat elements of the Variable.
-        Right now it only works to create a batched version of a ToeplitzLazyVariable.
+        Right now it only works to create a batched version of a ToeplitzLazyTensor.
 
         e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
         """
 
-        return ToeplitzLazyVariable(self.column.repeat(sizes[0], 1))
+        return ToeplitzLazyTensor(self.column.repeat(sizes[0], 1))

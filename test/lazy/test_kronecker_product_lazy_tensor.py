@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 import unittest
 from torch.autograd import Variable
-from gpytorch.lazy import KroneckerProductLazyVariable, NonLazyVariable
+from gpytorch.lazy import KroneckerProductLazyTensor, NonLazyTensor
 from gpytorch.utils import approx_equal
 
 
@@ -33,13 +33,13 @@ def kron(a, b):
         return torch.cat(res, 1)
 
 
-class TestKroneckerProductLazyVariable(unittest.TestCase):
+class TestKroneckerProductLazyTensor(unittest.TestCase):
     def test_matmul_vec(self):
         avar = Variable(a, requires_grad=True)
         bvar = Variable(b, requires_grad=True)
         cvar = Variable(c, requires_grad=True)
         vec = Variable(torch.randn(24), requires_grad=True)
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(avar), NonLazyTensor(bvar), NonLazyTensor(cvar))
         res = kp_lazy_var.matmul(vec)
 
         avar_copy = Variable(a, requires_grad=True)
@@ -77,7 +77,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         rhsx.requires_grad = True
         rhsx_copy.requires_grad = True
 
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(ax), NonLazyVariable(bx), NonLazyVariable(cx))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(ax), NonLazyTensor(bx), NonLazyTensor(cx))
         res = kp_lazy_var.matmul(rhsx)
 
         actual_mat = kron(kron(ax_copy, bx_copy), cx_copy)
@@ -112,7 +112,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         rhsx.requires_grad = True
         rhsx_copy.requires_grad = True
 
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(ax), NonLazyVariable(bx), NonLazyVariable(cx))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(ax), NonLazyTensor(bx), NonLazyTensor(cx))
         res = kp_lazy_var.matmul(rhsx)
 
         actual_mat = kron(kron(ax_copy, bx_copy), cx_copy)
@@ -147,7 +147,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         rhs_copy.requires_grad = True
 
         actual = kron(kron(a_copy, b_copy), c_copy).matmul(rhs_copy)
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(a), NonLazyVariable(b), NonLazyVariable(c))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
         res = kp_lazy_var.matmul(rhs)
 
         self.assertTrue(approx_equal(res.data, actual.data))
@@ -179,7 +179,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         rhs_copy.requires_grad = True
 
         actual = kron(kron(a_copy, b_copy), c_copy).matmul(rhs_copy)
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(a), NonLazyVariable(b), NonLazyVariable(c))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
         res = kp_lazy_var.matmul(rhs)
 
         self.assertTrue(approx_equal(res.data, actual.data))
@@ -196,7 +196,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         bvar = Variable(b.repeat(3, 1, 1), requires_grad=True)
         cvar = Variable(c.repeat(3, 1, 1), requires_grad=True)
         mat = Variable(torch.randn(3, 24, 5), requires_grad=True)
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(avar), NonLazyTensor(bvar), NonLazyTensor(cvar))
         res = kp_lazy_var.matmul(mat)
 
         avar_copy = Variable(a.repeat(3, 1, 1), requires_grad=True)
@@ -217,7 +217,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         avar = Variable(a)
         bvar = Variable(b)
         cvar = Variable(c)
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(avar), NonLazyTensor(bvar), NonLazyTensor(cvar))
         res = kp_lazy_var.evaluate()
         actual = kron(kron(avar, bvar), cvar)
         self.assertTrue(approx_equal(res.data, actual.data))
@@ -225,7 +225,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         avar = Variable(a.repeat(3, 1, 1))
         bvar = Variable(b.repeat(3, 1, 1))
         cvar = Variable(c.repeat(3, 1, 1))
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(avar), NonLazyTensor(bvar), NonLazyTensor(cvar))
         res = kp_lazy_var.evaluate()
         actual = kron(kron(avar, bvar), cvar)
         self.assertTrue(approx_equal(res.data, actual.data))
@@ -234,7 +234,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         avar = Variable(a)
         bvar = Variable(b)
         cvar = Variable(c)
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(avar), NonLazyTensor(bvar), NonLazyTensor(cvar))
         res = kp_lazy_var.diag()
         actual = kron(kron(avar, bvar), cvar).diag()
         self.assertTrue(approx_equal(res.data, actual.data))
@@ -242,7 +242,7 @@ class TestKroneckerProductLazyVariable(unittest.TestCase):
         avar = Variable(a.repeat(3, 1, 1))
         bvar = Variable(b.repeat(3, 1, 1))
         cvar = Variable(c.repeat(3, 1, 1))
-        kp_lazy_var = KroneckerProductLazyVariable(NonLazyVariable(avar), NonLazyVariable(bvar), NonLazyVariable(cvar))
+        kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(avar), NonLazyTensor(bvar), NonLazyTensor(cvar))
         res = kp_lazy_var.diag()
         actual_mat = kron(kron(avar, bvar), cvar)
         actual = torch.stack([actual_mat[0].diag(), actual_mat[1].diag(), actual_mat[2].diag()])

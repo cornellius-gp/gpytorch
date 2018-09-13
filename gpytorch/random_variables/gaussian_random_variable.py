@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 from torch.autograd import Variable
 from .random_variable import RandomVariable
-from ..lazy import LazyVariable, NonLazyVariable
+from ..lazy import LazyTensor, NonLazyTensor
 
 
 class GaussianRandomVariable(RandomVariable):
@@ -23,17 +23,17 @@ class GaussianRandomVariable(RandomVariable):
 
     def __init__(self, mean, covar):
         super(GaussianRandomVariable, self).__init__(mean, covar)
-        if not isinstance(mean, Variable) and not isinstance(mean, LazyVariable):
+        if not isinstance(mean, Variable) and not isinstance(mean, LazyTensor):
             raise RuntimeError("The mean of a GaussianRandomVariable must be a Variable")
 
-        if not isinstance(covar, Variable) and not isinstance(covar, LazyVariable):
+        if not isinstance(covar, Variable) and not isinstance(covar, LazyTensor):
             raise RuntimeError("The covariance of a GaussianRandomVariable must be a Variable")
 
         if not (mean.ndimension() == 1 or mean.ndimension() == 2):
             raise RuntimeError("mean should be a vector or a matrix (batch mode)")
 
-        if not isinstance(covar, LazyVariable):
-            covar = NonLazyVariable(covar)
+        if not isinstance(covar, LazyTensor):
+            covar = NonLazyTensor(covar)
 
         self._mean = mean
         self._covar = covar

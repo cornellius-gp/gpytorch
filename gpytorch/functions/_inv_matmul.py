@@ -15,8 +15,8 @@ class InvMatmul(Function):
         self.preconditioner = preconditioner
 
     def forward(self, rhs, *matrix_args):
-        lazy_var = self.representation_tree(*matrix_args)
-        matmul_closure = lazy_var._matmul
+        lazy_tsr = self.representation_tree(*matrix_args)
+        matmul_closure = lazy_tsr._matmul
 
         self.is_vector = False
         if rhs.ndimension() == 1:
@@ -35,7 +35,7 @@ class InvMatmul(Function):
         args = [res, rhs] + list(matrix_args)
         self.save_for_backward(*args)
         if not settings.memory_efficient.on():
-            self._lazy_var = lazy_var
+            self._lazy_tsr = lazy_tsr
 
         return res
 
@@ -46,11 +46,11 @@ class InvMatmul(Function):
         matrix_args = self.saved_tensors[2:]
 
         # Get matrix functions
-        if hasattr(self, "_lazy_var"):
-            lazy_var = self._lazy_var
+        if hasattr(self, "_lazy_tsr"):
+            lazy_tsr = self._lazy_tsr
         else:
-            lazy_var = self.representation_tree(*matrix_args)
-        matmul_closure = lazy_var._matmul
+            lazy_tsr = self.representation_tree(*matrix_args)
+        matmul_closure = lazy_tsr._matmul
 
         # Define gradient placeholders
         arg_grads = [None] * len(matrix_args)
@@ -72,8 +72,8 @@ class InvMatmul(Function):
 
             # input_1 gradient
             if any(self.needs_input_grad[1:]):
-                if lazy_var is not None:
-                    arg_grads = lazy_var._quad_form_derivative(grad_output_solves, rhs_solves.mul(-1))
+                if lazy_tsr is not None:
+                    arg_grads = lazy_tsr._quad_form_derivative(grad_output_solves, rhs_solves.mul(-1))
                 else:
                     arg_grads = (torch.matmul(grad_output_solves, rhs_solves.mul(-1).transpose(-1, -2)),)
 

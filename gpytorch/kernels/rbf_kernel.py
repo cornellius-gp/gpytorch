@@ -66,14 +66,14 @@ class RBFKernel(Kernel):
         >>> covar_module = gpytorch.kernels.RBFKernel()
         >>> # Non-batch: ARD (different lengthscale for each input dimension)
         >>> covar_module = gpytorch.kernels.RBFKernel(ard_num_dims=5)
-        >>> covar = covar_module(x)  # Output: LazyVariable of size (10 x 10)
+        >>> covar = covar_module(x)  # Output: LazyTensor of size (10 x 10)
         >>>
         >>> batch_x = torch.randn(2, 10, 5)
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.RBFKernel()
         >>> # Batch: different lengthscale for each batch
         >>> covar_module = gpytorch.kernels.RBFKernel(batch_size=2)
-        >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
+        >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
 
     def __init__(

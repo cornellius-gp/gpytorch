@@ -5,18 +5,18 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from gpytorch.lazy import ZeroLazyVariable
+from gpytorch.lazy import ZeroLazyTensor
 
 
-class TestZeroLazyVariable(unittest.TestCase):
+class TestZeroLazyTensor(unittest.TestCase):
     def test_evaluate(self):
-        lv = ZeroLazyVariable(5, 4, 3)
+        lv = ZeroLazyTensor(5, 4, 3)
         actual = torch.zeros(5, 4, 3)
         res = lv.evaluate()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
     def test_getitem(self):
-        lv = ZeroLazyVariable(5, 4, 3)
+        lv = ZeroLazyTensor(5, 4, 3)
 
         res_one = lv[0].evaluate()
         res_two = lv[:, 1, :].evaluate()
@@ -27,7 +27,7 @@ class TestZeroLazyVariable(unittest.TestCase):
         self.assertLess(torch.norm(res_three - torch.zeros(5, 4)), 1e-4)
 
     def test_getitem_complex(self):
-        lv = ZeroLazyVariable(5, 4, 3)
+        lv = ZeroLazyTensor(5, 4, 3)
 
         res_one = lv[[0, 1]].evaluate()
         res_two = lv[:, [0, 1], :].evaluate()

@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from torch.autograd import Variable
-from gpytorch.lazy import LazyVariable, CholLazyVariable
+from gpytorch.lazy import LazyTensor, CholLazyTensor
 from gpytorch.module import Module
 from gpytorch.random_variables import GaussianRandomVariable
 
@@ -50,7 +50,7 @@ class AbstractVariationalGP(Module):
         # Get diagonal of covar
         res = super(AbstractVariationalGP, self).__call__(inputs)
         covar_diag = res.covar()
-        if isinstance(covar_diag, LazyVariable):
+        if isinstance(covar_diag, LazyTensor):
             covar_diag = covar_diag.evaluate()
         covar_diag = covar_diag.view(orig_size[:-1])
 
@@ -94,5 +94,5 @@ class AbstractVariationalGP(Module):
             raise RuntimeError("Invalid number of variational covar dimensions")
 
         chol_variational_covar = inside.mul(chol_variational_covar)
-        variational_covar = CholLazyVariable(chol_variational_covar.transpose(-1, -2))
+        variational_covar = CholLazyTensor(chol_variational_covar.transpose(-1, -2))
         return GaussianRandomVariable(self.variational_mean, variational_covar)
