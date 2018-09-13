@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from torch.autograd import Variable
 from gpytorch.lazy import BlockDiagonalLazyTensor, NonLazyTensor
 from gpytorch.utils import approx_equal
 
@@ -17,13 +16,13 @@ blocks = blocks.transpose(-1, -2).matmul(blocks)
 class TestBlockDiagonalLazyTensor(unittest.TestCase):
     def test_matmul(self):
         rhs = torch.randn(4 * 8, 4)
-        rhs_var = Variable(rhs, requires_grad=True)
-        rhs_var_copy = Variable(rhs, requires_grad=True)
+        rhs_var = torch.tensor(rhs.data, requires_grad=True)
+        rhs_var_copy = torch.tensor(rhs.data, requires_grad=True)
 
-        block_var = Variable(blocks, requires_grad=True)
-        block_var_copy = Variable(blocks, requires_grad=True)
+        block_var = torch.tensor(blocks.data, requires_grad=True)
+        block_var_copy = torch.tensor(blocks.data, requires_grad=True)
 
-        actual_block_diagonal = Variable(torch.zeros(32, 32))
+        actual_block_diagonal = torch.zeros(32, 32)
         for i in range(8):
             actual_block_diagonal[i * 4 : (i + 1) * 4, i * 4 : (i + 1) * 4] = block_var_copy[i]
 
@@ -40,13 +39,13 @@ class TestBlockDiagonalLazyTensor(unittest.TestCase):
 
     def test_batch_matmul(self):
         rhs = torch.randn(2, 4 * 4, 4)
-        rhs_var = Variable(rhs, requires_grad=True)
-        rhs_var_copy = Variable(rhs, requires_grad=True)
+        rhs_var = torch.tensor(rhs.data, requires_grad=True)
+        rhs_var_copy = torch.tensor(rhs.data, requires_grad=True)
 
-        block_var = Variable(blocks, requires_grad=True)
-        block_var_copy = Variable(blocks, requires_grad=True)
+        block_var = torch.tensor(blocks.data, requires_grad=True)
+        block_var_copy = torch.tensor(blocks.data, requires_grad=True)
 
-        actual_block_diagonal = Variable(torch.zeros(2, 16, 16))
+        actual_block_diagonal = torch.zeros(2, 16, 16)
         for i in range(2):
             for j in range(4):
                 actual_block_diagonal[i, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4] = block_var_copy[i * 4 + j]
@@ -63,8 +62,8 @@ class TestBlockDiagonalLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(block_var.grad.data, block_var_copy.grad.data))
 
     def test_diag(self):
-        block_var = Variable(blocks, requires_grad=True)
-        actual_block_diagonal = Variable(torch.zeros(32, 32))
+        block_var = torch.tensor(blocks.data, requires_grad=True)
+        actual_block_diagonal = torch.zeros(32, 32)
         for i in range(8):
             actual_block_diagonal[i * 4 : (i + 1) * 4, i * 4 : (i + 1) * 4] = block_var[i]
 
@@ -73,8 +72,8 @@ class TestBlockDiagonalLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual.data, res.data))
 
     def test_batch_diag(self):
-        block_var = Variable(blocks, requires_grad=True)
-        actual_block_diagonal = Variable(torch.zeros(2, 16, 16))
+        block_var = torch.tensor(blocks.data, requires_grad=True)
+        actual_block_diagonal = torch.zeros(2, 16, 16)
         for i in range(2):
             for j in range(4):
                 actual_block_diagonal[i, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4] = block_var[i * 4 + j]
@@ -84,8 +83,8 @@ class TestBlockDiagonalLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual.data, res.data))
 
     def test_getitem(self):
-        block_var = Variable(blocks, requires_grad=True)
-        actual_block_diagonal = Variable(torch.zeros(32, 32))
+        block_var = torch.tensor(blocks.data, requires_grad=True)
+        actual_block_diagonal = torch.zeros(32, 32)
         for i in range(8):
             actual_block_diagonal[i * 4 : (i + 1) * 4, i * 4 : (i + 1) * 4] = block_var[i]
 
@@ -94,8 +93,8 @@ class TestBlockDiagonalLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual.data, res.data))
 
     def test_getitem_batch(self):
-        block_var = Variable(blocks, requires_grad=True)
-        actual_block_diagonal = Variable(torch.zeros(2, 16, 16))
+        block_var = torch.tensor(blocks.data, requires_grad=True)
+        actual_block_diagonal = torch.zeros(2, 16, 16)
         for i in range(2):
             for j in range(4):
                 actual_block_diagonal[i, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4] = block_var[i * 4 + j]

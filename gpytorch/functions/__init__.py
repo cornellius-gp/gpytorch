@@ -3,7 +3,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from torch.autograd import Variable
+import torch
+
 from ._add_diag import AddDiag
 from ._dsmm import DSMM
 from ._normal_cdf import NormalCDF
@@ -15,16 +16,16 @@ def add_diag(input, diag):
     Adds a diagonal matrix s*I to the input matrix input.
 
     Args:
-        - input (matrix nxn) - Variable or LazyTensor wrapping matrix to add diagonal \
+        - input (matrix nxn) - Tensor or LazyTensor wrapping matrix to add diagonal \
                                component to.
         - diag (scalar) - Scalar s so that s*I is added to the input matrix.
 
     Returns:
-        - matrix nxn - Variable or LazyTensor wrapping a new matrix with the diagonal \
+        - matrix nxn - Tensor or LazyTensor wrapping a new matrix with the diagonal \
                        component added.
     """
-    if not isinstance(diag, Variable):
-        raise RuntimeError("Expected a variable for the diagonal component.")
+    if not torch.is_tensor(diag):
+        raise RuntimeError("Expected a tensor for the diagonal component.")
 
     if hasattr(input, "add_diag"):
         return input.add_diag(diag)
@@ -44,7 +45,7 @@ def add_jitter(mat):
     if hasattr(mat, "add_jitter"):
         return mat.add_jitter()
     else:
-        diag = Variable(mat.data.new(mat.size(-1)).fill_(1e-3).diag())
+        diag = mat.data.new(mat.size(-1)).fill_(1e-3).diag()
         if mat.ndimension() == 3:
             return mat + diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2))
         else:
@@ -57,8 +58,8 @@ def dsmm(sparse_mat, dense_mat):
     where S is a sparse matrix and D is a dense matrix
 
     Args:
-        - sparse_mat (matrix (b x)mxn) - Variable wrapping sparse matrix
-        - dense_mat (matrix (b x)nxo) - Variable wrapping dense matrix
+        - sparse_mat (matrix (b x)mxn) - Tensor wrapping sparse matrix
+        - dense_mat (matrix (b x)nxo) - Tensor wrapping dense matrix
 
     Returns:
         - matrix (b x)mxo - Result

@@ -1,7 +1,11 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import torch
 from copy import deepcopy
 from operator import mul
-from torch.autograd import Variable
 from .interpolation import Interpolation
 from .linear_cg import linear_cg
 from . import pivoted_cholesky
@@ -101,8 +105,6 @@ def left_interp(interp_indices, interp_values, rhs):
             if interp_indices.ndimension() == 3:
                 n_batch, n_data, n_interp = interp_indices.size()
                 interp_indices = interp_indices.contiguous().view(-1)
-                if isinstance(interp_indices, Variable):
-                    interp_indices = interp_indices.data
                 interp_values = interp_values.contiguous().view(-1, 1)
 
                 if rhs.ndimension() == 3:
@@ -182,7 +184,7 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
         cls = getattr(torch.cuda.sparse, type_name)
     else:
         cls = getattr(torch.sparse, type_name)
-    summing_matrix = Variable(cls(summing_matrix_indices, summing_matrix_values, size))
+    summing_matrix = cls(summing_matrix_indices, summing_matrix_values, size)
 
     res = dsmm(summing_matrix, values)
 

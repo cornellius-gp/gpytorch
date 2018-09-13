@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import os
 import torch
 import unittest
-from torch.autograd import Variable
 from gpytorch.lazy import MulLazyTensor, RootLazyTensor
 from gpytorch.utils import prod
 
@@ -16,7 +15,7 @@ def make_random_mat(size, rank, batch_size=None):
         res = torch.randn(size, rank)
     else:
         res = torch.randn(batch_size, size, rank)
-    return Variable(res, requires_grad=True)
+    return torch.tensor(res, requires_grad=True)
 
 
 class TestMulLazyTensor(unittest.TestCase):
@@ -32,11 +31,11 @@ class TestMulLazyTensor(unittest.TestCase):
     def test_matmul_vec_with_two_matrices(self):
         mat1 = make_random_mat(20, 5)
         mat2 = make_random_mat(20, 5)
-        vec = Variable(torch.randn(20), requires_grad=True)
+        vec = torch.randn(20, requires_grad=True)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        vec_copy = Variable(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        vec_copy = torch.tensor(vec.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2)).matmul(vec)
@@ -58,14 +57,14 @@ class TestMulLazyTensor(unittest.TestCase):
         mat3 = make_random_mat(20, 5)
         mat4 = make_random_mat(20, 5)
         mat5 = make_random_mat(20, 5)
-        vec = Variable(torch.randn(20), requires_grad=True)
+        vec = torch.randn(20, requires_grad=True)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
-        mat4_copy = Variable(mat4.data, requires_grad=True)
-        mat5_copy = Variable(mat5.data, requires_grad=True)
-        vec_copy = Variable(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        mat4_copy = torch.tensor(mat4.data, requires_grad=True)
+        mat5_copy = torch.tensor(mat5.data, requires_grad=True)
+        vec_copy = torch.tensor(vec.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(
@@ -99,11 +98,11 @@ class TestMulLazyTensor(unittest.TestCase):
     def test_matmul_mat_with_two_matrices(self):
         mat1 = make_random_mat(20, 5)
         mat2 = make_random_mat(20, 5)
-        vec = Variable(torch.randn(20, 7), requires_grad=True)
+        vec = torch.randn(20, 7, requires_grad=True)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        vec_copy = Variable(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        vec_copy = torch.tensor(vec.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2)).matmul(vec)
@@ -125,14 +124,14 @@ class TestMulLazyTensor(unittest.TestCase):
         mat3 = make_random_mat(20, 5)
         mat4 = make_random_mat(20, 5)
         mat5 = make_random_mat(20, 5)
-        vec = Variable(torch.eye(20), requires_grad=True)
+        vec = torch.eye(20, requires_grad=True)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
-        mat4_copy = Variable(mat4.data, requires_grad=True)
-        mat5_copy = Variable(mat5.data, requires_grad=True)
-        vec_copy = Variable(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        mat4_copy = torch.tensor(mat4.data, requires_grad=True)
+        mat5_copy = torch.tensor(mat5.data, requires_grad=True)
+        vec_copy = torch.tensor(vec.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(
@@ -166,11 +165,11 @@ class TestMulLazyTensor(unittest.TestCase):
     def test_batch_matmul_mat_with_two_matrices(self):
         mat1 = make_random_mat(20, rank=4, batch_size=5)
         mat2 = make_random_mat(20, rank=4, batch_size=5)
-        vec = Variable(torch.randn(5, 20, 7), requires_grad=True)
+        vec = torch.randn(5, 20, 7, requires_grad=True)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        vec_copy = Variable(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        vec_copy = torch.tensor(vec.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2)).matmul(vec)
@@ -192,14 +191,14 @@ class TestMulLazyTensor(unittest.TestCase):
         mat3 = make_random_mat(20, rank=4, batch_size=5)
         mat4 = make_random_mat(20, rank=4, batch_size=5)
         mat5 = make_random_mat(20, rank=4, batch_size=5)
-        vec = Variable(torch.randn(5, 20, 7), requires_grad=True)
+        vec = torch.randn(5, 20, 7, requires_grad=True)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
-        mat4_copy = Variable(mat4.data, requires_grad=True)
-        mat5_copy = Variable(mat5.data, requires_grad=True)
-        vec_copy = Variable(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        mat4_copy = torch.tensor(mat4.data, requires_grad=True)
+        mat5_copy = torch.tensor(mat5.data, requires_grad=True)
+        vec_copy = torch.tensor(vec.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(
@@ -235,9 +234,9 @@ class TestMulLazyTensor(unittest.TestCase):
         mat2 = make_random_mat(20, rank=4, batch_size=5)
         mat3 = make_random_mat(20, rank=4, batch_size=5)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2))
@@ -255,12 +254,12 @@ class TestMulLazyTensor(unittest.TestCase):
         mat1 = make_random_mat(20, rank=4, batch_size=5)
         mat2 = make_random_mat(20, rank=4, batch_size=5)
         mat3 = make_random_mat(20, rank=4, batch_size=5)
-        const = Variable(torch.ones(1), requires_grad=True)
+        const = torch.ones(1, requires_grad=True)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
-        const_copy = Variable(const.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        const_copy = torch.tensor(const.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3))
@@ -297,9 +296,9 @@ class TestMulLazyTensor(unittest.TestCase):
         mat2 = make_random_mat(20, rank=4)
         mat3 = make_random_mat(20, rank=4)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3)).diag()
@@ -317,9 +316,9 @@ class TestMulLazyTensor(unittest.TestCase):
         mat2 = make_random_mat(20, rank=4, batch_size=5)
         mat3 = make_random_mat(20, rank=4, batch_size=5)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3)).diag()
@@ -338,9 +337,9 @@ class TestMulLazyTensor(unittest.TestCase):
         mat2 = make_random_mat(20, rank=4)
         mat3 = make_random_mat(20, rank=4)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3))
@@ -365,9 +364,9 @@ class TestMulLazyTensor(unittest.TestCase):
         mat2 = make_random_mat(20, rank=4, batch_size=5)
         mat3 = make_random_mat(20, rank=4, batch_size=5)
 
-        mat1_copy = Variable(mat1.data, requires_grad=True)
-        mat2_copy = Variable(mat2.data, requires_grad=True)
-        mat3_copy = Variable(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
+        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
+        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3))
@@ -394,10 +393,10 @@ class TestMulLazyTensor(unittest.TestCase):
 
     def test_batch_mode_matmul_mat_with_five_matrices(self):
         mats = make_random_mat(6, rank=4, batch_size=6)
-        vec = Variable(torch.randn(6, 7), requires_grad=True)
+        vec = torch.randn(6, 7, requires_grad=True)
 
-        mats_copy = Variable(mats.data, requires_grad=True)
-        vec_copy = Variable(vec.data, requires_grad=True)
+        mats_copy = torch.tensor(mats.data, requires_grad=True)
+        vec_copy = torch.tensor(vec.data, requires_grad=True)
 
         # Forward
         res = RootLazyTensor(mats).mul_batch().matmul(vec)
@@ -421,10 +420,10 @@ class TestMulLazyTensor(unittest.TestCase):
 
     def test_batch_mode_matmul_batch_mat_with_five_matrices(self):
         mats = make_random_mat(6, rank=4, batch_size=30)
-        vec = Variable(torch.randn(5, 6, 7), requires_grad=True)
+        vec = torch.randn(5, 6, 7, requires_grad=True)
 
-        mats_copy = Variable(mats.data, requires_grad=True)
-        vec_copy = Variable(vec.data, requires_grad=True)
+        mats_copy = torch.tensor(mats.data, requires_grad=True)
+        vec_copy = torch.tensor(vec.data, requires_grad=True)
 
         # Forward
         res = RootLazyTensor(mats).mul_batch(mul_batch_size=6).matmul(vec)

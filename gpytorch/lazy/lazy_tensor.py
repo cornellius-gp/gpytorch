@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import math
 import torch
-from torch.autograd import Variable
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._root_decomposition import RootDecomposition
@@ -135,10 +134,10 @@ class LazyTensor(object):
 
         res = InterpolatedLazyTensor(
             self,
-            Variable(left_interp_indices),
-            Variable(left_interp_values),
-            Variable(right_interp_indices),
-            Variable(right_interp_values),
+            left_interp_indices,
+            left_interp_values,
+            right_interp_indices,
+            right_interp_values,
         )
         return res
 
@@ -192,7 +191,7 @@ class LazyTensor(object):
 
     def _size(self):
         """
-        Returns the size of the resulting Variable that the lazy tensor represents.
+        Returns the size of the resulting Tensor that the lazy tensor represents.
 
         ..note::
             This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.size`, which does
@@ -239,7 +238,7 @@ class LazyTensor(object):
         Adds an element to the diagonal of the matrix.
 
         Args:
-            - diag (Scalar Variable)
+            - diag (Scalar Tensor)
         """
         from .diag_lazy_tensor import DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
@@ -336,10 +335,10 @@ class LazyTensor(object):
         if size[-1] != size[-2]:
             raise RuntimeError("Diag works on square matrices (or batches)")
 
-        row_col_iter = Variable(self.tensor_cls(size[-1]).long())
+        row_col_iter = self.tensor_cls(size[-1]).long()
         torch.arange(0, size[-1], out=row_col_iter.data)
         if self.ndimension() == 3:
-            batch_iter = Variable(self.tensor_cls(size[0]).long())
+            batch_iter = self.tensor_cls(size[0]).long()
             torch.arange(0, size[0], out=batch_iter.data)
             batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
             row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
@@ -352,9 +351,8 @@ class LazyTensor(object):
 
     def evaluate(self):
         """
-        Explicitly evaluates the matrix this LazyTensor represents. This
-        function should return a Variable explicitly wrapping a Tensor storing
-        an exact representation of this LazyTensor.
+        Explicitly evaluates the matrix this LazyTensor represents. This function
+        should return a Tensor storing an exact representation of this LazyTensor.
         """
         size = self.size()
         if len(size) == 2:
@@ -366,8 +364,6 @@ class LazyTensor(object):
 
         if n_rows < n_cols:
             eye = self.tensor_cls(n_rows).fill_(1).diag()
-            if isinstance(self.representation()[0], Variable):
-                eye = Variable(eye)
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_rows)
                 return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
@@ -375,8 +371,6 @@ class LazyTensor(object):
                 return self.t().matmul(eye).t().contiguous()
         else:
             eye = self.tensor_cls(n_cols).fill_(1).diag()
-            if isinstance(self.representation()[0], Variable):
-                eye = Variable(eye)
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
@@ -648,7 +642,7 @@ class LazyTensor(object):
             :obj:`gpytorch.lazy.ConstantMulLazyTensor`. If other was
             another matrix, this will likely be a :obj:`gpytorch.lazy.MulLazyTensor`.
         """
-        if not (isinstance(other, Variable) or isinstance(other, LazyTensor)) or (
+        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
             torch.is_tensor(other) and (other.numel() == 1 or (self.dim() == 3 and other.numel() == self.size(0)))
         ):
             from .constant_mul_lazy_tensor import ConstantMulLazyTensor
@@ -691,7 +685,7 @@ class LazyTensor(object):
 
             # Take care of extra roots (odd roots), if they exist
             if n_batch % 2:
-                extra_root = Variable(roots.data.new(roots.size(0), 1, roots.size(2), roots.size(3)))
+                extra_root = roots.data.new(roots.size(0), 1, roots.size(2), roots.size(3))
                 extra_root.data.normal_().mul_(1e-6 / math.sqrt(roots.size(3)))
                 extra_root.data.add_(1. / math.sqrt(roots.size(3)))
                 roots = torch.cat([roots, extra_root], 1)
@@ -734,7 +728,7 @@ class LazyTensor(object):
             elif isinstance(arg, LazyTensor):
                 representation += list(arg.representation())
             else:
-                raise RuntimeError("Representation of a LazyTensor should consist only of Variables")
+                raise RuntimeError("Representation of a LazyTensor should consist only of Tensors")
         return tuple(representation)
 
     def representation_tree(self):
@@ -834,7 +828,7 @@ class LazyTensor(object):
 
     def size(self, val=None):
         """
-        Returns the size of the resulting Variable that the lazy tensor represents
+        Returns the size of the resulting Tensor that the lazy tensor represents
         """
         size = self._size()
         if val is not None:
@@ -848,7 +842,7 @@ class LazyTensor(object):
 
     def transpose(self, dim1, dim2):
         """
-        Returns the transpose of the resulting Variable that the lazy tensor represents
+        Returns the transpose of the resulting Tensor that the lazy tensor represents
         """
         ndimension = self.ndimension()
         if dim1 < 0:
@@ -872,7 +866,7 @@ class LazyTensor(object):
 
     def t(self):
         """
-        Returns the transpose of the resulting Variable that the lazy tensor represents
+        Returns the transpose of the resulting Tensor that the lazy tensor represents
         """
         if self.ndimension() != 2:
             raise RuntimeError("Cannot call t for more than 2 dimensions")
@@ -882,8 +876,6 @@ class LazyTensor(object):
     def tensor_cls(self):
         if not hasattr(self, "_tensor_cls"):
             first_item = self.representation()[0]
-            if isinstance(first_item, Variable):
-                first_item = first_item.data
             self._tensor_cls = _import_dotted_name(first_item.type())
         return self._tensor_cls
 
@@ -1013,7 +1005,7 @@ class LazyTensor(object):
         return res
 
     def __setattr__(self, name, val):
-        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyTensor):
+        if torch.is_tensor(val) or isinstance(val, LazyTensor):
             if not hasattr(self, "_args"):
                 raise RuntimeError(
                     "Cannot assign {name} to LazyTensor before calling " "LazyTensor.__init__()".format(name=name)

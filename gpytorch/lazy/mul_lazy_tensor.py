@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .root_lazy_tensor import RootLazyTensor
@@ -29,7 +28,7 @@ class MulLazyTensor(LazyTensor):
                     if torch.is_tensor(lazy_var):
                         lazy_vars[i] = NonLazyTensor(lazy_var)
                     else:
-                        raise RuntimeError("All arguments of a MulLazyTensor should be lazy tensors or variables")
+                        raise RuntimeError("All arguments of a MulLazyTensor should be LazyTensors or Tensors")
 
         super(MulLazyTensor, self).__init__(*lazy_vars)
         self.lazy_vars = lazy_vars
@@ -199,7 +198,7 @@ class MulLazyTensor(LazyTensor):
         return res
 
     def mul(self, other):
-        if isinstance(other, int) or isinstance(other, float) or (isinstance(other, Variable) and other.numel() == 1):
+        if isinstance(other, int) or isinstance(other, float) or (torch.is_tensor(other) and other.numel() == 1):
             lazy_vars = list(self.lazy_vars[:-1])
             lazy_vars.append(self.lazy_vars[-1] * other)
             return MulLazyTensor(*lazy_vars)
@@ -234,7 +233,7 @@ class MulLazyTensor(LazyTensor):
 
     def representation(self):
         """
-        Returns the variables that are used to define the LazyTensor
+        Returns the Tensors that are used to define the LazyTensor
         """
         if self.non_lazy_self is not None:
             return self.non_lazy_self.representation()

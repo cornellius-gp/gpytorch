@@ -3,10 +3,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import torch
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
-from torch.autograd import Variable
 
 
 class SumLazyTensor(LazyTensor):
@@ -14,10 +14,10 @@ class SumLazyTensor(LazyTensor):
         lazy_vars = list(lazy_vars)
         for i, lazy_var in enumerate(lazy_vars):
             if not isinstance(lazy_var, LazyTensor):
-                if isinstance(lazy_var, Variable):
+                if torch.is_tensor(lazy_var):
                     lazy_vars[i] = NonLazyTensor(lazy_var)
                 else:
-                    raise RuntimeError("All arguments of a SumLazyTensor should be lazy " "variables or variables")
+                    raise RuntimeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
         super(SumLazyTensor, self).__init__(*lazy_vars)
 
         self.lazy_vars = lazy_vars
@@ -37,7 +37,7 @@ class SumLazyTensor(LazyTensor):
         return self.lazy_vars[0].size()
 
     def _transpose_nonbatch(self):
-        lazy_vars_t = list(lazy_var.transpose(-1, -2) for lazy_var in self.lazy_vars)
+        lazy_vars_t = [lazy_var.transpose(-1, -2) for lazy_var in self.lazy_vars]
         return SumLazyTensor(*lazy_vars_t)
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):

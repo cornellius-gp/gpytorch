@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 
 
 class Interpolation(object):
@@ -28,7 +27,7 @@ class Interpolation(object):
         it is only intended to be used on single dimensional data.
         """
         U = scaled_grid_dist.abs()
-        res = Variable(U.data.new(U.size()).zero_())
+        res = U.data.new(U.size()).zero_()
 
         U_lt_1 = 1 - U.floor().clamp(0, 1)  # U, if U < 1, 0 otherwise
         res = res + (((1.5 * U - 2.5).mul(U)).mul(U) + 1) * U_lt_1
@@ -76,16 +75,16 @@ class Interpolation(object):
             )
 
         # Now do interpolation
-        interp_points_flip = Variable(x_grid.data.new(interp_points[::-1]))
-        interp_points = Variable(x_grid.data.new(interp_points))
+        interp_points_flip = x_grid.data.new(interp_points[::-1])
+        interp_points = x_grid.data.new(interp_points)
 
         num_grid_points = x_grid.size(1)
         num_target_points = x_target.size(0)
         num_dim = x_target.size(-1)
         num_coefficients = len(interp_points)
 
-        interp_values = Variable(x_target.data.new(num_target_points, num_coefficients ** num_dim).fill_(1))
-        interp_indices = Variable(x_grid.data.new(num_target_points, num_coefficients ** num_dim).long().zero_())
+        interp_values = x_target.data.new(num_target_points, num_coefficients ** num_dim).fill_(1)
+        interp_indices = x_grid.data.new(num_target_points, num_coefficients ** num_dim).long().zero_()
 
         for i in range(num_dim):
             grid_delta = x_grid[i, 1] - x_grid[i, 0]

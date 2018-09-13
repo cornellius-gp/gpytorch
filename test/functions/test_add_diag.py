@@ -7,14 +7,13 @@ import math
 import torch
 import unittest
 import gpytorch
-from torch.autograd import Variable
 from torch import nn
 
 
 class AddDiagTest(unittest.TestCase):
     def test_forward(self):
         a = nn.Parameter(torch.Tensor([5]))
-        b = Variable(torch.ones(3, 3))
+        b = torch.ones(3, 3)
         output = gpytorch.add_diag(b, a)
 
         actual = torch.Tensor([[6, 1, 1], [1, 6, 1], [1, 1, 6]])
@@ -24,7 +23,7 @@ class AddDiagTest(unittest.TestCase):
         grad = torch.randn(3, 3)
 
         a = nn.Parameter(torch.Tensor([3]))
-        b = Variable(torch.ones(3, 3), requires_grad=True)
+        b = torch.ones(3, 3, requires_grad=True)
         output = gpytorch.add_diag(b, a)
         output.backward(gradient=grad)
 
