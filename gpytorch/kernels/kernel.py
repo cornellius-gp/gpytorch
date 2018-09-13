@@ -56,21 +56,25 @@ class Kernel(Module):
         be sure that the prior has :attr:`log_transform=True` set.
 
     Base Args:
-        :attr:`has_lengthscale` (bool): Set this if the kernel has a lengthscale. Default: `False`.
-        :attr:`ard_num_dims` (int, optional): Set this if you want a separate lengthscale for each
-            input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
-        :attr:`batch_size` (int, optional): Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
-        :attr:`active_dims` (tuple of ints, optional): Set this if you want to
-            compute the covariance of only a few input dimensions. The ints
+        :attr:`has_lengthscale` (bool):
+            Set this if the kernel has a lengthscale. Default: `False`.
+        :attr:`ard_num_dims` (int, optional):
+            Set this if you want a separate lengthscale for each input
+            dimension. It should be `d` if :attr:`x1` is a `n x d` matrix.  Default: `None`
+        :attr:`batch_size` (int, optional):
+            Set this if you want a separate lengthscale for each batch of input
+            data. It should be `b` if :attr:`x1` is a `b x n x d` tensor.  Default: `1`
+        :attr:`active_dims` (tuple of ints, optional):
+            Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`log_lengthscale_prior` (Prior, optional): Set this if you want
-            to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`eps` (float): The minimum value that the lengthscale can take
-            (prevents divide by zero errors). Default: `1e-6`.
+        :attr:`log_lengthscale_prior` (Prior, optional):
+            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
+        :attr:`eps` (float):
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
     Base Attributes:
-        :attr:`lengthscale` (Tensor): The lengthscale parameter. Size/shape of parameter depends on the
+        :attr:`lengthscale` (Tensor):
+            The lengthscale parameter. Size/shape of parameter depends on the
             :attr:`ard_num_dims` and :attr:`batch_size` arguments.
 
     Example:

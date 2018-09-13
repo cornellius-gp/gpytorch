@@ -10,13 +10,13 @@ from .kernel import Kernel
 class RBFKernel(Kernel):
     r"""
     Computes a covariance matrix based on the RBF (squared exponential) kernel
-    between inputs :math:`mathbf{x_1}` and :math:`mathbf{x_2}`:
+    between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`:
 
     .. math::
 
        \begin{equation*}
-          k_{\text{RBF}}(mathbf{x_1}, mathbf{x_2}) = \exp \left( -\frac{1}{2}
-          (mathbf{x_1} - mathbf{x_2})^\top \Theta^{-1} (mathbf{x_1} - mathbf{x_2}) \right)
+          k_{\text{RBF}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left( -\frac{1}{2}
+          (\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-1} (\mathbf{x_1} - \mathbf{x_2}) \right)
        \end{equation*}
 
     where :math:`\Theta` is a :attr:`lengthscale` parameter.
@@ -28,20 +28,26 @@ class RBFKernel(Kernel):
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
     Args:
-        :attr:`ard_num_dims` (int, optional): Set this if you want a separate lengthscale for each
+        :attr:`ard_num_dims` (int, optional):
+            Set this if you want a separate lengthscale for each
             input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
-        :attr:`batch_size` (int, optional): Set this if you want a separate lengthscale for each
+        :attr:`batch_size` (int, optional):
+            Set this if you want a separate lengthscale for each
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
-        :attr:`active_dims` (tuple of ints, optional): Set this if you want to
+        :attr:`active_dims` (tuple of ints, optional):
+            Set this if you want to
             compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`log_lengthscale_prior` (Prior, optional): Set this if you want
+        :attr:`log_lengthscale_prior` (Prior, optional):
+            Set this if you want
             to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`eps` (float): The minimum value that the lengthscale can take
+        :attr:`eps` (float):
+            The minimum value that the lengthscale can take
             (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
-        :attr:`lengthscale` (Tensor): The lengthscale parameter. Size/shape of parameter depends on the
+        :attr:`lengthscale` (Tensor):
+            The lengthscale parameter. Size/shape of parameter depends on the
             :attr:`ard_num_dims` and :attr:`batch_size` arguments.
 
     Example:

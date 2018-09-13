@@ -19,7 +19,8 @@ class WhiteNoiseKernel(Kernel):
         represents the training data.
 
     Args:
-        :attr:`variances` (Tensor `n x 1` or `b x n x 1`): The random variances to be applied to training inputs.
+        :attr:`variances` (Tensor `n x 1` or `b x n x 1`):
+            The random variances to be applied to training inputs.
             `b` and `n` should correspond to the size of the training data.
 
     Example:

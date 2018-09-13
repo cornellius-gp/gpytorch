@@ -14,15 +14,9 @@ logger = logging.getLogger()
 
 class SpectralMixtureKernel(Kernel):
     r"""
-    Computes a covariance matrix based on the RBF (squared exponential) kernel
+    Computes a covariance matrix based on the Spectral Mixture Kernel
     between inputs :math:`mathbf{x_1}` and :math:`mathbf{x_2}`:
-
-    .. math::
-
-       \begin{equation*}
-          k_{\text{RBF}}(mathbf{x_1}, mathbf{x_2}) = \exp \left( -\frac{1}{2}
-          (mathbf{x_1} - mathbf{x_2})^\top \Theta^{-1} (mathbf{x_1} - mathbf{x_2}) \right)
-       \end{equation*}
+    It was proposed in `Gaussian Process Kernels for Pattern Discovery and Extrapolation`_.
 
     .. note::
 
@@ -32,22 +26,30 @@ class SpectralMixtureKernel(Kernel):
         * This kernel should not be combined with a :class:`gpytorch.kernels.ScaleKernel`.
 
     Args:
-        :attr:`num_mixtures` (int, optional): The number of components in the mixture.
-        :attr:`ard_num_dims` (int, optional): Set this to match the dimensionality of the input.
+        :attr:`num_mixtures` (int, optional):
+            The number of components in the mixture.
+        :attr:`ard_num_dims` (int, optional):
+            Set this to match the dimensionality of the input.
             It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `1`
-        :attr:`batch_size` (int, optional): Set this if the data is
+        :attr:`batch_size` (int, optional):
+            Set this if the data is
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
-        :attr:`active_dims` (tuple of ints, optional): Set this if you want to
+        :attr:`active_dims` (tuple of ints, optional):
+            Set this if you want to
             compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`eps` (float): The minimum value that the lengthscale can take
+        :attr:`eps` (float):
+            The minimum value that the lengthscale can take
             (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
-        :attr:`mixture_lengthscale` (Tensor): The lengthscale parameter. Given `k` mixture components,
+        :attr:`mixture_lengthscale` (Tensor):
+            The lengthscale parameter. Given `k` mixture components,
             and `b x n x d` data, this will be of size `b x k x 1 x d`.
-        :attr:`mixture_means` (Tensor): The mixture mean parameters (`b x k x 1 x d`).
-        :attr:`mixture_weights` (Tensor): The mixture weight parameters (`b x k`).
+        :attr:`mixture_means` (Tensor):
+            The mixture mean parameters (`b x k x 1 x d`).
+        :attr:`mixture_weights` (Tensor):
+            The mixture weight parameters (`b x k`).
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -63,7 +65,12 @@ class SpectralMixtureKernel(Kernel):
         >>> # Batch: different lengthscale for each batch
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_size=2))
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
+
+
+    .. Gaussian Process Kernels for Pattern Discovery and Extrapolation:
+        https://arxiv.org/pdf/1302.4245.pdf
     """
+    # TODO: add equation to docs
 
     def __init__(
         self,
