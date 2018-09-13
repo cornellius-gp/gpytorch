@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from torch import Tensor
+import torch
 
 from ._add_diag import AddDiag
 from ._dsmm import DSMM
@@ -24,7 +24,7 @@ def add_diag(input, diag):
         - matrix nxn - Tensor or LazyTensor wrapping a new matrix with the diagonal \
                        component added.
     """
-    if not isinstance(diag, Tensor):
+    if not torch.is_tensor(diag):
         raise RuntimeError("Expected a tensor for the diagonal component.")
 
     if hasattr(input, "add_diag"):

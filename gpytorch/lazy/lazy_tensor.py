@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import math
 import torch
-from torch import Tensor
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._root_decomposition import RootDecomposition
@@ -643,7 +642,7 @@ class LazyTensor(object):
             :obj:`gpytorch.lazy.ConstantMulLazyTensor`. If other was
             another matrix, this will likely be a :obj:`gpytorch.lazy.MulLazyTensor`.
         """
-        if not (isinstance(other, Tensor) or isinstance(other, LazyTensor)) or (
+        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
             torch.is_tensor(other) and (other.numel() == 1 or (self.dim() == 3 and other.numel() == self.size(0)))
         ):
             from .constant_mul_lazy_tensor import ConstantMulLazyTensor

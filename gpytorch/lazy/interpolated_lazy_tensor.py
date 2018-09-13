@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch import Tensor
 from .block_diagonal_lazy_tensor import BlockDiagonalLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
@@ -529,8 +528,8 @@ class InterpolatedLazyTensor(LazyTensor):
     def mul(self, other):
         # We're using a custom method here - the constant mul is applied to the base_lazy tensor
         # This preserves the interpolated structure
-        if not (isinstance(other, Tensor) or isinstance(other, LazyTensor)) or (
-            isinstance(other, Tensor) and other.numel() == 1
+        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
+            torch.is_tensor(other) and other.numel() == 1
         ):
             from .constant_mul_lazy_tensor import ConstantMulLazyTensor
 

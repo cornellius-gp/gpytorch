@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch import Tensor
 from .random_variable import RandomVariable
 from torch.nn import functional as F
 
@@ -22,10 +21,9 @@ class CategoricalRandomVariable(RandomVariable):
         Params:
         - mass_function (Tensor: vector k or matrix n x k) weights of categorical distribution
         """
-        super(CategoricalRandomVariable, self).__init__(mass_function)
-        if not isinstance(mass_function, Tensor):
+        if not torch.is_tensor(mass_function):
             raise RuntimeError("mass_function should be a Tensor")
-
+        super(CategoricalRandomVariable, self).__init__(mass_function)
         ndimension = mass_function.ndimension()
         if ndimension not in [1, 2]:
             raise RuntimeError("mass_function should be a vector or a matrix")

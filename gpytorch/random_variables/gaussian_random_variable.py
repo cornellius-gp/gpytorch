@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from torch import Tensor
+import torch
 from .random_variable import RandomVariable
 from ..lazy import LazyTensor, NonLazyTensor
 
@@ -23,10 +23,10 @@ class GaussianRandomVariable(RandomVariable):
 
     def __init__(self, mean, covar):
         super(GaussianRandomVariable, self).__init__(mean, covar)
-        if not isinstance(mean, Tensor) and not isinstance(mean, LazyTensor):
+        if not torch.is_tensor(mean) and not isinstance(mean, LazyTensor):
             raise RuntimeError("The mean of a GaussianRandomVariable must be a Tensor")
 
-        if not isinstance(covar, Tensor) and not isinstance(covar, LazyTensor):
+        if not torch.is_tensor(covar) and not isinstance(covar, LazyTensor):
             raise RuntimeError("The covariance of a GaussianRandomVariable must be a Tensor")
 
         if not (mean.ndimension() == 1 or mean.ndimension() == 2):

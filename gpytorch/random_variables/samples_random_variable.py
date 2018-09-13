@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import random
-from torch import Tensor
+import torch
 from .random_variable import RandomVariable
 
 
@@ -18,9 +18,9 @@ class SamplesRandomVariable(RandomVariable):
         Params:
         - samples (Tensor: b x ...) samples
         """
-        super(SamplesRandomVariable, self).__init__(samples)
-        if not isinstance(samples, Tensor):
+        if not torch.is_tensor(samples):
             raise RuntimeError("samples should be a Tensor")
+        super(SamplesRandomVariable, self).__init__(samples)
         self._samples = samples
 
     def sample(self):
