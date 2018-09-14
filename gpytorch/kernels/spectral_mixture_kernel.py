@@ -159,13 +159,13 @@ class SpectralMixtureKernel(Kernel):
 
         if not num_dims == self.ard_num_dims:
             raise RuntimeError(
-                "The SpectralMixtureKernel expected the input to have %d dimensionality "
-                "(based on the ard_num_dims argument). Got %d." % (self.ard_num_dims, num_dims)
+                "The SpectralMixtureKernel expected the input to have {} dimensionality "
+                "(based on the ard_num_dims argument). Got {}.".format(self.ard_num_dims, num_dims)
             )
         if not batch_size == self.batch_size:
             raise RuntimeError(
-                "The SpectralMixtureKernel expected the input to have a batch_size of  %d "
-                "(based on the batch_size argument). Got %d." % (self.batch_size, batch_size)
+                "The SpectralMixtureKernel expected the input to have a batch_size of {} "
+                "(based on the batch_size argument). Got {}.".format(self.batch_size, batch_size)
             )
 
         # Expand x1 and x2 to account for the number of mixtures
