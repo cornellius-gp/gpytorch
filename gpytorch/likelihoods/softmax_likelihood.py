@@ -41,7 +41,8 @@ class SoftmaxLikelihood(Likelihood):
             raise RuntimeError("SoftmaxLikelihood expects a Gaussian distributed latent function to make predictions")
 
         n_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.sample(n_samples)
+        samples = latent_func.sample(n_samples, warn_about_shape=False)
+        samples = samples.permute(1, 2, 0).contiguous()  # Now n_featuers, n_data, n_samples
         if samples.ndimension() != 3:
             raise RuntimeError("f should have 3 dimensions: features x data x samples")
         n_features, n_data, _ = samples.size()
@@ -49,7 +50,7 @@ class SoftmaxLikelihood(Likelihood):
             raise RuntimeError("There should be %d features" % self.n_features)
 
         mixed_fs = self.mixing_weights.matmul(samples.view(n_features, n_samples * n_data))
-        softmax = torch.nn.functional.softmax(mixed_fs.t()).view(n_data, n_samples, self.n_classes)
+        softmax = torch.nn.functional.softmax(mixed_fs.t(), 1).view(n_data, n_samples, self.n_classes)
         softmax = softmax.mean(1)
         return CategoricalRandomVariable(softmax)
 
@@ -60,7 +61,8 @@ class SoftmaxLikelihood(Likelihood):
         f_{i} drawn from p(f|x).
         """
         n_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.sample(n_samples)
+        samples = latent_func.sample(n_samples, warn_about_shape=False)
+        samples = samples.permute(1, 2, 0).contiguous()  # Now n_featuers, n_data, n_samples
         if samples.ndimension() != 3:
             raise RuntimeError("f should have 3 dimensions: features x data x samples")
         n_features, n_data, _ = samples.size()

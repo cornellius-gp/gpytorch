@@ -879,18 +879,20 @@ class LazyTensor(object):
             self._tensor_cls = _import_dotted_name(first_item.type())
         return self._tensor_cls
 
-    def zero_mean_mvn_samples(self, n_samples):
+    def zero_mean_mvn_samples(self, num_samples):
         """
         Assumes that self is a covariance matrix, or a batch of covariance matrices.
         Returns samples from a zero-mean MVN, defined by self (as covariance matrix)
 
-        Self should be symmetric, either (batch_size x n_dim x n_dim) or (n_dim x n_dim)
+        Self should be symmetric, either (batch_size x num_dim x num_dim) or (num_dim x num_dim)
 
         Args:
-            n_samples (int): Number of samples to draw.
+            :attr:`num_samples` (int):
+                Number of samples to draw.
 
         Returns:
-            :obj:`torch.tensor`: Samples from MVN (batch_size x n_samples)
+            :obj:`torch.tensor`:
+                Samples from MVN (num_samples x batch_size x num_dim) or (num_samples x num_dim)
         """
         if self.size()[-2:] == torch.Size([1, 1]):
             covar_root = self.evaluate().sqrt()
@@ -898,10 +900,12 @@ class LazyTensor(object):
             covar_root = self.root_decomposition()
 
         if self.ndimension() == 3:
-            base_samples = self.tensor_cls(self.size(0), covar_root.size(-1), n_samples).normal_()
+            base_samples = self.tensor_cls(self.size(0), covar_root.size(-1), num_samples).normal_()
+            samples = covar_root.matmul(base_samples).permute(2, 0, 1).contiguous()
         else:
-            base_samples = self.tensor_cls(covar_root.size(-1), n_samples).normal_()
-        samples = covar_root.matmul(base_samples)
+            base_samples = self.tensor_cls(covar_root.size(-1), num_samples).normal_()
+            samples = covar_root.matmul(base_samples).permute(1, 0).contiguous()
+
         return samples
 
     def __add__(self, other):

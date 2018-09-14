@@ -149,13 +149,13 @@ class SumBatchLazyTensor(LazyTensor):
         else:
             return super(SumBatchLazyTensor, self).mul(other)
 
-    def zero_mean_mvn_samples(self, n_samples):
-        n_dim = self.size(-2)
-        res = self.base_lazy_tensor.zero_mean_mvn_samples(n_samples)
+    def zero_mean_mvn_samples(self, num_samples):
+        num_dim = self.size(-2)
+        res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
         if self.sum_batch_size is None:
-            res = res.view(-1, n_dim, n_samples).sum(0)
+            res = res.view(num_samples, -1, num_dim).sum(1)
         else:
-            res = res.view(-1, self.sum_batch_size, n_dim, n_samples).sum(1)
+            res = res.view(num_samples, -1, self.sum_batch_size, num_dim).sum(2)
         return res
 
     def __getitem__(self, index):

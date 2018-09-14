@@ -63,10 +63,10 @@ class DiagLazyTensor(LazyTensor):
         else:
             return super(DiagLazyTensor, self).evaluate()
 
-    def zero_mean_mvn_samples(self, n_samples):
+    def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:
-            base_samples = self.tensor_cls(self._diag.size(0), self._diag.size(1), n_samples).normal_()
+            base_samples = self.tensor_cls(num_samples, self._diag.size(0), self._diag.size(1)).normal_()
         else:
-            base_samples = self.tensor_cls(self._diag.size(0), n_samples).normal_()
-        samples = self._diag.unsqueeze(-1).sqrt() * base_samples
+            base_samples = self.tensor_cls(num_samples, self._diag.size(0)).normal_()
+        samples = self._diag.unsqueeze(0).sqrt() * base_samples
         return samples

@@ -616,10 +616,19 @@ class InterpolatedLazyTensor(LazyTensor):
             block_diag, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
 
-    def zero_mean_mvn_samples(self, n_samples):
-        return left_interp(
-            self.left_interp_indices, self.left_interp_values, self.base_lazy_tensor.zero_mean_mvn_samples(n_samples)
-        )
+    def zero_mean_mvn_samples(self, num_samples):
+        if self.ndimension() == 3:
+            res = left_interp(
+                self.left_interp_indices, self.left_interp_values,
+                self.base_lazy_tensor.zero_mean_mvn_samples(num_samples).permute(1, 2, 0).contiguous()
+            )
+            return res.permute(2, 0, 1).contiguous()
+        else:
+            res = left_interp(
+                self.left_interp_indices, self.left_interp_values,
+                self.base_lazy_tensor.zero_mean_mvn_samples(num_samples).permute(1, 0).contiguous()
+            )
+            return res.permute(1, 0).contiguous()
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]

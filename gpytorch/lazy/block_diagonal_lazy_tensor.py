@@ -130,12 +130,12 @@ class BlockDiagonalLazyTensor(LazyTensor):
         else:
             return super(BlockDiagonalLazyTensor, self).mul(other)
 
-    def zero_mean_mvn_samples(self, n_samples):
-        res = self.base_lazy_tensor.zero_mean_mvn_samples(n_samples)
+    def zero_mean_mvn_samples(self, num_samples):
+        res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
         if self.n_blocks is None:
-            res = res.view(-1, n_samples)
+            res = res.view(num_samples, -1)
         else:
-            res = res.view(self.base_lazy_tensor.size(0) // self.n_blocks, -1, n_samples)
+            res = res.view(num_samples, self.base_lazy_tensor.size(0) // self.n_blocks, -1)
         return res
 
     def __getitem__(self, index):
