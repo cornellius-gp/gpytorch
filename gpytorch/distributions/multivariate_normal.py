@@ -1,13 +1,9 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import math
-
-import torch
 from torch.distributions import MultivariateNormal as TMultivariateNormal
-from torch.distributions.multivariate_normal import _batch_mv
 from torch.distributions.utils import lazy_property
 
-from ..lazy import LazyVariable
+from ..lazy import LazyTensor
 from .distribution import Distribution
 
 
@@ -26,17 +22,19 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     """
 
     def __init__(self, mean, covariance_matrix, validate_args=False):
-        self._islazy = any(isinstance(arg, LazyVariable) for arg in (mean, covariance_matrix))
+        self._islazy = any(isinstance(arg, LazyTensor) for arg in (mean, covariance_matrix))
         if self._islazy:
             if validate_args:
                 # TODO: add argument validation
                 raise NotImplementedError()
             self.loc = mean
             self._covar = covariance_matrix
+            self.__unbroadcasted_scale_tril = None
             self._validate_args = validate_args
             batch_shape, event_shape = self.loc.shape[:-1], self.loc.shape[-1:]
-            # TODO: Integrate argument validation for LazyVariables into torch.distribution validation logic
+            # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
+        else:
             super(MultivariateNormal, self).__init__(
                 loc=mean, covariance_matrix=covariance_matrix, validate_args=validate_args
             )
@@ -64,12 +62,19 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             raise RuntimeError("Can only multiply by scalars")
         return self.__class__(mean=self.mean * other, covariance_matrix=self.covariance_matrix * (other ** 2))
 
-    @lazy_property
-    def scale_tril(self):
-        if self._islazy:
-            raise NotImplementedError("scale_tril not implemented for lazy MultivariateNormal")
+    @property
+    def _unbroadcasted_scale_tril(self):
+        if self.islazy and self.__unbroadcasted_scale_tril is None:
+            # cache root decoposition
+            self.__unbroadcasted_scale_tril = self.covariance_matrix.root_decomposition()
+        return self.__unbroadcasted_scale_tril
+
+    @_unbroadcasted_scale_tril.setter
+    def _unbroadcasted_scale_tril(self, ust):
+        if self.islazy:
+            raise NotImplementedError("Cannot set _unbroadcasted_scale_tril for lazy MVN distributions")
         else:
-            return super(MultivariateNormal, self).scale_tril
+            self.__unbroadcasted_scale_tril = ust
 
     @lazy_property
     def covariance_matrix(self):
@@ -78,42 +83,5 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             return super(MultivariateNormal, self).covariance_matrix
 
-    @lazy_property
-    def precision_matrix(self):
-        if self._islazy:
-            raise NotImplementedError("precision_matrix not implemented for lazy MultivariateNormal")
-        else:
-            return super(MultivariateNormal, self).precision_matrix
-
-    def rsample(self, sample_shape=torch.Size()):
-        if self._islazy:
-            shape = self._extended_shape(sample_shape)
-            eps = self.loc.new_empty(shape).normal_()
-            # this will fail, rewrite using LazyVariable code
-            return self.loc + _batch_mv(self._covar.root_decomposition(), eps)
-        else:
-            return super(MultivariateNormal, self).rsample(sample_shape=sample_shape)
-
-    def log_prob(self, value):
-        if self._islazy:
-            if self._validate_args:
-                self._validate_sample(value)
-            diff = value - self.loc
-            # re-write this for LazyVariables
-            # M = _batch_mahalanobis(self._unbroadcasted_scale_tril, diff)
-            # half_log_det = _batch_diag(self._unbroadcasted_scale_tril).log().sum(-1)
-            return -0.5 * (self._event_shape[0] * math.log(2 * math.pi) + M) - half_log_det
-        else:
-            return super(MultivariateNormal, self).log_prob(value)
-
-    def entropy(self):
-        if self._islazy:
-            # re-write this for LazyVariables
-            # half_log_det = _batch_diag(self._unbroadcasted_scale_tril).log().sum(-1)
-            H = 0.5 * self._event_shape[0] * (1 + math.log(2 * math.pi)) + half_log_det
-            if len(self._batch_shape) == 0:
-                return H
-            else:
-                return H.expand(self._batch_shape)
-        else:
-            return super(MultivariateNormal, self).entropy()
+    # TODO: Implement more efficient versions of variance etc. properties
+    # that do not require evaluating the full covariance matrix

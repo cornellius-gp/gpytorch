@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import torch
 
-from ..lazy import LazyVariable, NonLazyVariable
+from ..lazy import LazyTensor
 from .multivariate_normal import MultivariateNormal
 
 
@@ -17,50 +17,44 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
         Params:
             mean (:obj:`torch.tensor`): An `n x t` or batch `b x n x t` matrix of means for the MVN distribution.
-            covar (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyVariable`): An `nt x nt` or batch `b x nt x nt`
+            covar (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`): An `nt x nt` or batch `b x nt x nt`
                 covariance matrix of MVN distribution.
         """
-        super(MultitaskMultivariateNormal, self).__init__(mean, covariance_matrix)
-        if not torch.is_tensor(mean) and not isinstance(mean, LazyVariable):
-            raise RuntimeError("The mean of a MultitaskMultivariateNormal must be a Tensor or LazyVariable")
+        if not torch.is_tensor(mean) and not isinstance(mean, LazyTensor):
+            raise RuntimeError(
+                "The mean of a MultitaskMultivariateNormal must be a Tensor or LazyTensor"
+            )
 
-        if not torch.is_tensor(covariance_matrix) and not isinstance(covariance_matrix, LazyVariable):
-            raise RuntimeError("The covariance of a MultitaskMultivariateNormal must be a Tensor or LazyVariable")
+        if not torch.is_tensor(covariance_matrix) and not isinstance(
+            covariance_matrix, LazyTensor
+        ):
+            raise RuntimeError(
+                "The covariance of a MultitaskMultivariateNormal must be a Tensor or LazyTensor"
+            )
 
         if mean.ndimension() not in {2, 3}:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
 
-        if not isinstance(covariance_matrix, LazyVariable):
-            covar = NonLazyVariable(covariance_matrix)
-
-        self.loc = mean
-        self._covar = covar
-        self._nbatch = mean.shape[0] if mean.ndimension() == 3 else None
-        self._n = mean.shape[-2]
-        self._num_tasks = mean.shape[-1]
+        self._mean_shape = mean.shape
+        batch_shape = self._mean_shape[:-2]
+        super(MultitaskMultivariateNormal, self).__init__(
+            mean=mean.view(batch_shape, -1) if batch_shape else mean.view(-1),
+            covariance_matrix=covariance_matrix,
+            validate_args=validate_args,
+        )
 
     @property
     def n_tasks(self):
         return self._num_tasks
 
-    def covar(self):
-        return self._covar
-
+    @property
     def mean(self):
-        return self.loc
+        return super(MultivariateNormal, self).variance.view(*self._mean_shape)
 
-    def representation(self):
-        return self.loc, self._covar
+    @property
+    def variance(self):
+        return super(MultivariateNormal, self).mean.view(*self._mean_shape)
 
-    def sample(self, n_samples):
-        samples = (
-            self._covar.zero_mean_mvn_samples(n_samples)
-            .view(self._num_tasks, self._n, n_samples)
-            .transpose(0, 1)
-            .contiguous()
-            .add(self.loc.unsqueeze(-1))
-        )
-        return samples
-
-    def var(self):
-        return self._covar.diag().view(self._n, self._num_tasks)
+    def rsample(self, sample_shape=torch.Size([])):
+        samples = super(MultivariateNormal, self).rsample(sample_shape=sample_shape)
+        return samples.view(-1, *self._mean_shape)
