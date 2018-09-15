@@ -47,7 +47,7 @@ class ExactGP(Module):
 
             warnings.warn(
                 "model.marginal_log_likelihood is now deprecated. "
-                "Please use gpytorch.mll.ExactMarginalLogLikelihood instead."
+                "Please use gpytorch.mll.ExactMarginalLogLikelihood instead.", DeprecationWarning
             )
             self._has_warned = True
         return ExactMarginalLogLikelihood(likelihood, self)(output, target)

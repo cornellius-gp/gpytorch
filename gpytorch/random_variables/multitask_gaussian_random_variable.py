@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from .gaussian_random_variable import GaussianRandomVariable
-from ..lazy import LazyVariable, NonLazyVariable
+from ..lazy import LazyTensor, NonLazyTensor
 
 
 class MultitaskGaussianRandomVariable(GaussianRandomVariable):
@@ -19,21 +19,21 @@ class MultitaskGaussianRandomVariable(GaussianRandomVariable):
 
         Params:
             mean (:obj:`torch.tensor`): An `n x t` or batch `b x n x t` matrix of means for the Gaussian distribution.
-            covar (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyVariable`): An `nt x nt` or batch `b x nt x nt`
+            covar (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`): An `nt x nt` or batch `b x nt x nt`
                 covariance matrix of Gaussian distribution.
         """
         super(MultitaskGaussianRandomVariable, self).__init__(mean, covar)
-        if not torch.is_tensor(mean) and not isinstance(mean, LazyVariable):
-            raise RuntimeError("The mean of a GaussianRandomVariable must be a Tensor or LazyVariable")
+        if not torch.is_tensor(mean) and not isinstance(mean, LazyTensor):
+            raise RuntimeError("The mean of a GaussianRandomVariable must be a Tensor or LazyTensor")
 
-        if not torch.is_tensor(covar) and not isinstance(covar, LazyVariable):
-            raise RuntimeError("The covariance of a GaussianRandomVariable must be a Tensor or LazyVariable")
+        if not torch.is_tensor(covar) and not isinstance(covar, LazyTensor):
+            raise RuntimeError("The covariance of a GaussianRandomVariable must be a Tensor or LazyTensor")
 
         if mean.ndimension() not in {2, 3}:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
 
-        if not isinstance(covar, LazyVariable):
-            covar = NonLazyVariable(covar)
+        if not isinstance(covar, LazyTensor):
+            covar = NonLazyTensor(covar)
 
         self._mean = mean
         self._covar = covar

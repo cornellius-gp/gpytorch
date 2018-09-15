@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from torch.autograd import Variable
 from gpytorch.utils.interpolation import Interpolation
 from gpytorch import utils
 
@@ -14,7 +13,7 @@ class TestCubicInterpolation(unittest.TestCase):
     def test_interpolation(self):
         x = torch.linspace(0.01, 1, 100).unsqueeze(1)
         grid = torch.linspace(-0.05, 1.05, 50).unsqueeze(0)
-        indices, values = Interpolation().interpolate(Variable(grid), Variable(x))
+        indices, values = Interpolation().interpolate(grid, x)
         indices = indices.squeeze_(0)
         values = values.squeeze_(0)
         test_func_grid = grid.squeeze(0).pow(2)
@@ -28,7 +27,7 @@ class TestCubicInterpolation(unittest.TestCase):
         x = torch.Tensor([[0.25, 0.45, 0.65, 0.85], [0.35, 0.375, 0.4, 0.425], [0.45, 0.5, 0.55, 0.6]]).t().contiguous()
         grid = torch.linspace(0., 1., 11).unsqueeze(0).repeat(3, 1)
 
-        indices, values = Interpolation().interpolate(Variable(grid), Variable(x))
+        indices, values = Interpolation().interpolate(grid, x)
 
         actual_indices = torch.cat(
             [

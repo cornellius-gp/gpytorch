@@ -5,8 +5,8 @@ from collections import OrderedDict
 import torch
 from torch import nn
 
+from .lazy import LazyTensor
 from .distributions import Distribution
-from .lazy import LazyVariable
 from .variational import VariationalStrategy
 
 
@@ -157,12 +157,12 @@ class Module(nn.Module):
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
-        if torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyVariable):
+        if torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyTensor):
             return outputs
         for output in outputs:
-            if not (isinstance(output, Distribution) or torch.is_tensor(output) or isinstance(output, LazyVariable)):
+            if not (isinstance(output, Distribution) or torch.is_tensor(output) or isinstance(output, LazyTensor)):
                 raise RuntimeError(
-                    "Output must be a Distribution, torch.Tensor, or LazyVariable. "
+                    "Output must be a Distribution, torch.Tensor, or LazyTensor. "
                     "Was a {}".format(input.__class__.__name__)
                 )
         if len(outputs) == 1:

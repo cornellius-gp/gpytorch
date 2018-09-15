@@ -7,14 +7,13 @@ import torch
 import unittest
 import gpytorch
 import math
-from torch.autograd import Variable
 from torch import nn
 
 
 class LogNormalCDFTest(unittest.TestCase):
     def test_forward(self):
         inputs = torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5])
-        output = gpytorch.log_normal_cdf(Variable(inputs)).data
+        output = gpytorch.log_normal_cdf(inputs)
 
         # Answers should be reasonable for small values
         self.assertLess(math.fabs(output[0] + 20.7368), 1e-4)

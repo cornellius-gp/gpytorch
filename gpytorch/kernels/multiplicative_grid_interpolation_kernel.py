@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from torch.autograd import Variable
 from .grid_interpolation_kernel import GridInterpolationKernel
 from ..utils import Interpolation
 
@@ -19,7 +18,7 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
         inputs = inputs.view(inputs.size(0), inputs.size(1), self.n_components, -1)
         batch_size, n_data, n_components, n_dimensions = inputs.size()
         inputs = inputs.transpose(0, 2).contiguous().view(n_components * batch_size * n_data, n_dimensions)
-        interp_indices, interp_values = Interpolation().interpolate(Variable(self.grid), inputs)
+        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
         interp_indices = interp_indices.view(n_components * batch_size, n_data, -1)
         interp_values = interp_values.view(n_components * batch_size, n_data, -1)
         return interp_indices, interp_values
@@ -40,7 +39,7 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
 
         Because we slice in to the kernel during prediction to get the test x train
         covar before calling evaluate_kernel, the order of operations would mean we
-        would get a MulLazyVariable representing a rectangular matrix, which we
+        would get a MulLazyTensor representing a rectangular matrix, which we
         cannot matmul with because we cannot root decompose it. Thus, SKIP actually
         *requires* that we work with the full (train + test) x (train + test)
         kernel matrix.

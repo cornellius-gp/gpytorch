@@ -4,42 +4,42 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .non_lazy_variable import NonLazyVariable
-from .sum_lazy_variable import SumLazyVariable
-from .diag_lazy_variable import DiagLazyVariable
+from .non_lazy_tensor import NonLazyTensor
+from .sum_lazy_tensor import SumLazyTensor
+from .diag_lazy_tensor import DiagLazyTensor
 from ..utils import pivoted_cholesky, batch_potrf
 from .. import settings
 
 
-class AddedDiagLazyVariable(SumLazyVariable):
+class AddedDiagLazyTensor(SumLazyTensor):
     """
-    A SumLazyVariable, but of only two lazy variables, the second of which must be
-    a DiagLazyVariable.
+    A SumLazyTensor, but of only two lazy tensors, the second of which must be
+    a DiagLazyTensor.
     """
 
     def __init__(self, *lazy_vars):
         lazy_vars = list(lazy_vars)
-        super(AddedDiagLazyVariable, self).__init__(*lazy_vars)
+        super(AddedDiagLazyTensor, self).__init__(*lazy_vars)
         if len(lazy_vars) > 2:
-            raise RuntimeError("An AddedDiagLazyVariable can only have two components")
+            raise RuntimeError("An AddedDiagLazyTensor can only have two components")
 
-        if isinstance(lazy_vars[0], DiagLazyVariable) and isinstance(lazy_vars[1], DiagLazyVariable):
+        if isinstance(lazy_vars[0], DiagLazyTensor) and isinstance(lazy_vars[1], DiagLazyTensor):
             raise RuntimeError(
-                "Trying to lazily add two DiagLazyVariables. " "Create a single DiagLazyVariable instead."
+                "Trying to lazily add two DiagLazyTensors. " "Create a single DiagLazyTensor instead."
             )
-        elif isinstance(lazy_vars[0], DiagLazyVariable):
+        elif isinstance(lazy_vars[0], DiagLazyTensor):
             self._diag_var = lazy_vars[0]
             self._lazy_var = lazy_vars[1]
-        elif isinstance(lazy_vars[1], DiagLazyVariable):
+        elif isinstance(lazy_vars[1], DiagLazyTensor):
             self._diag_var = lazy_vars[1]
             self._lazy_var = lazy_vars[0]
         else:
             raise RuntimeError(
-                "One of the LazyVariables input to AddedDiagLazyVariable " " must be a DiagLazyVariable!"
+                "One of the LazyTensors input to AddedDiagLazyTensor " " must be a DiagLazyTensor!"
             )
 
     def add_diag(self, added_diag):
-        return AddedDiagLazyVariable(self._lazy_var, self._diag_var.add_diag(added_diag))
+        return AddedDiagLazyTensor(self._lazy_var, self._diag_var.add_diag(added_diag))
 
     def _preconditioner(self):
         if settings.max_preconditioner_size.value() == 0:
@@ -63,7 +63,7 @@ class AddedDiagLazyVariable(SumLazyVariable):
             )
             lr_flipped = lr_flipped + torch.eye(n=lr_flipped.size(-2), dtype=lr_flipped.dtype, device=lr_flipped.device)
             if lr_flipped.ndimension() == 3:
-                ld_one = (NonLazyVariable(batch_potrf(lr_flipped)).diag().log().sum()) * 2
+                ld_one = (NonLazyTensor(batch_potrf(lr_flipped)).diag().log().sum()) * 2
             else:
                 ld_one = lr_flipped.potrf().diag().log().sum() * 2
             ld_two = self._diag_var.diag().data.log().sum()

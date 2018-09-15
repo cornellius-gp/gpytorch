@@ -4,9 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from ..random_variables import GaussianRandomVariable
-from ..lazy import DiagLazyVariable, InterpolatedLazyVariable
+from ..lazy import DiagLazyTensor, InterpolatedLazyTensor
 from ..variational import MVNVariationalStrategy
 from ..kernels.kernel import Kernel
 from ..kernels.grid_kernel import GridKernel
@@ -41,7 +40,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(1)
 
-        interp_indices, interp_values = Interpolation().interpolate(Variable(self.grid), inputs)
+        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
         return interp_indices, interp_values
 
     def _initalize_variational_parameters(self, prior_output):
@@ -85,19 +84,19 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         test_mean = test_mean.squeeze(-1)
 
         # Compute test covar
-        test_covar = InterpolatedLazyVariable(
+        test_covar = InterpolatedLazyTensor(
             variational_output.covar(), interp_indices, interp_values, interp_indices, interp_values
         )
 
         # Diagonal correction
         if beta_features.diagonal_correction.on():
-            from ..lazy import AddedDiagLazyVariable
+            from ..lazy import AddedDiagLazyTensor
 
-            prior_covar = InterpolatedLazyVariable(
+            prior_covar = InterpolatedLazyTensor(
                 prior_output.covar(), interp_indices, interp_values, interp_indices, interp_values
             )
-            diagonal_correction = DiagLazyVariable((self.covar_diag(inputs) - prior_covar.diag()) * 0)
-            test_covar = AddedDiagLazyVariable(test_covar, diagonal_correction)
+            diagonal_correction = DiagLazyTensor((self.covar_diag(inputs) - prior_covar.diag()) * 0)
+            test_covar = AddedDiagLazyTensor(test_covar, diagonal_correction)
 
         output = GaussianRandomVariable(test_mean, test_covar)
         return output

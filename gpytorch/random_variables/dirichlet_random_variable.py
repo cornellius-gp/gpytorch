@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 import numpy as np
-from torch.autograd import Variable
 from .random_variable import RandomVariable
 
 
@@ -22,8 +21,8 @@ class DirichletRandomVariable(RandomVariable):
         - alpha (Variable: vector k or matrix n x k) weights of categorical distribution
         """
         super(DirichletRandomVariable, self).__init__(alpha)
-        if not isinstance(alpha, Variable):
-            raise RuntimeError("alpha should be a Variable")
+        if not torch.is_tensor(alpha):
+            raise RuntimeError("alpha should be a Tensor")
 
         ndimension = alpha.ndimension()
         if ndimension not in [1, 2]:

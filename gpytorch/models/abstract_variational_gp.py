@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import torch
 
 from ..distributions import MultivariateNormal
-from ..lazy import CholLazyVariable, LazyVariable
+from ..lazy import CholLazyTensor, LazyTensor
 from ..module import Module
 
 
@@ -29,7 +29,7 @@ class AbstractVariationalGP(Module):
 
             warnings.warn(
                 "model.marginal_log_likelihood is now deprecated. "
-                "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead."
+                "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead.", DeprecationWarning
             )
             self._has_warned = True
         if n_data is None:
@@ -47,7 +47,7 @@ class AbstractVariationalGP(Module):
         # Get diagonal of covar
         res = super(AbstractVariationalGP, self).__call__(inputs)
         covar_diag = res.covar()
-        if isinstance(covar_diag, LazyVariable):
+        if isinstance(covar_diag, LazyTensor):
             covar_diag = covar_diag.evaluate()
         covar_diag = covar_diag.view(orig_size[:-1])
 
@@ -57,7 +57,6 @@ class AbstractVariationalGP(Module):
         res = super(AbstractVariationalGP, self).__call__(self.inducing_points)
         if not isinstance(res, MultivariateNormal):
             raise RuntimeError("{}.forward must return a MultivariateNormal".format(self.__class__.__name__))
-
         res = MultivariateNormal(res.mean(), res.covar().evaluate_kernel())
         return res
 
@@ -91,5 +90,5 @@ class AbstractVariationalGP(Module):
             raise RuntimeError("Invalid number of variational covar dimensions")
 
         chol_variational_covar = inside.mul(chol_variational_covar)
-        variational_covar = CholLazyVariable(chol_variational_covar.transpose(-1, -2))
+        variational_covar = CholLazyTensor(chol_variational_covar.transpose(-1, -2))
         return MultivariateNormal(self.variational_mean, variational_covar)

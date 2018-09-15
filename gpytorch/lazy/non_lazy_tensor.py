@@ -5,22 +5,24 @@ from __future__ import unicode_literals
 
 import torch
 from ..functions import add_diag
-from ..lazy import LazyVariable
+from ..lazy import LazyTensor
 
 
-class NonLazyVariable(LazyVariable):
-    def __init__(self, var):
+class NonLazyTensor(LazyTensor):
+    def __init__(self, tsr):
         """
-        Not a lazy variable
+        Not a lazy tensor
 
         Args:
-        - var (Tensor: matrix) a variable
+        - tsr (Tensor: matrix) a Tensor
         """
-        if not torch.is_tensor(var):
-            raise RuntimeError("NonLazyVariable must take a torch.Tensor; got %s" % var.__class__.__name__)
+        if not torch.is_tensor(tsr):
+            raise RuntimeError(
+                "NonLazyTensor must take a torch.Tensor; got {}".format(tsr.__class__.__name__)
+            )
 
-        super(NonLazyVariable, self).__init__(var)
-        self.tensor = var
+        super(NonLazyTensor, self).__init__(tsr)
+        self.tensor = tsr
 
     def _matmul(self, rhs):
         return torch.matmul(self.tensor, rhs)
@@ -40,7 +42,7 @@ class NonLazyVariable(LazyVariable):
         return self.tensor.size()
 
     def _transpose_nonbatch(self):
-        return NonLazyVariable(self.tensor.transpose(-1, -2))
+        return NonLazyTensor(self.tensor.transpose(-1, -2))
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         return self.tensor[batch_indices.data, left_indices.data, right_indices.data]
@@ -49,10 +51,10 @@ class NonLazyVariable(LazyVariable):
         return self.tensor[left_indices.data, right_indices.data]
 
     def add_diag(self, diag):
-        return NonLazyVariable(add_diag(self.tensor, diag))
+        return NonLazyTensor(add_diag(self.tensor, diag))
 
     def _preconditioner(self):
-        # For a NonLazyVariable, it is intended to not use preconditioning, even when called for.
+        # For a NonLazyTensor, it is intended to not use preconditioning, even when called for.
         return None, None
 
     def diag(self):
@@ -72,7 +74,7 @@ class NonLazyVariable(LazyVariable):
         return self.tensor
 
     def repeat(self, *sizes):
-        return NonLazyVariable(self.tensor.repeat(*sizes))
+        return NonLazyTensor(self.tensor.repeat(*sizes))
 
     def __getitem__(self, index):
-        return NonLazyVariable(self.tensor[index])
+        return NonLazyTensor(self.tensor[index])

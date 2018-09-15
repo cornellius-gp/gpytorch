@@ -5,27 +5,26 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from torch.autograd import Variable
-from gpytorch.lazy import NonLazyVariable
+from gpytorch.lazy import NonLazyTensor
 from gpytorch.utils import approx_equal
 
 
 class TestInvMatmulNonBatch(unittest.TestCase):
     def setUp(self):
-        mat = torch.Tensor([[3, -1, 0], [-1, 3, 0], [0, 0, 3]])
+        mat = [[3, -1, 0], [-1, 3, 0], [0, 0, 3]]
         vec = torch.randn(3)
         vecs = torch.randn(3, 4)
 
-        self.mat_var = Variable(mat, requires_grad=True)
-        self.mat_var_clone = Variable(mat, requires_grad=True)
-        self.vec_var = Variable(vec, requires_grad=True)
-        self.vec_var_clone = Variable(vec, requires_grad=True)
-        self.vecs_var = Variable(vecs, requires_grad=True)
-        self.vecs_var_clone = Variable(vecs, requires_grad=True)
+        self.mat_var = torch.tensor(mat, dtype=torch.float, requires_grad=True)
+        self.mat_var_clone = torch.tensor(mat, dtype=torch.float, requires_grad=True)
+        self.vec_var = torch.tensor(vec, requires_grad=True)
+        self.vec_var_clone = torch.tensor(vec, requires_grad=True)
+        self.vecs_var = torch.tensor(vecs, requires_grad=True)
+        self.vecs_var_clone = torch.tensor(vecs, requires_grad=True)
 
     def test_inv_matmul_vec(self):
         # Forward
-        res = NonLazyVariable(self.mat_var).inv_matmul(self.vec_var)
+        res = NonLazyTensor(self.mat_var).inv_matmul(self.vec_var)
         actual = self.mat_var_clone.inverse().matmul(self.vec_var_clone)
         self.assertTrue(approx_equal(res, actual))
 
@@ -38,7 +37,7 @@ class TestInvMatmulNonBatch(unittest.TestCase):
 
     def test_inv_matmul_multiple_vecs(self):
         # Forward
-        res = NonLazyVariable(self.mat_var).inv_matmul(self.vecs_var)
+        res = NonLazyTensor(self.mat_var).inv_matmul(self.vecs_var)
         actual = self.mat_var_clone.inverse().matmul(self.vecs_var_clone)
         self.assertTrue(approx_equal(res, actual))
 
@@ -52,17 +51,17 @@ class TestInvMatmulNonBatch(unittest.TestCase):
 
 class TestInvMatmulBatch(unittest.TestCase):
     def setUp(self):
-        mats = torch.Tensor([[[3, -1, 0], [-1, 3, 0], [0, 0, 3]], [[10, -2, 1], [-2, 10, 0], [1, 0, 10]]])
+        mats = [[[3, -1, 0], [-1, 3, 0], [0, 0, 3]], [[10, -2, 1], [-2, 10, 0], [1, 0, 10]]]
         vecs = torch.randn(2, 3, 4)
 
-        self.mats_var = Variable(mats, requires_grad=True)
-        self.mats_var_clone = Variable(mats, requires_grad=True)
-        self.vecs_var = Variable(vecs, requires_grad=True)
-        self.vecs_var_clone = Variable(vecs, requires_grad=True)
+        self.mats_var = torch.tensor(mats, dtype=torch.float, requires_grad=True)
+        self.mats_var_clone = torch.tensor(mats, dtype=torch.float, requires_grad=True)
+        self.vecs_var = torch.tensor(vecs, requires_grad=True)
+        self.vecs_var_clone = torch.tensor(vecs, requires_grad=True)
 
     def test_inv_matmul_multiple_vecs(self):
         # Forward
-        res = NonLazyVariable(self.mats_var).inv_matmul(self.vecs_var)
+        res = NonLazyTensor(self.mats_var).inv_matmul(self.vecs_var)
         actual = torch.cat(
             [self.mats_var_clone[0].inverse().unsqueeze(0), self.mats_var_clone[1].inverse().unsqueeze(0)]
         ).matmul(self.vecs_var_clone)

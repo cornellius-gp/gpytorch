@@ -5,45 +5,40 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from gpytorch.lazy import MatmulLazyVariable
+from gpytorch.lazy import RootLazyTensor
 from gpytorch.utils import approx_equal
 
 
-class TestMatmulLazyVariable(unittest.TestCase):
+class TestRootLazyTensor(unittest.TestCase):
     def test_matmul(self):
-        lhs = torch.randn(5, 3, requires_grad=True)
-        rhs = torch.randn(3, 4, requires_grad=True)
-        covar = MatmulLazyVariable(lhs, rhs)
-        mat = torch.randn(4, 10)
+        root = torch.randn(5, 3, requires_grad=True)
+        covar = RootLazyTensor(root)
+        mat = torch.eye(5)
         res = covar.matmul(mat)
 
-        lhs_clone = lhs.clone().detach()
-        rhs_clone = rhs.clone().detach()
+        root_clone = root.clone().detach()
+        root_clone.requires_grad = True
         mat_clone = mat.clone().detach()
-        lhs_clone.requires_grad = True
-        rhs_clone.requires_grad = True
         mat_clone.requires_grad = True
-        actual = lhs_clone.matmul(rhs_clone).matmul(mat_clone)
+        actual = root_clone.matmul(root_clone.transpose(-1, -2)).matmul(mat_clone)
 
         self.assertTrue(approx_equal(res, actual))
 
-        actual.sum().backward()
+        gradient = torch.randn(5, 5)
+        actual.backward(gradient=gradient)
+        res.backward(gradient=gradient)
 
-        res.sum().backward()
-        self.assertTrue(approx_equal(lhs.grad, lhs_clone.grad))
-        self.assertTrue(approx_equal(rhs.grad, rhs_clone.grad))
+        self.assertTrue(approx_equal(root.grad, root_clone.grad))
 
     def test_diag(self):
-        lhs = torch.randn(5, 3)
-        rhs = torch.randn(3, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyVariable(lhs, rhs)
+        root = torch.randn(5, 3)
+        actual = root.matmul(root.transpose(-1, -2))
+        res = RootLazyTensor(root)
         self.assertTrue(approx_equal(actual.diag(), res.diag()))
 
     def test_batch_diag(self):
-        lhs = torch.randn(4, 5, 3)
-        rhs = torch.randn(4, 3, 5)
-        actual = lhs.matmul(rhs)
+        root = torch.randn(4, 5, 3)
+        actual = root.matmul(root.transpose(-1, -2))
         actual_diag = torch.cat(
             [
                 actual[0].diag().unsqueeze(0),
@@ -53,14 +48,13 @@ class TestMatmulLazyVariable(unittest.TestCase):
             ]
         )
 
-        res = MatmulLazyVariable(lhs, rhs)
+        res = RootLazyTensor(root)
         self.assertTrue(approx_equal(actual_diag, res.diag()))
 
     def test_batch_get_indices(self):
-        lhs = torch.randn(2, 5, 1)
-        rhs = torch.randn(2, 1, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyVariable(lhs, rhs)
+        root = torch.randn(2, 5, 1)
+        actual = root.matmul(root.transpose(-1, -2))
+        res = RootLazyTensor(root)
 
         batch_indices = torch.LongTensor([0, 1, 0, 1])
         left_indices = torch.LongTensor([1, 2, 4, 0])
@@ -85,10 +79,9 @@ class TestMatmulLazyVariable(unittest.TestCase):
         )
 
     def test_get_indices(self):
-        lhs = torch.randn(5, 1)
-        rhs = torch.randn(1, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyVariable(lhs, rhs)
+        root = torch.randn(5, 3)
+        actual = root.matmul(root.transpose(-1, -2))
+        res = RootLazyTensor(root)
 
         left_indices = torch.LongTensor([1, 2, 4, 0])
         right_indices = torch.LongTensor([0, 1, 3, 2])
@@ -105,18 +98,10 @@ class TestMatmulLazyVariable(unittest.TestCase):
         )
 
     def test_evaluate(self):
-        lhs = torch.randn(5, 3)
-        rhs = torch.randn(3, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyVariable(lhs, rhs)
+        root = torch.randn(5, 3)
+        actual = root.matmul(root.transpose(-1, -2))
+        res = RootLazyTensor(root)
         self.assertTrue(approx_equal(actual, res.evaluate()))
-
-    def test_transpose(self):
-        lhs = torch.randn(5, 3)
-        rhs = torch.randn(3, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyVariable(lhs, rhs)
-        self.assertTrue(approx_equal(actual.t(), res.t().evaluate()))
 
 
 if __name__ == "__main__":

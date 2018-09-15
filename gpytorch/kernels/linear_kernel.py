@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from gpytorch.kernels import Kernel
-from gpytorch.lazy import MatmulLazyVariable, RootLazyVariable
+from gpytorch.lazy import MatmulLazyTensor, RootLazyTensor
 from gpytorch.priors._compatibility import _bounds_to_prior
 
 
@@ -13,8 +13,8 @@ class LinearKernel(Kernel):
     """
     An implementation of the linear kernel :math:`k(x, z) =(x-offset)(z-offset)' + variance`.
 
-    To implement this efficiently, we use a :obj:`gpytorch.lazy.RootLazyVariable` during training and a
-    :math:`gpytorch.lazy.MatmulLazyVariable` during test. These lazy variables represent matrices of the form
+    To implement this efficiently, we use a :obj:`gpytorch.lazy.RootLazyTensor` during training and a
+    :math:`gpytorch.lazy.MatmulLazyTensor` during test. These lazy tensors represent matrices of the form
     :math:`K = XX^{\top}` and :math:`K = XZ^{\top}`. This makes inference efficient because a matrix-vector product
     :math:`Kv` can be computed as :math:`Kv=X(X^{\top}v)`, where the base multiply :math:`Xv` takes only :math:`O(nd)`
     time and space.
@@ -50,10 +50,10 @@ class LinearKernel(Kernel):
 
     def forward(self, x1, x2):
         if x1.size() == x2.size() and torch.equal(x1, x2):
-            # Use RootLazyVariable when x1 == x2 for efficiency when composing
+            # Use RootLazyTensor when x1 == x2 for efficiency when composing
             # with other kernels
-            prod = RootLazyVariable(x1 - self.offset)
+            prod = RootLazyTensor(x1 - self.offset)
         else:
-            prod = MatmulLazyVariable(x1 - self.offset, (x2 - self.offset).transpose(2, 1))
+            prod = MatmulLazyTensor(x1 - self.offset, (x2 - self.offset).transpose(2, 1))
 
         return prod + self.variance.expand(prod.size())

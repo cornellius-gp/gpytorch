@@ -3,12 +3,12 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .sum_lazy_variable import SumLazyVariable
+from .sum_lazy_tensor import SumLazyTensor
 
 
-class PsdSumLazyVariable(SumLazyVariable):
+class PsdSumLazyTensor(SumLazyTensor):
     """
-    A SumLazyVariable, but where every component of the sum is positive semi-definite
+    A SumLazyTensor, but where every component of the sum is positive semi-definite
     """
 
     def zero_mean_mvn_samples(self, n_samples):

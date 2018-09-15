@@ -3,19 +3,19 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .lazy_variable import LazyVariable
-from .non_lazy_variable import NonLazyVariable
-from .lazy_variable_representation_tree import LazyVariableRepresentationTree
+from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import NonLazyTensor
+from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
 LAZY_KERNEL_TENSOR_WARNING = (
-    "A LazyEvaluatedKernelVariable is not intended to be used directly " "as a tensor! Call evaluate() first."
+    "A LazyEvaluatedKernelTensor is not intended to be used directly " "as a tensor! Call evaluate() first."
 )
 
 
-class LazyEvaluatedKernelVariable(LazyVariable):
+class LazyEvaluatedKernelTensor(LazyTensor):
     def __init__(self, kernel, x1, x2, squeeze_row=False, squeeze_col=False, **params):
-        super(LazyEvaluatedKernelVariable, self).__init__(kernel, x1, x2, **params)
+        super(LazyEvaluatedKernelTensor, self).__init__(kernel, x1, x2, **params)
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2
@@ -42,7 +42,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         x1 = self.x1[left_indices, :].unsqueeze(0)
         x2 = self.x2[right_indices, :].unsqueeze(0)
         res = super(Kernel, self.kernel).__call__(x1.transpose(0, 1), x2.transpose(0, 1))
-        if isinstance(res, LazyVariable):
+        if isinstance(res, LazyTensor):
             res = res.evaluate()
         res = res.view(-1)
         return res
@@ -73,15 +73,15 @@ class LazyEvaluatedKernelVariable(LazyVariable):
                 x2 = x2.unsqueeze(1)
 
             res = self.kernel.forward_diag(x1, x2, **self.params)
-            if isinstance(res, LazyVariable):
+            if isinstance(res, LazyTensor):
                 res = res.evaluate()
             self._cached_kernel_diag = res.squeeze()
             return self._cached_kernel_diag
 
     def evaluate_kernel(self):
         """
-        NB: This is a meta LazyVariable, in the sense that evaluate can return
-        a LazyVariable if the kernel being evaluated does so.
+        NB: This is a meta LazyTensor, in the sense that evaluate can return
+        a LazyTensor if the kernel being evaluated does so.
         """
         from ..kernels import Kernel
 
@@ -103,15 +103,15 @@ class LazyEvaluatedKernelVariable(LazyVariable):
 
             if not self.is_batch and self._cached_kernel_eval.ndimension() == 3:
                 self._cached_kernel_eval = self._cached_kernel_eval[0]
-            if not isinstance(self._cached_kernel_eval, LazyVariable):
-                self._cached_kernel_eval = NonLazyVariable(self._cached_kernel_eval)
+            if not isinstance(self._cached_kernel_eval, LazyTensor):
+                self._cached_kernel_eval = NonLazyTensor(self._cached_kernel_eval)
             return self._cached_kernel_eval
 
     def representation(self):
         return self.evaluate_kernel().representation()
 
     def representation_tree(self):
-        return LazyVariableRepresentationTree(self.evaluate_kernel())
+        return LazyTensorRepresentationTree(self.evaluate_kernel())
 
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
@@ -122,7 +122,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
                 full_mean, train_labels, n_train, likelihood, precomputed_cache
             )
         else:
-            return super(LazyEvaluatedKernelVariable, self).exact_predictive_mean(
+            return super(LazyEvaluatedKernelTensor, self).exact_predictive_mean(
                 full_mean, train_labels, n_train, likelihood, precomputed_cache
             )
 
@@ -130,13 +130,13 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         if self.kernel.has_custom_exact_predictions:
             return self.evaluate_kernel().exact_predictive_covar(n_train, likelihood, precomputed_cache)
         else:
-            return super(LazyEvaluatedKernelVariable, self).exact_predictive_covar(
+            return super(LazyEvaluatedKernelTensor, self).exact_predictive_covar(
                 n_train, likelihood, precomputed_cache
             )
 
     def repeat(self, *sizes):
         if self.squeeze_row or self.squeeze_col:
-            raise RuntimeError("Can't repeat a row/col of a LazyEvaluatedKernelVariable")
+            raise RuntimeError("Can't repeat a row/col of a LazyEvaluatedKernelTensor")
         elif len(sizes) == 3:
             x1 = self.x1.repeat(sizes[0], sizes[1], 1)
             x2 = self.x2.repeat(sizes[0], sizes[1], 1)
@@ -146,7 +146,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
         else:
             raise RuntimeError("Invalid number of sizes (expected 2 or 3)")
 
-        return LazyEvaluatedKernelVariable(self.kernel, x1, x2, **self.params)
+        return LazyEvaluatedKernelTensor(self.kernel, x1, x2, **self.params)
 
     def __getitem__(self, index):
         index = list(index) if isinstance(index, tuple) else [index]
@@ -168,7 +168,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
                 x2 = x2.unsqueeze(1)
                 squeeze_col = True
 
-            return LazyEvaluatedKernelVariable(
+            return LazyEvaluatedKernelTensor(
                 self.kernel, x1, x2, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
             )
         else:
@@ -186,7 +186,7 @@ class LazyEvaluatedKernelVariable(LazyVariable):
                 x2 = x2.unsqueeze(1)
                 squeeze_col = True
 
-            return LazyEvaluatedKernelVariable(
+            return LazyEvaluatedKernelTensor(
                 self.kernel, x1, x2, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
             )
 

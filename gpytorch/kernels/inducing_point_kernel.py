@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 from gpytorch.kernels import Kernel
 from gpytorch.functions import add_jitter
-from gpytorch.lazy import DiagLazyVariable, LazyVariable, MatmulLazyVariable, RootLazyVariable
+from gpytorch.lazy import DiagLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor
 from gpytorch.random_variables import GaussianRandomVariable
 from gpytorch.variational import MVNVariationalStrategy
 
@@ -58,10 +58,10 @@ class InducingPointKernel(Kernel):
     def _get_covariance(self, x1, x2):
         k_ux1 = self.base_kernel_module(x1, self.inducing_points).evaluate()
         if torch.equal(x1, x2):
-            covar = RootLazyVariable(k_ux1.matmul(self._inducing_inv_root))
+            covar = RootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
         else:
             k_ux2 = self.base_kernel_module(x2, self.inducing_points).evaluate()
-            covar = MatmulLazyVariable(
+            covar = MatmulLazyTensor(
                 k_ux1.matmul(self._inducing_inv_root), k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2)
             )
         return covar
@@ -76,10 +76,10 @@ class InducingPointKernel(Kernel):
 
         # Get diagonal of covar
         covar_diag = self.base_kernel_module(inputs)
-        if isinstance(covar_diag, LazyVariable):
+        if isinstance(covar_diag, LazyTensor):
             covar_diag = covar_diag.evaluate()
         covar_diag = covar_diag.view(orig_size[:-1])
-        return DiagLazyVariable(covar_diag)
+        return DiagLazyTensor(covar_diag)
 
     def forward(self, x1, x2, **kwargs):
         covar = self._get_covariance(x1, x2)

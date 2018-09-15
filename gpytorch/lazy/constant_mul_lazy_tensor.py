@@ -4,22 +4,22 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .lazy_variable import LazyVariable
+from .lazy_tensor import LazyTensor
 
 
-class ConstantMulLazyVariable(LazyVariable):
+class ConstantMulLazyTensor(LazyTensor):
     """
-    A LazyVariable that multiplies a base LazyVariable by a scalar constant:
+    A LazyTensor that multiplies a base LazyTensor by a scalar constant:
 
     ```
-    constant_mul_lazy_variable = constant * base_lazy_variable
+    constant_mul_lazy_tensor = constant * base_lazy_tensor
     ```
 
     .. note::
-    To element-wise multiply two lazy variables, see :class:`gpytorch.lazy.MulLazyVariable`
+    To element-wise multiply two lazy tensors, see :class:`gpytorch.lazy.MulLazyTensor`
 
     Args:
-        lazy_var (LazyVariable) or (b x n x m)): The base lazy variable
+        lazy_var (LazyTensor) or (b x n x m)): The base_lazy tensor
         constant (Tensor): The constant
 
     If `lazy_var` represents a matrix (non-batch), then `constant` must be a
@@ -33,18 +33,18 @@ class ConstantMulLazyVariable(LazyVariable):
 
     Example::
 
-        >>> base_lazy_var = gpytorch.lazy.ToeplitzLazyVariable([1, 2, 3])
+        >>> base_lazy_var = gpytorch.lazy.ToeplitzLazyTensor([1, 2, 3])
         >>> constant = torch.tensor(1.2)
-        >>> new_lazy_var = gpytorch.lazy.ConstantMulLazyVariable(base_lazy_var, constant)
+        >>> new_lazy_var = gpytorch.lazy.ConstantMulLazyTensor(base_lazy_var, constant)
         >>> new_lazy_var.evaluate()
         >>> # Returns:
         >>> # [[ 1.2, 2.4, 3.6 ]
         >>> #  [ 2.4, 1.2, 2.4 ]
         >>> #  [ 3.6, 2.4, 1.2 ]]
         >>>
-        >>> base_lazy_var = gpytorch.lazy.ToeplitzLazyVariable([[1, 2, 3], [2, 3, 4]])
+        >>> base_lazy_var = gpytorch.lazy.ToeplitzLazyTensor([[1, 2, 3], [2, 3, 4]])
         >>> constant = torch.Tensor([1.2, 0.5])
-        >>> new_lazy_var = gpytorch.lazy.ConstantMulLazyVariable(base_lazy_var, constant)
+        >>> new_lazy_var = gpytorch.lazy.ConstantMulLazyTensor(base_lazy_var, constant)
         >>> new_lazy_var.evaluate()
         >>> # Returns:
         >>> # [[[ 1.2, 2.4, 3.6 ]
@@ -75,7 +75,7 @@ class ConstantMulLazyVariable(LazyVariable):
         else:
             constant = torch.tensor(constant, device=lazy_var.device, dtype=torch.float32)
 
-        super(ConstantMulLazyVariable, self).__init__(lazy_var, constant)
+        super(ConstantMulLazyTensor, self).__init__(lazy_var, constant)
         self.lazy_var = lazy_var
         self.constant = constant
 
@@ -116,7 +116,7 @@ class ConstantMulLazyVariable(LazyVariable):
         return self.lazy_var.size()
 
     def _transpose_nonbatch(self):
-        return ConstantMulLazyVariable(self.lazy_var._transpose_nonbatch(), self.constant)
+        return ConstantMulLazyTensor(self.lazy_var._transpose_nonbatch(), self.constant)
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         res = self.lazy_var._batch_get_indices(batch_indices, left_indices, right_indices)
@@ -140,7 +140,7 @@ class ConstantMulLazyVariable(LazyVariable):
         return res
 
     def repeat(self, *sizes):
-        return ConstantMulLazyVariable(self.lazy_var.repeat(*sizes), self.constant)
+        return ConstantMulLazyTensor(self.lazy_var.repeat(*sizes), self.constant)
 
     def __getitem__(self, i):
         constant = self.constant

@@ -4,10 +4,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
 from .kernel import Kernel
 from .grid_kernel import GridKernel
-from ..lazy import InterpolatedLazyVariable
+from ..lazy import InterpolatedLazyTensor
 from ..utils import Interpolation
 
 
@@ -38,22 +37,21 @@ class GridInterpolationKernel(GridKernel):
     def _compute_grid(self, inputs):
         batch_size, n_data, n_dimensions = inputs.size()
         inputs = inputs.view(batch_size * n_data, n_dimensions)
-        interp_indices, interp_values = Interpolation().interpolate(Variable(self.grid), inputs)
+        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
         interp_indices = interp_indices.view(batch_size, n_data, -1)
         interp_values = interp_values.view(batch_size, n_data, -1)
         return interp_indices, interp_values
 
     def _inducing_forward(self):
-        inducing_points_var = Variable(self.inducing_points)
-        return super(GridInterpolationKernel, self).forward(inducing_points_var, inducing_points_var)
+        return super(GridInterpolationKernel, self).forward(self.inducing_points, self.inducing_points)
 
     def forward_diag(self, x1, x2, **kwargs):
         return super(Kernel, self).__call__(x1, x2, **kwargs).diag().unsqueeze(-1)
 
     def forward(self, x1, x2, **kwargs):
-        base_lazy_var = self._inducing_forward()
+        base_lazy_tsr = self._inducing_forward()
         if x1.size(0) > 1:
-            base_lazy_var = base_lazy_var.repeat(x1.size(0), 1, 1)
+            base_lazy_tsr = base_lazy_tsr.repeat(x1.size(0), 1, 1)
 
         left_interp_indices, left_interp_values = self._compute_grid(x1)
         if torch.equal(x1.data, x2.data):
@@ -61,8 +59,8 @@ class GridInterpolationKernel(GridKernel):
             right_interp_values = left_interp_values
         else:
             right_interp_indices, right_interp_values = self._compute_grid(x2)
-        return InterpolatedLazyVariable(
-            base_lazy_var,
+        return InterpolatedLazyTensor(
+            base_lazy_tsr,
             left_interp_indices.detach(),
             left_interp_values,
             right_interp_indices.detach(),

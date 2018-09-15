@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Function, Variable
+from torch.autograd import Function
 from ..utils.lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
 from .. import settings
 
@@ -20,7 +20,7 @@ class RootDecomposition(Function):
         self.batch_size = batch_size
         self.root = root
         self.inverse = inverse
-        self.initial_vector = initial_vector.data if isinstance(initial_vector, Variable) else initial_vector
+        self.initial_vector = initial_vector
 
     def forward(self, *matrix_args):
         """
@@ -31,8 +31,8 @@ class RootDecomposition(Function):
         - (Tensor) R_inv, such that R_inv R_inv^T \approx A^{-1} (will only be populated if self.inverse = True)
         """
         # Get closure for matmul
-        lazy_var = self.representation_tree(*matrix_args)
-        matmul_closure = lazy_var._matmul
+        lazy_tsr = self.representation_tree(*matrix_args)
+        matmul_closure = lazy_tsr._matmul
         # Do lanczos
         q_mat, t_mat = lanczos_tridiag(
             matmul_closure,
@@ -65,7 +65,7 @@ class RootDecomposition(Function):
             root = q_mat * root_evals.unsqueeze(-2)
 
         if not settings.memory_efficient.on():
-            self._lazy_var = lazy_var
+            self._lazy_tsr = lazy_tsr
 
         if self.batch_size is None:
             root = root.squeeze(1) if root.numel() else root
@@ -120,10 +120,10 @@ class RootDecomposition(Function):
                     is_batch = True
 
             # Get closure for matmul
-            if hasattr(self, "_lazy_var"):
-                lazy_var = self._lazy_var
+            if hasattr(self, "_lazy_tsr"):
+                lazy_tsr = self._lazy_tsr
             else:
-                lazy_var = self.representation_tree(*matrix_args)
+                lazy_tsr = self.representation_tree(*matrix_args)
 
             # Get root inverse
             if not self.inverse:
@@ -148,7 +148,7 @@ class RootDecomposition(Function):
             else:
                 left_factor = left_factor.contiguous()
                 right_factor = right_factor.contiguous()
-            res = lazy_var._quad_form_derivative(left_factor, right_factor)
+            res = lazy_tsr._quad_form_derivative(left_factor, right_factor)
 
             if not is_batch:
                 res = [item.squeeze(0) for item in res]

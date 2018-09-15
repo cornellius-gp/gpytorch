@@ -4,8 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch.autograd import Variable
-from ..lazy import LazyVariable
+from ..lazy import LazyTensor
 
 
 class RandomVariable(object):
@@ -17,10 +16,10 @@ class RandomVariable(object):
         """
         Returns 2 standard deviations above and below the mean.
 
-        Return: tuple of two Variables (b x d) or (d), where b is the
+        Return: tuple of two Tensors (b x d) or (d), where b is the
         batch size and d is the dimensionality of the random variable
 
-        First Variable is the lower end of the confidence region, second
+        First Tensor is the lower end of the confidence region, second
         variable is the upper end
         """
         std2 = self.std().mul_(2)
@@ -61,7 +60,7 @@ class RandomVariable(object):
         """
         Returns the covariance of the random variable
 
-        Return: Variable (b x d x d) or (d x d), where b is the
+        Return: Tensor (b x d x d) or (d x d), where b is the
         batch size and d is the dimensionality of the random variable
         """
         raise NotImplementedError
@@ -70,14 +69,14 @@ class RandomVariable(object):
         """
         Returns the mean of the random variable
 
-        Return: Variable (b x d) or (d), where b is the
+        Return: Tensor (b x d) or (d), where b is the
         batch size and d is the dimensionality of the random variable
         """
         raise NotImplementedError
 
     def representation(self):
         """
-        Returns a Variable (or tuple of Variables) that represent sufficient
+        Returns a Tensor (or tuple of Tensors) that represent sufficient
         statistics of the Random variable
         """
         raise NotImplementedError
@@ -104,7 +103,7 @@ class RandomVariable(object):
         """
         Returns the standard deviation of the random variable
 
-        Return: Variable (b x d) or (d), where b is the
+        Return: Tensor (b x d) or (d), where b is the
         batch size and d is the dimensionality of the random variable
         """
         return self.var().sqrt()
@@ -113,14 +112,14 @@ class RandomVariable(object):
         """
         Returns the variance of the random variable
 
-        Return: Variable (b x d) or (d), where b is the
+        Return: Tensor (b x d) or (d), where b is the
         batch size and d is the dimensionality of the random variable
         """
         raise NotImplementedError
 
     def __len__(self):
         """
-        Returns the batch size of the lazy variable
+        Returns the batch size of the lazy tensor
         """
         raise NotImplementedError
 
@@ -137,9 +136,9 @@ class RandomVariable(object):
         raise NotImplementedError
 
     def __setattr__(self, name, val):
-        if torch.is_tensor(val) or isinstance(val, Variable) or isinstance(val, LazyVariable):
+        if torch.is_tensor(val) or isinstance(val, LazyTensor):
             if not hasattr(self, "_args"):
                 raise RuntimeError(
-                    "Cannot assign {name} to LazyVariable before calling " "LazyVariable.__init__()".format(name=name)
+                    "Cannot assign {name} to LazyTensor before calling " "LazyTensor.__init__()".format(name=name)
                 )
         object.__setattr__(self, name, val)
