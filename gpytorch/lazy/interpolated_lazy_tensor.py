@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .block_diagonal_lazy_tensor import BlockDiagonalLazyTensor
+from .block_diag_lazy_tensor import BlockDiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .root_lazy_tensor import RootLazyTensor
@@ -609,7 +609,7 @@ class InterpolatedLazyTensor(LazyTensor):
             right_interp_values = right_interp_values.view(n_right, -1)
 
         # Make the base_lazy tensor block diagonal
-        block_diag = BlockDiagonalLazyTensor(self.base_lazy_tensor, n_blocks=sum_batch_size)
+        block_diag = BlockDiagLazyTensor(self.base_lazy_tensor, num_blocks=sum_batch_size)
 
         # Finally! We have an interpolated lazy tensor again
         return InterpolatedLazyTensor(
@@ -617,16 +617,17 @@ class InterpolatedLazyTensor(LazyTensor):
         )
 
     def zero_mean_mvn_samples(self, num_samples):
+        base_samples = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
         if self.ndimension() == 3:
             res = left_interp(
                 self.left_interp_indices, self.left_interp_values,
-                self.base_lazy_tensor.zero_mean_mvn_samples(num_samples).permute(1, 2, 0).contiguous()
+                base_samples.permute(1, 2, 0).contiguous()
             )
             return res.permute(2, 0, 1).contiguous()
         else:
             res = left_interp(
                 self.left_interp_indices, self.left_interp_values,
-                self.base_lazy_tensor.zero_mean_mvn_samples(num_samples).permute(1, 0).contiguous()
+                base_samples.permute(1, 0).contiguous()
             )
             return res.permute(1, 0).contiguous()
 
