@@ -53,6 +53,6 @@ class BernoulliLikelihood(Likelihood):
         f_{i} drawn from p(f|x).
         """
         num_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.sample(num_samples).view(-1)
-        target = target.unsqueeze(1).repeat(1, num_samples).view(-1)
-        return log_normal_cdf(samples.mul(target)).sum(0).div(num_samples)
+        samples = latent_func.sample(num_samples, warn_about_shape=False).view(-1)
+        target = target.unsqueeze(0).repeat(num_samples, 1).view(-1)
+        return log_normal_cdf(samples.mul(target)).sum().div(num_samples)

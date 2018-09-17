@@ -4,8 +4,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
+import warnings
 from .random_variable import RandomVariable
 from ..lazy import LazyTensor, NonLazyTensor
+from .. import settings
 
 
 class GaussianRandomVariable(RandomVariable):
@@ -45,9 +47,18 @@ class GaussianRandomVariable(RandomVariable):
     def representation(self):
         return self._mean, self._covar
 
-    def sample(self, n_samples):
+    def sample(self, n_samples=None, warn_about_shape=True):
         covar = self.covar()
-        return covar.zero_mean_mvn_samples(n_samples) + self._mean.unsqueeze(-1)
+        res = covar.zero_mean_mvn_samples(n_samples) + self._mean.unsqueeze(0)
+
+        if warn_about_shape and settings.debug.on():
+            warnings.warn(
+                "The shape of GaussianRandomVariable samples has changed to be consistent with the docs. "
+                "Given an n x n covariance matrix, samples are now n_samples x n, rather than n x n_samples.\n"
+                "Please be sure that this doesn't cause issues with your code."
+            )
+
+        return res
 
     def var(self):
         return self._covar.diag()

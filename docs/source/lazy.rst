@@ -14,6 +14,9 @@ LazyTensor
 .. autoclass:: LazyTensor
    :members:
 
+.. autoclass:: BlockLazyTensor
+   :members:
+
 
 Kernel LazyTensors
 -----------------------------
@@ -25,10 +28,10 @@ Kernel LazyTensors
 Structured LazyTensors
 -----------------------------------
 
-:hidden:`BlockDiagonalLazyTensor`
+:hidden:`BlockDiagLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: BlockDiagonalLazyTensor
+.. autoclass:: BlockDiagLazyTensor
    :members:
 
 :hidden:`CholLazyTensor`

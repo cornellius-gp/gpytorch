@@ -5,7 +5,8 @@ from __future__ import unicode_literals
 
 from .lazy_tensor import LazyTensor
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
-from .block_diagonal_lazy_tensor import BlockDiagonalLazyTensor
+from .block_lazy_tensor import BlockLazyTensor
+from .block_diag_lazy_tensor import BlockDiagLazyTensor
 from .chol_lazy_tensor import CholLazyTensor
 from .constant_mul_lazy_tensor import ConstantMulLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
@@ -27,7 +28,8 @@ __all__ = [
     "LazyTensor",
     "LazyEvaluatedKernelTensor",
     "AddedDiagLazyTensor",
-    "BlockDiagonalLazyTensor",
+    "BlockLazyTensor",
+    "BlockDiagLazyTensor",
     "CholLazyTensor",
     "ConstantMulLazyTensor",
     "DiagLazyTensor",
