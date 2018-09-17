@@ -16,7 +16,7 @@ class AbstractVariationalGP(Module):
             raise RuntimeError("inducing_points must be a Tensor")
         n_inducing = inducing_points.size(0)
         self.register_buffer("inducing_points", inducing_points)
-        self.register_buffer("variational_params_initialized", torch.zeros(1))
+        self.register_buffer("variational_params_initialized", torch.tensor(0))
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(torch.zeros(n_inducing)))
         self.register_parameter(
             name="chol_variational_covar", parameter=torch.nn.Parameter(torch.eye(n_inducing, n_inducing))

@@ -24,9 +24,9 @@ class MixtureRandomVariable(RandomVariable):
 
         weights = kwargs.get("weights", None)
         if weights is None:
-            weights = rand_vars[0].representation()[0].data.new(len(rand_vars)).fill_(1. / len(rand_vars))
+            weights = rand_vars[0].representation()[0].new(len(rand_vars)).fill_(1. / len(rand_vars))
 
-        if math.fabs(sum(weights.data) - 1) > 1e-4:
+        if math.fabs(weights.sum().item() - 1) > 1e-4:
             raise RuntimeError("Weights must sum to 1")
 
         self.rand_vars = rand_vars

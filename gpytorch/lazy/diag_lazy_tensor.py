@@ -45,11 +45,11 @@ class DiagLazyTensor(LazyTensor):
         return self
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        equal_indices = left_indices.eq(right_indices).type_as(self._diag.data)
+        equal_indices = left_indices.eq(right_indices).type_as(self._diag)
         return self._diag[batch_indices, left_indices] * equal_indices
 
     def _get_indices(self, left_indices, right_indices):
-        equal_indices = left_indices.eq(right_indices).type_as(self._diag.data)
+        equal_indices = left_indices.eq(right_indices).type_as(self._diag)
         return self._diag[left_indices] * equal_indices
 
     def add_diag(self, added_diag):

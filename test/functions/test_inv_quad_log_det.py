@@ -50,8 +50,8 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         res_inv_quad.backward(retain_graph=True)
         res_log_det.backward()
 
-        self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
-        self.assertTrue(approx_equal(self.vec_var_clone.grad.data, self.vec_var.grad.data))
+        self.assertTrue(approx_equal(self.mat_var_clone.grad, self.mat_var.grad, epsilon=1e-1))
+        self.assertTrue(approx_equal(self.vec_var_clone.grad, self.vec_var.grad))
 
     def test_inv_quad_only_vector(self):
         # Forward pass
@@ -63,8 +63,8 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         actual.backward()
         res.backward()
 
-        self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
-        self.assertTrue(approx_equal(self.vec_var_clone.grad.data, self.vec_var.grad.data))
+        self.assertTrue(approx_equal(self.mat_var_clone.grad, self.mat_var.grad, epsilon=1e-1))
+        self.assertTrue(approx_equal(self.vec_var_clone.grad, self.vec_var.grad))
 
     def test_inv_quad_log_det_many_vectors(self):
         # Forward pass
@@ -82,8 +82,8 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         res_inv_quad.backward(retain_graph=True)
         res_log_det.backward()
 
-        self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
-        self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
+        self.assertTrue(approx_equal(self.mat_var_clone.grad, self.mat_var.grad, epsilon=1e-1))
+        self.assertTrue(approx_equal(self.vecs_var_clone.grad, self.vecs_var.grad))
 
     def test_inv_quad_only_many_vectors(self):
         # Forward pass
@@ -95,8 +95,8 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         actual.backward()
         res.backward()
 
-        self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
-        self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
+        self.assertTrue(approx_equal(self.mat_var_clone.grad, self.mat_var.grad, epsilon=1e-1))
+        self.assertTrue(approx_equal(self.vecs_var_clone.grad, self.vecs_var.grad))
 
     def test_log_det_only(self):
         # Forward pass
@@ -108,7 +108,7 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         # Backward
         actual.backward()
         res.backward()
-        self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data, epsilon=1e-1))
+        self.assertTrue(approx_equal(self.mat_var_clone.grad, self.mat_var.grad, epsilon=1e-1))
 
 
 class TestInvQuadLogDetBatch(unittest.TestCase):
@@ -148,8 +148,8 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
         with gpytorch.settings.num_trace_samples(1000):
             nlv = NonLazyTensor(self.mats_var)
             res_inv_quad, res_log_det = nlv.inv_quad_log_det(inv_quad_rhs=self.vecs_var, log_det=True)
-        self.assertTrue(approx_equal(res_inv_quad.data, actual_inv_quad.data, epsilon=1e-1))
-        self.assertTrue(approx_equal(res_log_det.data, actual_log_det.data, epsilon=1e-1))
+        self.assertTrue(approx_equal(res_inv_quad, actual_inv_quad, epsilon=1e-1))
+        self.assertTrue(approx_equal(res_log_det, actual_log_det, epsilon=1e-1))
 
         # Backward
         inv_quad_grad_output = torch.tensor([3, 4], dtype=torch.float)
@@ -159,8 +159,8 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
         res_inv_quad.backward(gradient=inv_quad_grad_output, retain_graph=True)
         res_log_det.backward(gradient=log_det_grad_output)
 
-        self.assertTrue(approx_equal(self.mats_var_clone.grad.data, self.mats_var.grad.data, epsilon=1e-1))
-        self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
+        self.assertTrue(approx_equal(self.mats_var_clone.grad, self.mats_var.grad, epsilon=1e-1))
+        self.assertTrue(approx_equal(self.vecs_var_clone.grad, self.vecs_var.grad))
 
     def test_inv_quad_only_many_vectors(self):
         # Forward pass
@@ -172,13 +172,13 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
             .sum(2)
             .sum(1)
         ).sum()
-        self.assertTrue(approx_equal(res.data, actual.data, epsilon=1e-1))
+        self.assertTrue(approx_equal(res, actual, epsilon=1e-1))
         # Backward
         actual.backward()
         res.backward()
 
-        self.assertTrue(approx_equal(self.mats_var_clone.grad.data, self.mats_var.grad.data, epsilon=1e-1))
-        self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
+        self.assertTrue(approx_equal(self.mats_var_clone.grad, self.mats_var.grad, epsilon=1e-1))
+        self.assertTrue(approx_equal(self.vecs_var_clone.grad, self.vecs_var.grad))
 
     def test_log_det_only(self):
         # Forward pass
@@ -187,13 +187,13 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
         actual = torch.cat(
             [self.mats_var_clone[0].det().log().unsqueeze(0), self.mats_var_clone[1].det().log().unsqueeze(0)]
         )
-        self.assertTrue(approx_equal(res.data, actual.data, epsilon=1e-1))
+        self.assertTrue(approx_equal(res, actual, epsilon=1e-1))
 
         # Backward
         grad_output = torch.tensor([3, 4], dtype=torch.float)
         actual.backward(gradient=grad_output)
         res.backward(gradient=grad_output)
-        self.assertTrue(approx_equal(self.mats_var_clone.grad.data, self.mats_var.grad.data, epsilon=1e-1))
+        self.assertTrue(approx_equal(self.mats_var_clone.grad, self.mats_var.grad, epsilon=1e-1))
 
 
 if __name__ == "__main__":

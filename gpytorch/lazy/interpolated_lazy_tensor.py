@@ -208,10 +208,10 @@ class InterpolatedLazyTensor(LazyTensor):
         return res
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        left_interp_indices = self.left_interp_indices[batch_indices.data, left_indices.data, :]
-        left_interp_values = self.left_interp_values[batch_indices.data, left_indices.data, :]
-        right_interp_indices = self.right_interp_indices[batch_indices.data, right_indices.data, :]
-        right_interp_values = self.right_interp_values[batch_indices.data, right_indices.data, :]
+        left_interp_indices = self.left_interp_indices[batch_indices, left_indices, :]
+        left_interp_values = self.left_interp_values[batch_indices, left_indices, :]
+        right_interp_indices = self.right_interp_indices[batch_indices, right_indices, :]
+        right_interp_values = self.right_interp_values[batch_indices, right_indices, :]
 
         n_data, n_interp = left_interp_indices.size()
 
@@ -234,10 +234,10 @@ class InterpolatedLazyTensor(LazyTensor):
         return res
 
     def _get_indices(self, left_indices, right_indices):
-        left_interp_indices = self.left_interp_indices[left_indices.data, :]
-        left_interp_values = self.left_interp_values[left_indices.data, :]
-        right_interp_indices = self.right_interp_indices[right_indices.data, :]
-        right_interp_values = self.right_interp_values[right_indices.data, :]
+        left_interp_indices = self.left_interp_indices[left_indices, :]
+        left_interp_values = self.left_interp_values[left_indices, :]
+        right_interp_indices = self.right_interp_indices[right_indices, :]
+        right_interp_values = self.right_interp_values[right_indices, :]
 
         n_data, n_interp = left_interp_indices.size()
 
@@ -431,7 +431,7 @@ class InterpolatedLazyTensor(LazyTensor):
             n_probe_vectors = beta_features.fast_pred_var.n_probe_vectors()
             batch_size = train_interp_indices.size(0)
             n_inducing = self.base_lazy_tensor.size(-1)
-            vector_indices = torch.randperm(n_inducing).type_as(train_interp_indices.data)
+            vector_indices = torch.randperm(n_inducing).type_as(train_interp_indices)
             probe_vector_indices = vector_indices[:n_probe_vectors]
             test_vector_indices = vector_indices[n_probe_vectors : 2 * n_probe_vectors]
 

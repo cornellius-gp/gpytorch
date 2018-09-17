@@ -32,8 +32,8 @@ class TestMatmulNonBatch(unittest.TestCase):
         grad_output = torch.randn(3)
         res.backward(gradient=grad_output)
         actual.backward(gradient=grad_output)
-        self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data))
-        self.assertTrue(approx_equal(self.vec_var_clone.grad.data, self.vec_var.grad.data))
+        self.assertTrue(approx_equal(self.mat_var_clone.grad, self.mat_var.grad))
+        self.assertTrue(approx_equal(self.vec_var_clone.grad, self.vec_var.grad))
 
     def test_matmul_multiple_vecs(self):
         # Forward
@@ -45,8 +45,8 @@ class TestMatmulNonBatch(unittest.TestCase):
         grad_output = torch.randn(3, 4)
         res.backward(gradient=grad_output)
         actual.backward(gradient=grad_output)
-        self.assertTrue(approx_equal(self.mat_var_clone.grad.data, self.mat_var.grad.data))
-        self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
+        self.assertTrue(approx_equal(self.mat_var_clone.grad, self.mat_var.grad))
+        self.assertTrue(approx_equal(self.vecs_var_clone.grad, self.vecs_var.grad))
 
 
 class TestMatmulBatch(unittest.TestCase):
@@ -69,8 +69,8 @@ class TestMatmulBatch(unittest.TestCase):
         grad_output = torch.randn(2, 3, 4)
         res.backward(gradient=grad_output)
         actual.backward(gradient=grad_output)
-        self.assertTrue(approx_equal(self.mats_var_clone.grad.data, self.mats_var.grad.data))
-        self.assertTrue(approx_equal(self.vecs_var_clone.grad.data, self.vecs_var.grad.data))
+        self.assertTrue(approx_equal(self.mats_var_clone.grad, self.mats_var.grad))
+        self.assertTrue(approx_equal(self.vecs_var_clone.grad, self.vecs_var.grad))
 
 
 if __name__ == "__main__":

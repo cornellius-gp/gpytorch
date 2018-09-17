@@ -32,8 +32,8 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = MultitaskMean(ConstantMean(), n_tasks=2)
-        self.data_covar_module = RBFKernel()
-        self.covar_module = MultitaskKernel(self.data_covar_module, n_tasks=2, rank=2)
+        self_covar_module = RBFKernel()
+        self.covar_module = MultitaskKernel(self_covar_module, n_tasks=2, rank=2)
 
     def forward(self, x):
         mean_x = self.mean_module(x)

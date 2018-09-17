@@ -15,7 +15,7 @@ diag = torch.tensor([1, 2, 3], dtype=torch.float)
 class TestDiagLazyTensor(unittest.TestCase):
     def test_evaluate(self):
         diag_lv = DiagLazyTensor(diag)
-        self.assertTrue(torch.equal(diag_lv.evaluate().data, diag.diag()))
+        self.assertTrue(torch.equal(diag_lv.evaluate(), diag.diag()))
 
     def test_function_factory(self):
         # 1d
@@ -29,12 +29,12 @@ class TestDiagLazyTensor(unittest.TestCase):
         # Forward
         res = diag_lv.matmul(test_mat)
         actual = torch.matmul(diag_ev, test_mat)
-        self.assertLess(torch.norm(res.data - actual.data), 1e-4)
+        self.assertLess(torch.norm(res - actual), 1e-4)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.norm(diag_var1.grad.data - diag_var2.grad.data), 1e-3)
+        self.assertLess(torch.norm(diag_var1.grad - diag_var2.grad), 1e-3)
 
         # 2d
         diag_var1 = torch.tensor(diag, requires_grad=True)
@@ -47,12 +47,12 @@ class TestDiagLazyTensor(unittest.TestCase):
         # Forward
         res = diag_lv.matmul(test_mat)
         actual = torch.matmul(diag_ev, test_mat)
-        self.assertLess(torch.norm(res.data - actual.data), 1e-4)
+        self.assertLess(torch.norm(res - actual), 1e-4)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.norm(diag_var1.grad.data - diag_var2.grad.data), 1e-3)
+        self.assertLess(torch.norm(diag_var1.grad - diag_var2.grad), 1e-3)
 
     def test_batch_function_factory(self):
         # 2d
@@ -66,26 +66,26 @@ class TestDiagLazyTensor(unittest.TestCase):
         # Forward
         res = diag_lv.matmul(test_mat)
         actual = torch.matmul(diag_ev, test_mat)
-        self.assertLess(torch.norm(res.data - actual.data), 1e-4)
+        self.assertLess(torch.norm(res - actual), 1e-4)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.norm(diag_var1.grad.data - diag_var2.grad.data), 1e-3)
+        self.assertLess(torch.norm(diag_var1.grad - diag_var2.grad), 1e-3)
 
     def test_getitem(self):
         diag_lv = DiagLazyTensor(diag)
         diag_ev = diag_lv.evaluate()
-        self.assertTrue(torch.equal(diag_lv[0:2].evaluate().data, diag_ev[0:2].data))
+        self.assertTrue(torch.equal(diag_lv[0:2].evaluate(), diag_ev[0:2]))
 
     def test_batch_getitem(self):
         # 2d
         diag_lv = DiagLazyTensor(diag.repeat(5, 1))
         diag_ev = diag_lv.evaluate()
 
-        self.assertTrue(torch.equal(diag_lv[0, 0:2].evaluate().data, diag_ev[0, 0:2].data))
-        self.assertTrue(torch.equal(diag_lv[0, 0:2, :3].evaluate().data, diag_ev[0, 0:2, :3].data))
-        self.assertTrue(torch.equal(diag_lv[:, 0:2, :3].evaluate().data, diag_ev[:, 0:2, :3].data))
+        self.assertTrue(torch.equal(diag_lv[0, 0:2].evaluate(), diag_ev[0, 0:2]))
+        self.assertTrue(torch.equal(diag_lv[0, 0:2, :3].evaluate(), diag_ev[0, 0:2, :3]))
+        self.assertTrue(torch.equal(diag_lv[:, 0:2, :3].evaluate(), diag_ev[:, 0:2, :3]))
 
     def test_sample(self):
         res = DiagLazyTensor(diag)

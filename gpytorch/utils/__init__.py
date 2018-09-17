@@ -144,7 +144,7 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
 
     values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1)).view(batch_size, n_data * n_interp, n_cols)
 
-    flat_interp_indices = interp_indices.data.contiguous().view(1, -1)
+    flat_interp_indices = interp_indices.contiguous().view(1, -1)
     batch_indices = torch.arange(0, batch_size, dtype=torch.long, device=values.device).unsqueeze_(1)
     batch_indices = batch_indices.repeat(1, n_data * n_interp).view(1, -1)
     column_indices = torch.arange(0, n_data * n_interp, dtype=torch.long, device=values.device).unsqueeze_(1)
@@ -293,8 +293,8 @@ def scale_to_bounds(x, lower_bound, upper_bound):
     """
     """
     # Scale features so they fit inside grid bounds
-    min_val = x.data.min()
-    max_val = x.data.max()
+    min_val = x.min().item()
+    max_val = x.max().item()
     diff = max_val - min_val
     x = (x - min_val) * (0.95 * (upper_bound - lower_bound) / diff) + 0.95 * lower_bound
     return x

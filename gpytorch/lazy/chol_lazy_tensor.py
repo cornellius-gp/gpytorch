@@ -18,7 +18,7 @@ class CholLazyTensor(RootLazyTensor):
         mask = torch.full((chol.size(-2), chol.size(-2)), fill_value=-1, dtype=chol.dtype, device=chol.device)
         mask.tril_().add_(1)
         if chol.ndimension() == 3:
-            mask.data.unsqueeze_(0)
+            mask.unsqueeze_(0)
         if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
             raise RuntimeError("CholLazyVaraiable should take a lower-triangular " "matrix in the constructor.")
 

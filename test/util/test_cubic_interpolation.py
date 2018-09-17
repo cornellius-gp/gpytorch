@@ -19,7 +19,7 @@ class TestCubicInterpolation(unittest.TestCase):
         test_func_grid = grid.squeeze(0).pow(2)
         test_func_x = x.pow(2).squeeze(-1)
 
-        interp_func_x = utils.left_interp(indices.data, values.data, test_func_grid.unsqueeze(1)).squeeze()
+        interp_func_x = utils.left_interp(indices, values, test_func_grid.unsqueeze(1)).squeeze()
 
         self.assertTrue(utils.approx_equal(interp_func_x, test_func_x))
 
@@ -79,7 +79,7 @@ class TestCubicInterpolation(unittest.TestCase):
             ],
             1,
         )
-        self.assertTrue(utils.approx_equal(indices.data, actual_indices))
+        self.assertTrue(utils.approx_equal(indices, actual_indices))
 
         actual_values = torch.cat(
             [
@@ -142,7 +142,7 @@ class TestCubicInterpolation(unittest.TestCase):
             ],
             1,
         )
-        self.assertTrue(utils.approx_equal(values.data, actual_values))
+        self.assertTrue(utils.approx_equal(values, actual_values))
 
 
 if __name__ == "__main__":

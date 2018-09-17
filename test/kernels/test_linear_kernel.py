@@ -17,7 +17,7 @@ class TestLinearKernel(unittest.TestCase):
         kernel.eval()
         actual = 1 + torch.matmul(a, b.t())
         res = kernel(a, b).evaluate()
-        self.assertLess(torch.norm(res.data - actual), 1e-5)
+        self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_computes_linear_function_square(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
@@ -26,7 +26,7 @@ class TestLinearKernel(unittest.TestCase):
         kernel.eval()
         actual = 1 + torch.matmul(a, a.t())
         res = kernel(a, a).evaluate()
-        self.assertLess(torch.norm(res.data - actual), 1e-5)
+        self.assertLess(torch.norm(res - actual), 1e-5)
 
 
 if __name__ == "__main__":

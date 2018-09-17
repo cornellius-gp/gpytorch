@@ -43,10 +43,10 @@ class NonLazyTensor(LazyTensor):
         return NonLazyTensor(self.tensor.transpose(-1, -2))
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        return self.tensor[batch_indices.data, left_indices.data, right_indices.data]
+        return self.tensor[batch_indices, left_indices, right_indices]
 
     def _get_indices(self, left_indices, right_indices):
-        return self.tensor[left_indices.data, right_indices.data]
+        return self.tensor[left_indices, right_indices]
 
     def add_diag(self, diag):
         return NonLazyTensor(add_diag(self.tensor, diag))

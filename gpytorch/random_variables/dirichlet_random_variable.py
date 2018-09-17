@@ -34,7 +34,7 @@ class DirichletRandomVariable(RandomVariable):
 
     def sample(self, n_samples=1):
         ndimension = self.alpha.ndimension()
-        alpha = self.alpha.data
+        alpha = self.alpha
         if ndimension == 1:
             alpha = alpha.unsqueeze(0)
 
@@ -46,4 +46,4 @@ class DirichletRandomVariable(RandomVariable):
 
         if ndimension == 1:
             res.squeeze_(1)
-        return res.type_as(self.alpha.data)
+        return res.type_as(self.alpha)

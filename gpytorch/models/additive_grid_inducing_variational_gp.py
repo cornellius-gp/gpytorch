@@ -42,12 +42,12 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
 
     def _initalize_variational_parameters(self, prior_output):
         batch_size = self.chol_variational_covar.size(0)
-        mean_init = prior_output.mean().data
+        mean_init = prior_output.mean().detach()
         mean_init += torch.randn_like(mean_init).mul_(1e-1)
 
-        chol_covar_init = torch.eye(mean_init.size(-1)).type_as(mean_init)
+        chol_covar_init = torch.eye(mean_init.size(-1), dtype=mean_init.dtype, device=mean_init.device)
         chol_covar_init = chol_covar_init.unsqueeze_(0).repeat(batch_size, 1, 1)
-        chol_covar_init += torch.randn_like(chol_covar_init).mul_(1e-1)
+        chol_covar_init = chol_covar_init + torch.randn_like(chol_covar_init).mul_(1e-1)
 
         self.variational_mean.data.copy_(mean_init)
         self.chol_variational_covar.data.copy_(chol_covar_init)

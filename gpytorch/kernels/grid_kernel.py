@@ -24,7 +24,7 @@ class GridKernel(Kernel):
         return super(GridKernel, self).train(mode)
 
     def forward(self, x1, x2, **kwargs):
-        if not torch.equal(x1.data, self.inducing_points) or not torch.equal(x2.data, self.inducing_points):
+        if not torch.equal(x1, self.inducing_points) or not torch.equal(x2, self.inducing_points):
             raise RuntimeError("The kernel should only receive the inducing points as input")
 
         if not self.training and hasattr(self, "_cached_kernel_mat"):

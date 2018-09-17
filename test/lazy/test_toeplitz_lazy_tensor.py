@@ -32,8 +32,8 @@ class TestToeplitzLazyTensor(unittest.TestCase):
         res_1.backward()
         res_2.backward()
 
-        self.assertLess(torch.norm(res_1.data - res_2.data), 1e-4)
-        self.assertLess(torch.norm(c_1.grad.data - c_2.grad.data), 1e-4)
+        self.assertLess(torch.norm(res_1 - res_2), 1e-4)
+        self.assertLess(torch.norm(c_1.grad - c_2.grad), 1e-4)
 
     def test_evaluate(self):
         lazy_toeplitz_var = ToeplitzLazyTensor(self.toeplitz_column)
@@ -54,19 +54,19 @@ class TestToeplitzLazyTensor(unittest.TestCase):
 
     def test_get_item_square_on_tensor(self):
         toeplitz_var = ToeplitzLazyTensor(torch.tensor([1, 2, 3, 4], dtype=torch.float))
-        evaluated = toeplitz_var.evaluate().data
+        evaluated = toeplitz_var.evaluate()
 
-        self.assertTrue(utils.approx_equal(toeplitz_var[2:4, 2:4].evaluate().data, evaluated[2:4, 2:4]))
+        self.assertTrue(utils.approx_equal(toeplitz_var[2:4, 2:4].evaluate(), evaluated[2:4, 2:4]))
 
     def test_get_item_on_batch(self):
         toeplitz_var = ToeplitzLazyTensor(self.batch_toeplitz_column)
-        evaluated = toeplitz_var.evaluate().data
-        self.assertTrue(utils.approx_equal(toeplitz_var[0, 1:3].evaluate().data, evaluated[0, 1:3]))
+        evaluated = toeplitz_var.evaluate()
+        self.assertTrue(utils.approx_equal(toeplitz_var[0, 1:3].evaluate(), evaluated[0, 1:3]))
 
     def test_get_item_scalar_on_batch(self):
         toeplitz_var = ToeplitzLazyTensor(torch.tensor([[1, 2, 3, 4]], dtype=torch.float))
-        evaluated = toeplitz_var.evaluate().data
-        self.assertTrue(utils.approx_equal(toeplitz_var[0].evaluate().data, evaluated[0]))
+        evaluated = toeplitz_var.evaluate()
+        self.assertTrue(utils.approx_equal(toeplitz_var[0].evaluate(), evaluated[0]))
 
 
 if __name__ == "__main__":

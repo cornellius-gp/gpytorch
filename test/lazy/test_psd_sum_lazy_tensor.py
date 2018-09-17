@@ -25,8 +25,8 @@ class TestPsdSumLazyTensor(unittest.TestCase):
             torch.manual_seed(0)
 
         self.t1, self.t2 = make_sum_lazy_var().lazy_vars
-        self.t1_eval = self.t1.evaluate().data
-        self.t2_eval = self.t2.evaluate().data
+        self.t1_eval = self.t1.evaluate()
+        self.t2_eval = self.t2.evaluate()
 
     def tearDown(self):
         if hasattr(self, "rng_state"):

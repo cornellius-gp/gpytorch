@@ -32,7 +32,7 @@ class LogNormalCDFTest(unittest.TestCase):
         output = gpytorch.log_normal_cdf(inputs)
         output.backward(torch.ones(8))
 
-        gradient = inputs.grad.data
+        gradient = inputs.grad
         expected_gradient = torch.tensor(
             [6.1585, 5.1865, 3.2831, 1.5251, 0.7979, 0.2876, 0.0044, 0.0000], dtype=torch.float
         )

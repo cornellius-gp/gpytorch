@@ -50,7 +50,7 @@ class TestConstantMulLazyTensor(unittest.TestCase):
         toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * 2.5
         actual = ToeplitzLazyTensor(c2_var)
 
-        diff = torch.norm(actual[2:, 2:].evaluate().data - toeplitz_lazy_var[2:, 2:].evaluate().data)
+        diff = torch.norm(actual[2:, 2:].evaluate() - toeplitz_lazy_var[2:, 2:].evaluate())
         self.assertLess(diff, 1e-3)
 
 
