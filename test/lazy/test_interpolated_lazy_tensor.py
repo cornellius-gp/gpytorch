@@ -46,10 +46,10 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
         test_matrix = torch.randn(9, 4)
 
-        interp_lazy_var = InterpolatedLazyTensor(
+        interp_lazy_tensor = InterpolatedLazyTensor(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
-        res = interp_lazy_var.matmul(test_matrix)
+        res = interp_lazy_tensor.matmul(test_matrix)
 
         left_matrix = torch.zeros(9, 6)
         right_matrix = torch.zeros(9, 6)
@@ -87,10 +87,10 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
         test_matrix = torch.randn(5, 9, 4)
 
-        interp_lazy_var = InterpolatedLazyTensor(
+        interp_lazy_tensor = InterpolatedLazyTensor(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
-        res = interp_lazy_var.matmul(test_matrix)
+        res = interp_lazy_tensor.matmul(test_matrix)
 
         left_matrix_comps = []
         right_matrix_comps = []
@@ -134,25 +134,25 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         base_lazy_tensor = base_lazy_tensor_mat
         base_lazy_tensor.requires_grad = True
         base_lazy_tensor_copy = base_lazy_tensor_mat
-        test_matrix_var = test_matrix
-        test_matrix_var.requires_grad = True
-        test_matrix_var_copy = test_matrix
+        test_matrix_tensor = test_matrix
+        test_matrix_tensor.requires_grad = True
+        test_matrix_tensor_copy = test_matrix
 
-        interp_lazy_var = InterpolatedLazyTensor(
+        interp_lazy_tensor = InterpolatedLazyTensor(
             NonLazyTensor(base_lazy_tensor),
             left_interp_indices,
             left_interp_values,
             right_interp_indices,
             right_interp_values,
         )
-        res = interp_lazy_var.inv_matmul(test_matrix_var)
+        res = interp_lazy_tensor.inv_matmul(test_matrix_tensor)
 
         left_matrix = torch.zeros(3, 6)
         right_matrix = torch.zeros(3, 6)
         left_matrix.scatter_(1, left_interp_indices, left_interp_values_copy)
         right_matrix.scatter_(1, right_interp_indices, right_interp_values_copy)
         actual_mat = left_matrix.matmul(base_lazy_tensor_copy).matmul(right_matrix.transpose(-1, -2))
-        actual = gpytorch.inv_matmul(actual_mat, test_matrix_var_copy)
+        actual = gpytorch.inv_matmul(actual_mat, test_matrix_tensor_copy)
 
         self.assertTrue(approx_equal(res.data, actual.data))
 
@@ -170,10 +170,10 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         base_lazy_tensor.requires_grad = True
         base_lazy_tensor_copy.requires_grad = True
 
-        test_matrix_var = torch.randn(5, 3, 4)
-        test_matrix_var_copy = test_matrix_var.clone()
-        test_matrix_var.requires_grad = True
-        test_matrix_var_copy.requires_grad = True
+        test_matrix_tensor = torch.randn(5, 3, 4)
+        test_matrix_tensor_copy = test_matrix_tensor.clone()
+        test_matrix_tensor.requires_grad = True
+        test_matrix_tensor_copy.requires_grad = True
 
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).unsqueeze(0).repeat(5, 1, 1)
         left_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]]).unsqueeze(0).repeat(5, 1, 1)
@@ -187,14 +187,14 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         right_interp_values.requires_grad = True
         right_interp_values_copy.requires_grad = True
 
-        interp_lazy_var = InterpolatedLazyTensor(
+        interp_lazy_tensor = InterpolatedLazyTensor(
             NonLazyTensor(base_lazy_tensor),
             left_interp_indices,
             left_interp_values,
             right_interp_indices,
             right_interp_values,
         )
-        res = interp_lazy_var.inv_matmul(test_matrix_var)
+        res = interp_lazy_tensor.inv_matmul(test_matrix_tensor)
 
         left_matrix_comps = []
         right_matrix_comps = []
@@ -208,7 +208,7 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         left_matrix = torch.cat(left_matrix_comps)
         right_matrix = torch.cat(right_matrix_comps)
         actual_mat = left_matrix.matmul(base_lazy_tensor_copy).matmul(right_matrix.transpose(-1, -2))
-        actual = gpytorch.inv_matmul(actual_mat, test_matrix_var_copy)
+        actual = gpytorch.inv_matmul(actual_mat, test_matrix_tensor_copy)
 
         self.assertTrue(approx_equal(res.data, actual.data))
 
@@ -231,10 +231,10 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         test_matrix = torch.randn(1, 9, 4)
 
         base_lazy_tensor = NonLazyTensor(base_lazy_tensor_mat)
-        interp_lazy_var = InterpolatedLazyTensor(
+        interp_lazy_tensor = InterpolatedLazyTensor(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
-        res = interp_lazy_var.matmul(test_matrix)
+        res = interp_lazy_tensor.matmul(test_matrix)
 
         left_matrix = torch.Tensor(
             [
@@ -280,7 +280,7 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         base_lazy_tensor_mat.requires_grad = True
 
         base_lazy_tensor = NonLazyTensor(base_lazy_tensor_mat)
-        interp_lazy_var = InterpolatedLazyTensor(
+        interp_lazy_tensor = InterpolatedLazyTensor(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
 
@@ -291,13 +291,13 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
             + base_lazy_tensor[:, 3:6, 1:4]
         ).evaluate()
 
-        self.assertTrue(approx_equal(interp_lazy_var[2].evaluate().data, actual[2].data))
-        self.assertTrue(approx_equal(interp_lazy_var[0:2].evaluate().data, actual[0:2].data))
-        self.assertTrue(approx_equal(interp_lazy_var[:, 2:3].evaluate().data, actual[:, 2:3].data))
-        self.assertTrue(approx_equal(interp_lazy_var[:, 0:2].evaluate().data, actual[:, 0:2].data))
-        self.assertTrue(approx_equal(interp_lazy_var[1, :1, :2].evaluate().data, actual[1, :1, :2].data))
-        self.assertTrue(approx_equal(interp_lazy_var[1, 1, :2].data, actual[1, 1, :2].data))
-        self.assertTrue(approx_equal(interp_lazy_var[1, :1, 2].data, actual[1, :1, 2].data))
+        self.assertTrue(approx_equal(interp_lazy_tensor[2].evaluate().data, actual[2].data))
+        self.assertTrue(approx_equal(interp_lazy_tensor[0:2].evaluate().data, actual[0:2].data))
+        self.assertTrue(approx_equal(interp_lazy_tensor[:, 2:3].evaluate().data, actual[:, 2:3].data))
+        self.assertTrue(approx_equal(interp_lazy_tensor[:, 0:2].evaluate().data, actual[:, 0:2].data))
+        self.assertTrue(approx_equal(interp_lazy_tensor[1, :1, :2].evaluate().data, actual[1, :1, :2].data))
+        self.assertTrue(approx_equal(interp_lazy_tensor[1, 1, :2].data, actual[1, 1, :2].data))
+        self.assertTrue(approx_equal(interp_lazy_tensor[1, :1, 2].data, actual[1, :1, 2].data))
 
     def test_diag(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]])
@@ -310,12 +310,12 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         base_lazy_tensor_mat.requires_grad = True
 
         base_lazy_tensor = NonLazyTensor(base_lazy_tensor_mat)
-        interp_lazy_var = InterpolatedLazyTensor(
+        interp_lazy_tensor = InterpolatedLazyTensor(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
 
-        actual = interp_lazy_var.evaluate()
-        self.assertTrue(approx_equal(actual.diag().data, interp_lazy_var.diag().data))
+        actual = interp_lazy_tensor.evaluate()
+        self.assertTrue(approx_equal(actual.diag().data, interp_lazy_tensor.diag().data))
 
     def test_batch_diag(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(5, 1, 1)
@@ -328,16 +328,54 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         base_lazy_tensor_mat.requires_grad = True
 
         base_lazy_tensor = NonLazyTensor(base_lazy_tensor_mat)
-        interp_lazy_var = InterpolatedLazyTensor(
+        interp_lazy_tensor = InterpolatedLazyTensor(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
 
-        actual = interp_lazy_var.evaluate()
+        actual = interp_lazy_tensor.evaluate()
         actual_diag = torch.stack(
             [actual[0].diag(), actual[1].diag(), actual[2].diag(), actual[3].diag(), actual[4].diag()]
         )
 
-        self.assertTrue(approx_equal(actual_diag.data, interp_lazy_var.diag().data))
+        self.assertTrue(approx_equal(actual_diag.data, interp_lazy_tensor.diag().data))
+
+    def test_sample(self):
+        left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]])
+        left_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]])
+
+        base_lazy_tensor_mat = torch.randn(6, 6)
+        base_lazy_tensor_mat = base_lazy_tensor_mat.t().matmul(base_lazy_tensor_mat)
+        base_lazy_tensor_mat.requires_grad = True
+
+        base_lazy_tensor = NonLazyTensor(base_lazy_tensor_mat)
+        interp_lazy_tensor = InterpolatedLazyTensor(
+            base_lazy_tensor, left_interp_indices, left_interp_values, left_interp_indices, left_interp_values
+        )
+
+        actual = interp_lazy_tensor.evaluate()
+
+        samples = interp_lazy_tensor.zero_mean_mvn_samples(10000)
+        sample_covar = samples.unsqueeze(-1).matmul(samples.unsqueeze(-2)).mean(0)
+        self.assertLess(((sample_covar - actual).abs() / actual.abs().clamp(1e-5, 1e5)).max().item(), 2e-1)
+
+    def test_batch_sample(self):
+        left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(5, 1, 1)
+        left_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]]).repeat(5, 1, 1)
+
+        base_lazy_tensor_mat = torch.randn(5, 6, 6)
+        base_lazy_tensor_mat = base_lazy_tensor_mat.transpose(1, 2).matmul(base_lazy_tensor_mat)
+        base_lazy_tensor_mat.requires_grad = True
+
+        base_lazy_tensor = NonLazyTensor(base_lazy_tensor_mat)
+        interp_lazy_tensor = InterpolatedLazyTensor(
+            base_lazy_tensor, left_interp_indices, left_interp_values, left_interp_indices, left_interp_values
+        )
+
+        actual = interp_lazy_tensor.evaluate()
+
+        samples = interp_lazy_tensor.zero_mean_mvn_samples(10000)
+        sample_covar = samples.unsqueeze(-1).matmul(samples.unsqueeze(-2)).mean(0)
+        self.assertLess(((sample_covar - actual).abs() / actual.abs().clamp(1e-5, 1e5)).max().item(), 2e-1)
 
 
 if __name__ == "__main__":

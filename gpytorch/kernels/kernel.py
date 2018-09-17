@@ -31,6 +31,52 @@ class Kernel(Module):
         :obj:`torch.tensor` representing the covariance matrix, you may need to call the
         :func:`gpytorch.lazy.LazyTensor.evaluate` method on the output.
 
+    This base :class:`Kernel` class includes a lengthscale parameter
+    :math:`\Theta`, which is used by many common kernel functions.
+    There are a few options for the lengthscale:
+
+    * Default: No lengthscale (i.e. :math:`\Theta` is the identity matrix).
+
+    * Single lengthscale: One lengthscale can be applied to all input dimensions/batches
+      (i.e. :math:`\Theta` is a constant diagonal matrix).
+      This is controlled by setting `has_lengthscale=True`.
+
+    * ARD: Each input dimension gets its own separate lengthscale
+      (i.e. :math:`\Theta` is a non-constant diagonal matrix).
+      This is controlled by the `ard_num_dims` keyword argument (as well has `has_lengthscale=True`).
+
+    In batch-mode (i.e. when :math:`x_1` and :math:`x_2` are batches of input matrices), each
+    batch of data can have its own lengthscale parameter by setting the `batch_size`
+    keyword argument to the appropriate number of batches.
+
+    .. note::
+
+        The :attr:`lengthscale` parameter is parameterized on a log scale to constrain it to be positive.
+        You can set a prior on this parameter using the :attr:`log_lengthscale_prior` argument, but
+        be sure that the prior has :attr:`log_transform=True` set.
+
+    Base Args:
+        :attr:`has_lengthscale` (bool):
+            Set this if the kernel has a lengthscale. Default: `False`.
+        :attr:`ard_num_dims` (int, optional):
+            Set this if you want a separate lengthscale for each input
+            dimension. It should be `d` if :attr:`x1` is a `n x d` matrix.  Default: `None`
+        :attr:`batch_size` (int, optional):
+            Set this if you want a separate lengthscale for each batch of input
+            data. It should be `b` if :attr:`x1` is a `b x n x d` tensor.  Default: `1`
+        :attr:`active_dims` (tuple of ints, optional):
+            Set this if you want to compute the covariance of only a few input dimensions. The ints
+            corresponds to the indices of the dimensions. Default: `None`.
+        :attr:`log_lengthscale_prior` (Prior, optional):
+            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
+        :attr:`eps` (float):
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
+
+    Base Attributes:
+        :attr:`lengthscale` (Tensor):
+            The lengthscale parameter. Size/shape of parameter depends on the
+            :attr:`ard_num_dims` and :attr:`batch_size` arguments.
+
     Example:
         >>> covar_module = gpytorch.kernels.LinearKernel()
         >>> x1 = torch.randn(50, 3)
@@ -42,30 +88,19 @@ class Kernel(Module):
         self,
         has_lengthscale=False,
         ard_num_dims=None,
-        log_lengthscale_prior=None,
-        active_dims=None,
         batch_size=1,
+        active_dims=None,
         log_lengthscale_bounds=None,
+        log_lengthscale_prior=None,
+        eps=1e-6,
     ):
-        """
-        The base Kernel class handles both lengthscales and ARD.
-
-        Args:
-            has_lengthscale (bool): If True, we will register a :obj:`torch.nn.Parameter` named `log_lengthscale`
-            ard_num_dims (int): If not None, the `log_lengthscale` parameter will have this many entries.
-            log_lengthscale_prior (:obj:`gpytorch.priors.Prior`): Prior over the log lengthscale
-            active_dims (list): List of data dimensions to evaluate this Kernel on.
-            batch_size (int): If training or testing multiple GPs simultaneously, this is how many lengthscales to
-                              register.
-            log_lengthscale_bounds (tuple): Deprecated min and max values for the lengthscales. If supplied, this
-                                            now registers a :obj:`gpytorch.priors.SmoothedBoxPrior`
-        """
         super(Kernel, self).__init__()
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.active_dims = active_dims
         self.ard_num_dims = ard_num_dims
-        self.has_lengthscale = has_lengthscale
+        self.batch_size = batch_size
+        self.__has_lengthscale = has_lengthscale
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             log_lengthscale_prior = _bounds_to_prior(prior=log_lengthscale_prior, bounds=log_lengthscale_bounds)
@@ -76,9 +111,13 @@ class Kernel(Module):
             )
 
     @property
+    def has_lengthscale(self):
+        return self.__has_lengthscale
+
+    @property
     def lengthscale(self):
-        if "log_lengthscale" in self.named_parameters().keys():
-            return self.log_lengthscale.exp()
+        if self.has_lengthscale:
+            return self.log_lengthscale.exp().clamp(self.eps, 1e5)
         else:
             return None
 
@@ -103,28 +142,77 @@ class Kernel(Module):
 
     @abstractmethod
     def forward(self, x1, x2, **params):
+        """
+        Computes the covariance between x1 and x2.
+        This method should be imlemented by all Kernel subclasses.
+
+        .. note::
+
+            All non-compositional kernels should use the :meth:`gpytorch.kernels.Kernel._create_input_grid`
+            method to create a meshgrid between x1 and x2 (if necessary).
+
+            Do not manually create the grid - this is inefficient and will cause erroneous behavior in certain
+            evaluation modes.
+
+        Args:
+            :attr:`x1` (Tensor `n x d` or `b x n x d`)
+            :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
+
+        Returns:
+            :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
+            The exact size depends on the kernel's evaluation mode:
+
+            * `full_covar`: `n x m` or `b x n x m`
+            * `full_covar` with `dim_groups=k`: `k x n x m` or `b x k x n x m`
+            * `diag`: `n` or `b x n`
+            * `diag` with `dim_groups=k`: `k x n` or `b x k x n`
+        """
         raise NotImplementedError()
 
-    def __call__(self, x1_, x2_=None, **params):
-        x1, x2 = x1_, x2_
+    def _create_input_grid(self, x1, x2):
+        """
+        This is a helper method for creating a grid of the kernel's inputs.
+        Use this helper rather than maually creating a meshgrid.
 
+        The grid dimensions depend on the kernel's evaluation mode.
+
+        Args:
+            :attr:`x1` (Tensor `n x d` or `b x n x d`)
+            :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
+
+        Returns:
+            (:class:`Tensor`, :class:`Tensor) corresponding to the gridded `x1` and `x2`.
+            The shape depends on the kernel's mode
+
+            * `full_covar`: (`b x n x 1 x d` and `b x 1 x m x d`)
+            * `full_covar` with `dim_groups=k`: (`b x k x n x 1 x (d//k)` and `b x k x 1 x m x (d//k)`)
+            * `diag`: (`b x n x d` and `b x n x d`)
+            * `diag` with `dim_groups=k`: (`b x k x n x (d//k)` and `b x k x n x (d//k)`)
+        """
+        return x1.unsqueeze(-2), x2.unsqueeze(-3)
+
+    def __call__(self, x1, x2=None, **params):
+        x1_, x2_ = x1, x2
+
+        # Select the active dimensions
         if self.active_dims is not None:
-            x1 = x1_.index_select(-1, self.active_dims)
+            x1_ = x1_.index_select(-1, self.active_dims)
             if x2_ is not None:
-                x2 = x2_.index_select(-1, self.active_dims)
+                x2_ = x2_.index_select(-1, self.active_dims)
 
-        if x2 is None:
-            x2 = x1
+        # Give x1_ and x2_ a last dimension, if necessary
+        if x1_.ndimension() == 1:
+            x1_ = x1_.unsqueeze(1)
+        if x2_ is not None:
+            if x2_.ndimension() == 1:
+                x2_ = x2_.unsqueeze(1)
+            if not x1_.size(-1) == x2_.size(-1):
+                raise RuntimeError("x1_ and x2_ must have the same number of dimensions!")
 
-        # Give x1 and x2 a last dimension, if necessary
-        if x1.ndimension() == 1:
-            x1 = x1.unsqueeze(1)
-        if x2.ndimension() == 1:
-            x2 = x2.unsqueeze(1)
-        if not x1.size(-1) == x2.size(-1):
-            raise RuntimeError("x1 and x2 must have the same number of dimensions!")
+        if x2_ is None:
+            x2_ = x1_
 
-        return LazyEvaluatedKernelTensor(self, x1, x2)
+        return LazyEvaluatedKernelTensor(self, x1_, x2_, **params)
 
     def __add__(self, other):
         return AdditiveKernel(self, other)

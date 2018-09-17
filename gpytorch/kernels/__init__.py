@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 from .kernel import Kernel, AdditiveKernel, ProductKernel
 from .additive_grid_interpolation_kernel import AdditiveGridInterpolationKernel
+from .cosine_kernel import CosineKernel
 from .grid_kernel import GridKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .index_kernel import IndexKernel
@@ -23,6 +24,7 @@ __all__ = [
     "Kernel",
     "AdditiveKernel",
     "AdditiveGridInterpolationKernel",
+    "CosineKernel",
     "GridKernel",
     "GridInterpolationKernel",
     "LinearKernel",

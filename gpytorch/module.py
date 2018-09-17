@@ -30,6 +30,10 @@ class Module(nn.Module):
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
 
+    def hyperparameters(self):
+        for name, param in self.named_hyperparameters():
+            yield param
+
     def initialize(self, **kwargs):
         """
         Set a value for a parameter
@@ -77,6 +81,16 @@ class Module(nn.Module):
 
         """
         return _extract_named_derived_priors(module=self, memo=None, prefix="")
+
+    def named_hyperparameters(self):
+        for name, param in self.named_parameters():
+            if 'variational_' not in name:
+                yield name, param
+
+    def named_variational_parameters(self):
+        for name, param in self.named_parameters():
+            if 'variational_' in name:
+                yield name, param
 
     def named_variational_strategies(self):
         """Returns an iterator over module variational strategies, yielding both
@@ -143,6 +157,10 @@ class Module(nn.Module):
             self.add_module("_".join([name, "prior"]), prior)
             self._priors[name] = prior
         return self
+
+    def variational_parameters(self):
+        for name, param in self.named_variational_parameters():
+            yield param
 
     def variational_strategies(self):
         for _, strategy in self.named_variational_strategies():

@@ -347,6 +347,9 @@ class LazyTensor(object):
             return self._get_indices(row_col_iter, row_col_iter)
 
     def dim(self):
+        """
+        Alias of :meth:`~gpytorch.lazy.LazyTensor.ndimension`
+        """
         return self.ndimension()
 
     def evaluate(self):
@@ -664,9 +667,32 @@ class LazyTensor(object):
 
     def mul_batch(self, mul_batch_size=None):
         """
-        If this :obj:`gpytorch.lazy.LazyTensor` represents a batch tensor (e.g., one that is
-        :math:`b \times n \times m`), returns a new :obj:`gpytorch.lazy.MulLazyTensor` that represents the result of
-        elementwise multiplying across the batch dimension.
+        For a `b x n x m` LazyTensor, compute the product over the batch dimension.
+
+        The `mul_batch_size` controls whether or not the batch dimension is grouped when multiplying.
+            * `mul_batch_size=None` (default): The entire batch dimension is multiplied. Returns a `n x n` LazyTensor.
+            * `mul_batch_size=k`: Creates `b/k` groups, and muls the `k` entries of this group.
+                (The LazyTensor is reshaped as a `b/k x k x n x m` LazyTensor and the `k` dimension is multiplied over.
+                Returns a `b/k x n x m` LazyTensor.
+
+        Args:
+            :attr:`mul_batch_size` (int or None):
+                Controls the number of groups that are multiplied over (default: None).
+
+        Returns:
+            :obj:`~gpytorch.lazy.LazyTensor`
+
+        Example:
+            >>> lazy_tensor = gpytorch.lazy.NonLazyTensor(torch.Tensor([
+                    [[2, 4], [1, 2]],
+                    [[1, 1], [0, -1]],
+                    [[2, 1], [1, 0]],
+                    [[3, 2], [2, -1]],
+                ]))
+            >>> lazy_tensor.mul_batch().evaluate()
+            >>> # Returns: torch.Tensor([[12, 8], [0, 0]])
+            >>> lazy_tensor.mul_batch(mul_batch_size=2)
+            >>> # Returns: torch.Tensor([[[2, 4], [0, -2]], [[6, 2], [2, 0]]])
         """
         from .mul_lazy_tensor import MulLazyTensor
         from .root_lazy_tensor import RootLazyTensor
@@ -719,7 +745,7 @@ class LazyTensor(object):
 
     def representation(self):
         """
-        Returns the variables that are used to define the LazyTensor
+        Returns the Tensors that are used to define the LazyTensor
         """
         representation = []
         for arg in self._args:
@@ -836,13 +862,45 @@ class LazyTensor(object):
         return size
 
     def sum_batch(self, sum_batch_size=None):
+        """
+        Sum the `b x n x m` LazyTensor over the batch dimension.
+
+        The `sum_batch_size` controls whether or not the batch dimension is grouped when summing.
+            * `sum_batch_size=None` (default): The entire batch dimension is summed. Returns a `n x n` LazyTensor.
+            * `sum_batch_size=k`: Creates `b/k` groups, and sums the `k` entries of this group.
+                (The LazyTensor is reshaped as a `b/k x k x n x m` LazyTensor and the `k` dimension is summed over.
+                Returns a `b/k x n x m` LazyTensor.
+
+        Args:
+            :attr:`sum_batch_size` (int or None):
+                Controls the number of groups that are summed over (default: None).
+
+        Returns:
+            :obj:`~gpytorch.lazy.LazyTensor`
+
+        Example:
+            >>> lazy_tensor = gpytorch.lazy.NonLazyTensor(torch.Tensor([
+                    [[2, 4], [1, 2]],
+                    [[1, 1], [0, -1]],
+                    [[2, 1], [1, 0]],
+                    [[3, 2], [2, -1]],
+                ]))
+            >>> lazy_tensor.sum_batch().evaluate()
+            >>> # Returns: torch.Tensor([[8, 8], [4, 0]])
+            >>> lazy_tensor.sum_batch(sum_batch_size=2)
+            >>> # Returns: torch.Tensor([[[3, 5], [1, 1]], [[5, 3], [3, -1]]])
+        """
         from .sum_batch_lazy_tensor import SumBatchLazyTensor
 
-        return SumBatchLazyTensor(self, sum_batch_size=sum_batch_size)
+        return SumBatchLazyTensor(self, num_blocks=sum_batch_size)
 
     def transpose(self, dim1, dim2):
         """
-        Returns the transpose of the resulting Tensor that the lazy tensor represents
+        Transpose the dimensions `dim1` and `dim2` of the LazyTensor.
+
+        Example:
+            >>> lazy_tensor = gpytorch.lazy.NonLazyTensor(torch.randn(3, 5))
+            >>> lazy_tensor.transpose(0, 1)
         """
         ndimension = self.ndimension()
         if dim1 < 0:
@@ -866,7 +924,8 @@ class LazyTensor(object):
 
     def t(self):
         """
-        Returns the transpose of the resulting Tensor that the lazy tensor represents
+        Alias of :meth:`~gpytorch.lazy.LazyTensor.transpose` for 2D LazyTensor.
+        (Tranposes the two dimensions.)
         """
         if self.ndimension() != 2:
             raise RuntimeError("Cannot call t for more than 2 dimensions")
@@ -879,18 +938,20 @@ class LazyTensor(object):
             self._tensor_cls = _import_dotted_name(first_item.type())
         return self._tensor_cls
 
-    def zero_mean_mvn_samples(self, n_samples):
+    def zero_mean_mvn_samples(self, num_samples):
         """
         Assumes that self is a covariance matrix, or a batch of covariance matrices.
         Returns samples from a zero-mean MVN, defined by self (as covariance matrix)
 
-        Self should be symmetric, either (batch_size x n_dim x n_dim) or (n_dim x n_dim)
+        Self should be symmetric, either (batch_size x num_dim x num_dim) or (num_dim x num_dim)
 
         Args:
-            n_samples (int): Number of samples to draw.
+            :attr:`num_samples` (int):
+                Number of samples to draw.
 
         Returns:
-            :obj:`torch.tensor`: Samples from MVN (batch_size x n_samples)
+            :obj:`torch.tensor`:
+                Samples from MVN (num_samples x batch_size x num_dim) or (num_samples x num_dim)
         """
         if self.size()[-2:] == torch.Size([1, 1]):
             covar_root = self.evaluate().sqrt()
@@ -898,10 +959,12 @@ class LazyTensor(object):
             covar_root = self.root_decomposition()
 
         if self.ndimension() == 3:
-            base_samples = self.tensor_cls(self.size(0), covar_root.size(-1), n_samples).normal_()
+            base_samples = self.tensor_cls(self.size(0), covar_root.size(-1), num_samples).normal_()
+            samples = covar_root.matmul(base_samples).permute(2, 0, 1).contiguous()
         else:
-            base_samples = self.tensor_cls(covar_root.size(-1), n_samples).normal_()
-        samples = covar_root.matmul(base_samples)
+            base_samples = self.tensor_cls(covar_root.size(-1), num_samples).normal_()
+            samples = covar_root.matmul(base_samples).permute(1, 0).contiguous()
+
         return samples
 
     def __add__(self, other):
@@ -910,11 +973,12 @@ class LazyTensor(object):
         or lazy tensor.
 
         Args:
-            other (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`): Matrix to add to this one.
+            :attr:`other` (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
+                Matrix to add to this one.
 
         Returns:
-            :obj:`gpytorch.lazy.SumLazyTensor`: A sum lazy tensor representing the sum of this lazy tensor and
-            other.
+            :obj:`gpytorch.lazy.SumLazyTensor`:
+                A sum lazy tensor representing the sum of this lazy tensor and other.
         """
         from .sum_lazy_tensor import SumLazyTensor
         from .zero_lazy_tensor import ZeroLazyTensor
@@ -930,10 +994,12 @@ class LazyTensor(object):
         the elementwise reciprocal of another matrix or lazy tensor.
 
         Args:
-            other (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`): Matrix to divide this one by.
+            :attr:`other` (:obj:`torch.tensor` or :obj:`gpytorch.lazy.LazyTensor`):
+                Matrix to divide this one by.
 
         Returns:
-            :obj:`gpytorch.lazy.MulLazyTensor`: Result of division.
+            :obj:`gpytorch.lazy.MulLazyTensor`:
+                Result of division.
         """
         from .zero_lazy_tensor import ZeroLazyTensor
 
@@ -944,7 +1010,7 @@ class LazyTensor(object):
 
     def __mul__(self, other):
         """
-        Convenience alias of :func:`~gpytorch.lazy.LazyTensor.mul` that allows the standard product operator to be
+        Convenience alias of :meth:`~gpytorch.lazy.LazyTensor.mul` that allows the standard product operator to be
         used.
         """
         from .zero_lazy_tensor import ZeroLazyTensor
