@@ -72,8 +72,7 @@ class MatmulLazyTensor(LazyTensor):
         else:
             outer_size = batch_indices.size(0)
             inner_size = self.lhs.size(-1)
-            inner_indices = right_indices.new(inner_size)
-            torch.arange(0, inner_size, out=inner_indices.data)
+            inner_indices = torch.arange(0, inner_size, dtype=torch.long, device=self.device)
 
             # Repeat the indices to get all the appropriate terms
             batch_indices = _outer_repeat(batch_indices, inner_size)
@@ -94,8 +93,7 @@ class MatmulLazyTensor(LazyTensor):
         else:
             outer_size = left_indices.size(0)
             inner_size = self.lhs.size(-1)
-            inner_indices = right_indices.new(inner_size)
-            torch.arange(0, inner_size, out=inner_indices.data)
+            inner_indices = torch.arange(0, inner_size, dtype=torch.long, device=self.device)
 
             # Repeat the indices to get all the appropriate terms
             left_indices = _outer_repeat(left_indices, inner_size)

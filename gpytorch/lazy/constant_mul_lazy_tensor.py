@@ -43,7 +43,7 @@ class ConstantMulLazyTensor(LazyTensor):
         >>> #  [ 3.6, 2.4, 1.2 ]]
         >>>
         >>> base_lazy_var = gpytorch.lazy.ToeplitzLazyTensor([[1, 2, 3], [2, 3, 4]])
-        >>> constant = torch.Tensor([1.2, 0.5])
+        >>> constant = torch.tensor([1.2, 0.5])
         >>> new_lazy_var = gpytorch.lazy.ConstantMulLazyTensor(base_lazy_var, constant)
         >>> new_lazy_var.evaluate()
         >>> # Returns:

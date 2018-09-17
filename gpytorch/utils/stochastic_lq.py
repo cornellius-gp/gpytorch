@@ -15,7 +15,7 @@ class StochasticLQ(object):
     with. For more details, see Dong et al. 2017 (in submission).
     """
 
-    def __init__(self, cls=None, max_iter=15, num_random_probes=10):
+    def __init__(self, max_iter=15, num_random_probes=10):
         """
         The nature of stochastic Lanczos quadrature is that the calculation of tr(f(A)) is both inaccurate and
         stochastic. An instance of StochasticLQ has two parameters that control these tradeoffs. Increasing either
@@ -28,12 +28,13 @@ class StochasticLQ(object):
                               Increasing this makes the estimate of tr(f(A)) lower variance -- that is, the value
                               returned is more consistent.
         """
-        self.cls = cls or torch.Tensor
         self.max_iter = max_iter
         self.num_random_probes = num_random_probes
 
     def lanczos_batch(self, matmul_closure, rhs_vectors):
-        return lanczos_tridiag(matmul_closure, self.max_iter, init_vecs=rhs_vectors, tensor_cls=self.cls)
+        return lanczos_tridiag(
+            matmul_closure, self.max_iter, init_vecs=rhs_vectors, dtype=rhs_vectors.dtype, device=rhs_vectors.device
+        )
 
     def evaluate(self, t_mats, matrix_size, eigenvalues, eigenvectors, funcs):
         """
@@ -64,7 +65,7 @@ class StochasticLQ(object):
             )
 
         batch_size = t_mats.size(1)
-        results = [t_mats.new(batch_size).zero_()] * len(funcs)
+        results = [torch.zeros(batch_size, dtype=t_mats.dtype, device=t_mats.device)] * len(funcs)
         num_random_probes = t_mats.size(0)
         for j in range(num_random_probes):
             # These are (num_batch x k) and (num_batch x k x k)

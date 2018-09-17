@@ -31,7 +31,8 @@ class AbstractVariationalGP(Module):
 
             warnings.warn(
                 "model.marginal_log_likelihood is now deprecated. "
-                "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead.", DeprecationWarning
+                "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead.",
+                DeprecationWarning,
             )
             self._has_warned = True
         if n_data is None:
@@ -76,14 +77,14 @@ class AbstractVariationalGP(Module):
 
             # Batch mode
             chol_variational_covar_size = list(chol_variational_covar.size())[-2:]
-            mask = chol_variational_covar.data.new(*chol_variational_covar_size).fill_(1).triu()
+            mask = torch.ones(
+                *chol_variational_covar_size, dtype=chol_variational_covar.dtype, device=chol_variational_covar.device
+            ).triu_()
             mask = mask.unsqueeze(0).expand(*([chol_variational_covar.size(0)] + chol_variational_covar_size))
 
-            batch_index = chol_variational_covar.data.new(batch_size).long()
-            torch.arange(0, batch_size, out=batch_index)
+            batch_index = torch.arange(0, batch_size, dtype=torch.long, device=mask.device)
             batch_index = batch_index.unsqueeze(1).repeat(1, diag_size).view(-1)
-            diag_index = chol_variational_covar.data.new(diag_size).long()
-            torch.arange(0, diag_size, out=diag_index)
+            diag_index = torch.arange(0, diag_size, dtype=torch.long, device=mask.device)
             diag_index = diag_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
             diag = chol_variational_covar[batch_index, diag_index, diag_index].view(batch_size, diag_size)
 

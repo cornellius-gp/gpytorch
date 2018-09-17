@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import torch
 from .lazy_tensor import LazyTensor
 
 
@@ -65,8 +66,10 @@ class DiagLazyTensor(LazyTensor):
 
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:
-            base_samples = self.tensor_cls(num_samples, self._diag.size(0), self._diag.size(1)).normal_()
+            base_samples = torch.randn(
+                num_samples, self._diag.size(0), self._diag.size(1), dtype=self.dtype, device=self.device
+            )
         else:
-            base_samples = self.tensor_cls(num_samples, self._diag.size(0)).normal_()
+            base_samples = torch.randn(num_samples, self._diag.size(0), dtype=self.dtype, device=self.device)
         samples = self._diag.unsqueeze(0).sqrt() * base_samples
         return samples

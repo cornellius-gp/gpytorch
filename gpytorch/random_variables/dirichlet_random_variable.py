@@ -39,7 +39,7 @@ class DirichletRandomVariable(RandomVariable):
             alpha = alpha.unsqueeze(0)
 
         batch_size, n_categories = alpha.size()
-        res = alpha.new().resize_(n_samples, batch_size, n_categories).zero_()
+        res = torch.zeros(n_samples, batch_size, n_categories, dtype=alpha.dtype, device=alpha.device)
         for i in range(batch_size):
             np_sample = np.random.dirichlet(alpha[i].cpu().numpy(), size=n_samples)
             res[:, i, :].copy_(torch.from_numpy(np_sample).type_as(res))

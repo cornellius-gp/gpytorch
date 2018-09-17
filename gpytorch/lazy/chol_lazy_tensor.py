@@ -15,7 +15,8 @@ class CholLazyTensor(RootLazyTensor):
             chol = chol.evaluate()
 
         # Check that we have a lower triangular matrix
-        mask = chol.data.new(chol.size(-2), chol.size(-2)).fill_(-1).tril_().add_(1)
+        mask = torch.full((chol.size(-2), chol.size(-2)), fill_value=-1, dtype=chol.dtype, device=chol.device)
+        mask.tril_().add_(1)
         if chol.ndimension() == 3:
             mask.data.unsqueeze_(0)
         if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
@@ -39,11 +40,9 @@ class CholLazyTensor(RootLazyTensor):
         if not hasattr(self, "_chol_diag_memo"):
             if self._chol.ndimension() == 3:
                 batch_size, diag_size, _ = self._chol.size()
-                batch_index = self._chol.data.new(batch_size).long()
-                torch.arange(0, batch_size, out=batch_index)
+                batch_index = torch.arange(0, batch_size, dtype=torch.long, device=self.device)
                 batch_index = batch_index.unsqueeze(1).repeat(1, diag_size).view(-1)
-                diag_index = self._chol.data.new(diag_size).long()
-                torch.arange(0, diag_size, out=diag_index)
+                diag_index = torch.arange(0, diag_size, dtype=torch.long, device=self.device)
                 diag_index = diag_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
                 self._chol_diag_memo = self._chol[batch_index, diag_index, diag_index].view(batch_size, diag_size)
             else:

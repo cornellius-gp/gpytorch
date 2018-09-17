@@ -45,9 +45,9 @@ class GridInducingVariationalGP(AbstractVariationalGP):
 
     def _initalize_variational_parameters(self, prior_output):
         mean_init = prior_output.mean().data
-        mean_init += mean_init.new(mean_init.size()).normal_().mul_(1e-1)
+        mean_init += torch.randn_like(mean_init).mul_(1e-1)
         chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
-        chol_covar_init += chol_covar_init.new(chol_covar_init.size()).normal_().mul_(1e-1)
+        chol_covar_init += torch.randn_like(chol_covar_init).mul_(1e-1)
         self.variational_mean.data.copy_(mean_init)
         self.chol_variational_covar.data.copy_(chol_covar_init)
 

@@ -27,12 +27,12 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
     def test_matmul(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(3, 1)
-        left_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]]).repeat(3, 1)
+        left_interp_values = torch.tensor([[1, 2], [0.5, 1], [1, 3]], dtype=torch.float).repeat(3, 1)
         left_interp_values_copy = left_interp_values.clone()
         left_interp_values.requires_grad = True
         left_interp_values_copy.requires_grad = True
         right_interp_indices = torch.LongTensor([[0, 1], [1, 2], [2, 3]]).repeat(3, 1)
-        right_interp_values = torch.Tensor([[1, 2], [2, 0.5], [1, 3]]).repeat(3, 1)
+        right_interp_values = torch.tensor([[1, 2], [2, 0.5], [1, 3]], dtype=torch.float).repeat(3, 1)
         right_interp_values_copy = right_interp_values.clone()
         right_interp_values.requires_grad = True
         right_interp_values_copy.requires_grad = True
@@ -66,13 +66,13 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(left_interp_values.grad.data, left_interp_values_copy.grad.data))
 
     def test_batch_matmul(self):
-        left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(5, 3, 1)
-        left_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]]).repeat(5, 3, 1)
+        left_interp_indices = torch.tensor([[2, 3], [3, 4], [4, 5]], dtype=torch.long).repeat(5, 3, 1)
+        left_interp_values = torch.tensor([[1, 2], [0.5, 1], [1, 3]], dtype=torch.float).repeat(5, 3, 1)
         left_interp_values_copy = left_interp_values.clone()
         left_interp_values.requires_grad = True
         left_interp_values_copy.requires_grad = True
-        right_interp_indices = torch.LongTensor([[0, 1], [1, 2], [2, 3]]).repeat(5, 3, 1)
-        right_interp_values = torch.Tensor([[1, 2], [2, 0.5], [1, 3]]).repeat(5, 3, 1)
+        right_interp_indices = torch.tensor([[0, 1], [1, 2], [2, 3]], dtype=torch.long).repeat(5, 3, 1)
+        right_interp_values = torch.tensor([[1, 2], [2, 0.5], [1, 3]], dtype=torch.float).repeat(5, 3, 1)
         right_interp_values_copy = right_interp_values.clone()
         right_interp_values.requires_grad = True
         right_interp_values_copy.requires_grad = True
@@ -120,13 +120,13 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         test_matrix = torch.randn(3, 4)
 
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]])
-        left_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]])
+        left_interp_values = torch.tensor([[1, 2], [0.5, 1], [1, 3]], dtype=torch.float)
         left_interp_values_copy = left_interp_values.clone()
         left_interp_values.requires_grad = True
         left_interp_values_copy.requires_grad = True
 
         right_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]])
-        right_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]])
+        right_interp_values = torch.tensor([[1, 2], [0.5, 1], [1, 3]], dtype=torch.float)
         right_interp_values_copy = right_interp_values.clone()
         right_interp_values.requires_grad = True
         right_interp_values_copy.requires_grad = True
@@ -176,13 +176,13 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         test_matrix_tensor_copy.requires_grad = True
 
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).unsqueeze(0).repeat(5, 1, 1)
-        left_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]]).unsqueeze(0).repeat(5, 1, 1)
+        left_interp_values = torch.tensor([[1, 2], [0.5, 1], [1, 3]], dtype=torch.float).unsqueeze(0).repeat(5, 1, 1)
         left_interp_values_copy = left_interp_values.clone()
         left_interp_values.requires_grad = True
         left_interp_values_copy.requires_grad = True
 
         right_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).unsqueeze(0).repeat(5, 1, 1)
-        right_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]]).unsqueeze(0).repeat(5, 1, 1)
+        right_interp_values = torch.tensor([[1, 2], [0.5, 1], [1, 3]], dtype=torch.float).unsqueeze(0).repeat(5, 1, 1)
         right_interp_values_copy = right_interp_values.clone()
         right_interp_values.requires_grad = True
         right_interp_values_copy.requires_grad = True
@@ -221,9 +221,9 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
     def test_matmul_batch(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(5, 3, 1)
-        left_interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]]).repeat(5, 3, 1)
+        left_interp_values = torch.tensor([[1, 2], [0.5, 1], [1, 3]], dtype=torch.float).repeat(5, 3, 1)
         right_interp_indices = torch.LongTensor([[0, 1], [1, 2], [2, 3]]).repeat(5, 3, 1)
-        right_interp_values = torch.Tensor([[1, 2], [2, 0.5], [1, 3]]).repeat(5, 3, 1)
+        right_interp_values = torch.tensor([[1, 2], [2, 0.5], [1, 3]], dtype=torch.float).repeat(5, 3, 1)
 
         base_lazy_tensor_mat = torch.randn(5, 6, 6)
         base_lazy_tensor_mat = base_lazy_tensor_mat.transpose(1, 2).matmul(base_lazy_tensor_mat)
@@ -236,7 +236,7 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         )
         res = interp_lazy_tensor.matmul(test_matrix)
 
-        left_matrix = torch.Tensor(
+        left_matrix = torch.tensor(
             [
                 [0, 0, 1, 2, 0, 0],
                 [0, 0, 0, 0.5, 1, 0],
@@ -247,10 +247,11 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
                 [0, 0, 1, 2, 0, 0],
                 [0, 0, 0, 0.5, 1, 0],
                 [0, 0, 0, 0, 1, 3],
-            ]
+            ],
+            dtype=torch.float,
         ).repeat(5, 1, 1)
 
-        right_matrix = torch.Tensor(
+        right_matrix = torch.tensor(
             [
                 [1, 2, 0, 0, 0, 0],
                 [0, 2, 0.5, 0, 0, 0],
@@ -261,7 +262,8 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
                 [1, 2, 0, 0, 0, 0],
                 [0, 2, 0.5, 0, 0, 0],
                 [0, 0, 1, 3, 0, 0],
-            ]
+            ],
+            dtype=torch.float,
         ).repeat(5, 1, 1)
         actual = (
             left_matrix.matmul(base_lazy_tensor_mat).matmul(right_matrix.transpose(-1, -2)).matmul(test_matrix.data)
@@ -271,9 +273,9 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
     def test_getitem_batch(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(5, 1, 1)
-        left_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]]).repeat(5, 1, 1)
+        left_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float).repeat(5, 1, 1)
         right_interp_indices = torch.LongTensor([[0, 1], [1, 2], [2, 3]]).repeat(5, 1, 1)
-        right_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]]).repeat(5, 1, 1)
+        right_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float).repeat(5, 1, 1)
 
         base_lazy_tensor_mat = torch.randn(5, 6, 6)
         base_lazy_tensor_mat = base_lazy_tensor_mat.transpose(1, 2).matmul(base_lazy_tensor_mat)
@@ -301,9 +303,9 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
     def test_diag(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]])
-        left_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]])
+        left_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float)
         right_interp_indices = torch.LongTensor([[0, 1], [1, 2], [2, 3]])
-        right_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]])
+        right_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float)
 
         base_lazy_tensor_mat = torch.randn(6, 6)
         base_lazy_tensor_mat = base_lazy_tensor_mat.t().matmul(base_lazy_tensor_mat)
@@ -319,9 +321,9 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
     def test_batch_diag(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(5, 1, 1)
-        left_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]]).repeat(5, 1, 1)
+        left_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float).repeat(5, 1, 1)
         right_interp_indices = torch.LongTensor([[0, 1], [1, 2], [2, 3]]).repeat(5, 1, 1)
-        right_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]]).repeat(5, 1, 1)
+        right_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float).repeat(5, 1, 1)
 
         base_lazy_tensor_mat = torch.randn(5, 6, 6)
         base_lazy_tensor_mat = base_lazy_tensor_mat.transpose(1, 2).matmul(base_lazy_tensor_mat)
@@ -341,7 +343,7 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
     def test_sample(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]])
-        left_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]])
+        left_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float)
 
         base_lazy_tensor_mat = torch.randn(6, 6)
         base_lazy_tensor_mat = base_lazy_tensor_mat.t().matmul(base_lazy_tensor_mat)
@@ -360,7 +362,7 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
 
     def test_batch_sample(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(5, 1, 1)
-        left_interp_values = torch.Tensor([[1, 1], [1, 1], [1, 1]]).repeat(5, 1, 1)
+        left_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float).repeat(5, 1, 1)
 
         base_lazy_tensor_mat = torch.randn(5, 6, 6)
         base_lazy_tensor_mat = base_lazy_tensor_mat.transpose(1, 2).matmul(base_lazy_tensor_mat)

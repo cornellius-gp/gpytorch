@@ -32,7 +32,7 @@ class TestSumLazyTensor(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_add_diag(self):
-        diag = torch.Tensor([4])
+        diag = torch.tensor(4.)
         lazy_var = make_sum_lazy_var().add_diag(diag)
         self.assertTrue(torch.equal(lazy_var.evaluate().data, (self.t1_eval + self.t2_eval + torch.eye(4) * 4)))
 

@@ -15,7 +15,7 @@ class TestMultitaskMean(unittest.TestCase):
         self.mean.base_means[3].constant.data.fill_(7)
 
     def test_forward(self):
-        a = torch.Tensor([[1, 2], [2, 4]])
+        a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
         res = self.mean(a)
         self.assertEqual(tuple(res.size()), (2, 4))
         self.assertTrue(res[:, 0].eq(5).all())
@@ -24,7 +24,7 @@ class TestMultitaskMean(unittest.TestCase):
         self.assertTrue(res[:, 3].eq(7).all())
 
     def test_forward_batch(self):
-        a = torch.Tensor([[[1, 2], [1, 2], [2, 4]], [[2, 3], [2, 3], [1, 3]]])
+        a = torch.tensor([[[1, 2], [1, 2], [2, 4]], [[2, 3], [2, 3], [1, 3]]], dtype=torch.float)
         res = self.mean(a)
         self.assertEqual(tuple(res.size()), (2, 3, 4))
         self.assertTrue(res[:, :, 0].eq(5).all())
@@ -42,7 +42,7 @@ class TestMultitaskMeanSameMean(unittest.TestCase):
         self.mean.base_means[3].constant.data.fill_(3)
 
     def test_forward(self):
-        a = torch.Tensor([[1, 2], [2, 4]])
+        a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
         res = self.mean(a)
         self.assertEqual(tuple(res.size()), (2, 4))
         self.assertTrue(res[:, 0].eq(0).all())
@@ -51,7 +51,7 @@ class TestMultitaskMeanSameMean(unittest.TestCase):
         self.assertTrue(res[:, 3].eq(3).all())
 
     def test_forward_batch(self):
-        a = torch.Tensor([[[1, 2], [1, 2], [2, 4]], [[2, 3], [2, 3], [1, 3]]])
+        a = torch.tensor([[[1, 2], [1, 2], [2, 4]], [[2, 3], [2, 3], [1, 3]]], dtype=torch.float)
         res = self.mean(a)
         self.assertEqual(tuple(res.size()), (2, 3, 4))
         self.assertTrue(res[:, :, 0].eq(0).all())

@@ -3,8 +3,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import math
-import numpy as np
 import torch
 import unittest
 from gpytorch.lazy import CholLazyTensor
@@ -13,14 +11,16 @@ from gpytorch.utils import approx_equal
 
 class TestCholLazyTensor(unittest.TestCase):
     def setUp(self):
-        chol = torch.Tensor([[3, 0, 0, 0, 0], [-1, 2, 0, 0, 0], [1, 4, 1, 0, 0], [0, 2, 3, 2, 0], [-4, -2, 1, 3, 4]])
+        chol = torch.tensor(
+            [[3, 0, 0, 0, 0], [-1, 2, 0, 0, 0], [1, 4, 1, 0, 0], [0, 2, 3, 2, 0], [-4, -2, 1, 3, 4]], dtype=torch.float
+        )
         vecs = torch.randn(5, 2)
 
-        self.chol_var = torch.tensor(chol.data, requires_grad=True)
-        self.chol_var_copy = torch.tensor(chol.data, requires_grad=True)
+        self.chol_var = torch.tensor(chol, requires_grad=True)
+        self.chol_var_copy = torch.tensor(chol, requires_grad=True)
         self.actual_mat = self.chol_var_copy.matmul(self.chol_var_copy.transpose(-1, -2))
-        self.vecs = torch.tensor(vecs.data, requires_grad=True)
-        self.vecs_copy = torch.tensor(vecs.data, requires_grad=True)
+        self.vecs = torch.tensor(vecs, requires_grad=True)
+        self.vecs_copy = torch.tensor(vecs, requires_grad=True)
 
     def test_matmul(self):
         # Forward
@@ -43,12 +43,10 @@ class TestCholLazyTensor(unittest.TestCase):
 
     def test_inv_quad_log_det(self):
         # Forward
-        res_inv_quad, res_log_det = CholLazyTensor(self.chol_var).inv_quad_log_det(
-            inv_quad_rhs=self.vecs, log_det=True
-        )
+        res_inv_quad, res_log_det = CholLazyTensor(self.chol_var).inv_quad_log_det(inv_quad_rhs=self.vecs, log_det=True)
         res = res_inv_quad + res_log_det
         actual_inv_quad = self.actual_mat.inverse().matmul(self.vecs_copy).mul(self.vecs_copy).sum()
-        actual = actual_inv_quad + math.log(np.linalg.det(self.actual_mat.data))
+        actual = actual_inv_quad + torch.log(torch.det(self.actual_mat.data))
         self.assertLess(((res.data - actual.data) / actual.data).abs()[0], 1e-2)
 
     def test_diag(self):
@@ -69,23 +67,24 @@ class TestCholLazyTensor(unittest.TestCase):
 
 class TestCholLazyTensorBatch(unittest.TestCase):
     def setUp(self):
-        chol = torch.Tensor(
+        chol = torch.tensor(
             [
                 [[3, 0, 0, 0, 0], [-1, 2, 0, 0, 0], [1, 4, 1, 0, 0], [0, 2, 3, 2, 0], [-4, -2, 1, 3, 4]],
                 [[2, 0, 0, 0, 0], [3, 1, 0, 0, 0], [-2, 3, 2, 0, 0], [-2, 1, -1, 3, 0], [-4, -4, 5, 2, 3]],
-            ]
+            ],
+            dtype=torch.float,
         )
         vecs = torch.randn(2, 5, 3)
 
-        self.chol_var = torch.tensor(chol.data, requires_grad=True)
-        self.chol_var_copy = torch.tensor(chol.data, requires_grad=True)
+        self.chol_var = torch.tensor(chol, requires_grad=True)
+        self.chol_var_copy = torch.tensor(chol, requires_grad=True)
         self.actual_mat = self.chol_var_copy.matmul(self.chol_var_copy.transpose(-1, -2))
         self.actual_mat_inv = torch.cat(
             [self.actual_mat[0].inverse().unsqueeze(0), self.actual_mat[1].inverse().unsqueeze(0)], 0
         )
 
-        self.vecs = torch.tensor(vecs.data, requires_grad=True)
-        self.vecs_copy = torch.tensor(vecs.data, requires_grad=True)
+        self.vecs = torch.tensor(vecs, requires_grad=True)
+        self.vecs_copy = torch.tensor(vecs, requires_grad=True)
 
     def test_matmul(self):
         # Forward
@@ -108,13 +107,11 @@ class TestCholLazyTensorBatch(unittest.TestCase):
 
     def test_inv_quad_log_det(self):
         # Forward
-        res_inv_quad, res_log_det = CholLazyTensor(self.chol_var).inv_quad_log_det(
-            inv_quad_rhs=self.vecs, log_det=True
-        )
+        res_inv_quad, res_log_det = CholLazyTensor(self.chol_var).inv_quad_log_det(inv_quad_rhs=self.vecs, log_det=True)
         res = res_inv_quad + res_log_det
         actual_inv_quad = self.actual_mat_inv.matmul(self.vecs_copy).mul(self.vecs_copy).sum(-1).sum(-1)
-        actual_log_det = torch.Tensor(
-            [math.log(np.linalg.det(self.actual_mat[0].data)), math.log(np.linalg.det(self.actual_mat[1].data))]
+        actual_log_det = torch.tensor(
+            [torch.log(torch.det(self.actual_mat[0])), torch.log(torch.det(self.actual_mat[1]))]
         )
 
         actual = actual_inv_quad + actual_log_det

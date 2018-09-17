@@ -13,7 +13,7 @@ from gpytorch.lazy import ToeplitzLazyTensor
 class TestConstantMulLazyTensor(unittest.TestCase):
     def test_inv_matmul(self):
         labels_var = torch.tensor(torch.randn(4), requires_grad=True)
-        labels_var_copy = torch.tensor(labels_var.data, requires_grad=True)
+        labels_var_copy = torch.tensor(labels_var, requires_grad=True)
         grad_output = torch.randn(4)
 
         # Test case
@@ -31,8 +31,9 @@ class TestConstantMulLazyTensor(unittest.TestCase):
         res.backward(grad_output)
         actual.backward(grad_output)
 
-        self.assertLess(math.fabs(res.data.squeeze()[0] - actual.data.squeeze()[0]), 6e-1)
-        self.assertLess(math.fabs(c1_var.grad.data[0] - c2_var.grad.data[0]), 1)
+        for i in range(len(c1_var.size())):
+            self.assertLess(math.fabs(res[i].item() - actual[i].item()), 6e-1)
+            self.assertLess(math.fabs(c1_var.grad[i].item() - c2_var.grad[i].item()), 1)
 
     def test_diag(self):
         c1_var = torch.tensor([5, 1, 2, 0], dtype=torch.float, requires_grad=True)

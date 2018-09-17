@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from ..utils import fft, reverse
+from ..utils import fft
 
 
 def toeplitz(toeplitz_column, toeplitz_row):
@@ -38,7 +38,9 @@ def toeplitz(toeplitz_column, toeplitz_row):
     if len(toeplitz_column) == 1:
         return toeplitz_column.view(1, 1)
 
-    res = toeplitz_column.new(len(toeplitz_column), len(toeplitz_column))
+    res = torch.empty(
+        len(toeplitz_column), len(toeplitz_column), dtype=toeplitz_column.dtype, device=toeplitz_column.device
+    )
     for i, val in enumerate(toeplitz_column):
         for j in range(len(toeplitz_column) - i):
             res[j + i, j] = val
@@ -149,18 +151,20 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
 
     else:
         batch_size, orig_size, num_rhs = tensor.size()
-        r_reverse = reverse(toeplitz_row[:, 1:], dim=1)
+        r_reverse = toeplitz_row[:, 1:].flip(dims=(1,))
 
-        c_r_rev = toeplitz_column.new(batch_size, orig_size + r_reverse.size(1)).zero_()
+        c_r_rev = torch.zeros(batch_size, orig_size + r_reverse.size(1), dtype=tensor.dtype, device=tensor.device)
         c_r_rev[:, :orig_size] = toeplitz_column
         c_r_rev[:, orig_size:] = r_reverse
 
-        temp_tensor = toeplitz_column.new(batch_size, 2 * orig_size - 1, num_rhs).zero_()
+        temp_tensor = torch.zeros(
+            batch_size, 2 * orig_size - 1, num_rhs, dtype=toeplitz_column.dtype, device=toeplitz_column.device
+        )
         temp_tensor[:, :orig_size, :] = tensor
 
         fft_M = fft.fft1(temp_tensor.transpose(1, 2).contiguous())
         fft_c = fft.fft1(c_r_rev).unsqueeze(1).expand_as(fft_M)
-        fft_product = toeplitz_column.new(fft_M.size()).zero_()
+        fft_product = torch.zeros_like(fft_M)
 
         fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 0])
         fft_product[:, :, :, 0].addcmul_(-1, fft_c[:, :, :, 1], fft_M[:, :, :, 1])
@@ -230,12 +234,12 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
     left_vectors.contiguous()
     right_vectors.contiguous()
 
-    columns = left_vectors.new(s, m).fill_(0)
+    columns = torch.zeros(s, m, dtype=left_vectors.dtype, device=left_vectors.device)
     columns[:, 0] = left_vectors[:, 0]
     res = toeplitz_matmul(columns, left_vectors, right_vectors)
-    rows = reverse(left_vectors, dim=1)
+    rows = left_vectors.flip(dims=(1,))
     columns[:, 0] = rows[:, 0]
-    res += toeplitz_matmul(columns, rows, reverse(right_vectors, dim=1))
+    res += toeplitz_matmul(columns, rows, torch.flip(right_vectors, dims=(1,)))
 
     if not batch:
         res = res.sum(0)

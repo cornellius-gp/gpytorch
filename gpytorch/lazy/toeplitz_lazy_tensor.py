@@ -50,7 +50,7 @@ class ToeplitzLazyTensor(LazyTensor):
         return self.column.index_select(0, toeplitz_indices)
 
     def add_jitter(self):
-        jitter = self.column.data.new(self.column.size(-1)).zero_()
+        jitter = torch.zeros_like(self.column)
         jitter.narrow(-1, 0, 1).fill_(1e-4)
         return ToeplitzLazyTensor(self.column.add(jitter))
 

@@ -35,5 +35,5 @@ class SamplesRandomVariable(RandomVariable):
 
     def var(self):
         if self._samples.size(-1) == 1:
-            return self._samples.data.new(self._samples.squeeze(-1).size()).zero_()
+            return torch.zeros_like(self._samples.squeeze(-1))
         return self._samples.var(-1)

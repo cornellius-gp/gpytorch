@@ -45,7 +45,7 @@ def add_jitter(mat):
     if hasattr(mat, "add_jitter"):
         return mat.add_jitter()
     else:
-        diag = mat.data.new(mat.size(-1)).fill_(1e-3).diag()
+        diag = torch.eye(mat.size(-1), dtype=mat.dtype, device=mat.device).mul_(1e-3)
         if mat.ndimension() == 3:
             return mat + diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2))
         else:

@@ -10,13 +10,13 @@ from gpytorch.utils import left_interp, left_t_interp, approx_equal
 
 class TestInterp(unittest.TestCase):
     def setUp(self):
-        self.interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(3, 1)
-        self.interp_values = torch.Tensor([[1, 2], [0.5, 1], [1, 3]]).repeat(3, 1)
-        self.interp_indices_2 = torch.LongTensor([[0, 1], [1, 2], [2, 3]]).repeat(3, 1)
-        self.interp_values_2 = torch.Tensor([[1, 2], [2, 0.5], [1, 3]]).repeat(3, 1)
+        self.interp_indices = torch.tensor([[2, 3], [3, 4], [4, 5]], dtype=torch.long).repeat(3, 1)
+        self.interp_values = torch.tensor([[1, 2], [0.5, 1], [1, 3]], dtype=torch.float).repeat(3, 1)
+        self.interp_indices_2 = torch.tensor([[0, 1], [1, 2], [2, 3]], dtype=torch.long).repeat(3, 1)
+        self.interp_values_2 = torch.tensor([[1, 2], [2, 0.5], [1, 3]], dtype=torch.float).repeat(3, 1)
         self.batch_interp_indices = torch.cat([self.interp_indices.unsqueeze(0), self.interp_indices_2.unsqueeze(0)], 0)
         self.batch_interp_values = torch.cat([self.interp_values.unsqueeze(0), self.interp_values_2.unsqueeze(0)], 0)
-        self.interp_matrix = torch.Tensor(
+        self.interp_matrix = torch.tensor(
             [
                 [0, 0, 1, 2, 0, 0],
                 [0, 0, 0, 0.5, 1, 0],
@@ -27,10 +27,11 @@ class TestInterp(unittest.TestCase):
                 [0, 0, 1, 2, 0, 0],
                 [0, 0, 0, 0.5, 1, 0],
                 [0, 0, 0, 0, 1, 3],
-            ]
+            ],
+            dtype=torch.float,
         )
 
-        self.batch_interp_matrix = torch.Tensor(
+        self.batch_interp_matrix = torch.tensor(
             [
                 [
                     [0, 0, 1, 2, 0, 0],
@@ -54,7 +55,8 @@ class TestInterp(unittest.TestCase):
                     [0, 2, 0.5, 0, 0, 0],
                     [0, 0, 1, 3, 0, 0],
                 ],
-            ]
+            ],
+            dtype=torch.float,
         )
 
     def test_left_interp_on_a_vector(self):

@@ -10,8 +10,8 @@ from gpytorch.utils import sparse_eye, sparse_getitem, sparse_repeat, to_sparse
 
 class TestSparse(unittest.TestCase):
     def setUp(self):
-        self.indices = torch.LongTensor([[0, 1, 2, 3, 4], [2, 1, 0, 0, 1]])
-        self.values = torch.FloatTensor([3, 4, 5, 2, 6])
+        self.indices = torch.tensor([[0, 1, 2, 3, 4], [2, 1, 0, 0, 1]], dtype=torch.long)
+        self.values = torch.tensor([3, 4, 5, 2, 6], dtype=torch.float)
         self.sparse = torch.sparse.FloatTensor(self.indices, self.values, torch.Size((5, 3)))
         self.dense = self.sparse.to_dense()
 

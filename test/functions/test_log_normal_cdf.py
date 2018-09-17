@@ -12,7 +12,7 @@ from torch import nn
 
 class LogNormalCDFTest(unittest.TestCase):
     def test_forward(self):
-        inputs = torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5])
+        inputs = torch.tensor([-6, -5, -3, -1, 0, 1, 3, 5], dtype=torch.float)
         output = gpytorch.log_normal_cdf(inputs)
 
         # Answers should be reasonable for small values
@@ -28,12 +28,14 @@ class LogNormalCDFTest(unittest.TestCase):
         self.assertLess(math.fabs(output[7] + 2.86652e-7), 1e-4)
 
     def test_backward(self):
-        inputs = nn.Parameter(torch.Tensor([-6, -5, -3, -1, 0, 1, 3, 5]))
+        inputs = nn.Parameter(torch.tensor([-6, -5, -3, -1, 0, 1, 3, 5], dtype=torch.float))
         output = gpytorch.log_normal_cdf(inputs)
         output.backward(torch.ones(8))
 
         gradient = inputs.grad.data
-        expected_gradient = torch.Tensor([6.1585, 5.1865, 3.2831, 1.5251, 0.7979, 0.2876, 0.0044, 0.0000])
+        expected_gradient = torch.tensor(
+            [6.1585, 5.1865, 3.2831, 1.5251, 0.7979, 0.2876, 0.0044, 0.0000], dtype=torch.float
+        )
 
         # Should be reasonable for small values
         for d in torch.abs(gradient[:3] - expected_gradient[:3]):

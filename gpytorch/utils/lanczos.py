@@ -8,7 +8,15 @@ from .eig import batch_symeig
 
 
 def lanczos_tridiag(
-    matmul_closure, max_iter, tol=1e-5, init_vecs=None, tensor_cls=None, batch_size=None, n_dims=None, n_init_vecs=None
+    matmul_closure,
+    max_iter,
+    tol=1e-5,
+    init_vecs=None,
+    dtype=None,
+    device=None,
+    batch_size=None,
+    n_dims=None,
+    n_init_vecs=None,
 ):
     """
     """
@@ -24,8 +32,8 @@ def lanczos_tridiag(
         matmul_closure = default_matmul_closure
     # Get initial probe ectors - and define if not available
     if init_vecs is None:
-        if tensor_cls is None:
-            raise RuntimeError("You must supply tensor_cls if you don't supply init_vecs")
+        if dtype is None or device is None:
+            raise RuntimeError("You must supply dtype and device if you don't supply init_vecs")
         if n_dims is None:
             raise RuntimeError("You must supply n_dims if you don't supply init_vecs")
 
@@ -38,10 +46,11 @@ def lanczos_tridiag(
         else:
             n_init_vecs = 1
 
-        init_vecs = tensor_cls(1, n_dims, n_init_vecs).normal_()
+        init_vecs = torch.randn(1, n_dims, n_init_vecs, dtype=dtype, device=device)
         init_vecs = init_vecs.expand(batch_size, n_dims, n_init_vecs)
     else:
-        tensor_cls = init_vecs.new
+        dtype = init_vecs.dtype
+        device = init_vecs.device
         if n_init_vecs is not None or init_vecs.size(-1) > 1:
             multiple_init_vecs = True
         if init_vecs.ndimension() == 3:
@@ -67,8 +76,8 @@ def lanczos_tridiag(
     # q_mat - batch version of Q - orthogonal matrix of decomp
     # alpha - batch version main diagonal of T
     # beta - batch version of off diagonal of T
-    q_mat = tensor_cls(n_iter, batch_size, n_dims, n_init_vecs).zero_()
-    t_mat = tensor_cls(n_iter, n_iter, batch_size, n_init_vecs).zero_()
+    q_mat = torch.zeros(n_iter, batch_size, n_dims, n_init_vecs, dtype=dtype, device=device)
+    t_mat = torch.zeros(n_iter, n_iter, batch_size, n_init_vecs, dtype=dtype, device=device)
 
     # Begin algorithm
     # Initial Q vector: q_0_vec

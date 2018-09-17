@@ -12,23 +12,23 @@ from torch import nn
 
 class AddDiagTest(unittest.TestCase):
     def test_forward(self):
-        a = nn.Parameter(torch.Tensor([5]))
+        a = nn.Parameter(torch.tensor(5.))
         b = torch.ones(3, 3)
         output = gpytorch.add_diag(b, a)
 
-        actual = torch.Tensor([[6, 1, 1], [1, 6, 1], [1, 1, 6]])
-        self.assertLess(torch.norm(output.data - actual), 1e-7)
+        actual = torch.tensor([[6, 1, 1], [1, 6, 1], [1, 1, 6]], dtype=torch.float)
+        self.assertLess(torch.norm(output - actual), 1e-7)
 
     def test_backward(self):
         grad = torch.randn(3, 3)
 
-        a = nn.Parameter(torch.Tensor([3]))
+        a = nn.Parameter(torch.tensor(3.))
         b = torch.ones(3, 3, requires_grad=True)
         output = gpytorch.add_diag(b, a)
         output.backward(gradient=grad)
 
-        self.assertLess(math.fabs(a.grad.data[0] - grad.trace()), 1e-6)
-        self.assertLess(torch.norm(b.grad.data - grad), 1e-6)
+        self.assertLess(math.fabs(a.grad.item() - grad.trace()), 1e-6)
+        self.assertLess(torch.norm(b.grad - grad), 1e-6)
 
 
 if __name__ == "__main__":

@@ -109,14 +109,11 @@ class LazyTensor(object):
         """
         from .interpolated_lazy_tensor import InterpolatedLazyTensor
 
-        representation = self.representation()
         ndimension = self.ndimension()
 
         batch_sizes = list(self.size()[:-2])
-        left_row_iter = representation[0].data.new(self.size()[-2]).long()
-        right_row_iter = representation[0].data.new(self.size()[-1]).long()
-        torch.arange(0, self.size()[-2], out=left_row_iter)
-        torch.arange(0, self.size()[-1], out=right_row_iter)
+        left_row_iter = torch.arange(0, self.size()[-2], dtype=torch.long, device=self.device)
+        right_row_iter = torch.arange(0, self.size()[-1], dtype=torch.long, device=self.device)
 
         left_interp_indices = left_row_iter[row_index].unsqueeze(-1)
         right_interp_indices = right_row_iter[col_index].unsqueeze(-1)
@@ -128,16 +125,12 @@ class LazyTensor(object):
             right_interp_indices.unsqueeze_(0)
 
         left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
-        left_interp_values = self.tensor_cls(left_interp_indices.size()).fill_(1)
+        left_interp_values = torch.ones(left_interp_indices.size(), dtype=self.dtype, device=self.device)
         right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
-        right_interp_values = self.tensor_cls(right_interp_indices.size()).fill_(1)
+        right_interp_values = torch.ones(right_interp_indices.size(), dtype=self.dtype, device=self.device)
 
         res = InterpolatedLazyTensor(
-            self,
-            left_interp_indices,
-            left_interp_values,
-            right_interp_indices,
-            right_interp_values,
+            self, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
         return res
 
@@ -259,7 +252,7 @@ class LazyTensor(object):
         however this could lead to numerical instabilities, so this should only
         be done at the user's risk.
         """
-        diag = self.tensor_cls(1).fill_(jitter_val)
+        diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
 
     def cpu(self):
@@ -286,9 +279,11 @@ class LazyTensor(object):
         This method operates identically to :func:`torch.nn.Module.cuda`.
 
         Args:
-            device_id (:obj:`str`, optional): Device ID of GPU to use.
+            device_id (:obj:`str`, optional):
+                Device ID of GPU to use.
         Returns:
-            :obj:`~gpytorch.lazy.LazyTensor`: a new LazyTensor identical to ``self``, but on the GPU.
+            :obj:`~gpytorch.lazy.LazyTensor`:
+                a new LazyTensor identical to ``self``, but on the GPU.
         """
         new_args = []
         new_kwargs = {}
@@ -306,21 +301,7 @@ class LazyTensor(object):
 
     @property
     def device(self):
-        device = None
-        device_set = False
-        for arg in self._args:
-            if hasattr(arg, "device"):
-                if not device_set:
-                    device = arg.device
-                    device_set = True
-                elif device == arg.device:
-                    continue
-                else:
-                    raise RuntimeError(
-                        "Default behavior for LazyTensor.device failed: found that this LazyTensor was created "
-                        "using args with different devices."
-                    )
-        return device
+        return self._args[0].device
 
     def diag(self):
         """
@@ -335,11 +316,9 @@ class LazyTensor(object):
         if size[-1] != size[-2]:
             raise RuntimeError("Diag works on square matrices (or batches)")
 
-        row_col_iter = self.tensor_cls(size[-1]).long()
-        torch.arange(0, size[-1], out=row_col_iter.data)
+        row_col_iter = torch.arange(0, size[-1], dtype=torch.long, device=self.device)
         if self.ndimension() == 3:
-            batch_iter = self.tensor_cls(size[0]).long()
-            torch.arange(0, size[0], out=batch_iter.data)
+            batch_iter = torch.arange(0, size[0], dtype=torch.long, device=self.device)
             batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
             row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
             return self._batch_get_indices(batch_iter, row_col_iter, row_col_iter).view(size[0], size[1])
@@ -351,6 +330,10 @@ class LazyTensor(object):
         Alias of :meth:`~gpytorch.lazy.LazyTensor.ndimension`
         """
         return self.ndimension()
+
+    @property
+    def dtype(self):
+        return self._args[0].dtype
 
     def evaluate(self):
         """
@@ -366,14 +349,14 @@ class LazyTensor(object):
             batch_size, n_rows, n_cols = size
 
         if n_rows < n_cols:
-            eye = self.tensor_cls(n_rows).fill_(1).diag()
+            eye = torch.eye(n_rows, dtype=self.dtype, device=self.device)
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_rows)
                 return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
             else:
                 return self.t().matmul(eye).t().contiguous()
         else:
-            eye = self.tensor_cls(n_cols).fill_(1).diag()
+            eye = torch.eye(n_cols, dtype=self.dtype, device=self.device)
             if batch_mode:
                 eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
             return self.matmul(eye)
@@ -573,7 +556,6 @@ class LazyTensor(object):
 
         matrix_size = self.size(-1)
         batch_size = self.size(0) if self.ndimension() == 3 else None
-        tensor_cls = self.tensor_cls
 
         args = lazy_tsr.representation()
         if inv_quad_rhs is not None:
@@ -583,7 +565,8 @@ class LazyTensor(object):
             representation_tree=self.representation_tree(),
             matrix_size=matrix_size,
             batch_size=batch_size,
-            tensor_cls=tensor_cls,
+            dtype=self.dtype,
+            device=self.device,
             inv_quad=(inv_quad_rhs is not None),
             log_det=log_det,
             preconditioner=self._preconditioner()[0],
@@ -683,7 +666,7 @@ class LazyTensor(object):
             :obj:`~gpytorch.lazy.LazyTensor`
 
         Example:
-            >>> lazy_tensor = gpytorch.lazy.NonLazyTensor(torch.Tensor([
+            >>> lazy_tensor = gpytorch.lazy.NonLazyTensor(torch.tensor([
                     [[2, 4], [1, 2]],
                     [[1, 1], [0, -1]],
                     [[2, 1], [1, 0]],
@@ -711,9 +694,11 @@ class LazyTensor(object):
 
             # Take care of extra roots (odd roots), if they exist
             if n_batch % 2:
-                extra_root = roots.data.new(roots.size(0), 1, roots.size(2), roots.size(3))
-                extra_root.data.normal_().mul_(1e-6 / math.sqrt(roots.size(3)))
-                extra_root.data.add_(1. / math.sqrt(roots.size(3)))
+                extra_root = (
+                    torch.randn(roots.size(0), 1, roots.size(2), roots.size(3), dtype=roots.dtype, device=roots.device)
+                    .mul_(1e-6 / math.sqrt(roots.size(3)))
+                    .add_(1. / math.sqrt(roots.size(3)))
+                )
                 roots = torch.cat([roots, extra_root], 1)
                 n_batch += 1
 
@@ -775,7 +760,8 @@ class LazyTensor(object):
         batch_size = self.size(0) if self.ndimension() == 3 else None
         res, _ = RootDecomposition(
             self.representation_tree(),
-            cls=self.tensor_cls,
+            dtype=self.dtype,
+            device=self.device,
             size=self.size(-1),
             max_iter=self.root_decomposition_size(),
             batch_size=batch_size,
@@ -801,7 +787,8 @@ class LazyTensor(object):
         batch_size = self.size(0) if self.ndimension() == 3 else None
         roots, inv_roots = RootDecomposition(
             self.representation_tree(),
-            cls=self.tensor_cls,
+            dtype=self.dtype,
+            device=self.device,
             size=self.size(-1),
             max_iter=self.root_decomposition_size(),
             root=True,
@@ -879,7 +866,7 @@ class LazyTensor(object):
             :obj:`~gpytorch.lazy.LazyTensor`
 
         Example:
-            >>> lazy_tensor = gpytorch.lazy.NonLazyTensor(torch.Tensor([
+            >>> lazy_tensor = gpytorch.lazy.NonLazyTensor(torch.tensor([
                     [[2, 4], [1, 2]],
                     [[1, 1], [0, -1]],
                     [[2, 1], [1, 0]],
@@ -931,13 +918,6 @@ class LazyTensor(object):
             raise RuntimeError("Cannot call t for more than 2 dimensions")
         return self.transpose(0, 1)
 
-    @property
-    def tensor_cls(self):
-        if not hasattr(self, "_tensor_cls"):
-            first_item = self.representation()[0]
-            self._tensor_cls = _import_dotted_name(first_item.type())
-        return self._tensor_cls
-
     def zero_mean_mvn_samples(self, num_samples):
         """
         Assumes that self is a covariance matrix, or a batch of covariance matrices.
@@ -959,10 +939,12 @@ class LazyTensor(object):
             covar_root = self.root_decomposition()
 
         if self.ndimension() == 3:
-            base_samples = self.tensor_cls(self.size(0), covar_root.size(-1), num_samples).normal_()
+            base_samples = torch.randn(
+                self.size(0), covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
+            )
             samples = covar_root.matmul(base_samples).permute(2, 0, 1).contiguous()
         else:
-            base_samples = self.tensor_cls(covar_root.size(-1), num_samples).normal_()
+            base_samples = torch.randn(covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device)
             samples = covar_root.matmul(base_samples).permute(1, 0).contiguous()
 
         return samples
