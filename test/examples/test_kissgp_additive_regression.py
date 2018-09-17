@@ -60,8 +60,8 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(1)
             if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(0)
-            random.seed(0)
+                torch.cuda.manual_seed_all(1)
+            random.seed(1)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
@@ -79,7 +79,7 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
 
             optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
             optimizer.n_iter = 0
-            for _ in range(20):
+            for _ in range(25):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
                 loss = -mll(output, train_y)
