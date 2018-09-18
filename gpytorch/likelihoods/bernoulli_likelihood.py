@@ -37,8 +37,8 @@ class BernoulliLikelihood(Likelihood):
                 "BernoulliLikelihood expects a multi-variate normally distributed" "latent function to make predictions"
             )
 
-        mean = input.mean()
-        var = input.var()
+        mean = input.mean
+        var = input.variance
         link = mean.div(torch.sqrt(1 + var))
         output_probs = normal_cdf(link)
         return Bernoulli(probs=output_probs)
@@ -53,6 +53,6 @@ class BernoulliLikelihood(Likelihood):
         of f_{i} drawn from p(f|x).
         """
         num_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.sample(num_samples, warn_about_shape=False).view(-1)
+        samples = latent_func.sample(num_samples).view(-1)
         target = target.unsqueeze(0).repeat(num_samples, 1).view(-1)
         return log_normal_cdf(samples.mul(target)).sum().div(num_samples)

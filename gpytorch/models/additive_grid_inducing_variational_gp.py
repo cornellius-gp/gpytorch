@@ -40,7 +40,7 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
 
     def _initalize_variational_parameters(self, prior_output):
         batch_size = self.chol_variational_covar.size(0)
-        mean_init = prior_output.mean().data
+        mean_init = prior_output.mean.data
         mean_init += mean_init.new(mean_init.size()).normal_().mul_(1e-1)
 
         chol_covar_init = torch.eye(mean_init.size(-1)).type_as(mean_init)
@@ -57,8 +57,8 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
 
     def prior_output(self):
         out = super(AdditiveGridInducingVariationalGP, self).prior_output()
-        mean = out.mean()
-        covar = out.covar().repeat(self.n_components, 1, 1)
+        mean = out.mean
+        covar = out.covariance_matrix.repeat(self.n_components, 1, 1)
         return MultivariateNormal(mean, covar)
 
     def __call__(self, inputs, **kwargs):
@@ -81,8 +81,8 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
 
         output = super(AdditiveGridInducingVariationalGP, self).__call__(inputs, **kwargs)
         if self.sum_output:
-            mean = output.mean().sum(0)
-            covar = output.covar().sum_batch()
+            mean = output.mean.sum(0)
+            covar = output.covariance_matrix.sum_batch()
             return MultivariateNormal(mean, covar)
         else:
             return output

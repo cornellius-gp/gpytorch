@@ -1,9 +1,9 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import torch
-from gpytorch.functions import add_diag
-from gpytorch.lazy import DiagLazyTensor, KroneckerProductLazyTensor, RootLazyTensor
-from gpytorch.likelihoods import GaussianLikelihood
+from ..functions import add_diag
+from ..lazy import DiagLazyTensor, KroneckerProductLazyTensor, RootLazyTensor
+from ..likelihoods import GaussianLikelihood
 
 
 def _eval_covar_matrix(task_noise_covar_factor, log_noise):
@@ -72,7 +72,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
 
         Args:
             input (:obj:`gpytorch.random_variables.MultitaskMultivariateNormal`): Random variable whose covariance
-                matrix is a :obj:`gpytorch.lazy.LazyVariable` we intend to augment.
+                matrix is a :obj:`gpytorch.lazy.LazyTensor` we intend to augment.
         Returns:
             :obj:`gpytorch.random_variables.MultitaskMultivariateNormal`: A new random variable whose covariance
             matrix is a :obj:`gpytorch.lazy.LazyTensor` with :math:`D_{t} \otimes I_{n}` and :math:`\sigma^{2}I_{nt}`
@@ -85,9 +85,9 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         else:
             task_var_lv = RootLazyTensor(self.task_noise_covar_factor)
         covar_kron_lv = KroneckerProductLazyTensor(task_var_lv, eye_lv)
-        noise = covar + covar_kron_lv
-        noise = add_diag(noise, self.log_noise.exp())
-        return input.__class__(mean, noise)
+        covariance_matrix = covar + covar_kron_lv
+        covariance_matrix = add_diag(covariance_matrix, self.log_noise.exp())
+        return input.__class__(mean, covariance_matrix)
 
     def log_probability(self, input, target):
         raise NotImplementedError("Variational inference with Multitask Gaussian likelihood is not yet supported")

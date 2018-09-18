@@ -46,7 +46,7 @@ class AbstractVariationalGP(Module):
 
         # Get diagonal of covar
         res = super(AbstractVariationalGP, self).__call__(inputs)
-        covar_diag = res.covar()
+        covar_diag = res.covariance_matrix
         if isinstance(covar_diag, LazyTensor):
             covar_diag = covar_diag.evaluate()
         covar_diag = covar_diag.view(orig_size[:-1])
@@ -57,7 +57,8 @@ class AbstractVariationalGP(Module):
         res = super(AbstractVariationalGP, self).__call__(self.inducing_points)
         if not isinstance(res, MultivariateNormal):
             raise RuntimeError("{}.forward must return a MultivariateNormal".format(self.__class__.__name__))
-        res = MultivariateNormal(res.mean(), res.covar().evaluate_kernel())
+
+        res = MultivariateNormal(res.mean, res.covariance_matrix.evaluate_kernel())
         return res
 
     def variational_output(self):

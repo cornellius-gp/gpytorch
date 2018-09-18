@@ -5,8 +5,8 @@ from collections import OrderedDict
 import torch
 from torch import nn
 
-from .lazy import LazyTensor
 from .distributions import Distribution
+from .lazy import LazyTensor
 from .variational import VariationalStrategy
 
 

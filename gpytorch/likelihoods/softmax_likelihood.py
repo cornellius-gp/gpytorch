@@ -42,7 +42,7 @@ class SoftmaxLikelihood(Likelihood):
             )
 
         n_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.sample(n_samples, warn_about_shape=False)
+        samples = latent_func.sample(n_samples)
         samples = samples.permute(1, 2, 0).contiguous()  # Now n_featuers, n_data, n_samples
         if samples.ndimension() != 3:
             raise RuntimeError("f should have 3 dimensions: features x data x samples")
@@ -51,7 +51,7 @@ class SoftmaxLikelihood(Likelihood):
             raise RuntimeError("There should be %d features" % self.n_features)
 
         mixed_fs = self.mixing_weights.matmul(samples.view(n_features, n_samples * n_data))
-        softmax = torch.nn.functional.softmax(mixed_fs.t(), 1).view(n_data, n_samples, self.n_classes)
+        softmax = torch.nn.functional.softmax(mixed_fs.t()).view(n_data, n_samples, self.n_classes)
         return Categorical(probs=softmax.mean(1))
 
     def log_probability(self, latent_func, target):
@@ -61,7 +61,7 @@ class SoftmaxLikelihood(Likelihood):
         f_{i} drawn from p(f|x).
         """
         n_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.sample(n_samples, warn_about_shape=False)
+        samples = latent_func.sample(n_samples)
         samples = samples.permute(1, 2, 0).contiguous()  # Now n_featuers, n_data, n_samples
         if samples.ndimension() != 3:
             raise RuntimeError("f should have 3 dimensions: features x data x samples")

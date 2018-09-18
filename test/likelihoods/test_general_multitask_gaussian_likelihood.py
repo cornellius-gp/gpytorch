@@ -10,7 +10,7 @@ import torch
 from gpytorch.kernels import MultitaskKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.random_variables import MultitaskGaussianRandomVariable
+from gpytorch.distributions import MultitaskMultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function
@@ -36,7 +36,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return MultitaskGaussianRandomVariable(mean_x, covar_x)
+        return MultitaskMultivariateNormal(mean_x, covar_x)
 
 
 class TestMultiTaskGPRegression(unittest.TestCase):

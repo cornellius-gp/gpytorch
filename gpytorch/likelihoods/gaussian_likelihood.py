@@ -24,6 +24,6 @@ class GaussianLikelihood(Likelihood):
         return input.__class__(mean, noise)
 
     def log_probability(self, input, target):
-        res = -0.5 * ((target - input.mean()) ** 2 + input.var()) / self.log_noise.exp()
+        res = -0.5 * ((target - input.mean) ** 2 + input.variance) / self.log_noise.exp()
         res += -0.5 * self.log_noise - 0.5 * math.log(2 * math.pi)
         return res.sum(0)

@@ -35,26 +35,28 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         if mean.ndimension() not in {2, 3}:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
 
-        self._mean_shape = mean.shape
-        batch_shape = self._mean_shape[:-2]
+        self._output_shape = mean.shape
         super(MultitaskMultivariateNormal, self).__init__(
-            mean=mean.view(batch_shape, -1) if batch_shape else mean.view(-1),
+            mean=mean.view(mean.shape[:-2] + torch.Size([-1])),
             covariance_matrix=covariance_matrix,
             validate_args=validate_args,
         )
 
     @property
     def n_tasks(self):
-        return self._num_tasks
+        return self._output_shape[-1]
 
     @property
     def mean(self):
-        return super(MultivariateNormal, self).variance.view(*self._mean_shape)
+        return super(MultivariateNormal, self).mean.view(self._output_shape)
 
     @property
     def variance(self):
-        return super(MultivariateNormal, self).mean.view(*self._mean_shape)
+        return super(MultivariateNormal, self).variance.view(self._output_shape)
+
+    def log_prob(self, value):
+        return super(MultivariateNormal, self).log_prob(value.view(value.shape[:-2] + torch.Size([-1])))
 
     def rsample(self, sample_shape=torch.Size([])):
         samples = super(MultivariateNormal, self).rsample(sample_shape=sample_shape)
-        return samples.view(-1, *self._mean_shape)
+        return samples.view(sample_shape + self._output_shape)

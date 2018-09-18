@@ -42,7 +42,7 @@ class Likelihood(Module):
 
         With both exact inference and variational inference, the form of
         p(f|D,x) or p(f|x) should usually be Gaussian. As a result, input
-        should usually be a GaussianRandomVariable specified by the mean and
+        should usually be a MultivariateNormal specified by the mean and
         (co)variance of p(f|...).
         """
         raise NotImplementedError

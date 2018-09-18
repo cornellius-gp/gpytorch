@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 from .. import beta_features
 from ..functions import inv_matmul
-from ..random_variables import GaussianRandomVariable
+from ..distributions import MultivariateNormal
 from ..lazy import LazyTensor, RootLazyTensor, MatmulLazyTensor, NonLazyTensor
 from ..variational import MVNVariationalStrategy
 from .abstract_variational_gp import AbstractVariationalGP
@@ -36,7 +36,7 @@ class VariationalGP(AbstractVariationalGP):
             prior_output = self.prior_output()
             # Initialize variational parameters, if necessary
             if not self.variational_params_initialized[0]:
-                mean_init = prior_output.mean().data
+                mean_init = prior_output.mean.data
                 chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
                 self.variational_mean.data.copy_(mean_init)
                 self.chol_variational_covar.data.copy_(chol_covar_init)
@@ -65,7 +65,7 @@ class VariationalGP(AbstractVariationalGP):
 
             # Compute alpha cache
             if not self.has_computed_alpha:
-                self.alpha = inv_matmul(induc_induc_covar, variational_output.mean() - induc_mean)
+                self.alpha = inv_matmul(induc_induc_covar, variational_output.mean - induc_mean)
                 self.has_computed_alpha = True
 
             # Compute chol cache, if necessary
@@ -74,7 +74,7 @@ class VariationalGP(AbstractVariationalGP):
                     induc_induc_covar = NonLazyTensor(induc_induc_covar)
                 self.prior_root_inv = induc_induc_covar.root_inv_decomposition()
 
-                chol_variational_output = variational_output.covar().root.evaluate()
+                chol_variational_output = variational_output.covariance_matrix.root.evaluate()
                 self.variational_root = inv_matmul(induc_induc_covar, chol_variational_output)
                 self.has_computed_root = True
 
@@ -94,10 +94,10 @@ class VariationalGP(AbstractVariationalGP):
                 if isinstance(induc_test_covar, LazyTensor):
                     induc_test_covar = induc_test_covar.evaluate()
                 inv_product = inv_matmul(induc_induc_covar, induc_test_covar)
-                factor = variational_output.covar().root_decomposition().matmul(inv_product)
+                factor = variational_output.covariance_matrix.root_decomposition().matmul(inv_product)
                 right_factor = factor - inv_product
                 left_factor = (factor - induc_test_covar).transpose(-1, -2)
                 predictive_covar = predictive_covar + MatmulLazyTensor(left_factor, right_factor)
 
-            output = GaussianRandomVariable(predictive_mean, predictive_covar)
+            output = MultivariateNormal(predictive_mean, predictive_covar)
             return output
