@@ -304,29 +304,6 @@ class LazyTensor(object):
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
 
-    def to(self, device_id):
-        """
-        A device-agnostic method of moving the lazy_tensor to the specified device.
-
-        Args:
-            device_id (:obj: `torch.device`): Which device to use (GPU or CPU).
-        Returns:
-            :obj:`~gpytorch.lazy.LazyTensor`: New LazyTensor identical to self on specified device
-        """
-        new_args = []
-        new_kwargs = {}
-        for arg in self._args:
-            if hasattr(arg, "to"):
-                new_args.append(arg.to(device_id))
-            else:
-                new_args.append(arg)
-        for name, val in self._kwargs.items():
-            if hasattr(val, "to"):
-                new_kwargs[name] = val.to(device_id)
-            else:
-                new_kwargs[name] = val
-        return self.__class__(*new_args, **new_kwargs)
-
     @property
     def device(self):
         device = None
