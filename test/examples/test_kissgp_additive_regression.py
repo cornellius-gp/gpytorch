@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from math import exp, pi
+from math import exp
 
 import random
 import os
@@ -17,15 +17,14 @@ from gpytorch.means import ZeroMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
-# Simple training data: let's try to learn a sine function,
-# but with KISS-GP let's use 100 training examples.
-n = 40
+n = 20
 train_x = torch.zeros(pow(n, 2), 2)
 for i in range(n):
     for j in range(n):
         train_x[i * n + j][0] = float(i) / (n - 1)
         train_x[i * n + j][1] = float(j) / (n - 1)
-train_y = (torch.sin(train_x[:, 0]) + torch.cos(train_x[:, 1])) * (2 * pi)
+train_y = (torch.sin(train_x[:, 0]) + torch.cos(train_x[:, 1]))
+train_y = train_y + torch.randn_like(train_y).div_(20.)
 
 m = 10
 test_x = torch.zeros(pow(m, 2), 2)
@@ -33,7 +32,7 @@ for i in range(m):
     for j in range(m):
         test_x[i * m + j][0] = float(i) / (m - 1)
         test_x[i * m + j][1] = float(j) / (m - 1)
-test_y = (torch.sin(test_x[:, 0]) + torch.cos(test_x[:, 1])) * (2 * pi)
+test_y = (torch.sin(test_x[:, 0]) + torch.cos(test_x[:, 1]))
 
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
@@ -45,7 +44,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True))
         )
         self.covar_module = AdditiveGridInterpolationKernel(
-            self.base_covar_module, grid_size=100, grid_bounds=[(0, 1)], n_components=2
+            self.base_covar_module, grid_size=100, grid_bounds=[(-0.5, 1.5)], n_components=2
         )
 
     def forward(self, x):
@@ -72,35 +71,36 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
         gp_model = GPRegressionModel(train_x, train_y, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
-        with gpytorch.settings.max_preconditioner_size(10), gpytorch.settings.max_cg_iterations(30):
-            # Optimize the model
-            gp_model.train()
-            likelihood.train()
+        with gpytorch.settings.max_preconditioner_size(10), gpytorch.settings.max_cg_iterations(50):
+            with gpytorch.beta_features.fast_pred_var():
+                # Optimize the model
+                gp_model.train()
+                likelihood.train()
 
-            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
-            optimizer.n_iter = 0
-            for _ in range(25):
-                optimizer.zero_grad()
-                output = gp_model(train_x)
-                loss = -mll(output, train_y)
-                loss.backward()
-                optimizer.n_iter += 1
-                optimizer.step()
+                optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+                optimizer.n_iter = 0
+                for _ in range(25):
+                    optimizer.zero_grad()
+                    output = gp_model(train_x)
+                    loss = -mll(output, train_y)
+                    loss.backward()
+                    optimizer.n_iter += 1
+                    optimizer.step()
 
-            for param in gp_model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
+                for param in gp_model.parameters():
+                    self.assertTrue(param.grad is not None)
+                    self.assertGreater(param.grad.norm().item(), 0)
+                for param in likelihood.parameters():
+                    self.assertTrue(param.grad is not None)
+                    self.assertGreater(param.grad.norm().item(), 0)
 
-            # Test the model
-            gp_model.eval()
-            likelihood.eval()
+                # Test the model
+                gp_model.eval()
+                likelihood.eval()
 
-            test_preds = likelihood(gp_model(test_x)).mean()
-            mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
-            self.assertLess(mean_abs_error.squeeze().item(), 0.2)
+                test_preds = likelihood(gp_model(test_x)).mean()
+                mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
+                self.assertLess(mean_abs_error.squeeze().item(), 0.2)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from gpytorch.kernels import WhiteNoiseKernel
 
 class TestWhiteNoiseKernel(unittest.TestCase):
     def test_computes_diag_train(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         variances = torch.randn(3)
         kernel = WhiteNoiseKernel(variances=variances)
         actual = torch.diag(variances)
@@ -18,7 +18,7 @@ class TestWhiteNoiseKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_computes_diag_train_batch(self):
-        a = torch.Tensor([[4, 2, 8], [4, 2, 8]]).view(2, 3, 1)
+        a = torch.tensor([[4, 2, 8], [4, 2, 8]], dtype=torch.float).view(2, 3, 1)
         variances = torch.randn(2, 3, 1)
         kernel = WhiteNoiseKernel(variances=variances)
         actual = torch.cat(
@@ -28,8 +28,8 @@ class TestWhiteNoiseKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_computes_zero_eval(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([3, 7]).view(2, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([3, 7], dtype=torch.float).view(2, 1)
         variances = torch.randn(3)
         kernel = WhiteNoiseKernel(variances=variances)
         kernel.eval()
@@ -41,8 +41,8 @@ class TestWhiteNoiseKernel(unittest.TestCase):
         self.assertLess(torch.norm(res_two - actual_two), 1e-5)
 
     def test_computes_zero_eval_batch(self):
-        a = torch.Tensor([[4, 2, 8], [4, 2, 8]]).view(2, 3, 1)
-        b = torch.Tensor([[3, 7], [3, 7]]).view(2, 2, 1)
+        a = torch.tensor([[4, 2, 8], [4, 2, 8]], dtype=torch.float).view(2, 3, 1)
+        b = torch.tensor([[3, 7], [3, 7]], dtype=torch.float).view(2, 2, 1)
         variances = torch.randn(2, 3, 1)
         kernel = WhiteNoiseKernel(variances=variances)
         kernel.eval()
@@ -54,7 +54,7 @@ class TestWhiteNoiseKernel(unittest.TestCase):
         self.assertLess(torch.norm(res_two - actual_two), 1e-5)
 
     def test_computes_diag_eval(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         variances = torch.randn(3)
         kernel = WhiteNoiseKernel(variances=variances)
         kernel.eval()
@@ -63,7 +63,7 @@ class TestWhiteNoiseKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_computes_diag_eval_batch(self):
-        a = torch.Tensor([[4, 2, 8], [4, 2, 8]]).view(2, 3, 1)
+        a = torch.tensor([[4, 2, 8], [4, 2, 8]], dtype=torch.float).view(2, 3, 1)
         variances = torch.randn(2, 3, 1)
         kernel = WhiteNoiseKernel(variances=variances)
         kernel.eval()

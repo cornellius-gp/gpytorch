@@ -11,10 +11,20 @@ from .. import settings
 
 class RootDecomposition(Function):
     def __init__(
-        self, representation_tree, cls, size, max_iter, batch_size=None, root=True, inverse=False, initial_vector=None
+        self,
+        representation_tree,
+        dtype,
+        device,
+        size,
+        max_iter,
+        batch_size=None,
+        root=True,
+        inverse=False,
+        initial_vector=None,
     ):
         self.representation_tree = representation_tree
-        self.cls = cls
+        self.device = device
+        self.dtype = dtype
         self.size = size
         self.max_iter = max_iter
         self.batch_size = batch_size
@@ -37,7 +47,8 @@ class RootDecomposition(Function):
         q_mat, t_mat = lanczos_tridiag(
             matmul_closure,
             self.max_iter,
-            tensor_cls=self.cls,
+            dtype=self.dtype,
+            device=self.device,
             batch_size=self.batch_size,
             n_dims=self.size,
             init_vecs=self.initial_vector,
@@ -57,8 +68,8 @@ class RootDecomposition(Function):
         root_evals = eigenvalues.sqrt()
         # Store q_mat * t_mat_chol
         # Decide if we're computing the inverse, or the regular root
-        root = q_mat.new()
-        inverse = q_mat.new()
+        root = torch.empty(0, dtype=q_mat.dtype, device=q_mat.device)
+        inverse = torch.empty(0, dtype=q_mat.dtype, device=q_mat.device)
         if self.inverse:
             inverse = q_mat / root_evals.unsqueeze(-2)
         if self.root:
@@ -129,7 +140,7 @@ class RootDecomposition(Function):
             if not self.inverse:
                 inverse = q_mat / root_evals.unsqueeze(-2)
             # Left factor:
-            left_factor = inverse.new(inverse.size()).zero_()
+            left_factor = torch.zeros_like(inverse)
             if root_grad_output is not None:
                 left_factor.add_(root_grad_output)
             if inverse_grad_output is not None:

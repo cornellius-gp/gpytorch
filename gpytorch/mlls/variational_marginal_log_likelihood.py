@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
 
 
@@ -37,7 +38,7 @@ class VariationalMarginalLogLikelihood(MarginalLogLikelihood):
                 res.add_(prior.log_prob(transform(*params)).sum())
             return res
         else:
-            log_prior = log_likelihood.new_zeros(1)
+            log_prior = torch.zeros_like(log_likelihood)
             for _, param, prior in self.named_parameter_priors():
                 log_prior.add_(prior.log_prob(param).sum())
             for _, params, transform, prior in self.named_derived_priors():

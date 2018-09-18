@@ -156,7 +156,7 @@ class MulLazyTensor(LazyTensor):
             right_factor = right_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
         else:
             right_rank = n
-            eye = self.right_lazy_var.tensor_cls(n).fill_(1).diag()
+            eye = torch.eye(n, dtype=self.right_lazy_var.dtype, device=self.right_lazy_var.device)
             left_factor = left_vecs.unsqueeze(-2) * self.right_lazy_var.evaluate().unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * eye.unsqueeze(-1)
 
@@ -175,7 +175,7 @@ class MulLazyTensor(LazyTensor):
             right_factor = right_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
         else:
             left_rank = n
-            eye = self.left_lazy_var.tensor_cls(n).fill_(1).diag()
+            eye = torch.eye(n, dtype=self.left_lazy_var.dtype, device=self.left_lazy_var.device)
             left_factor = left_vecs.unsqueeze(-2) * self.left_lazy_var.evaluate().unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * eye.unsqueeze(-1)
 

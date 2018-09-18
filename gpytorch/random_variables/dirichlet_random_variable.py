@@ -34,16 +34,16 @@ class DirichletRandomVariable(RandomVariable):
 
     def sample(self, n_samples=1):
         ndimension = self.alpha.ndimension()
-        alpha = self.alpha.data
+        alpha = self.alpha
         if ndimension == 1:
             alpha = alpha.unsqueeze(0)
 
         batch_size, n_categories = alpha.size()
-        res = alpha.new().resize_(n_samples, batch_size, n_categories).zero_()
+        res = torch.zeros(n_samples, batch_size, n_categories, dtype=alpha.dtype, device=alpha.device)
         for i in range(batch_size):
             np_sample = np.random.dirichlet(alpha[i].cpu().numpy(), size=n_samples)
             res[:, i, :].copy_(torch.from_numpy(np_sample).type_as(res))
 
         if ndimension == 1:
             res.squeeze_(1)
-        return res.type_as(self.alpha.data)
+        return res.type_as(self.alpha)

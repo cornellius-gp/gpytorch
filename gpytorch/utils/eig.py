@@ -3,6 +3,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import torch
+
 
 def batch_symeig(mat):
     """
@@ -17,8 +19,8 @@ def batch_symeig(mat):
     batch_dim2 = mat.size(1)
     n = mat.size(2)
 
-    eigenvectors = mat.new(*mat.shape)
-    eigenvalues = mat.new(batch_dim1, batch_dim2, n)
+    eigenvectors = torch.empty_like(mat)
+    eigenvalues = torch.empty(batch_dim1, batch_dim2, n, dtype=mat.dtype, device=mat.device)
 
     for i in range(batch_dim1):
         for j in range(batch_dim2):

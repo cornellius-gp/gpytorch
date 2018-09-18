@@ -12,16 +12,16 @@ from gpytorch.kernels import SpectralMixtureKernel
 
 class TestSpectralMixtureKernel(unittest.TestCase):
     def test_computes_periodic_function(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([0, 2]).view(2, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         means = [1, 2]
         scales = [0.5, 0.25]
         weights = [4, 2]
         kernel = SpectralMixtureKernel(num_mixtures=2)
         kernel.initialize(
-            log_mixture_weights=torch.Tensor([[4, 2]]).log(),
-            log_mixture_means=torch.Tensor([[[[1]], [[2]]]]).log(),
-            log_mixture_scales=torch.Tensor([[[[0.5]], [[0.25]]]]).log(),
+            log_mixture_weights=torch.tensor([[4, 2]], dtype=torch.float).log(),
+            log_mixture_means=torch.tensor([[[[1]], [[2]]]], dtype=torch.float).log(),
+            log_mixture_scales=torch.tensor([[[[0.5]], [[0.25]]]], dtype=torch.float).log(),
         )
         kernel.eval()
 

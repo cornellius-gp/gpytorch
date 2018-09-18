@@ -54,7 +54,7 @@ class GridInterpolationKernel(GridKernel):
             base_lazy_tsr = base_lazy_tsr.repeat(x1.size(0), 1, 1)
 
         left_interp_indices, left_interp_values = self._compute_grid(x1)
-        if torch.equal(x1.data, x2.data):
+        if torch.equal(x1, x2):
             right_interp_indices = left_interp_indices
             right_interp_values = left_interp_values
         else:

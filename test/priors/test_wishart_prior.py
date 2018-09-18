@@ -12,9 +12,9 @@ from gpytorch.priors.wishart_prior import log_mv_gamma
 
 class TestWishartPrior(unittest.TestCase):
     def setUp(self):
-        self.nu = 3
-        self.K = torch.Tensor([[1, 0], [0, 1]])
-        self.K_bad = torch.Tensor([[1, 1], [1, 1]])
+        self.nu = 3.
+        self.K = torch.tensor([[1, 0], [0, 1]], dtype=torch.float)
+        self.K_bad = torch.tensor([[1, 1], [1, 1]], dtype=torch.float)
 
     def test_wishart_prior_invalid_params(self):
         with self.assertRaises(ValueError):
@@ -36,9 +36,9 @@ class TestWishartPrior(unittest.TestCase):
 
 class TestInverseWishartPrior(unittest.TestCase):
     def setUp(self):
-        self.nu = 1
-        self.K = torch.Tensor([[1, 0], [0, 1]])
-        self.K_bad = torch.Tensor([[1, 1], [1, 1]])
+        self.nu = 1.
+        self.K = torch.tensor([[1, 0], [0, 1]], dtype=torch.float)
+        self.K_bad = torch.tensor([[1, 1], [1, 1]], dtype=torch.float)
 
     def test_inverse_wishart_prior_invalid_params(self):
         with self.assertRaises(ValueError):

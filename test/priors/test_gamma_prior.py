@@ -19,17 +19,17 @@ class TestGammaPrior(unittest.TestCase):
     def test_scalar_gamma_prior(self):
         prior = GammaPrior(1, 1)  # this is an exponential w/ rate 1
         self.assertFalse(prior.log_transform)
-        self.assertTrue(prior.is_in_support(prior.rate.new([1])))
-        self.assertFalse(prior.is_in_support(prior.rate.new([-1])))
+        self.assertTrue(prior.is_in_support(torch.tensor(1.)))
+        self.assertFalse(prior.is_in_support(torch.tensor(-1.)))
         self.assertEqual(prior.shape, torch.Size([1]))
         self.assertEqual(prior.concentration.item(), 1.0)
         self.assertEqual(prior.rate.item(), 1.0)
-        self.assertAlmostEqual(prior.log_prob(prior.rate.new([1.0])).item(), -1.0, places=5)
+        self.assertAlmostEqual(prior.log_prob(torch.tensor(1.0)).item(), -1.0, places=5)
 
     def test_scalar_gamma_prior_log_transform(self):
         prior = GammaPrior(1, 1, log_transform=True)
         self.assertTrue(prior.log_transform)
-        self.assertAlmostEqual(prior.log_prob(prior.rate.new([0.0])).item(), -1.0, places=5)
+        self.assertAlmostEqual(prior.log_prob(torch.tensor(0.0)).item(), -1.0, places=5)
 
     def test_vector_gamma_prior_invalid_params(self):
         with self.assertRaises(ValueError):
@@ -40,12 +40,12 @@ class TestGammaPrior(unittest.TestCase):
     def test_vector_gamma_prior_size(self):
         prior = GammaPrior(1, 1, size=2)
         self.assertFalse(prior.log_transform)
-        self.assertTrue(prior.is_in_support(prior.rate.new_ones(2)))
-        self.assertFalse(prior.is_in_support(prior.rate.new_zeros(2)))
+        self.assertTrue(prior.is_in_support(torch.ones(2)))
+        self.assertFalse(prior.is_in_support(torch.zeros(2)))
         self.assertEqual(prior.shape, torch.Size([2]))
-        self.assertTrue(torch.equal(prior.concentration, prior.rate.new([1.0, 1.0])))
-        self.assertTrue(torch.equal(prior.rate, prior.rate.new([1.0, 1.0])))
-        parameter = prior.rate.new([1.0, 2.0])
+        self.assertTrue(torch.equal(prior.concentration, torch.tensor([1.0, 1.0])))
+        self.assertTrue(torch.equal(prior.rate, torch.tensor([1.0, 1.0])))
+        parameter = torch.tensor([1.0, 2.0])
         self.assertAlmostEqual(prior.log_prob(parameter).item(), -3.0, places=5)
 
     def test_vector_gamma_prior(self):
@@ -53,11 +53,11 @@ class TestGammaPrior(unittest.TestCase):
         self.assertFalse(prior.log_transform)
         self.assertTrue(prior.is_in_support(torch.rand(1)))
         self.assertEqual(prior.shape, torch.Size([2]))
-        self.assertTrue(torch.equal(prior.concentration, prior.rate.new([1.0, 2.0])))
-        self.assertTrue(torch.equal(prior.rate, prior.rate.new([0.5, 2.0])))
-        parameter = prior.rate.new([1.0, math.exp(1)])
-        expected_log_prob = prior.rate.new([math.log(0.5) - 0.5, 2 * math.log(2) + 1 - 2 * math.exp(1)]).sum().item()
-        self.assertAlmostEqual(prior.log_prob(prior.rate.new_tensor(parameter)).item(), expected_log_prob, places=5)
+        self.assertTrue(torch.equal(prior.concentration, torch.tensor([1.0, 2.0])))
+        self.assertTrue(torch.equal(prior.rate, torch.tensor([0.5, 2.0])))
+        parameter = torch.tensor([1.0, math.exp(1)])
+        expected_log_prob = torch.tensor([math.log(0.5) - 0.5, 2 * math.log(2) + 1 - 2 * math.exp(1)]).sum().item()
+        self.assertAlmostEqual(prior.log_prob(torch.tensor(parameter)).item(), expected_log_prob, places=5)
 
 
 if __name__ == "__main__":

@@ -30,13 +30,13 @@ class VariationalGP(AbstractVariationalGP):
     def __call__(self, inputs, **kwargs):
         # Training mode: optimizing
         if self.training:
-            if not torch.equal(inputs.data, self.inducing_points):
+            if not torch.equal(inputs, self.inducing_points):
                 raise RuntimeError("You must train on the training inputs!")
 
             prior_output = self.prior_output()
             # Initialize variational parameters, if necessary
-            if not self.variational_params_initialized[0]:
-                mean_init = prior_output.mean().data
+            if not self.variational_params_initialized.item():
+                mean_init = prior_output.mean()
                 chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
                 self.variational_mean.data.copy_(mean_init)
                 self.chol_variational_covar.data.copy_(chol_covar_init)

@@ -16,27 +16,12 @@ class AbstractVariationalGP(Module):
             raise RuntimeError("inducing_points must be a Tensor")
         n_inducing = inducing_points.size(0)
         self.register_buffer("inducing_points", inducing_points)
-        self.register_buffer("variational_params_initialized", torch.zeros(1))
+        self.register_buffer("variational_params_initialized", torch.tensor(0))
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(torch.zeros(n_inducing)))
         self.register_parameter(
             name="chol_variational_covar", parameter=torch.nn.Parameter(torch.eye(n_inducing, n_inducing))
         )
         self.register_variational_strategy("inducing_point_strategy")
-
-    def marginal_log_likelihood(self, likelihood, output, target, n_data=None):
-        from ..mlls import VariationalMarginalLogLikelihood
-
-        if not hasattr(self, "_has_warned") or not self._has_warned:
-            import warnings
-
-            warnings.warn(
-                "model.marginal_log_likelihood is now deprecated. "
-                "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead.", DeprecationWarning
-            )
-            self._has_warned = True
-        if n_data is None:
-            n_data = target.size(-1)
-        return VariationalMarginalLogLikelihood(likelihood, self, n_data)(output, target)
 
     def covar_diag(self, inputs):
         if inputs.ndimension() == 1:
@@ -76,14 +61,14 @@ class AbstractVariationalGP(Module):
 
             # Batch mode
             chol_variational_covar_size = list(chol_variational_covar.size())[-2:]
-            mask = chol_variational_covar.data.new(*chol_variational_covar_size).fill_(1).triu()
+            mask = torch.ones(
+                *chol_variational_covar_size, dtype=chol_variational_covar.dtype, device=chol_variational_covar.device
+            ).triu_()
             mask = mask.unsqueeze(0).expand(*([chol_variational_covar.size(0)] + chol_variational_covar_size))
 
-            batch_index = chol_variational_covar.data.new(batch_size).long()
-            torch.arange(0, batch_size, out=batch_index)
+            batch_index = torch.arange(0, batch_size, dtype=torch.long, device=mask.device)
             batch_index = batch_index.unsqueeze(1).repeat(1, diag_size).view(-1)
-            diag_index = chol_variational_covar.data.new(diag_size).long()
-            torch.arange(0, diag_size, out=diag_index)
+            diag_index = torch.arange(0, diag_size, dtype=torch.long, device=mask.device)
             diag_index = diag_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
             diag = chol_variational_covar[batch_index, diag_index, diag_index].view(batch_size, diag_size)
 

@@ -24,7 +24,8 @@ class InvQuadLogDet(Function):
         representation_tree,
         matrix_size=0,
         batch_size=None,
-        tensor_cls=None,
+        dtype=None,
+        device=None,
         inv_quad=False,
         log_det=False,
         preconditioner=None,
@@ -32,15 +33,16 @@ class InvQuadLogDet(Function):
     ):
         if not matrix_size:
             raise RuntimeError("Matrix size must be set")
-        if tensor_cls is None:
-            raise RuntimeError("tensor_cls must be set")
+        if device is None:
+            raise RuntimeError("device must be set")
         if not (inv_quad or log_det):
             raise RuntimeError("Either inv_quad or log_det must be true (or both)")
 
         self.representation_tree = representation_tree
         self.matrix_size = matrix_size
         self.batch_size = batch_size
-        self.tensor_cls = tensor_cls
+        self.dtype = dtype
+        self.device = device
         self.inv_quad = inv_quad
         self.log_det = log_det
         self.preconditioner = preconditioner
@@ -79,7 +81,8 @@ class InvQuadLogDet(Function):
         probe_vector_norms = None
         if self.log_det:
             num_random_probes = settings.num_trace_samples.value()
-            probe_vectors = self.tensor_cls(self.matrix_size, num_random_probes).bernoulli_().mul_(2).add_(-1)
+            probe_vectors = torch.empty(self.matrix_size, num_random_probes, dtype=self.dtype, device=self.device)
+            probe_vectors.bernoulli_().mul_(2).add_(-1)
             probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
             if self.batch_size is not None:
                 probe_vectors = probe_vectors.unsqueeze(0).expand(self.batch_size, self.matrix_size, num_random_probes)
@@ -119,8 +122,8 @@ class InvQuadLogDet(Function):
             )
 
         # Final values to return
-        log_det_term = self.tensor_cls()
-        inv_quad_term = self.tensor_cls()
+        log_det_term = torch.empty(0, dtype=self.dtype, device=self.device)
+        inv_quad_term = torch.empty(0, dtype=self.dtype, device=self.device)
 
         # Compute log_det from tridiagonalization
         if self.log_det:
@@ -215,7 +218,7 @@ class InvQuadLogDet(Function):
         if compute_inv_quad_grad and self.needs_input_grad[0]:
             inv_quad_rhs_grad = neg_inv_quad_solves_times_grad_out.mul_(-2)
         elif self.inv_quad:
-            inv_quad_rhs_grad = inv_quad_solves.new(*inv_quad_solves.size()).zero_()
+            inv_quad_rhs_grad = torch.zeros_like(inv_quad_solves)
         if self.is_vector:
             inv_quad_rhs_grad.squeeze_(-1)
 

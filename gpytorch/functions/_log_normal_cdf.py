@@ -11,7 +11,7 @@ import torch
 
 class LogNormalCDF(Function):
     def forward(self, z):
-        c = z.new(
+        c = torch.tensor(
             [
                 0.00048204,
                 -0.00142906,
@@ -27,20 +27,24 @@ class LogNormalCDF(Function):
                 (4 - math.pi) / 3,
                 1,
                 1,
-            ]
+            ],
+            dtype=z.dtype,
+            device=z.device,
         )
 
-        r = z.new(
+        r = torch.tensor(
             [
                 1.2753666447299659525,
                 5.019049726784267463450,
                 6.1602098531096305441,
                 7.409740605964741794425,
                 2.9788656263939928886,
-            ]
+            ],
+            dtype=z.dtype,
+            device=z.device,
         )
 
-        q = z.new(
+        q = torch.tensor(
             [
                 2.260528520767326969592,
                 9.3960340162350541504,
@@ -48,10 +52,12 @@ class LogNormalCDF(Function):
                 17.081440747466004316,
                 9.608965327192787870698,
                 3.3690752069827527677,
-            ]
+            ],
+            dtype=z.dtype,
+            device=z.device,
         )
 
-        log_phi_z = z.new(*z.size()).zero_()
+        log_phi_z = torch.zeros_like(z)
 
         # Three cases to handle: An entry of z is near zero, an entry of z is small, or an entry of z neither of these.
         z_near_zero = z.pow(2).lt(0.04)
@@ -70,8 +76,10 @@ class LogNormalCDF(Function):
         # Case 2: Entries of z that are very small
         if z_is_small.sum() > 0:
             z_where_z_is_small = z.masked_select(z_is_small)
-            numerator = z.new([0.5641895835477550741]).expand_as(z_where_z_is_small)
-            denominator = z.new([1.0]).expand_as(z_where_z_is_small)
+            numerator = torch.tensor(0.5641895835477550741, dtype=z.dtype, device=z.device)
+            numerator = numerator.expand_as(z_where_z_is_small)
+            denominator = torch.tensor(1.0, dtype=z.dtype, device=z.device)
+            denominator = denominator.expand_as(z_where_z_is_small)
 
             for r_i in r:
                 numerator = -z_where_z_is_small.mul(numerator.div(math.sqrt(2))) + r_i
@@ -92,7 +100,7 @@ class LogNormalCDF(Function):
 
     def backward(self, grad_output):
         z, log_phi_z = self.saved_tensors
-        log_phi_z_grad = z.new().resize_as_(z).zero_()
+        log_phi_z_grad = torch.zeros_like(z)
 
         z_is_small = z.lt(-1)
         z_is_not_small = 1 - z_is_small

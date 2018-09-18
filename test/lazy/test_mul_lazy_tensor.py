@@ -33,23 +33,23 @@ class TestMulLazyTensor(unittest.TestCase):
         mat2 = make_random_mat(20, 5)
         vec = torch.randn(20, requires_grad=True)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        vec_copy = torch.tensor(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2)).matmul(vec)
         actual = prod(
             [mat1_copy.matmul(mat1_copy.transpose(-1, -2)), mat2_copy.matmul(mat2_copy.transpose(-1, -2))]
         ).matmul(vec_copy)
-        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res - actual) / actual).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()), 0.01)
+        self.assertLess(torch.max(((mat1.grad - mat1_copy.grad) / mat1_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat2.grad - mat2_copy.grad) / mat2_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((vec.grad - vec_copy.grad) / vec_copy.grad).abs()), 0.01)
 
     def test_matmul_vec_with_five_matrices(self):
         mat1 = make_random_mat(20, 5)
@@ -59,20 +59,16 @@ class TestMulLazyTensor(unittest.TestCase):
         mat5 = make_random_mat(20, 5)
         vec = torch.randn(20, requires_grad=True)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
-        mat4_copy = torch.tensor(mat4.data, requires_grad=True)
-        mat5_copy = torch.tensor(mat5.data, requires_grad=True)
-        vec_copy = torch.tensor(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
+        mat4_copy = torch.tensor(mat4.detach(), requires_grad=True)
+        mat5_copy = torch.tensor(mat5.detach(), requires_grad=True)
+        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(
-            RootLazyTensor(mat1),
-            RootLazyTensor(mat2),
-            RootLazyTensor(mat3),
-            RootLazyTensor(mat4),
-            RootLazyTensor(mat5),
+            RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3), RootLazyTensor(mat4), RootLazyTensor(mat5)
         ).matmul(vec)
         actual = prod(
             [
@@ -83,40 +79,40 @@ class TestMulLazyTensor(unittest.TestCase):
                 mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
             ]
         ).matmul(vec_copy)
-        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res - actual) / actual).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()), 0.01)
+        self.assertLess(torch.max(((mat1.grad - mat1_copy.grad) / mat1_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat2.grad - mat2_copy.grad) / mat2_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat3.grad - mat3_copy.grad) / mat3_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat4.grad - mat4_copy.grad) / mat4_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat5.grad - mat5_copy.grad) / mat5_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((vec.grad - vec_copy.grad) / vec_copy.grad).abs()), 0.01)
 
     def test_matmul_mat_with_two_matrices(self):
         mat1 = make_random_mat(20, 5)
         mat2 = make_random_mat(20, 5)
         vec = torch.randn(20, 7, requires_grad=True)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        vec_copy = torch.tensor(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2)).matmul(vec)
         actual = prod(
             [mat1_copy.matmul(mat1_copy.transpose(-1, -2)), mat2_copy.matmul(mat2_copy.transpose(-1, -2))]
         ).matmul(vec_copy)
-        assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+        assert torch.max(((res - actual) / actual).abs()) < 0.01
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()), 0.01)
+        self.assertLess(torch.max(((mat1.grad - mat1_copy.grad) / mat1_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat2.grad - mat2_copy.grad) / mat2_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((vec.grad - vec_copy.grad) / vec_copy.grad).abs()), 0.01)
 
     def test_matmul_mat_with_five_matrices(self):
         mat1 = make_random_mat(20, 5)
@@ -126,20 +122,16 @@ class TestMulLazyTensor(unittest.TestCase):
         mat5 = make_random_mat(20, 5)
         vec = torch.eye(20, requires_grad=True)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
-        mat4_copy = torch.tensor(mat4.data, requires_grad=True)
-        mat5_copy = torch.tensor(mat5.data, requires_grad=True)
-        vec_copy = torch.tensor(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
+        mat4_copy = torch.tensor(mat4.detach(), requires_grad=True)
+        mat5_copy = torch.tensor(mat5.detach(), requires_grad=True)
+        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(
-            RootLazyTensor(mat1),
-            RootLazyTensor(mat2),
-            RootLazyTensor(mat3),
-            RootLazyTensor(mat4),
-            RootLazyTensor(mat5),
+            RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3), RootLazyTensor(mat4), RootLazyTensor(mat5)
         ).matmul(vec)
         actual = prod(
             [
@@ -150,40 +142,40 @@ class TestMulLazyTensor(unittest.TestCase):
                 mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
             ]
         ).matmul(vec_copy)
-        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res - actual) / actual).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()), 0.01)
+        self.assertLess(torch.max(((mat1.grad - mat1_copy.grad) / mat1_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat2.grad - mat2_copy.grad) / mat2_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat3.grad - mat3_copy.grad) / mat3_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat4.grad - mat4_copy.grad) / mat4_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat5.grad - mat5_copy.grad) / mat5_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((vec.grad - vec_copy.grad) / vec_copy.grad).abs()), 0.01)
 
     def test_batch_matmul_mat_with_two_matrices(self):
         mat1 = make_random_mat(20, rank=4, batch_size=5)
         mat2 = make_random_mat(20, rank=4, batch_size=5)
         vec = torch.randn(5, 20, 7, requires_grad=True)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        vec_copy = torch.tensor(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2)).matmul(vec)
         actual = prod(
             [mat1_copy.matmul(mat1_copy.transpose(-1, -2)), mat2_copy.matmul(mat2_copy.transpose(-1, -2))]
         ).matmul(vec_copy)
-        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res - actual) / actual).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()), 0.01)
+        self.assertLess(torch.max(((mat1.grad - mat1_copy.grad) / mat1_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat2.grad - mat2_copy.grad) / mat2_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((vec.grad - vec_copy.grad) / vec_copy.grad).abs()), 0.01)
 
     def test_batch_matmul_mat_with_five_matrices(self):
         mat1 = make_random_mat(20, rank=4, batch_size=5)
@@ -193,20 +185,16 @@ class TestMulLazyTensor(unittest.TestCase):
         mat5 = make_random_mat(20, rank=4, batch_size=5)
         vec = torch.randn(5, 20, 7, requires_grad=True)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
-        mat4_copy = torch.tensor(mat4.data, requires_grad=True)
-        mat5_copy = torch.tensor(mat5.data, requires_grad=True)
-        vec_copy = torch.tensor(vec.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
+        mat4_copy = torch.tensor(mat4.detach(), requires_grad=True)
+        mat5_copy = torch.tensor(mat5.detach(), requires_grad=True)
+        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(
-            RootLazyTensor(mat1),
-            RootLazyTensor(mat2),
-            RootLazyTensor(mat3),
-            RootLazyTensor(mat4),
-            RootLazyTensor(mat5),
+            RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3), RootLazyTensor(mat4), RootLazyTensor(mat5)
         ).matmul(vec)
         actual = prod(
             [
@@ -217,26 +205,26 @@ class TestMulLazyTensor(unittest.TestCase):
                 mat5_copy.matmul(mat5_copy.transpose(-1, -2)),
             ]
         ).matmul(vec_copy)
-        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res - actual) / actual).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.max(((mat1.grad.data - mat1_copy.grad.data) / mat1_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat2.grad.data - mat2_copy.grad.data) / mat2_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat3.grad.data - mat3_copy.grad.data) / mat3_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat4.grad.data - mat4_copy.grad.data) / mat4_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((mat5.grad.data - mat5_copy.grad.data) / mat5_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()), 0.01)
+        self.assertLess(torch.max(((mat1.grad - mat1_copy.grad) / mat1_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat2.grad - mat2_copy.grad) / mat2_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat3.grad - mat3_copy.grad) / mat3_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat4.grad - mat4_copy.grad) / mat4_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((mat5.grad - mat5_copy.grad) / mat5_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((vec.grad - vec_copy.grad) / vec_copy.grad).abs()), 0.01)
 
     def test_mul_adding_another_variable(self):
         mat1 = make_random_mat(20, rank=4, batch_size=5)
         mat2 = make_random_mat(20, rank=4, batch_size=5)
         mat3 = make_random_mat(20, rank=4, batch_size=5)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2))
@@ -248,7 +236,7 @@ class TestMulLazyTensor(unittest.TestCase):
                 mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
             ]
         )
-        self.assertLess(torch.max(((res.evaluate().data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res.evaluate() - actual) / actual).abs()), 0.01)
 
     def test_mul_adding_constant_mul(self):
         mat1 = make_random_mat(20, rank=4, batch_size=5)
@@ -256,10 +244,10 @@ class TestMulLazyTensor(unittest.TestCase):
         mat3 = make_random_mat(20, rank=4, batch_size=5)
         const = torch.ones(1, requires_grad=True)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
-        const_copy = torch.tensor(const.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
+        const_copy = torch.tensor(const.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3))
@@ -274,7 +262,7 @@ class TestMulLazyTensor(unittest.TestCase):
             )
             * const_copy
         )
-        self.assertLess(torch.max(((res.evaluate().data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res.evaluate() - actual) / actual).abs()), 0.01)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3))
@@ -289,16 +277,16 @@ class TestMulLazyTensor(unittest.TestCase):
             )
             * 2.5
         )
-        self.assertLess(torch.max(((res.evaluate().data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res.evaluate() - actual) / actual).abs()), 0.01)
 
     def test_diag(self):
         mat1 = make_random_mat(20, rank=4)
         mat2 = make_random_mat(20, rank=4)
         mat3 = make_random_mat(20, rank=4)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3)).diag()
@@ -309,16 +297,16 @@ class TestMulLazyTensor(unittest.TestCase):
                 mat3_copy.matmul(mat3_copy.transpose(-1, -2)),
             ]
         ).diag()
-        assert torch.max(((res.data - actual.data) / actual.data).abs()) < 0.01
+        assert torch.max(((res - actual) / actual).abs()) < 0.01
 
     def test_batch_diag(self):
         mat1 = make_random_mat(20, rank=4, batch_size=5)
         mat2 = make_random_mat(20, rank=4, batch_size=5)
         mat3 = make_random_mat(20, rank=4, batch_size=5)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3)).diag()
@@ -330,16 +318,16 @@ class TestMulLazyTensor(unittest.TestCase):
             ]
         )
         actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(5)])
-        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res - actual) / actual).abs()), 0.01)
 
     def test_getitem(self):
         mat1 = make_random_mat(20, rank=4)
         mat2 = make_random_mat(20, rank=4)
         mat3 = make_random_mat(20, rank=4)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3))
@@ -351,22 +339,18 @@ class TestMulLazyTensor(unittest.TestCase):
             ]
         )
 
-        self.assertLess(torch.max(((res[5, 3:5].data - actual[5, 3:5].data) / actual[5, 3:5].data).abs()), 0.01)
-        self.assertLess(
-            torch.max(((res[3:5, 2:].evaluate().data - actual[3:5, 2:].data) / actual[3:5, 2:].data).abs()), 0.01
-        )
-        self.assertLess(
-            torch.max(((res[2:, 3:5].evaluate().data - actual[2:, 3:5].data) / actual[2:, 3:5].data).abs()), 0.01
-        )
+        self.assertLess(torch.max(((res[5, 3:5] - actual[5, 3:5]) / actual[5, 3:5]).abs()), 0.01)
+        self.assertLess(torch.max(((res[3:5, 2:].evaluate() - actual[3:5, 2:]) / actual[3:5, 2:]).abs()), 0.01)
+        self.assertLess(torch.max(((res[2:, 3:5].evaluate() - actual[2:, 3:5]) / actual[2:, 3:5]).abs()), 0.01)
 
     def test_batch_getitem(self):
         mat1 = make_random_mat(20, rank=4, batch_size=5)
         mat2 = make_random_mat(20, rank=4, batch_size=5)
         mat3 = make_random_mat(20, rank=4, batch_size=5)
 
-        mat1_copy = torch.tensor(mat1.data, requires_grad=True)
-        mat2_copy = torch.tensor(mat2.data, requires_grad=True)
-        mat3_copy = torch.tensor(mat3.data, requires_grad=True)
+        mat1_copy = torch.tensor(mat1.detach(), requires_grad=True)
+        mat2_copy = torch.tensor(mat2.detach(), requires_grad=True)
+        mat3_copy = torch.tensor(mat3.detach(), requires_grad=True)
 
         # Forward
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3))
@@ -378,25 +362,17 @@ class TestMulLazyTensor(unittest.TestCase):
             ]
         )
 
-        self.assertLess(torch.max(((res[0].evaluate().data - actual[0].data) / actual[0].data).abs()), 0.01)
-        self.assertLess(
-            torch.max(((res[0:2, 5, 3:5].data - actual[0:2, 5, 3:5].data) / actual[0:2, 5, 3:5].data).abs()), 0.01
-        )
-        self.assertLess(
-            torch.max(((res[:, 3:5, 2:].evaluate().data - actual[:, 3:5, 2:].data) / actual[:, 3:5, 2:].data).abs()),
-            0.01,
-        )
-        self.assertLess(
-            torch.max(((res[:, 2:, 3:5].evaluate().data - actual[:, 2:, 3:5].data) / actual[:, 2:, 3:5].data).abs()),
-            0.01,
-        )
+        self.assertLess(torch.max(((res[0].evaluate() - actual[0]) / actual[0]).abs()), 0.01)
+        self.assertLess(torch.max(((res[0:2, 5, 3:5] - actual[0:2, 5, 3:5]) / actual[0:2, 5, 3:5]).abs()), 0.01)
+        self.assertLess(torch.max(((res[:, 3:5, 2:].evaluate() - actual[:, 3:5, 2:]) / actual[:, 3:5, 2:]).abs()), 0.01)
+        self.assertLess(torch.max(((res[:, 2:, 3:5].evaluate() - actual[:, 2:, 3:5]) / actual[:, 2:, 3:5]).abs()), 0.01)
 
     def test_batch_mode_matmul_mat_with_five_matrices(self):
         mats = make_random_mat(6, rank=4, batch_size=6)
         vec = torch.randn(6, 7, requires_grad=True)
 
-        mats_copy = torch.tensor(mats.data, requires_grad=True)
-        vec_copy = torch.tensor(vec.data, requires_grad=True)
+        mats_copy = torch.tensor(mats.detach(), requires_grad=True)
+        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
 
         # Forward
         res = RootLazyTensor(mats).mul_batch().matmul(vec)
@@ -410,20 +386,20 @@ class TestMulLazyTensor(unittest.TestCase):
                 mats_copy[5].matmul(mats_copy[5].transpose(-1, -2)),
             ]
         ).matmul(vec_copy)
-        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res - actual) / actual).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.max(((mats.grad.data - mats_copy.grad.data) / mats_copy.grad.data).abs()), 0.01)
-        self.assertLess(torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()), 0.01)
+        self.assertLess(torch.max(((mats.grad - mats_copy.grad) / mats_copy.grad).abs()), 0.01)
+        self.assertLess(torch.max(((vec.grad - vec_copy.grad) / vec_copy.grad).abs()), 0.01)
 
     def test_batch_mode_matmul_batch_mat_with_five_matrices(self):
         mats = make_random_mat(6, rank=4, batch_size=30)
         vec = torch.randn(5, 6, 7, requires_grad=True)
 
-        mats_copy = torch.tensor(mats.data, requires_grad=True)
-        vec_copy = torch.tensor(vec.data, requires_grad=True)
+        mats_copy = torch.tensor(mats.detach(), requires_grad=True)
+        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
 
         # Forward
         res = RootLazyTensor(mats).mul_batch(mul_batch_size=6).matmul(vec)
@@ -438,13 +414,13 @@ class TestMulLazyTensor(unittest.TestCase):
                 (reshaped_mats_copy[:, 5].matmul(reshaped_mats_copy[:, 5].transpose(-1, -2)).view(5, 6, 6)),
             ]
         ).matmul(vec_copy)
-        self.assertLess(torch.max(((res.data - actual.data) / actual.data).abs()), 0.01)
+        self.assertLess(torch.max(((res - actual) / actual).abs()), 0.01)
 
         # Backward
         res.sum().backward()
         actual.sum().backward()
-        self.assertLess(torch.max(((mats.grad.data - mats_copy.grad.data) / mats_copy.grad.data).abs()), 0.05)
-        self.assertLess(torch.max(((vec.grad.data - vec_copy.grad.data) / vec_copy.grad.data).abs()), 0.05)
+        self.assertLess(torch.max(((mats.grad - mats_copy.grad) / mats_copy.grad).abs()), 0.05)
+        self.assertLess(torch.max(((vec.grad - vec_copy.grad) / vec_copy.grad).abs()), 0.05)
 
 
 if __name__ == "__main__":

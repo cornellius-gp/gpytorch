@@ -103,7 +103,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         self.assertLess(torch.norm(function_predictions.var()), 1e-3)
 
         # It shouldn't fit much else though
-        test_function_predictions = gp_model(torch.Tensor([1.1]))
+        test_function_predictions = gp_model(torch.tensor([1.1]))
 
         self.assertLess(torch.norm(test_function_predictions.mean() - 0), 1e-4)
         self.assertLess(torch.norm(test_function_predictions.var() - 1), 1e-4)

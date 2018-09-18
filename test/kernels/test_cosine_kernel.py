@@ -12,8 +12,8 @@ from gpytorch.kernels import CosineKernel
 
 class TestCosineKernel(unittest.TestCase):
     def test_computes_periodic_function(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([0, 2]).view(2, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         period = 1
         kernel = CosineKernel().initialize(log_period_length=math.log(period))
         kernel.eval()

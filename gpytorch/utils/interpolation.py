@@ -9,6 +9,7 @@ import torch
 class Interpolation(object):
     """
     """
+
     def _cubic_interpolation_kernel(self, scaled_grid_dist):
         """
         Computes the interpolation kernel u() for points X given the scaled
@@ -27,7 +28,7 @@ class Interpolation(object):
         it is only intended to be used on single dimensional data.
         """
         U = scaled_grid_dist.abs()
-        res = U.data.new(U.size()).zero_()
+        res = torch.zeros(U.size(), dtype=U.dtype, device=U.device)
 
         U_lt_1 = 1 - U.floor().clamp(0, 1)  # U, if U < 1, 0 otherwise
         res = res + (((1.5 * U - 2.5).mul(U)).mul(U) + 1) * U_lt_1
@@ -45,46 +46,50 @@ class Interpolation(object):
         x_target_max = x_target.min(0)[0]
         lt_min_mask = (x_target_min - grid_mins).lt(-1e-7)
         gt_max_mask = (x_target_max - grid_maxs).gt(1e-7)
-        if lt_min_mask.data.sum():
-            first_out_of_range = lt_min_mask.nonzero().squeeze(1)[0].data
+        if lt_min_mask.sum().item():
+            first_out_of_range = lt_min_mask.nonzero().squeeze(1)[0].item()
             raise RuntimeError(
                 (
                     "Received data that was out of bounds for the specified grid. "
                     "Grid bounds were ({0:.3f}, {0:.3f}), but min = {0:.3f}, "
                     "max = {0:.3f}"
                 ).format(
-                    grid_mins[first_out_of_range].data[0],
-                    grid_maxs[first_out_of_range].data[0],
-                    x_target_min[first_out_of_range].data[0],
-                    x_target_max[first_out_of_range].data[0],
+                    grid_mins[first_out_of_range].item(),
+                    grid_maxs[first_out_of_range].item(),
+                    x_target_min[first_out_of_range].item(),
+                    x_target_max[first_out_of_range].item(),
                 )
             )
-        if gt_max_mask.data.sum():
-            first_out_of_range = gt_max_mask.nonzero().squeeze(1)[0].data
+        if gt_max_mask.sum().item():
+            first_out_of_range = gt_max_mask.nonzero().squeeze(1)[0].item()
             raise RuntimeError(
                 (
                     "Received data that was out of bounds for the specified grid. "
                     "Grid bounds were ({0:.3f}, {0:.3f}), but min = {0:.3f}, "
                     "max = {0:.3f}"
                 ).format(
-                    grid_mins[first_out_of_range].data[0],
-                    grid_maxs[first_out_of_range].data[0],
-                    x_target_min[first_out_of_range].data[0],
-                    x_target_max[first_out_of_range].data[0],
+                    grid_mins[first_out_of_range].item(),
+                    grid_maxs[first_out_of_range].item(),
+                    x_target_min[first_out_of_range].item(),
+                    x_target_max[first_out_of_range].item(),
                 )
             )
 
         # Now do interpolation
-        interp_points_flip = x_grid.data.new(interp_points[::-1])
-        interp_points = x_grid.data.new(interp_points)
+        interp_points = torch.tensor(interp_points, dtype=x_grid.dtype, device=x_grid.device)
+        interp_points_flip = interp_points.flip(0)
 
         num_grid_points = x_grid.size(1)
         num_target_points = x_target.size(0)
         num_dim = x_target.size(-1)
         num_coefficients = len(interp_points)
 
-        interp_values = x_target.data.new(num_target_points, num_coefficients ** num_dim).fill_(1)
-        interp_indices = x_grid.data.new(num_target_points, num_coefficients ** num_dim).long().zero_()
+        interp_values = torch.ones(
+            num_target_points, num_coefficients ** num_dim, dtype=x_grid.dtype, device=x_grid.device
+        )
+        interp_indices = torch.zeros(
+            num_target_points, num_coefficients ** num_dim, dtype=torch.long, device=x_grid.device
+        )
 
         for i in range(num_dim):
             grid_delta = x_grid[i, 1] - x_grid[i, 0]
