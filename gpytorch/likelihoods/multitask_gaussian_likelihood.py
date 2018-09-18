@@ -89,5 +89,5 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         covariance_matrix = add_diag(covariance_matrix, self.log_noise.exp())
         return input.__class__(mean, covariance_matrix)
 
-    def log_probability(self, input, target):
+    def variational_log_probability(self, input, target):
         raise NotImplementedError("Variational inference with Multitask Gaussian likelihood is not yet supported")

@@ -43,7 +43,7 @@ class BernoulliLikelihood(Likelihood):
         output_probs = normal_cdf(link)
         return Bernoulli(probs=output_probs)
 
-    def log_probability(self, latent_func, target):
+    def variational_log_probability(self, latent_func, target):
         """
         Computes the log probability
 

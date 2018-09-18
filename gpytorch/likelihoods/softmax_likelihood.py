@@ -54,7 +54,7 @@ class SoftmaxLikelihood(Likelihood):
         softmax = torch.nn.functional.softmax(mixed_fs.t()).view(n_data, n_samples, self.n_classes)
         return Categorical(probs=softmax.mean(1))
 
-    def log_probability(self, latent_func, target):
+    def variational_log_probability(self, latent_func, target):
         """
         Computes the log probability \sum_{i} \log \Phi(y_{i}f_{i}), where
         \Phi(y_{i}f_{i}) is computed by averaging over a set of s samples of

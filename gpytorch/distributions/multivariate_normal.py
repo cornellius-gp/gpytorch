@@ -1,7 +1,9 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import torch
 from torch.distributions import MultivariateNormal as TMultivariateNormal
-from torch.distributions.utils import lazy_property
+from torch.distributions.multivariate_normal import _batch_mv
+from torch.distributions.utils import _standard_normal, lazy_property
 
 from ..lazy import LazyTensor
 from .distribution import Distribution
@@ -99,11 +101,27 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             self.__unbroadcasted_scale_tril = ust
 
+    def get_base_samples(self, sample_shape=torch.Size()):
+        """Get i.i.d. standard Normal samples (to be used with correlate_base_samples)"""
+        with torch.no_grad():
+            shape = self._extended_shape(sample_shape)
+            base_samples = _standard_normal(
+                shape, dtype=self.loc.dtype, device=self.loc.device
+            )
+        return base_samples
+
+    def correlate_base_samples(self, base_samples):
+        """Correlate i.i.d. standard Normal samples using the root decomposition
+        of the covariance matrix"""
+        return self.loc + _batch_mv(self._unbroadcasted_scale_tril, base_samples)
+
     @property
     def variance(self):
         if self.islazy:
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
-            return self.covariance_matrix.diag().expand(self._batch_shape + self._event_shape)
+            return self.covariance_matrix.diag().expand(
+                self._batch_shape + self._event_shape
+            )
         else:
             return super(MultivariateNormal, self).variance
 
