@@ -23,22 +23,6 @@ class AbstractVariationalGP(Module):
         )
         self.register_variational_strategy("inducing_point_strategy")
 
-    def marginal_log_likelihood(self, likelihood, output, target, n_data=None):
-        from ..mlls import VariationalMarginalLogLikelihood
-
-        if not hasattr(self, "_has_warned") or not self._has_warned:
-            import warnings
-
-            warnings.warn(
-                "model.marginal_log_likelihood is now deprecated. "
-                "Please use gpytorch.mll.VariationalMarginalLogLikelihood instead.",
-                DeprecationWarning,
-            )
-            self._has_warned = True
-        if n_data is None:
-            n_data = target.size(-1)
-        return VariationalMarginalLogLikelihood(likelihood, self, n_data)(output, target)
-
     def covar_diag(self, inputs):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(1)
