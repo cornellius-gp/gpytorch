@@ -55,7 +55,7 @@ def linear_cg(
     if max_tridiag_iter is None:
         max_tridiag_iter = settings.max_lanczos_quadrature_iterations.value()
     if initial_guess is None:
-        initial_guess = rhs.new(rhs.size()).zero_()
+        initial_guess = torch.zeros_like(rhs)
     if preconditioner is None:
         preconditioner = _default_preconditioner
 
@@ -97,21 +97,26 @@ def linear_cg(
         residual_inner_prod = precond_residual.mul(residual).sum(-2, keepdim=True)
 
         # Define storage matrices
-        mul_storage = residual.new(residual.size())
-        alpha = residual.new(rhs.size(0), 1, rhs.size(-1)) if rhs.ndimension() == 3 else residual.new(1, rhs.size(-1))
-        beta = alpha.new(alpha.size())
+        mul_storage = torch.empty_like(residual)
+        if rhs.ndimension() == 3:
+            alpha = torch.empty(rhs.size(0), 1, rhs.size(-1), dtype=residual.dtype, device=residual.device)
+        else:
+            alpha = torch.empty(1, rhs.size(-1), dtype=residual.dtype, device=residual.device)
+        beta = torch.empty_like(alpha)
 
     # Define tridiagonal matrices, if applicable
     if n_tridiag:
         if rhs.ndimension() == 3:
-            t_mat = residual.new(n_tridiag_iter, n_tridiag_iter, rhs.size(0), n_tridiag).zero_()
-            alpha_reciprocal = alpha.new(rhs.size(0), n_tridiag)
+            t_mat = torch.zeros(
+                n_tridiag_iter, n_tridiag_iter, rhs.size(0), n_tridiag, dtype=alpha.dtype, device=alpha.device
+            )
+            alpha_reciprocal = torch.empty(rhs.size(0), n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
         else:
-            t_mat = residual.new(n_tridiag_iter, n_tridiag_iter, n_tridiag).zero_()
-            alpha_reciprocal = alpha.new(n_tridiag)
+            t_mat = torch.zeros(n_tridiag_iter, n_tridiag_iter, n_tridiag, dtype=alpha.dtype, device=alpha.device)
+            alpha_reciprocal = torch.empty(n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
 
-        prev_alpha_reciprocal = alpha.new(alpha_reciprocal.size())
-        prev_beta = alpha.new(alpha_reciprocal.size())
+        prev_alpha_reciprocal = torch.empty_like(alpha_reciprocal)
+        prev_beta = torch.empty_like(alpha_reciprocal)
 
     update_tridiag = True
     last_tridiag_iter = 0

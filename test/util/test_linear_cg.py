@@ -26,12 +26,12 @@ class TestLinearCG(unittest.TestCase):
 
     def test_cg(self):
         size = 100
-        matrix = torch.DoubleTensor(size, size).normal_()
+        matrix = torch.randn(size, size, dtype=torch.float64)
         matrix = matrix.matmul(matrix.transpose(-1, -2))
         matrix.div_(matrix.norm())
-        matrix.add_(torch.DoubleTensor(matrix.size(-1)).fill_(1e-1).diag())
+        matrix.add_(torch.eye(matrix.size(-1), dtype=torch.float64).mul_(1e-1))
 
-        rhs = torch.DoubleTensor(size, 50).normal_()
+        rhs = torch.randn(size, 50, dtype=torch.float64)
         solves = linear_cg(matrix.matmul, rhs=rhs, max_iter=size)
 
         # Check cg
@@ -41,12 +41,12 @@ class TestLinearCG(unittest.TestCase):
 
     def test_cg_with_tridiag(self):
         size = 10
-        matrix = torch.DoubleTensor(size, size).normal_()
+        matrix = torch.randn(size, size, dtype=torch.float64)
         matrix = matrix.matmul(matrix.transpose(-1, -2))
         matrix.div_(matrix.norm())
-        matrix.add_(torch.DoubleTensor(matrix.size(-1)).fill_(1e-1).diag())
+        matrix.add_(torch.eye(matrix.size(-1), dtype=torch.float64).mul_(1e-1))
 
-        rhs = torch.DoubleTensor(size, 50).normal_()
+        rhs = torch.randn(size, 50, dtype=torch.float64)
         solves, t_mats = linear_cg(matrix.matmul, rhs=rhs, n_tridiag=5, max_tridiag_iter=10, max_iter=size, tolerance=0)
 
         # Check cg
@@ -63,12 +63,12 @@ class TestLinearCG(unittest.TestCase):
     def test_batch_cg(self):
         batch = 5
         size = 100
-        matrix = torch.DoubleTensor(batch, size, size).normal_()
+        matrix = torch.randn(batch, size, size, dtype=torch.float64)
         matrix = matrix.matmul(matrix.transpose(-1, -2))
         matrix.div_(matrix.norm())
-        matrix.add_(torch.DoubleTensor(matrix.size(-1)).fill_(1e-1).diag())
+        matrix.add_(torch.eye(matrix.size(-1), dtype=torch.float64).mul_(1e-1))
 
-        rhs = torch.DoubleTensor(batch, size, 50).normal_()
+        rhs = torch.randn(batch, size, 50, dtype=torch.float64)
         solves = linear_cg(matrix.matmul, rhs=rhs, max_iter=size)
 
         # Check cg
@@ -79,12 +79,12 @@ class TestLinearCG(unittest.TestCase):
     def test_batch_cg_with_tridiag(self):
         batch = 5
         size = 10
-        matrix = torch.DoubleTensor(batch, size, size).normal_()
+        matrix = torch.randn(batch, size, size, dtype=torch.float64)
         matrix = matrix.matmul(matrix.transpose(-1, -2))
         matrix.div_(matrix.norm())
-        matrix.add_(torch.DoubleTensor(matrix.size(-1)).fill_(1e-1).diag())
+        matrix.add_(torch.eye(matrix.size(-1), dtype=torch.float64).mul_(1e-1))
 
-        rhs = torch.DoubleTensor(batch, size, 50).normal_()
+        rhs = torch.randn(batch, size, 50, dtype=torch.float64)
         solves, t_mats = linear_cg(matrix.matmul, rhs=rhs, n_tridiag=8, max_iter=size, max_tridiag_iter=10, tolerance=0)
 
         # Check cg

@@ -30,15 +30,12 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
     max_iter = min(max_iter, matrix_size)
 
     errors = torch.norm(matrix_diag, 1, dim=1)
-    permutation = matrix_diag.new(matrix_size).long()
-    torch.arange(0, matrix_size, out=permutation)
+    permutation = torch.arange(0, matrix_size, dtype=torch.long, device=matrix_diag.device)
     permutation = permutation.repeat(batch_size, 1)
 
     m = 0
-    # TODO: pivoted_cholesky should take tensor_cls and use that here instead
-    L = matrix_diag.new(batch_size, max_iter, matrix_size).zero_()
-    full_batch_slice = permutation.new(batch_size)
-    torch.arange(batch_size, out=full_batch_slice)
+    L = torch.zeros(batch_size, max_iter, matrix_size, dtype=matrix.dtype, device=matrix.device)
+    full_batch_slice = torch.arange(0, batch_size, dtype=torch.long, device=permutation.device)
     while m < max_iter and torch.max(errors) > error_tol:
         permuted_diags = torch.gather(matrix_diag, 1, permutation)[:, m:]
         max_diag_values, max_diag_indices = torch.max(permuted_diags, 1)
@@ -101,7 +98,7 @@ def woodbury_factor(low_rank_mat, shift):
     k = low_rank_mat.size(-2)
     shifted_mat = low_rank_mat.matmul(low_rank_mat.transpose(-1, -2) / shift.unsqueeze(-1))
 
-    shifted_mat = shifted_mat + shifted_mat.new(k).fill_(1).diag()
+    shifted_mat = shifted_mat + torch.eye(k, dtype=shifted_mat.dtype, device=shifted_mat.device)
 
     if low_rank_mat.ndimension() == 3:
         R = batch_potrs(low_rank_mat, batch_potrf(shifted_mat))

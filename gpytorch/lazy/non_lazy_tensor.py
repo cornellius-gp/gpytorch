@@ -17,9 +17,7 @@ class NonLazyTensor(LazyTensor):
         - tsr (Tensor: matrix) a Tensor
         """
         if not torch.is_tensor(tsr):
-            raise RuntimeError(
-                "NonLazyTensor must take a torch.Tensor; got {}".format(tsr.__class__.__name__)
-            )
+            raise RuntimeError("NonLazyTensor must take a torch.Tensor; got {}".format(tsr.__class__.__name__))
 
         super(NonLazyTensor, self).__init__(tsr)
         self.tensor = tsr
@@ -45,10 +43,10 @@ class NonLazyTensor(LazyTensor):
         return NonLazyTensor(self.tensor.transpose(-1, -2))
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        return self.tensor[batch_indices.data, left_indices.data, right_indices.data]
+        return self.tensor[batch_indices, left_indices, right_indices]
 
     def _get_indices(self, left_indices, right_indices):
-        return self.tensor[left_indices.data, right_indices.data]
+        return self.tensor[left_indices, right_indices]
 
     def add_diag(self, diag):
         return NonLazyTensor(add_diag(self.tensor, diag))
@@ -62,10 +60,8 @@ class NonLazyTensor(LazyTensor):
             return self.tensor.diag()
         else:
             size = self.size()
-            row_col_iter = self.tensor_cls(size[-1]).long()
-            torch.arange(0, size[-1], out=row_col_iter)
-            batch_iter = self.tensor_cls(size[0]).long()
-            torch.arange(0, size[0], out=batch_iter)
+            batch_iter = torch.arange(0, size[0], dtype=torch.long, device=self.device)
+            row_col_iter = torch.arange(0, size[-1], dtype=torch.long, device=self.device)
             batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
             row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
             return self.tensor[batch_iter, row_col_iter, row_col_iter].view(size[0], size[1])

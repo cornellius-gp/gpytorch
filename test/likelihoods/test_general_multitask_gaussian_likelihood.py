@@ -18,9 +18,9 @@ train_x = torch.linspace(0, 1, 100)
 latent_error = torch.randn(train_x.size()) * 0.5
 
 # y1 function is sin(2*pi*x) with noise N(0, 0.04)
-train_y1 = torch.sin(train_x.data * (2 * pi)) + latent_error + torch.randn(train_x.size()) * 0.1
+train_y1 = torch.sin(train_x * (2 * pi)) + latent_error + torch.randn(train_x.size()) * 0.1
 # y2 function is cos(2*pi*x) with noise N(0, 0.04)
-train_y2 = torch.cos(train_x.data * (2 * pi)) + latent_error + torch.randn(train_x.size()) * 0.1
+train_y2 = torch.cos(train_x * (2 * pi)) + latent_error + torch.randn(train_x.size()) * 0.1
 
 # Create a train_y which interleaves the two
 train_y = torch.stack([train_y1, train_y2], -1)
@@ -30,8 +30,8 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = MultitaskMean(ConstantMean(), n_tasks=2)
-        self.data_covar_module = RBFKernel()
-        self.covar_module = MultitaskKernel(self.data_covar_module, n_tasks=2, rank=1)
+        self_covar_module = RBFKernel()
+        self.covar_module = MultitaskKernel(self_covar_module, n_tasks=2, rank=1)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -88,7 +88,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             task_noise_covar_factor.transpose(-1, -2)
         ) + log_noise.exp() * torch.eye(n_tasks)
 
-        self.assertGreater(task_noise_covar[0, 1].data.squeeze().item(), 0.05)
+        self.assertGreater(task_noise_covar[0, 1].squeeze().item(), 0.05)
 
 
 if __name__ == "__main__":

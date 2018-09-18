@@ -25,7 +25,7 @@ class BernoulliRandomVariable(RandomVariable):
             raise RuntimeError("probability should be a Tensor")
         if not probability.ndimension() == 1:
             raise RuntimeError("BernoulliRandomVariable should be a scalar or a vector")
-        if probability.data.lt(0).sum() or probability.data.gt(1).sum():
+        if probability.lt(0).sum().item() or probability.gt(1).sum().item():
             raise RuntimeError("Probabilities must be between 0 and 1")
         self.probability = probability
 
@@ -34,7 +34,7 @@ class BernoulliRandomVariable(RandomVariable):
 
     def sample(self, n_samples=1):
         prob = torch.rand(n_samples, len(self.probability))
-        res = prob < self.probability.data.unsqueeze(0).expand(n_samples, len(self.probability))
+        res = prob < self.probability.unsqueeze(0).expand(n_samples, len(self.probability))
         if len(self.probability) == 1:
             res.squeeze_(1)
         return res

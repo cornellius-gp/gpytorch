@@ -24,6 +24,14 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         self.is_batch = self.x1.ndimension() == 3 or (self.x1.ndimension() == 2 and self.squeeze_row)
         self.params = params
 
+    @property
+    def dtype(self):
+        return self.x1.dtype
+
+    @property
+    def device(self):
+        return self.x1.device
+
     def _matmul(self, rhs):
         raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
 
@@ -130,9 +138,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         if self.kernel.has_custom_exact_predictions:
             return self.evaluate_kernel().exact_predictive_covar(n_train, likelihood, precomputed_cache)
         else:
-            return super(LazyEvaluatedKernelTensor, self).exact_predictive_covar(
-                n_train, likelihood, precomputed_cache
-            )
+            return super(LazyEvaluatedKernelTensor, self).exact_predictive_covar(n_train, likelihood, precomputed_cache)
 
     def repeat(self, *sizes):
         if self.squeeze_row or self.squeeze_col:

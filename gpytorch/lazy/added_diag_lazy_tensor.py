@@ -24,9 +24,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             raise RuntimeError("An AddedDiagLazyTensor can only have two components")
 
         if isinstance(lazy_vars[0], DiagLazyTensor) and isinstance(lazy_vars[1], DiagLazyTensor):
-            raise RuntimeError(
-                "Trying to lazily add two DiagLazyTensors. " "Create a single DiagLazyTensor instead."
-            )
+            raise RuntimeError("Trying to lazily add two DiagLazyTensors. " "Create a single DiagLazyTensor instead.")
         elif isinstance(lazy_vars[0], DiagLazyTensor):
             self._diag_var = lazy_vars[0]
             self._lazy_var = lazy_vars[1]
@@ -34,9 +32,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             self._diag_var = lazy_vars[1]
             self._lazy_var = lazy_vars[0]
         else:
-            raise RuntimeError(
-                "One of the LazyTensors input to AddedDiagLazyTensor " " must be a DiagLazyTensor!"
-            )
+            raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
     def add_diag(self, added_diag):
         return AddedDiagLazyTensor(self._lazy_var, self._diag_var.add_diag(added_diag))
@@ -66,7 +62,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 ld_one = (NonLazyTensor(batch_potrf(lr_flipped)).diag().log().sum()) * 2
             else:
                 ld_one = lr_flipped.potrf().diag().log().sum() * 2
-            ld_two = self._diag_var.diag().data.log().sum()
+            ld_two = self._diag_var.diag().log().sum().item()
             self._precond_log_det_cache = ld_one + ld_two
 
         return precondition_closure, self._precond_log_det_cache

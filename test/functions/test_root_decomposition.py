@@ -33,24 +33,24 @@ class TestRootDecomposition(unittest.TestCase):
         # Forward
         root = NonLazyTensor(self.mat_var).root_decomposition()
         res = root.matmul(root.transpose(-1, -2))
-        self.assertTrue(approx_equal(res.data, self.mat_var.data))
+        self.assertTrue(approx_equal(res, self.mat_var))
 
         # Backward
         res.trace().backward()
         self.mat_var_clone.trace().backward()
-        self.assertTrue(approx_equal(self.mat_var.grad.data, self.mat_var_clone.grad.data))
+        self.assertTrue(approx_equal(self.mat_var.grad, self.mat_var_clone.grad))
 
     def test_root_inv_decomposition(self):
         # Forward
         root = NonLazyTensor(self.mat_var).root_inv_decomposition()
         res = root.matmul(root.transpose(-1, -2))
         actual = self.mat_var_clone.inverse()
-        self.assertTrue(approx_equal(res.data, actual.data))
+        self.assertTrue(approx_equal(res, actual))
 
         # Backward
         res.trace().backward()
         actual.trace().backward()
-        self.assertTrue(approx_equal(self.mat_var.grad.data, self.mat_var_clone.grad.data))
+        self.assertTrue(approx_equal(self.mat_var.grad, self.mat_var_clone.grad))
 
 
 if __name__ == "__main__":

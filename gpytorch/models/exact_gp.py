@@ -39,19 +39,6 @@ class ExactGP(Module):
             self.train_targets = fn(self.train_targets)
         return super(ExactGP, self)._apply(fn)
 
-    def marginal_log_likelihood(self, likelihood, output, target, n_data=None):
-        from ..mlls import ExactMarginalLogLikelihood
-
-        if not hasattr(self, "_has_warned") or not self._has_warned:
-            import warnings
-
-            warnings.warn(
-                "model.marginal_log_likelihood is now deprecated. "
-                "Please use gpytorch.mll.ExactMarginalLogLikelihood instead.", DeprecationWarning
-            )
-            self._has_warned = True
-        return ExactMarginalLogLikelihood(likelihood, self)(output, target)
-
     def set_train_data(self, inputs=None, targets=None, strict=True):
         """Set training data (does not re-fit model hyper-parameters)"""
         if inputs is not None:

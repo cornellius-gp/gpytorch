@@ -44,10 +44,10 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         return interp_indices, interp_values
 
     def _initalize_variational_parameters(self, prior_output):
-        mean_init = prior_output.mean.data
-        mean_init += mean_init.new(mean_init.size()).normal_().mul_(1e-1)
-        chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
-        chol_covar_init += chol_covar_init.new(chol_covar_init.size()).normal_().mul_(1e-1)
+        mean_init = prior_output.mean.detach()
+        mean_init += torch.randn_like(mean_init).mul_(1e-1)
+        chol_covar_init = torch.eye(len(mean_init), dtype=mean_init.dtype, device=mean_init.device)
+        chol_covar_init += torch.randn_like(chol_covar_init).mul_(1e-1)
         self.variational_mean.data.copy_(mean_init)
         self.chol_variational_covar.data.copy_(chol_covar_init)
 
@@ -62,7 +62,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         # Prior output
         if self.training or beta_features.diagonal_correction.on():
             prior_output = self.prior_output()
-            if not self.variational_params_initialized[0]:
+            if not self.variational_params_initialized.item():
                 self._initalize_variational_parameters(prior_output)
                 self.variational_params_initialized.fill_(1)
 

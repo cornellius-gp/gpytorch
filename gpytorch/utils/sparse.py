@@ -32,12 +32,10 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
         n_target_points, n_coefficients = interp_values.size()
 
     # Index tensor
-    row_tensor = interp_indices.new(n_target_points)
-    torch.arange(0, n_target_points, out=row_tensor)
+    row_tensor = torch.arange(0, n_target_points, dtype=torch.long, device=interp_values.device)
     row_tensor.unsqueeze_(1)
     if is_batch:
-        batch_tensor = interp_indices.new(batch_size)
-        torch.arange(0, batch_size, out=batch_tensor)
+        batch_tensor = torch.arange(0, batch_size, dtype=torch.long, device=interp_values.device)
         batch_tensor.unsqueeze_(1).unsqueeze_(2)
 
         row_tensor = row_tensor.repeat(batch_size, 1, n_coefficients)

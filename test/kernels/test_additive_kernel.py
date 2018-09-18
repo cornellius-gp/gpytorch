@@ -11,38 +11,40 @@ from gpytorch.kernels import RBFKernel, AdditiveKernel, ProductKernel
 
 class TestAdditiveKernel(unittest.TestCase):
     def test_computes_product_of_radial_basis_function(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([0, 2]).view(2, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
         kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel = kernel_1 * kernel_2
 
-        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(lengthscale ** 2).exp() ** 2
+        actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
+        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 2
 
         kernel.eval()
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_of_radial_basis_function(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([0, 2]).view(2, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
         kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel = kernel_1 + kernel_2
 
-        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(lengthscale ** 2).exp() * 2
+        actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
+        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() * 2
 
         kernel.eval()
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_product_of_three_radial_basis_function(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([0, 2]).view(2, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
         kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
@@ -50,15 +52,16 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_3 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel = ProductKernel(kernel_1, kernel_2, kernel_3)
 
-        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(lengthscale ** 2).exp() ** 3
+        actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
+        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 3
 
         kernel.eval()
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_of_three_radial_basis_function(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([0, 2]).view(2, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
         kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
@@ -66,15 +69,17 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_3 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel = AdditiveKernel(kernel_1, kernel_2, kernel_3)
 
-        actual = torch.Tensor([[16, 4], [4, 0], [64, 36]]).mul_(-0.5).div_(lengthscale ** 2).exp() * 3
+        actual = (
+            torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float).mul_(-0.5).div_(lengthscale ** 2).exp() * 3
+        )
 
         kernel.eval()
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_radial_basis_function_gradient(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([0, 2, 2]).view(3, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
         lengthscale = 2
 
         param = math.log(lengthscale) * torch.ones(3, 3)
@@ -95,8 +100,8 @@ class TestAdditiveKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
 
     def test_computes_sum_three_radial_basis_function_gradient(self):
-        a = torch.Tensor([4, 2, 8]).view(3, 1)
-        b = torch.Tensor([0, 2, 2]).view(3, 1)
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
         lengthscale = 2
 
         param = math.log(lengthscale) * torch.ones(3, 3)

@@ -37,14 +37,12 @@ class TestPivotedCholesky(unittest.TestCase):
         train_x = torch.linspace(0, 1, size)
         covar_matrix = RBFKernel()(train_x, train_x).evaluate()
         piv_chol = pivoted_cholesky.pivoted_cholesky(covar_matrix, 10)
-        woodbury_factor = pivoted_cholesky.woodbury_factor(piv_chol, torch.Tensor(100).fill_(1))
+        woodbury_factor = pivoted_cholesky.woodbury_factor(piv_chol, torch.ones(100))
 
         rhs_vector = torch.randn(100)
         shifted_covar_matrix = covar_matrix + torch.eye(size)
         real_solve = shifted_covar_matrix.inverse().matmul(rhs_vector)
-        approx_solve = pivoted_cholesky.woodbury_solve(
-            rhs_vector, piv_chol, woodbury_factor, torch.Tensor(100).fill_(1)
-        )
+        approx_solve = pivoted_cholesky.woodbury_solve(rhs_vector, piv_chol, woodbury_factor, torch.ones(100))
 
         self.assertTrue(approx_equal(approx_solve, real_solve, 2e-4))
 
@@ -53,14 +51,12 @@ class TestPivotedCholesky(unittest.TestCase):
         train_x = torch.linspace(0, 1, size)
         covar_matrix = RBFKernel()(train_x, train_x).evaluate()
         piv_chol = pivoted_cholesky.pivoted_cholesky(covar_matrix, 10)
-        woodbury_factor = pivoted_cholesky.woodbury_factor(piv_chol, torch.Tensor(100).fill_(1))
+        woodbury_factor = pivoted_cholesky.woodbury_factor(piv_chol, torch.ones(100))
 
         rhs_vector = torch.randn(100, 50)
         shifted_covar_matrix = covar_matrix + torch.eye(size)
         real_solve = shifted_covar_matrix.inverse().matmul(rhs_vector)
-        approx_solve = pivoted_cholesky.woodbury_solve(
-            rhs_vector, piv_chol, woodbury_factor, torch.Tensor(100).fill_(1)
-        )
+        approx_solve = pivoted_cholesky.woodbury_solve(rhs_vector, piv_chol, woodbury_factor, torch.ones(100))
 
         self.assertTrue(approx_equal(approx_solve, real_solve, 2e-4))
 
@@ -84,7 +80,7 @@ class TestPivotedCholeskyBatch(unittest.TestCase):
         ).unsqueeze(-1)
         covar_matrix = RBFKernel()(train_x, train_x).evaluate()
         piv_chol = pivoted_cholesky.pivoted_cholesky(covar_matrix, 10)
-        woodbury_factor = pivoted_cholesky.woodbury_factor(piv_chol, torch.Tensor(2, 100).fill_(1))
+        woodbury_factor = pivoted_cholesky.woodbury_factor(piv_chol, torch.ones(2, 100))
 
         rhs_vector = torch.randn(2, 100, 5)
         shifted_covar_matrix = covar_matrix + torch.eye(size)
@@ -95,9 +91,7 @@ class TestPivotedCholeskyBatch(unittest.TestCase):
             ],
             0,
         )
-        approx_solve = pivoted_cholesky.woodbury_solve(
-            rhs_vector, piv_chol, woodbury_factor, torch.Tensor(2, 100).fill_(1)
-        )
+        approx_solve = pivoted_cholesky.woodbury_solve(rhs_vector, piv_chol, woodbury_factor, torch.ones(2, 100))
 
         self.assertTrue(approx_equal(approx_solve, real_solve, 2e-4))
 
