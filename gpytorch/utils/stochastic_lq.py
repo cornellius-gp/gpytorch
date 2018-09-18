@@ -65,7 +65,7 @@ class StochasticLQ(object):
             )
 
         batch_size = t_mats.size(1)
-        results = [torch.zeros(batch_size, dtype=t_mats.dtype, device=t_mats.device)] * len(funcs)
+        results = [torch.zeros(batch_size, dtype=t_mats.dtype, device=t_mats.device) for _ in funcs]
         num_random_probes = t_mats.size(0)
         for j in range(num_random_probes):
             # These are (num_batch x k) and (num_batch x k x k)

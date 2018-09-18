@@ -32,7 +32,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             self._diag_var = lazy_vars[1]
             self._lazy_var = lazy_vars[0]
         else:
-            raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor " " must be a DiagLazyTensor!")
+            raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
     def add_diag(self, added_diag):
         return AddedDiagLazyTensor(self._lazy_var, self._diag_var.add_diag(added_diag))

@@ -25,7 +25,7 @@ class WishartPrior(Prior):
             raise ValueError("Must have nu > n - 1")
         super(WishartPrior, self).__init__()
         self.register_buffer("K_inv", torch.inverse(K))
-        self.register_buffer("nu", torch.tensor(nu))
+        self.register_buffer("nu", torch.tensor(float(nu)))
         # normalization constant
         C = -(nu / 2 * torch.log(torch.det(K)) + nu * n / 2 * math.log(2) + log_mv_gamma(n, nu / 2))
         self.register_buffer("C", C)
@@ -61,7 +61,7 @@ class InverseWishartPrior(Prior):
             raise ValueError("Must have nu > 0")
         super(InverseWishartPrior, self).__init__()
         self.register_buffer("K", K)
-        self.register_buffer("nu", torch.tensor(float(nu), dtype=K.dtype))
+        self.register_buffer("nu", torch.tensor(float(nu)))
         # normalization constant
         c = (nu + n - 1) / 2
         C = c * torch.log(torch.det(K)) - c * n * math.log(2) - log_mv_gamma(n, c)
