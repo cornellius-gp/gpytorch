@@ -8,9 +8,11 @@ from copy import deepcopy
 from operator import mul
 from .interpolation import Interpolation
 from .linear_cg import linear_cg
+from . import grid
 from . import pivoted_cholesky
 from . import lanczos
 from . import sparse
+from .grid import scale_to_bounds
 from .eig import batch_symeig
 from .cholesky import batch_potrf, batch_potrs
 from .stochastic_lq import StochasticLQ
@@ -289,17 +291,6 @@ def sparse_repeat(sparse, *repeat_sizes):
     )
 
 
-def scale_to_bounds(x, lower_bound, upper_bound):
-    """
-    """
-    # Scale features so they fit inside grid bounds
-    min_val = x.min().item()
-    max_val = x.max().item()
-    diff = max_val - min_val
-    x = (x - min_val) * (0.95 * (upper_bound - lower_bound) / diff) + 0.95 * lower_bound
-    return x
-
-
 def to_sparse(dense):
     """
     """
@@ -411,8 +402,10 @@ __all__ = [
     "batch_potrf",
     "batch_potrs",
     "batch_symeig",
+    "grid",
     "lanczos",
     "pivoted_cholesky",
+    "scale_to_bounds",
     "sparse",
     "sparse_eye",
     "sparse_getitem",

@@ -33,7 +33,7 @@ class GridInterpolationKernel(GridKernel):
 
     The user should supply the size of the grid (using the :attr:`grid_size` attribute).
     To choose a reasonable grid value, we highly recommend using the
-    :func:`gpytorch.utils.choose_grid_size` helper function.
+    :func:`gpytorch.utils.grid.choose_grid_size` helper function.
     The bounds of the grid will automatically be determined by data.
 
     (Alternatively, you can hard-code bounds using the :attr:`grid_bounds`, which
