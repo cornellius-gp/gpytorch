@@ -54,12 +54,11 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.base_covar_module = ScaleKernel(
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True))
         )
-        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=50, grid_bounds=[(0, 1)])
+        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=50, num_dims=1)
         self.feature_extractor = feature_extractor
 
     def forward(self, x):
         features = self.feature_extractor(x)
-        features = gpytorch.utils.scale_to_bounds(features, 0, 1)
         mean_x = self.mean_module(features)
         covar_x = self.covar_module(features)
         return GaussianRandomVariable(mean_x, covar_x)
