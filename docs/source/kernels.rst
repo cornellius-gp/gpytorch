@@ -133,5 +133,5 @@ Kernels for Scalable GP Regression Methods
 :hidden:`MultiplicativeGridInterpolationKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: AdditiveGridInterpolationKernel
+.. autoclass:: MultiplicativeGridInterpolationKernel
    :members:

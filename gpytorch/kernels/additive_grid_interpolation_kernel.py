@@ -19,17 +19,23 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
     .. math::
 
        \begin{equation*}
-          k(\mathbf{x_1}, \mathbf{x_2}) = k'(x_1^{(1)}, x_2^{(1)}) + \ldots + k'(x_1^({d}), x_2^{(d)})
+          k(\mathbf{x_1}, \mathbf{x_2}) = k'(x_1^{(1)}, x_2^{(1)}) + \ldots + k'(x_1^{(d)}, x_2^{(d)})
        \end{equation*}
 
     for some kernel :math:`k'` that operates on a subset of dimensions.
 
     The groupings of dimensions are specified by the :attr:`dim_groups` attribute.
-    * `dim_groups=d` (d is the dimensionality of :math:`\mathbf x`): the kernel
-        :math:`k` will be the sum of `d` sub-kernels, each operating on one dimension of :math:`\mathbf x`.
-    * `dim_groups=d/2`: the first sub-kernel operates on dimensions 1 and 2, the second sub-kernel
+
+    * `dim_groups=d` (d is the dimensionality of :math:`\mathbf x`):
+        the kernel :math:`k` will be the sum of `d` sub-kernels, each operating
+        on one dimension of :math:`\mathbf x`.
+
+    * `dim_groups=d/2`:
+        the first sub-kernel operates on dimensions 1 and 2, the second sub-kernel
         operates on dimensions 3 and 4, etc.
-    * `dim_groups=1`: there is no additive decomposition
+
+    * `dim_groups=1`:
+        there is no additive decomposition
 
     .. note::
 
@@ -47,7 +53,7 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
             The number of additive components
         :attr:`grid_bounds` (tuple(float, float), optional):
             The bounds of the grid, if known (high performance mode).
-            The length of the tuple must match the size of the dim group (num_dims // dim_groups).
+            The length of the tuple must match the size of the dim group (`num_dims // dim_groups`).
             The entries represent the min/max values for each dimension.
         :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel_module`.

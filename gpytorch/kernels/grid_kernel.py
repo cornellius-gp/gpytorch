@@ -16,12 +16,6 @@ class GridKernel(Kernel):
 
     GridKernel exploits Toeplitz and Kronecker structure within the covariance matrix.
     See `Fast kernel learning for multidimensional pattern extrapolation`_ for more info.
-    Implements the KISS-GP (or SKI) approximation for a given kernel.
-    It was proposed in `Kernel Interpolation for Scalable Structured Gaussian Processes`_,
-    and offers extremely fast and accurate Kernel approximations for large datasets.
-
-    Given a base kernel `k`, the covariance :math:`k(\mathbf{x_1}, \mathbf{x_2})` is approximated by
-    using a grid of regularly spaced *inducing points*:
 
     .. note::
 
@@ -38,7 +32,7 @@ class GridKernel(Kernel):
         :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel_module`.
 
-    .. Fast kernel learning for multidimensional pattern extrapolation:
+    .. _Fast kernel learning for multidimensional pattern extrapolation:
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
     """
 

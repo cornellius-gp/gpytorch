@@ -26,9 +26,12 @@ class GridInterpolationKernel(GridKernel):
        \end{equation*}
 
     where
+
     * :math:`U` is the set of gridded inducing points
+
     * :math:`K_{U,U}` is the kernel matrix between the inducing points
-    * :math:`\mathbf{w_{x_1}` and :math:`\mathbf{w_{x_2}}` are sparse vectors based on
+
+    * :math:`\mathbf{w_{x_1}}` and :math:`\mathbf{w_{x_2}}` are sparse vectors based on
       :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}` that apply cubic interpolation.
 
     The user should supply the size of the grid (using the :attr:`grid_size` attribute).
