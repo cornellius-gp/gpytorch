@@ -23,17 +23,26 @@ class SamplesRandomVariable(RandomVariable):
         super(SamplesRandomVariable, self).__init__(samples)
         self._samples = samples
 
-    def sample(self):
-        ix = random.randrange(len(self._sample_list))
-        return self._samples[ix]
+    def sample(self, n_samples=None, **kwargs):
+        squeeze = False
+        if n_samples is None:
+            n_samples = 1
+            squeeze = False
+
+        ix = random.randrange(len(self._samples))[:n_samples]
+        res = self._samples[ix]
+
+        if squeeze:
+            res = res.squeeze(0)
+        return res
 
     def representation(self):
         return self._samples
 
     def mean(self):
-        return self._samples.mean(-1)
+        return self._samples.mean(0)
 
     def var(self):
-        if self._samples.size(-1) == 1:
-            return torch.zeros_like(self._samples.squeeze(-1))
-        return self._samples.var(-1)
+        if self._samples.size(0) == 1:
+            return torch.zeros_like(self._samples.squeeze(0))
+        return self._samples.var(0)
