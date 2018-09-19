@@ -27,6 +27,46 @@ class TestPeriodicKernel(unittest.TestCase):
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
+    def test_batch(self):
+        a = torch.tensor([[4, 2, 8], [1, 2, 3]], dtype=torch.float).view(2, 3, 1)
+        b = torch.tensor([[0, 2], [-1, 2]], dtype=torch.float).view(2, 2, 1)
+        period = torch.tensor(1, dtype=torch.float).view(1, 1, 1)
+        lengthscale = torch.tensor(2, dtype=torch.float).view(1, 1, 1)
+        kernel = PeriodicKernel().initialize(
+            log_lengthscale=torch.log(lengthscale), log_period_length=torch.log(period)
+        )
+        kernel.eval()
+
+        actual = torch.zeros(2, 3, 2)
+        for k in range(2):
+            for i in range(3):
+                for j in range(2):
+                    val = 2 * torch.pow(torch.sin(math.pi * (a[k, i] - b[k, j]) / period), 2) / lengthscale
+                    actual[k, i, j] = torch.exp(-val).item()
+
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual), 1e-5)
+
+    def test_batch_separate(self):
+        a = torch.tensor([[4, 2, 8], [1, 2, 3]], dtype=torch.float).view(2, 3, 1)
+        b = torch.tensor([[0, 2], [-1, 2]], dtype=torch.float).view(2, 2, 1)
+        period = torch.tensor([1, 2], dtype=torch.float).view(2, 1, 1)
+        lengthscale = torch.tensor([2, 1], dtype=torch.float).view(2, 1, 1)
+        kernel = PeriodicKernel(batch_size=2).initialize(
+            log_lengthscale=torch.log(lengthscale), log_period_length=torch.log(period)
+        )
+        kernel.eval()
+
+        actual = torch.zeros(2, 3, 2)
+        for k in range(2):
+            for i in range(3):
+                for j in range(2):
+                    val = 2 * torch.pow(torch.sin(math.pi * (a[k, i] - b[k, j]) / period[k]), 2) / lengthscale[k]
+                    actual[k, i, j] = torch.exp(-val).item()
+
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual), 1e-5)
+
 
 if __name__ == "__main__":
     unittest.main()

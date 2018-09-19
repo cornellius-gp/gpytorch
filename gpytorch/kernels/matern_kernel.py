@@ -119,10 +119,11 @@ class MaternKernel(Kernel):
         return constant_component * exp_component
 
     def forward(self, x1, x2):
-        mean = x1.view(-1, 1, *list(x1.size())[2:]).mean(0, keepdim=True)
-        x1_, x2_ = self._create_input_grid(x1 - mean, x2 - mean)
-        x1_ = x1_.div(self.lengthscale)
-        x2_ = x2_.div(self.lengthscale)
+        mean = x1.view(-1, 1, x1.size(-1)).mean(0, keepdim=True)
+
+        x1_ = (x1 - mean).div(self.lengthscale)
+        x2_ = (x2 - mean).div(self.lengthscale)
+        x1_, x2_ = self._create_input_grid(x1_, x2_)
 
         distance = (x1_ - x2_).norm(2, dim=-1)
         exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)

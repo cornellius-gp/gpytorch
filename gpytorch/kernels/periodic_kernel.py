@@ -55,11 +55,9 @@ class PeriodicKernel(Kernel):
 
     Attributes:
         :attr:`lengthscale` (Tensor):
-            The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`batch_size` arguments.
+            The lengthscale parameter. Size = `batch_size x 1 x 1`.
         :attr:`period_length` (Tensor):
-            The period length parameter. Size/shape of parameter depends on the
-            :attr:`batch_size` arguments.
+            The period length parameter. Size = `batch_size x 1 x 1`.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -88,6 +86,7 @@ class PeriodicKernel(Kernel):
         super(PeriodicKernel, self).__init__(
             has_lengthscale=True,
             active_dims=active_dims,
+            batch_size=batch_size,
             log_lengthscale_prior=log_lengthscale_prior,
             log_lengthscale_bounds=log_lengthscale_bounds,
         )
@@ -103,9 +102,9 @@ class PeriodicKernel(Kernel):
         return self.log_period_length.exp().clamp(self.eps, 1e5)
 
     def forward(self, x1, x2):
-        x1_, x2_ = self._create_input_grid(x1, x2)
-        x1_ = x1_.div(self.period_length)
-        x2_ = x2_.div(self.period_length)
+        x1_ = x1.div(self.period_length)
+        x2_ = x2.div(self.period_length)
+        x1_, x2_ = self._create_input_grid(x1_, x2_)
 
         diff = torch.sum((x1_ - x2_).abs(), -1)
         res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
