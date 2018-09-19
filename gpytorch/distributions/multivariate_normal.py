@@ -1,9 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import torch
 from torch.distributions import MultivariateNormal as TMultivariateNormal
-from torch.distributions.multivariate_normal import _batch_mv
-from torch.distributions.utils import _standard_normal, lazy_property
+from torch.distributions.utils import lazy_property
 
 from ..lazy import LazyTensor
 from .distribution import Distribution
