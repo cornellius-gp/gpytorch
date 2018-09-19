@@ -30,8 +30,8 @@ class TestMultivariateNormal(unittest.TestCase):
         self.assertTrue(
             torch.equal(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4)
         )
-        self.assertAlmostEquals(mvn.entropy().item(), 4.3157, places=4)
-        self.assertAlmostEquals(mvn.log_prob(torch.zeros(3)).item(), -4.8157, places=4)
+        self.assertAlmostEqual(mvn.entropy().item(), 4.3157, places=4)
+        self.assertAlmostEqual(mvn.log_prob(torch.zeros(3)).item(), -4.8157, places=4)
         self.assertTrue(
             approx_equal(
                 mvn.log_prob(torch.zeros(2, 3)), torch.tensor([-4.8157, -4.8157])
@@ -119,8 +119,8 @@ class TestMultivariateNormal(unittest.TestCase):
         )
         # TODO: Add tests for entropy, log_prob, etc. - this an issue b/c it
         # uses using root_decomposition which is not very reliable
-        # self.assertAlmostEquals(mvn.entropy().item(), 4.3157, places=4)
-        # self.assertAlmostEquals(mvn.log_prob(torch.zeros(3)).item(), -4.8157, places=4)
+        # self.assertAlmostEqual(mvn.entropy().item(), 4.3157, places=4)
+        # self.assertAlmostEqual(mvn.log_prob(torch.zeros(3)).item(), -4.8157, places=4)
         # self.assertTrue(
         #     approx_equal(
         #         mvn.log_prob(torch.zeros(2, 3)), -4.8157 * torch.ones(2))
