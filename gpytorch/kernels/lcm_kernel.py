@@ -3,43 +3,44 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .kernel import Kernel
-from .multitask_kernel import MultitaskKernel
+from torch.nn import ModuleList
+from gpytorch.kernels.kernel import Kernel
+from gpytorch.kernels.multitask_kernel import MultitaskKernel
 
 
 class LCMKernel(Kernel):
     """
     This kernel supports the LCM kernel.
     """
-    def __init__(self, base_kernel_list, n_tasks, rank=1, task_covar_prior=None):
+    def __init__(self, base_kernels, n_tasks, rank=1, task_covar_prior=None):
         """
         Args:
         """
-        if len(base_kernel_list) < 1:
+        if len(base_kernels) < 1:
             raise ValueError('At least one base kernel must be provided.')
+        for k in base_kernels:
+            if not isinstance(k, Kernel):
+                raise ValueError("base_kernels must only contain Kernel objects")
         super(LCMKernel, self).__init__()
-        self.base_kernel_list = base_kernel_list
-        self.lcm_size = len(base_kernel_list)
-        self.covar_module_list = [None] * self.lcm_size
-        for i in range(self.lcm_size):
-            self.covar_module_list[i] = MultitaskKernel(self.base_kernel_list[i],
-                                                        n_tasks=n_tasks, rank=1,
-                                                        task_covar_prior=task_covar_prior)
+        self.covar_module_list = ModuleList([
+            MultitaskKernel(base_kernel, n_tasks=n_tasks, rank=rank, task_covar_prior=task_covar_prior)
+            for base_kernel in base_kernels
+        ])
 
     def forward_diag(self, x1, x2):
         """
         Args:
         """
         res = self.covar_module_list[0].forward_diag(x1, x2)
-        for i in range(1, self.lcm_size):
-            res += self.covar_module_list[i].forward_diag(x1, x2)
+        for m in self.covar_module_list[1:]:
+            res += m.forward_diag(x1, x2)
         return res
 
     def forward(self, x1, x2):
         """
         Args:
         """
-        covar_x = self.covar_module_list[0](x1, x2)
-        for i in range(1, self.lcm_size):
-            covar_x += self.covar_module_list[i](x1, x2)
-        return covar_x
+        res = self.covar_module_list[0].forward(x1, x2)
+        for m in self.covar_module_list[1:]:
+            res += m.forward(x1, x2)
+        return res
