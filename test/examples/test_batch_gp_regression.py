@@ -38,7 +38,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood, batch_size=1):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean(batch_size=batch_size)
-        self.covar_module = ScaleKernel(RBFKernel(batch_size=batch_size))
+        self.covar_module = ScaleKernel(RBFKernel(batch_size=batch_size), batch_size=batch_size)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
