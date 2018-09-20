@@ -37,8 +37,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
         self.assertTrue(
             torch.equal(mvn_divby2.covariance_matrix, mtmvn.covariance_matrix / 4)
         )
-        self.assertAlmostEquals(mtmvn.entropy().item(), 7.2648, places=4)
-        self.assertAlmostEquals(
+        self.assertAlmostEqual(mtmvn.entropy().item(), 7.2648, places=4)
+        self.assertAlmostEqual(
             mtmvn.log_prob(torch.zeros(2, 2)).item(), -7.3064, places=4
         )
         self.assertTrue(

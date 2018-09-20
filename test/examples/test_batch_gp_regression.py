@@ -141,8 +141,8 @@ class TestBatchGPRegression(unittest.TestCase):
 
         # Make predictions for both sets of test points, and check MAEs.
         batch_predictions = likelihood(gp_model(test_x12))
-        preds1 = batch_predictions.mean()[0]
-        preds2 = batch_predictions.mean()[1]
+        preds1 = batch_predictions.mean[0]
+        preds2 = batch_predictions.mean[1]
         mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
         self.assertLess(mean_abs_error1.squeeze().item(), 0.05)
