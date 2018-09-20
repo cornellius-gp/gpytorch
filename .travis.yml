@@ -10,16 +10,20 @@ python:
   - "3.6"
 env:
   - PYTORCH_VERSION=4
+  - PYTORCH_VERSION=master
 
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
-            pip install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp27-cp27mu-linux_x86_64.whl;
+  - if [[ $PYTORCH_VERSION == "master" ]]; then
+      pip install torch_nightly -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
+    elif [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
+      pip install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp27-cp27mu-linux_x86_64.whl;
     else
-            pip install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl;
+      pip install http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl;
     fi
   - python setup.py build develop
 
 script:
+  - python -c "import torch; print('PyTorch Version:', torch.__version__)"
   - python -m unittest discover
 
 matrix:
