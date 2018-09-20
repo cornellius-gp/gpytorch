@@ -11,11 +11,37 @@ from gpytorch.kernels import RBFKernel
 
 class TestRBFKernel(unittest.TestCase):
     def test_ard(self):
-        a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
+        a = torch.tensor([[[1, 2], [2, 4]]], dtype=torch.float)
         b = torch.tensor([1, 3], dtype=torch.float).view(1, 1, 2)
         lengthscales = torch.tensor([1, 2], dtype=torch.float).view(1, 1, 2)
 
         kernel = RBFKernel(ard_num_dims=2)
+        kernel.initialize(log_lengthscale=lengthscales.log())
+        kernel.eval()
+
+        actual = (a - b).div_(lengthscales).pow(2).sum(dim=-1).mul_(-0.5).exp()
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual.unsqueeze(-1)), 1e-5)
+
+    def test_ard_batch(self):
+        a = torch.tensor([[[1, 2, 3], [2, 4, 0]], [[-1, 1, 2], [2, 1, 4]]], dtype=torch.float)
+        b = torch.tensor([[[1, 3, 1]], [[2, -1, 0]]], dtype=torch.float)
+        lengthscales = torch.tensor([[[1, 2, 1]]], dtype=torch.float)
+
+        kernel = RBFKernel(batch_size=2, ard_num_dims=3)
+        kernel.initialize(log_lengthscale=lengthscales.log())
+        kernel.eval()
+
+        actual = (a - b).div_(lengthscales).pow(2).sum(dim=-1).mul_(-0.5).exp()
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual.unsqueeze(-1)), 1e-5)
+
+    def test_ard_separate_batch(self):
+        a = torch.tensor([[[1, 2, 3], [2, 4, 0]], [[-1, 1, 2], [2, 1, 4]]], dtype=torch.float)
+        b = torch.tensor([[[1, 3, 1]], [[2, -1, 0]]], dtype=torch.float)
+        lengthscales = torch.tensor([[[1, 2, 1]], [[2, 1, 0.5]]], dtype=torch.float)
+
+        kernel = RBFKernel(batch_size=2, ard_num_dims=3)
         kernel.initialize(log_lengthscale=lengthscales.log())
         kernel.eval()
 

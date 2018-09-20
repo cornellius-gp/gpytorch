@@ -93,13 +93,15 @@ class ConstantMulLazyTensor(LazyTensor):
         res = list(self.lazy_var._quad_form_derivative(left_vecs, right_vecs))
         for i, item in enumerate(res):
             if torch.is_tensor(item) and res[i].sum():
-                res[i] = res[i] * self.constant.expand_as(res[i])
+                res[i] = res[i] * self._constant_as(res[i])
         # Gradient with respect to the constant
         if self.constant.numel() == 1:
             constant_deriv = (left_vecs * self.lazy_var._matmul(right_vecs)).sum().expand_as(self.constant)
         else:
             constant_deriv = (left_vecs * self.lazy_var._matmul(right_vecs)).sum(-2, keepdim=True).sum(-1, keepdim=True)
 
+        if constant_deriv.dim():
+            constant_deriv = constant_deriv.view(*self.constant.size())
         res.append(constant_deriv)
         return res
 
