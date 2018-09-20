@@ -3,6 +3,7 @@ language: python
 branches:
   only:
     - master
+    - travis_fix
 
 python:
   - "2.7"
