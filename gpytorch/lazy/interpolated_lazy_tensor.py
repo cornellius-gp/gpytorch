@@ -338,7 +338,7 @@ class InterpolatedLazyTensor(LazyTensor):
             return res
 
     def exact_predictive_mean(self, full_mean, train_labels, n_train, likelihood, precomputed_cache=None):
-        from ..random_variables import GaussianRandomVariable
+        from ..distributions import MultivariateNormal
 
         if precomputed_cache is None:
             train_interp_indices = self.left_interp_indices.narrow(-2, 0, n_train)
@@ -355,7 +355,7 @@ class InterpolatedLazyTensor(LazyTensor):
 
             train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
 
-            grv = GaussianRandomVariable(train_mean, train_train_covar)
+            grv = MultivariateNormal(train_mean, train_train_covar)
             train_mean, train_train_covar = likelihood(grv).representation()
 
             train_train_covar_inv_labels = train_train_covar.inv_matmul((train_labels - train_mean).unsqueeze(-1))
@@ -396,7 +396,7 @@ class InterpolatedLazyTensor(LazyTensor):
         return res
 
     def exact_predictive_covar(self, n_train, likelihood, precomputed_cache=None):
-        from ..random_variables import GaussianRandomVariable
+        from ..distributions import MultivariateNormal
 
         if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
             return super(InterpolatedLazyTensor, self).exact_predictive_covar(n_train, likelihood, precomputed_cache)
@@ -424,8 +424,8 @@ class InterpolatedLazyTensor(LazyTensor):
                 train_interp_values,
             )
 
-            grv = GaussianRandomVariable(torch.zeros(1), train_train_covar)
-            train_train_covar = likelihood(grv).covar()
+            grv = MultivariateNormal(torch.zeros(1), train_train_covar)
+            train_train_covar = likelihood(grv).covariance_matrix
 
             # Get probe vectors for inverse root
             n_probe_vectors = beta_features.fast_pred_var.n_probe_vectors()

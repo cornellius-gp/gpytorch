@@ -23,7 +23,7 @@ class MarginalLogLikelihood(Module):
     def forward(self, output, target):
         """
         Args:
-        - output: (GaussianRandomVariable) - the outputs of the latent function
+        - output: (MultivariateNormal) - the outputs of the latent function
         - target: (Variable) - the target values
         """
         raise NotImplementedError

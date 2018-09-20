@@ -15,7 +15,7 @@ from gpytorch.kernels import RBFKernel, IndexKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import InverseWishartPrior, SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 100)
@@ -45,7 +45,7 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
         covar_x = self.covar_module(x)
         covar_i = self.task_covar_module(i)
         covar_xi = covar_x.mul(covar_i)
-        return GaussianRandomVariable(mean_x, covar_xi)
+        return MultivariateNormal(mean_x, covar_xi)
 
 
 class TestHadamardMultitaskGPRegression(unittest.TestCase):
@@ -92,12 +92,12 @@ class TestHadamardMultitaskGPRegression(unittest.TestCase):
         # Test the model
         gp_model.eval()
         likelihood.eval()
-        test_preds_task_1 = likelihood(gp_model(test_x, y1_inds_test)).mean()
+        test_preds_task_1 = likelihood(gp_model(test_x, y1_inds_test)).mean
         mean_abs_error_task_1 = torch.mean(torch.abs(test_y1 - test_preds_task_1))
 
         self.assertLess(mean_abs_error_task_1.item(), 0.05)
 
-        test_preds_task_2 = likelihood(gp_model(test_x, y2_inds_test)).mean()
+        test_preds_task_2 = likelihood(gp_model(test_x, y2_inds_test)).mean
         mean_abs_error_task_2 = torch.mean(torch.abs(test_y2 - test_preds_task_2))
 
         self.assertLess(mean_abs_error_task_2.item(), 0.05)

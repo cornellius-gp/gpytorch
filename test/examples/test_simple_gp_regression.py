@@ -15,7 +15,7 @@ from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function
@@ -37,7 +37,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return GaussianRandomVariable(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestSimpleGPRegression(unittest.TestCase):
@@ -74,8 +74,8 @@ class TestSimpleGPRegression(unittest.TestCase):
         # The model should predict in prior mode
         function_predictions = likelihood(gp_model(train_x))
 
-        self.assertLess(torch.norm(function_predictions.mean() - 1.5), 1e-3)
-        self.assertLess(torch.norm(function_predictions.var() - 2), 1e-3)
+        self.assertLess(torch.norm(function_predictions.mean - 1.5), 1e-3)
+        self.assertLess(torch.norm(function_predictions.variance - 2), 1e-3)
 
     def test_posterior_latent_gp_and_likelihood_without_optimization(self):
         # We're manually going to set the hyperparameters to be ridiculous
@@ -99,14 +99,14 @@ class TestSimpleGPRegression(unittest.TestCase):
         with gpytorch.settings.debug(False):
             function_predictions = likelihood(gp_model(train_x))
 
-        self.assertLess(torch.norm(function_predictions.mean() - train_y), 1e-3)
-        self.assertLess(torch.norm(function_predictions.var()), 1e-3)
+        self.assertLess(torch.norm(function_predictions.mean - train_y), 1e-3)
+        self.assertLess(torch.norm(function_predictions.variance), 1e-3)
 
         # It shouldn't fit much else though
         test_function_predictions = gp_model(torch.tensor([1.1]))
 
-        self.assertLess(torch.norm(test_function_predictions.mean() - 0), 1e-4)
-        self.assertLess(torch.norm(test_function_predictions.var() - 1), 1e-4)
+        self.assertLess(torch.norm(test_function_predictions.mean - 0), 1e-4)
+        self.assertLess(torch.norm(test_function_predictions.variance - 1), 1e-4)
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -145,7 +145,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model.eval()
         likelihood.eval()
         test_function_predictions = likelihood(gp_model(test_x))
-        mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean()))
+        mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean))
 
         self.assertLess(mean_abs_error.item(), 0.05)
 
@@ -195,7 +195,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             test_function_predictions = likelihood(gp_model(train_x))
 
             noise = likelihood.log_noise.exp()
-            var_diff = (test_function_predictions.var() - noise).abs()
+            var_diff = (test_function_predictions.variance - noise).abs()
 
             self.assertLess(torch.max(var_diff / noise), 0.05)
 
@@ -237,7 +237,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             gp_model.eval()
             likelihood.eval()
             test_function_predictions = likelihood(gp_model(test_x.cuda()))
-            mean_abs_error = torch.mean(torch.abs(test_y.cuda() - test_function_predictions.mean()))
+            mean_abs_error = torch.mean(torch.abs(test_y.cuda() - test_function_predictions.mean))
 
             self.assertLess(mean_abs_error.item(), 0.05)
 

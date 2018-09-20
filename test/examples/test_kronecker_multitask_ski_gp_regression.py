@@ -13,7 +13,7 @@ import gpytorch
 from gpytorch.kernels import RBFKernel, MultitaskKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
-from gpytorch.random_variables import MultitaskGaussianRandomVariable
+from gpytorch.distributions import MultitaskMultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function
@@ -38,7 +38,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return MultitaskGaussianRandomVariable(mean_x, covar_x)
+        return MultitaskMultivariateNormal(mean_x, covar_x)
 
 
 class TestMultiTaskGPRegression(unittest.TestCase):
@@ -85,7 +85,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         test_x = torch.linspace(0, 1, 51)
         test_y1 = torch.sin(test_x * (2 * pi))
         test_y2 = torch.cos(test_x * (2 * pi))
-        test_preds = likelihood(model(test_x)).mean()
+        test_preds = likelihood(model(test_x)).mean
         mean_abs_error_task_1 = torch.mean(torch.abs(test_y1 - test_preds[:, 0]))
         mean_abs_error_task_2 = torch.mean(torch.abs(test_y2 - test_preds[:, 1]))
 

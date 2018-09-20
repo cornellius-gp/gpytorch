@@ -31,8 +31,9 @@ class Likelihood(Module):
 
             p(y*|x*) = \int p(y*|f*)p(f*|x*) df*
 
-    2. A log_probability method that computes the log probability \log p(y|f)
-       from a set of samples of f.
+    2. A variational_log_probability method that computes the log probability
+        \log p(y|f) from a set of samples of f. This is only used for variational
+        inference.
     """
 
     def forward(self, *inputs, **kwargs):
@@ -42,12 +43,12 @@ class Likelihood(Module):
 
         With both exact inference and variational inference, the form of
         p(f|D,x) or p(f|x) should usually be Gaussian. As a result, input
-        should usually be a GaussianRandomVariable specified by the mean and
+        should usually be a MultivariateNormal specified by the mean and
         (co)variance of p(f|...).
         """
         raise NotImplementedError
 
-    def log_probability(self, f, y):
+    def variational_log_probability(self, f, y):
         """
         Compute the log likelihood p(y|f) given y and averaged over a set of
         latent function samples.
