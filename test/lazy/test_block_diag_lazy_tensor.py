@@ -29,12 +29,10 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_matmul(self):
-        rhs = torch.randn(4 * 8, 4)
-        rhs_tensor = torch.tensor(rhs, requires_grad=True)
-        rhs_tensor_copy = torch.tensor(rhs, requires_grad=True)
-
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
-        block_tensor_copy = torch.tensor(self.blocks, requires_grad=True)
+        rhs_tensor = torch.randn(4 * 8, 4, requires_grad=True)
+        rhs_tensor_copy = rhs_tensor.clone().detach().requires_grad_(True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
+        block_tensor_copy = self.blocks.clone().requires_grad_(True)
 
         actual_block_diag = torch.zeros(32, 32)
         for i in range(8):
@@ -52,12 +50,10 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(block_tensor.grad, block_tensor_copy.grad))
 
     def test_batch_matmul(self):
-        rhs = torch.randn(2, 4 * 4, 4)
-        rhs_tensor = torch.tensor(rhs, requires_grad=True)
-        rhs_tensor_copy = torch.tensor(rhs, requires_grad=True)
-
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
-        block_tensor_copy = torch.tensor(self.blocks, requires_grad=True)
+        rhs_tensor = torch.randn(2, 4 * 4, 4, requires_grad=True)
+        rhs_tensor_copy = rhs_tensor.clone().detach().requires_grad_(True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
+        block_tensor_copy = self.blocks.clone().requires_grad_(True)
 
         actual_block_diag = torch.zeros(2, 16, 16)
         for i in range(2):
@@ -76,7 +72,7 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(block_tensor.grad, block_tensor_copy.grad))
 
     def test_diag(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         actual_block_diag = torch.zeros(32, 32)
         for i in range(8):
             actual_block_diag[i * 4 : (i + 1) * 4, i * 4 : (i + 1) * 4] = block_tensor[i]
@@ -86,7 +82,7 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual, res))
 
     def test_batch_diag(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         actual_block_diag = torch.zeros(2, 16, 16)
         for i in range(2):
             for j in range(4):
@@ -97,7 +93,7 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual, res))
 
     def test_getitem(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         actual_block_diag = torch.zeros(32, 32)
         for i in range(8):
             actual_block_diag[i * 4 : (i + 1) * 4, i * 4 : (i + 1) * 4] = block_tensor[i]
@@ -107,7 +103,7 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual, res))
 
     def test_getitem_batch(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         actual_block_diag = torch.zeros(2, 16, 16)
         for i in range(2):
             for j in range(4):
@@ -126,7 +122,7 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual, res))
 
     def test_sample(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         res = BlockDiagLazyTensor(NonLazyTensor(block_tensor))
         actual = res.evaluate()
 
@@ -136,7 +132,7 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
         self.assertLess(((sample_covar - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 2e-1)
 
     def test_batch_sample(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         res = BlockDiagLazyTensor(NonLazyTensor(block_tensor), num_blocks=4)
         actual = res.evaluate()
 
