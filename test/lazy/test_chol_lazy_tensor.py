@@ -12,7 +12,9 @@ from gpytorch.utils import approx_equal
 class TestCholLazyTensor(unittest.TestCase):
     def setUp(self):
         chol = torch.tensor(
-            [[3, 0, 0, 0, 0], [-1, 2, 0, 0, 0], [1, 4, 1, 0, 0], [0, 2, 3, 2, 0], [-4, -2, 1, 3, 4]], dtype=torch.float, requires_grad=True
+            [[3, 0, 0, 0, 0], [-1, 2, 0, 0, 0], [1, 4, 1, 0, 0], [0, 2, 3, 2, 0], [-4, -2, 1, 3, 4]],
+            dtype=torch.float,
+            requires_grad=True,
         )
         vecs = torch.randn(5, 2, requires_grad=True)
 
