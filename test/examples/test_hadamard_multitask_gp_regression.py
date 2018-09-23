@@ -3,8 +3,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from math import exp, pi
-
 import os
 import random
 import torch
@@ -16,6 +14,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import InverseWishartPrior, SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
+from math import pi
 
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 100)
@@ -42,7 +41,7 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
         # (so we'll actually learn 2x2=4 tasks with correlations)
         self.task_covar_module = IndexKernel(n_tasks=2, rank=1, prior=InverseWishartPrior(nu=2, K=torch.eye(2)))
 
-    def forward(self,x,i):
+    def forward(self, x, i):
         # Get predictive mean
         mean_x = self.mean_module(x)
         # Get all covariances, we'll look up the task-speicific ones
@@ -51,6 +50,7 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
         covar_i = self.task_covar_module(i)
         covar_xi = covar_x.mul(covar_i)
         return GaussianRandomVariable(mean_x, covar_xi)
+
 
 class TestHadamardMultitaskGPRegression(unittest.TestCase):
     def setUp(self):
