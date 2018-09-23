@@ -29,12 +29,10 @@ class TestSumBatchLazyTensor(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_matmul(self):
-        rhs = torch.randn(4, 8)
-        rhs_tensor = torch.tensor(rhs, requires_grad=True)
-        rhs_tensor_copy = torch.tensor(rhs, requires_grad=True)
-
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
-        block_tensor_copy = torch.tensor(self.blocks, requires_grad=True)
+        rhs_tensor = torch.randn(4, 8, requires_grad=True)
+        rhs_tensor_copy = rhs_tensor.clone().detach().requires_grad_(True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
+        block_tensor_copy = self.blocks.clone().requires_grad_(True)
 
         actual_mat = block_tensor_copy.sum(0)
 
@@ -50,12 +48,10 @@ class TestSumBatchLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(block_tensor.grad, block_tensor_copy.grad))
 
     def test_batch_matmul(self):
-        rhs = torch.randn(3, 4, 8)
-        rhs_tensor = torch.tensor(rhs, requires_grad=True)
-        rhs_tensor_copy = torch.tensor(rhs, requires_grad=True)
-
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
-        block_tensor_copy = torch.tensor(self.blocks, requires_grad=True)
+        rhs_tensor = torch.randn(3, 4, 8, requires_grad=True)
+        rhs_tensor_copy = rhs_tensor.clone().detach().requires_grad_(True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
+        block_tensor_copy = self.blocks.clone().requires_grad_(True)
 
         actual_mat = block_tensor_copy.view(3, 4, 4, 4).sum(1)
 
@@ -71,7 +67,7 @@ class TestSumBatchLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(block_tensor.grad, block_tensor_copy.grad))
 
     def test_diag(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         actual_mat = block_tensor.sum(0)
 
         res = SumBatchLazyTensor(NonLazyTensor(block_tensor)).diag()
@@ -79,7 +75,7 @@ class TestSumBatchLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual, res))
 
     def test_batch_diag(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         actual_mat = block_tensor.view(3, 4, 4, 4).sum(1)
 
         res = SumBatchLazyTensor(NonLazyTensor(block_tensor), num_blocks=4).diag()
@@ -91,7 +87,7 @@ class TestSumBatchLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual, res))
 
     def test_getitem(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         actual_mat = block_tensor.sum(0)
 
         res = SumBatchLazyTensor(NonLazyTensor(block_tensor))[:5, 2]
@@ -99,7 +95,7 @@ class TestSumBatchLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual, res))
 
     def test_getitem_batch(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         actual_mat = block_tensor.view(3, 4, 4, 4).sum(1)
 
         res = SumBatchLazyTensor(NonLazyTensor(block_tensor), num_blocks=4)[0].evaluate()
@@ -115,7 +111,7 @@ class TestSumBatchLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(actual, res))
 
     def test_sample(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         res = SumBatchLazyTensor(NonLazyTensor(block_tensor))
         actual = res.evaluate()
 
@@ -125,7 +121,7 @@ class TestSumBatchLazyTensor(unittest.TestCase):
         self.assertLess(((sample_covar - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 4e-1)
 
     def test_batch_sample(self):
-        block_tensor = torch.tensor(self.blocks, requires_grad=True)
+        block_tensor = self.blocks.clone().requires_grad_(True)
         res = SumBatchLazyTensor(NonLazyTensor(block_tensor), num_blocks=4)
         actual = res.evaluate()
 
