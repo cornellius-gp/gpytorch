@@ -661,7 +661,7 @@ class LazyTensor(object):
         elif other.size() == self.size():
             from .mul_lazy_tensor import MulLazyTensor
 
-            return MulLazyTensor(self, other)
+            return MulLazyTensor(self, other).evaluate_kernel()
 
         else:
             raise RuntimeError(
@@ -736,10 +736,10 @@ class LazyTensor(object):
                 if mul_batch_size is None:
                     part1 = part1.squeeze(0)
                     part2 = part2.squeeze(0)
-                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2))
+                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2)).evaluate_kernel()
                 break
             else:
-                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2))
+                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2)).evaluate_kernel()
                 roots = res.root_decomposition()
                 n_batch = n_batch // 2
 
