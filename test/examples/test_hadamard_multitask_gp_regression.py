@@ -3,8 +3,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from math import exp, pi
-
 import os
 import random
 import torch
@@ -16,6 +14,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import InverseWishartPrior, SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
+from math import pi
 
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 100)
@@ -34,15 +33,20 @@ test_y2 = torch.cos(test_x * (2 * pi))
 class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(HadamardMultitaskGPModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
-        self.covar_module = RBFKernel(
-            log_lengthscale_prior=SmoothedBoxPrior(exp(-6), exp(6), sigma=0.1, log_transform=True)
-        )
+        # Default bounds on mean are (-1e10, 1e10)
+        self.mean_module = ConstantMean()
+        # We use the very common RBF kernel
+        self.covar_module = RBFKernel() + RBFKernel()
+        # We learn an IndexKernel for 2 tasks
+        # (so we'll actually learn 2x2=4 tasks with correlations)
         self.task_covar_module = IndexKernel(n_tasks=2, rank=1, prior=InverseWishartPrior(nu=2, K=torch.eye(2)))
 
     def forward(self, x, i):
+        # Get predictive mean
         mean_x = self.mean_module(x)
+        # Get all covariances, we'll look up the task-speicific ones
         covar_x = self.covar_module(x)
+        # # Get the covariance for task i
         covar_i = self.task_covar_module(i)
         covar_xi = covar_x.mul(covar_i)
         return GaussianRandomVariable(mean_x, covar_xi)

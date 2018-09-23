@@ -34,7 +34,7 @@ class DSMMTest(unittest.TestCase):
         v = torch.tensor([3, 4, 5], dtype=torch.float)
         sparse = torch.sparse.FloatTensor(i, v, torch.Size([2, 3]))
         dense = torch.randn(3, 4, requires_grad=True)
-        dense_copy = torch.tensor(dense.detach(), requires_grad=True)
+        dense_copy = dense.clone().detach().requires_grad_(True)
         grad_output = torch.randn(2, 4)
 
         res = gpytorch.dsmm(sparse, dense)
@@ -48,7 +48,7 @@ class DSMMTest(unittest.TestCase):
         v = torch.tensor([3, 4, 5, 6, 7, 8], dtype=torch.float)
         sparse = torch.sparse.FloatTensor(i, v, torch.Size([2, 2, 3]))
         dense = torch.randn(2, 3, 4, requires_grad=True)
-        dense_copy = torch.tensor(dense.detach(), requires_grad=True)
+        dense_copy = dense.clone().detach().requires_grad_(True)
         grad_output = torch.randn(2, 2, 4)
 
         res = gpytorch.dsmm(sparse, dense)

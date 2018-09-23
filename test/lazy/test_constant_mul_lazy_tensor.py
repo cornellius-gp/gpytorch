@@ -12,8 +12,8 @@ from gpytorch.lazy import ToeplitzLazyTensor
 
 class TestConstantMulLazyTensor(unittest.TestCase):
     def test_inv_matmul(self):
-        labels_var = torch.tensor(torch.randn(4), requires_grad=True)
-        labels_var_copy = torch.tensor(labels_var, requires_grad=True)
+        labels_var = torch.randn(4, requires_grad=True)
+        labels_var_copy = labels_var.clone().detach().requires_grad_(True)
         grad_output = torch.randn(4)
 
         # Test case
@@ -36,8 +36,8 @@ class TestConstantMulLazyTensor(unittest.TestCase):
             self.assertLess(math.fabs(c1_var.grad[i].item() - c2_var.grad[i].item()), 1e-2)
 
     def test_batch_inv_matmul(self):
-        labels_var = torch.tensor(torch.randn(2, 4, 1), requires_grad=True)
-        labels_var_copy = torch.tensor(labels_var, requires_grad=True)
+        labels_var = torch.randn(2, 4, 1, requires_grad=True)
+        labels_var_copy = labels_var.clone().detach().requires_grad_(True)
         grad_output = torch.randn(2, 4, 1)
 
         # Test case
@@ -45,8 +45,8 @@ class TestConstantMulLazyTensor(unittest.TestCase):
         c2_var = torch.tensor([[5, 1, 2, 0]], dtype=torch.float).repeat(2, 1)
         c1_var.requires_grad = True
         c2_var.requires_grad = True
-        toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * torch.Tensor([2.5, 1.])
-        actual = ToeplitzLazyTensor(c2_var).evaluate() * torch.Tensor([2.5, 1.]).view(2, 1, 1)
+        toeplitz_lazy_var = ToeplitzLazyTensor(c1_var) * torch.tensor([2.5, 1.])
+        actual = ToeplitzLazyTensor(c2_var).evaluate() * torch.tensor([2.5, 1.]).view(2, 1, 1)
 
         # Test forward
         with gpytorch.settings.max_cg_iterations(1000):

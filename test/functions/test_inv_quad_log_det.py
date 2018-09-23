@@ -117,17 +117,11 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(1)
 
-        self.mats_var = torch.tensor(
-            [[[3, -1, 0], [-1, 3, 0], [0, 0, 3]], [[10, -2, 1], [-2, 10, 0], [1, 0, 10]]], dtype=torch.float
-        )
-        self.mats_var_clone = self.mats_var.clone()
-        self.vecs_var = torch.randn(2, 3, 4)
-        self.vecs_var_clone = self.vecs_var.clone()
-
-        self.mats_var.requires_grad = True
-        self.mats_var_clone.requires_grad = True
-        self.vecs_var.requires_grad = True
-        self.vecs_var_clone.requires_grad = True
+        mats = [[[3, -1, 0], [-1, 3, 0], [0, 0, 3]], [[10, -2, 1], [-2, 10, 0], [1, 0, 10]]]
+        self.mats_var = torch.tensor(mats, dtype=torch.float, requires_grad=True)
+        self.mats_var_clone = self.mats_var.clone().detach().requires_grad_(True)
+        self.vecs_var = torch.randn(2, 3, 4, requires_grad=True)
+        self.vecs_var_clone = self.vecs_var.clone().detach().requires_grad_(True)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):

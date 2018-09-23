@@ -34,17 +34,17 @@ def kron(a, b):
 
 class TestKroneckerProductLazyTensor(unittest.TestCase):
     def test_matmul_vec(self):
-        avar = torch.tensor(a, requires_grad=True)
-        bvar = torch.tensor(b, requires_grad=True)
-        cvar = torch.tensor(c, requires_grad=True)
-        vec = torch.tensor(torch.randn(24), requires_grad=True)
+        avar = a.clone().requires_grad_(True)
+        bvar = b.clone().requires_grad_(True)
+        cvar = c.clone().requires_grad_(True)
+        vec = torch.randn(24, requires_grad=True)
         kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(avar), NonLazyTensor(bvar), NonLazyTensor(cvar))
         res = kp_lazy_var.matmul(vec)
 
-        avar_copy = torch.tensor(a, requires_grad=True)
-        bvar_copy = torch.tensor(b, requires_grad=True)
-        cvar_copy = torch.tensor(c, requires_grad=True)
-        vec_copy = torch.tensor(vec.detach(), requires_grad=True)
+        avar_copy = a.clone().requires_grad_(True)
+        bvar_copy = b.clone().requires_grad_(True)
+        cvar_copy = c.clone().requires_grad_(True)
+        vec_copy = vec.clone().detach().requires_grad_(True)
         actual = kron(kron(avar_copy, bvar_copy), cvar_copy).matmul(vec_copy)
 
         self.assertTrue(approx_equal(res, actual))
@@ -57,24 +57,15 @@ class TestKroneckerProductLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(vec_copy.grad, vec.grad))
 
     def test_matmul_vec_random_rectangular_nonbatch(self):
-        ax = torch.randn(2, 3)
-        bx = torch.randn(5, 2)
-        cx = torch.randn(6, 4)
+        ax = torch.randn(2, 3, requires_grad=True)
+        bx = torch.randn(5, 2, requires_grad=True)
+        cx = torch.randn(6, 4, requires_grad=True)
         rhsx = torch.randn(3 * 2 * 4, 1)
-        rhsx = rhsx / torch.norm(rhsx)
-        ax_copy = torch.tensor(ax, requires_grad=True)
-        bx_copy = bx.clone()
-        cx_copy = cx.clone()
-        rhsx_copy = rhsx.clone()
-
-        ax.requires_grad = True
-        bx.requires_grad = True
-        cx.requires_grad = True
-        ax_copy.requires_grad = True
-        bx_copy.requires_grad = True
-        cx_copy.requires_grad = True
-        rhsx.requires_grad = True
-        rhsx_copy.requires_grad = True
+        rhsx = (rhsx / torch.norm(rhsx)).requires_grad_(True)
+        ax_copy = ax.clone().detach().requires_grad_(True)
+        bx_copy = bx.clone().detach().requires_grad_(True)
+        cx_copy = cx.clone().detach().requires_grad_(True)
+        rhsx_copy = rhsx.clone().detach().requires_grad_(True)
 
         kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(ax), NonLazyTensor(bx), NonLazyTensor(cx))
         res = kp_lazy_var.matmul(rhsx)
@@ -92,24 +83,15 @@ class TestKroneckerProductLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(rhsx_copy.grad, rhsx.grad))
 
     def test_matmul_vec_random_rectangular(self):
-        ax = torch.randn(4, 2, 3)
-        bx = torch.randn(4, 5, 2)
-        cx = torch.randn(4, 6, 4)
+        ax = torch.randn(4, 2, 3, requires_grad=True)
+        bx = torch.randn(4, 5, 2, requires_grad=True)
+        cx = torch.randn(4, 6, 4, requires_grad=True)
         rhsx = torch.randn(4, 3 * 2 * 4, 1)
-        rhsx = rhsx / torch.norm(rhsx)
-        ax_copy = torch.tensor(ax, requires_grad=True)
-        bx_copy = bx.clone()
-        cx_copy = cx.clone()
-        rhsx_copy = rhsx.clone()
-
-        ax.requires_grad = True
-        bx.requires_grad = True
-        cx.requires_grad = True
-        ax_copy.requires_grad = True
-        bx_copy.requires_grad = True
-        cx_copy.requires_grad = True
-        rhsx.requires_grad = True
-        rhsx_copy.requires_grad = True
+        rhsx = (rhsx / torch.norm(rhsx)).requires_grad_(True)
+        ax_copy = ax.clone().detach().requires_grad_(True)
+        bx_copy = bx.clone().detach().requires_grad_(True)
+        cx_copy = cx.clone().detach().requires_grad_(True)
+        rhsx_copy = rhsx.clone().detach().requires_grad_(True)
 
         kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(ax), NonLazyTensor(bx), NonLazyTensor(cx))
         res = kp_lazy_var.matmul(rhsx)
@@ -127,23 +109,14 @@ class TestKroneckerProductLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(rhsx_copy.grad, rhsx.grad))
 
     def test_matmul_mat_random_rectangular_nobatch(self):
-        a = torch.randn(2, 3)
-        b = torch.randn(5, 2)
-        c = torch.randn(6, 4)
-        rhs = torch.randn(3 * 2 * 4, 2)
-        a_copy = torch.tensor(a)
-        b_copy = b.clone()
-        c_copy = c.clone()
-        rhs_copy = rhs.clone()
-
-        a.requires_grad = True
-        b.requires_grad = True
-        c.requires_grad = True
-        a_copy.requires_grad = True
-        b_copy.requires_grad = True
-        c_copy.requires_grad = True
-        rhs.requires_grad = True
-        rhs_copy.requires_grad = True
+        a = torch.randn(2, 3, requires_grad=True)
+        b = torch.randn(5, 2, requires_grad=True)
+        c = torch.randn(6, 4, requires_grad=True)
+        rhs = torch.randn(3 * 2 * 4, 2, requires_grad=True)
+        a_copy = a.clone().detach().requires_grad_(True)
+        b_copy = b.clone().detach().requires_grad_(True)
+        c_copy = c.clone().detach().requires_grad_(True)
+        rhs_copy = rhs.clone().detach().requires_grad_(True)
 
         actual = kron(kron(a_copy, b_copy), c_copy).matmul(rhs_copy)
         kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
@@ -159,23 +132,14 @@ class TestKroneckerProductLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(rhs_copy.grad, rhs.grad))
 
     def test_matmul_mat_random_rectangular(self):
-        a = torch.randn(4, 2, 3)
-        b = torch.randn(4, 5, 2)
-        c = torch.randn(4, 6, 4)
-        rhs = torch.randn(4, 3 * 2 * 4, 2)
-        a_copy = torch.tensor(a)
-        b_copy = b.clone()
-        c_copy = c.clone()
-        rhs_copy = rhs.clone()
-
-        a.requires_grad = True
-        b.requires_grad = True
-        c.requires_grad = True
-        a_copy.requires_grad = True
-        b_copy.requires_grad = True
-        c_copy.requires_grad = True
-        rhs.requires_grad = True
-        rhs_copy.requires_grad = True
+        a = torch.randn(4, 2, 3, requires_grad=True)
+        b = torch.randn(4, 5, 2, requires_grad=True)
+        c = torch.randn(4, 6, 4, requires_grad=True)
+        rhs = torch.randn(4, 3 * 2 * 4, 2, requires_grad=True)
+        a_copy = a.clone().detach().requires_grad_(True)
+        b_copy = b.clone().detach().requires_grad_(True)
+        c_copy = c.clone().detach().requires_grad_(True)
+        rhs_copy = rhs.clone().detach().requires_grad_(True)
 
         actual = kron(kron(a_copy, b_copy), c_copy).matmul(rhs_copy)
         kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
@@ -191,17 +155,17 @@ class TestKroneckerProductLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(rhs_copy.grad, rhs.grad))
 
     def test_matmul_batch_mat(self):
-        avar = torch.tensor(a.repeat(3, 1, 1), requires_grad=True)
-        bvar = torch.tensor(b.repeat(3, 1, 1), requires_grad=True)
-        cvar = torch.tensor(c.repeat(3, 1, 1), requires_grad=True)
-        mat = torch.tensor(torch.randn(3, 24, 5), requires_grad=True)
+        avar = a.repeat(3, 1, 1).requires_grad_(True)
+        bvar = b.repeat(3, 1, 1).requires_grad_(True)
+        cvar = c.repeat(3, 1, 1).requires_grad_(True)
+        mat = torch.randn(3, 24, 5, requires_grad=True)
         kp_lazy_var = KroneckerProductLazyTensor(NonLazyTensor(avar), NonLazyTensor(bvar), NonLazyTensor(cvar))
         res = kp_lazy_var.matmul(mat)
 
-        avar_copy = torch.tensor(a.repeat(3, 1, 1), requires_grad=True)
-        bvar_copy = torch.tensor(b.repeat(3, 1, 1), requires_grad=True)
-        cvar_copy = torch.tensor(c.repeat(3, 1, 1), requires_grad=True)
-        mat_copy = torch.tensor(mat.detach(), requires_grad=True)
+        avar_copy = avar.clone().detach().requires_grad_(True)
+        bvar_copy = bvar.clone().detach().requires_grad_(True)
+        cvar_copy = cvar.clone().detach().requires_grad_(True)
+        mat_copy = mat.clone().detach().requires_grad_(True)
         actual = kron(kron(avar_copy, bvar_copy), cvar_copy).matmul(mat_copy)
         self.assertTrue(approx_equal(res, actual))
 
