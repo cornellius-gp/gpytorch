@@ -84,7 +84,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
         optimizer = optim.SGD(list(gp_model.parameters()), lr=0.1)
         optimizer.n_iter = 0
 
-        with gpytorch.settings.num_trace_samples(100):
+        with gpytorch.settings.num_trace_samples(150):
             for _ in range(150):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
