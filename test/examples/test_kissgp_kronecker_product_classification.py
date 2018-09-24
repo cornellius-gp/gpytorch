@@ -15,7 +15,7 @@ from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 n = 4
 train_x = torch.zeros(pow(n, 2), 2)
@@ -40,7 +40,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        latent_pred = GaussianRandomVariable(mean_x, covar_x)
+        latent_pred = MultivariateNormal(mean_x, covar_x)
         return latent_pred
 
 
@@ -88,7 +88,7 @@ class TestKissGPKroneckerProductClassification(unittest.TestCase):
             model.eval()
             likelihood.eval()
 
-            test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
+            test_preds = model(train_x).mean.ge(0.5).float().mul(2).sub(1).squeeze()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
             self.assertLess(mean_abs_error.squeeze().item(), 1e-5)
 

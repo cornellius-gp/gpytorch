@@ -15,7 +15,7 @@ from gpytorch.kernels import RBFKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function,
@@ -61,7 +61,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         features = self.feature_extractor(x)
         mean_x = self.mean_module(features)
         covar_x = self.covar_module(features)
-        return GaussianRandomVariable(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestDKLRegression(unittest.TestCase):
@@ -109,7 +109,7 @@ class TestDKLRegression(unittest.TestCase):
             gp_model.eval()
             likelihood.eval()
 
-            test_preds = likelihood(gp_model(test_x)).mean()
+            test_preds = likelihood(gp_model(test_x)).mean
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
             self.assertLess(mean_abs_error.squeeze().item(), 0.15)
@@ -154,7 +154,7 @@ class TestDKLRegression(unittest.TestCase):
             test_function_predictions = likelihood(gp_model(train_x))
 
             noise = likelihood.log_noise.exp()
-            var_diff = (test_function_predictions.var() - noise).abs()
+            var_diff = (test_function_predictions.variance - noise).abs()
             self.assertLess(torch.max(var_diff / noise), 0.15)
 
 

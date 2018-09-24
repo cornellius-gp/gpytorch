@@ -15,7 +15,7 @@ from gpytorch.kernels import RBFKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function,
@@ -45,7 +45,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return GaussianRandomVariable(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestKISSGPRegression(unittest.TestCase):
@@ -93,7 +93,7 @@ class TestKISSGPRegression(unittest.TestCase):
             gp_model.eval()
             likelihood.eval()
 
-            test_preds = likelihood(gp_model(test_x)).mean()
+            test_preds = likelihood(gp_model(test_x)).mean
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
         self.assertLess(mean_abs_error.squeeze().item(), 0.05)
@@ -138,7 +138,7 @@ class TestKISSGPRegression(unittest.TestCase):
             test_function_predictions = likelihood(gp_model(train_x))
 
             noise = likelihood.log_noise.exp()
-            var_diff = (test_function_predictions.var() - noise).abs()
+            var_diff = (test_function_predictions.variance - noise).abs()
             self.assertLess(torch.max(var_diff / noise), 0.05)
 
     def test_kissgp_gp_mean_abs_error_cuda(self):
@@ -173,7 +173,7 @@ class TestKISSGPRegression(unittest.TestCase):
                 # Test the model
                 gp_model.eval()
                 likelihood.eval()
-                test_preds = likelihood(gp_model(test_x)).mean()
+                test_preds = likelihood(gp_model(test_x)).mean
                 mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
             self.assertLess(mean_abs_error.squeeze().item(), 0.02)

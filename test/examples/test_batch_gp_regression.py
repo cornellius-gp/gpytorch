@@ -13,7 +13,7 @@ from torch import optim
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
@@ -43,7 +43,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return GaussianRandomVariable(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestBatchGPRegression(unittest.TestCase):
@@ -98,8 +98,8 @@ class TestBatchGPRegression(unittest.TestCase):
 
         # Make predictions for both sets of test points, and check MAEs.
         batch_predictions = likelihood(gp_model(test_x12))
-        preds1 = batch_predictions.mean()[0]
-        preds2 = batch_predictions.mean()[1]
+        preds1 = batch_predictions.mean[0]
+        preds2 = batch_predictions.mean[1]
         mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
         self.assertLess(mean_abs_error1.squeeze().item(), 0.05)
@@ -141,8 +141,8 @@ class TestBatchGPRegression(unittest.TestCase):
 
         # Make predictions for both sets of test points, and check MAEs.
         batch_predictions = likelihood(gp_model(test_x12))
-        preds1 = batch_predictions.mean()[0]
-        preds2 = batch_predictions.mean()[1]
+        preds1 = batch_predictions.mean[0]
+        preds2 = batch_predictions.mean[1]
         mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
         self.assertLess(mean_abs_error1.squeeze().item(), 0.05)

@@ -16,7 +16,7 @@ from gpytorch.kernels import RBFKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 # Simple training data: let's try to learn a sine function,
 # but with KISS-GP let's use 100 training examples.
@@ -52,7 +52,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return GaussianRandomVariable(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestKissGPKroneckerProductRegression(unittest.TestCase):
@@ -99,7 +99,7 @@ class TestKissGPKroneckerProductRegression(unittest.TestCase):
             gp_model.eval()
             likelihood.eval()
 
-            test_preds = likelihood(gp_model(test_x)).mean()
+            test_preds = likelihood(gp_model(test_x)).mean
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
             self.assertLess(mean_abs_error.squeeze().item(), 0.1)
 

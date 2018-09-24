@@ -7,7 +7,7 @@ import torch
 from gpytorch.kernels import Kernel
 from gpytorch.functions import add_jitter
 from gpytorch.lazy import DiagLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 from gpytorch.variational import MVNVariationalStrategy
 
 
@@ -89,7 +89,7 @@ class InducingPointKernel(Kernel):
                 raise RuntimeError("x1 should equal x2 in training mode")
             zero_mean = torch.zeros_like(x1.select(-1, 0))
             new_variational_strategy = MVNVariationalStrategy(
-                GaussianRandomVariable(zero_mean, self._covar_diag(x1)), GaussianRandomVariable(zero_mean, covar)
+                MultivariateNormal(zero_mean, self._covar_diag(x1)), MultivariateNormal(zero_mean, covar)
             )
             self.update_variational_strategy("inducing_point_strategy", new_variational_strategy)
 

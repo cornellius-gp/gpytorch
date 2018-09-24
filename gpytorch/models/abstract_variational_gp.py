@@ -1,12 +1,10 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import torch
-from gpytorch.lazy import LazyTensor, CholLazyTensor
-from gpytorch.module import Module
-from gpytorch.random_variables import GaussianRandomVariable
+
+from ..distributions import MultivariateNormal
+from ..lazy import CholLazyTensor, LazyTensor
+from ..module import Module
 
 
 class AbstractVariationalGP(Module):
@@ -33,7 +31,7 @@ class AbstractVariationalGP(Module):
 
         # Get diagonal of covar
         res = super(AbstractVariationalGP, self).__call__(inputs)
-        covar_diag = res.covar()
+        covar_diag = res.covariance_matrix
         if isinstance(covar_diag, LazyTensor):
             covar_diag = covar_diag.evaluate()
         covar_diag = covar_diag.view(orig_size[:-1])
@@ -42,10 +40,10 @@ class AbstractVariationalGP(Module):
 
     def prior_output(self):
         res = super(AbstractVariationalGP, self).__call__(self.inducing_points)
-        if not isinstance(res, GaussianRandomVariable):
-            raise RuntimeError("%s.forward must return a GaussianRandomVariable" % self.__class__.__name__)
+        if not isinstance(res, MultivariateNormal):
+            raise RuntimeError("{}.forward must return a MultivariateNormal".format(self.__class__.__name__))
 
-        res = GaussianRandomVariable(res.mean(), res.covar().evaluate_kernel())
+        res = MultivariateNormal(res.mean, res.covariance_matrix.evaluate_kernel())
         return res
 
     def variational_output(self):
@@ -79,4 +77,4 @@ class AbstractVariationalGP(Module):
 
         chol_variational_covar = inside.mul(chol_variational_covar)
         variational_covar = CholLazyTensor(chol_variational_covar.transpose(-1, -2))
-        return GaussianRandomVariable(self.variational_mean, variational_covar)
+        return MultivariateNormal(self.variational_mean, variational_covar)
