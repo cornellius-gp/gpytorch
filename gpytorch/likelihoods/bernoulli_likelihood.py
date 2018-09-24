@@ -53,6 +53,6 @@ class BernoulliLikelihood(Likelihood):
         of f_{i} drawn from p(f|x).
         """
         num_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.sample(torch.Size([num_samples])).view(-1)
+        samples = latent_func.rsample(torch.Size([num_samples])).view(-1)
         target = target.unsqueeze(0).repeat(num_samples, 1).view(-1)
         return log_normal_cdf(samples.mul(target)).sum().div(num_samples)
