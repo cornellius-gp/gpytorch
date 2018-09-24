@@ -42,28 +42,28 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             validate_args=validate_args,
         )
 
-    @property
-    def n_tasks(self):
-        return self._output_shape[-1]
-
-    @property
-    def mean(self):
-        return super(MultivariateNormal, self).mean.view(self._output_shape)
-
-    @property
-    def variance(self):
-        return super(MultivariateNormal, self).variance.view(self._output_shape)
-
-    def log_prob(self, value):
-        return super(MultivariateNormal, self).log_prob(value.view(value.shape[:-2] + torch.Size([-1])))
-
-    def rsample(self, sample_shape=torch.Size()):
-        samples = super(MultivariateNormal, self).rsample(sample_shape=sample_shape)
-        return samples.view(sample_shape + self._output_shape)
-
     def correlate_base_samples(self, base_samples):
         """Correlate i.i.d. standard Normal samples using the root decomposition
         of the covariance matrix"""
         samples = super(MultitaskMultivariateNormal, self).correlate_base_samples(base_samples)
         sample_shape = base_samples.shape[:-len(self._batch_shape + self._event_shape)]
         return samples.view(sample_shape + self._output_shape)
+
+    def log_prob(self, value):
+        return super(MultivariateNormal, self).log_prob(value.view(value.shape[:-2] + torch.Size([-1])))
+
+    @property
+    def mean(self):
+        return super(MultivariateNormal, self).mean.view(self._output_shape)
+
+    @property
+    def n_tasks(self):
+        return self._output_shape[-1]
+
+    def rsample(self, sample_shape=torch.Size()):
+        samples = super(MultivariateNormal, self).rsample(sample_shape=sample_shape)
+        return samples.view(sample_shape + self._output_shape)
+
+    @property
+    def variance(self):
+        return super(MultivariateNormal, self).variance.view(self._output_shape)
