@@ -36,7 +36,7 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
         # Default bounds on mean are (-1e10, 1e10)
         self.mean_module = ConstantMean()
         # We use the very common RBF kernel
-        self.covar_module = RBFKernel() + RBFKernel()
+        self.covar_module = RBFKernel()
         # We learn an IndexKernel for 2 tasks
         # (so we'll actually learn 2x2=4 tasks with correlations)
         self.task_covar_module = IndexKernel(n_tasks=2, rank=1, prior=InverseWishartPrior(nu=2, K=torch.eye(2)))
