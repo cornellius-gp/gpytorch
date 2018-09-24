@@ -8,7 +8,6 @@ import torch
 from torch.nn import ModuleList
 from gpytorch.lazy import LazyTensor, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from gpytorch.module import Module
-from gpytorch.priors._compatibility import _bounds_to_prior
 from gpytorch.utils import prod
 
 
@@ -90,7 +89,6 @@ class Kernel(Module):
         ard_num_dims=None,
         batch_size=1,
         active_dims=None,
-        log_lengthscale_bounds=None,
         log_lengthscale_prior=None,
         eps=1e-6,
     ):
@@ -103,7 +101,6 @@ class Kernel(Module):
         self.__has_lengthscale = has_lengthscale
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
-            log_lengthscale_prior = _bounds_to_prior(prior=log_lengthscale_prior, bounds=log_lengthscale_bounds)
             self.register_parameter(
                 name="log_lengthscale",
                 parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims)),

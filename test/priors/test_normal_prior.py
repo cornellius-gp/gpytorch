@@ -1,72 +1,91 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
-import math
 import unittest
+
 import torch
 from gpytorch.priors import NormalPrior
+from torch.distributions import Normal
 
 
 class TestNormalPrior(unittest.TestCase):
-    def test_scalar_normal_prior_invalid_params(self):
+    def test_normal_prior_to_gpu(self):
+        if torch.cuda.is_available():
+            prior = NormalPrior(0, 1).cuda()
+            self.assertEqual(prior.loc.device.type, "cuda")
+            self.assertEqual(prior.scale.device.type, "cuda")
+
+    def test_normal_prior_validate_args(self):
         with self.assertRaises(ValueError):
-            NormalPrior(0, -1)
+            NormalPrior(0, -1, validate_args=True)
 
-    def test_scalar_normal_prior(self):
-        prior = NormalPrior(0, 1)
+    def test_normal_prior_log_prob(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        mean = torch.tensor(0.0, device=device)
+        variance = torch.tensor(1.0, device=device)
+        prior = NormalPrior(mean, variance)
+        dist = Normal(mean, variance)
+
         self.assertFalse(prior.log_transform)
-        self.assertTrue(prior.is_in_support(torch.rand(1)))
-        self.assertEqual(prior.shape, torch.Size([1]))
-        self.assertEqual(prior.loc.item(), 0.0)
-        self.assertEqual(prior.scale.item(), 1.0)
-        self.assertAlmostEqual(
-            prior.log_prob(torch.tensor([0.0])).item(), math.log(1 / math.sqrt(2 * math.pi)), places=5
-        )
+        t = torch.tensor(0.0, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        t = torch.tensor([-1, 0.5], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        t = torch.tensor([[-1, 0.5], [0.1, -2.0]], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
 
-    def test_scalar_normal_prior_log_transform(self):
-        prior = NormalPrior(0, 1, log_transform=True)
+    def test_normal_prior_log_prob_cuda(self):
+        if torch.cuda.is_available():
+            return self.test_normal_prior_log_prob(cuda=True)
+
+    def test_normal_prior_log_prob_log_transform(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        mean = torch.tensor(0.0, device=device)
+        variance = torch.tensor(1.0, device=device)
+        prior = NormalPrior(mean, variance, log_transform=True)
+        dist = Normal(mean, variance)
+
         self.assertTrue(prior.log_transform)
-        self.assertAlmostEqual(
-            prior.log_prob(torch.tensor([0.0])).item(), math.log(1 / math.sqrt(2 * math.pi) * math.exp(-0.5)), places=5
-        )
+        t = torch.tensor(0.0, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+        t = torch.tensor([-1, 0.5], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+        t = torch.tensor([[-1, 0.5], [0.1, -2.0]], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
 
-    def test_vector_normal_prior_invalid_params(self):
-        with self.assertRaises(ValueError):
-            NormalPrior(torch.tensor([-0.5, 0.5]), torch.tensor([-0.1, 1.0]))
+    def test_normal_prior_log_prob_log_transform_cuda(self):
+        if torch.cuda.is_available():
+            return self.test_normal_prior_log_prob(cuda=True)
 
-    def test_vector_normal_prior_size(self):
-        prior = NormalPrior(0, 1, size=2)
-        self.assertFalse(prior.log_transform)
-        self.assertTrue(prior.is_in_support(torch.zeros(1)))
-        self.assertEqual(prior.shape, torch.Size([2]))
-        self.assertTrue(torch.equal(prior.loc, torch.tensor([0.0, 0.0])))
-        self.assertTrue(torch.equal(prior.scale, torch.tensor([1.0, 1.0])))
-        parameter = torch.tensor([1.0, 2.0])
-        self.assertAlmostEqual(
-            prior.log_prob(parameter).item(),
-            2 * math.log(1 / math.sqrt(2 * math.pi)) - 0.5 * (parameter ** 2).sum().item(),
-            places=5,
-        )
+    def test_normal_prior_batch_log_prob(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
 
-    def test_vector_normal_prior(self):
-        prior = NormalPrior(torch.tensor([-0.5, 0.5]), torch.tensor([0.5, 1.0]))
-        self.assertFalse(prior.log_transform)
-        self.assertTrue(prior.is_in_support(torch.rand(1)))
-        self.assertEqual(prior.shape, torch.Size([2]))
-        self.assertTrue(torch.equal(prior.loc, torch.tensor([-0.5, 0.5])))
-        self.assertTrue(torch.equal(prior.scale, torch.tensor([0.5, 1.0])))
-        parameter = torch.tensor([1.0, 2.0])
-        expected_log_prob = (
-            (
-                (1 / math.sqrt(2 * math.pi) / prior.scale).log()
-                - 0.5 / prior.scale ** 2 * (torch.tensor(parameter) - prior.loc) ** 2
-            )
-            .sum()
-            .item()
-        )
-        self.assertAlmostEqual(prior.log_prob(torch.tensor(parameter)).item(), expected_log_prob, places=5)
+        mean = torch.tensor([0.0, 1.0], device=device)
+        variance = torch.tensor([1.0, 2.0], device=device)
+        prior = NormalPrior(mean, variance)
+        dist = Normal(mean, variance)
+        t = torch.zeros(2, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        t = torch.zeros(2, 2, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        with self.assertRaises(RuntimeError):
+            prior.log_prob(torch.zeros(3, device=device))
+
+        mean = torch.tensor([[0.0, 1.0], [-1.0, 2.0]], device=device)
+        variance = torch.tensor([[1.0, 2.0], [0.5, 1.0]], device=device)
+        prior = NormalPrior(mean, variance)
+        dist = Normal(mean, variance)
+        t = torch.zeros(2, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        t = torch.zeros(2, 2, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        with self.assertRaises(RuntimeError):
+            prior.log_prob(torch.zeros(3, device=device))
+        with self.assertRaises(RuntimeError):
+            prior.log_prob(torch.zeros(2, 3, device=device))
+
+    def test_normal_prior_batch_log_prob_cuda(self):
+        if torch.cuda.is_available():
+            return self.test_normal_prior_batch_log_prob(cuda=True)
 
 
 if __name__ == "__main__":

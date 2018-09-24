@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import unittest
 
 import torch
-from gpytorch.priors_torch.smoothed_box_prior import SmoothedBoxPrior
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.utils import approx_equal
 
 

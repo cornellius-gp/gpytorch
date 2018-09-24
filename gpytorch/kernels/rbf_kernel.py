@@ -73,7 +73,6 @@ class RBFKernel(Kernel):
         eps=1e-6,
         active_dims=None,
         batch_size=1,
-        log_lengthscale_bounds=None,
     ):
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
@@ -81,7 +80,6 @@ class RBFKernel(Kernel):
             log_lengthscale_prior=log_lengthscale_prior,
             active_dims=active_dims,
             batch_size=batch_size,
-            log_lengthscale_bounds=log_lengthscale_bounds,
         )
         self.eps = eps
 
