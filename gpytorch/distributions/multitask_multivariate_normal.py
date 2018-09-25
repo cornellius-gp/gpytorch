@@ -21,16 +21,10 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                 covariance matrix of MVN distribution.
         """
         if not torch.is_tensor(mean) and not isinstance(mean, LazyTensor):
-            raise RuntimeError(
-                "The mean of a MultitaskMultivariateNormal must be a Tensor or LazyTensor"
-            )
+            raise RuntimeError("The mean of a MultitaskMultivariateNormal must be a Tensor or LazyTensor")
 
-        if not torch.is_tensor(covariance_matrix) and not isinstance(
-            covariance_matrix, LazyTensor
-        ):
-            raise RuntimeError(
-                "The covariance of a MultitaskMultivariateNormal must be a Tensor or LazyTensor"
-            )
+        if not torch.is_tensor(covariance_matrix) and not isinstance(covariance_matrix, LazyTensor):
+            raise RuntimeError("The covariance of a MultitaskMultivariateNormal must be a Tensor or LazyTensor")
 
         if mean.ndimension() not in {2, 3}:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
@@ -42,12 +36,11 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             validate_args=validate_args,
         )
 
-    def correlate_base_samples(self, base_samples):
-        """Correlate i.i.d. standard Normal samples using the root decomposition
-        of the covariance matrix"""
-        samples = super(MultitaskMultivariateNormal, self).correlate_base_samples(base_samples)
-        sample_shape = base_samples.shape[:-len(self._batch_shape + self._event_shape)]
-        return samples.view(sample_shape + self._output_shape)
+    def get_base_samples(self, sample_shape=torch.Size()):
+        """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
+        res = super(MultitaskMultivariateNormal, self).get_base_samples(sample_shape)
+        res = res.view(*sample_shape, *self._output_shape)
+        return res
 
     def log_prob(self, value):
         return super(MultivariateNormal, self).log_prob(value.view(value.shape[:-2] + torch.Size([-1])))
@@ -60,9 +53,21 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     def n_tasks(self):
         return self._output_shape[-1]
 
-    def rsample(self, sample_shape=torch.Size()):
-        samples = super(MultivariateNormal, self).rsample(sample_shape=sample_shape)
-        return samples.view(sample_shape + self._output_shape)
+    def rsample(self, sample_shape=torch.Size(), base_samples=None):
+        if base_samples is not None:
+            # Make sure that the base samples agree with the distribution
+            if tuple(self.mean.size()) != tuple(self.mean.size()[-self.mean.dim() :]):
+                raise RuntimeError(
+                    "The size of base_samples (minus sample shape dimensions) should agree with the size "
+                    "of self.mean. Expected ...{} but got {}".format(self.loc.size(), base_samples.size())
+                )
+
+            sample_shape = torch.Size(tuple(base_samples.size(i) for i in range(base_samples.dim() - self.mean.dim())))
+            base_samples = base_samples.view(*sample_shape, *self.loc.shape)
+
+        samples = super(MultitaskMultivariateNormal, self).rsample(sample_shape=sample_shape, base_samples=base_samples)
+        samples = samples.view(sample_shape + self._output_shape)
+        return samples
 
     @property
     def variance(self):

@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import torch
 from torch.distributions import MultivariateNormal as TMultivariateNormal
-from torch.distributions.multivariate_normal import _batch_mv
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from ..lazy import LazyTensor, NonLazyTensor
@@ -70,11 +69,6 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         mean = self.mean
         return mean.sub(std2), mean.add(std2)
 
-    def correlate_base_samples(self, base_samples):
-        """Correlate i.i.d. standard Normal samples using the root decomposition
-        of the covariance matrix"""
-        return self.loc + _batch_mv(self._unbroadcasted_scale_tril, base_samples)
-
     @lazy_property
     def covariance_matrix(self):
         if self.islazy:
@@ -83,7 +77,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             return super(MultivariateNormal, self).covariance_matrix
 
     def get_base_samples(self, sample_shape=torch.Size()):
-        """Get i.i.d. standard Normal samples (to be used with correlate_base_samples)"""
+        """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
         with torch.no_grad():
             shape = self._extended_shape(sample_shape)
             base_samples = _standard_normal(shape, dtype=self.loc.dtype, device=self.loc.device)
@@ -96,24 +90,48 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def representation(self):
         return self.mean, self.covariance_matrix
 
-    def rsample(self, sample_shape=torch.Size()):
-        squeeze = True
-        num_samples = 1
-        if len(sample_shape):
-            squeeze = False
-            num_samples = sample_shape.numel()
-
+    def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.covariance_matrix
         if torch.is_tensor(covar):
             covar = NonLazyTensor(covar)
-        res = covar.zero_mean_mvn_samples(num_samples) + self.loc.unsqueeze(0)
 
-        if squeeze:
-            res = res.squeeze(0)
+        if base_samples is None:
+            # Create some samples
+            num_samples = sample_shape.numel() or 1
+
+            # Get samples
+            res = covar.zero_mean_mvn_samples(num_samples) + self.loc.unsqueeze(0)
+            res = res.view(*tuple(sample_shape), *tuple(self.loc.size()))
+
         else:
+            # Make sure that the base samples agree with the distribution
+            if tuple(self.loc.size()) != tuple(base_samples.size()[-self.loc.dim() :]):
+                raise RuntimeError(
+                    "The size of base_samples (minus sample shape dimensions) should agree with the size "
+                    "of self.loc. Expected ...{} but got {}".format(self.loc.size(), base_samples.size())
+                )
+
+            # Determine what the appropriate sample_shape parameter is
+            sample_shape = torch.Size(tuple(base_samples.size(i) for i in range(base_samples.dim() - self.loc.dim())))
+
+            # Reshape samples to be batch_size x num_dim x num_samples
+            # or num_bim x num_samples
+            base_samples = base_samples.view(-1, *tuple(self.loc.size()))
+            base_samples = base_samples.permute(*tuple(i + 1 for i in range(self.loc.dim())), 0)
+
+            # Now reparameterize those base samples
+            covar_root = covar.root_decomposition()
+            res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
+
+            # Permute and reshape new samples to be original size
+            res = res.permute(-1, *tuple(i for i in range(self.loc.dim()))).contiguous()
             res = res.view(*tuple(sample_shape), *tuple(self.loc.size()))
 
         return res
+
+    def sample(self, sample_shape=torch.Size(), base_samples=None):
+        with torch.no_grad():
+            return self.rsample(sample_shape=sample_shape, base_samples=base_samples)
 
     @property
     def variance(self):
