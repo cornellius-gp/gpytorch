@@ -1,24 +1,21 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
-from .prior import Prior
-from .gamma_prior import GammaPrior
-from .multivariate_normal_prior import MultivariateNormalPrior
-from .normal_prior import NormalPrior
+from .lkj_prior import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior
 from .smoothed_box_prior import SmoothedBoxPrior
-from .wishart_prior import InverseWishartPrior, WishartPrior
-from .lkj_prior import LKJCovariancePrior
+from .torch_priors import GammaPrior, MultivariateNormalPrior, NormalPrior
+
+
+# from .wishart_prior import InverseWishartPrior, WishartPrior
 
 
 __all__ = [
-    "Prior",
     "GammaPrior",
-    "InverseWishartPrior",
+    "LKJPrior",
+    "LKJCholeskyFactorPrior",
+    "LKJCovariancePrior",
     "MultivariateNormalPrior",
     "NormalPrior",
     "SmoothedBoxPrior",
-    "WishartPrior",
-    "LKJCovariancePrior",
+    # "InverseWishartPrior",
+    # "WishartPrior",
 ]

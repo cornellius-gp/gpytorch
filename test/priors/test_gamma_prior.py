@@ -1,63 +1,93 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
-import math
 import unittest
+
 import torch
 from gpytorch.priors import GammaPrior
+from torch.distributions import Gamma
 
 
 class TestGammaPrior(unittest.TestCase):
-    def test_scalar_gamma_prior_invalid_params(self):
-        with self.assertRaises(ValueError):
-            GammaPrior(0, 1)
-        with self.assertRaises(ValueError):
-            GammaPrior(1, 0)
+    def test_gamma_prior_to_gpu(self):
+        if torch.cuda.is_available():
+            prior = GammaPrior(1.0, 1.0).cuda()
+            self.assertEqual(prior.concentration.device.type, "cuda")
+            self.assertEqual(prior.rate.device.type, "cuda")
 
-    def test_scalar_gamma_prior(self):
-        prior = GammaPrior(1, 1)  # this is an exponential w/ rate 1
+    def test_gamma_prior_validate_args(self):
+        with self.assertRaises(ValueError):
+            GammaPrior(0, 1, validate_args=True)
+        with self.assertRaises(ValueError):
+            GammaPrior(1, 0, validate_args=True)
+
+    def test_gamma_prior_log_prob(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        concentration = torch.tensor(1.0, device=device)
+        rate = torch.tensor(1.0, device=device)
+        prior = GammaPrior(concentration, rate)
+        dist = Gamma(concentration, rate)
+
         self.assertFalse(prior.log_transform)
-        self.assertTrue(prior.is_in_support(torch.tensor(1.)))
-        self.assertFalse(prior.is_in_support(torch.tensor(-1.)))
-        self.assertEqual(prior.shape, torch.Size([1]))
-        self.assertEqual(prior.concentration.item(), 1.0)
-        self.assertEqual(prior.rate.item(), 1.0)
-        self.assertAlmostEqual(prior.log_prob(torch.tensor(1.0)).item(), -1.0, places=5)
+        t = torch.tensor(1.0, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        t = torch.tensor([1.5, 0.5], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        t = torch.tensor([[1.0, 0.5], [3.0, 0.25]], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
 
-    def test_scalar_gamma_prior_log_transform(self):
-        prior = GammaPrior(1, 1, log_transform=True)
+    def test_gamma_prior_log_prob_cuda(self):
+        if torch.cuda.is_available():
+            return self.test_gamma_prior_log_prob(cuda=True)
+
+    def test_gamma_prior_log_prob_log_transform(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        concentration = torch.tensor(1.0, device=device)
+        rate = torch.tensor(1.0, device=device)
+        prior = GammaPrior(concentration, rate, log_transform=True)
+        dist = Gamma(concentration, rate)
+
         self.assertTrue(prior.log_transform)
-        self.assertAlmostEqual(prior.log_prob(torch.tensor(0.0)).item(), -1.0, places=5)
+        t = torch.tensor(0.0, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+        t = torch.tensor([-1, 0.5], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+        t = torch.tensor([[-1, 0.5], [0.1, -2.0]], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
 
-    def test_vector_gamma_prior_invalid_params(self):
-        with self.assertRaises(ValueError):
-            GammaPrior(torch.tensor([-0.5, 0.5]), torch.tensor([1.0, 1.0]))
-        with self.assertRaises(ValueError):
-            GammaPrior(torch.tensor([0.5, 0.5]), torch.tensor([-0.1, 1.0]))
+    def test_gamma_prior_log_prob_log_transform_cuda(self):
+        if torch.cuda.is_available():
+            return self.test_gamma_prior_log_prob(cuda=True)
 
-    def test_vector_gamma_prior_size(self):
-        prior = GammaPrior(1, 1, size=2)
-        self.assertFalse(prior.log_transform)
-        self.assertTrue(prior.is_in_support(torch.ones(2)))
-        self.assertFalse(prior.is_in_support(torch.zeros(2)))
-        self.assertEqual(prior.shape, torch.Size([2]))
-        self.assertTrue(torch.equal(prior.concentration, torch.tensor([1.0, 1.0])))
-        self.assertTrue(torch.equal(prior.rate, torch.tensor([1.0, 1.0])))
-        parameter = torch.tensor([1.0, 2.0])
-        self.assertAlmostEqual(prior.log_prob(parameter).item(), -3.0, places=5)
+    def test_gamma_prior_batch_log_prob(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
 
-    def test_vector_gamma_prior(self):
-        prior = GammaPrior(torch.tensor([1.0, 2.0]), torch.tensor([0.5, 2.0]))
-        self.assertFalse(prior.log_transform)
-        self.assertTrue(prior.is_in_support(torch.rand(1)))
-        self.assertEqual(prior.shape, torch.Size([2]))
-        self.assertTrue(torch.equal(prior.concentration, torch.tensor([1.0, 2.0])))
-        self.assertTrue(torch.equal(prior.rate, torch.tensor([0.5, 2.0])))
-        parameter = torch.tensor([1.0, math.exp(1)])
-        expected_log_prob = torch.tensor([math.log(0.5) - 0.5, 2 * math.log(2) + 1 - 2 * math.exp(1)]).sum().item()
-        self.assertAlmostEqual(prior.log_prob(torch.tensor(parameter)).item(), expected_log_prob, places=5)
+        concentration = torch.tensor([1.0, 2.0], device=device)
+        rate = torch.tensor([1.0, 2.0], device=device)
+        prior = GammaPrior(concentration, rate)
+        dist = Gamma(concentration, rate)
+        t = torch.ones(2, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        t = torch.ones(2, 2, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        with self.assertRaises(RuntimeError):
+            prior.log_prob(torch.ones(3, device=device))
+
+        mean = torch.tensor([[1.0, 2.0], [0.5, 3.0]], device=device)
+        variance = torch.tensor([[1.0, 2.0], [0.5, 1.0]], device=device)
+        prior = GammaPrior(mean, variance)
+        dist = Gamma(mean, variance)
+        t = torch.ones(2, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        t = torch.ones(2, 2, device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
+        with self.assertRaises(RuntimeError):
+            prior.log_prob(torch.ones(3, device=device))
+        with self.assertRaises(RuntimeError):
+            prior.log_prob(torch.ones(2, 3, device=device))
+
+    def test_gamma_prior_batch_log_prob_cuda(self):
+        if torch.cuda.is_available():
+            return self.test_gamma_prior_batch_log_prob(cuda=True)
 
 
 if __name__ == "__main__":

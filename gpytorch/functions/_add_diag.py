@@ -26,7 +26,7 @@ class AddDiag(Function):
             input_grad = grad_output
 
         if self.needs_input_grad[1]:
-            diag_grad = torch.tensor(0, dtype=grad_output.dtype, device=grad_output.device)
+            diag_grad = torch.tensor([0], dtype=grad_output.dtype, device=grad_output.device)
             if grad_output.numel() == 1:
                 diag_grad.fill_(grad_output.item())
             elif grad_output.ndimension() == 3:

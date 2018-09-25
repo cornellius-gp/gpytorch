@@ -58,9 +58,12 @@ class Module(nn.Module):
             prior = self._priors.get(name)
             if prior is not None:
                 param = self._parameters[name]
-                if not prior.is_in_support(param):
+                try:
+                    prior._validate_sample(param)
+                except ValueError as e:
                     raise ValueError(
-                        "Value of parameter {param} not contained in support of specified prior".format(param=param)
+                        "Value of parameter {p} not valid for specified prior. Original exception:\n{e}"
+                        .format(p=param, e=e)
                     )
         return self
 
