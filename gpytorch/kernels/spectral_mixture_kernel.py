@@ -67,7 +67,7 @@ class SpectralMixtureKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
 
 
-    .. Gaussian Process Kernels for Pattern Discovery and Extrapolation:
+    .. _Gaussian Process Kernels for Pattern Discovery and Extrapolation:
         https://arxiv.org/pdf/1302.4245.pdf
     """
     # TODO: add equation to docs

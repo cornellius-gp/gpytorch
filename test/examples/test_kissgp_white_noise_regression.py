@@ -40,7 +40,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.base_covar_module = ScaleKernel(
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True))
         )
-        self.grid_covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=50, grid_bounds=[(0, 1)])
+        self.grid_covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=50, num_dims=1)
         self.noise_covar_module = WhiteNoiseKernel(variances=torch.ones(100) * 0.001)
         self.covar_module = self.grid_covar_module + self.noise_covar_module
 

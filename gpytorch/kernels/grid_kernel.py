@@ -10,6 +10,32 @@ from .. import settings
 
 
 class GridKernel(Kernel):
+    r"""
+    If the input data :math:`X` are regularly spaced on a grid, then
+    `GridKernel` can dramatically speed up computatations for stationary kernel.
+
+    GridKernel exploits Toeplitz and Kronecker structure within the covariance matrix.
+    See `Fast kernel learning for multidimensional pattern extrapolation`_ for more info.
+
+    .. note::
+
+        `GridKernel` can only wrap **stationary kernels** (such as RBF, Matern,
+        Periodic, Spectral Mixture, etc.)
+
+    Args:
+        :attr:`base_kernel_module` (Kernel):
+            The kernel to speed up with grid methods.
+        :attr:`inducing_points` (Tensor, n x d):
+            This will be the set of points that lie on the grid.
+        :attr:`grid` (Tensor, k x d):
+            The exact grid points.
+        :attr:`active_dims` (tuple of ints, optional):
+            Passed down to the `base_kernel_module`.
+
+    .. _Fast kernel learning for multidimensional pattern extrapolation:
+        http://www.cs.cmu.edu/~andrewgw/manet.pdf
+    """
+
     def __init__(self, base_kernel_module, inducing_points, grid, active_dims=None):
         super(GridKernel, self).__init__(active_dims=active_dims)
         self.base_kernel_module = base_kernel_module
@@ -22,6 +48,16 @@ class GridKernel(Kernel):
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
         return super(GridKernel, self).train(mode)
+
+    def update_inducing_points_and_grid(self, inducing_points, grid):
+        """
+        Supply a new set of `inducing_points` and a new `grid` if they ever change.
+        """
+        self.inducing_points.detach().resize_(inducing_points.size()).copy_(inducing_points)
+        self.grid.detach().resize_(grid.size()).copy_(grid)
+        if hasattr(self, "_cached_kernel_mat"):
+            del self._cached_kernel_mat
+        return self
 
     def forward(self, x1, x2, **kwargs):
         if not torch.equal(x1, self.inducing_points) or not torch.equal(x2, self.inducing_points):
