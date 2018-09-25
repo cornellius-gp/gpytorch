@@ -74,7 +74,7 @@ class VariationalGP(AbstractVariationalGP):
                     induc_induc_covar = NonLazyTensor(induc_induc_covar)
                 self.prior_root_inv = induc_induc_covar.root_inv_decomposition()
 
-                chol_variational_output = variational_output.covariance_matrix.root.evaluate()
+                chol_variational_output = variational_output.lazy_covariance_matrix.root.evaluate()
                 self.variational_root = inv_matmul(induc_induc_covar, chol_variational_output)
                 self.has_computed_root = True
 
@@ -94,7 +94,7 @@ class VariationalGP(AbstractVariationalGP):
                 if isinstance(induc_test_covar, LazyTensor):
                     induc_test_covar = induc_test_covar.evaluate()
                 inv_product = inv_matmul(induc_induc_covar, induc_test_covar)
-                factor = variational_output.covariance_matrix.root_decomposition().matmul(inv_product)
+                factor = variational_output.lazy_covariance_matrix.root_decomposition().matmul(inv_product)
                 right_factor = factor - inv_product
                 left_factor = (factor - induc_test_covar).transpose(-1, -2)
                 predictive_covar = predictive_covar + MatmulLazyTensor(left_factor, right_factor)

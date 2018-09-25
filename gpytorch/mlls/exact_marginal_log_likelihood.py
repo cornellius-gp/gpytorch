@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import math
 import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
-from ..lazy import LazyTensor, NonLazyTensor
 from ..likelihoods import GaussianLikelihood
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..variational import MVNVariationalStrategy
@@ -28,8 +27,6 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
     def forward(self, output, target):
         if not isinstance(output, MultivariateNormal):
             raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
-        if not isinstance(output.covariance_matrix, LazyTensor):
-            output = output.__class__(output.mean, NonLazyTensor(output.output.covariance_matrix))
 
         mean, covar = self.likelihood(output).representation()
         n_data = target.size(-1)

@@ -44,7 +44,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def _unbroadcasted_scale_tril(self):
         if self.islazy and self.__unbroadcasted_scale_tril is None:
             # cache root decoposition
-            self.__unbroadcasted_scale_tril = self.covariance_matrix.root_decomposition()
+            self.__unbroadcasted_scale_tril = self.lazy_covariance_matrix.root_decomposition()
         return self.__unbroadcasted_scale_tril
 
     @_unbroadcasted_scale_tril.setter
@@ -72,7 +72,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     @lazy_property
     def covariance_matrix(self):
         if self.islazy:
-            return self._covar
+            return self._covar.evaluate()
         else:
             return super(MultivariateNormal, self).covariance_matrix
 
@@ -83,17 +83,25 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             base_samples = _standard_normal(shape, dtype=self.loc.dtype, device=self.loc.device)
         return base_samples
 
+    @lazy_property
+    def lazy_covariance_matrix(self):
+        """
+        The covariance_matrix, represented as a LazyTensor
+        """
+        if self.islazy:
+            return self._covar
+        else:
+            return NonLazyTensor(super(MultivariateNormal, self).covariance_matrix)
+
     @property
     def mean(self):
         return self.loc
 
     def representation(self):
-        return self.mean, self.covariance_matrix
+        return self.mean, self.lazy_covariance_matrix
 
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
-        covar = self.covariance_matrix
-        if torch.is_tensor(covar):
-            covar = NonLazyTensor(covar)
+        covar = self.lazy_covariance_matrix
 
         if base_samples is None:
             # Create some samples
@@ -137,17 +145,18 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def variance(self):
         if self.islazy:
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
-            return self.covariance_matrix.diag().expand(self._batch_shape + self._event_shape)
+            return self.lazy_covariance_matrix.diag().expand(self._batch_shape + self._event_shape)
         else:
             return super(MultivariateNormal, self).variance
 
     def __add__(self, other):
         if isinstance(other, MultivariateNormal):
             return self.__class__(
-                mean=self._mean + other.mean, covariance_matrix=self.covariance_matrix + other.covariance_matrix
+                mean=self._mean + other.mean,
+                covariance_matrix=(self.lazy_covariance_matrix + other.lazy_covariance_matrix),
             )
         elif isinstance(other, int) or isinstance(other, float):
-            return self.__class__(self.mean + other, self.covariance_matrix)
+            return self.__class__(self.mean + other, self.lazy_covariance_matrix)
         else:
             raise RuntimeError("Unsupported type {} for addition w/ MultivariateNormal".format(type(other)))
 
@@ -161,7 +170,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             raise RuntimeError("Can only multiply by scalars")
         if other == 1:
             return self
-        return self.__class__(mean=self.mean * other, covariance_matrix=self.covariance_matrix * (other ** 2))
+        return self.__class__(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other ** 2))
 
     def __truediv__(self, other):
         return self.__mul__(1. / other)

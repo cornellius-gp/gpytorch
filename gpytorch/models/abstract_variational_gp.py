@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import torch
 
 from ..distributions import MultivariateNormal
-from ..lazy import CholLazyTensor, LazyTensor
+from ..lazy import CholLazyTensor
 from ..module import Module
 
 
@@ -31,9 +31,7 @@ class AbstractVariationalGP(Module):
 
         # Get diagonal of covar
         res = super(AbstractVariationalGP, self).__call__(inputs)
-        covar_diag = res.covariance_matrix
-        if isinstance(covar_diag, LazyTensor):
-            covar_diag = covar_diag.evaluate()
+        covar_diag = res.lazy_covariance_matrix.diag()
         covar_diag = covar_diag.view(orig_size[:-1])
 
         return covar_diag
@@ -43,7 +41,7 @@ class AbstractVariationalGP(Module):
         if not isinstance(res, MultivariateNormal):
             raise RuntimeError("{}.forward must return a MultivariateNormal".format(self.__class__.__name__))
 
-        res = MultivariateNormal(res.mean, res.covariance_matrix.evaluate_kernel())
+        res = MultivariateNormal(res.mean, res.lazy_covariance_matrix.evaluate_kernel())
         return res
 
     def variational_output(self):

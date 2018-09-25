@@ -85,7 +85,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
 
         # Compute test covar
         test_covar = InterpolatedLazyTensor(
-            variational_output.covariance_matrix, interp_indices, interp_values, interp_indices, interp_values
+            variational_output.lazy_covariance_matrix, interp_indices, interp_values, interp_indices, interp_values
         )
 
         # Diagonal correction
@@ -93,7 +93,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
             from ..lazy import AddedDiagLazyTensor
 
             prior_covar = InterpolatedLazyTensor(
-                prior_output.covariance_matrix, interp_indices, interp_values, interp_indices, interp_values
+                prior_output.lazy_covariance_matrix, interp_indices, interp_values, interp_indices, interp_values
             )
             diagonal_correction = DiagLazyTensor((self.covar_diag(inputs) - prior_covar.diag()) * 0)
             test_covar = AddedDiagLazyTensor(test_covar, diagonal_correction)

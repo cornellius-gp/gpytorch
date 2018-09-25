@@ -425,7 +425,7 @@ class InterpolatedLazyTensor(LazyTensor):
             )
 
             grv = MultivariateNormal(torch.zeros(1), train_train_covar)
-            train_train_covar = likelihood(grv).covariance_matrix
+            train_train_covar = likelihood(grv).lazy_covariance_matrix
 
             # Get probe vectors for inverse root
             n_probe_vectors = beta_features.fast_pred_var.n_probe_vectors()

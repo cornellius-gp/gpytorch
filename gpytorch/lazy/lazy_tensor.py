@@ -491,7 +491,7 @@ class LazyTensor(object):
             test_train_covar = self[n_train:, :n_train]
             test_test_covar = self[n_train:, n_train:]
 
-        train_train_covar = likelihood(MultivariateNormal(torch.zeros(1), train_train_covar)).covariance_matrix
+        train_train_covar = likelihood(MultivariateNormal(torch.zeros(1), train_train_covar)).lazy_covariance_matrix
         if not beta_features.fast_pred_var.on():
             from .matmul_lazy_tensor import MatmulLazyTensor
 

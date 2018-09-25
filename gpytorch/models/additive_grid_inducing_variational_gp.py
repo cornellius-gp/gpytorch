@@ -58,7 +58,7 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
     def prior_output(self):
         out = super(AdditiveGridInducingVariationalGP, self).prior_output()
         mean = out.mean
-        covar = out.covariance_matrix.repeat(self.n_components, 1, 1)
+        covar = out.lazy_covariance_matrix.repeat(self.n_components, 1, 1)
         return MultivariateNormal(mean, covar)
 
     def __call__(self, inputs, **kwargs):
@@ -82,7 +82,7 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
         output = super(AdditiveGridInducingVariationalGP, self).__call__(inputs, **kwargs)
         if self.sum_output:
             mean = output.mean.sum(0)
-            covar = output.covariance_matrix.sum_batch()
+            covar = output.lazy_covariance_matrix.sum_batch()
             return MultivariateNormal(mean, covar)
         else:
             return output

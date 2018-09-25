@@ -11,13 +11,13 @@ from ..lazy import LazyTensor, NonLazyTensor
 class MVNVariationalStrategy(VariationalStrategy):
     def kl_divergence(self):
         prior_mean = self.prior_dist.mean
-        prior_covar = self.prior_dist.covariance_matrix
+        prior_covar = self.prior_dist.lazy_covariance_matrix
         if not isinstance(prior_covar, LazyTensor):
             prior_covar = NonLazyTensor(prior_covar)
         prior_covar = prior_covar.add_jitter()
 
         variational_mean = self.variational_dist.mean
-        variational_covar = self.variational_dist.covariance_matrix
+        variational_covar = self.variational_dist.lazy_covariance_matrix
         root_variational_covar = variational_covar.root_decomposition()
 
         mean_diffs = prior_mean - variational_mean
@@ -39,6 +39,6 @@ class MVNVariationalStrategy(VariationalStrategy):
         return res
 
     def trace_diff(self):
-        prior_covar = self.prior_dist.covariance_matrix
-        variational_covar = self.variational_dist.covariance_matrix
+        prior_covar = self.prior_dist.lazy_covariance_matrix
+        variational_covar = self.variational_dist.lazy_covariance_matrix
         return (prior_covar.diag() - variational_covar.diag()).sum()
