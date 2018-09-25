@@ -93,10 +93,6 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             return NonLazyTensor(super(MultivariateNormal, self).covariance_matrix)
 
-    @property
-    def mean(self):
-        return self.loc
-
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
 

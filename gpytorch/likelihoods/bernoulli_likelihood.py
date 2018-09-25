@@ -34,7 +34,7 @@ class BernoulliLikelihood(Likelihood):
         """
         if not isinstance(input, MultivariateNormal):
             raise RuntimeError(
-                "BernoulliLikelihood expects a multi-variate normally distributed" "latent function to make predictions"
+                "BernoulliLikelihood expects a multi-variate normally distributed latent function to make predictions"
             )
 
         mean = input.mean

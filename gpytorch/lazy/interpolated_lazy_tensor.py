@@ -355,8 +355,8 @@ class InterpolatedLazyTensor(LazyTensor):
 
             train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
 
-            grv = likelihood(MultivariateNormal(train_mean, train_train_covar))
-            train_mean, train_train_covar = grv.mean, grv.lazy_covariance_matrix
+            mvn = likelihood(MultivariateNormal(train_mean, train_train_covar))
+            train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
 
             train_train_covar_inv_labels = train_train_covar.inv_matmul((train_labels - train_mean).unsqueeze(-1))
 
