@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from ..functions import add_diag
 from ..lazy import LazyTensor
 
 
