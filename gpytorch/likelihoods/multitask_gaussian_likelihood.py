@@ -57,8 +57,8 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     def forward(self, input):
         """
         Adds the log task noises to the diagonal of the covariance matrix of the supplied
-        :obj:`gpytorch.random_variables.MultivariateNormal` or
-        :obj:`gpytorch.random_variables.MultitaskMultivariateNormal`, in case of
+        :obj:`gpytorch.distributions.MultivariateNormal` or
+        :obj:`gpytorch.distributions.MultitaskMultivariateNormal`, in case of
         `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
 
         To accomplish this, we form a new :obj:`gpytorch.lazy.KroneckerProductLazyTensor` between :math:`I_{n}`,
@@ -71,10 +71,10 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         The final covariance matrix after this method is then :math:`K + D_{t} \otimes I_{n} + \sigma^{2}I_{nt}`.
 
         Args:
-            input (:obj:`gpytorch.random_variables.MultitaskMultivariateNormal`): Random variable whose covariance
+            input (:obj:`gpytorch.distributions.MultitaskMultivariateNormal`): Random variable whose covariance
                 matrix is a :obj:`gpytorch.lazy.LazyTensor` we intend to augment.
         Returns:
-            :obj:`gpytorch.random_variables.MultitaskMultivariateNormal`: A new random variable whose covariance
+            :obj:`gpytorch.distributions.MultitaskMultivariateNormal`: A new random variable whose covariance
             matrix is a :obj:`gpytorch.lazy.LazyTensor` with :math:`D_{t} \otimes I_{n}` and :math:`\sigma^{2}I_{nt}`
             added.
         """

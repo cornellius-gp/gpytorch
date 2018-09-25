@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from . import (
     beta_features,
+    distributions,
     kernels,
     lazy,
     likelihoods,
@@ -9,7 +10,6 @@ from . import (
     mlls,
     models,
     priors,
-    random_variables,
     settings,
     utils,
     variational,
@@ -45,7 +45,6 @@ __all__ = [
     "mlls",
     "models",
     "priors",
-    "random_variables",
     "utils",
     "variational",
     # Classes
