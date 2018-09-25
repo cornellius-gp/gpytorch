@@ -53,8 +53,6 @@ class LinearKernel(Kernel):
         variance_prior=None,
         offset_prior=None,
         active_dims=None,
-        variance_bounds=None,
-        offset_bounds=None,
     ):
         super(LinearKernel, self).__init__(active_dims=active_dims)
         self.register_parameter(name="variance", parameter=torch.nn.Parameter(torch.zeros(1)), prior=variance_prior)
