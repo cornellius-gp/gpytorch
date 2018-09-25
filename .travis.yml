@@ -21,7 +21,7 @@ script:
       python -c "import torch; print('PyTorch Version:', torch.__version__)";
       python -m unittest discover;
     else
-      echo "Dummy build"
+      echo "Dummy build";
     fi
 
 matrix:
