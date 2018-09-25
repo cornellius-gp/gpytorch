@@ -37,7 +37,7 @@ class CosineKernel(Kernel):
 
     Attributes:
         :attr:`period_length` (Tensor):
-            The period length parameter. Size/shape of parameter depends on the :attr:`batch_size` arguments.
+            The period length parameter. Size = `batch_size x 1 x 1`.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -65,12 +65,11 @@ class CosineKernel(Kernel):
     def period_length(self):
         return self.log_period_length.exp().clamp(self.eps, 1e5)
 
-    def preprocess_data(self, x1, x2):
-        # Override the default behavior:
-        # Here the lengthscale scales the sine, not the inputs directly
-        return x1.div(self.period_length), x2.div(self.period_length)
-
     def forward(self, x1, x2):
-        diff = torch.norm((x1.unsqueeze(2) - x2.unsqueeze(1)), 2, dim=-1)
+        x1_ = x1.div(self.period_length)
+        x2_ = x2.div(self.period_length)
+        x1_, x2_ = self._create_input_grid(x1_, x2_)
+
+        diff = torch.norm((x1_ - x2_).abs(), 2, -1)
         res = torch.cos(diff.mul(math.pi))
         return res

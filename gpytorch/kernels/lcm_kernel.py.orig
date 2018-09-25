@@ -44,6 +44,9 @@ class LCMKernel(Kernel):
         for m in self.covar_module_list[1:]:
             res += m.forward(x1, x2)
         return res
+<<<<<<< HEAD
+=======
 
     def size(self, x1, x2):
         return self.covar_module_list[0].size(x1, x2)
+>>>>>>> 9f0984897742e21ce36adf0b76ce92f402d125f2
