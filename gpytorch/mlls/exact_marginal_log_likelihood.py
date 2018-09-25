@@ -28,7 +28,8 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         if not isinstance(output, MultivariateNormal):
             raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
 
-        mean, covar = self.likelihood(output).representation()
+        output = self.likelihood(output)
+        mean, covar = output.mean, output.lazy_covariance_matrix
         n_data = target.size(-1)
 
         if target.size() != mean.size():

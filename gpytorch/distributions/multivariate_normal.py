@@ -97,9 +97,6 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def mean(self):
         return self.loc
 
-    def representation(self):
-        return self.mean, self.lazy_covariance_matrix
-
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
 

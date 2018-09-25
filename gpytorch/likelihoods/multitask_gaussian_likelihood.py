@@ -78,7 +78,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
             matrix is a :obj:`gpytorch.lazy.LazyTensor` with :math:`D_{t} \otimes I_{n}` and :math:`\sigma^{2}I_{nt}`
             added.
         """
-        mean, covar = input.representation()
+        mean, covar = input.mean, input.lazy_covariance_matrix
         eye_lv = DiagLazyTensor(torch.ones(covar.size(-1) // self.n_tasks, device=self.log_noise.device))
         if hasattr(self, "log_task_noises"):
             task_var_lv = DiagLazyTensor(self.log_task_noises.exp())

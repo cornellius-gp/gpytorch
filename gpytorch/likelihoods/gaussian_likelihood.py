@@ -19,7 +19,7 @@ class GaussianLikelihood(Likelihood):
     def forward(self, input):
         if not isinstance(input, MultivariateNormal):
             raise ValueError("GaussianLikelihood requires a MultivariateNormal input")
-        mean, covar = input.representation()
+        mean, covar = input.mean, input.lazy_covariance_matrix
         noise = add_diag(covar, self.log_noise.exp())
         return input.__class__(mean, noise)
 

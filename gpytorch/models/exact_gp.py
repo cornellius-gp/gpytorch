@@ -99,7 +99,7 @@ class ExactGP(Module):
             if settings.debug().on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
-            full_mean, full_covar = full_output.representation()
+            full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
             n_tasks = 1
             if isinstance(full_output, MultitaskMultivariateNormal):
