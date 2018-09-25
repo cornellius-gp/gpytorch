@@ -10,11 +10,22 @@ from gpytorch.kernels.multitask_kernel import MultitaskKernel
 
 class LCMKernel(Kernel):
     """
-    This kernel supports the LCM kernel.
+    This kernel supports the LCM kernel. It allows the user to specify a list of
+    base kernels to use, and individual `MultitaskKernel` objects are fit to each
+    of them. The final kernel is the linear sum of the Kronecker product of all
+    these base kernels with their respective `MultitaskKernel` objects.
+
+    The returned object is of type :obj:`gpytorch.lazy.KroneckerProductLazyTensor`.
     """
     def __init__(self, base_kernels, n_tasks, rank=1, task_covar_prior=None):
         """
         Args:
+            base_kernels (:type: list of `Kernel` objects): A list of base kernels.
+            n_tasks (int): The number of output tasks to fit.
+            rank (int): Rank of index kernel to use for task covariance matrix for each
+                        of the base kernels.
+            task_covar_prior (:obj:`gpytorch.priors.Prior`): Prior to use for each
+                task kernel. See :class:`gpytorch.kernels.IndexKernel` for details.
         """
         if len(base_kernels) < 1:
             raise ValueError('At least one base kernel must be provided.')
@@ -29,7 +40,10 @@ class LCMKernel(Kernel):
 
     def forward_diag(self, x1, x2):
         """
-        Args:
+        Returns the diagonal of the covariance matrix only. This overrides the
+        default behavior for this supplied in :class:`gpytorch.kernels.Kernel`
+        because we need to take the Kronecker product of the diagonals of the
+        base data kernel and the task kernel, and add them up.
         """
         res = self.covar_module_list[0].forward_diag(x1, x2)
         for m in self.covar_module_list[1:]:
@@ -37,13 +51,14 @@ class LCMKernel(Kernel):
         return res
 
     def forward(self, x1, x2):
-        """
-        Args:
-        """
         res = self.covar_module_list[0].forward(x1, x2)
         for m in self.covar_module_list[1:]:
             res += m.forward(x1, x2)
         return res
 
     def size(self, x1, x2):
+        """
+        Given `n` data points `x1` and `m` datapoints `x2`, this multitask kernel
+        returns an `(n*n_tasks) x (m*n_tasks)` covariance matrix.
+        """
         return self.covar_module_list[0].size(x1, x2)
