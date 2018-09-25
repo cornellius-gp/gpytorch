@@ -18,10 +18,10 @@ from math import pi
 
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 100)
-y1_inds = torch.zeros(100).long()
-y2_inds = torch.ones(100).long()
-train_y1 = torch.sin(train_x * (2 * pi))
-train_y2 = torch.cos(train_x * (2 * pi))
+y1_inds = torch.zeros(100, dtype=torch.long)
+y2_inds = torch.ones(100, dtype=torch.long)
+train_y1 = torch.sin(train_x * (2 * pi)) + torch.randn_like(train_x).mul_(1e-2)
+train_y2 = torch.cos(train_x * (2 * pi)) + torch.randn_like(train_x).mul_(1e-2)
 
 test_x = torch.linspace(0, 1, 51)
 y1_inds_test = torch.zeros(51).long()
@@ -75,23 +75,20 @@ class TestHadamardMultitaskGPRegression(unittest.TestCase):
         # Optimize the model
         gp_model.train()
         likelihood.eval()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
-        optimizer.n_iter = 0
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.01)
         for _ in range(100):
             optimizer.zero_grad()
             output = gp_model(torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds]))
             loss = -mll(output, torch.cat([train_y1, train_y2]))
             loss.backward()
-            optimizer.n_iter += 1
             optimizer.step()
 
-        for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        optimizer.step()
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
 
         # Test the model
         gp_model.eval()

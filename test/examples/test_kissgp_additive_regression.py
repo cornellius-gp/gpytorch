@@ -77,9 +77,9 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
                 gp_model.train()
                 likelihood.train()
 
-                optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+                optimizer = optim.Adam(gp_model.parameters(), lr=0.01)
                 optimizer.n_iter = 0
-                for _ in range(25):
+                for _ in range(15):
                     optimizer.zero_grad()
                     output = gp_model(train_x)
                     loss = -mll(output, train_y)
