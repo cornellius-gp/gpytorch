@@ -11,13 +11,13 @@ env:
   - PYTORCH_VERSION=dummy  # Just a hack to make sure th matrix runs
 
 install:
-  - if [[ $PYTORCH_VERSION -ne "dummy" ]]; then
+  - if [[ $PYTORCH_VERSION != "dummy" ]]; then
       pip install torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
       python setup.py build develop;
     fi
 
 script:
-  - if [[ $PYTORCH_VERSION -ne "dummy" ]]; then
+  - if [[ $PYTORCH_VERSION != "dummy" ]]; then
       python -c "import torch; print('PyTorch Version:', torch.__version__)";
       python -m unittest discover;
     else
