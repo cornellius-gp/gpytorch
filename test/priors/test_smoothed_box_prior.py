@@ -67,7 +67,7 @@ class TestSmoothedBoxPrior(unittest.TestCase):
             return self.test_smoothed_box_prior_log_prob(cuda=True)
 
     def test_smoothed_box_prior_batch_log_prob(self, cuda=False):
-        #TODO: Implement test for batch mode
+        # TODO: Implement test for batch mode
         pass
 
     def test_smoothed_box_prior_batch_log_prob_cuda(self):

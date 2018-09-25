@@ -56,7 +56,7 @@ class LKJPrior(Prior):
             raise ValueError("Correlation matrix is not of size n={}".format(self.n.item()))
         if not _is_valid_correlation_matrix(parameter):
             raise ValueError("Input is not a valid correlation matrix")
-        #TODO: Replace this loop with batch Cholesky decomposition when available
+        # TODO: Replace this loop with batch Cholesky decomposition when available
         # https://github.com/pytorch/pytorch/pull/11796
         log_diag_sum = torch.stack(
             [

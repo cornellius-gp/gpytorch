@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import unittest
 
 import torch
-from gpytorch.priors import LKJPrior, LKJCholeskyFactorPrior, LKJCovariancePrior
+from gpytorch.priors import LKJPrior
 from gpytorch.utils import approx_equal
 
 

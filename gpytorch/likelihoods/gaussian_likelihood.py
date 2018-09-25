@@ -16,7 +16,9 @@ class GaussianLikelihood(Likelihood):
 
     def __init__(self, log_noise_prior=None):
         super(GaussianLikelihood, self).__init__()
-        self.register_parameter(name="log_noise", parameter=torch.nn.Parameter(torch.tensor([0.])), prior=log_noise_prior)
+        self.register_parameter(
+            name="log_noise", parameter=torch.nn.Parameter(torch.tensor([0.])), prior=log_noise_prior
+        )
 
     def forward(self, input):
         assert isinstance(input, GaussianRandomVariable)
