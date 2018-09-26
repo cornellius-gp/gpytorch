@@ -51,7 +51,7 @@ class ZeroLazyTensor(LazyTensor):
         shape = self.shape
         if shape[-1] != shape[-2]:
             raise RuntimeError("diag works on square matrices (or batches)")
-        return torch.zeros(self.shape[:-1], dtype=self.dtype, device=self.device)
+        return torch.zeros(shape[:-1], dtype=self.dtype, device=self.device)
 
     def evaluate(self):
         return torch.zeros(*self.sizes)
