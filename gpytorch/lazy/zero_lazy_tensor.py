@@ -36,7 +36,6 @@ class ZeroLazyTensor(LazyTensor):
 
     def add_diag(self, diag):
         from .diag.lazy_tensor import DiagLazyTensor
-
         if diag.size(-1) != self.size(-1):
             raise RuntimeError("Size mismatch, self: {}, diag {}".format(self.size(), diag.size()))
 
@@ -49,14 +48,10 @@ class ZeroLazyTensor(LazyTensor):
             return DiagLazyTensor(diag.expand(self.size(0)))
 
     def diag(self):
-        size = self.size()
-        if size[-1] != size[-2]:
-            raise RuntimeError("Diag works on square matrices (or batches)")
-
-        if self.ndimension() == 3:
-            return torch.zeros(size[-3], size[-2])
-        else:
-            return torch.zeros(size[-2])
+        shape = self.shape
+        if shape[-1] != shape[-2]:
+            raise RuntimeError("diag works on square matrices (or batches)")
+        return torch.zeros(self.shape[:-1], dtype=self.dtype, device=self.device)
 
     def evaluate(self):
         return torch.zeros(*self.sizes)
@@ -93,15 +88,6 @@ class ZeroLazyTensor(LazyTensor):
 
     def root_decomposition_size(self):
         raise RuntimeError("ZeroLazyTensors are not positive definite!")
-
-    def size(self, val=None):
-        """
-        Returns the size of the resulting Variable that the lazy tensor represents
-        """
-        size = self._size()
-        if val is not None:
-            return size[val]
-        return size
 
     def sum_batch(self, sum_batch_size=None):
         from .sum_batch.lazy_tensor import SumBatchLazyTensor
