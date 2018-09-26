@@ -19,8 +19,8 @@ class TestDiagLazyTensor(unittest.TestCase):
 
     def test_function_factory(self):
         # 1d
-        diag_var1 = torch.tensor(diag, requires_grad=True)
-        diag_var2 = torch.tensor(diag, requires_grad=True)
+        diag_var1 = diag.clone().requires_grad_(True)
+        diag_var2 = diag.clone().requires_grad_(True)
         test_mat = torch.tensor([3, 4, 5], dtype=torch.float)
 
         diag_lv = DiagLazyTensor(diag_var1)
@@ -37,8 +37,8 @@ class TestDiagLazyTensor(unittest.TestCase):
         self.assertLess(torch.norm(diag_var1.grad - diag_var2.grad), 1e-3)
 
         # 2d
-        diag_var1 = torch.tensor(diag, requires_grad=True)
-        diag_var2 = torch.tensor(diag, requires_grad=True)
+        diag_var1 = diag.clone().requires_grad_(True)
+        diag_var2 = diag.clone().requires_grad_(True)
         test_mat = torch.eye(3)
 
         diag_lv = DiagLazyTensor(diag_var1)
@@ -56,8 +56,8 @@ class TestDiagLazyTensor(unittest.TestCase):
 
     def test_batch_function_factory(self):
         # 2d
-        diag_var1 = torch.tensor(diag.repeat(5, 1), requires_grad=True)
-        diag_var2 = torch.tensor(diag.repeat(5, 1), requires_grad=True)
+        diag_var1 = diag.repeat(5, 1).requires_grad_(True)
+        diag_var2 = diag.repeat(5, 1).requires_grad_(True)
         test_mat = torch.eye(3).repeat(5, 1, 1)
 
         diag_lv = DiagLazyTensor(diag_var1)

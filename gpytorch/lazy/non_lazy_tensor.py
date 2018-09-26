@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from ..functions import add_diag
 from ..lazy import LazyTensor
 
 
@@ -47,9 +46,6 @@ class NonLazyTensor(LazyTensor):
 
     def _get_indices(self, left_indices, right_indices):
         return self.tensor[left_indices, right_indices]
-
-    def add_diag(self, diag):
-        return NonLazyTensor(add_diag(self.tensor, diag))
 
     def _preconditioner(self):
         # For a NonLazyTensor, it is intended to not use preconditioning, even when called for.

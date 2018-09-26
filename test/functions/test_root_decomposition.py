@@ -23,7 +23,7 @@ class TestRootDecomposition(unittest.TestCase):
             [2.9611, -0.8902, -1.1774, 0.4170, 3.3208],
         ]
         self.mat_var = torch.tensor(mat, requires_grad=True)
-        self.mat_var_clone = torch.tensor(mat, requires_grad=True)
+        self.mat_var_clone = self.mat_var.clone().detach().requires_grad_(True)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
