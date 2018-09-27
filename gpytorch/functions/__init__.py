@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 
-from ._add_diag import AddDiag
 from ._dsmm import DSMM
 from ._normal_cdf import NormalCDF
 from ._log_normal_cdf import LogNormalCDF
@@ -16,21 +15,19 @@ def add_diag(input, diag):
     Adds a diagonal matrix s*I to the input matrix input.
 
     Args:
-        - input (matrix nxn) - Tensor or LazyTensor wrapping matrix to add diagonal \
-                               component to.
-        - diag (scalar) - Scalar s so that s*I is added to the input matrix.
+        :attr:`input` (Tensor (nxn) or (bxnxn)):
+            Tensor or LazyTensor wrapping matrix to add diagonal component to.
+        :attr:`diag` (scalar or Tensor (n) or Tensor (bxn) or Tensor (bx1)):
+            Diagonal component to add to tensor
 
     Returns:
-        - matrix nxn - Tensor or LazyTensor wrapping a new matrix with the diagonal \
-                       component added.
+        :obj:`Tensor` (bxnxn or nxn)
     """
-    if not torch.is_tensor(diag):
-        raise RuntimeError("Expected a tensor for the diagonal component.")
-
-    if hasattr(input, "add_diag"):
-        return input.add_diag(diag)
+    if torch.is_tensor(input):
+        from ..lazy import NonLazyTensor
+        return NonLazyTensor(input).add_diag()
     else:
-        return AddDiag()(input, diag)
+        return input.add_diag(diag)
 
 
 def add_jitter(mat):
