@@ -871,6 +871,10 @@ class LazyTensor(object):
             return size[val]
         return size
 
+    @property
+    def shape(self):
+        return self.size()
+
     def sum_batch(self, sum_batch_size=None):
         """
         Sum the `b x n x m` LazyTensor over the batch dimension.

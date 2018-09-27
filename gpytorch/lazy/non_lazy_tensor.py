@@ -55,12 +55,12 @@ class NonLazyTensor(LazyTensor):
         if self.tensor.ndimension() < 3:
             return self.tensor.diag()
         else:
-            size = self.size()
-            batch_iter = torch.arange(0, size[0], dtype=torch.long, device=self.device)
-            row_col_iter = torch.arange(0, size[-1], dtype=torch.long, device=self.device)
-            batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
-            row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
-            return self.tensor[batch_iter, row_col_iter, row_col_iter].view(size[0], size[1])
+            shape = self.shape
+            batch_iter = torch.arange(0, shape[0], dtype=torch.long, device=self.device)
+            row_col_iter = torch.arange(0, shape[-1], dtype=torch.long, device=self.device)
+            batch_iter = batch_iter.unsqueeze(1).repeat(1, shape[1]).view(-1)
+            row_col_iter = row_col_iter.unsqueeze(1).repeat(shape[0], 1).view(-1)
+            return self.tensor[batch_iter, row_col_iter, row_col_iter].view(shape[:-1])
 
     def evaluate(self):
         return self.tensor

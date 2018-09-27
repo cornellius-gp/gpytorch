@@ -9,7 +9,7 @@ from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
 LAZY_KERNEL_TENSOR_WARNING = (
-    "A LazyEvaluatedKernelTensor is not intended to be used directly " "as a tensor! Call evaluate() first."
+    "A LazyEvaluatedKernelTensor is not intended to be used directly as a tensor! Call evaluate() first."
 )
 
 
@@ -83,7 +83,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             res = self.kernel.forward_diag(x1, x2, **self.params)
             if isinstance(res, LazyTensor):
                 res = res.evaluate()
-            self._cached_kernel_diag = res.squeeze()
+            self._cached_kernel_diag = res.view(self.shape[:-1]).contiguous()
             return self._cached_kernel_diag
 
     def evaluate_kernel(self):
