@@ -35,17 +35,41 @@ class ZeroLazyTensor(LazyTensor):
         return torch.Size(self.sizes)
 
     def add_diag(self, diag):
-        from .diag.lazy_tensor import DiagLazyTensor
-        if diag.size(-1) != self.size(-1):
-            raise RuntimeError("Size mismatch, self: {}, diag {}".format(self.size(), diag.size()))
+        from .diag_lazy_tensor import DiagLazyTensor
 
         if self.size(-1) != self.size(-2):
             raise RuntimeError("add_diag only defined for square matrices")
 
         if self.ndimension() == 3:
-            return DiagLazyTensor(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
+            if diag.ndimension() == 0:
+                diag = diag.view(1, 1).expand(self.size(0), self.size(1))
+            elif diag.ndimension() == 1:
+                diag = diag.unsqueeze(0).expand(self.size(0), self.size(1))
+            elif diag.ndimension() == 2:
+                diag = diag.expand(self.size(0), self.size(1))
+            else:
+                raise RuntimeError(
+                    "For a 3D tensor ({}), add_diag expects a 1D or 2D diag. "
+                    "Got size ({})".format(self.size(), diag.size())
+                )
         else:
-            return DiagLazyTensor(diag.expand(self.size(0)))
+            if diag.ndimension() == 0:
+                diag = diag.view(1).expand(self.size(0))
+            elif diag.ndimension() == 1:
+                diag = diag.expand(self.size(0))
+            else:
+                raise RuntimeError(
+                    "For a 3D tensor ({}), add_diag expects a 1D or 2D diag. "
+                    "Got size ({})".format(self.size(), diag.size())
+                )
+
+        res = DiagLazyTensor(diag)
+        if res.size() != self.size():
+            raise RuntimeError(
+                "Diag dimensions are incompatible with the base LazyTensor dimensions. "
+                "Diag size corresponds to a {} Tensor - expected {}".format(res.size(), self.size())
+            )
+        return res
 
     def diag(self):
         shape = self.shape

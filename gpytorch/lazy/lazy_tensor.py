@@ -238,12 +238,33 @@ class LazyTensor(object):
 
         if self.size(-1) != self.size(-2):
             raise RuntimeError("add_diag only defined for square matrices")
+
+        # Expand things the correct way
         if self.ndimension() == 3:
-            diag_lazy_tsr = DiagLazyTensor(diag.unsqueeze(0).expand(self.size(0), self.size(1)))
-            return AddedDiagLazyTensor(self, diag_lazy_tsr)
+            if diag.dim() == 0:
+                diag = diag.view(1, 1).expand(self.size(0), self.size(1))
+            elif diag.dim() == 1:
+                diag = diag.unsqueeze(0).expand(self.size(0), self.size(1))
+            elif diag.ndimension() == 2:
+                diag = diag.expand(self.size(0), self.size(1))
+            else:
+                raise RuntimeError(
+                    "For a 3D tensor ({}), add_diag expects a 1D or 2D diag. "
+                    "Got size ({})".format(self.size(), diag.size())
+                )
         else:
-            diag_lazy_tsr = DiagLazyTensor(diag.expand(self.size(0)))
-            return AddedDiagLazyTensor(self, diag_lazy_tsr)
+            if diag.dim() == 0:
+                diag = diag.view(1).expand(self.size(0))
+            elif diag.dim() == 1:
+                diag = diag.expand(self.size(0))
+            else:
+                raise RuntimeError(
+                    "For a 2D tensor ({}), add_diag expects a 0D or 1D diag. "
+                    "Got size ({})".format(self.size(), diag.size())
+                )
+
+        diag_lazy_tsr = DiagLazyTensor(diag)
+        return AddedDiagLazyTensor(self, diag_lazy_tsr)
 
     def add_jitter(self, jitter_val=1e-3):
         """
