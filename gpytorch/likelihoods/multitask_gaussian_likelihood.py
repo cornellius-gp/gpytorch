@@ -4,6 +4,7 @@ import torch
 from ..functions import add_diag
 from ..lazy import DiagLazyTensor, KroneckerProductLazyTensor, RootLazyTensor
 from ..likelihoods import GaussianLikelihood
+from .. import settings
 
 
 def _eval_covar_matrix(task_noise_covar_factor, log_noise):
@@ -23,7 +24,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     Like the Gaussian likelihood, this object can be used with exact inference.
     """
 
-    def __init__(self, n_tasks, rank=0, task_prior=None):
+    def __init__(self, n_tasks, rank=0, task_prior=None, batch_size=1, log_noise_prior=None):
         """
         Args:
             n_tasks (int): Number of tasks.
@@ -35,7 +36,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
         """
-        super(MultitaskGaussianLikelihood, self).__init__()
+        super(MultitaskGaussianLikelihood, self).__init__(batch_size=batch_size, log_noise_prior=log_noise_prior)
 
         if rank == 0:
             self.register_parameter(
@@ -86,7 +87,14 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
             task_var_lv = RootLazyTensor(self.task_noise_covar_factor)
         covar_kron_lv = KroneckerProductLazyTensor(task_var_lv, eye_lv)
         covariance_matrix = covar + covar_kron_lv
-        covariance_matrix = add_diag(covariance_matrix, self.log_noise.exp())
+
+        noise = self.noise
+        if covariance_matrix.ndimension() == 2:
+            if settings.debug.on() and noise.size(0) > 1:
+                raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
+            noise = noise.squeeze(0)
+
+        covariance_matrix = add_diag(covariance_matrix, noise)
         return input.__class__(mean, covariance_matrix)
 
     def variational_log_probability(self, input, target):
