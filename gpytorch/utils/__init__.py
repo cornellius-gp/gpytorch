@@ -177,10 +177,13 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
 def prod(items):
     """
     """
-    res = items[0]
-    for item in items[1:]:
-        res = res * item
-    return res
+    if len(items):
+        res = items[0]
+        for item in items[1:]:
+            res = res * item
+        return res
+    else:
+        return 1
 
 
 def sparse_eye(size):

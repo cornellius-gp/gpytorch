@@ -158,6 +158,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         index = list(index) if isinstance(index, tuple) else [index]
         ndimension = self.ndimension()
         index += [slice(None, None, None)] * (ndimension - len(index))
+
         if self.is_batch:
             batch_index = index[0]
             left_index = index[1]
