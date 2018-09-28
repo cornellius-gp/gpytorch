@@ -10,7 +10,7 @@ import gpytorch
 from gpytorch.kernels import RBFKernel, MultitaskKernel, LCMKernel
 from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
-from gpytorch.random_variables import MultitaskGaussianRandomVariable
+from gpytorch.distributions import MultitaskMultivariateNormal
 
 
 class MultitaskGPModel(gpytorch.models.ExactGP):
@@ -23,7 +23,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return MultitaskGaussianRandomVariable(mean_x, covar_x)
+        return MultitaskMultivariateNormal(mean_x, covar_x)
 
 
 class MultitaskGPModel_ICM(gpytorch.models.ExactGP):
@@ -36,7 +36,7 @@ class MultitaskGPModel_ICM(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return MultitaskGaussianRandomVariable(mean_x, covar_x)
+        return MultitaskMultivariateNormal(mean_x, covar_x)
 
 
 class TestLCMKernelRegression(unittest.TestCase):
@@ -74,7 +74,7 @@ class TestLCMKernelRegression(unittest.TestCase):
         with torch.no_grad():
             test_x = torch.linspace(0, 1, 51)
             observed_pred = likelihood(model(test_x))
-            mean = observed_pred.mean()
+            mean = observed_pred.mean
 
         model_icm = MultitaskGPModel_ICM(train_x, train_y, likelihood)
         likelihood = MultitaskGaussianLikelihood(n_tasks=2)
@@ -97,10 +97,10 @@ class TestLCMKernelRegression(unittest.TestCase):
         with torch.no_grad():
             test_x = torch.linspace(0, 1, 51)
             observed_pred_icm = likelihood(model_icm(test_x))
-            mean_icm = observed_pred_icm.mean()
+            mean_icm = observed_pred_icm.mean
 
         # Make sure predictions from LCM with one base kernel and ICM are the same.
-        self.assertLess((mean - mean_icm).pow(2).mean(), 1e-2)
+        self.assertLess((mean - mean_icm).pow(2).mean, 1e-2)
 
 
 if __name__ == "__main__":
