@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 from .settings import _feature_flag
 
@@ -51,4 +48,4 @@ class fast_pred_samples(_feature_flag):
     pass
 
 
-__all__ = ['diagonal_correction', 'fast_pred_var', 'fast_pred_samples']
+__all__ = ["diagonal_correction", "fast_pred_var", "fast_pred_samples"]

@@ -15,7 +15,7 @@ from gpytorch.kernels import RBFKernel, InducingPointKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function,
@@ -46,7 +46,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return GaussianRandomVariable(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestSGPRRegression(unittest.TestCase):
@@ -91,7 +91,7 @@ class TestSGPRRegression(unittest.TestCase):
         gp_model.eval()
         likelihood.eval()
 
-        test_preds = likelihood(gp_model(test_x)).mean()
+        test_preds = likelihood(gp_model(test_x)).mean
         mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
         self.assertLess(mean_abs_error.squeeze().item(), 0.05)
@@ -127,12 +127,12 @@ class TestSGPRRegression(unittest.TestCase):
 
         with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.max_cg_iterations(50):
             with gpytorch.fast_pred_var(True):
-                fast_var = gp_model(test_x).var()
-                fast_var_cache = gp_model(test_x).var()
+                fast_var = gp_model(test_x).variance
+                fast_var_cache = gp_model(test_x).variance
                 self.assertLess(torch.max((fast_var_cache - fast_var).abs()), 1e-3)
 
             with gpytorch.fast_pred_var(False):
-                slow_var = gp_model(test_x).var()
+                slow_var = gp_model(test_x).variance
 
         self.assertLess(torch.max((fast_var_cache - slow_var).abs()), 1e-3)
 
@@ -167,7 +167,7 @@ class TestSGPRRegression(unittest.TestCase):
             # Test the model
             gp_model.eval()
             likelihood.eval()
-            test_preds = likelihood(gp_model(test_x)).mean()
+            test_preds = likelihood(gp_model(test_x)).mean
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
             self.assertLess(mean_abs_error.squeeze().item(), 0.02)

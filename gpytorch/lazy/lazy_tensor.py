@@ -427,7 +427,7 @@ class LazyTensor(object):
         Returns:
             :obj:`torch.tensor`: The predictive posterior mean of the test points
         """
-        from ..random_variables import GaussianRandomVariable
+        from ..distributions import MultivariateNormal
 
         if precomputed_cache is None:
             train_mean = full_mean.narrow(-1, 0, n_train)
@@ -437,8 +437,8 @@ class LazyTensor(object):
                 train_train_covar = self[:n_train, :n_train]
 
             train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
-            grv = GaussianRandomVariable(train_mean, train_train_covar)
-            train_mean, train_train_covar = likelihood(grv).representation()
+            mvn = likelihood(MultivariateNormal(train_mean, train_train_covar))
+            train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
 
             train_labels_offset = train_labels - train_mean
             if self.ndimension() == 3:
@@ -501,7 +501,7 @@ class LazyTensor(object):
             :obj:`gpytorch.lazy.LazyTensor`: A LazyTensor representing the predictive posterior covariance of the
                                                test points
         """
-        from ..random_variables import GaussianRandomVariable
+        from ..distributions import MultivariateNormal
 
         if self.ndimension() == 3:
             train_train_covar = self[:, :n_train, :n_train]
@@ -512,7 +512,7 @@ class LazyTensor(object):
             test_train_covar = self[n_train:, :n_train]
             test_test_covar = self[n_train:, n_train:]
 
-        train_train_covar = likelihood(GaussianRandomVariable(torch.zeros(1), train_train_covar)).covar()
+        train_train_covar = likelihood(MultivariateNormal(torch.zeros(1), train_train_covar)).lazy_covariance_matrix
         if not beta_features.fast_pred_var.on():
             from .matmul_lazy_tensor import MatmulLazyTensor
 

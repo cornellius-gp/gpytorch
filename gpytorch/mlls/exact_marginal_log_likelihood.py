@@ -6,9 +6,8 @@ from __future__ import unicode_literals
 import math
 import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
-from ..lazy import LazyTensor, NonLazyTensor
 from ..likelihoods import GaussianLikelihood
-from ..random_variables import GaussianRandomVariable, MultitaskGaussianRandomVariable
+from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..variational import MVNVariationalStrategy
 
 
@@ -26,12 +25,11 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
 
     def forward(self, output, target):
-        if not isinstance(output, GaussianRandomVariable) and not isinstance(output, MultitaskGaussianRandomVariable):
+        if not isinstance(output, MultivariateNormal):
             raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
-        if not isinstance(output.covar(), LazyTensor):
-            output = output.__class__(output.mean(), NonLazyTensor(output.covar()))
 
-        mean, covar = self.likelihood(output).representation()
+        output = self.likelihood(output)
+        mean, covar = output.mean, output.lazy_covariance_matrix
         n_data = target.size(-1)
 
         if target.size() != mean.size():
@@ -39,7 +37,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
                 "Expected target size to equal mean size, but got {} and {}".format(target.size(), mean.size())
             )
 
-        if isinstance(output, MultitaskGaussianRandomVariable):
+        if isinstance(output, MultitaskMultivariateNormal):
             if target.ndimension() == 2:
                 mean = mean.view(-1)
                 target = target.view(-1)

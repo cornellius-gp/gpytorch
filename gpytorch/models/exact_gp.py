@@ -7,7 +7,7 @@ import warnings
 import torch
 from ..module import Module
 from ..functions import exact_predictive_mean, exact_predictive_covar
-from ..random_variables import GaussianRandomVariable, MultitaskGaussianRandomVariable
+from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import GaussianLikelihood
 from .. import settings
 
@@ -97,12 +97,12 @@ class ExactGP(Module):
                 )
             full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
             if settings.debug().on():
-                if not isinstance(full_output, GaussianRandomVariable):
-                    raise RuntimeError("ExactGP.forward must return a GaussianRandomVariable")
-            full_mean, full_covar = full_output.representation()
+                if not isinstance(full_output, MultivariateNormal):
+                    raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
+            full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
             n_tasks = 1
-            if isinstance(full_output, MultitaskGaussianRandomVariable):
+            if isinstance(full_output, MultitaskMultivariateNormal):
                 n_tasks = full_output.n_tasks
 
             n_train = 0

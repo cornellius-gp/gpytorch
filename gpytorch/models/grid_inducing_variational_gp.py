@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from ..random_variables import GaussianRandomVariable
+from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor
 from ..variational import MVNVariationalStrategy
 from ..kernels.kernel import Kernel
@@ -44,7 +44,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         return interp_indices, interp_values
 
     def _initalize_variational_parameters(self, prior_output):
-        mean_init = prior_output.mean().detach()
+        mean_init = prior_output.mean.detach()
         mean_init += torch.randn_like(mean_init).mul_(1e-1)
         chol_covar_init = torch.eye(len(mean_init), dtype=mean_init.dtype, device=mean_init.device)
         chol_covar_init += torch.randn_like(chol_covar_init).mul_(1e-1)
@@ -80,12 +80,12 @@ class GridInducingVariationalGP(AbstractVariationalGP):
 
         # Compute test mean
         # Left multiply samples by interpolation matrix
-        test_mean = left_interp(interp_indices, interp_values, variational_output.mean().unsqueeze(-1))
+        test_mean = left_interp(interp_indices, interp_values, variational_output.mean.unsqueeze(-1))
         test_mean = test_mean.squeeze(-1)
 
         # Compute test covar
         test_covar = InterpolatedLazyTensor(
-            variational_output.covar(), interp_indices, interp_values, interp_indices, interp_values
+            variational_output.lazy_covariance_matrix, interp_indices, interp_values, interp_indices, interp_values
         )
 
         # Diagonal correction
@@ -93,12 +93,12 @@ class GridInducingVariationalGP(AbstractVariationalGP):
             from ..lazy import AddedDiagLazyTensor
 
             prior_covar = InterpolatedLazyTensor(
-                prior_output.covar(), interp_indices, interp_values, interp_indices, interp_values
+                prior_output.lazy_covariance_matrix, interp_indices, interp_values, interp_indices, interp_values
             )
             diagonal_correction = DiagLazyTensor((self.covar_diag(inputs) - prior_covar.diag()) * 0)
             test_covar = AddedDiagLazyTensor(test_covar, diagonal_correction)
 
-        output = GaussianRandomVariable(test_mean, test_covar)
+        output = MultivariateNormal(test_mean, test_covar)
         return output
 
     def __getattr__(self, name):
