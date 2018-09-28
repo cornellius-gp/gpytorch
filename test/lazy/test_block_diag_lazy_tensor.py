@@ -121,6 +121,42 @@ class TestBlockDiagLazyTensor(unittest.TestCase):
         actual = actual_block_diag[1:, :5, 2]
         self.assertTrue(approx_equal(actual, res))
 
+    def test_get_item_tensor_index(self):
+        # Tests the default LV.__getitem__ behavior
+        block_tensor = self.blocks.clone().requires_grad_(True)
+        lazy_tensor = BlockDiagLazyTensor(NonLazyTensor(block_tensor))
+        evaluated = lazy_tensor.evaluate()
+
+        index = (torch.tensor([0, 0, 1, 2]), torch.tensor([0, 1, 0, 2]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+
+    def test_get_item_tensor_index_on_batch(self):
+        # Tests the default LV.__getitem__ behavior
+        block_tensor = self.blocks.clone().requires_grad_(True)
+        lazy_tensor = BlockDiagLazyTensor(NonLazyTensor(block_tensor), num_blocks=4)
+        evaluated = lazy_tensor.evaluate()
+
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1]), slice(None, None, None), torch.tensor([0, 1, 2]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 1]), slice(None, None, None), slice(None, None, None))
+        self.assertTrue(approx_equal(lazy_tensor[index].evaluate(), evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]), torch.tensor([0, 0, 1, 1]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 0]), slice(None, None, None), torch.tensor([0, 0, 1, 1]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+
     def test_sample(self):
         block_tensor = self.blocks.clone().requires_grad_(True)
         res = BlockDiagLazyTensor(NonLazyTensor(block_tensor))

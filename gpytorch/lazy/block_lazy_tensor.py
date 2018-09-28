@@ -12,8 +12,7 @@ class BlockLazyTensor(LazyTensor):
     An abstract LazyTensor class for block tensors.
     Super classes will determine how the different blocks are layed out
     (e.g. block diagonal, sum over blocks, etc.)
-
-    BlockLazyTensors represent the groups of blocks as a batched Tensor.
+BlockLazyTensors represent the groups of blocks as a batched Tensor.
     For example, a `k x n x n` tensor represents `k` `n x n` blocks.
 
     For a batched block tensor, the batch dimension is used to represent
@@ -63,9 +62,10 @@ class BlockLazyTensor(LazyTensor):
         # Cases for when there's an inner batch
         else:
             batch_index = index if isinstance(index, int) else index[0]
+            first_tensor_index_dim = None
 
             # Keeping all batch dimensions - recursion base case
-            if batch_index == slice(None, None, None):
+            if isinstance(batch_index, slice) and batch_index == slice(None, None, None):
                 res = super(BlockLazyTensor, self).__getitem__(index)
                 return res
 
@@ -81,6 +81,14 @@ class BlockLazyTensor(LazyTensor):
                 batch_index = slice(start * self.num_blocks, stop * self.num_blocks, step)
                 num_blocks = self.num_blocks
 
+            # Keep sum_batch_index, because we still have an inner batch
+            # Also keep track that there has been tensor indexing
+            elif torch.is_tensor(batch_index):
+                block_index = torch.arange(0, self.num_blocks, dtype=torch.long, device=self.device)
+                batch_index = (batch_index.unsqueeze(1).mul(self.num_blocks) + block_index.unsqueeze(0)).view(-1)
+                num_blocks = self.num_blocks
+                first_tensor_index_dim = 0
+
             else:
                 raise RuntimeError("Unknown batch index type")
 
@@ -94,9 +102,61 @@ class BlockLazyTensor(LazyTensor):
 
             # Else - recurse
             else:
-                if new_var.num_blocks is None:
-                    index = index[1:]
-                else:
-                    index = list(index)
-                    index[0] = slice(None, None, None)
-                return new_var.__getitem__(tuple(index))
+                left_index = index[1]
+                right_index = index[2] if len(index) >= 3 else slice(None, None, None)
+
+                # Normal case if we're indexing the LT with ints or slices
+                # Also squeeze dimensions if we're indexing with tensors
+                squeeze_left = False
+                squeeze_right = False
+                if isinstance(left_index, int):
+                    left_index = slice(left_index, left_index + 1, None)
+                    squeeze_left = True
+                elif torch.is_tensor(left_index):
+                    squeeze_left = True
+                if isinstance(right_index, int):
+                    right_index = slice(right_index, right_index + 1, None)
+                    squeeze_right = True
+                elif torch.is_tensor(right_index):
+                    squeeze_right = True
+
+                if torch.is_tensor(left_index) and torch.is_tensor(right_index):
+                    if left_index.numel() != right_index.numel():
+                        raise RuntimeError(
+                            "Expected the tensor indices to be the same size: got {} and {}".format(
+                                left_index.numel(), right_index.numel()
+                            )
+                        )
+
+                    if new_var.ndimension() == 2:
+                        return new_var._get_indices(left_index, right_index)
+
+                    else:
+                        batch_index = torch.arange(0, new_var.size(0), dtype=torch.long, device=self.device)
+                        if first_tensor_index_dim is not None:
+                            if batch_index.numel() != left_index.numel():
+                                raise RuntimeError(
+                                    "Expected the tensor indices to be the same size: got {}, {} and {}".format(
+                                        batch_index.numel(), left_index.numel(), right_index.numel()
+                                    )
+                                )
+                            return new_var._batch_get_indices(batch_index, left_index, right_index)
+                        else:
+                            batch_size = batch_index.numel()
+                            row_col_size = left_index.numel()
+                            batch_index = batch_index.unsqueeze(1).repeat(1, row_col_size).view(-1)
+                            left_index = left_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
+                            right_index = right_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
+                            res = new_var._batch_get_indices(batch_index, left_index, right_index)
+                            return res.view(batch_size, row_col_size)
+
+                # Normal case: we have to do some processing on eithe rthe rows or columns
+                res = new_var._getitem_nonbatch(left_index, right_index, first_tensor_index_dim)
+                if (squeeze_left or squeeze_right) and isinstance(res, LazyTensor):
+                    res = res.evaluate()
+                if squeeze_left:
+                    res = res.squeeze(-2)
+                if squeeze_right:
+                    res = res.squeeze(-1)
+
+                return res

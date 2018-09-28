@@ -96,25 +96,26 @@ class LazyTensor(object):
         """
         return self.diag()
 
-    def _getitem_nonbatch(self, row_index, col_index):
+    def _getitem_nonbatch(self, row_index, col_index, first_tensor_index_dim=None):
         """
-        Given an index over rows and columns,
-        Returns a LazyTensor with those rows and columns selected
-
+        Given an index over rows and columns, gets those items from the LazyTensor.
         Implementing this is not necessary, but it improves performance
 
         Args:
             row_index (slice or LongTensor): index over rows
             col_index (slice or LongTensor): index over columns
+            first_tensor_index_dim (int or None): first batch dim to have a tensor index (default: None)
+
+        Returns:
+            LazyTensor
         """
         from .interpolated_lazy_tensor import InterpolatedLazyTensor
 
         ndimension = self.ndimension()
-
         batch_sizes = list(self.size()[:-2])
+
         left_row_iter = torch.arange(0, self.size()[-2], dtype=torch.long, device=self.device)
         right_row_iter = torch.arange(0, self.size()[-1], dtype=torch.long, device=self.device)
-
         left_interp_indices = left_row_iter[row_index].unsqueeze(-1)
         right_interp_indices = right_row_iter[col_index].unsqueeze(-1)
 
@@ -124,9 +125,19 @@ class LazyTensor(object):
             left_interp_indices.unsqueeze_(0)
             right_interp_indices.unsqueeze_(0)
 
-        left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
+        if first_tensor_index_dim is not None and torch.is_tensor(row_index):
+            view_size = [1] * ndimension
+            view_size[first_tensor_index_dim] = left_interp_indices.numel()
+            left_interp_indices = left_interp_indices.view(*view_size).expand(*(batch_sizes + [1, 1]))
+        else:
+            left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
         left_interp_values = torch.ones(left_interp_indices.size(), dtype=self.dtype, device=self.device)
-        right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
+        if first_tensor_index_dim is not None and torch.is_tensor(col_index):
+            view_size = [1] * ndimension
+            view_size[first_tensor_index_dim] = right_interp_indices.numel()
+            right_interp_indices = right_interp_indices.view(*view_size).expand(*(batch_sizes + [1, 1]))
+        else:
+            right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
         right_interp_values = torch.ones(right_interp_indices.size(), dtype=self.dtype, device=self.device)
 
         res = InterpolatedLazyTensor(
@@ -1060,21 +1071,33 @@ class LazyTensor(object):
         index += [slice(None, None, None)] * (ndimension - len(index))
         components = list(self._args)
 
+        # Normal case if we're indexing the LT with ints or slices
+        # Also squeeze dimensions if we're indexing with tensors
         squeeze_left = False
         squeeze_right = False
         if isinstance(index[-2], int):
             index[-2] = slice(index[-2], index[-2] + 1, None)
             squeeze_left = True
+        elif torch.is_tensor(index[-2]):
+            squeeze_left = True
         if isinstance(index[-1], int):
             index[-1] = slice(index[-1], index[-1] + 1, None)
+            squeeze_right = True
+        elif torch.is_tensor(index[-1]):
             squeeze_right = True
 
         # Handle batch dimensions
         isbatch = ndimension >= 3
+        first_tensor_index_dim = None
         if isbatch:
             batch_index = tuple(index[:-2])
             for i, item in enumerate(components):
                 components[i] = item[batch_index]
+
+            for i, idx in enumerate(batch_index):
+                if torch.is_tensor(idx):
+                    first_tensor_index_dim = i
+                    break
 
         new_lazy_tensor = self.__class__(*components, **self._kwargs)
 
@@ -1082,6 +1105,7 @@ class LazyTensor(object):
         left_index = index[-2]
         right_index = index[-1]
 
+        # Special case: if both row and col are not indexed, then we are done
         if (
             not torch.is_tensor(left_index)
             and left_index == slice(None, None, None)
@@ -1090,13 +1114,46 @@ class LazyTensor(object):
         ):
             return new_lazy_tensor
 
-        res = new_lazy_tensor._getitem_nonbatch(left_index, right_index)
-        if squeeze_left or squeeze_right:
+        # Special case: if both row and col are tensor indexed, then we use _get_indices
+        # or _batch_get_indices
+        if torch.is_tensor(left_index) and torch.is_tensor(right_index):
+            if left_index.numel() != right_index.numel():
+                raise RuntimeError(
+                    "Expected the tensor indices to be the same size: got {} and {}".format(
+                        left_index.numel(), right_index.numel()
+                    )
+                )
+
+            if new_lazy_tensor.ndimension() == 2:
+                return new_lazy_tensor._get_indices(left_index, right_index)
+
+            else:
+                batch_index = torch.arange(0, new_lazy_tensor.size(0), dtype=torch.long, device=self.device)
+                if first_tensor_index_dim is not None:
+                    if batch_index.numel() != left_index.numel():
+                        raise RuntimeError(
+                            "Expected the tensor indices to be the same size: got {}, {} and {}".format(
+                                batch_index.numel(), left_index.numel(), right_index.numel()
+                            )
+                        )
+                    return new_lazy_tensor._batch_get_indices(batch_index, left_index, right_index)
+                else:
+                    batch_size = batch_index.numel()
+                    row_col_size = left_index.numel()
+                    batch_index = batch_index.unsqueeze(1).repeat(1, row_col_size).view(-1)
+                    left_index = left_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
+                    right_index = right_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
+                    res = new_lazy_tensor._batch_get_indices(batch_index, left_index, right_index)
+                    return res.view(batch_size, row_col_size)
+
+        # Normal case: we have to do some processing on eithe rthe rows or columns
+        res = new_lazy_tensor._getitem_nonbatch(left_index, right_index, first_tensor_index_dim)
+        if (squeeze_left or squeeze_right) and isinstance(res, LazyTensor):
             res = res.evaluate()
-            if squeeze_left:
-                res = res.squeeze(-2)
-            if squeeze_right:
-                res = res.squeeze(-1)
+        if squeeze_left:
+            res = res.squeeze(-2)
+        if squeeze_right:
+            res = res.squeeze(-1)
 
         return res
 
