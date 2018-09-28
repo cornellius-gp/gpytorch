@@ -78,7 +78,8 @@ class ExactGP(Module):
             if settings.debug.on():
                 if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
                     raise RuntimeError("You must train on the training inputs!")
-            return super(ExactGP, self).__call__(*inputs, **kwargs)
+            res = super(ExactGP, self).__call__(*inputs, **kwargs)
+            return res
 
         # Posterior mode
         else:
@@ -108,17 +109,25 @@ class ExactGP(Module):
             n_train = 0
             train_targets = None
             if self.train_targets is not None:
-                if self.train_targets.ndimension() == 2 and n_tasks > 1:
-                    # Multitask
-                    full_mean = full_mean.view(-1)
-                    n_train = self.train_targets.size(0)
-                    train_targets = self.train_targets.view(-1)
+                if n_tasks > 1:
+                    if self.train_targets.ndimension() == 2:
+                        # Multitask
+                        full_mean = full_mean.view(-1)
+                        n_train = self.train_targets.size(0)
+                        train_targets = self.train_targets.view(-1)
+                    else:
+                        # batch mode multitask
+                        batch_size = full_mean.size(0)
+                        full_mean = full_mean.view(batch_size, -1)
+                        n_train = self.train_targets.size(1)
+                        train_targets = self.train_targets.view(batch_size, -1)
                 elif self.train_targets.ndimension() > 1:
-                    # batch mode
+                    # batch mode (standard)
                     full_mean = full_mean.view(full_mean.size(0), -1)
                     n_train = self.train_targets.size(1)
                     train_targets = self.train_targets.view(self.train_targets.size(0), -1)
                 else:
+                    # non-batch mode (standard)
                     n_train = self.train_targets.size(-1)
                     train_targets = self.train_targets
 
@@ -137,5 +146,11 @@ class ExactGP(Module):
             self.mean_cache = mean_cache
             self.covar_cache = covar_cache
             if n_tasks > 1:
-                predictive_mean = predictive_mean.view(-1, n_tasks).contiguous()
+                if self.train_targets.ndimension() == 3:
+                    # Batch multitask
+                    predictive_mean = predictive_mean.view(self.train_targets.size(0), -1, n_tasks).contiguous()
+                else:
+                    # Standard multitask
+                    predictive_mean = predictive_mean.view(-1, n_tasks).contiguous()
+
             return full_output.__class__(predictive_mean, predictive_covar)
