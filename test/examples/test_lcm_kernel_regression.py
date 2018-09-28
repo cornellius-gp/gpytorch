@@ -100,7 +100,7 @@ class TestLCMKernelRegression(unittest.TestCase):
             mean_icm = observed_pred_icm.mean
 
         # Make sure predictions from LCM with one base kernel and ICM are the same.
-        self.assertLess((mean - mean_icm).pow(2).mean, 1e-2)
+        self.assertLess((mean - mean_icm).pow(2).mean(), 1e-2)
 
 
 if __name__ == "__main__":
