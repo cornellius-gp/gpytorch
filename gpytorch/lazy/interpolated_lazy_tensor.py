@@ -619,63 +619,48 @@ class InterpolatedLazyTensor(LazyTensor):
             )
             return res.permute(1, 0).contiguous()
 
-    def __getitem__(self, index):
-        index = list(index) if isinstance(index, tuple) else [index]
+    def _getitem_nonbatch(self, row_index, col_index, first_tensor_index_dim=None):
+        """
+        Given an index over rows and columns, gets those items from the LazyTensor.
+        Implementing this is not necessary, but it improves performance
+
+        Args:
+            row_index (slice or LongTensor): index over rows
+            col_index (slice or LongTensor): index over columns
+            first_tensor_index_dim (int or None): first batch dim to have a tensor index (default: None)
+
+        Returns:
+            LazyTensor
+        """
         ndimension = self.ndimension()
-        index += [slice(None, None, None)] * (ndimension - len(index))
 
-        # Check that left interp index and right interp indices are not scalar values
-        squeeze_left = False
-        squeeze_right = False
-        if isinstance(index[-2], int):
-            index[-2] = slice(index[-2], index[-2] + 1, None)
-            squeeze_left = True
-        if isinstance(index[-1], int):
-            index[-1] = slice(index[-1], index[-1] + 1, None)
-            squeeze_right = True
-
-        base_lazy_tensor = self.base_lazy_tensor
         left_interp_indices = self.left_interp_indices
         left_interp_values = self.left_interp_values
         right_interp_indices = self.right_interp_indices
         right_interp_values = self.right_interp_values
 
-        # Handle batch dimensions
-        isbatch = ndimension >= 3
-        if isbatch:
-            batch_index = tuple(index[:-2])
-            base_lazy_tensor = self.base_lazy_tensor[batch_index]
-            left_interp_indices = self.left_interp_indices[batch_index]
-            left_interp_values = self.left_interp_values[batch_index]
-            right_interp_indices = self.right_interp_indices[batch_index]
-            right_interp_values = self.right_interp_values[batch_index]
+        batch_iter = [slice(None, None, None)] * (ndimension - 2)
+        if first_tensor_index_dim is not None:
+            batch_iter[first_tensor_index_dim] = torch.arange(
+                0, self.size(first_tensor_index_dim), dtype=torch.long, device=self.device
+            )
 
-        ndimension = base_lazy_tensor.ndimension()
-
-        # Handle left interp
-        left_index = tuple([slice(None, None, None)] * (ndimension - 2) + [index[-2]])
+        left_index = (*batch_iter, row_index)
         left_interp_indices = left_interp_indices[left_index]
         left_interp_values = left_interp_values[left_index]
+        if first_tensor_index_dim is not None and torch.is_tensor(row_index):
+            left_interp_indices = left_interp_indices.unsqueeze(-2)
+            left_interp_values = left_interp_values.unsqueeze(-2)
 
-        # Handle right interp
-        right_index = tuple([slice(None, None, None)] * (ndimension - 2) + [index[-1]])
+        right_index = (*batch_iter, col_index)
         right_interp_indices = right_interp_indices[right_index]
         right_interp_values = right_interp_values[right_index]
+        if first_tensor_index_dim is not None and torch.is_tensor(col_index):
+            right_interp_indices = right_interp_indices.unsqueeze(-2)
+            right_interp_values = right_interp_values.unsqueeze(-2)
 
         res = self.__class__(
-            base_lazy_tensor,
-            left_interp_indices,
-            left_interp_values,
-            right_interp_indices,
-            right_interp_values,
-            **self._kwargs
+            self.base_lazy_tensor, left_interp_indices, left_interp_values,
+            right_interp_indices, right_interp_values, **self._kwargs
         )
-
-        if squeeze_left or squeeze_right:
-            res = res.evaluate()
-            if squeeze_left:
-                res = res.squeeze(-2)
-            if squeeze_right:
-                res = res.squeeze(-1)
-
         return res

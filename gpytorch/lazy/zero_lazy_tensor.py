@@ -12,9 +12,20 @@ class ZeroLazyTensor(LazyTensor):
     Special LazyTensor representing zero.
     """
 
-    def __init__(self, *sizes):
+    def __init__(self, *sizes, dtype=None, device=None):
         super(ZeroLazyTensor, self).__init__(*sizes)
         self.sizes = list(sizes)
+
+        self._dtype = dtype or torch.get_default_dtype()
+        self._device = device or torch.device("cpu")
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def device(self):
+        return self._device
 
     def _matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
@@ -139,13 +150,29 @@ class ZeroLazyTensor(LazyTensor):
         index = list(index) if isinstance(index, tuple) else [index]
         ndimension = self.ndimension()
         index += [slice(None, None, None)] * (ndimension - len(index))
+
+        has_added_tensor_index = False
+        evaluate = False
         new_sizes = []
         for ix, sub_index in enumerate(index):
             if isinstance(sub_index, int):
+                if ix >= ndimension - 2:
+                    evaluate = True
                 continue
-            elif isinstance(sub_index, slice):
-                new_sizes += [len(torch.arange(self.size(ix))[sub_index])]
-            else:
-                new_sizes += [len(sub_index)]
 
-        return ZeroLazyTensor(*new_sizes)
+            elif torch.is_tensor(sub_index):
+                if ix >= ndimension - 2:
+                    evaluate = True
+                if not has_added_tensor_index:
+                    new_sizes.append(sub_index.numel())
+                    has_added_tensor_index = True
+
+            elif isinstance(sub_index, slice):
+                new_sizes.append(len(torch.arange(self.size(ix))[sub_index]))
+            else:
+                new_sizes.append(len(sub_index))
+
+        if evaluate:
+            return torch.zeros(*new_sizes, dtype=self.dtype, device=self.device)
+        else:
+            return ZeroLazyTensor(*new_sizes)

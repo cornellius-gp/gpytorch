@@ -1143,7 +1143,7 @@ class LazyTensor(object):
                     batch_index = batch_index.unsqueeze(1).repeat(1, row_col_size).view(-1)
                     left_index = left_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
                     right_index = right_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-                    res = self._batch_get_indices(batch_index, left_index, right_index)
+                    res = new_lazy_tensor._batch_get_indices(batch_index, left_index, right_index)
                     return res.view(batch_size, row_col_size)
 
         # Normal case: we have to do some processing on eithe rthe rows or columns

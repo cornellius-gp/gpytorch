@@ -299,6 +299,63 @@ class TestInterpolatedLazyTensor(unittest.TestCase):
         self.assertTrue(approx_equal(interp_lazy_tensor[1, 1, :2], actual[1, 1, :2]))
         self.assertTrue(approx_equal(interp_lazy_tensor[1, :1, 2], actual[1, :1, 2]))
 
+    def test_get_item_tensor_index(self):
+        # Tests the default LV.__getitem__ behavior
+        left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]])
+        left_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float)
+        right_interp_indices = torch.LongTensor([[0, 1], [1, 2], [2, 3]])
+        right_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float)
+
+        base_lazy_tensor_mat = torch.randn(6, 6)
+        base_lazy_tensor_mat = base_lazy_tensor_mat.transpose(-1, -2).matmul(base_lazy_tensor_mat)
+
+        base_lazy_tensor = NonLazyTensor(base_lazy_tensor_mat)
+        interp_lazy_tensor = InterpolatedLazyTensor(
+            base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
+        )
+        evaluated = interp_lazy_tensor.evaluate()
+
+        index = (torch.tensor([0, 0, 1, 2]), torch.tensor([0, 1, 0, 2]))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+
+    def test_get_item_tensor_index_on_batch(self):
+        # Tests the default LV.__getitem__ behavior
+        left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]]).repeat(5, 1, 1)
+        left_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float).repeat(5, 1, 1)
+        right_interp_indices = torch.LongTensor([[0, 1], [1, 2], [2, 3]]).repeat(5, 1, 1)
+        right_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float).repeat(5, 1, 1)
+
+        base_lazy_tensor_mat = torch.randn(5, 6, 6)
+        base_lazy_tensor_mat = base_lazy_tensor_mat.transpose(1, 2).matmul(base_lazy_tensor_mat)
+        base_lazy_tensor_mat.requires_grad = True
+
+        base_lazy_tensor = NonLazyTensor(base_lazy_tensor_mat)
+        interp_lazy_tensor = InterpolatedLazyTensor(
+            base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
+        )
+        evaluated = interp_lazy_tensor.evaluate()
+
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1]))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1]), slice(None, None, None), torch.tensor([0, 1, 2]))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 1]), slice(None, None, None), slice(None, None, None))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index].evaluate(), evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]), torch.tensor([0, 0, 1, 1]))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 0]), slice(None, None, None), torch.tensor([0, 0, 1, 1]))
+        self.assertTrue(approx_equal(interp_lazy_tensor[index], evaluated[index]))
+
     def test_diag(self):
         left_interp_indices = torch.LongTensor([[2, 3], [3, 4], [4, 5]])
         left_interp_values = torch.tensor([[1, 1], [1, 1], [1, 1]], dtype=torch.float)
