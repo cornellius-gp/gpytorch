@@ -130,8 +130,7 @@ class LKJCovariancePrior(LKJPrior):
         else:
             raise ValueError("Variance(s) cannot be negative")
         sd_diag_mat = _batch_form_diag(1 / marginal_sd)
-        mm = torch.bmm if parameter.dim() > 2 else torch.mm
-        correlations = mm(torch.mm(sd_diag_mat, parameter), sd_diag_mat)
+        correlations = torch.matmul(torch.matmul(sd_diag_mat, parameter), sd_diag_mat)
         log_prob = self.correlation_prior.log_prob(correlations)
         # Add log likelihoods of each of the n marginal standard deviations
         for i in range(self.correlation_prior.n):

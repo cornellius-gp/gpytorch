@@ -18,15 +18,17 @@ from gpytorch.distributions import MultivariateNormal
 
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
 # in parallel.
-train_x1 = torch.linspace(0, 1, 11).unsqueeze(-1)
+train_x1 = torch.linspace(0, 2, 11).unsqueeze(-1)
 train_y1 = torch.sin(train_x1 * (2 * math.pi)).squeeze()
-test_x1 = torch.linspace(0, 1, 51).unsqueeze(-1)
+train_y1.add_(torch.randn_like(train_y1).mul_(0.01))
+test_x1 = torch.linspace(0, 2, 51).unsqueeze(-1)
 test_y1 = torch.sin(test_x1 * (2 * math.pi)).squeeze()
 
 train_x2 = torch.linspace(0, 1, 11).unsqueeze(-1)
-train_y2 = torch.cos(train_x2 * (2 * math.pi)).squeeze()
+train_y2 = torch.sin(train_x2 * (2 * math.pi)).squeeze()
+train_y2.add_(torch.randn_like(train_y2).mul_(0.01))
 test_x2 = torch.linspace(0, 1, 51).unsqueeze(-1)
-test_y2 = torch.cos(test_x2 * (2 * math.pi)).squeeze()
+test_y2 = torch.sin(test_x2 * (2 * math.pi)).squeeze()
 
 # Combined sets of data
 train_x12 = torch.cat((train_x1.unsqueeze(0), train_x2.unsqueeze(0)), dim=0).contiguous()
@@ -102,17 +104,14 @@ class TestBatchGPRegression(unittest.TestCase):
         gp_model.eval()
         likelihood.eval()
 
-        # Update gp model to use both sine and cosine training data as train data
-        gp_model.set_train_data(train_x12, train_y12, strict=False)
-
         # Make predictions for both sets of test points, and check MAEs.
         batch_predictions = likelihood(gp_model(test_x12))
         preds1 = batch_predictions.mean[0]
         preds2 = batch_predictions.mean[1]
         mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
-        self.assertLess(mean_abs_error1.squeeze().item(), 0.05)
-        self.assertLess(mean_abs_error2.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
+        self.assertLess(mean_abs_error2.squeeze().item(), 0.1)
 
     def test_train_on_batch_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -151,8 +150,8 @@ class TestBatchGPRegression(unittest.TestCase):
         preds2 = batch_predictions.mean[1]
         mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
-        self.assertLess(mean_abs_error1.squeeze().item(), 0.05)
-        self.assertLess(mean_abs_error2.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
+        self.assertLess(mean_abs_error2.squeeze().item(), 0.1)
 
     def test_train_on_batch_test_on_batch_shared_hypers_over_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -191,8 +190,8 @@ class TestBatchGPRegression(unittest.TestCase):
         preds2 = batch_predictions.mean[1]
         mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
-        self.assertLess(mean_abs_error1.squeeze().item(), 0.05)
-        self.assertLess(mean_abs_error2.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
+        self.assertLess(mean_abs_error2.squeeze().item(), 0.1)
 
 
 if __name__ == "__main__":
