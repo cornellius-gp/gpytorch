@@ -84,8 +84,8 @@ class PeriodicKernel(Kernel):
             active_dims=active_dims,
             batch_size=batch_size,
             log_lengthscale_prior=log_lengthscale_prior,
+            eps=eps,
         )
-        self.eps = eps
         self.register_parameter(
             name="log_period_length",
             parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)),

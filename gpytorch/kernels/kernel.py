@@ -95,11 +95,12 @@ class Kernel(Module):
         super(Kernel, self).__init__()
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
-        self.active_dims = active_dims
+        self.register_buffer("active_dims", active_dims)
         self.ard_num_dims = ard_num_dims
         self.batch_size = batch_size
         self.__has_lengthscale = has_lengthscale
         if has_lengthscale:
+            self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
                 name="log_lengthscale",
@@ -236,7 +237,6 @@ class AdditiveKernel(Kernel):
         res = ZeroLazyTensor()
         for kern in self.kernels:
             res = res + kern(x1, x2).evaluate_kernel()
-
         return res
 
 
