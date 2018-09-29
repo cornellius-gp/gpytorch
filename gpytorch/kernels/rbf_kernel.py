@@ -77,11 +77,11 @@ class RBFKernel(Kernel):
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
-            log_lengthscale_prior=log_lengthscale_prior,
-            active_dims=active_dims,
             batch_size=batch_size,
+            active_dims=active_dims,
+            log_lengthscale_prior=log_lengthscale_prior,
+            eps=eps,
         )
-        self.eps = eps
 
     def forward_diag(self, x1, x2):
         lengthscales = self.log_lengthscale.exp().mul(math.sqrt(2)).clamp(self.eps, 1e5)
