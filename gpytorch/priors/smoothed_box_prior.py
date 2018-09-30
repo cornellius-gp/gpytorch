@@ -24,7 +24,7 @@ class SmoothedBoxPrior(Prior):
 
     """
 
-    arg_constraints = {"sigma": constraints.positive}
+    arg_constraints = {"sigma": constraints.positive, "a": constraints.real, "b": constraints.real}
     support = constraints.real
     _validate_args = True
 
@@ -37,16 +37,16 @@ class SmoothedBoxPrior(Prior):
             raise ValueError("must have that a < b (element-wise)")
         # TODO: Proper argument validation including broadcasting
         batch_shape, event_shape = _a.shape[:-1], _a.shape[-1:]
+        # need to assign values before registering as buffers to make argument validation work
+        self.a, self.b, self.sigma = _a, _b, _sigma
+        super(SmoothedBoxPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
+        # now need to delete to be able to register buffer
+        del self.a, self.b, self.sigma
         self.register_buffer("a", _a)
         self.register_buffer("b", _b)
         self.register_buffer("sigma", _sigma)
-        self.tails = NormalPrior(
-            torch.zeros_like(_a), _sigma, validate_args=validate_args
-        )
+        self.tails = NormalPrior(torch.zeros_like(_a), _sigma, validate_args=validate_args)
         self._log_transform = log_transform
-        super(SmoothedBoxPrior, self).__init__(
-            batch_shape, event_shape, validate_args=validate_args
-        )
 
     @property
     def _c(self):
@@ -59,9 +59,7 @@ class SmoothedBoxPrior(Prior):
     @property
     def _M(self):
         # normalization factor to make this a probability distribution
-        return torch.log(
-            1 + (self.b - self.a) / (math.sqrt(2 * math.pi) * self.sigma)
-        )
+        return torch.log(1 + (self.b - self.a) / (math.sqrt(2 * math.pi) * self.sigma))
 
     def log_prob(self, parameter):
         return self._log_prob(parameter.exp() if self.log_transform else parameter)

@@ -58,12 +58,7 @@ class LKJPrior(Prior):
             raise ValueError("Input is not a valid correlation matrix")
         # TODO: Replace this loop with batch Cholesky decomposition when available
         # https://github.com/pytorch/pytorch/pull/11796
-        log_diag_sum = torch.stack(
-            [
-                p.potrf().diag().log().sum()
-                for p in parameter.view(-1, *parameter.shape[-2:])
-            ]
-        )
+        log_diag_sum = torch.stack([p.potrf().diag().log().sum() for p in parameter.view(-1, *parameter.shape[-2:])])
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
 
@@ -85,6 +80,8 @@ class LKJCholeskyFactorPrior(LKJPrior):
     def log_prob(self, parameter):
         if self.log_transform:
             raise RuntimeError("log-transform not supported for LKJCholeskyFactorPrior")
+        if any(s != self.n for s in parameter.shape[-2:]):
+            raise ValueError("Cholesky factor is not of size n={}".format(self.n.item()))
         if not _is_valid_correlation_matrix_cholesky_factor(parameter):
             raise ValueError("Input is not a Cholesky factor of a valid correlation matrix")
         log_diag_sum = torch.diagonal(parameter, dim1=-2, dim2=-1).log().sum(-1)
@@ -106,16 +103,16 @@ class LKJCovariancePrior(LKJPrior):
     def __init__(self, n, eta, sd_prior, validate_args=False):
         if not isinstance(sd_prior, Prior):
             raise ValueError("sd_prior must be an instance of Prior")
-        if sd_prior.event_shape != torch.Size([1]):
-            raise ValueError("Currently only sd_prior w/ event_shape=1 is supported")
-        if sd_prior.batch_shape != torch.Size():
-            raise ValueError("sd_prior must have same batch_shape as eta")
+        if not isinstance(n, int):
+            raise ValueError("n must be an integer")
+        if sd_prior.event_shape not in {torch.Size([1]), torch.Size([n])}:
+            raise ValueError("sd_prior must have event_shape 1 or n")
         correlation_prior = LKJPrior(n=n, eta=eta, validate_args=validate_args)
+        if sd_prior.batch_shape != correlation_prior.batch_shape:
+            raise ValueError("sd_prior must have same batch_shape as eta")
         TModule.__init__(self)
         super(LKJPrior, self).__init__(
-            correlation_prior.batch_shape,
-            correlation_prior.event_shape,
-            validate_args=validate_args,
+            correlation_prior.batch_shape, correlation_prior.event_shape, validate_args=False
         )
         self.correlation_prior = correlation_prior
         self.sd_prior = sd_prior
@@ -125,22 +122,19 @@ class LKJCovariancePrior(LKJPrior):
         if self.log_transform:
             raise RuntimeError("log-transform not supported for LKJCovariancePrior")
         marginal_var = torch.diagonal(parameter, dim1=-2, dim2=-1)
-        if torch.all(marginal_var >= 0):
-            marginal_sd = marginal_var.sqrt()
-        else:
+        if not torch.all(marginal_var >= 0):
             raise ValueError("Variance(s) cannot be negative")
+        marginal_sd = marginal_var.sqrt()
         sd_diag_mat = _batch_form_diag(1 / marginal_sd)
         correlations = torch.matmul(torch.matmul(sd_diag_mat, parameter), sd_diag_mat)
-        log_prob = self.correlation_prior.log_prob(correlations)
-        # Add log likelihoods of each of the n marginal standard deviations
-        for i in range(self.correlation_prior.n):
-            log_prob = log_prob + self.sd_prior.log_prob(marginal_sd[i])
-        return log_prob
+        log_prob_corr = self.correlation_prior.log_prob(correlations)
+        log_prob_sd = self.sd_prior.log_prob(marginal_sd)
+        return log_prob_corr + log_prob_sd
 
 
 def _batch_form_diag(tsr):
     """Form diagonal matrices in batch mode."""
-    eye = torch.eye(tsr.shape[-1])
+    eye = torch.eye(tsr.shape[-1], dtype=tsr.dtype, device=tsr.device)
     M = tsr.unsqueeze(-1).expand(tsr.shape + tsr.shape[-1:])
     return eye * M
 
@@ -162,10 +156,7 @@ def _is_valid_correlation_matrix(Sigma, tol=1e-6):
 
     """
     pdef = torch.all(constraints.positive_definite.check(Sigma))
-    return pdef and all(
-        torch.all(torch.abs(S.diag() - 1) < tol)
-        for S in Sigma.view(-1, *Sigma.shape[-2:])
-    )
+    return pdef and all(torch.all(torch.abs(S.diag() - 1) < tol) for S in Sigma.view(-1, *Sigma.shape[-2:]))
 
 
 def _is_valid_correlation_matrix_cholesky_factor(L, tol=1e-6):
