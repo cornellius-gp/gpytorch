@@ -20,7 +20,7 @@ class TestMultivariateNormalPrior(unittest.TestCase):
 
     def test_multivariate_normal_prior_validate_args(self):
         # This should be a ValueError in pytorch, see pytorch Github issue #11997
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(ValueError):
             mean = torch.tensor([0.0, 1.0])
             cov = torch.tensor([[1.0, 2.0], [2.0, 0.5]])
             MultivariateNormalPrior(mean, covariance_matrix=cov, validate_args=True)
