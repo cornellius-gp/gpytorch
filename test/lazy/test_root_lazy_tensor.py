@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 import unittest
 from gpytorch.lazy import RootLazyTensor
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 
 
 class TestRootLazyTensor(unittest.TestCase):

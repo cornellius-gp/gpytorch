@@ -7,7 +7,8 @@ import torch
 from .non_lazy_tensor import NonLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
-from ..utils import pivoted_cholesky, batch_potrf
+from ..utils import pivoted_cholesky
+from ..utils.cholesky import batch_potrf
 from .. import settings
 
 

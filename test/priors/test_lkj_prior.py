@@ -5,7 +5,7 @@ from math import exp
 
 import torch
 from gpytorch.priors import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior, SmoothedBoxPrior
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 
 
 class TestLKJPrior(unittest.TestCase):

@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from torch.nn import ModuleList
-from gpytorch.kernels.kernel import Kernel
-from gpytorch.kernels.multitask_kernel import MultitaskKernel
+from .kernel import Kernel
+from .multitask_kernel import MultitaskKernel
 
 
 class LCMKernel(Kernel):

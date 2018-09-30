@@ -6,7 +6,8 @@ from __future__ import unicode_literals
 import gpytorch
 import torch
 import unittest
-from gpytorch import utils
+
+import test._utils
 from gpytorch.lazy import ToeplitzLazyTensor
 
 
@@ -39,7 +40,7 @@ class TestToeplitzLazyTensor(unittest.TestCase):
         lazy_toeplitz_var = ToeplitzLazyTensor(self.toeplitz_column)
         res = lazy_toeplitz_var.evaluate()
         actual = torch.tensor([[2, 0, 4, 1], [0, 2, 0, 4], [4, 0, 2, 0], [1, 4, 0, 2]], dtype=torch.float)
-        self.assertTrue(utils.approx_equal(res, actual))
+        self.assertTrue(test._utils.approx_equal(res, actual))
 
         lazy_toeplitz_var = ToeplitzLazyTensor(self.batch_toeplitz_column)
         res = lazy_toeplitz_var.evaluate()
@@ -50,57 +51,57 @@ class TestToeplitzLazyTensor(unittest.TestCase):
             ],
             dtype=torch.float,
         )
-        self.assertTrue(utils.approx_equal(res, actual))
+        self.assertTrue(test._utils.approx_equal(res, actual))
 
     def test_get_item_square_on_tensor(self):
         # Tests the default LV.__getitem__ behavior
         toeplitz_var = ToeplitzLazyTensor(torch.tensor([1, 2, 3, 4], dtype=torch.float))
         evaluated = toeplitz_var.evaluate()
-        self.assertTrue(utils.approx_equal(toeplitz_var[2:4, 2:4].evaluate(), evaluated[2:4, 2:4]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[2:4, 2:4].evaluate(), evaluated[2:4, 2:4]))
 
     def test_get_item_tensor_index(self):
         # Tests the default LV.__getitem__ behavior
         toeplitz_var = ToeplitzLazyTensor(torch.tensor([1, 2, 3, 4], dtype=torch.float))
         evaluated = toeplitz_var.evaluate()
         index = (torch.tensor([0, 0, 1, 2]), torch.tensor([0, 1, 0, 2]))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
         index = (torch.tensor([0, 0, 1, 2]), slice(None, None, None))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
         index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
 
     def test_get_item_on_batch(self):
         # Tests the default LV.__getitem__ behavior
         toeplitz_var = ToeplitzLazyTensor(self.batch_toeplitz_column)
         evaluated = toeplitz_var.evaluate()
-        self.assertTrue(utils.approx_equal(toeplitz_var[0, 1:3].evaluate(), evaluated[0, 1:3]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[0, 1:3].evaluate(), evaluated[0, 1:3]))
 
     def test_get_item_scalar_on_batch(self):
         # Tests the default LV.__getitem__ behavior
         toeplitz_var = ToeplitzLazyTensor(torch.tensor([[1, 2, 3, 4]], dtype=torch.float))
         evaluated = toeplitz_var.evaluate()
-        self.assertTrue(utils.approx_equal(toeplitz_var[0].evaluate(), evaluated[0]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[0].evaluate(), evaluated[0]))
 
     def test_get_item_tensor_index_on_batch(self):
         # Tests the default LV.__getitem__ behavior
         toeplitz_var = ToeplitzLazyTensor(torch.tensor([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=torch.float))
         evaluated = toeplitz_var.evaluate()
         index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 3]))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
         index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), slice(None, None, None))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
         index = (torch.tensor([0, 1, 1]), slice(None, None, None), torch.tensor([0, 1, 2]))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
         index = (slice(None, None, None), torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
         index = (torch.tensor([0, 0, 1, 1]), slice(None, None, None), slice(None, None, None))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index].evaluate(), evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index].evaluate(), evaluated[index]))
         index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]), torch.tensor([0, 0, 1, 1]))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
         index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), slice(None, None, None))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
         index = (torch.tensor([0, 0, 1, 0]), slice(None, None, None), torch.tensor([0, 0, 1, 1]))
-        self.assertTrue(utils.approx_equal(toeplitz_var[index], evaluated[index]))
+        self.assertTrue(test._utils.approx_equal(toeplitz_var[index], evaluated[index]))
 
 
 if __name__ == "__main__":

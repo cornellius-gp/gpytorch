@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from . import Kernel
-from gpytorch.lazy import DiagLazyTensor, ZeroLazyTensor
+from ..lazy import DiagLazyTensor, ZeroLazyTensor
 
 
 class WhiteNoiseKernel(Kernel):

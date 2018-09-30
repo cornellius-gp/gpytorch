@@ -6,9 +6,9 @@ from __future__ import unicode_literals
 from abc import abstractmethod
 import torch
 from torch.nn import ModuleList
-from gpytorch.lazy import LazyTensor, LazyEvaluatedKernelTensor, ZeroLazyTensor
-from gpytorch.module import Module
-from gpytorch.utils import prod
+from ..lazy import LazyTensor, LazyEvaluatedKernelTensor, ZeroLazyTensor
+from ..module import Module
+from ..utils import prod
 
 
 class Kernel(Module):

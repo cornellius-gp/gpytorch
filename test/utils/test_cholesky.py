@@ -5,7 +5,8 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from gpytorch.utils import approx_equal, tridiag_batch_potrf, tridiag_batch_potrs
+from test._utils import approx_equal
+from gpytorch.utils.cholesky import tridiag_batch_potrf, tridiag_batch_potrs
 
 
 class TestTriDiag(unittest.TestCase):

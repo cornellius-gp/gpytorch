@@ -7,7 +7,8 @@ import os
 import random
 import torch
 import unittest
-from gpytorch.utils import pivoted_cholesky, approx_equal
+from gpytorch.utils import pivoted_cholesky
+from test._utils import approx_equal
 from gpytorch.kernels import RBFKernel
 
 

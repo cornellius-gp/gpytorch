@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import warnings
 from .grid_interpolation_kernel import GridInterpolationKernel
-from ..utils import Interpolation
+from ..utils.interpolation import Interpolation
 
 
 class AdditiveGridInterpolationKernel(GridInterpolationKernel):

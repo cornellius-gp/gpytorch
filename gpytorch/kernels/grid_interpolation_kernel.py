@@ -7,7 +7,7 @@ import torch
 from .kernel import Kernel
 from .grid_kernel import GridKernel
 from ..lazy import InterpolatedLazyTensor
-from ..utils import Interpolation
+from ..utils.interpolation import Interpolation
 
 
 class GridInterpolationKernel(GridKernel):

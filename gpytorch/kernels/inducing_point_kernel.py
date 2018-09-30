@@ -4,11 +4,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from gpytorch.kernels import Kernel
-from gpytorch.functions import add_jitter
-from gpytorch.lazy import DiagLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor
-from gpytorch.distributions import MultivariateNormal
-from gpytorch.variational import MVNVariationalStrategy
+from .kernel import Kernel
+from ..functions import add_jitter
+from ..lazy import DiagLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor
+from ..distributions import MultivariateNormal
+from ..variational import MVNVariationalStrategy
 
 
 class InducingPointKernel(Kernel):

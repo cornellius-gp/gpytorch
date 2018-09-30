@@ -5,7 +5,7 @@ import unittest
 import torch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.lazy import LazyTensor, NonLazyTensor
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 
 
 class TestMultivariateNormal(unittest.TestCase):

@@ -9,7 +9,7 @@ import torch
 import unittest
 import gpytorch
 from gpytorch.lazy import BlockDiagLazyTensor, NonLazyTensor
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 
 
 class TestBlockDiagLazyTensor(unittest.TestCase):

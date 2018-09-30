@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 import unittest
 import gpytorch
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 from gpytorch.lazy import DiagLazyTensor
 
 
