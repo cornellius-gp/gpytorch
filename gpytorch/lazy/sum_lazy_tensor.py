@@ -91,6 +91,9 @@ class SumLazyTensor(LazyTensor):
         res = res.view(size)
         return res
 
+    def repeat(self, *sizes):
+        return self.__class__(*(lazy_var.repeat(*sizes) for lazy_var in self.lazy_vars))
+
     def sum_batch(self, sum_batch_size=None):
         return self.__class__(*(lazy_var.sum_batch(sum_batch_size) for lazy_var in self.lazy_vars))
 

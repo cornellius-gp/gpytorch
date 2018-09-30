@@ -63,7 +63,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
         model = GPRegressionModel()
         likelihood = GaussianLikelihood()
         mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
-        n_iter = 40
+        n_iter = 20
         # We use SGD here, rather than Adam
         # Emperically, we find that SGD is better for variational regression
         optimizer = torch.optim.SGD([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.1)

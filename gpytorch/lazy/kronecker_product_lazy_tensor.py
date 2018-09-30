@@ -59,8 +59,14 @@ class KroneckerProductLazyTensor(LazyTensor):
             if prev_lazy_var.ndimension() != curr_lazy_var.ndimension():
                 raise RuntimeError(
                     "KroneckerProductLazyTensor expects lazy tensors with the "
-                    "same number of dimensions. Got %s. " % str([lv.ndimension() for lv in lazy_vars])
+                    "same number of dimensions. Got {}.".format([lv.ndimension() for lv in lazy_vars])
                 )
+            if curr_lazy_var.ndimension() >= 3:
+                if prev_lazy_var.shape[:-2] != curr_lazy_var.shape[:-2]:
+                    raise RuntimeError(
+                        "KroneckerProductLazyTensor expects the same batch sizes for component tensors. "
+                        "Got sizes: {}".format([lv.size() for lv in lazy_vars])
+                    )
         super(KroneckerProductLazyTensor, self).__init__(*lazy_vars)
         self.lazy_vars = lazy_vars
 
