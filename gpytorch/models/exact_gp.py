@@ -65,7 +65,7 @@ class ExactGP(Module):
         return super(ExactGP, self).train(mode)
 
     def __call__(self, *args, **kwargs):
-        train_inputs = list(self.train_inputs)
+        train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
         inputs = tuple(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args)
 
         # Training mode: optimizing
@@ -118,7 +118,10 @@ class ExactGP(Module):
                 train_targets = self.train_targets
 
                 # If we expanded the train_inputs, we need to do the same for the train_targets
-                if any(orig_train_input.dim() < train_input.dim() for orig_train_input, train_input in zip(self.train_inputs, train_inputs)):
+                if any(
+                    orig_train_input.dim() < train_input.dim()
+                    for orig_train_input, train_input in zip(self.train_inputs, train_inputs)
+                ):
                     train_targets = train_targets.unsqueeze(0).expand(train_inputs[0].size(0), *train_targets.size())
 
                 if n_tasks > 1:
