@@ -9,7 +9,7 @@ from ..lazy import DiagLazyTensor, InterpolatedLazyTensor
 from ..variational import MVNVariationalStrategy
 from ..kernels.kernel import Kernel
 from ..kernels.grid_kernel import GridKernel
-from ..utils import Interpolation, left_interp
+from ..utils.interpolation import Interpolation, left_interp
 from .. import beta_features
 from .abstract_variational_gp import AbstractVariationalGP
 

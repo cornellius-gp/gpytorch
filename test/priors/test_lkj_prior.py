@@ -4,7 +4,7 @@ import unittest
 
 import torch
 from gpytorch.priors import LKJPrior
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 
 
 class TestLKJPrior(unittest.TestCase):

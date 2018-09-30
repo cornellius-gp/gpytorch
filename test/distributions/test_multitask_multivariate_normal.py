@@ -4,7 +4,7 @@ import unittest
 
 import torch
 from gpytorch.distributions import MultitaskMultivariateNormal
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 
 
 class TestMultiTaskMultivariateNormal(unittest.TestCase):

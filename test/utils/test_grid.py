@@ -13,7 +13,7 @@ class TestGrid(unittest.TestCase):
         """
         """
         x = torch.randn(100) * 50
-        res = gpytorch.utils.scale_to_bounds(x, -1, 1)
+        res = gpytorch.utils.grid.scale_to_bounds(x, -1, 1)
         self.assertGreater(res.min().item(), -1)
         self.assertLess(res.max().item(), 1)
 

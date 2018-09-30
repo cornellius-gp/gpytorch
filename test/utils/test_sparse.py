@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from gpytorch.utils import sparse_eye, sparse_getitem, sparse_repeat, to_sparse
+from gpytorch.utils.sparse import sparse_eye, sparse_getitem, sparse_repeat, to_sparse
 
 
 class TestSparse(unittest.TestCase):

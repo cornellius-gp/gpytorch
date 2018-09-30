@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from torch.autograd import Function
-from ..utils import bdsmm
+from ..utils.sparse import bdsmm
 
 
 class DSMM(Function):

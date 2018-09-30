@@ -1,9 +1,9 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import torch
-from gpytorch import settings
 from torch.distributions import Categorical
 
+from .. import settings
 from ..distributions import MultivariateNormal
 from .likelihood import Likelihood
 

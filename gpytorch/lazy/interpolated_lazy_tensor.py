@@ -8,7 +8,9 @@ from .block_diag_lazy_tensor import BlockDiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .root_lazy_tensor import RootLazyTensor
-from ..utils import bdsmm, left_interp, left_t_interp, sparse
+from ..utils import sparse
+from ..utils.interpolation import left_interp, left_t_interp
+from ..utils.sparse import bdsmm
 from .. import beta_features
 
 

@@ -6,8 +6,7 @@ from __future__ import unicode_literals
 import torch
 import unittest
 from gpytorch.lazy import KroneckerProductLazyTensor, NonLazyTensor
-from gpytorch.utils import approx_equal
-
+from test._utils import approx_equal
 
 a = torch.tensor([[4, 0, 2], [0, 1, -1], [2, -1, 3]], dtype=torch.float)
 b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float)

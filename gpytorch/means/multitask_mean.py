@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 from torch.nn import ModuleList
 from copy import deepcopy
-from gpytorch.means import Mean
+from .mean import Mean
 
 
 class MultitaskMean(Mean):

@@ -5,6 +5,8 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
+
+import test._utils
 from gpytorch import utils
 
 
@@ -28,7 +30,7 @@ class TestTeoplitz(unittest.TestCase):
 
         # Fast toeplitz
         res = utils.toeplitz.toeplitz_matmul(col, row, rhs_mat)
-        self.assertTrue(utils.approx_equal(res, actual))
+        self.assertTrue(test._utils.approx_equal(res, actual))
 
     def test_toeplitz_matmul_batch(self):
         cols = torch.tensor([[1, 6, 4, 5], [2, 3, 1, 0], [1, 2, 3, 1]], dtype=torch.float)
@@ -44,7 +46,7 @@ class TestTeoplitz(unittest.TestCase):
 
         # Fast toeplitz
         res = utils.toeplitz.toeplitz_matmul(cols, rows, rhs_mats)
-        self.assertTrue(utils.approx_equal(res, actual))
+        self.assertTrue(test._utils.approx_equal(res, actual))
 
     def test_toeplitz_matmul_batchmat(self):
         col = torch.tensor([1, 6, 4, 5], dtype=torch.float)
@@ -57,7 +59,7 @@ class TestTeoplitz(unittest.TestCase):
 
         # Fast toeplitz
         res = utils.toeplitz.toeplitz_matmul(col.unsqueeze(0), row.unsqueeze(0), rhs_mat)
-        self.assertTrue(utils.approx_equal(res, actual))
+        self.assertTrue(test._utils.approx_equal(res, actual))
 
 
 if __name__ == "__main__":

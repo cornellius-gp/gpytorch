@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from gpytorch.kernels import Kernel
-from gpytorch.lazy import MatmulLazyTensor, RootLazyTensor
+from .kernel import Kernel
+from ..lazy import MatmulLazyTensor, RootLazyTensor
 
 
 class LinearKernel(Kernel):

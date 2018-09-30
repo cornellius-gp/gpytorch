@@ -8,7 +8,7 @@ import unittest
 import os
 import random
 from gpytorch.lazy import NonLazyTensor
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 
 
 class TestNonLazyTensor(unittest.TestCase):

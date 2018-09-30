@@ -7,7 +7,8 @@ import os
 import random
 import torch
 import unittest
-from gpytorch.utils import approx_equal, batch_potrf, batch_potrs
+from gpytorch.utils.cholesky import batch_potrf, batch_potrs
+from test._utils import approx_equal
 from gpytorch.utils.linear_cg import linear_cg
 
 
