@@ -73,7 +73,7 @@ class ConstantMulLazyTensor(LazyTensor):
             elif constant.numel() == 1:
                 constant = constant.squeeze()
         else:
-            constant = torch.tensor(constant, device=base_lazy_tensor.device, dtype=torch.float32)
+            constant = torch.tensor(constant, device=base_lazy_tensor.device, dtype=base_lazy_tensor.dtype)
 
         super(ConstantMulLazyTensor, self).__init__(base_lazy_tensor, constant)
         self.base_lazy_tensor = base_lazy_tensor
