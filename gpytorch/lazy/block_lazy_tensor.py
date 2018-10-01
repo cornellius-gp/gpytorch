@@ -31,6 +31,7 @@ BlockLazyTensors represent the groups of blocks as a batched Tensor.
             Set this to `k` for `bk x n x n` batched LazyTensors, or `None` for `k x n x n`
             unbatched LazyTensors.
     """
+
     def __init__(self, base_lazy_tensor, num_blocks=None):
         if base_lazy_tensor.ndimension() != 3:
             raise RuntimeError("base_lazy_tensor must be a batch matrix (i.e. 3 dimensions)")
@@ -61,7 +62,7 @@ BlockLazyTensors represent the groups of blocks as a batched Tensor.
 
         # Cases for when there's an inner batch
         else:
-            batch_index = index if isinstance(index, int) else index[0]
+            batch_index = index if not isinstance(index, tuple) else index[0]
             first_tensor_index_dim = None
 
             # Keeping all batch dimensions - recursion base case
@@ -97,7 +98,7 @@ BlockLazyTensors represent the groups of blocks as a batched Tensor.
             new_var = self.__class__(*components, num_blocks=num_blocks)
 
             # If the index was only on the batch index, we're done
-            if isinstance(index, int) or len(index) == 1:
+            if not isinstance(index, tuple) or len(index) == 1:
                 return new_var
 
             # Else - recurse

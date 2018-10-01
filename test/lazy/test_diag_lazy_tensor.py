@@ -5,143 +5,34 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-import gpytorch
-from test._utils import approx_equal
 from gpytorch.lazy import DiagLazyTensor
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
 
 
-diag = torch.tensor([1, 2, 3], dtype=torch.float)
+class TestDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
+    seed = 0
+    should_test_sample = True
+
+    def create_lazy_tensor(self):
+        diag = torch.tensor([1., 2., 4., 2., 3.], requires_grad=True)
+        return DiagLazyTensor(diag)
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        diag = lazy_tensor._diag
+        return diag.diag()
 
 
-class TestDiagLazyTensor(unittest.TestCase):
-    def test_evaluate(self):
-        diag_lv = DiagLazyTensor(diag)
-        self.assertTrue(torch.equal(diag_lv.evaluate(), diag.diag()))
+class TestDiagLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+    seed = 0
+    should_test_sample = True
 
-    def test_function_factory(self):
-        # 1d
-        diag_var1 = diag.clone().requires_grad_(True)
-        diag_var2 = diag.clone().requires_grad_(True)
-        test_mat = torch.tensor([3, 4, 5], dtype=torch.float)
+    def create_lazy_tensor(self):
+        diag = torch.tensor([[1., 2., 4., 2., 3.], [2., 1., 2., 1., 4.], [1., 2., 2., 3., 4.]], requires_grad=True)
+        return DiagLazyTensor(diag)
 
-        diag_lv = DiagLazyTensor(diag_var1)
-        diag_ev = DiagLazyTensor(diag_var2).evaluate()
-
-        # Forward
-        res = diag_lv.matmul(test_mat)
-        actual = torch.matmul(diag_ev, test_mat)
-        self.assertLess(torch.norm(res - actual), 1e-4)
-
-        # Backward
-        res.sum().backward()
-        actual.sum().backward()
-        self.assertLess(torch.norm(diag_var1.grad - diag_var2.grad), 1e-3)
-
-        # 2d
-        diag_var1 = diag.clone().requires_grad_(True)
-        diag_var2 = diag.clone().requires_grad_(True)
-        test_mat = torch.eye(3)
-
-        diag_lv = DiagLazyTensor(diag_var1)
-        diag_ev = DiagLazyTensor(diag_var2).evaluate()
-
-        # Forward
-        res = diag_lv.matmul(test_mat)
-        actual = torch.matmul(diag_ev, test_mat)
-        self.assertLess(torch.norm(res - actual), 1e-4)
-
-        # Backward
-        res.sum().backward()
-        actual.sum().backward()
-        self.assertLess(torch.norm(diag_var1.grad - diag_var2.grad), 1e-3)
-
-    def test_batch_function_factory(self):
-        # 2d
-        diag_var1 = diag.repeat(5, 1).requires_grad_(True)
-        diag_var2 = diag.repeat(5, 1).requires_grad_(True)
-        test_mat = torch.eye(3).repeat(5, 1, 1)
-
-        diag_lv = DiagLazyTensor(diag_var1)
-        diag_ev = DiagLazyTensor(diag_var2).evaluate()
-
-        # Forward
-        res = diag_lv.matmul(test_mat)
-        actual = torch.matmul(diag_ev, test_mat)
-        self.assertLess(torch.norm(res - actual), 1e-4)
-
-        # Backward
-        res.sum().backward()
-        actual.sum().backward()
-        self.assertLess(torch.norm(diag_var1.grad - diag_var2.grad), 1e-3)
-
-    def test_getitem(self):
-        diag_lv = DiagLazyTensor(diag)
-        diag_ev = diag_lv.evaluate()
-        self.assertTrue(torch.equal(diag_lv[0:2].evaluate(), diag_ev[0:2]))
-
-    def test_batch_getitem(self):
-        # 2d
-        diag_lv = DiagLazyTensor(diag.repeat(5, 1))
-        diag_ev = diag_lv.evaluate()
-
-        self.assertTrue(torch.equal(diag_lv[0, 0:2].evaluate(), diag_ev[0, 0:2]))
-        self.assertTrue(torch.equal(diag_lv[0, 0:2, :3].evaluate(), diag_ev[0, 0:2, :3]))
-        self.assertTrue(torch.equal(diag_lv[:, 0:2, :3].evaluate(), diag_ev[:, 0:2, :3]))
-
-    def test_sample(self):
-        res = DiagLazyTensor(diag)
-        actual = res.evaluate()
-
-        with gpytorch.settings.max_root_decomposition_size(1000):
-            samples = res.zero_mean_mvn_samples(10000)
-            sample_covar = samples.unsqueeze(-1).matmul(samples.unsqueeze(-2)).mean(0)
-        self.assertLess(((sample_covar - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 4e-1)
-
-    def test_batch_sample(self):
-        res = DiagLazyTensor(diag.repeat(5, 1))
-        actual = res.evaluate()
-
-        with gpytorch.settings.max_root_decomposition_size(1000):
-            samples = res.zero_mean_mvn_samples(10000)
-            sample_covar = samples.unsqueeze(-1).matmul(samples.unsqueeze(-2)).mean(0)
-        self.assertLess(((sample_covar - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 4e-1)
-
-    def test_add_diag(self):
-        other_diag = torch.tensor(1.5)
-        res = DiagLazyTensor(diag).add_diag(other_diag).evaluate()
-        actual = diag.diag() + torch.eye(3).mul(1.5)
-        self.assertTrue(approx_equal(res, actual))
-
-        other_diag = torch.tensor([1.5])
-        res = DiagLazyTensor(diag).add_diag(other_diag).evaluate()
-        actual = diag.diag() + torch.eye(3).mul(1.5)
-        self.assertTrue(approx_equal(res, actual))
-
-        other_diag = torch.tensor([1.5, 1.3, 1.2])
-        res = DiagLazyTensor(diag).add_diag(other_diag).evaluate()
-        actual = diag.diag() + other_diag.diag()
-        self.assertTrue(approx_equal(res, actual))
-
-        other_diag = torch.tensor(1.5)
-        res = DiagLazyTensor(diag.unsqueeze(0).repeat(2, 1)).add_diag(other_diag).evaluate()
-        actual = diag.diag().unsqueeze(0) + torch.eye(3).unsqueeze(0).repeat(2, 1, 1).mul(1.5)
-        self.assertTrue(approx_equal(res, actual))
-
-        other_diag = torch.tensor([1.5])
-        res = DiagLazyTensor(diag.unsqueeze(0).repeat(2, 1)).add_diag(other_diag).evaluate()
-        actual = diag.diag().unsqueeze(0) + torch.eye(3).unsqueeze(0).repeat(2, 1, 1).mul(1.5)
-        self.assertTrue(approx_equal(res, actual))
-
-        other_diag = torch.tensor([1.5, 1.3, 1.2])
-        res = DiagLazyTensor(diag.unsqueeze(0).repeat(2, 1)).add_diag(other_diag).evaluate()
-        actual = diag.diag().unsqueeze(0) + other_diag.diag().unsqueeze(0).repeat(2, 1, 1)
-        self.assertTrue(approx_equal(res, actual))
-
-        other_diag = torch.tensor([[1.5, 1.3, 1.2], [0, 1, 2]])
-        res = DiagLazyTensor(diag.unsqueeze(0).repeat(2, 1)).add_diag(other_diag).evaluate()
-        actual = diag.diag().unsqueeze(0)
-        actual = actual + torch.cat([other_diag[0].diag().unsqueeze(0), other_diag[1].diag().unsqueeze(0)])
-        self.assertTrue(approx_equal(res, actual))
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        diag = lazy_tensor._diag
+        return torch.cat([diag[i].diag().unsqueeze(0) for i in range(3)])
 
 
 if __name__ == "__main__":
