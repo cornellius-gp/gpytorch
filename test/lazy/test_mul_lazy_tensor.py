@@ -43,15 +43,15 @@ class TestMulLazyTensorMulti(LazyTensorTestCase, unittest.TestCase):
     seed = 10
 
     def create_lazy_tensor(self):
-        mat1 = make_random_mat(6, 3)
-        mat2 = make_random_mat(6, 3)
-        mat3 = make_random_mat(6, 3)
-        mat4 = make_random_mat(6, 3)
-        mat5 = make_random_mat(6, 3)
+        mat1 = make_random_mat(30, 3)
+        mat2 = make_random_mat(30, 3)
+        mat3 = make_random_mat(30, 3)
+        mat4 = make_random_mat(30, 3)
+        mat5 = make_random_mat(30, 3)
         res = MulLazyTensor(
             RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3), RootLazyTensor(mat4), RootLazyTensor(mat5)
         )
-        return res.add_diag(torch.tensor(2.))
+        return res.add_diag(torch.tensor(1.))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()

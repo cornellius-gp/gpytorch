@@ -42,14 +42,16 @@ class RectangularLazyTensorTestCase(object):
         test_vector = torch.randn(lazy_tensor.size(-1))
         res = lazy_tensor.matmul(test_vector)
         actual = evaluated.matmul(test_vector)
-        assert approx_equal(res, actual)
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 
         grad = torch.randn_like(res)
         res.backward(gradient=grad)
         actual.backward(gradient=grad)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.grad is not None:
-                assert approx_equal(arg.grad, arg_copy.grad)
+                self.assertLess(
+                    ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+                )
 
     def test_matmul_matrix(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -59,14 +61,16 @@ class RectangularLazyTensorTestCase(object):
         test_vector = torch.randn(lazy_tensor.size(-1), 5)
         res = lazy_tensor.matmul(test_vector)
         actual = evaluated.matmul(test_vector)
-        assert approx_equal(res, actual)
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 
         grad = torch.randn_like(res)
         res.backward(gradient=grad)
         actual.backward(gradient=grad)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.grad is not None:
-                assert approx_equal(arg.grad, arg_copy.grad)
+                self.assertLess(
+                    ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+                )
 
     def test_evaluate(self):
         lazy_tensor = self.create_lazy_tensor()
