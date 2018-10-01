@@ -96,10 +96,10 @@ class PeriodicKernel(Kernel):
     def period_length(self):
         return self.log_period_length.exp().clamp(self.eps, 1e5)
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)
         x2_ = x2.div(self.period_length)
-        x1_, x2_ = self._create_input_grid(x1_, x2_)
+        x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
 
         diff = torch.sum((x1_ - x2_).abs(), -1)
         res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()

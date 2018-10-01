@@ -153,7 +153,7 @@ class SpectralMixtureKernel(Kernel):
         # Mixture weights should be roughly the stdv of the y values divided by the number of mixtures
         self.log_mixture_weights.data.fill_(train_y.std() / self.num_mixtures).log_()
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, **params):
         batch_size, n, num_dims = x1.size()
         _, m, _ = x2.size()
 
@@ -180,8 +180,8 @@ class SpectralMixtureKernel(Kernel):
         x2_cos = x2_ * self.mixture_means
 
         # Create grids
-        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp)
-        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos)
+        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, **params)
+        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, **params)
 
         # Compute the exponential and cosine terms
         exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi ** 2)

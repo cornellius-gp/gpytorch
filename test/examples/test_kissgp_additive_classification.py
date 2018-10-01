@@ -28,7 +28,7 @@ train_y = train_y.float() * 2 - 1
 
 class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
     def __init__(self):
-        super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2)
+        super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], num_dim=2)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),

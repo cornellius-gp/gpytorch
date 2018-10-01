@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .kernel import Kernel
 from .grid_kernel import GridKernel
 from ..lazy import InterpolatedLazyTensor
 from ..utils.interpolation import Interpolation
@@ -100,10 +99,10 @@ class GridInterpolationKernel(GridKernel):
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.uint8))
 
     def _create_grid(self):
-        grid = torch.zeros(len(self.grid_bounds), self.grid_size)
+        grid = torch.zeros(self.grid_size, len(self.grid_bounds))
         for i in range(len(self.grid_bounds)):
             grid_diff = float(self.grid_bounds[i][1] - self.grid_bounds[i][0]) / (self.grid_size - 2)
-            grid[i] = torch.linspace(
+            grid[:, i] = torch.linspace(
                 self.grid_bounds[i][0] - grid_diff, self.grid_bounds[i][1] + grid_diff, self.grid_size
             )
 
@@ -111,7 +110,7 @@ class GridInterpolationKernel(GridKernel):
         prev_points = None
         for i in range(len(self.grid_bounds)):
             for j in range(self.grid_size):
-                inducing_points[j * self.grid_size ** i : (j + 1) * self.grid_size ** i, i].fill_(grid[i, j])
+                inducing_points[j * self.grid_size ** i : (j + 1) * self.grid_size ** i, i].fill_(grid[j, i])
                 if prev_points is not None:
                     inducing_points[j * self.grid_size ** i : (j + 1) * self.grid_size ** i, :i].copy_(prev_points)
             prev_points = inducing_points[: self.grid_size ** (i + 1), : (i + 1)]
@@ -130,21 +129,26 @@ class GridInterpolationKernel(GridKernel):
     def has_custom_exact_predictions(self):
         return True
 
-    def _compute_grid(self, inputs):
+    def _compute_grid(self, inputs, batch_dims):
         batch_size, n_data, n_dimensions = inputs.size()
+        if batch_dims == (0, 2):
+            inputs = inputs.view(inputs.size(0), inputs.size(1), -1, 1)
+            inputs = inputs.transpose(1, 2).contiguous()
+            batch_size = batch_size * inputs.size(1)
+            n_dimensions = n_dimensions // inputs.size(1)
+
         inputs = inputs.view(batch_size * n_data, n_dimensions)
         interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
         interp_indices = interp_indices.view(batch_size, n_data, -1)
         interp_values = interp_values.view(batch_size, n_data, -1)
         return interp_indices, interp_values
 
-    def _inducing_forward(self):
-        return super(GridInterpolationKernel, self).forward(self.inducing_points, self.inducing_points)
+    def _inducing_forward(self, batch_dims, **params):
+        return super(GridInterpolationKernel, self).forward(
+            self.inducing_points, self.inducing_points, batch_dims=batch_dims, **params,
+        )
 
-    def forward_diag(self, x1, x2, **kwargs):
-        return super(Kernel, self).__call__(x1, x2, **kwargs).diag().unsqueeze(-1)
-
-    def forward(self, x1, x2, **kwargs):
+    def forward(self, x1, x2, batch_dims=None, **params):
         # See if we need to update the grid or not
         if self.grid_is_dynamic:  # This is true if a grid_bounds wasn't passed in
             if torch.equal(x1, x2):
@@ -172,20 +176,23 @@ class GridInterpolationKernel(GridKernel):
                 inducing_points, grid = self._create_grid()
                 self.update_inducing_points_and_grid(inducing_points, grid)
 
-        base_lazy_tsr = self._inducing_forward()
+        base_lazy_tsr = self._inducing_forward(batch_dims=batch_dims, **params)
         if x1.size(0) > 1:
             base_lazy_tsr = base_lazy_tsr.repeat(x1.size(0), 1, 1)
 
-        left_interp_indices, left_interp_values = self._compute_grid(x1)
+        left_interp_indices, left_interp_values = self._compute_grid(x1, batch_dims)
         if torch.equal(x1, x2):
             right_interp_indices = left_interp_indices
             right_interp_values = left_interp_values
         else:
-            right_interp_indices, right_interp_values = self._compute_grid(x2)
-        return InterpolatedLazyTensor(
+            right_interp_indices, right_interp_values = self._compute_grid(x2, batch_dims)
+
+        res = InterpolatedLazyTensor(
             base_lazy_tsr,
             left_interp_indices.detach(),
             left_interp_values,
             right_interp_indices.detach(),
             right_interp_values,
         )
+
+        return res

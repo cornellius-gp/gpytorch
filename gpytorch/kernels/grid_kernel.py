@@ -59,27 +59,33 @@ class GridKernel(Kernel):
             del self._cached_kernel_mat
         return self
 
-    def forward(self, x1, x2, **kwargs):
+    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         if not torch.equal(x1, self.inducing_points) or not torch.equal(x2, self.inducing_points):
             raise RuntimeError("The kernel should only receive the inducing points as input")
 
         if not self.training and hasattr(self, "_cached_kernel_mat"):
-            return self._cached_kernel_mat
+            covar = self._cached_kernel_mat
 
         else:
             n_dim = x1.size(-1)
-            grid_var = self.grid.view(n_dim, -1, 1)
+            grid = self.grid.unsqueeze(0)
 
             if settings.use_toeplitz.on():
-                first_item = grid_var[:, 0:1].contiguous()
-                covar_columns = self.base_kernel_module(first_item, grid_var, **kwargs).evaluate()
-                covars = [ToeplitzLazyTensor(covar_columns[i : i + 1].squeeze(-2)) for i in range(n_dim)]
+                first_item = grid[:, 0:1]
+                covar_columns = self.base_kernel_module(first_item, grid, diag=False, batch_dims=(0, 2), **params)
+                covar_columns = covar_columns.evaluate().squeeze(-2)
+                if batch_dims == (0, 2):
+                    covars = [ToeplitzLazyTensor(covar_columns)]
+                else:
+                    covars = [ToeplitzLazyTensor(covar_columns[i : i + 1]) for i in range(n_dim)]
             else:
-                grid_var = grid_var.view(n_dim, -1, 1)
-                covars = self.base_kernel_module(grid_var, grid_var, **kwargs).evaluate_kernel()
-                covars = [covars[i : i + 1] for i in range(n_dim)]
+                covars = self.base_kernel_module(grid, grid, batch_dims=(0, 2), **params).evaluate_kernel()
+                if batch_dims == (0, 2):
+                    covars = [covars]
+                else:
+                    covars = [covars[i : i + 1] for i in range(n_dim)]
 
-            if n_dim > 1:
+            if len(covars) > 1:
                 covar = KroneckerProductLazyTensor(*covars)
             else:
                 covar = covars[0]
@@ -87,4 +93,4 @@ class GridKernel(Kernel):
             if not self.training:
                 self._cached_kernel_mat = covar
 
-            return covar
+        return covar

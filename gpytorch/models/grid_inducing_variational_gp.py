@@ -19,16 +19,16 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         self._grid_mode = True
         self._kernels = set()
 
-        grid = torch.zeros(len(grid_bounds), grid_size)
+        grid = torch.zeros(grid_size, len(grid_bounds))
         for i in range(len(grid_bounds)):
             grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
-            grid[i] = torch.linspace(grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_size)
+            grid[:, i] = torch.linspace(grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_size)
 
         inducing_points = torch.zeros(int(pow(grid_size, len(grid_bounds))), len(grid_bounds))
         prev_points = None
         for i in range(len(grid_bounds)):
             for j in range(grid_size):
-                inducing_points[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[i, j])
+                inducing_points[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[j, i])
                 if prev_points is not None:
                     inducing_points[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
             prev_points = inducing_points[: grid_size ** (i + 1), : (i + 1)]

@@ -3,9 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import warnings
 from .grid_interpolation_kernel import GridInterpolationKernel
-from ..utils.interpolation import Interpolation
 
 
 class AdditiveGridInterpolationKernel(GridInterpolationKernel):
@@ -24,17 +22,17 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
 
     for some kernel :math:`k'` that operates on a subset of dimensions.
 
-    The groupings of dimensions are specified by the :attr:`dim_groups` attribute.
+    The groupings of dimensions are specified by the :attr:`batch_dims` attribute.
 
-    * `dim_groups=d` (d is the dimensionality of :math:`\mathbf x`):
+    * `batch_dims=d` (d is the dimensionality of :math:`\mathbf x`):
         the kernel :math:`k` will be the sum of `d` sub-kernels, each operating
         on one dimension of :math:`\mathbf x`.
 
-    * `dim_groups=d/2`:
+    * `batch_dims=d/2`:
         the first sub-kernel operates on dimensions 1 and 2, the second sub-kernel
         operates on dimensions 3 and 4, etc.
 
-    * `dim_groups=1`:
+    * `batch_dims=1`:
         there is no additive decomposition
 
     .. note::
@@ -49,11 +47,11 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
             The size of the grid (in each dimension)
         :attr:`num_dims` (int):
             The dimension of the input data. Required if `grid_bounds=None`
-        :attr:`dim_groups` (int):
+        :attr:`batch_dims` (int):
             The number of additive components
         :attr:`grid_bounds` (tuple(float, float), optional):
             The bounds of the grid, if known (high performance mode).
-            The length of the tuple must match the size of the dim group (`num_dims // dim_groups`).
+            The length of the tuple must match the size of the dim group (`num_dims // batch_dims`).
             The entries represent the min/max values for each dimension.
         :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel_module`.
@@ -63,37 +61,20 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
         self,
         base_kernel_module,
         grid_size,
-        dim_groups=None,
         num_dims=None,
         grid_bounds=None,
         active_dims=None,
-        n_components=None,
     ):
-        if n_components is not None:
-            warnings.warn("n_components is deprecated. Use dim_groups instead.", DeprecationWarning)
-            dim_groups = n_components
-        if dim_groups is None:
-            raise RuntimeError("Must supply dim_groups")
-
         super(AdditiveGridInterpolationKernel, self).__init__(
-            base_kernel_module, grid_size, num_dims // dim_groups, grid_bounds, active_dims=active_dims
+            base_kernel_module, grid_size, num_dims, grid_bounds, active_dims=active_dims
         )
 
-        self.dim_groups = dim_groups
+    def forward(self, x1, x2, batch_dims=None, **params):
+        if batch_dims == (0, 2):
+            raise RuntimeError(
+                "AdditiveGridInterpolationKernel does not accept the batch_dims argument."
+            )
 
-    def _compute_grid(self, inputs):
-        inputs = inputs.view(inputs.size(0), inputs.size(1), self.dim_groups, -1)
-        batch_size, n_data, dim_groups, n_dimensions = inputs.size()
-        inputs = inputs.transpose(0, 2).contiguous().view(dim_groups * batch_size * n_data, n_dimensions)
-        interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
-        interp_indices = interp_indices.view(dim_groups * batch_size, n_data, -1)
-        interp_values = interp_values.view(dim_groups * batch_size, n_data, -1)
-        return interp_indices, interp_values
-
-    def _inducing_forward(self):
-        res = super(AdditiveGridInterpolationKernel, self)._inducing_forward()
-        return res.repeat(self.dim_groups, 1, 1)
-
-    def forward(self, x1, x2):
-        res = super(AdditiveGridInterpolationKernel, self).forward(x1, x2)
-        return res.sum_batch(sum_batch_size=self.dim_groups)
+        res = super(AdditiveGridInterpolationKernel, self).forward(x1, x2, batch_dims=(0, 2), **params)
+        res = res.sum_batch(sum_batch_size=x1.size(-1))
+        return res

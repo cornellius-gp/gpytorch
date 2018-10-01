@@ -38,22 +38,10 @@ class LCMKernel(Kernel):
             for base_kernel in base_kernels
         ])
 
-    def forward_diag(self, x1, x2):
-        """
-        Returns the diagonal of the covariance matrix only. This overrides the
-        default behavior for this supplied in :class:`gpytorch.kernels.Kernel`
-        because we need to take the Kronecker product of the diagonals of the
-        base data kernel and the task kernel, and add them up.
-        """
-        res = self.covar_module_list[0].forward_diag(x1, x2)
+    def forward(self, x1, x2, **params):
+        res = self.covar_module_list[0].forward(x1, x2, **params)
         for m in self.covar_module_list[1:]:
-            res += m.forward_diag(x1, x2)
-        return res
-
-    def forward(self, x1, x2):
-        res = self.covar_module_list[0].forward(x1, x2)
-        for m in self.covar_module_list[1:]:
-            res += m.forward(x1, x2)
+            res += m.forward(x1, x2, **params)
         return res
 
     def size(self, x1, x2):

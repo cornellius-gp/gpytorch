@@ -42,8 +42,8 @@ class Interpolation(object):
 
     def interpolate(self, x_grid, x_target, interp_points=range(-2, 2)):
         # Do some boundary checking
-        grid_mins = x_grid.min(1)[0]
-        grid_maxs = x_grid.max(1)[0]
+        grid_mins = x_grid.min(0)[0]
+        grid_maxs = x_grid.max(0)[0]
         x_target_min = x_target.min(0)[0]
         x_target_max = x_target.min(0)[0]
         lt_min_mask = (x_target_min - grid_mins).lt(-1e-7)
@@ -81,7 +81,7 @@ class Interpolation(object):
         interp_points = torch.tensor(interp_points, dtype=x_grid.dtype, device=x_grid.device)
         interp_points_flip = interp_points.flip(0)
 
-        num_grid_points = x_grid.size(1)
+        num_grid_points = x_grid.size(0)
         num_target_points = x_target.size(0)
         num_dim = x_target.size(-1)
         num_coefficients = len(interp_points)
@@ -94,9 +94,9 @@ class Interpolation(object):
         )
 
         for i in range(num_dim):
-            grid_delta = x_grid[i, 1] - x_grid[i, 0]
-            lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i, 0]) / grid_delta).squeeze()
-            lower_pt_rel_dists = (x_target[:, i] - x_grid[i, 0]) / grid_delta - lower_grid_pt_idxs
+            grid_delta = x_grid[1, i] - x_grid[0, i]
+            lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[0, i]) / grid_delta).squeeze()
+            lower_pt_rel_dists = (x_target[:, i] - x_grid[0, i]) / grid_delta - lower_grid_pt_idxs
             lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points.max()
             lower_grid_pt_idxs.detach_()
 
@@ -110,7 +110,7 @@ class Interpolation(object):
 
             if num_left > 0:
                 left_boundary_pts.squeeze_(1)
-                x_grid_first = x_grid[i, :num_coefficients].unsqueeze(1).t().expand(num_left, num_coefficients)
+                x_grid_first = x_grid[:num_coefficients, i].unsqueeze(1).t().expand(num_left, num_coefficients)
 
                 grid_targets = x_target.select(1, i)[left_boundary_pts].unsqueeze(1).expand(num_left, num_coefficients)
                 dists = torch.abs(x_grid_first - grid_targets)
@@ -126,7 +126,7 @@ class Interpolation(object):
 
             if num_right > 0:
                 right_boundary_pts.squeeze_(1)
-                x_grid_last = x_grid[i, -num_coefficients:].unsqueeze(1).t().expand(num_right, num_coefficients)
+                x_grid_last = x_grid[-num_coefficients:, i].unsqueeze(1).t().expand(num_right, num_coefficients)
 
                 grid_targets = x_target.select(1, i)[right_boundary_pts].unsqueeze(1)
                 grid_targets = grid_targets.expand(num_right, num_coefficients)

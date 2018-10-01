@@ -44,7 +44,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True))
         )
         self.covar_module = AdditiveGridInterpolationKernel(
-            self.base_covar_module, grid_size=100, num_dims=2, dim_groups=2
+            self.base_covar_module, grid_size=100, num_dims=2,
         )
 
     def forward(self, x):

@@ -64,7 +64,7 @@ class IndexKernel(Kernel):
         res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(self.log_var.exp()))
         return res
 
-    def forward(self, i1, i2):
+    def forward(self, i1, i2, **params):
         covar_matrix = _eval_covar_matrix(self.covar_factor, self.log_var)
         res = InterpolatedLazyTensor(base_lazy_tensor=covar_matrix, left_interp_indices=i1, right_interp_indices=i2)
         return res
