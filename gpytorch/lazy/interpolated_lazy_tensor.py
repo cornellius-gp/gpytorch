@@ -84,10 +84,10 @@ class InterpolatedLazyTensor(LazyTensor):
         # right_interp^T * rhs
         right_interp_res = bdsmm(right_interp_t, rhs)
 
-        # base_lazy_var * right_interp^T * rhs
+        # base_lazy_tensor * right_interp^T * rhs
         base_res = self.base_lazy_tensor._matmul(right_interp_res)
 
-        # left_interp * base_lazy_var * right_interp^T * rhs
+        # left_interp * base_lazy_tensor * right_interp^T * rhs
         left_interp_mat = left_interp_t.transpose(-1, -2)
         res = bdsmm(left_interp_mat, base_res)
 
@@ -110,10 +110,10 @@ class InterpolatedLazyTensor(LazyTensor):
         # right_interp^T * rhs
         left_interp_res = bdsmm(left_interp_t, rhs)
 
-        # base_lazy_var * right_interp^T * rhs
+        # base_lazy_tensor * right_interp^T * rhs
         base_res = self.base_lazy_tensor._t_matmul(left_interp_res)
 
-        # left_interp * base_lazy_var * right_interp^T * rhs
+        # left_interp * base_lazy_tensor * right_interp^T * rhs
         right_interp_mat = right_interp_t.transpose(-1, -2)
         res = bdsmm(right_interp_mat, base_res)
 
@@ -506,10 +506,10 @@ class InterpolatedLazyTensor(LazyTensor):
         base_size = self.base_lazy_tensor.size(-1)
         right_interp_res = left_t_interp(self.right_interp_indices, self.right_interp_values, tensor, base_size)
 
-        # base_lazy_var * right_interp^T * tensor
+        # base_lazy_tensor * right_interp^T * tensor
         base_res = self.base_lazy_tensor.matmul(right_interp_res)
 
-        # left_interp * base_lazy_var * right_interp^T * tensor
+        # left_interp * base_lazy_tensor * right_interp^T * tensor
         res = left_interp(self.left_interp_indices, self.left_interp_values, base_res)
 
         # Squeeze if necessary
@@ -662,7 +662,11 @@ class InterpolatedLazyTensor(LazyTensor):
             right_interp_values = right_interp_values.unsqueeze(-2)
 
         res = self.__class__(
-            self.base_lazy_tensor, left_interp_indices, left_interp_values,
-            right_interp_indices, right_interp_values, **self._kwargs
+            self.base_lazy_tensor,
+            left_interp_indices,
+            left_interp_values,
+            right_interp_indices,
+            right_interp_values,
+            **self._kwargs
         )
         return res

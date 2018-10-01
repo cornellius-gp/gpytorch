@@ -287,6 +287,14 @@ class LazyTensor(object):
         diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
 
+    def clone(self):
+        """
+        Clones the LazyTensor (creates clones of all underlying tensors)
+        """
+        args = [arg.clone() if hasattr(arg, "clone") else arg for arg in self._args]
+        kwargs = dict((key, val.clone() if hasattr(val, "clone") else val) for key, val in self._kwargs.items())
+        return self.__class__(*args, **kwargs)
+
     def cpu(self):
         """
         Returns:

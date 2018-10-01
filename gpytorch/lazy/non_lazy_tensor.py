@@ -69,4 +69,17 @@ class NonLazyTensor(LazyTensor):
         return NonLazyTensor(self.tensor.repeat(*sizes))
 
     def __getitem__(self, index):
-        return NonLazyTensor(self.tensor[index])
+        res = self.tensor[index]
+        if not isinstance(index, tuple):
+            index = (index,)
+
+        if len(index) >= self.ndimension() - 1:
+            row_index = index[self.ndimension() - 2]
+            if isinstance(row_index, int) or torch.is_tensor(row_index):
+                return res
+        if len(index) == self.ndimension():
+            col_index = index[self.ndimension() - 1]
+            if isinstance(col_index, int) or torch.is_tensor(col_index):
+                return res
+
+        return NonLazyTensor(res)
