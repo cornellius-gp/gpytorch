@@ -183,9 +183,9 @@ class Kernel(Module):
             The shape depends on the kernel's mode
 
             * `full_covar`: (`b x n x 1 x d` and `b x 1 x m x d`)
-            * `full_covar` with `batch_dims=(0, 2)`: (`b x k x n x 1 x (d//k)` and `b x k x 1 x m x (d//k)`)
+            * `full_covar` with `batch_dims=(0, 2)`: (`b x k x n x 1 x 1` and `b x k x 1 x m x 1`)
             * `diag`: (`b x n x d` and `b x n x d`)
-            * `diag` with `batch_dims=(0, 2)`: (`b x k x n x (d//k)` and `b x k x n x (d//k)`)
+            * `diag` with `batch_dims=(0, 2)`: (`b x k x n x 1` and `b x k x n x 1`)
         """
         x1_, x2_ = x1, x2
         if batch_dims == (0, 2):

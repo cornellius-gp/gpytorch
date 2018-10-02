@@ -62,7 +62,7 @@ class MultitaskKernel(Kernel):
     def size(self, x1, x2):
         """
         Given `n` data points `x1` and `m` datapoints `x2`, this multitask kernel returns an `(n*n_tasks) x (m*n_tasks)`
-        covariancn matrix.
+        covariance matrix.
         """
         non_batch_size = (self.n_tasks * x1.size(-2), self.n_tasks * x2.size(-2))
         if x1.ndimension() == 3:
