@@ -12,4 +12,4 @@ class PsdSumLazyTensor(SumLazyTensor):
     """
 
     def zero_mean_mvn_samples(self, num_samples):
-        return sum(lazy_var.zero_mean_mvn_samples(num_samples) for lazy_var in self.lazy_vars)
+        return sum(lazy_tensor.zero_mean_mvn_samples(num_samples) for lazy_tensor in self.lazy_tensors)

@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import warnings
 import logging
 import math
 import torch
@@ -67,7 +66,7 @@ class SpectralMixtureKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
 
 
-    .. Gaussian Process Kernels for Pattern Discovery and Extrapolation:
+    .. _Gaussian Process Kernels for Pattern Discovery and Extrapolation:
         https://arxiv.org/pdf/1302.4245.pdf
     """
     # TODO: add equation to docs
@@ -82,17 +81,9 @@ class SpectralMixtureKernel(Kernel):
         log_mixture_scales_prior=None,
         log_mixture_means_prior=None,
         log_mixture_weights_prior=None,
-        n_mixtures=None,
-        n_dims=None,
     ):
-        if n_mixtures is not None:
-            warnings.warn("n_mixtures is deprecated. Use num_mixtures instead.", DeprecationWarning)
-            num_mixtures = n_mixtures
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")
-        if n_dims is not None:
-            warnings.warn("n_dims is deprecated. Use ard_num_dims instead.", DeprecationWarning)
-            ard_num_dims = n_dims
         if (
             log_mixture_means_prior is not None
             or log_mixture_scales_prior is not None
@@ -153,7 +144,7 @@ class SpectralMixtureKernel(Kernel):
         # Mixture weights should be roughly the stdv of the y values divided by the number of mixtures
         self.log_mixture_weights.data.fill_(train_y.std() / self.num_mixtures).log_()
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, **params):
         batch_size, n, num_dims = x1.size()
         _, m, _ = x2.size()
 
@@ -180,8 +171,8 @@ class SpectralMixtureKernel(Kernel):
         x2_cos = x2_ * self.mixture_means
 
         # Create grids
-        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp)
-        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos)
+        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, **params)
+        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, **params)
 
         # Compute the exponential and cosine terms
         exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi ** 2)

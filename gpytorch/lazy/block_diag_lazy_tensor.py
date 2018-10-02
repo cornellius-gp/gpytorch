@@ -30,14 +30,15 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             Set this to `k` for `bk x n x n` batched LazyTensors, or `None` for `k x n x n`
             unbatched LazyTensors.
     """
+
     def _matmul(self, rhs):
         block_size = self.base_lazy_tensor.size(-1)
         isvector = rhs.ndimension() == 1
         if isvector:
             rhs = rhs.unsqueeze(1)
 
-        n_cols = rhs.size(-1)
-        rhs = rhs.contiguous().view(-1, block_size, n_cols)
+        num_cols = rhs.size(-1)
+        rhs = rhs.contiguous().view(-1, block_size, num_cols)
 
         res = self.base_lazy_tensor._matmul(rhs)
 
@@ -74,7 +75,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         right_batch_indices = left_indices.div(block_size).long()
         batch_indices = batch_indices * block_size + left_batch_indices
         left_indices = left_indices.fmod(block_size)
-        right_indices = left_indices.fmod(block_size)
+        right_indices = right_indices.fmod(block_size)
 
         res = self.base_lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
         res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)
@@ -85,7 +86,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         left_batch_indices = left_indices.div(block_size).long()
         right_batch_indices = left_indices.div(block_size).long()
         left_indices = left_indices.fmod(block_size)
-        right_indices = left_indices.fmod(block_size)
+        right_indices = right_indices.fmod(block_size)
 
         res = self.base_lazy_tensor._batch_get_indices(left_batch_indices, left_indices, right_indices)
         res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)

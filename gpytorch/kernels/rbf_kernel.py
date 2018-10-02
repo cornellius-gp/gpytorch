@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import math
 from .kernel import Kernel
 
 
@@ -66,35 +65,20 @@ class RBFKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
 
-    def __init__(
-        self,
-        ard_num_dims=None,
-        log_lengthscale_prior=None,
-        eps=1e-6,
-        active_dims=None,
-        batch_size=1,
-        log_lengthscale_bounds=None,
-    ):
+    def __init__(self, ard_num_dims=None, log_lengthscale_prior=None, eps=1e-6, active_dims=None, batch_size=1):
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
-            log_lengthscale_prior=log_lengthscale_prior,
-            active_dims=active_dims,
             batch_size=batch_size,
-            log_lengthscale_bounds=log_lengthscale_bounds,
+            active_dims=active_dims,
+            log_lengthscale_prior=log_lengthscale_prior,
+            eps=eps,
         )
-        self.eps = eps
 
-    def forward_diag(self, x1, x2):
-        lengthscales = self.log_lengthscale.exp().mul(math.sqrt(2)).clamp(self.eps, 1e5)
-        diff = (x1 - x2).div_(lengthscales)
-        res = diff.pow_(2).sum(-1).mul_(-1).exp_().unsqueeze(-1)
-        return res
-
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, **params):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        x1_, x2_ = self._create_input_grid(x1_, x2_)
+        x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
 
         diff = (x1_ - x2_).norm(2, dim=-1)
         return diff.pow(2).div_(-2).exp_()

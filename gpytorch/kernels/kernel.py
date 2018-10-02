@@ -6,10 +6,9 @@ from __future__ import unicode_literals
 from abc import abstractmethod
 import torch
 from torch.nn import ModuleList
-from gpytorch.lazy import LazyTensor, LazyEvaluatedKernelTensor, ZeroLazyTensor
-from gpytorch.module import Module
-from gpytorch.priors._compatibility import _bounds_to_prior
-from gpytorch.utils import prod
+from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor
+from ..module import Module
+from .. import settings
 
 
 class Kernel(Module):
@@ -90,20 +89,19 @@ class Kernel(Module):
         ard_num_dims=None,
         batch_size=1,
         active_dims=None,
-        log_lengthscale_bounds=None,
         log_lengthscale_prior=None,
         eps=1e-6,
     ):
         super(Kernel, self).__init__()
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
-        self.active_dims = active_dims
+        self.register_buffer("active_dims", active_dims)
         self.ard_num_dims = ard_num_dims
         self.batch_size = batch_size
         self.__has_lengthscale = has_lengthscale
         if has_lengthscale:
+            self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
-            log_lengthscale_prior = _bounds_to_prior(prior=log_lengthscale_prior, bounds=log_lengthscale_bounds)
             self.register_parameter(
                 name="log_lengthscale",
                 parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims)),
@@ -133,15 +131,7 @@ class Kernel(Module):
             return torch.Size(non_batch_size)
 
     @abstractmethod
-    def forward_diag(self, x1, x2, **params):
-        res = super(Kernel, self).__call__(x1.transpose(-2, -3), x2.transpose(-2, -3), **params)
-        if isinstance(res, LazyTensor):
-            res = res.evaluate()
-        res = res.transpose(-2, -3)
-        return res
-
-    @abstractmethod
-    def forward(self, x1, x2, **params):
+    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         """
         Computes the covariance between x1 and x2.
         This method should be imlemented by all Kernel subclasses.
@@ -156,20 +146,28 @@ class Kernel(Module):
 
         Args:
             :attr:`x1` (Tensor `n x d` or `b x n x d`)
-            :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
+            :attr:`x2` (Tensor `m x d` or `b x m x d`)
+            :attr:`diag` (bool):
+                Should the Kernel compute the whole kernel, or just the diag?
+                For most Kernels, this option will be passed into `create_input_grid`
+            :attr:`batch_dims` (tuple, optional):
+                If this option is passed in, it will tell the tensor which of the
+                three dimensions are batch dimensions.
+                Currently accepts: standard mode (either None or (0,))
+                or (0, 2) for use with Additive/Multiplicative kernels
 
         Returns:
             :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
             The exact size depends on the kernel's evaluation mode:
 
             * `full_covar`: `n x m` or `b x n x m`
-            * `full_covar` with `dim_groups=k`: `k x n x m` or `b x k x n x m`
+            * `full_covar` with `batch_dims=(0, 2)`: `k x n x m` or `b x k x n x m`
             * `diag`: `n` or `b x n`
-            * `diag` with `dim_groups=k`: `k x n` or `b x k x n`
+            * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
         """
         raise NotImplementedError()
 
-    def _create_input_grid(self, x1, x2):
+    def _create_input_grid(self, x1, x2, diag=False, batch_dims=None, **params):
         """
         This is a helper method for creating a grid of the kernel's inputs.
         Use this helper rather than maually creating a meshgrid.
@@ -185,13 +183,28 @@ class Kernel(Module):
             The shape depends on the kernel's mode
 
             * `full_covar`: (`b x n x 1 x d` and `b x 1 x m x d`)
-            * `full_covar` with `dim_groups=k`: (`b x k x n x 1 x (d//k)` and `b x k x 1 x m x (d//k)`)
+            * `full_covar` with `batch_dims=(0, 2)`: (`b x k x n x 1 x 1` and `b x k x 1 x m x 1`)
             * `diag`: (`b x n x d` and `b x n x d`)
-            * `diag` with `dim_groups=k`: (`b x k x n x (d//k)` and `b x k x n x (d//k)`)
+            * `diag` with `batch_dims=(0, 2)`: (`b x k x n x 1` and `b x k x n x 1`)
         """
-        return x1.unsqueeze(-2), x2.unsqueeze(-3)
+        x1_, x2_ = x1, x2
+        if batch_dims == (0, 2):
+            x1_ = x1_.view(*x1.size()[:-1], -1, 1)
+            x1_ = x1_.permute(0, -2, *list(range(1, x1_.dim() - 2)), -1).contiguous()
+            x1_ = x1_.view(-1, *x1_.size()[2:])
+            if torch.equal(x1, x2):
+                x2_ = x1_
+            else:
+                x2_ = x2_.view(*x2.size()[:-1], -1, 1)
+                x2_ = x2_.permute(0, -2, *list(range(1, x2_.dim() - 2)), -1).contiguous()
+                x2_ = x2_.view(-1, *x2_.size()[2:])
 
-    def __call__(self, x1, x2=None, **params):
+        if diag:
+            return x1_, x2_
+        else:
+            return x1_.unsqueeze(-2), x2_.unsqueeze(-3)
+
+    def __call__(self, x1, x2=None, diag=False, batch_dims=None, **params):
         x1_, x2_ = x1, x2
 
         # Select the active dimensions
@@ -212,7 +225,78 @@ class Kernel(Module):
         if x2_ is None:
             x2_ = x1_
 
-        return LazyEvaluatedKernelTensor(self, x1_, x2_, **params)
+        # Check batch_dims args
+        if settings.debug.on():
+            if batch_dims is not None:
+                if not isinstance(batch_dims, tuple) or (batch_dims != (0,) and batch_dims != (0, 2)):
+                    raise RuntimeError(
+                        "batch_dims currently accepts either None, (0,), or (0, 2). Got {}.".format(batch_dims)
+                    )
+
+        if diag:
+            res = super(Kernel, self).__call__(x1_, x2_, diag=True, batch_dims=batch_dims, **params)
+
+            # Did this Kernel eat the diag option?
+            # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
+            if not isinstance(res, LazyEvaluatedKernelTensor):
+                if res.dim() == x1_.dim() and res.shape[-2:] == torch.Size((x1_.size(-2), x2_.size(-2))):
+                    res = res.diag()
+
+            # Now we'll make sure that the shape we're getting from diag makes sense
+            if settings.debug.on():
+                # If we used batch_dims...
+                shape = self.size(x1_, x2_)
+                if batch_dims == (0, 2):
+                    if len(shape) == 2:
+                        expected_shape = torch.Size((x1_.size(-1), shape[0]))
+                    else:
+                        expected_shape = torch.Size((shape[0] * x1_.size(-1), shape[1]))
+                    if res.shape != expected_shape:
+                        raise RuntimeError(
+                            "The kernel {} is not equipped to handle batch_dims=(0, 2) "
+                            "and diag. Expected size {}. Got size {}.".format(
+                                self.__class__.__name__, expected_shape, res.shape
+                            )
+                        )
+
+                # If we didn't use batch_dims...
+                else:
+                    expected_shape = shape[:-1]
+                    if res.shape != expected_shape:
+                        raise RuntimeError(
+                            "The kernel {} is not equipped to handle and diag. Expected size {}. "
+                            "Got size {}".format(self.__class__.__name__, expected_shape, res.shape)
+                        )
+            return res
+
+        else:
+            res = LazyEvaluatedKernelTensor(self, x1_, x2_, batch_dims=batch_dims, **params)
+
+            # Now we'll make sure that the shape we're getting makes sense
+            if settings.debug.on():
+                # If we used batch_dims...
+                shape = self.size(x1_, x2_)
+                if batch_dims == (0, 2):
+                    if len(shape) == 2:
+                        expected_shape = torch.Size((x1_.size(-1), shape[0], shape[1]))
+                    else:
+                        expected_shape = torch.Size((shape[0] * x1_.size(-1), shape[1], shape[2]))
+                    if res.shape != expected_shape:
+                        raise RuntimeError(
+                            "The kernel {} is not equipped to handle batch_dims=(0, 2). Expected size {}. "
+                            "Got size {}".format(self.__class__.__name__, expected_shape, res.shape)
+                        )
+
+                # If we didn't use batch_dims...
+                else:
+                    expected_shape = shape
+                    if res.shape != expected_shape:
+                        raise RuntimeError(
+                            "Error with {}.forward. Expected size {}. Got size {}.".format(
+                                self.__class__.__name__, expected_shape, res.shape
+                            )
+                        )
+            return res
 
     def __add__(self, other):
         return AdditiveKernel(self, other)
@@ -235,11 +319,13 @@ class AdditiveKernel(Kernel):
         super(AdditiveKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, **params):
         res = ZeroLazyTensor()
         for kern in self.kernels:
-            res = res + kern(x1, x2).evaluate_kernel()
-
+            next_term = kern(x1, x2, **params)
+            if isinstance(next_term, LazyEvaluatedKernelTensor):
+                next_term = next_term.evaluate_kernel()
+            res = res + next_term
         return res
 
 
@@ -257,5 +343,11 @@ class ProductKernel(Kernel):
         super(ProductKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1, x2):
-        return prod([k(x1, x2).evaluate_kernel() for k in self.kernels])
+    def forward(self, x1, x2, **params):
+        res = self.kernels[0](x1, x2, **params)
+        for kern in self.kernels[1:]:
+            next_term = kern(x1, x2, **params)
+            if isinstance(next_term, LazyEvaluatedKernelTensor):
+                next_term = next_term.evaluate_kernel()
+            res = res * next_term
+        return res

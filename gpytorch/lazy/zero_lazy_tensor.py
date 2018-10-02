@@ -12,9 +12,20 @@ class ZeroLazyTensor(LazyTensor):
     Special LazyTensor representing zero.
     """
 
-    def __init__(self, *sizes):
+    def __init__(self, *sizes, dtype=None, device=None):
         super(ZeroLazyTensor, self).__init__(*sizes)
         self.sizes = list(sizes)
+
+        self._dtype = dtype or torch.get_default_dtype()
+        self._device = device or torch.device("cpu")
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def device(self):
+        return self._device
 
     def _matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
@@ -72,14 +83,10 @@ class ZeroLazyTensor(LazyTensor):
         return res
 
     def diag(self):
-        size = self.size()
-        if size[-1] != size[-2]:
-            raise RuntimeError("Diag works on square matrices (or batches)")
-
-        if self.ndimension() == 3:
-            return torch.zeros(size[-3], size[-2])
-        else:
-            return torch.zeros(size[-2])
+        shape = self.shape
+        if shape[-1] != shape[-2]:
+            raise RuntimeError("diag works on square matrices (or batches)")
+        return torch.zeros(shape[:-1], dtype=self.dtype, device=self.device)
 
     def evaluate(self):
         return torch.zeros(*self.sizes)
@@ -117,15 +124,6 @@ class ZeroLazyTensor(LazyTensor):
     def root_decomposition_size(self):
         raise RuntimeError("ZeroLazyTensors are not positive definite!")
 
-    def size(self, val=None):
-        """
-        Returns the size of the resulting Variable that the lazy tensor represents
-        """
-        size = self._size()
-        if val is not None:
-            return size[val]
-        return size
-
     def sum_batch(self, sum_batch_size=None):
         from .sum_batch.lazy_tensor import SumBatchLazyTensor
 
@@ -152,13 +150,29 @@ class ZeroLazyTensor(LazyTensor):
         index = list(index) if isinstance(index, tuple) else [index]
         ndimension = self.ndimension()
         index += [slice(None, None, None)] * (ndimension - len(index))
+
+        has_added_tensor_index = False
+        evaluate = False
         new_sizes = []
         for ix, sub_index in enumerate(index):
             if isinstance(sub_index, int):
+                if ix >= ndimension - 2:
+                    evaluate = True
                 continue
-            elif isinstance(sub_index, slice):
-                new_sizes += [len(torch.arange(self.size(ix))[sub_index])]
-            else:
-                new_sizes += [len(sub_index)]
 
-        return ZeroLazyTensor(*new_sizes)
+            elif torch.is_tensor(sub_index):
+                if ix >= ndimension - 2:
+                    evaluate = True
+                if not has_added_tensor_index:
+                    new_sizes.append(sub_index.numel())
+                    has_added_tensor_index = True
+
+            elif isinstance(sub_index, slice):
+                new_sizes.append(len(torch.arange(self.size(ix))[sub_index]))
+            else:
+                new_sizes.append(len(sub_index))
+
+        if evaluate:
+            return torch.zeros(*new_sizes, dtype=self.dtype, device=self.device)
+        else:
+            return ZeroLazyTensor(*new_sizes)

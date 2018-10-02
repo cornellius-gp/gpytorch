@@ -15,7 +15,7 @@ from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function,
@@ -39,7 +39,7 @@ class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return GaussianRandomVariable(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestKissGPVariationalRegression(unittest.TestCase):
@@ -62,8 +62,8 @@ class TestKissGPVariationalRegression(unittest.TestCase):
 
         model = GPRegressionModel()
         likelihood = GaussianLikelihood()
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
-        n_iter = 40
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
+        n_iter = 20
         # We use SGD here, rather than Adam
         # Emperically, we find that SGD is better for variational regression
         optimizer = torch.optim.SGD([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.1)
@@ -75,7 +75,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
 
         # Our loss object
         # We're using the VariationalMarginalLogLikelihood object
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=train_y.size(0))
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=train_y.size(0))
 
         # The training loop
         def train():
@@ -104,7 +104,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
             model.eval()
             likelihood.eval()
 
-            test_preds = likelihood(model(test_x)).mean()
+            test_preds = likelihood(model(test_x)).mean
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
         self.assertLess(mean_abs_error.squeeze().item(), 0.1)

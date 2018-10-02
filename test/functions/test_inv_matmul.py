@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import torch
 import unittest
 from gpytorch.lazy import NonLazyTensor
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 
 
 class TestInvMatmulNonBatch(unittest.TestCase):

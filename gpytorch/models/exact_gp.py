@@ -7,7 +7,7 @@ import warnings
 import torch
 from ..module import Module
 from ..functions import exact_predictive_mean, exact_predictive_covar
-from ..random_variables import GaussianRandomVariable, MultitaskGaussianRandomVariable
+from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import GaussianLikelihood
 from .. import settings
 
@@ -65,7 +65,7 @@ class ExactGP(Module):
         return super(ExactGP, self).train(mode)
 
     def __call__(self, *args, **kwargs):
-        train_inputs = self.train_inputs
+        train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
         inputs = tuple(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args)
 
         # Training mode: optimizing
@@ -78,7 +78,8 @@ class ExactGP(Module):
             if settings.debug.on():
                 if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
                     raise RuntimeError("You must train on the training inputs!")
-            return super(ExactGP, self).__call__(*inputs, **kwargs)
+            res = super(ExactGP, self).__call__(*inputs, **kwargs)
+            return res
 
         # Posterior mode
         else:
@@ -92,50 +93,81 @@ class ExactGP(Module):
             if self.train_inputs is None:
                 full_inputs = args
             else:
+                # If we're doing batch testing, but did std training, adjust the training inputs
+                for i, (train_input, input) in enumerate(zip(train_inputs, inputs)):
+                    if train_input.dim() < input.dim():
+                        train_inputs[i] = train_input.unsqueeze(0).expand(input.size(0), *train_input.size())
+
                 full_inputs = tuple(
                     torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)
                 )
+
             full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
             if settings.debug().on():
-                if not isinstance(full_output, GaussianRandomVariable):
-                    raise RuntimeError("ExactGP.forward must return a GaussianRandomVariable")
-            full_mean, full_covar = full_output.representation()
+                if not isinstance(full_output, MultivariateNormal):
+                    raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
+            full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
-            n_tasks = 1
-            if isinstance(full_output, MultitaskGaussianRandomVariable):
-                n_tasks = full_output.n_tasks
+            num_tasks = 1
+            if isinstance(full_output, MultitaskMultivariateNormal):
+                num_tasks = full_output.num_tasks
 
-            n_train = 0
+            num_train = 0
             train_targets = None
             if self.train_targets is not None:
-                if self.train_targets.ndimension() == 2 and n_tasks > 1:
-                    # Multitask
-                    full_mean = full_mean.view(-1)
-                    n_train = self.train_targets.size(0)
-                    train_targets = self.train_targets.view(-1)
-                elif self.train_targets.ndimension() > 1:
-                    # batch mode
+                train_targets = self.train_targets
+
+                # If we expanded the train_inputs, we need to do the same for the train_targets
+                if any(
+                    orig_train_input.dim() < train_input.dim()
+                    for orig_train_input, train_input in zip(self.train_inputs, train_inputs)
+                ):
+                    train_targets = train_targets.unsqueeze(0).expand(train_inputs[0].size(0), *train_targets.size())
+
+                if num_tasks > 1:
+                    if train_targets.ndimension() == 2:
+                        # Multitask
+                        full_mean = full_mean.view(-1)
+                        num_train = train_targets.size(0)
+                        train_targets = train_targets.view(-1)
+                    else:
+                        # batch mode multitask
+                        batch_size = full_mean.size(0)
+                        full_mean = full_mean.view(batch_size, -1)
+                        num_train = train_targets.size(1)
+                        train_targets = train_targets.view(batch_size, -1)
+                elif train_targets.ndimension() > 1:
+                    # batch mode (standard)
                     full_mean = full_mean.view(full_mean.size(0), -1)
-                    n_train = self.train_targets.size(1)
-                    train_targets = self.train_targets.view(self.train_targets.size(0), -1)
+                    num_train = train_targets.size(1)
+                    train_targets = train_targets.view(train_targets.size(0), -1)
                 else:
-                    n_train = self.train_targets.size(-1)
-                    train_targets = self.train_targets
+                    # non-batch mode (standard)
+                    num_train = train_targets.size(-1)
 
             predictive_mean, mean_cache = exact_predictive_mean(
                 full_covar=full_covar,
                 full_mean=full_mean,
                 train_labels=train_targets,
-                n_train=n_train,
+                num_train=num_train,
                 likelihood=self.likelihood,
                 precomputed_cache=self.mean_cache,
             )
             predictive_covar, covar_cache = exact_predictive_covar(
-                full_covar=full_covar, n_train=n_train, likelihood=self.likelihood, precomputed_cache=self.covar_cache
+                full_covar=full_covar,
+                num_train=num_train,
+                likelihood=self.likelihood,
+                precomputed_cache=self.covar_cache,
             )
 
             self.mean_cache = mean_cache
             self.covar_cache = covar_cache
-            if n_tasks > 1:
-                predictive_mean = predictive_mean.view(-1, n_tasks).contiguous()
+            if num_tasks > 1:
+                if train_targets.ndimension() == 2:
+                    # Batch multitask
+                    predictive_mean = predictive_mean.view(train_targets.size(0), -1, num_tasks).contiguous()
+                else:
+                    # Standard multitask
+                    predictive_mean = predictive_mean.view(-1, num_tasks).contiguous()
+
             return full_output.__class__(predictive_mean, predictive_covar)

@@ -1,12 +1,13 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import math
+from numbers import Number
+
 import torch
-from torch.distributions.constraints import positive_definite
-from gpytorch.priors.prior import Prior
+from torch.distributions import constraints
+from torch.nn import Module as TModule
+
+from .prior import Prior
 
 
 class WishartPrior(Prior):
@@ -15,34 +16,51 @@ class WishartPrior(Prior):
     pdf(Sigma) ~ |Sigma|^(nu - n - 1)/2 * exp(-0.5 * Trace(K^-1 Sigma))
 
     where nu > n - 1 are the degrees of freedom and K > 0 is the p x p scale matrix
+
+    Reference: A. Shah, A. G. Wilson, and Z. Ghahramani. Student-t Processes as
+        Alternatives to Gaussian Processes. ArXiv e-prints, Feb. 2014.
     """
 
-    def __init__(self, nu, K):
-        if not positive_definite.check(K):
-            raise ValueError("K must be positive definite")
-        n = K.shape[0]
-        if nu <= n:
+    arg_constraints = {"K_inv": constraints.positive_definite, "nu": constraints.positive}
+    support = constraints.positive_definite
+    _validate_args = True
+
+    def __init__(self, nu, K, validate_args=False):
+        TModule.__init__(self)
+        if K.dim() < 2:
+            raise ValueError("K must be at least 2-dimensional")
+        n = K.shape[-1]
+        if K.shape[-2] != K.shape[-1]:
+            raise ValueError("K must be square")
+        if isinstance(nu, Number):
+            nu = torch.tensor(float(nu))
+        if torch.any(nu <= n):
             raise ValueError("Must have nu > n - 1")
-        super(WishartPrior, self).__init__()
-        self.register_buffer("K_inv", torch.inverse(K))
-        self.register_buffer("nu", torch.tensor(float(nu)))
+        self.n = torch.tensor(n, dtype=torch.long, device=nu.device)
+        batch_shape = nu.shape
+        event_shape = torch.Size([n, n])
         # normalization constant
-        C = -(nu / 2 * torch.log(torch.det(K)) + nu * n / 2 * math.log(2) + log_mv_gamma(n, nu / 2))
+        logdetK = torch.logdet(K) if K.dim() == 2 else torch.stack([torch.logdet(k) for k in K])
+        C = -(nu / 2) * (logdetK + n * math.log(2)) - torch.mvlgamma(nu / 2, n)
+        K_inv = torch.inverse(K) if K.dim() == 2 else torch.stack([torch.inverse(k) for k in K])
+        # need to assign values before registering as buffers to make argument validation work
+        self.nu = nu
+        self.K_inv = K_inv
+        self.C = C
+        super(WishartPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
+        # now need to delete to be able to register buffer
+        del self.nu, self.K_inv, self.C
+        self.register_buffer("nu", nu)
+        self.register_buffer("K_inv", K_inv)
         self.register_buffer("C", C)
         self._log_transform = False
 
-    def _log_prob(self, parameter):
-        if not positive_definite.check(parameter):
-            raise ValueError("parameter must be positive definite for Wishart prior")
-        return self.C + 0.5 * (
-            (self.nu - self.shape[0] - 1) * torch.log(torch.det(parameter)) - torch.trace(self.K_inv.matmul(parameter))
-        )
-
-    def is_in_support(self, parameter):
-        return bool(positive_definite.check(parameter))
-
-    def size(self):
-        return self.K_inv.shape
+    def log_prob(self, parameter):
+        # I'm sure this could be done more elegantly
+        logdetp = torch.logdet(parameter) if parameter.dim() == 2 else torch.stack([torch.logdet(p) for p in parameter])
+        Kinvp = torch.matmul(self.K_inv, parameter)
+        trKinvp = torch.diagonal(Kinvp, dim1=-2, dim2=-1).sum(-1)
+        return self.C + 0.5 * (self.nu - self.n - 1) * logdetp - trKinvp
 
 
 class InverseWishartPrior(Prior):
@@ -51,46 +69,45 @@ class InverseWishartPrior(Prior):
     pdf(Sigma) ~ |Sigma|^-(nu + 2 * n)/2 * exp(-0.5 * Trace(K Sigma^-1))
 
     where nu > 0 are the degrees of freedom and K > 0 is the p x p scale matrix
+
+    Reference: A. Shah, A. G. Wilson, and Z. Ghahramani. Student-t Processes as
+        Alternatives to Gaussian Processes. ArXiv e-prints, Feb. 2014.
     """
 
-    def __init__(self, nu, K):
-        n = K.shape[0]
-        if not positive_definite.check(K):
-            raise ValueError("K must be positive definite")
-        if nu <= 0:
+    arg_constraints = {"K": constraints.positive_definite, "nu": constraints.positive}
+    support = constraints.positive_definite
+    _validate_args = True
+
+    def __init__(self, nu, K, validate_args=False):
+        TModule.__init__(self)
+        if K.dim() < 2:
+            raise ValueError("K must be at least 2-dimensional")
+        n = K.shape[-1]
+        if isinstance(nu, Number):
+            nu = torch.tensor(float(nu))
+        if torch.any(nu <= 0):
             raise ValueError("Must have nu > 0")
-        super(InverseWishartPrior, self).__init__()
-        self.register_buffer("K", K)
-        self.register_buffer("nu", torch.tensor(float(nu)))
+        self.n = torch.tensor(n, dtype=torch.long, device=nu.device)
+        batch_shape = nu.shape
+        event_shape = torch.Size([n, n])
         # normalization constant
         c = (nu + n - 1) / 2
-        C = c * torch.log(torch.det(K)) - c * n * math.log(2) - log_mv_gamma(n, c)
+        logdetK = torch.logdet(K) if K.dim() == 2 else torch.stack([torch.logdet(k) for k in K])
+        C = c * (logdetK - n * math.log(2)) - torch.mvlgamma(c, n)
+        # need to assign values before registering as buffers to make argument validation work
+        self.nu = nu
+        self.K = K
+        self.C = C
+        super(InverseWishartPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
+        # now need to delete to be able to register buffer
+        del self.nu, self.K, self.C
+        self.register_buffer("nu", nu)
+        self.register_buffer("K", K)
         self.register_buffer("C", C)
         self._log_transform = False
 
-    def _log_prob(self, parameter):
-        if not positive_definite.check(parameter):
-            raise ValueError("parameter must be positive definite for Inverse Wishart prior")
-        return self.C - 0.5 * (
-            (self.nu + 2 * self.shape[0]) * torch.log(torch.det(parameter))
-            + torch.trace(torch.gesv(self.K, parameter)[0])
-        )
-
-    def is_in_support(self, parameter):
-        return bool(positive_definite.check(parameter))
-
-    def size(self):
-        return self.K.shape
-
-
-def log_mv_gamma(p, a):
-    """Simple implementation of the log multivariate gamma function Gamma_p(a)
-
-    Args:
-        p (int): dimension
-        a (float): argument
-
-    Will be made obsolete by https://github.com/pytorch/pytorch/issues/9378
-    """
-    C = p * (p - 1) / 4 * math.log(math.pi)
-    return float(C + torch.lgamma(a - 0.5 * torch.arange(p, dtype=torch.float)).sum())
+    def log_prob(self, parameter):
+        logdetp = torch.logdet(parameter) if parameter.dim() == 2 else torch.stack([torch.logdet(p) for p in parameter])
+        pinvK = torch.gesv(self.K, parameter)[0]
+        trpinvK = torch.diagonal(pinvK, dim1=-2, dim2=-1).sum(-1)  # trace in batch mode
+        return self.C - 0.5 * ((self.nu + 2 * self.n) * logdetp + trpinvK)

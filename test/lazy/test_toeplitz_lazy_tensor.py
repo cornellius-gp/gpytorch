@@ -3,70 +3,38 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import gpytorch
 import torch
 import unittest
-from gpytorch import utils
+import gpytorch.utils.toeplitz as toeplitz
 from gpytorch.lazy import ToeplitzLazyTensor
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
 
 
-class TestToeplitzLazyTensor(unittest.TestCase):
-    def setUp(self):
-        self.toeplitz_column = torch.tensor([2, 0, 4, 1], dtype=torch.float)
-        self.batch_toeplitz_column = torch.tensor([[2, 0, 4, 1], [1, 1, -1, 3]], dtype=torch.float)
+class TestToeplitzLazyTensor(LazyTensorTestCase, unittest.TestCase):
+    seed = 1
 
-    def test_inv_matmul(self):
-        c_1 = torch.tensor([4, 1, 1], dtype=torch.float, requires_grad=True)
-        c_2 = torch.tensor([4, 1, 1], dtype=torch.float, requires_grad=True)
-        T_1 = torch.zeros(3, 3)
-        for i in range(3):
-            for j in range(3):
-                T_1[i, j] = c_1[abs(i - j)]
-        T_2 = gpytorch.lazy.ToeplitzLazyTensor(c_2)
+    def create_lazy_tensor(self):
+        toeplitz_column = torch.tensor([4, 0, 0, 1], dtype=torch.float, requires_grad=True)
+        return ToeplitzLazyTensor(toeplitz_column)
 
-        B = torch.randn(3, 4)
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return toeplitz.sym_toeplitz(lazy_tensor.column)
 
-        res_1 = gpytorch.inv_matmul(T_1, B).sum()
-        res_2 = gpytorch.inv_matmul(T_2, B).sum()
 
-        res_1.backward()
-        res_2.backward()
+class TestToeplitzLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+    seed = 0
 
-        self.assertLess(torch.norm(res_1 - res_2), 1e-4)
-        self.assertLess(torch.norm(c_1.grad - c_2.grad), 1e-4)
+    def create_lazy_tensor(self):
+        toeplitz_column = torch.tensor([[2, -1, 0.5, 0.25], [4, 0, 0, 1]], dtype=torch.float, requires_grad=True)
+        return ToeplitzLazyTensor(toeplitz_column)
 
-    def test_evaluate(self):
-        lazy_toeplitz_var = ToeplitzLazyTensor(self.toeplitz_column)
-        res = lazy_toeplitz_var.evaluate()
-        actual = torch.tensor([[2, 0, 4, 1], [0, 2, 0, 4], [4, 0, 2, 0], [1, 4, 0, 2]], dtype=torch.float)
-        self.assertTrue(utils.approx_equal(res, actual))
-
-        lazy_toeplitz_var = ToeplitzLazyTensor(self.batch_toeplitz_column)
-        res = lazy_toeplitz_var.evaluate()
-        actual = torch.tensor(
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return torch.cat(
             [
-                [[2, 0, 4, 1], [0, 2, 0, 4], [4, 0, 2, 0], [1, 4, 0, 2]],
-                [[1, 1, -1, 3], [1, 1, 1, -1], [-1, 1, 1, 1], [3, -1, 1, 1]],
-            ],
-            dtype=torch.float,
+                toeplitz.sym_toeplitz(lazy_tensor.column[0]).unsqueeze(0),
+                toeplitz.sym_toeplitz(lazy_tensor.column[1]).unsqueeze(0),
+            ]
         )
-        self.assertTrue(utils.approx_equal(res, actual))
-
-    def test_get_item_square_on_tensor(self):
-        toeplitz_var = ToeplitzLazyTensor(torch.tensor([1, 2, 3, 4], dtype=torch.float))
-        evaluated = toeplitz_var.evaluate()
-
-        self.assertTrue(utils.approx_equal(toeplitz_var[2:4, 2:4].evaluate(), evaluated[2:4, 2:4]))
-
-    def test_get_item_on_batch(self):
-        toeplitz_var = ToeplitzLazyTensor(self.batch_toeplitz_column)
-        evaluated = toeplitz_var.evaluate()
-        self.assertTrue(utils.approx_equal(toeplitz_var[0, 1:3].evaluate(), evaluated[0, 1:3]))
-
-    def test_get_item_scalar_on_batch(self):
-        toeplitz_var = ToeplitzLazyTensor(torch.tensor([[1, 2, 3, 4]], dtype=torch.float))
-        evaluated = toeplitz_var.evaluate()
-        self.assertTrue(utils.approx_equal(toeplitz_var[0].evaluate(), evaluated[0]))
 
 
 if __name__ == "__main__":

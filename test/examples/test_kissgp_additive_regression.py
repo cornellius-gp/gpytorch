@@ -11,11 +11,11 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from gpytorch.kernels import RBFKernel, AdditiveGridInterpolationKernel, ScaleKernel
+from gpytorch.kernels import RBFKernel, AdditiveStructureKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ZeroMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 n = 20
 train_x = torch.zeros(pow(n, 2), 2)
@@ -23,7 +23,7 @@ for i in range(n):
     for j in range(n):
         train_x[i * n + j][0] = float(i) / (n - 1)
         train_x[i * n + j][1] = float(j) / (n - 1)
-train_y = (torch.sin(train_x[:, 0]) + torch.cos(train_x[:, 1]))
+train_y = torch.sin(train_x[:, 0]) + torch.cos(train_x[:, 1])
 train_y = train_y + torch.randn_like(train_y).div_(20.)
 
 m = 10
@@ -32,7 +32,7 @@ for i in range(m):
     for j in range(m):
         test_x[i * m + j][0] = float(i) / (m - 1)
         test_x[i * m + j][1] = float(j) / (m - 1)
-test_y = (torch.sin(test_x[:, 0]) + torch.cos(test_x[:, 1]))
+test_y = torch.sin(test_x[:, 0]) + torch.cos(test_x[:, 1])
 
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
@@ -41,16 +41,18 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ZeroMean()
         self.base_covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True))
+            RBFKernel(
+                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True)
+            )
         )
-        self.covar_module = AdditiveGridInterpolationKernel(
-            self.base_covar_module, grid_size=100, grid_bounds=[(-0.5, 1.5)], n_components=2
+        self.covar_module = AdditiveStructureKernel(
+            GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=2), num_dims=2
         )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return GaussianRandomVariable(mean_x, covar_x)
+        return MultivariateNormal(mean_x, covar_x)
 
 
 class TestKISSGPAdditiveRegression(unittest.TestCase):
@@ -87,18 +89,18 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
                     optimizer.n_iter += 1
                     optimizer.step()
 
-                for param in gp_model.parameters():
-                    self.assertTrue(param.grad is not None)
-                    self.assertGreater(param.grad.norm().item(), 0)
-                for param in likelihood.parameters():
-                    self.assertTrue(param.grad is not None)
-                    self.assertGreater(param.grad.norm().item(), 0)
+                    for param in gp_model.parameters():
+                        self.assertTrue(param.grad is not None)
+                        self.assertGreater(param.grad.norm().item(), 0)
+                    for param in likelihood.parameters():
+                        self.assertTrue(param.grad is not None)
+                        self.assertGreater(param.grad.norm().item(), 0)
 
                 # Test the model
                 gp_model.eval()
                 likelihood.eval()
 
-                test_preds = likelihood(gp_model(test_x)).mean()
+                test_preds = likelihood(gp_model(test_x)).mean
                 mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
                 self.assertLess(mean_abs_error.squeeze().item(), 0.2)
 

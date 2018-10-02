@@ -4,14 +4,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from gpytorch.means import Mean
-from gpytorch.priors._compatibility import _bounds_to_prior
+from .mean import Mean
 
 
 class ConstantMean(Mean):
-    def __init__(self, prior=None, batch_size=None, constant_bounds=None):
-        # TODO: Remove deprecated bounds kwarg
-        prior = _bounds_to_prior(prior=prior, bounds=constant_bounds, batch_size=batch_size, log_transform=False)
+    def __init__(self, prior=None, batch_size=None):
         super(ConstantMean, self).__init__()
         self.batch_size = batch_size
         self.register_parameter(

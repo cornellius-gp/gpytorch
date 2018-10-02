@@ -1,14 +1,15 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import math
 from numbers import Number
 
 import torch
-from torch.distributions.normal import Normal
-from gpytorch.priors.prior import Prior
+from torch.distributions import constraints
+from torch.distributions.utils import broadcast_all
+from torch.nn import Module as TModule
+
+from .prior import Prior
+from .torch_priors import NormalPrior
 
 
 class SmoothedBoxPrior(Prior):
@@ -23,31 +24,29 @@ class SmoothedBoxPrior(Prior):
 
     """
 
-    def __init__(self, a, b, sigma=0.01, log_transform=False, size=None):
-        if isinstance(a, Number) and isinstance(b, Number):
-            a = torch.full((size or 1,), float(a))
-            b = torch.full((size or 1,), float(b))
-        elif not (torch.is_tensor(a) and torch.is_tensor(b)):
-            raise ValueError("a and b must be both either scalars or Tensors")
-        elif a.shape != b.shape:
-            raise ValueError("a and b must have the same shape")
-        elif size is not None:
-            raise ValueError("can only set size for scalar a and b")
-        if (b < a).any():
-            raise ValueError("must have that a < b (element-wise)")
-        super(SmoothedBoxPrior, self).__init__()
-        self.register_buffer("a", a.view(-1).clone())
-        self.register_buffer("b", b.view(-1).clone())
-        self.register_buffer(
-            "sigma",
-            torch.full_like(self.a, float(sigma)) if isinstance(sigma, Number) else sigma.view(self.a.shape).clone(),
-        )
-        self.register_buffer("_loc", torch.zeros_like(self.sigma))
-        self._log_transform = log_transform
-        self._initialize_distributions()
+    arg_constraints = {"sigma": constraints.positive, "a": constraints.real, "b": constraints.real}
+    support = constraints.real
+    _validate_args = True
 
-    def _initialize_distributions(self):
-        self._tails = [Normal(loc=l, scale=s, validate_args=True) for l, s in zip(self._loc, self.sigma)]
+    def __init__(self, a, b, sigma=0.01, log_transform=False, validate_args=False):
+        TModule.__init__(self)
+        _a = torch.tensor(float(a)) if isinstance(a, Number) else a
+        _a = _a.view(-1) if _a.dim() < 1 else _a
+        _a, _b, _sigma = broadcast_all(_a, b, sigma)
+        if not torch.all(constraints.less_than(_b).check(_a)):
+            raise ValueError("must have that a < b (element-wise)")
+        # TODO: Proper argument validation including broadcasting
+        batch_shape, event_shape = _a.shape[:-1], _a.shape[-1:]
+        # need to assign values before registering as buffers to make argument validation work
+        self.a, self.b, self.sigma = _a, _b, _sigma
+        super(SmoothedBoxPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
+        # now need to delete to be able to register buffer
+        del self.a, self.b, self.sigma
+        self.register_buffer("a", _a)
+        self.register_buffer("b", _b)
+        self.register_buffer("sigma", _sigma)
+        self.tails = NormalPrior(torch.zeros_like(_a), _sigma, validate_args=validate_args)
+        self._log_transform = log_transform
 
     @property
     def _c(self):
@@ -62,13 +61,10 @@ class SmoothedBoxPrior(Prior):
         # normalization factor to make this a probability distribution
         return torch.log(1 + (self.b - self.a) / (math.sqrt(2 * math.pi) * self.sigma))
 
+    def log_prob(self, parameter):
+        return self._log_prob(parameter.exp() if self.log_transform else parameter)
+
     def _log_prob(self, parameter):
         # x = "distances from box`"
-        X = ((parameter.view(self.a.shape) - self._c).abs_() - self._r).clamp(min=0)
-        return sum(p.log_prob(x) for p, x in zip(self._tails, X)) - self._M.sum()
-
-    def is_in_support(self, parameter):
-        return True
-
-    def size(self):
-        return torch.Size([len(self.tails)])
+        X = ((parameter - self._c).abs_() - self._r).clamp(min=0)
+        return (self.tails.log_prob(X) - self._M).sum(-1)

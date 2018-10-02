@@ -1,13 +1,12 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import torch
-from ..random_variables import GaussianRandomVariable, BernoulliRandomVariable
-from .likelihood import Likelihood
-from ..functions import log_normal_cdf, normal_cdf
+from torch.distributions import Bernoulli
+
 from .. import settings
+from ..distributions import MultivariateNormal
+from ..functions import log_normal_cdf, normal_cdf
+from .likelihood import Likelihood
 
 
 class BernoulliLikelihood(Likelihood):
@@ -33,26 +32,27 @@ class BernoulliLikelihood(Likelihood):
 
             p(y|x) = \Phi(\frac{\mu}{\sqrt{1+\sigma^2_f}})
         """
-        if not isinstance(input, GaussianRandomVariable):
+        if not isinstance(input, MultivariateNormal):
             raise RuntimeError(
-                " ".join(["BernoulliLikelihood expects a Gaussian", "distributed latent function to make predictions"])
+                "BernoulliLikelihood expects a multi-variate normally distributed latent function to make predictions"
             )
 
-        mean = input.mean()
-        var = input.var()
-
+        mean = input.mean
+        var = input.variance
         link = mean.div(torch.sqrt(1 + var))
-
         output_probs = normal_cdf(link)
-        return BernoulliRandomVariable(output_probs)
+        return Bernoulli(probs=output_probs)
 
-    def log_probability(self, latent_func, target):
+    def variational_log_probability(self, latent_func, target):
         """
-        Computes the log probability \sum_{i} \log \Phi(y_{i}f_{i}), where
-        \Phi(y_{i}f_{i}) is computed by averaging over a set of s samples of
-        f_{i} drawn from p(f|x).
+        Computes the log probability
+
+            \sum_{i} \log \Phi(y_{i}f_{i}),
+
+        where \Phi(y_{i}f_{i}) is computed by averaging over a set of s samples
+        of f_{i} drawn from p(f|x).
         """
         num_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.sample(num_samples, warn_about_shape=False).view(-1)
+        samples = latent_func.rsample(torch.Size([num_samples])).view(-1)
         target = target.unsqueeze(0).repeat(num_samples, 1).view(-1)
         return log_normal_cdf(samples.mul(target)).sum().div(num_samples)

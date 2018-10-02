@@ -30,6 +30,7 @@ class SumBatchLazyTensor(BlockLazyTensor):
             Set this to `k` for `bk x n x n` batched LazyTensors, or `None` for `k x n x n`
             unbatched LazyTensors.
     """
+
     def _matmul(self, rhs):
         isvector = rhs.ndimension() == 1
         if isvector:
@@ -79,9 +80,9 @@ class SumBatchLazyTensor(BlockLazyTensor):
             return torch.Size([inner_batch_size] + list(base_size)[1:])
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        inner_batch_indices = torch.arange(
-            0, self.num_blocks, dtype=torch.long, device=left_indices.device
-        ).unsqueeze_(1)
+        inner_batch_indices = torch.arange(0, self.num_blocks, dtype=torch.long, device=left_indices.device).unsqueeze_(
+            1
+        )
         batch_indices = batch_indices.mul(self.num_blocks).unsqueeze_(0).add(inner_batch_indices).view(-1)
         left_indices = left_indices.unsqueeze(0).repeat(self.num_blocks, 1).view(-1)
         right_indices = right_indices.unsqueeze(0).repeat(self.num_blocks, 1).view(-1)
@@ -103,9 +104,7 @@ class SumBatchLazyTensor(BlockLazyTensor):
         if self.num_blocks is None:
             train_train_covar_inv_root = train_train_covar_inv_root.unsqueeze(0)
             train_train_covar_inv_root = train_train_covar_inv_root.expand(
-                self.base_lazy_tensor.size(0),
-                train_train_covar_inv_root.size(-2),
-                train_train_covar_inv_root.size(-1),
+                self.base_lazy_tensor.size(0), train_train_covar_inv_root.size(-2), train_train_covar_inv_root.size(-1)
             )
         else:
             train_train_covar_inv_root = train_train_covar_inv_root.repeat(self.num_blocks, 1, 1)
@@ -125,6 +124,12 @@ class SumBatchLazyTensor(BlockLazyTensor):
         else:
             res = res.sum(0)
         return res
+
+    def diag(self):
+        diag = self.base_lazy_tensor.diag()
+        if self.num_blocks is not None:
+            diag = diag.view(-1, self.num_blocks, diag.size(-1))
+        return diag.sum(-2)
 
     def zero_mean_mvn_samples(self, num_samples):
         num_dim = self.size(-2)

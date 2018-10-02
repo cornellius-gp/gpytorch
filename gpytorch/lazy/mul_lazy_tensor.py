@@ -11,27 +11,27 @@ from ..utils import prod
 
 
 class MulLazyTensor(LazyTensor):
-    def __init__(self, *lazy_vars):
+    def __init__(self, *lazy_tensors):
         """
         Args:
-            - lazy_vars (A list of LazyTensor) - A list of LazyTensor to multiplicate with.
+            - lazy_tensors (A list of LazyTensor) - A list of LazyTensor to multiplicate with.
         """
-        lazy_vars = list(lazy_vars)
-        if len(lazy_vars) == 1:
-            if isinstance(lazy_vars[0], NonLazyTensor):
-                self._non_lazy_self = lazy_vars
+        lazy_tensors = list(lazy_tensors)
+        if len(lazy_tensors) == 1:
+            if isinstance(lazy_tensors[0], NonLazyTensor):
+                self._non_lazy_self = lazy_tensors
             else:
                 raise RuntimeError("MulLazyTensor can only have one LazyTensor if it is a NonLazyTensor")
         else:
-            for i, lazy_var in enumerate(lazy_vars):
-                if not isinstance(lazy_var, LazyTensor):
-                    if torch.is_tensor(lazy_var):
-                        lazy_vars[i] = NonLazyTensor(lazy_var)
+            for i, lazy_tensor in enumerate(lazy_tensors):
+                if not isinstance(lazy_tensor, LazyTensor):
+                    if torch.is_tensor(lazy_tensor):
+                        lazy_tensors[i] = NonLazyTensor(lazy_tensor)
                     else:
                         raise RuntimeError("All arguments of a MulLazyTensor should be LazyTensors or Tensors")
 
-        super(MulLazyTensor, self).__init__(*lazy_vars)
-        self.lazy_vars = lazy_vars
+        super(MulLazyTensor, self).__init__(*lazy_tensors)
+        self.lazy_tensors = lazy_tensors
 
     @property
     def non_lazy_self(self):
@@ -43,57 +43,59 @@ class MulLazyTensor(LazyTensor):
             return None
 
     @property
-    def left_lazy_var(self):
+    def left_lazy_tensor(self):
         return self._args[0]
 
     @property
-    def right_lazy_var(self):
+    def right_lazy_tensor(self):
         return self._args[1]
 
     @property
     def _args(self):
         if not hasattr(self, "_mul_args_memo") and not hasattr(self, "_non_lazy_self"):
-            lazy_vars = sorted(
-                (lv.evaluate_kernel() for lv in self.lazy_vars), key=lambda lv: lv.root_decomposition_size()
+            lazy_tensors = sorted(
+                (lv.evaluate_kernel() for lv in self.lazy_tensors), key=lambda lv: lv.root_decomposition_size()
             )
 
-            if any(isinstance(lv, NonLazyTensor) for lv in lazy_vars):
-                self._non_lazy_self = [NonLazyTensor(prod([lv.evaluate() for lv in lazy_vars]))]
+            if any(isinstance(lv, NonLazyTensor) for lv in lazy_tensors):
+                self._non_lazy_self = [NonLazyTensor(prod([lv.evaluate() for lv in lazy_tensors]))]
             else:
                 # Sort lazy tensors by root decomposition size (rank)
 
                 # Recursively construct lazy tensors
                 # Make sure the recursive components get a mix of low_rank and high_rank variables
-                if len(lazy_vars) > 2:
-                    interleaved_lazy_vars = lazy_vars[0::2] + lazy_vars[1::2]
-                    if len(interleaved_lazy_vars) > 3:
-                        left_lazy_var = MulLazyTensor(*interleaved_lazy_vars[: len(interleaved_lazy_vars) // 2])
-                        if left_lazy_var.root_decomposition_size() < left_lazy_var.size(-1):
-                            left_lazy_var = RootLazyTensor(left_lazy_var.root_decomposition())
+                if len(lazy_tensors) > 2:
+                    interleaved_lazy_tensors = lazy_tensors[0::2] + lazy_tensors[1::2]
+                    if len(interleaved_lazy_tensors) > 3:
+                        left_lazy_tensor = MulLazyTensor(
+                            *interleaved_lazy_tensors[: len(interleaved_lazy_tensors) // 2]
+                        )
+                        if left_lazy_tensor.root_decomposition_size() < left_lazy_tensor.size(-1):
+                            left_lazy_tensor = RootLazyTensor(left_lazy_tensor.root_decomposition())
                         else:
-                            left_lazy_var = NonLazyTensor(left_lazy_var.evaluate())
+                            left_lazy_tensor = NonLazyTensor(left_lazy_tensor.evaluate())
                     else:
                         # Make sure we're not constructing a MulLazyTensor of length 1
-                        left_lazy_var = interleaved_lazy_vars[0]
+                        left_lazy_tensor = interleaved_lazy_tensors[0]
 
-                    right_lazy_var = MulLazyTensor(*interleaved_lazy_vars[len(interleaved_lazy_vars) // 2 :])
-                    if right_lazy_var.root_decomposition_size() < right_lazy_var.size(-1):
-                        right_lazy_var = RootLazyTensor(right_lazy_var.root_decomposition())
+                    right_lazy_tensor = MulLazyTensor(*interleaved_lazy_tensors[len(interleaved_lazy_tensors) // 2 :])
+                    if right_lazy_tensor.root_decomposition_size() < right_lazy_tensor.size(-1):
+                        right_lazy_tensor = RootLazyTensor(right_lazy_tensor.root_decomposition())
                     else:
-                        right_lazy_var = NonLazyTensor(right_lazy_var.evaluate())
+                        right_lazy_tensor = NonLazyTensor(right_lazy_tensor.evaluate())
                 else:
-                    left_lazy_var = lazy_vars[0]
-                    right_lazy_var = lazy_vars[1]
+                    left_lazy_tensor = lazy_tensors[0]
+                    right_lazy_tensor = lazy_tensors[1]
 
                 # Choose which we're doing: root decomposition or exact
-                if left_lazy_var.root_decomposition_size() < left_lazy_var.size(-1):
-                    left_lazy_var = RootLazyTensor(left_lazy_var.root_decomposition())
-                    right_lazy_var = RootLazyTensor(right_lazy_var.root_decomposition())
+                if left_lazy_tensor.root_decomposition_size() < left_lazy_tensor.size(-1):
+                    left_lazy_tensor = RootLazyTensor(left_lazy_tensor.root_decomposition())
+                    right_lazy_tensor = RootLazyTensor(right_lazy_tensor.root_decomposition())
 
-                if isinstance(left_lazy_var, NonLazyTensor) and isinstance(right_lazy_var, NonLazyTensor):
-                    self._non_lazy_self = [NonLazyTensor(left_lazy_var.evaluate() * right_lazy_var.evaluate())]
+                if isinstance(left_lazy_tensor, NonLazyTensor) and isinstance(right_lazy_tensor, NonLazyTensor):
+                    self._non_lazy_self = [NonLazyTensor(left_lazy_tensor.evaluate() * right_lazy_tensor.evaluate())]
                 else:
-                    self._mul_args_memo = [left_lazy_var, right_lazy_var]
+                    self._mul_args_memo = [left_lazy_tensor, right_lazy_tensor]
 
         if hasattr(self, "_mul_args_memo"):
             return self._mul_args_memo
@@ -116,20 +118,20 @@ class MulLazyTensor(LazyTensor):
         batch_size = max(rhs.size(0), self.size(0)) if rhs.ndimension() == 3 else None
 
         # Here we have a root decomposition
-        if isinstance(self.left_lazy_var, RootLazyTensor):
-            left_root = self.left_lazy_var.root.evaluate()
+        if isinstance(self.left_lazy_tensor, RootLazyTensor):
+            left_root = self.left_lazy_tensor.root.evaluate()
             rank = left_root.size(-1)
             n = self.size(-1)
             m = rhs.size(-1)
             # Now implement the formula (A . B) v = diag(A D_v B)
             left_res = rhs.unsqueeze(-2) * left_root.unsqueeze(-1)
             left_res = left_res.view(n, rank * m) if batch_size is None else left_res.view(batch_size, n, rank * m)
-            left_res = self.right_lazy_var._matmul(left_res)
+            left_res = self.right_lazy_tensor._matmul(left_res)
             left_res = left_res.view(n, rank, m) if batch_size is None else left_res.view(batch_size, n, rank, m)
             res = left_res.mul_(left_root.unsqueeze(-1)).sum(-2)
         # This is the case where we're not doing a root decomposition, because the matrix is too small
         else:
-            res = (self.left_lazy_var.evaluate() * self.right_lazy_var.evaluate()).matmul(rhs)
+            res = (self.left_lazy_tensor.evaluate() * self.right_lazy_tensor.evaluate()).matmul(rhs)
         res = res.squeeze(-1) if is_vector else res
         return res
 
@@ -149,15 +151,15 @@ class MulLazyTensor(LazyTensor):
         else:
             n, num_vecs = left_vecs.size()
 
-        if isinstance(self.right_lazy_var, RootLazyTensor):
-            right_root = self.right_lazy_var.root.evaluate()
+        if isinstance(self.right_lazy_tensor, RootLazyTensor):
+            right_root = self.right_lazy_tensor.root.evaluate()
             right_rank = right_root.size(-1)
             left_factor = left_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
         else:
             right_rank = n
-            eye = torch.eye(n, dtype=self.right_lazy_var.dtype, device=self.right_lazy_var.device)
-            left_factor = left_vecs.unsqueeze(-2) * self.right_lazy_var.evaluate().unsqueeze(-1)
+            eye = torch.eye(n, dtype=self.right_lazy_tensor.dtype, device=self.right_lazy_tensor.device)
+            left_factor = left_vecs.unsqueeze(-2) * self.right_lazy_tensor.evaluate().unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * eye.unsqueeze(-1)
 
         if batch_size is None:
@@ -166,17 +168,17 @@ class MulLazyTensor(LazyTensor):
         else:
             left_factor = left_factor.view(batch_size, n, num_vecs * right_rank)
             right_factor = right_factor.view(batch_size, n, num_vecs * right_rank)
-        left_deriv_args = self.left_lazy_var._quad_form_derivative(left_factor, right_factor)
+        left_deriv_args = self.left_lazy_tensor._quad_form_derivative(left_factor, right_factor)
 
-        if isinstance(self.left_lazy_var, RootLazyTensor):
-            left_root = self.left_lazy_var.root.evaluate()
+        if isinstance(self.left_lazy_tensor, RootLazyTensor):
+            left_root = self.left_lazy_tensor.root.evaluate()
             left_rank = left_root.size(-1)
             left_factor = left_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
         else:
             left_rank = n
-            eye = torch.eye(n, dtype=self.left_lazy_var.dtype, device=self.left_lazy_var.device)
-            left_factor = left_vecs.unsqueeze(-2) * self.left_lazy_var.evaluate().unsqueeze(-1)
+            eye = torch.eye(n, dtype=self.left_lazy_tensor.dtype, device=self.left_lazy_tensor.device)
+            left_factor = left_vecs.unsqueeze(-2) * self.left_lazy_tensor.evaluate().unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * eye.unsqueeze(-1)
 
         if batch_size is None:
@@ -185,46 +187,54 @@ class MulLazyTensor(LazyTensor):
         else:
             left_factor = left_factor.view(batch_size, n, num_vecs * left_rank)
             right_factor = right_factor.view(batch_size, n, num_vecs * left_rank)
-        right_deriv_args = self.right_lazy_var._quad_form_derivative(left_factor, right_factor)
+        right_deriv_args = self.right_lazy_tensor._quad_form_derivative(left_factor, right_factor)
 
         return tuple(list(left_deriv_args) + list(right_deriv_args))
 
+    def clone(self):
+        args = [arg.clone() for arg in self.lazy_tensors]
+        kwargs = dict((key, val.clone() if hasattr(val, "clone") else val) for key, val in self._kwargs.items())
+        return self.__class__(*args, **kwargs)
+
     def diag(self):
-        res = prod([lazy_var.diag() for lazy_var in self.lazy_vars])
+        res = prod([lazy_tensor.diag() for lazy_tensor in self.lazy_tensors])
         return res
 
     def evaluate(self):
-        res = prod([lazy_var.evaluate() for lazy_var in self.lazy_vars])
+        res = prod([lazy_tensor.evaluate() for lazy_tensor in self.lazy_tensors])
         return res
 
     def mul(self, other):
         if isinstance(other, int) or isinstance(other, float) or (torch.is_tensor(other) and other.numel() == 1):
-            lazy_vars = list(self.lazy_vars[:-1])
-            lazy_vars.append(self.lazy_vars[-1] * other)
-            return MulLazyTensor(*lazy_vars)
+            lazy_tensors = list(self.lazy_tensors[:-1])
+            lazy_tensors.append(self.lazy_tensors[-1] * other)
+            return MulLazyTensor(*lazy_tensors)
         elif isinstance(other, MulLazyTensor):
-            res = list(self.lazy_vars) + list(other.lazy_vars)
+            res = list(self.lazy_tensors) + list(other.lazy_tensors)
             return MulLazyTensor(*res)
         elif isinstance(other, NonLazyTensor):
             return NonLazyTensor(self.evaluate() * other.evaluate())
         elif self.non_lazy_self is not None:
             return NonLazyTensor(self.non_lazy_self.evaluate() * other.evaluate())
         elif isinstance(other, LazyTensor):
-            return MulLazyTensor(*(list(self.lazy_vars) + [other]))
+            return MulLazyTensor(*(list(self.lazy_tensors) + [other]))
         else:
             raise RuntimeError("other must be a LazyTensor, int or float.")
 
     def _size(self):
-        return self.lazy_vars[0].size()
+        return self.lazy_tensors[0].size()
 
     def _batch_get_indices(self, batch_indices, left_indices, right_indices):
         res = prod(
-            [lazy_var._batch_get_indices(batch_indices, left_indices, right_indices) for lazy_var in self.lazy_vars]
+            [
+                lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
+                for lazy_tensor in self.lazy_tensors
+            ]
         )
         return res
 
     def _get_indices(self, left_indices, right_indices):
-        res = prod([lazy_var._get_indices(left_indices, right_indices) for lazy_var in self.lazy_vars])
+        res = prod([lazy_tensor._get_indices(left_indices, right_indices) for lazy_tensor in self.lazy_tensors])
         return res
 
     def _transpose_nonbatch(self):

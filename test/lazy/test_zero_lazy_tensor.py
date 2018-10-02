@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 import unittest
-from gpytorch.utils import approx_equal
+from test._utils import approx_equal
 from gpytorch.lazy import ZeroLazyTensor
 
 
@@ -20,8 +20,8 @@ class TestZeroLazyTensor(unittest.TestCase):
         lv = ZeroLazyTensor(5, 4, 3)
 
         res_one = lv[0].evaluate()
-        res_two = lv[:, 1, :].evaluate()
-        res_three = lv[:, :, 2].evaluate()
+        res_two = lv[:, 1, :]
+        res_three = lv[:, :, 2]
 
         self.assertLess(torch.norm(res_one - torch.zeros(4, 3)), 1e-4)
         self.assertLess(torch.norm(res_two - torch.zeros(5, 3)), 1e-4)
@@ -37,6 +37,40 @@ class TestZeroLazyTensor(unittest.TestCase):
         self.assertLess(torch.norm(res_one - torch.zeros(2, 4, 3)), 1e-4)
         self.assertLess(torch.norm(res_two - torch.zeros(5, 2, 3)), 1e-4)
         self.assertLess(torch.norm(res_three - torch.zeros(5, 4, 2)), 1e-4)
+
+    def test_get_item_tensor_index(self):
+        # Tests the default LV.__getitem__ behavior
+        lazy_tensor = ZeroLazyTensor(5, 5)
+        evaluated = lazy_tensor.evaluate()
+
+        index = (torch.tensor([0, 0, 1, 2]), torch.tensor([0, 1, 0, 2]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+
+    def test_get_item_tensor_index_on_batch(self):
+        # Tests the default LV.__getitem__ behavior
+        lazy_tensor = ZeroLazyTensor(3, 5, 5)
+        evaluated = lazy_tensor.evaluate()
+
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1]), slice(None, None, None), torch.tensor([0, 1, 2]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 1]), slice(None, None, None), slice(None, None, None))
+        self.assertTrue(approx_equal(lazy_tensor[index].evaluate(), evaluated[index]))
+        index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]), torch.tensor([0, 0, 1, 1]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 1, 1, 0]), torch.tensor([0, 1, 0, 2]), slice(None, None, None))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        index = (torch.tensor([0, 0, 1, 0]), slice(None, None, None), torch.tensor([0, 0, 1, 1]))
+        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
 
     def test_add_diag(self):
         diag = torch.tensor(1.5)

@@ -13,7 +13,7 @@ import gpytorch
 from gpytorch.kernels import RBFKernel, MultitaskKernel, GridInterpolationKernel
 from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
-from gpytorch.random_variables import MultitaskGaussianRandomVariable
+from gpytorch.distributions import MultitaskMultivariateNormal
 
 
 # Simple training data: let's try to learn a sine function
@@ -31,14 +31,14 @@ train_y = torch.stack([train_y1, train_y2], -1)
 class MultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = MultitaskMean(ConstantMean(), n_tasks=2)
-        self_covar_module = GridInterpolationKernel(RBFKernel(), grid_size=100, grid_bounds=[(0, 1)])
-        self.covar_module = MultitaskKernel(self_covar_module, n_tasks=2, rank=1)
+        self.mean_module = MultitaskMean(ConstantMean(), num_tasks=2)
+        self.data_covar_module = GridInterpolationKernel(RBFKernel(), grid_size=100, num_dims=1)
+        self.covar_module = MultitaskKernel(self.data_covar_module, num_tasks=2, rank=1)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return MultitaskGaussianRandomVariable(mean_x, covar_x)
+        return MultitaskMultivariateNormal(mean_x, covar_x)
 
 
 class TestMultiTaskGPRegression(unittest.TestCase):
@@ -55,7 +55,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_gp_mean_abs_error(self):
-        likelihood = MultitaskGaussianLikelihood(n_tasks=2)
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2)
         model = MultitaskGPModel(train_x, train_y, likelihood)
         # Find optimal model hyperparameters
         model.train()
@@ -85,7 +85,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         test_x = torch.linspace(0, 1, 51)
         test_y1 = torch.sin(test_x * (2 * pi))
         test_y2 = torch.cos(test_x * (2 * pi))
-        test_preds = likelihood(model(test_x)).mean()
+        test_preds = likelihood(model(test_x)).mean
         mean_abs_error_task_1 = torch.mean(torch.abs(test_y1 - test_preds[:, 0]))
         mean_abs_error_task_2 = torch.mean(torch.abs(test_y2 - test_preds[:, 1]))
 

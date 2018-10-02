@@ -1,33 +1,47 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import math
 import torch
-from gpytorch.functions import add_diag
-from gpytorch.likelihoods import Likelihood
-from gpytorch.priors._compatibility import _bounds_to_prior
-from gpytorch.random_variables import GaussianRandomVariable
+from ..distributions import MultivariateNormal
+from ..functions import add_diag
+from ..likelihoods import Likelihood
+from .. import settings
 
 
 class GaussianLikelihood(Likelihood):
-    """
+    r"""
     """
 
-    def __init__(self, log_noise_prior=None, log_noise_bounds=None):
-        # TODO: Remove deprecated log_noise_bounds kwarg
-        log_noise_prior = _bounds_to_prior(prior=log_noise_prior, bounds=log_noise_bounds)
+    def __init__(self, log_noise_prior=None, batch_size=1):
         super(GaussianLikelihood, self).__init__()
-        self.register_parameter(name="log_noise", parameter=torch.nn.Parameter(torch.tensor(0.)), prior=log_noise_prior)
+        self.register_parameter(
+            name="log_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)), prior=log_noise_prior
+        )
+
+    @property
+    def noise(self):
+        return self.log_noise.exp()
 
     def forward(self, input):
-        assert isinstance(input, GaussianRandomVariable)
-        mean, covar = input.representation()
-        noise = add_diag(covar, self.log_noise.exp())
-        return input.__class__(mean, noise)
+        if not isinstance(input, MultivariateNormal):
+            raise ValueError("GaussianLikelihood requires a MultivariateNormal input")
+        mean, covar = input.mean, input.lazy_covariance_matrix
+        noise = self.noise
+        if covar.ndimension() == 2:
+            if settings.debug.on() and noise.size(0) > 1:
+                raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
+            noise = noise.squeeze(0)
 
-    def log_probability(self, input, target):
-        res = -0.5 * ((target - input.mean()) ** 2 + input.var()) / self.log_noise.exp()
-        res += -0.5 * self.log_noise - 0.5 * math.log(2 * math.pi)
+        return input.__class__(mean, add_diag(covar, noise))
+
+    def variational_log_probability(self, input, target):
+        mean, variance = input.mean, input.variance
+        log_noise = self.log_noise
+        if variance.ndimension() == 1:
+            if settings.debug.on() and log_noise.size(0) > 1:
+                raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
+            log_noise = log_noise.squeeze(0)
+
+        res = -0.5 * ((target - mean) ** 2 + variance) / log_noise.exp()
+        res += -0.5 * log_noise - 0.5 * math.log(2 * math.pi)
         return res.sum(0)

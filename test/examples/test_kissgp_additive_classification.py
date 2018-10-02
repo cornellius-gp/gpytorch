@@ -15,7 +15,7 @@ from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.distributions import MultivariateNormal
 
 n = 64
 train_x = torch.zeros(n ** 2, 2)
@@ -28,17 +28,19 @@ train_y = train_y.float() * 2 - 1
 
 class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
     def __init__(self):
-        super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], n_components=2)
+        super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], num_dim=2)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),
+            RBFKernel(
+                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)
+            ),
             log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
         )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        latent_pred = GaussianRandomVariable(mean_x, covar_x)
+        latent_pred = MultivariateNormal(mean_x, covar_x)
         return latent_pred
 
 
@@ -59,7 +61,7 @@ class TestKissGPAdditiveClassification(unittest.TestCase):
         with gpytorch.settings.use_toeplitz(False), gpytorch.settings.max_preconditioner_size(5):
             model = GPClassificationModel()
             likelihood = BernoulliLikelihood()
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
+            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()
@@ -86,7 +88,7 @@ class TestKissGPAdditiveClassification(unittest.TestCase):
             model.eval()
             likelihood.eval()
 
-            test_preds = model(train_x).mean().ge(0.5).float().mul(2).sub(1).squeeze()
+            test_preds = model(train_x).mean.ge(0.5).float().mul(2).sub(1).squeeze()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
 
         self.assertLess(mean_abs_error.squeeze().item(), 0.15)

@@ -1,20 +1,18 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
 import random
-import torch
 import unittest
+from math import exp, pi
+
 import gpytorch
-from torch import optim
-from gpytorch.kernels import RBFKernel, IndexKernel
+import torch
+from gpytorch.kernels import IndexKernel, RBFKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
-from gpytorch.priors import InverseWishartPrior, SmoothedBoxPrior
-from gpytorch.random_variables import GaussianRandomVariable
-from math import pi
+from gpytorch.priors import LKJCovariancePrior, SmoothedBoxPrior
+from gpytorch.distributions import MultivariateNormal
+from torch import optim
 
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 100)
@@ -24,8 +22,8 @@ train_y1 = torch.sin(train_x * (2 * pi)) + torch.randn_like(train_x).mul_(1e-2)
 train_y2 = torch.cos(train_x * (2 * pi)) + torch.randn_like(train_x).mul_(1e-2)
 
 test_x = torch.linspace(0, 1, 51)
-y1_inds_test = torch.zeros(51).long()
-y2_inds_test = torch.ones(51).long()
+y1_inds_test = torch.zeros(51, dtype=torch.long)
+y2_inds_test = torch.ones(51, dtype=torch.long)
 test_y1 = torch.sin(test_x * (2 * pi))
 test_y2 = torch.cos(test_x * (2 * pi))
 
@@ -39,7 +37,9 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
         self.covar_module = RBFKernel()
         # We learn an IndexKernel for 2 tasks
         # (so we'll actually learn 2x2=4 tasks with correlations)
-        self.task_covar_module = IndexKernel(n_tasks=2, rank=1, prior=InverseWishartPrior(nu=2, K=torch.eye(2)))
+        sd_prior = SmoothedBoxPrior(exp(-4), exp(4), log_transform=True)
+        cov_prior = LKJCovariancePrior(n=2, eta=1, sd_prior=sd_prior)
+        self.task_covar_module = IndexKernel(num_tasks=2, rank=1, prior=cov_prior)
 
     def forward(self, x, i):
         # Get predictive mean
@@ -49,7 +49,7 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
         # # Get the covariance for task i
         covar_i = self.task_covar_module(i)
         covar_xi = covar_x.mul(covar_i)
-        return GaussianRandomVariable(mean_x, covar_xi)
+        return MultivariateNormal(mean_x, covar_xi)
 
 
 class TestHadamardMultitaskGPRegression(unittest.TestCase):
@@ -93,12 +93,12 @@ class TestHadamardMultitaskGPRegression(unittest.TestCase):
         # Test the model
         gp_model.eval()
         likelihood.eval()
-        test_preds_task_1 = likelihood(gp_model(test_x, y1_inds_test)).mean()
+        test_preds_task_1 = likelihood(gp_model(test_x, y1_inds_test)).mean
         mean_abs_error_task_1 = torch.mean(torch.abs(test_y1 - test_preds_task_1))
 
         self.assertLess(mean_abs_error_task_1.item(), 0.1)
 
-        test_preds_task_2 = likelihood(gp_model(test_x, y2_inds_test)).mean()
+        test_preds_task_2 = likelihood(gp_model(test_x, y2_inds_test)).mean
         mean_abs_error_task_2 = torch.mean(torch.abs(test_y2 - test_preds_task_2))
 
         self.assertLess(mean_abs_error_task_2.item(), 0.1)

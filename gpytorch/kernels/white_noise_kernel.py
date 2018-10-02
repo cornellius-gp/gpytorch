@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from . import Kernel
-from gpytorch.lazy import DiagLazyTensor, ZeroLazyTensor
+from ..lazy import DiagLazyTensor, ZeroLazyTensor
 
 
 class WhiteNoiseKernel(Kernel):
@@ -50,7 +50,7 @@ class WhiteNoiseKernel(Kernel):
             self.is_batch = False
             self.variances = variances.unsqueeze(0).unsqueeze(-1)
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, **params):
         if self.training and torch.equal(x1, x2):
             # Reshape into a batch of batch_size diagonal matrices, each of which is
             # (data_size * task_size) x (data_size * task_size)

@@ -4,9 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from gpytorch.kernels import Kernel
-from gpytorch.lazy import MatmulLazyTensor, RootLazyTensor
-from gpytorch.priors._compatibility import _bounds_to_prior
+from .kernel import Kernel
+from ..lazy import MatmulLazyTensor, RootLazyTensor
 
 
 class LinearKernel(Kernel):
@@ -48,29 +47,32 @@ class LinearKernel(Kernel):
             `len(active_dims)` should equal `num_dimensions`.
     """
 
-    def __init__(
-        self,
-        num_dimensions,
-        variance_prior=None,
-        offset_prior=None,
-        active_dims=None,
-        variance_bounds=None,
-        offset_bounds=None,
-    ):
+    def __init__(self, num_dimensions, variance_prior=None, offset_prior=None, active_dims=None):
         super(LinearKernel, self).__init__(active_dims=active_dims)
-        variance_prior = _bounds_to_prior(prior=variance_prior, bounds=variance_bounds, log_transform=False)
         self.register_parameter(name="variance", parameter=torch.nn.Parameter(torch.zeros(1)), prior=variance_prior)
-        offset_prior = _bounds_to_prior(prior=offset_prior, bounds=offset_bounds, log_transform=False)
         self.register_parameter(
             name="offset", parameter=torch.nn.Parameter(torch.zeros(1, 1, num_dimensions)), prior=offset_prior
         )
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2, batch_dims=None, **params):
+        x1_ = x1 - self.offset
+        if batch_dims == (0, 2):
+            x1_ = x1_.view(x1_.size(0), x1_.size(1), -1, 1)
+            x1_ = x1_.permute(0, 2, 1, 3).contiguous()
+            x1_ = x1_.view(-1, x1_.size(-2), x1_.size(-1))
+
         if x1.size() == x2.size() and torch.equal(x1, x2):
             # Use RootLazyTensor when x1 == x2 for efficiency when composing
             # with other kernels
-            prod = RootLazyTensor(x1 - self.offset)
+            prod = RootLazyTensor(x1_)
+
         else:
-            prod = MatmulLazyTensor(x1 - self.offset, (x2 - self.offset).transpose(2, 1))
+            x2_ = x2 - self.offset
+            if batch_dims == (0, 2):
+                x2_ = x2_.view(x2_.size(0), x2_.size(1), -1, 1)
+                x2_ = x2_.permute(0, 2, 1, 3).contiguous()
+                x2_ = x2_.view(-1, x2_.size(-2), x2_.size(-1))
+
+            prod = MatmulLazyTensor(x1_, x2_.transpose(2, 1))
 
         return prod + self.variance.expand(prod.size())

@@ -13,14 +13,44 @@ def _eval_covar_matrix(covar_factor, log_var):
 
 
 class IndexKernel(Kernel):
-    def __init__(self, n_tasks, rank=1, prior=None, active_dims=None):
-        if rank > n_tasks:
+    r"""
+    A kernel for discrete indices. Kernel is defined by a lookup table.
+
+    .. math::
+
+        \begin{equation}
+            k(i, j) = \left(BB^\top + \text{diag}(\mathbf v) \right)_{i, j}
+        \end{equation}
+
+    where :math:`B` is a low-rank matrix, and :math:`\mathbf v` is a  non-negative vector.
+    These parameters are learned.
+
+    Args:
+        num_tasks (int):
+            Total number of indices.
+        batch_size (int, optional):
+            Set if the MultitaskKernel is operating on batches of data (and you want different
+            parameters for each batch)
+        rank (int):
+            Rank of :math:`B` matrix.
+        prior (:obj:`gpytorch.priors.Prior`):
+            Prior for :math:`B` matrix.
+
+    Attributes:
+        covar_factor:
+            The :math:`B` matrix.
+        lov_var:
+            The element-wise log of the :math:`\mathbf v` vector.
+    """
+
+    def __init__(self, num_tasks, rank=1, batch_size=1, prior=None):
+        if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
-        if active_dims is not None and len(active_dims) > 1:
-            raise ValueError("Index must be with respect to a single column. Received {}".format(active_dims))
-        super(IndexKernel, self).__init__(active_dims=active_dims)
-        self.register_parameter(name="covar_factor", parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)))
-        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(n_tasks)))
+        super(IndexKernel, self).__init__()
+        self.register_parameter(
+            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
+        )
+        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks)))
         if prior is not None:
             self.register_derived_prior(
                 name="IndexKernelPrior",
@@ -31,11 +61,10 @@ class IndexKernel(Kernel):
 
     @property
     def covar_matrix(self):
-        return PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(self.log_var.exp()))
+        res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(self.log_var.exp()))
+        return res
 
-    def forward(self, i1, i2):
+    def forward(self, i1, i2, **params):
         covar_matrix = _eval_covar_matrix(self.covar_factor, self.log_var)
-        if covar_matrix.ndimension() == 2:
-            covar_matrix = covar_matrix.unsqueeze(0)
         res = InterpolatedLazyTensor(base_lazy_tensor=covar_matrix, left_interp_indices=i1, right_interp_indices=i2)
         return res

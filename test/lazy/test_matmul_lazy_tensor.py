@@ -6,117 +6,56 @@ from __future__ import unicode_literals
 import torch
 import unittest
 from gpytorch.lazy import MatmulLazyTensor
-from gpytorch.utils import approx_equal
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import RectangularLazyTensorTestCase, RectangularBatchLazyTensorTestCase
 
 
-class TestMatmulLazyTensor(unittest.TestCase):
-    def test_matmul(self):
-        lhs = torch.randn(5, 3, requires_grad=True)
-        rhs = torch.randn(3, 4, requires_grad=True)
+class TestMatmulLazyTensor(LazyTensorTestCase, unittest.TestCase):
+    seed = 1
+
+    def create_lazy_tensor(self):
+        lhs = torch.randn(5, 6, requires_grad=True)
+        rhs = lhs.transpose(-1, -2)
         covar = MatmulLazyTensor(lhs, rhs)
-        mat = torch.randn(4, 10)
-        res = covar.matmul(mat)
+        return covar
 
-        lhs_clone = lhs.clone().detach()
-        rhs_clone = rhs.clone().detach()
-        mat_clone = mat.clone().detach()
-        lhs_clone.requires_grad = True
-        rhs_clone.requires_grad = True
-        mat_clone.requires_grad = True
-        actual = lhs_clone.matmul(rhs_clone).matmul(mat_clone)
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.left_lazy_tensor.tensor.matmul(lazy_tensor.right_lazy_tensor.tensor)
 
-        self.assertTrue(approx_equal(res, actual))
 
-        actual.sum().backward()
+class TestMatmulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+    seed = 3
 
-        res.sum().backward()
-        self.assertTrue(approx_equal(lhs.grad, lhs_clone.grad))
-        self.assertTrue(approx_equal(rhs.grad, rhs_clone.grad))
+    def create_lazy_tensor(self):
+        lhs = torch.randn(5, 5, 6, requires_grad=True)
+        rhs = lhs.transpose(-1, -2)
+        covar = MatmulLazyTensor(lhs, rhs)
+        return covar
 
-    def test_diag(self):
-        lhs = torch.randn(5, 3)
-        rhs = torch.randn(3, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyTensor(lhs, rhs)
-        self.assertTrue(approx_equal(actual.diag(), res.diag()))
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.left_lazy_tensor.tensor.matmul(lazy_tensor.right_lazy_tensor.tensor)
 
-    def test_batch_diag(self):
-        lhs = torch.randn(4, 5, 3)
-        rhs = torch.randn(4, 3, 5)
-        actual = lhs.matmul(rhs)
-        actual_diag = torch.cat(
-            [
-                actual[0].diag().unsqueeze(0),
-                actual[1].diag().unsqueeze(0),
-                actual[2].diag().unsqueeze(0),
-                actual[3].diag().unsqueeze(0),
-            ]
-        )
 
-        res = MatmulLazyTensor(lhs, rhs)
-        self.assertTrue(approx_equal(actual_diag, res.diag()))
+class TestMatmulLazyTensorRectangular(RectangularLazyTensorTestCase, unittest.TestCase):
+    def create_lazy_tensor(self):
+        lhs = torch.randn(5, 3, requires_grad=True)
+        rhs = torch.randn(3, 6, requires_grad=True)
+        covar = MatmulLazyTensor(lhs, rhs)
+        return covar
 
-    def test_batch_get_indices(self):
-        lhs = torch.randn(2, 5, 1)
-        rhs = torch.randn(2, 1, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyTensor(lhs, rhs)
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.left_lazy_tensor.tensor.matmul(lazy_tensor.right_lazy_tensor.tensor)
 
-        batch_indices = torch.tensor([0, 1, 0, 1], dtype=torch.long)
-        left_indices = torch.tensor([1, 2, 4, 0], dtype=torch.long)
-        right_indices = torch.tensor([0, 1, 3, 2], dtype=torch.long)
 
-        self.assertTrue(
-            approx_equal(
-                actual[batch_indices, left_indices, right_indices],
-                res._batch_get_indices(batch_indices, left_indices, right_indices),
-            )
-        )
+class TestMatmulLazyTensorRectangularBatch(RectangularBatchLazyTensorTestCase, unittest.TestCase):
+    def create_lazy_tensor(self):
+        lhs = torch.randn(3, 5, 3, requires_grad=True)
+        rhs = torch.randn(3, 3, 6, requires_grad=True)
+        covar = MatmulLazyTensor(lhs, rhs)
+        return covar
 
-        batch_indices = torch.tensor([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=torch.long)
-        left_indices = torch.tensor([1, 2, 4, 0, 1, 2, 3, 1, 2, 2, 1, 1, 0, 0, 4, 4, 4, 4], dtype=torch.long)
-        right_indices = torch.tensor([0, 1, 3, 2, 3, 4, 2, 2, 1, 1, 2, 1, 2, 4, 4, 3, 3, 0], dtype=torch.long)
-
-        self.assertTrue(
-            approx_equal(
-                actual[batch_indices, left_indices, right_indices],
-                res._batch_get_indices(batch_indices, left_indices, right_indices),
-            )
-        )
-
-    def test_get_indices(self):
-        lhs = torch.randn(5, 1)
-        rhs = torch.randn(1, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyTensor(lhs, rhs)
-
-        left_indices = torch.tensor([1, 2, 4, 0], dtype=torch.long)
-        right_indices = torch.tensor([0, 1, 3, 2], dtype=torch.long)
-
-        self.assertTrue(
-            approx_equal(actual[left_indices, right_indices], res._get_indices(left_indices, right_indices))
-        )
-
-        left_indices = torch.tensor([1, 2, 4, 0, 1, 2, 3, 1, 2, 2, 1, 1, 0, 0, 4, 4, 4, 4], dtype=torch.long)
-        right_indices = torch.tensor([0, 1, 3, 2, 3, 4, 2, 2, 1, 1, 2, 1, 2, 4, 4, 3, 3, 0], dtype=torch.long)
-
-        self.assertTrue(
-            approx_equal(actual[left_indices, right_indices], res._get_indices(left_indices, right_indices))
-        )
-
-    def test_evaluate(self):
-        lhs = torch.randn(5, 3)
-        rhs = torch.randn(3, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyTensor(lhs, rhs)
-        self.assertTrue(approx_equal(actual, res.evaluate()))
-
-    def test_transpose(self):
-        lhs = torch.randn(5, 3)
-        rhs = torch.randn(3, 5)
-        actual = lhs.matmul(rhs)
-        res = MatmulLazyTensor(lhs, rhs)
-        self.assertTrue(approx_equal(actual.t(), res.t().evaluate()))
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.left_lazy_tensor.tensor.matmul(lazy_tensor.right_lazy_tensor.tensor)
 
 
 if __name__ == "__main__":
