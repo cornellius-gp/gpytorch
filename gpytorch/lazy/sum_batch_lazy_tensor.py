@@ -126,6 +126,12 @@ class SumBatchLazyTensor(BlockLazyTensor):
             res = res.sum(0)
         return res
 
+    def diag(self):
+        diag = self.base_lazy_tensor.diag()
+        if self.num_blocks is not None:
+            diag = diag.view(-1, self.num_blocks, diag.size(-1))
+        return diag.sum(-2)
+
     def zero_mean_mvn_samples(self, num_samples):
         num_dim = self.size(-2)
         res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)

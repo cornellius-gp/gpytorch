@@ -58,12 +58,12 @@ class ScaleKernel(Kernel):
     def outputscale(self):
         return self.log_outputscale.exp()
 
-    def forward_diag(self, x1, x2):
+    def forward(self, x1, x2, batch_dims=None, **params):
         outputscales = self.log_outputscale.exp()
-        orig_output = self.base_kernel.forward_diag(x1, x2)
-        return orig_output.squeeze(-1).mul(outputscales.unsqueeze(-1))
+        if batch_dims == (0, 2) and outputscales.numel() > 1:
+            outputscales = outputscales.unsqueeze(1).repeat(1, x1.size(-1)).view(-1)
 
-    def forward(self, x1, x2):
-        outputscales = self.log_outputscale.exp()
-        orig_output = self.base_kernel(x1, x2)
+        orig_output = self.base_kernel(x1, x2, batch_dims=batch_dims, **params)
+        if torch.is_tensor(orig_output):
+            outputscales = outputscales.view(-1, *([1] * (orig_output.dim() - 1)))
         return orig_output.mul(outputscales)

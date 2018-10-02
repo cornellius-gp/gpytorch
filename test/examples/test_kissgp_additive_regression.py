@@ -11,7 +11,7 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from gpytorch.kernels import RBFKernel, AdditiveGridInterpolationKernel, ScaleKernel
+from gpytorch.kernels import RBFKernel, AdditiveStructureKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ZeroMean
 from gpytorch.priors import SmoothedBoxPrior
@@ -41,10 +41,13 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ZeroMean()
         self.base_covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True))
+            RBFKernel(
+                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True)
+            )
         )
-        self.covar_module = AdditiveGridInterpolationKernel(
-            self.base_covar_module, grid_size=100, num_dims=2, dim_groups=2
+        self.covar_module = AdditiveStructureKernel(
+            GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=2),
+            num_dims=2,
         )
 
     def forward(self, x):
@@ -87,12 +90,12 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
                     optimizer.n_iter += 1
                     optimizer.step()
 
-                for param in gp_model.parameters():
-                    self.assertTrue(param.grad is not None)
-                    self.assertGreater(param.grad.norm().item(), 0)
-                for param in likelihood.parameters():
-                    self.assertTrue(param.grad is not None)
-                    self.assertGreater(param.grad.norm().item(), 0)
+                    for param in gp_model.parameters():
+                        self.assertTrue(param.grad is not None)
+                        self.assertGreater(param.grad.norm().item(), 0)
+                    for param in likelihood.parameters():
+                        self.assertTrue(param.grad is not None)
+                        self.assertGreater(param.grad.norm().item(), 0)
 
                 # Test the model
                 gp_model.eval()

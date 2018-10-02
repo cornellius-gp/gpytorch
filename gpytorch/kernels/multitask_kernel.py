@@ -41,39 +41,23 @@ class MultitaskKernel(Kernel):
         self.n_tasks = n_tasks
         self.batch_size = 1
 
-    def forward_diag(self, x1, x2):
-        """
-        Returns the diagonal of the covariance matrix only. This overrides the default behavior for this supplied
-        in :class:`gpytorch.kernels.Kernel` because we need to take the Kronecker product of the diagonals of the
-        base data kernel and the task kernel.
-        """
-        task_indices = torch.arange(self.n_tasks, device=x1.device).long()
-        task_indices = task_indices.unsqueeze(0).unsqueeze(-1)
+    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
+        if batch_dims == (0, 2):
+            raise RuntimeError(
+                "AdditiveGridInterpolationKernel does not accept the batch_dims argument."
+            )
 
-        # These are small because they are vectors, therefore it is safe to evaluate them
-        covar_i_diag = self.task_covar_module.forward_diag(task_indices, task_indices)
-        covar_x_diag = self.data_covar_module.forward_diag(x1, x2)
-
-        if isinstance(covar_x_diag, LazyTensor):
-            covar_x_diag = covar_x_diag.evaluate()
-        if isinstance(covar_i_diag, LazyTensor):
-            covar_i_diag = covar_i_diag.evaluate()
-
-        covar_x_diag = covar_x_diag.squeeze(-1)
-        covar_i_diag = covar_i_diag.squeeze(-1)
-
-        # Take the Kronecker product of the two diagonals
-        res = KroneckerProductLazyTensor(NonLazyTensor(covar_i_diag), NonLazyTensor(covar_x_diag)).evaluate()
-        return res.unsqueeze(-1)
-
-    def forward(self, x1, x2):
         covar_i = self.task_covar_module.covar_matrix
         covar_i = covar_i.repeat(x1.size(0), 1, 1)
-        covar_x = self.data_covar_module(x1, x2)
+        covar_x = self.data_covar_module(x1, x2, **params)
         if not isinstance(covar_x, LazyTensor):
             covar_x = NonLazyTensor(covar_x)
         res = KroneckerProductLazyTensor(covar_i, covar_x)
-        return res
+
+        if diag:
+            return res.diag()
+        else:
+            return res
 
     def size(self, x1, x2):
         """

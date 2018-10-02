@@ -11,7 +11,7 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from gpytorch.kernels import RBFKernel, MultiplicativeGridInterpolationKernel, ScaleKernel
+from gpytorch.kernels import RBFKernel, ProductStructureKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
@@ -46,8 +46,9 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.base_covar_module = ScaleKernel(
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True))
         )
-        self.covar_module = MultiplicativeGridInterpolationKernel(
-            self.base_covar_module, grid_size=100, num_dims=2, dim_groups=2
+        self.covar_module = ProductStructureKernel(
+            GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=2),
+            num_dims=2
         )
 
     def forward(self, x):
