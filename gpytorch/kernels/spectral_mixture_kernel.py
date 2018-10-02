@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import warnings
 import logging
 import math
 import torch
@@ -82,17 +81,9 @@ class SpectralMixtureKernel(Kernel):
         log_mixture_scales_prior=None,
         log_mixture_means_prior=None,
         log_mixture_weights_prior=None,
-        n_mixtures=None,
-        n_dims=None,
     ):
-        if n_mixtures is not None:
-            warnings.warn("n_mixtures is deprecated. Use num_mixtures instead.", DeprecationWarning)
-            num_mixtures = n_mixtures
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")
-        if n_dims is not None:
-            warnings.warn("n_dims is deprecated. Use ard_num_dims instead.", DeprecationWarning)
-            ard_num_dims = n_dims
         if (
             log_mixture_means_prior is not None
             or log_mixture_scales_prior is not None
