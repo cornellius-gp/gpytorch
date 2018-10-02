@@ -212,11 +212,19 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             squeeze_row = self.squeeze_row
             squeeze_col = self.squeeze_col
 
-            x1 = self.x1[batch_index, left_index, :]
+            x1 = self.x1
+            if self.batch_dims == (0, 2):
+                x1 = x1.permute(0, 2, 1).contiguous()
+                x1 = x1.view(-1, x1.size(-1), 1)
+            x1 = x1[batch_index, left_index, :]
             if x1.dim() == 2 and not isinstance(batch_index, int):
                 x1 = x1.unsqueeze(1)
                 squeeze_row = True
-            x2 = self.x2[batch_index, right_index, :]
+            x2 = self.x2
+            if self.batch_dims == (0, 2):
+                x2 = x2.permute(0, 2, 1).contiguous()
+                x2 = x2.view(-1, x2.size(-1), 1)
+            x2 = x2[batch_index, right_index, :]
             if x2.dim() == 2 and not isinstance(batch_index, int):
                 x2 = x2.unsqueeze(1)
                 squeeze_col = True

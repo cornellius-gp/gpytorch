@@ -42,7 +42,7 @@ class SoftmaxLikelihood(Likelihood):
             )
 
         n_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.rsample(n_samples)
+        samples = latent_func.rsample(sample_shape=torch.Size((n_samples,)))
         samples = samples.permute(1, 2, 0).contiguous()  # Now n_featuers, n_data, n_samples
         if samples.ndimension() != 3:
             raise RuntimeError("f should have 3 dimensions: features x data x samples")
@@ -61,7 +61,7 @@ class SoftmaxLikelihood(Likelihood):
         f_{i} drawn from p(f|x).
         """
         n_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.rsample(n_samples)
+        samples = latent_func.rsample(sample_shape=torch.Size((n_samples,)))
         samples = samples.permute(1, 2, 0).contiguous()  # Now n_featuers, n_data, n_samples
         if samples.ndimension() != 3:
             raise RuntimeError("f should have 3 dimensions: features x data x samples")

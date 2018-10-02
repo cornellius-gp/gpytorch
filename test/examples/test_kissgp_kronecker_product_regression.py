@@ -79,7 +79,7 @@ class TestKissGPKroneckerProductRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        with gpytorch.settings.max_preconditioner_size(5):
+        with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.use_toeplitz(False):
             optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
             optimizer.n_iter = 0
             for _ in range(8):
