@@ -104,7 +104,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
     def __getattr__(self, name):
         res = super(GridInducingVariationalGP, self).__getattr__(name)
         if name in self._kernels and not self._grid_mode:
-            return res.base_kernel_module
+            return res.base_kernel
         return res
 
     def __setattr__(self, name, value):

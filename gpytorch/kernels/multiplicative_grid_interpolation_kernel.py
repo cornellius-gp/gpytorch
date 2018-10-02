@@ -34,7 +34,7 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
         `MultiplicativeGridInterpolationKernel` for multi-dimension RBF kernels!
 
     Args:
-        :attr:`base_kernel_module` (Kernel):
+        :attr:`base_kernel` (Kernel):
             The kernel to approximate with KISS-GP
         :attr:`grid_size` (int):
             The size of the grid (in each dimension)
@@ -45,7 +45,7 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
             The length of the tuple must match the size of the dim group (`num_dims // batch_dims`).
             The entries represent the min/max values for each dimension.
         :attr:`active_dims` (tuple of ints, optional):
-            Passed down to the `base_kernel_module`.
+            Passed down to the `base_kernel`.
 
     .. Product Kernel Interpolation for Scalable Gaussian Processes:
         https://arxiv.org/pdf/1802.08903
@@ -53,14 +53,14 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
 
     def __init__(
         self,
-        base_kernel_module,
+        base_kernel,
         grid_size,
         num_dims=None,
         grid_bounds=None,
         active_dims=None,
     ):
         super(MultiplicativeGridInterpolationKernel, self).__init__(
-            base_kernel_module=base_kernel_module,
+            base_kernel=base_kernel,
             grid_size=grid_size,
             num_dims=num_dims,
             grid_bounds=grid_bounds,

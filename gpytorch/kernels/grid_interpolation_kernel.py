@@ -47,7 +47,7 @@ class GridInterpolationKernel(GridKernel):
         Periodic, Spectral Mixture, etc.)
 
     Args:
-        :attr:`base_kernel_module` (Kernel):
+        :attr:`base_kernel` (Kernel):
             The kernel to approximate with KISS-GP
         :attr:`grid_size` (int):
             The size of the grid (in each dimension)
@@ -58,13 +58,13 @@ class GridInterpolationKernel(GridKernel):
             The length of the tuple must match the number of dimensions.
             The entries represent the min/max values for each dimension.
         :attr:`active_dims` (tuple of ints, optional):
-            Passed down to the `base_kernel_module`.
+            Passed down to the `base_kernel`.
 
     .. Kernel Interpolation for Scalable Structured Gaussian Processes:
         http://proceedings.mlr.press/v37/wilson15.pdf
     """
 
-    def __init__(self, base_kernel_module, grid_size, num_dims=None, grid_bounds=None, active_dims=None):
+    def __init__(self, base_kernel, grid_size, num_dims=None, grid_bounds=None, active_dims=None):
         has_initialized_grid = 0
         grid_is_dynamic = True
 
@@ -94,7 +94,7 @@ class GridInterpolationKernel(GridKernel):
         inducing_points, grid = self._create_grid()
 
         super(GridInterpolationKernel, self).__init__(
-            base_kernel_module=base_kernel_module, inducing_points=inducing_points, grid=grid, active_dims=active_dims
+            base_kernel=base_kernel, inducing_points=inducing_points, grid=grid, active_dims=active_dims
         )
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.uint8))
 

@@ -23,22 +23,22 @@ class GridKernel(Kernel):
         Periodic, Spectral Mixture, etc.)
 
     Args:
-        :attr:`base_kernel_module` (Kernel):
+        :attr:`base_kernel` (Kernel):
             The kernel to speed up with grid methods.
         :attr:`inducing_points` (Tensor, n x d):
             This will be the set of points that lie on the grid.
         :attr:`grid` (Tensor, k x d):
             The exact grid points.
         :attr:`active_dims` (tuple of ints, optional):
-            Passed down to the `base_kernel_module`.
+            Passed down to the `base_kernel`.
 
     .. _Fast kernel learning for multidimensional pattern extrapolation:
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
     """
 
-    def __init__(self, base_kernel_module, inducing_points, grid, active_dims=None):
+    def __init__(self, base_kernel, inducing_points, grid, active_dims=None):
         super(GridKernel, self).__init__(active_dims=active_dims)
-        self.base_kernel_module = base_kernel_module
+        self.base_kernel = base_kernel
         if inducing_points.ndimension() != 2:
             raise RuntimeError("Inducing points should be 2 dimensional")
         self.register_buffer("inducing_points", inducing_points.unsqueeze(0))
@@ -72,14 +72,14 @@ class GridKernel(Kernel):
 
             if settings.use_toeplitz.on():
                 first_item = grid[:, 0:1]
-                covar_columns = self.base_kernel_module(first_item, grid, diag=False, batch_dims=(0, 2), **params)
+                covar_columns = self.base_kernel(first_item, grid, diag=False, batch_dims=(0, 2), **params)
                 covar_columns = covar_columns.evaluate().squeeze(-2)
                 if batch_dims == (0, 2):
                     covars = [ToeplitzLazyTensor(covar_columns)]
                 else:
                     covars = [ToeplitzLazyTensor(covar_columns[i : i + 1]) for i in range(n_dim)]
             else:
-                covars = self.base_kernel_module(grid, grid, batch_dims=(0, 2), **params).evaluate_kernel()
+                covars = self.base_kernel(grid, grid, batch_dims=(0, 2), **params).evaluate_kernel()
                 if batch_dims == (0, 2):
                     covars = [covars]
                 else:

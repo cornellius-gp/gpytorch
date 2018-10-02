@@ -12,9 +12,9 @@ from ..variational import MVNVariationalStrategy
 
 
 class InducingPointKernel(Kernel):
-    def __init__(self, base_kernel_module, inducing_points, active_dims=None):
+    def __init__(self, base_kernel, inducing_points, active_dims=None):
         super(InducingPointKernel, self).__init__(active_dims=active_dims)
-        self.base_kernel_module = base_kernel_module
+        self.base_kernel = base_kernel
 
         if inducing_points.ndimension() == 1:
             inducing_points = inducing_points.unsqueeze(-1)
@@ -33,7 +33,7 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat
         else:
-            res = self.base_kernel_module(self.inducing_points, self.inducing_points).evaluate()
+            res = self.base_kernel(self.inducing_points, self.inducing_points).evaluate()
             if not self.training:
                 self._cached_kernel_mat = res
             return res
@@ -56,11 +56,11 @@ class InducingPointKernel(Kernel):
             return res
 
     def _get_covariance(self, x1, x2):
-        k_ux1 = self.base_kernel_module(x1, self.inducing_points).evaluate()
+        k_ux1 = self.base_kernel(x1, self.inducing_points).evaluate()
         if torch.equal(x1, x2):
             covar = RootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
         else:
-            k_ux2 = self.base_kernel_module(x2, self.inducing_points).evaluate()
+            k_ux2 = self.base_kernel(x2, self.inducing_points).evaluate()
             covar = MatmulLazyTensor(
                 k_ux1.matmul(self._inducing_inv_root), k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2)
             )
@@ -75,7 +75,7 @@ class InducingPointKernel(Kernel):
         inputs = inputs.unsqueeze(-2).view(-1, 1, inputs.size(-1))
 
         # Get diagonal of covar
-        covar_diag = self.base_kernel_module(inputs)
+        covar_diag = self.base_kernel(inputs)
         if isinstance(covar_diag, LazyTensor):
             covar_diag = covar_diag.evaluate()
         covar_diag = covar_diag.view(orig_size[:-1])

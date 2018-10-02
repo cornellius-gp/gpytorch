@@ -41,7 +41,7 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
         Periodic, Spectral Mixture, etc.)
 
     Args:
-        :attr:`base_kernel_module` (Kernel):
+        :attr:`base_kernel` (Kernel):
             The kernel to approximate with KISS-GP
         :attr:`grid_size` (int):
             The size of the grid (in each dimension)
@@ -54,19 +54,19 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
             The length of the tuple must match the size of the dim group (`num_dims // batch_dims`).
             The entries represent the min/max values for each dimension.
         :attr:`active_dims` (tuple of ints, optional):
-            Passed down to the `base_kernel_module`.
+            Passed down to the `base_kernel`.
     """
 
     def __init__(
         self,
-        base_kernel_module,
+        base_kernel,
         grid_size,
         num_dims=None,
         grid_bounds=None,
         active_dims=None,
     ):
         super(AdditiveGridInterpolationKernel, self).__init__(
-            base_kernel_module, grid_size, num_dims, grid_bounds, active_dims=active_dims
+            base_kernel, grid_size, num_dims, grid_bounds, active_dims=active_dims
         )
 
     def forward(self, x1, x2, batch_dims=None, **params):
