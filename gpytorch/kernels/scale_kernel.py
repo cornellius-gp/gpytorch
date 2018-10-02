@@ -45,13 +45,12 @@ class ScaleKernel(Kernel):
         >>> scaled_covar_module = gpytorch.kernels.ScaleKernel(base_covar_module)
         >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
+
     def __init__(self, base_kernel, batch_size=1, log_outputscale_prior=None):
         super(ScaleKernel, self).__init__(has_lengthscale=False, batch_size=batch_size)
         self.base_kernel = base_kernel
         self.register_parameter(
-            name="log_outputscale",
-            parameter=torch.nn.Parameter(torch.zeros(batch_size)),
-            prior=log_outputscale_prior
+            name="log_outputscale", parameter=torch.nn.Parameter(torch.zeros(batch_size)), prior=log_outputscale_prior
         )
 
     @property

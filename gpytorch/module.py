@@ -59,8 +59,9 @@ class Module(nn.Module):
                     prior._validate_sample(param)
                 except ValueError as e:
                     raise ValueError(
-                        "Value of parameter {p} not valid for specified prior. Original exception:\n{e}"
-                        .format(p=param, e=e)
+                        "Value of parameter {p} not valid for specified prior. Original exception:\n{e}".format(
+                            p=param, e=e
+                        )
                     )
         return self
 

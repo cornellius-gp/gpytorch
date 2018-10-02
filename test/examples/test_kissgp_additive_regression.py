@@ -23,7 +23,7 @@ for i in range(n):
     for j in range(n):
         train_x[i * n + j][0] = float(i) / (n - 1)
         train_x[i * n + j][1] = float(j) / (n - 1)
-train_y = (torch.sin(train_x[:, 0]) + torch.cos(train_x[:, 1]))
+train_y = torch.sin(train_x[:, 0]) + torch.cos(train_x[:, 1])
 train_y = train_y + torch.randn_like(train_y).div_(20.)
 
 m = 10
@@ -32,7 +32,7 @@ for i in range(m):
     for j in range(m):
         test_x[i * m + j][0] = float(i) / (m - 1)
         test_x[i * m + j][1] = float(j) / (m - 1)
-test_y = (torch.sin(test_x[:, 0]) + torch.cos(test_x[:, 1]))
+test_y = torch.sin(test_x[:, 0]) + torch.cos(test_x[:, 1])
 
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
@@ -46,8 +46,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
             )
         )
         self.covar_module = AdditiveStructureKernel(
-            GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=2),
-            num_dims=2,
+            GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=2), num_dims=2
         )
 
     def forward(self, x):
