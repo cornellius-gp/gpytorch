@@ -2,7 +2,8 @@
 [![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
 
 **News!**
-The Beta release is currently out! Note that it **requires the PyTorch preview build** (pytorch-nightly, >= 1.0)
+ - The Beta release is currently out! Note that it **requires the PyTorch preview build** (pytorch-nightly, >= 1.0).
+ - If you need to install the alpha release (we recommend you use the latest version though!), check out [the alpha release](https://github.com/cornellius-gp/gpytorch/tree/alpha).
 
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease. 
 
