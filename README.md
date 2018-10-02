@@ -1,5 +1,8 @@
-# GPyTorch (Alpha Release)
+# GPyTorch (Beta Release)
 [![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
+
+**News!**
+The Beta release is currently out! Note that it **requires the PyTorch preview build** (pytorch-nightly, >= 1.0)
 
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease. 
 
@@ -13,45 +16,41 @@ Right now, the package is in alpha release, and while we believe that the interf
 
 ## Installation
 
-### Global installation
+**Requirements**:
+- Python >= 3.6
+- PyTorch >= 1.0
 
-The easiest way to install GPyTorch is by installing `PyTorch >= 0.4.0` using the appropriate command from [here](http://pytorch.org), and then installing 
-GPyTorch using pip:
+**N.B.** GPyTorch will not run on PyTorch 0.4.1 or earlier versions.
+
+The easiest way to install GPyTorch is by installing the **nightly PyTorch build** (`pytorch-nightly >= 1.0.0`) using the appropriate command from [here](https://pytorch.org/get-started/locally/).
+
+Then install GPyTorch using pip:
+
+```bash
+pip install gpytorch
+```
+
+To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.
+
+#### Latest (unstable) version
+
+To get the latest (unstable) version, run
 
 ```bash
 pip install git+https://github.com/cornellius-gp/gpytorch.git
-```
-To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.
-
-### Installation in a conda environment
-
-We also provide two conda environment files, `environment.yml` and `environment_cuda90.yml`. As an example, to install GPyTorch in a conda environment with cuda support, run:
-
-```bash
-git clone git+https://github.com/cornellius-gp/gpytorch.git
-conda create -f gpytorch/environment_cuda.yml
-source activate gpytorch
-pip install gpytorch/
 ```
 
 ## Citing Us
 
 If you use GPyTorch, please cite the following papers:
-> [Gardner, Jacob R., Geoff Pleiss, Ruihan Wu, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Product Kernel Interpolation for Scalable Gaussian Processes." In *AISTATS* (2018).](https://arxiv.org/abs/1802.08903)
+> [Gardner, Jacob R., Geoff Pleiss, David Bindel, Kilian Q. Weinberger, and Andrew Gordon Wilson. "
+GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration." In *NIPS* (2018).](https://arxiv.org/abs/1809.11165)
 ```
-@inproceedings{gardner2018product,
-  title={Product Kernel Interpolation for Scalable Gaussian Processes},
-  author={Gardner, Jacob R and Pleiss, Geoff and Wu, Ruihan and Weinberger, Kilian Q and Wilson, Andrew Gordon},
-  booktitle={AISTATS},
-  year={2018}
-}
-```
-> [Pleiss, Geoff, Jacob R. Gardner, Kilian Q. Weinberger, and Andrew Gordon Wilson. "Constant-Time Predictive Distributions for Gaussian Processes." In *ICML* (2018).](https://arxiv.org/abs/1803.06058)
-```
-@inproceedings{pleiss2018constant,
-  title={Constant-Time Predictive Distributions for Gaussian Processes},
-  author={Pleiss, Geoff and Gardner, Jacob R and Weinberger, Kilian Q and Wilson, Andrew Gordon},
-  booktitle={ICML},
+@inproceedings{gardner2018gpytorch,
+  title={
+GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration},
+  author={Gardner, Jacob R and Pleiss, Geoff and Bindel, David and Weinberger, Kilian Q and Wilson, Andrew Gordon},
+  booktitle={NIPS},
   year={2018}
 }
 ```
@@ -75,7 +74,6 @@ If you want to run the tests without locking down the seed, run
 UNLOCK_SEED=true python -m unittest
 ```
 
-
 Please lint the code with `flake8`.
 ```bash
 pip install flake8  # if not already installed
@@ -89,10 +87,13 @@ GPyTorch is developed at Cornell University by
 - [Geoff Pleiss](http://github.com/gpleiss) (lead developer)
 - [Kilian Weinberger](http://kilian.cs.cornell.edu/)
 - [Andrew Gordon Wilson](https://people.orie.cornell.edu/andrew/)
+- Max Balandat
+- Eytan Bakshy
+- David Arbour
 
 <img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
 
-We would like to thank our other contributors including (but not limited to) Max Balandat, Ruihan Wu, Bram Wallace, Jared Frank.
+We would like to thank our other contributors including (but not limited to) Ruihan Wu, Bram Wallace, Sam Stanton, and Jared Frank.
 
 ## Acknowledgements
-Development of GPyTorch is supported by funding from the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/).
+Development of GPyTorch is supported by funding from [Facebook](https://research.fb.com/) and the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/).
