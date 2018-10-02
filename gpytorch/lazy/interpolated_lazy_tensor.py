@@ -348,7 +348,7 @@ class InterpolatedLazyTensor(LazyTensor):
             right_interp_indices = right_interp_indices.contiguous().view(-1)
 
             if self.base_lazy_tensor.ndimension() == 3:
-                batch_indices = torch.arange(0, batch_size, dtype=torch.long, device=self.device).unsqueeze_(-1)
+                batch_indices = torch.arange(0, batch_size, dtype=torch.long, device=self.device).unsqueeze(-1)
                 batch_indices = batch_indices.repeat(1, n_data * n_interp * n_interp).view(-1)
                 base_var_vals = self.base_lazy_tensor._batch_get_indices(
                     batch_indices, left_interp_indices, right_interp_indices
@@ -597,7 +597,7 @@ class InterpolatedLazyTensor(LazyTensor):
 
         # Increase interpolation indices appropriately
         factor = torch.arange(0, left_interp_indices.size(-3), dtype=torch.long, device=self.device)
-        factor = factor.unsqueeze_(-1).unsqueeze_(-1)
+        factor = factor.unsqueeze(-1).unsqueeze(-1)
         factor = factor * self.base_lazy_tensor.size(-1)
         if sum_batch_size is not None:
             factor = factor.unsqueeze(0)

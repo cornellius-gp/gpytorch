@@ -3,15 +3,14 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .grid_interpolation_kernel import GridInterpolationKernel
+from .kernel import Kernel
+from ..lazy import LazyTensor, NonLazyTensor
 
 
-class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
+class ProductStructureKernel(Kernel):
     r"""
-    A variant of :class:`~gpytorch.kernels.GridInterpolationKernel` designed specifically
-    for kernels with product structure. If a kernel decomposes
+    A Kernel decorator for kernels with product structure. If a kernel decomposes
     multiplicatively, then this module will be much more computationally efficient.
-    See `Product Kernel Interpolation for Scalable Gaussian Processes`_ for more detail.
 
     A kernel function `k` has product structure if it can be written as
 
@@ -23,27 +22,18 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
 
     for some kernel :math:`k'` that operates on each dimension.
 
-    .. note::
+    Given a `b x n x d` input, `ProductStructureKernel` computes `d` one-dimensional kernels
+    (using the supplied base_kernel), and then multiplies the component kernels together.
+    Unlike :class:`~gpytorch.kernels.ProductKernel`, `ProductStructureKernel` computes each
+    of the product terms in batch, making it very fast.
 
-        `AdditiveGridInterpolationKernel` can only wrap **stationary kernels** (such as RBF, Matern,
-        Periodic, Spectral Mixture, etc.)
-
-    .. note::
-
-        The :class:`~gpytorch.kernels.RBFKernel` decomposes multiplicatively. You should use
-        `MultiplicativeGridInterpolationKernel` for multi-dimension RBF kernels!
+    See `Product Kernel Interpolation for Scalable Gaussian Processes`_ for more detail.
 
     Args:
         :attr:`base_kernel` (Kernel):
             The kernel to approximate with KISS-GP
-        :attr:`grid_size` (int):
-            The size of the grid (in each dimension)
         :attr:`num_dims` (int):
-            The dimension of the input data. Required if `grid_bounds=None`
-        :attr:`grid_bounds` (tuple(float, float), optional):
-            The bounds of the grid, if known (high performance mode).
-            The length of the tuple must match the size of the dim group (`num_dims // batch_dims`).
-            The entries represent the min/max values for each dimension.
+            The dimension of the input data.
         :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel`.
 
@@ -51,31 +41,28 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
         https://arxiv.org/pdf/1802.08903
     """
 
-    def __init__(
-        self,
-        base_kernel,
-        grid_size,
-        num_dims=None,
-        grid_bounds=None,
-        active_dims=None,
-    ):
-        super(MultiplicativeGridInterpolationKernel, self).__init__(
-            base_kernel=base_kernel,
-            grid_size=grid_size,
-            num_dims=num_dims,
-            grid_bounds=grid_bounds,
-            active_dims=active_dims,
-        )
+    def __init__(self, base_kernel, num_dims, active_dims=None):
+        super(ProductStructureKernel, self).__init__(active_dims=active_dims)
+        self.base_kernel = base_kernel
+        self.num_dims = num_dims
 
     def forward(self, x1, x2, batch_dims=None, **params):
         if batch_dims == (0, 2):
             raise RuntimeError(
-                "MultiplicativeGridInterpolationKernel does not accept the batch_dims argument."
+                "ProductStructureKernel does not accept the batch_dims argument."
             )
 
-        res = super(MultiplicativeGridInterpolationKernel, self).forward(x1, x2, batch_dims=(0, 2), **params)
+        res = self.base_kernel(x1, x2, batch_dims=(0, 2), **params).evaluate_kernel()
+
+        evaluate = False
+        if not isinstance(res, LazyTensor):
+            evaluate = True
+            res = NonLazyTensor(res)
+
         res = res.mul_batch(mul_batch_size=x1.size(-1))
 
+        if evaluate:
+            res = res.evaluate()
         return res
 
     def __call__(self, x1_, x2_=None, diag=False, batch_dims=None, **params):
@@ -90,6 +77,6 @@ class MultiplicativeGridInterpolationKernel(GridInterpolationKernel):
         *requires* that we work with the full (train + test) x (train + test)
         kernel matrix.
         """
-        return super(MultiplicativeGridInterpolationKernel, self).__call__(
+        return super(ProductStructureKernel, self).__call__(
             x1_, x2_, diag=diag, batch_dims=batch_dims, **params
         ).evaluate_kernel()

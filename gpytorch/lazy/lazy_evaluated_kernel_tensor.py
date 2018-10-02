@@ -145,9 +145,9 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 x1, x2, diag=False, batch_dims=self.batch_dims, **self.params
             )
             if self.squeeze_row:
-                self._cached_kernel_eval.squeeze_(-2)
+                self._cached_kernel_eval = self._cached_kernel_eval.squeeze(-2)
             if self.squeeze_col:
-                self._cached_kernel_eval.squeeze_(-1)
+                self._cached_kernel_eval = self._cached_kernel_eval.squeeze(-1)
 
             if not self.is_batch and self._cached_kernel_eval.ndimension() == 3 \
                     and self._cached_kernel_eval.size(0) == 1:
