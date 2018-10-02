@@ -31,7 +31,9 @@ class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
         super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], num_dim=2)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),
+            RBFKernel(
+                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True))
+            ,
             log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
         )
 
