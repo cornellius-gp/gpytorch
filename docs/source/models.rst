@@ -8,13 +8,6 @@ gpytorch.models
 .. currentmodule:: gpytorch.models
 
 
-Model
-----------------
-
-.. autoclass:: GP
-   :members:
-
-
 Models for Exact GP Inference
 -----------------------------
 
