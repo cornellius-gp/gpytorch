@@ -406,22 +406,22 @@ class LazyTensor(object):
         size = self.size()
         if len(size) == 2:
             batch_mode = False
-            n_rows, n_cols = size
+            num_rows, num_cols = size
         else:
             batch_mode = True
-            batch_size, n_rows, n_cols = size
+            batch_size, num_rows, num_cols = size
 
-        if n_rows < n_cols:
-            eye = torch.eye(n_rows, dtype=self.dtype, device=self.device)
+        if num_rows < num_cols:
+            eye = torch.eye(num_rows, dtype=self.dtype, device=self.device)
             if batch_mode:
-                eye = eye.unsqueeze(0).expand(batch_size, n_rows, n_rows)
+                eye = eye.unsqueeze(0).expand(batch_size, num_rows, num_rows)
                 return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
             else:
                 return self.t().matmul(eye).t().contiguous()
         else:
-            eye = torch.eye(n_cols, dtype=self.dtype, device=self.device)
+            eye = torch.eye(num_cols, dtype=self.dtype, device=self.device)
             if batch_mode:
-                eye = eye.unsqueeze(0).expand(batch_size, n_cols, n_cols)
+                eye = eye.unsqueeze(0).expand(batch_size, num_cols, num_cols)
             return self.matmul(eye)
 
     def evaluate_kernel(self):
@@ -431,7 +431,7 @@ class LazyTensor(object):
         """
         return self.representation_tree()(*self.representation())
 
-    def exact_predictive_mean(self, full_mean, train_labels, n_train, likelihood, precomputed_cache=None):
+    def exact_predictive_mean(self, full_mean, train_labels, num_train, likelihood, precomputed_cache=None):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -449,11 +449,11 @@ class LazyTensor(object):
         from ..distributions import MultivariateNormal
 
         if precomputed_cache is None:
-            train_mean = full_mean.narrow(-1, 0, n_train)
+            train_mean = full_mean.narrow(-1, 0, num_train)
             if self.ndimension() == 3:
-                train_train_covar = self[:, :n_train, :n_train]
+                train_train_covar = self[:, :num_train, :num_train]
             else:
-                train_train_covar = self[:n_train, :n_train]
+                train_train_covar = self[:num_train, :num_train]
 
             train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
             mvn = likelihood(MultivariateNormal(train_mean, train_train_covar))
@@ -466,9 +466,9 @@ class LazyTensor(object):
 
         test_mean = full_mean.narrow(-1, train_labels.size(-1), full_mean.size(-1) - train_labels.size(-1))
         if self.ndimension() == 3:
-            test_train_covar = self[:, n_train:, :n_train]
+            test_train_covar = self[:, num_train:, :num_train]
         else:
-            test_train_covar = self[n_train:, :n_train]
+            test_train_covar = self[num_train:, :num_train]
         res = test_train_covar.matmul(precomputed_cache)
         if res.ndimension() == 3:
             res = res.squeeze(-1)
@@ -505,14 +505,14 @@ class LazyTensor(object):
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
 
-    def exact_predictive_covar(self, n_train, likelihood, precomputed_cache=None):
+    def exact_predictive_covar(self, num_train, likelihood, precomputed_cache=None):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
         [ K_XX, K_XX*; K_X*X, K_X*X* ]
 
         Args:
-            n_train (int): The number of training points in the full covariance matrix
+            num_train (int): The number of training points in the full covariance matrix
             noise (scalar): The observed noise (from the likelihood)
             precomputed_cache (optional): speeds up subsequent computations (default: None)
 
@@ -523,13 +523,13 @@ class LazyTensor(object):
         from ..distributions import MultivariateNormal
 
         if self.ndimension() == 3:
-            train_train_covar = self[:, :n_train, :n_train]
-            test_train_covar = self[:, n_train:, :n_train]
-            test_test_covar = self[:, n_train:, n_train:]
+            train_train_covar = self[:, :num_train, :num_train]
+            test_train_covar = self[:, num_train:, :num_train]
+            test_test_covar = self[:, num_train:, num_train:]
         else:
-            train_train_covar = self[:n_train, :n_train]
-            test_train_covar = self[n_train:, :n_train]
-            test_test_covar = self[n_train:, n_train:]
+            train_train_covar = self[:num_train, :num_train]
+            test_train_covar = self[num_train:, :num_train]
+            test_test_covar = self[num_train:, num_train:]
 
         train_train_covar = likelihood(MultivariateNormal(torch.zeros(1), train_train_covar)).lazy_covariance_matrix
         if not beta_features.fast_pred_var.on():

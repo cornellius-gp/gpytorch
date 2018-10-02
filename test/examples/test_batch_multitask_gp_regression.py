@@ -19,26 +19,14 @@ from gpytorch.distributions import MultitaskMultivariateNormal
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
 # in parallel.
 train_x1 = torch.linspace(0, 1, 11).unsqueeze(-1)
-train_y1 = torch.cat([
-    torch.sin(train_x1 * (2 * math.pi)),
-    torch.cos(train_x1 * (2 * math.pi))
-], 1)
+train_y1 = torch.cat([torch.sin(train_x1 * (2 * math.pi)), torch.cos(train_x1 * (2 * math.pi))], 1)
 test_x1 = torch.linspace(0, 1, 51).unsqueeze(-1)
-test_y1 = torch.cat([
-    torch.sin(test_x1 * (2 * math.pi)),
-    torch.cos(test_x1 * (2 * math.pi))
-], 1)
+test_y1 = torch.cat([torch.sin(test_x1 * (2 * math.pi)), torch.cos(test_x1 * (2 * math.pi))], 1)
 
 train_x2 = torch.linspace(0, 1, 11).unsqueeze(-1)
-train_y2 = torch.cat([
-    torch.sin(train_x2 * (2 * math.pi)),
-    torch.cos(train_x2 * (2 * math.pi))
-], 1)
+train_y2 = torch.cat([torch.sin(train_x2 * (2 * math.pi)), torch.cos(train_x2 * (2 * math.pi))], 1)
 test_x2 = torch.linspace(0, 1, 51).unsqueeze(-1)
-test_y2 = torch.cat([
-    torch.sin(test_x2 * (2 * math.pi)),
-    torch.cos(test_x2 * (2 * math.pi))
-], 1)
+test_y2 = torch.cat([torch.sin(test_x2 * (2 * math.pi)), torch.cos(test_x2 * (2 * math.pi))], 1)
 
 # Combined sets of data
 train_x12 = torch.cat((train_x1.unsqueeze(0), train_x2.unsqueeze(0)), dim=0).contiguous()
@@ -50,8 +38,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood, batch_size=1):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = MultitaskMean(
-            ConstantMean(batch_size=batch_size, prior=gpytorch.priors.SmoothedBoxPrior(-1, 1)),
-            n_tasks=2,
+            ConstantMean(batch_size=batch_size, prior=gpytorch.priors.SmoothedBoxPrior(-1, 1)), num_tasks=2
         )
         self.covar_module = MultitaskKernel(
             RBFKernel(
@@ -59,7 +46,9 @@ class ExactGPModel(gpytorch.models.ExactGP):
                 log_lengthscale_prior=gpytorch.priors.NormalPrior(
                     loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1), log_transform=True
                 ),
-            ), n_tasks=2, rank=1
+            ),
+            num_tasks=2,
+            rank=1,
         )
 
     def forward(self, x):
@@ -85,7 +74,7 @@ class TestBatchGPRegression(unittest.TestCase):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(
             log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(1), scale=torch.ones(1), log_transform=True),
-            n_tasks=2,
+            num_tasks=2,
         )
         gp_model = ExactGPModel(train_x1, train_y1, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
@@ -129,7 +118,8 @@ class TestBatchGPRegression(unittest.TestCase):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(
             log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2), log_transform=True),
-            batch_size=2, n_tasks=2,
+            batch_size=2,
+            num_tasks=2,
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_size=2)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
@@ -169,7 +159,8 @@ class TestBatchGPRegression(unittest.TestCase):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(
             log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2), log_transform=True),
-            batch_size=1, n_tasks=2,
+            batch_size=1,
+            num_tasks=2,
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_size=1)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)

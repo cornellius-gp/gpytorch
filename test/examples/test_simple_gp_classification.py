@@ -60,7 +60,7 @@ class TestSimpleGPClassification(unittest.TestCase):
         train_x, train_y = train_data()
         likelihood = BernoulliLikelihood()
         model = GPClassificationModel(train_x)
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
@@ -95,7 +95,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             train_x, train_y = train_data()
             likelihood = BernoulliLikelihood()
             model = GPClassificationModel(train_x)
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
+            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()
@@ -131,7 +131,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             train_x, train_y = train_data(cuda=True)
             likelihood = BernoulliLikelihood().cuda()
             model = GPClassificationModel(train_x).cuda()
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
+            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()

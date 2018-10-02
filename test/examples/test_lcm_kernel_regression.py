@@ -16,9 +16,9 @@ from gpytorch.distributions import MultitaskMultivariateNormal
 class MultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = MultitaskMean(ConstantMean(), n_tasks=2)
+        self.mean_module = MultitaskMean(ConstantMean(), num_tasks=2)
         self.base_kernel_list = [RBFKernel()]
-        self.covar_module = LCMKernel(self.base_kernel_list, n_tasks=2, rank=1)
+        self.covar_module = LCMKernel(self.base_kernel_list, num_tasks=2, rank=1)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -29,9 +29,9 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
 class MultitaskGPModel_ICM(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel_ICM, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = MultitaskMean(ConstantMean(), n_tasks=2)
+        self.mean_module = MultitaskMean(ConstantMean(), num_tasks=2)
         self.base_kernel = RBFKernel()
-        self.covar_module = MultitaskKernel(self.base_kernel, n_tasks=2, rank=1)
+        self.covar_module = MultitaskKernel(self.base_kernel, num_tasks=2, rank=1)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -50,13 +50,11 @@ class TestLCMKernelRegression(unittest.TestCase):
         # Create a train_y which interleaves the two
         train_y = torch.stack([train_y1, train_y2], -1)
 
-        likelihood = MultitaskGaussianLikelihood(n_tasks=2)
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2)
         model = MultitaskGPModel(train_x, train_y, likelihood)
 
         # Use the adam optimizer
-        optimizer = torch.optim.Adam([
-            {'params': model.parameters()},  # Includes GaussianLikelihood parameters
-        ], lr=0.1)
+        optimizer = torch.optim.Adam([{"params": model.parameters()}], lr=0.1)  # Includes GaussianLikelihood parameters
         model.train()
         likelihood.train()
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
@@ -77,13 +75,13 @@ class TestLCMKernelRegression(unittest.TestCase):
             mean = observed_pred.mean
 
         model_icm = MultitaskGPModel_ICM(train_x, train_y, likelihood)
-        likelihood = MultitaskGaussianLikelihood(n_tasks=2)
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2)
         model_icm.train()
         likelihood.train()
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model_icm)
-        optimizer = torch.optim.Adam([
-            {'params': model_icm.parameters()},  # Includes GaussianLikelihood parameters
-        ], lr=0.1)
+        optimizer = torch.optim.Adam(
+            [{"params": model_icm.parameters()}], lr=0.1  # Includes GaussianLikelihood parameters
+        )
         for _ in range(n_iter):
             optimizer.zero_grad()
             output = model_icm(train_x)

@@ -29,9 +29,9 @@ train_y = torch.stack([train_y1, train_y2], -1)
 class MultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = MultitaskMean(ConstantMean(), n_tasks=2)
+        self.mean_module = MultitaskMean(ConstantMean(), num_tasks=2)
         self_covar_module = RBFKernel()
-        self.covar_module = MultitaskKernel(self_covar_module, n_tasks=2, rank=1)
+        self.covar_module = MultitaskKernel(self_covar_module, num_tasks=2, rank=1)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -53,7 +53,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_low_rank_noise_covar(self):
-        likelihood = MultitaskGaussianLikelihood(n_tasks=2, rank=1)
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2, rank=1)
         model = MultitaskGPModel(train_x, train_y, likelihood)
         # Find optimal model hyperparameters
         model.train()
@@ -81,12 +81,12 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         model.eval()
         likelihood.eval()
 
-        n_tasks = 2
+        num_tasks = 2
         task_noise_covar_factor = likelihood.task_noise_covar_factor
         log_noise = likelihood.log_noise
         task_noise_covar = task_noise_covar_factor.matmul(
             task_noise_covar_factor.transpose(-1, -2)
-        ) + log_noise.exp() * torch.eye(n_tasks)
+        ) + log_noise.exp() * torch.eye(num_tasks)
 
         self.assertGreater(task_noise_covar[0, 0, 1].item(), 0.05)
 

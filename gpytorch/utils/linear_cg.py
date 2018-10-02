@@ -70,9 +70,9 @@ def linear_cg(
         raise RuntimeError("matmul_closure must be a tensor, or a callable object!")
 
     # Get some constants
-    n_rows = rhs.size(-2)
-    n_iter = min(max_iter, n_rows)
-    n_tridiag_iter = min(max_tridiag_iter, n_rows)
+    num_rows = rhs.size(-2)
+    n_iter = min(max_iter, num_rows)
+    n_tridiag_iter = min(max_tridiag_iter, num_rows)
 
     # result <- x_{0}
     result = initial_guess

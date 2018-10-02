@@ -50,7 +50,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         return super(MultivariateNormal, self).mean.view(self._output_shape)
 
     @property
-    def n_tasks(self):
+    def num_tasks(self):
         return self._output_shape[-1]
 
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
