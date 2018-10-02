@@ -74,7 +74,7 @@ class GridInterpolationKernel(GridKernel):
                 raise RuntimeError("num_dims must be supplied if grid_bounds is None")
             else:
                 # Create some temporary grid bounds - they'll be changed soon
-                grid_bounds = tuple((-1., 1.) for _ in range(num_dims))
+                grid_bounds = tuple((-1.0, 1.0) for _ in range(num_dims))
         else:
             has_initialized_grid = 1
             grid_is_dynamic = False
@@ -145,7 +145,7 @@ class GridInterpolationKernel(GridKernel):
 
     def _inducing_forward(self, batch_dims, **params):
         return super(GridInterpolationKernel, self).forward(
-            self.inducing_points, self.inducing_points, batch_dims=batch_dims, **params,
+            self.inducing_points, self.inducing_points, batch_dims=batch_dims, **params
         )
 
     def forward(self, x1, x2, batch_dims=None, **params):

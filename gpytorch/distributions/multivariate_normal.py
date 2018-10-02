@@ -166,4 +166,4 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         return self.__class__(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other ** 2))
 
     def __truediv__(self, other):
-        return self.__mul__(1. / other)
+        return self.__mul__(1.0 / other)

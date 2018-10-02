@@ -10,9 +10,7 @@ from torch.distributions import MultivariateNormal
 class TestMultivariateNormalPrior(unittest.TestCase):
     def test_multivariate_normal_prior_to_gpu(self):
         if torch.cuda.is_available():
-            prior = MultivariateNormalPrior(
-                torch.tensor([0.0, 1.0]), covariance_matrix=torch.eye(2)
-            ).cuda()
+            prior = MultivariateNormalPrior(torch.tensor([0.0, 1.0]), covariance_matrix=torch.eye(2)).cuda()
             self.assertEqual(prior.loc.device.type, "cuda")
             self.assertEqual(prior.covariance_matrix.device.type, "cuda")
             self.assertEqual(prior.scale_tril.device.type, "cuda")

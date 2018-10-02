@@ -30,7 +30,7 @@ class TestConstantMulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase)
     def create_lazy_tensor(self):
         column = torch.tensor([[5, 1, 2, 0]], dtype=torch.float).repeat(2, 1)
         column.requires_grad_(True)
-        constant = torch.tensor([2.5, 1.])
+        constant = torch.tensor([2.5, 1.0])
         return ToeplitzLazyTensor(column) * constant
 
     def evaluate_lazy_tensor(self, lazy_tensor):

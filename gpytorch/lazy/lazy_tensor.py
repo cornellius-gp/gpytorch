@@ -760,7 +760,7 @@ class LazyTensor(object):
                 extra_root = (
                     torch.randn(roots.size(0), 1, roots.size(2), roots.size(3), dtype=roots.dtype, device=roots.device)
                     .mul_(1e-6 / math.sqrt(roots.size(3)))
-                    .add_(1. / math.sqrt(roots.size(3)))
+                    .add_(1.0 / math.sqrt(roots.size(3)))
                 )
                 roots = torch.cat([roots, extra_root], 1)
                 n_batch += 1
@@ -1055,7 +1055,7 @@ class LazyTensor(object):
         if isinstance(other, ZeroLazyTensor):
             raise RuntimeError("Attempted to divide by a ZeroLazyTensor (divison by zero)")
 
-        return self.mul(1. / other)
+        return self.mul(1.0 / other)
 
     def __mul__(self, other):
         """

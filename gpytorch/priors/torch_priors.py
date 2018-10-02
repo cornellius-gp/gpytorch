@@ -34,9 +34,7 @@ class GammaPrior(Prior, Gamma):
 
     def __init__(self, concentration, rate, log_transform=False, validate_args=False):
         TModule.__init__(self)
-        Gamma.__init__(
-            self, concentration=concentration, rate=rate, validate_args=validate_args
-        )
+        Gamma.__init__(self, concentration=concentration, rate=rate, validate_args=validate_args)
         _bufferize_attributes(self, ("concentration", "rate"))
         self._log_transform = log_transform
 

@@ -17,6 +17,7 @@ class LCMKernel(Kernel):
 
     The returned object is of type :obj:`gpytorch.lazy.KroneckerProductLazyTensor`.
     """
+
     def __init__(self, base_kernels, n_tasks, rank=1, task_covar_prior=None):
         """
         Args:
@@ -28,15 +29,17 @@ class LCMKernel(Kernel):
                 task kernel. See :class:`gpytorch.kernels.IndexKernel` for details.
         """
         if len(base_kernels) < 1:
-            raise ValueError('At least one base kernel must be provided.')
+            raise ValueError("At least one base kernel must be provided.")
         for k in base_kernels:
             if not isinstance(k, Kernel):
                 raise ValueError("base_kernels must only contain Kernel objects")
         super(LCMKernel, self).__init__()
-        self.covar_module_list = ModuleList([
-            MultitaskKernel(base_kernel, n_tasks=n_tasks, rank=rank, task_covar_prior=task_covar_prior)
-            for base_kernel in base_kernels
-        ])
+        self.covar_module_list = ModuleList(
+            [
+                MultitaskKernel(base_kernel, n_tasks=n_tasks, rank=rank, task_covar_prior=task_covar_prior)
+                for base_kernel in base_kernels
+            ]
+        )
 
     def forward(self, x1, x2, **params):
         res = self.covar_module_list[0].forward(x1, x2, **params)

@@ -83,7 +83,7 @@ class TestZeroLazyTensor(unittest.TestCase):
         actual = torch.eye(5).mul(1.5)
         self.assertTrue(approx_equal(res, actual))
 
-        diag = torch.tensor([1.5, 1.3, 1.2, 1.1, 2.])
+        diag = torch.tensor([1.5, 1.3, 1.2, 1.1, 2.0])
         res = ZeroLazyTensor(5, 5).add_diag(diag).evaluate()
         actual = diag.diag()
         self.assertTrue(approx_equal(res, actual))
@@ -98,12 +98,12 @@ class TestZeroLazyTensor(unittest.TestCase):
         actual = torch.eye(5).unsqueeze(0).repeat(2, 1, 1).mul(1.5)
         self.assertTrue(approx_equal(res, actual))
 
-        diag = torch.tensor([1.5, 1.3, 1.2, 1.1, 2.])
+        diag = torch.tensor([1.5, 1.3, 1.2, 1.1, 2.0])
         res = ZeroLazyTensor(2, 5, 5).add_diag(diag).evaluate()
         actual = diag.diag().unsqueeze(0).repeat(2, 1, 1)
         self.assertTrue(approx_equal(res, actual))
 
-        diag = torch.tensor([[1.5, 1.3, 1.2, 1.1, 2.], [0, 1, 2, 1, 1]])
+        diag = torch.tensor([[1.5, 1.3, 1.2, 1.1, 2.0], [0, 1, 2, 1, 1]])
         res = ZeroLazyTensor(2, 5, 5).add_diag(diag).evaluate()
         actual = torch.cat([diag[0].diag().unsqueeze(0), diag[1].diag().unsqueeze(0)])
         self.assertTrue(approx_equal(res, actual))
