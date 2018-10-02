@@ -8,9 +8,9 @@ from .. import settings
 
 
 def _eval_covar_matrix(task_noise_covar_factor, log_noise):
-    n_tasks = task_noise_covar_factor.size(0)
+    num_tasks = task_noise_covar_factor.size(0)
     return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + log_noise.exp() * torch.eye(
-        n_tasks
+        num_tasks
     )
 
 
@@ -24,10 +24,10 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     Like the Gaussian likelihood, this object can be used with exact inference.
     """
 
-    def __init__(self, n_tasks, rank=0, task_prior=None, batch_size=1, log_noise_prior=None):
+    def __init__(self, num_tasks, rank=0, task_prior=None, batch_size=1, log_noise_prior=None):
         """
         Args:
-            n_tasks (int): Number of tasks.
+            num_tasks (int): Number of tasks.
 
             rank (int): The rank of the task noise covariance matrix to fit. If `rank` is set to 0,
             then a diagonal covariance matrix is fit.
@@ -40,11 +40,13 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
 
         if rank == 0:
             self.register_parameter(
-                name="log_task_noises", parameter=torch.nn.Parameter(torch.zeros(batch_size, n_tasks)), prior=task_prior
+                name="log_task_noises",
+                parameter=torch.nn.Parameter(torch.zeros(batch_size, num_tasks)),
+                prior=task_prior,
             )
         else:
             self.register_parameter(
-                name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, n_tasks, rank))
+                name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
             )
             if task_prior is not None:
                 self.register_derived_prior(
@@ -53,7 +55,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
                     parameter_names=("task_noise_covar_factor", "log_noise"),
                     transform=_eval_covar_matrix,
                 )
-        self.n_tasks = n_tasks
+        self.num_tasks = num_tasks
 
     def forward(self, input):
         """
@@ -101,10 +103,10 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
             task_var_lt = RootLazyTensor(task_noise_covar_factor)
 
         if covar.ndimension() == 2:
-            eye_lt = DiagLazyTensor(torch.ones(covar.size(-1) // self.n_tasks, device=self.log_noise.device))
+            eye_lt = DiagLazyTensor(torch.ones(covar.size(-1) // self.num_tasks, device=self.log_noise.device))
         else:
             eye_lt = DiagLazyTensor(
-                torch.ones(covar.size(0), covar.size(-1) // self.n_tasks, device=self.log_noise.device)
+                torch.ones(covar.size(0), covar.size(-1) // self.num_tasks, device=self.log_noise.device)
             )
             # Make sure the batch sizes are going to match
             if task_var_lt.size(0) == 1:

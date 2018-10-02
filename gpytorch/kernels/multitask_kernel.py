@@ -21,7 +21,7 @@ class MultitaskKernel(Kernel):
     Args:
         data_covar_module (:obj:`gpytorch.kernels.Kernel`):
             Kernel to use as the data kernel.
-        n_tasks (int):
+        num_tasks (int):
             Number of tasks
         batch_size (int, optional):
             Set if the MultitaskKernel is operating on batches of data (and you want different
@@ -32,20 +32,20 @@ class MultitaskKernel(Kernel):
             Prior to use for task kernel. See :class:`gpytorch.kernels.IndexKernel` for details.
     """
 
-    def __init__(self, data_covar_module, n_tasks, rank=1, batch_size=1, task_covar_prior=None):
+    def __init__(self, data_covar_module, num_tasks, rank=1, batch_size=1, task_covar_prior=None):
         """
         """
         super(MultitaskKernel, self).__init__()
-        self.task_covar_module = IndexKernel(n_tasks=n_tasks, batch_size=batch_size, rank=rank, prior=task_covar_prior)
+        self.task_covar_module = IndexKernel(
+            num_tasks=num_tasks, batch_size=batch_size, rank=rank, prior=task_covar_prior
+        )
         self.data_covar_module = data_covar_module
-        self.n_tasks = n_tasks
+        self.num_tasks = num_tasks
         self.batch_size = 1
 
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         if batch_dims == (0, 2):
-            raise RuntimeError(
-                "AdditiveGridInterpolationKernel does not accept the batch_dims argument."
-            )
+            raise RuntimeError("AdditiveGridInterpolationKernel does not accept the batch_dims argument.")
 
         covar_i = self.task_covar_module.covar_matrix
         covar_i = covar_i.repeat(x1.size(0), 1, 1)
@@ -61,10 +61,10 @@ class MultitaskKernel(Kernel):
 
     def size(self, x1, x2):
         """
-        Given `n` data points `x1` and `m` datapoints `x2`, this multitask kernel returns an `(n*n_tasks) x (m*n_tasks)`
-        covariance matrix.
+        Given `n` data points `x1` and `m` datapoints `x2`, this multitask
+        kernel returns an `(n*num_tasks) x (m*num_tasks)` covariancn matrix.
         """
-        non_batch_size = (self.n_tasks * x1.size(-2), self.n_tasks * x2.size(-2))
+        non_batch_size = (self.num_tasks * x1.size(-2), self.num_tasks * x2.size(-2))
         if x1.ndimension() == 3:
             return torch.Size((x1.size(0),) + non_batch_size)
         else:

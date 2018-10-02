@@ -79,11 +79,11 @@ class GridKernel(Kernel):
                 else:
                     covars = [ToeplitzLazyTensor(covar_columns[i : i + 1]) for i in range(n_dim)]
             else:
-                covars = self.base_kernel(grid, grid, batch_dims=(0, 2), **params).evaluate_kernel()
+                full_covar = self.base_kernel(grid, grid, batch_dims=(0, 2), **params).evaluate_kernel()
                 if batch_dims == (0, 2):
-                    covars = [covars]
+                    covars = [full_covar]
                 else:
-                    covars = [covars[i : i + 1] for i in range(n_dim)]
+                    covars = [full_covar[i : i + 1] for i in range(n_dim)]
 
             if len(covars) > 1:
                 covar = KroneckerProductLazyTensor(*covars)

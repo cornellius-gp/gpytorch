@@ -167,19 +167,19 @@ def left_interp(interp_indices, interp_values, rhs):
         # Special cuda version -- this is faster on the GPU for some reason
         if interp_indices.is_cuda:
             if interp_indices.ndimension() == 3:
-                n_batch, n_data, n_interp = interp_indices.size()
+                num_batch, n_data, n_interp = interp_indices.size()
                 interp_indices = interp_indices.contiguous().view(-1)
                 interp_values = interp_values.contiguous().view(-1, 1)
 
                 if rhs.ndimension() == 3:
                     if rhs.size(0) == 1 and interp_indices.size(0) > 1:
                         rhs = rhs.expand(interp_indices.size(0), rhs.size(1), rhs.size(2))
-                    batch_indices = torch.arange(0, n_batch, dtype=torch.long, device=rhs.device).unsqueeze_(1)
+                    batch_indices = torch.arange(0, num_batch, dtype=torch.long, device=rhs.device).unsqueeze_(1)
                     batch_indices = batch_indices.repeat(1, n_data * n_interp).view(-1)
                     res = rhs[batch_indices, interp_indices, :] * interp_values
                 else:
                     res = rhs[interp_indices, :].unsqueeze(0) * interp_values
-                res = res.view(n_batch, n_data, n_interp, -1)
+                res = res.view(num_batch, n_data, n_interp, -1)
                 res = res.sum(-2)
                 return res
             else:
@@ -187,10 +187,10 @@ def left_interp(interp_indices, interp_values, rhs):
                 interp_indices = interp_indices.contiguous().view(-1)
                 interp_values = interp_values.contiguous().view(-1, 1)
                 if rhs.ndimension() == 3:
-                    n_batch, _, n_cols = rhs.size()
-                    rhs = rhs.transpose(0, 1).contiguous().view(-1, n_batch * n_cols)
+                    num_batch, _, num_cols = rhs.size()
+                    rhs = rhs.transpose(0, 1).contiguous().view(-1, num_batch * num_cols)
                     res = rhs[interp_indices, :] * interp_values
-                    res = res.view(n_data, n_interp, n_batch, n_cols)
+                    res = res.view(n_data, n_interp, num_batch, num_cols)
                     res = res.sum(-2).transpose(0, 1).contiguous()
                 else:
                     res = rhs[interp_indices, :] * interp_values
@@ -226,9 +226,9 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
         interp_values = interp_values.unsqueeze(0)
 
     batch_size, n_data, n_interp = interp_values.size()
-    _, _, n_cols = rhs.size()
+    _, _, num_cols = rhs.size()
 
-    values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1)).view(batch_size, n_data * n_interp, n_cols)
+    values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1)).view(batch_size, n_data * n_interp, num_cols)
 
     flat_interp_indices = interp_indices.contiguous().view(1, -1)
     batch_indices = torch.arange(0, batch_size, dtype=torch.long, device=values.device).unsqueeze_(1)

@@ -16,40 +16,40 @@ def _prod(iterable):
 def _matmul(lazy_tensors, rhs):
     res = rhs.contiguous()
     is_batch = rhs.ndimension() == 3
-    n_cols = rhs.size(-1)
+    num_cols = rhs.size(-1)
     for lazy_tensor in list(lazy_tensors)[::-1]:
         if is_batch:
-            n_batch = res.size(0)
-            res = res.view(n_batch, lazy_tensor.size(-1), -1)
+            num_batch = res.size(0)
+            res = res.view(num_batch, lazy_tensor.size(-1), -1)
             factor = lazy_tensor._matmul(res)
-            factor = factor.view(n_batch, lazy_tensor.size(-2), -1, n_cols)
-            factor = factor.transpose(-3, -2).contiguous().view(-1, n_cols)
-            res = factor.contiguous().view(n_batch, -1, n_cols)
+            factor = factor.view(num_batch, lazy_tensor.size(-2), -1, num_cols)
+            factor = factor.transpose(-3, -2).contiguous().view(-1, num_cols)
+            res = factor.contiguous().view(num_batch, -1, num_cols)
         else:
             res = res.view(lazy_tensor.size(-1), -1)
             factor = lazy_tensor._matmul(res)
-            factor = factor.view(lazy_tensor.size(-2), -1, n_cols).transpose(-3, -2).contiguous().view(-1, n_cols)
-            res = factor.contiguous().view(-1, n_cols)
+            factor = factor.view(lazy_tensor.size(-2), -1, num_cols).transpose(-3, -2).contiguous().view(-1, num_cols)
+            res = factor.contiguous().view(-1, num_cols)
     return res
 
 
 def _t_matmul(lazy_tensors, rhs):
     res = rhs.contiguous()
     is_batch = rhs.ndimension() == 3
-    n_cols = rhs.size(-1)
+    num_cols = rhs.size(-1)
     for lazy_tensor in list(lazy_tensors)[::-1]:
         if is_batch:
-            n_batch = res.size(0)
-            res = res.view(n_batch, lazy_tensor.size(-2), -1)
+            num_batch = res.size(0)
+            res = res.view(num_batch, lazy_tensor.size(-2), -1)
             factor = lazy_tensor._t_matmul(res)
-            factor = factor.view(n_batch, lazy_tensor.size(-1), -1, n_cols)
-            factor = factor.transpose(-3, -2).contiguous().view(-1, n_cols)
-            res = factor.contiguous().view(n_batch, -1, n_cols)
+            factor = factor.view(num_batch, lazy_tensor.size(-1), -1, num_cols)
+            factor = factor.transpose(-3, -2).contiguous().view(-1, num_cols)
+            res = factor.contiguous().view(num_batch, -1, num_cols)
         else:
             res = res.view(lazy_tensor.size(-2), -1)
             factor = lazy_tensor._t_matmul(res)
-            factor = factor.view(lazy_tensor.size(-1), -1, n_cols).transpose(-3, -2).contiguous().view(-1, n_cols)
-            res = factor.contiguous().view(-1, n_cols)
+            factor = factor.view(lazy_tensor.size(-1), -1, num_cols).transpose(-3, -2).contiguous().view(-1, num_cols)
+            res = factor.contiguous().view(-1, num_cols)
     return res
 
 

@@ -28,6 +28,7 @@ for i in range(n):
         train_x[i * n + j][1] = float(j) / (n - 1)
 train_x = train_x
 train_y = torch.sin(((train_x[:, 0] + train_x[:, 1]) * (2 * pi)))
+train_y = train_y + torch.randn_like(train_y).mul_(0.01)
 
 m = 10
 test_x = torch.zeros(pow(m, 2), 2)
@@ -37,6 +38,7 @@ for i in range(m):
         test_x[i * m + j][1] = float(j) / (m - 1)
 test_x = test_x
 test_y = torch.sin((test_x[:, 0] + test_x[:, 1]) * (2 * pi))
+test_y = test_y + torch.randn_like(test_y).mul_(0.01)
 
 
 # All tests that pass with the exact kernel should pass with the interpolated kernel.
@@ -79,7 +81,7 @@ class TestKissGPKroneckerProductRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        with gpytorch.settings.max_preconditioner_size(5):
+        with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.use_toeplitz(False):
             optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
             optimizer.n_iter = 0
             for _ in range(8):
@@ -103,7 +105,7 @@ class TestKissGPKroneckerProductRegression(unittest.TestCase):
 
             test_preds = likelihood(gp_model(test_x)).mean
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
-            self.assertLess(mean_abs_error.squeeze().item(), 0.1)
+            self.assertLess(mean_abs_error.squeeze().item(), 0.2)
 
 
 if __name__ == "__main__":

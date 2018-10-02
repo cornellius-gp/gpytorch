@@ -10,7 +10,7 @@ from gpytorch.means import ConstantMean, ZeroMean, MultitaskMean
 
 class TestMultitaskMean(unittest.TestCase):
     def setUp(self):
-        self.mean = MultitaskMean([ConstantMean(), ZeroMean(), ZeroMean(), ConstantMean()], n_tasks=4)
+        self.mean = MultitaskMean([ConstantMean(), ZeroMean(), ZeroMean(), ConstantMean()], num_tasks=4)
         self.mean.base_means[0].constant.data.fill_(5)
         self.mean.base_means[3].constant.data.fill_(7)
 
@@ -35,7 +35,7 @@ class TestMultitaskMean(unittest.TestCase):
 
 class TestMultitaskMeanSameMean(unittest.TestCase):
     def setUp(self):
-        self.mean = MultitaskMean(ConstantMean(), n_tasks=4)
+        self.mean = MultitaskMean(ConstantMean(), num_tasks=4)
         self.mean.base_means[0].constant.data.fill_(0)
         self.mean.base_means[1].constant.data.fill_(1)
         self.mean.base_means[2].constant.data.fill_(2)

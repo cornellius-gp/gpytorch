@@ -8,19 +8,19 @@ from operator import mul
 import torch
 
 
-def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
+def make_sparse_from_indices_and_values(interp_indices, interp_values, num_rows):
     """
     This produces a sparse tensor with a fixed number of non-zero entries in each column.
 
     Args:
-        interp_indices - Tensor (batch_size) x n_cols x n_nonzero_entries
+        interp_indices - Tensor (batch_size) x num_cols x n_nonzero_entries
             A matrix which has the indices of the nonzero_entries for each column
-        interp_values - Tensor (batch_size) x n_cols x n_nonzero_entries
+        interp_values - Tensor (batch_size) x num_cols x n_nonzero_entries
             The corresponding values
-        n_rows - the number of rows in the result matrix
+        num_rows - the number of rows in the result matrix
 
     Returns:
-        SparseTensor - (batch_size) x n_cols x n_rows
+        SparseTensor - (batch_size) x num_cols x num_rows
     """
 
     if not torch.is_tensor(interp_indices):
@@ -67,9 +67,9 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, n_rows):
 
     # Size
     if is_batch:
-        interp_size = torch.Size([batch_size, n_rows, n_target_points])
+        interp_size = torch.Size([batch_size, num_rows, n_target_points])
     else:
-        interp_size = torch.Size([n_rows, n_target_points])
+        interp_size = torch.Size([num_rows, n_target_points])
 
     # Make the sparse tensor
     type_name = value_tensor.type().split(".")[-1]  # e.g. FloatTensor
@@ -88,29 +88,29 @@ def bdsmm(sparse, dense):
     Batch dense-sparse matrix multiply
     """
     if sparse.ndimension() > 2:
-        batch_size, n_rows, n_cols = sparse.size()
+        batch_size, num_rows, num_cols = sparse.size()
         batch_assignment = sparse._indices()[0]
         indices = sparse._indices()[1:].clone()
-        indices[0].add_(n_rows, batch_assignment)
-        indices[1].add_(n_cols, batch_assignment)
+        indices[0].add_(num_rows, batch_assignment)
+        indices[1].add_(num_cols, batch_assignment)
         sparse_2d = torch.sparse_coo_tensor(
             indices,
             sparse._values(),
-            torch.Size((batch_size * n_rows, batch_size * n_cols)),
+            torch.Size((batch_size * num_rows, batch_size * num_cols)),
             dtype=sparse._values().dtype,
             device=sparse._values().device,
         )
 
         if dense.size(0) == 1:
             dense = dense.repeat(batch_size, 1, 1)
-        dense_2d = dense.contiguous().view(batch_size * n_cols, -1)
+        dense_2d = dense.contiguous().view(batch_size * num_cols, -1)
         res = torch.dsmm(sparse_2d, dense_2d)
-        res = res.view(batch_size, n_rows, -1)
+        res = res.view(batch_size, num_rows, -1)
         return res
     elif dense.ndimension() == 3:
-        batch_size, _, n_cols = dense.size()
-        res = torch.dsmm(sparse, dense.transpose(0, 1).contiguous().view(-1, batch_size * n_cols))
-        res = res.view(-1, batch_size, n_cols)
+        batch_size, _, num_cols = dense.size()
+        res = torch.dsmm(sparse, dense.transpose(0, 1).contiguous().view(-1, batch_size * num_cols))
+        res = res.view(-1, batch_size, num_cols)
         res = res.transpose(0, 1).contiguous()
         return res
     else:

@@ -4,6 +4,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 
+import math
+
+
 def scale_to_bounds(x, lower_bound, upper_bound):
     """
     Scale the input data so that it lies in between the lower and upper bounds.
@@ -40,4 +43,5 @@ def choose_grid_size(train_inputs, ratio=1.):
     """
     # Scale features so they fit inside grid bounds
     num_data = train_inputs.numel() if train_inputs.dim() == 1 else train_inputs.size(-2)
-    return int(ratio * num_data)
+    num_dim = 1 if train_inputs.dim() == 1 else train_inputs.size(-1)
+    return int(ratio * math.pow(num_data, 1. / num_dim))

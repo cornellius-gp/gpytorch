@@ -39,7 +39,7 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
         # (so we'll actually learn 2x2=4 tasks with correlations)
         sd_prior = SmoothedBoxPrior(exp(-4), exp(4), log_transform=True)
         cov_prior = LKJCovariancePrior(n=2, eta=1, sd_prior=sd_prior)
-        self.task_covar_module = IndexKernel(n_tasks=2, rank=1, prior=cov_prior)
+        self.task_covar_module = IndexKernel(num_tasks=2, rank=1, prior=cov_prior)
 
     def forward(self, x, i):
         # Get predictive mean
@@ -54,10 +54,7 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
 
 class TestHadamardMultitaskGPRegression(unittest.TestCase):
     def setUp(self):
-        if (
-            os.getenv("UNLOCK_SEED") is None
-            or os.getenv("UNLOCK_SEED").lower() == "false"
-        ):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
             torch.manual_seed(0)
             if torch.cuda.is_available():
@@ -71,9 +68,7 @@ class TestHadamardMultitaskGPRegression(unittest.TestCase):
     def test_multitask_gp_mean_abs_error(self):
         likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(-6, 6))
         gp_model = HadamardMultitaskGPModel(
-            (torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds])),
-            torch.cat([train_y1, train_y2]),
-            likelihood,
+            (torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds])), torch.cat([train_y1, train_y2]), likelihood
         )
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
@@ -83,9 +78,7 @@ class TestHadamardMultitaskGPRegression(unittest.TestCase):
         optimizer = optim.Adam(gp_model.parameters(), lr=0.01)
         for _ in range(100):
             optimizer.zero_grad()
-            output = gp_model(
-                torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds])
-            )
+            output = gp_model(torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds]))
             loss = -mll(output, torch.cat([train_y1, train_y2]))
             loss.backward()
             optimizer.step()

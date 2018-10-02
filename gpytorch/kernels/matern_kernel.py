@@ -99,7 +99,7 @@ class MaternKernel(Kernel):
         self.nu = nu
 
     def forward(self, x1, x2, **params):
-        mean = x1.view(-1, 1, x1.size(-1)).mean(0, keepdim=True)
+        mean = x1.contiguous().view(-1, 1, x1.size(-1)).mean(0, keepdim=True)
 
         x1_ = (x1 - mean).div(self.lengthscale)
         x2_ = (x2 - mean).div(self.lengthscale)

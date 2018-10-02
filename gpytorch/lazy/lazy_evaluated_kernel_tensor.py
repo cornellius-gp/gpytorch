@@ -149,8 +149,11 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             if self.squeeze_col:
                 self._cached_kernel_eval.squeeze_(-1)
 
-            if not self.is_batch and self._cached_kernel_eval.ndimension() == 3 \
-                    and self._cached_kernel_eval.size(0) == 1:
+            if (
+                not self.is_batch
+                and self._cached_kernel_eval.ndimension() == 3
+                and self._cached_kernel_eval.size(0) == 1
+            ):
                 self._cached_kernel_eval = self._cached_kernel_eval[0]
             if not isinstance(self._cached_kernel_eval, LazyTensor):
                 self._cached_kernel_eval = NonLazyTensor(self._cached_kernel_eval)
@@ -165,21 +168,23 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 
-    def exact_predictive_mean(self, full_mean, train_labels, n_train, likelihood, precomputed_cache=None):
+    def exact_predictive_mean(self, full_mean, train_labels, num_train, likelihood, precomputed_cache=None):
         if self.kernel.has_custom_exact_predictions:
             return self.evaluate_kernel().exact_predictive_mean(
-                full_mean, train_labels, n_train, likelihood, precomputed_cache
+                full_mean, train_labels, num_train, likelihood, precomputed_cache
             )
         else:
             return super(LazyEvaluatedKernelTensor, self).exact_predictive_mean(
-                full_mean, train_labels, n_train, likelihood, precomputed_cache
+                full_mean, train_labels, num_train, likelihood, precomputed_cache
             )
 
-    def exact_predictive_covar(self, n_train, likelihood, precomputed_cache=None):
+    def exact_predictive_covar(self, num_train, likelihood, precomputed_cache=None):
         if self.kernel.has_custom_exact_predictions:
-            return self.evaluate_kernel().exact_predictive_covar(n_train, likelihood, precomputed_cache)
+            return self.evaluate_kernel().exact_predictive_covar(num_train, likelihood, precomputed_cache)
         else:
-            return super(LazyEvaluatedKernelTensor, self).exact_predictive_covar(n_train, likelihood, precomputed_cache)
+            return super(LazyEvaluatedKernelTensor, self).exact_predictive_covar(
+                num_train, likelihood, precomputed_cache
+            )
 
     def repeat(self, *sizes):
         if self.squeeze_row or self.squeeze_col:
@@ -207,11 +212,19 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             squeeze_row = self.squeeze_row
             squeeze_col = self.squeeze_col
 
-            x1 = self.x1[batch_index, left_index, :]
+            x1 = self.x1
+            if self.batch_dims == (0, 2):
+                x1 = x1.permute(0, 2, 1).contiguous()
+                x1 = x1.view(-1, x1.size(-1), 1)
+            x1 = x1[batch_index, left_index, :]
             if x1.dim() == 2 and not isinstance(batch_index, int):
                 x1 = x1.unsqueeze(1)
                 squeeze_row = True
-            x2 = self.x2[batch_index, right_index, :]
+            x2 = self.x2
+            if self.batch_dims == (0, 2):
+                x2 = x2.permute(0, 2, 1).contiguous()
+                x2 = x2.view(-1, x2.size(-1), 1)
+            x2 = x2[batch_index, right_index, :]
             if x2.dim() == 2 and not isinstance(batch_index, int):
                 x2 = x2.unsqueeze(1)
                 squeeze_col = True

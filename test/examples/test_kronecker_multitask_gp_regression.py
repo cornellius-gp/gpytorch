@@ -31,9 +31,9 @@ train_y = torch.stack([train_y1, train_y2], -1)
 class MultitaskGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = MultitaskMean(ConstantMean(), n_tasks=2)
+        self.mean_module = MultitaskMean(ConstantMean(), num_tasks=2)
         self_covar_module = RBFKernel()
-        self.covar_module = MultitaskKernel(self_covar_module, n_tasks=2, rank=2)
+        self.covar_module = MultitaskKernel(self_covar_module, num_tasks=2, rank=2)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -55,7 +55,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_gp_mean_abs_error(self):
-        likelihood = MultitaskGaussianLikelihood(n_tasks=2)
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2)
         model = MultitaskGPModel(train_x, train_y, likelihood)
         # Find optimal model hyperparameters
         model.train()

@@ -62,7 +62,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
 
         model = GPRegressionModel()
         likelihood = GaussianLikelihood()
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
         n_iter = 20
         # We use SGD here, rather than Adam
         # Emperically, we find that SGD is better for variational regression
@@ -75,7 +75,7 @@ class TestKissGPVariationalRegression(unittest.TestCase):
 
         # Our loss object
         # We're using the VariationalMarginalLogLikelihood object
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=train_y.size(0))
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=train_y.size(0))
 
         # The training loop
         def train():

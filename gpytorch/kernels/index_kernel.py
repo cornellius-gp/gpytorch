@@ -26,7 +26,7 @@ class IndexKernel(Kernel):
     These parameters are learned.
 
     Args:
-        n_tasks (int):
+        num_tasks (int):
             Total number of indices.
         batch_size (int, optional):
             Set if the MultitaskKernel is operating on batches of data (and you want different
@@ -43,14 +43,14 @@ class IndexKernel(Kernel):
             The element-wise log of the :math:`\mathbf v` vector.
     """
 
-    def __init__(self, n_tasks, rank=1, batch_size=1, prior=None):
-        if rank > n_tasks:
+    def __init__(self, num_tasks, rank=1, batch_size=1, prior=None):
+        if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
         super(IndexKernel, self).__init__()
         self.register_parameter(
-            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, n_tasks, rank))
+            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
         )
-        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(batch_size, n_tasks)))
+        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks)))
         if prior is not None:
             self.register_derived_prior(
                 name="IndexKernelPrior",
