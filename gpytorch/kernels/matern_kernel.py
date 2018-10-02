@@ -77,15 +77,7 @@ class MaternKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(
-        self,
-        nu=2.5,
-        ard_num_dims=None,
-        batch_size=1,
-        active_dims=None,
-        log_lengthscale_prior=None,
-        eps=1e-6,
-    ):
+    def __init__(self, nu=2.5, ard_num_dims=None, batch_size=1, active_dims=None, log_lengthscale_prior=None, eps=1e-6):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
         super(MaternKernel, self).__init__(

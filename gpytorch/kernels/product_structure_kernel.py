@@ -48,9 +48,7 @@ class ProductStructureKernel(Kernel):
 
     def forward(self, x1, x2, batch_dims=None, **params):
         if batch_dims == (0, 2):
-            raise RuntimeError(
-                "ProductStructureKernel does not accept the batch_dims argument."
-            )
+            raise RuntimeError("ProductStructureKernel does not accept the batch_dims argument.")
 
         res = self.base_kernel(x1, x2, batch_dims=(0, 2), **params).evaluate_kernel()
 
@@ -77,6 +75,8 @@ class ProductStructureKernel(Kernel):
         *requires* that we work with the full (train + test) x (train + test)
         kernel matrix.
         """
-        return super(ProductStructureKernel, self).__call__(
-            x1_, x2_, diag=diag, batch_dims=batch_dims, **params
-        ).evaluate_kernel()
+        return (
+            super(ProductStructureKernel, self)
+            .__call__(x1_, x2_, diag=diag, batch_dims=batch_dims, **params)
+            .evaluate_kernel()
+        )

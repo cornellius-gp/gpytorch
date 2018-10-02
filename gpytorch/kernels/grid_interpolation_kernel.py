@@ -145,7 +145,7 @@ class GridInterpolationKernel(GridKernel):
 
     def _inducing_forward(self, batch_dims, **params):
         return super(GridInterpolationKernel, self).forward(
-            self.inducing_points, self.inducing_points, batch_dims=batch_dims, **params,
+            self.inducing_points, self.inducing_points, batch_dims=batch_dims, **params
         )
 
     def forward(self, x1, x2, batch_dims=None, **params):

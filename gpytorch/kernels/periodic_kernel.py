@@ -72,12 +72,7 @@ class PeriodicKernel(Kernel):
     """
 
     def __init__(
-        self,
-        active_dims=None,
-        batch_size=1,
-        eps=1e-6,
-        log_lengthscale_prior=None,
-        log_period_length_prior=None,
+        self, active_dims=None, batch_size=1, eps=1e-6, log_lengthscale_prior=None, log_period_length_prior=None
     ):
         super(PeriodicKernel, self).__init__(
             has_lengthscale=True,
