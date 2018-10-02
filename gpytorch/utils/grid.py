@@ -25,7 +25,7 @@ def scale_to_bounds(x, lower_bound, upper_bound):
     return x
 
 
-def choose_grid_size(train_inputs, ratio=1.):
+def choose_grid_size(train_inputs, ratio=1.0):
     """
     Given some training inputs, determine a good grid size for KISS-GP.
 

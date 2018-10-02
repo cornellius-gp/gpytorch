@@ -27,7 +27,7 @@ class TestMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
         mat1 = make_random_mat(6, 3)
         mat2 = make_random_mat(6, 3)
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2))
-        return res.add_diag(torch.tensor(2.))
+        return res.add_diag(torch.tensor(2.0))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()
@@ -51,7 +51,7 @@ class TestMulLazyTensorMulti(LazyTensorTestCase, unittest.TestCase):
         res = MulLazyTensor(
             RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3), RootLazyTensor(mat4), RootLazyTensor(mat5)
         )
-        return res.add_diag(torch.tensor(1.))
+        return res.add_diag(torch.tensor(1.0))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()
@@ -70,7 +70,7 @@ class TestMulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
         mat1 = make_random_mat(6, rank=5, batch_size=2)
         mat2 = make_random_mat(6, rank=5, batch_size=2)
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2))
-        return res.add_diag(torch.tensor(2.))
+        return res.add_diag(torch.tensor(2.0))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()
@@ -112,9 +112,9 @@ class TestMulLazyTensorWithConstantMul(BatchLazyTensorTestCase, unittest.TestCas
     def create_lazy_tensor(self):
         mat1 = make_random_mat(20, rank=5, batch_size=2)
         mat2 = make_random_mat(20, rank=5, batch_size=2)
-        constant = torch.tensor(4.)
+        constant = torch.tensor(4.0)
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2))
-        return res.mul(constant).add_diag(torch.tensor(2.))
+        return res.mul(constant).add_diag(torch.tensor(2.0))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()

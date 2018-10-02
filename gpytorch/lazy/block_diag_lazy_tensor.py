@@ -30,6 +30,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             Set this to `k` for `bk x n x n` batched LazyTensors, or `None` for `k x n x n`
             unbatched LazyTensors.
     """
+
     def _matmul(self, rhs):
         block_size = self.base_lazy_tensor.size(-1)
         isvector = rhs.ndimension() == 1

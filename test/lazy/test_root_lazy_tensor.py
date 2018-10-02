@@ -14,7 +14,7 @@ class TestRootLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
     def create_lazy_tensor(self):
         root = torch.randn(5, 3, requires_grad=True)
-        return RootLazyTensor(root).add_diag(torch.tensor(1.))
+        return RootLazyTensor(root).add_diag(torch.tensor(1.0))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()

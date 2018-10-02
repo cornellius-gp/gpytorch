@@ -27,5 +27,5 @@ class NormalCDF(Function):
         """
         The derivative of the standard Normal CDF is the standard normal PDF
         """
-        normalizing_constant = 1. / math.sqrt(2 * math.pi)
+        normalizing_constant = 1.0 / math.sqrt(2 * math.pi)
         return x.pow(2).div_(-2).exp_().mul_(normalizing_constant)

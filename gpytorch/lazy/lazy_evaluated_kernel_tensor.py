@@ -149,8 +149,11 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             if self.squeeze_col:
                 self._cached_kernel_eval.squeeze_(-1)
 
-            if not self.is_batch and self._cached_kernel_eval.ndimension() == 3 \
-                    and self._cached_kernel_eval.size(0) == 1:
+            if (
+                not self.is_batch
+                and self._cached_kernel_eval.ndimension() == 3
+                and self._cached_kernel_eval.size(0) == 1
+            ):
                 self._cached_kernel_eval = self._cached_kernel_eval[0]
             if not isinstance(self._cached_kernel_eval, LazyTensor):
                 self._cached_kernel_eval = NonLazyTensor(self._cached_kernel_eval)

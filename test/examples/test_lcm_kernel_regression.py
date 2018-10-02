@@ -54,9 +54,7 @@ class TestLCMKernelRegression(unittest.TestCase):
         model = MultitaskGPModel(train_x, train_y, likelihood)
 
         # Use the adam optimizer
-        optimizer = torch.optim.Adam([
-            {'params': model.parameters()},  # Includes GaussianLikelihood parameters
-        ], lr=0.1)
+        optimizer = torch.optim.Adam([{"params": model.parameters()}], lr=0.1)  # Includes GaussianLikelihood parameters
         model.train()
         likelihood.train()
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
@@ -81,9 +79,9 @@ class TestLCMKernelRegression(unittest.TestCase):
         model_icm.train()
         likelihood.train()
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model_icm)
-        optimizer = torch.optim.Adam([
-            {'params': model_icm.parameters()},  # Includes GaussianLikelihood parameters
-        ], lr=0.1)
+        optimizer = torch.optim.Adam(
+            [{"params": model_icm.parameters()}], lr=0.1  # Includes GaussianLikelihood parameters
+        )
         for _ in range(n_iter):
             optimizer.zero_grad()
             output = model_icm(train_x)

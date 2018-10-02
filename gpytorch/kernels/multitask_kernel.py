@@ -43,9 +43,7 @@ class MultitaskKernel(Kernel):
 
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         if batch_dims == (0, 2):
-            raise RuntimeError(
-                "AdditiveGridInterpolationKernel does not accept the batch_dims argument."
-            )
+            raise RuntimeError("AdditiveGridInterpolationKernel does not accept the batch_dims argument.")
 
         covar_i = self.task_covar_module.covar_matrix
         covar_i = covar_i.repeat(x1.size(0), 1, 1)
