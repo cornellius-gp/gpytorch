@@ -2,7 +2,7 @@ language: python
 
 branches:
   only:
-    - beta
+    - master
 
 python:
   - "3.6"
