@@ -88,13 +88,10 @@ GPyTorch is developed at Cornell University by
 - [Geoff Pleiss](http://github.com/gpleiss) (lead developer)
 - [Kilian Weinberger](http://kilian.cs.cornell.edu/)
 - [Andrew Gordon Wilson](https://people.orie.cornell.edu/andrew/)
-- Max Balandat
-- Eytan Bakshy
-- David Arbour
 
 <img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
 
-We would like to thank our other contributors including (but not limited to) Ruihan Wu, Bram Wallace, Sam Stanton, and Jared Frank.
+We would like to thank our other contributors including (but not limited to) Max Balandat, Eytan Bakshy, David ArbourRuihan Wu, Bram Wallace, Sam Stanton, and Jared Frank.
 
 ## Acknowledgements
 Development of GPyTorch is supported by funding from [Facebook](https://research.fb.com/) and the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/).
