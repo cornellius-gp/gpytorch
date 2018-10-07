@@ -13,7 +13,7 @@ GPyTorch provides (1) significant GPU acceleration (through MVM based inference)
 
 ## Examples and Tutorials
 
-Right now, the package is in alpha release, and while we believe that the interface is reasonably stable, things may change. For now, see our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. These example notebooks and a walk through of GPyTorch are also available at our **ReadTheDocs page [here](https://gpytorch.readthedocs.io/en/latest/index.html)**
+See our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. These example notebooks and a walk through of GPyTorch are also available at our **ReadTheDocs page [here](https://gpytorch.readthedocs.io/en/latest/index.html)**
 
 ## Installation
 
