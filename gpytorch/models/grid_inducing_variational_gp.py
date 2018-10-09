@@ -60,18 +60,22 @@ class GridInducingVariationalGP(AbstractVariationalGP):
 
     def __call__(self, inputs, **kwargs):
         # Prior output
+        prior_output = None
         if self.training or beta_features.diagonal_correction.on():
             prior_output = self.prior_output()
-            if not self.variational_params_initialized.item():
-                self._initalize_variational_parameters(prior_output)
-                self.variational_params_initialized.fill_(1)
+
+        # Initialize variational parameters, if necessary
+        if not self.variational_params_initialized:
+            prior_output = prior_output if prior_output is not None else self.prior_output()
+            self._initalize_variational_parameters(prior_output)
+            self.variational_params_initialized.fill_(1)
 
         # Variational output
         variational_output = self.variational_output()
 
         # Update the variational distribution
-        if self.training:
-            # Initialize variational parameters, if necessary
+        if self.training or self._variational_strategies["inducing_point_strategy"] is None:
+            prior_output = prior_output if prior_output is not None else self.prior_output()
             new_variational_strategy = MVNVariationalStrategy(variational_output, prior_output)
             self.update_variational_strategy("inducing_point_strategy", new_variational_strategy)
 

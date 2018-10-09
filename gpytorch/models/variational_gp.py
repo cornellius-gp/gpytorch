@@ -28,29 +28,34 @@ class VariationalGP(AbstractVariationalGP):
         return super(VariationalGP, self).train(mode)
 
     def __call__(self, inputs, **kwargs):
+        prior_output = None
         # Training mode: optimizing
         if self.training:
             if not torch.equal(inputs, self.inducing_points):
                 raise RuntimeError("You must train on the training inputs!")
-
             prior_output = self.prior_output()
-            # Initialize variational parameters, if necessary
-            if not self.variational_params_initialized.item():
-                mean_init = prior_output.mean
-                chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
-                self.variational_mean.data.copy_(mean_init)
-                self.chol_variational_covar.data.copy_(chol_covar_init)
-                self.variational_params_initialized.fill_(1)
 
-            variational_output = self.variational_output()
+        # Initialize variational parameters, if necessary
+        if not self.variational_params_initialized.item():
+            prior_output = prior_output if prior_output is not None else self.prior_output()
+            mean_init = prior_output.mean
+            chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
+            self.variational_mean.data.copy_(mean_init)
+            self.chol_variational_covar.data.copy_(chol_covar_init)
+            self.variational_params_initialized.fill_(1)
+
+        variational_output = self.variational_output()
+
+        if self._variational_strategies["inducing_point_strategy"] is None:
+            prior_output = prior_output if prior_output is not None else self.prior_output()
             new_variational_strategy = MVNVariationalStrategy(variational_output, prior_output)
             self.update_variational_strategy("inducing_point_strategy", new_variational_strategy)
+
+        if self.training:
             return variational_output
 
         # Posterior mode
         else:
-            variational_output = self.variational_output()
-
             n_induc = len(self.inducing_points)
             full_inputs = torch.cat([self.inducing_points, inputs])
             full_output = super(VariationalGP, self).__call__(full_inputs)
