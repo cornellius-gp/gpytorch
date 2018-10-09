@@ -81,7 +81,6 @@ class TestSimpleGPClassification(unittest.TestCase):
         for param in likelihood.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
-        optimizer.step()
 
         # Set back to eval mode
         model.eval()

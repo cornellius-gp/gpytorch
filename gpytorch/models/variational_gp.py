@@ -29,29 +29,27 @@ class VariationalGP(AbstractVariationalGP):
 
     def __call__(self, inputs, **kwargs):
         prior_output = None
-        # Training mode: optimizing
-        if self.training:
-            if not torch.equal(inputs, self.inducing_points):
-                raise RuntimeError("You must train on the training inputs!")
-            prior_output = self.prior_output()
+        variational_output = self.variational_output()
 
         # Initialize variational parameters, if necessary
         if not self.variational_params_initialized.item():
-            prior_output = prior_output if prior_output is not None else self.prior_output()
+            prior_output = self.prior_output() if prior_output is None else prior_output
             mean_init = prior_output.mean
             chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
             self.variational_mean.data.copy_(mean_init)
             self.chol_variational_covar.data.copy_(chol_covar_init)
             self.variational_params_initialized.fill_(1)
 
-        variational_output = self.variational_output()
-
-        if self._variational_strategies["inducing_point_strategy"] is None:
-            prior_output = prior_output if prior_output is not None else self.prior_output()
+        # Update the KL divergence term, if necessary
+        if self.training or self._variational_strategies["inducing_point_strategy"] is None:
+            prior_output = self.prior_output() if prior_output is None else prior_output
             new_variational_strategy = MVNVariationalStrategy(variational_output, prior_output)
             self.update_variational_strategy("inducing_point_strategy", new_variational_strategy)
 
+        # Training mode: optimizing
         if self.training:
+            if not torch.equal(inputs, self.inducing_points):
+                raise RuntimeError("You must train on the training inputs!")
             return variational_output
 
         # Posterior mode
