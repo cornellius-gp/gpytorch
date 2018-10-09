@@ -226,4 +226,5 @@ class InvQuadLogDet(Function):
             res = tuple([inv_quad_rhs_grad] + list(matrix_arg_grads))
         else:
             res = matrix_arg_grads
-        return res
+
+        return tuple(res)
