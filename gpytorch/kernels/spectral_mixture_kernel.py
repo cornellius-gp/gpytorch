@@ -51,19 +51,15 @@ class SpectralMixtureKernel(Kernel):
             The mixture weight parameters (`b x k`).
 
     Example:
+        >>> # Non-batch
         >>> x = torch.randn(10, 5)
-        >>> # Non-batch: Simple option
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
-        >>> # Non-batch: ARD (different lengthscale for each input dimension)
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=5))
+        >>> covar_module = gpytorch.kernels.SpectralMixtureKernel(num_mixtures=4, ard_dum_dims=5)
         >>> covar = covar_module(x)  # Output: LazyVariable of size (10 x 10)
         >>>
+        >>> # Batch
         >>> batch_x = torch.randn(2, 10, 5)
-        >>> # Batch: Simple option
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
-        >>> # Batch: different lengthscale for each batch
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_size=2))
-        >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
+        >>> covar_module = gpytorch.kernels.SpectralMixtureKernel(num_mixtures=4, batch_size=2, ard_dum_dims=5)
+        >>> covar = covar_module(x)  # Output: LazyVariable of size (10 x 10)
 
 
     .. _Gaussian Process Kernels for Pattern Discovery and Extrapolation:
