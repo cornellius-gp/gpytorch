@@ -31,6 +31,8 @@ class LazyTensor(object):
     In order to define a new LazyTensor class that can be used as a covariance matrix in GPyTorch, a user must define
     at a minimum the following methods (in each example, :math:`K` denotes the matrix that the LazyTensor represents)
 
+    * :func:`~gpytorch.lazy.LazyTensor._get_indices`, which returns a Tensor where the entries are determined by
+      LongTensors of indices.
     * :func:`~gpytorch.lazy.LazyTensor._matmul`, which performs a matrix multiplication :math:`KM`
     * :func:`~gpytorch.lazy.LazyTensor._quad_form_derivative`, which computes a quadratic form with the derivative,
       :math:`\mathbf{v}^{\\top}\\frac{dK}{dR}\mathbf{v}`, where :math:`R` denotes the actual tensors used to represent
@@ -39,6 +41,7 @@ class LazyTensor(object):
       :math:`\mathbf{c}`, this would return :math:`\mathbf{v}^{\\top}\\frac{dK}{d\mathbf{c}}\mathbf{v}`.
     * :func:`~gpytorch.lazy.LazyTensor._size`, which returns a :class:`torch.Size` containing the dimensions of
       :math:`K`.
+    * :func:`~gpytorch.lazy.LazyTensor._transpose_nonbatch`, which returns a transposed version of the LazyTensor
 
     In addition to these, a LazyTensor may need to define the :func:`~gpytorch.lazy.LazyTensor._transpose_nonbatch`,
     :func:`~gpytorch.lazy.LazyTensor._get_indices`, and :func:`~gpytorch.lazy.LazyTensor._batch_get_indices`
@@ -63,6 +66,75 @@ class LazyTensor(object):
         self._args = args
         self._kwargs = kwargs
 
+    def _get_indices(self, *batch_indices, left_indices, right_indices):
+        """
+        Returns entries of the matrix, indexed by batch, row, and column indices
+        """
+        raise NotImplementedError("The class {} requires a _get_indices function!".format(self.__class__.__name__))
+
+    def _matmul(self, rhs):
+        """
+        Performs a matrix multiplication :math:`KM` with the matrix :math:`K` that this LazyTensor represents. Should
+        behave as :func:`torch.matmul`. If the LazyTensor represents a batch of matrices, this method should therefore
+        operate in batch mode as well.
+
+        ..note::
+            This method is intended to be used only internally by various Functions that support backpropagation
+            (e.g., :class:`gpytorch.functions.Matmul`). Once this method is defined, it is strongly recommended that
+            one use :func:`~gpytorch.lazy.LazyTensor.matmul` instead, which makes use of this method properly.
+
+        Args:
+            rhs (:obj:`torch.tensor`): the matrix :math:`M` to multiply with.
+
+        Returns:
+            :obj:`torch.tensor`: matrix * rhs
+        """
+        raise NotImplementedError("The class {} requires a _matmul function!".format(self.__class__.__name__))
+
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        """
+        Given u (left_vecs) and v (right_vecs),
+        Computes the derivatives of (u^t K v) w.r.t. K
+
+        ..note::
+            This method is intended to be used only internally by various Functions that support backpropagation.
+            For example, this method is used internally by :func:`~gpytorch.lazy.LazyTensor.inv_quad_log_det`. It is
+            not likely that users will need to call this method directly.
+
+        Returns:
+            :obj:`torch.tensor`: derivative with respect to the arguments that are actually used to represent this
+                                   this LazyTensor.
+        """
+        raise NotImplementedError(
+            "The class {} requires a _quad_form_derivative function!".format(self.__class__.__name__)
+        )
+
+    def _size(self):
+        """
+        Returns the size of the resulting Tensor that the lazy tensor represents.
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.size`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`torch.Size`: The size of the matrix :math:`K` represented by this LazyTensor
+        """
+        raise NotImplementedError("The class {} requires a _size function!".format(self.__class__.__name__))
+
+    def _transpose_nonbatch(self):
+        """
+        Transposes non-batch dimensions (e.g. last two)
+        Implement this method, rather than transpose() or t().
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.transpose`, which
+            does some additional work. Calling this method directly is discouraged.
+        """
+        raise NotImplementedError(
+            "The class {} requires a _transpose_nonbatch function!".format(self.__class__.__name__)
+        )
+
     @property
     def _args(self):
         return self._args_memo
@@ -70,16 +142,6 @@ class LazyTensor(object):
     @_args.setter
     def _args(self, args):
         self._args_memo = args
-
-    def _preconditioner(self):
-        """
-        (Optional) define a preconditioner (P) for linear conjugate gradients
-
-        Returns:
-            function: a function on x which performs P^{-1}(x)
-            scalar: the log determinant of P
-        """
-        return None, None
 
     def _approx_diag(self):
         """
@@ -95,6 +157,36 @@ class LazyTensor(object):
             tensor: - the diagonal (or batch of diagonals)
         """
         return self.diag()
+
+    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
+        """
+        Computes a cache for K_X*X (K_XX + sigma^2 I)^-1 K_X*X if possible. By default, this does no work and returns
+        the first argument.
+
+        Args:
+            train_train_covar_inv_root (:obj:`torch.tensor`): a root of (K_XX + sigma^2 I)^-1
+            test_train_covar (:obj:`torch.tensor`): the observed noise (from the likelihood)
+
+        Returns
+            - A precomputed cache
+        """
+        return train_train_covar_inv_root.detach()
+
+    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
+        """
+        Computes :math:`K_{X^{*}X} S` given a precomputed cache
+        Where :math:`S` is a tensor such that :math:`SS^{\\top} = (K_{XX} + \sigma^2 I)^{-1}`
+
+        Args:
+            precomputed_cache (:obj:`torch.tensor`): What was computed in _exact_predictive_covar_inv_quad_form_cache
+            test_train_covar (:obj:`torch.tensor`): The observed noise (from the likelihood)
+
+        Returns
+            :obj:`~gpytorch.lazy.LazyTensor`: :math:`K_{X^{*}X} S`
+        """
+        # Here the precomputed cache represents S,
+        # where S S^T = (K_XX + sigma^2 I)^-1
+        return test_train_covar.matmul(precomputed_cache)
 
     def _getitem_nonbatch(self, row_index, col_index, first_tensor_index_dim=None):
         """
@@ -145,24 +237,15 @@ class LazyTensor(object):
         )
         return res
 
-    def _matmul(self, rhs):
+    def _preconditioner(self):
         """
-        Performs a matrix multiplication :math:`KM` with the matrix :math:`K` that this LazyTensor represents. Should
-        behave as :func:`torch.matmul`. If the LazyTensor represents a batch of matrices, this method should therefore
-        operate in batch mode as well.
-
-        ..note::
-            This method is intended to be used only internally by various Functions that support backpropagation
-            (e.g., :class:`gpytorch.functions.Matmul`). Once this method is defined, it is strongly recommended that
-            one use :func:`~gpytorch.lazy.LazyTensor.matmul` instead, which makes use of this method properly.
-
-        Args:
-            rhs (:obj:`torch.tensor`): the matrix :math:`M` to multiply with.
+        (Optional) define a preconditioner (P) for linear conjugate gradients
 
         Returns:
-            :obj:`torch.tensor`: matrix * rhs
+            function: a function on x which performs P^{-1}(x)
+            scalar: the log determinant of P
         """
-        raise NotImplementedError("The class %s requires a _matmul function!" % self.__class__.__name__)
+        return None, None
 
     def _t_matmul(self, rhs):
         """
@@ -176,66 +259,6 @@ class LazyTensor(object):
             :obj:`torch.tensor`: matrix * rhs
         """
         return self.transpose(-1, -2)._matmul(rhs)
-
-    def _quad_form_derivative(self, left_vecs, right_vecs):
-        """
-        Given u (left_vecs) and v (right_vecs),
-        Computes the derivatives of (u^t K v) w.r.t. K
-
-        ..note::
-            This method is intended to be used only internally by various Functions that support backpropagation.
-            For example, this method is used internally by :func:`~gpytorch.lazy.LazyTensor.inv_quad_log_det`. It is
-            not likely that users will need to call this method directly.
-
-        Returns:
-            :obj:`torch.tensor`: derivative with respect to the arguments that are actually used to represent this
-                                   this LazyTensor.
-        """
-        raise NotImplementedError("The class %s requires a _quad_form_derivative function!" % self.__class__.__name__)
-
-    def _size(self):
-        """
-        Returns the size of the resulting Tensor that the lazy tensor represents.
-
-        ..note::
-            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.size`, which does
-            some additional work. Calling this method directly is discouraged.
-
-        Returns:
-            :obj:`torch.Size`: The size of the matrix :math:`K` represented by this LazyTensor
-        """
-        raise NotImplementedError("The class %s requires a _size function!" % self.__class__.__name__)
-
-    def _transpose_nonbatch(self):
-        """
-        Transposes non-batch dimensions (e.g. last two)
-
-        Implement this method, rather than transpose() or t().
-        This is because size does some additional work
-        """
-        raise NotImplementedError("The class %s requires a _transpose_nonbatch function!" % self.__class__.__name__)
-
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        """
-        This function is necessary if you're using a LazyTensor as part of
-        and InterpolatedLazyTensor
-
-        Batch version of _get_indices
-        For each matrix in batch_indices, returns entries of the matrix,
-        indexed by left and right indices
-        Only works for batch lazy tensors
-        """
-        raise NotImplementedError("The class %s requires a _batch_get_indices function!" % self.__class__.__name__)
-
-    def _get_indices(self, left_indices, right_indices):
-        """
-        This function is necessary if you're using a LazyTensor as part of
-        and InterpolatedLazyTensor
-
-        Returns entries of the matrix, indexed by left and right indices
-        Only works for non-batch lazy tensors
-        """
-        raise NotImplementedError("The class %s requires a _get_indices function!" % self.__class__.__name__)
 
     def add_diag(self, diag):
         """
@@ -287,6 +310,13 @@ class LazyTensor(object):
         diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
 
+    @property
+    def batch_shape(self):
+        """
+        Returns the shape over which parameters are batched.
+        """
+        return torch.Size(self.shape[:-2])
+
     def clone(self):
         """
         Clones the LazyTensor (creates clones of all underlying tensors)
@@ -335,29 +365,6 @@ class LazyTensor(object):
         for name, val in self._kwargs.items():
             if hasattr(val, "cuda"):
                 new_kwargs[name] = val.cuda(device_id)
-            else:
-                new_kwargs[name] = val
-        return self.__class__(*new_args, **new_kwargs)
-
-    def to(self, device_id):
-        """
-        A device-agnostic method of moving the lazy_tensor to the specified device.
-
-        Args:
-            device_id (:obj: `torch.device`): Which device to use (GPU or CPU).
-        Returns:
-            :obj:`~gpytorch.lazy.LazyTensor`: New LazyTensor identical to self on specified device
-        """
-        new_args = []
-        new_kwargs = {}
-        for arg in self._args:
-            if hasattr(arg, "to"):
-                new_args.append(arg.to(device_id))
-            else:
-                new_args.append(arg)
-        for name, val in self._kwargs.items():
-            if hasattr(val, "to"):
-                new_kwargs[name] = val.to(device_id)
             else:
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
@@ -474,36 +481,6 @@ class LazyTensor(object):
             res = res.squeeze(-1)
         res = res + test_mean
         return res, precomputed_cache.detach()
-
-    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
-        """
-        Computes a cache for K_X*X (K_XX + sigma^2 I)^-1 K_X*X if possible. By default, this does no work and returns
-        the first argument.
-
-        Args:
-            train_train_covar_inv_root (:obj:`torch.tensor`): a root of (K_XX + sigma^2 I)^-1
-            test_train_covar (:obj:`torch.tensor`): the observed noise (from the likelihood)
-
-        Returns
-            - A precomputed cache
-        """
-        return train_train_covar_inv_root.detach()
-
-    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
-        """
-        Computes :math:`K_{X^{*}X} S` given a precomputed cache
-        Where :math:`S` is a tensor such that :math:`SS^{\\top} = (K_{XX} + \sigma^2 I)^{-1}`
-
-        Args:
-            precomputed_cache (:obj:`torch.tensor`): What was computed in _exact_predictive_covar_inv_quad_form_cache
-            test_train_covar (:obj:`torch.tensor`): The observed noise (from the likelihood)
-
-        Returns
-            :obj:`~gpytorch.lazy.LazyTensor`: :math:`K_{X^{*}X} S`
-        """
-        # Here the precomputed cache represents S,
-        # where S S^T = (K_XX + sigma^2 I)^-1
-        return test_train_covar.matmul(precomputed_cache)
 
     def exact_predictive_covar(self, num_train, likelihood, precomputed_cache=None):
         """
@@ -677,6 +654,13 @@ class LazyTensor(object):
         func = Matmul(self.representation_tree())
         return func(tensor, *self.representation())
 
+    @property
+    def matrix_shape(self):
+        """
+        Returns the shape of the matrix being represented (without batching).
+        """
+        return torch.Size(self.shape[-2:])
+
     def mul(self, other):
         """
         Multiplies the matrix by a constant, or elementwise the matrix by another matrix
@@ -790,6 +774,12 @@ class LazyTensor(object):
         Returns the number of dimensions
         """
         return len(self.size())
+
+    def numel(self):
+        """
+        Returns the number of elements
+        """
+        return self.shape.numel()
 
     def representation(self):
         """
@@ -948,6 +938,38 @@ class LazyTensor(object):
 
         return SumBatchLazyTensor(self, num_blocks=sum_batch_size)
 
+    def to(self, device_id):
+        """
+        A device-agnostic method of moving the lazy_tensor to the specified device.
+
+        Args:
+            device_id (:obj: `torch.device`): Which device to use (GPU or CPU).
+        Returns:
+            :obj:`~gpytorch.lazy.LazyTensor`: New LazyTensor identical to self on specified device
+        """
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, "to"):
+                new_args.append(arg.to(device_id))
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, "to"):
+                new_kwargs[name] = val.to(device_id)
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
+
+    def t(self):
+        """
+        Alias of :meth:`~gpytorch.lazy.LazyTensor.transpose` for 2D LazyTensor.
+        (Tranposes the two dimensions.)
+        """
+        if self.ndimension() != 2:
+            raise RuntimeError("Cannot call t for more than 2 dimensions")
+        return self.transpose(0, 1)
+
     def transpose(self, dim1, dim2):
         """
         Transpose the dimensions `dim1` and `dim2` of the LazyTensor.
@@ -975,15 +997,6 @@ class LazyTensor(object):
             raise RuntimeError("Cannot transpose batch dimension with non-batch dimension")
 
         return res
-
-    def t(self):
-        """
-        Alias of :meth:`~gpytorch.lazy.LazyTensor.transpose` for 2D LazyTensor.
-        (Tranposes the two dimensions.)
-        """
-        if self.ndimension() != 2:
-            raise RuntimeError("Cannot call t for more than 2 dimensions")
-        return self.transpose(0, 1)
 
     def zero_mean_mvn_samples(self, num_samples):
         """
@@ -1056,18 +1069,6 @@ class LazyTensor(object):
             raise RuntimeError("Attempted to divide by a ZeroLazyTensor (divison by zero)")
 
         return self.mul(1. / other)
-
-    def __mul__(self, other):
-        """
-        Convenience alias of :meth:`~gpytorch.lazy.LazyTensor.mul` that allows the standard product operator to be
-        used.
-        """
-        from .zero_lazy_tensor import ZeroLazyTensor
-
-        if isinstance(other, ZeroLazyTensor):
-            return other
-
-        return self.mul(other)
 
     def __getitem__(self, index):
         """
@@ -1164,6 +1165,18 @@ class LazyTensor(object):
             res = res.squeeze(-1)
 
         return res
+
+    def __mul__(self, other):
+        """
+        Convenience alias of :meth:`~gpytorch.lazy.LazyTensor.mul` that allows the standard product operator to be
+        used.
+        """
+        from .zero_lazy_tensor import ZeroLazyTensor
+
+        if isinstance(other, ZeroLazyTensor):
+            return other
+
+        return self.mul(other)
 
     def __setattr__(self, name, val):
         if torch.is_tensor(val) or isinstance(val, LazyTensor):
