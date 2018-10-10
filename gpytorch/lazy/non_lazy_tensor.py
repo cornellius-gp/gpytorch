@@ -28,10 +28,6 @@ class NonLazyTensor(LazyTensor):
         return torch.matmul(self.tensor.transpose(-1, -2), rhs)
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
-        if left_vecs.ndimension() < self.tensor.ndimension():
-            left_vecs = left_vecs.unsqueeze(-1)
-            right_vecs = right_vecs.unsqueeze(-1)
-
         res = left_vecs.matmul(right_vecs.transpose(-1, -2))
         return (res,)
 

@@ -37,9 +37,6 @@ class RootLazyTensor(LazyTensor):
         return self._matmul(rhs)
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
-        if left_vecs.ndimension() == 1:
-            left_vecs = left_vecs.unsqueeze(0)
-            right_vecs = right_vecs.unsqueeze(0)
         right_vecs_times_rhs = self.root._t_matmul(right_vecs)
         left_vecs_times_lhs_t = self.root._t_matmul(left_vecs)
 
