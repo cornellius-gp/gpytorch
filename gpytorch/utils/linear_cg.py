@@ -71,7 +71,7 @@ def linear_cg(
 
     # Get some constants
     num_rows = rhs.size(-2)
-    n_iter = min(max_iter, num_rows)
+    n_iter = min(max_iter, num_rows) if settings.terminate_cg_by_size.on() else max_iter
     n_tridiag_iter = min(max_tridiag_iter, num_rows)
 
     # result <- x_{0}

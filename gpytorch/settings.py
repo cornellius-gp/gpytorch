@@ -134,6 +134,14 @@ class num_trace_samples(_value_context):
     _global_value = 10
 
 
+class terminate_cg_by_size(_feature_flag):
+    """
+    If set to true, cg will terminate after n iterations for an n x n matrix.
+    """
+
+    _state = True
+
+
 class use_toeplitz(_feature_flag):
     """
     Whether or not to use Toeplitz math with gridded data, grid inducing point modules
