@@ -5,79 +5,67 @@ from __future__ import unicode_literals
 
 import torch
 from .eig import batch_symeig
+from .. import settings
 
 
 def lanczos_tridiag(
     matmul_closure,
     max_iter,
-    tol=1e-5,
+    dtype,
+    device,
+    matrix_shape,
+    batch_shape=torch.Size(),
     init_vecs=None,
-    dtype=None,
-    device=None,
-    batch_size=None,
-    n_dims=None,
-    n_init_vecs=None,
+    num_init_vecs=1,
+    tol=1e-5,
 ):
     """
     """
     # Determine batch mode
-    is_batch = False
     multiple_init_vecs = False
-    if torch.is_tensor(matmul_closure):
-        lhs = matmul_closure
 
-        def default_matmul_closure(tensor):
-            return lhs.matmul(tensor)
+    if not callable(matmul_closure):
+        raise RuntimeError(
+            "matmul_closure should be a function callable object that multiples a (Lazy)Tensor "
+            "by a vector. Got a {} instead.".format(matmul_closure.__class__.__name__)
+        )
 
-        matmul_closure = default_matmul_closure
     # Get initial probe ectors - and define if not available
     if init_vecs is None:
-        if dtype is None or device is None:
-            raise RuntimeError("You must supply dtype and device if you don't supply init_vecs")
-        if n_dims is None:
-            raise RuntimeError("You must supply n_dims if you don't supply init_vecs")
+        init_vecs = torch.randn(matrix_shape[-1], num_init_vecs, dtype=dtype, device=device)
+        init_vecs = init_vecs.expand(*batch_shape, matrix_shape[-1], num_init_vecs)
 
-        if batch_size is not None:
-            is_batch = True
-        else:
-            batch_size = 1
-        if n_init_vecs is not None:
-            multiple_init_vecs = True
-        else:
-            n_init_vecs = 1
-
-        init_vecs = torch.randn(1, n_dims, n_init_vecs, dtype=dtype, device=device)
-        init_vecs = init_vecs.expand(batch_size, n_dims, n_init_vecs)
     else:
-        dtype = init_vecs.dtype
-        device = init_vecs.device
-        if n_init_vecs is not None or init_vecs.size(-1) > 1:
-            multiple_init_vecs = True
-        if init_vecs.ndimension() == 3:
-            batch_size, n_dims, n_init_vecs = init_vecs.size()
-            is_batch = True
-        else:
-            init_vecs = init_vecs.unsqueeze(0)
-            batch_size, n_dims, n_init_vecs = init_vecs.size()
+        if settings.debug.on():
+            if dtype != init_vecs.dtype:
+                raise RuntimeError(
+                    "Supplied dtype {} and init_vecs.dtype {} do not agree!".format(dtype, init_vecs.dtype)
+                )
+            if device != init_vecs.device:
+                raise RuntimeError(
+                    "Supplied device {} and init_vecs.device {} do not agree!".format(device, init_vecs.device)
+                )
+            if batch_shape != init_vecs.shape[:-2]:
+                raise RuntimeError(
+                    "batch_shape {} and init_vecs.shape {} do not agree!".format(batch_shape, init_vecs.shape)
+                )
+            if matrix_shape[-1] != init_vecs.size(-2):
+                raise RuntimeError(
+                    "matrix_shape {} and init_vecs.shape {} do not agree!".format(matrix_shape, init_vecs.shape)
+                )
 
-    # Modify matmul closure so that it handles batch vs non-batch
-    def batch_aware_matmul_closure(tensor):
-        if is_batch:
-            return matmul_closure(tensor)
-        else:
-            return matmul_closure(tensor.squeeze(0)).unsqueeze_(0)
+        num_init_vecs = init_vecs.size(-1)
 
     # Define some constants
-    n_iter = min(max_iter, n_dims)
-    batch_dimension = 1
+    num_iter = min(max_iter, matrix_shape[-1])
     dim_dimension = -2
 
     # Create storage for q_mat, alpha,and beta
     # q_mat - batch version of Q - orthogonal matrix of decomp
     # alpha - batch version main diagonal of T
     # beta - batch version of off diagonal of T
-    q_mat = torch.zeros(n_iter, batch_size, n_dims, n_init_vecs, dtype=dtype, device=device)
-    t_mat = torch.zeros(n_iter, n_iter, batch_size, n_init_vecs, dtype=dtype, device=device)
+    q_mat = torch.zeros(num_iter, *batch_shape, matrix_shape[-1], num_init_vecs, dtype=dtype, device=device)
+    t_mat = torch.zeros(num_iter, num_iter, *batch_shape, num_init_vecs, dtype=dtype, device=device)
 
     # Begin algorithm
     # Initial Q vector: q_0_vec
@@ -85,7 +73,7 @@ def lanczos_tridiag(
     q_mat[0].copy_(q_0_vec)
 
     # Initial alpha value: alpha_0
-    r_vec = batch_aware_matmul_closure(q_0_vec)
+    r_vec = matmul_closure(q_0_vec)
     alpha_0 = q_0_vec.mul(r_vec).sum(dim_dimension)
 
     # Initial beta value: beta_0
@@ -101,20 +89,20 @@ def lanczos_tridiag(
     q_mat[1].copy_(r_vec.div_(beta_0.unsqueeze(dim_dimension)))
 
     # Now we start the iteration
-    for k in range(1, n_iter):
+    for k in range(1, num_iter):
         # Get previous values
         q_prev_vec = q_mat[k - 1]
         q_curr_vec = q_mat[k]
         beta_prev = t_mat[k, k - 1].unsqueeze(dim_dimension)
 
         # Compute next alpha value
-        r_vec = batch_aware_matmul_closure(q_curr_vec) - q_prev_vec.mul(beta_prev)
+        r_vec = matmul_closure(q_curr_vec) - q_prev_vec.mul(beta_prev)
         alpha_curr = q_curr_vec.mul(r_vec).sum(dim_dimension, keepdim=True)
         # Copy over to t_mat
         t_mat[k, k].copy_(alpha_curr.squeeze(dim_dimension))
 
         # Copy over alpha_curr, beta_curr to t_mat
-        if (k + 1) < n_iter:
+        if (k + 1) < num_iter:
             # Compute next residual value
             r_vec.sub_(alpha_curr.mul(q_curr_vec))
             # Full reorthogonalization: r <- r - Q (Q^T r)
@@ -151,17 +139,14 @@ def lanczos_tridiag(
                 break
 
     # Now let's transpose q_mat, t_mat intot the correct shape
-    n_iter = k + 1
+    num_iter = k + 1
 
-    # n_init_vecs x batch_size x n_dims x n_iter
-    q_mat = q_mat[: n_iter + 1].permute(3, 1, 2, 0).contiguous()
-    # n_init_vecs x batch_size x n_iter x n_iter
-    t_mat = t_mat[: n_iter + 1, : n_iter + 1].permute(3, 2, 0, 1).contiguous()
+    # num_init_vecs x batch_shape x matrix_shape[-1] x num_iter
+    q_mat = q_mat[: num_iter + 1].permute(-1, *range(1, 1 + len(batch_shape)), -2, 0).contiguous()
+    # num_init_vecs x batch_shape x num_iter x num_iter
+    t_mat = t_mat[: num_iter + 1, : num_iter + 1].permute(-1, *range(2, 2 + len(batch_shape)), 0, 1).contiguous()
 
     # If we weren't in batch mode, remove batch dimension
-    if not is_batch:
-        q_mat.squeeze_(batch_dimension)
-        t_mat.squeeze_(batch_dimension)
     if not multiple_init_vecs:
         q_mat.squeeze_(0)
         t_mat.squeeze_(0)

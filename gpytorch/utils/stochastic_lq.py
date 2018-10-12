@@ -33,10 +33,11 @@ class StochasticLQ(object):
 
     def lanczos_batch(self, matmul_closure, rhs_vectors):
         return lanczos_tridiag(
-            matmul_closure, self.max_iter, init_vecs=rhs_vectors, dtype=rhs_vectors.dtype, device=rhs_vectors.device
+            matmul_closure, self.max_iter, init_vecs=rhs_vectors, dtype=rhs_vectors.dtype, device=rhs_vectors.device,
+            batch_shape=rhs_vectors.shape[-2:], matrix_shape=torch.Size((rhs_vectors.size(-2), rhs_vectors.size(-2)))
         )
 
-    def evaluate(self, t_mats, matrix_size, eigenvalues, eigenvectors, funcs):
+    def evaluate(self, matrix_shape, eigenvalues, eigenvectors, funcs):
         """
         Computes tr(f(A)) for an arbitrary list of functions, where f(A) is equivalent to applying the function
         elementwise to the eigenvalues of A, i.e., if A = V\LambdaV^{T}, then f(A) = Vf(\Lambda)V^{T}, where
@@ -45,10 +46,9 @@ class StochasticLQ(object):
         calling it multiple times with one function -- each additional function after the first requires negligible
         additional computation.
         Args:
-            - A (matrix n x n or closure) - Either the input matrix A or a closure that takes an n dimensional vector v
-                and returns Av.
-            - n (scalar) - dimension of the matrix A. We require this because, if A is passed in as a closure, we
-                have no good way of determining the size of A.
+            - matrix_shape (torch.Size()) - size of underlying matrix (not including batch dimensions)
+            - eigenvalues (Tensor n_probes x ...batch_shape x k) - batches of eigenvalues from Lanczos tridiag mats
+            - eigenvectors (Tensor n_probes x ...batch_shape x k x k) - batches of eigenvectors from " " "
             - funcs (list of closures) - A list of functions [f_1,...,f_k]. tr(f_i(A)) is computed for each function.
                     Each function in the closure should expect to take a torch vector of eigenvalues as input and apply
                     the function elementwise. For example, to compute logdet(A) = tr(log(A)), [lambda x: x.log()] would
@@ -57,26 +57,19 @@ class StochasticLQ(object):
             - results (list of scalars) - The trace of each supplied function applied to the matrix, e.g.,
                       [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
         """
-        if t_mats.dim() < 4:
-            raise RuntimeError(
-                "StochasticLQ expects t_mat to be (num_probe_vecs x num_batch x k x k), "
-                "but received a Tensor with only {} dimensions. Try unsqueezing to add "
-                "appropriate singleton dimensions if necessary.".format(t_mats.dim())
-            )
-
-        batch_size = t_mats.size(1)
-        results = [torch.zeros(batch_size, dtype=t_mats.dtype, device=t_mats.device) for _ in funcs]
-        num_random_probes = t_mats.size(0)
+        batch_shape = torch.Size(eigenvalues.shape[1:-1])
+        results = [torch.zeros(batch_shape, dtype=eigenvalues.dtype, device=eigenvalues.device) for _ in funcs]
+        num_random_probes = eigenvalues.size(0)
         for j in range(num_random_probes):
             # These are (num_batch x k) and (num_batch x k x k)
             eigenvalues_for_probe = eigenvalues[j]
             eigenvectors_for_probe = eigenvectors[j]
             for i, func in enumerate(funcs):
                 # First component of eigenvecs is (num_batch x k)
-                eigenvecs_first_component = eigenvectors_for_probe[:, 0, :]
+                eigenvecs_first_component = eigenvectors_for_probe[..., 0, :]
                 func_eigenvalues = func(eigenvalues_for_probe)
 
-                dot_products = (eigenvecs_first_component.pow(2) * func_eigenvalues).sum(1)
-                results[i] = results[i] + matrix_size / float(num_random_probes) * dot_products
+                dot_products = (eigenvecs_first_component.pow(2) * func_eigenvalues).sum(-1)
+                results[i] = results[i] + matrix_shape[-1] / float(num_random_probes) * dot_products
 
         return results

@@ -17,7 +17,7 @@ class TestLanczos(unittest.TestCase):
         matrix.div_(matrix.norm())
         matrix.add_(torch.ones(matrix.size(-1)).mul(1e-6).diag())
         q_mat, t_mat = lanczos_tridiag(
-            matrix.matmul, max_iter=size, dtype=matrix.dtype, device=matrix.device, n_dims=matrix.size(-1)
+            matrix.matmul, max_iter=size, dtype=matrix.dtype, device=matrix.device, matrix_shape=matrix.shape
         )
 
         approx = q_mat.matmul(t_mat).matmul(q_mat.transpose(-1, -2))

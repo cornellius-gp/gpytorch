@@ -410,25 +410,15 @@ class LazyTensor(object):
         Explicitly evaluates the matrix this LazyTensor represents. This function
         should return a Tensor storing an exact representation of this LazyTensor.
         """
-        size = self.size()
-        if len(size) == 2:
-            batch_mode = False
-            num_rows, num_cols = size
-        else:
-            batch_mode = True
-            batch_size, num_rows, num_cols = size
+        num_rows, num_cols = self.matrix_shape
 
         if num_rows < num_cols:
             eye = torch.eye(num_rows, dtype=self.dtype, device=self.device)
-            if batch_mode:
-                eye = eye.unsqueeze(0).expand(batch_size, num_rows, num_rows)
-                return self.transpose(1, 2).matmul(eye).transpose(1, 2).contiguous()
-            else:
-                return self.t().matmul(eye).t().contiguous()
+            eye = eye.expand(*self.batch_shape, num_rows, num_rows)
+            return self.transpose(-1, -2).matmul(eye).transpose(-1, -2).contiguous()
         else:
             eye = torch.eye(num_cols, dtype=self.dtype, device=self.device)
-            if batch_mode:
-                eye = eye.unsqueeze(0).expand(batch_size, num_cols, num_cols)
+            eye = eye.expand(*self.batch_shape, num_cols, num_cols)
             return self.matmul(eye)
 
     def evaluate_kernel(self):
@@ -540,15 +530,30 @@ class LazyTensor(object):
         Returns:
             - :obj:`torch.tensor` - :math:`K^{-1}M`
         """
-        # Work out batch dimension, if necessary
-        lazy_tsr = self
-        if lazy_tsr.ndimension() == 3 and tensor.ndimension() == 3:
-            if lazy_tsr.size(0) == 1 and tensor.size(0) > 1:
-                lazy_tsr = lazy_tsr.repeat(tensor.size(0), 1, 1)
-            elif tensor.size(0) == 1:
-                tensor = tensor.expand(lazy_tsr.size(0), tensor.size(1), tensor.size(2))
-        elif self.ndimension() > 3 or tensor.ndimension() > 3:
-            raise RuntimeError
+        if not self.is_square:
+            raise RuntimeError(
+                "inv_matmul only operates on (batches of) square (positive semi-definite) LazyTensors. "
+                "Got a {} of size {}.".format(self.__class__.__name__, self.size())
+            )
+
+        if (self.dim() == 2 and tensor.dim() == 1):
+            if self.shape[-1] != tensor.numel():
+                raise RuntimeError(
+                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                        self.shape, tensor.shape
+                    )
+                )
+        elif self.dim() != tensor.dim():
+            raise RuntimeError(
+                "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
+                "of dimensions.".format(self.shape, tensor.shape)
+            )
+        elif self.batch_shape != tensor.shape[:-2] or self.shape[-1] != tensor.shape[-2]:
+            raise RuntimeError(
+                "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                    self.shape, tensor.shape
+                )
+            )
 
         func = InvMatmul(self.representation_tree(), preconditioner=self._preconditioner()[0])
         return func(tensor, *self.representation())
@@ -583,28 +588,40 @@ class LazyTensor(object):
             - scalar - tr( tensor^T (self)^{-1} tensor )
             - scalar - log determinant
         """
-        # Work out batch dimension, if necessary
-        lazy_tsr = self
+        if not self.is_square:
+            raise RuntimeError(
+                "inv_quad_log_det only operates on (batches of) square (positive semi-definite) LazyTensors. "
+                "Got a {} of size {}.".format(self.__class__.__name__, self.size())
+            )
+
         if inv_quad_rhs is not None:
-            if lazy_tsr.ndimension() == 3 and inv_quad_rhs.ndimension() == 3:
-                if lazy_tsr.size(0) == 1 and inv_quad_rhs.size(0) > 1:
-                    lazy_tsr = lazy_tsr.repeat(inv_quad_rhs.size(0), 1, 1)
-                elif inv_quad_rhs.size(0) == 1:
-                    inv_quad_rhs = inv_quad_rhs.expand(lazy_tsr.size(0), inv_quad_rhs.size(1), inv_quad_rhs.size(2))
-            elif self.ndimension() > 3 or inv_quad_rhs.ndimension() > 3:
-                raise RuntimeError
+            if (self.dim() == 2 and inv_quad_rhs.dim() == 1):
+                if self.shape[-1] != inv_quad_rhs.numel():
+                    raise RuntimeError(
+                        "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                            self.shape, inv_quad_rhs.shape
+                        )
+                    )
+            elif self.dim() != inv_quad_rhs.dim():
+                raise RuntimeError(
+                    "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
+                    "of dimensions.".format(self.shape, inv_quad_rhs.shape)
+                )
+            elif self.batch_shape != inv_quad_rhs.shape[:-2] or self.shape[-1] != inv_quad_rhs.shape[-2]:
+                raise RuntimeError(
+                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                        self.shape, inv_quad_rhs.shape
+                    )
+                )
 
-        matrix_size = self.size(-1)
-        batch_size = self.size(0) if self.ndimension() == 3 else None
-
-        args = lazy_tsr.representation()
+        args = self.representation()
         if inv_quad_rhs is not None:
             args = [inv_quad_rhs] + list(args)
 
         res = InvQuadLogDet(
             representation_tree=self.representation_tree(),
-            matrix_size=matrix_size,
-            batch_size=batch_size,
+            matrix_shape=self.matrix_shape,
+            batch_shape=self.batch_shape,
             dtype=self.dtype,
             device=self.device,
             inv_quad=(inv_quad_rhs is not None),
@@ -613,6 +630,10 @@ class LazyTensor(object):
             log_det_correction=self._preconditioner()[1],
         )(*args)
         return res
+
+    @property
+    def is_square(self):
+        return self.matrix_shape[0] == self.matrix_shape[1]
 
     def log_det(self):
         """
@@ -640,16 +661,24 @@ class LazyTensor(object):
             is the matrix that this :obj:`gpytorch.lazy.LazyTensor` represents, and :math:`M` is the matrix input
             to this method.
         """
-
-        # Work out batch dimension, if necessary
-        lazy_tsr = self
-        if lazy_tsr.ndimension() == 3 and tensor.ndimension() == 3:
-            if lazy_tsr.size(0) == 1 and tensor.size(0) > 1:
-                lazy_tsr = lazy_tsr.repeat(tensor.size(0), 1, 1)
-            elif tensor.size(0) == 1:
-                tensor = tensor.expand(lazy_tsr.size(0), tensor.size(1), tensor.size(2))
-        elif self.ndimension() > 3 or tensor.ndimension() > 3:
-            raise RuntimeError
+        if (self.dim() == 2 and tensor.dim() == 1):
+            if self.shape[-1] != tensor.numel():
+                raise RuntimeError(
+                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                        self.shape, tensor.shape
+                    )
+                )
+        elif self.dim() != tensor.dim():
+            raise RuntimeError(
+                "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
+                "of dimensions.".format(self.shape, tensor.shape)
+            )
+        elif self.batch_shape != tensor.shape[:-2] or self.shape[-1] != tensor.shape[-2]:
+            raise RuntimeError(
+                "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                    self.shape, tensor.shape
+                )
+            )
 
         func = Matmul(self.representation_tree())
         return func(tensor, *self.representation())
@@ -810,14 +839,19 @@ class LazyTensor(object):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        batch_size = self.size(0) if self.ndimension() == 3 else None
+        if not self.is_square:
+            raise RuntimeError(
+                "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
+                "Got a {} of size {}.".format(self.__class__.__name__, self.size())
+            )
+
         res, _ = RootDecomposition(
             self.representation_tree(),
+            max_iter=self.root_decomposition_size(),
             dtype=self.dtype,
             device=self.device,
-            size=self.size(-1),
-            max_iter=self.root_decomposition_size(),
-            batch_size=batch_size,
+            batch_shape=self.batch_shape,
+            matrix_shape=self.matrix_shape,
         )(*self.representation())
         return res
 
@@ -827,53 +861,64 @@ class LazyTensor(object):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        if initial_vectors is not None:
-            if self.ndimension() == 3:
-                if initial_vectors.ndimension() == 2:
-                    initial_vectors = initial_vectors.unsqueeze(-1)
-            else:
-                if initial_vectors.ndimension() == 1:
-                    initial_vectors = initial_vectors.unsqueeze(-1)
-            if initial_vectors.size(-1) > 1 and test_vectors is None:
-                raise RuntimeError("You must supply test vectors if you supply more than one " "initial vector")
+        if not self.is_square:
+            raise RuntimeError(
+                "root_inv_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
+                "Got a {} of size {}.".format(self.__class__.__name__, self.size())
+            )
 
-        batch_size = self.size(0) if self.ndimension() == 3 else None
+        if initial_vectors is not None:
+            if (self.dim() == 2 and initial_vectors.dim() == 1):
+                if self.shape[-1] != initial_vectors.numel():
+                    raise RuntimeError(
+                        "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
+                            self.shape, initial_vectors.shape
+                        )
+                    )
+            elif self.dim() != initial_vectors.dim():
+                raise RuntimeError(
+                    "LazyTensor (size={}) and initial_vectors (size={}) should have the same number "
+                    "of dimensions.".format(self.shape, initial_vectors.shape)
+                )
+            elif self.batch_shape != initial_vectors.shape[:-2] or self.shape[-1] != initial_vectors.shape[-2]:
+                raise RuntimeError(
+                    "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
+                        self.shape, initial_vectors.shape
+                    )
+                )
+
         roots, inv_roots = RootDecomposition(
             self.representation_tree(),
+            max_iter=self.root_decomposition_size(),
             dtype=self.dtype,
             device=self.device,
-            size=self.size(-1),
-            max_iter=self.root_decomposition_size(),
+            batch_shape=self.batch_shape,
+            matrix_shape=self.matrix_shape,
             root=True,
             inverse=True,
-            batch_size=batch_size,
+            initial_vectors=initial_vectors,
         )(*self.representation())
 
         # Choose the best of the inv_roots, if there were more than one initial vectors
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
-            n_probes = initial_vectors.size(-1)
-            n_dim = self.size(-1)
+            num_probes = initial_vectors.size(-1)
             test_vectors = test_vectors.unsqueeze(0)
 
             # Compute solves
             solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
 
             # Compute self * solves
-            if batch_size is None:
-                solves = solves.permute(1, 2, 0).contiguous().view(n_dim, -1)
-                mat_times_solves = self.matmul(solves)
-                mat_times_solves = mat_times_solves.view(n_dim, -1, n_probes).permute(2, 0, 1)
-            else:
-                solves = solves.permute(1, 2, 3, 0).contiguous().view(batch_size, n_dim, -1)
-                mat_times_solves = self.matmul(solves)
-                mat_times_solves = mat_times_solves.view(batch_size, n_dim, -1, n_probes).permute(3, 0, 1, 2)
+            solves = solves.permute(*range(1, self.dim() + 1), 0).contiguous().view(
+                *self.batch_shape, self.matrix_shape[-1], -1
+            )
+            mat_times_solves = self.matmul(solves)
+            mat_times_solves = mat_times_solves.view(
+                *self.batch_shape, self.matrix_shape[-1], -1, num_probes
+            ).permute(-1, *range(0, self.dim()))
 
             # Compute residuals
             residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
-            if batch_size is None:
-                residuals = residuals.sum(-1)
-            else:
-                residuals = residuals.sum(-1).sum(-1)
+            residuals = residuals.view(residuals.size(0), -1).sum(-1)
 
             # Choose solve that best fits
             _, best_solve_index = residuals.min(0)
