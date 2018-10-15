@@ -161,8 +161,6 @@ class RootDecomposition(Function):
                 right_factor = right_factor.contiguous()
             res = lazy_tsr._quad_form_derivative(left_factor, right_factor)
 
-            if not is_batch:
-                res = [item.squeeze(0) for item in res]
             return tuple(res)
         else:
             pass
