@@ -51,7 +51,7 @@ class SoftmaxLikelihood(Likelihood):
             raise RuntimeError("There should be %d features" % self.num_features)
 
         mixed_fs = self.mixing_weights.matmul(samples.view(num_features, n_samples * n_data))
-        softmax = torch.nn.functional.softmax(mixed_fs.t()).view(n_data, n_samples, self.n_classes)
+        softmax = torch.nn.functional.softmax(mixed_fs.t(), 1).view(n_data, n_samples, self.n_classes)
         return Categorical(probs=softmax.mean(1))
 
     def variational_log_probability(self, latent_func, target):
@@ -71,6 +71,6 @@ class SoftmaxLikelihood(Likelihood):
 
         mixed_fs = self.mixing_weights.matmul(samples.view(num_features, n_samples * n_data))
         log_prob = -torch.nn.functional.cross_entropy(
-            mixed_fs.t(), target.unsqueeze(1).repeat(1, n_samples).view(-1), size_average=False
+            mixed_fs.t(), target.unsqueeze(1).repeat(1, n_samples).view(-1), reduction="sum"
         )
         return log_prob.div(n_samples)
