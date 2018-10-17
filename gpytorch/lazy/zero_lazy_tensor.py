@@ -97,7 +97,7 @@ class ZeroLazyTensor(LazyTensor):
     def inv_quad(self, tensor):
         raise RuntimeError("ZeroLazyTensors are not invertible!")
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False):
+    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
         raise RuntimeError("ZeroLazyTensors are not invertible!")
 
     def log_det(self):

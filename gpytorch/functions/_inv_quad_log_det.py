@@ -136,7 +136,7 @@ class InvQuadLogDet(Function):
         # Extract inv_quad solves from all the solves
         if self.inv_quad:
             inv_quad_solves = solves.narrow(-1, num_random_probes, num_inv_quad_solves)
-            inv_quad_term = (inv_quad_solves * inv_quad_rhs).sum(-1).sum(-1, keepdim=(self.batch_shape is None))
+            inv_quad_term = (inv_quad_solves * inv_quad_rhs).sum(-2)
 
         self.num_random_probes = num_random_probes
         self.num_inv_quad_solves = num_inv_quad_solves
@@ -170,13 +170,10 @@ class InvQuadLogDet(Function):
 
         # Fix grad_output sizes
         if self.inv_quad:
-            inv_quad_grad_output = inv_quad_grad_output.unsqueeze(-1)
-            if self.batch_shape is not None:
-                inv_quad_grad_output.unsqueeze_(-1)
+            inv_quad_grad_output = inv_quad_grad_output.unsqueeze(-2)
         if compute_log_det_grad:
             log_det_grad_output = log_det_grad_output.unsqueeze(-1)
-            if self.batch_shape is not None:
-                log_det_grad_output.unsqueeze_(-1)
+            log_det_grad_output.unsqueeze_(-1)
 
         # Divide up the solves
         probe_vector_solves = None

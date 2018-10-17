@@ -56,13 +56,14 @@ class CholLazyTensor(RootLazyTensor):
             res = super(CholLazyTensor, self).inv_matmul(rhs)
         return res
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False):
+    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
         inv_quad_term = None
         log_det_term = None
-        is_batch = self.ndimension() == 3
 
         if inv_quad_rhs is not None:
-            inv_quad_term = self.inv_matmul(inv_quad_rhs).mul(inv_quad_rhs).sum(-1).sum(-1, keepdim=(not is_batch))
+            inv_quad_term = self.inv_matmul(inv_quad_rhs).mul(inv_quad_rhs).sum(-2)
+            if reduce_inv_quad:
+                inv_quad_term = inv_quad_term.sum(-1)
 
         if log_det:
             log_det_term = self._chol_diag.log().sum(-1).mul(2)

@@ -173,7 +173,7 @@ def inv_quad(mat, tensor):
     return res
 
 
-def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
+def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
     """
     Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
     I.e. computes tr( tensor^T mat^{-1} tensor )
@@ -187,11 +187,11 @@ def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
         - scalar - log determinant
     """
     if hasattr(mat, "inv_quad_log_det"):
-        return mat.inv_quad_log_det(inv_quad_rhs, log_det)
+        return mat.inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad)
     else:
         from ..lazy.non_lazy_tensor import NonLazyTensor
 
-        return NonLazyTensor(mat).inv_quad_log_det(inv_quad_rhs, log_det)
+        return NonLazyTensor(mat).inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad)
 
 
 def log_det(mat):
