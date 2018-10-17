@@ -8,12 +8,25 @@ from ..module import Module
 
 
 class AbstractVariationalGP(Module):
-    def __init__(self, inducing_points):
+    """
+    Args:
+        :attr:`inducing_points` (Tensor)
+            Inducing points for variational distribution
+        :attr:`learnable` (bool, optional)
+            Are the inducing point locations learnable? If so they will be registered
+            as a :class:`torch.nn.Parameter`. Otherwise, they will remain fixed (default: False)
+    """
+    def __init__(self, inducing_points, learnable=False):
         super(AbstractVariationalGP, self).__init__()
         if not torch.is_tensor(inducing_points):
             raise RuntimeError("inducing_points must be a Tensor")
         n_inducing = inducing_points.size(0)
-        self.register_buffer("inducing_points", inducing_points)
+
+        if learnable:
+            self.register_buffer("inducing_points", inducing_points)
+        else:
+            self.register_parameter("inducing_points", inducing_points)
+
         self.register_buffer("variational_params_initialized", torch.tensor(0))
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(torch.zeros(n_inducing)))
         self.register_parameter(
