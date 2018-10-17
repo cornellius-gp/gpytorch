@@ -23,9 +23,9 @@ class AbstractVariationalGP(Module):
         n_inducing = inducing_points.size(0)
 
         if learnable:
-            self.register_buffer("inducing_points", inducing_points)
-        else:
             self.register_parameter("inducing_points", inducing_points)
+        else:
+            self.register_buffer("inducing_points", inducing_points)
 
         self.register_buffer("variational_params_initialized", torch.tensor(0))
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(torch.zeros(n_inducing)))
