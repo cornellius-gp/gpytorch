@@ -45,7 +45,7 @@ While there are lots of different choices, switching between methods requires a 
 In addition, it is fairly straightforward to create your own custom scalable GP method. (Tutorial coming soon!)
 This is especially useful if your data is structured (e.g. if your data lies on a regularly-spaced grid).
 
-Additionally, it is possible to use strochastic variational inference for regression problems.
+Additionally, it is possible to use stochastic variational inference for regression problems.
 This is useful if you have an extremely large dataset.
 Some examples:
 - A [1D example combining KISS-GP and stochastic variational inference](04_Scalable_GP_Regression_1D/KISSGP_Regression_1D_With_Stochastic_Variational_Inference_CUDA.ipynb)
