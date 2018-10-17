@@ -98,4 +98,6 @@ class PeriodicKernel(Kernel):
 
         diff = torch.sum((x1_ - x2_).abs(), -1)
         res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
+        if diff.ndimension() == 2:
+            res = res.squeeze(0)
         return res
