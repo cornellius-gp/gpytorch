@@ -109,14 +109,6 @@ class RootLazyTensor(LazyTensor):
             self._evaluated_memo = torch.matmul(self._evaluated_root, self._evaluated_root.transpose(-1, -2))
         return self._evaluated_memo
 
-    def repeat(self, *sizes):
-        """
-        Repeat elements of the Tensor.
-        Right now it only works to create a batched version.
-        """
-
-        return self.__class__(self.root.repeat(*sizes))
-
     def root_decomposition_size(self):
         return self.root.size(-1)
 

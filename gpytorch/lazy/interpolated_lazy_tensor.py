@@ -561,25 +561,6 @@ class InterpolatedLazyTensor(LazyTensor):
         else:
             return super(InterpolatedLazyTensor, self).mul(other)
 
-    def repeat(self, *sizes):
-        """
-        Repeat elements of the Tensor.
-        Right now it only works to create a batched version of a InterpolatedLazyTensor.
-
-        e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
-        """
-        if not len(sizes) == 3 and sizes[1] == 1 and sizes[2] == 1:
-            raise RuntimeError("Repeat only works to create a batched version at the moment.")
-
-        return self.__class__(
-            self.base_lazy_tensor,
-            self.left_interp_indices.repeat(*sizes),
-            self.left_interp_values.repeat(*sizes),
-            self.right_interp_indices.repeat(*sizes),
-            self.right_interp_values.repeat(*sizes),
-            **self._kwargs
-        )
-
     def sum_batch(self, sum_batch_size=None):
         left_interp_indices = self.left_interp_indices
         left_interp_values = self.left_interp_values

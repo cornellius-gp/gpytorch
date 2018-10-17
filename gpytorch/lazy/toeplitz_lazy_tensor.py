@@ -62,13 +62,3 @@ class ToeplitzLazyTensor(LazyTensor):
         if self.column.ndimension() > 1:
             diag_term = diag_term.unsqueeze(-1)
         return diag_term.expand(*self.column.size())
-
-    def repeat(self, *sizes):
-        """
-        Repeat elements of the Tensor.
-        Right now it only works to create a batched version of a ToeplitzLazyTensor.
-
-        e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
-        """
-
-        return ToeplitzLazyTensor(self.column.repeat(sizes[0], 1))

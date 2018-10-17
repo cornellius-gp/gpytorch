@@ -142,9 +142,6 @@ class ConstantMulLazyTensor(LazyTensor):
         res = res * self._constant_as(res)
         return res
 
-    def repeat(self, *sizes):
-        return ConstantMulLazyTensor(self.base_lazy_tensor.repeat(*sizes), self.constant)
-
     def __getitem__(self, i):
         constant = self.constant
         if constant.numel() > 1:

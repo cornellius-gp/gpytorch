@@ -813,6 +813,32 @@ class LazyTensor(object):
         """
         return self.shape.numel()
 
+    def repeat(self, *sizes):
+        """
+        Repeats this tensor along the specified dimensions.
+
+        Currently, this only works to create repeated batches of a 2D LazyTensor.
+        I.e. all calls should be `lazy_tensor.repeat(<size>, 1, 1)`.
+
+        Example:
+            >>> lazy_tensor = gpytorch.lazy.ToeplitzLazyTensor(torch.tensor([4. 1., 0.5]))
+            >>> lazy_tensor.repeat(2, 1, 1).evaluate()
+            tensor([[[4.0000, 1.0000, 0.5000],
+                     [1.0000, 4.0000, 1.0000],
+                     [0.5000, 1.0000, 4.0000]],
+                    [[4.0000, 1.0000, 0.5000],
+                     [1.0000, 4.0000, 1.0000],
+                     [0.5000, 1.0000, 4.0000]]])
+        """
+        if len(sizes) < 3 or tuple(sizes[-2:]) != (1, 1):
+            raise RuntimeError(
+                "Invalid repeat arguments {}. Currently, repeat only works to create repeated "
+                "batches of a 2D LazyTensor.".format(tuple(sizes))
+            )
+
+        from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
+        return BatchRepeatLazyTensor(self, batch_repeat=torch.Size(sizes[:-2]))
+
     def representation(self):
         """
         Returns the Tensors that are used to define the LazyTensor

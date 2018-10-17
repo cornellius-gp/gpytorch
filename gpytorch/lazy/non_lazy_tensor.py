@@ -57,9 +57,6 @@ class NonLazyTensor(LazyTensor):
     def evaluate(self):
         return self.tensor
 
-    def repeat(self, *sizes):
-        return NonLazyTensor(self.tensor.repeat(*sizes))
-
     def __getitem__(self, index):
         res = self.tensor[index]
         if not isinstance(index, tuple):
