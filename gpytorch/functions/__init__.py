@@ -30,7 +30,7 @@ def add_diag(input, diag):
         return input.add_diag(diag)
 
 
-def add_jitter(mat):
+def add_jitter(mat, jitter_val=1e-3):
     """
     Adds "jitter" to the diagonal of a matrix.
     This ensures that a matrix that *should* be positive definite *is* positive definate.
@@ -40,9 +40,9 @@ def add_jitter(mat):
     Returns: (matrix nxn)
     """
     if hasattr(mat, "add_jitter"):
-        return mat.add_jitter()
+        return mat.add_jitter(jitter_val)
     else:
-        diag = torch.eye(mat.size(-1), dtype=mat.dtype, device=mat.device).mul_(1e-3)
+        diag = torch.eye(mat.size(-1), dtype=mat.dtype, device=mat.device).mul_(jitter_val)
         if mat.ndimension() == 3:
             return mat + diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2))
         else:

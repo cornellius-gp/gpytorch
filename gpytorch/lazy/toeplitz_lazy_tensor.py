@@ -49,9 +49,9 @@ class ToeplitzLazyTensor(LazyTensor):
         toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
         return self.column.index_select(0, toeplitz_indices)
 
-    def add_jitter(self):
+    def add_jitter(self, jitter_val=1e-3):
         jitter = torch.zeros_like(self.column)
-        jitter.narrow(-1, 0, 1).fill_(1e-4)
+        jitter.narrow(-1, 0, 1).fill_(jitter_val)
         return ToeplitzLazyTensor(self.column.add(jitter))
 
     def diag(self):
