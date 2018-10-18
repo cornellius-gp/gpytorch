@@ -105,9 +105,17 @@ class LazyTensor(object):
             :obj:`torch.tensor`: derivative with respect to the arguments that are actually used to represent this
                                    this LazyTensor.
         """
-        raise NotImplementedError(
-            "The class {} requires a _quad_form_derivative function!".format(self.__class__.__name__)
-        )
+        args = self.representation()
+        for arg in args:
+            arg.requires_grad = True
+
+        loss = (left_vecs * self._matmul(right_vecs)).sum()
+        grads = torch.autograd.grad(loss, args)
+
+        for arg in args:
+            arg.requires_grad = False
+
+        return grads
 
     def _size(self):
         """
