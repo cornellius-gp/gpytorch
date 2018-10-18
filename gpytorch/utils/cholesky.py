@@ -9,6 +9,7 @@ import torch
 
 def batch_potrf(mat):
     """
+    TODO: Replace with torch batch potrf once it is implemented.
     """
     potrf_list = [sub_mat.potrf() for sub_mat in mat.view(-1, *mat.shape[-2:])]
     res = torch.cat(potrf_list, 0)
@@ -17,6 +18,7 @@ def batch_potrf(mat):
 
 def batch_potrs(mat, chol):
     """
+    TODO: Replace with torch batch potrs once it is implemented.
     """
     potrs_list = []
     potrs_list = [
