@@ -70,8 +70,9 @@ def linear_cg(
         raise RuntimeError("matmul_closure must be a tensor, or a callable object!")
 
     # Get some constants
+    batch_shape = rhs.shape[:-2]
     num_rows = rhs.size(-2)
-    n_iter = min(max_iter, num_rows)
+    n_iter = min(max_iter, num_rows) if settings.terminate_cg_by_size.on() else max_iter
     n_tridiag_iter = min(max_tridiag_iter, num_rows)
 
     # result <- x_{0}
@@ -98,23 +99,15 @@ def linear_cg(
 
         # Define storage matrices
         mul_storage = torch.empty_like(residual)
-        if rhs.ndimension() == 3:
-            alpha = torch.empty(rhs.size(0), 1, rhs.size(-1), dtype=residual.dtype, device=residual.device)
-        else:
-            alpha = torch.empty(1, rhs.size(-1), dtype=residual.dtype, device=residual.device)
+        alpha = torch.empty(*batch_shape, rhs.size(-1), dtype=residual.dtype, device=residual.device)
         beta = torch.empty_like(alpha)
 
     # Define tridiagonal matrices, if applicable
     if n_tridiag:
-        if rhs.ndimension() == 3:
-            t_mat = torch.zeros(
-                n_tridiag_iter, n_tridiag_iter, rhs.size(0), n_tridiag, dtype=alpha.dtype, device=alpha.device
-            )
-            alpha_reciprocal = torch.empty(rhs.size(0), n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
-        else:
-            t_mat = torch.zeros(n_tridiag_iter, n_tridiag_iter, n_tridiag, dtype=alpha.dtype, device=alpha.device)
-            alpha_reciprocal = torch.empty(n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
-
+        t_mat = torch.zeros(
+            n_tridiag_iter, n_tridiag_iter, *batch_shape, n_tridiag, dtype=alpha.dtype, device=alpha.device
+        )
+        alpha_reciprocal = torch.empty(*batch_shape, n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
         prev_alpha_reciprocal = torch.empty_like(alpha_reciprocal)
         prev_beta = torch.empty_like(alpha_reciprocal)
 
@@ -185,9 +178,6 @@ def linear_cg(
 
     if n_tridiag:
         t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
-        if rhs.ndimension() == 3:
-            return result, t_mat.permute(3, 2, 0, 1).contiguous()
-        else:
-            return result, t_mat.permute(2, 0, 1).contiguous()
+        return result, t_mat.permute(-1, *range(2, 2 + len(batch_shape)), 0, 1).contiguous()
     else:
         return result

@@ -22,27 +22,23 @@ class InvQuadLogDet(Function):
     def __init__(
         self,
         representation_tree,
-        matrix_size=0,
-        batch_size=None,
-        dtype=None,
-        device=None,
+        dtype,
+        device,
+        matrix_shape,
+        batch_shape=torch.Size(),
         inv_quad=False,
         log_det=False,
         preconditioner=None,
         log_det_correction=None,
     ):
-        if not matrix_size:
-            raise RuntimeError("Matrix size must be set")
-        if device is None:
-            raise RuntimeError("device must be set")
         if not (inv_quad or log_det):
             raise RuntimeError("Either inv_quad or log_det must be true (or both)")
 
         self.representation_tree = representation_tree
-        self.matrix_size = matrix_size
-        self.batch_size = batch_size
         self.dtype = dtype
         self.device = device
+        self.matrix_shape = matrix_shape
+        self.batch_shape = batch_shape
         self.inv_quad = inv_quad
         self.log_det = log_det
         self.preconditioner = preconditioner
@@ -81,12 +77,12 @@ class InvQuadLogDet(Function):
         probe_vector_norms = None
         if self.log_det:
             num_random_probes = settings.num_trace_samples.value()
-            probe_vectors = torch.empty(self.matrix_size, num_random_probes, dtype=self.dtype, device=self.device)
+            probe_vectors = torch.empty(self.matrix_shape[-1], num_random_probes, dtype=self.dtype, device=self.device)
             probe_vectors.bernoulli_().mul_(2).add_(-1)
             probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
-            if self.batch_size is not None:
-                probe_vectors = probe_vectors.unsqueeze(0).expand(self.batch_size, self.matrix_size, num_random_probes)
-                probe_vector_norms = probe_vector_norms.unsqueeze(0).expand(self.batch_size, 1, num_random_probes)
+            if self.batch_shape is not None:
+                probe_vectors = probe_vectors.expand(*self.batch_shape, self.matrix_shape[-1], num_random_probes)
+                probe_vector_norms = probe_vector_norms.expand(*self.batch_shape, 1, num_random_probes)
             probe_vectors = probe_vectors.div(probe_vector_norms)
             rhs_list.append(probe_vectors)
 
@@ -127,12 +123,11 @@ class InvQuadLogDet(Function):
 
         # Compute log_det from tridiagonalization
         if self.log_det:
-            if self.batch_size is None:
+            if self.batch_shape is None:
                 t_mat = t_mat.unsqueeze(1)
             eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
             slq = StochasticLQ()
-            matrix_size = rhs.size(-2)
-            log_det_term, = slq.evaluate(t_mat, matrix_size, eigenvalues, eigenvectors, [lambda x: x.log()])
+            log_det_term, = slq.evaluate(self.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
 
             # Add correction
             if self.log_det_correction is not None:
@@ -141,7 +136,7 @@ class InvQuadLogDet(Function):
         # Extract inv_quad solves from all the solves
         if self.inv_quad:
             inv_quad_solves = solves.narrow(-1, num_random_probes, num_inv_quad_solves)
-            inv_quad_term = (inv_quad_solves * inv_quad_rhs).sum(-1).sum(-1, keepdim=(self.batch_size is None))
+            inv_quad_term = (inv_quad_solves * inv_quad_rhs).sum(-1).sum(-1, keepdim=(self.batch_shape is None))
 
         self.num_random_probes = num_random_probes
         self.num_inv_quad_solves = num_inv_quad_solves
@@ -176,11 +171,11 @@ class InvQuadLogDet(Function):
         # Fix grad_output sizes
         if self.inv_quad:
             inv_quad_grad_output = inv_quad_grad_output.unsqueeze(-1)
-            if self.batch_size is not None:
+            if self.batch_shape is not None:
                 inv_quad_grad_output.unsqueeze_(-1)
         if compute_log_det_grad:
             log_det_grad_output = log_det_grad_output.unsqueeze(-1)
-            if self.batch_size is not None:
+            if self.batch_shape is not None:
                 log_det_grad_output.unsqueeze_(-1)
 
         # Divide up the solves

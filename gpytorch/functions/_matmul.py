@@ -12,14 +12,25 @@ class Matmul(Function):
         self.representation_tree = representation_tree
 
     def forward(self, rhs, *matrix_args):
+        orig_rhs = rhs
+
+        if rhs.ndimension() == 1:
+            is_vector = True
+            rhs = rhs.unsqueeze(-1)
+        else:
+            is_vector = False
+
         lazy_tsr = self.representation_tree(*matrix_args)
         res = lazy_tsr._matmul(rhs)
 
-        to_save = [rhs] + list(matrix_args)
+        to_save = [orig_rhs] + list(matrix_args)
         self.save_for_backward(*to_save)
         if not settings.memory_efficient.on():
             self._lazy_tsr = lazy_tsr
 
+        # Squeeze if necessary
+        if is_vector:
+            res = res.squeeze(-1)
         return res
 
     def backward(self, grad_output):

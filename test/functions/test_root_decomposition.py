@@ -5,52 +5,146 @@ from __future__ import unicode_literals
 
 import os
 import torch
+import random
 import unittest
 from gpytorch.lazy import NonLazyTensor
 from test._utils import approx_equal
 
 
 class TestRootDecomposition(unittest.TestCase):
-    def setUp(self):
-        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
-        mat = [
-            [5.0212, 0.5504, -0.1810, 1.5414, 2.9611],
-            [0.5504, 2.8000, 1.9944, 0.6208, -0.8902],
-            [-0.1810, 1.9944, 3.0505, 1.0790, -1.1774],
-            [1.5414, 0.6208, 1.0790, 2.9430, 0.4170],
-            [2.9611, -0.8902, -1.1774, 0.4170, 3.3208],
-        ]
-        self.mat_var = torch.tensor(mat, requires_grad=True)
-        self.mat_var_clone = self.mat_var.clone().detach().requires_grad_(True)
-
     def tearDown(self):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
+    def setUp(self):
+        if os.getenv("unlock_seed") is None or os.getenv("unlock_seed").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+        mat = torch.randn(4, 4)
+        mat = mat @ mat.transpose(-1, -2)
+        mat.div_(5).add_(torch.eye(4))
+        self.mat = mat.detach().clone().requires_grad_(True)
+        self.mat_clone = mat.detach().clone().requires_grad_(True)
+
     def test_root_decomposition(self):
         # Forward
-        root = NonLazyTensor(self.mat_var).root_decomposition()
+        root = NonLazyTensor(self.mat).root_decomposition()
         res = root.matmul(root.transpose(-1, -2))
-        self.assertTrue(approx_equal(res, self.mat_var))
+        self.assertTrue(approx_equal(res, self.mat))
 
         # Backward
         res.trace().backward()
-        self.mat_var_clone.trace().backward()
-        self.assertTrue(approx_equal(self.mat_var.grad, self.mat_var_clone.grad))
+        self.mat_clone.trace().backward()
+        self.assertTrue(approx_equal(self.mat.grad, self.mat_clone.grad))
 
     def test_root_inv_decomposition(self):
         # Forward
-        root = NonLazyTensor(self.mat_var).root_inv_decomposition()
+        probe_vectors = torch.randn(4, 5)
+        test_vectors = torch.randn(4, 5)
+        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors)
         res = root.matmul(root.transpose(-1, -2))
-        actual = self.mat_var_clone.inverse()
+        actual = self.mat_clone.inverse()
         self.assertTrue(approx_equal(res, actual))
 
         # Backward
         res.trace().backward()
         actual.trace().backward()
-        self.assertTrue(approx_equal(self.mat_var.grad, self.mat_var_clone.grad))
+        self.assertTrue(approx_equal(self.mat.grad, self.mat_clone.grad))
+
+
+class TestRootDecompositionBatch(unittest.TestCase):
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
+    def setUp(self):
+        if os.getenv("unlock_seed") is None or os.getenv("unlock_seed").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+        mat = torch.randn(3, 4, 4)
+        mat = mat @ mat.transpose(-1, -2)
+        mat.div_(5).add_(torch.eye(4).unsqueeze_(0))
+        self.mat = mat.detach().clone().requires_grad_(True)
+        self.mat_clone = mat.detach().clone().requires_grad_(True)
+
+    def test_root_decomposition(self):
+        # Forward
+        root = NonLazyTensor(self.mat).root_decomposition()
+        res = root.matmul(root.transpose(-1, -2))
+        self.assertTrue(approx_equal(res, self.mat))
+
+        # Backward
+        sum([mat.trace() for mat in res]).backward()
+        sum([mat.trace() for mat in self.mat_clone]).backward()
+        self.assertTrue(approx_equal(self.mat.grad, self.mat_clone.grad))
+
+    def test_root_inv_decomposition(self):
+        # Forward
+        probe_vectors = torch.randn(3, 4, 5)
+        test_vectors = torch.randn(3, 4, 5)
+        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors)
+        res = root.matmul(root.transpose(-1, -2))
+        actual = torch.cat([mat.inverse().unsqueeze(0) for mat in self.mat_clone])
+        self.assertTrue(approx_equal(res, actual))
+
+        # Backward
+        sum([mat.trace() for mat in res]).backward()
+        sum([mat.trace() for mat in actual]).backward()
+        self.assertTrue(approx_equal(self.mat.grad, self.mat_clone.grad))
+
+
+class TestRootDecompositionMultiBatch(unittest.TestCase):
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
+    def setUp(self):
+        if os.getenv("unlock_seed") is None or os.getenv("unlock_seed").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+        mat = torch.randn(2, 3, 4, 4)
+        mat = mat @ mat.transpose(-1, -2)
+        mat.div_(5).add_(torch.eye(4).view(1, 1, 4, 4))
+        self.mat = mat.detach().clone().requires_grad_(True)
+        self.mat_clone = mat.detach().clone().requires_grad_(True)
+
+    def test_root_decomposition(self):
+        # Forward
+        root = NonLazyTensor(self.mat).root_decomposition()
+        res = root.matmul(root.transpose(-1, -2))
+        self.assertTrue(approx_equal(res, self.mat))
+
+        # Backward
+        sum([mat.trace() for mat in res.view(-1, *self.mat.shape[-2:])]).backward()
+        sum([mat.trace() for mat in self.mat_clone.view(-1, *self.mat.shape[-2:])]).backward()
+        self.assertTrue(approx_equal(self.mat.grad, self.mat_clone.grad))
+
+    def test_root_inv_decomposition(self):
+        # Forward
+        probe_vectors = torch.randn(2, 3, 4, 5)
+        test_vectors = torch.randn(2, 3, 4, 5)
+        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors)
+        res = root.matmul(root.transpose(-1, -2))
+        flattened_mats = self.mat_clone.view(-1, *self.mat_clone.shape[-2:])
+        actual = torch.cat([mat.inverse().unsqueeze(0) for mat in flattened_mats]).view_as(self.mat_clone)
+        self.assertTrue(approx_equal(res, actual))
+
+        # Backward
+        sum([mat.trace() for mat in res.view(-1, *self.mat.shape[-2:])]).backward()
+        sum([mat.trace() for mat in actual.view(-1, *self.mat.shape[-2:])]).backward()
+        self.assertTrue(approx_equal(self.mat.grad, self.mat_clone.grad))
 
 
 if __name__ == "__main__":

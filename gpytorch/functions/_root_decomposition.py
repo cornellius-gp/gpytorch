@@ -13,24 +13,24 @@ class RootDecomposition(Function):
     def __init__(
         self,
         representation_tree,
+        max_iter,
         dtype,
         device,
-        size,
-        max_iter,
-        batch_size=None,
+        matrix_shape,
+        batch_shape,
         root=True,
         inverse=False,
-        initial_vector=None,
+        initial_vectors=None,
     ):
         self.representation_tree = representation_tree
         self.device = device
         self.dtype = dtype
-        self.size = size
+        self.matrix_shape = matrix_shape
         self.max_iter = max_iter
-        self.batch_size = batch_size
+        self.batch_shape = batch_shape
         self.root = root
         self.inverse = inverse
-        self.initial_vector = initial_vector
+        self.initial_vectors = initial_vectors
 
     def forward(self, *matrix_args):
         """
@@ -49,11 +49,11 @@ class RootDecomposition(Function):
             self.max_iter,
             dtype=self.dtype,
             device=self.device,
-            batch_size=self.batch_size,
-            n_dims=self.size,
-            init_vecs=self.initial_vector,
+            matrix_shape=self.matrix_shape,
+            batch_shape=self.batch_shape,
+            init_vecs=self.initial_vectors,
         )
-        if self.batch_size is None:
+        if self.batch_shape is None:
             q_mat = q_mat.unsqueeze(-3)
             t_mat = t_mat.unsqueeze(-3)
         if t_mat.ndimension() == 3:  # If we only used one probe vector
@@ -78,7 +78,7 @@ class RootDecomposition(Function):
         if not settings.memory_efficient.on():
             self._lazy_tsr = lazy_tsr
 
-        if self.batch_size is None:
+        if self.batch_shape is None:
             root = root.squeeze(1) if root.numel() else root
             q_mat = q_mat.squeeze(1)
             t_mat = t_mat.squeeze(1)
