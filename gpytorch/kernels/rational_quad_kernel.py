@@ -6,7 +6,9 @@ from __future__ import unicode_literals
 import torch
 from .kernel import Kernel
 
+
 class RQKernel(Kernel):
+
     r"""
     Computes a covariance matrix based on the rational quadratic kernel
     between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`:
@@ -18,7 +20,7 @@ class RQKernel(Kernel):
           \right)^{-\alpha}
        \end{equation*}
 
-    where :math:`\ell` is a :attr:`lengthscale` parameter, and :math:`\alpha` is a parameter of 
+    where :math:`\ell` is a :attr:`lengthscale` parameter, and :math:`\alpha` is a parameter of
     a gamma prior on :math:`\ell^{-2}`.
     See :class:`gpytorch.kernels.Kernel` for descriptions of the lengthscale options.
 
@@ -63,6 +65,7 @@ class RQKernel(Kernel):
         >>> # Batch:
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RQKernel(batch_size=2))
     """
+
     def __init__(self, log_lengthscale_prior=None, log_alpha_prior=None,
                  eps=1e-6, active_dims=None, batch_size=1):
         super(RQKernel, self).__init__(
@@ -76,15 +79,14 @@ class RQKernel(Kernel):
             name="log_alpha",
             parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)),
             prior=log_alpha_prior
-        )      
-        
+        )
+
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
         x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
         alpha = self.log_alpha.exp()
-        
-        diff = (x1_ - x2_).norm(2, dim=-1)
-        res = (1 + diff.pow(2).div(2*alpha)).pow(-alpha)
-        return res
 
+        diff = (x1_ - x2_).norm(2, dim=-1)
+        res = (1 + diff.pow(2).div(2 * alpha)).pow(-alpha)
+        return res
