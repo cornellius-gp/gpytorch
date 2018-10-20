@@ -30,7 +30,7 @@ def add_diag(input, diag):
         return input.add_diag(diag)
 
 
-def add_jitter(mat):
+def add_jitter(mat, jitter_val=1e-3):
     """
     Adds "jitter" to the diagonal of a matrix.
     This ensures that a matrix that *should* be positive definite *is* positive definate.
@@ -40,9 +40,9 @@ def add_jitter(mat):
     Returns: (matrix nxn)
     """
     if hasattr(mat, "add_jitter"):
-        return mat.add_jitter()
+        return mat.add_jitter(jitter_val)
     else:
-        diag = torch.eye(mat.size(-1), dtype=mat.dtype, device=mat.device).mul_(1e-3)
+        diag = torch.eye(mat.size(-1), dtype=mat.dtype, device=mat.device).mul_(jitter_val)
         if mat.ndimension() == 3:
             return mat + diag.unsqueeze(0).expand(mat.size(0), mat.size(1), mat.size(2))
         else:
@@ -173,7 +173,7 @@ def inv_quad(mat, tensor):
     return res
 
 
-def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
+def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
     """
     Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
     I.e. computes tr( tensor^T mat^{-1} tensor )
@@ -187,11 +187,11 @@ def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False):
         - scalar - log determinant
     """
     if hasattr(mat, "inv_quad_log_det"):
-        return mat.inv_quad_log_det(inv_quad_rhs, log_det)
+        return mat.inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad)
     else:
         from ..lazy.non_lazy_tensor import NonLazyTensor
 
-        return NonLazyTensor(mat).inv_quad_log_det(inv_quad_rhs, log_det)
+        return NonLazyTensor(mat).inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad)
 
 
 def log_det(mat):

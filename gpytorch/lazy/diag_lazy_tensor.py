@@ -64,14 +64,6 @@ class DiagLazyTensor(LazyTensor):
         else:
             return super(DiagLazyTensor, self).evaluate()
 
-    def repeat(self, *sizes):
-        """
-        Repeat elements of the Tensor.
-        Right now it only works to create a batched version.
-        """
-
-        return self.__class__(self._diag.repeat(sizes[0], 1))
-
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:
             base_samples = torch.randn(

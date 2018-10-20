@@ -49,9 +49,9 @@ class ToeplitzLazyTensor(LazyTensor):
         toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
         return self.column.index_select(0, toeplitz_indices)
 
-    def add_jitter(self):
+    def add_jitter(self, jitter_val=1e-3):
         jitter = torch.zeros_like(self.column)
-        jitter.narrow(-1, 0, 1).fill_(1e-4)
+        jitter.narrow(-1, 0, 1).fill_(jitter_val)
         return ToeplitzLazyTensor(self.column.add(jitter))
 
     def diag(self):
@@ -62,13 +62,3 @@ class ToeplitzLazyTensor(LazyTensor):
         if self.column.ndimension() > 1:
             diag_term = diag_term.unsqueeze(-1)
         return diag_term.expand(*self.column.size())
-
-    def repeat(self, *sizes):
-        """
-        Repeat elements of the Tensor.
-        Right now it only works to create a batched version of a ToeplitzLazyTensor.
-
-        e.g. `var.repeat(3, 1, 1)` creates a batched version of length 3
-        """
-
-        return ToeplitzLazyTensor(self.column.repeat(sizes[0], 1))

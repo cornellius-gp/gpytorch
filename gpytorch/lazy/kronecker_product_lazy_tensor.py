@@ -224,6 +224,3 @@ class KroneckerProductLazyTensor(LazyTensor):
             left_indices = left_indices - (left_indices_i * left_size)
             right_indices = right_indices - (right_indices_i * right_size)
         return res
-
-    def repeat(self, *sizes):
-        return KroneckerProductLazyTensor(*[lazy_tensor.repeat(*sizes) for lazy_tensor in self.lazy_tensors])

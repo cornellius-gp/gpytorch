@@ -575,7 +575,7 @@ class LazyTensor(object):
         res, _ = self.inv_quad_log_det(inv_quad_rhs=tensor, log_det=False)
         return res
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False):
+    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
         """
         Computes an inverse quadratic form (w.r.t self) with several right hand sides.
         I.e. computes tr( tensor^T self^{-1} tensor )
@@ -618,7 +618,7 @@ class LazyTensor(object):
         if inv_quad_rhs is not None:
             args = [inv_quad_rhs] + list(args)
 
-        res = InvQuadLogDet(
+        inv_quad_term, log_det_term = InvQuadLogDet(
             representation_tree=self.representation_tree(),
             matrix_shape=self.matrix_shape,
             batch_shape=self.batch_shape,
@@ -629,7 +629,10 @@ class LazyTensor(object):
             preconditioner=self._preconditioner()[0],
             log_det_correction=self._preconditioner()[1],
         )(*args)
-        return res
+
+        if inv_quad_term.numel() and reduce_inv_quad:
+            inv_quad_term = inv_quad_term.sum(-1)
+        return inv_quad_term, log_det_term
 
     @property
     def is_square(self):
@@ -809,6 +812,32 @@ class LazyTensor(object):
         Returns the number of elements
         """
         return self.shape.numel()
+
+    def repeat(self, *sizes):
+        """
+        Repeats this tensor along the specified dimensions.
+
+        Currently, this only works to create repeated batches of a 2D LazyTensor.
+        I.e. all calls should be `lazy_tensor.repeat(<size>, 1, 1)`.
+
+        Example:
+            >>> lazy_tensor = gpytorch.lazy.ToeplitzLazyTensor(torch.tensor([4. 1., 0.5]))
+            >>> lazy_tensor.repeat(2, 1, 1).evaluate()
+            tensor([[[4.0000, 1.0000, 0.5000],
+                     [1.0000, 4.0000, 1.0000],
+                     [0.5000, 1.0000, 4.0000]],
+                    [[4.0000, 1.0000, 0.5000],
+                     [1.0000, 4.0000, 1.0000],
+                     [0.5000, 1.0000, 4.0000]]])
+        """
+        if len(sizes) < 3 or tuple(sizes[-2:]) != (1, 1):
+            raise RuntimeError(
+                "Invalid repeat arguments {}. Currently, repeat only works to create repeated "
+                "batches of a 2D LazyTensor.".format(tuple(sizes))
+            )
+
+        from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
+        return BatchRepeatLazyTensor(self, batch_repeat=torch.Size(sizes[:-2]))
 
     def representation(self):
         """
@@ -1227,7 +1256,7 @@ class LazyTensor(object):
         if torch.is_tensor(val) or isinstance(val, LazyTensor):
             if not hasattr(self, "_args"):
                 raise RuntimeError(
-                    "Cannot assign {name} to LazyTensor before calling " "LazyTensor.__init__()".format(name=name)
+                    "Cannot assign {name} to LazyTensor before calling LazyTensor.__init__()".format(name=name)
                 )
         object.__setattr__(self, name, val)
 
