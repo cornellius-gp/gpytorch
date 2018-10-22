@@ -49,19 +49,12 @@ class CholLazyTensor(RootLazyTensor):
                 self._chol_diag_memo = self._chol.diag()
         return self._chol_diag_memo
 
-    def inv_matmul(self, rhs):
-        if self.ndimension() == 2:
-            res = torch.potrs(rhs, self._chol, upper=False)
-        else:
-            res = super(CholLazyTensor, self).inv_matmul(rhs)
-        return res
-
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
         inv_quad_term = None
         log_det_term = None
 
         if inv_quad_rhs is not None:
-            inv_quad_term = self.inv_matmul(inv_quad_rhs).mul(inv_quad_rhs).sum(-2)
+            inv_quad_term, _ = super(CholLazyTensor, self).inv_quad_log_det(inv_quad_rhs, log_det=False, reduce_inv_quad=reduce_inv_quad)
             if reduce_inv_quad:
                 inv_quad_term = inv_quad_term.sum(-1)
 

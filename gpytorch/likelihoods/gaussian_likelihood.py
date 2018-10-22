@@ -45,3 +45,17 @@ class GaussianLikelihood(Likelihood):
         res = -0.5 * ((target - mean) ** 2 + variance) / log_noise.exp()
         res += -0.5 * log_noise - 0.5 * math.log(2 * math.pi)
         return res.sum(0)
+
+    def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
+        import pyro
+        noise = self.noise
+        lazy_covar_f = variational_dist_f.lazy_covariance_matrix
+        if lazy_covar_f.ndimension() == 2:
+            noise = noise.squeeze(0)
+        y_lazy_covar = add_diag(lazy_covar_f, noise)
+        y_mean = variational_dist_f.mean
+        y_dist = MultivariateNormal(y_mean, y_lazy_covar)
+        if len(y_dist.shape()) > 1:
+            pyro.sample(name_prefix + "._training_labels", y_dist.independent(1), obs=y_obs)
+        else:
+            pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)

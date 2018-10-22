@@ -56,3 +56,10 @@ class BernoulliLikelihood(Likelihood):
         samples = latent_func.rsample(torch.Size([num_samples])).view(-1)
         target = target.unsqueeze(0).repeat(num_samples, 1).view(-1)
         return log_normal_cdf(samples.mul(target)).sum().div(num_samples)
+
+    def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
+        import pyro
+        f_samples = variational_dist_f(sample_shape)
+        y_prob_samples = torch.distributions.Normal(0, 1).cdf(f_samples)
+        y_dist = pyro.distributions.Bernoulli(y_prob_samples)
+        pyro.sample(name_prefix + "._training_labels", y_dist.independent(1), obs=y_obs)

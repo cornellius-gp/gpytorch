@@ -8,7 +8,7 @@ from .kernel import Kernel
 from ..functions import add_jitter
 from ..lazy import DiagLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor
 from ..distributions import MultivariateNormal
-from ..variational import MVNVariationalStrategy
+from ..mlls import InducingPointKernelAddedLossTerm
 
 
 class InducingPointKernel(Kernel):
@@ -21,7 +21,7 @@ class InducingPointKernel(Kernel):
         if inducing_points.ndimension() != 2:
             raise RuntimeError("Inducing points should be 2 dimensional")
         self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points.unsqueeze(0)))
-        self.register_variational_strategy("inducing_point_strategy")
+        self.register_added_loss_term("inducing_point_loss_term")
 
     def train(self, mode=True):
         if hasattr(self, "_cached_kernel_mat"):
@@ -88,9 +88,9 @@ class InducingPointKernel(Kernel):
             if not torch.equal(x1, x2):
                 raise RuntimeError("x1 should equal x2 in training mode")
             zero_mean = torch.zeros_like(x1.select(-1, 0))
-            new_variational_strategy = MVNVariationalStrategy(
+            new_added_loss_term = InducingPointKernelAddedLossTerm(
                 MultivariateNormal(zero_mean, self._covar_diag(x1)), MultivariateNormal(zero_mean, covar)
             )
-            self.update_variational_strategy("inducing_point_strategy", new_variational_strategy)
+            self.update_added_loss_term("inducing_point_loss_term", new_added_loss_term)
 
         return covar

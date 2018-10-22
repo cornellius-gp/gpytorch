@@ -154,7 +154,7 @@ class BatchRepeatLazyTensor(LazyTensor):
                 "batches of a 2D LazyTensor.".format(tuple(sizes))
             )
 
-        padded_batch_repeat = tuple(1 for _ in len(sizes) - 2 - len(self.batch_repeat)) + self.batch_repeat
+        padded_batch_repeat = tuple(1 for _ in range(len(sizes) - 2 - len(self.batch_repeat))) + self.batch_repeat
         return self.__class__(self, batch_repeat=torch.Size(
             orig_repeat_size * new_repeat_size
             for orig_repeat_size, new_repeat_size in zip(padded_batch_repeat, sizes[:-2]))

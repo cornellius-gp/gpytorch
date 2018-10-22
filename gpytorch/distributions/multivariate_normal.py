@@ -10,7 +10,7 @@ from ..lazy import LazyTensor, NonLazyTensor
 from .distribution import Distribution
 
 
-class MultivariateNormal(TMultivariateNormal, Distribution):
+class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     """
     Constructs a multivariate Normal random variable, based on mean and covariance
     Can be multivariate, or a batch of multivariate Normals
@@ -26,6 +26,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
     def __init__(self, mean, covariance_matrix, validate_args=False):
         self._islazy = any(isinstance(arg, LazyTensor) for arg in (mean, covariance_matrix))
+        self._fake_batch_shape = torch.Size()
         if self._islazy:
             if validate_args:
                 # TODO: add argument validation
@@ -43,6 +44,10 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             )
 
     @property
+    def batch_shape(self):
+        return self._fake_batch_shape + self._batch_shape
+
+    @property
     def _unbroadcasted_scale_tril(self):
         if self.islazy and self.__unbroadcasted_scale_tril is None:
             # cache root decoposition
@@ -55,6 +60,11 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             raise NotImplementedError("Cannot set _unbroadcasted_scale_tril for lazy MVN distributions")
         else:
             self.__unbroadcasted_scale_tril = ust
+
+    def expand(self, batch_size):
+        res = self.__class__(self.loc, self._covar)
+        res._fake_batch_shape = torch.Size(batch_size)
+        return res
 
     def confidence_region(self):
         """
@@ -118,7 +128,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
-
+        sample_shape = self._fake_batch_shape + sample_shape
         if base_samples is None:
             # Create some samples
             num_samples = sample_shape.numel() or 1
@@ -190,6 +200,15 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
     def __truediv__(self, other):
         return self.__mul__(1. / other)
+
+try:
+    # If pyro is installed, add the TorchDistributionMixin
+    from pyro.distributions.torch_distribution import TorchDistributionMixin
+    class MultivariateNormal(_MultivariateNormalBase, TorchDistributionMixin):
+        pass
+except ImportError as e:
+    class MultivariateNormal(_MultivariateNormalBase):
+        pass
 
 
 @register_kl(MultivariateNormal, MultivariateNormal)
