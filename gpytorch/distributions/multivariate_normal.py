@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import torch
+import math
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 from torch.distributions.utils import _standard_normal, lazy_property
+from torch.distributions.kl import register_kl
 
 from ..lazy import LazyTensor, NonLazyTensor
 from .distribution import Distribution
@@ -93,6 +95,27 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             return NonLazyTensor(super(MultivariateNormal, self).covariance_matrix)
 
+    def log_prob(self, value):
+        if self._validate_args:
+            self._validate_sample(value)
+
+        mean, covar = self.loc, self.lazy_covariance_matrix
+        diff = value - mean
+
+        # Repeat the covar to match the batch shape of diff
+        if diff.shape[:-1] != covar.batch_shape:
+            padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
+            covar = covar.repeat(
+                *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)),
+                1, 1
+            )
+
+        # Get log determininat and first part of quadratic form
+        inv_quad, log_det = covar.inv_quad_log_det(inv_quad_rhs=diff.unsqueeze(-1), log_det=True)
+
+        res = -0.5 * sum([inv_quad, log_det, diff.size(-1) * math.log(2 * math.pi)])
+        return res
+
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
 
@@ -167,3 +190,31 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
     def __truediv__(self, other):
         return self.__mul__(1. / other)
+
+
+@register_kl(MultivariateNormal, MultivariateNormal)
+def kl_mvn_mvn(p_dist, q_dist):
+    q_mean = q_dist.loc
+    q_covar = q_dist.lazy_covariance_matrix.add_jitter()
+
+    p_mean = p_dist.loc
+    p_covar = p_dist.lazy_covariance_matrix
+    root_p_covar = p_covar.root_decomposition()
+
+    mean_diffs = q_mean - p_mean
+    inv_quad_rhs = torch.cat([root_p_covar, mean_diffs.unsqueeze(-1)], -1)
+    log_det_p_covar = p_covar.log_det()
+    trace_plus_inv_quad_form, log_det_q_covar = q_covar.inv_quad_log_det(
+        inv_quad_rhs=inv_quad_rhs, log_det=True
+    )
+
+    # Compute the KL Divergence.
+    res = 0.5 * sum(
+        [
+            log_det_q_covar,
+            log_det_p_covar.mul(-1),
+            trace_plus_inv_quad_form,
+            -float(mean_diffs.size(-1)),
+        ]
+    )
+    return res

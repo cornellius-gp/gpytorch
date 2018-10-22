@@ -2,12 +2,28 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import unittest
 
+import os
+import random
+import math
 import torch
 from gpytorch.distributions import MultitaskMultivariateNormal
+from gpytorch.lazy import DiagLazyTensor
 from test._utils import approx_equal
 
 
 class TestMultiTaskMultivariateNormal(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(1)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(1)
+            random.seed(1)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_multitask_multivariate_normal_exceptions(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         mean = torch.tensor([0, 1], dtype=torch.float, device=device)
@@ -122,6 +138,25 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
     def test_multivariate_normal_batch_correlated_sampels_cuda(self):
         if torch.cuda.is_available():
             self.test_multivariate_normal_batch_correlated_sampels(cuda=True)
+
+    def test_log_prob(self):
+        mean = torch.randn(4, 3)
+        var = torch.randn(12).abs_()
+        values = mean + 0.5
+        diffs = (values - mean).view(-1)
+
+        res = MultitaskMultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+        actual = -0.5 * (math.log(math.pi * 2) * 12 + var.log().sum() + (diffs / var * diffs).sum())
+        self.assertLess((res - actual).div(res).abs().item(), 1e-2)
+
+        mean = torch.randn(3, 4, 3)
+        var = torch.randn(3, 12).abs_()
+        values = mean + 0.5
+        diffs = (values - mean).view(3, -1)
+
+        res = MultitaskMultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+        actual = -0.5 * (math.log(math.pi * 2) * 12 + var.log().sum(-1) + (diffs / var * diffs).sum(-1))
+        self.assertLess((res - actual).div(res).abs().norm(), 1e-2)
 
 
 if __name__ == "__main__":
