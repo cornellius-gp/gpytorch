@@ -7,6 +7,7 @@ import random
 import math
 import torch
 from gpytorch.distributions import MultivariateNormal
+from torch.distributions import MultivariateNormal as TMultivariateNormal
 from gpytorch.lazy import LazyTensor, NonLazyTensor, DiagLazyTensor
 from test._utils import approx_equal
 
@@ -208,7 +209,7 @@ class TestMultivariateNormal(unittest.TestCase):
         diffs = values - mean
 
         res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
-        actual = -0.5 * (math.log(math.pi * 2) * 4 + var.log().sum() + (diffs / var * diffs).sum())
+        actual = TMultivariateNormal(mean, torch.eye(4) * var).log_prob(values)
         self.assertLess((res - actual).div(res).abs().item(), 1e-2)
 
         mean = torch.randn(3, 4)
@@ -217,7 +218,7 @@ class TestMultivariateNormal(unittest.TestCase):
         diffs = values - mean
 
         res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
-        actual = -0.5 * (math.log(math.pi * 2) * 4 + var.log().sum(1) + (diffs / var * diffs).sum(1))
+        actual = TMultivariateNormal(mean, var.unsqueeze(-1) * torch.eye(4).repeat(3, 1, 1)).log_prob(values)
         self.assertLess((res - actual).div(res).abs().norm(), 1e-2)
 
     def test_kl_divergence(self):
