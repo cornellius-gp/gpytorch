@@ -206,7 +206,6 @@ class TestMultivariateNormal(unittest.TestCase):
         mean = torch.randn(4)
         var = torch.randn(4).abs_()
         values = torch.randn(4)
-        diffs = values - mean
 
         res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
         actual = TMultivariateNormal(mean, torch.eye(4) * var).log_prob(values)
@@ -215,7 +214,6 @@ class TestMultivariateNormal(unittest.TestCase):
         mean = torch.randn(3, 4)
         var = torch.randn(3, 4).abs_()
         values = torch.randn(3, 4)
-        diffs = values - mean
 
         res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
         actual = TMultivariateNormal(mean, var.unsqueeze(-1) * torch.eye(4).repeat(3, 1, 1)).log_prob(values)
