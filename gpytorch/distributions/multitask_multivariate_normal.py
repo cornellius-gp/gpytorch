@@ -43,7 +43,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         return res
 
     def log_prob(self, value):
-        return super(MultivariateNormal, self).log_prob(value.view(value.shape[:-2] + torch.Size([-1])))
+        return super(MultitaskMultivariateNormal, self).log_prob(value.view(value.shape[:-2] + torch.Size([-1])))
 
     @property
     def mean(self):

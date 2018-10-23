@@ -2,13 +2,29 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import unittest
 
+import os
+import random
+import math
 import torch
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.lazy import LazyTensor, NonLazyTensor
+from torch.distributions import MultivariateNormal as TMultivariateNormal
+from gpytorch.lazy import LazyTensor, NonLazyTensor, DiagLazyTensor
 from test._utils import approx_equal
 
 
 class TestMultivariateNormal(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(1)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(1)
+            random.seed(1)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_multivariate_normal_non_lazy(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         mean = torch.tensor([0, 1, 2], dtype=torch.float, device=device)
@@ -185,6 +201,45 @@ class TestMultivariateNormal(unittest.TestCase):
     def test_multivariate_normal_batch_correlated_sampels_cuda(self):
         if torch.cuda.is_available():
             self.test_multivariate_normal_batch_correlated_sampels(cuda=True)
+
+    def test_log_prob(self):
+        mean = torch.randn(4)
+        var = torch.randn(4).abs_()
+        values = torch.randn(4)
+
+        res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+        actual = TMultivariateNormal(mean, torch.eye(4) * var).log_prob(values)
+        self.assertLess((res - actual).div(res).abs().item(), 1e-2)
+
+        mean = torch.randn(3, 4)
+        var = torch.randn(3, 4).abs_()
+        values = torch.randn(3, 4)
+
+        res = MultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
+        actual = TMultivariateNormal(mean, var.unsqueeze(-1) * torch.eye(4).repeat(3, 1, 1)).log_prob(values)
+        self.assertLess((res - actual).div(res).abs().norm(), 1e-2)
+
+    def test_kl_divergence(self):
+        mean0 = torch.randn(4)
+        mean1 = mean0 + 1
+        var0 = torch.randn(4).abs_()
+        var1 = var0 * math.exp(2)
+
+        dist_a = MultivariateNormal(mean0, DiagLazyTensor(var0))
+        dist_b = MultivariateNormal(mean1, DiagLazyTensor(var0))
+        dist_c = MultivariateNormal(mean0, DiagLazyTensor(var1))
+
+        res = torch.distributions.kl.kl_divergence(dist_a, dist_a)
+        actual = 0.
+        self.assertLess((res - actual).abs().item(), 1e-2)
+
+        res = torch.distributions.kl.kl_divergence(dist_b, dist_a)
+        actual = var0.reciprocal().sum().div(2.)
+        self.assertLess((res - actual).div(res).abs().item(), 1e-2)
+
+        res = torch.distributions.kl.kl_divergence(dist_a, dist_c)
+        actual = 0.5 * (8 - 4 + 4 * math.exp(-2))
+        self.assertLess((res - actual).div(res).abs().item(), 1e-2)
 
 
 if __name__ == "__main__":
