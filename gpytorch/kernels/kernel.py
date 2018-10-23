@@ -226,12 +226,19 @@ class Kernel(Module):
             x2_ = x1_
 
         # Check batch_dims args
+        # Check that ard_num_dims matches the supplied number of dimensions
         if settings.debug.on():
             if batch_dims is not None:
                 if not isinstance(batch_dims, tuple) or (batch_dims != (0,) and batch_dims != (0, 2)):
                     raise RuntimeError(
                         "batch_dims currently accepts either None, (0,), or (0, 2). Got {}.".format(batch_dims)
                     )
+
+            if self.ard_num_dims is not None and self.ard_num_dims != x1_.size(-1):
+                raise RuntimeError(
+                    "Expected the input to have {} dimensionality "
+                    "(based on the ard_num_dims argument). Got {}.".format(self.ard_num_dims, x1_.size(-1))
+                )
 
         if diag:
             res = super(Kernel, self).__call__(x1_, x2_, diag=True, batch_dims=batch_dims, **params)
