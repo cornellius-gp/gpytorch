@@ -166,6 +166,15 @@ class BatchRepeatLazyTensor(LazyTensor):
             ),
         )
 
+    def root_decomposition(self):
+        return self.base_lazy_tensor.root_decomposition().repeat(*self.batch_repeat, 1, 1)
+
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+        return self.base_lazy_tensor.root_inv_decomposition(
+            initial_vectors=initial_vectors,
+            test_vectors=test_vectors,
+        ).repeat(*self.batch_repeat, 1, 1)
+
     def __getitem__(self, index):
         """
         Supports subindexing of the matrix this LazyTensor represents. This may return either another
