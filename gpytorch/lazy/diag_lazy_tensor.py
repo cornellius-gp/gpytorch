@@ -8,15 +8,18 @@ from .lazy_tensor import LazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
-    def __init__(self, diag):
+    def __init__(self, diag, exact_root_decomposition=False):
         """
         Diagonal lazy tensor
 
         Args:
-        - diag (Variable: n) diagonal of matrix
+            - diag (tensor) (batch) diagonal of matrix
+            - exact_root_decomposition (bool, default False) return an exact root decomposition.
+                Set to True only if the represented diagonal is relatively small.
         """
         super(DiagLazyTensor, self).__init__(diag)
         self._diag = diag
+        self.exact_root_decomposition = exact_root_decomposition
 
     def _matmul(self, rhs):
         if rhs.ndimension() == 1 and self.ndimension() == 2:
@@ -145,6 +148,18 @@ class DiagLazyTensor(LazyTensor):
             log_det_term = torch.tensor([], dtype=self.dtype, device=self.device)
 
         return inv_quad_term, log_det_term
+
+    def root_decomposition(self):
+        if self.exact_root_decomposition:
+            return self.__class__(self._diag.sqrt()).evaluate()
+        else:
+            return super(DiagLazyTensor, self).root_decomposition()
+
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+        if self.exact_root_decomposition:
+            return self.__class__(self._diag.sqrt().reciprocal()).evaluate()
+        else:
+            return super(DiagLazyTensor, self).root_decomposition()
 
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:
