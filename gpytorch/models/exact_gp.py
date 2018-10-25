@@ -148,6 +148,7 @@ class ExactGP(Module):
             predictive_mean, mean_cache = exact_predictive_mean(
                 full_covar=full_covar,
                 full_mean=full_mean,
+                train_inputs=train_inputs,
                 train_labels=train_targets,
                 num_train=num_train,
                 likelihood=self.likelihood,
@@ -155,6 +156,7 @@ class ExactGP(Module):
             )
             predictive_covar, covar_cache = exact_predictive_covar(
                 full_covar=full_covar,
+                train_inputs=train_inputs,
                 num_train=num_train,
                 likelihood=self.likelihood,
                 precomputed_cache=self.covar_cache,

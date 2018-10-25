@@ -168,22 +168,22 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 
-    def exact_predictive_mean(self, full_mean, train_labels, num_train, likelihood, precomputed_cache=None):
+    def exact_predictive_mean(self, full_mean, train_inputs, train_labels, num_train, likelihood, precomputed_cache=None):
         if self.kernel.has_custom_exact_predictions:
             return self.evaluate_kernel().exact_predictive_mean(
-                full_mean, train_labels, num_train, likelihood, precomputed_cache
+                full_mean, train_inputs, train_labels, num_train, likelihood, precomputed_cache
             )
         else:
             return super(LazyEvaluatedKernelTensor, self).exact_predictive_mean(
-                full_mean, train_labels, num_train, likelihood, precomputed_cache
+                full_mean, train_inputs, train_labels, num_train, likelihood, precomputed_cache
             )
 
-    def exact_predictive_covar(self, num_train, likelihood, precomputed_cache=None):
+    def exact_predictive_covar(self, train_inputs, num_train, likelihood, precomputed_cache=None):
         if self.kernel.has_custom_exact_predictions:
-            return self.evaluate_kernel().exact_predictive_covar(num_train, likelihood, precomputed_cache)
+            return self.evaluate_kernel().exact_predictive_covar(train_inputs, num_train, likelihood, precomputed_cache)
         else:
             return super(LazyEvaluatedKernelTensor, self).exact_predictive_covar(
-                num_train, likelihood, precomputed_cache
+                train_inputs, num_train, likelihood, precomputed_cache
             )
 
     def repeat(self, *sizes):
