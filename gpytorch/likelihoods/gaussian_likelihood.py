@@ -48,6 +48,7 @@ class GaussianLikelihood(Likelihood):
 
     def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
         import pyro
+
         noise = self.noise
         lazy_covar_f = variational_dist_f.lazy_covariance_matrix
         if lazy_covar_f.ndimension() == 2:

@@ -13,6 +13,7 @@ from .abstract_variational_gp import AbstractVariationalGP
 try:
     from .pyro_variational_gp import PyroVariationalGP
 except ImportError:
+
     class PyroVariationalGP(object):
         def __init__(self, *args, **kwargs):
             raise RuntimeError("Cannot use a PyroVariationalGP because you dont have Pyro installed.")

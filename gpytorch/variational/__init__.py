@@ -8,8 +8,10 @@ from .additive_grid_interpolation_variational_strategy import AdditiveGridInterp
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 from .variational_distribution import VariationalDistribution
 
-__all__ = ["VariationalStrategy",
-           "AdditiveGridInterpolationVariationalStrategy",
-           "GridInterpolationVariationalStrategy",
-           "NewVariationalStrategy",
-           "VariationalDistribution"]
+__all__ = [
+    "VariationalStrategy",
+    "AdditiveGridInterpolationVariationalStrategy",
+    "GridInterpolationVariationalStrategy",
+    "NewVariationalStrategy",
+    "VariationalDistribution",
+]

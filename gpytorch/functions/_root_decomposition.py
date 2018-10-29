@@ -148,7 +148,7 @@ class RootDecomposition(Function):
                 left_factor.sub_(torch.matmul(inverse, inverse_grad_output.transpose(-1, -2)).matmul(inverse))
 
             # Right factor
-            right_factor = inverse.div(2.)
+            right_factor = inverse.div(2.0)
 
             # Fix batches
             if is_batch:

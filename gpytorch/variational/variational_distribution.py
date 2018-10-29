@@ -14,6 +14,7 @@ class VariationalDistribution(Module):
     matrix. In order to ensure that the covariance matrix remains positive definite, we only consider the lower triangle
     and we manually ensure that the diagonal remains positive.
     """
+
     def __init__(self, num_inducing_points, batch_size=None):
         """
         Args:
@@ -31,10 +32,8 @@ class VariationalDistribution(Module):
         mean_init += torch.randn_like(mean_init).mul(1e-1)
         covar_init += torch.randn_like(covar_init).mul(1e-1)
 
-        self.register_parameter(name="variational_mean",
-                                parameter=torch.nn.Parameter(mean_init))
-        self.register_parameter(name="chol_variational_covar",
-                                parameter=torch.nn.Parameter(covar_init))
+        self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(mean_init))
+        self.register_parameter(name="chol_variational_covar", parameter=torch.nn.Parameter(covar_init))
 
         self.register_buffer("variational_params_initialized", torch.tensor(0))
 
@@ -80,4 +79,4 @@ class VariationalDistribution(Module):
         return MultivariateNormal(self.variational_mean, variational_covar)
 
     def forward(self, *args, **kwargs):
-        raise RuntimeError('VariationalDistribution is not intended to be called!')
+        raise RuntimeError("VariationalDistribution is not intended to be called!")

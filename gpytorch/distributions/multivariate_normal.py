@@ -116,8 +116,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         if diff.shape[:-1] != covar.batch_shape:
             padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
             covar = covar.repeat(
-                *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)),
-                1, 1
+                *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)), 1, 1
             )
 
         # Get log determininat and first part of quadratic form
@@ -199,7 +198,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         return self.__class__(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other ** 2))
 
     def __truediv__(self, other):
-        return self.__mul__(1. / other)
+        return self.__mul__(1.0 / other)
 
 
 try:
@@ -208,7 +207,10 @@ try:
 
     class MultivariateNormal(_MultivariateNormalBase, TorchDistributionMixin):
         pass
+
+
 except ImportError:
+
     class MultivariateNormal(_MultivariateNormalBase):
         pass
 
@@ -225,17 +227,8 @@ def kl_mvn_mvn(p_dist, q_dist):
     mean_diffs = q_mean - p_mean
     inv_quad_rhs = torch.cat([root_p_covar, mean_diffs.unsqueeze(-1)], -1)
     log_det_p_covar = p_covar.log_det()
-    trace_plus_inv_quad_form, log_det_q_covar = q_covar.inv_quad_log_det(
-        inv_quad_rhs=inv_quad_rhs, log_det=True
-    )
+    trace_plus_inv_quad_form, log_det_q_covar = q_covar.inv_quad_log_det(inv_quad_rhs=inv_quad_rhs, log_det=True)
 
     # Compute the KL Divergence.
-    res = 0.5 * sum(
-        [
-            log_det_q_covar,
-            log_det_p_covar.mul(-1),
-            trace_plus_inv_quad_form,
-            -float(mean_diffs.size(-1)),
-        ]
-    )
+    res = 0.5 * sum([log_det_q_covar, log_det_p_covar.mul(-1), trace_plus_inv_quad_form, -float(mean_diffs.size(-1))])
     return res

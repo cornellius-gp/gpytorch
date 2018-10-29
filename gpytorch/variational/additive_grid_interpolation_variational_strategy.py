@@ -10,12 +10,12 @@ from ..variational.grid_interpolation_variational_strategy import GridInterpolat
 
 
 class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalStrategy):
-    def __init__(self, model, grid_size, grid_bounds, num_dim,
-                 variational_distribution, mixing_params=False, sum_output=True):
-        super(AdditiveGridInterpolationVariationalStrategy, self).__init__(model,
-                                                                           grid_size,
-                                                                           grid_bounds,
-                                                                           variational_distribution)
+    def __init__(
+        self, model, grid_size, grid_bounds, num_dim, variational_distribution, mixing_params=False, sum_output=True
+    ):
+        super(AdditiveGridInterpolationVariationalStrategy, self).__init__(
+            model, grid_size, grid_bounds, variational_distribution
+        )
         self.num_dim = num_dim
         self.sum_output = sum_output
         # Mixing parameters

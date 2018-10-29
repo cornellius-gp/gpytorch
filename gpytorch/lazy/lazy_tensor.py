@@ -536,7 +536,7 @@ class LazyTensor(object):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if (self.dim() == 2 and tensor.dim() == 1):
+        if self.dim() == 2 and tensor.dim() == 1:
             if self.shape[-1] != tensor.numel():
                 raise RuntimeError(
                     "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
@@ -595,7 +595,7 @@ class LazyTensor(object):
             )
 
         if inv_quad_rhs is not None:
-            if (self.dim() == 2 and inv_quad_rhs.dim() == 1):
+            if self.dim() == 2 and inv_quad_rhs.dim() == 1:
                 if self.shape[-1] != inv_quad_rhs.numel():
                     raise RuntimeError(
                         "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
@@ -664,7 +664,7 @@ class LazyTensor(object):
             is the matrix that this :obj:`gpytorch.lazy.LazyTensor` represents, and :math:`M` is the matrix input
             to this method.
         """
-        if (self.dim() == 2 and tensor.dim() == 1):
+        if self.dim() == 2 and tensor.dim() == 1:
             if self.shape[-1] != tensor.numel():
                 raise RuntimeError(
                     "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
@@ -776,7 +776,7 @@ class LazyTensor(object):
                 extra_root = (
                     torch.randn(roots.size(0), 1, roots.size(2), roots.size(3), dtype=roots.dtype, device=roots.device)
                     .mul_(1e-6 / math.sqrt(roots.size(3)))
-                    .add_(1. / math.sqrt(roots.size(3)))
+                    .add_(1.0 / math.sqrt(roots.size(3)))
                 )
                 roots = torch.cat([roots, extra_root], 1)
                 n_batch += 1
@@ -837,6 +837,7 @@ class LazyTensor(object):
             )
 
         from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
+
         return BatchRepeatLazyTensor(self, batch_repeat=torch.Size(sizes[:-2]))
 
     def representation(self):
@@ -897,7 +898,7 @@ class LazyTensor(object):
             )
 
         if initial_vectors is not None:
-            if (self.dim() == 2 and initial_vectors.dim() == 1):
+            if self.dim() == 2 and initial_vectors.dim() == 1:
                 if self.shape[-1] != initial_vectors.numel():
                     raise RuntimeError(
                         "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
@@ -937,13 +938,15 @@ class LazyTensor(object):
             solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
 
             # Compute self * solves
-            solves = solves.permute(*range(1, self.dim() + 1), 0).contiguous().view(
-                *self.batch_shape, self.matrix_shape[-1], -1
+            solves = (
+                solves.permute(*range(1, self.dim() + 1), 0)
+                .contiguous()
+                .view(*self.batch_shape, self.matrix_shape[-1], -1)
             )
             mat_times_solves = self.matmul(solves)
-            mat_times_solves = mat_times_solves.view(
-                *self.batch_shape, self.matrix_shape[-1], -1, num_probes
-            ).permute(-1, *range(0, self.dim()))
+            mat_times_solves = mat_times_solves.view(*self.batch_shape, self.matrix_shape[-1], -1, num_probes).permute(
+                -1, *range(0, self.dim())
+            )
 
             # Compute residuals
             residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
@@ -1142,7 +1145,7 @@ class LazyTensor(object):
         if isinstance(other, ZeroLazyTensor):
             raise RuntimeError("Attempted to divide by a ZeroLazyTensor (divison by zero)")
 
-        return self.mul(1. / other)
+        return self.mul(1.0 / other)
 
     def __getitem__(self, index):
         """

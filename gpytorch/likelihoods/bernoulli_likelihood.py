@@ -59,6 +59,7 @@ class BernoulliLikelihood(Likelihood):
 
     def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
         import pyro
+
         f_samples = variational_dist_f(sample_shape)
         y_prob_samples = torch.distributions.Normal(0, 1).cdf(f_samples)
         y_dist = pyro.distributions.Bernoulli(y_prob_samples)

@@ -29,9 +29,10 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
 
     # Get batch indices
     batch_iters = [
-        torch.arange(0, size, dtype=torch.long, device=matrix_diag.device).unsqueeze_(-1).repeat(
-            torch.Size(batch_shape[:i]).numel(), torch.Size(batch_shape[i + 1:]).numel()
-        ).view(-1)
+        torch.arange(0, size, dtype=torch.long, device=matrix_diag.device)
+        .unsqueeze_(-1)
+        .repeat(torch.Size(batch_shape[:i]).numel(), torch.Size(batch_shape[i + 1 :]).numel())
+        .view(-1)
         for i, size in enumerate(batch_shape)
     ]
 
@@ -58,7 +59,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
         row = row.view(*batch_shape, matrix_shape[-1])
 
         if m + 1 < matrix_shape[-1]:
-            pi_i = permutation[..., m + 1:].contiguous()
+            pi_i = permutation[..., m + 1 :].contiguous()
 
             L_m_new = row.gather(-1, pi_i)
             if m > 0:

@@ -54,9 +54,9 @@ class CholLazyTensor(RootLazyTensor):
         log_det_term = None
 
         if inv_quad_rhs is not None:
-            inv_quad_term, _ = super(CholLazyTensor, self).inv_quad_log_det(inv_quad_rhs,
-                                                                            log_det=False,
-                                                                            reduce_inv_quad=reduce_inv_quad)
+            inv_quad_term, _ = super(CholLazyTensor, self).inv_quad_log_det(
+                inv_quad_rhs, log_det=False, reduce_inv_quad=reduce_inv_quad
+            )
 
         if log_det:
             log_det_term = self._chol_diag.log().sum(-1).mul(2)

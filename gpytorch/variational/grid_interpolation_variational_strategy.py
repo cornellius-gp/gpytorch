@@ -67,7 +67,7 @@ class GridInterpolationVariationalStrategy(Module):
             interp_indices,
             interp_values,
             interp_indices,
-            interp_values
+            interp_values,
         )
 
         output = MultivariateNormal(predictive_mean, predictive_covar)

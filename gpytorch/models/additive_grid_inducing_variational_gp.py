@@ -20,6 +20,6 @@ class AdditiveGridInducingVariationalGP(AbstractVariationalGP):
             num_dim=num_dim,
             variational_distribution=variational_distribution,
             mixing_params=mixing_params,
-            sum_output=sum_output
+            sum_output=sum_output,
         )
         super(AdditiveGridInducingVariationalGP, self).__init__(variational_strategy)

@@ -171,6 +171,7 @@ class Module(nn.Module):
 
     def update_added_loss_term(self, name, added_loss_term):
         from .mlls import AddedLossTerm
+
         if not isinstance(added_loss_term, AddedLossTerm):
             raise RuntimeError("added_loss_term must be a AddedLossTerm")
         if name not in self._added_loss_terms.keys():

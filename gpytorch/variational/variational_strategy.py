@@ -25,6 +25,7 @@ class VariationalStrategy(Module):
     to exactly marginalize out the variational distribution. When the inducing points are constrained to a grid, we
     apply the derivation in Wilson et al., 2016 and exploit a deterministic relationship between f and u.
     """
+
     def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=False):
         """
         Args:
