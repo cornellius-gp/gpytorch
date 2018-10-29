@@ -30,3 +30,10 @@ matrix:
       python: "3.6"
       install: pip install flake8 flake8-print
       script: flake8
+    - env: DOCS_CHECK
+      addons:
+        apt_packages:
+          - pandoc
+      python: "3.6"
+      install: pip install IPython ipykernel sphinx sphinx_rtd_theme nbsphinx m2r
+      script: python setup.py build_sphinx
