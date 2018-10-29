@@ -16,7 +16,7 @@ from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.models import NewVariationalGP
+from gpytorch.models import AbstractVariationalGP
 from gpytorch.variational import AdditiveGridInterpolationVariationalStrategy, VariationalDistribution
 
 n = 64
@@ -28,7 +28,7 @@ train_y = train_y * (train_x[:, 1].abs().lt(0.5)).float()
 train_y = train_y.float() * 2 - 1
 
 
-class GPClassificationModel(NewVariationalGP):
+class GPClassificationModel(AbstractVariationalGP):
     def __init__(self, grid_size=16, grid_bounds=([-1, 1],)):
         variational_distribution = VariationalDistribution(num_inducing_points=16, batch_size=2)
         variational_strategy = AdditiveGridInterpolationVariationalStrategy(self,
