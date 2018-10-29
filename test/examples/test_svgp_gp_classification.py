@@ -18,15 +18,15 @@ from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
 
 
-train_x = torch.linspace(0, 1, 10).unsqueeze(-1)
-train_y = torch.sign(torch.cos(train_x * (16 * pi))).squeeze()
+train_x = torch.linspace(-1, 1, 10).unsqueeze(-1)
+train_y = torch.sign(torch.cos(train_x * (2 * pi))).squeeze()
 
 
 class GPClassificationModel(gpytorch.models.AbstractVariationalGP):
     def __init__(self):
-        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(32)
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(16)
         variational_strategy = gpytorch.variational.VariationalStrategy(self,
-                                                                        torch.randn(32, 1),
+                                                                        torch.randn(16, 1),
                                                                         variational_distribution,
                                                                         learn_inducing_locations=True)
 
@@ -36,6 +36,7 @@ class GPClassificationModel(gpytorch.models.AbstractVariationalGP):
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),
             log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
         )
+        self.covar_module.base_kernel.initialize(log_lengthscale=-1)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -60,15 +61,15 @@ class TestSVGPClassification(unittest.TestCase):
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
-        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.numel())
 
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
 
-        optimizer = optim.SGD(model.parameters(), lr=0.01)
+        optimizer = optim.Adam(model.parameters(), lr=0.1)
         optimizer.n_iter = 0
-        for _ in range(200):
+        for _ in range(50):
             optimizer.zero_grad()
             output = model(train_x)
             loss = -mll(output, train_y)
