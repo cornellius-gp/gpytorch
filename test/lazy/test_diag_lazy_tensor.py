@@ -14,7 +14,7 @@ class TestDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
     should_test_sample = True
 
     def create_lazy_tensor(self):
-        diag = torch.tensor([1., 2., 4., 2., 3.], requires_grad=True)
+        diag = torch.tensor([1.0, 2.0, 4.0, 2.0, 3.0], requires_grad=True)
         return DiagLazyTensor(diag)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
@@ -27,7 +27,9 @@ class TestDiagLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
     should_test_sample = True
 
     def create_lazy_tensor(self):
-        diag = torch.tensor([[1., 2., 4., 2., 3.], [2., 1., 2., 1., 4.], [1., 2., 2., 3., 4.]], requires_grad=True)
+        diag = torch.tensor(
+            [[1.0, 2.0, 4.0, 2.0, 3.0], [2.0, 1.0, 2.0, 1.0, 4.0], [1.0, 2.0, 2.0, 3.0, 4.0]], requires_grad=True
+        )
         return DiagLazyTensor(diag)
 
     def evaluate_lazy_tensor(self, lazy_tensor):

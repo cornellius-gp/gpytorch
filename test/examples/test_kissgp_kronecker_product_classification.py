@@ -71,7 +71,7 @@ class TestKissGPKroneckerProductClassification(unittest.TestCase):
         with gpytorch.settings.max_preconditioner_size(5):
             optimizer = optim.Adam(model.parameters(), lr=0.15)
             optimizer.n_iter = 0
-            for _ in range(20):
+            for _ in range(100):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)

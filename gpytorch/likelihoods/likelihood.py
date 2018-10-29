@@ -58,3 +58,6 @@ class Likelihood(Module):
         variational posterior, q(f|D).
         """
         raise NotImplementedError
+
+    def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
+        raise NotImplementedError

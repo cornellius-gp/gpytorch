@@ -46,10 +46,10 @@ class TestSimpleGPRegression(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
+            torch.manual_seed(1)
             if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(0)
-            random.seed(0)
+                torch.cuda.manual_seed_all(1)
+            random.seed(1)
 
     def tearDown(self):
         if hasattr(self, "rng_state"):
@@ -104,7 +104,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
         optimizer.n_iter = 0
         with gpytorch.settings.debug(False):
-            for _ in range(50):
+            for _ in range(75):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
                 loss = -mll(output, train_y)

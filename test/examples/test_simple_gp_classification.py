@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from math import exp, pi
+from math import pi
 
 import os
 import random
@@ -11,11 +11,10 @@ import torch
 import unittest
 import gpytorch
 from torch import optim
-from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import BernoulliLikelihood
-from gpytorch.means import ConstantMean
-from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.distributions import MultivariateNormal
+from gpytorch.models import AbstractVariationalGP
+from gpytorch.variational import CholeskyVariationalDistribution
+from gpytorch.variational import VariationalStrategy
 
 
 def train_data(cuda=False):
@@ -27,19 +26,18 @@ def train_data(cuda=False):
         return train_x, train_y
 
 
-class GPClassificationModel(gpytorch.models.VariationalGP):
+class GPClassificationModel(AbstractVariationalGP):
     def __init__(self, train_x):
-        super(GPClassificationModel, self).__init__(train_x)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),
-            log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
-        )
+        variational_distribution = CholeskyVariationalDistribution(train_x.size(0))
+        variational_strategy = VariationalStrategy(self, train_x, variational_distribution)
+        super(GPClassificationModel, self).__init__(variational_strategy)
+        self.mean_module = gpytorch.means.ConstantMean()
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
 
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        latent_pred = MultivariateNormal(mean_x, covar_x)
+        latent_pred = gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
         return latent_pred
 
 
@@ -60,14 +58,14 @@ class TestSimpleGPClassification(unittest.TestCase):
         train_x, train_y = train_data()
         likelihood = BernoulliLikelihood()
         model = GPClassificationModel(train_x)
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
         optimizer = optim.Adam(model.parameters(), lr=0.1)
         optimizer.n_iter = 0
-        for _ in range(50):
+        for _ in range(75):
             optimizer.zero_grad()
             output = model(train_x)
             loss = -mll(output, train_y)
@@ -101,7 +99,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             likelihood.train()
             optimizer = optim.Adam(model.parameters(), lr=0.1)
             optimizer.n_iter = 0
-            for _ in range(50):
+            for _ in range(75):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
@@ -136,7 +134,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             model.train()
             optimizer = optim.Adam(model.parameters(), lr=0.1)
             optimizer.n_iter = 0
-            for _ in range(50):
+            for _ in range(75):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)

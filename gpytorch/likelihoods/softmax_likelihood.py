@@ -19,7 +19,7 @@ class SoftmaxLikelihood(Likelihood):
         self.n_classes = n_classes
         self.register_parameter(
             name="mixing_weights",
-            parameter=torch.nn.Parameter(torch.ones(n_classes, num_features).fill_(1. / num_features)),
+            parameter=torch.nn.Parameter(torch.ones(n_classes, num_features).fill_(1.0 / num_features)),
             prior=mixing_weights_prior,
         )
 

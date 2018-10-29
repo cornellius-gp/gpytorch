@@ -33,8 +33,13 @@ class StochasticLQ(object):
 
     def lanczos_batch(self, matmul_closure, rhs_vectors):
         return lanczos_tridiag(
-            matmul_closure, self.max_iter, init_vecs=rhs_vectors, dtype=rhs_vectors.dtype, device=rhs_vectors.device,
-            batch_shape=rhs_vectors.shape[-2:], matrix_shape=torch.Size((rhs_vectors.size(-2), rhs_vectors.size(-2)))
+            matmul_closure,
+            self.max_iter,
+            init_vecs=rhs_vectors,
+            dtype=rhs_vectors.dtype,
+            device=rhs_vectors.device,
+            batch_shape=rhs_vectors.shape[-2:],
+            matrix_shape=torch.Size((rhs_vectors.size(-2), rhs_vectors.size(-2))),
         )
 
     def evaluate(self, matrix_shape, eigenvalues, eigenvectors, funcs):

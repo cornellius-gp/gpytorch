@@ -122,7 +122,7 @@ def sparse_eye(size):
     Returns the identity matrix as a sparse matrix
     """
     indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
-    values = torch.tensor(1.).expand(size)
+    values = torch.tensor(1.0).expand(size)
     cls = getattr(torch.sparse, values.type().split(".")[-1])
     return cls(indices, values, torch.Size([size, size]))
 

@@ -74,7 +74,7 @@ class GridInterpolationKernel(GridKernel):
                 raise RuntimeError("num_dims must be supplied if grid_bounds is None")
             else:
                 # Create some temporary grid bounds - they'll be changed soon
-                grid_bounds = tuple((-1., 1.) for _ in range(num_dims))
+                grid_bounds = tuple((-1.0, 1.0) for _ in range(num_dims))
         else:
             has_initialized_grid = 1
             grid_is_dynamic = False

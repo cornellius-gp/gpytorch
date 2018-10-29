@@ -14,13 +14,10 @@ setup(
     install_requires=[],
     setup_requires=[],
     packages=find_packages(),
-    classifiers=[
-        'Development Status :: 4 - Beta',
-        'Programming Language :: Python :: 3',
-    ],
+    classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
     project_urls={
-        'Documentation': 'https://gpytorch.readthedocs.io',
-        'Source': 'https://github.com/cornellius-gp/gpytorch/',
+        "Documentation": "https://gpytorch.readthedocs.io",
+        "Source": "https://github.com/cornellius-gp/gpytorch/",
     },
     ext_package="",
 )

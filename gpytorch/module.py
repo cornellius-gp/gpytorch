@@ -7,7 +7,6 @@ from torch import nn
 from torch.distributions import Distribution
 
 from .lazy import LazyTensor
-from .variational import VariationalStrategy
 
 
 class Module(nn.Module):
@@ -15,7 +14,7 @@ class Module(nn.Module):
         super(Module, self).__init__()
         self._priors = OrderedDict()
         self._derived_priors = OrderedDict()
-        self._variational_strategies = OrderedDict()
+        self._added_loss_terms = OrderedDict()
 
     def _get_module_and_name(self, parameter_name):
         """Get module and name from full parameter name."""
@@ -33,6 +32,16 @@ class Module(nn.Module):
     def hyperparameters(self):
         for name, param in self.named_hyperparameters():
             yield param
+
+    def named_hyperparameters(self):
+        for name, param in self.named_parameters():
+            if "variational_" not in name:
+                yield name, param
+
+    def named_variational_parameters(self):
+        for name, param in self.named_parameters():
+            if "variational_" in name:
+                yield name, param
 
     def initialize(self, **kwargs):
         """
@@ -86,17 +95,7 @@ class Module(nn.Module):
         """
         return _extract_named_derived_priors(module=self, memo=None, prefix="")
 
-    def named_hyperparameters(self):
-        for name, param in self.named_parameters():
-            if "variational_" not in name:
-                yield name, param
-
-    def named_variational_parameters(self):
-        for name, param in self.named_parameters():
-            if "variational_" in name:
-                yield name, param
-
-    def named_variational_strategies(self):
+    def named_added_loss_terms(self):
         """Returns an iterator over module variational strategies, yielding both
         the name of the variational strategy as well as the strategy itself.
 
@@ -105,7 +104,7 @@ class Module(nn.Module):
                 strategy and the strategy
 
         """
-        return _extract_named_variational_strategies(module=self, memo=None, prefix="")
+        return _extract_named_added_loss_terms(module=self, memo=None, prefix="")
 
     def register_parameter(self, name, parameter, prior=None):
         """
@@ -142,8 +141,8 @@ class Module(nn.Module):
         self.add_module(name, prior)
         self._derived_priors[name] = (prior, tuple(parameter_names), transform)
 
-    def register_variational_strategy(self, name):
-        self._variational_strategies[name] = None
+    def register_added_loss_term(self, name):
+        self._added_loss_terms[name] = None
 
     def set_parameter_priors(self, **kwargs):
         """
@@ -166,16 +165,18 @@ class Module(nn.Module):
         for name, param in self.named_variational_parameters():
             yield param
 
-    def variational_strategies(self):
-        for _, strategy in self.named_variational_strategies():
+    def added_loss_terms(self):
+        for _, strategy in self.named_added_loss_terms():
             yield strategy
 
-    def update_variational_strategy(self, name, variational_strategy):
-        if not isinstance(variational_strategy, VariationalStrategy):
-            raise RuntimeError("variational_strategy must be a VariationalStrategy")
-        if name not in self._variational_strategies.keys():
-            raise RuntimeError("variational strategy {} not registered".format(name))
-        self._variational_strategies[name] = variational_strategy
+    def update_added_loss_term(self, name, added_loss_term):
+        from .mlls import AddedLossTerm
+
+        if not isinstance(added_loss_term, AddedLossTerm):
+            raise RuntimeError("added_loss_term must be a AddedLossTerm")
+        if name not in self._added_loss_terms.keys():
+            raise RuntimeError("added_loss_term {} not registered".format(name))
+        self._added_loss_terms[name] = added_loss_term
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
@@ -218,17 +219,17 @@ def _extract_named_parameter_priors(module, memo=None, prefix=""):
             yield name, parameter, prior
 
 
-def _extract_named_variational_strategies(module, memo=None, prefix=""):
+def _extract_named_added_loss_terms(module, memo=None, prefix=""):
     if memo is None:
         memo = set()
-    if hasattr(module, "_variational_strategies"):
-        for name, strategy in module._variational_strategies.items():
+    if hasattr(module, "_added_loss_terms"):
+        for name, strategy in module._added_loss_terms.items():
             if strategy is not None and strategy not in memo:
                 memo.add(strategy)
                 yield prefix + ("." if prefix else "") + name, strategy
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
-        for name, strategy in _extract_named_variational_strategies(module=module_, memo=memo, prefix=submodule_prefix):
+        for name, strategy in _extract_named_added_loss_terms(module=module_, memo=memo, prefix=submodule_prefix):
             yield name, strategy
 
 

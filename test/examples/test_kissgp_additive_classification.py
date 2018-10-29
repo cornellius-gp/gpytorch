@@ -16,6 +16,8 @@ from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.models import AbstractVariationalGP
+from gpytorch.variational import AdditiveGridInterpolationVariationalStrategy, CholeskyVariationalDistribution
 
 n = 64
 train_x = torch.zeros(n ** 2, 2)
@@ -26,9 +28,17 @@ train_y = train_y * (train_x[:, 1].abs().lt(0.5)).float()
 train_y = train_y.float() * 2 - 1
 
 
-class GPClassificationModel(gpytorch.models.AdditiveGridInducingVariationalGP):
-    def __init__(self):
-        super(GPClassificationModel, self).__init__(grid_size=16, grid_bounds=[(-1, 1)], num_dim=2)
+class GPClassificationModel(AbstractVariationalGP):
+    def __init__(self, grid_size=16, grid_bounds=([-1, 1],)):
+        variational_distribution = CholeskyVariationalDistribution(num_inducing_points=16, batch_size=2)
+        variational_strategy = AdditiveGridInterpolationVariationalStrategy(
+            self,
+            grid_size=grid_size,
+            grid_bounds=grid_bounds,
+            num_dim=2,
+            variational_distribution=variational_distribution,
+        )
+        super(GPClassificationModel, self).__init__(variational_strategy)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(
             RBFKernel(
@@ -61,7 +71,7 @@ class TestKissGPAdditiveClassification(unittest.TestCase):
         with gpytorch.settings.use_toeplitz(False), gpytorch.settings.max_preconditioner_size(5):
             model = GPClassificationModel()
             likelihood = BernoulliLikelihood()
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
+            mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()
@@ -71,7 +81,9 @@ class TestKissGPAdditiveClassification(unittest.TestCase):
             optimizer.n_iter = 0
             for _ in range(25):
                 optimizer.zero_grad()
+                # Get predictive output
                 output = model(train_x)
+                # Calc loss and backprop gradients
                 loss = -mll(output, train_y)
                 loss.backward()
                 optimizer.n_iter += 1
