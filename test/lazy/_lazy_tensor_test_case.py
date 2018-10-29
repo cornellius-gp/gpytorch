@@ -283,9 +283,9 @@ class RectangularBatchLazyTensorTestCase(object):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
 
-        for batch_index in product([
-            torch.tensor([0, 1, 1, 0]), slice(None, None, None)
-        ], repeat=(lazy_tensor.dim() - 2)):
+        for batch_index in product(
+            [torch.tensor([0, 1, 1, 0]), slice(None, None, None)], repeat=(lazy_tensor.dim() - 2)
+        ):
             index = (*batch_index, torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1]))
             res, actual = lazy_tensor[index], evaluated[index]
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
@@ -349,9 +349,7 @@ class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):
         self.assertTrue(approx_equal(res, actual))
 
         for sizes in product([1, None], repeat=(lazy_tensor.dim() - 2)):
-            batch_shape = [
-                lazy_tensor.batch_shape[i] if size is None else size for i, size in enumerate(sizes)
-            ]
+            batch_shape = [lazy_tensor.batch_shape[i] if size is None else size for i, size in enumerate(sizes)]
             other_diag = torch.randn(*batch_shape, lazy_tensor.size(-1)).pow(2)
             res = lazy_tensor.add_diag(other_diag).evaluate()
             actual = evaluated.clone().detach()
@@ -368,10 +366,12 @@ class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):
         test_vector = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
         with gpytorch.settings.max_cg_iterations(200):
             res = lazy_tensor.inv_matmul(test_vector)
-        actual = torch.cat([
-            flattened_evaluated[i].inverse().matmul(test_vector[i]).unsqueeze(0)
-            for i in range(lazy_tensor.batch_shape.numel())
-        ])
+        actual = torch.cat(
+            [
+                flattened_evaluated[i].inverse().matmul(test_vector[i]).unsqueeze(0)
+                for i in range(lazy_tensor.batch_shape.numel())
+            ]
+        )
         actual = actual.view_as(test_vector)
         self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 

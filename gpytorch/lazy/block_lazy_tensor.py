@@ -12,7 +12,8 @@ class BlockLazyTensor(LazyTensor):
     An abstract LazyTensor class for block tensors.
     Super classes will determine how the different blocks are layed out
     (e.g. block diagonal, sum over blocks, etc.)
-BlockLazyTensors represent the groups of blocks as a batched Tensor.
+
+    BlockLazyTensors represent the groups of blocks as a batched Tensor.
     For example, a `k x n x n` tensor represents `k` `n x n` blocks.
 
     For a batched block tensor, the batch dimension is used to represent
@@ -25,9 +26,9 @@ BlockLazyTensors represent the groups of blocks as a batched Tensor.
     from true batches). This attribute should be `None` for non-batched Tensors.
 
     Args:
-        :attr:`base_lazy_tensor` (LazyTensor):
+        - :attr:`base_lazy_tensor` (LazyTensor):
             A `k x n x n` LazyTensor, or a `bk x n x n` LazyTensor, representing `k` blocks.
-        :attr:`num_blocks` (int or None):
+        - :attr:`num_blocks` (int or None):
             Set this to `k` for `bk x n x n` batched LazyTensors, or `None` for `k x n x n`
             unbatched LazyTensors.
     """

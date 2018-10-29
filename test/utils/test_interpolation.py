@@ -27,7 +27,7 @@ class TestCubicInterpolation(unittest.TestCase):
 
     def test_multidim_interpolation(self):
         x = torch.tensor([[0.25, 0.45, 0.65, 0.85], [0.35, 0.375, 0.4, 0.425], [0.45, 0.5, 0.55, 0.6]]).t().contiguous()
-        grid = torch.linspace(0., 1., 11).unsqueeze(1).repeat(1, 3)
+        grid = torch.linspace(0.0, 1.0, 11).unsqueeze(1).repeat(1, 3)
 
         indices, values = Interpolation().interpolate(grid, x)
 

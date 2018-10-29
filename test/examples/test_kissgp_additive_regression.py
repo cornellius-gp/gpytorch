@@ -24,7 +24,7 @@ for i in range(n):
         train_x[i * n + j][0] = float(i) / (n - 1)
         train_x[i * n + j][1] = float(j) / (n - 1)
 train_y = torch.sin(train_x[:, 0]) + torch.cos(train_x[:, 1])
-train_y = train_y + torch.randn_like(train_y).div_(20.)
+train_y = train_y + torch.randn_like(train_y).div_(20.0)
 
 m = 10
 test_x = torch.zeros(pow(m, 2), 2)

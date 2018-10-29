@@ -11,14 +11,17 @@ from .prior import Prior
 
 
 class LKJPrior(Prior):
-    """LKJ prior over n x n (positive definite) correlation matrices
+    r"""LKJ prior over n x n (positive definite) correlation matrices
 
-    pdf(Sigma) ~ |Sigma| ^ (eta  - 1)
+    .. math:
 
-    where eta > 0 is a shape parameter.
+        \begin{equation*}
+            pdf(\Sigma) ~ |\Sigma| ^ (\eta  - 1)
+        \end{equation*}
+
+    where :math:`\eta > 0` is a shape parameter.
 
     Reference: Bayesian Data Analysis, 3rd ed., Gelman et al., p. 576
-
     """
 
     arg_constraints = {"n": constraints.positive_integer, "eta": constraints.positive}
@@ -63,12 +66,16 @@ class LKJPrior(Prior):
 
 
 class LKJCholeskyFactorPrior(LKJPrior):
-    """LKJ prior over n x n (positive definite) Cholesky-decomposed
+    r"""LKJ prior over n x n (positive definite) Cholesky-decomposed
     correlation matrices
 
-    pdf(Sigma) ~ |Sigma| ^ (eta  - 1)
+    .. math:
 
-    where eta > 0 is a shape parameter and n is the dimension of the
+        \begin{equation*}
+            pdf(\Sigma) ~ |\Sigma| ^ (\eta  - 1)
+        \end{equation*}
+
+    where :math:`\eta > 0` is a shape parameter and n is the dimension of the
     correlation matrix.
 
     LKJCholeskyFactorPrior is different from LKJPrior in that it accepts the
@@ -97,7 +104,7 @@ class LKJCovariancePrior(LKJPrior):
         n is a positive integer, the size of the covariance matrix,
         eta is a positive shape parameter for the LKJPrior over correlations, and
         sd_prior is a scalar Prior over nonnegative numbers, which is used for
-            each of the n marginal standard deviations on the covariance matrix.
+        each of the n marginal standard deviations on the covariance matrix.
     """
 
     def __init__(self, n, eta, sd_prior, validate_args=False):

@@ -30,14 +30,14 @@ class ProductStructureKernel(Kernel):
     See `Product Kernel Interpolation for Scalable Gaussian Processes`_ for more detail.
 
     Args:
-        :attr:`base_kernel` (Kernel):
+        - :attr:`base_kernel` (Kernel):
             The kernel to approximate with KISS-GP
-        :attr:`num_dims` (int):
+        - :attr:`num_dims` (int):
             The dimension of the input data.
-        :attr:`active_dims` (tuple of ints, optional):
+        - :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel`.
 
-    .. Product Kernel Interpolation for Scalable Gaussian Processes:
+    .. _Product Kernel Interpolation for Scalable Gaussian Processes:
         https://arxiv.org/pdf/1802.08903
     """
 

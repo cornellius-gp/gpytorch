@@ -25,6 +25,7 @@ def add_diag(input, diag):
     """
     if torch.is_tensor(input):
         from ..lazy import NonLazyTensor
+
         return NonLazyTensor(input).add_diag()
     else:
         return input.add_diag(diag)
@@ -37,6 +38,7 @@ def add_jitter(mat, jitter_val=1e-3):
 
     Args:
         - mat (matrix nxn) - Positive definite matrxi
+
     Returns: (matrix nxn)
     """
     if hasattr(mat, "add_jitter"):
@@ -69,16 +71,16 @@ def exact_predictive_mean(full_covar, full_mean, train_inputs, train_labels, num
     Computes the posterior predictive mean of a GP
 
     Args:
-    - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
-        - [ K_XX, K_XX*; K_X*X, K_X*X* ]
-    - full_mean (n + t) - the training and test prior means, stacked on top of each other
-    - train_inputs TODO
-    - train_labels (n) - the training labels minus the training prior mean
-    - noise (1) - the observed noise (from the likelihood)
-    - precomputed_cache - speeds up subsequent computations (default: None)
+        - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
+            [ K_XX, K_XX*; K_X*X, K_X*X* ]
+        - train_inputs TODO
+        - full_mean (n + t) - the training and test prior means, stacked on top of each other
+        - train_labels (n) - the training labels minus the training prior mean
+        - noise (1) - the observed noise (from the likelihood)
+        - precomputed_cache - speeds up subsequent computations (default: None)
 
     Returns:
-    - (t) - the predictive posterior mean of the test points
+        - (t) - the predictive posterior mean of the test points
     """
     if not num_train:
         return full_mean, None
@@ -95,14 +97,14 @@ def exact_predictive_covar(full_covar, train_inputs, num_train, likelihood, prec
     Computes the posterior predictive covariance of a GP
 
     Args:
-    - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
-        - [ K_XX, K_XX*; K_X*X, K_X*X* ]
-    - num_train (int) - how many training points are there in the full covariance matrix
-    - noise (1) - the observed noise (from the likelihood)
-    - precomputed_cache - speeds up subsequent computations (default: None)
+        - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
+            [ K_XX, K_XX*; K_X*X, K_X*X* ]
+        - num_train (int) - how many training points are there in the full covariance matrix
+        - noise (1) - the observed noise (from the likelihood)
+        - precomputed_cache - speeds up subsequent computations (default: None)
 
     Returns:
-    - LazyTensor (t x t) - the predictive posterior covariance of the test points
+        - LazyTensor (t x t) - the predictive posterior covariance of the test points
     """
     if not num_train:
         return full_covar, None

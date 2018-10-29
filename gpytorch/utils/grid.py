@@ -28,7 +28,7 @@ def scale_to_bounds(x, lower_bound, upper_bound):
     return x
 
 
-def choose_grid_size(train_inputs, ratio=1.):
+def choose_grid_size(train_inputs, ratio=1.0):
     """
     Given some training inputs, determine a good grid size for KISS-GP.
 
@@ -44,4 +44,4 @@ def choose_grid_size(train_inputs, ratio=1.):
     # Scale features so they fit inside grid bounds
     num_data = train_inputs.numel() if train_inputs.dim() == 1 else train_inputs.size(-2)
     num_dim = 1 if train_inputs.dim() == 1 else train_inputs.size(-1)
-    return int(ratio * math.pow(num_data, 1. / num_dim))
+    return int(ratio * math.pow(num_data, 1.0 / num_dim))

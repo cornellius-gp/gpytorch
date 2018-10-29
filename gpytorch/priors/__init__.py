@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from .prior import Prior
 from .lkj_prior import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior
 from .smoothed_box_prior import SmoothedBoxPrior
 from .torch_priors import GammaPrior, MultivariateNormalPrior, NormalPrior
@@ -9,6 +10,7 @@ from .torch_priors import GammaPrior, MultivariateNormalPrior, NormalPrior
 
 
 __all__ = [
+    "Prior",
     "GammaPrior",
     "LKJPrior",
     "LKJCholeskyFactorPrior",

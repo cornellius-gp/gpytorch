@@ -73,10 +73,22 @@ Composition/Decoration Kernels
 .. autoclass:: AdditiveKernel
    :members:
 
+:hidden:`AdditiveStructureKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: AdditiveStructureKernel
+   :members:
+
 :hidden:`ProductKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: ProductKernel
+   :members:
+
+:hidden:`ProductStructureKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ProductStructureKernel
    :members:
 
 :hidden:`ScaleKernel`
@@ -96,6 +108,12 @@ Specialty Kernels
 .. autoclass:: IndexKernel
    :members:
 
+:hidden:`LCMKernel`
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: LCMKernel
+   :members:
+
 :hidden:`MultitaskKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -105,12 +123,6 @@ Specialty Kernels
 
 Kernels for Scalable GP Regression Methods
 --------------------------------------------
-
-:hidden:`AdditiveGridInterpolationKernel`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: AdditiveGridInterpolationKernel
-   :members:
 
 :hidden:`GridKernel`
 ~~~~~~~~~~~~~~~~~~~~
@@ -128,10 +140,4 @@ Kernels for Scalable GP Regression Methods
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: InducingPointKernel
-   :members:
-
-:hidden:`MultiplicativeGridInterpolationKernel`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: MultiplicativeGridInterpolationKernel
    :members:

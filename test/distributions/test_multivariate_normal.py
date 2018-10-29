@@ -230,11 +230,11 @@ class TestMultivariateNormal(unittest.TestCase):
         dist_c = MultivariateNormal(mean0, DiagLazyTensor(var1))
 
         res = torch.distributions.kl.kl_divergence(dist_a, dist_a)
-        actual = 0.
+        actual = 0.0
         self.assertLess((res - actual).abs().item(), 1e-2)
 
         res = torch.distributions.kl.kl_divergence(dist_b, dist_a)
-        actual = var0.reciprocal().sum().div(2.)
+        actual = var0.reciprocal().sum().div(2.0)
         self.assertLess((res - actual).div(res).abs().item(), 1e-2)
 
         res = torch.distributions.kl.kl_divergence(dist_a, dist_c)

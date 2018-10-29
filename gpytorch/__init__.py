@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from .module import Module
 from . import (
     beta_features,
     distributions,
@@ -32,7 +33,6 @@ from .functions import (
     root_inv_decomposition,
 )
 from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
-from .module import Module
 
 
 __all__ = [

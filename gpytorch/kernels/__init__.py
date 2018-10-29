@@ -30,6 +30,7 @@ __all__ = [
     "GridInterpolationKernel",
     "IndexKernel",
     "InducingPointKernel",
+    "InducingPointKernelAddedLossTerm",
     "LCMKernel",
     "LinearKernel",
     "MaternKernel",

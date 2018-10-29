@@ -17,7 +17,7 @@ class TestAddedDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
         tensor = torch.randn(5, 5)
         tensor = tensor.transpose(-1, -2).matmul(tensor)
         tensor.requires_grad_(True)
-        diag = torch.tensor([1., 2., 4., 2., 3.], requires_grad=True)
+        diag = torch.tensor([1.0, 2.0, 4.0, 2.0, 3.0], requires_grad=True)
         return AddedDiagLazyTensor(NonLazyTensor(tensor), DiagLazyTensor(diag))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
@@ -34,7 +34,9 @@ class TestAddedDiagLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
         tensor = torch.randn(3, 5, 5)
         tensor = tensor.transpose(-1, -2).matmul(tensor)
         tensor.requires_grad_(True)
-        diag = torch.tensor([[1., 2., 4., 2., 3.], [2., 1., 2., 1., 4.], [1., 2., 2., 3., 4.]], requires_grad=True)
+        diag = torch.tensor(
+            [[1.0, 2.0, 4.0, 2.0, 3.0], [2.0, 1.0, 2.0, 1.0, 4.0], [1.0, 2.0, 2.0, 3.0, 4.0]], requires_grad=True
+        )
         return AddedDiagLazyTensor(NonLazyTensor(tensor), DiagLazyTensor(diag))
 
     def evaluate_lazy_tensor(self, lazy_tensor):

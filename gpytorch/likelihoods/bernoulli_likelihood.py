@@ -10,28 +10,19 @@ from .likelihood import Likelihood
 
 
 class BernoulliLikelihood(Likelihood):
-    """
+    r"""
     Implements the Bernoulli likelihood used for GP classification, using
     Probit regression (i.e., the latent function is warped to be in [0,1]
     using the standard Normal CDF \Phi(x)). Given the identity \Phi(-x) =
     1-\Phi(x), we can write the likelihood compactly as:
 
-    p(Y=y|f)=\Phi(yf)
+    .. math::
+        \begin{equation*}
+            p(Y=y|f)=\Phi(yf)
+        \end{equation*}
     """
 
     def forward(self, input):
-        """
-        Computes predictive distributions p(y|x) given a latent distribution
-        p(f|x). To do this, we solve the integral:
-
-            p(y|x) = \int p(y|f)p(f|x) df
-
-        Given that p(y=1|f) = \Phi(f), this integral is analytically tractable,
-        and if \mu_f and \sigma^2_f are the mean and variance of p(f|x), the
-        solution is given by:
-
-            p(y|x) = \Phi(\frac{\mu}{\sqrt{1+\sigma^2_f}})
-        """
         if not isinstance(input, MultivariateNormal):
             raise RuntimeError(
                 "BernoulliLikelihood expects a multi-variate normally distributed latent function to make predictions"
@@ -44,15 +35,15 @@ class BernoulliLikelihood(Likelihood):
         return Bernoulli(probs=output_probs)
 
     def variational_log_probability(self, latent_func, target):
-        """
-        Computes the log probability
-
-            \sum_{i} \log \Phi(y_{i}f_{i}),
-
-        where \Phi(y_{i}f_{i}) is computed by averaging over a set of s samples
-        of f_{i} drawn from p(f|x).
-        """
         num_samples = settings.num_likelihood_samples.value()
         samples = latent_func.rsample(torch.Size([num_samples])).view(-1)
         target = target.unsqueeze(0).repeat(num_samples, 1).view(-1)
         return log_normal_cdf(samples.mul(target)).sum().div(num_samples)
+
+    def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
+        import pyro
+
+        f_samples = variational_dist_f(sample_shape)
+        y_prob_samples = torch.distributions.Normal(0, 1).cdf(f_samples)
+        y_dist = pyro.distributions.Bernoulli(y_prob_samples)
+        pyro.sample(name_prefix + "._training_labels", y_dist.independent(1), obs=y_obs)

@@ -13,14 +13,17 @@ from .torch_priors import NormalPrior
 
 
 class SmoothedBoxPrior(Prior):
-    """A smoothed approximation of a uniform prior.
+    r"""A smoothed approximation of a uniform prior.
 
     Has full support on the reals and is differentiable everywhere.
 
-        B = {x: a_i <= x_i <= b_i}
-        d(x, B) = min_{x' in B} |x - x'|
+    .. math::
 
-        pdf(x) ~ exp(- d(x, B)**2 / sqrt(2 * sigma^2))
+        \begin{equation*}
+            B = {x: a_i <= x_i <= b_i}
+            d(x, B) = min_{x' in B} |x - x'|
+            pdf(x) ~ exp(- d(x, B)**2 / sqrt(2 * sigma^2))
+        \end{equation*}
 
     """
 

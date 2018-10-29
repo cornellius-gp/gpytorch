@@ -6,7 +6,7 @@ this_file = os.path.dirname(__file__)
 
 setup(
     name="gpytorch",
-    version="0.1.0.rc1",
+    version="0.1.0.rc3",
     description="An implementation of Gaussian Processes in Pytorch",
     url="https://gpytorch.ai",
     author="Jake Gardner, Geoff Pleiss",
@@ -14,13 +14,10 @@ setup(
     install_requires=[],
     setup_requires=[],
     packages=find_packages(),
-    classifiers=[
-        'Development Status :: 4 - Beta',
-        'Programming Language :: Python :: 3',
-    ],
+    classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
     project_urls={
-        'Documentation': 'https://gpytorch.readthedocs.io',
-        'Source': 'https://github.com/cornellius-gp/gpytorch/',
+        "Documentation": "https://gpytorch.readthedocs.io",
+        "Source": "https://github.com/cornellius-gp/gpytorch/",
     },
     ext_package="",
 )

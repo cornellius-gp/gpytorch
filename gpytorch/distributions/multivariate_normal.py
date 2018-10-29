@@ -10,7 +10,7 @@ from ..lazy import LazyTensor, NonLazyTensor
 from .distribution import Distribution
 
 
-class MultivariateNormal(TMultivariateNormal, Distribution):
+class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     """
     Constructs a multivariate Normal random variable, based on mean and covariance
     Can be multivariate, or a batch of multivariate Normals
@@ -26,6 +26,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
     def __init__(self, mean, covariance_matrix, validate_args=False):
         self._islazy = any(isinstance(arg, LazyTensor) for arg in (mean, covariance_matrix))
+        self._fake_batch_shape = torch.Size()
         if self._islazy:
             if validate_args:
                 # TODO: add argument validation
@@ -38,9 +39,13 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
         else:
-            super(MultivariateNormal, self).__init__(
+            super(_MultivariateNormalBase, self).__init__(
                 loc=mean, covariance_matrix=covariance_matrix, validate_args=validate_args
             )
+
+    @property
+    def batch_shape(self):
+        return self._fake_batch_shape + self._batch_shape
 
     @property
     def _unbroadcasted_scale_tril(self):
@@ -55,6 +60,11 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             raise NotImplementedError("Cannot set _unbroadcasted_scale_tril for lazy MVN distributions")
         else:
             self.__unbroadcasted_scale_tril = ust
+
+    def expand(self, batch_size):
+        res = self.__class__(self.loc, self._covar)
+        res._fake_batch_shape = torch.Size(batch_size)
+        return res
 
     def confidence_region(self):
         """
@@ -76,7 +86,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         if self.islazy:
             return self._covar.evaluate()
         else:
-            return super(MultivariateNormal, self).covariance_matrix
+            return super(_MultivariateNormalBase, self).covariance_matrix
 
     def get_base_samples(self, sample_shape=torch.Size()):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
@@ -93,7 +103,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         if self.islazy:
             return self._covar
         else:
-            return NonLazyTensor(super(MultivariateNormal, self).covariance_matrix)
+            return NonLazyTensor(super(_MultivariateNormalBase, self).covariance_matrix)
 
     def log_prob(self, value):
         if self._validate_args:
@@ -106,8 +116,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         if diff.shape[:-1] != covar.batch_shape:
             padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
             covar = covar.repeat(
-                *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)),
-                1, 1
+                *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)), 1, 1
             )
 
         # Get log determininat and first part of quadratic form
@@ -118,7 +127,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
-
+        sample_shape = self._fake_batch_shape + sample_shape
         if base_samples is None:
             # Create some samples
             num_samples = sample_shape.numel() or 1
@@ -163,10 +172,10 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
             return self.lazy_covariance_matrix.diag().expand(self._batch_shape + self._event_shape)
         else:
-            return super(MultivariateNormal, self).variance
+            return super(_MultivariateNormalBase, self).variance
 
     def __add__(self, other):
-        if isinstance(other, MultivariateNormal):
+        if isinstance(other, _MultivariateNormalBase):
             return self.__class__(
                 mean=self._mean + other.mean,
                 covariance_matrix=(self.lazy_covariance_matrix + other.lazy_covariance_matrix),
@@ -189,7 +198,21 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         return self.__class__(mean=self.mean * other, covariance_matrix=self.lazy_covariance_matrix * (other ** 2))
 
     def __truediv__(self, other):
-        return self.__mul__(1. / other)
+        return self.__mul__(1.0 / other)
+
+
+try:
+    # If pyro is installed, add the TorchDistributionMixin
+    from pyro.distributions.torch_distribution import TorchDistributionMixin
+
+    class MultivariateNormal(_MultivariateNormalBase, TorchDistributionMixin):
+        pass
+
+
+except ImportError:
+
+    class MultivariateNormal(_MultivariateNormalBase):
+        pass
 
 
 @register_kl(MultivariateNormal, MultivariateNormal)
@@ -204,17 +227,8 @@ def kl_mvn_mvn(p_dist, q_dist):
     mean_diffs = q_mean - p_mean
     inv_quad_rhs = torch.cat([root_p_covar, mean_diffs.unsqueeze(-1)], -1)
     log_det_p_covar = p_covar.log_det()
-    trace_plus_inv_quad_form, log_det_q_covar = q_covar.inv_quad_log_det(
-        inv_quad_rhs=inv_quad_rhs, log_det=True
-    )
+    trace_plus_inv_quad_form, log_det_q_covar = q_covar.inv_quad_log_det(inv_quad_rhs=inv_quad_rhs, log_det=True)
 
     # Compute the KL Divergence.
-    res = 0.5 * sum(
-        [
-            log_det_q_covar,
-            log_det_p_covar.mul(-1),
-            trace_plus_inv_quad_form,
-            -float(mean_diffs.size(-1)),
-        ]
-    )
+    res = 0.5 * sum([log_det_q_covar, log_det_p_covar.mul(-1), trace_plus_inv_quad_form, -float(mean_diffs.size(-1))])
     return res

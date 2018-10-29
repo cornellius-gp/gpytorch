@@ -145,25 +145,25 @@ class Kernel(Module):
             evaluation modes.
 
         Args:
-            :attr:`x1` (Tensor `n x d` or `b x n x d`)
-            :attr:`x2` (Tensor `m x d` or `b x m x d`)
-            :attr:`diag` (bool):
+            - :attr:`x1` (Tensor `n x d` or `b x n x d`)
+            - :attr:`x2` (Tensor `m x d` or `b x m x d`)
+            - :attr:`diag` (bool):
                 Should the Kernel compute the whole kernel, or just the diag?
                 For most Kernels, this option will be passed into `create_input_grid`
-            :attr:`batch_dims` (tuple, optional):
+            - :attr:`batch_dims` (tuple, optional):
                 If this option is passed in, it will tell the tensor which of the
                 three dimensions are batch dimensions.
                 Currently accepts: standard mode (either None or (0,))
                 or (0, 2) for use with Additive/Multiplicative kernels
 
         Returns:
-            :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
-            The exact size depends on the kernel's evaluation mode:
+            - :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
+                The exact size depends on the kernel's evaluation mode:
 
-            * `full_covar`: `n x m` or `b x n x m`
-            * `full_covar` with `batch_dims=(0, 2)`: `k x n x m` or `b x k x n x m`
-            * `diag`: `n` or `b x n`
-            * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
+                * `full_covar`: `n x m` or `b x n x m`
+                * `full_covar` with `batch_dims=(0, 2)`: `k x n x m` or `b x k x n x m`
+                * `diag`: `n` or `b x n`
+                * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
         """
         raise NotImplementedError()
 

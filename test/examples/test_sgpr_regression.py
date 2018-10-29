@@ -41,7 +41,9 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.base_covar_module = ScaleKernel(
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True))
         )
-        self.covar_module = InducingPointKernel(self.base_covar_module, inducing_points=torch.linspace(0, 1, 32))
+        self.covar_module = InducingPointKernel(
+            self.base_covar_module, inducing_points=torch.linspace(0, 1, 32), likelihood=likelihood
+        )
 
     def forward(self, x):
         mean_x = self.mean_module(x)

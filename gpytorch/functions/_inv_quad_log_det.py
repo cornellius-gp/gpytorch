@@ -180,7 +180,7 @@ class InvQuadLogDet(Function):
         inv_quad_solves = None
         neg_inv_quad_solves_times_grad_out = None
         if compute_log_det_grad:
-            coef = 1. / probe_vectors.size(-1)
+            coef = 1.0 / probe_vectors.size(-1)
             probe_vector_solves = solves.narrow(-1, 0, self.num_random_probes).mul(coef)
             probe_vector_solves.mul_(probe_vector_norms).mul_(log_det_grad_output)
             probe_vectors = probe_vectors.mul(probe_vector_norms)

@@ -13,14 +13,14 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, num_rows)
     This produces a sparse tensor with a fixed number of non-zero entries in each column.
 
     Args:
-        interp_indices - Tensor (batch_size) x num_cols x n_nonzero_entries
+        - interp_indices - Tensor (batch_size) x num_cols x n_nonzero_entries
             A matrix which has the indices of the nonzero_entries for each column
-        interp_values - Tensor (batch_size) x num_cols x n_nonzero_entries
+        - interp_values - Tensor (batch_size) x num_cols x n_nonzero_entries
             The corresponding values
-        num_rows - the number of rows in the result matrix
+        - num_rows - the number of rows in the result matrix
 
     Returns:
-        SparseTensor - (batch_size) x num_cols x num_rows
+        - SparseTensor - (batch_size) x num_cols x num_rows
     """
 
     if not torch.is_tensor(interp_indices):
@@ -122,7 +122,7 @@ def sparse_eye(size):
     Returns the identity matrix as a sparse matrix
     """
     indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
-    values = torch.tensor(1.).expand(size)
+    values = torch.tensor(1.0).expand(size)
     cls = getattr(torch.sparse, values.type().split(".")[-1])
     return cls(indices, values, torch.Size([size, size]))
 

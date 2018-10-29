@@ -33,12 +33,12 @@ Some advanced techniques that you can apply to soup up these simple models:
 If you have more than ~1,000 training data points, the simple GP models might start acting a bit slow.
 There are multiple methods to scale up GP regression, and the correct choice depends on your application.
 GPyTorch supports the following inducing point methods:
-- **KISS-GP Regression** - [more info](https://arxiv.org/abs/1503.01057)
+- **KISS-GP Regression** - [more info on KISS-GP](https://arxiv.org/abs/1503.01057)
     - A [simple KISS-GP example](04_Scalable_GP_Regression_1D/KISSGP_Regression_1D.ipynb) for one-dimensional data
     - [An example](05_Scalable_GP_Regression_Multidimensional/KISSGP_Kronecker_Regression.ipynb) for low-dimensional data
     - An [example that combines KISS-GP with Deep Kernel Learning](05_Scalable_GP_Regression_Multidimensional/KISSGP_Deep_Kernel_Regression_CUDA.ipynb)
-    - And [more](05_Scalable_GP_Regression_Multidimensional)!
-- **SGPR** - [more info](http://proceedings.mlr.press/v5/titsias09a/titsias09a.pdf)
+    - And [more regression examples](05_Scalable_GP_Regression_Multidimensional)!
+- **SGPR** - [more info on SGPR](http://proceedings.mlr.press/v5/titsias09a/titsias09a.pdf)
     - Example coming soon!
 
 While there are lots of different choices, switching between methods requires a quick one-line change to your model.
@@ -57,15 +57,15 @@ Some examples:
 There are multiple methods for scalable GP classification, and the correct choice depends on your application.
 Some examples:
 - **KISS-GP Classification**
-    - A [simple KISSGP example](06_Scalable_GP_Classification_1D/KISSGP_Classification_1D.ipynb) for one-dimensional data
-    - [An example](07_Scalable_GP_Classification_Multidimensional/KISSGP_Kronecker_Classification.ipynb) for low-dimensional data
-    - And [more](07_Scalable_GP_Classification_Multidimensional)!
+    - A [simple KISS-GP classificatoin example for one-dimensional data](06_Scalable_GP_Classification_1D/KISSGP_Classification_1D.ipynb)
+    - [An example for low-dimensional classification](07_Scalable_GP_Classification_Multidimensional/KISSGP_Kronecker_Classification.ipynb)
+    - And [more classification examples](07_Scalable_GP_Classification_Multidimensional)!
 
 
 ## Deep Kernel Learning
 
 GPyTorch seemlessly integrates with PyTorch, making it extremely easy to combine GPs with neural networks.
-The following examples use **[Deep Kernel Learning](https://arxiv.org/abs/1511.02222)**:
-- A [large-scale regression problem](05_Scalable_GP_Regression_Multidimensional/KISSGP_Deep_Kernel_Regression_CUDA.ipynb) with Deep Kernel Learning
-- Training [a GP for CIFAR image classification](08_Deep_Kernel_Learning/Deep_Kernel_Learning_DenseNet_CIFAR_Tutorial.ipynb) with Deep Kernel Learning
-- And [more](08_Deep_Kernel_Learning)!
+The following examples use [the Deep Kernel Learning method](https://arxiv.org/abs/1511.02222):
+  - A [large-scale regression problem](05_Scalable_GP_Regression_Multidimensional/KISSGP_Deep_Kernel_Regression_CUDA.ipynb) with Deep Kernel Learning
+  - Training [a GP for CIFAR image classification](08_Deep_Kernel_Learning/Deep_Kernel_Learning_DenseNet_CIFAR_Tutorial.ipynb) with Deep Kernel Learning
+  - And [more](08_Deep_Kernel_Learning)!

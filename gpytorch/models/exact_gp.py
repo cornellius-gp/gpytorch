@@ -5,14 +5,14 @@ from __future__ import unicode_literals
 
 import warnings
 import torch
-from ..module import Module
 from ..functions import exact_predictive_mean, exact_predictive_covar
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import GaussianLikelihood
 from .. import settings
+from .gp import GP
 
 
-class ExactGP(Module):
+class ExactGP(GP):
     def __init__(self, train_inputs, train_targets, likelihood):
         if train_inputs is not None and torch.is_tensor(train_inputs):
             train_inputs = (train_inputs,)

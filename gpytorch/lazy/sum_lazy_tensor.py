@@ -49,11 +49,6 @@ class SumLazyTensor(LazyTensor):
     def _get_indices(self, left_indices, right_indices):
         return sum(lazy_tensor._get_indices(left_indices, right_indices) for lazy_tensor in self.lazy_tensors)
 
-    def add_jitter(self, jitter_val=1e-3):
-        lazy_tensors = list(self.lazy_tensors[:-1])
-        lazy_tensors.append(self.lazy_tensors[-1].add_jitter(jitter_val=jitter_val))
-        return SumLazyTensor(*lazy_tensors)
-
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         return tuple(
             lazy_tensor._exact_predictive_covar_inv_quad_form_cache(
