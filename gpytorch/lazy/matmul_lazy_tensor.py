@@ -51,9 +51,12 @@ class MatmulLazyTensor(LazyTensor):
             right_vecs = right_vecs.unsqueeze(1)
         right_vecs_times_right_lazy_tensor = self.right_lazy_tensor._matmul(right_vecs)
         left_vecs_times_left_lazy_tensor_t = self.left_lazy_tensor._t_matmul(left_vecs)
-        left_grad, = self.left_lazy_tensor._quad_form_derivative(left_vecs, right_vecs_times_right_lazy_tensor)
-        right_grad, = self.right_lazy_tensor._quad_form_derivative(left_vecs_times_left_lazy_tensor_t, right_vecs)
-        return left_grad, right_grad
+        left_grad = self.left_lazy_tensor._quad_form_derivative(left_vecs, right_vecs_times_right_lazy_tensor)
+        right_grad = self.right_lazy_tensor._quad_form_derivative(left_vecs_times_left_lazy_tensor_t, right_vecs)
+
+        left_grad = (left_grad,) if not isinstance(left_grad, tuple) else left_grad
+        right_grad = (right_grad,) if not isinstance(right_grad, tuple) else right_grad
+        return left_grad + right_grad
 
     def _size(self):
         if self.left_lazy_tensor.ndimension() > 2:
