@@ -47,20 +47,20 @@ class GridInterpolationKernel(GridKernel):
         Periodic, Spectral Mixture, etc.)
 
     Args:
-        :attr:`base_kernel` (Kernel):
+        - :attr:`base_kernel` (Kernel):
             The kernel to approximate with KISS-GP
-        :attr:`grid_size` (int):
+        - :attr:`grid_size` (int):
             The size of the grid (in each dimension)
-        :attr:`num_dims` (int):
+        - :attr:`num_dims` (int):
             The dimension of the input data. Required if `grid_bounds=None`
-        :attr:`grid_bounds` (tuple(float, float), optional):
+        - :attr:`grid_bounds` (tuple(float, float), optional):
             The bounds of the grid, if known (high performance mode).
             The length of the tuple must match the number of dimensions.
             The entries represent the min/max values for each dimension.
-        :attr:`active_dims` (tuple of ints, optional):
+        - :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel`.
 
-    .. Kernel Interpolation for Scalable Structured Gaussian Processes:
+    .. _Kernel Interpolation for Scalable Structured Gaussian Processes:
         http://proceedings.mlr.press/v37/wilson15.pdf
     """
 

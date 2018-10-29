@@ -29,14 +29,14 @@ class ScaleKernel(Kernel):
         be sure that the prior has :attr:`log_transform=True` set.
 
     Args:
-        :attr:`batch_size` (int, optional): Set this if you want a separate outputscale for each
+        - :attr:`batch_size` (int, optional): Set this if you want a separate outputscale for each
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
-        :attr:`log_outputscale_prior` (Prior, optional): Set this if you want
+        - :attr:`log_outputscale_prior` (Prior, optional): Set this if you want
             to apply a prior to the outputscale parameter.  Default: `None`
 
     Attributes:
-        :attr:`base_kernel` (Kernel): The kernel module to be scaled.
-        :attr:`outputscale` (Tensor): The outputscale parameter. Size/shape of parameter depends on the
+        - :attr:`base_kernel` (Kernel): The kernel module to be scaled.
+        - :attr:`outputscale` (Tensor): The outputscale parameter. Size/shape of parameter depends on the
             :attr:`batch_size` arguments.
 
     Example:

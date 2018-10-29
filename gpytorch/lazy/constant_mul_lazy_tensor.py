@@ -16,7 +16,8 @@ class ConstantMulLazyTensor(LazyTensor):
     ```
 
     .. note::
-    To element-wise multiply two lazy tensors, see :class:`gpytorch.lazy.MulLazyTensor`
+
+        To element-wise multiply two lazy tensors, see :class:`gpytorch.lazy.MulLazyTensor`
 
     Args:
         base_lazy_tensor (LazyTensor) or (b x n x m)): The base_lazy tensor

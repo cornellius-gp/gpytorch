@@ -24,12 +24,6 @@ Standard Priors
 .. autoclass:: GammaPrior
    :members:
 
-:hidden:`InverseWishartPrior`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: InverseWishartPrior
-   :members:
-
 :hidden:`LKJCovariancePrior`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -52,10 +46,4 @@ Standard Priors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: SmoothedBoxPrior
-   :members:
-
-:hidden:`WishartPrior`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: WishartPrior
    :members:

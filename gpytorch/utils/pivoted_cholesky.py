@@ -81,10 +81,16 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
 
 
 def woodbury_factor(low_rank_mat, shift):
-    """
+    r"""
     Given a low rank (k x n) matrix V and a shift, returns the
     matrix R so that
-        R = (I_k + 1/shift VV')^{-1}V
+
+    .. math::
+
+        \begin{equation*}
+            R = (I_k + 1/shift VV')^{-1}V
+        \end{equation*}
+
     to be used in solves with (V'V + shift I) via the Woodbury formula
     """
     k = low_rank_mat.size(-2)
@@ -98,8 +104,7 @@ def woodbury_factor(low_rank_mat, shift):
 
 def woodbury_solve(vector, low_rank_mat, woodbury_factor, shift):
     """
-    Solves the system of equations:
-        (sigma*I + VV')x = b
+    Solves the system of equations: :math:`(sigma*I + VV')x = b`
     Using the Woodbury formula.
 
     Input:

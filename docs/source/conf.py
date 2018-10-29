@@ -26,38 +26,59 @@ import sphinx_rtd_theme  # noqa
 sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
 
 
+# Mechanism to mock out modules
 class ModuleMock(object):
     def __init__(self, *args, **kwargs):
         pass
 
 
+# We need some dirty hackary to fix the distributions mocking
+class _Distribution(object):
+    pass
+
+
+# More dirty hackary
+class _SubDistribution(object):
+    pass
+
+
+# Putting all of our dirty hacks together
 class Mock(MagicMock):
+    __metaclass__ = type
+
     @classmethod
     def __getattr__(cls, name):
         if "Module" == name:
             return ModuleMock
+        elif "Distribution" in name:
+            return _Distribution
+        elif "Normal" in name or "Gamma" in name or "Wishart" in name:
+            return _SubDistribution
         else:
             res = MagicMock()
             res.Module = ModuleMock
+            res.__metaclass__ = type
             return res
 
 
 MOCK_MODULES = [
+    "pyro",
+    "pyro.distributions",
+    "pyro.distributions.torch_distribution",
     "torch",
     "torch.autograd",
     "torch.nn",
     "torch.optim",
     "torch.utils",
     "torch.utils.data",
-    "torch.distributions.constraints",
-    "torch.distributions.gamma",
-    "torch.distributions.normal",
+    "torch.distributions.kl",
     "torch.distributions.multivariate_normal",
+    "torch.distributions.utils",
+    "torch.distributions",
     "torch.optim.lr_scheduler",
     "numpy",
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-
 
 # - Copy over examples folder to docs/source
 # This makes it so that nbsphinx properly loads the notebook images

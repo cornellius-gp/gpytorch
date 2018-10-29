@@ -126,17 +126,17 @@ class Module(nn.Module):
         Adds a derived prior to the module.
         The prior can be accessed as an attribute using the given name.
 
-        name (str): name of the derived prior
-        prior (Prior): the prior object
-        parameter_names (tuple(str)): The parameters the transform operaters on,
-            in the same order as expected by the transform callable.
-        transform (Callable): The function called on the specified parameters. The
-            log-pdf of the prior will be evaluating on the output of this transform.
+        Args:
+            - name (str): name of the derived prior
+            - prior (Prior): the prior object
+            - parameter_names (tuple(str)): The parameters the transform operaters on,
+                in the same order as expected by the transform callable.
+            - transform (Callable): The function called on the specified parameters. The
+                log-pdf of the prior will be evaluating on the output of this transform.
 
         A derived prior operates on a transform of one or multiple parameters.
         This can be used, for instance, to put a prior over the ICM Kernel
         covariance matrix generated from covar_factor and log_var parameters.
-
         """
         self.add_module(name, prior)
         self._derived_priors[name] = (prior, tuple(parameter_names), transform)

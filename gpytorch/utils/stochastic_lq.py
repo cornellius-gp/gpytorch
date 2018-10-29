@@ -20,13 +20,14 @@ class StochasticLQ(object):
         The nature of stochastic Lanczos quadrature is that the calculation of tr(f(A)) is both inaccurate and
         stochastic. An instance of StochasticLQ has two parameters that control these tradeoffs. Increasing either
         parameter increases the running time of the algorithm.
+
         Args:
-            cls - Tensor constructor - to ensure correct type (default - default tensor)
-            max_iter (scalar) - The number of Lanczos iterations to perform. Increasing this makes the estimate of
-                     tr(f(A)) more accurate in expectation -- that is, the average value returned has lower error.
-            num_random_probes (scalar) - The number of random probes to use in the stochastic trace estimation.
-                              Increasing this makes the estimate of tr(f(A)) lower variance -- that is, the value
-                              returned is more consistent.
+            - cls - Tensor constructor - to ensure correct type (default - default tensor)
+            - max_iter (scalar) - The number of Lanczos iterations to perform. Increasing this makes the estimate of
+                tr(f(A)) more accurate in expectation -- that is, the average value returned has lower error.
+            - num_random_probes (scalar) - The number of random probes to use in the stochastic trace estimation.
+                Increasing this makes the estimate of tr(f(A)) lower variance -- that is, the value
+                returned is more consistent.
         """
         self.max_iter = max_iter
         self.num_random_probes = num_random_probes
@@ -50,17 +51,19 @@ class StochasticLQ(object):
         Note that calling this function with a list of functions to apply is significantly more efficient than
         calling it multiple times with one function -- each additional function after the first requires negligible
         additional computation.
+
         Args:
             - matrix_shape (torch.Size()) - size of underlying matrix (not including batch dimensions)
             - eigenvalues (Tensor n_probes x ...batch_shape x k) - batches of eigenvalues from Lanczos tridiag mats
             - eigenvectors (Tensor n_probes x ...batch_shape x k x k) - batches of eigenvectors from " " "
             - funcs (list of closures) - A list of functions [f_1,...,f_k]. tr(f_i(A)) is computed for each function.
-                    Each function in the closure should expect to take a torch vector of eigenvalues as input and apply
-                    the function elementwise. For example, to compute logdet(A) = tr(log(A)), [lambda x: x.log()] would
-                    be a reasonable value of funcs.
+                Each function in the closure should expect to take a torch vector of eigenvalues as input and apply
+                the function elementwise. For example, to compute logdet(A) = tr(log(A)), [lambda x: x.log()] would
+                be a reasonable value of funcs.
+
         Returns:
             - results (list of scalars) - The trace of each supplied function applied to the matrix, e.g.,
-                      [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
+                [tr(f_1(A)),tr(f_2(A)),...,tr(f_k(A))].
         """
         batch_shape = torch.Size(eigenvalues.shape[1:-1])
         results = [torch.zeros(batch_shape, dtype=eigenvalues.dtype, device=eigenvalues.device) for _ in funcs]

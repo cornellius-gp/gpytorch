@@ -1,29 +1,29 @@
 .. role:: hidden
     :class: hidden-section
 
-gpytorch.random_variables
+gpytorch.distributions
 ===================================
 
-.. automodule:: gpytorch.random_variables
-.. currentmodule:: gpytorch.random_variables
+.. automodule:: gpytorch.distributions
+.. currentmodule:: gpytorch.distributions
 
 
-RandomVariable
+Distribution
 ----------------
 
-.. autoclass:: RandomVariable
+.. autoclass:: Distribution
    :members:
 
 
-GaussianRandomVariable
+MultivariateNormal
 -----------------------------
 
-.. autoclass:: GaussianRandomVariable
+.. autoclass:: MultivariateNormal
    :members:
 
 
-MultitaskGaussianRandomVariable
+MultitaskMultivariateNormal
 ----------------------------------
 
-.. autoclass:: MultitaskGaussianRandomVariable
+.. autoclass:: MultitaskMultivariateNormal
    :members:
