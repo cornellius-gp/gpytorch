@@ -64,6 +64,12 @@ class DiagLazyTensor(LazyTensor):
         else:
             return super(DiagLazyTensor, self).evaluate()
 
+    def exp(self):
+        return DiagLazyTensor(self._diag.exp())
+
+    def sqrt(self):
+        return DiagLazyTensor(self._diag.sqrt())
+
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:
             base_samples = torch.randn(
