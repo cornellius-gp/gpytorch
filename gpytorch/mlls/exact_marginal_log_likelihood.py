@@ -7,7 +7,6 @@ import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
 from ..likelihoods import GaussianLikelihood
 from ..distributions import MultivariateNormal
-from .inducing_point_kernel_added_loss_term import InducingPointKernelAddedLossTerm
 
 
 class ExactMarginalLogLikelihood(MarginalLogLikelihood):
@@ -34,11 +33,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         # Add terms for SGPR / when inducing points are learned
         added_loss = torch.zeros_like(res)
         for added_loss_term in self.model.added_loss_terms():
-            if isinstance(added_loss_term, InducingPointKernelAddedLossTerm):
-                new_loss = added_loss_term.loss() / self.likelihood.log_noise.exp()
-                added_loss = added_loss.add(new_loss)
-            else:
-                added_loss.add(added_loss_term.loss())
+            added_loss.add(added_loss_term.loss())
 
         res = res.add(0.5, added_loss)
 

@@ -9,7 +9,7 @@ from .cosine_kernel import CosineKernel
 from .grid_kernel import GridKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .index_kernel import IndexKernel
-from .inducing_point_kernel import InducingPointKernel, InducingPointKernelAddedLossTerm
+from .inducing_point_kernel import InducingPointKernel
 from .lcm_kernel import LCMKernel
 from .linear_kernel import LinearKernel
 from .matern_kernel import MaternKernel

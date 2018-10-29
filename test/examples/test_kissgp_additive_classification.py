@@ -17,7 +17,7 @@ from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.models import AbstractVariationalGP
-from gpytorch.variational import AdditiveGridInterpolationVariationalStrategy, VariationalDistribution
+from gpytorch.variational import AdditiveGridInterpolationVariationalStrategy, CholeskyVariationalDistribution
 
 n = 64
 train_x = torch.zeros(n ** 2, 2)
@@ -30,7 +30,7 @@ train_y = train_y.float() * 2 - 1
 
 class GPClassificationModel(AbstractVariationalGP):
     def __init__(self, grid_size=16, grid_bounds=([-1, 1],)):
-        variational_distribution = VariationalDistribution(num_inducing_points=16, batch_size=2)
+        variational_distribution = CholeskyVariationalDistribution(num_inducing_points=16, batch_size=2)
         variational_strategy = AdditiveGridInterpolationVariationalStrategy(
             self,
             grid_size=grid_size,

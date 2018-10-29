@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from ..variational import VariationalDistribution, AdditiveGridInterpolationVariationalStrategy
+from ..variational import CholeskyVariationalDistribution, AdditiveGridInterpolationVariationalStrategy
 from ..models.abstract_variational_gp import AbstractVariationalGP
 import warnings
 
@@ -12,7 +12,7 @@ class AdditiveGridInducingVariationalGP(AbstractVariationalGP):
             "and will be removed in a future release. Please see the new examples.",
             DeprecationWarning,
         )
-        variational_distribution = VariationalDistribution(num_inducing_points=grid_size, batch_size=num_dim)
+        variational_distribution = CholeskyVariationalDistribution(num_inducing_points=grid_size, batch_size=num_dim)
         variational_strategy = AdditiveGridInterpolationVariationalStrategy(
             self,
             grid_size=grid_size,

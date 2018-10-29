@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from ..variational import VariationalDistribution, GridInterpolationVariationalStrategy
+from ..variational import CholeskyVariationalDistribution, GridInterpolationVariationalStrategy
 from .abstract_variational_gp import AbstractVariationalGP
 import warnings
 
@@ -15,7 +15,9 @@ class GridInducingVariationalGP(AbstractVariationalGP):
             "be removed in a future release. Please see the new examples.",
             DeprecationWarning,
         )
-        variational_distribution = VariationalDistribution(num_inducing_points=int(pow(grid_size, len(grid_bounds))))
+        variational_distribution = CholeskyVariationalDistribution(
+            num_inducing_points=int(pow(grid_size, len(grid_bounds)))
+        )
         variational_strategy = GridInterpolationVariationalStrategy(
             self, grid_size=grid_size, grid_bounds=grid_bounds, variational_distribution=variational_distribution
         )

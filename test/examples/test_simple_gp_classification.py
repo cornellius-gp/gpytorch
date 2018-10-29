@@ -13,7 +13,7 @@ import gpytorch
 from torch import optim
 from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.models import AbstractVariationalGP
-from gpytorch.variational import VariationalDistribution
+from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy
 
 
@@ -28,7 +28,7 @@ def train_data(cuda=False):
 
 class GPClassificationModel(AbstractVariationalGP):
     def __init__(self, train_x):
-        variational_distribution = VariationalDistribution(train_x.size(0))
+        variational_distribution = CholeskyVariationalDistribution(train_x.size(0))
         variational_strategy = VariationalStrategy(self, train_x, variational_distribution)
         super(GPClassificationModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
