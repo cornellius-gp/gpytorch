@@ -1,5 +1,6 @@
 # GPyTorch (Beta Release)
 [![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
+[![Documentation Status](https://readthedocs.org/projects/gpytorch/badge/?version=latest)](https://gpytorch.readthedocs.io/en/latest/?badge=latest)
 
 **News!**
  - The Beta release is currently out! Note that it **requires the PyTorch preview build** (pytorch-nightly, >= 1.0).
