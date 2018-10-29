@@ -81,7 +81,7 @@ class VariationalStrategy(Module):
         if torch.equal(x, self.inducing_points):
             return variational_dist
         else:
-            n_induc = len(self.inducing_points)
+            n_induc = self.inducing_points.size(-2)
             full_inputs = torch.cat([self.inducing_points, x])
             full_output = self.model.forward(full_inputs)
             full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
@@ -125,4 +125,4 @@ class VariationalStrategy(Module):
                 left_factor = (factor - induc_data_covar).transpose(-1, -2)
                 predictive_covar = predictive_covar + MatmulLazyTensor(left_factor, right_factor)
 
-            return MultivariateNormal(predictive_mean, predictive_covar)
+            return MultivariateNormal(predictive_mean, predictive_covar.add_jitter(1e-2))

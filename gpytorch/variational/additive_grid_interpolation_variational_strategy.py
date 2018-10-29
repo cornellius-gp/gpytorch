@@ -61,6 +61,6 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
         if self.sum_output:
             mean = output.mean.sum(0)
             covar = output.lazy_covariance_matrix.sum_batch()
-            return MultivariateNormal(mean, covar)
+            return MultivariateNormal(mean, covar.add_jitter())
         else:
             return output
