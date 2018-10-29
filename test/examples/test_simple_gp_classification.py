@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from math import exp, pi
+from math import pi
 
 import os
 import random

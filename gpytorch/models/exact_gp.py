@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import warnings
 import torch
-from ..module import Module
 from ..functions import exact_predictive_mean, exact_predictive_covar
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import GaussianLikelihood

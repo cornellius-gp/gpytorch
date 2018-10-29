@@ -31,11 +31,13 @@ train_y = train_y.float() * 2 - 1
 class GPClassificationModel(AbstractVariationalGP):
     def __init__(self, grid_size=16, grid_bounds=([-1, 1],)):
         variational_distribution = VariationalDistribution(num_inducing_points=16, batch_size=2)
-        variational_strategy = AdditiveGridInterpolationVariationalStrategy(self,
-                                                                            grid_size=grid_size,
-                                                                            grid_bounds=grid_bounds,
-                                                                            num_dim=2,
-                                                                            variational_distribution=variational_distribution)
+        variational_strategy = AdditiveGridInterpolationVariationalStrategy(
+            self,
+            grid_size=grid_size,
+            grid_bounds=grid_bounds,
+            num_dim=2,
+            variational_distribution=variational_distribution,
+        )
         super(GPClassificationModel, self).__init__(variational_strategy)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(

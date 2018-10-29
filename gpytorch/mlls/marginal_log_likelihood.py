@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from ..module import Module
 from ..models import GP
 
+
 class MarginalLogLikelihood(Module):
     """
     A module to compute marginal log likelihoods of data

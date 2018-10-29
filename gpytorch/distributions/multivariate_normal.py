@@ -201,12 +201,14 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     def __truediv__(self, other):
         return self.__mul__(1. / other)
 
+
 try:
     # If pyro is installed, add the TorchDistributionMixin
     from pyro.distributions.torch_distribution import TorchDistributionMixin
+
     class MultivariateNormal(_MultivariateNormalBase, TorchDistributionMixin):
         pass
-except ImportError as e:
+except ImportError:
     class MultivariateNormal(_MultivariateNormalBase):
         pass
 

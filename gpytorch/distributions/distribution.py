@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from torch.distributions import Distribution as TDistribution
 
+
 class Distribution(TDistribution):
     @property
     def islazy(self):
