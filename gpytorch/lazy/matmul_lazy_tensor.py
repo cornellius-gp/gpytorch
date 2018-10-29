@@ -54,16 +54,9 @@ class MatmulLazyTensor(LazyTensor):
         left_grad = self.left_lazy_tensor._quad_form_derivative(left_vecs, right_vecs_times_right_lazy_tensor)
         right_grad = self.right_lazy_tensor._quad_form_derivative(left_vecs_times_left_lazy_tensor_t, right_vecs)
 
-        if isinstance(left_grad, tuple) and isinstance(right_grad, tuple):
-            retr_tuple = left_grad + right_grad
-        elif isinstance(left_grad, tuple):
-            retr_tuple = left_grad + (right_grad,)
-        elif isinstance(right_grad, tuple):
-            retr_tuple = (left_grad,) + right_grad
-        else:
-            retr_tuple = (left_grad, right_grad)
-
-        return retr_tuple
+        left_grad = (left_grad,) if not isinstance(right_grad, tuple)
+        right_grad = (right_grad,) if not isinstance(right_grad, tuple)
+        return left_grad + right_grad
 
     def _size(self):
         if self.left_lazy_tensor.ndimension() > 2:
