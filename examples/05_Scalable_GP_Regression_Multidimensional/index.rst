@@ -9,4 +9,6 @@
    KISSGP_Additive_Regression_CUDA.ipynb
    KISSGP_Deep_Kernel_Regression_CUDA.ipynb
    KISSGP_Deep_Kernel_Regression_With_LOVE_Fast_Variances_CUDA.ipynb
-   KISSGP_Deep_Kernel_Regression_With_Stochastic_variational_Inference_CUDA.ipynb
+   Scalable_Kernel_Interpolation_for_Products_CUDA.ipynb
+   SVDKL_Regression_GridInterp_CUDA.ipynb
+   SVDKL_Regression_SVGP_CUDA.ipynb
