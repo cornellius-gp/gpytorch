@@ -39,7 +39,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
         else:
-            super(MultivariateNormal, self).__init__(
+            super(_MultivariateNormalBase, self).__init__(
                 loc=mean, covariance_matrix=covariance_matrix, validate_args=validate_args
             )
 
@@ -86,7 +86,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         if self.islazy:
             return self._covar.evaluate()
         else:
-            return super(MultivariateNormal, self).covariance_matrix
+            return super(_MultivariateNormalBase, self).covariance_matrix
 
     def get_base_samples(self, sample_shape=torch.Size()):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
@@ -103,7 +103,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         if self.islazy:
             return self._covar
         else:
-            return NonLazyTensor(super(MultivariateNormal, self).covariance_matrix)
+            return NonLazyTensor(super(_MultivariateNormalBase, self).covariance_matrix)
 
     def log_prob(self, value):
         if self._validate_args:
@@ -173,10 +173,10 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
             return self.lazy_covariance_matrix.diag().expand(self._batch_shape + self._event_shape)
         else:
-            return super(MultivariateNormal, self).variance
+            return super(_MultivariateNormalBase, self).variance
 
     def __add__(self, other):
-        if isinstance(other, MultivariateNormal):
+        if isinstance(other, _MultivariateNormalBase):
             return self.__class__(
                 mean=self._mean + other.mean,
                 covariance_matrix=(self.lazy_covariance_matrix + other.lazy_covariance_matrix),
