@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
-from ..likelihoods import GaussianLikelihood
+from ..likelihoods import _GaussianLikelihoodBase
 from ..distributions import MultivariateNormal
 
 
@@ -18,7 +18,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         - likelihood: (Likelihood) - the likelihood for the model
         - model: (Module) - the exact GP model
         """
-        if not isinstance(likelihood, GaussianLikelihood):
+        if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
 

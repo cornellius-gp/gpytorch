@@ -7,7 +7,7 @@ import warnings
 import torch
 from ..functions import exact_predictive_mean, exact_predictive_covar
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
-from ..likelihoods import GaussianLikelihood
+from ..likelihoods import _GaussianLikelihoodBase
 from .. import settings
 from .gp import GP
 
@@ -18,8 +18,8 @@ class ExactGP(GP):
             train_inputs = (train_inputs,)
         if train_inputs is not None and not all(torch.is_tensor(train_input) for train_input in train_inputs):
             raise RuntimeError("Train inputs must be a tensor, or a list/tuple of tensors")
-        if not isinstance(likelihood, GaussianLikelihood):
-            raise RuntimeError("ExactGP can only handle GaussianLikelihood")
+        if not isinstance(likelihood, _GaussianLikelihoodBase):
+            raise RuntimeError("ExactGP can only handle Gaussian Likelihoods")
 
         super(ExactGP, self).__init__()
         if train_inputs is not None:

@@ -10,43 +10,32 @@ from ..lazy import AddedDiagLazyTensor, DiagLazyTensor
 from .likelihood import Likelihood
 from .noise_models import HomoskedasticNoise
 
-DEPRECATION_WARNING = "'GaussianLikelihood' was renamed to 'HomoskedasticGaussianLikelihood'"
 
-
-class GaussianLikelihood(Likelihood):
-    def __init__(self, *args, **kwargs):
-        if len(args) + len(kwargs) == 0 or "log_noise_prior" in kwargs or "batch_size" in kwargs:
-            warnings.warn(DEPRECATION_WARNING, DeprecationWarning)
-            logging.warning(DEPRECATION_WARNING)
-            self.__init__(log_noise_covar=HomoskedasticNoise(*args, **kwargs))
-            self._is_homoskedastic = True
-        else:
-            super(GaussianLikelihood, self).__init__()
-            self.log_noise_covar = args[0] if len(kwargs) == 0 else kwargs["log_noise_covar"]
+class _GaussianLikelihoodBase(Likelihood):
+    def __init__(self, log_noise_covar):
+        super(_GaussianLikelihoodBase, self).__init__()
+        self.log_noise_covar = log_noise_covar
 
     def forward(self, input, *params):
         if not isinstance(input, MultivariateNormal):
-            raise ValueError("GaussianLikelihood requires a MultivariateNormal input")
+            raise ValueError("Gaussian Likelihoods require a MultivariateNormal input")
         mean, covar = input.mean, input.lazy_covariance_matrix
         log_noise_covar = self.log_noise_covar(*params)
         if isinstance(log_noise_covar, DiagLazyTensor):
             full_covar = AddedDiagLazyTensor(covar, log_noise_covar.exp())
         else:
-            # TODO: Deal with non-diagonal noise covariance models
+            # TODO: Poperly deal with non-diagonal noise covariance models
             full_covar = covar + log_noise_covar.exp()
         return input.__class__(mean, full_covar)
 
     def variational_log_probability(self, input, target):
-        if hasattr(self, "_is_homoskedastic"):
-            return HomoskedasticGaussianLikelihood.variational_log_probability(self, input, target)
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
 
-class HomoskedasticGaussianLikelihood(GaussianLikelihood):
+class GaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(self, log_noise_prior=None, batch_size=1):
         log_noise_covar = HomoskedasticNoise(log_noise_prior=log_noise_prior, batch_size=1)
-        super(HomoskedasticGaussianLikelihood, self).__init__(log_noise_covar=log_noise_covar)
+        super(GaussianLikelihood, self).__init__(log_noise_covar=log_noise_covar)
 
     def variational_log_probability(self, input, target):
         mean, variance = input.mean, input.variance

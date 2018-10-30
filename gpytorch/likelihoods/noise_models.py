@@ -18,11 +18,17 @@ class HomoskedasticNoise(Module):
     def forward(self, params):
         log_noise = self.log_noise
         p = params[0] if isinstance(params, list) else params
-        var_shape = p.shape[:-2] + p.shape[-1:]
-        if len(var_shape) == 1:
-            log_noise = log_noise.squeeze(0)
-        variances = log_noise * torch.ones(*var_shape, dtype=log_noise.dtype, device=log_noise.device)
-        return DiagLazyTensor(variances)
+        n = p.shape[-2] if len(p.shape) > 1 else p.shape[-1]
+        log_noise_diag = log_noise.repeat(n, 1)
+        return DiagLazyTensor(log_noise_diag)
+
+
+class MultitaskHomoskedasticNoise(HomoskedasticNoise):
+    def __init__(self, num_tasks, log_noise_prior=None, batch_size=1):
+        super(HomoskedasticNoise, self).__init__()
+        self.register_parameter(
+            name="log_noise", parameter=Parameter(torch.zeros(batch_size, num_tasks)), prior=log_noise_prior
+        )
 
 
 class HeteroskedasticNoise(Module):

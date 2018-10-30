@@ -64,12 +64,6 @@ class DiagLazyTensor(LazyTensor):
         else:
             return super(DiagLazyTensor, self).evaluate()
 
-    def exp(self):
-        return DiagLazyTensor(self._diag.exp())
-
-    def sqrt(self):
-        return DiagLazyTensor(self._diag.sqrt())
-
     def sum_batch(self, sum_batch_size=None):
         if sum_batch_size is None:
             diag = self._diag.view(-1, self._diag.size(-1))
@@ -77,6 +71,12 @@ class DiagLazyTensor(LazyTensor):
             diag = self._diag.view(-1, sum_batch_size, self._diag.size(-1))
 
         return self.__class__(diag.sum(-2))
+
+    def exp(self):
+        return DiagLazyTensor(self._diag.exp())
+
+    def sqrt(self):
+        return DiagLazyTensor(self._diag.sqrt())
 
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:
