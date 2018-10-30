@@ -25,10 +25,9 @@ train_y = torch.sign(torch.cos(train_x * (2 * pi))).squeeze()
 class GPClassificationModel(gpytorch.models.AbstractVariationalGP):
     def __init__(self):
         variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(16)
-        variational_strategy = gpytorch.variational.VariationalStrategy(self,
-                                                                        torch.randn(16, 1),
-                                                                        variational_distribution,
-                                                                        learn_inducing_locations=True)
+        variational_strategy = gpytorch.variational.VariationalStrategy(
+            self, torch.randn(16, 1), variational_distribution, learn_inducing_locations=True
+        )
 
         super(GPClassificationModel, self).__init__(variational_strategy)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-5, 5))
@@ -69,7 +68,7 @@ class TestSVGPClassification(unittest.TestCase):
 
         optimizer = optim.Adam(model.parameters(), lr=0.1)
         optimizer.n_iter = 0
-        for _ in range(50):
+        for _ in range(75):
             optimizer.zero_grad()
             output = model(train_x)
             loss = -mll(output, train_y)
