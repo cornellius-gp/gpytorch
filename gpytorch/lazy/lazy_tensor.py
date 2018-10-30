@@ -12,7 +12,6 @@ from ..functions._matmul import Matmul
 from .. import beta_features, settings
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
-from IPython.core.debugger import set_trace
 
 class LazyTensor(object):
     """
