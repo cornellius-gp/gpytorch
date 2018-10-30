@@ -15,7 +15,7 @@ class TestMatmulLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
     def create_lazy_tensor(self):
         lhs = torch.randn(5, 6, requires_grad=True)
-        rhs = lhs.transpose(-1, -2)
+        rhs = lhs.clone().detach().transpose(-1, -2)
         covar = MatmulLazyTensor(lhs, rhs)
         return covar
 
@@ -28,7 +28,7 @@ class TestMatmulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
 
     def create_lazy_tensor(self):
         lhs = torch.randn(5, 5, 6, requires_grad=True)
-        rhs = lhs.transpose(-1, -2)
+        rhs = lhs.clone().detach().transpose(-1, -2)
         covar = MatmulLazyTensor(lhs, rhs)
         return covar
 
