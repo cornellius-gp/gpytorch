@@ -106,14 +106,20 @@ class LazyTensor(object):
                                    this LazyTensor.
         """
         args = self.representation()
-        for arg in args:
-            arg.requires_grad = True
+
+        toggled = [False] * len(args)
+
+        for i, arg in enumerate(args):
+            if not arg.requires_grad:
+                arg.requires_grad = True
+                toggled[i] = True
 
         loss = (left_vecs * self._matmul(right_vecs)).sum()
         grads = torch.autograd.grad(loss, args)
 
-        for arg in args:
-            arg.requires_grad = False
+        for i, arg in enumerate(args):
+            if toggled[i]:
+                arg.requires_grad = False
 
         return grads
 
