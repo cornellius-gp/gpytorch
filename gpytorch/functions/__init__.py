@@ -66,7 +66,9 @@ def dsmm(sparse_mat, dense_mat):
     return DSMM(sparse_mat)(dense_mat)
 
 
-def exact_predictive_mean(full_covar, full_mean, train_labels, num_train, likelihood, precomputed_cache=None):
+def exact_predictive_mean(
+    full_covar, full_mean, train_labels, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+):
     """
     Computes the posterior predictive mean of a GP
 
@@ -88,10 +90,12 @@ def exact_predictive_mean(full_covar, full_mean, train_labels, num_train, likeli
         from ..lazy.non_lazy_tensor import NonLazyTensor
 
         full_covar = NonLazyTensor(full_covar)
-    return full_covar.exact_predictive_mean(full_mean, train_labels, num_train, likelihood, precomputed_cache)
+    return full_covar.exact_predictive_mean(
+        full_mean, train_labels, num_train, likelihood, precomputed_cache, non_batch_train
+    )
 
 
-def exact_predictive_covar(full_covar, num_train, likelihood, precomputed_cache=None):
+def exact_predictive_covar(full_covar, num_train, likelihood, precomputed_cache=None, non_batch_train=False):
     """
     Computes the posterior predictive covariance of a GP
 
@@ -112,7 +116,7 @@ def exact_predictive_covar(full_covar, num_train, likelihood, precomputed_cache=
         from ..lazy.non_lazy_tensor import NonLazyTensor
 
         full_covar = NonLazyTensor(full_covar)
-    return full_covar.exact_predictive_covar(num_train, likelihood, precomputed_cache)
+    return full_covar.exact_predictive_covar(num_train, likelihood, precomputed_cache, non_batch_train)
 
 
 def log_normal_cdf(x):
