@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import torch
 from .kernel import Kernel
 from ..lazy import ToeplitzLazyTensor, KroneckerProductLazyTensor
 from .. import settings
@@ -24,8 +25,6 @@ class GridKernel(Kernel):
     Args:
         :attr:`base_kernel` (Kernel):
             The kernel to speed up with grid methods.
-        :attr:`grid` (Tensor, k x d):
-            The exact grid points.
         :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel`.
 
@@ -52,19 +51,30 @@ class GridKernel(Kernel):
             del self._cached_kernel_mat
         return self
 
+    def _create_data_from_grid(self):
+        grid_size = self.grid.size(-2)
+        grid_dim = self.grid.size(-1)
+        grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim)
+        prev_points = None
+        for i in range(grid_dim):
+            for j in range(grid_size):
+                grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(self.grid[j, i])
+                if prev_points is not None:
+                    grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
+            prev_points = grid_data[: grid_size ** (i + 1), : (i + 1)]
+
+        return grid_data
+
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
-        """
-        Forward the grid data through the base kernel.
+        grid = self.grid.unsqueeze(0)
+        x1 = x1.unsqueeze(0) if x1.dim() == 2 else x1
+        x2 = x2.unsqueeze(0) if x2.dim() == 2 else x2
+        if torch.equal(x1, grid) and torch.equal(x2, grid):
 
-        **Note:** GridKernel entirely ignores x1 and x2, and only forwards the grid through the base kernel.
-        If for some reason you need to change the grid, use the update_grid method.
-        """
-        if not self.training and hasattr(self, "_cached_kernel_mat"):
-            covar = self._cached_kernel_mat
+            if not self.training and hasattr(self, "_cached_kernel_mat"):
+                return self._cached_kernel_mat
 
-        else:
             n_dim = x1.size(-1)
-            grid = self.grid.unsqueeze(0)
 
             if settings.use_toeplitz.on():
                 first_item = grid[:, 0:1]
@@ -89,4 +99,8 @@ class GridKernel(Kernel):
             if not self.training:
                 self._cached_kernel_mat = covar
 
-        return covar
+            return covar
+        else:
+            x1_ = self._create_data_from_grid() if torch.equal(x1, grid) else x1
+            x2_ = self._create_data_from_grid() if torch.equal(x2, grid) else x2
+            return self.base_kernel.forward(x1_, x2_, diag=diag, batch_dims=batch_dims, **params)
