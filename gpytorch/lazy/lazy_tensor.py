@@ -1137,11 +1137,15 @@ class LazyTensor(object):
         """
         from .sum_lazy_tensor import SumLazyTensor
         from .zero_lazy_tensor import ZeroLazyTensor
+        from .diag_lazy_tensor import DiagLazyTensor
+        from .added_diag_lazy_tensor import AddedDiagLazyTensor
 
         if isinstance(other, ZeroLazyTensor):
             return self
-
-        return SumLazyTensor(self, other)
+        elif isinstance(other, DiagLazyTensor):
+            return AddedDiagLazyTensor(self, other)
+        else:
+            return SumLazyTensor(self, other)
 
     def __div__(self, other):
         """
