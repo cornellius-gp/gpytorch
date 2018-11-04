@@ -15,7 +15,7 @@ def _prod(iterable):
 
 def _matmul(lazy_tensors, rhs):
     res = rhs.contiguous()
-    is_batch = rhs.ndimension() == 3
+    is_batch = res.ndimension() == 3
     num_cols = rhs.size(-1)
     for lazy_tensor in list(lazy_tensors)[::-1]:
         if is_batch:
@@ -30,6 +30,7 @@ def _matmul(lazy_tensors, rhs):
             factor = lazy_tensor._matmul(res)
             factor = factor.view(lazy_tensor.size(-2), -1, num_cols).transpose(-3, -2).contiguous().view(-1, num_cols)
             res = factor.contiguous().view(-1, num_cols)
+
     return res
 
 
