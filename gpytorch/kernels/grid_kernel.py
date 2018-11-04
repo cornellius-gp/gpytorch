@@ -25,8 +25,6 @@ class GridKernel(Kernel):
     Args:
         :attr:`base_kernel` (Kernel):
             The kernel to speed up with grid methods.
-        :attr:`inducing_points` (Tensor, n x d):
-            This will be the set of points that lie on the grid.
         :attr:`grid` (Tensor, k x d):
             The exact grid points.
         :attr:`active_dims` (tuple of ints, optional):
@@ -36,12 +34,9 @@ class GridKernel(Kernel):
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
     """
 
-    def __init__(self, base_kernel, inducing_points, grid, active_dims=None):
+    def __init__(self, base_kernel, grid, active_dims=None):
         super(GridKernel, self).__init__(active_dims=active_dims)
         self.base_kernel = base_kernel
-        if inducing_points.ndimension() != 2:
-            raise RuntimeError("Inducing points should be 2 dimensional")
-        self.register_buffer("inducing_points", inducing_points.unsqueeze(0))
         self.register_buffer("grid", grid)
 
     def train(self, mode=True):
@@ -49,20 +44,22 @@ class GridKernel(Kernel):
             del self._cached_kernel_mat
         return super(GridKernel, self).train(mode)
 
-    def update_inducing_points_and_grid(self, inducing_points, grid):
+    def update_grid(self, grid):
         """
-        Supply a new set of `inducing_points` and a new `grid` if they ever change.
+        Supply a new `grid` if it ever changes.
         """
-        self.inducing_points.detach().resize_(inducing_points.size()).copy_(inducing_points)
         self.grid.detach().resize_(grid.size()).copy_(grid)
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
         return self
 
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
-        if not torch.equal(x1, self.inducing_points) or not torch.equal(x2, self.inducing_points):
-            raise RuntimeError("The kernel should only receive the inducing points as input")
+        """
+        Forward the grid data through the base kernel.
 
+        **Note:** GridKernel entirely ignores x1 and x2, and only forwards the grid through the base kernel.
+        If for some reason you need to change the grid, use the update_grid method.
+        """
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             covar = self._cached_kernel_mat
 
