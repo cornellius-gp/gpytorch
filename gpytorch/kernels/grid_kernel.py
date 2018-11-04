@@ -104,3 +104,20 @@ class GridKernel(Kernel):
             x1_ = self._create_data_from_grid() if torch.equal(x1, grid) else x1
             x2_ = self._create_data_from_grid() if torch.equal(x2, grid) else x2
             return self.base_kernel.forward(x1_, x2_, diag=diag, batch_dims=batch_dims, **params)
+
+    def size(self, x1, x2):
+        """
+        Given `n` data points `x1` and `m` datapoints `x2`, this multitask
+        kernel returns an `(n*num_tasks) x (m*num_tasks)` covariancn matrix.
+        """
+        if x1.dim() == 3:
+            grid = self.grid.unsqueeze(0)
+        else:
+            grid = self.grid
+        left_size = pow(grid.size(-2), grid.size(-1)) if torch.equal(x1, grid) else x1.size(-2)
+        right_size = pow(grid.size(-2), grid.size(-1)) if torch.equal(x2, grid) else x2.size(-2)
+        non_batch_size = (left_size, right_size)
+        if x1.ndimension() == 3:
+            return torch.Size((x1.size(0),) + non_batch_size)
+        else:
+            return torch.Size(non_batch_size)
