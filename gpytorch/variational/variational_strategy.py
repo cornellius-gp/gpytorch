@@ -63,7 +63,7 @@ class VariationalStrategy(Module):
         this is done simply by calling the user defined GP prior on the inducing point data directly.
         """
         out = self.model.forward(self.inducing_points)
-        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel())
+        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel().add_jitter())
 
     def forward(self, x):
         """
@@ -125,4 +125,4 @@ class VariationalStrategy(Module):
                 left_factor = (factor - induc_data_covar).transpose(-1, -2)
                 predictive_covar = predictive_covar + MatmulLazyTensor(left_factor, right_factor)
 
-            return MultivariateNormal(predictive_mean, predictive_covar.add_jitter(1e-2))
+            return MultivariateNormal(predictive_mean, predictive_covar)
