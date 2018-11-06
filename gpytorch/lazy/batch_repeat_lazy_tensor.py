@@ -139,13 +139,13 @@ class BatchRepeatLazyTensor(LazyTensor):
             inv_quad_rhs, log_det, reduce_inv_quad=False
         )
 
-        if inv_quad_term.numel():
+        if inv_quad_term is not None and inv_quad_term.numel():
             inv_quad_term = inv_quad_term.view(*inv_quad_term.shape[:-1], -1, self.batch_repeat.numel())
             inv_quad_term = self._move_repeat_batches_back(inv_quad_term).squeeze(-1)
             if reduce_inv_quad:
                 inv_quad_term = inv_quad_term.sum(-1)
 
-        if log_det_term.numel():
+        if log_det_term is not None and log_det_term.numel():
             log_det_term = log_det_term.repeat(*self.batch_repeat)
 
         return inv_quad_term, log_det_term
