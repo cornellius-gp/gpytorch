@@ -1,31 +1,24 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import math
-import warnings
-import logging
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..lazy import AddedDiagLazyTensor, DiagLazyTensor
+from ..functions import add_diag
 from .likelihood import Likelihood
 from .noise_models import HomoskedasticNoise
 
 
 class _GaussianLikelihoodBase(Likelihood):
-    def __init__(self, log_noise_covar):
+    def __init__(self, noise_covar):
         super(_GaussianLikelihoodBase, self).__init__()
-        self.log_noise_covar = log_noise_covar
+        self.noise_covar = noise_covar
 
     def forward(self, input, *params):
         if not isinstance(input, MultivariateNormal):
-            raise ValueError("Gaussian Likelihoods require a MultivariateNormal input")
+            raise ValueError("Gaussian likelihoods require a MultivariateNormal input")
         mean, covar = input.mean, input.lazy_covariance_matrix
-        log_noise_covar = self.log_noise_covar(*params)
-        if isinstance(log_noise_covar, DiagLazyTensor):
-            full_covar = AddedDiagLazyTensor(covar, log_noise_covar.exp())
-        else:
-            # TODO: Poperly deal with non-diagonal noise covariance models
-            full_covar = covar + log_noise_covar.exp()
+        full_covar = covar + self.noise_covar(*params)
         return input.__class__(mean, full_covar)
 
     def variational_log_probability(self, input, target):
@@ -34,8 +27,8 @@ class _GaussianLikelihoodBase(Likelihood):
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(self, log_noise_prior=None, batch_size=1):
-        log_noise_covar = HomoskedasticNoise(log_noise_prior=log_noise_prior, batch_size=1)
-        super(GaussianLikelihood, self).__init__(log_noise_covar=log_noise_covar)
+        noise_covar = HomoskedasticNoise(log_noise_prior=log_noise_prior, batch_size=1)
+        super(GaussianLikelihood, self).__init__(noise_covar=noise_covar)
 
     def variational_log_probability(self, input, target):
         mean, variance = input.mean, input.variance

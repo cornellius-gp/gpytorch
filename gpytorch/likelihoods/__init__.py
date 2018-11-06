@@ -6,7 +6,7 @@ from .likelihood import Likelihood
 from .multitask_gaussian_likelihood import (
     _MultitaskGaussianLikelihoodBase,
     MultitaskGaussianLikelihood,
-    MultitaskGaussianLikelihood_Kronecker,
+    MultitaskGaussianLikelihoodKronecker,
 )
 from .noise_models import HeteroskedasticNoise
 from .softmax_likelihood import SoftmaxLikelihood
@@ -20,6 +20,6 @@ __all__ = [
     "HeteroskedasticNoise",
     "Likelihood",
     "MultitaskGaussianLikelihood",
-    "MultitaskGaussianLikelihood_Kronecker",
+    "MultitaskGaussianLikelihoodKronecker",
     "SoftmaxLikelihood",
 ]

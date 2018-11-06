@@ -19,7 +19,7 @@ class ExactGP(GP):
         if train_inputs is not None and not all(torch.is_tensor(train_input) for train_input in train_inputs):
             raise RuntimeError("Train inputs must be a tensor, or a list/tuple of tensors")
         if not isinstance(likelihood, _GaussianLikelihoodBase):
-            raise RuntimeError("ExactGP can only handle Gaussian Likelihoods")
+            raise RuntimeError("ExactGP can only handle Gaussian likelihoods")
 
         super(ExactGP, self).__init__()
         if train_inputs is not None:

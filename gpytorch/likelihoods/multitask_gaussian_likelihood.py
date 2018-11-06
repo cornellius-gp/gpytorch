@@ -23,10 +23,12 @@ def _eval_covar_matrix(task_noise_covar_factor, log_noise):
     )
 
 
-def _eval_corr_matrix(task_noise_corr_factor):
-    M = task_noise_corr_factor.matmul(task_noise_corr_factor.transpose(-1, -2))
-    dsqrtinv = 1 / M.diag().sqrt()
-    return M * dsqrtinv.unsqueeze(-1).matmul(dsqrtinv.unsqueeze(0))
+def _eval_corr_matrix(corr_factor, corr_diag):
+    M = corr_factor.matmul(corr_factor.transpose(-1, -2))
+    idx = torch.arange(M.shape[-1], dtype=torch.long, device=M.device)
+    M[..., idx, idx] += corr_diag
+    sem_inv = 1 / torch.diagonal(M, dim1=-2, dim2=-1).sqrt().unsqueeze(-1)
+    return M * sem_inv.matmul(sem_inv.transpose(-1, -2))
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
@@ -39,12 +41,12 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
     Like the Gaussian likelihood, this object can be used with exact inference.
     """
 
-    def __init__(self, num_tasks, log_noise_covar, rank=0, task_correlation_prior=None, batch_size=1):
+    def __init__(self, num_tasks, noise_covar, rank=0, task_correlation_prior=None, batch_size=1):
         """
         Args:
             num_tasks (int): Number of tasks.
 
-            log_noise_covar (:obj:`gpytorch.module.Module`): A model for the log-noise covariance. This can be a
+            noise_covar (:obj:`gpytorch.module.Module`): A model for the noise covariance. This can be a
             simple homoskedastic model, or a GP that is to be fitted on the observed measurement errors.
 
             rank (int): The rank of the task noise covariance matrix to fit. If `rank` is set to 0,
@@ -56,16 +58,19 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             batch_size (int): Number of batches.
 
         """
-        super(_MultitaskGaussianLikelihoodBase, self).__init__(log_noise_covar=log_noise_covar)
+        super(_MultitaskGaussianLikelihoodBase, self).__init__(noise_covar=noise_covar)
         if rank != 0:
             self.register_parameter(
                 name="task_noise_corr_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
+            )
+            self.register_parameter(
+                name="task_noise_corr_diag", parameter=torch.nn.Parameter(torch.ones(batch_size, num_tasks))
             )
             if task_correlation_prior is not None:
                 self.register_derived_prior(
                     name="MultitaskErrorCorrelationPrior",
                     prior=task_correlation_prior,
-                    parameter_names=("task_noise_corr_factor",),
+                    parameter_names=("task_noise_corr_factor", "task_noise_corr_diag"),
                     transform=_eval_corr_matrix,
                 )
         elif task_correlation_prior is not None:
@@ -101,21 +106,22 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
         if hasattr(self, "task_noise_corr_factor"):
             task_noise_corr_factor = self.task_noise_corr_factor
+            task_noise_corr_diag = self.task_noise_corr_diag
             if len(batch_shape) > 0:
                 if settings.debug.on() and task_noise_corr_factor.size(0) > 1:
                     raise RuntimeError(
                         "With batch_size > 1, expected a batched MultitaskMultivariateNormal distribution."
                     )
                 task_noise_corr_factor = task_noise_corr_factor.squeeze(0)
-            # TODO: This is inefficient, find a better way to do this
-            task_corr = NonLazyTensor(_eval_corr_matrix(task_noise_corr_factor))
+                task_noise_corr_diag = task_noise_corr_diag.squeeze(0)
+            # # TODO: This is inefficient, find a better way to do this
+            task_corr = NonLazyTensor(_eval_corr_matrix(task_noise_corr_factor, task_noise_corr_diag))
         else:
             task_corr = DiagLazyTensor(
                 torch.ones(batch_shape + torch.Size([self.num_tasks]), dtype=covar.dtype, device=covar.device)
             )
 
-        log_noise_covar = self.log_noise_covar(*params)
-        D_sem = log_noise_covar.exp().sqrt()
+        D_sem = self.noise_covar(*params).sqrt()
         task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(D_sem, task_corr.repeat(n, 1, 1)), D_sem)
         task_covar = BlockDiagLazyTensor(task_covar_blocks)
         return input.__class__(mean, covar + task_covar)
@@ -146,19 +152,17 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             Only used when `rank` > 0.
 
         """
-        log_noise_covar = MultitaskHomoskedasticNoise(
-            num_tasks=num_tasks, log_noise_prior=log_noise_prior, batch_size=1
-        )
+        noise_covar = MultitaskHomoskedasticNoise(num_tasks=num_tasks, log_noise_prior=log_noise_prior, batch_size=1)
         super(MultitaskGaussianLikelihood, self).__init__(
             num_tasks=num_tasks,
-            log_noise_covar=log_noise_covar,
+            noise_covar=noise_covar,
             rank=rank,
             task_correlation_prior=task_correlation_prior,
             batch_size=batch_size,
         )
 
 
-class MultitaskGaussianLikelihood_Kronecker(_MultitaskGaussianLikelihoodBase):
+class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
     """
     A convenient extension of the :class:`gpytorch.likelihoods.GaussianLikelihood` to the multitask setting that allows
     for a full cross-task covariance structure for the noise. The fitted covariance matrix has rank `rank`.
