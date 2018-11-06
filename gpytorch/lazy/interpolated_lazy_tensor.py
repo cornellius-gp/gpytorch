@@ -365,7 +365,16 @@ class InterpolatedLazyTensor(LazyTensor):
                 res = res.view(batch_size, n_data, -1).sum(-1)
             return res
 
-    def exact_predictive_mean(self, full_mean, train_inputs, train_labels, num_train, likelihood, precomputed_cache=None):
+    def exact_predictive_mean(
+        self,
+        full_mean,
+        train_inputs,
+        train_labels,
+        num_train,
+        likelihood,
+        precomputed_cache=None,
+        non_batch_train=False,
+    ):
         from ..distributions import MultivariateNormal
 
         if precomputed_cache is None:
@@ -423,11 +432,15 @@ class InterpolatedLazyTensor(LazyTensor):
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
 
-    def exact_predictive_covar(self, train_inputs, num_train, likelihood, precomputed_cache=None):
+    def exact_predictive_covar(
+        self, train_inputs, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+    ):
         from ..distributions import MultivariateNormal
 
         if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
-            return super(InterpolatedLazyTensor, self).exact_predictive_covar(train_inputs, num_train, likelihood, precomputed_cache)
+            return super(InterpolatedLazyTensor, self).exact_predictive_covar(
+                train_inputs, num_train, likelihood, precomputed_cache
+            )
 
         n_test = self.size(-2) - num_train
         train_interp_indices = self.left_interp_indices.narrow(-2, 0, num_train)

@@ -105,9 +105,23 @@ class LazyTensor(object):
             :obj:`torch.tensor`: derivative with respect to the arguments that are actually used to represent this
                                    this LazyTensor.
         """
-        raise NotImplementedError(
-            "The class {} requires a _quad_form_derivative function!".format(self.__class__.__name__)
-        )
+        args = self.representation()
+
+        toggled = [False] * len(args)
+
+        for i, arg in enumerate(args):
+            if not arg.requires_grad:
+                arg.requires_grad = True
+                toggled[i] = True
+
+        loss = (left_vecs * self._matmul(right_vecs)).sum()
+        grads = torch.autograd.grad(loss, args)
+
+        for i, arg in enumerate(args):
+            if toggled[i]:
+                arg.requires_grad = False
+
+        return grads
 
     def _size(self):
         """
@@ -428,7 +442,16 @@ class LazyTensor(object):
         """
         return self.representation_tree()(*self.representation())
 
-    def exact_predictive_mean(self, full_mean, train_inputs, train_labels, num_train, likelihood, precomputed_cache=None):
+    def exact_predictive_mean(
+        self,
+        full_mean,
+        train_inputs,
+        train_labels,
+        num_train,
+        likelihood,
+        precomputed_cache=None,
+        non_batch_train=False,
+    ):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
@@ -436,7 +459,7 @@ class LazyTensor(object):
 
         Args:
             full_mean (:obj:`torch.tensor`): the training and test prior means, stacked on top of each other
-            train_inputs TODO
+            train_inputs (:obj:`torch.tensor`): The training data inputs
             train_labels (:obj:`torch.tensor`): the training labels minus the training prior mean
             noise (:obj:`torch.tensor`): the observed noise (from the likelihood)
             precomputed_cache (optional): speeds up subsequent computations (default: None)
@@ -449,12 +472,19 @@ class LazyTensor(object):
         if precomputed_cache is None:
             train_mean = full_mean.narrow(-1, 0, num_train)
             if self.ndimension() == 3:
-                train_train_covar = self[:, :num_train, :num_train]
+                if non_batch_train:
+                    train_train_covar = self[0, :num_train, :num_train]
+                else:
+                    train_train_covar = self[:, :num_train, :num_train]
             else:
                 train_train_covar = self[:num_train, :num_train]
 
             train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
+            if non_batch_train and train_mean.dim() == 2:
+                train_mean = train_mean[0]
+                train_labels = train_labels[0]
             mvn = likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
+
             train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
 
             train_labels_offset = train_labels - train_mean
@@ -467,20 +497,24 @@ class LazyTensor(object):
             test_train_covar = self[:, num_train:, :num_train]
         else:
             test_train_covar = self[num_train:, :num_train]
+
         res = test_train_covar.matmul(precomputed_cache)
         if res.ndimension() == 3:
             res = res.squeeze(-1)
         res = res + test_mean
+
         return res, precomputed_cache.detach()
 
-    def exact_predictive_covar(self, train_inputs, num_train, likelihood, precomputed_cache=None):
+    def exact_predictive_covar(
+        self, train_inputs, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+    ):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
         [ K_XX, K_XX*; K_X*X, K_X*X* ]
 
         Args:
-            train_inputs TODO - CAN GET RID OF num_train arg here as well!
+            train_inputs (:obj:`torch.tensor`): The training data inputs
             num_train (int): The number of training points in the full covariance matrix
             noise (scalar): The observed noise (from the likelihood)
             precomputed_cache (optional): speeds up subsequent computations (default: None)
@@ -500,7 +534,9 @@ class LazyTensor(object):
             test_train_covar = self[num_train:, :num_train]
             test_test_covar = self[num_train:, num_train:]
 
-        train_train_covar = likelihood(MultivariateNormal(torch.zeros(1), train_train_covar), train_inputs).lazy_covariance_matrix
+        train_train_covar = likelihood(
+            MultivariateNormal(torch.zeros(1), train_train_covar), train_inputs
+        ).lazy_covariance_matrix
         if not beta_features.fast_pred_var.on():
             from .matmul_lazy_tensor import MatmulLazyTensor
 
@@ -511,7 +547,10 @@ class LazyTensor(object):
             return res, None
 
         if precomputed_cache is None:
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
+            if non_batch_train and train_train_covar.dim() == 3:
+                train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition()
+            else:
+                train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
             precomputed_cache = self._exact_predictive_covar_inv_quad_form_cache(
                 train_train_covar_inv_root, test_train_covar
             )
@@ -673,17 +712,6 @@ class LazyTensor(object):
                         self.shape, tensor.shape
                     )
                 )
-        elif self.dim() != tensor.dim():
-            raise RuntimeError(
-                "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
-                "of dimensions.".format(self.shape, tensor.shape)
-            )
-        elif self.batch_shape != tensor.shape[:-2] or self.shape[-1] != tensor.shape[-2]:
-            raise RuntimeError(
-                "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
-                    self.shape, tensor.shape
-                )
-            )
 
         func = Matmul(self.representation_tree())
         return func(tensor, *self.representation())
@@ -1123,11 +1151,15 @@ class LazyTensor(object):
         """
         from .sum_lazy_tensor import SumLazyTensor
         from .zero_lazy_tensor import ZeroLazyTensor
+        from .diag_lazy_tensor import DiagLazyTensor
+        from .added_diag_lazy_tensor import AddedDiagLazyTensor
 
         if isinstance(other, ZeroLazyTensor):
             return self
-
-        return SumLazyTensor(self, other)
+        elif isinstance(other, DiagLazyTensor):
+            return AddedDiagLazyTensor(self, other)
+        else:
+            return SumLazyTensor(self, other)
 
     def __div__(self, other):
         """

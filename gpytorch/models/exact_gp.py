@@ -90,9 +90,13 @@ class ExactGP(GP):
                     )
 
             # Exact inference
+            non_batch_train = False
             if self.train_inputs is None:
                 full_inputs = args
             else:
+                if all(tin.dim() == 2 for tin in self.train_inputs):
+                    # Train inputs were non-batch
+                    non_batch_train = True
                 # If we're doing batch testing, but did std training, adjust the training inputs
                 for i, (train_input, input) in enumerate(zip(train_inputs, inputs)):
                     if train_input.dim() < input.dim():
@@ -125,6 +129,7 @@ class ExactGP(GP):
                     train_targets = train_targets.unsqueeze(0).expand(train_inputs[0].size(0), *train_targets.size())
 
                 if num_tasks > 1:
+                    non_batch_train = False
                     if train_targets.ndimension() == 2:
                         # Multitask
                         full_mean = full_mean.view(-1)
@@ -153,6 +158,7 @@ class ExactGP(GP):
                 num_train=num_train,
                 likelihood=self.likelihood,
                 precomputed_cache=self.mean_cache,
+                non_batch_train=non_batch_train,
             )
             predictive_covar, covar_cache = exact_predictive_covar(
                 full_covar=full_covar,
@@ -160,6 +166,7 @@ class ExactGP(GP):
                 num_train=num_train,
                 likelihood=self.likelihood,
                 precomputed_cache=self.covar_cache,
+                non_batch_train=non_batch_train,
             )
 
             self.mean_cache = mean_cache

@@ -113,6 +113,17 @@ class RectangularLazyTensorTestCase(object):
 class LazyTensorTestCase(RectangularLazyTensorTestCase):
     should_test_sample = False
 
+    def test_quad_form_derivative(self):
+        lazy_tensor = self.create_lazy_tensor()
+        left_vecs = torch.randn(lazy_tensor.size(-1), 2)
+        right_vecs = torch.randn(lazy_tensor.size(-1), 2)
+
+        deriv_custom = lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
+        deriv_auto = gpytorch.lazy.LazyTensor._quad_form_derivative(lazy_tensor, left_vecs, right_vecs)
+
+        for dc, da in zip(deriv_custom, deriv_auto):
+            self.assertLess(torch.norm(dc - da), 1e-1)
+
     def test_add_diag(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -310,6 +321,17 @@ class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):
     @abstractmethod
     def evaluate_lazy_tensor(self):
         raise NotImplementedError()
+
+    def test_quad_form_derivative(self):
+        lazy_tensor = self.create_lazy_tensor()
+        left_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
+        right_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
+
+        deriv_custom = lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
+        deriv_auto = gpytorch.lazy.LazyTensor._quad_form_derivative(lazy_tensor, left_vecs, right_vecs)
+
+        for dc, da in zip(deriv_custom, deriv_auto):
+            self.assertLess(torch.norm(dc - da), 1e-1)
 
     def setUp(self):
         if hasattr(self.__class__, "seed"):

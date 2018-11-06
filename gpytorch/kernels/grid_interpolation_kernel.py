@@ -91,10 +91,10 @@ class GridInterpolationKernel(GridKernel):
         self.num_dims = num_dims
         self.grid_size = grid_size
         self.grid_bounds = grid_bounds
-        inducing_points, grid = self._create_grid()
+        grid = self._create_grid()
 
         super(GridInterpolationKernel, self).__init__(
-            base_kernel=base_kernel, inducing_points=inducing_points, grid=grid, active_dims=active_dims
+            base_kernel=base_kernel, grid=grid, active_dims=active_dims
         )
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.uint8))
 
@@ -106,16 +106,7 @@ class GridInterpolationKernel(GridKernel):
                 self.grid_bounds[i][0] - grid_diff, self.grid_bounds[i][1] + grid_diff, self.grid_size
             )
 
-        inducing_points = torch.zeros(int(pow(self.grid_size, len(self.grid_bounds))), len(self.grid_bounds))
-        prev_points = None
-        for i in range(len(self.grid_bounds)):
-            for j in range(self.grid_size):
-                inducing_points[j * self.grid_size ** i : (j + 1) * self.grid_size ** i, i].fill_(grid[j, i])
-                if prev_points is not None:
-                    inducing_points[j * self.grid_size ** i : (j + 1) * self.grid_size ** i, :i].copy_(prev_points)
-            prev_points = inducing_points[: self.grid_size ** (i + 1), : (i + 1)]
-
-        return inducing_points, grid
+        return grid
 
     @property
     def _tight_grid_bounds(self):
@@ -145,7 +136,7 @@ class GridInterpolationKernel(GridKernel):
 
     def _inducing_forward(self, batch_dims, **params):
         return super(GridInterpolationKernel, self).forward(
-            self.inducing_points, self.inducing_points, batch_dims=batch_dims, **params
+            self.grid, self.grid, batch_dims=batch_dims, **params
         )
 
     def forward(self, x1, x2, batch_dims=None, **params):
@@ -173,8 +164,8 @@ class GridInterpolationKernel(GridKernel):
                     (x_min - 2.01 * spacing, x_max + 2.01 * spacing)
                     for x_min, x_max, spacing in zip(x_mins, x_maxs, grid_spacings)
                 )
-                inducing_points, grid = self._create_grid()
-                self.update_inducing_points_and_grid(inducing_points, grid)
+                grid = self._create_grid()
+                self.update_grid(grid)
 
         base_lazy_tsr = self._inducing_forward(batch_dims=batch_dims, **params)
         if x1.size(0) > 1:

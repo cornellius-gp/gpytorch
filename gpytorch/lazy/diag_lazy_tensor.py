@@ -55,6 +55,13 @@ class DiagLazyTensor(LazyTensor):
     def add_diag(self, added_diag):
         return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
 
+    def __add__(self, other):
+        from .added_diag_lazy_tensor import AddedDiagLazyTensor
+        if isinstance(other, DiagLazyTensor):
+            return DiagLazyTensor(self._diag + other._diag)
+        else:
+            return AddedDiagLazyTensor(other, self)
+
     def diag(self):
         return self._diag
 

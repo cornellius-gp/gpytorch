@@ -38,6 +38,14 @@ class AddedDiagLazyTensor(SumLazyTensor):
     def add_diag(self, added_diag):
         return AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor.add_diag(added_diag))
 
+    def __add__(self, other):
+        from .diag_lazy_tensor import DiagLazyTensor
+
+        if isinstance(other, DiagLazyTensor):
+            return AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor + other)
+        else:
+            return AddedDiagLazyTensor(self._lazy_tensor + other, self._diag_tensor)
+
     def _preconditioner(self):
         if settings.max_preconditioner_size.value() == 0:
             return None, None

@@ -13,6 +13,11 @@ class TestInterpolatedLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 1
     should_test_sample = True
 
+    def test_quad_form_derivative(self):
+        # InterpolatedLazyTensor's representation includes int variables (the interp. indices),
+        # so the default derivative doesn't apply
+        pass
+
     def create_lazy_tensor(self):
         left_interp_indices = torch.LongTensor([[0, 1], [2, 3], [3, 4], [4, 5]])
         left_interp_values = torch.tensor([[0.1, 0.9], [1, 2], [0.5, 1], [1, 3]], dtype=torch.float)
@@ -44,6 +49,11 @@ class TestInterpolatedLazyTensor(LazyTensorTestCase, unittest.TestCase):
 class TestInterpolatedLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
+
+    def test_quad_form_derivative(self):
+        # InterpolatedLazyTensor's representation includes int variables (the interp. indices),
+        # so the default derivative doesn't apply
+        pass
 
     def create_lazy_tensor(self):
         left_interp_indices = torch.LongTensor([[0, 1], [2, 3], [3, 4], [4, 5]]).repeat(5, 1, 1)

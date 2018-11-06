@@ -42,6 +42,11 @@ class TestMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
 class TestMulLazyTensorMulti(LazyTensorTestCase, unittest.TestCase):
     seed = 10
 
+    def test_quad_form_derivative(self):
+        # MulLazyTensor creates non-leaf variables, so the default derivative
+        # doesn't apply
+        pass
+
     def create_lazy_tensor(self):
         mat1 = make_random_mat(30, 3)
         mat2 = make_random_mat(30, 3)
@@ -85,6 +90,11 @@ class TestMulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
 class TestMulLazyTensorMultiBatch(BatchLazyTensorTestCase, unittest.TestCase):
     seed = 3
 
+    def test_quad_form_derivative(self):
+        # MulLazyTensor creates non-leaf variables, so the default derivative
+        # doesn't apply
+        pass
+
     def create_lazy_tensor(self):
         mat1 = make_random_mat(40, rank=5, batch_size=2)
         mat2 = make_random_mat(40, rank=5, batch_size=2)
@@ -108,6 +118,11 @@ class TestMulLazyTensorMultiBatch(BatchLazyTensorTestCase, unittest.TestCase):
 
 class TestMulLazyTensorWithConstantMul(BatchLazyTensorTestCase, unittest.TestCase):
     seed = 2
+
+    def test_quad_form_derivative(self):
+        # MulLazyTensor creates non-leaf variables, so the default derivative
+        # doesn't apply
+        pass
 
     def create_lazy_tensor(self):
         mat1 = make_random_mat(20, rank=5, batch_size=2)
