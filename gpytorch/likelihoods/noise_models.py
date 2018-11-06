@@ -36,10 +36,11 @@ class MultitaskHomoskedasticNoise(HomoskedasticNoise):
 
 
 class HeteroskedasticNoise(Module):
-    def __init__(self, noise_model, log_scale=True):
+    def __init__(self, noise_model, log_scale=True, noise_indices=None):
         super(HeteroskedasticNoise, self).__init__()
         self.noise_model = noise_model
         self.log_scale = log_scale
+        self.noise_indices = noise_indices
 
     def forward(self, params):
         output = self.noise_model(params[0] if isinstance(params, list) or isinstance(params, tuple) else params)
@@ -47,5 +48,5 @@ class HeteroskedasticNoise(Module):
             raise NotImplementedError("Currently only noise models that return a MultivariateNormal are supported")
         # note: this also works with MultitaskMultivariateNormal, where this
         # will return a batched DiagLazyTensors of size n x num_tasks x num_tasks
-        noise_diag = output.mean.exp() if self.log_scale else output.mean
-        return DiagLazyTensor(noise_diag)
+        noise_diag = output.mean if self.noise_indices is None else output.mean[..., self.noise_indices]
+        return DiagLazyTensor(noise_diag.exp() if self.log_scale else noise_diag)
