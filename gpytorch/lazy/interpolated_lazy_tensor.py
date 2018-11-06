@@ -91,10 +91,10 @@ class InterpolatedLazyTensor(LazyTensor):
 
     def _approx_diag(self):
         base_diag_root = self.base_lazy_tensor.diag().sqrt()
-        left_res = left_interp(self.left_interp_indices, self.left_interp_values, base_diag_root)
-        right_res = left_interp(self.right_interp_indices, self.right_interp_values, base_diag_root)
+        left_res = left_interp(self.left_interp_indices, self.left_interp_values, base_diag_root.unsqueeze(-1))
+        right_res = left_interp(self.right_interp_indices, self.right_interp_values, base_diag_root.unsqueeze(-1))
         res = left_res * right_res
-        return res
+        return res.squeeze(-1)
 
     def _matmul(self, rhs):
         # Get sparse tensor representations of left/right interp matrices
