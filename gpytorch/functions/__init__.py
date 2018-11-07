@@ -26,7 +26,7 @@ def add_diag(input, diag):
     if torch.is_tensor(input):
         from ..lazy import NonLazyTensor
 
-        return NonLazyTensor(input).add_diag()
+        return NonLazyTensor(input).add_diag(diag)
     else:
         return input.add_diag(diag)
 
