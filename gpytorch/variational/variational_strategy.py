@@ -39,6 +39,9 @@ class VariationalStrategy(Module):
         super(VariationalStrategy, self).__init__()
         object.__setattr__(self, "model", model)
 
+        if inducing_points.dim() == 1:
+            inducing_points = inducing_points.unsqueeze(-1)
+
         if learn_inducing_locations:
             self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points))
         else:
