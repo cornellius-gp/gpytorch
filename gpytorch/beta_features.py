@@ -37,7 +37,7 @@ class diagonal_correction(_feature_flag):
     Add a diagonal correction to scalable inducing point methods
     """
 
-    pass
+    _state = True
 
 
 class fast_pred_samples(_feature_flag):
