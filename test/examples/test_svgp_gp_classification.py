@@ -48,7 +48,7 @@ class SVGPRegressionModel(AbstractVariationalGP):
         return latent_pred
 
 
-class TestSVGPClassification(unittest.TestCase):
+class TestSVGPRegression(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
@@ -61,7 +61,7 @@ class TestSVGPClassification(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_classification_error(self):
+    def test_regression_error(self):
         train_x, train_y = train_data()
         likelihood = GaussianLikelihood()
         model = SVGPRegressionModel(train_x[:25])
@@ -94,7 +94,7 @@ class TestSVGPClassification(unittest.TestCase):
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         assert mean_abs_error.item() < 1e-1
 
-    def test_classification_error_cuda(self):
+    def test_regression_error_cuda(self):
         if torch.cuda.is_available():
             train_x, train_y = train_data(cuda=True)
             likelihood = GaussianLikelihood().cuda()
