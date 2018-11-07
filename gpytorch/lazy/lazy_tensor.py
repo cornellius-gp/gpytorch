@@ -826,7 +826,7 @@ class LazyTensor(object):
         if self.size(0) == 1:
             return self.sum_batch()
 
-        roots = self.root_decomposition()
+        roots = self.root_decomposition().root.evaluate()
         n_batch = roots.size(0) if mul_batch_size is None else mul_batch_size
         true_batch_size = roots.size(0) // mul_batch_size if mul_batch_size is not None else 1
 
@@ -858,7 +858,7 @@ class LazyTensor(object):
                 break
             else:
                 res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2)).evaluate_kernel()
-                roots = res.root_decomposition()
+                roots = res.root_decomposition().root.evaluate()
                 n_batch = n_batch // 2
 
         return res
@@ -931,6 +931,7 @@ class LazyTensor(object):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
+        from .root_lazy_tensor import RootLazyTensor
         if not self.is_square:
             raise RuntimeError(
                 "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
@@ -945,7 +946,7 @@ class LazyTensor(object):
             batch_shape=self.batch_shape,
             matrix_shape=self.matrix_shape,
         )(*self.representation())
-        return res
+        return RootLazyTensor(res)
 
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         """
@@ -1155,7 +1156,7 @@ class LazyTensor(object):
         if self.size()[-2:] == torch.Size([1, 1]):
             covar_root = self.evaluate().sqrt()
         else:
-            covar_root = self.root_decomposition()
+            covar_root = self.root_decomposition().root
 
         if self.ndimension() == 3:
             base_samples = torch.randn(

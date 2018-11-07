@@ -32,7 +32,7 @@ class TestRootDecomposition(unittest.TestCase):
 
     def test_root_decomposition(self):
         # Forward
-        root = NonLazyTensor(self.mat).root_decomposition()
+        root = NonLazyTensor(self.mat).root_decomposition().root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         self.assertTrue(approx_equal(res, self.mat))
 
@@ -77,7 +77,7 @@ class TestRootDecompositionBatch(unittest.TestCase):
 
     def test_root_decomposition(self):
         # Forward
-        root = NonLazyTensor(self.mat).root_decomposition()
+        root = NonLazyTensor(self.mat).root_decomposition().root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         self.assertTrue(approx_equal(res, self.mat))
 
@@ -122,7 +122,7 @@ class TestRootDecompositionMultiBatch(unittest.TestCase):
 
     def test_root_decomposition(self):
         # Forward
-        root = NonLazyTensor(self.mat).root_decomposition()
+        root = NonLazyTensor(self.mat).root_decomposition().root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         self.assertTrue(approx_equal(res, self.mat))
 

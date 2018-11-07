@@ -498,7 +498,7 @@ class InterpolatedLazyTensor(LazyTensor):
             # Precomputed factor
             if beta_features.fast_pred_samples.on():
                 inside = self.base_lazy_tensor + RootLazyTensor(root).mul(-1)
-                inside_root = inside.root_decomposition()
+                inside_root = inside.root_decomposition().root.evaluate()
                 # Prevent backprop through this variable
                 inside_root = inside_root.detach()
                 precomputed_cache = inside_root, None
