@@ -8,15 +8,18 @@ from .lazy_tensor import LazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
-    def __init__(self, diag):
+    def __init__(self, diag, exact_root_decomposition=False):
         """
         Diagonal lazy tensor
 
         Args:
-        - diag (Variable: n) diagonal of matrix
+            - diag (tensor) (batch) diagonal of matrix
+            - exact_root_decomposition (bool, default False) return an exact root decomposition.
+                Set to True only if the represented diagonal is relatively small.
         """
         super(DiagLazyTensor, self).__init__(diag)
         self._diag = diag
+        self.exact_root_decomposition = exact_root_decomposition
 
     def _matmul(self, rhs):
         if rhs.ndimension() == 1 and self.ndimension() == 2:
@@ -78,6 +81,85 @@ class DiagLazyTensor(LazyTensor):
             diag = self._diag.view(-1, sum_batch_size, self._diag.size(-1))
 
         return self.__class__(diag.sum(-2))
+
+    def inv_matmul(self, tensor):
+        is_vec = False
+        if (self.dim() == 2 and tensor.dim() == 1):
+            tensor = tensor.unsqueeze(-1)
+            is_vec = True
+
+            if self.shape[-1] != tensor.numel():
+                raise RuntimeError(
+                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                        self.shape, tensor.shape
+                    )
+                )
+        elif self.dim() != tensor.dim():
+            raise RuntimeError(
+                "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
+                "of dimensions.".format(self.shape, tensor.shape)
+            )
+        elif self.batch_shape != tensor.shape[:-2] or self.shape[-1] != tensor.shape[-2]:
+            raise RuntimeError(
+                "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                    self.shape, tensor.shape
+                )
+            )
+
+        res = tensor.div(self._diag.unsqueeze(-1))
+        if is_vec:
+            res = res.squeeze(-1)
+        return res
+
+    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
+        if inv_quad_rhs is not None:
+            if (self.dim() == 2 and inv_quad_rhs.dim() == 1):
+                inv_quad_rhs = inv_quad_rhs.unsqueeze(-1)
+                if self.shape[-1] != inv_quad_rhs.numel():
+                    raise RuntimeError(
+                        "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                            self.shape, inv_quad_rhs.shape
+                        )
+                    )
+            elif self.dim() != inv_quad_rhs.dim():
+                raise RuntimeError(
+                    "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
+                    "of dimensions.".format(self.shape, inv_quad_rhs.shape)
+                )
+            elif self.batch_shape != inv_quad_rhs.shape[:-2] or self.shape[-1] != inv_quad_rhs.shape[-2]:
+                raise RuntimeError(
+                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                        self.shape, inv_quad_rhs.shape
+                    )
+                )
+
+        inv_quad_term = None
+        if inv_quad_rhs is None:
+            inv_quad_term = torch.tensor([], dtype=self.dtype, device=self.device)
+        else:
+            inv_quad_term = inv_quad_rhs.div(self._diag.unsqueeze(-1)).mul(inv_quad_rhs).sum(-2)
+            if reduce_inv_quad:
+                inv_quad_term = inv_quad_term.sum(-1)
+
+        log_det_term = None
+        if log_det:
+            log_det_term = self._diag.log().sum(-1)
+        else:
+            log_det_term = torch.tensor([], dtype=self.dtype, device=self.device)
+
+        return inv_quad_term, log_det_term
+
+    def root_decomposition(self):
+        if self.exact_root_decomposition:
+            return self.__class__(self._diag.sqrt()).evaluate()
+        else:
+            return super(DiagLazyTensor, self).root_decomposition()
+
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+        if self.exact_root_decomposition:
+            return self.__class__(self._diag.sqrt().reciprocal()).evaluate()
+        else:
+            return super(DiagLazyTensor, self).root_decomposition()
 
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:
