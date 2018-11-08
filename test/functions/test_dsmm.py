@@ -8,7 +8,7 @@ import unittest
 import gpytorch
 
 
-class DSMMTest(unittest.TestCase):
+class TestDSMM(unittest.TestCase):
     def test_forward(self):
         i = torch.tensor([[0, 1, 1], [2, 0, 2]], dtype=torch.long)
         v = torch.tensor([3, 4, 5], dtype=torch.float)

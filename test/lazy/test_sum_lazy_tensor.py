@@ -9,7 +9,7 @@ from gpytorch.lazy import ToeplitzLazyTensor
 from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
 
 
-class TestPsdSumLazyTensor(LazyTensorTestCase, unittest.TestCase):
+class TestSumLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
 
     def create_lazy_tensor(self):
@@ -24,7 +24,7 @@ class TestPsdSumLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return sum(tensors)
 
 
-class TestPsdSumLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestSumLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
     seed = 0
 
     def create_lazy_tensor(self):

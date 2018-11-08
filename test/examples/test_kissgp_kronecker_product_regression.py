@@ -59,7 +59,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         return MultivariateNormal(mean_x, covar_x)
 
 
-class TestKissGPKroneckerProductRegression(unittest.TestCase):
+class TestKISSGPKroneckerProductRegression(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()

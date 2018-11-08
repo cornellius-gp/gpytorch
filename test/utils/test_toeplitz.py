@@ -10,7 +10,7 @@ import test._utils
 from gpytorch import utils
 
 
-class TestTeoplitz(unittest.TestCase):
+class TestToeplitz(unittest.TestCase):
     def test_sym_toeplitz_constructs_tensor_from_vector(self):
         c = torch.tensor([1, 6, 4, 5], dtype=torch.float)
 
