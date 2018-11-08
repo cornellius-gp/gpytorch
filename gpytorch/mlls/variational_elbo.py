@@ -29,8 +29,14 @@ class VariationalELBO(MarginalLogLikelihood):
 
         log_likelihood = self.likelihood.variational_log_probability(variational_dist_f, target, **kwargs).div(
             num_batch
-        )
-        kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist).sum().div(self.num_data)
+        ).sum()
+
+        kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
+
+        if log_likelihood.numel() == 1:
+            kl_divergence = kl_divergence.sum()
+
+        kl_divergence = kl_divergence.div(self.num_data)
 
         if self.combine_terms:
             res = log_likelihood - kl_divergence

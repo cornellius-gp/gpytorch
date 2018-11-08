@@ -85,24 +85,36 @@ class VariationalStrategy(Module):
             :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
         """
         variational_dist = self.variational_distribution.variational_distribution
+
         if torch.equal(x, self.inducing_points):
             return variational_dist
         else:
             n_induc = self.inducing_points.size(-2)
-            full_inputs = torch.cat([self.inducing_points, x])
+            full_inputs = torch.cat([self.inducing_points, x], dim=-2)
             full_output = self.model.forward(full_inputs)
             full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
-            test_mean = full_mean[n_induc:]
-            induc_mean = full_mean[:n_induc]
-            induc_induc_covar = full_covar[:n_induc, :n_induc].add_jitter()
-            induc_data_covar = full_covar[:n_induc, n_induc:]
-            data_induc_covar = full_covar[n_induc:, :n_induc]
-            data_data_covar = full_covar[n_induc:, n_induc:]
+            if full_covar.dim() == 3:
+                test_mean = full_mean[:, n_induc:].unsqueeze(-1)
+                induc_mean = full_mean[:, :n_induc].unsqueeze(-1)
+                induc_induc_covar = full_covar[:, :n_induc, :n_induc].add_jitter()
+                induc_data_covar = full_covar[:, :n_induc, n_induc:]
+                data_induc_covar = full_covar[:, n_induc:, :n_induc]
+                data_data_covar = full_covar[:, n_induc:, n_induc:]
+                var_dist_mean = variational_dist.mean.unsqueeze(-1)
+            else:
+                test_mean = full_mean[n_induc:]
+                induc_mean = full_mean[:n_induc]
+                induc_induc_covar = full_covar[:n_induc, :n_induc].add_jitter()
+                induc_data_covar = full_covar[:n_induc, n_induc:]
+                data_induc_covar = full_covar[n_induc:, :n_induc]
+                data_data_covar = full_covar[n_induc:, n_induc:]
+                var_dist_mean = variational_dist.mean
 
             # Compute alpha cache
             if not self.has_computed_alpha:
-                self.alpha = induc_induc_covar.inv_matmul(variational_dist.mean - induc_mean)
+                mean_diff = var_dist_mean - induc_mean
+                self.alpha = induc_induc_covar.inv_matmul(mean_diff)
                 # Don't consider this computation a cache if we are in training mode.
                 if not self.training:
                     self.has_computed_alpha = True
@@ -131,7 +143,7 @@ class VariationalStrategy(Module):
                 predictive_covar = RootLazyTensor(factor.transpose(-2, -1))
 
                 if gpytorch.beta_features.diagonal_correction.on():
-                    fake_diagonal = (inv_product * induc_data_covar).sum(0)
+                    fake_diagonal = (inv_product * induc_data_covar).sum(-2)
                     real_diagonal = data_data_covar.diag()
                     diag_correction = DiagLazyTensor((real_diagonal - fake_diagonal).clamp(0, math.inf))
                     predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
