@@ -18,8 +18,13 @@ from gpytorch.variational import VariationalStrategy
 
 
 def train_data(cuda=False):
-    train_x = torch.linspace(0, 1, 260)
-    train_y = torch.cos(train_x * (2 * pi))
+    train_x = torch.linspace(0, 1, 260).unsqueeze(-1)
+    train_y_cos = torch.cos(train_x * (2 * pi)).squeeze() + 0.01 * torch.randn(260)
+    train_y_sin = torch.sin(train_x * (2 * pi)).squeeze() + 0.01 * torch.randn(260)
+
+    # Make train_x (2 x 260 x 1) and train_y (2 x 260)
+    train_x = torch.cat([train_x, train_x], dim=1).transpose(-2, 1).unsqueeze(-1)
+    train_y = torch.cat([train_y_cos.unsqueeze(-1), train_y_sin.unsqueeze(-1)], dim=1).transpose(-2, -1)
     if cuda:
         return train_x.cuda(), train_y.cuda()
     else:
@@ -28,7 +33,7 @@ def train_data(cuda=False):
 
 class SVGPRegressionModel(AbstractVariationalGP):
     def __init__(self, inducing_points):
-        variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-1))
+        variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-2), batch_size=2)
         variational_strategy = VariationalStrategy(self,
                                                    inducing_points,
                                                    variational_distribution,
@@ -64,8 +69,8 @@ class TestSVGPRegression(unittest.TestCase):
     def test_regression_error(self):
         train_x, train_y = train_data()
         likelihood = GaussianLikelihood()
-        model = SVGPRegressionModel(train_x[:25])
-        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
+        model = SVGPRegressionModel(train_x[:, :25, :])
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(-1))
 
         # Find optimal model hyperparameters
         model.train()
@@ -76,6 +81,7 @@ class TestSVGPRegression(unittest.TestCase):
             optimizer.zero_grad()
             output = model(train_x)
             loss = -mll(output, train_y)
+            loss = loss.sum()
             loss.backward()
             optimizer.n_iter += 1
             optimizer.step()
@@ -91,24 +97,28 @@ class TestSVGPRegression(unittest.TestCase):
         model.eval()
         likelihood.eval()
         test_preds = likelihood(model(train_x)).mean.squeeze()
-        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        assert mean_abs_error.item() < 1e-1
+        mean_abs_error = torch.mean(torch.abs(train_y[0, :] - test_preds[0, :]) / 2)
+        mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
+        self.assertLess(mean_abs_error.item(), 1e-1)
+        self.assertLess(mean_abs_error2.item(), 1e-1)
 
     def test_regression_error_cuda(self):
         if torch.cuda.is_available():
             train_x, train_y = train_data(cuda=True)
             likelihood = GaussianLikelihood().cuda()
-            model = SVGPRegressionModel(train_x[:25]).cuda()
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
+            model = SVGPRegressionModel(train_x[:, :25, :]).cuda()
+            mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(-1))
 
             # Find optimal model hyperparameters
             model.train()
+            likelihood.train()
             optimizer = optim.Adam([{'params': model.parameters()}, {'params': likelihood.parameters()}], lr=0.1)
             optimizer.n_iter = 0
             for _ in range(200):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
+                loss = loss.sum()
                 loss.backward()
                 optimizer.n_iter += 1
                 optimizer.step()
@@ -119,13 +129,15 @@ class TestSVGPRegression(unittest.TestCase):
             for param in likelihood.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
-            optimizer.step()
 
             # Set back to eval mode
             model.eval()
+            likelihood.eval()
             test_preds = likelihood(model(train_x)).mean.squeeze()
-            mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+            mean_abs_error = torch.mean(torch.abs(train_y[0, :] - test_preds[0, :]) / 2)
+            mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
             self.assertLess(mean_abs_error.item(), 1e-1)
+            self.assertLess(mean_abs_error2.item(), 1e-1)
 
 
 if __name__ == "__main__":

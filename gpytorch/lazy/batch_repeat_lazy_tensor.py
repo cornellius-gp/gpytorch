@@ -139,13 +139,13 @@ class BatchRepeatLazyTensor(LazyTensor):
             inv_quad_rhs, log_det, reduce_inv_quad=False
         )
 
-        if inv_quad_term.numel():
+        if inv_quad_term is not None and inv_quad_term.numel():
             inv_quad_term = inv_quad_term.view(*inv_quad_term.shape[:-1], -1, self.batch_repeat.numel())
             inv_quad_term = self._move_repeat_batches_back(inv_quad_term).squeeze(-1)
             if reduce_inv_quad:
                 inv_quad_term = inv_quad_term.sum(-1)
 
-        if log_det_term.numel():
+        if log_det_term is not None and log_det_term.numel():
             log_det_term = log_det_term.repeat(*self.batch_repeat)
 
         return inv_quad_term, log_det_term
@@ -165,6 +165,15 @@ class BatchRepeatLazyTensor(LazyTensor):
                 for orig_repeat_size, new_repeat_size in zip(padded_batch_repeat, sizes[:-2])
             ),
         )
+
+    def root_decomposition(self):
+        return self.base_lazy_tensor.root_decomposition().repeat(*self.batch_repeat, 1, 1)
+
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+        return self.base_lazy_tensor.root_inv_decomposition(
+            initial_vectors=initial_vectors,
+            test_vectors=test_vectors,
+        ).repeat(*self.batch_repeat, 1, 1)
 
     def __getitem__(self, index):
         """

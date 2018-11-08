@@ -16,4 +16,7 @@ class AbstractVariationalGP(GP):
         raise NotImplementedError
 
     def __call__(self, inputs, **kwargs):
+        if inputs.dim() == 1:
+            inputs = inputs.unsqueeze(-1)
+
         return self.variational_strategy(inputs)

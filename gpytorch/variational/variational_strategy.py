@@ -1,7 +1,9 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import math
 import torch
-from ..lazy import RootLazyTensor, MatmulLazyTensor
+import gpytorch
+from ..lazy import RootLazyTensor, PsdSumLazyTensor, DiagLazyTensor
 from .. import beta_features
 from ..module import Module
 from ..distributions import MultivariateNormal
@@ -39,6 +41,11 @@ class VariationalStrategy(Module):
         super(VariationalStrategy, self).__init__()
         object.__setattr__(self, "model", model)
 
+        inducing_points = inducing_points.clone()
+
+        if inducing_points.dim() == 1:
+            inducing_points = inducing_points.unsqueeze(-1)
+
         if learn_inducing_locations:
             self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points))
         else:
@@ -63,7 +70,7 @@ class VariationalStrategy(Module):
         this is done simply by calling the user defined GP prior on the inducing point data directly.
         """
         out = self.model.forward(self.inducing_points)
-        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel())
+        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel().add_jitter())
 
     def forward(self, x):
         """
@@ -78,24 +85,36 @@ class VariationalStrategy(Module):
             :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
         """
         variational_dist = self.variational_distribution.variational_distribution
+
         if torch.equal(x, self.inducing_points):
             return variational_dist
         else:
             n_induc = self.inducing_points.size(-2)
-            full_inputs = torch.cat([self.inducing_points, x])
+            full_inputs = torch.cat([self.inducing_points, x], dim=-2)
             full_output = self.model.forward(full_inputs)
             full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
-            test_mean = full_mean[n_induc:]
-            induc_mean = full_mean[:n_induc]
-            induc_induc_covar = full_covar[:n_induc, :n_induc]
-            induc_data_covar = full_covar[:n_induc, n_induc:]
-            data_induc_covar = full_covar[n_induc:, :n_induc]
-            data_data_covar = full_covar[n_induc:, n_induc:]
+            if full_covar.dim() == 3:
+                test_mean = full_mean[:, n_induc:].unsqueeze(-1)
+                induc_mean = full_mean[:, :n_induc].unsqueeze(-1)
+                induc_induc_covar = full_covar[:, :n_induc, :n_induc].add_jitter()
+                induc_data_covar = full_covar[:, :n_induc, n_induc:]
+                data_induc_covar = full_covar[:, n_induc:, :n_induc]
+                data_data_covar = full_covar[:, n_induc:, n_induc:]
+                var_dist_mean = variational_dist.mean.unsqueeze(-1)
+            else:
+                test_mean = full_mean[n_induc:]
+                induc_mean = full_mean[:n_induc]
+                induc_induc_covar = full_covar[:n_induc, :n_induc].add_jitter()
+                induc_data_covar = full_covar[:n_induc, n_induc:]
+                data_induc_covar = full_covar[n_induc:, :n_induc]
+                data_data_covar = full_covar[n_induc:, n_induc:]
+                var_dist_mean = variational_dist.mean
 
             # Compute alpha cache
             if not self.has_computed_alpha:
-                self.alpha = induc_induc_covar.inv_matmul(variational_dist.mean - induc_mean)
+                mean_diff = var_dist_mean - induc_mean
+                self.alpha = induc_induc_covar.inv_matmul(mean_diff)
                 # Don't consider this computation a cache if we are in training mode.
                 if not self.training:
                     self.has_computed_alpha = True
@@ -113,7 +132,7 @@ class VariationalStrategy(Module):
 
             # Compute predictive covariance
             predictive_covar = data_data_covar
-            if beta_features.fast_pred_var.on():
+            if not self.training and beta_features.fast_pred_var.on():
                 correction = RootLazyTensor(data_induc_covar.matmul(self.prior_root_inv)).mul(-1)
                 correction = correction + RootLazyTensor(data_induc_covar.matmul(self.variational_root))
                 predictive_covar = predictive_covar + correction
@@ -121,8 +140,12 @@ class VariationalStrategy(Module):
                 induc_data_covar = induc_data_covar.evaluate()
                 inv_product = induc_induc_covar.inv_matmul(induc_data_covar)
                 factor = variational_dist.lazy_covariance_matrix.root_decomposition().matmul(inv_product)
-                right_factor = factor - inv_product
-                left_factor = (factor - induc_data_covar).transpose(-1, -2)
-                predictive_covar = predictive_covar + MatmulLazyTensor(left_factor, right_factor)
+                predictive_covar = RootLazyTensor(factor.transpose(-2, -1))
 
-            return MultivariateNormal(predictive_mean, predictive_covar.add_jitter(1e-2))
+                if gpytorch.beta_features.diagonal_correction.on():
+                    fake_diagonal = (inv_product * induc_data_covar).sum(-2)
+                    real_diagonal = data_data_covar.diag()
+                    diag_correction = DiagLazyTensor((real_diagonal - fake_diagonal).clamp(0, math.inf))
+                    predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
+
+            return MultivariateNormal(predictive_mean, predictive_covar)
