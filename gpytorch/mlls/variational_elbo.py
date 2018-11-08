@@ -31,7 +31,10 @@ class VariationalELBO(MarginalLogLikelihood):
             num_batch
         )
 
-        kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist).unsqueeze(-1)
+        kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
+
+        if kl_divergence.dim() > log_likelihood.dim():
+            kl_divergence = kl_divergence.sum(-1)
 
         if log_likelihood.numel() == 1:
             kl_divergence = kl_divergence.sum()

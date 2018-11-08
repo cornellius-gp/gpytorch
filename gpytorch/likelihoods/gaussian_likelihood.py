@@ -51,7 +51,7 @@ class GaussianLikelihood(Likelihood):
         if res.dim() == 1:
             return res.sum()
         else:
-            return res.sum(-2)
+            return res.sum(-2).squeeze(-1)
 
     def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
         import pyro
