@@ -70,5 +70,5 @@ class GridInterpolationVariationalStrategy(Module):
             interp_values,
         )
 
-        output = MultivariateNormal(predictive_mean, predictive_covar.add_jitter())
+        output = MultivariateNormal(predictive_mean, predictive_covar)
         return output
