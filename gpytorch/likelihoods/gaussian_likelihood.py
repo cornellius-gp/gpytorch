@@ -36,7 +36,7 @@ class GaussianLikelihood(Likelihood):
 
     def variational_log_probability(self, input, target):
         mean, variance = input.mean, input.variance
-        if mean.dim() == 3:
+        if mean.dim() > target.dim():
             target = target.unsqueeze(-1)
 
         log_noise = self.log_noise
