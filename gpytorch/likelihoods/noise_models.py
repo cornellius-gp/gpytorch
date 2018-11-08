@@ -43,7 +43,7 @@ class HeteroskedasticNoise(Module):
         self.noise_indices = noise_indices
 
     def forward(self, params):
-        output = self.noise_model(params[0] if isinstance(params, list) or isinstance(params, tuple) else params)
+        output = self.noise_model(*params if isinstance(params, list) or isinstance(params, tuple) else params)
         if not isinstance(output, MultivariateNormal):
             raise NotImplementedError("Currently only noise models that return a MultivariateNormal are supported")
         # note: this also works with MultitaskMultivariateNormal, where this

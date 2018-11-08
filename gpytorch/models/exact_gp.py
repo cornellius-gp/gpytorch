@@ -75,7 +75,7 @@ class ExactGP(GP):
                     "train_inputs, train_targets cannot be None in training mode. "
                     "Call .eval() for prior predictions, or call .set_train_data() to add training data."
                 )
-            if settings.debug.on():
+            if settings.check_training_data.on():
                 if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
                     raise RuntimeError("You must train on the training inputs!")
             res = super(ExactGP, self).__call__(*inputs, **kwargs)

@@ -19,7 +19,6 @@ from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
 from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
-from .white_noise_kernel import WhiteNoiseKernel
 
 __all__ = [
     "Kernel",
@@ -41,5 +40,4 @@ __all__ = [
     "RBFKernel",
     "ScaleKernel",
     "SpectralMixtureKernel",
-    "WhiteNoiseKernel",
 ]

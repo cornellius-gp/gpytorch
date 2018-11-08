@@ -50,6 +50,18 @@ class _value_context(object):
         return False
 
 
+class check_training_data(_feature_flag):
+    """
+    Check whether the correct training data is supplied in Exact GP training mode
+    Pros: fewer data checks, fewer warning messages
+    Cons: possibility of supplying incorrect data, model accidentially in wrong mode
+
+    Note: If using a Heteroskedastic Noise model, this will need to be disabled
+    """
+
+    _state = True
+
+
 class debug(_feature_flag):
     """
     Whether or not to perform "safety" checks on the supplied data.

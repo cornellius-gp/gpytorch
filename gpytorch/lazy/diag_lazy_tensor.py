@@ -82,12 +82,6 @@ class DiagLazyTensor(LazyTensor):
 
         return self.__class__(diag.sum(-2))
 
-    def exp(self):
-        return DiagLazyTensor(self._diag.exp())
-
-    def sqrt(self):
-        return DiagLazyTensor(self._diag.sqrt())
-
     def inv_matmul(self, tensor):
         is_vec = False
         if (self.dim() == 2 and tensor.dim() == 1):
@@ -166,6 +160,12 @@ class DiagLazyTensor(LazyTensor):
             return self.__class__(self._diag.sqrt().reciprocal()).evaluate()
         else:
             return super(DiagLazyTensor, self).root_decomposition()
+
+    def exp(self):
+        return DiagLazyTensor(self._diag.exp())
+
+    def sqrt(self):
+        return DiagLazyTensor(self._diag.sqrt())
 
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:

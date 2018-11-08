@@ -32,12 +32,10 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
     def variational_log_probability(self, input, target):
         mean, variance = input.mean, input.variance
-
         if mean.dim() > target.dim():
             target = target.unsqueeze(-1)
 
-        log_noise = self.noise_covar.log_noise
-
+        log_noise = self.log_noise_covar.log_noise
         if variance.ndimension() == 1:
             if settings.debug.on() and log_noise.size(0) > 1:
                 raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")

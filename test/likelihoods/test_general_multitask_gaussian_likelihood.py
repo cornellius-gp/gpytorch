@@ -11,6 +11,7 @@ from gpytorch.kernels import MultitaskKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.distributions import MultitaskMultivariateNormal
+from gpytorch.likelihoods.multitask_gaussian_likelihood import _eval_corr_matrix
 
 
 # Simple training data: let's try to learn a sine function
@@ -73,7 +74,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             # Again, note feeding duplicated x_data and indices indicating which task
             output = model(train_x)
             # TODO: Fix this view call!!
-            loss = -mll(output, train_y)
+            loss = -mll(output, train_y, train_x)
             loss.backward()
             optimizer.step()
 
@@ -81,13 +82,9 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         model.eval()
         likelihood.eval()
 
-        num_tasks = 2
-        task_noise_covar_factor = likelihood.task_noise_covar_factor
-        log_noise = likelihood.log_noise
-        task_noise_covar = task_noise_covar_factor.matmul(
-            task_noise_covar_factor.transpose(-1, -2)
-        ) + log_noise.exp() * torch.eye(num_tasks)
-
+        task_corr = _eval_corr_matrix(likelihood.task_noise_corr_factor, likelihood.task_noise_corr_diag)
+        noise_diag = likelihood.noise_covar.log_noise.squeeze().diag().exp().sqrt()
+        task_noise_covar = noise_diag.matmul(task_corr).matmul(noise_diag)
         self.assertGreater(task_noise_covar[0, 0, 1].item(), 0.05)
 
 
