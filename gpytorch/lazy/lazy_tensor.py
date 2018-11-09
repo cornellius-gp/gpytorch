@@ -570,17 +570,6 @@ class LazyTensor(object):
                         self.shape, tensor.shape
                     )
                 )
-        elif self.dim() != tensor.dim():
-            raise RuntimeError(
-                "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
-                "of dimensions.".format(self.shape, tensor.shape)
-            )
-        elif self.batch_shape != tensor.shape[:-2] or self.shape[-1] != tensor.shape[-2]:
-            raise RuntimeError(
-                "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
-                    self.shape, tensor.shape
-                )
-            )
 
         func = InvMatmul(self.representation_tree(), preconditioner=self._preconditioner()[0])
         return func(tensor, *self.representation())
