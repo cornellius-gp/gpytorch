@@ -18,7 +18,12 @@ class _GaussianLikelihoodBase(Likelihood):
         if not isinstance(input, MultivariateNormal):
             raise ValueError("Gaussian likelihoods require a MultivariateNormal input")
         mean, covar = input.mean, input.lazy_covariance_matrix
-        full_covar = covar + self.noise_covar(*params)
+        if len(params) > 0:
+            shape = None
+        else:
+            shape = mean.shape if len(mean.shape) == 1 else mean.shape[:-1]
+        noise_covar = self.noise_covar(*params, shape=shape)
+        full_covar = covar + noise_covar
         return input.__class__(mean, full_covar)
 
     def variational_log_probability(self, input, target):
@@ -35,7 +40,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         if mean.dim() > target.dim():
             target = target.unsqueeze(-1)
 
-        log_noise = self.log_noise_covar.log_noise
+        log_noise = self.noise_covar.log_noise
         if variance.ndimension() == 1:
             if settings.debug.on() and log_noise.size(0) > 1:
                 raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
@@ -63,3 +68,8 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
             pyro.sample(name_prefix + "._training_labels", y_dist.independent(1), obs=y_obs)
         else:
             pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)
+
+    @property
+    def log_noise(self):
+        # TODO: DeprecationWarningcation
+        return self.noise_covar.log_noise

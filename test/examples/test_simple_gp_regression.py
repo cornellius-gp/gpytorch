@@ -65,7 +65,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         )
         gp_model.mean_module.initialize(constant=1.5)
         gp_model.covar_module.base_kernel.initialize(log_lengthscale=0)
-        likelihood.initialize(log_noise=0)
+        likelihood.noise_covar.initialize(log_noise=0)
 
         # Compute posterior distribution
         gp_model.eval()
@@ -88,7 +88,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             log_lengthscale=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5, log_transform=True)
         )
         gp_model.covar_module.base_kernel.initialize(log_lengthscale=-10)
-        likelihood.initialize(log_noise=-10)
+        likelihood.noise_covar.initialize(log_noise=-10)
 
         # Compute posterior distribution
         gp_model.eval()
@@ -117,7 +117,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
         gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
         gp_model.mean_module.initialize(constant=0)
-        likelihood.initialize(log_noise=1)
+        likelihood.noise_covar.initialize(log_noise=1)
 
         # Find optimal model hyperparameters
         gp_model.train()
@@ -160,7 +160,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
             gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
             gp_model.mean_module.initialize(constant=0)
-            likelihood.initialize(log_noise=1)
+            likelihood.noise_covar.initialize(log_noise=1)
 
             # Find optimal model hyperparameters
             gp_model.train()
@@ -191,10 +191,10 @@ class TestSimpleGPRegression(unittest.TestCase):
 
             # Now bump up the likelihood to something huge
             # This will make it easy to calculate the variance
-            likelihood.log_noise.data.fill_(3)
+            likelihood.noise_covar.log_noise.data.fill_(3)
             test_function_predictions = likelihood(gp_model(train_x))
 
-            noise = likelihood.log_noise.exp()
+            noise = likelihood.noise_covar.log_noise.exp()
             var_diff = (test_function_predictions.variance - noise).abs()
 
             self.assertLess(torch.max(var_diff / noise), 0.05)
@@ -210,7 +210,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
             gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
             gp_model.mean_module.initialize(constant=0)
-            likelihood.initialize(log_noise=1)
+            likelihood.noise_covar.initialize(log_noise=1)
 
             # Find optimal model hyperparameters
             gp_model.train()
