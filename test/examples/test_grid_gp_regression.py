@@ -92,7 +92,7 @@ class TestGridGPRegression(unittest.TestCase):
             train_preds = likelihood(gp_model(train_x)).mean
             mean_abs_error = torch.mean(torch.abs(train_y - train_preds))
 
-        self.assertLess(mean_abs_error.squeeze().item(), 0.1)
+        self.assertLess(mean_abs_error.squeeze().item(), 0.15)
 
 
 if __name__ == "__main__":
