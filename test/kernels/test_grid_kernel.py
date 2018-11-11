@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import torch
 import unittest
 from gpytorch.kernels import RBFKernel, GridKernel, GridInterpolationKernel
+from gpytorch.lazy import KroneckerProductLazyTensor
 
 cv = GridInterpolationKernel(RBFKernel(), grid_size=10, grid_bounds=[(0, 1), (0, 2)])
 grid = cv.grid
@@ -26,7 +27,9 @@ class TestGridKernel(unittest.TestCase):
     def test_grid_grid(self):
         base_kernel = RBFKernel()
         kernel = GridKernel(base_kernel, grid)
-        grid_eval = kernel(grid, grid).evaluate()
+        grid_covar = kernel(grid_data, grid_data).evaluate_kernel()
+        self.assertIsInstance(grid_covar, KroneckerProductLazyTensor)
+        grid_eval = kernel(grid_data, grid_data).evaluate()
         actual_eval = base_kernel(grid_data, grid_data).evaluate()
         self.assertLess(torch.norm(grid_eval - actual_eval), 1e-5)
 
@@ -34,7 +37,7 @@ class TestGridKernel(unittest.TestCase):
         base_kernel = RBFKernel()
         data = torch.randn(5, 2)
         kernel = GridKernel(base_kernel, grid)
-        grid_eval = kernel(grid, data).evaluate()
+        grid_eval = kernel(grid_data, data).evaluate()
         actual_eval = base_kernel(grid_data, data).evaluate()
         self.assertLess(torch.norm(grid_eval - actual_eval), 1e-5)
 

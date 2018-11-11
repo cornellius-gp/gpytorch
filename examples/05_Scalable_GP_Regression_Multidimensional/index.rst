@@ -5,6 +5,7 @@
    :maxdepth: 1
    :hidden:
 
+   Grid_GP_Regression.ipynb
    KISSGP_Kronecker_Regression.ipynb
    KISSGP_Additive_Regression_CUDA.ipynb
    KISSGP_Deep_Kernel_Regression_CUDA.ipynb
