@@ -7,7 +7,6 @@ import torch
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .root_lazy_tensor import RootLazyTensor
-from .diag_lazy_tensor import DiagLazyTensor
 from ..utils import prod
 
 
@@ -120,12 +119,8 @@ class MulLazyTensor(LazyTensor):
 
         # Here we have a root decomposition
         if isinstance(self.left_lazy_tensor, RootLazyTensor):
-            if isinstance(self.left_lazy_tensor.root, DiagLazyTensor):
-                left_root = self.left_lazy_tensor.root.diag()
-                left_res = (rhs * left_root.unsqueeze(-1)).squeeze().diag().unsqueeze(-1)
-            else:
-                left_root = self.left_lazy_tensor.root.evaluate()
-                left_res = rhs.unsqueeze(-2) * left_root.unsqueeze(-1)
+            left_root = self.left_lazy_tensor.root.evaluate()
+            left_res = rhs.unsqueeze(-2) * left_root.unsqueeze(-1)
 
             rank = left_root.size(-1)
             n = self.size(-1)
@@ -158,14 +153,9 @@ class MulLazyTensor(LazyTensor):
             n, num_vecs = left_vecs.size()
 
         if isinstance(self.right_lazy_tensor, RootLazyTensor):
-            if isinstance(self.right_lazy_tensor.root, DiagLazyTensor):
-                right_root = self.right_lazy_tensor.root.diag()
-                left_factor = (left_vecs * right_root.unsqueeze(-1)).squeeze().diag().unsqueeze(-1)
-                right_factor = (right_vecs * right_root.unsqueeze(-1)).squeeze().diag().unsqueeze(-1)
-            else:
-                right_root = self.right_lazy_tensor.root.evaluate()
-                left_factor = left_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
-                right_factor = right_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
+            right_root = self.right_lazy_tensor.root.evaluate()
+            left_factor = left_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
+            right_factor = right_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
 
             right_rank = right_root.size(-1)
         else:
@@ -183,14 +173,9 @@ class MulLazyTensor(LazyTensor):
         left_deriv_args = self.left_lazy_tensor._quad_form_derivative(left_factor, right_factor)
 
         if isinstance(self.left_lazy_tensor, RootLazyTensor):
-            if isinstance(self.right_lazy_tensor.root, DiagLazyTensor):
-                left_root = self.left_lazy_tensor.root.diag()
-                left_factor = (left_vecs * left_root.unsqueeze(-1)).squeeze().diag().unsqueeze(-1)
-                right_factor = (right_vecs * left_root.unsqueeze(-1)).squeeze().diag().unsqueeze(-1)
-            else:
-                left_root = self.left_lazy_tensor.root.evaluate()
-                left_factor = left_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
-                right_factor = right_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
+            left_root = self.left_lazy_tensor.root.evaluate()
+            left_factor = left_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
+            right_factor = right_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
 
             left_rank = left_root.size(-1)
         else:

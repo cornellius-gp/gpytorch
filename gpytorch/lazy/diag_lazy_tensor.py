@@ -6,6 +6,8 @@ from __future__ import unicode_literals
 import torch
 from .lazy_tensor import LazyTensor
 from .root_lazy_tensor import RootLazyTensor
+from .non_lazy_tensor import NonLazyTensor
+from .sum_lazy_tensor import SumLazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
@@ -64,6 +66,19 @@ class DiagLazyTensor(LazyTensor):
             return DiagLazyTensor(self._diag + other._diag)
         else:
             return AddedDiagLazyTensor(other, self)
+
+    def __mul__(self, other):
+        if torch.is_tensor(other):
+            other = NonLazyTensor(other)
+
+        if isinstance(other, DiagLazyTensor):
+            return DiagLazyTensor(self._diag * other._diag)
+        else:
+            other_diag = other.diag()
+            new_diag = self._diag * other_diag
+            corrected_diag = new_diag - other_diag
+
+            return other.add_diag(corrected_diag)
 
     def diag(self):
         return self._diag
