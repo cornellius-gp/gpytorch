@@ -490,7 +490,8 @@ class InterpolatedLazyTensor(LazyTensor):
             ).evaluate()
 
             # Get inverse root
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors)
+            train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors).root
+            train_train_covar_inv_root = train_train_covar_inv_root.evaluate()
 
             # New root factor
             root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar)

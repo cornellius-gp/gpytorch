@@ -7,7 +7,6 @@ import torch
 from .lazy_tensor import LazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from .non_lazy_tensor import NonLazyTensor
-from .sum_lazy_tensor import SumLazyTensor
 
 
 class DiagLazyTensor(LazyTensor):

@@ -591,9 +591,9 @@ class LazyTensor(object):
 
         if precomputed_cache is None:
             if non_batch_train and train_train_covar.dim() == 3:
-                train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition()
+                train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition().root.evaluate()
             else:
-                train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
+                train_train_covar_inv_root = train_train_covar.root_inv_decomposition().root.evaluate()
             precomputed_cache = self._exact_predictive_covar_inv_quad_form_cache(
                 train_train_covar_inv_root, test_train_covar
             )
@@ -954,6 +954,7 @@ class LazyTensor(object):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
+        from .root_lazy_tensor import RootLazyTensor
         if not self.is_square:
             raise RuntimeError(
                 "root_inv_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
@@ -1022,7 +1023,7 @@ class LazyTensor(object):
         else:
             inv_root = inv_roots
 
-        return inv_root
+        return RootLazyTensor(inv_root)
 
     def root_decomposition_size(self):
         """
