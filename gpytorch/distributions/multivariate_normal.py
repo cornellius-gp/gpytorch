@@ -26,7 +26,6 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
     def __init__(self, mean, covariance_matrix, validate_args=False):
         self._islazy = any(isinstance(arg, LazyTensor) for arg in (mean, covariance_matrix))
-        self._fake_batch_shape = torch.Size()
         if self._islazy:
             if validate_args:
                 # TODO: add argument validation
@@ -44,10 +43,6 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             )
 
     @property
-    def batch_shape(self):
-        return self._fake_batch_shape + self._batch_shape
-
-    @property
     def _unbroadcasted_scale_tril(self):
         if self.islazy and self.__unbroadcasted_scale_tril is None:
             # cache root decoposition
@@ -62,8 +57,9 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             self.__unbroadcasted_scale_tril = ust
 
     def expand(self, batch_size):
-        res = self.__class__(self.loc, self._covar)
-        res._fake_batch_shape = torch.Size(batch_size)
+        new_loc = self.loc.expand(torch.Size(list(batch_size) + [self.loc.size(-1)]))
+        new_covar = self._covar.expand(torch.Size(list(batch_size) + list(self._covar.shape[-2:])))
+        res = self.__class__(new_loc, new_covar)
         return res
 
     def confidence_region(self):
@@ -127,7 +123,6 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
-        sample_shape = self._fake_batch_shape + sample_shape
         if base_samples is None:
             # Create some samples
             num_samples = sample_shape.numel() or 1
