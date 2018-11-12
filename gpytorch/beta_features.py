@@ -40,6 +40,13 @@ class diagonal_correction(_feature_flag):
     _state = True
 
 
+class default_preconditioner(_feature_flag):
+    """
+    Add a diagonal correction to scalable inducing point methods
+    """
+    pass
+
+
 class fast_pred_samples(_feature_flag):
     """
     Fast predictive samples - with Lanczos
@@ -48,4 +55,4 @@ class fast_pred_samples(_feature_flag):
     pass
 
 
-__all__ = ["diagonal_correction", "fast_pred_var", "fast_pred_samples"]
+__all__ = ["diagonal_correction", "default_preconditioner", "fast_pred_var", "fast_pred_samples"]
