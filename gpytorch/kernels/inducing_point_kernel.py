@@ -47,7 +47,7 @@ class InducingPointKernel(Kernel):
             inv_roots_list = []
             for i in range(self._inducing_mat.size(0)):
                 jitter_mat = add_jitter(self._inducing_mat[i])
-                chol = torch.potrf(jitter_mat)
+                chol = torch.cholesky(jitter_mat, upper=True)
                 eye = torch.eye(chol.size(-1), device=chol.device)
                 inv_roots_list.append(torch.trtrs(eye, chol)[0])
 

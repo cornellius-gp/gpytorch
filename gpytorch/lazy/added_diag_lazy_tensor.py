@@ -71,7 +71,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 ld_one = (NonLazyTensor(batch_potrf(lr_flipped)).diag().log().sum(-1)) * 2
                 ld_two = self._diag_tensor.diag().log().sum(-1)
             else:
-                ld_one = lr_flipped.potrf().diag().log().sum() * 2
+                ld_one = lr_flipped.cholesky(upper=True).diag().log().sum() * 2
                 ld_two = self._diag_tensor.diag().log().sum().item()
             self._precond_log_det_cache = ld_one + ld_two
 
