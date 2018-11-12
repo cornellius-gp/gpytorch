@@ -1205,6 +1205,7 @@ class LazyTensor(object):
         :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
         """
         index = list(index) if isinstance(index, tuple) else [index]
+        index = [torch.tensor(idx) if isinstance(idx, list) else idx for idx in index]
         ndimension = self.ndimension()
         index += [slice(None, None, None)] * (ndimension - len(index))
         components = list(self._args)
