@@ -4,6 +4,7 @@ import torch
 from ..lazy import CholLazyTensor
 from ..distributions import MultivariateNormal
 from .variational_distribution import VariationalDistribution
+from ..utils.cholesky import batch_potrf
 
 
 class CholeskyVariationalDistribution(VariationalDistribution):
@@ -29,13 +30,16 @@ class CholeskyVariationalDistribution(VariationalDistribution):
         if batch_size is not None:
             mean_init = mean_init.repeat(batch_size, 1)
             covar_init = covar_init.repeat(batch_size, 1, 1)
-        mean_init += torch.randn_like(mean_init).mul(1e-1)
-        covar_init += torch.randn_like(covar_init).mul(1e-1)
 
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(mean_init))
         self.register_parameter(name="chol_variational_covar", parameter=torch.nn.Parameter(covar_init))
 
-        self.register_buffer("variational_params_initialized", torch.tensor(0))
+    def initialize_variational_distribution(self, prior_dist):
+        self.variational_mean.data.copy_(prior_dist.mean)
+        if prior_dist.batch_shape.numel():
+            self.chol_variational_covar.data.copy_(batch_potrf(prior_dist.covariance_matrix))
+        else:
+            self.chol_variational_covar.data.copy_(prior_dist.covariance_matrix.cholesky(upper=True))
 
     @property
     def variational_distribution(self):

@@ -52,6 +52,7 @@ class VariationalStrategy(Module):
             self.register_buffer("inducing_points", inducing_points)
 
         self.variational_distribution = variational_distribution
+        self.register_buffer("variational_params_initialized", torch.tensor(0))
 
         self.has_computed_alpha = False
         self.has_computed_root = False
@@ -85,7 +86,6 @@ class VariationalStrategy(Module):
             :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
         """
         variational_dist = self.variational_distribution.variational_distribution
-
         if torch.equal(x, self.inducing_points):
             return variational_dist
         else:
@@ -149,3 +149,9 @@ class VariationalStrategy(Module):
                     predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
 
             return MultivariateNormal(predictive_mean, predictive_covar)
+
+    def __call__(self, x):
+        if not self.variational_params_initialized.item():
+            self.variational_distribution.initialize_variational_distribution(self.prior_distribution)
+            self.variational_params_initialized.fill_(1)
+        return super(VariationalStrategy, self).__call__(x)
