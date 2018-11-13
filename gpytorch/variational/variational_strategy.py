@@ -60,8 +60,11 @@ class VariationalStrategy(Module):
         GP prior distribution of the inducing points, e.g. :math:`p(u) \sim N(\mu(X_u), K(X_u, X_u))`. Most commonly,
         this is done simply by calling the user defined GP prior on the inducing point data directly.
         """
-        out = self.model.forward(self.inducing_points)
-        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel().add_jitter())
+        if hasattr(self, '_prior_distribution_memo'):
+            return self._prior_distribution_memo
+        else:
+            out = self.model.forward(self.inducing_points)
+            return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel().add_jitter())
 
     def forward(self, x):
         """
@@ -98,6 +101,11 @@ class VariationalStrategy(Module):
                 induc_data_covar = full_covar[:n_induc, n_induc:]
                 data_data_covar = full_covar[n_induc:, n_induc:]
                 var_dist_mean = variational_dist.mean
+
+            # Cache the prior distribution, for faster training
+            if self.training:
+                prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
+                self._prior_distribution_memo = prior_dist
 
             # Compute predictive mean/covariance
             induc_data_covar = induc_data_covar.evaluate()
