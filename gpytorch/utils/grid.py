@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 
 import math
+import torch
 
 
 def scale_to_bounds(x, lower_bound, upper_bound):
@@ -45,3 +46,18 @@ def choose_grid_size(train_inputs, ratio=1.0):
     num_data = train_inputs.numel() if train_inputs.dim() == 1 else train_inputs.size(-2)
     num_dim = 1 if train_inputs.dim() == 1 else train_inputs.size(-1)
     return int(ratio * math.pow(num_data, 1.0 / num_dim))
+
+
+def create_data_from_grid(grid):
+        grid_size = grid.size(-2)
+        grid_dim = grid.size(-1)
+        grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim)
+        prev_points = None
+        for i in range(grid_dim):
+            for j in range(grid_size):
+                grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[j, i])
+                if prev_points is not None:
+                    grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
+            prev_points = grid_data[: grid_size ** (i + 1), : (i + 1)]
+
+        return grid_data

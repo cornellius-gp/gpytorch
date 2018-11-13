@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import math
+import gpytorch
 import torch
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
@@ -11,6 +12,8 @@ from ..functions._root_decomposition import RootDecomposition
 from ..functions._matmul import Matmul
 from .. import beta_features, settings
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
+from ..utils.qr import batch_qr
+from ..utils.svd import batch_svd
 
 
 class LazyTensor(object):
@@ -250,6 +253,46 @@ class LazyTensor(object):
             self, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
         return res
+
+    def _inv_matmul_preconditioner(self):
+        """
+        (Optional) define a preconditioner that can be used for linear systems, but not necessarily
+        for log determinants. By default, this can call :meth:`~gpytorch.lazy.LazyTensor._preconditioner`.
+
+        Returns:
+            function: a function on x which performs P^{-1}(x)
+        """
+        base_precond, _ = self._preconditioner()
+
+        if base_precond is not None:
+            return base_precond
+        elif gpytorch.beta_features.default_preconditioner.on():
+            if hasattr(self, "_default_preconditioner_cache"):
+                U, S, V = self._default_preconditioner_cache
+            else:
+                precond_basis_size = min(gpytorch.settings.max_preconditioner_size.value(), self.size(-1))
+                random_basis = torch.randn(
+                    self.batch_shape + torch.Size((self.size(-2), precond_basis_size)),
+                    device=self.device,
+                    dtype=self.dtype,
+                )
+                projected_mat = self._matmul(random_basis)
+                proj_q = batch_qr(projected_mat)
+                orthog_projected_mat = self._matmul(proj_q).transpose(-2, -1)
+                U, S, V = batch_svd(orthog_projected_mat)
+                U = proj_q.matmul(U)
+
+                self._default_preconditioner_cache = (U, S, V)
+
+            def preconditioner(v):
+                res = V.transpose(-2, -1).matmul(v)
+                res = (1 / S).unsqueeze(-1) * res
+                res = U.matmul(res)
+                return res
+
+            return preconditioner
+        else:
+            return None
 
     def _preconditioner(self):
         """
@@ -571,7 +614,7 @@ class LazyTensor(object):
                     )
                 )
 
-        func = InvMatmul(self.representation_tree(), preconditioner=self._preconditioner()[0])
+        func = InvMatmul(self.representation_tree(), preconditioner=self._inv_matmul_preconditioner())
         return func(tensor, *self.representation())
 
     def inv_quad(self, tensor):
@@ -1162,6 +1205,7 @@ class LazyTensor(object):
         :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
         """
         index = list(index) if isinstance(index, tuple) else [index]
+        index = [torch.tensor(idx) if isinstance(idx, list) else idx for idx in index]
         ndimension = self.ndimension()
         index += [slice(None, None, None)] * (ndimension - len(index))
         components = list(self._args)
