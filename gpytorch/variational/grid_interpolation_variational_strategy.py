@@ -4,14 +4,11 @@ import torch
 from ..utils.interpolation import Interpolation, left_interp
 from ..lazy import InterpolatedLazyTensor
 from ..distributions import MultivariateNormal
-from ..module import Module
+from .variational_strategy import VariationalStrategy
 
 
-class GridInterpolationVariationalStrategy(Module):
+class GridInterpolationVariationalStrategy(VariationalStrategy):
     def __init__(self, model, grid_size, grid_bounds, variational_distribution):
-        super(GridInterpolationVariationalStrategy, self).__init__()
-        object.__setattr__(self, "model", model)
-
         grid = torch.zeros(grid_size, len(grid_bounds))
         for i in range(len(grid_bounds)):
             grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
@@ -26,11 +23,12 @@ class GridInterpolationVariationalStrategy(Module):
                     inducing_points[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
             prev_points = inducing_points[: grid_size ** (i + 1), : (i + 1)]
 
-        self.register_buffer("inducing_points", inducing_points)
-        self.register_buffer("grid", grid)
+        super(GridInterpolationVariationalStrategy, self).__init__(
+            model, inducing_points, variational_distribution, learn_inducing_locations=False
+        )
+        object.__setattr__(self, "model", model)
 
-        self.variational_distribution = variational_distribution
-        self.register_buffer("variational_params_initialized", torch.tensor(0))
+        self.register_buffer("grid", grid)
 
     @property
     def prior_distribution(self):
@@ -73,9 +71,3 @@ class GridInterpolationVariationalStrategy(Module):
 
         output = MultivariateNormal(predictive_mean, predictive_covar)
         return output
-
-    def __call__(self, x):
-        if not self.variational_params_initialized.item():
-            self.variational_distribution.initialize_variational_distribution(self.prior_distribution)
-            self.variational_params_initialized.fill_(1)
-        return super(GridInterpolationVariationalStrategy, self).__call__(x)

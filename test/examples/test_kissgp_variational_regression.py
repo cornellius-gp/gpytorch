@@ -28,9 +28,15 @@ def make_data():
     return train_x, train_y, test_x, test_y
 
 
-class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
-    def __init__(self):
-        super(GPRegressionModel, self).__init__(grid_size=20, grid_bounds=[(-0.05, 1.05)])
+class GPRegressionModel(gpytorch.models.AbstractVariationalGP):
+    def __init__(self, grid_size=20, grid_bounds=[(-0.1, 1.1)]):
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
+            num_inducing_points=int(pow(grid_size, len(grid_bounds)))
+        )
+        variational_strategy = gpytorch.variational.GridInterpolationVariationalStrategy(
+            self, grid_size=grid_size, grid_bounds=grid_bounds, variational_distribution=variational_distribution
+        )
+        super(GPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-10, 10))
         self.covar_module = ScaleKernel(
             RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(6), sigma=0.1, log_transform=True))
@@ -63,23 +69,22 @@ class TestKissGPVariationalRegression(unittest.TestCase):
         model = GPRegressionModel()
         likelihood = GaussianLikelihood()
         mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
-        n_iter = 20
         # We use SGD here, rather than Adam
         # Emperically, we find that SGD is better for variational regression
-        optimizer = torch.optim.SGD([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.1)
-
-        # We use a Learning rate scheduler from PyTorch to lower the learning rate during optimization
-        # We're going to drop the learning rate by 1/10 after 3/4 of training
-        # This helps the model converge to a minimum
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[0.75 * n_iter], gamma=0.1)
+        optimizer = torch.optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
         # Our loss object
         # We're using the VariationalMarginalLogLikelihood object
         mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=train_y.size(0))
 
         # The training loop
-        def train():
-            for _ in range(n_iter):
+        def train(n_epochs=15):
+            # We use a Learning rate scheduler from PyTorch to lower the learning rate during optimization
+            # We're going to drop the learning rate by 1/10 after 3/4 of training
+            # This helps the model converge to a minimum
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[0.75 * n_epochs], gamma=0.1)
+
+            for _ in range(n_epochs):
                 scheduler.step()
                 for x_batch, y_batch in train_loader:
                     x_batch = x_batch.float()
