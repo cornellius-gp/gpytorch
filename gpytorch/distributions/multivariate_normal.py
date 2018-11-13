@@ -228,6 +228,10 @@ def kl_mvn_mvn(p_dist, q_dist):
     root_p_covar = p_covar.root_decomposition()
 
     mean_diffs = q_mean - p_mean
+    if isinstance(root_p_covar, LazyTensor):
+        # right now this just catches if root_p_covar is a DiagLazyTensor,
+        # but we may want to be smarter about this in the future
+        root_p_covar = root_p_covar.evaluate()
     inv_quad_rhs = torch.cat([root_p_covar, mean_diffs.unsqueeze(-1)], -1)
     log_det_p_covar = p_covar.log_det()
     trace_plus_inv_quad_form, log_det_q_covar = q_covar.inv_quad_log_det(inv_quad_rhs=inv_quad_rhs, log_det=True)

@@ -94,7 +94,7 @@ class GridInterpolationKernel(GridKernel):
         grid = self._create_grid()
 
         super(GridInterpolationKernel, self).__init__(
-            base_kernel=base_kernel, grid=grid, active_dims=active_dims
+            base_kernel=base_kernel, grid=grid, interpolation_mode=True, active_dims=active_dims
         )
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.uint8))
 

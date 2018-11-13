@@ -63,6 +63,18 @@ class TestPivotedCholesky(unittest.TestCase):
 
 
 class TestPivotedCholeskyBatch(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_pivoted_cholesky(self):
         size = 100
         train_x = torch.cat(
@@ -98,6 +110,18 @@ class TestPivotedCholeskyBatch(unittest.TestCase):
 
 
 class TestPivotedCholeskyMultiBatch(unittest.TestCase):
+    def setUp(self):
+        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
+            self.rng_state = torch.get_rng_state()
+            torch.manual_seed(0)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(0)
+            random.seed(0)
+
+    def tearDown(self):
+        if hasattr(self, "rng_state"):
+            torch.set_rng_state(self.rng_state)
+
     def test_pivoted_cholesky(self):
         size = 100
         train_x = torch.cat(
