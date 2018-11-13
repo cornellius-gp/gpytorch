@@ -30,6 +30,7 @@ class GridInterpolationVariationalStrategy(Module):
         self.register_buffer("grid", grid)
 
         self.variational_distribution = variational_distribution
+        self.register_buffer("variational_params_initialized", torch.tensor(0))
 
     @property
     def prior_distribution(self):
@@ -41,7 +42,7 @@ class GridInterpolationVariationalStrategy(Module):
         GridKernel is typically not worth it due to the moderate slow down of using FFTs.
         """
         out = self.model.forward(self.inducing_points)
-        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel())
+        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel().add_jitter())
 
     def _compute_grid(self, inputs):
         if inputs.ndimension() == 1:
@@ -72,3 +73,9 @@ class GridInterpolationVariationalStrategy(Module):
 
         output = MultivariateNormal(predictive_mean, predictive_covar)
         return output
+
+    def __call__(self, x):
+        if not self.variational_params_initialized.item():
+            self.variational_distribution.initialize_variational_distribution(self.prior_distribution)
+            self.variational_params_initialized.fill_(1)
+        return super(GridInterpolationVariationalStrategy, self).__call__(x)
