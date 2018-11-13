@@ -5,6 +5,7 @@ import torch
 from ..distributions import MultivariateNormal
 from ..functions import add_diag
 from ..likelihoods import Likelihood
+from ..lazy import DiagLazyTensor
 from .. import settings
 
 
@@ -57,13 +58,10 @@ class GaussianLikelihood(Likelihood):
         import pyro
 
         noise = self.noise
-        lazy_covar_f = variational_dist_f.lazy_covariance_matrix
-        if lazy_covar_f.ndimension() == 2:
-            noise = noise.squeeze(0)
-        y_lazy_covar = add_diag(lazy_covar_f, noise)
+        var_f = variational_dist_f.lazy_covariance_matrix.diag()
         y_mean = variational_dist_f.mean
+        if y_mean.dim() == 1:
+            noise = noise.squeeze(0)
+        y_lazy_covar = DiagLazyTensor(var_f + noise.expand_as(var_f))
         y_dist = MultivariateNormal(y_mean, y_lazy_covar)
-        if len(y_dist.shape()) > 1:
-            pyro.sample(name_prefix + "._training_labels", y_dist.independent(1), obs=y_obs)
-        else:
-            pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)
+        pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)

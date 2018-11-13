@@ -462,6 +462,20 @@ class LazyTensor(object):
     def dtype(self):
         return self._args[0].dtype
 
+    def expand(self, *sizes):
+        if len(sizes) == 1 and hasattr(sizes, '__iter__'):
+            shape = sizes[0]
+        elif all(isinstance(size, int) for size in sizes):
+            shape = torch.Size(sizes)
+        else:
+            raise RuntimeError("Invalid arguments {} to expand.".format(sizes))
+
+        current_shape = torch.Size([1 for _ in range(len(shape) - self.dim())] + list(self.shape))
+        repeat_shape = torch.Size(
+            [expand_size // current_size for expand_size, current_size in zip(shape, current_shape)]
+        )
+        return self.repeat(*repeat_shape)
+
     def evaluate(self):
         """
         Explicitly evaluates the matrix this LazyTensor represents. This function

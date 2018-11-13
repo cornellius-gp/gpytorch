@@ -4,14 +4,11 @@ import torch
 from ..utils.interpolation import Interpolation, left_interp
 from ..lazy import InterpolatedLazyTensor
 from ..distributions import MultivariateNormal
-from ..module import Module
+from .variational_strategy import VariationalStrategy
 
 
-class GridInterpolationVariationalStrategy(Module):
+class GridInterpolationVariationalStrategy(VariationalStrategy):
     def __init__(self, model, grid_size, grid_bounds, variational_distribution):
-        super(GridInterpolationVariationalStrategy, self).__init__()
-        object.__setattr__(self, "model", model)
-
         grid = torch.zeros(grid_size, len(grid_bounds))
         for i in range(len(grid_bounds)):
             grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
@@ -26,22 +23,12 @@ class GridInterpolationVariationalStrategy(Module):
                     inducing_points[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
             prev_points = inducing_points[: grid_size ** (i + 1), : (i + 1)]
 
-        self.register_buffer("inducing_points", inducing_points)
+        super(GridInterpolationVariationalStrategy, self).__init__(
+            model, inducing_points, variational_distribution, learn_inducing_locations=False
+        )
+        object.__setattr__(self, "model", model)
+
         self.register_buffer("grid", grid)
-
-        self.variational_distribution = variational_distribution
-
-    @property
-    def prior_distribution(self):
-        """
-        If desired, models can compare the input to forward to inducing_points and use a GridKernel for space
-        efficiency.
-
-        However, when using a default VariationalDistribution which has an O(m^2) space complexity anyways, we find that
-        GridKernel is typically not worth it due to the moderate slow down of using FFTs.
-        """
-        out = self.model.forward(self.inducing_points)
-        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel())
 
     def _compute_grid(self, inputs):
         if inputs.ndimension() == 1:

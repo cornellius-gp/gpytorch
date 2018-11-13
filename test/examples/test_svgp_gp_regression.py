@@ -64,20 +64,22 @@ class TestSVGPRegression(unittest.TestCase):
     def test_regression_error(self):
         train_x, train_y = train_data()
         likelihood = GaussianLikelihood()
-        model = SVGPRegressionModel(train_x[:25])
+        model = SVGPRegressionModel(torch.linspace(0, 1, 25))
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
-        optimizer = optim.Adam([{'params': model.parameters()}, {'params': likelihood.parameters()}], lr=0.1)
+        optimizer = optim.Adam([
+            {'params': model.parameters()},
+            {'params': likelihood.parameters()},
+        ], lr=0.01)
         optimizer.n_iter = 0
-        for _ in range(200):
+        for _ in range(150):
             optimizer.zero_grad()
             output = model(train_x)
             loss = -mll(output, train_y)
             loss.backward()
-            optimizer.n_iter += 1
             optimizer.step()
 
         for param in model.parameters():
@@ -92,20 +94,20 @@ class TestSVGPRegression(unittest.TestCase):
         likelihood.eval()
         test_preds = likelihood(model(train_x)).mean.squeeze()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        assert mean_abs_error.item() < 1e-1
+        self.assertLess(mean_abs_error.item(), 1e-1)
 
     def test_regression_error_cuda(self):
         if torch.cuda.is_available():
             train_x, train_y = train_data(cuda=True)
             likelihood = GaussianLikelihood().cuda()
-            model = SVGPRegressionModel(train_x[:25]).cuda()
+            model = SVGPRegressionModel(torch.linspace(0, 1, 25)).cuda()
             mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()
-            optimizer = optim.Adam([{'params': model.parameters()}, {'params': likelihood.parameters()}], lr=0.1)
+            optimizer = optim.Adam([{'params': model.parameters()}, {'params': likelihood.parameters()}], lr=0.01)
             optimizer.n_iter = 0
-            for _ in range(200):
+            for _ in range(150):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
