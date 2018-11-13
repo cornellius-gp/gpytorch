@@ -78,10 +78,10 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
         prior = LKJCholeskyFactorPrior(2, torch.tensor(0.5, device=device))
         self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
-        S_chol = torch.cholesky(S, upper=False)
+        S_chol = torch.cholesky(S)
         self.assertAlmostEqual(prior.log_prob(S_chol).item(), -1.86942, places=4)
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S_chol.device)])
-        S_chol = torch.stack([torch.cholesky(Si, upper=False) for Si in S])
+        S_chol = torch.stack([torch.cholesky(Si) for Si in S])
         self.assertTrue(approx_equal(prior.log_prob(S_chol), torch.tensor([-1.86942, -1.72558], device=S_chol.device)))
         with self.assertRaises(ValueError):
             prior.log_prob(torch.eye(3, device=device))
@@ -100,10 +100,10 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
 
         self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
-        S_chol = torch.cholesky(S, upper=False)
+        S_chol = torch.cholesky(S)
         self.assertTrue(approx_equal(prior.log_prob(S_chol), torch.tensor([-1.86942, -0.483129], device=S_chol.device)))
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
-        S_chol = torch.stack([torch.cholesky(Si, upper=False) for Si in S])
+        S_chol = torch.stack([torch.cholesky(Si) for Si in S])
         self.assertTrue(approx_equal(prior.log_prob(S_chol), torch.tensor([-1.86942, -0.62697], device=S_chol.device)))
         with self.assertRaises(ValueError):
             prior.log_prob(torch.eye(3, device=device))
