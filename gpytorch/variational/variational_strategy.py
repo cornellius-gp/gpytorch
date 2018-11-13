@@ -4,7 +4,6 @@ import math
 import torch
 import gpytorch
 from ..lazy import RootLazyTensor, PsdSumLazyTensor, DiagLazyTensor
-from .. import beta_features
 from ..module import Module
 from ..distributions import MultivariateNormal
 
@@ -54,15 +53,6 @@ class VariationalStrategy(Module):
         self.variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
 
-        self.has_computed_alpha = False
-        self.has_computed_root = False
-
-    def train(self, mode=True):
-        if mode:
-            self.has_computed_alpha = False
-            self.has_computed_root = False
-        return super(VariationalStrategy, self).train(mode)
-
     @property
     def prior_distribution(self):
         """
@@ -99,7 +89,6 @@ class VariationalStrategy(Module):
                 induc_mean = full_mean[:, :n_induc].unsqueeze(-1)
                 induc_induc_covar = full_covar[:, :n_induc, :n_induc].add_jitter()
                 induc_data_covar = full_covar[:, :n_induc, n_induc:]
-                data_induc_covar = full_covar[:, n_induc:, :n_induc]
                 data_data_covar = full_covar[:, n_induc:, n_induc:]
                 var_dist_mean = variational_dist.mean.unsqueeze(-1)
             else:
@@ -107,46 +96,21 @@ class VariationalStrategy(Module):
                 induc_mean = full_mean[:n_induc]
                 induc_induc_covar = full_covar[:n_induc, :n_induc].add_jitter()
                 induc_data_covar = full_covar[:n_induc, n_induc:]
-                data_induc_covar = full_covar[n_induc:, :n_induc]
                 data_data_covar = full_covar[n_induc:, n_induc:]
                 var_dist_mean = variational_dist.mean
 
-            # Compute alpha cache
-            if not self.has_computed_alpha:
-                mean_diff = var_dist_mean - induc_mean
-                self.alpha = induc_induc_covar.inv_matmul(mean_diff)
-                # Don't consider this computation a cache if we are in training mode.
-                if not self.training:
-                    self.has_computed_alpha = True
+            # Compute predictive mean/covariance
+            induc_data_covar = induc_data_covar.evaluate()
+            inv_product = induc_induc_covar.inv_matmul(induc_data_covar)
+            factor = variational_dist.lazy_covariance_matrix.root_decomposition().matmul(inv_product)
+            predictive_mean = torch.add(test_mean, inv_product.transpose(-1, -2).matmul(var_dist_mean - induc_mean))
+            predictive_covar = RootLazyTensor(factor.transpose(-2, -1))
 
-            # Compute chol cache, if necessary
-            if not self.training and not self.has_computed_root and beta_features.fast_pred_var.on():
-                self.prior_root_inv = induc_induc_covar.root_inv_decomposition()
-
-                chol_variational_output = variational_dist.lazy_covariance_matrix.root.evaluate()
-                self.variational_root = induc_induc_covar.inv_matmul(chol_variational_output)
-                self.has_computed_root = True
-
-            # Compute predictive mean
-            predictive_mean = torch.add(test_mean, data_induc_covar.matmul(self.alpha))
-
-            # Compute predictive covariance
-            predictive_covar = data_data_covar
-            if not self.training and beta_features.fast_pred_var.on():
-                correction = RootLazyTensor(data_induc_covar.matmul(self.prior_root_inv)).mul(-1)
-                correction = correction + RootLazyTensor(data_induc_covar.matmul(self.variational_root))
-                predictive_covar = predictive_covar + correction
-            else:
-                induc_data_covar = induc_data_covar.evaluate()
-                inv_product = induc_induc_covar.inv_matmul(induc_data_covar)
-                factor = variational_dist.lazy_covariance_matrix.root_decomposition().matmul(inv_product)
-                predictive_covar = RootLazyTensor(factor.transpose(-2, -1))
-
-                if gpytorch.beta_features.diagonal_correction.on():
-                    fake_diagonal = (inv_product * induc_data_covar).sum(-2)
-                    real_diagonal = data_data_covar.diag()
-                    diag_correction = DiagLazyTensor((real_diagonal - fake_diagonal).clamp(0, math.inf))
-                    predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
+            if gpytorch.beta_features.diagonal_correction.on():
+                fake_diagonal = (inv_product * induc_data_covar).sum(-2)
+                real_diagonal = data_data_covar.diag()
+                diag_correction = DiagLazyTensor((real_diagonal - fake_diagonal).clamp(0, math.inf))
+                predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
 
             return MultivariateNormal(predictive_mean, predictive_covar)
 
