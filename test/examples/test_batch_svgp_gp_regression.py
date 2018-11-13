@@ -77,7 +77,7 @@ class TestSVGPRegression(unittest.TestCase):
         likelihood.train()
         optimizer = optim.Adam([{'params': model.parameters()}, {'params': likelihood.parameters()}], lr=0.1)
         optimizer.n_iter = 0
-        for _ in range(200):
+        for _ in range(250):
             optimizer.zero_grad()
             output = model(train_x)
             loss = -mll(output, train_y)
@@ -114,7 +114,7 @@ class TestSVGPRegression(unittest.TestCase):
             likelihood.train()
             optimizer = optim.Adam([{'params': model.parameters()}, {'params': likelihood.parameters()}], lr=0.1)
             optimizer.n_iter = 0
-            for _ in range(200):
+            for _ in range(250):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
