@@ -30,18 +30,6 @@ class GridInterpolationVariationalStrategy(VariationalStrategy):
 
         self.register_buffer("grid", grid)
 
-    @property
-    def prior_distribution(self):
-        """
-        If desired, models can compare the input to forward to inducing_points and use a GridKernel for space
-        efficiency.
-
-        However, when using a default VariationalDistribution which has an O(m^2) space complexity anyways, we find that
-        GridKernel is typically not worth it due to the moderate slow down of using FFTs.
-        """
-        out = self.model.forward(self.inducing_points)
-        return MultivariateNormal(out.mean, out.lazy_covariance_matrix.evaluate_kernel().add_jitter())
-
     def _compute_grid(self, inputs):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(1)

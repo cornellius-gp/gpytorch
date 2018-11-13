@@ -104,7 +104,7 @@ class VariationalStrategy(Module):
 
             # Cache the prior distribution, for faster training
             if self.training:
-                prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
+                prior_dist = MultivariateNormal(induc_mean.squeeze(-1), induc_induc_covar)
                 self._prior_distribution_memo = prior_dist
 
             # Compute predictive mean/covariance
