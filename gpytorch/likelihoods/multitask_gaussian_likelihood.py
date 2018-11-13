@@ -18,9 +18,9 @@ from .noise_models import MultitaskHomoskedasticNoise
 
 def _eval_covar_matrix(task_noise_covar_factor, log_noise):
     num_tasks = task_noise_covar_factor.size(0)
-    return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + log_noise.exp() * torch.eye(
-        num_tasks
-    )
+    base_mat = task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2))
+    diag = log_noise.exp() * torch.eye(num_tasks)
+    return base_mat + diag
 
 
 def _eval_corr_matrix(corr_factor, corr_diag):
@@ -104,7 +104,18 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         mean, covar = input.mean, input.lazy_covariance_matrix
         batch_shape, n = covar.shape[:-2], covar.shape[-1] // self.num_tasks
 
+        if len(batch_shape) > 1:
+            raise NotImplementedError("Batch shapes with dim > 1 not yet supported for MulitTask Likelihoods")
+
+        # compute the noise covariance
+        if len(params) > 0:
+            shape = None
+        else:
+            shape = mean.shape if len(mean.shape) == 1 else mean.shape[:-1]
+        D_sem = self.noise_covar(*params, shape=shape).sqrt()
+
         if hasattr(self, "task_noise_corr_factor"):
+            # if rank > 0, compute the task correlation matrix
             task_noise_corr_factor = self.task_noise_corr_factor
             task_noise_corr_diag = self.task_noise_corr_diag
             if len(batch_shape) > 0:
@@ -114,16 +125,24 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
                     )
                 task_noise_corr_factor = task_noise_corr_factor.squeeze(0)
                 task_noise_corr_diag = task_noise_corr_diag.squeeze(0)
-            # # TODO: This is inefficient, find a better way to do this
-            task_corr = NonLazyTensor(_eval_corr_matrix(task_noise_corr_factor, task_noise_corr_diag))
+            # TODO: This is inefficient, change repeat so it can repeat LazyTensors w/ multiple batch dimensions
+            task_corr = _eval_corr_matrix(task_noise_corr_factor, task_noise_corr_diag)
+            exp_shape = batch_shape + torch.Size([n]) + task_corr.shape[-2:]
+            if len(batch_shape) == 1:
+                task_corr = task_corr.unsqueeze(-3)
+            task_corr_exp = NonLazyTensor(task_corr.expand(exp_shape))
         else:
-            task_corr = DiagLazyTensor(
-                torch.ones(batch_shape + torch.Size([self.num_tasks]), dtype=covar.dtype, device=covar.device)
-            )
+            # otherwise tasks are uncorrelated
+            diag_shape = batch_shape + torch.Size([n, self.num_tasks])
+            task_corr_exp = DiagLazyTensor(torch.ones(diag_shape, dtype=covar.dtype, device=covar.device))
 
-        D_sem = self.noise_covar(*params).sqrt()
-        task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(D_sem, task_corr.repeat(n, 1, 1)), D_sem)
-        task_covar = BlockDiagLazyTensor(task_covar_blocks)
+        task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(D_sem, task_corr_exp), D_sem)
+        if len(batch_shape) == 1:
+            # TODO: Properly support general batch shapes in BlockDiagLazyTensor (no shape arithmetic)
+            tcb_eval = task_covar_blocks.evaluate()
+            task_covar = BlockDiagLazyTensor(NonLazyTensor(tcb_eval.view(-1, *tcb_eval.shape[-2:])), num_blocks=tcb_eval.shape[0])
+        else:
+            task_covar = BlockDiagLazyTensor(task_covar_blocks)
         return input.__class__(mean, covar + task_covar)
 
     def variational_log_probability(self, input, target):

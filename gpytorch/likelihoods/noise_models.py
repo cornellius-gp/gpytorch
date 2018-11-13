@@ -15,24 +15,23 @@ class HomoskedasticNoise(Module):
             name="log_noise", parameter=Parameter(torch.zeros(batch_size, 1)), prior=log_noise_prior
         )
 
-    def forward(self, params):
+    def forward(self, *params, shape=None):
         log_noise = self.log_noise.squeeze(0).exp()
-        p = params[0] if isinstance(params, list) else params
-        shape = p.shape if len(p.shape) == 1 else p.shape[:-1]
-        if log_noise.ndimension() > len(shape):
-            raise RuntimeError("Must provide batched input if in batch mode")
+        if shape is None:
+            p = params[0] if torch.is_tensor(params[0]) else params[0][0]
+            shape = p.shape if len(p.shape) == 1 else p.shape[:-1]
         if log_noise.shape[-1] > 1:  # deal with multi-task case
             shape = shape + torch.Size([log_noise.shape[-1]])
-        log_noise_diag = log_noise.expand(shape)
-        return DiagLazyTensor(log_noise_diag)
+        if log_noise.ndimension() > len(shape):
+            raise RuntimeError("Must provide batched input if in batch mode")
+        return DiagLazyTensor(log_noise.expand(shape))
 
 
 class MultitaskHomoskedasticNoise(HomoskedasticNoise):
     def __init__(self, num_tasks, log_noise_prior=None, batch_size=1):
         super(HomoskedasticNoise, self).__init__()
-        self.register_parameter(
-            name="log_noise", parameter=Parameter(torch.zeros(batch_size, num_tasks)), prior=log_noise_prior
-        )
+        log_noise = Parameter(torch.zeros(batch_size, num_tasks))
+        self.register_parameter(name="log_noise", parameter=log_noise, prior=log_noise_prior)
 
 
 class HeteroskedasticNoise(Module):
@@ -42,8 +41,11 @@ class HeteroskedasticNoise(Module):
         self.log_scale = log_scale
         self.noise_indices = noise_indices
 
-    def forward(self, params):
-        output = self.noise_model(*params if isinstance(params, list) or isinstance(params, tuple) else params)
+    def forward(self, *params, shape=None):
+        if len(params) == 1 and not torch.is_tensor(params[0]):
+            output = self.noise_model(*params[0])
+        else:
+            output = self.noise_model(*params)
         if not isinstance(output, MultivariateNormal):
             raise NotImplementedError("Currently only noise models that return a MultivariateNormal are supported")
         # note: this also works with MultitaskMultivariateNormal, where this
