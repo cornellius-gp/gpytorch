@@ -12,6 +12,7 @@ from ..functions._root_decomposition import RootDecomposition
 from ..functions._matmul import Matmul
 from .. import beta_features, settings
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
+from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.qr import batch_qr
 from ..utils.svd import batch_svd
 
@@ -710,29 +711,29 @@ class LazyTensor(object):
         _, res = self.inv_quad_log_det(inv_quad_rhs=None, log_det=True)
         return res
 
-    def matmul(self, tensor):
+    def matmul(self, other):
         """
         Multiplies self by a matrix
 
         Args:
-            tensor (:obj:`torch.tensor`): Matrix or vector to multiply with. Must be a proper `:obj:`torch.tensor`,
-            and not another :obj:`gpytorch.lazy.LazyTensor`.
+            other (:obj:`torch.tensor`): Matrix or vector to multiply with. Can be either a ``:obj:`torch.tensor`
+                or a :obj:`gpytorch.lazy.LazyTensor`.
 
         Returns:
-            :obj:`torch.tensor`: Tensor containing the result of the matrix multiplication :math:`KM`, where :math:`K`
-            is the matrix that this :obj:`gpytorch.lazy.LazyTensor` represents, and :math:`M` is the matrix input
-            to this method.
+            :obj:`torch.tensor`: Tensor or LazyTensor containing the result of the matrix multiplication :math:`KM`,
+            where :math:`K` is the (batched) matrix that this :obj:`gpytorch.lazy.LazyTensor` represents, and :math:`M`
+            is the (batched) matrix input to this method.
         """
-        if self.dim() == 2 and tensor.dim() == 1:
-            if self.shape[-1] != tensor.numel():
-                raise RuntimeError(
-                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
-                        self.shape, tensor.shape
-                    )
-                )
+        # TODO: Move this check to MatmulLazyTensor and Matmul (so we can pass the shapes through from there)
+        _matmul_broadcast_shape(self.shape, other.shape)
+
+        if isinstance(other, LazyTensor):
+            from .matmul_lazy_tensor import MatmulLazyTensor
+
+            return MatmulLazyTensor(self, other)
 
         func = Matmul(self.representation_tree())
-        return func(tensor, *self.representation())
+        return func(other, *self.representation())
 
     @property
     def matrix_shape(self):
