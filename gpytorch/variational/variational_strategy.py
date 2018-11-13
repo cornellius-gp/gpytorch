@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import math
 import torch
-import gpytorch
+from .. import beta_features
 from ..lazy import RootLazyTensor, PsdSumLazyTensor, DiagLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
@@ -106,7 +106,7 @@ class VariationalStrategy(Module):
             predictive_mean = torch.add(test_mean, inv_product.transpose(-1, -2).matmul(var_dist_mean - induc_mean))
             predictive_covar = RootLazyTensor(factor.transpose(-2, -1))
 
-            if gpytorch.beta_features.diagonal_correction.on():
+            if beta_features.diagonal_correction.on():
                 fake_diagonal = (inv_product * induc_data_covar).sum(-2)
                 real_diagonal = data_data_covar.diag()
                 diag_correction = DiagLazyTensor((real_diagonal - fake_diagonal).clamp(0, math.inf))

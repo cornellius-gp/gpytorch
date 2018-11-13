@@ -90,9 +90,8 @@ class TestKissGPVariationalRegression(unittest.TestCase):
                     x_batch = x_batch.float()
                     y_batch = y_batch.float()
                     optimizer.zero_grad()
-                    with gpytorch.settings.use_toeplitz(False), gpytorch.beta_features.diagonal_correction():
-                        output = model(x_batch)
-                        loss = -mll(output, y_batch)
+                    output = model(x_batch)
+                    loss = -mll(output, y_batch)
                     loss.backward()
                     optimizer.step()
 
