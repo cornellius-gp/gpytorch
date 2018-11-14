@@ -68,6 +68,8 @@ class Kernel(Module):
             corresponds to the indices of the dimensions. Default: `None`.
         :attr:`log_lengthscale_prior` (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
+        :attr:`positive_nonlinearity` (function, optional):
+            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
         :attr:`eps` (float):
             The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 

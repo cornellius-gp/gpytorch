@@ -33,6 +33,8 @@ class ScaleKernel(Kernel):
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
         - :attr:`log_outputscale_prior` (Prior, optional): Set this if you want
             to apply a prior to the outputscale parameter.  Default: `None`
+        - :attr:`positive_nonlinearity` (function, optional):
+            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
         - :attr:`base_kernel` (Kernel): The kernel module to be scaled.

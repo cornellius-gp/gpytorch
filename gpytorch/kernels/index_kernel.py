@@ -22,15 +22,17 @@ class IndexKernel(Kernel):
     These parameters are learned.
 
     Args:
-        num_tasks (int):
+        :attr:`num_tasks` (int):
             Total number of indices.
-        batch_size (int, optional):
+        :attr:`batch_size` (int, optional):
             Set if the MultitaskKernel is operating on batches of data (and you want different
             parameters for each batch)
-        rank (int):
+        :attr:`rank` (int):
             Rank of :math:`B` matrix.
-        prior (:obj:`gpytorch.priors.Prior`):
+        :attr:`prior` (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
+        :attr:`positive_nonlinearity` (function, optional):
+            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
         covar_factor:

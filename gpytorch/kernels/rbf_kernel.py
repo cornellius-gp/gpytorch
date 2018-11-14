@@ -44,6 +44,8 @@ class RBFKernel(Kernel):
         :attr:`eps` (float):
             The minimum value that the lengthscale can take
             (prevents divide by zero errors). Default: `1e-6`.
+        :attr:`positive_nonlinearity` (function, optional):
+            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
         :attr:`lengthscale` (Tensor):
