@@ -68,7 +68,7 @@ class Kernel(Module):
             corresponds to the indices of the dimensions. Default: `None`.
         :attr:`log_lengthscale_prior` (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`positive_nonlinearity` (function, optional):
+        :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
         :attr:`eps` (float):
             The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
@@ -92,7 +92,7 @@ class Kernel(Module):
         batch_size=1,
         active_dims=None,
         log_lengthscale_prior=None,
-        positive_nonlinearity=torch.exp,
+        param_transform=torch.exp,
         eps=1e-6,
     ):
         super(Kernel, self).__init__()
@@ -102,7 +102,7 @@ class Kernel(Module):
         self.ard_num_dims = ard_num_dims
         self.batch_size = batch_size
         self.__has_lengthscale = has_lengthscale
-        self.positive_nonlinearity = positive_nonlinearity
+        self.param_transform = param_transform
         if has_lengthscale:
             self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
@@ -119,7 +119,7 @@ class Kernel(Module):
     @property
     def lengthscale(self):
         if self.has_lengthscale:
-            return self.positive_nonlinearity(self.log_lengthscale).clamp(self.eps, 1e5)
+            return self.param_transform(self.log_lengthscale).clamp(self.eps, 1e5)
         else:
             return None
 

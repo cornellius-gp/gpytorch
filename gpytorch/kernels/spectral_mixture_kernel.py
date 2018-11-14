@@ -40,7 +40,7 @@ class SpectralMixtureKernel(Kernel):
         :attr:`eps` (float):
             The minimum value that the lengthscale can take
             (prevents divide by zero errors). Default: `1e-6`.
-        :attr:`positive_nonlinearity` (function, optional):
+        :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
@@ -79,7 +79,7 @@ class SpectralMixtureKernel(Kernel):
         log_mixture_scales_prior=None,
         log_mixture_means_prior=None,
         log_mixture_weights_prior=None,
-        positive_nonlinearity=torch.exp,
+        param_transform=torch.exp,
     ):
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")
@@ -92,7 +92,7 @@ class SpectralMixtureKernel(Kernel):
 
         # This kernel does not use the default lengthscale
         super(SpectralMixtureKernel, self).__init__(
-            active_dims=active_dims, positive_nonlinearity=positive_nonlinearity
+            active_dims=active_dims, param_transform=param_transform
         )
         self.num_mixtures = num_mixtures
         self.batch_size = batch_size
@@ -113,15 +113,15 @@ class SpectralMixtureKernel(Kernel):
 
     @property
     def mixture_scales(self):
-        return self.positive_nonlinearity(self.log_mixture_scales).clamp(self.eps, 1e5)
+        return self.param_transform(self.log_mixture_scales).clamp(self.eps, 1e5)
 
     @property
     def mixture_means(self):
-        return self.positive_nonlinearity(self.log_mixture_means).clamp(self.eps, 1e5)
+        return self.param_transform(self.log_mixture_means).clamp(self.eps, 1e5)
 
     @property
     def mixture_weights(self):
-        return self.positive_nonlinearity(self.log_mixture_weights).clamp(self.eps, 1e5)
+        return self.param_transform(self.log_mixture_weights).clamp(self.eps, 1e5)
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):

@@ -31,7 +31,7 @@ class IndexKernel(Kernel):
             Rank of :math:`B` matrix.
         :attr:`prior` (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
-        :attr:`positive_nonlinearity` (function, optional):
+        :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
@@ -41,10 +41,10 @@ class IndexKernel(Kernel):
             The element-wise log of the :math:`\mathbf v` vector.
     """
 
-    def __init__(self, num_tasks, rank=1, batch_size=1, prior=None, positive_nonlinearity=torch.exp):
+    def __init__(self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=torch.exp):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
-        super(IndexKernel, self).__init__(positive_nonlinearity=positive_nonlinearity)
+        super(IndexKernel, self).__init__(param_transform=param_transform)
         self.register_parameter(
             name="covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
         )
@@ -58,12 +58,12 @@ class IndexKernel(Kernel):
             )
 
     def _eval_covar_matrix(self, covar_factor, log_var):
-        var = self.positive_nonlinearity(log_var)
+        var = self.param_transform(log_var)
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + var.diag()
 
     @property
     def covar_matrix(self):
-        var = self.positive_nonlinearity(self.log_var)
+        var = self.param_transform(self.log_var)
         res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
         return res
 

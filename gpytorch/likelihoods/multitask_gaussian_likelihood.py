@@ -18,7 +18,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     """
 
     def __init__(
-        self, num_tasks, rank=0, task_prior=None, batch_size=1, log_noise_prior=None, positive_nonlinearity=torch.exp
+        self, num_tasks, rank=0, task_prior=None, batch_size=1, log_noise_prior=None, param_transform=torch.exp
     ):
         """
         Args:
@@ -51,11 +51,11 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
                     transform=self._eval_covar_matrix,
                 )
         self.num_tasks = num_tasks
-        self.positive_nonlinearity = positive_nonlinearity
+        self.param_transform = param_transform
 
     def _eval_covar_matrix(self, task_noise_covar_factor, log_noise):
         num_tasks = task_noise_covar_factor.size(0)
-        noise = self.positive_nonlinearity(log_noise)
+        noise = self.param_transform(log_noise)
         return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + noise * torch.eye(num_tasks)
 
     def forward(self, input):
@@ -85,7 +85,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         mean, covar = input.mean, input.lazy_covariance_matrix
 
         if hasattr(self, "log_task_noises"):
-            noises = self.positive_nonlinearity(self.log_task_noises)
+            noises = self.param_transform(self.log_task_noises)
             if covar.ndimension() == 2:
                 if settings.debug.on() and noises.size(0) > 1:
                     raise RuntimeError(

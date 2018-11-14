@@ -44,7 +44,7 @@ class RBFKernel(Kernel):
         :attr:`eps` (float):
             The minimum value that the lengthscale can take
             (prevents divide by zero errors). Default: `1e-6`.
-        :attr:`positive_nonlinearity` (function, optional):
+        :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
@@ -75,7 +75,7 @@ class RBFKernel(Kernel):
         eps=1e-6,
         active_dims=None,
         batch_size=1,
-        positive_nonlinearity=torch.exp,
+        param_transform=torch.exp,
     ):
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
@@ -83,7 +83,7 @@ class RBFKernel(Kernel):
             batch_size=batch_size,
             active_dims=active_dims,
             log_lengthscale_prior=log_lengthscale_prior,
-            positive_nonlinearity=positive_nonlinearity,
+            param_transform=param_transform,
             eps=eps,
         )
 

@@ -33,7 +33,7 @@ class ScaleKernel(Kernel):
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
         - :attr:`log_outputscale_prior` (Prior, optional): Set this if you want
             to apply a prior to the outputscale parameter.  Default: `None`
-        - :attr:`positive_nonlinearity` (function, optional):
+        - :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
@@ -48,9 +48,9 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
 
-    def __init__(self, base_kernel, batch_size=1, log_outputscale_prior=None, positive_nonlinearity=torch.exp):
+    def __init__(self, base_kernel, batch_size=1, log_outputscale_prior=None, param_transform=torch.exp):
         super(ScaleKernel, self).__init__(
-            has_lengthscale=False, batch_size=batch_size, positive_nonlinearity=positive_nonlinearity
+            has_lengthscale=False, batch_size=batch_size, param_transform=param_transform
         )
         self.base_kernel = base_kernel
         self.register_parameter(
@@ -59,7 +59,7 @@ class ScaleKernel(Kernel):
 
     @property
     def outputscale(self):
-        return self.positive_nonlinearity(self.log_outputscale)
+        return self.param_transform(self.log_outputscale)
 
     def forward(self, x1, x2, batch_dims=None, **params):
         outputscales = self.outputscale

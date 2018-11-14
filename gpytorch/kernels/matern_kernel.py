@@ -55,7 +55,7 @@ class MaternKernel(Kernel):
         :attr:`eps` (float):
             The minimum value that the lengthscale can take
             (prevents divide by zero errors). Default: `1e-6`.
-        :attr:`positive_nonlinearity` (function, optional):
+        :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
@@ -87,7 +87,7 @@ class MaternKernel(Kernel):
         active_dims=None,
         log_lengthscale_prior=None,
         eps=1e-6,
-        positive_nonlinearity=torch.exp,
+        param_transform=torch.exp,
     ):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
@@ -97,7 +97,7 @@ class MaternKernel(Kernel):
             batch_size=batch_size,
             active_dims=active_dims,
             log_lengthscale_prior=log_lengthscale_prior,
-            positive_nonlinearity=positive_nonlinearity,
+            param_transform=param_transform,
             eps=eps,
         )
         self.nu = nu

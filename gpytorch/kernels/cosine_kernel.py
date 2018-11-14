@@ -34,7 +34,7 @@ class CosineKernel(Kernel):
         :attr:`eps` (float):
             The minimum value that the lengthscale/period length can take
             (prevents divide by zero errors). Default: `1e-6`.
-        :attr:`positive_nonlinearity` (function, optional):
+        :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
@@ -55,10 +55,10 @@ class CosineKernel(Kernel):
     """
 
     def __init__(
-        self, active_dims=None, batch_size=1, log_period_length_prior=None, eps=1e-6, positive_nonlinearity=torch.exp
+        self, active_dims=None, batch_size=1, log_period_length_prior=None, eps=1e-6, param_transform=torch.exp
     ):
         super(CosineKernel, self).__init__(
-            has_lengthscale=False, active_dims=active_dims, positive_nonlinearity=positive_nonlinearity
+            has_lengthscale=False, active_dims=active_dims, param_transform=param_transform
         )
         self.eps = eps
         self.register_parameter(
@@ -69,7 +69,7 @@ class CosineKernel(Kernel):
 
     @property
     def period_length(self):
-        return self.positive_nonlinearity(self.log_period_length).clamp(self.eps, 1e5)
+        return self.param_transform(self.log_period_length).clamp(self.eps, 1e5)
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)
