@@ -13,15 +13,16 @@ class GaussianLikelihood(Likelihood):
     r"""
     """
 
-    def __init__(self, log_noise_prior=None, batch_size=1):
+    def __init__(self, log_noise_prior=None, batch_size=1, param_transform=torch.exp):
         super(GaussianLikelihood, self).__init__()
+        self.param_transform = param_transform
         self.register_parameter(
             name="log_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)), prior=log_noise_prior
         )
 
     @property
     def noise(self):
-        return self.log_noise.exp()
+        return self.param_transform(self.log_noise)
 
     def forward(self, input):
         if not isinstance(input, MultivariateNormal):
@@ -46,7 +47,7 @@ class GaussianLikelihood(Likelihood):
                 raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
             log_noise = log_noise.squeeze(0)
 
-        res = -0.5 * ((target - mean) ** 2 + variance) / log_noise.exp()
+        res = -0.5 * ((target - mean) ** 2 + variance) / self.param_transform(log_noise)
         res += -0.5 * log_noise - 0.5 * math.log(2 * math.pi)
 
         if res.dim() == 1:

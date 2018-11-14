@@ -55,6 +55,8 @@ class MaternKernel(Kernel):
         :attr:`eps` (float):
             The minimum value that the lengthscale can take
             (prevents divide by zero errors). Default: `1e-6`.
+        :attr:`param_transform` (function, optional):
+            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
 
     Attributes:
         :attr:`lengthscale` (Tensor):
@@ -77,7 +79,16 @@ class MaternKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(self, nu=2.5, ard_num_dims=None, batch_size=1, active_dims=None, log_lengthscale_prior=None, eps=1e-6):
+    def __init__(
+        self,
+        nu=2.5,
+        ard_num_dims=None,
+        batch_size=1,
+        active_dims=None,
+        log_lengthscale_prior=None,
+        eps=1e-6,
+        param_transform=torch.exp,
+    ):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
         super(MaternKernel, self).__init__(
@@ -86,6 +97,7 @@ class MaternKernel(Kernel):
             batch_size=batch_size,
             active_dims=active_dims,
             log_lengthscale_prior=log_lengthscale_prior,
+            param_transform=param_transform,
             eps=eps,
         )
         self.nu = nu

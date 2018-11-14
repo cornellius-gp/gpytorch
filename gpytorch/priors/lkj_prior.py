@@ -61,9 +61,9 @@ class LKJPrior(Prior):
             raise ValueError("Input is not a valid correlation matrix")
         # TODO: Replace this loop with batch Cholesky decomposition when available
         # https://github.com/pytorch/pytorch/pull/11796
-        log_diag_sum = torch.stack([
-            p.cholesky(upper=True).diag().log().sum() for p in parameter.view(-1, *parameter.shape[-2:])
-        ])
+        log_diag_sum = torch.stack(
+            [p.cholesky(upper=True).diag().log().sum() for p in parameter.view(-1, *parameter.shape[-2:])]
+        )
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
 

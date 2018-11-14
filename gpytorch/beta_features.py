@@ -44,6 +44,7 @@ class default_preconditioner(_feature_flag):
     """
     Add a diagonal correction to scalable inducing point methods
     """
+
     pass
 
 
