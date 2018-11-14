@@ -88,12 +88,12 @@ class VariationalStrategy(Module):
             full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
             if full_covar.dim() == 3:
-                test_mean = full_mean[:, n_induc:].unsqueeze(-1)
-                induc_mean = full_mean[:, :n_induc].unsqueeze(-1)
+                test_mean = full_mean[:, n_induc:]
+                induc_mean = full_mean[:, :n_induc]
                 induc_induc_covar = full_covar[:, :n_induc, :n_induc].add_jitter()
                 induc_data_covar = full_covar[:, :n_induc, n_induc:]
                 data_data_covar = full_covar[:, n_induc:, n_induc:]
-                var_dist_mean = variational_dist.mean.unsqueeze(-1)
+                var_dist_mean = variational_dist.mean
             else:
                 test_mean = full_mean[n_induc:]
                 induc_mean = full_mean[:n_induc]
@@ -104,14 +104,17 @@ class VariationalStrategy(Module):
 
             # Cache the prior distribution, for faster training
             if self.training:
-                prior_dist = MultivariateNormal(induc_mean.squeeze(-1), induc_induc_covar)
+                prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
                 self._prior_distribution_memo = prior_dist
 
             # Compute predictive mean/covariance
             induc_data_covar = induc_data_covar.evaluate()
             inv_product = induc_induc_covar.inv_matmul(induc_data_covar)
             factor = variational_dist.lazy_covariance_matrix.root_decomposition().root.matmul(inv_product)
-            predictive_mean = torch.add(test_mean, inv_product.transpose(-1, -2).matmul(var_dist_mean - induc_mean))
+            predictive_mean = torch.add(
+                test_mean,
+                inv_product.transpose(-1, -2).matmul((var_dist_mean - induc_mean).unsqueeze(-1)).squeeze(-1)
+            )
             predictive_covar = RootLazyTensor(factor.transpose(-2, -1))
 
             if beta_features.diagonal_correction.on():

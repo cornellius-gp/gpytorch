@@ -38,10 +38,8 @@ class GaussianLikelihood(Likelihood):
 
     def variational_log_probability(self, input, target):
         mean, variance = input.mean, input.variance
-        if mean.dim() > target.dim():
-            target = target.unsqueeze(-1)
-
         log_noise = self.log_noise
+
         if variance.ndimension() == 1:
             if settings.debug.on() and log_noise.size(0) > 1:
                 raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
@@ -49,11 +47,7 @@ class GaussianLikelihood(Likelihood):
 
         res = -0.5 * ((target - mean) ** 2 + variance) / self.param_transform(log_noise)
         res += -0.5 * log_noise - 0.5 * math.log(2 * math.pi)
-
-        if res.dim() == 1:
-            return res.sum()
-        else:
-            return res.sum(-2).squeeze(-1)
+        return res.sum(-1)
 
     def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
         import pyro
