@@ -7,7 +7,7 @@ import os
 import random
 import torch
 import unittest
-from gpytorch.utils.cholesky import batch_potrf, batch_potrs
+from gpytorch.utils.cholesky import batch_potrf
 from test._utils import approx_equal
 from gpytorch.utils.linear_cg import linear_cg
 
@@ -74,7 +74,7 @@ class TestLinearCG(unittest.TestCase):
 
         # Check cg
         matrix_chol = batch_potrf(matrix)
-        actual = batch_potrs(rhs, matrix_chol)
+        actual = torch.potrs(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
     def test_batch_cg_with_tridiag(self):
@@ -90,7 +90,7 @@ class TestLinearCG(unittest.TestCase):
 
         # Check cg
         matrix_chol = batch_potrf(matrix)
-        actual = batch_potrs(rhs, matrix_chol)
+        actual = torch.potrs(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
         # Check tridiag

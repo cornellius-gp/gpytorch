@@ -16,19 +16,6 @@ def batch_potrf(mat):
     return res.view_as(mat)
 
 
-def batch_potrs(mat, chol):
-    """
-    TODO: Replace with torch batch potrs once it is implemented.
-    """
-    potrs_list = []
-    potrs_list = [
-        torch.potrs(sub_mat, sub_chol)
-        for sub_mat, sub_chol in zip(mat.view(-1, *mat.shape[-2:]), chol.view(-1, *chol.shape[-2:]))
-    ]
-    res = torch.cat(potrs_list, 0)
-    return res.view_as(mat)
-
-
 def tridiag_batch_potrf(trid, upper=False):
     """
     """
