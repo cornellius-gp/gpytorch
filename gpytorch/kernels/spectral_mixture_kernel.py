@@ -91,35 +91,36 @@ class SpectralMixtureKernel(Kernel):
             logger.warning("Priors not implemented for SpectralMixtureKernel")
 
         # This kernel does not use the default lengthscale
-        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims, param_transform=param_transform)
+        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
         self.num_mixtures = num_mixtures
         self.batch_size = batch_size
         self.ard_num_dims = ard_num_dims
         self.eps = eps
 
         self.register_parameter(
-            name="log_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
+            name="log_mixture_weights",
+            parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures)),
+            transform=param_transform,
+        )
+        ms_shape = torch.Size([self.batch_size, self.num_mixtures, 1, self.ard_num_dims])
+        self.register_parameter(
+            name="log_mixture_means", parameter=torch.nn.Parameter(torch.zeros(ms_shape)), transform=param_transform
         )
         self.register_parameter(
-            name="log_mixture_means",
-            parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
-        )
-        self.register_parameter(
-            name="log_mixture_scales",
-            parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
+            name="log_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(ms_shape)), transform=param_transform
         )
 
     @property
     def mixture_scales(self):
-        return self.param_transform(self.log_mixture_scales).clamp(self.eps, 1e5)
+        return self.transform_parameter("log_mixture_scales", self.log_mixture_scales).clamp(self.eps, 1e5)
 
     @property
     def mixture_means(self):
-        return self.param_transform(self.log_mixture_means).clamp(self.eps, 1e5)
+        return self.transform_parameter("log_mixture_means", self.log_mixture_means).clamp(self.eps, 1e5)
 
     @property
     def mixture_weights(self):
-        return self.param_transform(self.log_mixture_weights).clamp(self.eps, 1e5)
+        return self.transform_parameter("log_mixture_weights", self.log_mixture_weights).clamp(self.eps, 1e5)
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):

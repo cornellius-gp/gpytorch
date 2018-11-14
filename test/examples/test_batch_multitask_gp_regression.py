@@ -44,7 +44,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
             RBFKernel(
                 batch_size=batch_size,
                 log_lengthscale_prior=gpytorch.priors.NormalPrior(
-                    loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1), log_transform=True
+                    loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1)
                 ),
             ),
             num_tasks=2,
@@ -73,8 +73,7 @@ class TestBatchGPRegression(unittest.TestCase):
     def test_train_on_single_set_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(
-            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(1), scale=torch.ones(1), log_transform=True),
-            num_tasks=2,
+            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(1), scale=torch.ones(1)), num_tasks=2
         )
         gp_model = ExactGPModel(train_x1, train_y1, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
@@ -117,7 +116,7 @@ class TestBatchGPRegression(unittest.TestCase):
     def test_train_on_batch_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(
-            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2), log_transform=True),
+            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
             batch_size=2,
             num_tasks=2,
         )
@@ -158,7 +157,7 @@ class TestBatchGPRegression(unittest.TestCase):
     def test_train_on_batch_test_on_batch_shared_hypers_over_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(
-            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2), log_transform=True),
+            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
             batch_size=1,
             num_tasks=2,
         )

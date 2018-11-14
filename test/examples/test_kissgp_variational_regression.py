@@ -39,7 +39,7 @@ class GPRegressionModel(gpytorch.models.AbstractVariationalGP):
         super(GPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-10, 10))
         self.covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(6), sigma=0.1, log_transform=True))
+            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(6), sigma=0.1))
         )
 
     def forward(self, x):

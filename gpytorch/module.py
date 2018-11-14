@@ -8,13 +8,38 @@ from torch.distributions import Distribution
 
 from .lazy import LazyTensor
 
+PRIOR_VALUE_WARNING = "Value of parameter {param} not valid for specified prior. Original exception:\n{exc}"
+
 
 class Module(nn.Module):
     def __init__(self):
         super(Module, self).__init__()
-        self._priors = OrderedDict()
-        self._derived_priors = OrderedDict()
         self._added_loss_terms = OrderedDict()
+        self._priors = OrderedDict()
+        self._parameter_transforms = OrderedDict()
+
+    def __call__(self, *inputs, **kwargs):
+        outputs = self.forward(*inputs, **kwargs)
+
+        if isinstance(outputs, tuple):
+            if not all(
+                torch.is_tensor(output) or isinstance(output, Distribution) or isinstance(output, LazyTensor)
+                for output in outputs
+            ):
+                raise RuntimeError(
+                    "All outputs must be a Distribution, torch.Tensor, or LazyTensor. "
+                    "Got {}".format([output.__class__.__name__ for output in outputs])
+                )
+            if len(outputs) == 1:
+                outputs = outputs[0]
+            return outputs
+
+        elif torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyTensor):
+            return outputs
+        else:
+            raise RuntimeError(
+                "Output must be a Distribution, torch.Tensor, or LazyTensor. Got {}".format(outputs.__class__.__name__)
+            )
 
     def _get_module_and_name(self, parameter_name):
         """Get module and name from full parameter name."""
@@ -30,18 +55,8 @@ class Module(nn.Module):
         raise NotImplementedError
 
     def hyperparameters(self):
-        for name, param in self.named_hyperparameters():
+        for _, param in self.named_hyperparameters():
             yield param
-
-    def named_hyperparameters(self):
-        for name, param in self.named_parameters():
-            if "variational_" not in name:
-                yield name, param
-
-    def named_variational_parameters(self):
-        for name, param in self.named_parameters():
-            if "variational_" in name:
-                yield name, param
 
     def initialize(self, **kwargs):
         """
@@ -67,33 +82,8 @@ class Module(nn.Module):
                 try:
                     prior._validate_sample(param)
                 except ValueError as e:
-                    raise ValueError(
-                        "Value of parameter {p} not valid for specified prior. Original exception:\n{e}".format(
-                            p=param, e=e
-                        )
-                    )
+                    raise ValueError(PRIOR_VALUE_WARNING.format(param=param, exc=e))
         return self
-
-    def named_parameter_priors(self):
-        """
-        Returns an iterator over module parameter priors, yielding the name of
-        the parameter, the parameter itself, as well as the associated prior
-        (excludes parameters for which no prior has been registered)
-        """
-        return _extract_named_parameter_priors(module=self, memo=None, prefix="")
-
-    def named_derived_priors(self, memo=None, prefix=""):
-        """Returns an iterator over module derived priors, yielding both the
-        name of the prior as well as the prior, the associated parameters, and
-        the transformation callable.
-
-        Yields:
-            (string, Prior, tuple(string), callable): Tuple containing the name
-                of the prior, the prior itself, its parameters, and the transform
-                to be called on the parameters.
-
-        """
-        return _extract_named_derived_priors(module=self, memo=None, prefix="")
 
     def named_added_loss_terms(self):
         """Returns an iterator over module variational strategies, yielding both
@@ -106,63 +96,93 @@ class Module(nn.Module):
         """
         return _extract_named_added_loss_terms(module=self, memo=None, prefix="")
 
-    def register_parameter(self, name, parameter, prior=None):
+    def named_hyperparameters(self):
+        for name, param in self.named_parameters():
+            if "variational_" not in name:
+                yield name, param
+
+    def named_priors(self, memo=None, prefix=""):
+        """Returns an iterator over the module's priors, yielding the name of the prior,
+        the prior, the associated parameter names, and the transformation callable.
+
+        Yields:
+            (string, Prior, tuple((Parameter, callable)), callable): Tuple containing:
+                - the name of the prior
+                - the prior
+                - a tuple of tuples (param, transform), one for each of the parameters associated with the prior
+                - the prior's transform to be called on the parameters
+
+        """
+        return _extract_named_priors(module=self, memo=None, prefix="")
+
+    def named_variational_parameters(self):
+        for name, param in self.named_parameters():
+            if "variational_" in name:
+                yield name, param
+
+    def register_added_loss_term(self, name):
+        self._added_loss_terms[name] = None
+
+    def register_parameter(self, name, parameter, prior=None, transform=None):
         """
         Adds a parameter to the module.
         The parameter can be accessed as an attribute using given name.
 
         name (str): name of parameter
         param (torch.nn.Parameter): parameter
-        prior (Prior): prior for parameter (default: None)
+        prior (Prior): prior for parameter (default: None). The prior can be accessed as module attribute
+            using <PARAMETER_NAME>_prior.
         """
         if "_parameters" not in self.__dict__:
             raise AttributeError("Cannot assign parameter before Module.__init__() call")
         super(Module, self).register_parameter(name, parameter)
         if prior is not None:
-            self.set_parameter_priors(**{name: prior})
+            self.register_prior("_".join([name, "prior"]), prior, name)
+        if transform is not None:
+            self.register_parameter_transform(name, transform)
 
-    def register_derived_prior(self, name, prior, parameter_names, transform):
+    def register_parameter_transform(self, parameter_name, transform):
+        if parameter_name not in self._parameters:
+            raise AttributeError(
+                "Unknown parameter {name} for {module}".format(name=parameter_name, module=self.__class__.__name__)
+            )
+        self._parameter_transforms[parameter_name] = transform
+
+    def register_prior(self, name, prior, *parameter_names, transform=None):
         """
-        Adds a derived prior to the module.
-        The prior can be accessed as an attribute using the given name.
+        Adds a prior to the module. The prior can be accessed as an attribute using the given name.
 
         Args:
-            - name (str): name of the derived prior
+            - name (str): name of the prior
             - prior (Prior): the prior object
-            - parameter_names (tuple(str)): The parameters the transform operaters on,
-                in the same order as expected by the transform callable.
-            - transform (Callable): The function called on the specified parameters. The
-                log-pdf of the prior will be evaluating on the output of this transform.
+            - parameter_names (tuple(str)): The parameters the transform operaters on, in the same order as
+                expected by the transform callable.
+            - transform (Callable): The function called on the specified parameters. Must take the same number
+                of arguments parameter names passed in. The log-pdf of the prior will be evaluated on the output
+                of this transform. If None, do not transform the parameter (only supported if setting a prior
+                on a single parameter)
 
-        A derived prior operates on a transform of one or multiple parameters.
-        This can be used, for instance, to put a prior over the ICM Kernel
-        covariance matrix generated from covar_factor and log_var parameters.
+        A prior can operate on a transform of one or multiple parameters. This can be used, for instance, to put a
+        prior over the ICM Kernel covariance matrix generated from covar_factor and log_var parameters.
         """
-        self.add_module(name, prior)
-        self._derived_priors[name] = (prior, tuple(parameter_names), transform)
-
-    def register_added_loss_term(self, name):
-        self._added_loss_terms[name] = None
-
-    def set_parameter_priors(self, **kwargs):
-        """
-        Set prior for a parameter.
-        The prior can be accessed as an attribute using <PARAMETER_NAME>_prior.
-
-        kwargs: (param_name, prior) - parameter to initialize
-        prior must be a gpytorch Prior
-        """
-        for name, prior in kwargs.items():
-            if name not in self._parameters:
+        if len(parameter_names) == 0:
+            raise ValueError("Must pass at least one parameter name")
+        elif len(parameter_names) > 1 and transform is None:
+            raise ValueError("Must pass in a transform if specifying a prior operating on more than a single parameter")
+        for parameter_name in parameter_names:
+            if parameter_name not in self._parameters:
                 raise AttributeError(
-                    "Unknown parameter {name} for {module}".format(name=name, module=self.__class__.__name__)
+                    "Unknown parameter {name} for {module}".format(name=parameter_name, module=self.__class__.__name__)
                 )
-            self.add_module("_".join([name, "prior"]), prior)
-            self._priors[name] = prior
-        return self
+        self.add_module(name, prior)
+        self._priors[name] = (prior, tuple(parameter_names), transform)
+
+    def transform_parameter(self, parameter_name, parameter):
+        transform = self._parameter_transforms.get(parameter_name)
+        return parameter if transform is None else transform(parameter)
 
     def variational_parameters(self):
-        for name, param in self.named_variational_parameters():
+        for _, param in self.named_variational_parameters():
             yield param
 
     def added_loss_terms(self):
@@ -177,46 +197,6 @@ class Module(nn.Module):
         if name not in self._added_loss_terms.keys():
             raise RuntimeError("added_loss_term {} not registered".format(name))
         self._added_loss_terms[name] = added_loss_term
-
-    def __call__(self, *inputs, **kwargs):
-        outputs = self.forward(*inputs, **kwargs)
-
-        if isinstance(outputs, tuple):
-            if not all(
-                torch.is_tensor(output) or isinstance(output, Distribution) or isinstance(output, LazyTensor)
-                for output in outputs
-            ):
-                raise RuntimeError(
-                    "All outputs must be a Distribution, torch.Tensor, or LazyTensor. "
-                    "Got {}".format([output.__class__.__name__ for output in outputs])
-                )
-            if len(outputs) == 1:
-                outputs = outputs[0]
-            return outputs
-
-        elif torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyTensor):
-            return outputs
-        else:
-            raise RuntimeError(
-                "Output must be a Distribution, torch.Tensor, or LazyTensor. Got {}".format(outputs.__class__.__name__)
-            )
-
-
-def _extract_named_parameter_priors(module, memo=None, prefix=""):
-    if memo is None:
-        memo = set()
-    if hasattr(module, "_priors"):
-        for name, parameter in module._parameters.items():
-            if name in module._priors and module._priors[name] not in memo:
-                prior = module._priors[name]
-                memo.add(prior)
-                yield prefix + ("." if prefix else "") + name, parameter, prior
-    for mname, module_ in module.named_children():
-        submodule_prefix = prefix + ("." if prefix else "") + mname
-        for name, parameter, prior in _extract_named_parameter_priors(
-            module=module_, memo=memo, prefix=submodule_prefix
-        ):
-            yield name, parameter, prior
 
 
 def _extract_named_added_loss_terms(module, memo=None, prefix=""):
@@ -233,16 +213,19 @@ def _extract_named_added_loss_terms(module, memo=None, prefix=""):
             yield name, strategy
 
 
-def _extract_named_derived_priors(module, memo=None, prefix=""):
+def _extract_named_priors(module, memo=None, prefix=""):
     if memo is None:
         memo = set()
-    if hasattr(module, "_derived_priors"):
-        for name, (prior, pnames, tf) in module._derived_priors.items():
+    if hasattr(module, "_priors"):
+        for name, (prior, pnames, tf) in module._priors.items():
             if prior is not None and prior not in memo:
                 memo.add(prior)
-                parameters = tuple(getattr(module, pname) for pname in pnames)
-                yield prefix + ("." if prefix else "") + name, prior, parameters, tf
+                params_and_tfs = tuple(
+                    (getattr(module, pname), module._parameter_transforms.get(pname)) for pname in pnames
+                )
+                full_name = ("." if prefix else "").join([prefix, name])
+                yield full_name, prior, params_and_tfs, tf
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
-        for name, prior, parameters, tf in _extract_named_derived_priors(module_, memo=memo, prefix=submodule_prefix):
-            yield name, prior, parameters, tf
+        for name, prior, params_and_tfs, tf in _extract_named_priors(module_, memo=memo, prefix=submodule_prefix):
+            yield name, prior, params_and_tfs, tf

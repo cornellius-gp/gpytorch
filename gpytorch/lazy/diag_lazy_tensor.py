@@ -157,7 +157,7 @@ class DiagLazyTensor(LazyTensor):
         return RootLazyTensor(DiagLazyTensor(self._diag.sqrt()))
 
     def root_inv_decomposition(self):
-        return RootLazyTensor(DiagLazyTensor((1. / self._diag).sqrt()))
+        return RootLazyTensor(DiagLazyTensor((1.0 / self._diag).sqrt()))
 
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:

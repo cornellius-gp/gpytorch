@@ -39,7 +39,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.base_covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True))
+            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1))
         )
         self.covar_module = InducingPointKernel(
             self.base_covar_module, inducing_points=torch.linspace(0, 1, 32), likelihood=likelihood

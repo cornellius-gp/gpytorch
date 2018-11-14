@@ -57,19 +57,18 @@ class CosineKernel(Kernel):
     def __init__(
         self, active_dims=None, batch_size=1, log_period_length_prior=None, eps=1e-6, param_transform=torch.exp
     ):
-        super(CosineKernel, self).__init__(
-            has_lengthscale=False, active_dims=active_dims, param_transform=param_transform
-        )
+        super(CosineKernel, self).__init__(has_lengthscale=False, active_dims=active_dims)
         self.eps = eps
         self.register_parameter(
             name="log_period_length",
             parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)),
             prior=log_period_length_prior,
+            transform=param_transform,
         )
 
     @property
     def period_length(self):
-        return self.param_transform(self.log_period_length).clamp(self.eps, 1e5)
+        return self.transform_parameter("log_period_length", self.log_period_length).clamp(self.eps, 1e5)
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)

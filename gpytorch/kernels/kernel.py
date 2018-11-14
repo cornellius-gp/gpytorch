@@ -102,7 +102,6 @@ class Kernel(Module):
         self.ard_num_dims = ard_num_dims
         self.batch_size = batch_size
         self.__has_lengthscale = has_lengthscale
-        self.param_transform = param_transform
         if has_lengthscale:
             self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
@@ -110,6 +109,7 @@ class Kernel(Module):
                 name="log_lengthscale",
                 parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims)),
                 prior=log_lengthscale_prior,
+                transform=param_transform,
             )
 
     @property
@@ -119,7 +119,7 @@ class Kernel(Module):
     @property
     def lengthscale(self):
         if self.has_lengthscale:
-            return self.param_transform(self.log_lengthscale).clamp(self.eps, 1e5)
+            return self.transform_parameter("log_lengthscale", self.log_lengthscale).clamp(self.eps, 1e5)
         else:
             return None
 

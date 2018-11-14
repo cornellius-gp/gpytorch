@@ -40,9 +40,7 @@ class SVGPRegressionModel(AbstractVariationalGP):
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(
-                log_lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1, log_transform=True)
-            )
+            gpytorch.kernels.RBFKernel(log_lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1))
         )
 
     def forward(self, x):
@@ -75,10 +73,7 @@ class TestSVGPRegression(unittest.TestCase):
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
-        optimizer = optim.Adam([
-            {'params': model.parameters()},
-            {'params': likelihood.parameters()},
-        ], lr=0.01)
+        optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
         for _ in range(150):
             optimizer.zero_grad()
             output = model(train_x)
@@ -114,10 +109,7 @@ class TestSVGPRegression(unittest.TestCase):
             # Find optimal model hyperparameters
             model.train()
             likelihood.train()
-            optimizer = optim.Adam([
-                {'params': model.parameters()},
-                {'params': likelihood.parameters()},
-            ], lr=0.01)
+            optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
             for _ in range(150):
                 optimizer.zero_grad()
                 output = model(train_x)

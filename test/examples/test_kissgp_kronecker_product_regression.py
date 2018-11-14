@@ -48,7 +48,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
         self.base_covar_module = ScaleKernel(
             RBFKernel(
-                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1, log_transform=True)
+                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1)
             )
         )
         self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=64, num_dims=2)

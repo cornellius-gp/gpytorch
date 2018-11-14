@@ -37,7 +37,7 @@ class HadamardMultitaskGPModel(gpytorch.models.ExactGP):
         self.covar_module = RBFKernel()
         # We learn an IndexKernel for 2 tasks
         # (so we'll actually learn 2x2=4 tasks with correlations)
-        sd_prior = SmoothedBoxPrior(exp(-4), exp(4), log_transform=True)
+        sd_prior = SmoothedBoxPrior(exp(-4), exp(4))
         cov_prior = LKJCovariancePrior(n=2, eta=1, sd_prior=sd_prior)
         self.task_covar_module = IndexKernel(num_tasks=2, rank=1, prior=cov_prior)
 

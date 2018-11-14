@@ -53,7 +53,6 @@ class WishartPrior(Prior):
         self.register_buffer("nu", nu)
         self.register_buffer("K_inv", K_inv)
         self.register_buffer("C", C)
-        self._log_transform = False
 
     def log_prob(self, parameter):
         # I'm sure this could be done more elegantly
@@ -104,7 +103,6 @@ class InverseWishartPrior(Prior):
         self.register_buffer("nu", nu)
         self.register_buffer("K", K)
         self.register_buffer("C", C)
-        self._log_transform = False
 
     def log_prob(self, parameter):
         logdetp = torch.logdet(parameter) if parameter.dim() == 2 else torch.stack([torch.logdet(p) for p in parameter])

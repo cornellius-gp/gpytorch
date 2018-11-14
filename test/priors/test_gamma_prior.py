@@ -27,7 +27,6 @@ class TestGammaPrior(unittest.TestCase):
         prior = GammaPrior(concentration, rate)
         dist = Gamma(concentration, rate)
 
-        self.assertFalse(prior.log_transform)
         t = torch.tensor(1.0, device=device)
         self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t)))
         t = torch.tensor([1.5, 0.5], device=device)
@@ -39,24 +38,23 @@ class TestGammaPrior(unittest.TestCase):
         if torch.cuda.is_available():
             return self.test_gamma_prior_log_prob(cuda=True)
 
-    def test_gamma_prior_log_prob_log_transform(self, cuda=False):
-        device = torch.device("cuda") if cuda else torch.device("cpu")
-        concentration = torch.tensor(1.0, device=device)
-        rate = torch.tensor(1.0, device=device)
-        prior = GammaPrior(concentration, rate, log_transform=True)
-        dist = Gamma(concentration, rate)
-
-        self.assertTrue(prior.log_transform)
-        t = torch.tensor(0.0, device=device)
-        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
-        t = torch.tensor([-1, 0.5], device=device)
-        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
-        t = torch.tensor([[-1, 0.5], [0.1, -2.0]], device=device)
-        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
-
-    def test_gamma_prior_log_prob_log_transform_cuda(self):
-        if torch.cuda.is_available():
-            return self.test_gamma_prior_log_prob(cuda=True)
+    # def test_gamma_prior_log_prob_log_transform(self, cuda=False):
+    #     device = torch.device("cuda") if cuda else torch.device("cpu")
+    #     concentration = torch.tensor(1.0, device=device)
+    #     rate = torch.tensor(1.0, device=device)
+    #     prior = GammaPrior(concentration, rate, log_transform=True)
+    #     dist = Gamma(concentration, rate)
+    #
+    #     t = torch.tensor(0.0, device=device)
+    #     self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+    #     t = torch.tensor([-1, 0.5], device=device)
+    #     self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+    #     t = torch.tensor([[-1, 0.5], [0.1, -2.0]], device=device)
+    #     self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+    #
+    # def test_gamma_prior_log_prob_log_transform_cuda(self):
+    #     if torch.cuda.is_available():
+    #         return self.test_gamma_prior_log_prob_log_transform(cuda=True)
 
     def test_gamma_prior_batch_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")

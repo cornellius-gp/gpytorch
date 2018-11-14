@@ -31,7 +31,7 @@ class SmoothedBoxPrior(Prior):
     support = constraints.real
     _validate_args = True
 
-    def __init__(self, a, b, sigma=0.01, log_transform=False, validate_args=False):
+    def __init__(self, a, b, sigma=0.01, validate_args=False, transform=None):
         TModule.__init__(self)
         _a = torch.tensor(float(a)) if isinstance(a, Number) else a
         _a = _a.view(-1) if _a.dim() < 1 else _a
@@ -49,7 +49,7 @@ class SmoothedBoxPrior(Prior):
         self.register_buffer("b", _b)
         self.register_buffer("sigma", _sigma)
         self.tails = NormalPrior(torch.zeros_like(_a), _sigma, validate_args=validate_args)
-        self._log_transform = log_transform
+        self._transform = transform
 
     @property
     def _c(self):
@@ -65,7 +65,7 @@ class SmoothedBoxPrior(Prior):
         return torch.log(1 + (self.b - self.a) / (math.sqrt(2 * math.pi) * self.sigma))
 
     def log_prob(self, parameter):
-        return self._log_prob(parameter.exp() if self.log_transform else parameter)
+        return self._log_prob(self.transform(parameter))
 
     def _log_prob(self, parameter):
         # x = "distances from box`"

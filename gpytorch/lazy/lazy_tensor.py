@@ -932,6 +932,7 @@ class LazyTensor(object):
         low-rank version of a matrix
         """
         from .root_lazy_tensor import RootLazyTensor
+
         if not self.is_square:
             raise RuntimeError(
                 "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
@@ -955,6 +956,7 @@ class LazyTensor(object):
         low-rank version of a matrix
         """
         from .root_lazy_tensor import RootLazyTensor
+
         if not self.is_square:
             raise RuntimeError(
                 "root_inv_decomposition only operates on (batches of) square (symmetric) LazyTensors. "

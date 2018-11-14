@@ -1,10 +1,10 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from torch.distributions import Gamma, MultivariateNormal, Normal
-from torch.nn import Module as TModule
 
 from .prior import Prior
 from .utils import _bufferize_attributes, _del_attributes
+from torch.nn import Module as TModule
 
 MVN_LAZY_PROPERTIES = ("covariance_matrix", "scale_tril", "precision_matrix")
 
@@ -17,11 +17,11 @@ class NormalPrior(Prior, Normal):
     where mu is the mean and sigma^2 is the variance.
     """
 
-    def __init__(self, loc, scale, log_transform=False, validate_args=False):
+    def __init__(self, loc, scale, validate_args=False, transform=None):
         TModule.__init__(self)
         Normal.__init__(self, loc=loc, scale=scale, validate_args=validate_args)
         _bufferize_attributes(self, ("loc", "scale"))
-        self._log_transform = log_transform
+        self._transform = transform
 
 
 class GammaPrior(Prior, Gamma):
@@ -32,11 +32,11 @@ class GammaPrior(Prior, Gamma):
     were alpha > 0 and beta > 0 are the concentration and rate parameters, respectively.
     """
 
-    def __init__(self, concentration, rate, log_transform=False, validate_args=False):
+    def __init__(self, concentration, rate, validate_args=False, transform=None):
         TModule.__init__(self)
         Gamma.__init__(self, concentration=concentration, rate=rate, validate_args=validate_args)
         _bufferize_attributes(self, ("concentration", "rate"))
-        self._log_transform = log_transform
+        self._transform = transform
 
 
 class MultivariateNormalPrior(Prior, MultivariateNormal):
@@ -48,13 +48,7 @@ class MultivariateNormalPrior(Prior, MultivariateNormal):
     """
 
     def __init__(
-        self,
-        loc,
-        covariance_matrix=None,
-        precision_matrix=None,
-        scale_tril=None,
-        log_transform=False,
-        validate_args=False,
+        self, loc, covariance_matrix=None, precision_matrix=None, scale_tril=None, validate_args=False, transform=None
     ):
         TModule.__init__(self)
         MultivariateNormal.__init__(
@@ -66,7 +60,7 @@ class MultivariateNormalPrior(Prior, MultivariateNormal):
             validate_args=validate_args,
         )
         _bufferize_attributes(self, ("loc", "_unbroadcasted_scale_tril"))
-        self._log_transform = log_transform
+        self._transform = transform
 
     def cuda(self, device=None):
         """Applies module-level cuda() call and resets all lazy properties"""

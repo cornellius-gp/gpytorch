@@ -73,7 +73,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
 
     def test_spectral_mixture_gp_mean_abs_error(self):
         likelihood = GaussianLikelihood(
-            log_noise_prior=SmoothedBoxPrior(exp(-5), exp(3), sigma=0.1, log_transform=True)
+            log_noise_prior=SmoothedBoxPrior(exp(-5), exp(3), sigma=0.1)
         )
         gp_model = SpectralMixtureGPModel(train_x, train_y, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)

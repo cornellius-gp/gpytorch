@@ -27,8 +27,8 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-5, 5))
         self.covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),
-            log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
+            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1)),
+            log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1),
         )
 
     def forward(self, x):

@@ -49,15 +49,18 @@ class ScaleKernel(Kernel):
     """
 
     def __init__(self, base_kernel, batch_size=1, log_outputscale_prior=None, param_transform=torch.exp):
-        super(ScaleKernel, self).__init__(has_lengthscale=False, batch_size=batch_size, param_transform=param_transform)
+        super(ScaleKernel, self).__init__(has_lengthscale=False, batch_size=batch_size)
         self.base_kernel = base_kernel
         self.register_parameter(
-            name="log_outputscale", parameter=torch.nn.Parameter(torch.zeros(batch_size)), prior=log_outputscale_prior
+            name="log_outputscale",
+            parameter=torch.nn.Parameter(torch.zeros(batch_size)),
+            prior=log_outputscale_prior,
+            transform=param_transform,
         )
 
     @property
     def outputscale(self):
-        return self.param_transform(self.log_outputscale)
+        return self.transfom_parameter("log_outputscale", self.log_outputscale)
 
     def forward(self, x1, x2, batch_dims=None, **params):
         outputscales = self.outputscale

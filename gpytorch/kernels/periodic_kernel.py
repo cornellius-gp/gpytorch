@@ -92,11 +92,12 @@ class PeriodicKernel(Kernel):
             name="log_period_length",
             parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)),
             prior=log_period_length_prior,
+            transform=param_transform,
         )
 
     @property
     def period_length(self):
-        return self.param_transform(self.log_period_length).clamp(self.eps, 1e5)
+        return self.transform_parameter("log_period_length", self.log_period_length).clamp(self.eps, 1e5)
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)

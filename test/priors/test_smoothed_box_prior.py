@@ -30,7 +30,6 @@ class TestSmoothedBoxPrior(unittest.TestCase):
         sigma = 0.1
         prior = SmoothedBoxPrior(a, b, sigma)
 
-        self.assertFalse(prior.log_transform)
         self.assertTrue(torch.equal(prior.a, a))
         self.assertTrue(torch.equal(prior.b, b))
         self.assertTrue(torch.equal(prior.sigma, torch.full_like(prior.a, sigma)))
@@ -48,23 +47,23 @@ class TestSmoothedBoxPrior(unittest.TestCase):
         if torch.cuda.is_available():
             return self.test_smoothed_box_prior_log_prob(cuda=True)
 
-    def test_smoothed_box_prior_log_prob_log_transform(self, cuda=False):
-        device = torch.device("cuda") if cuda else torch.device("cpu")
-        a, b = torch.zeros(2, device=device), torch.ones(2, device=device)
-        sigma = 0.1
-        prior = SmoothedBoxPrior(a, b, sigma, log_transform=True)
-
-        t = torch.tensor([0.5, 1.1], device=device).log()
-        self.assertAlmostEqual(prior.log_prob(t).item(), -0.9473, places=4)
-        t = torch.tensor([[0.5, 1.1], [0.1, 0.25]], device=device).log()
-        log_prob_expected = torch.tensor([-0.947347, -0.447347], device=t.device)
-        self.assertTrue(torch.all(approx_equal(prior.log_prob(t), log_prob_expected)))
-        with self.assertRaises(RuntimeError):
-            prior.log_prob(torch.ones(3, device=device))
-
-    def test_smoothed_box_prior_log_prob_log_transform_cuda(self):
-        if torch.cuda.is_available():
-            return self.test_smoothed_box_prior_log_prob(cuda=True)
+    # def test_smoothed_box_prior_log_prob_log_transform(self, cuda=False):
+    #     device = torch.device("cuda") if cuda else torch.device("cpu")
+    #     a, b = torch.zeros(2, device=device), torch.ones(2, device=device)
+    #     sigma = 0.1
+    #     prior = SmoothedBoxPrior(a, b, sigma, log_transform=True)
+    #
+    #     t = torch.tensor([0.5, 1.1], device=device).log()
+    #     self.assertAlmostEqual(prior.log_prob(t).item(), -0.9473, places=4)
+    #     t = torch.tensor([[0.5, 1.1], [0.1, 0.25]], device=device).log()
+    #     log_prob_expected = torch.tensor([-0.947347, -0.447347], device=t.device)
+    #     self.assertTrue(torch.all(approx_equal(prior.log_prob(t), log_prob_expected)))
+    #     with self.assertRaises(RuntimeError):
+    #         prior.log_prob(torch.ones(3, device=device))
+    #
+    # def test_smoothed_box_prior_log_prob_log_transform_cuda(self):
+    #     if torch.cuda.is_available():
+    #         return self.test_smoothed_box_prior_log_prob_log_transform(cuda=True)
 
     def test_smoothed_box_prior_batch_log_prob(self, cuda=False):
         # TODO: Implement test for batch mode

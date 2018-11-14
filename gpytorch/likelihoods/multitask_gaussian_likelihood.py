@@ -31,31 +31,34 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
         """
-        super(MultitaskGaussianLikelihood, self).__init__(batch_size=batch_size, log_noise_prior=log_noise_prior)
+        super(MultitaskGaussianLikelihood, self).__init__(
+            batch_size=batch_size, log_noise_prior=log_noise_prior, param_transform=param_transform
+        )
 
         if rank == 0:
             self.register_parameter(
                 name="log_task_noises",
                 parameter=torch.nn.Parameter(torch.zeros(batch_size, num_tasks)),
                 prior=task_prior,
+                transform=param_transform,
             )
         else:
             self.register_parameter(
                 name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
             )
             if task_prior is not None:
-                self.register_derived_prior(
-                    name="MultitaskErrorCovariancePrior",
-                    prior=task_prior,
-                    parameter_names=("task_noise_covar_factor", "log_noise"),
+                self.register_prior(
+                    "MultitaskErrorCovariancePrior",
+                    task_prior,
+                    "task_noise_covar_factor",
+                    "log_noise",
                     transform=self._eval_covar_matrix,
                 )
         self.num_tasks = num_tasks
-        self.param_transform = param_transform
 
     def _eval_covar_matrix(self, task_noise_covar_factor, log_noise):
         num_tasks = task_noise_covar_factor.size(0)
-        noise = self.param_transform(log_noise)
+        noise = self.transform_parameter("log_noise", log_noise)
         return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + noise * torch.eye(num_tasks)
 
     def forward(self, input):
@@ -85,7 +88,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         mean, covar = input.mean, input.lazy_covariance_matrix
 
         if hasattr(self, "log_task_noises"):
-            noises = self.param_transform(self.log_task_noises)
+            noises = self.transform_parameter("log_task_noises", self.log_task_noises)
             if covar.ndimension() == 2:
                 if settings.debug.on() and noises.size(0) > 1:
                     raise RuntimeError(

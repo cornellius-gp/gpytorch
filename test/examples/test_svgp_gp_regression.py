@@ -36,7 +36,7 @@ class SVGPRegressionModel(AbstractVariationalGP):
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(
             gpytorch.kernels.RBFKernel(
-                log_lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1, log_transform=True)
+                log_lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1)
             )
         )
 

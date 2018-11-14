@@ -50,11 +50,8 @@ class LKJPrior(Prior):
         del self.eta, self.C
         self.register_buffer("eta", eta)
         self.register_buffer("C", C)
-        self._log_transform = False
 
     def log_prob(self, parameter):
-        if self.log_transform:
-            raise RuntimeError("log-transform not supported for LKJPrior")
         if any(s != self.n for s in parameter.shape[-2:]):
             raise ValueError("Correlation matrix is not of size n={}".format(self.n.item()))
         if not _is_valid_correlation_matrix(parameter):
@@ -87,8 +84,6 @@ class LKJCholeskyFactorPrior(LKJPrior):
     support = constraints.lower_cholesky
 
     def log_prob(self, parameter):
-        if self.log_transform:
-            raise RuntimeError("log-transform not supported for LKJCholeskyFactorPrior")
         if any(s != self.n for s in parameter.shape[-2:]):
             raise ValueError("Cholesky factor is not of size n={}".format(self.n.item()))
         if not _is_valid_correlation_matrix_cholesky_factor(parameter):
@@ -125,11 +120,8 @@ class LKJCovariancePrior(LKJPrior):
         )
         self.correlation_prior = correlation_prior
         self.sd_prior = sd_prior
-        self._log_transform = False
 
     def log_prob(self, parameter):
-        if self.log_transform:
-            raise RuntimeError("log-transform not supported for LKJCovariancePrior")
         marginal_var = torch.diagonal(parameter, dim1=-2, dim2=-1)
         if not torch.all(marginal_var >= 0):
             raise ValueError("Variance(s) cannot be negative")

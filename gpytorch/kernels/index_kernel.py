@@ -44,26 +44,23 @@ class IndexKernel(Kernel):
     def __init__(self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=torch.exp):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
-        super(IndexKernel, self).__init__(param_transform=param_transform)
+        super(IndexKernel, self).__init__()
         self.register_parameter(
             name="covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
         )
-        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks)))
+        self.register_parameter(
+            name="log_var", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks)), transform=param_transform
+        )
         if prior is not None:
-            self.register_derived_prior(
-                name="IndexKernelPrior",
-                prior=prior,
-                parameter_names=("covar_factor", "log_var"),
-                transform=self._eval_covar_matrix,
-            )
+            self.register_prior("IndexKernelPrior", prior, "covar_factor", "log_var", transform=self._eval_covar_matrix)
 
     def _eval_covar_matrix(self, covar_factor, log_var):
-        var = self.param_transform(log_var)
+        var = self.transform_parameter("log_var", log_var)
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + var.diag()
 
     @property
     def covar_matrix(self):
-        var = self.param_transform(self.log_var)
+        var = self.transform_parameter("log_var", self.log_var)
         res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
         return res
 
