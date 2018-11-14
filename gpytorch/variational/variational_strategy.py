@@ -110,7 +110,7 @@ class VariationalStrategy(Module):
             # Compute predictive mean/covariance
             induc_data_covar = induc_data_covar.evaluate()
             inv_product = induc_induc_covar.inv_matmul(induc_data_covar)
-            factor = variational_dist.lazy_covariance_matrix.root_decomposition().matmul(inv_product)
+            factor = variational_dist.lazy_covariance_matrix.root_decomposition().root.matmul(inv_product)
             predictive_mean = torch.add(test_mean, inv_product.transpose(-1, -2).matmul(var_dist_mean - induc_mean))
             predictive_covar = RootLazyTensor(factor.transpose(-2, -1))
 
