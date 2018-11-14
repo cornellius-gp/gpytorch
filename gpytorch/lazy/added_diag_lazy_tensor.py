@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
+import warnings
 from .non_lazy_tensor import NonLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
@@ -53,6 +54,11 @@ class AddedDiagLazyTensor(SumLazyTensor):
         if not hasattr(self, "_woodbury_cache"):
             max_iter = settings.max_preconditioner_size.value()
             self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_tensor, max_iter)
+            if torch.any(torch.isnan(self._piv_chol_self)).item():
+                warnings.warn(
+                    "NaNs encountered in preconditioner computation. Attempting to continue without " "preconditioning."
+                )
+                return None, None
             self._woodbury_cache = pivoted_cholesky.woodbury_factor(self._piv_chol_self, self._diag_tensor.diag())
 
         # preconditioner
