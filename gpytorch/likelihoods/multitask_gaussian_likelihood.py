@@ -7,13 +7,6 @@ from ..likelihoods import GaussianLikelihood
 from .. import settings
 
 
-def _eval_covar_matrix(task_noise_covar_factor, log_noise):
-    num_tasks = task_noise_covar_factor.size(0)
-    return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + log_noise.exp() * torch.eye(
-        num_tasks
-    )
-
-
 class MultitaskGaussianLikelihood(GaussianLikelihood):
     """
     A convenient extension of the :class:`gpytorch.likelihoods.GaussianLikelihood` to the multitask setting that allows
@@ -24,7 +17,9 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     Like the Gaussian likelihood, this object can be used with exact inference.
     """
 
-    def __init__(self, num_tasks, rank=0, task_prior=None, batch_size=1, log_noise_prior=None):
+    def __init__(
+        self, num_tasks, rank=0, task_prior=None, batch_size=1, log_noise_prior=None, positive_nonlinearity=torch.exp
+    ):
         """
         Args:
             num_tasks (int): Number of tasks.
@@ -53,9 +48,15 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
                     name="MultitaskErrorCovariancePrior",
                     prior=task_prior,
                     parameter_names=("task_noise_covar_factor", "log_noise"),
-                    transform=_eval_covar_matrix,
+                    transform=self._eval_covar_matrix,
                 )
         self.num_tasks = num_tasks
+        self.positive_nonlinearity = positive_nonlinearity
+
+    def _eval_covar_matrix(self, task_noise_covar_factor, log_noise):
+        num_tasks = task_noise_covar_factor.size(0)
+        noise = self.positive_nonlinearity(log_noise)
+        return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + noise * torch.eye(num_tasks)
 
     def forward(self, input):
         """
@@ -84,7 +85,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         mean, covar = input.mean, input.lazy_covariance_matrix
 
         if hasattr(self, "log_task_noises"):
-            noises = self.log_task_noises.exp()
+            noises = self.positive_nonlinearity(self.log_task_noises)
             if covar.ndimension() == 2:
                 if settings.debug.on() and noises.size(0) > 1:
                     raise RuntimeError(

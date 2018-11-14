@@ -77,6 +77,7 @@ class SpectralMixtureKernel(Kernel):
         log_mixture_scales_prior=None,
         log_mixture_means_prior=None,
         log_mixture_weights_prior=None,
+        positive_nonlinearity=torch.exp,
     ):
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")
@@ -88,7 +89,9 @@ class SpectralMixtureKernel(Kernel):
             logger.warning("Priors not implemented for SpectralMixtureKernel")
 
         # This kernel does not use the default lengthscale
-        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
+        super(SpectralMixtureKernel, self).__init__(
+            active_dims=active_dims, positive_nonlinearity=positive_nonlinearity
+        )
         self.num_mixtures = num_mixtures
         self.batch_size = batch_size
         self.ard_num_dims = ard_num_dims
@@ -108,15 +111,15 @@ class SpectralMixtureKernel(Kernel):
 
     @property
     def mixture_scales(self):
-        return self.log_mixture_scales.exp().clamp(self.eps, 1e5)
+        return self.positive_nonlinearity(self.log_mixture_scales).clamp(self.eps, 1e5)
 
     @property
     def mixture_means(self):
-        return self.log_mixture_means.exp().clamp(self.eps, 1e5)
+        return self.positive_nonlinearity(self.log_mixture_means).clamp(self.eps, 1e5)
 
     @property
     def mixture_weights(self):
-        return self.log_mixture_weights.exp().clamp(self.eps, 1e5)
+        return self.positive_nonlinearity(self.log_mixture_weights).clamp(self.eps, 1e5)
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):

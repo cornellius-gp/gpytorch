@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from .kernel import Kernel
+import torch
 
 
 class RBFKernel(Kernel):
@@ -65,13 +66,22 @@ class RBFKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
 
-    def __init__(self, ard_num_dims=None, log_lengthscale_prior=None, eps=1e-6, active_dims=None, batch_size=1):
+    def __init__(
+        self,
+        ard_num_dims=None,
+        log_lengthscale_prior=None,
+        eps=1e-6,
+        active_dims=None,
+        batch_size=1,
+        positive_nonlinearity=torch.exp,
+    ):
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
             batch_size=batch_size,
             active_dims=active_dims,
             log_lengthscale_prior=log_lengthscale_prior,
+            positive_nonlinearity=positive_nonlinearity,
             eps=eps,
         )
 
