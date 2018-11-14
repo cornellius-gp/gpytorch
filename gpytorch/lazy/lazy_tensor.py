@@ -463,7 +463,7 @@ class LazyTensor(object):
         return self._args[0].dtype
 
     def expand(self, *sizes):
-        if len(sizes) == 1 and hasattr(sizes, '__iter__'):
+        if len(sizes) == 1 and hasattr(sizes, "__iter__"):
             shape = sizes[0]
         elif all(isinstance(size, int) for size in sizes):
             shape = torch.Size(sizes)

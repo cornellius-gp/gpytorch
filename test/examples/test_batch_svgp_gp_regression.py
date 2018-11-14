@@ -34,15 +34,14 @@ def train_data(cuda=False):
 class SVGPRegressionModel(AbstractVariationalGP):
     def __init__(self, inducing_points):
         variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-2), batch_size=2)
-        variational_strategy = VariationalStrategy(self,
-                                                   inducing_points,
-                                                   variational_distribution,
-                                                   learn_inducing_locations=True)
+        variational_strategy = VariationalStrategy(
+            self, inducing_points, variational_distribution, learn_inducing_locations=True
+        )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(
             gpytorch.kernels.RBFKernel(
-                log_lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1., sigma=0.1, log_transform=True)
+                log_lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1, log_transform=True)
             )
         )
 

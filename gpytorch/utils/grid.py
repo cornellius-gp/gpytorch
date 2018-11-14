@@ -49,15 +49,15 @@ def choose_grid_size(train_inputs, ratio=1.0):
 
 
 def create_data_from_grid(grid):
-        grid_size = grid.size(-2)
-        grid_dim = grid.size(-1)
-        grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim)
-        prev_points = None
-        for i in range(grid_dim):
-            for j in range(grid_size):
-                grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[j, i])
-                if prev_points is not None:
-                    grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
-            prev_points = grid_data[: grid_size ** (i + 1), : (i + 1)]
+    grid_size = grid.size(-2)
+    grid_dim = grid.size(-1)
+    grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim)
+    prev_points = None
+    for i in range(grid_dim):
+        for j in range(grid_size):
+            grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[j, i])
+            if prev_points is not None:
+                grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
+        prev_points = grid_data[: grid_size ** (i + 1), : (i + 1)]
 
-        return grid_data
+    return grid_data

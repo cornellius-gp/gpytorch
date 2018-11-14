@@ -91,9 +91,7 @@ class SpectralMixtureKernel(Kernel):
             logger.warning("Priors not implemented for SpectralMixtureKernel")
 
         # This kernel does not use the default lengthscale
-        super(SpectralMixtureKernel, self).__init__(
-            active_dims=active_dims, param_transform=param_transform
-        )
+        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims, param_transform=param_transform)
         self.num_mixtures = num_mixtures
         self.batch_size = batch_size
         self.ard_num_dims = ard_num_dims

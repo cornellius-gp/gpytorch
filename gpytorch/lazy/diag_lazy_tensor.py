@@ -61,6 +61,7 @@ class DiagLazyTensor(LazyTensor):
 
     def __add__(self, other):
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
+
         if isinstance(other, DiagLazyTensor):
             return DiagLazyTensor(self._diag + other._diag)
         else:
@@ -98,7 +99,7 @@ class DiagLazyTensor(LazyTensor):
 
     def inv_matmul(self, tensor):
         is_vec = False
-        if (self.dim() == 2 and tensor.dim() == 1):
+        if self.dim() == 2 and tensor.dim() == 1:
             tensor = tensor.unsqueeze(-1)
             is_vec = True
 
@@ -116,7 +117,7 @@ class DiagLazyTensor(LazyTensor):
 
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
         if inv_quad_rhs is not None:
-            if (self.dim() == 2 and inv_quad_rhs.dim() == 1):
+            if self.dim() == 2 and inv_quad_rhs.dim() == 1:
                 inv_quad_rhs = inv_quad_rhs.unsqueeze(-1)
                 if self.shape[-1] != inv_quad_rhs.numel():
                     raise RuntimeError(
