@@ -143,6 +143,26 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         actual = evaluated + other_diag.diag()
         self.assertTrue(approx_equal(res, actual))
 
+    def test_root_decomposition(self):
+        lazy_tensor = self.create_lazy_tensor()
+        root_approx = lazy_tensor.root_decomposition()
+
+        test_mat = torch.randn(lazy_tensor.size(-1))
+
+        res = root_approx.matmul(test_mat)
+        actual = lazy_tensor.matmul(test_mat)
+        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
+
+    def test_root_inv_decomposition(self):
+        lazy_tensor = self.create_lazy_tensor()
+        root_approx = lazy_tensor.root_inv_decomposition()
+
+        test_mat = torch.randn(lazy_tensor.size(-1))
+
+        res = root_approx.matmul(test_mat)
+        actual = lazy_tensor.inv_matmul(test_mat)
+        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
+
     def test_inv_matmul_vec(self):
         lazy_tensor = self.create_lazy_tensor()
         lazy_tensor_copy = lazy_tensor.clone()

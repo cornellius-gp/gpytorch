@@ -5,10 +5,12 @@ from __future__ import unicode_literals
 
 import torch
 from .lazy_tensor import LazyTensor
+from .root_lazy_tensor import RootLazyTensor
+from .non_lazy_tensor import NonLazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
-    def __init__(self, diag, exact_root_decomposition=False):
+    def __init__(self, diag):
         """
         Diagonal lazy tensor
 
@@ -19,7 +21,6 @@ class DiagLazyTensor(LazyTensor):
         """
         super(DiagLazyTensor, self).__init__(diag)
         self._diag = diag
-        self.exact_root_decomposition = exact_root_decomposition
 
     def _matmul(self, rhs):
         if rhs.ndimension() == 1 and self.ndimension() == 2:
@@ -64,6 +65,19 @@ class DiagLazyTensor(LazyTensor):
             return DiagLazyTensor(self._diag + other._diag)
         else:
             return AddedDiagLazyTensor(other, self)
+
+    def __mul__(self, other):
+        if torch.is_tensor(other):
+            other = NonLazyTensor(other)
+
+        if isinstance(other, DiagLazyTensor):
+            return DiagLazyTensor(self._diag * other._diag)
+        else:
+            other_diag = other.diag()
+            new_diag = self._diag * other_diag
+            corrected_diag = new_diag - other_diag
+
+            return other.add_diag(corrected_diag)
 
     def diag(self):
         return self._diag
@@ -139,16 +153,10 @@ class DiagLazyTensor(LazyTensor):
         return inv_quad_term, log_det_term
 
     def root_decomposition(self):
-        if self.exact_root_decomposition:
-            return self.__class__(self._diag.sqrt()).evaluate()
-        else:
-            return super(DiagLazyTensor, self).root_decomposition()
+        return RootLazyTensor(DiagLazyTensor(self._diag.sqrt()))
 
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
-        if self.exact_root_decomposition:
-            return self.__class__(self._diag.sqrt().reciprocal()).evaluate()
-        else:
-            return super(DiagLazyTensor, self).root_decomposition()
+    def root_inv_decomposition(self):
+        return RootLazyTensor(DiagLazyTensor((1. / self._diag).sqrt()))
 
     def zero_mean_mvn_samples(self, num_samples):
         if self.ndimension() == 3:

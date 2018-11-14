@@ -148,7 +148,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             base_samples = base_samples.permute(*tuple(i + 1 for i in range(self.loc.dim())), 0)
 
             # Now reparameterize those base samples
-            covar_root = covar.root_decomposition()
+            covar_root = covar.root_decomposition().root
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
@@ -220,7 +220,7 @@ def kl_mvn_mvn(p_dist, q_dist):
 
     p_mean = p_dist.loc
     p_covar = p_dist.lazy_covariance_matrix
-    root_p_covar = p_covar.root_decomposition()
+    root_p_covar = p_covar.root_decomposition().root.evaluate()
 
     mean_diffs = q_mean - p_mean
     inv_quad_rhs = torch.cat([root_p_covar, mean_diffs.unsqueeze(-1)], -1)
