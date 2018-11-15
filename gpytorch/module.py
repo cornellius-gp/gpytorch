@@ -51,6 +51,10 @@ class Module(nn.Module):
                 "Invalid parameter name {}. {} has no module {}".format(parameter_name, type(self).__name__, module)
             )
 
+    def added_loss_terms(self):
+        for _, strategy in self.named_added_loss_terms():
+            yield strategy
+
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
 
@@ -79,8 +83,9 @@ class Module(nn.Module):
             prior = self._priors.get(name)
             if prior is not None:
                 param = self._parameters[name]
+                tf = self._parameter_transforms.get(name)
                 try:
-                    prior._validate_sample(param)
+                    prior._validate_sample(param if tf is None else tf(param))
                 except ValueError as e:
                     raise ValueError(PRIOR_VALUE_WARNING.format(param=param, exc=e))
         return self
@@ -181,13 +186,21 @@ class Module(nn.Module):
         transform = self._parameter_transforms.get(parameter_name)
         return parameter if transform is None else transform(parameter)
 
-    def variational_parameters(self):
-        for _, param in self.named_variational_parameters():
-            yield param
-
-    def added_loss_terms(self):
-        for _, strategy in self.named_added_loss_terms():
-            yield strategy
+    def update_prior(self, name, prior, transform=None):
+        """
+        Update an existing prior with a new Prior object. The new prior operates on the same parameters
+        as the original one under the new transform (if applicable).
+        """
+        if name not in self._priors:
+            raise ValueError("Unknown prior - Please register the prior first using `register_prior`")
+        parameter_names = self._priors[name][1]
+        if len(parameter_names) > 1 and transform is None:
+            raise ValueError(
+                "Must specify a transform for priors defined over multiple parameters ({})".format(
+                    ", ".join(parameter_names)
+                )
+            )
+        self._priors[name] = (prior, parameter_names, transform)
 
     def update_added_loss_term(self, name, added_loss_term):
         from .mlls import AddedLossTerm
@@ -197,6 +210,10 @@ class Module(nn.Module):
         if name not in self._added_loss_terms.keys():
             raise RuntimeError("added_loss_term {} not registered".format(name))
         self._added_loss_terms[name] = added_loss_term
+
+    def variational_parameters(self):
+        for _, param in self.named_variational_parameters():
+            yield param
 
 
 def _extract_named_added_loss_terms(module, memo=None, prefix=""):

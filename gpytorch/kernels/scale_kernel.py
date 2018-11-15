@@ -60,7 +60,7 @@ class ScaleKernel(Kernel):
 
     @property
     def outputscale(self):
-        return self.transfom_parameter("log_outputscale", self.log_outputscale)
+        return self.transform_parameter("log_outputscale", self.log_outputscale)
 
     def forward(self, x1, x2, batch_dims=None, **params):
         outputscales = self.outputscale

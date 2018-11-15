@@ -56,8 +56,8 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
         gp_model = ExactGPModel(None, None, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
-        gp_model.covar_module.base_kernel.set_parameter_priors(
-            log_lengthscale=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5)
+        gp_model.covar_module.base_kernel.update_prior(
+            "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5)
         )
         gp_model.mean_module.initialize(constant=1.5)
         gp_model.covar_module.base_kernel.initialize(log_lengthscale=0)
@@ -78,8 +78,8 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
-        gp_model.covar_module.base_kernel.set_parameter_priors(
-            log_lengthscale=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5)
+        gp_model.covar_module.base_kernel.update_prior(
+            "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5)
         )
         gp_model.covar_module.base_kernel.initialize(log_lengthscale=-10)
         likelihood.initialize(log_noise=-10)
