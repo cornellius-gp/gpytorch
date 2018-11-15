@@ -23,8 +23,6 @@ class DiagLazyTensor(LazyTensor):
         """
         super(DiagLazyTensor, self).__init__(diag)
         self._diag = diag
-        self._batch_shape = diag.shape[:-1]
-        self._batch_dim = len(self._batch_shape)
 
     def __add__(self, other):
         if isinstance(other, DiagLazyTensor):
@@ -55,9 +53,9 @@ class DiagLazyTensor(LazyTensor):
 
         """
         batch_dims = len(batch_indices)
-        if batch_dims > self._batch_dim:
+        if batch_dims > self.batch_dim:
             raise RuntimeError(
-                "Received {} batch index tensors, DiagLazyTensor has {} batches".format(batch_dims, self._batch_dim)
+                "Received {} batch index tensors, DiagLazyTensor has {} batches".format(batch_dims, self.batch_dim)
             )
         full_batch_shape = self._diag.shape[batch_dims:-1]
         if len(full_batch_shape) == 0:
@@ -120,7 +118,7 @@ class DiagLazyTensor(LazyTensor):
         return self._diag
 
     def evaluate(self):
-        return self._diag.unsqueeze(-1) * torch.eye(self._diag.shape[-1])
+        return self._diag.unsqueeze(-1) * torch.eye(self._diag.shape[-1], dtype=self.dtype, device=self.device)
 
     def exp(self):
         return DiagLazyTensor(self._diag.exp())
@@ -137,7 +135,7 @@ class DiagLazyTensor(LazyTensor):
         if inv_quad_rhs is None:
             rhs_batch_shape = torch.Size()
         else:
-            rhs_batch_shape = inv_quad_rhs.shape[1 + self._batch_dim :]
+            rhs_batch_shape = inv_quad_rhs.shape[1 + self.batch_dim :]
 
         if inv_quad_rhs is None:
             inv_quad_term = torch.empty(0, dtype=self.dtype, device=self.device)
@@ -166,10 +164,20 @@ class DiagLazyTensor(LazyTensor):
         return super(DiagLazyTensor, self).matmul(other)
 
     def root_decomposition(self):
-        return RootLazyTensor(DiagLazyTensor(self._diag.sqrt()))
+        return RootLazyTensor(self.sqrt())
 
     def root_inv_decomposition(self):
-        return RootLazyTensor(DiagLazyTensor(self._diag.reciprocal().sqrt()))
+        return RootLazyTensor(DiagLazyTensor(self._diag.reciprocal()).sqrt())
+
+    def sqrt(self):
+        return DiagLazyTensor(self._diag.sqrt())
+
+    def sum_batch(self, sum_batch_size=None):
+        if sum_batch_size is not None:
+            if self.batch_dim > 1:
+                raise NotImplementedError("batch dimensions > 1 not yet supported with sum_batch_size")
+            return DiagLazyTensor(self._diag.view(-1, sum_batch_size, self._diag.shape[-1]))
+        return DiagLazyTensor(self._diag.sum([i for i in range(self.batch_dim)]))
 
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)

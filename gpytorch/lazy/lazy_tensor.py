@@ -369,9 +369,16 @@ class LazyTensor(object):
         return self.add_diag(diag)
 
     @property
+    def batch_dim(self):
+        """
+        Returns the dimension of the shape over which the tensor is batched.
+        """
+        return len(self.batch_shape)
+
+    @property
     def batch_shape(self):
         """
-        Returns the shape over which parameters are batched.
+        Returns the shape over which the tensor is batched.
         """
         return torch.Size(self.shape[:-2])
 
@@ -380,7 +387,7 @@ class LazyTensor(object):
         Clones the LazyTensor (creates clones of all underlying tensors)
         """
         args = [arg.clone() if hasattr(arg, "clone") else arg for arg in self._args]
-        kwargs = dict((key, val.clone() if hasattr(val, "clone") else val) for key, val in self._kwargs.items())
+        kwargs = {key: val.clone() if hasattr(val, "clone") else val for key, val in self._kwargs.items()}
         return self.__class__(*args, **kwargs)
 
     def cpu(self):
@@ -735,7 +742,7 @@ class LazyTensor(object):
         Multiplies self by a matrix
 
         Args:
-            other (:obj:`torch.tensor`): Matrix or vector to multiply with. Can be either a ``:obj:`torch.tensor`
+            other (:obj:`torch.tensor`): Matrix or vector to multiply with. Can be either a :obj:`torch.tensor`
                 or a :obj:`gpytorch.lazy.LazyTensor`.
 
         Returns:
@@ -938,6 +945,7 @@ class LazyTensor(object):
         low-rank version of a matrix
         """
         from .root_lazy_tensor import RootLazyTensor
+
         if not self.is_square:
             raise RuntimeError(
                 "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
@@ -961,6 +969,7 @@ class LazyTensor(object):
         low-rank version of a matrix
         """
         from .root_lazy_tensor import RootLazyTensor
+
         if not self.is_square:
             raise RuntimeError(
                 "root_inv_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
