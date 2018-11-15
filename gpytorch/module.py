@@ -155,12 +155,12 @@ class Module(nn.Module):
                 The prior to be registered`
             :attr:`arg` (string or callable):
                 Either the name of the parameter, or a closure (which upon calling evalutes a function on
-                    one or more parameters):
-                - single parameter without a transform: `.register_prior("foo_prior", foo_prior, "foo_param")`
-                - transform single parameter (e.g. put a log-Normal prior on it):
-                    `.register_prior("foo_prior", NormalPrior(0, 1), lambda: torch.log(self.foo_param))`
-                - function of multiple parameters (e.g. put a prior over the ICM Kernel covariance matrix):
-                    `.register_prior("foo2_prior", lkj_prior, lambda: _eval_covar_matrix(self.param1, self.param2)))`
+                one or more parameters):
+                single parameter without a transform: `.register_prior("foo_prior", foo_prior, "foo_param")`
+                transform a single parameter (e.g. put a log-Normal prior on it):
+                `.register_prior("foo_prior", NormalPrior(0, 1), lambda: torch.log(self.foo_param))`
+                function of multiple parameters:
+                `.register_prior("foo2_prior", foo2_prior, lambda: f(self.param1, self.param2)))`
         """
         if isinstance(arg, str):
             if arg not in self._parameters:
