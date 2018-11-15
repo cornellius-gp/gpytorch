@@ -3,6 +3,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from itertools import product
+import warnings
 import torch
 from .lazy_tensor import LazyTensor
 from .root_lazy_tensor import RootLazyTensor
@@ -12,60 +14,92 @@ from .non_lazy_tensor import NonLazyTensor
 class DiagLazyTensor(LazyTensor):
     def __init__(self, diag):
         """
-        Diagonal lazy tensor
+        Diagonal lazy tensor. Supports arbitrary batch sizes.
 
         Args:
-            - diag (tensor) (batch) diagonal of matrix
-            - exact_root_decomposition (bool, default False) return an exact root decomposition.
-                Set to True only if the represented diagonal is relatively small.
+            :attr:`diag` (Tensor):
+                A `b1 x ... x bk x n` Tensor, representing a `b1 x ... x bk`-sized batch
+                of `n x n` diagonal matrices
         """
         super(DiagLazyTensor, self).__init__(diag)
         self._diag = diag
 
-    def _matmul(self, rhs):
-        if rhs.ndimension() == 1 and self.ndimension() == 2:
-            return self._diag * rhs
-        else:
-            res = self._diag.unsqueeze(-1).expand_as(rhs) * rhs
-            return res
+    def __add__(self, other):
+        if isinstance(other, DiagLazyTensor):
+            return self.add_diag(other._diag)
+        from .added_diag_lazy_tensor import AddedDiagLazyTensor
 
-    def _t_matmul(self, rhs):
-        # Matrix is symmetric
-        return self._matmul(rhs)
+        return AddedDiagLazyTensor(other, self)
+
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        warnings.warn("_batch_get_indices is deprecated - use _get_indices instead", DeprecationWarning)
+        return self._get_indices(left_indices, right_indices, batch_indices)
+
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        """Extract elements from the LazyTensor. Supports arbitrary batch sizes.
+
+        Args:
+            :attr:`left_indices` (LongTensor): An `i`-dim tensor of row indices (these are the
+                same across all batches).
+            :attr:`left_indices` (LongTensor): An `i`-dim tensor of column indices (these are the
+                same across all batches).
+            :attr:`batch_indices` (LongTensor): A variable number of `i`-dim tensors of batch indices,
+                one for each batch dimension. If smaller than the number of batch dimensions of the
+                DiagLazyTensor, select all elements of the omitted batches.
+
+        Returns:
+            An `i`-dim tensor containing the requested elements if all batch index tensors were
+            passed in, otherwise a `bl x ... bk x i` batch of such tensors, where `l = len(batch_indices) + 1`.
+
+        """
+        batch_dims = len(batch_indices)
+        if batch_dims > self.batch_dim:
+            raise RuntimeError(
+                "Received {} batch index tensors, DiagLazyTensor has {} batches".format(batch_dims, self.batch_dim)
+            )
+        full_batch_shape = self._diag.shape[batch_dims:-1]
+        if len(full_batch_shape) == 0:
+            diag_elements = self._diag[batch_indices + (left_indices,)]
+        else:
+            d = torch.ones_like(left_indices)
+            diag_elements = torch.stack(
+                [
+                    self._diag[batch_indices + tuple(j * d for j in js) + (left_indices,)]
+                    for js in product(*[range(b) for b in full_batch_shape])
+                ]
+            )
+        equal_indices = (left_indices == right_indices).type_as(self._diag)
+        return diag_elements * equal_indices
+
+    def _matmul(self, rhs):
+        # to perform matrix multiplication with diagonal matrices we can just
+        # multiply element-wise with the diagonal (using proper broadcasting)
+        if rhs.ndimension() == 1:
+            return self._diag * rhs
+        return self._diag.unsqueeze(-1) * rhs
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
+        # TODO: Use proper batching for input vectors (prepand to shape rathern than append)
         res = left_vecs * right_vecs
         if res.ndimension() > self._diag.ndimension():
             res = res.sum(-1)
         return (res,)
 
     def _size(self):
-        if self._diag.ndimension() == 2:
-            return self._diag.size(0), self._diag.size(-1), self._diag.size(-1)
-        else:
-            return self._diag.size(-1), self._diag.size(-1)
+        return self._diag.shape + self._diag.shape[-1:]
+
+    def _t_matmul(self, rhs):
+        # Diagonal matrices always commute
+        return self._matmul(rhs)
 
     def _transpose_nonbatch(self):
         return self
 
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        equal_indices = left_indices.eq(right_indices).type_as(self._diag)
-        return self._diag[batch_indices, left_indices] * equal_indices
-
-    def _get_indices(self, left_indices, right_indices):
-        equal_indices = left_indices.eq(right_indices).type_as(self._diag)
-        return self._diag[left_indices] * equal_indices
+    def abs(self):
+        return DiagLazyTensor(self._diag.abs())
 
     def add_diag(self, added_diag):
         return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
-
-    def __add__(self, other):
-        from .added_diag_lazy_tensor import AddedDiagLazyTensor
-
-        if isinstance(other, DiagLazyTensor):
-            return DiagLazyTensor(self._diag + other._diag)
-        else:
-            return AddedDiagLazyTensor(other, self)
 
     def __mul__(self, other):
         if torch.is_tensor(other):
@@ -84,87 +118,67 @@ class DiagLazyTensor(LazyTensor):
         return self._diag
 
     def evaluate(self):
-        if self.ndimension() == 2:
-            return self._diag.diag()
-        else:
-            return super(DiagLazyTensor, self).evaluate()
+        return self._diag.unsqueeze(-1) * torch.eye(self._diag.shape[-1], dtype=self.dtype, device=self.device)
 
-    def sum_batch(self, sum_batch_size=None):
-        if sum_batch_size is None:
-            diag = self._diag.view(-1, self._diag.size(-1))
-        else:
-            diag = self._diag.view(-1, sum_batch_size, self._diag.size(-1))
+    def exp(self):
+        return DiagLazyTensor(self._diag.exp())
 
-        return self.__class__(diag.sum(-2))
+    def inverse(self):
+        return DiagLazyTensor(self._diag.reciprocal())
 
     def inv_matmul(self, tensor):
-        is_vec = False
-        if self.dim() == 2 and tensor.dim() == 1:
-            tensor = tensor.unsqueeze(-1)
-            is_vec = True
-
-            if self.shape[-1] != tensor.numel():
-                raise RuntimeError(
-                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
-                        self.shape, tensor.shape
-                    )
-                )
-
-        res = tensor.div(self._diag.unsqueeze(-1))
-        if is_vec:
-            res = res.squeeze(-1)
-        return res
+        return self.inverse()._matmul(tensor)
 
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
-        if inv_quad_rhs is not None:
-            if self.dim() == 2 and inv_quad_rhs.dim() == 1:
-                inv_quad_rhs = inv_quad_rhs.unsqueeze(-1)
-                if self.shape[-1] != inv_quad_rhs.numel():
-                    raise RuntimeError(
-                        "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
-                            self.shape, inv_quad_rhs.shape
-                        )
-                    )
-            elif self.dim() != inv_quad_rhs.dim():
-                raise RuntimeError(
-                    "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
-                    "of dimensions.".format(self.shape, inv_quad_rhs.shape)
-                )
-            elif self.batch_shape != inv_quad_rhs.shape[:-2] or self.shape[-1] != inv_quad_rhs.shape[-2]:
-                raise RuntimeError(
-                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
-                        self.shape, inv_quad_rhs.shape
-                    )
-                )
 
-        inv_quad_term = None
+        # TODO: Use proper batching for inv_quad_rhs (prepand to shape rathern than append)
         if inv_quad_rhs is None:
-            inv_quad_term = torch.tensor([], dtype=self.dtype, device=self.device)
+            rhs_batch_shape = torch.Size()
         else:
-            inv_quad_term = inv_quad_rhs.div(self._diag.unsqueeze(-1)).mul(inv_quad_rhs).sum(-2)
+            rhs_batch_shape = inv_quad_rhs.shape[1 + self.batch_dim :]
+
+        if inv_quad_rhs is None:
+            inv_quad_term = torch.empty(0, dtype=self.dtype, device=self.device)
+        else:
+            diag = self._diag
+            for _ in rhs_batch_shape:
+                diag = diag.unsqueeze(-1)
+            inv_quad_term = inv_quad_rhs.div(diag).mul(inv_quad_rhs).sum(-(1 + len(rhs_batch_shape)))
             if reduce_inv_quad:
                 inv_quad_term = inv_quad_term.sum(-1)
 
-        log_det_term = None
-        if log_det:
-            log_det_term = self._diag.log().sum(-1)
+        if not log_det:
+            log_det_term = torch.empty(0, dtype=self.dtype, device=self.device)
         else:
-            log_det_term = torch.tensor([], dtype=self.dtype, device=self.device)
+            log_det_term = self._diag.log().sum(-1)
 
         return inv_quad_term, log_det_term
 
+    def log(self):
+        return DiagLazyTensor(self._diag.log())
+
+    def matmul(self, other):
+        # this is trivial if we multiply two DiagLazyTensors
+        if isinstance(other, DiagLazyTensor):
+            return DiagLazyTensor(self._diag * other._diag)
+        return super(DiagLazyTensor, self).matmul(other)
+
     def root_decomposition(self):
-        return RootLazyTensor(DiagLazyTensor(self._diag.sqrt()))
+        return RootLazyTensor(self.sqrt())
 
     def root_inv_decomposition(self):
-        return RootLazyTensor(DiagLazyTensor((1.0 / self._diag).sqrt()))
+        return RootLazyTensor(DiagLazyTensor(self._diag.reciprocal()).sqrt())
+
+    def sqrt(self):
+        return DiagLazyTensor(self._diag.sqrt())
+
+    def sum_batch(self, sum_batch_size=None):
+        if sum_batch_size is not None:
+            if self.batch_dim > 1:
+                raise NotImplementedError("batch dimensions > 1 not yet supported with sum_batch_size")
+            return DiagLazyTensor(self._diag.view(-1, sum_batch_size, self._diag.shape[-1]))
+        return DiagLazyTensor(self._diag.sum([i for i in range(self.batch_dim)]))
 
     def zero_mean_mvn_samples(self, num_samples):
-        if self.ndimension() == 3:
-            base_samples = torch.randn(
-                num_samples, self._diag.size(0), self._diag.size(1), dtype=self.dtype, device=self.device
-            )
-        else:
-            base_samples = torch.randn(num_samples, self._diag.size(0), dtype=self.dtype, device=self.device)
-        samples = self._diag.unsqueeze(0).sqrt() * base_samples
-        return samples
+        base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)
+        return base_samples * self._diag.sqrt()
