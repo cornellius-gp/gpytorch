@@ -170,15 +170,16 @@ class Module(nn.Module):
                 The prior to be registered`
             :attr:`parameter_names` (sequence of strings):
                 The name(s) of the parameters (relative to the module) that are evaluated for this prior.
-                The prior will be evaluated as `prior.log_prob(transform(*parameters))`, where transform=None corresponds
-                to the identity transform, and parameters is the tuple of parameters corresponding to parameter_names
-                (if applicable, the parameters are themselves transformed according to their associated parameter
-                transformation registered in `register_parameter`). In the basic case of a single parameter without
-                a transform, this is called as `.register_prior("foo_prior", foo_prior, "foo_param")`
+                The prior will be evaluated as `prior.log_prob(transform(*parameters))`, where transform=None
+                corresponds to the identity transform, and parameters is the tuple of parameters corresponding
+                to parameter_names (if applicable, the parameters are themselves transformed according to their
+                associated parameter transformation registered in `register_parameter`).
+                In the basic case of a single parameter without a transform, this is called as
+                `.register_prior("foo_prior", foo_prior, "foo_param")`
             :attr:`transform` (callable, optional):
-                The transform to be called on the specified parameters. Must take as many arguments as the number of
-                parameters, each of them a tensor, and return itself a tensor. If ommitted, do not transform the parameter
-                (only supported if registering a prior on a single parameter)
+                The transform to be called on the specified parameters. Must take as many arguments as the number
+                of parameters, each of them a tensor, and return itself a tensor. If ommitted, do not transform
+                the parameter (only supported if registering a prior on a single parameter)
 
         .. note::
 
