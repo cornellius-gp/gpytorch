@@ -43,12 +43,12 @@ class ExactGPModel(gpytorch.models.ExactGP):
         self.covar_module = ScaleKernel(
             RBFKernel(
                 batch_size=batch_size,
-                log_lengthscale_prior=gpytorch.priors.NormalPrior(
+                lengthscale_prior=gpytorch.priors.NormalPrior(
                     loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1)
                 ),
             ),
             batch_size=batch_size,
-            log_outputscale_prior=gpytorch.priors.SmoothedBoxPrior(-2, 2),
+            outputscale_prior=gpytorch.priors.SmoothedBoxPrior(-2, 2),
         )
 
     def forward(self, x):
@@ -73,7 +73,7 @@ class TestBatchGPRegression(unittest.TestCase):
     def test_train_on_single_set_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(
-            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(1), scale=torch.ones(1))
+            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(1), scale=torch.ones(1))
         )
         gp_model = ExactGPModel(train_x1, train_y1, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
@@ -116,7 +116,7 @@ class TestBatchGPRegression(unittest.TestCase):
     def test_train_on_batch_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(
-            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)), batch_size=2
+            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)), batch_size=2
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_size=2)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
@@ -155,7 +155,7 @@ class TestBatchGPRegression(unittest.TestCase):
     def test_train_on_batch_test_on_batch_shared_hypers_over_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(
-            log_noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)), batch_size=1
+            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)), batch_size=1
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_size=1)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)

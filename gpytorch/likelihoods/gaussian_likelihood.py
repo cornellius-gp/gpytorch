@@ -7,24 +7,24 @@ from ..functions import add_diag
 from ..likelihoods import Likelihood
 from ..lazy import DiagLazyTensor
 from .. import settings
+from ..utils.deprecation import _deprecate_kwarg
 
 
 class GaussianLikelihood(Likelihood):
     r"""
     """
 
-    def __init__(self, log_noise_prior=None, batch_size=1, param_transform=torch.exp):
+    def __init__(self, noise_prior=None, batch_size=1, param_transform=torch.exp, **kwargs):
+        noise_prior = _deprecate_kwarg(kwargs, "log_noise_prior", "noise_prior", noise_prior)
         super(GaussianLikelihood, self).__init__()
-        self.register_parameter(
-            name="log_noise",
-            parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)),
-            prior=log_noise_prior,
-            transform=param_transform,
-        )
+        self._param_transform = param_transform
+        self.register_parameter(name="log_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
+        if noise_prior is not None:
+            self.register_prior("noise_prior", noise_prior, lambda: self.noise)
 
     @property
     def noise(self):
-        return self.transform_parameter("log_noise", self.log_noise)
+        return self._param_transform(self.log_noise)
 
     def forward(self, input):
         if not isinstance(input, MultivariateNormal):
@@ -47,7 +47,7 @@ class GaussianLikelihood(Likelihood):
                 raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
             log_noise = log_noise.squeeze(0)
 
-        res = -0.5 * ((target - mean) ** 2 + variance) / self.transform_parameter("log_noise", log_noise)
+        res = -0.5 * ((target - mean) ** 2 + variance) / self.noise
         res += -0.5 * log_noise - 0.5 * math.log(2 * math.pi)
         return res.sum(-1)
 

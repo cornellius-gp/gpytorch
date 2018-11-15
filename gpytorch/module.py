@@ -7,8 +7,7 @@ from torch import nn
 from torch.distributions import Distribution
 
 from .lazy import LazyTensor
-
-PRIOR_VALUE_WARNING = "Value of parameter {param} not valid for specified prior. Original exception:\n{exc}"
+from .utils.deprecation import DeprecationError
 
 
 class Module(nn.Module):
@@ -16,7 +15,6 @@ class Module(nn.Module):
         super(Module, self).__init__()
         self._added_loss_terms = OrderedDict()
         self._priors = OrderedDict()
-        self._parameter_transforms = OrderedDict()
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
@@ -80,14 +78,14 @@ class Module(nn.Module):
                 raise AttributeError("Type {t} not valid to initialize parameter {p}".format(t=type(val), p=name))
 
             # Ensure value is contained in support of prior (if present)
-            prior = self._priors.get(name)
-            if prior is not None:
-                param = self._parameters[name]
-                tf = self._parameter_transforms.get(name)
+            prior_name = "_".join([name, "prior"])
+            if prior_name in self._priors:
+                prior, closure = self._priors[prior_name]
                 try:
-                    prior._validate_sample(param if tf is None else tf(param))
+                    prior._validate_sample(closure())
                 except ValueError as e:
-                    raise ValueError(PRIOR_VALUE_WARNING.format(param=param, exc=e))
+                    raise ValueError("Invalid input value for prior {}. Error:\n{}".format(prior_name, e))
+
         return self
 
     def named_added_loss_terms(self):
@@ -116,7 +114,6 @@ class Module(nn.Module):
                 - the prior
                 - a tuple of tuples (param, transform), one for each of the parameters associated with the prior
                 - the prior's transform to be called on the parameters
-
         """
         return _extract_named_priors(module=self, memo=None, prefix="")
 
@@ -128,7 +125,7 @@ class Module(nn.Module):
     def register_added_loss_term(self, name):
         self._added_loss_terms[name] = None
 
-    def register_parameter(self, name, parameter, prior=None, transform=None):
+    def register_parameter(self, name, parameter, prior=None):
         r"""
         Adds a parameter to the module. The parameter can be accessed as an attribute using the given name.
 
@@ -137,29 +134,17 @@ class Module(nn.Module):
                 The name of the parameter
             :attr:`parameter` (torch.nn.Parameter):
                 The parameter
-            :attr:`prior` (Prior, optional):
-                The prior for parameter. Can be accessed as an attribute using <name>_prior.
-            :attr:`transform` (callable, optional):
-                The transform to be used for this parameter. Typically used for parameterizing non-negative
-                parameters such as kernel lengthscales, e.g. via softplus or exp transforms. The parameter
-                can then be transformed by calling `.transform_parameter(name, parameter)` from the module.
         """
+        if prior is not None:
+            raise DeprecationError(
+                "Setting a prior upon registering a parameter is deprecated. Please use "
+                ".register_prior('{name}_prior', prior, '{name}') instead.".format(name=name)
+            )
         if "_parameters" not in self.__dict__:
             raise AttributeError("Cannot assign parameter before Module.__init__() call")
         super(Module, self).register_parameter(name, parameter)
-        if prior is not None:
-            self.register_prior("_".join([name, "prior"]), prior, name)
-        if transform is not None:
-            self.register_parameter_transform(name, transform)
 
-    def register_parameter_transform(self, parameter_name, transform):
-        if parameter_name not in self._parameters:
-            raise AttributeError(
-                "Unknown parameter {name} for {module}".format(name=parameter_name, module=self.__class__.__name__)
-            )
-        self._parameter_transforms[parameter_name] = transform
-
-    def register_prior(self, name, prior, *parameter_names, transform=None):
+    def register_prior(self, name, prior, arg):
         """
         Adds a prior to the module. The prior can be accessed as an attribute using the given name.
 
@@ -168,55 +153,29 @@ class Module(nn.Module):
                 The name of the prior
             :attr:`prior` (Prior):
                 The prior to be registered`
-            :attr:`parameter_names` (sequence of strings):
-                The name(s) of the parameters (relative to the module) that are evaluated for this prior.
-                The prior will be evaluated as `prior.log_prob(transform(*parameters))`, where transform=None
-                corresponds to the identity transform, and parameters is the tuple of parameters corresponding
-                to parameter_names (if applicable, the parameters are themselves transformed according to their
-                associated parameter transformation registered in `register_parameter`).
-                In the basic case of a single parameter without a transform, this is called as
-                `.register_prior("foo_prior", foo_prior, "foo_param")`
-            :attr:`transform` (callable, optional):
-                The transform to be called on the specified parameters. Must take as many arguments as the number
-                of parameters, each of them a tensor, and return itself a tensor. If ommitted, do not transform
-                the parameter (only supported if registering a prior on a single parameter)
-
-        .. note::
-
-            Priors can operate on a transform of a single or of multiple parameters. This can be used, for instance,
-            to put a prior over the ICM Kernel covariance matrix generated from covar_factor and log_var parameters.
+            :attr:`arg` (string or callable):
+                Either the name of the parameter, or a closure (which upon calling evalutes a function on
+                    one or more parameters):
+                - single parameter without a transform: `.register_prior("foo_prior", foo_prior, "foo_param")`
+                - transform single parameter (e.g. put a log-Normal prior on it):
+                    `.register_prior("foo_prior", NormalPrior(0, 1), lambda: torch.log(self.foo_param))`
+                - function of multiple parameters (e.g. put a prior over the ICM Kernel covariance matrix):
+                    `.register_prior("foo2_prior", lkj_prior, lambda: _eval_covar_matrix(self.param1, self.param2)))`
         """
-        if len(parameter_names) == 0:
-            raise ValueError("Must pass at least one parameter name")
-        elif len(parameter_names) > 1 and transform is None:
-            raise ValueError("Must pass in a transform if specifying a prior operating on more than a single parameter")
-        for parameter_name in parameter_names:
-            if parameter_name not in self._parameters:
+        if isinstance(arg, str):
+            if arg not in self._parameters:
                 raise AttributeError(
-                    "Unknown parameter {name} for {module}".format(name=parameter_name, module=self.__class__.__name__)
+                    "Unknown parameter {name} for {module}".format(name=arg, module=self.__class__.__name__)
+                    + "Make sure the parameter is registered before registering a prior."
                 )
+
+            def closure():
+                return self._parameters[arg]
+
+        else:
+            closure = arg
         self.add_module(name, prior)
-        self._priors[name] = (prior, tuple(parameter_names), transform)
-
-    def transform_parameter(self, parameter_name, parameter):
-        transform = self._parameter_transforms.get(parameter_name)
-        return parameter if transform is None else transform(parameter)
-
-    def update_prior(self, name, prior, transform=None):
-        """
-        Update an existing prior with a new Prior object. The new prior operates on the same parameters
-        as the original one under the new transform (if applicable).
-        """
-        if name not in self._priors:
-            raise ValueError("Unknown prior - Please register the prior first using `register_prior`")
-        parameter_names = self._priors[name][1]
-        if len(parameter_names) > 1 and transform is None:
-            raise ValueError(
-                "Must specify a transform for priors defined over multiple parameters ({})".format(
-                    ", ".join(parameter_names)
-                )
-            )
-        self._priors[name] = (prior, parameter_names, transform)
+        self._priors[name] = (prior, closure)
 
     def update_added_loss_term(self, name, added_loss_term):
         from .mlls import AddedLossTerm
@@ -250,15 +209,12 @@ def _extract_named_priors(module, memo=None, prefix=""):
     if memo is None:
         memo = set()
     if hasattr(module, "_priors"):
-        for name, (prior, pnames, tf) in module._priors.items():
+        for name, (prior, closure) in module._priors.items():
             if prior is not None and prior not in memo:
                 memo.add(prior)
-                params_and_tfs = tuple(
-                    (getattr(module, pname), module._parameter_transforms.get(pname)) for pname in pnames
-                )
                 full_name = ("." if prefix else "").join([prefix, name])
-                yield full_name, prior, params_and_tfs, tf
+                yield full_name, prior, closure
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
-        for name, prior, params_and_tfs, tf in _extract_named_priors(module_, memo=memo, prefix=submodule_prefix):
-            yield name, prior, params_and_tfs, tf
+        for name, prior, closure in _extract_named_priors(module_, memo=memo, prefix=submodule_prefix):
+            yield name, prior, closure

@@ -44,17 +44,13 @@ class VariationalELBO(MarginalLogLikelihood):
 
         if self.combine_terms:
             res = log_likelihood - kl_divergence
-            for _, prior, params_and_tfs, prior_tf in self.named_priors():
-                params = [p if ptf is None else ptf(p) for p, ptf in params_and_tfs]
-                lp_arg = params[0] if prior_tf is None else prior_tf(*params)
-                res.add_(prior.log_prob(lp_arg).sum().div(self.num_data))
+            for _, prior, closure in self.named_priors():
+                res.add_(prior.log_prob(closure()).sum().div(self.num_data))
             return res
         else:
             log_prior = torch.zeros_like(log_likelihood)
-            for _, prior, params_and_tfs, prior_tf in self.named_priors():
-                params = [p if ptf is None else ptf(p) for p, ptf in params_and_tfs]
-                lp_arg = params[0] if prior_tf is None else prior_tf(*params)
-                log_prior.add_(prior.log_prob(lp_arg).sum())
+            for _, prior, closure in self.named_priors():
+                log_prior.add_(prior.log_prob(closure()).sum())
             return log_likelihood, kl_divergence, log_prior.div(self.num_data)
 
 
@@ -87,7 +83,6 @@ class VariationalELBOEmpirical(VariationalELBO):
         kl_divergence = kl_divergence.div(self.num_data)
 
         res = log_likelihood - kl_divergence
-        for _, prior, params, tf in self.named_priors():
-            lp_arg = params[0] if tf is None else tf(*params)
-            res.add_(prior.log_prob(lp_arg).sum().div(self.num_data))
+        for _, prior, closure in self.named_priors():
+            res.add_(prior.log_prob(closure()).sum().div(self.num_data))
         return res

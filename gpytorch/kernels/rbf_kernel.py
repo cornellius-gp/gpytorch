@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 from .kernel import Kernel
 import torch
+from ..utils.deprecation import _deprecate_kwarg
 
 
 class RBFKernel(Kernel):
@@ -38,7 +39,7 @@ class RBFKernel(Kernel):
             Set this if you want to
             compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`log_lengthscale_prior` (Prior, optional):
+        :attr:`lengthscale_prior` (Prior, optional):
             Set this if you want
             to apply a prior to the lengthscale parameter.  Default: `None`
         :attr:`eps` (float):
@@ -71,18 +72,20 @@ class RBFKernel(Kernel):
     def __init__(
         self,
         ard_num_dims=None,
-        log_lengthscale_prior=None,
+        lengthscale_prior=None,
         eps=1e-6,
         active_dims=None,
         batch_size=1,
         param_transform=torch.exp,
+        **kwargs
     ):
+        _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
             batch_size=batch_size,
             active_dims=active_dims,
-            log_lengthscale_prior=log_lengthscale_prior,
+            lengthscale_prior=lengthscale_prior,
             param_transform=param_transform,
             eps=eps,
         )

@@ -5,6 +5,7 @@ from ..functions import add_diag
 from ..lazy import DiagLazyTensor, KroneckerProductLazyTensor, RootLazyTensor
 from ..likelihoods import GaussianLikelihood
 from .. import settings
+from ..utils.deprecation import _deprecate_kwarg
 
 
 class MultitaskGaussianLikelihood(GaussianLikelihood):
@@ -18,7 +19,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     """
 
     def __init__(
-        self, num_tasks, rank=0, task_prior=None, batch_size=1, log_noise_prior=None, param_transform=torch.exp
+        self, num_tasks, rank=0, task_prior=None, batch_size=1, noise_prior=None, param_transform=torch.exp, **kwargs
     ):
         """
         Args:
@@ -31,35 +32,31 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
         """
+        noise_prior = _deprecate_kwarg(kwargs, "log_noise_prior", "noise_prior", noise_prior)
         super(MultitaskGaussianLikelihood, self).__init__(
-            batch_size=batch_size, log_noise_prior=log_noise_prior, param_transform=param_transform
+            batch_size=batch_size, noise_prior=noise_prior, param_transform=param_transform
         )
 
         if rank == 0:
             self.register_parameter(
                 name="log_task_noises",
                 parameter=torch.nn.Parameter(torch.zeros(batch_size, num_tasks)),
-                prior=task_prior,
-                transform=param_transform,
             )
+            if task_prior is not None:
+                raise RuntimeError("Cannot set a `task_prior` if rank=0")
         else:
             self.register_parameter(
                 name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
             )
             if task_prior is not None:
-                self.register_prior(
-                    "MultitaskErrorCovariancePrior",
-                    task_prior,
-                    "task_noise_covar_factor",
-                    "log_noise",
-                    transform=self._eval_covar_matrix,
-                )
+                self.register_prior("MultitaskErrorCovariancePrior", task_prior, self._eval_covar_matrix)
         self.num_tasks = num_tasks
 
     def _eval_covar_matrix(self, task_noise_covar_factor, log_noise):
         num_tasks = task_noise_covar_factor.size(0)
-        noise = self.transform_parameter("log_noise", log_noise)
-        return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + noise * torch.eye(num_tasks)
+        noise = self._param_transform(log_noise)
+        D = noise * torch.eye(num_tasks, dtype=noise.dtype, device=noise.device)
+        return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + D
 
     def forward(self, input):
         """
@@ -88,7 +85,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         mean, covar = input.mean, input.lazy_covariance_matrix
 
         if hasattr(self, "log_task_noises"):
-            noises = self.transform_parameter("log_task_noises", self.log_task_noises)
+            noises = self._param_transform(self.log_task_noises)
             if covar.ndimension() == 2:
                 if settings.debug.on() and noises.size(0) > 1:
                     raise RuntimeError(

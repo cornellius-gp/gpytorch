@@ -64,10 +64,10 @@ class SmoothedBoxPrior(Prior):
         # normalization factor to make this a probability distribution
         return torch.log(1 + (self.b - self.a) / (math.sqrt(2 * math.pi) * self.sigma))
 
-    def log_prob(self, parameter):
-        return self._log_prob(self.transform(parameter))
+    def log_prob(self, x):
+        return self._log_prob(self.transform(x))
 
-    def _log_prob(self, parameter):
+    def _log_prob(self, x):
         # x = "distances from box`"
-        X = ((parameter - self._c).abs_() - self._r).clamp(min=0)
+        X = ((x - self._c).abs_() - self._r).clamp(min=0)
         return (self.tails.log_prob(X) - self._M).sum(-1)

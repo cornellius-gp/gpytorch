@@ -15,9 +15,9 @@ class Prior(Distribution, Module, ABC):
     respective prior in computing the Marginal Log-Likelihood.
     """
 
-    def transform(self, parameter):
-        return self._transform(parameter) if self._transform is not None else parameter
+    def transform(self, x):
+        return self._transform(x) if self._transform is not None else x
 
-    def log_prob(self, parameter):
+    def log_prob(self, x):
         """Returns the log-probability of the parameter value under the prior."""
-        return super(Prior, self).log_prob(self.transform(parameter))
+        return super(Prior, self).log_prob(self.transform(x))

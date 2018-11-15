@@ -66,7 +66,7 @@ class TestHadamardMultitaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_gp_mean_abs_error(self):
-        likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(-6, 6))
+        likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(-6, 6))
         gp_model = HadamardMultitaskGPModel(
             (torch.cat([train_x, train_x]), torch.cat([y1_inds, y2_inds])), torch.cat([train_y1, train_y2]), likelihood
         )

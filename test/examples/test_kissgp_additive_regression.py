@@ -42,7 +42,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.mean_module = ZeroMean()
         self.base_covar_module = ScaleKernel(
             RBFKernel(
-                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1)
+                ard_num_dims=2, lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1)
             )
         )
         self.covar_module = AdditiveStructureKernel(

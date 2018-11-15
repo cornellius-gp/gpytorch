@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import math
 import torch
 from .kernel import Kernel
+from ..utils.deprecation import _deprecate_kwarg
 
 
 class CosineKernel(Kernel):
@@ -55,20 +56,21 @@ class CosineKernel(Kernel):
     """
 
     def __init__(
-        self, active_dims=None, batch_size=1, log_period_length_prior=None, eps=1e-6, param_transform=torch.exp
+        self, active_dims=None, batch_size=1, period_length_prior=None, eps=1e-6, param_transform=torch.exp, **kwargs
     ):
+        period_length_prior = _deprecate_kwarg(
+            kwargs, "log_period_length_prior", "period_length_prior", period_length_prior
+        )
         super(CosineKernel, self).__init__(has_lengthscale=False, active_dims=active_dims)
         self.eps = eps
-        self.register_parameter(
-            name="log_period_length",
-            parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)),
-            prior=log_period_length_prior,
-            transform=param_transform,
-        )
+        self._param_transform = param_transform
+        self.register_parameter(name="log_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
+        if period_length_prior is not None:
+            self.register_prior("period_length_prior", period_length_prior, lambda: self.period_length)
 
     @property
     def period_length(self):
-        return self.transform_parameter("log_period_length", self.log_period_length).clamp(self.eps, 1e5)
+        return self._param_transform(self.log_period_length).clamp(self.eps, 1e5)
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)
