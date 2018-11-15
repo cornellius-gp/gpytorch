@@ -16,15 +16,11 @@ class TestMultivariateNormalPrior(unittest.TestCase):
             self.assertEqual(prior.scale_tril.device.type, "cuda")
             self.assertEqual(prior.precision_matrix.device.type, "cuda")
 
-    # def test_multivariate_normal_prior_validate_args(self):
-    #     # TODO: It seems like the error raised here changed in a recent build of PyTorch.
-    #     # We can turn this error back on once that stabilizies.
-
-    #     # This should be a ValueError in pytorch, see pytorch Github issue #11997
-    #     with self.assertRaises(RuntimeError):
-    #         mean = torch.tensor([0.0, 1.0])
-    #         cov = torch.tensor([[1.0, 2.0], [2.0, 0.5]])
-    #         MultivariateNormalPrior(mean, covariance_matrix=cov, validate_args=True)
+    def test_multivariate_normal_prior_validate_args(self):
+        with self.assertRaises(ValueError):
+            mean = torch.tensor([0.0, 1.0])
+            cov = torch.tensor([[1.0, 2.0], [2.0, 0.5]])
+            MultivariateNormalPrior(mean, covariance_matrix=cov, validate_args=True)
 
     def test_multivariate_normal_prior_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -44,23 +40,23 @@ class TestMultivariateNormalPrior(unittest.TestCase):
         if torch.cuda.is_available():
             return self.test_multivariate_normal_prior_log_prob(cuda=True)
 
-    # def test_multivariate_normal_prior_log_prob_log_transform(self, cuda=False):
-    #     device = torch.device("cuda") if cuda else torch.device("cpu")
-    #     mean = torch.tensor([0.0, 1.0], device=device)
-    #     cov = torch.eye(2, device=device)
-    #     prior = MultivariateNormalPrior(mean, covariance_matrix=cov, transform=torch.log)
-    #     dist = MultivariateNormal(mean, covariance_matrix=cov)
-    #
-    #     t = torch.tensor([-1, 0.5], device=device)
-    #     self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
-    #     t = torch.tensor([[-1, 0.5], [1.5, -2.0]], device=device)
-    #     self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
-    #     with self.assertRaises(RuntimeError):
-    #         prior.log_prob(torch.zeros(3, device=device))
-    #
-    # def test_multivariate_normal_prior_log_prob_log_transform_cuda(self):
-    #     if torch.cuda.is_available():
-    #         return self.test_multivariate_normal_prior_log_prob_log_transform(cuda=True)
+    def test_multivariate_normal_prior_log_prob_log_transform(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        mean = torch.tensor([0.0, 1.0], device=device)
+        cov = torch.eye(2, device=device)
+        prior = MultivariateNormalPrior(mean, covariance_matrix=cov, transform=torch.exp)
+        dist = MultivariateNormal(mean, covariance_matrix=cov)
+
+        t = torch.tensor([-1, 0.5], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+        t = torch.tensor([[-1, 0.5], [1.5, -2.0]], device=device)
+        self.assertTrue(torch.equal(prior.log_prob(t), dist.log_prob(t.exp())))
+        with self.assertRaises(RuntimeError):
+            prior.log_prob(torch.zeros(3, device=device))
+
+    def test_multivariate_normal_prior_log_prob_log_transform_cuda(self):
+        if torch.cuda.is_available():
+            return self.test_multivariate_normal_prior_log_prob_log_transform(cuda=True)
 
     def test_multivariate_normal_prior_batch_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
