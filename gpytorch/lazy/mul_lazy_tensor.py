@@ -71,7 +71,7 @@ class MulLazyTensor(LazyTensor):
                             *interleaved_lazy_tensors[: len(interleaved_lazy_tensors) // 2]
                         )
                         if left_lazy_tensor.root_decomposition_size() < left_lazy_tensor.size(-1):
-                            left_lazy_tensor = RootLazyTensor(left_lazy_tensor.root_decomposition())
+                            left_lazy_tensor = left_lazy_tensor.root_decomposition()
                         else:
                             left_lazy_tensor = NonLazyTensor(left_lazy_tensor.evaluate())
                     else:
@@ -80,7 +80,7 @@ class MulLazyTensor(LazyTensor):
 
                     right_lazy_tensor = MulLazyTensor(*interleaved_lazy_tensors[len(interleaved_lazy_tensors) // 2 :])
                     if right_lazy_tensor.root_decomposition_size() < right_lazy_tensor.size(-1):
-                        right_lazy_tensor = RootLazyTensor(right_lazy_tensor.root_decomposition())
+                        right_lazy_tensor = right_lazy_tensor.root_decomposition()
                     else:
                         right_lazy_tensor = NonLazyTensor(right_lazy_tensor.evaluate())
                 else:
@@ -89,8 +89,8 @@ class MulLazyTensor(LazyTensor):
 
                 # Choose which we're doing: root decomposition or exact
                 if left_lazy_tensor.root_decomposition_size() < left_lazy_tensor.size(-1):
-                    left_lazy_tensor = RootLazyTensor(left_lazy_tensor.root_decomposition())
-                    right_lazy_tensor = RootLazyTensor(right_lazy_tensor.root_decomposition())
+                    left_lazy_tensor = left_lazy_tensor.root_decomposition()
+                    right_lazy_tensor = right_lazy_tensor.root_decomposition()
 
                 if isinstance(left_lazy_tensor, NonLazyTensor) and isinstance(right_lazy_tensor, NonLazyTensor):
                     self._non_lazy_self = [NonLazyTensor(left_lazy_tensor.evaluate() * right_lazy_tensor.evaluate())]
@@ -120,11 +120,12 @@ class MulLazyTensor(LazyTensor):
         # Here we have a root decomposition
         if isinstance(self.left_lazy_tensor, RootLazyTensor):
             left_root = self.left_lazy_tensor.root.evaluate()
+            left_res = rhs.unsqueeze(-2) * left_root.unsqueeze(-1)
+
             rank = left_root.size(-1)
             n = self.size(-1)
             m = rhs.size(-1)
             # Now implement the formula (A . B) v = diag(A D_v B)
-            left_res = rhs.unsqueeze(-2) * left_root.unsqueeze(-1)
             left_res = left_res.view(n, rank * m) if batch_size is None else left_res.view(batch_size, n, rank * m)
             left_res = self.right_lazy_tensor._matmul(left_res)
             left_res = left_res.view(n, rank, m) if batch_size is None else left_res.view(batch_size, n, rank, m)
@@ -153,9 +154,10 @@ class MulLazyTensor(LazyTensor):
 
         if isinstance(self.right_lazy_tensor, RootLazyTensor):
             right_root = self.right_lazy_tensor.root.evaluate()
-            right_rank = right_root.size(-1)
             left_factor = left_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
+
+            right_rank = right_root.size(-1)
         else:
             right_rank = n
             eye = torch.eye(n, dtype=self.right_lazy_tensor.dtype, device=self.right_lazy_tensor.device)
@@ -172,9 +174,10 @@ class MulLazyTensor(LazyTensor):
 
         if isinstance(self.left_lazy_tensor, RootLazyTensor):
             left_root = self.left_lazy_tensor.root.evaluate()
-            left_rank = left_root.size(-1)
             left_factor = left_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
+
+            left_rank = left_root.size(-1)
         else:
             left_rank = n
             eye = torch.eye(n, dtype=self.left_lazy_tensor.dtype, device=self.left_lazy_tensor.device)

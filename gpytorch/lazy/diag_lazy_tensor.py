@@ -7,6 +7,8 @@ from itertools import product
 import warnings
 import torch
 from .lazy_tensor import LazyTensor
+from .root_lazy_tensor import RootLazyTensor
+from .non_lazy_tensor import NonLazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
@@ -99,7 +101,20 @@ class DiagLazyTensor(LazyTensor):
         return DiagLazyTensor(self._diag.abs())
 
     def add_diag(self, added_diag):
-        return DiagLazyTensor(self._diag + added_diag)
+        return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
+
+    def __mul__(self, other):
+        if torch.is_tensor(other):
+            other = NonLazyTensor(other)
+
+        if isinstance(other, DiagLazyTensor):
+            return DiagLazyTensor(self._diag * other._diag)
+        else:
+            other_diag = other.diag()
+            new_diag = self._diag * other_diag
+            corrected_diag = new_diag - other_diag
+
+            return other.add_diag(corrected_diag)
 
     def diag(self):
         return self._diag
@@ -151,15 +166,10 @@ class DiagLazyTensor(LazyTensor):
         return super(DiagLazyTensor, self).matmul(other)
 
     def root_decomposition(self):
-        return DiagLazyTensor(self._diag.sqrt())
+        return RootLazyTensor(DiagLazyTensor(self._diag.sqrt()))
 
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
-        return self.root_decomposition().inverse()
-
-    def sum_batch(self, sum_batch_size=None):
-        if sum_batch_size is not None:
-            raise NotImplementedError
-        return DiagLazyTensor(self._diag.sum([i for i in range(len(self._diag.shape) - 1)]))
+    def root_inv_decomposition(self):
+        return RootLazyTensor(DiagLazyTensor(self._diag.reciprocal().sqrt()))
 
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)

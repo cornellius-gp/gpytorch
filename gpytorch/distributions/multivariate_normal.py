@@ -26,7 +26,6 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
     def __init__(self, mean, covariance_matrix, validate_args=False):
         self._islazy = any(isinstance(arg, LazyTensor) for arg in (mean, covariance_matrix))
-        self._fake_batch_shape = torch.Size()
         if self._islazy:
             if validate_args:
                 # TODO: add argument validation
@@ -44,10 +43,6 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             )
 
     @property
-    def batch_shape(self):
-        return self._fake_batch_shape + self._batch_shape
-
-    @property
     def _unbroadcasted_scale_tril(self):
         if self.islazy and self.__unbroadcasted_scale_tril is None:
             # cache root decoposition
@@ -62,8 +57,9 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             self.__unbroadcasted_scale_tril = ust
 
     def expand(self, batch_size):
-        res = self.__class__(self.loc, self._covar)
-        res._fake_batch_shape = torch.Size(batch_size)
+        new_loc = self.loc.expand(torch.Size(list(batch_size) + [self.loc.size(-1)]))
+        new_covar = self._covar.expand(torch.Size(list(batch_size) + list(self._covar.shape[-2:])))
+        res = self.__class__(new_loc, new_covar)
         return res
 
     def confidence_region(self):
@@ -127,7 +123,6 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
-        sample_shape = self._fake_batch_shape + sample_shape
         if base_samples is None:
             # Create some samples
             num_samples = sample_shape.numel() or 1
@@ -153,7 +148,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             base_samples = base_samples.permute(*tuple(i + 1 for i in range(self.loc.dim())), 0)
 
             # Now reparameterize those base samples
-            covar_root = covar.root_decomposition()
+            covar_root = covar.root_decomposition().root
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
@@ -225,7 +220,7 @@ def kl_mvn_mvn(p_dist, q_dist):
 
     p_mean = p_dist.loc
     p_covar = p_dist.lazy_covariance_matrix
-    root_p_covar = p_covar.root_decomposition()
+    root_p_covar = p_covar.root_decomposition().root.evaluate()
 
     mean_diffs = q_mean - p_mean
     if isinstance(root_p_covar, LazyTensor):

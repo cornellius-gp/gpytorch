@@ -32,7 +32,7 @@ class TestRootDecomposition(unittest.TestCase):
 
     def test_root_decomposition(self):
         # Forward
-        root = NonLazyTensor(self.mat).root_decomposition()
+        root = NonLazyTensor(self.mat).root_decomposition().root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         self.assertTrue(approx_equal(res, self.mat))
 
@@ -45,7 +45,7 @@ class TestRootDecomposition(unittest.TestCase):
         # Forward
         probe_vectors = torch.randn(4, 5)
         test_vectors = torch.randn(4, 5)
-        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors)
+        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors).root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         actual = self.mat_clone.inverse()
         self.assertTrue(approx_equal(res, actual))
@@ -77,7 +77,7 @@ class TestRootDecompositionBatch(unittest.TestCase):
 
     def test_root_decomposition(self):
         # Forward
-        root = NonLazyTensor(self.mat).root_decomposition()
+        root = NonLazyTensor(self.mat).root_decomposition().root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         self.assertTrue(approx_equal(res, self.mat))
 
@@ -90,7 +90,7 @@ class TestRootDecompositionBatch(unittest.TestCase):
         # Forward
         probe_vectors = torch.randn(3, 4, 5)
         test_vectors = torch.randn(3, 4, 5)
-        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors)
+        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors).root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         actual = torch.cat([mat.inverse().unsqueeze(0) for mat in self.mat_clone])
         self.assertTrue(approx_equal(res, actual))
@@ -122,7 +122,7 @@ class TestRootDecompositionMultiBatch(unittest.TestCase):
 
     def test_root_decomposition(self):
         # Forward
-        root = NonLazyTensor(self.mat).root_decomposition()
+        root = NonLazyTensor(self.mat).root_decomposition().root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         self.assertTrue(approx_equal(res, self.mat))
 
@@ -135,7 +135,7 @@ class TestRootDecompositionMultiBatch(unittest.TestCase):
         # Forward
         probe_vectors = torch.randn(2, 3, 4, 5)
         test_vectors = torch.randn(2, 3, 4, 5)
-        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors)
+        root = NonLazyTensor(self.mat).root_inv_decomposition(probe_vectors, test_vectors).root.evaluate()
         res = root.matmul(root.transpose(-1, -2))
         flattened_mats = self.mat_clone.view(-1, *self.mat_clone.shape[-2:])
         actual = torch.cat([mat.inverse().unsqueeze(0) for mat in flattened_mats]).view_as(self.mat_clone)

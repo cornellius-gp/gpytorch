@@ -113,4 +113,4 @@ class RootLazyTensor(LazyTensor):
         return self.root.size(-1)
 
     def root_decomposition(self):
-        return self.root.evaluate()
+        return self

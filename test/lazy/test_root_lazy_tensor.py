@@ -23,6 +23,10 @@ class TestRootLazyTensor(LazyTensorTestCase, unittest.TestCase):
         res = res + diag_tensor
         return res
 
+    def test_root_inv_decomposition(self):
+        # Trying to decompose the inverse of a low rank matrix is a recipe for disaster.
+        pass
+
 
 class TestRootLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
     seed = 1
