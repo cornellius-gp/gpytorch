@@ -536,19 +536,24 @@ class LazyTensor(object):
             train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
 
             train_labels_offset = train_labels - train_mean
-            if self.ndimension() == 3:
+
+            if self.dim() == 3:
+                # Batch mode
                 train_labels_offset = train_labels_offset.unsqueeze(-1)
-            precomputed_cache = train_train_covar.inv_matmul(train_labels_offset)
+                precomputed_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+            else:
+                # Standard mode
+                precomputed_cache = train_train_covar.inv_matmul(train_labels_offset)
 
         test_mean = full_mean.narrow(-1, train_labels.size(-1), full_mean.size(-1) - train_labels.size(-1))
-        if self.ndimension() == 3:
+
+        if self.dim() == 3:
             test_train_covar = self[:, num_train:, :num_train]
+            res = test_train_covar.matmul(precomputed_cache.unsqueeze(-1)).squeeze(-1)
         else:
             test_train_covar = self[num_train:, :num_train]
+            res = test_train_covar.matmul(precomputed_cache)
 
-        res = test_train_covar.matmul(precomputed_cache)
-        if res.ndimension() == 3:
-            res = res.squeeze(-1)
         res = res + test_mean
 
         return res, precomputed_cache.detach()
