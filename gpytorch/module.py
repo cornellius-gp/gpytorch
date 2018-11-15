@@ -129,14 +129,20 @@ class Module(nn.Module):
         self._added_loss_terms[name] = None
 
     def register_parameter(self, name, parameter, prior=None, transform=None):
-        """
-        Adds a parameter to the module.
-        The parameter can be accessed as an attribute using given name.
+        r"""
+        Adds a parameter to the module. The parameter can be accessed as an attribute using the given name.
 
-        name (str): name of parameter
-        param (torch.nn.Parameter): parameter
-        prior (Prior): prior for parameter (default: None). The prior can be accessed as module attribute
-            using <PARAMETER_NAME>_prior.
+        Args:
+            :attr:`name` (str):
+                The name of the parameter
+            :attr:`parameter` (torch.nn.Parameter):
+                The parameter
+            :attr:`prior` (Prior, optional):
+                The prior for parameter. Can be accessed as an attribute using <name>_prior.
+            :attr:`transform` (callable, optional):
+                The transform to be used for this parameter. Typically used for parameterizing non-negative
+                parameters such as kernel lengthscales, e.g. via softplus or exp transforms. The parameter
+                can then be transformed by calling `.transform_parameter(name, parameter)` from the module.
         """
         if "_parameters" not in self.__dict__:
             raise AttributeError("Cannot assign parameter before Module.__init__() call")
@@ -158,17 +164,26 @@ class Module(nn.Module):
         Adds a prior to the module. The prior can be accessed as an attribute using the given name.
 
         Args:
-            - name (str): name of the prior
-            - prior (Prior): the prior object
-            - parameter_names (tuple(str)): The parameters the transform operaters on, in the same order as
-                expected by the transform callable.
-            - transform (Callable): The function called on the specified parameters. Must take the same number
-                of arguments parameter names passed in. The log-pdf of the prior will be evaluated on the output
-                of this transform. If None, do not transform the parameter (only supported if setting a prior
-                on a single parameter)
+            :attr:`name` (str):
+                The name of the prior
+            :attr:`prior` (Prior):
+                The prior to be registered`
+            :attr:`parameter_names` (sequence of strings):
+                The name(s) of the parameters (relative to the module) that are evaluated for this prior.
+                The prior will be evaluated as `prior.log_prob(transform(*parameters))`, where transform=None corresponds
+                to the identity transform, and parameters is the tuple of parameters corresponding to parameter_names
+                (if applicable, the parameters are themselves transformed according to their associated parameter
+                transformation registered in `register_parameter`). In the basic case of a single parameter without
+                a transform, this is called as `.register_prior("foo_prior", foo_prior, "foo_param")`
+            :attr:`transform` (callable, optional):
+                The transform to be called on the specified parameters. Must take as many arguments as the number of
+                parameters, each of them a tensor, and return itself a tensor. If ommitted, do not transform the parameter
+                (only supported if registering a prior on a single parameter)
 
-        A prior can operate on a transform of one or multiple parameters. This can be used, for instance, to put a
-        prior over the ICM Kernel covariance matrix generated from covar_factor and log_var parameters.
+        .. note::
+
+            Priors can operate on a transform of a single or of multiple parameters. This can be used, for instance,
+            to put a prior over the ICM Kernel covariance matrix generated from covar_factor and log_var parameters.
         """
         if len(parameter_names) == 0:
             raise ValueError("Must pass at least one parameter name")
