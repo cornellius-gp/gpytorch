@@ -35,7 +35,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(
             RBFKernel(
-                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-2.5), exp(3), sigma=0.1, log_transform=True)
+                ard_num_dims=2, lengthscale_prior=SmoothedBoxPrior(exp(-2.5), exp(3), sigma=0.1)
             )
         )
 

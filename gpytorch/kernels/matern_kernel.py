@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import math
 import torch
 from .kernel import Kernel
+from ..utils.deprecation import _deprecate_kwarg
 
 
 class MaternKernel(Kernel):
@@ -85,10 +86,12 @@ class MaternKernel(Kernel):
         ard_num_dims=None,
         batch_size=1,
         active_dims=None,
-        log_lengthscale_prior=None,
+        lengthscale_prior=None,
         eps=1e-6,
         param_transform=torch.exp,
+        **kwargs
     ):
+        _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
         super(MaternKernel, self).__init__(
@@ -96,7 +99,7 @@ class MaternKernel(Kernel):
             ard_num_dims=ard_num_dims,
             batch_size=batch_size,
             active_dims=active_dims,
-            log_lengthscale_prior=log_lengthscale_prior,
+            lengthscale_prior=lengthscale_prior,
             param_transform=param_transform,
             eps=eps,
         )

@@ -49,10 +49,12 @@ class LinearKernel(Kernel):
 
     def __init__(self, num_dimensions, variance_prior=None, offset_prior=None, active_dims=None):
         super(LinearKernel, self).__init__(active_dims=active_dims)
-        self.register_parameter(name="variance", parameter=torch.nn.Parameter(torch.zeros(1)), prior=variance_prior)
-        self.register_parameter(
-            name="offset", parameter=torch.nn.Parameter(torch.zeros(1, 1, num_dimensions)), prior=offset_prior
-        )
+        self.register_parameter(name="variance", parameter=torch.nn.Parameter(torch.zeros(1)))
+        self.register_parameter(name="offset", parameter=torch.nn.Parameter(torch.zeros(1, 1, num_dimensions)))
+        if variance_prior is not None:
+            self.register_prior("variance_prior", variance_prior, "variance")
+        if offset_prior is not None:
+            self.register_prior("offset_prior", offset_prior, "offset")
 
     def forward(self, x1, x2, batch_dims=None, **params):
         x1_ = x1 - self.offset

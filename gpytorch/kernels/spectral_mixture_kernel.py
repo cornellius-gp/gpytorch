@@ -7,6 +7,7 @@ import logging
 import math
 import torch
 from .kernel import Kernel
+from ..utils.deprecation import _deprecate_kwarg
 
 logger = logging.getLogger()
 
@@ -76,22 +77,29 @@ class SpectralMixtureKernel(Kernel):
         batch_size=1,
         active_dims=None,
         eps=1e-6,
-        log_mixture_scales_prior=None,
-        log_mixture_means_prior=None,
-        log_mixture_weights_prior=None,
+        mixture_scales_prior=None,
+        mixture_means_prior=None,
+        mixture_weights_prior=None,
         param_transform=torch.exp,
+        **kwargs
     ):
+        mixture_scales_prior = _deprecate_kwarg(
+            kwargs, "log_mixture_scales_prior", "mixture_scales_prior", mixture_scales_prior
+        )
+        mixture_means_prior = _deprecate_kwarg(
+            kwargs, "log_mixture_means_prior", "mixture_means_prior", mixture_means_prior
+        )
+        mixture_weights_prior = _deprecate_kwarg(
+            kwargs, "log_mixture_weights_prior", "mixture_weights_prior", mixture_weights_prior
+        )
+
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")
-        if (
-            log_mixture_means_prior is not None
-            or log_mixture_scales_prior is not None
-            or log_mixture_weights_prior is not None
-        ):
+        if mixture_means_prior is not None or mixture_scales_prior is not None or mixture_weights_prior is not None:
             logger.warning("Priors not implemented for SpectralMixtureKernel")
 
         # This kernel does not use the default lengthscale
-        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims, param_transform=param_transform)
+        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
         self.num_mixtures = num_mixtures
         self.batch_size = batch_size
         self.ard_num_dims = ard_num_dims
@@ -100,26 +108,21 @@ class SpectralMixtureKernel(Kernel):
         self.register_parameter(
             name="log_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
         )
-        self.register_parameter(
-            name="log_mixture_means",
-            parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
-        )
-        self.register_parameter(
-            name="log_mixture_scales",
-            parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
-        )
+        ms_shape = torch.Size([self.batch_size, self.num_mixtures, 1, self.ard_num_dims])
+        self.register_parameter(name="log_mixture_means", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
+        self.register_parameter(name="log_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
 
     @property
     def mixture_scales(self):
-        return self.param_transform(self.log_mixture_scales).clamp(self.eps, 1e5)
+        return self._param_transform(self.log_mixture_scales).clamp(self.eps, 1e5)
 
     @property
     def mixture_means(self):
-        return self.param_transform(self.log_mixture_means).clamp(self.eps, 1e5)
+        return self._param_transform(self.log_mixture_means).clamp(self.eps, 1e5)
 
     @property
     def mixture_weights(self):
-        return self.param_transform(self.log_mixture_weights).clamp(self.eps, 1e5)
+        return self._param_transform(self.log_mixture_weights).clamp(self.eps, 1e5)
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):

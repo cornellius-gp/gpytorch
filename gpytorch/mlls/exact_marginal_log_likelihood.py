@@ -37,11 +37,9 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
         res = res.add(0.5, added_loss)
 
-        # Add log probs of priors on the parameters
-        for _, param, prior in self.named_parameter_priors():
-            res.add_(prior.log_prob(param).sum())
-        for _, prior, params, transform in self.named_derived_priors():
-            res.add_(prior.log_prob(transform(*params)).sum())
+        # Add log probs of priors on the (functions of) parameters
+        for _, prior, closure in self.named_priors():
+            res.add_(prior.log_prob(closure()).sum())
 
         # Scale by the amount of data we have
         num_data = target.size(-1)

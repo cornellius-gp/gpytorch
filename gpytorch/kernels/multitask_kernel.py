@@ -46,18 +46,13 @@ class MultitaskKernel(Kernel):
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         if batch_dims == (0, 2):
             raise RuntimeError("AdditiveGridInterpolationKernel does not accept the batch_dims argument.")
-
         covar_i = self.task_covar_module.covar_matrix
         covar_i = covar_i.repeat(x1.size(0), 1, 1)
         covar_x = self.data_covar_module.forward(x1, x2, **params)
         if not isinstance(covar_x, LazyTensor):
             covar_x = NonLazyTensor(covar_x)
         res = KroneckerProductLazyTensor(covar_i, covar_x)
-
-        if diag:
-            return res.diag()
-        else:
-            return res
+        return res.diag() if diag else res
 
     def size(self, x1, x2):
         """

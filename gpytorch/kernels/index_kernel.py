@@ -50,24 +50,25 @@ class IndexKernel(Kernel):
         )
         self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks)))
         if prior is not None:
-            self.register_derived_prior(
-                name="IndexKernelPrior",
-                prior=prior,
-                parameter_names=("covar_factor", "log_var"),
-                transform=self._eval_covar_matrix,
-            )
+            self.register_prior("IndexKernelPrior", prior, self._eval_covar_matrix)
 
-    def _eval_covar_matrix(self, covar_factor, log_var):
-        var = self.param_transform(log_var)
-        return covar_factor.matmul(covar_factor.transpose(-1, -2)) + var.diag()
+    @property
+    def var(self):
+        return self._param_transform(self.log_var)
+
+    def _eval_covar_matrix(self):
+        covar_factor, variance = self.covar_factor, self.var
+        return covar_factor.matmul(covar_factor.transpose(-1, -2)) + variance.diag()
+        # D = var * torch.eye(var.shape[-1], dtype=var.dytpe, device=var.device)
+        # return self.covar_factor.matmul(self.covar_factor.transpose(-1, -2)) + D
 
     @property
     def covar_matrix(self):
-        var = self.param_transform(self.log_var)
+        var = self.var
         res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
         return res
 
     def forward(self, i1, i2, **params):
-        covar_matrix = self._eval_covar_matrix(self.covar_factor, self.log_var)
+        covar_matrix = self._eval_covar_matrix()
         res = InterpolatedLazyTensor(base_lazy_tensor=covar_matrix, left_interp_indices=i1, right_interp_indices=i2)
         return res

@@ -53,12 +53,11 @@ class WishartPrior(Prior):
         self.register_buffer("nu", nu)
         self.register_buffer("K_inv", K_inv)
         self.register_buffer("C", C)
-        self._log_transform = False
 
-    def log_prob(self, parameter):
+    def log_prob(self, X):
         # I'm sure this could be done more elegantly
-        logdetp = torch.logdet(parameter) if parameter.dim() == 2 else torch.stack([torch.logdet(p) for p in parameter])
-        Kinvp = torch.matmul(self.K_inv, parameter)
+        logdetp = torch.logdet(X) if X.dim() == 2 else torch.stack([torch.logdet(p) for p in X])
+        Kinvp = torch.matmul(self.K_inv, X)
         trKinvp = torch.diagonal(Kinvp, dim1=-2, dim2=-1).sum(-1)
         return self.C + 0.5 * (self.nu - self.n - 1) * logdetp - trKinvp
 
@@ -104,10 +103,9 @@ class InverseWishartPrior(Prior):
         self.register_buffer("nu", nu)
         self.register_buffer("K", K)
         self.register_buffer("C", C)
-        self._log_transform = False
 
-    def log_prob(self, parameter):
-        logdetp = torch.logdet(parameter) if parameter.dim() == 2 else torch.stack([torch.logdet(p) for p in parameter])
-        pinvK = torch.gesv(self.K, parameter)[0]
+    def log_prob(self, X):
+        logdetp = torch.logdet(X) if X.dim() == 2 else torch.stack([torch.logdet(p) for p in X])
+        pinvK = torch.gesv(self.K, X)[0]
         trpinvK = torch.diagonal(pinvK, dim1=-2, dim2=-1).sum(-1)  # trace in batch mode
         return self.C - 0.5 * ((self.nu + 2 * self.n) * logdetp + trpinvK)
