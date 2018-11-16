@@ -54,7 +54,7 @@ class GPClassificationModel(AbstractVariationalGP):
         return latent_pred
 
 
-class TestKissGPAdditiveClassification(unittest.TestCase):
+class TestKISSGPAdditiveClassification(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()

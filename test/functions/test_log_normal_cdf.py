@@ -10,7 +10,7 @@ import math
 from torch import nn
 
 
-class LogNormalCDFTest(unittest.TestCase):
+class TestLogNormalCDF(unittest.TestCase):
     def test_forward(self):
         inputs = torch.tensor([-6, -5, -3, -1, 0, 1, 3, 5], dtype=torch.float)
         output = gpytorch.log_normal_cdf(inputs)
