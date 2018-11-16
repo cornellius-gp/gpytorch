@@ -9,7 +9,7 @@ import unittest
 from gpytorch.models import AbstractVariationalGP
 from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy
-from test.models._model_test_case import ModelTestCase
+from test.models._model_test_case import VariationalModelTestCase
 
 
 class GPClassificationModel(AbstractVariationalGP):
@@ -30,16 +30,26 @@ class GPClassificationModel(AbstractVariationalGP):
         return latent_pred
 
 
-class TestVariationalGP(ModelTestCase, unittest.TestCase):
-    def create_model(sellf, train_data):
+class TestVariationalGP(VariationalModelTestCase, unittest.TestCase):
+    def create_model(self, train_data):
         model = GPClassificationModel(train_data)
         return model
 
     def create_test_data(self):
         return torch.randn(50, 1)
 
+    def create_likelihood_and_labels(self):
+        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        labels = torch.randn(50) + 2
+        return likelihood, labels
+
     def create_batch_test_data(self):
         return torch.randn(3, 50, 1)
+
+    def create_batch_likelihood_and_labels(self):
+        likelihood = gpytorch.likelihoods.GaussianLikelihood(batch_size=3)
+        labels = torch.randn(3, 50) + 2
+        return likelihood, labels
 
 
 if __name__ == "__main__":
