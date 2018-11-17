@@ -7,6 +7,7 @@ import math
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
+from ..utils.transforms import _get_inv_param_transform
 
 
 class CosineKernel(Kernel):
@@ -56,21 +57,41 @@ class CosineKernel(Kernel):
     """
 
     def __init__(
-        self, active_dims=None, batch_size=1, period_length_prior=None, eps=1e-6, param_transform=torch.exp, **kwargs
+        self,
+        active_dims=None,
+        batch_size=1,
+        period_length_prior=None,
+        eps=1e-6,
+        param_transform=torch.exp,
+        inv_param_transform=None,
+        **kwargs
     ):
         period_length_prior = _deprecate_kwarg(
             kwargs, "log_period_length_prior", "period_length_prior", period_length_prior
         )
-        super(CosineKernel, self).__init__(has_lengthscale=False, active_dims=active_dims)
+        super(CosineKernel, self).__init__(
+            active_dims=active_dims, param_transform=param_transform, inv_param_transform=inv_param_transform
+        )
         self.eps = eps
-        self._param_transform = param_transform
         self.register_parameter(name="log_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
         if period_length_prior is not None:
-            self.register_prior("period_length_prior", period_length_prior, lambda: self.period_length)
+            self.register_prior(
+                "period_length_prior",
+                period_length_prior,
+                lambda: self.period_length,
+                lambda v: self._set_period_length(v),
+            )
 
     @property
     def period_length(self):
         return self._param_transform(self.log_period_length).clamp(self.eps, 1e5)
+
+    @period_length.setter
+    def period_length(self, value):
+        return self._set_period_length(value)
+
+    def _set_period_length(self, value):
+        self.initialize(log_period_length=self._inv_param_transform(value))
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)

@@ -81,6 +81,7 @@ class SpectralMixtureKernel(Kernel):
         mixture_means_prior=None,
         mixture_weights_prior=None,
         param_transform=torch.exp,
+        inv_param_transform=None,
         **kwargs
     ):
         mixture_scales_prior = _deprecate_kwarg(
@@ -99,7 +100,9 @@ class SpectralMixtureKernel(Kernel):
             logger.warning("Priors not implemented for SpectralMixtureKernel")
 
         # This kernel does not use the default lengthscale
-        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
+        super(SpectralMixtureKernel, self).__init__(
+            active_dims=active_dims, param_transform=param_transform, inv_param_transform=inv_param_transform
+        )
         self.num_mixtures = num_mixtures
         self.batch_size = batch_size
         self.ard_num_dims = ard_num_dims

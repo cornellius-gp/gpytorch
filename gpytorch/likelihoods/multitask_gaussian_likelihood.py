@@ -19,7 +19,15 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
     """
 
     def __init__(
-        self, num_tasks, rank=0, task_prior=None, batch_size=1, noise_prior=None, param_transform=torch.exp, **kwargs
+        self,
+        num_tasks,
+        rank=0,
+        task_prior=None,
+        batch_size=1,
+        noise_prior=None,
+        param_transform=torch.exp,
+        inv_param_transform=None,
+        **kwargs
     ):
         """
         Args:
@@ -34,13 +42,15 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         """
         noise_prior = _deprecate_kwarg(kwargs, "log_noise_prior", "noise_prior", noise_prior)
         super(MultitaskGaussianLikelihood, self).__init__(
-            batch_size=batch_size, noise_prior=noise_prior, param_transform=param_transform
+            batch_size=batch_size,
+            noise_prior=noise_prior,
+            param_transform=param_transform,
+            inv_param_transform=inv_param_transform,
         )
 
         if rank == 0:
             self.register_parameter(
-                name="log_task_noises",
-                parameter=torch.nn.Parameter(torch.zeros(batch_size, num_tasks)),
+                name="log_task_noises", parameter=torch.nn.Parameter(torch.zeros(batch_size, num_tasks))
             )
             if task_prior is not None:
                 raise RuntimeError("Cannot set a `task_prior` if rank=0")

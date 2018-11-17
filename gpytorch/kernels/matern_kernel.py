@@ -89,6 +89,7 @@ class MaternKernel(Kernel):
         lengthscale_prior=None,
         eps=1e-6,
         param_transform=torch.exp,
+        inv_param_transform=None,
         **kwargs
     ):
         _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
@@ -101,6 +102,7 @@ class MaternKernel(Kernel):
             active_dims=active_dims,
             lengthscale_prior=lengthscale_prior,
             param_transform=param_transform,
+            inv_param_transform=inv_param_transform,
             eps=eps,
         )
         self.nu = nu

@@ -80,6 +80,7 @@ class PeriodicKernel(Kernel):
         lengthscale_prior=None,
         period_length_prior=None,
         param_transform=torch.exp,
+        inv_param_transform=None,
         **kwargs
     ):
         lengthscale_prior = _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
@@ -92,15 +93,28 @@ class PeriodicKernel(Kernel):
             batch_size=batch_size,
             lengthscale_prior=lengthscale_prior,
             param_transform=param_transform,
+            inv_param_transform=inv_param_transform,
             eps=eps,
         )
         self.register_parameter(name="log_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
         if period_length_prior is not None:
-            self.register_prior("period_length_prior", period_length_prior, lambda: self.period_length)
+            self.register_prior(
+                "period_length_prior",
+                period_length_prior,
+                lambda: self.period_length,
+                lambda v: self._set_period_length(v),
+            )
 
     @property
     def period_length(self):
         return self._param_transform(self.log_period_length).clamp(self.eps, 1e5)
+
+    @period_length.setter
+    def period_length(self, value):
+        self._set_period_length(value)
+
+    def _set_period_length(self, value):
+        self.initialize(log_period_length=self._inv_param_transform(value))
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)
