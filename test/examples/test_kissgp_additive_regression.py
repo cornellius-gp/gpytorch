@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from math import exp
 
@@ -41,9 +38,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ZeroMean()
         self.base_covar_module = ScaleKernel(
-            RBFKernel(
-                ard_num_dims=2, lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1)
-            )
+            RBFKernel(ard_num_dims=2, lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
         )
         self.covar_module = AdditiveStructureKernel(
             GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=2), num_dims=2

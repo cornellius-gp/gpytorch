@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from .marginal_log_likelihood import MarginalLogLikelihood
 from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from .variational_marginal_log_likelihood import VariationalMarginalLogLikelihood
