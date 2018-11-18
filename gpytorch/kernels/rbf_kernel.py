@@ -34,19 +34,19 @@ class RBFKernel(Kernel):
             input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
         :attr:`batch_size` (int, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
+            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`.
         :attr:`active_dims` (tuple of ints, optional):
-            Set this if you want to
-            compute the covariance of only a few input dimensions. The ints
+            Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
         :attr:`lengthscale_prior` (Prior, optional):
-            Set this if you want
-            to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`eps` (float):
-            The minimum value that the lengthscale can take
-            (prevents divide by zero errors). Default: `1e-6`.
+            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
         :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
+        :attr:`eps` (float):
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
         :attr:`lengthscale` (Tensor):
@@ -72,12 +72,12 @@ class RBFKernel(Kernel):
     def __init__(
         self,
         ard_num_dims=None,
-        lengthscale_prior=None,
-        eps=1e-6,
-        active_dims=None,
         batch_size=1,
+        active_dims=None,
+        lengthscale_prior=None,
         param_transform=torch.exp,
         inv_param_transform=None,
+        eps=1e-6,
         **kwargs
     ):
         _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)

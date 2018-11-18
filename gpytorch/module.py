@@ -162,7 +162,11 @@ class Module(nn.Module):
                 function of multiple parameters:
                 `.register_prior("foo2_prior", foo2_prior, lambda: f(self.param1, self.param2)))`
             :attr:`setting_closure` (callable, optional):
-                A
+                A function taking in a tensor in (transformed) parameter space and initializing the
+                internal parameter representation to the proper value by applying the inverse transform.
+                Enables setting parametres directly in the transformed space, as well as sampling
+                parameter values from priors (see `sample_from_prior`)
+
         """
         if isinstance(param_or_closure, str):
             if param_or_closure not in self._parameters:
@@ -188,10 +192,12 @@ class Module(nn.Module):
         self._priors[name] = (prior, closure, setting_closure)
 
     def sample_from_prior(self, prior_name):
-        """Sample parameter values from prior"""
+        """Sample parameter values from prior. Modifies the module's parameters in-place."""
         if prior_name not in self._priors:
             raise RuntimeError("Unknown prior name '{}'".format(prior_name))
         prior, _, setting_closure = self._priors[prior_name]
+        if setting_closure is None:
+            raise RuntimeError("Must provide inverse transform to be able to sample from prior.")
         setting_closure(prior.sample())
 
     def update_added_loss_term(self, name, added_loss_term):

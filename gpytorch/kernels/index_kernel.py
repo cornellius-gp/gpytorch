@@ -33,6 +33,9 @@ class IndexKernel(Kernel):
             Prior for :math:`B` matrix.
         :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
 
     Attributes:
         covar_factor:

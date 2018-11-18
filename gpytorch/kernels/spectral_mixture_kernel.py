@@ -35,19 +35,20 @@ class SpectralMixtureKernel(Kernel):
             Set this if the data is
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
         :attr:`active_dims` (tuple of ints, optional):
-            Set this if you want to
-            compute the covariance of only a few input dimensions. The ints
+            Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`eps` (float):
-            The minimum value that the lengthscale can take
-            (prevents divide by zero errors). Default: `1e-6`.
         :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
+        :attr:`eps` (float):
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
         :attr:`mixture_lengthscale` (Tensor):
-            The lengthscale parameter. Given `k` mixture components,
-            and `b x n x d` data, this will be of size `b x k x 1 x d`.
+            The lengthscale parameter. Given `k` mixture components, and `b x n x d` data, this will be of
+            size `b x k x 1 x d`.
         :attr:`mixture_means` (Tensor):
             The mixture mean parameters (`b x k x 1 x d`).
         :attr:`mixture_weights` (Tensor):

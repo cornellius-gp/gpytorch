@@ -7,7 +7,6 @@ import math
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
-from ..utils.transforms import _get_inv_param_transform
 
 
 class CosineKernel(Kernel):
@@ -38,6 +37,9 @@ class CosineKernel(Kernel):
             (prevents divide by zero errors). Default: `1e-6`.
         :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
 
     Attributes:
         :attr:`period_length` (Tensor):
