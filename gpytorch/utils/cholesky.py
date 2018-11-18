@@ -7,15 +7,6 @@ from __future__ import unicode_literals
 import torch
 
 
-def batch_potrf(mat):
-    """
-    TODO: Replace with torch batch potrf once it is implemented.
-    """
-    potrf_list = [sub_mat.cholesky(upper=True) for sub_mat in mat.view(-1, *mat.shape[-2:])]
-    res = torch.cat(potrf_list, 0)
-    return res.view_as(mat)
-
-
 def tridiag_batch_potrf(trid, upper=False):
     """
     """

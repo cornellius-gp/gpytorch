@@ -9,7 +9,6 @@ from .non_lazy_tensor import NonLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 from ..utils import pivoted_cholesky
-from ..utils.cholesky import batch_potrf
 from .. import settings
 
 
@@ -74,7 +73,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             )
             lr_flipped = lr_flipped + torch.eye(n=lr_flipped.size(-2), dtype=lr_flipped.dtype, device=lr_flipped.device)
             if lr_flipped.ndimension() == 3:
-                ld_one = (NonLazyTensor(batch_potrf(lr_flipped)).diag().log().sum(-1)) * 2
+                ld_one = (NonLazyTensor(torch.cholesky(lr_flipped, upper=True)).diag().log().sum(-1)) * 2
                 ld_two = self._diag_tensor.diag().log().sum(-1)
             else:
                 ld_one = lr_flipped.cholesky(upper=True).diag().log().sum() * 2

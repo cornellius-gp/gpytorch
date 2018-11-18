@@ -7,7 +7,6 @@ import os
 import random
 import torch
 import unittest
-from gpytorch.utils.cholesky import batch_potrf
 from test._utils import approx_equal
 from gpytorch.utils.linear_cg import linear_cg
 
@@ -73,7 +72,7 @@ class TestLinearCG(unittest.TestCase):
         solves = linear_cg(matrix.matmul, rhs=rhs, max_iter=size)
 
         # Check cg
-        matrix_chol = batch_potrf(matrix)
+        matrix_chol = torch.cholesky(matrix, upper=True)
         actual = torch.potrs(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
@@ -89,7 +88,7 @@ class TestLinearCG(unittest.TestCase):
         solves, t_mats = linear_cg(matrix.matmul, rhs=rhs, n_tridiag=8, max_iter=size, max_tridiag_iter=10, tolerance=0)
 
         # Check cg
-        matrix_chol = batch_potrf(matrix)
+        matrix_chol = torch.cholesky(matrix, upper=True)
         actual = torch.potrs(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
