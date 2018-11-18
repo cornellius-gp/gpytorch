@@ -53,11 +53,13 @@ class MaternKernel(Kernel):
         :attr:`log_lengthscale_prior` (Prior, optional):
             Set this if you want
             to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`eps` (float):
-            The minimum value that the lengthscale can take
-            (prevents divide by zero errors). Default: `1e-6`.
         :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
+        :attr:`eps` (float):
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
         :attr:`lengthscale` (Tensor):
@@ -87,8 +89,9 @@ class MaternKernel(Kernel):
         batch_size=1,
         active_dims=None,
         lengthscale_prior=None,
-        eps=1e-6,
         param_transform=torch.exp,
+        inv_param_transform=None,
+        eps=1e-6,
         **kwargs
     ):
         _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
@@ -101,6 +104,7 @@ class MaternKernel(Kernel):
             active_dims=active_dims,
             lengthscale_prior=lengthscale_prior,
             param_transform=param_transform,
+            inv_param_transform=inv_param_transform,
             eps=eps,
         )
         self.nu = nu

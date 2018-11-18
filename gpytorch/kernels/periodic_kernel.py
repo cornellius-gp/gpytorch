@@ -38,17 +38,19 @@ class PeriodicKernel(Kernel):
     Args:
         :attr:`batch_size` (int, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
+            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`.
         :attr:`active_dims` (tuple of ints, optional):
-            Set this if you want to
-            compute the covariance of only a few input dimensions. The ints
+            Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
         :attr:`period_length_prior` (Prior, optional):
-            Set this if you want
-            to apply a prior to the period length parameter.  Default: `None`
-        :attr:`log_lengthscale_prior` (Prior, optional):
-            Set this if you want
-            to apply a prior to the lengthscale parameter.  Default: `None`
+            Set this if you want to apply a prior to the period length parameter.  Default: `None`.
+        :attr:`lengthscale_prior` (Prior, optional):
+            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
+        :attr:`param_transform` (function, optional):
+            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
         :attr:`eps` (float):
             The minimum value that the lengthscale/period length can take
             (prevents divide by zero errors). Default: `1e-6`.
@@ -76,10 +78,11 @@ class PeriodicKernel(Kernel):
         self,
         active_dims=None,
         batch_size=1,
-        eps=1e-6,
         lengthscale_prior=None,
         period_length_prior=None,
         param_transform=torch.exp,
+        inv_param_transform=None,
+        eps=1e-6,
         **kwargs
     ):
         lengthscale_prior = _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
@@ -92,15 +95,28 @@ class PeriodicKernel(Kernel):
             batch_size=batch_size,
             lengthscale_prior=lengthscale_prior,
             param_transform=param_transform,
+            inv_param_transform=inv_param_transform,
             eps=eps,
         )
         self.register_parameter(name="log_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
         if period_length_prior is not None:
-            self.register_prior("period_length_prior", period_length_prior, lambda: self.period_length)
+            self.register_prior(
+                "period_length_prior",
+                period_length_prior,
+                lambda: self.period_length,
+                lambda v: self._set_period_length(v),
+            )
 
     @property
     def period_length(self):
         return self._param_transform(self.log_period_length).clamp(self.eps, 1e5)
+
+    @period_length.setter
+    def period_length(self, value):
+        self._set_period_length(value)
+
+    def _set_period_length(self, value):
+        self.initialize(log_period_length=self._inv_param_transform(value))
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)

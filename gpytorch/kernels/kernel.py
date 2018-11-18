@@ -10,6 +10,7 @@ from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
 from .. import settings
 from ..utils.deprecation import _deprecate_kwarg
+from ..utils.transforms import _get_inv_param_transform
 
 
 class Kernel(Module):
@@ -70,6 +71,9 @@ class Kernel(Module):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
         :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
         :attr:`eps` (float):
             The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
@@ -93,6 +97,7 @@ class Kernel(Module):
         active_dims=None,
         lengthscale_prior=None,
         param_transform=torch.exp,
+        inv_param_transform=None,
         eps=1e-6,
         **kwargs
     ):
@@ -105,6 +110,7 @@ class Kernel(Module):
         self.batch_size = batch_size
         self.__has_lengthscale = has_lengthscale
         self._param_transform = param_transform
+        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
         if has_lengthscale:
             self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
@@ -112,7 +118,9 @@ class Kernel(Module):
                 name="log_lengthscale", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims))
             )
             if lengthscale_prior is not None:
-                self.register_prior("lengthscale_prior", lengthscale_prior, lambda: self.lengthscale)
+                self.register_prior(
+                    "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
+                )
 
     @property
     def has_lengthscale(self):
@@ -124,6 +132,15 @@ class Kernel(Module):
             return self._param_transform(self.log_lengthscale).clamp(self.eps, 1e5)
         else:
             return None
+
+    @lengthscale.setter
+    def lengthscale(self, value):
+        self._set_lengthscale(value)
+
+    def _set_lengthscale(self, value):
+        if not self.has_lengthscale:
+            raise RuntimeError("Kernel has no lengthscale.")
+        self.initialize(log_lengthscale=self._inv_param_transform(value))
 
     @property
     def has_custom_exact_predictions(self):

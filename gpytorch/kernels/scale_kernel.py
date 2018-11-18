@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
+from ..utils.transforms import _get_inv_param_transform
 
 
 class ScaleKernel(Kernel):
@@ -29,17 +30,24 @@ class ScaleKernel(Kernel):
         You can set a prior on this parameter using the :attr:`outputscale_prior` argument.
 
     Args:
-        - :attr:`batch_size` (int, optional): Set this if you want a separate outputscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
-        - :attr:`outputscale_prior` (Prior, optional): Set this if you want
-            to apply a prior to the outputscale parameter.  Default: `None`
-        - :attr:`param_transform` (function, optional):
+        :attr:`base_kernel` (Kernel):
+            The base kernel to be scaled.
+        :attr:`batch_size` (int, optional):
+            Set this if you want a separate outputscale for each batch of input data. It should be `b`
+            if :attr:`x1` is a `b x n x d` tensor. Default: `1`
+        :attr:`outputscale_prior` (Prior, optional): Set this if you want to apply a prior to the outputscale
+            parameter.  Default: `None`
+        :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
 
     Attributes:
-        - :attr:`base_kernel` (Kernel): The kernel module to be scaled.
-        - :attr:`outputscale` (Tensor): The outputscale parameter. Size/shape of parameter depends on the
-            :attr:`batch_size` arguments.
+        :attr:`base_kernel` (Kernel):
+            The kernel module to be scaled.
+        :attr:`outputscale` (Tensor):
+            The outputscale parameter. Size/shape of parameter depends on the :attr:`batch_size` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -48,18 +56,36 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
 
-    def __init__(self, base_kernel, batch_size=1, outputscale_prior=None, param_transform=torch.exp, **kwargs):
+    def __init__(
+        self,
+        base_kernel,
+        batch_size=1,
+        outputscale_prior=None,
+        param_transform=torch.exp,
+        inv_param_transform=None,
+        **kwargs
+    ):
         outputscale_prior = _deprecate_kwarg(kwargs, "log_outputscale_prior", "outputscale_prior", outputscale_prior)
         super(ScaleKernel, self).__init__(has_lengthscale=False, batch_size=batch_size)
         self.base_kernel = base_kernel
         self._param_transform = param_transform
+        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
         self.register_parameter(name="log_outputscale", parameter=torch.nn.Parameter(torch.zeros(batch_size)))
         if outputscale_prior is not None:
-            self.register_prior("outputscale_prior", outputscale_prior, lambda: self.outputscale)
+            self.register_prior(
+                "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)
+            )
 
     @property
     def outputscale(self):
         return self._param_transform(self.log_outputscale)
+
+    @outputscale.setter
+    def outputscale(self, value):
+        self._set_outputscale(value)
+
+    def _set_outputscale(self, value):
+        self.initialize(log_outputscale=self._inv_param_transform(value))
 
     def forward(self, x1, x2, batch_dims=None, **params):
         outputscales = self.outputscale

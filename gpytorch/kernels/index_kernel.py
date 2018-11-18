@@ -33,6 +33,9 @@ class IndexKernel(Kernel):
             Prior for :math:`B` matrix.
         :attr:`param_transform` (function, optional):
             Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
 
     Attributes:
         covar_factor:
@@ -41,10 +44,12 @@ class IndexKernel(Kernel):
             The element-wise log of the :math:`\mathbf v` vector.
     """
 
-    def __init__(self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=torch.exp):
+    def __init__(
+        self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=torch.exp, inv_param_transform=None
+    ):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
-        super(IndexKernel, self).__init__(param_transform=param_transform)
+        super(IndexKernel, self).__init__(param_transform=param_transform, inv_param_transform=inv_param_transform)
         self.register_parameter(
             name="covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
         )
@@ -56,11 +61,17 @@ class IndexKernel(Kernel):
     def var(self):
         return self._param_transform(self.log_var)
 
+    @var.setter
+    def var(self, value):
+        self._set_var(value)
+
+    def _set_var(self, value):
+        self.initialize(log_var=self._inv_param_transform(value))
+
     def _eval_covar_matrix(self):
-        covar_factor, variance = self.covar_factor, self.var
-        return covar_factor.matmul(covar_factor.transpose(-1, -2)) + variance.diag()
-        # D = var * torch.eye(var.shape[-1], dtype=var.dytpe, device=var.device)
-        # return self.covar_factor.matmul(self.covar_factor.transpose(-1, -2)) + D
+        var = self.var
+        D = var * torch.eye(var.shape[-1], dtype=var.dtype, device=var.device)
+        return self.covar_factor.matmul(self.covar_factor.transpose(-1, -2)) + D
 
     @property
     def covar_matrix(self):
