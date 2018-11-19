@@ -57,7 +57,7 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
             gp_model = ExactGPModel(train_x, train_y, likelihood)
             # Update lengthscale prior to accommodate extreme parameters
             gp_model.rbf_covar_module.register_prior(
-                "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "log_lengthscale"
+                "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "raw_lengthscale"
             )
             gp_model.rbf_covar_module.initialize(log_lengthscale=-10)
             gp_model.mean_module.initialize(constant=0)
@@ -78,7 +78,7 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
             test_function_predictions = gp_model(torch.tensor([1.1], dtype=torch.float))
 
             self.assertLess(torch.norm(test_function_predictions.mean - 0), 1e-4)
-            self.assertLess(torch.norm(test_function_predictions.variance - 1), 1e-4)
+            self.assertLess(torch.norm(test_function_predictions.variance - gp_model.covar_module.outputscale), 1e-4)
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -159,10 +159,10 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
 
             # Now bump up the likelihood to something huge
             # This will make it easy to calculate the variance
-            likelihood.log_noise.data.fill_(3)
+            likelihood.raw_noise.data.fill_(3)
             test_function_predictions = likelihood(gp_model(train_x))
 
-            noise = likelihood.log_noise.exp()
+            noise = likelihood.noise
             var_diff = (test_function_predictions.variance - noise).abs()
 
             self.assertLess(torch.max(var_diff / noise), 0.05)

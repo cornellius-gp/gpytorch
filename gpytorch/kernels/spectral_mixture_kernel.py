@@ -5,6 +5,7 @@ import math
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
+from torch.nn.functional import softplus
 
 logger = logging.getLogger()
 
@@ -35,7 +36,7 @@ class SpectralMixtureKernel(Kernel):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
         :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
         :attr:`inv_param_transform` (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
@@ -78,7 +79,7 @@ class SpectralMixtureKernel(Kernel):
         mixture_scales_prior=None,
         mixture_means_prior=None,
         mixture_weights_prior=None,
-        param_transform=torch.exp,
+        param_transform=softplus,
         inv_param_transform=None,
         **kwargs
     ):
@@ -107,23 +108,23 @@ class SpectralMixtureKernel(Kernel):
         self.eps = eps
 
         self.register_parameter(
-            name="log_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
+            name="raw_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
         )
         ms_shape = torch.Size([self.batch_size, self.num_mixtures, 1, self.ard_num_dims])
-        self.register_parameter(name="log_mixture_means", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
-        self.register_parameter(name="log_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
+        self.register_parameter(name="raw_mixture_means", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
+        self.register_parameter(name="raw_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
 
     @property
     def mixture_scales(self):
-        return self._param_transform(self.log_mixture_scales).clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_scales).clamp(self.eps, 1e5)
 
     @property
     def mixture_means(self):
-        return self._param_transform(self.log_mixture_means).clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_means).clamp(self.eps, 1e5)
 
     @property
     def mixture_weights(self):
-        return self._param_transform(self.log_mixture_weights).clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_weights).clamp(self.eps, 1e5)
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
@@ -141,11 +142,14 @@ class SpectralMixtureKernel(Kernel):
             min_dist[:, ind] = min_dist_sort[(torch.nonzero(min_dist_sort[:, ind]))[0], ind]
 
         # Inverse of lengthscales should be drawn from truncated Gaussian | N(0, max_dist^2) |
-        self.log_mixture_scales.data.normal_().mul_(max_dist).abs_().pow_(-1).log_()
+        self.raw_mixture_scales.data.normal_().mul_(max_dist).abs_().pow_(-1)
+        self.raw_mixture_scales.data = self._inv_param_transform(self.raw_mixture_scales.data)
         # Draw means from Unif(0, 0.5 / minimum distance between two points)
-        self.log_mixture_means.data.uniform_().mul_(0.5).div_(min_dist).log_()
+        self.raw_mixture_means.data.uniform_().mul_(0.5).div_(min_dist)
+        self.raw_mixture_means.data = self._inv_param_transform(self.raw_mixture_means.data)
         # Mixture weights should be roughly the stdv of the y values divided by the number of mixtures
-        self.log_mixture_weights.data.fill_(train_y.std() / self.num_mixtures).log_()
+        self.raw_mixture_weights.data.fill_(train_y.std() / self.num_mixtures)
+        self.raw_mixture_weights.data = self._inv_param_transform(self.raw_mixture_weights.data)
 
     def forward(self, x1, x2, **params):
         batch_size, n, num_dims = x1.size()

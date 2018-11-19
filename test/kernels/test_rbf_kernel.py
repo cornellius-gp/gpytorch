@@ -129,6 +129,7 @@ class TestRBFKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_computes_radial_basis_function_gradient(self):
+        softplus = torch.nn.functional.softplus
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
         lengthscale = 2
@@ -136,30 +137,31 @@ class TestRBFKernel(unittest.TestCase):
         kernel = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
         kernel.eval()
 
-        param = math.log(lengthscale) * torch.ones(3, 3)
+        param = math.log(math.exp(lengthscale) - 1) * torch.ones(3, 3)
         param.requires_grad_()
         diffs = a.expand(3, 3) - b.expand(3, 3).transpose(0, 1)
-        actual_output = (-0.5 * (diffs / param.exp()) ** 2).exp()
+        actual_output = (-0.5 * (diffs / softplus(param)) ** 2).exp()
         actual_output.backward(gradient=torch.eye(3))
         actual_param_grad = param.grad.sum()
 
         output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
-        res = kernel.log_lengthscale.grad
+        res = kernel.raw_lengthscale.grad
 
         self.assertLess(torch.norm(res - actual_param_grad), 1e-5)
 
     def test_subset_active_computes_radial_basis_function_gradient(self):
+        softplus = torch.nn.functional.softplus
         a_1 = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         a_p = torch.tensor([1, 2, 3], dtype=torch.float).view(3, 1)
         a = torch.cat((a_1, a_p), 1)
         b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
         lengthscale = 2
 
-        param = math.log(lengthscale) * torch.ones(3, 3)
+        param = math.log(math.exp(lengthscale) - 1) * torch.ones(3, 3)
         param.requires_grad_()
         diffs = a_1.expand(3, 3) - b.expand(3, 3).transpose(0, 1)
-        actual_output = (-0.5 * (diffs / param.exp()) ** 2).exp()
+        actual_output = (-0.5 * (diffs / softplus(param)) ** 2).exp()
         actual_output.backward(torch.eye(3))
         actual_param_grad = param.grad.sum()
 
@@ -168,7 +170,7 @@ class TestRBFKernel(unittest.TestCase):
         kernel.eval()
         output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
-        res = kernel.log_lengthscale.grad
+        res = kernel.raw_lengthscale.grad
 
         self.assertLess(torch.norm(res - actual_param_grad), 1e-5)
 

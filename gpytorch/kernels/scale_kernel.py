@@ -4,6 +4,7 @@ import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
+from torch.nn.functional import softplus
 
 
 class ScaleKernel(Kernel):
@@ -35,7 +36,7 @@ class ScaleKernel(Kernel):
         :attr:`outputscale_prior` (Prior, optional): Set this if you want to apply a prior to the outputscale
             parameter.  Default: `None`
         :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
         :attr:`inv_param_transform` (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
@@ -58,7 +59,7 @@ class ScaleKernel(Kernel):
         base_kernel,
         batch_size=1,
         outputscale_prior=None,
-        param_transform=torch.exp,
+        param_transform=softplus,
         inv_param_transform=None,
         **kwargs
     ):
@@ -67,7 +68,7 @@ class ScaleKernel(Kernel):
         self.base_kernel = base_kernel
         self._param_transform = param_transform
         self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
-        self.register_parameter(name="log_outputscale", parameter=torch.nn.Parameter(torch.zeros(batch_size)))
+        self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(torch.zeros(batch_size)))
         if outputscale_prior is not None:
             self.register_prior(
                 "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)
@@ -75,7 +76,7 @@ class ScaleKernel(Kernel):
 
     @property
     def outputscale(self):
-        return self._param_transform(self.log_outputscale)
+        return self._param_transform(self.raw_outputscale)
 
     @outputscale.setter
     def outputscale(self, value):

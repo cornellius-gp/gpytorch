@@ -54,7 +54,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model = ExactGPModel(None, None, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
         gp_model.covar_module.base_kernel.register_prior(
-            "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "log_lengthscale"
+            "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "raw_lengthscale"
         )
         gp_model.mean_module.initialize(constant=1.5)
         gp_model.covar_module.base_kernel.initialize(log_lengthscale=0)
@@ -66,20 +66,17 @@ class TestSimpleGPRegression(unittest.TestCase):
 
         # The model should predict in prior mode
         function_predictions = likelihood(gp_model(train_x))
+        correct_variance = gp_model.covar_module.outputscale + likelihood.noise
 
         self.assertLess(torch.norm(function_predictions.mean - 1.5), 1e-3)
-        self.assertLess(torch.norm(function_predictions.variance - 2), 1e-3)
+        self.assertLess(torch.norm(function_predictions.variance - correct_variance), 1e-3)
 
     def test_posterior_latent_gp_and_likelihood_without_optimization(self):
         # We're manually going to set the hyperparameters to be ridiculous
-        likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
+        likelihood = GaussianLikelihood()
         gp_model = ExactGPModel(train_x, train_y, likelihood)
-        # Update lengthscale prior to accommodate extreme parameters
-        gp_model.covar_module.base_kernel.register_prior(
-            "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "log_lengthscale"
-        )
-        gp_model.covar_module.base_kernel.initialize(log_lengthscale=-10)
-        likelihood.initialize(log_noise=-10)
+        gp_model.covar_module.base_kernel.initialize(raw_lengthscale=-15)
+        likelihood.initialize(raw_noise=-15)
 
         # Compute posterior distribution
         gp_model.eval()
@@ -97,7 +94,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         test_function_predictions = gp_model(torch.tensor([1.1]))
 
         self.assertLess(torch.norm(test_function_predictions.mean - 0), 1e-4)
-        self.assertLess(torch.norm(test_function_predictions.variance - 1), 1e-4)
+        self.assertLess(torch.norm(test_function_predictions.variance - gp_model.covar_module.outputscale), 1e-4)
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -111,7 +108,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
         optimizer.n_iter = 0
         for _ in range(50):
             optimizer.zero_grad()
@@ -178,10 +175,10 @@ class TestSimpleGPRegression(unittest.TestCase):
 
             # Now bump up the likelihood to something huge
             # This will make it easy to calculate the variance
-            likelihood.log_noise.data.fill_(3)
+            likelihood.raw_noise.data.fill_(3)
             test_function_predictions = likelihood(gp_model(train_x))
 
-            noise = likelihood.log_noise.exp()
+            noise = likelihood.noise
             var_diff = (test_function_predictions.variance - noise).abs()
 
             self.assertLess(torch.max(var_diff / noise), 0.05)

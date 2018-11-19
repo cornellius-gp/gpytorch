@@ -4,6 +4,7 @@ import math
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
+from torch.nn.functional import softplus
 
 
 class CosineKernel(Kernel):
@@ -33,7 +34,7 @@ class CosineKernel(Kernel):
             The minimum value that the lengthscale/period length can take
             (prevents divide by zero errors). Default: `1e-6`.
         :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
         :attr:`inv_param_transform` (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
@@ -61,7 +62,7 @@ class CosineKernel(Kernel):
         batch_size=1,
         period_length_prior=None,
         eps=1e-6,
-        param_transform=torch.exp,
+        param_transform=softplus,
         inv_param_transform=None,
         **kwargs
     ):
@@ -72,7 +73,7 @@ class CosineKernel(Kernel):
             active_dims=active_dims, param_transform=param_transform, inv_param_transform=inv_param_transform
         )
         self.eps = eps
-        self.register_parameter(name="log_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
+        self.register_parameter(name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
         if period_length_prior is not None:
             self.register_prior(
                 "period_length_prior",
@@ -83,7 +84,7 @@ class CosineKernel(Kernel):
 
     @property
     def period_length(self):
-        return self._param_transform(self.log_period_length).clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_period_length).clamp(self.eps, 1e5)
 
     @period_length.setter
     def period_length(self, value):

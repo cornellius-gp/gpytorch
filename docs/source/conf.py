@@ -67,6 +67,7 @@ MOCK_MODULES = [
     "torch",
     "torch.autograd",
     "torch.nn",
+    "torch.nn.functional",
     "torch.optim",
     "torch.utils",
     "torch.utils.data",

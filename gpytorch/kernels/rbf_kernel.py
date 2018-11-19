@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-import torch
 from ..utils.deprecation import _deprecate_kwarg
+from torch.nn.functional import softplus
 
 
 class RBFKernel(Kernel):
@@ -38,7 +38,7 @@ class RBFKernel(Kernel):
         :attr:`lengthscale_prior` (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
         :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
         :attr:`inv_param_transform` (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
@@ -72,7 +72,7 @@ class RBFKernel(Kernel):
         batch_size=1,
         active_dims=None,
         lengthscale_prior=None,
-        param_transform=torch.exp,
+        param_transform=softplus,
         inv_param_transform=None,
         eps=1e-6,
         **kwargs

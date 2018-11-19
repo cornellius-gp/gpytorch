@@ -69,21 +69,16 @@ class TestBatchGPRegression(unittest.TestCase):
 
     def test_train_on_single_set_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
-        likelihood = GaussianLikelihood(
-            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(1), scale=torch.ones(1))
-        )
+        likelihood = GaussianLikelihood()
         gp_model = ExactGPModel(train_x1, train_y1, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
 
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
-        optimizer.n_iter = 0
-        gp_model.train()
-        likelihood.train()
         optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
-        for _ in range(50):
+        optimizer.n_iter = 0
+        for _ in range(75):
             optimizer.zero_grad()
             output = gp_model(train_x1)
             loss = -mll(output, train_y1).sum()

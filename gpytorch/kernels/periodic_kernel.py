@@ -4,6 +4,7 @@ import math
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
+from torch.nn.functional import softplus
 
 
 class PeriodicKernel(Kernel):
@@ -44,7 +45,7 @@ class PeriodicKernel(Kernel):
         :attr:`lengthscale_prior` (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
         :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
         :attr:`inv_param_transform` (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
@@ -77,7 +78,7 @@ class PeriodicKernel(Kernel):
         batch_size=1,
         lengthscale_prior=None,
         period_length_prior=None,
-        param_transform=torch.exp,
+        param_transform=softplus,
         inv_param_transform=None,
         eps=1e-6,
         **kwargs
@@ -95,7 +96,7 @@ class PeriodicKernel(Kernel):
             inv_param_transform=inv_param_transform,
             eps=eps,
         )
-        self.register_parameter(name="log_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
+        self.register_parameter(name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
         if period_length_prior is not None:
             self.register_prior(
                 "period_length_prior",
@@ -106,14 +107,14 @@ class PeriodicKernel(Kernel):
 
     @property
     def period_length(self):
-        return self._param_transform(self.log_period_length).clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_period_length).clamp(self.eps, 1e5)
 
     @period_length.setter
     def period_length(self, value):
         self._set_period_length(value)
 
     def _set_period_length(self, value):
-        self.initialize(log_period_length=self._inv_param_transform(value))
+        self.initialize(raw_period_length=self._inv_param_transform(value))
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)

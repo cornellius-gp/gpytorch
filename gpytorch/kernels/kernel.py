@@ -8,6 +8,7 @@ from ..module import Module
 from .. import settings
 from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
+from torch.nn.functional import softplus
 
 
 class Kernel(Module):
@@ -67,7 +68,7 @@ class Kernel(Module):
         :attr:`lengthscale_prior` (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
         :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
         :attr:`inv_param_transform` (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
@@ -93,7 +94,7 @@ class Kernel(Module):
         batch_size=1,
         active_dims=None,
         lengthscale_prior=None,
-        param_transform=torch.exp,
+        param_transform=softplus,
         inv_param_transform=None,
         eps=1e-6,
         **kwargs
@@ -112,7 +113,7 @@ class Kernel(Module):
             self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
-                name="log_lengthscale", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims))
+                name="raw_lengthscale", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims))
             )
             if lengthscale_prior is not None:
                 self.register_prior(
@@ -126,7 +127,7 @@ class Kernel(Module):
     @property
     def lengthscale(self):
         if self.has_lengthscale:
-            return self._param_transform(self.log_lengthscale).clamp(self.eps, 1e5)
+            return self._param_transform(self.raw_lengthscale).clamp(self.eps, 1e5)
         else:
             return None
 
