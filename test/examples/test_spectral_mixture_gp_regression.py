@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from math import exp, pi
 
@@ -72,9 +69,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_spectral_mixture_gp_mean_abs_error(self):
-        likelihood = GaussianLikelihood(
-            noise_prior=SmoothedBoxPrior(exp(-5), exp(3), sigma=0.1)
-        )
+        likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-5), exp(3), sigma=0.1))
         gp_model = SpectralMixtureGPModel(train_x, train_y, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 

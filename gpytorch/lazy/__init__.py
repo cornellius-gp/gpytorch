@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from .lazy_tensor import LazyTensor
 from .added_diag_lazy_tensor import AddedDiagLazyTensor

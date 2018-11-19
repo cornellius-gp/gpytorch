@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 from .distribution import Distribution
 from .multivariate_normal import MultivariateNormal

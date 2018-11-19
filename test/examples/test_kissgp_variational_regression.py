@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from math import exp, pi
 
@@ -38,9 +35,7 @@ class GPRegressionModel(gpytorch.models.AbstractVariationalGP):
         )
         super(GPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-10, 10))
-        self.covar_module = ScaleKernel(
-            RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(6), sigma=0.1))
-        )
+        self.covar_module = ScaleKernel(RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(6), sigma=0.1)))
 
     def forward(self, x):
         mean_x = self.mean_module(x)

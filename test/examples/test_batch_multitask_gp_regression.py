@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import os
 import random
@@ -116,9 +113,7 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
     def test_train_on_batch_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(
-            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
-            batch_size=2,
-            num_tasks=2,
+            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)), batch_size=2, num_tasks=2
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_size=2)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
@@ -157,9 +152,7 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
     def test_train_on_batch_test_on_batch_shared_hypers_over_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(
-            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
-            batch_size=1,
-            num_tasks=2,
+            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)), batch_size=1, num_tasks=2
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_size=1)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)

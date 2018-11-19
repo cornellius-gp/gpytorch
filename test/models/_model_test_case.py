@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from abc import abstractmethod
 import torch
@@ -76,10 +73,7 @@ class VariationalModelTestCase(_ModelTestCase):
         likelihood.train()
 
         # We'll just do one step of gradient descent to mix up the params a bit
-        optimizer = torch.optim.Adam([
-            {"params": model.parameters()},
-            {"params": likelihood.parameters()},
-        ], lr=0.01)
+        optimizer = torch.optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
         output = model(data)
         loss = -mll(output, labels)
@@ -107,10 +101,7 @@ class VariationalModelTestCase(_ModelTestCase):
         likelihood.train()
 
         # We'll just do one step of gradient descent to mix up the params a bit
-        optimizer = torch.optim.Adam([
-            {"params": model.parameters()},
-            {"params": likelihood.parameters()},
-        ], lr=0.01)
+        optimizer = torch.optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
         output = model(data)
         loss = -mll(output, labels).sum()
