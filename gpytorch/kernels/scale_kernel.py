@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import torch
-import warnings
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform

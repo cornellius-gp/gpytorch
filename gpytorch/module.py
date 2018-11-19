@@ -296,9 +296,10 @@ class Module(nn.Module):
                 log_key = prefix + log_name
                 if log_key in state_dict and log_key not in local_state:
                     warnings.warn(
-                        "The '{log_name}' parameter is deprecated in favor of '{name}'  because we no longer ensure "
+                        "The '{log_name}' parameter is deprecated in favor of '{name}' because we no longer ensure "
                         "positiveness with torch.exp for improved stability reasons and will be removed in a future "
-                        "release. To solve this issue, just save this model again.".format(log_name=log_name, name=name),
+                        "release. To solve this issue, just save this model "
+                        "again.".format(log_name=log_name, name=name),
                         DeprecationWarning,
                     )
                     input_param = state_dict[log_key]

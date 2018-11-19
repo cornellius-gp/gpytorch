@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import torch
-import warnings
 from .kernel import Kernel
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from torch.nn.functional import softplus

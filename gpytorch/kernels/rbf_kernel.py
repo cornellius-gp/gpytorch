@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-import torch
 from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 

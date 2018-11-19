@@ -151,8 +151,6 @@ class SpectralMixtureKernel(Kernel):
         self.raw_mixture_weights.data.fill_(train_y.std() / self.num_mixtures)
         self.raw_mixture_weights.data = self._inv_param_transform(self.raw_mixture_weights.data)
 
-
-
     def forward(self, x1, x2, **params):
         batch_size, n, num_dims = x1.size()
         _, m, _ = x2.size()

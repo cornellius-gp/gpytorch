@@ -4,7 +4,6 @@ import math
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
-import warnings
 from torch.nn.functional import softplus
 
 
