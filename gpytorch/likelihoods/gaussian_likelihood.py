@@ -20,20 +20,20 @@ class GaussianLikelihood(Likelihood):
         super(GaussianLikelihood, self).__init__()
         self._param_transform = param_transform
         self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
-        self.register_parameter(name="log_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
+        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
 
     @property
     def noise(self):
-        return self._param_transform(self.log_noise)
+        return self._param_transform(self.raw_noise)
 
     @noise.setter
     def noise(self, value):
         self._set_noise(value)
 
     def _set_noise(self, value):
-        self.initialize(log_noise=self._inv_param_transform(value))
+        self.initialize(raw_noise=self._inv_param_transform(value))
 
     def forward(self, input):
         if not isinstance(input, MultivariateNormal):

@@ -4,6 +4,7 @@ import math
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
+import warnings
 
 
 class CosineKernel(Kernel):
@@ -72,7 +73,7 @@ class CosineKernel(Kernel):
             active_dims=active_dims, param_transform=param_transform, inv_param_transform=inv_param_transform
         )
         self.eps = eps
-        self.register_parameter(name="log_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
+        self.register_parameter(name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
         if period_length_prior is not None:
             self.register_prior(
                 "period_length_prior",

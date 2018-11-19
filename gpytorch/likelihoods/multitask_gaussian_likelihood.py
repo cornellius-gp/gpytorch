@@ -50,7 +50,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
 
         if rank == 0:
             self.register_parameter(
-                name="log_task_noises", parameter=torch.nn.Parameter(torch.zeros(batch_size, num_tasks))
+                name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(batch_size, num_tasks))
             )
             if task_prior is not None:
                 raise RuntimeError("Cannot set a `task_prior` if rank=0")
@@ -62,9 +62,9 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
                 self.register_prior("MultitaskErrorCovariancePrior", task_prior, self._eval_covar_matrix)
         self.num_tasks = num_tasks
 
-    def _eval_covar_matrix(self, task_noise_covar_factor, log_noise):
+    def _eval_covar_matrix(self, task_noise_covar_factor, raw_noise):
         num_tasks = task_noise_covar_factor.size(0)
-        noise = self._param_transform(log_noise)
+        noise = self._param_transform(raw_noise)
         D = noise * torch.eye(num_tasks, dtype=noise.dtype, device=noise.device)
         return task_noise_covar_factor.matmul(task_noise_covar_factor.transpose(-1, -2)) + D
 
@@ -79,7 +79,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         an identity matrix with size equal to the data and a (not necessarily diagonal) matrix containing the task
         noises :math:`D_{t}`.
 
-        We also incorporate a shared `log_noise` parameter from the base
+        We also incorporate a shared `raw_noise` parameter from the base
         :class:`gpytorch.likelihoods.GaussianLikelihood` that we extend.
 
         The final covariance matrix after this method is then :math:`K + D_{t} \otimes I_{n} + \sigma^{2}I_{nt}`.
@@ -94,8 +94,8 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         """
         mean, covar = input.mean, input.lazy_covariance_matrix
 
-        if hasattr(self, "log_task_noises"):
-            noises = self._param_transform(self.log_task_noises)
+        if hasattr(self, "raw_task_noises"):
+            noises = self._param_transform(self.raw_task_noises)
             if covar.ndimension() == 2:
                 if settings.debug.on() and noises.size(0) > 1:
                     raise RuntimeError(

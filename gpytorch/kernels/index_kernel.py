@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+import warnings
 from .kernel import Kernel
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
 
@@ -50,13 +51,13 @@ class IndexKernel(Kernel):
         self.register_parameter(
             name="covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
         )
-        self.register_parameter(name="log_var", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks)))
+        self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks)))
         if prior is not None:
             self.register_prior("IndexKernelPrior", prior, self._eval_covar_matrix)
 
     @property
     def var(self):
-        return self._param_transform(self.log_var)
+        return self._param_transform(self.raw_var)
 
     @var.setter
     def var(self, value):

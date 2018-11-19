@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+import warnings
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
@@ -67,7 +68,7 @@ class ScaleKernel(Kernel):
         self.base_kernel = base_kernel
         self._param_transform = param_transform
         self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
-        self.register_parameter(name="log_outputscale", parameter=torch.nn.Parameter(torch.zeros(batch_size)))
+        self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(torch.zeros(batch_size)))
         if outputscale_prior is not None:
             self.register_prior(
                 "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)
@@ -75,7 +76,7 @@ class ScaleKernel(Kernel):
 
     @property
     def outputscale(self):
-        return self._param_transform(self.log_outputscale)
+        return self._param_transform(self.raw_outputscale)
 
     @outputscale.setter
     def outputscale(self, value):

@@ -8,6 +8,7 @@ from ..module import Module
 from .. import settings
 from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
+import warnings
 
 
 class Kernel(Module):
@@ -112,7 +113,7 @@ class Kernel(Module):
             self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
-                name="log_lengthscale", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims))
+                name="raw_lengthscale", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims))
             )
             if lengthscale_prior is not None:
                 self.register_prior(
@@ -126,7 +127,7 @@ class Kernel(Module):
     @property
     def lengthscale(self):
         if self.has_lengthscale:
-            return self._param_transform(self.log_lengthscale).clamp(self.eps, 1e5)
+            return self._param_transform(self.raw_lengthscale).clamp(self.eps, 1e5)
         else:
             return None
 

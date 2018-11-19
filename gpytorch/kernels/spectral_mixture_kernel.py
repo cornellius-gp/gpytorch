@@ -5,6 +5,7 @@ import math
 import torch
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
+import warnings
 
 logger = logging.getLogger()
 
@@ -107,23 +108,23 @@ class SpectralMixtureKernel(Kernel):
         self.eps = eps
 
         self.register_parameter(
-            name="log_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
+            name="raw_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
         )
         ms_shape = torch.Size([self.batch_size, self.num_mixtures, 1, self.ard_num_dims])
-        self.register_parameter(name="log_mixture_means", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
-        self.register_parameter(name="log_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
+        self.register_parameter(name="raw_mixture_means", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
+        self.register_parameter(name="raw_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
 
     @property
     def mixture_scales(self):
-        return self._param_transform(self.log_mixture_scales).clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_scales).clamp(self.eps, 1e5)
 
     @property
     def mixture_means(self):
-        return self._param_transform(self.log_mixture_means).clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_means).clamp(self.eps, 1e5)
 
     @property
     def mixture_weights(self):
-        return self._param_transform(self.log_mixture_weights).clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_weights).clamp(self.eps, 1e5)
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):

@@ -5,9 +5,10 @@ from collections import OrderedDict
 import torch
 from torch import nn
 from torch.distributions import Distribution
-
+import itertools
 from .lazy import LazyTensor
 from .utils.deprecation import DeprecationError
+import warnings
 
 
 class Module(nn.Module):
@@ -212,6 +213,106 @@ class Module(nn.Module):
     def variational_parameters(self):
         for _, param in self.named_variational_parameters():
             yield param
+
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        from .kernels import (
+            CosineKernel,
+            IndexKernel,
+            MaternKernel,
+            PeriodicKernel,
+            RBFKernel,
+            ScaleKernel,
+            SpectralMixtureKernel,
+        )
+
+        from .likelihoods import GaussianLikelihood, MultitaskGaussianLikelihood
+
+        local_name_params = itertools.chain(self._parameters.items(), self._buffers.items())
+        local_state = {k: v.data for k, v in local_name_params if v is not None}
+
+        modules_with_log_params = [
+            CosineKernel,
+            IndexKernel,
+            MaternKernel,
+            PeriodicKernel,
+            RBFKernel,
+            ScaleKernel,
+            SpectralMixtureKernel,
+            GaussianLikelihood,
+            MultitaskGaussianLikelihood,
+        ]
+
+        if not any([isinstance(self, mod_type) for mod_type in modules_with_log_params]):
+            return super(Module, self)._load_from_state_dict(
+                state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+            )
+
+        super(Module, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        )
+
+        # Load log space parameters and throw deprecation warnings.
+        for name, param in local_state.items():
+            if 'raw_' in name:
+                base_name = name.split('raw_')[1]
+                log_name = "log_" + base_name
+                log_key = prefix + log_name
+                if log_key in state_dict and log_key not in local_state:
+                    warnings.warn(
+                        "The '{log_name}' parameter is deprecated in favor of '{name}'  because we no longer ensure "
+                        "positiveness with torch.exp for improved stability reasons and will be removed in a future "
+                        "release. To solve this issue, just save this model again.".format(log_name=log_name, name=name),
+                        DeprecationWarning,
+                    )
+                    input_param = state_dict[log_key]
+                    if isinstance(input_param, nn.Parameter):
+                        input_param = input_param.data
+
+                    real_input_param = self._inv_param_transform(input_param.exp())
+                    param.copy_(real_input_param)
+
+                    missing_keys.remove(prefix + name)
+                    unexpected_keys.remove(prefix + log_name)
+
+    def __getattr__(self, name):
+        from .kernels import (
+            CosineKernel,
+            IndexKernel,
+            MaternKernel,
+            PeriodicKernel,
+            RBFKernel,
+            ScaleKernel,
+            SpectralMixtureKernel,
+        )
+
+        from .likelihoods import GaussianLikelihood, MultitaskGaussianLikelihood
+
+        modules_with_log_params = [
+            CosineKernel,
+            IndexKernel,
+            MaternKernel,
+            PeriodicKernel,
+            RBFKernel,
+            ScaleKernel,
+            SpectralMixtureKernel,
+            GaussianLikelihood,
+            MultitaskGaussianLikelihood,
+        ]
+
+        if not any([isinstance(self, mod_type) for mod_type in modules_with_log_params]) or 'log_' not in name:
+            return super(Module, self).__getattr__(name)
+        else:
+            base_name = name.split('log_')[1]  # e.g. log_lengthscale -> lengthscale
+            raw_name = 'raw_' + base_name
+            warnings.warn(
+                "The '{log_name}' parameter is deprecated in favor of '{name}'  because we no longer ensure "
+                "positiveness with torch.exp for improved stability reasons and will be removed in a future "
+                "release.".format(log_name=name, name=raw_name),
+                DeprecationWarning,
+            )
+            return super(Module, self).__getattribute__(base_name).log()  # Get real param value and transform to log
 
 
 def _extract_named_added_loss_terms(module, memo=None, prefix=""):
