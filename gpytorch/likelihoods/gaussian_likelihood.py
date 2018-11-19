@@ -9,13 +9,14 @@ from ..lazy import DiagLazyTensor
 from .. import settings
 from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
+from torch.nn.functional import softplus
 
 
 class GaussianLikelihood(Likelihood):
     r"""
     """
 
-    def __init__(self, noise_prior=None, batch_size=1, param_transform=torch.exp, inv_param_transform=None, **kwargs):
+    def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, **kwargs):
         noise_prior = _deprecate_kwarg(kwargs, "log_noise_prior", "noise_prior", noise_prior)
         super(GaussianLikelihood, self).__init__()
         self._param_transform = param_transform

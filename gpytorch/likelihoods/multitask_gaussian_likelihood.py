@@ -6,6 +6,7 @@ from ..lazy import DiagLazyTensor, KroneckerProductLazyTensor, RootLazyTensor
 from ..likelihoods import GaussianLikelihood
 from .. import settings
 from ..utils.deprecation import _deprecate_kwarg
+from torch.nn.functional import softplus
 
 
 class MultitaskGaussianLikelihood(GaussianLikelihood):
@@ -25,7 +26,7 @@ class MultitaskGaussianLikelihood(GaussianLikelihood):
         task_prior=None,
         batch_size=1,
         noise_prior=None,
-        param_transform=torch.exp,
+        param_transform=softplus,
         inv_param_transform=None,
         **kwargs
     ):

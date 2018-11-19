@@ -62,18 +62,53 @@ class Module(nn.Module):
             yield param
 
     def initialize(self, **kwargs):
+        # TODO: Change to initialize actual parameter (e.g. lengthscale) rather than untransformed parameter.
         """
         Set a value for a parameter
 
         kwargs: (param_name, value) - parameter to initialize
         Value can take the form of a tensor, a float, or an int
         """
+        from .kernels import (
+            CosineKernel,
+            IndexKernel,
+            MaternKernel,
+            PeriodicKernel,
+            RBFKernel,
+            ScaleKernel,
+            SpectralMixtureKernel,
+        )
+
+        from .likelihoods import GaussianLikelihood, MultitaskGaussianLikelihood
+
+        modules_with_log_params = [
+            CosineKernel,
+            IndexKernel,
+            MaternKernel,
+            PeriodicKernel,
+            RBFKernel,
+            ScaleKernel,
+            SpectralMixtureKernel,
+            GaussianLikelihood,
+            MultitaskGaussianLikelihood,
+        ]
+
         for name, val in kwargs.items():
+            if isinstance(val, int):
+                val = float(val)
+            if any([isinstance(self, mod_type) for mod_type in modules_with_log_params]) and 'log_' in name:
+                base_name = name.split('log_')[1]
+                name = 'raw_' + base_name
+                if not torch.is_tensor(val):
+                    val = self._inv_param_transform(torch.tensor(val).exp()).item()
+                else:
+                    val = self._inv_param_transform(val.exp())
+
             if name not in self._parameters:
                 raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
             if torch.is_tensor(val):
                 self.__getattr__(name).data.copy_(val)
-            elif isinstance(val, float) or isinstance(val, int):
+            elif isinstance(val, float):
                 self.__getattr__(name).data.fill_(val)
             else:
                 raise AttributeError("Type {t} not valid to initialize parameter {p}".format(t=type(val), p=name))
@@ -273,8 +308,10 @@ class Module(nn.Module):
                     real_input_param = self._inv_param_transform(input_param.exp())
                     param.copy_(real_input_param)
 
-                    missing_keys.remove(prefix + name)
-                    unexpected_keys.remove(prefix + log_name)
+                    if prefix + name in missing_keys:
+                        missing_keys.remove(prefix + name)
+                    if prefix + name in unexpected_keys:
+                        unexpected_keys.remove(prefix + log_name)
 
     def __getattr__(self, name):
         from .kernels import (

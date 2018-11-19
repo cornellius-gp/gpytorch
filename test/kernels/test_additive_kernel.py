@@ -75,14 +75,15 @@ class TestAdditiveKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual), 2e-5)
 
     def test_computes_sum_radial_basis_function_gradient(self):
+        softplus = torch.nn.functional.softplus
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
         lengthscale = 2
 
-        param = math.log(lengthscale) * torch.ones(3, 3)
+        param = math.log(math.exp(lengthscale) - 1) * torch.ones(3, 3)
         param.requires_grad_()
         diffs = a.expand(3, 3) - b.expand(3, 3).transpose(0, 1)
-        actual_output = (-0.5 * (diffs / param.exp()) ** 2).exp()
+        actual_output = (-0.5 * (diffs / softplus(param)) ** 2).exp()
         actual_output.backward(torch.eye(3))
         actual_param_grad = param.grad.sum() * 2
 
@@ -93,18 +94,19 @@ class TestAdditiveKernel(unittest.TestCase):
 
         output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
-        res = kernel.kernels[0].log_lengthscale.grad + kernel.kernels[1].log_lengthscale.grad
+        res = kernel.kernels[0].raw_lengthscale.grad + kernel.kernels[1].raw_lengthscale.grad
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
 
     def test_computes_sum_three_radial_basis_function_gradient(self):
+        softplus = torch.nn.functional.softplus
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
         lengthscale = 2
 
-        param = math.log(lengthscale) * torch.ones(3, 3)
+        param = math.log(math.exp(lengthscale) - 1) * torch.ones(3, 3)
         param.requires_grad_()
         diffs = a.expand(3, 3) - b.expand(3, 3).transpose(0, 1)
-        actual_output = (-0.5 * (diffs / param.exp()) ** 2).exp()
+        actual_output = (-0.5 * (diffs / softplus(param)) ** 2).exp()
         actual_output.backward(torch.eye(3))
         actual_param_grad = param.grad.sum() * 3
 
@@ -117,9 +119,9 @@ class TestAdditiveKernel(unittest.TestCase):
         output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))
         res = (
-            kernel.kernels[0].log_lengthscale.grad
-            + kernel.kernels[1].log_lengthscale.grad
-            + kernel.kernels[2].log_lengthscale.grad
+            kernel.kernels[0].raw_lengthscale.grad
+            + kernel.kernels[1].raw_lengthscale.grad
+            + kernel.kernels[2].raw_lengthscale.grad
         )
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
 

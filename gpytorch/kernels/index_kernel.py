@@ -4,6 +4,7 @@ import torch
 import warnings
 from .kernel import Kernel
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from torch.nn.functional import softplus
 
 
 class IndexKernel(Kernel):
@@ -30,7 +31,7 @@ class IndexKernel(Kernel):
         :attr:`prior` (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
         :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than torch.exp to ensure positiveness of parameters.
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
         :attr:`inv_param_transform` (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
@@ -43,7 +44,7 @@ class IndexKernel(Kernel):
     """
 
     def __init__(
-        self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=torch.exp, inv_param_transform=None
+        self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=softplus, inv_param_transform=None
     ):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")

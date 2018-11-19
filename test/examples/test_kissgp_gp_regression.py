@@ -129,10 +129,10 @@ class TestKISSGPRegression(unittest.TestCase):
 
             # Now bump up the likelihood to something huge
             # This will make it easy to calculate the variance
-            likelihood.log_noise.data.fill_(3)
+            likelihood.raw_noise.data.fill_(3)
             test_function_predictions = likelihood(gp_model(train_x))
 
-            noise = likelihood.log_noise.exp()
+            noise = likelihood.noise
             var_diff = (test_function_predictions.variance - noise).abs()
             self.assertLess(torch.max(var_diff / noise), 0.05)
 
