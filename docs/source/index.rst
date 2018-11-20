@@ -26,6 +26,12 @@ GPyTorch's documentation
 
 .. toctree::
    :maxdepth: 1
+   :caption: Advanced Usage
+
+   batch_gps
+
+.. toctree::
+   :maxdepth: 1
    :caption: Package Reference
 
    models
