@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 import unittest
 
@@ -30,7 +30,6 @@ class TestSmoothedBoxPrior(unittest.TestCase):
         sigma = 0.1
         prior = SmoothedBoxPrior(a, b, sigma)
 
-        self.assertFalse(prior.log_transform)
         self.assertTrue(torch.equal(prior.a, a))
         self.assertTrue(torch.equal(prior.b, b))
         self.assertTrue(torch.equal(prior.sigma, torch.full_like(prior.a, sigma)))
@@ -52,7 +51,7 @@ class TestSmoothedBoxPrior(unittest.TestCase):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         a, b = torch.zeros(2, device=device), torch.ones(2, device=device)
         sigma = 0.1
-        prior = SmoothedBoxPrior(a, b, sigma, log_transform=True)
+        prior = SmoothedBoxPrior(a, b, sigma, transform=torch.exp)
 
         t = torch.tensor([0.5, 1.1], device=device).log()
         self.assertAlmostEqual(prior.log_prob(t).item(), -0.9473, places=4)
@@ -64,7 +63,7 @@ class TestSmoothedBoxPrior(unittest.TestCase):
 
     def test_smoothed_box_prior_log_prob_log_transform_cuda(self):
         if torch.cuda.is_available():
-            return self.test_smoothed_box_prior_log_prob(cuda=True)
+            return self.test_smoothed_box_prior_log_prob_log_transform(cuda=True)
 
     def test_smoothed_box_prior_batch_log_prob(self, cuda=False):
         # TODO: Implement test for batch mode

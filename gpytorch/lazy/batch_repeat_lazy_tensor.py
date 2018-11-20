@@ -1,12 +1,10 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import itertools
 import torch
 
 from .lazy_tensor import LazyTensor
+from .root_lazy_tensor import RootLazyTensor
 
 
 class BatchRepeatLazyTensor(LazyTensor):
@@ -167,13 +165,14 @@ class BatchRepeatLazyTensor(LazyTensor):
         )
 
     def root_decomposition(self):
-        return self.base_lazy_tensor.root_decomposition().repeat(*self.batch_repeat, 1, 1)
+        return RootLazyTensor(self.base_lazy_tensor.root_decomposition().root.repeat(*self.batch_repeat, 1, 1))
 
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
-        return self.base_lazy_tensor.root_inv_decomposition(
-            initial_vectors=initial_vectors,
-            test_vectors=test_vectors,
-        ).repeat(*self.batch_repeat, 1, 1)
+        return RootLazyTensor(
+            self.base_lazy_tensor.root_inv_decomposition(
+                initial_vectors=initial_vectors, test_vectors=test_vectors
+            ).root.repeat(*self.batch_repeat, 1, 1)
+        )
 
     def __getitem__(self, index):
         """

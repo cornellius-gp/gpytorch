@@ -1,8 +1,9 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
 
+#!/usr/bin/env python3
+
+from .likelihood import Likelihood
 from .bernoulli_likelihood import BernoulliLikelihood
 from .gaussian_likelihood import _GaussianLikelihoodBase, GaussianLikelihood
-from .likelihood import Likelihood
 from .multitask_gaussian_likelihood import (
     _MultitaskGaussianLikelihoodBase,
     MultitaskGaussianLikelihood,

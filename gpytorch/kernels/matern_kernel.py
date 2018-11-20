@@ -1,11 +1,10 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import math
 import torch
 from .kernel import Kernel
+from ..utils.deprecation import _deprecate_kwarg
+from torch.nn.functional import softplus
 
 
 class MaternKernel(Kernel):
@@ -52,9 +51,13 @@ class MaternKernel(Kernel):
         :attr:`log_lengthscale_prior` (Prior, optional):
             Set this if you want
             to apply a prior to the lengthscale parameter.  Default: `None`
+        :attr:`param_transform` (function, optional):
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
         :attr:`eps` (float):
-            The minimum value that the lengthscale can take
-            (prevents divide by zero errors). Default: `1e-6`.
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
         :attr:`lengthscale` (Tensor):
@@ -77,7 +80,19 @@ class MaternKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(self, nu=2.5, ard_num_dims=None, batch_size=1, active_dims=None, log_lengthscale_prior=None, eps=1e-6):
+    def __init__(
+        self,
+        nu=2.5,
+        ard_num_dims=None,
+        batch_size=1,
+        active_dims=None,
+        lengthscale_prior=None,
+        param_transform=softplus,
+        inv_param_transform=None,
+        eps=1e-6,
+        **kwargs
+    ):
+        _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
         super(MaternKernel, self).__init__(
@@ -85,7 +100,9 @@ class MaternKernel(Kernel):
             ard_num_dims=ard_num_dims,
             batch_size=batch_size,
             active_dims=active_dims,
-            log_lengthscale_prior=log_lengthscale_prior,
+            lengthscale_prior=lengthscale_prior,
+            param_transform=param_transform,
+            inv_param_transform=inv_param_transform,
             eps=eps,
         )
         self.nu = nu

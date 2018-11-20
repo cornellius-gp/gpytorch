@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 from ..module import Module
 
@@ -28,3 +28,12 @@ class VariationalDistribution(Module):
 
     def forward(self, *args, **kwargs):
         raise RuntimeError("VariationalDistribution is not intended to be called!")
+
+    def initialize_variational_distribution(self, prior_dist):
+        """
+        Method for initializing the variational distribution, based on the prior distribution.
+
+        Args:
+            - `prior_dist` (gpytorch.distribution.Distribution): the prior distribution
+        """
+        raise NotImplementedError

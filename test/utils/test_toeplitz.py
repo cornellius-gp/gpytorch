@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import torch
 import unittest
@@ -10,7 +7,7 @@ import test._utils
 from gpytorch import utils
 
 
-class TestTeoplitz(unittest.TestCase):
+class TestToeplitz(unittest.TestCase):
     def test_sym_toeplitz_constructs_tensor_from_vector(self):
         c = torch.tensor([1, 6, 4, 5], dtype=torch.float)
 

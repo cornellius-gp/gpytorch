@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 import math
 from numbers import Number
@@ -50,18 +50,15 @@ class LKJPrior(Prior):
         del self.eta, self.C
         self.register_buffer("eta", eta)
         self.register_buffer("C", C)
-        self._log_transform = False
 
-    def log_prob(self, parameter):
-        if self.log_transform:
-            raise RuntimeError("log-transform not supported for LKJPrior")
-        if any(s != self.n for s in parameter.shape[-2:]):
+    def log_prob(self, X):
+        if any(s != self.n for s in X.shape[-2:]):
             raise ValueError("Correlation matrix is not of size n={}".format(self.n.item()))
-        if not _is_valid_correlation_matrix(parameter):
+        if not _is_valid_correlation_matrix(X):
             raise ValueError("Input is not a valid correlation matrix")
         # TODO: Replace this loop with batch Cholesky decomposition when available
         # https://github.com/pytorch/pytorch/pull/11796
-        log_diag_sum = torch.stack([p.potrf().diag().log().sum() for p in parameter.view(-1, *parameter.shape[-2:])])
+        log_diag_sum = torch.stack([p.cholesky(upper=True).diag().log().sum() for p in X.view(-1, *X.shape[-2:])])
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
 
@@ -84,14 +81,12 @@ class LKJCholeskyFactorPrior(LKJPrior):
 
     support = constraints.lower_cholesky
 
-    def log_prob(self, parameter):
-        if self.log_transform:
-            raise RuntimeError("log-transform not supported for LKJCholeskyFactorPrior")
-        if any(s != self.n for s in parameter.shape[-2:]):
+    def log_prob(self, X):
+        if any(s != self.n for s in X.shape[-2:]):
             raise ValueError("Cholesky factor is not of size n={}".format(self.n.item()))
-        if not _is_valid_correlation_matrix_cholesky_factor(parameter):
+        if not _is_valid_correlation_matrix_cholesky_factor(X):
             raise ValueError("Input is not a Cholesky factor of a valid correlation matrix")
-        log_diag_sum = torch.diagonal(parameter, dim1=-2, dim2=-1).log().sum(-1)
+        log_diag_sum = torch.diagonal(X, dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
 
@@ -123,17 +118,14 @@ class LKJCovariancePrior(LKJPrior):
         )
         self.correlation_prior = correlation_prior
         self.sd_prior = sd_prior
-        self._log_transform = False
 
-    def log_prob(self, parameter):
-        if self.log_transform:
-            raise RuntimeError("log-transform not supported for LKJCovariancePrior")
-        marginal_var = torch.diagonal(parameter, dim1=-2, dim2=-1)
+    def log_prob(self, X):
+        marginal_var = torch.diagonal(X, dim1=-2, dim2=-1)
         if not torch.all(marginal_var >= 0):
             raise ValueError("Variance(s) cannot be negative")
         marginal_sd = marginal_var.sqrt()
         sd_diag_mat = _batch_form_diag(1 / marginal_sd)
-        correlations = torch.matmul(torch.matmul(sd_diag_mat, parameter), sd_diag_mat)
+        correlations = torch.matmul(torch.matmul(sd_diag_mat, X), sd_diag_mat)
         log_prob_corr = self.correlation_prior.log_prob(correlations)
         log_prob_sd = self.sd_prior.log_prob(marginal_sd)
         return log_prob_corr + log_prob_sd

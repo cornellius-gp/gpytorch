@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from math import exp, pi
 
@@ -51,9 +48,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.base_covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True))
-        )
+        self.base_covar_module = ScaleKernel(RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1)))
         self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=50, num_dims=1)
         self.feature_extractor = feature_extractor
 
@@ -150,10 +145,10 @@ class TestDKLRegression(unittest.TestCase):
 
             # Now bump up the likelihood to something huge
             # This will make it easy to calculate the variance
-            likelihood.log_noise.data.fill_(3)
+            likelihood.raw_noise.data.fill_(3)
             test_function_predictions = likelihood(gp_model(train_x))
 
-            noise = likelihood.log_noise.exp()
+            noise = likelihood.noise
             var_diff = (test_function_predictions.variance - noise).abs()
             self.assertLess(torch.max(var_diff / noise), 0.15)
 

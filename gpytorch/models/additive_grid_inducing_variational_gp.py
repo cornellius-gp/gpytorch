@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 from ..variational import CholeskyVariationalDistribution, AdditiveGridInterpolationVariationalStrategy
 from ..models.abstract_variational_gp import AbstractVariationalGP

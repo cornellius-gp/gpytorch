@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import math
 import gpytorch
@@ -369,9 +366,16 @@ class LazyTensor(object):
         return self.add_diag(diag)
 
     @property
+    def batch_dim(self):
+        """
+        Returns the dimension of the shape over which the tensor is batched.
+        """
+        return len(self.batch_shape)
+
+    @property
     def batch_shape(self):
         """
-        Returns the shape over which parameters are batched.
+        Returns the shape over which the tensor is batched.
         """
         return torch.Size(self.shape[:-2])
 
@@ -380,7 +384,7 @@ class LazyTensor(object):
         Clones the LazyTensor (creates clones of all underlying tensors)
         """
         args = [arg.clone() if hasattr(arg, "clone") else arg for arg in self._args]
-        kwargs = dict((key, val.clone() if hasattr(val, "clone") else val) for key, val in self._kwargs.items())
+        kwargs = {key: val.clone() if hasattr(val, "clone") else val for key, val in self._kwargs.items()}
         return self.__class__(*args, **kwargs)
 
     def cpu(self):
@@ -463,6 +467,20 @@ class LazyTensor(object):
     def dtype(self):
         return self._args[0].dtype
 
+    def expand(self, *sizes):
+        if len(sizes) == 1 and hasattr(sizes, "__iter__"):
+            shape = sizes[0]
+        elif all(isinstance(size, int) for size in sizes):
+            shape = torch.Size(sizes)
+        else:
+            raise RuntimeError("Invalid arguments {} to expand.".format(sizes))
+
+        current_shape = torch.Size([1 for _ in range(len(shape) - self.dim())] + list(self.shape))
+        repeat_shape = torch.Size(
+            [expand_size // current_size for expand_size, current_size in zip(shape, current_shape)]
+        )
+        return self.repeat(*repeat_shape)
+
     def evaluate(self):
         """
         Explicitly evaluates the matrix this LazyTensor represents. This function
@@ -532,19 +550,24 @@ class LazyTensor(object):
             train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
 
             train_labels_offset = train_labels - train_mean
-            if self.ndimension() == 3:
+
+            if self.dim() == 3:
+                # Batch mode
                 train_labels_offset = train_labels_offset.unsqueeze(-1)
-            precomputed_cache = train_train_covar.inv_matmul(train_labels_offset)
+                precomputed_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+            else:
+                # Standard mode
+                precomputed_cache = train_train_covar.inv_matmul(train_labels_offset)
 
         test_mean = full_mean.narrow(-1, train_labels.size(-1), full_mean.size(-1) - train_labels.size(-1))
-        if self.ndimension() == 3:
+
+        if self.dim() == 3:
             test_train_covar = self[:, num_train:, :num_train]
+            res = test_train_covar.matmul(precomputed_cache.unsqueeze(-1)).squeeze(-1)
         else:
             test_train_covar = self[num_train:, :num_train]
+            res = test_train_covar.matmul(precomputed_cache)
 
-        res = test_train_covar.matmul(precomputed_cache)
-        if res.ndimension() == 3:
-            res = res.squeeze(-1)
         res = res + test_mean
 
         return res, precomputed_cache.detach()
@@ -592,9 +615,9 @@ class LazyTensor(object):
 
         if precomputed_cache is None:
             if non_batch_train and train_train_covar.dim() == 3:
-                train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition()
+                train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition().root.evaluate()
             else:
-                train_train_covar_inv_root = train_train_covar.root_inv_decomposition()
+                train_train_covar_inv_root = train_train_covar.root_inv_decomposition().root.evaluate()
             precomputed_cache = self._exact_predictive_covar_inv_quad_form_cache(
                 train_train_covar_inv_root, test_train_covar
             )
@@ -730,7 +753,7 @@ class LazyTensor(object):
         Multiplies self by a matrix
 
         Args:
-            other (:obj:`torch.tensor`): Matrix or vector to multiply with. Can be either a ``:obj:`torch.tensor`
+            other (:obj:`torch.tensor`): Matrix or vector to multiply with. Can be either a :obj:`torch.tensor`
                 or a :obj:`gpytorch.lazy.LazyTensor`.
 
         Returns:
@@ -827,7 +850,7 @@ class LazyTensor(object):
         if self.size(0) == 1:
             return self.sum_batch()
 
-        roots = self.root_decomposition()
+        roots = self.root_decomposition().root.evaluate()
         n_batch = roots.size(0) if mul_batch_size is None else mul_batch_size
         true_batch_size = roots.size(0) // mul_batch_size if mul_batch_size is not None else 1
 
@@ -859,7 +882,7 @@ class LazyTensor(object):
                 break
             else:
                 res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2)).evaluate_kernel()
-                roots = res.root_decomposition()
+                roots = res.root_decomposition().root.evaluate()
                 n_batch = n_batch // 2
 
         return res
@@ -932,6 +955,8 @@ class LazyTensor(object):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
+        from .root_lazy_tensor import RootLazyTensor
+
         if not self.is_square:
             raise RuntimeError(
                 "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
@@ -946,7 +971,7 @@ class LazyTensor(object):
             batch_shape=self.batch_shape,
             matrix_shape=self.matrix_shape,
         )(*self.representation())
-        return res
+        return RootLazyTensor(res)
 
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         """
@@ -954,6 +979,8 @@ class LazyTensor(object):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
+        from .root_lazy_tensor import RootLazyTensor
+
         if not self.is_square:
             raise RuntimeError(
                 "root_inv_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
@@ -1022,7 +1049,7 @@ class LazyTensor(object):
         else:
             inv_root = inv_roots
 
-        return inv_root
+        return RootLazyTensor(inv_root)
 
     def root_decomposition_size(self):
         """
@@ -1156,7 +1183,7 @@ class LazyTensor(object):
         if self.size()[-2:] == torch.Size([1, 1]):
             covar_root = self.evaluate().sqrt()
         else:
-            covar_root = self.root_decomposition()
+            covar_root = self.root_decomposition().root
 
         if self.ndimension() == 3:
             base_samples = torch.randn(
@@ -1317,9 +1344,12 @@ class LazyTensor(object):
         used.
         """
         from .zero_lazy_tensor import ZeroLazyTensor
+        from .diag_lazy_tensor import DiagLazyTensor
 
         if isinstance(other, ZeroLazyTensor):
             return other
+        elif isinstance(other, DiagLazyTensor):
+            return other * self
 
         return self.mul(other)
 

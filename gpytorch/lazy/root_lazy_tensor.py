@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import torch
 from .lazy_tensor import LazyTensor
@@ -113,4 +110,4 @@ class RootLazyTensor(LazyTensor):
         return self.root.size(-1)
 
     def root_decomposition(self):
-        return self.root.evaluate()
+        return self

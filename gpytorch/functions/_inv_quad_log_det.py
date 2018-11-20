@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import torch
 from torch.autograd import Function
@@ -123,15 +120,18 @@ class InvQuadLogDet(Function):
 
         # Compute log_det from tridiagonalization
         if self.log_det:
-            if self.batch_shape is None:
-                t_mat = t_mat.unsqueeze(1)
-            eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
-            slq = StochasticLQ()
-            log_det_term, = slq.evaluate(self.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
+            if torch.any(torch.isnan(t_mat)).item():
+                log_det_term = float("nan")
+            else:
+                if self.batch_shape is None:
+                    t_mat = t_mat.unsqueeze(1)
+                eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
+                slq = StochasticLQ()
+                log_det_term, = slq.evaluate(self.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
 
-            # Add correction
-            if self.log_det_correction is not None:
-                log_det_term = log_det_term + self.log_det_correction
+                # Add correction
+                if self.log_det_correction is not None:
+                    log_det_term = log_det_term + self.log_det_correction
 
         # Extract inv_quad solves from all the solves
         if self.inv_quad:
@@ -154,8 +154,8 @@ class InvQuadLogDet(Function):
         inv_quad_rhs_grad = None
 
         # Which backward passes should we compute?
-        compute_inv_quad_grad = inv_quad_grad_output.sum() and self.inv_quad
-        compute_log_det_grad = log_det_grad_output.sum() and self.log_det
+        compute_inv_quad_grad = inv_quad_grad_output.abs().sum() and self.inv_quad
+        compute_log_det_grad = log_det_grad_output.abs().sum() and self.log_det
 
         # Get input arguments, and get gradients in the proper form
         matrix_args = self.saved_tensors[:-3]

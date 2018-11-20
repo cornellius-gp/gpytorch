@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from math import exp
 
@@ -34,9 +31,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         super(GPClassificationModel, self).__init__(grid_size=8, grid_bounds=[(0, 3), (0, 3)])
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(
-            RBFKernel(
-                ard_num_dims=2, log_lengthscale_prior=SmoothedBoxPrior(exp(-2.5), exp(3), sigma=0.1, log_transform=True)
-            )
+            RBFKernel(ard_num_dims=2, lengthscale_prior=SmoothedBoxPrior(exp(-2.5), exp(3), sigma=0.1))
         )
 
     def forward(self, x):
@@ -46,7 +41,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         return latent_pred
 
 
-class TestKissGPKroneckerProductClassification(unittest.TestCase):
+class TestKISSGPKroneckerProductClassification(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()

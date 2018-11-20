@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from .added_loss_term import AddedLossTerm
 
@@ -15,4 +12,4 @@ class InducingPointKernelAddedLossTerm(AddedLossTerm):
     def loss(self):
         prior_covar = self.prior_dist.lazy_covariance_matrix
         variational_covar = self.variational_dist.lazy_covariance_matrix
-        return (prior_covar.diag() - variational_covar.diag()).sum() / self.likelihood.log_noise.exp()
+        return (prior_covar.diag() - variational_covar.diag()).sum() / self.likelihood.noise

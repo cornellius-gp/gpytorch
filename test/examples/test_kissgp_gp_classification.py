@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from math import exp, pi
 
@@ -27,8 +24,8 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-5, 5))
         self.covar_module = ScaleKernel(
-            RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True)),
-            log_outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
+            RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1)),
+            outputscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1),
         )
 
     def forward(self, x):

@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import torch
 import unittest
@@ -14,9 +11,7 @@ class TestBatchRepeatLazyTensor(BatchLazyTensorTestCase, unittest.TestCase):
     should_test_sample = True
 
     def create_lazy_tensor(self):
-        toeplitz_column = torch.tensor(
-            [4, 0.1, 0.05, 0.01, 0.], dtype=torch.float, requires_grad=True
-        )
+        toeplitz_column = torch.tensor([4, 0.1, 0.05, 0.01, 0.0], dtype=torch.float, requires_grad=True)
         return BatchRepeatLazyTensor(ToeplitzLazyTensor(toeplitz_column), torch.Size((3,)))
 
     def evaluate_lazy_tensor(self, lazy_tensor):

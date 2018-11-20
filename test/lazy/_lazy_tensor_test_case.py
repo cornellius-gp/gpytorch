@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import gpytorch
 import torch
@@ -142,6 +139,26 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         res = lazy_tensor.add_diag(other_diag).evaluate()
         actual = evaluated + other_diag.diag()
         self.assertTrue(approx_equal(res, actual))
+
+    def test_root_decomposition(self):
+        lazy_tensor = self.create_lazy_tensor()
+        root_approx = lazy_tensor.root_decomposition()
+
+        test_mat = torch.randn(lazy_tensor.size(-1))
+
+        res = root_approx.matmul(test_mat)
+        actual = lazy_tensor.matmul(test_mat)
+        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
+
+    def test_root_inv_decomposition(self):
+        lazy_tensor = self.create_lazy_tensor()
+        root_approx = lazy_tensor.root_inv_decomposition()
+
+        test_mat = torch.randn(lazy_tensor.size(-1))
+
+        res = root_approx.matmul(test_mat)
+        actual = lazy_tensor.inv_matmul(test_mat)
+        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
     def test_inv_matmul_vec(self):
         lazy_tensor = self.create_lazy_tensor()

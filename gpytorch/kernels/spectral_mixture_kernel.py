@@ -1,12 +1,11 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import logging
 import math
 import torch
 from .kernel import Kernel
+from ..utils.deprecation import _deprecate_kwarg
+from torch.nn.functional import softplus
 
 logger = logging.getLogger()
 
@@ -34,17 +33,20 @@ class SpectralMixtureKernel(Kernel):
             Set this if the data is
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
         :attr:`active_dims` (tuple of ints, optional):
-            Set this if you want to
-            compute the covariance of only a few input dimensions. The ints
+            Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
+        :attr:`param_transform` (function, optional):
+            Set this if you want to use something other than softplus to ensure positiveness of parameters.
+        :attr:`inv_param_transform` (function, optional):
+            Set this to allow setting parameters directly in transformed space and sampling from priors.
+            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
         :attr:`eps` (float):
-            The minimum value that the lengthscale can take
-            (prevents divide by zero errors). Default: `1e-6`.
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
         :attr:`mixture_lengthscale` (Tensor):
-            The lengthscale parameter. Given `k` mixture components,
-            and `b x n x d` data, this will be of size `b x k x 1 x d`.
+            The lengthscale parameter. Given `k` mixture components, and `b x n x d` data, this will be of
+            size `b x k x 1 x d`.
         :attr:`mixture_means` (Tensor):
             The mixture mean parameters (`b x k x 1 x d`).
         :attr:`mixture_weights` (Tensor):
@@ -74,49 +76,55 @@ class SpectralMixtureKernel(Kernel):
         batch_size=1,
         active_dims=None,
         eps=1e-6,
-        log_mixture_scales_prior=None,
-        log_mixture_means_prior=None,
-        log_mixture_weights_prior=None,
+        mixture_scales_prior=None,
+        mixture_means_prior=None,
+        mixture_weights_prior=None,
+        param_transform=softplus,
+        inv_param_transform=None,
+        **kwargs
     ):
+        mixture_scales_prior = _deprecate_kwarg(
+            kwargs, "log_mixture_scales_prior", "mixture_scales_prior", mixture_scales_prior
+        )
+        mixture_means_prior = _deprecate_kwarg(
+            kwargs, "log_mixture_means_prior", "mixture_means_prior", mixture_means_prior
+        )
+        mixture_weights_prior = _deprecate_kwarg(
+            kwargs, "log_mixture_weights_prior", "mixture_weights_prior", mixture_weights_prior
+        )
+
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")
-        if (
-            log_mixture_means_prior is not None
-            or log_mixture_scales_prior is not None
-            or log_mixture_weights_prior is not None
-        ):
+        if mixture_means_prior is not None or mixture_scales_prior is not None or mixture_weights_prior is not None:
             logger.warning("Priors not implemented for SpectralMixtureKernel")
 
         # This kernel does not use the default lengthscale
-        super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
+        super(SpectralMixtureKernel, self).__init__(
+            active_dims=active_dims, param_transform=param_transform, inv_param_transform=inv_param_transform
+        )
         self.num_mixtures = num_mixtures
         self.batch_size = batch_size
         self.ard_num_dims = ard_num_dims
         self.eps = eps
 
         self.register_parameter(
-            name="log_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
+            name="raw_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
         )
-        self.register_parameter(
-            name="log_mixture_means",
-            parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
-        )
-        self.register_parameter(
-            name="log_mixture_scales",
-            parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
-        )
+        ms_shape = torch.Size([self.batch_size, self.num_mixtures, 1, self.ard_num_dims])
+        self.register_parameter(name="raw_mixture_means", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
+        self.register_parameter(name="raw_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
 
     @property
     def mixture_scales(self):
-        return self.log_mixture_scales.exp().clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_scales).clamp(self.eps, 1e5)
 
     @property
     def mixture_means(self):
-        return self.log_mixture_means.exp().clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_means).clamp(self.eps, 1e5)
 
     @property
     def mixture_weights(self):
-        return self.log_mixture_weights.exp().clamp(self.eps, 1e5)
+        return self._param_transform(self.raw_mixture_weights).clamp(self.eps, 1e5)
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
@@ -134,11 +142,14 @@ class SpectralMixtureKernel(Kernel):
             min_dist[:, ind] = min_dist_sort[(torch.nonzero(min_dist_sort[:, ind]))[0], ind]
 
         # Inverse of lengthscales should be drawn from truncated Gaussian | N(0, max_dist^2) |
-        self.log_mixture_scales.data.normal_().mul_(max_dist).abs_().pow_(-1).log_()
+        self.raw_mixture_scales.data.normal_().mul_(max_dist).abs_().pow_(-1)
+        self.raw_mixture_scales.data = self._inv_param_transform(self.raw_mixture_scales.data)
         # Draw means from Unif(0, 0.5 / minimum distance between two points)
-        self.log_mixture_means.data.uniform_().mul_(0.5).div_(min_dist).log_()
+        self.raw_mixture_means.data.uniform_().mul_(0.5).div_(min_dist)
+        self.raw_mixture_means.data = self._inv_param_transform(self.raw_mixture_means.data)
         # Mixture weights should be roughly the stdv of the y values divided by the number of mixtures
-        self.log_mixture_weights.data.fill_(train_y.std() / self.num_mixtures).log_()
+        self.raw_mixture_weights.data.fill_(train_y.std() / self.num_mixtures)
+        self.raw_mixture_weights.data = self._inv_param_transform(self.raw_mixture_weights.data)
 
     def forward(self, x1, x2, **params):
         batch_size, n, num_dims = x1.size()

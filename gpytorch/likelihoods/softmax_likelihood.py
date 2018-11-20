@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 import torch
 from torch.distributions import Categorical
@@ -20,8 +20,9 @@ class SoftmaxLikelihood(Likelihood):
         self.register_parameter(
             name="mixing_weights",
             parameter=torch.nn.Parameter(torch.ones(n_classes, num_features).fill_(1.0 / num_features)),
-            prior=mixing_weights_prior,
         )
+        if mixing_weights_prior is not None:
+            self.register_prior("mixing_weights_prior", mixing_weights_prior, "mixing_weights")
 
     def forward(self, latent_func):
         if not isinstance(latent_func, MultivariateNormal):

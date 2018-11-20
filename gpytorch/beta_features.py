@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 from .settings import _feature_flag
 
@@ -44,6 +44,7 @@ class default_preconditioner(_feature_flag):
     """
     Add a diagonal correction to scalable inducing point methods
     """
+
     pass
 
 

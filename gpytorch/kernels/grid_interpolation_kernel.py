@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 import torch
 from .grid_kernel import GridKernel
@@ -135,9 +132,7 @@ class GridInterpolationKernel(GridKernel):
         return interp_indices, interp_values
 
     def _inducing_forward(self, batch_dims, **params):
-        return super(GridInterpolationKernel, self).forward(
-            self.grid, self.grid, batch_dims=batch_dims, **params
-        )
+        return super(GridInterpolationKernel, self).forward(self.grid, self.grid, batch_dims=batch_dims, **params)
 
     def forward(self, x1, x2, batch_dims=None, **params):
         # See if we need to update the grid or not

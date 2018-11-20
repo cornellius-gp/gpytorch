@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from math import pi
 
@@ -41,7 +38,7 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
         return MultitaskMultivariateNormal(mean_x, covar_x)
 
 
-class TestMultiTaskGPRegression(unittest.TestCase):
+class TestKroneckerMultiTaskKISSGPRegression(unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()

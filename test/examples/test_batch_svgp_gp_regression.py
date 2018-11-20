@@ -1,7 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from math import pi
 
@@ -34,16 +31,13 @@ def train_data(cuda=False):
 class SVGPRegressionModel(AbstractVariationalGP):
     def __init__(self, inducing_points):
         variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-2), batch_size=2)
-        variational_strategy = VariationalStrategy(self,
-                                                   inducing_points,
-                                                   variational_distribution,
-                                                   learn_inducing_locations=True)
+        variational_strategy = VariationalStrategy(
+            self, inducing_points, variational_distribution, learn_inducing_locations=True
+        )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(
-                log_lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1., sigma=0.1, log_transform=True)
-            )
+            gpytorch.kernels.RBFKernel(lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1))
         )
 
     def forward(self, x):
@@ -69,21 +63,20 @@ class TestSVGPRegression(unittest.TestCase):
     def test_regression_error(self):
         train_x, train_y = train_data()
         likelihood = GaussianLikelihood()
-        model = SVGPRegressionModel(train_x[:, :25, :])
+        inducing_points = torch.linspace(0, 1, 25).unsqueeze(-1).repeat(2, 1, 1)
+        model = SVGPRegressionModel(inducing_points)
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(-1))
 
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
-        optimizer = optim.Adam([{'params': model.parameters()}, {'params': likelihood.parameters()}], lr=0.1)
-        optimizer.n_iter = 0
-        for _ in range(200):
+        optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
+        for _ in range(150):
             optimizer.zero_grad()
             output = model(train_x)
             loss = -mll(output, train_y)
             loss = loss.sum()
             loss.backward()
-            optimizer.n_iter += 1
             optimizer.step()
 
         for param in model.parameters():
@@ -106,21 +99,20 @@ class TestSVGPRegression(unittest.TestCase):
         if torch.cuda.is_available():
             train_x, train_y = train_data(cuda=True)
             likelihood = GaussianLikelihood().cuda()
-            model = SVGPRegressionModel(train_x[:, :25, :]).cuda()
+            inducing_points = torch.linspace(0, 1, 25).unsqueeze(-1).repeat(2, 1, 1)
+            model = SVGPRegressionModel(inducing_points).cuda()
             mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(-1))
 
             # Find optimal model hyperparameters
             model.train()
             likelihood.train()
-            optimizer = optim.Adam([{'params': model.parameters()}, {'params': likelihood.parameters()}], lr=0.1)
-            optimizer.n_iter = 0
-            for _ in range(200):
+            optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
+            for _ in range(150):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
                 loss = loss.sum()
                 loss.backward()
-                optimizer.n_iter += 1
                 optimizer.step()
 
             for param in model.parameters():

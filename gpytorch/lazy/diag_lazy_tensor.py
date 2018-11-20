@@ -1,12 +1,11 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#!/usr/bin/env python3
 
 from itertools import product
 import warnings
 import torch
 from .lazy_tensor import LazyTensor
+from .root_lazy_tensor import RootLazyTensor
+from .non_lazy_tensor import NonLazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
@@ -21,8 +20,6 @@ class DiagLazyTensor(LazyTensor):
         """
         super(DiagLazyTensor, self).__init__(diag)
         self._diag = diag
-        self._batch_shape = diag.shape[:-1]
-        self._batch_dim = len(self._batch_shape)
 
     def __add__(self, other):
         if isinstance(other, DiagLazyTensor):
@@ -53,9 +50,9 @@ class DiagLazyTensor(LazyTensor):
 
         """
         batch_dims = len(batch_indices)
-        if batch_dims > self._batch_dim:
+        if batch_dims > self.batch_dim:
             raise RuntimeError(
-                "Received {} batch index tensors, DiagLazyTensor has {} batches".format(batch_dims, self._batch_dim)
+                "Received {} batch index tensors, DiagLazyTensor has {} batches".format(batch_dims, self.batch_dim)
             )
         full_batch_shape = self._diag.shape[batch_dims:-1]
         if len(full_batch_shape) == 0:
@@ -99,13 +96,26 @@ class DiagLazyTensor(LazyTensor):
         return DiagLazyTensor(self._diag.abs())
 
     def add_diag(self, added_diag):
-        return DiagLazyTensor(self._diag + added_diag)
+        return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
+
+    def __mul__(self, other):
+        if torch.is_tensor(other):
+            other = NonLazyTensor(other)
+
+        if isinstance(other, DiagLazyTensor):
+            return DiagLazyTensor(self._diag * other._diag)
+        else:
+            other_diag = other.diag()
+            new_diag = self._diag * other_diag
+            corrected_diag = new_diag - other_diag
+
+            return other.add_diag(corrected_diag)
 
     def diag(self):
         return self._diag
 
     def evaluate(self):
-        return self._diag.unsqueeze(-1) * torch.eye(self._diag.shape[-1])
+        return self._diag.unsqueeze(-1) * torch.eye(self._diag.shape[-1], dtype=self.dtype, device=self.device)
 
     def exp(self):
         return DiagLazyTensor(self._diag.exp())
@@ -122,7 +132,7 @@ class DiagLazyTensor(LazyTensor):
         if inv_quad_rhs is None:
             rhs_batch_shape = torch.Size()
         else:
-            rhs_batch_shape = inv_quad_rhs.shape[1 + self._batch_dim :]
+            rhs_batch_shape = inv_quad_rhs.shape[1 + self.batch_dim :]
 
         if inv_quad_rhs is None:
             inv_quad_term = torch.empty(0, dtype=self.dtype, device=self.device)
@@ -151,15 +161,20 @@ class DiagLazyTensor(LazyTensor):
         return super(DiagLazyTensor, self).matmul(other)
 
     def root_decomposition(self):
-        return DiagLazyTensor(self._diag.sqrt())
+        return RootLazyTensor(self.sqrt())
 
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
-        return self.root_decomposition().inverse()
+    def root_inv_decomposition(self):
+        return RootLazyTensor(DiagLazyTensor(self._diag.reciprocal()).sqrt())
+
+    def sqrt(self):
+        return DiagLazyTensor(self._diag.sqrt())
 
     def sum_batch(self, sum_batch_size=None):
         if sum_batch_size is not None:
-            raise NotImplementedError
-        return DiagLazyTensor(self._diag.sum([i for i in range(len(self._diag.shape) - 1)]))
+            if self.batch_dim > 1:
+                raise NotImplementedError("batch dimensions > 1 not yet supported with sum_batch_size")
+            return DiagLazyTensor(self._diag.view(-1, sum_batch_size, self._diag.shape[-1]))
+        return DiagLazyTensor(self._diag.sum([i for i in range(self.batch_dim)]))
 
     def exp(self):
         return DiagLazyTensor(self._diag.exp())

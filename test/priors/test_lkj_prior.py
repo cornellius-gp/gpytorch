@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+#!/usr/bin/env python3
 
 import unittest
 from math import exp
@@ -26,7 +26,6 @@ class TestLKJPrior(unittest.TestCase):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         prior = LKJPrior(2, torch.tensor(0.5, device=device))
 
-        self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
         self.assertAlmostEqual(prior.log_prob(S).item(), -1.86942, places=4)
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
@@ -46,7 +45,6 @@ class TestLKJPrior(unittest.TestCase):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         prior = LKJPrior(2, torch.tensor([0.5, 1.5], device=device))
 
-        self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
         self.assertTrue(approx_equal(prior.log_prob(S), torch.tensor([-1.86942, -0.483129], device=S.device)))
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
@@ -76,12 +74,11 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
     def test_lkj_cholesky_factor_prior_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         prior = LKJCholeskyFactorPrior(2, torch.tensor(0.5, device=device))
-        self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
-        S_chol = torch.potrf(S, upper=False)
+        S_chol = torch.cholesky(S)
         self.assertAlmostEqual(prior.log_prob(S_chol).item(), -1.86942, places=4)
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S_chol.device)])
-        S_chol = torch.stack([torch.potrf(Si, upper=False) for Si in S])
+        S_chol = torch.stack([torch.cholesky(Si) for Si in S])
         self.assertTrue(approx_equal(prior.log_prob(S_chol), torch.tensor([-1.86942, -1.72558], device=S_chol.device)))
         with self.assertRaises(ValueError):
             prior.log_prob(torch.eye(3, device=device))
@@ -98,12 +95,11 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         prior = LKJCholeskyFactorPrior(2, torch.tensor([0.5, 1.5], device=device))
 
-        self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
-        S_chol = torch.potrf(S, upper=False)
+        S_chol = torch.cholesky(S)
         self.assertTrue(approx_equal(prior.log_prob(S_chol), torch.tensor([-1.86942, -0.483129], device=S_chol.device)))
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
-        S_chol = torch.stack([torch.potrf(Si, upper=False) for Si in S])
+        S_chol = torch.stack([torch.cholesky(Si) for Si in S])
         self.assertTrue(approx_equal(prior.log_prob(S_chol), torch.tensor([-1.86942, -0.62697], device=S_chol.device)))
         with self.assertRaises(ValueError):
             prior.log_prob(torch.eye(3, device=device))
@@ -116,14 +112,14 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
 class TestLKJCovariancePrior(unittest.TestCase):
     def test_lkj_covariance_prior_to_gpu(self):
         if torch.cuda.is_available():
-            sd_prior = SmoothedBoxPrior(exp(-1), exp(1), log_transform=True)
+            sd_prior = SmoothedBoxPrior(exp(-1), exp(1))
             prior = LKJCovariancePrior(2, 1.0, sd_prior).cuda()
             self.assertEqual(prior.correlation_prior.eta.device.type, "cuda")
             self.assertEqual(prior.correlation_prior.C.device.type, "cuda")
             self.assertEqual(prior.sd_prior.a.device.type, "cuda")
 
     def test_lkj_covariance_prior_validate_args(self):
-        sd_prior = SmoothedBoxPrior(exp(-1), exp(1), log_transform=True, validate_args=True)
+        sd_prior = SmoothedBoxPrior(exp(-1), exp(1), validate_args=True)
         LKJCovariancePrior(2, 1.0, sd_prior)
         with self.assertRaises(ValueError):
             LKJCovariancePrior(1.5, 1.0, sd_prior, validate_args=True)
@@ -132,11 +128,10 @@ class TestLKJCovariancePrior(unittest.TestCase):
 
     def test_lkj_covariance_prior_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
-        sd_prior = SmoothedBoxPrior(exp(-1), exp(1), log_transform=True)
+        sd_prior = SmoothedBoxPrior(exp(-1), exp(1))
         if cuda:
             sd_prior = sd_prior.cuda()
         prior = LKJCovariancePrior(2, torch.tensor(0.5, device=device), sd_prior)
-        self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
         self.assertAlmostEqual(prior.log_prob(S).item(), -3.59981, places=4)
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
@@ -158,9 +153,8 @@ class TestLKJCovariancePrior(unittest.TestCase):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         a = torch.tensor([exp(-1), exp(-2)], device=device)
         b = torch.tensor([exp(1), exp(2)], device=device)
-        sd_prior = SmoothedBoxPrior(a, b, log_transform=True)
+        sd_prior = SmoothedBoxPrior(a, b)
         prior = LKJCovariancePrior(2, torch.tensor(0.5, device=device), sd_prior)
-        self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
         self.assertAlmostEqual(prior.log_prob(S).item(), -4.71958, places=4)
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
@@ -181,10 +175,9 @@ class TestLKJCovariancePrior(unittest.TestCase):
     def test_lkj_covariance_prior_batch_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         v = torch.ones(2, 1, device=device)
-        sd_prior = SmoothedBoxPrior(exp(-1) * v, exp(1) * v, log_transform=True)
+        sd_prior = SmoothedBoxPrior(exp(-1) * v, exp(1) * v)
         prior = LKJCovariancePrior(2, torch.tensor([0.5, 1.5], device=device), sd_prior)
 
-        self.assertFalse(prior.log_transform)
         S = torch.eye(2, device=device)
         self.assertTrue(approx_equal(prior.log_prob(S), torch.tensor([-3.59981, -2.21351], device=S.device)))
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
