@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from ..lazy import CholLazyTensor
+from ..lazy import CholLazyTensor, DiagLazyTensor, NonLazyTensor
 from ..distributions import MultivariateNormal
 from .variational_distribution import VariationalDistribution
 
@@ -47,33 +47,16 @@ class CholeskyVariationalDistribution(VariationalDistribution):
         that the diagonal remains positive.
         """
         chol_variational_covar = self.chol_variational_covar
+        dtype = chol_variational_covar.dtype
+        device = chol_variational_covar.device
+        mask = torch.ones(self.chol_variational_covar.shape[-2:], dtype=dtype, device=device).triu()
+        chol_variational_covar = chol_variational_covar.mul(mask)
 
-        # Negate each row with a negative diagonal (the Cholesky decomposition
-        # of a matrix requires that the diagonal elements be positive).
-        if chol_variational_covar.ndimension() == 2:
-            chol_variational_covar = chol_variational_covar.triu()
-            inside = chol_variational_covar.diag().sign().unsqueeze(1).expand_as(chol_variational_covar).triu()
-        elif chol_variational_covar.ndimension() == 3:
-            batch_size, diag_size, _ = chol_variational_covar.size()
+        # Make sure that the diagonal is positive
+        diagonal = NonLazyTensor(chol_variational_covar).diag()
+        diag_correction = torch.clamp(diagonal, 1e-6, 1e10)
+        chol_variational_covar = chol_variational_covar + DiagLazyTensor(diag_correction - diagonal).evaluate()
 
-            # Batch mode
-            chol_variational_covar_size = list(chol_variational_covar.size())[-2:]
-            mask = torch.ones(
-                *chol_variational_covar_size, dtype=chol_variational_covar.dtype, device=chol_variational_covar.device
-            ).triu_()
-            mask = mask.unsqueeze(0).expand(*([chol_variational_covar.size(0)] + chol_variational_covar_size))
-
-            batch_index = torch.arange(0, batch_size, dtype=torch.long, device=mask.device)
-            batch_index = batch_index.unsqueeze(1).repeat(1, diag_size).view(-1)
-            diag_index = torch.arange(0, diag_size, dtype=torch.long, device=mask.device)
-            diag_index = diag_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-            diag = chol_variational_covar[batch_index, diag_index, diag_index].view(batch_size, diag_size)
-
-            chol_variational_covar = chol_variational_covar.mul(mask)
-            inside = diag.sign().unsqueeze(-1).expand_as(chol_variational_covar).mul(mask)
-        else:
-            raise RuntimeError("Invalid number of variational covar dimensions")
-
-        chol_variational_covar = inside.mul(chol_variational_covar)
+        # NOw construct the actual matrix
         variational_covar = CholLazyTensor(chol_variational_covar.transpose(-1, -2))
         return MultivariateNormal(self.variational_mean, variational_covar)
