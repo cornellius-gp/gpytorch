@@ -43,10 +43,10 @@ class _HomoskedasticNoiseBase(Module):
         - batched noise, batched input, non-MT -> noise_diag shape is `b' x n`
         - batched noise, batched input, MT -> noise_diag shape is `b' x nt`
         where `n` is the number of evaluation points and `t` is the number of tasks (i.e. `num_tasks` of self.noise).
-        So bascially the shape is always `b' x nt`, with `b'` appropriately broadcast from the noise parameter and input
-        batch shapes. `n` and the input batch shape are determined either from the shape arg or from the params input.
-        For this it is sufficient to take in a single `shape` arg, with the convention that shape[:-1] is the batch shape
-        of the input, and shape[-1] is `n`.
+        So bascially the shape is always `b' x nt`, with `b'` appropriately broadcast from the noise parameter and
+        input batch shapes. `n` and the input batch shape are determined either from the shape arg or from the params
+        input. For this it is sufficient to take in a single `shape` arg, with the convention that shape[:-1] is the
+        batch shape of the input, and shape[-1] is `n`.
         """
         if shape is None:
             p = params[0] if torch.is_tensor(params[0]) else params[0][0]
