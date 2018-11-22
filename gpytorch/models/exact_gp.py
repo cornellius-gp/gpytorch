@@ -4,7 +4,7 @@ import warnings
 import torch
 from ..functions import exact_predictive_mean, exact_predictive_covar
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
-from ..likelihoods import GaussianLikelihood
+from ..likelihoods import _GaussianLikelihoodBase
 from .. import settings
 from .gp import GP
 
@@ -15,8 +15,8 @@ class ExactGP(GP):
             train_inputs = (train_inputs,)
         if train_inputs is not None and not all(torch.is_tensor(train_input) for train_input in train_inputs):
             raise RuntimeError("Train inputs must be a tensor, or a list/tuple of tensors")
-        if not isinstance(likelihood, GaussianLikelihood):
-            raise RuntimeError("ExactGP can only handle GaussianLikelihood")
+        if not isinstance(likelihood, _GaussianLikelihoodBase):
+            raise RuntimeError("ExactGP can only handle Gaussian likelihoods")
 
         super(ExactGP, self).__init__()
         if train_inputs is not None:
@@ -72,7 +72,7 @@ class ExactGP(GP):
                     "train_inputs, train_targets cannot be None in training mode. "
                     "Call .eval() for prior predictions, or call .set_train_data() to add training data."
                 )
-            if settings.debug.on():
+            if settings.check_training_data.on():
                 if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
                     raise RuntimeError("You must train on the training inputs!")
             res = super(ExactGP, self).__call__(*inputs, **kwargs)
@@ -150,6 +150,7 @@ class ExactGP(GP):
             predictive_mean, mean_cache = exact_predictive_mean(
                 full_covar=full_covar,
                 full_mean=full_mean,
+                train_inputs=train_inputs,
                 train_labels=train_targets,
                 num_train=num_train,
                 likelihood=self.likelihood,
@@ -158,6 +159,7 @@ class ExactGP(GP):
             )
             predictive_covar, covar_cache = exact_predictive_covar(
                 full_covar=full_covar,
+                train_inputs=train_inputs,
                 num_train=num_train,
                 likelihood=self.likelihood,
                 precomputed_cache=self.covar_cache,

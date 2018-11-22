@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
 
 from .likelihood import Likelihood
-from .gaussian_likelihood import GaussianLikelihood
-from .multitask_gaussian_likelihood import MultitaskGaussianLikelihood
 from .bernoulli_likelihood import BernoulliLikelihood
+from .gaussian_likelihood import GaussianLikelihood, _GaussianLikelihoodBase
+from .multitask_gaussian_likelihood import (
+    MultitaskGaussianLikelihood,
+    MultitaskGaussianLikelihoodKronecker,
+    _MultitaskGaussianLikelihoodBase,
+)
+from .noise_models import HeteroskedasticNoise
 from .softmax_likelihood import SoftmaxLikelihood
 
+
 __all__ = [
-    "Likelihood",
-    "GaussianLikelihood",
-    "MultitaskGaussianLikelihood",
+    "_GaussianLikelihoodBase",
+    "_MultitaskGaussianLikelihoodBase",
     "BernoulliLikelihood",
+    "GaussianLikelihood",
+    "HeteroskedasticNoise",
+    "Likelihood",
+    "MultitaskGaussianLikelihood",
+    "MultitaskGaussianLikelihoodKronecker",
     "SoftmaxLikelihood",
 ]

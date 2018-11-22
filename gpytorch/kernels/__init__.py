@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-from .kernel import Kernel, AdditiveKernel, ProductKernel
 from .additive_structure_kernel import AdditiveStructureKernel
 from .cosine_kernel import CosineKernel
-from .grid_kernel import GridKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
+from .grid_kernel import GridKernel
 from .index_kernel import IndexKernel
 from .inducing_point_kernel import InducingPointKernel
+from .kernel import AdditiveKernel, Kernel, ProductKernel
 from .lcm_kernel import LCMKernel
 from .linear_kernel import LinearKernel
 from .matern_kernel import MaternKernel
@@ -18,6 +18,7 @@ from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 from .white_noise_kernel import WhiteNoiseKernel
 
+
 __all__ = [
     "Kernel",
     "AdditiveKernel",
@@ -27,7 +28,6 @@ __all__ = [
     "GridInterpolationKernel",
     "IndexKernel",
     "InducingPointKernel",
-    "InducingPointKernelAddedLossTerm",
     "LCMKernel",
     "LinearKernel",
     "MaternKernel",

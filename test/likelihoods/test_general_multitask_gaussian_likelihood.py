@@ -8,7 +8,7 @@ from math import pi
 import gpytorch
 import torch
 from gpytorch.kernels import MultitaskKernel, RBFKernel
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.likelihoods import MultitaskGaussianLikelihoodKronecker
 from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.distributions import MultitaskMultivariateNormal
 
@@ -53,7 +53,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_low_rank_noise_covar(self):
-        likelihood = MultitaskGaussianLikelihood(num_tasks=2, rank=1)
+        likelihood = MultitaskGaussianLikelihoodKronecker(num_tasks=2, rank=1)
         model = MultitaskGPModel(train_x, train_y, likelihood)
         # Find optimal model hyperparameters
         model.train()
@@ -83,10 +83,10 @@ class TestMultiTaskGPRegression(unittest.TestCase):
 
         num_tasks = 2
         task_noise_covar_factor = likelihood.task_noise_covar_factor
-        log_noise = likelihood.log_noise
+        noise = likelihood.noise
         task_noise_covar = task_noise_covar_factor.matmul(
             task_noise_covar_factor.transpose(-1, -2)
-        ) + log_noise.exp() * torch.eye(num_tasks)
+        ) + noise * torch.eye(num_tasks)
 
         self.assertGreater(task_noise_covar[0, 0, 1].item(), 0.05)
 

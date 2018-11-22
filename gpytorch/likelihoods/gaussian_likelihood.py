@@ -1,64 +1,89 @@
 #!/usr/bin/env python3
 
 import math
-import torch
-from ..distributions import MultivariateNormal
-from ..functions import add_diag
-from ..likelihoods import Likelihood
-from ..lazy import DiagLazyTensor
-from .. import settings
-from ..utils.deprecation import _deprecate_kwarg
-from ..utils.transforms import _get_inv_param_transform
+
 from torch.nn.functional import softplus
 
+from .. import settings
+from ..distributions import MultivariateNormal
+from ..lazy import DiagLazyTensor
+from ..likelihoods import Likelihood
+from ..utils.deprecation import _deprecate_kwarg
+from .noise_models import HomoskedasticNoise
 
-class GaussianLikelihood(Likelihood):
-    r"""
-    """
 
+class _GaussianLikelihoodBase(Likelihood):
+    """Base class for Gaussian Likelihoods, supporting general heteroskedastic noise models. """
+
+    def __init__(self, noise_covar):
+        super().__init__()
+        self.noise_covar = noise_covar
+
+    def forward(self, input, *params):
+        if not isinstance(input, MultivariateNormal):
+            raise ValueError("Gaussian likelihoods require a MultivariateNormal input")
+        mean, covar = input.mean, input.lazy_covariance_matrix
+        if len(params) > 0:
+            # we can infer the shape from the params
+            shape = None
+        else:
+            # here shape[:-1] is the batch shape requested, and shape[-1] is `n`, the number of points
+            shape = mean.shape if len(mean.shape) == 1 else mean.shape[:-1]
+        noise_covar = self.noise_covar(*params, shape=shape)
+        full_covar = covar + noise_covar
+        return input.__class__(mean, full_covar)
+
+    def variational_log_probability(self, input, target):
+        raise NotImplementedError
+
+
+class GaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, **kwargs):
         noise_prior = _deprecate_kwarg(kwargs, "log_noise_prior", "noise_prior", noise_prior)
-        super(GaussianLikelihood, self).__init__()
-        self._param_transform = param_transform
-        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
-        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
-        if noise_prior is not None:
-            self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
+        noise_covar = HomoskedasticNoise(
+            noise_prior=noise_prior,
+            batch_size=batch_size,
+            param_transform=param_transform,
+            inv_param_transform=inv_param_transform,
+        )
+        super().__init__(noise_covar=noise_covar)
+
+    def _param_transform(self, value):
+        return self.noise_covar._param_transform(value)
+
+    def _inv_param_transform(self, value):
+        return self.noise_covar._inv_param_transform(value)
 
     @property
     def noise(self):
-        return self._param_transform(self.raw_noise)
+        return self.noise_covar.noise
 
     @noise.setter
     def noise(self, value):
-        self._set_noise(value)
+        self.noise_covar.noise = value
 
-    def _set_noise(self, value):
-        self.initialize(raw_noise=self._inv_param_transform(value))
+    @property
+    def raw_noise(self):
+        return self.noise_covar.raw_noise
 
-    def forward(self, input):
-        if not isinstance(input, MultivariateNormal):
-            raise ValueError("GaussianLikelihood requires a MultivariateNormal input")
-        mean, covar = input.mean, input.lazy_covariance_matrix
-        noise = self.noise
-        if covar.ndimension() == 2:
+    @raw_noise.setter
+    def raw_noise(self, value):
+        self.noise_covar.raw_noise = value
+
+    def variational_log_probability(self, input, target):
+        mean, variance = input.mean, input.variance
+        noise = self.noise_covar.noise
+
+        if mean.dim() > target.dim():
+            target = target.unsqueeze(-1)
+
+        if variance.ndimension() == 1:
             if settings.debug.on() and noise.size(0) > 1:
                 raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
             noise = noise.squeeze(0)
 
-        return input.__class__(mean, add_diag(covar, noise))
-
-    def variational_log_probability(self, input, target):
-        mean, variance = input.mean, input.variance
-        log_noise = self.log_noise
-
-        if variance.ndimension() == 1:
-            if settings.debug.on() and log_noise.size(0) > 1:
-                raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
-            log_noise = log_noise.squeeze(0)
-
-        res = -0.5 * ((target - mean) ** 2 + variance) / self.noise
-        res += -0.5 * log_noise - 0.5 * math.log(2 * math.pi)
+        res = -0.5 * ((target - mean) ** 2 + variance) / noise
+        res += -0.5 * noise.log() - 0.5 * math.log(2 * math.pi)
         return res.sum(-1)
 
     def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
+import math
 import os
 import random
-import math
-import torch
 import unittest
+
 import gpytorch
-from torch import optim
-from gpytorch.kernels import RBFKernel, ScaleKernel
-from gpytorch.means import ConstantMean
-from gpytorch.likelihoods import GaussianLikelihood
+import torch
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import RBFKernel, ScaleKernel
+from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
+from torch import optim
 
 
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
@@ -120,7 +121,7 @@ class TestBatchGPRegression(unittest.TestCase):
         for _ in range(50):
             optimizer.zero_grad()
             output = gp_model(train_x12)
-            loss = -mll(output, train_y12).sum()
+            loss = -mll(output, train_y12, train_x12).sum()
             loss.backward()
             optimizer.step()
 
@@ -159,7 +160,7 @@ class TestBatchGPRegression(unittest.TestCase):
         for _ in range(50):
             optimizer.zero_grad()
             output = gp_model(train_x12)
-            loss = -mll(output, train_y12).sum()
+            loss = -mll(output, train_y12, train_x12).sum()
             loss.backward()
             optimizer.step()
 

@@ -64,7 +64,14 @@ def dsmm(sparse_mat, dense_mat):
 
 
 def exact_predictive_mean(
-    full_covar, full_mean, train_labels, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+    full_covar,
+    full_mean,
+    train_inputs,
+    train_labels,
+    num_train,
+    likelihood,
+    precomputed_cache=None,
+    non_batch_train=False,
 ):
     """
     Computes the posterior predictive mean of a GP
@@ -73,6 +80,7 @@ def exact_predictive_mean(
         - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
             [ K_XX, K_XX*; K_X*X, K_X*X* ]
         - full_mean (n + t) - the training and test prior means, stacked on top of each other
+        - train_inputs (:obj:`torch.tensor`) -  The training data inputs
         - train_labels (n) - the training labels minus the training prior mean
         - noise (1) - the observed noise (from the likelihood)
         - precomputed_cache - speeds up subsequent computations (default: None)
@@ -88,17 +96,20 @@ def exact_predictive_mean(
 
         full_covar = NonLazyTensor(full_covar)
     return full_covar.exact_predictive_mean(
-        full_mean, train_labels, num_train, likelihood, precomputed_cache, non_batch_train
+        full_mean, train_inputs, train_labels, num_train, likelihood, precomputed_cache, non_batch_train
     )
 
 
-def exact_predictive_covar(full_covar, num_train, likelihood, precomputed_cache=None, non_batch_train=False):
+def exact_predictive_covar(
+    full_covar, train_inputs, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+):
     """
     Computes the posterior predictive covariance of a GP
 
     Args:
         - full_covar ( (n+t) x (n+t) ) - the block prior covariance matrix of training and testing points
             [ K_XX, K_XX*; K_X*X, K_X*X* ]
+        - train_inputs TODO
         - num_train (int) - how many training points are there in the full covariance matrix
         - noise (1) - the observed noise (from the likelihood)
         - precomputed_cache - speeds up subsequent computations (default: None)
@@ -113,7 +124,8 @@ def exact_predictive_covar(full_covar, num_train, likelihood, precomputed_cache=
         from ..lazy.non_lazy_tensor import NonLazyTensor
 
         full_covar = NonLazyTensor(full_covar)
-    return full_covar.exact_predictive_covar(num_train, likelihood, precomputed_cache, non_batch_train)
+
+    return full_covar.exact_predictive_covar(train_inputs, num_train, likelihood, precomputed_cache, non_batch_train)
 
 
 def log_normal_cdf(x):

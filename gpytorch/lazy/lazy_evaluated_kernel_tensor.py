@@ -44,6 +44,17 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def _transpose_nonbatch(self):
         return self.__class__(self.kernel, self.x2, self.x1, **self.params)
 
+    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+        from ..kernels import Kernel
+
+        x1 = self.x1[batch_indices, left_indices, :].unsqueeze(0)
+        x2 = self.x2[batch_indices, right_indices, :].unsqueeze(0)
+        res = super(Kernel, self.kernel).__call__(x1.transpose(-1, -2), x2.transpose(-1, -2))
+        if isinstance(res, LazyTensor):
+            res = res.evaluate()
+        res = res.view(-1)
+        return res
+
     def _get_indices(self, left_indices, right_indices):
         from ..kernels import Kernel
 
@@ -166,25 +177,34 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         return self.evaluate_kernel().evaluate()
 
     def exact_predictive_mean(
-        self, full_mean, train_labels, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+        self,
+        full_mean,
+        train_inputs,
+        train_labels,
+        num_train,
+        likelihood,
+        precomputed_cache=None,
+        non_batch_train=False,
     ):
         if self.kernel.has_custom_exact_predictions:
             return self.evaluate_kernel().exact_predictive_mean(
-                full_mean, train_labels, num_train, likelihood, precomputed_cache, non_batch_train
+                full_mean, train_inputs, train_labels, num_train, likelihood, precomputed_cache, non_batch_train
             )
         else:
             return super(LazyEvaluatedKernelTensor, self).exact_predictive_mean(
-                full_mean, train_labels, num_train, likelihood, precomputed_cache, non_batch_train
+                full_mean, train_inputs, train_labels, num_train, likelihood, precomputed_cache, non_batch_train
             )
 
-    def exact_predictive_covar(self, num_train, likelihood, precomputed_cache=None, non_batch_train=False):
+    def exact_predictive_covar(
+        self, train_inputs, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+    ):
         if self.kernel.has_custom_exact_predictions:
             return self.evaluate_kernel().exact_predictive_covar(
-                num_train, likelihood, precomputed_cache, non_batch_train
+                train_inputs, num_train, likelihood, precomputed_cache, non_batch_train
             )
         else:
             return super(LazyEvaluatedKernelTensor, self).exact_predictive_covar(
-                num_train, likelihood, precomputed_cache, non_batch_train
+                train_inputs, num_train, likelihood, precomputed_cache, non_batch_train
             )
 
     def repeat(self, *sizes):

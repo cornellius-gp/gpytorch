@@ -1,28 +1,16 @@
 #!/usr/bin/env python3
 
-from math import pi
-
 import os
 import random
-import torch
 import unittest
+from math import pi
+
 import gpytorch
-from gpytorch.kernels import RBFKernel, MultitaskKernel, GridInterpolationKernel
-from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+import torch
 from gpytorch.distributions import MultitaskMultivariateNormal
-
-
-# Simple training data: let's try to learn a sine function
-train_x = torch.linspace(0, 1, 100)
-
-# y1 function is sin(2*pi*x) with noise N(0, 0.04)
-train_y1 = torch.sin(train_x * (2 * pi)) + torch.randn(train_x.size()) * 0.1
-# y2 function is cos(2*pi*x) with noise N(0, 0.04)
-train_y2 = torch.cos(train_x * (2 * pi)) + torch.randn(train_x.size()) * 0.1
-
-# Create a train_y which interleaves the two
-train_y = torch.stack([train_y1, train_y2], -1)
+from gpytorch.kernels import GridInterpolationKernel, MultitaskKernel, RBFKernel
+from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.means import ConstantMean, MultitaskMean
 
 
 class MultitaskGPModel(gpytorch.models.ExactGP):
@@ -51,9 +39,25 @@ class TestKroneckerMultiTaskKISSGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_multitask_gp_mean_abs_error(self):
+    def _get_data(self, cuda=False):
+        # Simple training data: let's try to learn a sine function
+        train_x = torch.linspace(0, 1, 100, device=torch.device("cuda") if cuda else torch.device("cpu"))
+        # y1 function is sin(2*pi*x) with noise N(0, 0.04)
+        train_y1 = torch.sin(train_x * (2 * pi)) + torch.randn_like(train_x) * 0.1
+        # y2 function is cos(2*pi*x) with noise N(0, 0.04)
+        train_y2 = torch.cos(train_x * (2 * pi)) + torch.randn_like(train_x) * 0.1
+        # Create a train_y which interleaves the two
+        train_y = torch.stack([train_y1, train_y2], -1)
+        return train_x, train_y
+
+    def test_multitask_gp_mean_abs_error(self, cuda=False):
+        train_x, train_y = self._get_data(cuda=cuda)
         likelihood = MultitaskGaussianLikelihood(num_tasks=2)
         model = MultitaskGPModel(train_x, train_y, likelihood)
+
+        if cuda:
+            model.cuda()
+
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
@@ -79,7 +83,8 @@ class TestKroneckerMultiTaskKISSGPRegression(unittest.TestCase):
         # Test the model
         model.eval()
         likelihood.eval()
-        test_x = torch.linspace(0, 1, 51)
+
+        test_x = torch.linspace(0, 1, 51, device=torch.device("cuda") if cuda else torch.device("cpu"))
         test_y1 = torch.sin(test_x * (2 * pi))
         test_y2 = torch.cos(test_x * (2 * pi))
         test_preds = likelihood(model(test_x)).mean
@@ -88,6 +93,10 @@ class TestKroneckerMultiTaskKISSGPRegression(unittest.TestCase):
 
         self.assertLess(mean_abs_error_task_1.squeeze().item(), 0.05)
         self.assertLess(mean_abs_error_task_2.squeeze().item(), 0.05)
+
+    def test_multitask_gp_mean_abs_error_cuda(self):
+        if torch.cuda.is_available():
+            self.test_multitask_gp_mean_abs_error(cuda=True)
 
 
 if __name__ == "__main__":

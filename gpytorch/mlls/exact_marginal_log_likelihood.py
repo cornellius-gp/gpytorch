@@ -2,7 +2,7 @@
 
 import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
-from ..likelihoods import GaussianLikelihood
+from ..likelihoods import _GaussianLikelihoodBase
 from ..distributions import MultivariateNormal
 
 
@@ -15,16 +15,16 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         - likelihood: (Likelihood) - the likelihood for the model
         - model: (Module) - the exact GP model
         """
-        if not isinstance(likelihood, GaussianLikelihood):
+        if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
 
-    def forward(self, output, target):
+    def forward(self, output, target, *params):
         if not isinstance(output, MultivariateNormal):
             raise RuntimeError("ExactMarginalLogLikelihood can only operate on Gaussian random variables")
 
         # Get the log prob of the marginal distribution
-        output = self.likelihood(output)
+        output = self.likelihood(output, *params)
         res = output.log_prob(target)
 
         # Add terms for SGPR / when inducing points are learned

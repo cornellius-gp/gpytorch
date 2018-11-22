@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import math
 import torch
 
@@ -48,7 +47,7 @@ def choose_grid_size(train_inputs, ratio=1.0):
 def create_data_from_grid(grid):
     grid_size = grid.size(-2)
     grid_dim = grid.size(-1)
-    grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim)
+    grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim, device=grid.device)
     prev_points = None
     for i in range(grid_dim):
         for j in range(grid_size):

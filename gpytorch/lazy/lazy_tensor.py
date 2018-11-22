@@ -505,7 +505,14 @@ class LazyTensor(object):
         return self.representation_tree()(*self.representation())
 
     def exact_predictive_mean(
-        self, full_mean, train_labels, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+        self,
+        full_mean,
+        train_inputs,
+        train_labels,
+        num_train,
+        likelihood,
+        precomputed_cache=None,
+        non_batch_train=False,
     ):
         """
         Computes the posterior predictive covariance of a GP
@@ -514,6 +521,7 @@ class LazyTensor(object):
 
         Args:
             full_mean (:obj:`torch.tensor`): the training and test prior means, stacked on top of each other
+            train_inputs (:obj:`torch.tensor`): The training data inputs
             train_labels (:obj:`torch.tensor`): the training labels minus the training prior mean
             noise (:obj:`torch.tensor`): the observed noise (from the likelihood)
             precomputed_cache (optional): speeds up subsequent computations (default: None)
@@ -537,7 +545,8 @@ class LazyTensor(object):
             if non_batch_train and train_mean.dim() == 2:
                 train_mean = train_mean[0]
                 train_labels = train_labels[0]
-            mvn = likelihood(MultivariateNormal(train_mean, train_train_covar))
+            mvn = likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
+
             train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
 
             train_labels_offset = train_labels - train_mean
@@ -563,13 +572,16 @@ class LazyTensor(object):
 
         return res, precomputed_cache.detach()
 
-    def exact_predictive_covar(self, num_train, likelihood, precomputed_cache=None, non_batch_train=False):
+    def exact_predictive_covar(
+        self, train_inputs, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+    ):
         """
         Computes the posterior predictive covariance of a GP
         Assumes that self is the block prior covariance matrix of training and testing points
         [ K_XX, K_XX*; K_X*X, K_X*X* ]
 
         Args:
+            train_inputs (:obj:`torch.tensor`): The training data inputs
             num_train (int): The number of training points in the full covariance matrix
             noise (scalar): The observed noise (from the likelihood)
             precomputed_cache (optional): speeds up subsequent computations (default: None)
@@ -589,7 +601,9 @@ class LazyTensor(object):
             test_train_covar = self[num_train:, :num_train]
             test_test_covar = self[num_train:, num_train:]
 
-        train_train_covar = likelihood(MultivariateNormal(torch.zeros(1), train_train_covar)).lazy_covariance_matrix
+        train_train_covar = likelihood(
+            MultivariateNormal(torch.zeros(1), train_train_covar), train_inputs
+        ).lazy_covariance_matrix
         if not beta_features.fast_pred_var.on():
             from .matmul_lazy_tensor import MatmulLazyTensor
 
