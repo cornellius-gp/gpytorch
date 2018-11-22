@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import gpytorch
-import torch
 import math
-import unittest
 import os
 import random
+import unittest
+
+import gpytorch
+import torch
 from torch import optim
 
 
@@ -52,18 +53,25 @@ class TestGridGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_grid_gp_mean_abs_error(self):
+    def test_grid_gp_mean_abs_error(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
         grid_bounds = [(0, 1), (0, 2)]
         grid_size = 25
-        grid = torch.zeros(grid_size, len(grid_bounds))
+        grid = torch.zeros(grid_size, len(grid_bounds), device=device)
         for i in range(len(grid_bounds)):
             grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_size - 2)
-            grid[:, i] = torch.linspace(grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_size)
+            grid[:, i] = torch.linspace(
+                grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_size, device=device
+            )
 
-        train_x, train_y, test_x, test_y = make_data(grid)
+        train_x, train_y, test_x, test_y = make_data(grid, cuda=cuda)
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
         gp_model = GridGPRegressionModel(grid, train_x, train_y, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
+
+        if cuda:
+            gp_model.cuda()
+            likelihood.cuda()
 
         # Optimize the model
         gp_model.train()
@@ -72,7 +80,7 @@ class TestGridGPRegression(unittest.TestCase):
         optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
         optimizer.n_iter = 0
         with gpytorch.settings.debug(False):
-            for _ in range(25):
+            for _ in range(20):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
                 loss = -mll(output, train_y)
@@ -95,6 +103,10 @@ class TestGridGPRegression(unittest.TestCase):
             mean_abs_error = torch.mean(torch.abs(train_y - train_preds))
 
         self.assertLess(mean_abs_error.squeeze().item(), 0.3)
+
+    def test_grid_gp_mean_abs_error_cuda(self):
+        if torch.cuda.is_available():
+            self.test_grid_gp_mean_abs_error(cuda=True)
 
 
 if __name__ == "__main__":

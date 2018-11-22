@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+
 from . import Kernel
 from ..lazy import DiagLazyTensor, ZeroLazyTensor
 
@@ -55,4 +56,4 @@ class WhiteNoiseKernel(Kernel):
         elif x1.size(-2) == x2.size(-2) and x1.size(-2) == self.variances.size(1) and torch.equal(x1, x2):
             return DiagLazyTensor(self.variances.view(self.variances.size(0), -1))
         else:
-            return ZeroLazyTensor(x1.size(-3), x1.size(-2), x2.size(-2))
+            return ZeroLazyTensor(x1.size(-3), x1.size(-2), x2.size(-2), dtype=x1.dtype, device=x1.device)

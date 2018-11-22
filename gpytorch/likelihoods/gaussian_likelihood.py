@@ -22,8 +22,10 @@ class _GaussianLikelihoodBase(Likelihood):
             raise ValueError("Gaussian likelihoods require a MultivariateNormal input")
         mean, covar = input.mean, input.lazy_covariance_matrix
         if len(params) > 0:
+            # we can infer the shape from the params
             shape = None
         else:
+            # here shape[:-1] is the batch shape requested, and shape[-1] is `n`, the number of points
             shape = mean.shape if len(mean.shape) == 1 else mean.shape[:-1]
         noise_covar = self.noise_covar(*params, shape=shape)
         full_covar = covar + noise_covar

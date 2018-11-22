@@ -107,7 +107,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             shape = None
         else:
             shape = mean.shape if len(mean.shape) == 1 else mean.shape[:-1]
-        D_sem = self.noise_covar(*params, shape=shape).sqrt()
+        noise_covar = self.noise_covar(*params, shape=shape)
 
         if hasattr(self, "task_noise_corr_factor"):
             # if rank > 0, compute the task correlation matrix
@@ -117,12 +117,12 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             if len(batch_shape) == 1:
                 task_corr = task_corr.unsqueeze(-3)
             task_corr_exp = NonLazyTensor(task_corr.expand(exp_shape))
+            noise_sem = noise_covar.sqrt()
+            task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(noise_sem, task_corr_exp), noise_sem)
         else:
             # otherwise tasks are uncorrelated
-            diag_shape = batch_shape + torch.Size([n, self.num_tasks])
-            task_corr_exp = DiagLazyTensor(torch.ones(diag_shape, dtype=covar.dtype, device=covar.device))
+            task_covar_blocks = noise_covar
 
-        task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(D_sem, task_corr_exp), D_sem)
         if len(batch_shape) == 1:
             # TODO: Properly support general batch shapes in BlockDiagLazyTensor (no shape arithmetic)
             tcb_eval = task_covar_blocks.evaluate()
@@ -186,6 +186,31 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             task_correlation_prior=task_correlation_prior,
             batch_size=batch_size,
         )
+        self._param_transform = param_transform
+        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
+        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
+
+    @property
+    def noise(self):
+        return self._param_transform(self.raw_noise)
+
+    @noise.setter
+    def noise(self, value):
+        self._set_noise(value)
+
+    def _set_noise(self, value):
+        self.initialize(raw_noise=self._inv_param_transform(value))
+
+    def forward(self, input, *params):
+        mvn = super().forward(input, *params)
+        mean, covar = mvn.mean, mvn.lazy_covariance_matrix
+        noise = self.noise
+        if covar.ndimension() == 2:
+            if settings.debug.on() and noise.size(0) > 1:
+                raise RuntimeError("With batch_size > 1, expected a batched MultitaskMultivariateNormal distribution.")
+            noise = noise.squeeze(0)
+        covar = add_diag(covar, noise)
+        return input.__class__(mean, covar)
 
 
 class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):

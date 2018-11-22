@@ -8,10 +8,9 @@ from math import pi
 import gpytorch
 import torch
 from gpytorch.kernels import MultitaskKernel, RBFKernel
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.likelihoods import MultitaskGaussianLikelihoodKronecker
 from gpytorch.means import ConstantMean, MultitaskMean
 from gpytorch.distributions import MultitaskMultivariateNormal
-from gpytorch.likelihoods.multitask_gaussian_likelihood import _eval_corr_matrix
 
 
 # Simple training data: let's try to learn a sine function
@@ -54,7 +53,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_low_rank_noise_covar(self):
-        likelihood = MultitaskGaussianLikelihood(num_tasks=2, rank=1)
+        likelihood = MultitaskGaussianLikelihoodKronecker(num_tasks=2, rank=1)
         model = MultitaskGPModel(train_x, train_y, likelihood)
         # Find optimal model hyperparameters
         model.train()
@@ -74,7 +73,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             # Again, note feeding duplicated x_data and indices indicating which task
             output = model(train_x)
             # TODO: Fix this view call!!
-            loss = -mll(output, train_y, train_x)
+            loss = -mll(output, train_y)
             loss.backward()
             optimizer.step()
 
@@ -82,9 +81,13 @@ class TestMultiTaskGPRegression(unittest.TestCase):
         model.eval()
         likelihood.eval()
 
-        task_corr = _eval_corr_matrix(likelihood.task_noise_corr_factor, likelihood.task_noise_corr_diag)
-        noise_diag = likelihood.noise_covar.log_noise.squeeze().diag().exp().sqrt()
-        task_noise_covar = noise_diag.matmul(task_corr).matmul(noise_diag)
+        num_tasks = 2
+        task_noise_covar_factor = likelihood.task_noise_covar_factor
+        noise = likelihood.noise
+        task_noise_covar = task_noise_covar_factor.matmul(
+            task_noise_covar_factor.transpose(-1, -2)
+        ) + noise * torch.eye(num_tasks)
+
         self.assertGreater(task_noise_covar[0, 0, 1].item(), 0.05)
 
 
