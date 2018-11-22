@@ -13,6 +13,8 @@ from .noise_models import HomoskedasticNoise
 
 
 class _GaussianLikelihoodBase(Likelihood):
+    """Base class for Gaussian Likelihoods, supporting general heteroskedastic noise models. """
+
     def __init__(self, noise_covar):
         super().__init__()
         self.noise_covar = noise_covar

@@ -20,31 +20,23 @@ from .noise_models import MultitaskHomoskedasticNoise
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
-    """
-    A convenient extension of the :class:`gpytorch.likelihoods.GaussianLikelihood` to the multitask setting that allows
-    for a full cross-task covariance structure for the noise. The fitted covariance matrix has rank `rank`.
-    If a strictly diagonal task noise covariance matrix is desired, then rank=0 should be set. (This option still
-    allows for a different `log_noise` parameter for each task.)
-
-    Like the Gaussian likelihood, this object can be used with exact inference.
-    """
+    """Base class for multi-task Gaussian Likelihoods, supporting general heteroskedastic noise models. """
 
     def __init__(self, num_tasks, noise_covar, rank=0, task_correlation_prior=None, batch_size=1):
         """
         Args:
-            num_tasks (int): Number of tasks.
-
-            noise_covar (:obj:`gpytorch.module.Module`): A model for the noise covariance. This can be a
-            simple homoskedastic model, or a GP that is to be fitted on the observed measurement errors.
-
-            rank (int): The rank of the task noise covariance matrix to fit. If `rank` is set to 0,
-            then a diagonal covariance matrix is fit.
-
-            task_correlation_prior (:obj:`gpytorch.priors.Prior`): Prior to use over the task noise correlation matrix.
-            Only used when `rank` > 0.
-
-            batch_size (int): Number of batches.
-
+            num_tasks (int):
+                Number of tasks.
+            noise_covar (:obj:`gpytorch.module.Module`):
+                A model for the noise covariance. This can be a simple homoskedastic noise model, or a GP
+                that is to be fitted on the observed measurement errors.
+            rank (int):
+                The rank of the task noise covariance matrix to fit. If `rank` is set to 0, then a diagonal covariance
+                matrix is fit.
+            task_correlation_prior (:obj:`gpytorch.priors.Prior`):
+                Prior to use over the task noise correlation matrix. Only used when `rank` > 0.
+            batch_size (int):
+                Number of batches.
         """
         super().__init__(noise_covar=noise_covar)
         if rank != 0:
@@ -74,27 +66,12 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
     def forward(self, input, *params):
         """
-        Adds the log task noises to the diagonal of the covariance matrix of the supplied
-        :obj:`gpytorch.distributions.MultivariateNormal` or
-        :obj:`gpytorch.distributions.MultitaskMultivariateNormal`, in case of
-        `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
+        Adds the task noises to the diagonal of the covariance matrix of the supplied
+        :obj:`gpytorch.distributions.MultivariateNormal` or :obj:`gpytorch.distributions.MultitaskMultivariateNormal`,
+        in case of `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
 
-        To accomplish this, we form a new :obj:`gpytorch.lazy.KroneckerProductLazyTensor` between :math:`I_{n}`,
-        an identity matrix with size equal to the data and a (not necessarily diagonal) matrix containing the task
-        noises :math:`D_{t}`.
-
-        We also incorporate a shared `log_noise` parameter from the base
-        :class:`gpytorch.likelihoods.GaussianLikelihood` that we extend.
-
-        The final covariance matrix after this method is then :math:`K + D_{t} \otimes I_{n} + \sigma^{2}I_{nt}`.
-
-        Args:
-            input (:obj:`gpytorch.distributions.MultitaskMultivariateNormal`): Random variable whose covariance
-                matrix is a :obj:`gpytorch.lazy.LazyTensor` we intend to augment.
-        Returns:
-            :obj:`gpytorch.distributions.MultitaskMultivariateNormal`: A new random variable whose covariance
-            matrix is a :obj:`gpytorch.lazy.LazyTensor` with :math:`D_{t} \otimes I_{n}` and :math:`\sigma^{2}I_{nt}`
-            added.
+        This scales the task correlations appropriately by the variances at the different points provided
+        by the noise variance model (evalutated at the provided params)
         """
         mean, covar = input.mean, input.lazy_covariance_matrix
         batch_shape, n = covar.shape[:-2], covar.shape[-1] // self.num_tasks
@@ -142,9 +119,12 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     A convenient extension of the :class:`gpytorch.likelihoods.GaussianLikelihood` to the multitask setting that allows
     for a full cross-task covariance structure for the noise. The fitted covariance matrix has rank `rank`.
     If a strictly diagonal task noise covariance matrix is desired, then rank=0 should be set. (This option still
-    allows for a different `log_noise` parameter for each task.)
+    allows for a different `log_noise` parameter for each task.). This likelihood assumes homoskedastic noise.
 
     Like the Gaussian likelihood, this object can be used with exact inference.
+
+    Note: This currently does not yet support batched training and evaluation. If you need support for this,
+    use MultitaskGaussianLikelihoodKronecker for the time being.
     """
 
     def __init__(
@@ -218,9 +198,12 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
     A convenient extension of the :class:`gpytorch.likelihoods.GaussianLikelihood` to the multitask setting that allows
     for a full cross-task covariance structure for the noise. The fitted covariance matrix has rank `rank`.
     If a strictly diagonal task noise covariance matrix is desired, then rank=0 should be set. (This option still
-    allows for a different `log_noise` parameter for each task.)
+    allows for a different `noise` parameter for each task.)
 
     Like the Gaussian likelihood, this object can be used with exact inference.
+
+    Note: This Likelihood is scheduled to be deprecated and replaced by an improved version of
+    `MultitaskGaussianLikelihood`. Use this only for compatibility with batched Multitask models.
     """
 
     def __init__(
@@ -284,16 +267,15 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
 
     def forward(self, input, *params):
         """
-        Adds the log task noises to the diagonal of the covariance matrix of the supplied
-        :obj:`gpytorch.distributions.MultivariateNormal` or
-        :obj:`gpytorch.distributions.MultitaskMultivariateNormal`, in case of
-        `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
+        Adds the task noises to the diagonal of the covariance matrix of the supplied
+        :obj:`gpytorch.distributions.MultivariateNormal` or :obj:`gpytorch.distributions.MultitaskMultivariateNormal`,
+        in case of `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
 
         To accomplish this, we form a new :obj:`gpytorch.lazy.KroneckerProductLazyTensor` between :math:`I_{n}`,
         an identity matrix with size equal to the data and a (not necessarily diagonal) matrix containing the task
         noises :math:`D_{t}`.
 
-        We also incorporate a shared `raw_noise` parameter from the base
+        We also incorporate a shared `noise` parameter from the base
         :class:`gpytorch.likelihoods.GaussianLikelihood` that we extend.
 
         The final covariance matrix after this method is then :math:`K + D_{t} \otimes I_{n} + \sigma^{2}I_{nt}`.
