@@ -44,7 +44,10 @@ class TestLinearCG(unittest.TestCase):
         matrix.add_(torch.eye(matrix.size(-1), dtype=torch.float64).mul_(1e-1))
 
         rhs = torch.randn(size, 50, dtype=torch.float64)
-        solves, t_mats = linear_cg(matrix.matmul, rhs=rhs, n_tridiag=5, max_tridiag_iter=10, max_iter=size, tolerance=0)
+        solves, t_mats = linear_cg(
+            matrix.matmul, rhs=rhs, n_tridiag=5, max_tridiag_iter=10,
+            max_iter=size, tolerance=0, eps=1e-15
+        )
 
         # Check cg
         matrix_chol = matrix.cholesky(upper=True)
@@ -82,7 +85,10 @@ class TestLinearCG(unittest.TestCase):
         matrix.add_(torch.eye(matrix.size(-1), dtype=torch.float64).mul_(1e-1))
 
         rhs = torch.randn(batch, size, 50, dtype=torch.float64)
-        solves, t_mats = linear_cg(matrix.matmul, rhs=rhs, n_tridiag=8, max_iter=size, max_tridiag_iter=10, tolerance=0)
+        solves, t_mats = linear_cg(
+            matrix.matmul, rhs=rhs, n_tridiag=8, max_iter=size, max_tridiag_iter=10,
+            tolerance=0, eps=1e-20
+        )
 
         # Check cg
         matrix_chol = torch.cholesky(matrix, upper=True)

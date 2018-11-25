@@ -13,7 +13,7 @@ def linear_cg(
     rhs,
     n_tridiag=0,
     tolerance=1e-6,
-    eps=1e-20,
+    eps=1e-10,
     max_iter=None,
     max_tridiag_iter=None,
     initial_guess=None,
