@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from itertools import product
-import warnings
 import torch
 from .lazy_tensor import LazyTensor
 from .root_lazy_tensor import RootLazyTensor
@@ -27,10 +26,6 @@ class DiagLazyTensor(LazyTensor):
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
 
         return AddedDiagLazyTensor(other, self)
-
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        warnings.warn("_batch_get_indices is deprecated - use _get_indices instead", DeprecationWarning)
-        return self._get_indices(left_indices, right_indices, batch_indices)
 
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         """Extract elements from the LazyTensor. Supports arbitrary batch sizes.

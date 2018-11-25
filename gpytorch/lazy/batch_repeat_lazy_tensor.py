@@ -18,17 +18,11 @@ class BatchRepeatLazyTensor(LazyTensor):
         self.base_lazy_tensor = base_lazy_tensor
         self.batch_repeat = batch_repeat
 
-    def _batch_get_indices(self, batch_indices, row_indices, col_indices):
-        return self._get_indices(batch_indices, row_indices=row_indices, col_indices=col_indices)
-
-    def _get_indices(self, *batch_indices, row_indices, col_indices):
+    def _get_indices(self, row_indices, col_indices, *batch_indices):
         num_true_batch_dims = len(self.base_lazy_tensor.batch_shape)
         batch_indices = [index % size for index, size in zip(batch_indices, self._padded_base_batch_shape)]
         batch_indices = batch_indices[-num_true_batch_dims:] if num_true_batch_dims else []
-        if len(batch_indices) == 1:
-            return self.base_lazy_tensor._batch_get_indices(*batch_indices, row_indices, col_indices)
-        else:
-            return self.base_lazy_tensor._get_indices(*batch_indices, row_indices, col_indices)
+        return self.base_lazy_tensor._get_indices(row_indices, col_indices, *batch_indices)
 
     def _matmul(self, rhs):
         rhs = self._move_repeat_batches_to_columns(rhs)

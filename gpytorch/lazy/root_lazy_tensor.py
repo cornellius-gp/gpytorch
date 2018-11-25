@@ -54,31 +54,10 @@ class RootLazyTensor(LazyTensor):
     def _transpose_nonbatch(self):
         return self
 
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        n_indices = left_indices.numel()
-        if n_indices > self.size(-1) * self.size(-2) * self.size(-3):
-            return self.evaluate()[batch_indices, left_indices, right_indices]
-
-        else:
-            outer_size = batch_indices.size(0)
-            inner_size = self.root.size(-1)
-            inner_indices = torch.arange(0, inner_size, dtype=torch.long, device=self.device)
-
-            # Repeat the indices to get all the appropriate terms
-            batch_indices = _outer_repeat(batch_indices, inner_size)
-            left_indices = _outer_repeat(left_indices, inner_size)
-            right_indices = _outer_repeat(right_indices, inner_size)
-            inner_indices = _inner_repeat(inner_indices, outer_size)
-
-            left_vals = self.root._batch_get_indices(batch_indices, left_indices, inner_indices)
-            right_vals = self.root.transpose(-1, -2)._batch_get_indices(batch_indices, inner_indices, right_indices)
-
-            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
-
-    def _get_indices(self, left_indices, right_indices):
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
         n_indices = left_indices.numel()
         if n_indices > self.size(-1) * self.size(-2):
-            return self.evaluate()[left_indices, right_indices]
+            return self.evaluate().__getitem__((*batch_indices, left_indices, right_indices))
 
         else:
             outer_size = left_indices.size(0)
@@ -86,12 +65,13 @@ class RootLazyTensor(LazyTensor):
             inner_indices = torch.arange(0, inner_size, dtype=torch.long, device=self.device)
 
             # Repeat the indices to get all the appropriate terms
+            batch_indices = [_outer_repeat(batch_index, inner_size) for batch_index in batch_indices]
             left_indices = _outer_repeat(left_indices, inner_size)
             right_indices = _outer_repeat(right_indices, inner_size)
             inner_indices = _inner_repeat(inner_indices, outer_size)
 
-            left_vals = self.root._get_indices(left_indices, inner_indices)
-            right_vals = self.root.t()._get_indices(inner_indices, right_indices)
+            left_vals = self.root._get_indices(left_indices, inner_indices, *batch_indices)
+            right_vals = self.root.transpose(-1, -2)._get_indices(inner_indices, right_indices, *batch_indices)
 
         return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 

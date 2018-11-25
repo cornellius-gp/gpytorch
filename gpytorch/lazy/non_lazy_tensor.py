@@ -34,11 +34,8 @@ class NonLazyTensor(LazyTensor):
     def _transpose_nonbatch(self):
         return NonLazyTensor(self.tensor.transpose(-1, -2))
 
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        return self.tensor[batch_indices, left_indices, right_indices]
-
-    def _get_indices(self, left_indices, right_indices):
-        return self.tensor[left_indices, right_indices]
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        return self.tensor.__getitem__((*batch_indices, left_indices, right_indices))
 
     def diag(self):
         if self.tensor.ndimension() < 3:

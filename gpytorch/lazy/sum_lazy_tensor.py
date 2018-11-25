@@ -37,14 +37,11 @@ class SumLazyTensor(LazyTensor):
         lazy_tensors_t = [lazy_tensor.transpose(-1, -2) for lazy_tensor in self.lazy_tensors]
         return SumLazyTensor(*lazy_tensors_t)
 
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
         return sum(
-            lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
+            lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
             for lazy_tensor in self.lazy_tensors
         )
-
-    def _get_indices(self, left_indices, right_indices):
-        return sum(lazy_tensor._get_indices(left_indices, right_indices) for lazy_tensor in self.lazy_tensors)
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         return tuple(

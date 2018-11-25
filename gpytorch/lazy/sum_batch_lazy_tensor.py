@@ -2,6 +2,7 @@
 
 import torch
 from .block_lazy_tensor import BlockLazyTensor
+from .. import settings
 
 
 class SumBatchLazyTensor(BlockLazyTensor):
@@ -76,26 +77,30 @@ class SumBatchLazyTensor(BlockLazyTensor):
             inner_batch_size = self.base_lazy_tensor.size(0) // self.num_blocks
             return torch.Size([inner_batch_size] + list(base_size)[1:])
 
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        inner_batch_indices = torch.arange(0, self.num_blocks, dtype=torch.long, device=left_indices.device).unsqueeze_(
-            1
-        )
-        batch_indices = batch_indices.mul(self.num_blocks).unsqueeze_(0).add(inner_batch_indices).view(-1)
-        left_indices = left_indices.unsqueeze(0).repeat(self.num_blocks, 1).view(-1)
-        right_indices = right_indices.unsqueeze(0).repeat(self.num_blocks, 1).view(-1)
-        res = self.base_lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        if self.num_blocks is None:
+            if settings.debug.on():
+                assert(len(batch_indices) == 0)
+            batch_indices = torch.arange(0, self.base_lazy_tensor.size(0), dtype=torch.long, device=left_indices.device)
+            batch_indices = batch_indices.unsqueeze(1).repeat(1, len(left_indices)).view(-1)
+            left_indices = left_indices.unsqueeze(1).repeat(self.base_lazy_tensor.size(0), 1).view(-1)
+            right_indices = right_indices.unsqueeze(1).repeat(self.base_lazy_tensor.size(0), 1).view(-1)
+            res = self.base_lazy_tensor._get_indices(left_indices, right_indices, batch_indices)
+            return res.view(self.base_lazy_tensor.size(0), -1).sum(0)
+        else:
+            if settings.debug.on():
+                assert(len(batch_indices) == 1)
+            batch_indices = batch_indices[0]
+            inner_batch_indices = torch.arange(0, self.num_blocks, dtype=torch.long, device=left_indices.device)
+            inner_batch_indices.unsqueeze_(1)
+            batch_indices = batch_indices.mul(self.num_blocks).unsqueeze_(0).add(inner_batch_indices).view(-1)
+            left_indices = left_indices.unsqueeze(0).repeat(self.num_blocks, 1).view(-1)
+            right_indices = right_indices.unsqueeze(0).repeat(self.num_blocks, 1).view(-1)
+            res = self.base_lazy_tensor._get_indices(left_indices, right_indices, batch_indices)
 
-        res = self.base_lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
-        res = res.view(self.num_blocks, -1).sum(0)
-        return res
-
-    def _get_indices(self, left_indices, right_indices):
-        batch_indices = torch.arange(0, self.base_lazy_tensor.size(0), dtype=torch.long, device=left_indices.device)
-        batch_indices = batch_indices.unsqueeze(1).repeat(1, len(left_indices)).view(-1)
-        left_indices = left_indices.unsqueeze(1).repeat(self.base_lazy_tensor.size(0), 1).view(-1)
-        right_indices = right_indices.unsqueeze(1).repeat(self.base_lazy_tensor.size(0), 1).view(-1)
-        res = self.base_lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
-        return res.view(self.base_lazy_tensor.size(0), -1).sum(0)
+            res = self.base_lazy_tensor._get_indices(left_indices, right_indices, batch_indices)
+            res = res.view(self.num_blocks, -1).sum(0)
+            return res
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         if self.num_blocks is None:

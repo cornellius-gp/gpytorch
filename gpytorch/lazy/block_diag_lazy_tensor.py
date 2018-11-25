@@ -2,6 +2,7 @@
 
 import torch
 from .block_lazy_tensor import BlockLazyTensor
+from .. import settings
 
 
 class BlockDiagLazyTensor(BlockLazyTensor):
@@ -66,32 +67,37 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             true_batch_size = self.base_lazy_tensor.size(0) // self.num_blocks
             return torch.Size((true_batch_size, self.num_blocks * base_size[1], self.num_blocks * base_size[2]))
 
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        block_size = self.base_lazy_tensor.size(-1)
-        left_batch_indices = left_indices.div(block_size).long()
-        right_batch_indices = left_indices.div(block_size).long()
-        batch_indices = batch_indices * block_size + left_batch_indices
-        left_indices = left_indices.fmod(block_size)
-        right_indices = right_indices.fmod(block_size)
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        if self.num_blocks is None:
+            if settings.debug.on():
+                assert(len(batch_indices) == 0)
+            block_size = self.base_lazy_tensor.size(-1)
+            left_batch_indices = left_indices.div(block_size).long()
+            right_batch_indices = left_indices.div(block_size).long()
+            left_indices = left_indices.fmod(block_size)
+            right_indices = right_indices.fmod(block_size)
 
-        res = self.base_lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
-        res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)
-        return res
+            res = self.base_lazy_tensor._get_indices(left_indices, right_indices, left_batch_indices)
+            res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)
+            return res
+        else:
+            if settings.debug.on():
+                assert(len(batch_indices) == 1)
+            batch_indices = batch_indices[0]
+            block_size = self.base_lazy_tensor.size(-1)
+            left_batch_indices = left_indices.div(block_size).long()
+            right_batch_indices = left_indices.div(block_size).long()
+            batch_indices = batch_indices * block_size + left_batch_indices
+            left_indices = left_indices.fmod(block_size)
+            right_indices = right_indices.fmod(block_size)
 
-    def _get_indices(self, left_indices, right_indices):
-        block_size = self.base_lazy_tensor.size(-1)
-        left_batch_indices = left_indices.div(block_size).long()
-        right_batch_indices = left_indices.div(block_size).long()
-        left_indices = left_indices.fmod(block_size)
-        right_indices = right_indices.fmod(block_size)
-
-        res = self.base_lazy_tensor._batch_get_indices(left_batch_indices, left_indices, right_indices)
-        res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)
-        return res
+            res = self.base_lazy_tensor._get_indices(left_indices, right_indices, batch_indices)
+            res = res * torch.eq(left_batch_indices, right_batch_indices).type_as(res)
+            return res
 
     def diag(self):
         res = self.base_lazy_tensor.diag().contiguous()
-        if self.num_blocks:
+        if self.num_blocks is not None:
             res = res.view(res.size(0) // self.num_blocks, -1)
         else:
             res = res.view(-1)
