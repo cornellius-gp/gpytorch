@@ -28,7 +28,7 @@ class _GaussianLikelihoodBase(Likelihood):
             shape = None
         else:
             # here shape[:-1] is the batch shape requested, and shape[-1] is `n`, the number of points
-            shape = mean.shape if len(mean.shape) == 1 else mean.shape[:-1]
+            shape = mean.shape
         noise_covar = self.noise_covar(*params, shape=shape)
         full_covar = covar + noise_covar
         return input.__class__(mean, full_covar)

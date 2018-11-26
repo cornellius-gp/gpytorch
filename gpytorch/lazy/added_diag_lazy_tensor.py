@@ -7,6 +7,7 @@ from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 from ..utils import pivoted_cholesky
 from .. import settings
+from ..utils import broadcasting
 
 
 class AddedDiagLazyTensor(SumLazyTensor):
@@ -20,6 +21,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
         super(AddedDiagLazyTensor, self).__init__(*lazy_tensors)
         if len(lazy_tensors) > 2:
             raise RuntimeError("An AddedDiagLazyTensor can only have two components")
+
+        broadcasting._mul_broadcast_shape(lazy_tensors[0].shape, lazy_tensors[1].shape)
 
         if isinstance(lazy_tensors[0], DiagLazyTensor) and isinstance(lazy_tensors[1], DiagLazyTensor):
             raise RuntimeError("Trying to lazily add two DiagLazyTensors. " "Create a single DiagLazyTensor instead.")
