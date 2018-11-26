@@ -91,6 +91,18 @@ class RectangularLazyTensorTestCase(object):
         res = lazy_tensor[0:2, :].evaluate()
         actual = evaluated[0:2, :]
         self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        res = lazy_tensor[..., 0:2].evaluate()
+        actual = evaluated[..., 0:2]
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        res = lazy_tensor[0:2, ...].evaluate()
+        actual = evaluated[0:2, ...]
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        res = lazy_tensor[..., 0:2, 2]
+        actual = evaluated[..., 0:2, 2]
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        res = lazy_tensor[0:2, ..., 2]
+        actual = evaluated[0:2, ..., 2]
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
 
     def test_getitem_tensor_index(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -103,6 +115,15 @@ class RectangularLazyTensorTestCase(object):
         res, actual = lazy_tensor[index], evaluated[index]
         self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
         index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]))
+        res, actual = lazy_tensor[index], evaluated[index]
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        index = (torch.tensor([0, 0, 1, 2]), Ellipsis)
+        res, actual = lazy_tensor[index], evaluated[index]
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        index = (Ellipsis, torch.tensor([0, 0, 1, 2]))
+        res, actual = lazy_tensor[index], evaluated[index]
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        index = (Ellipsis, torch.tensor([0, 0, 1, 2]), torch.tensor([0, 1, 0, 2]))
         res, actual = lazy_tensor[index], evaluated[index]
         self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
 
@@ -307,6 +328,14 @@ class RectangularBatchLazyTensorTestCase(object):
             actual = evaluated.__getitem__((*batch_index, slice(1, None, None), 2))
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
 
+        # Ellipsis
+        res = lazy_tensor.__getitem__((Ellipsis, slice(1, None, None), 2))
+        actual = evaluated.__getitem__((Ellipsis, slice(1, None, None), 2))
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        res = lazy_tensor.__getitem__((slice(1, None, None), Ellipsis, 2))
+        actual = evaluated.__getitem__((slice(1, None, None), Ellipsis, 2))
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+
     def test_getitem_tensor_index(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -326,6 +355,14 @@ class RectangularBatchLazyTensorTestCase(object):
             index = (*batch_index, slice(None, None, None), slice(None, None, None))
             res, actual = lazy_tensor[index].evaluate(), evaluated[index]
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+
+        # Ellipsis
+        res = lazy_tensor.__getitem__((Ellipsis, torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1])))
+        actual = evaluated.__getitem__((Ellipsis, torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1])))
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
+        res = lazy_tensor.__getitem__((torch.tensor([0, 1, 0, 1]), Ellipsis, torch.tensor([1, 2, 0, 1])))
+        actual = evaluated.__getitem__((torch.tensor([0, 1, 0, 1]), Ellipsis, torch.tensor([1, 2, 0, 1])))
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
 
 
 class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):

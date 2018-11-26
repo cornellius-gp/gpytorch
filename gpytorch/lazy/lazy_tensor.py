@@ -533,13 +533,10 @@ class LazyTensor(object):
 
         if precomputed_cache is None:
             train_mean = full_mean.narrow(-1, 0, num_train)
-            if self.ndimension() == 3:
-                if non_batch_train:
-                    train_train_covar = self[0, :num_train, :num_train]
-                else:
-                    train_train_covar = self[:, :num_train, :num_train]
+            if non_batch_train and self.dim() == 3:
+                train_train_covar = self[0, :num_train, :num_train]
             else:
-                train_train_covar = self[:num_train, :num_train]
+                train_train_covar = self[..., :num_train, :num_train]
 
             train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
             if non_batch_train and train_mean.dim() == 2:
@@ -592,14 +589,9 @@ class LazyTensor(object):
         """
         from ..distributions import MultivariateNormal
 
-        if self.ndimension() == 3:
-            train_train_covar = self[:, :num_train, :num_train]
-            test_train_covar = self[:, num_train:, :num_train]
-            test_test_covar = self[:, num_train:, num_train:]
-        else:
-            train_train_covar = self[:num_train, :num_train]
-            test_train_covar = self[num_train:, :num_train]
-            test_test_covar = self[num_train:, num_train:]
+        train_train_covar = self[..., :num_train, :num_train]
+        test_train_covar = self[..., num_train:, :num_train]
+        test_test_covar = self[..., num_train:, num_train:]
 
         train_train_covar = likelihood(
             MultivariateNormal(torch.zeros(1), train_train_covar), train_inputs
@@ -1246,11 +1238,29 @@ class LazyTensor(object):
         Supports subindexing of the matrix this LazyTensor represents. This may return either another
         :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
         """
+        ndimension = self.ndimension()
+        components = list(self._args)
+
+        # Process the index
         index = list(index) if isinstance(index, tuple) else [index]
         index = [torch.tensor(idx) if isinstance(idx, list) else idx for idx in index]
-        ndimension = self.ndimension()
+
+        # Handle the ellipsis
+        # Find the index of the ellipsis
+        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
+        if settings.debug.on():
+            if len(ellipsis_locs) > 1:
+                raise RuntimeError(
+                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
+                    " received index {}.".format(self, index)
+                )
+        if len(ellipsis_locs) == 1:
+            ellipsis_loc = ellipsis_locs[0]
+            num_to_fill_in = ndimension - (len(index) - 1)
+            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
+
+        # Pad the index with empty slices
         index += [slice(None, None, None)] * (ndimension - len(index))
-        components = list(self._args)
 
         # Normal case if we're indexing the LT with ints or slices
         # Also squeeze dimensions if we're indexing with tensors

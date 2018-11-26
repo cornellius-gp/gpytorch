@@ -2,6 +2,7 @@
 
 import torch
 from .lazy_tensor import LazyTensor
+from .. import settings
 
 
 class BlockLazyTensor(LazyTensor):
@@ -54,13 +55,35 @@ class BlockLazyTensor(LazyTensor):
             return super(BlockLazyTensor, self).mul(other)
 
     def __getitem__(self, index):
+        # Process the index
+        ndimension = self.ndimension()
+        index = list(index) if isinstance(index, tuple) else [index]
+        index = [torch.tensor(idx) if isinstance(idx, list) else idx for idx in index]
+
+        # Handle the ellipsis
+        # Find the index of the ellipsis
+        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
+        if settings.debug.on():
+            if len(ellipsis_locs) > 1:
+                raise RuntimeError(
+                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
+                    " received index {}.".format(self, index)
+                )
+        if len(ellipsis_locs) == 1:
+            ellipsis_loc = ellipsis_locs[0]
+            num_to_fill_in = ndimension - (len(index) - 1)
+            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
+
+        # Convert index back to tuple
+        index = tuple(index)
+
         if self.num_blocks is None:
             res = super(BlockLazyTensor, self).__getitem__(index)
             return res
 
         # Cases for when there's an inner batch
         else:
-            batch_index = index if not isinstance(index, tuple) else index[0]
+            batch_index = index[0]
             first_tensor_index_dim = None
 
             # Keeping all batch dimensions - recursion base case
@@ -96,7 +119,7 @@ class BlockLazyTensor(LazyTensor):
             new_var = self.__class__(*components, num_blocks=num_blocks)
 
             # If the index was only on the batch index, we're done
-            if not isinstance(index, tuple) or len(index) == 1:
+            if len(index) == 1:
                 return new_var
 
             # Else - recurse
