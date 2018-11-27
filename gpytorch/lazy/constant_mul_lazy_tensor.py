@@ -119,12 +119,8 @@ class ConstantMulLazyTensor(LazyTensor):
     def _transpose_nonbatch(self):
         return ConstantMulLazyTensor(self.base_lazy_tensor._transpose_nonbatch(), self.constant)
 
-    def _batch_get_indices(self, batch_indices, left_indices, right_indices):
-        res = self.base_lazy_tensor._batch_get_indices(batch_indices, left_indices, right_indices)
-        return self.constant.expand_as(res) * res
-
-    def _get_indices(self, left_indices, right_indices):
-        res = self.base_lazy_tensor._get_indices(left_indices, right_indices)
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
         return self.constant.expand_as(res) * res
 
     def _approx_diag(self):

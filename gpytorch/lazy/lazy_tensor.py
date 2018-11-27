@@ -45,7 +45,7 @@ class LazyTensor(object):
     * :func:`~gpytorch.lazy.LazyTensor._transpose_nonbatch`, which returns a transposed version of the LazyTensor
 
     In addition to these, a LazyTensor may need to define the :func:`~gpytorch.lazy.LazyTensor._transpose_nonbatch`,
-    :func:`~gpytorch.lazy.LazyTensor._get_indices`, and :func:`~gpytorch.lazy.LazyTensor._batch_get_indices`
+    :func:`~gpytorch.lazy.LazyTensor._get_indices`, and :func:`~gpytorch.lazy.LazyTensor._get_indices`
     functions in special cases. See the documentation for these methods for details.
 
     .. note::
@@ -453,7 +453,7 @@ class LazyTensor(object):
             batch_iter = torch.arange(0, size[0], dtype=torch.long, device=self.device)
             batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
             row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
-            return self._batch_get_indices(batch_iter, row_col_iter, row_col_iter).view(size[0], size[1])
+            return self._get_indices(row_col_iter, row_col_iter, batch_iter).view(size[0], size[1])
         else:
             return self._get_indices(row_col_iter, row_col_iter)
 
@@ -1296,7 +1296,6 @@ class LazyTensor(object):
             return new_lazy_tensor
 
         # Special case: if both row and col are tensor indexed, then we use _get_indices
-        # or _batch_get_indices
         if torch.is_tensor(left_index) and torch.is_tensor(right_index):
             if left_index.numel() != right_index.numel():
                 raise RuntimeError(
@@ -1317,14 +1316,14 @@ class LazyTensor(object):
                                 batch_index.numel(), left_index.numel(), right_index.numel()
                             )
                         )
-                    return new_lazy_tensor._batch_get_indices(batch_index, left_index, right_index)
+                    return new_lazy_tensor._get_indices(left_index, right_index, batch_index)
                 else:
                     batch_size = batch_index.numel()
                     row_col_size = left_index.numel()
                     batch_index = batch_index.unsqueeze(1).repeat(1, row_col_size).view(-1)
                     left_index = left_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
                     right_index = right_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-                    res = new_lazy_tensor._batch_get_indices(batch_index, left_index, right_index)
+                    res = new_lazy_tensor._get_indices(left_index, right_index, batch_index)
                     return res.view(batch_size, row_col_size)
 
         # Normal case: we have to do some processing on eithe rthe rows or columns
