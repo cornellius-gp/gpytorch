@@ -61,6 +61,8 @@ Some examples:
     - [An example for low-dimensional classification](07_Scalable_GP_Classification_Multidimensional/KISSGP_Kronecker_Classification.ipynb)
     - And [more classification examples](07_Scalable_GP_Classification_Multidimensional)!
 - **SVGP Classification** - [More info on SVGP](http://proceedings.mlr.press/v38/hensman15.pdf)
+    - [An example using SVGP for 1D regression](04_Scalable_GP_Regression_1D/SVGP_Regression_1D.ipynb)
+    - [An example using SVGP for batch mode 1D regression](04_Scalable_GP_Regression_1D/SVGP_Batch_Regression_1D.ipynb)
     - [An example combining SVGP and DKL](05_Scalable_GP_Regression_Multidimensional/SVDKL_Regression_SVGP_CUDA.ipynb)
 
 
