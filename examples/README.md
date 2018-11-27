@@ -56,10 +56,12 @@ Some examples:
 
 There are multiple methods for scalable GP classification, and the correct choice depends on your application.
 Some examples:
-- **KISS-GP Classification**
+- **KISS-GP Classification** - [More info on KISS-GP classification](https://arxiv.org/abs/1611.00336)
     - A [simple KISS-GP classificatoin example for one-dimensional data](06_Scalable_GP_Classification_1D/KISSGP_Classification_1D.ipynb)
     - [An example for low-dimensional classification](07_Scalable_GP_Classification_Multidimensional/KISSGP_Kronecker_Classification.ipynb)
     - And [more classification examples](07_Scalable_GP_Classification_Multidimensional)!
+- **SVGP Classification** - [More info on SVGP](http://proceedings.mlr.press/v38/hensman15.pdf)
+    - [An example combining SVGP and DKL](05_Scalable_GP_Regression_Multidimensional/SVDKL_Regression_SVGP_CUDA.ipynb)
 
 
 ## Deep Kernel Learning
