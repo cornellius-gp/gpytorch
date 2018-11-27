@@ -13,5 +13,5 @@ All examples here use exact GP inference (and therefore assume a Gaussian noise 
   - This notebook expands on previous eample with a more complex kernel.
     The [spectral mixture kernel](https://arxiv.org/pdf/1302.4245.pdf) is a great choice if you have a complex extrapolation problem.
 - [GP Regression (CUDA) with Fast Variances (LOVE)](./Simple_GP_Regression_With_LOVE_Fast_Variances_CUDA.ipynb)
-  - This notebook demonstrates [LOVE](https://arxiv.org/pdf/1803.06058.pdf), a technique to rapidly speed up predictive variance computaitons.
+  - This notebook demonstrates [LOVE](https://arxiv.org/pdf/1803.06058.pdf), a technique to rapidly speed up predictive variance computations.
     Check out this notebook to see how to use LOVE in GPyTorch, and how it compares to standard variance computations.
