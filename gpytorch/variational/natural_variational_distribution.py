@@ -38,27 +38,36 @@ class NaturalVariationalDistribution(VariationalDistribution):
         # to the right variables. This gets cleared by NaturalAdam.step
         self.has_buffer = False
 
-    # convert from normal expectations eta=(eta1, eta2) to mu, L representation
-    def _dist_from_natural(self, nat_mean, nat_L):
-        mumu = torch.matmul(nat_mean.unsqueeze(-1), nat_mean.unsqueeze(-2))
-        L = torch.cholesky(nat_L.matmul(nat_L.transpose(-2, -1)) - mumu, upper=False)
-        return nat_mean, L.contiguous()
+    def _meanvarsqrt_to_expectation(self, mean, chol_covar):
+        v = torch.matmul(chol_covar, torch.transpose(chol_covar, -1, -2))
+        return mean, v + torch.matmul(mean.unsqueeze(-1), mean.unsqueeze(-2))
 
-    # convert to eta representation from mu, L representation
-    def _natural_from_dist(self, mu, Sigma):
-        mumu = torch.matmul(mu.unsqueeze(-1), mu.unsqueeze(-2))
-        nat_L = torch.cholesky(Sigma + mumu, upper=False)
-        return mu, nat_L
+    def _meanvarsqrt_to_natural(self, mean, chol_covar):
+        chol_covar_inv = torch.trtrs(torch.eye(mean.size(-1)).type_as(mean), chol_covar, upper=False)[0]
+        s_inv = torch.matmul(torch.transpose(chol_covar_inv, -1, -2), chol_covar_inv)
+        return torch.matmul(s_inv, mean), -0.5 * s_inv
+
+    def _expectation_to_meanvarsqrt(self, eta_1, eta_2):
+        var = eta_2 - torch.matmul(eta_1.unsqueeze(-1), eta_1.unsqueeze(-2))
+        return eta_1, torch.cholesky(var, upper=False)
+
+    def _natural_to_meanvarsqrt(self, nat_mean, nat_covar):
+        var_sqrt_inv = torch.cholesky(-2.0 * nat_covar, upper=False)
+        var_sqrt = torch.trtrs(torch.eye(nat_mean.size(-1)).type_as(nat_mean), var_sqrt_inv, upper=False)[0]
+        # Probably could just return var_sqrt here, and do mu = CholLazyTensor(var_sqrt).matmul(nat_mean)
+        S = torch.matmul(torch.transpose(var_sqrt, -1, -2), var_sqrt)
+        mu = torch.matmul(S, nat_mean)
+        return mu, torch.cholesky(S, upper=False)
 
     # Initialize eta1 and eta2 from prior distribution via _natural_from_dist
     def initialize_variational_distribution(self, prior_dist):
         prior_mean = prior_dist.mean
-        prior_covar = prior_dist.covariance_matrix
+        prior_covar_sqrt = torch.cholesky(prior_dist.covariance_matrix, upper=False)
 
-        nat_mean, nat_L = self._natural_from_dist(prior_mean, prior_covar)
+        nat_mean, nat_covar = self._meanvarsqrt_to_natural(prior_mean.detach(), prior_covar_sqrt.detach())
 
         self.natural_variational_mean.data.copy_(nat_mean)
-        self.natural_variational_covar.data.copy_(nat_L)
+        self.natural_variational_covar.data.copy_(nat_covar)
 
     @property
     def variational_distribution(self):
@@ -67,7 +76,7 @@ class NaturalVariationalDistribution(VariationalDistribution):
             # This way, we can use torch.autograd.grad calls on the loss.
             variational_mean, chol_variational_covar = self.buffer
         else:
-            variational_mean, chol_variational_covar = self._dist_from_natural(
+            variational_mean, chol_variational_covar = self._natural_to_meanvarsqrt(
                 self.natural_variational_mean,
                 self.natural_variational_covar
             )

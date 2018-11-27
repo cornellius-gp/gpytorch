@@ -10,7 +10,7 @@ from . import interpolation
 from . import lanczos
 from . import pivoted_cholesky
 from . import sparse
-from . import natural_adam
+from . import natural_sgd
 
 
 def prod(items):
@@ -36,5 +36,5 @@ __all__ = [
     "lanczos",
     "pivoted_cholesky",
     "sparse",
-    "natural_adam",
+    "natural_sgd",
 ]
