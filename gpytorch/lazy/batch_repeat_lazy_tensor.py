@@ -169,10 +169,6 @@ class BatchRepeatLazyTensor(LazyTensor):
         )
 
     def __getitem__(self, index):
-        """
-        Supports subindexing of the matrix this LazyTensor represents. This may return either another
-        :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
-        """
         args = []
         kwargs = self.base_lazy_tensor._kwargs
         num_base_batch_dims = len(self.base_lazy_tensor.batch_shape)

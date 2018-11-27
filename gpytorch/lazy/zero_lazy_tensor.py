@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
-from . import LazyTensor
+from .lazy_tensor import LazyTensor
+from .. import settings
 
 
 class ZeroLazyTensor(LazyTensor):
@@ -144,8 +145,24 @@ class ZeroLazyTensor(LazyTensor):
         return self
 
     def __getitem__(self, index):
-        index = list(index) if isinstance(index, tuple) else [index]
         ndimension = self.ndimension()
+        index = list(index) if isinstance(index, tuple) else [index]
+
+        # Handle the ellipsis
+        # Find the index of the ellipsis
+        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
+        if settings.debug.on():
+            if len(ellipsis_locs) > 1:
+                raise RuntimeError(
+                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
+                    " received index {}.".format(self, index)
+                )
+        if len(ellipsis_locs) == 1:
+            ellipsis_loc = ellipsis_locs[0]
+            num_to_fill_in = ndimension - (len(index) - 1)
+            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
+
+        # Pad the index with empty slices
         index += [slice(None, None, None)] * (ndimension - len(index))
 
         has_added_tensor_index = False

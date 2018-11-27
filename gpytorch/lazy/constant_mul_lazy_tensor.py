@@ -54,24 +54,19 @@ class ConstantMulLazyTensor(LazyTensor):
     """
 
     def __init__(self, base_lazy_tensor, constant):
-        if torch.is_tensor(constant):
-            if constant.ndimension() > 1:
-                raise RuntimeError(
-                    "Got a constant with %d dimensions - expected a 0D or 1D tensor" % constant.ndimension()
-                )
-            elif constant.numel() > 1:
-                if not (base_lazy_tensor.ndimension() == 3 and base_lazy_tensor.size(0) == constant.numel()):
-                    numel = constant.numel()
-                    raise RuntimeError(
-                        "A constant with size %d expedts a 3D lazy var. with batch size %d. "
-                        "Got a %dD lazy var. with size %s"
-                        % (numel, numel, base_lazy_tensor.ndimension(), repr(base_lazy_tensor.size()))
-                    )
-
-            elif constant.numel() == 1:
-                constant = constant.squeeze()
-        else:
+        if not torch.is_tensor(constant):
             constant = torch.tensor(constant, device=base_lazy_tensor.device, dtype=base_lazy_tensor.dtype)
+        orig_constant = constant
+
+        # Make sure that the constant can be expanded to the appropriate size
+        try:
+            constant = orig_constant.expand(base_lazy_tensor.batch_shape)
+        except RuntimeError:
+            raise RuntimeError(
+                "ConstantMulLazyTensor of size {} received an invalid constant of size {}.".format(
+                    base_lazy_tensor.shape, orig_constant.shape
+                )
+            )
 
         super(ConstantMulLazyTensor, self).__init__(base_lazy_tensor, constant)
         self.base_lazy_tensor = base_lazy_tensor
@@ -79,39 +74,27 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _matmul(self, rhs):
         res = self.base_lazy_tensor._matmul(rhs)
-        res = res * self._constant_as(res)
+        constant = self.constant.view(*self.constant.shape, 1, 1)
+        res = res * constant
         return res
 
     def _t_matmul(self, rhs):
         res = self.base_lazy_tensor._t_matmul(rhs)
-        res = res * self._constant_as(res)
+        constant = self.constant.view(*self.constant.shape, 1, 1)
+        res = res * constant
         return res
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
-        res = list(self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs))
-        for i, item in enumerate(res):
-            if torch.is_tensor(item) and res[i].sum():
-                res[i] = res[i] * self._constant_as(res[i])
         # Gradient with respect to the constant
-        if self.constant.numel() == 1:
-            constant_deriv = (left_vecs * self.base_lazy_tensor._matmul(right_vecs)).sum().expand_as(self.constant)
-        else:
-            constant_deriv = left_vecs * self.base_lazy_tensor._matmul(right_vecs)
-            constant_deriv = constant_deriv.sum(-2, keepdim=True).sum(-1, keepdim=True)
+        constant_deriv = left_vecs * self.base_lazy_tensor._matmul(right_vecs)
+        constant_deriv = constant_deriv.sum(-2).sum(-1)
 
-        if constant_deriv.dim():
-            constant_deriv = constant_deriv.view(*self.constant.size())
-        res.append(constant_deriv)
-        return res
+        # Get derivaties of everything else
+        constant = self.constant.view(*self.constant.shape, 1, 1)
+        left_vecs = left_vecs * constant
+        res = self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
 
-    def _constant_as(self, other):
-        size = [self.constant.numel()] + [1] * (other.ndimension() - 1)
-        constant = self.constant.view(*size)
-
-        if constant.ndimension() > other.ndimension():
-            constant = constant.squeeze(-1)
-
-        return constant
+        return res + (constant_deriv,)
 
     def _size(self):
         return self.base_lazy_tensor.size()
@@ -121,27 +104,20 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
-        return self.constant.expand_as(res) * res
+        constant = self.constant.__getitem__(batch_indices)
+        return res * constant
 
     def _approx_diag(self):
         res = self.base_lazy_tensor._approx_diag()
-        return res * self._constant_as(res)
+        constant = self.constant.view(*self.constant.shape, 1)
+        return res * constant
 
     def evaluate(self):
         res = self.base_lazy_tensor.evaluate()
-        return res * self._constant_as(res)
+        constant = self.constant.view(*self.constant.shape, 1, 1)
+        return res * constant
 
     def diag(self):
         res = self.base_lazy_tensor.diag()
-        res = res * self._constant_as(res)
-        return res
-
-    def __getitem__(self, i):
-        constant = self.constant
-        if constant.numel() > 1:
-            first_index = i[0] if isinstance(i, tuple) else i
-            constant = constant[first_index]
-        base_lazy_tensor = self.base_lazy_tensor.__getitem__(i)
-        if torch.is_tensor(base_lazy_tensor) and constant.dim() < base_lazy_tensor.dim():
-            constant = constant.view(constant.numel(), *([1] * (base_lazy_tensor.dim() - 1)))
-        return base_lazy_tensor * constant
+        constant = self.constant.view(*self.constant.shape, 1)
+        return res * constant

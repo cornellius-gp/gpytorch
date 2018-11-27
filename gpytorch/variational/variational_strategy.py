@@ -87,20 +87,12 @@ class VariationalStrategy(Module):
             full_output = self.model.forward(full_inputs)
             full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
-            if full_covar.dim() == 3:
-                test_mean = full_mean[:, n_induc:]
-                induc_mean = full_mean[:, :n_induc]
-                induc_induc_covar = full_covar[:, :n_induc, :n_induc].add_jitter()
-                induc_data_covar = full_covar[:, :n_induc, n_induc:]
-                data_data_covar = full_covar[:, n_induc:, n_induc:]
-                var_dist_mean = variational_dist.mean
-            else:
-                test_mean = full_mean[n_induc:]
-                induc_mean = full_mean[:n_induc]
-                induc_induc_covar = full_covar[:n_induc, :n_induc].add_jitter()
-                induc_data_covar = full_covar[:n_induc, n_induc:]
-                data_data_covar = full_covar[n_induc:, n_induc:]
-                var_dist_mean = variational_dist.mean
+            test_mean = full_mean[..., n_induc:]
+            induc_mean = full_mean[..., :n_induc]
+            induc_induc_covar = full_covar[..., :n_induc, :n_induc].add_jitter()
+            induc_data_covar = full_covar[..., :n_induc, n_induc:]
+            data_data_covar = full_covar[..., n_induc:, n_induc:]
+            var_dist_mean = variational_dist.mean
 
             # Cache the prior distribution, for faster training
             if self.training:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+from .. import settings
 from ..lazy import LazyTensor
 
 
@@ -48,10 +49,33 @@ class NonLazyTensor(LazyTensor):
         return self.tensor
 
     def __getitem__(self, index):
-        res = self.tensor[index]
+        # Make sure index is a list
         if not isinstance(index, tuple):
-            index = (index,)
+            index = [index]
+        else:
+            index = list(index)
 
+        # Handle the ellipsis
+        # Find the index of the ellipsis
+        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
+        if settings.debug.on():
+            if len(ellipsis_locs) > 1:
+                raise RuntimeError(
+                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
+                    " received index {}.".format(self, index)
+                )
+        if len(ellipsis_locs) == 1:
+            ellipsis_loc = ellipsis_locs[0]
+            num_to_fill_in = self.ndimension() - (len(index) - 1)
+            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
+
+        # Make the index a tuple again
+        index = tuple(index)
+
+        # Perform the __getitem__
+        res = self.tensor[index]
+
+        # Determine if we should return a LazyTensor or a Tensor
         if len(index) >= self.ndimension() - 1:
             row_index = index[self.ndimension() - 2]
             if isinstance(row_index, int) or torch.is_tensor(row_index):
@@ -60,5 +84,4 @@ class NonLazyTensor(LazyTensor):
             col_index = index[self.ndimension() - 1]
             if isinstance(col_index, int) or torch.is_tensor(col_index):
                 return res
-
         return NonLazyTensor(res)
