@@ -1296,7 +1296,6 @@ class LazyTensor(object):
             return new_lazy_tensor
 
         # Special case: if both row and col are tensor indexed, then we use _get_indices
-        # or _get_indices
         if torch.is_tensor(left_index) and torch.is_tensor(right_index):
             if left_index.numel() != right_index.numel():
                 raise RuntimeError(
