@@ -6,8 +6,8 @@ from torch.nn.functional import softplus
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor
 from ..likelihoods import Likelihood
+from ..lazy import BlockDiagLazyTensor, DiagLazyTensor
 from ..utils.deprecation import _deprecate_kwarg
 from .noise_models import HomoskedasticNoise
 
@@ -96,4 +96,10 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
             noise = noise.squeeze(0)
         y_lazy_covar = DiagLazyTensor(var_f + noise.expand_as(var_f))
         y_dist = MultivariateNormal(y_mean, y_lazy_covar)
+        if len(y_dist.batch_shape):
+            y_dist = y_dist.__class__(
+                y_dist.mean.contiguous().view(-1),
+                BlockDiagLazyTensor(y_dist.lazy_covariance_matrix),
+            )
+            y_obs = y_obs.view_as(y_dist.mean)
         pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)
