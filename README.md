@@ -46,7 +46,7 @@ pip install git+https://github.com/cornellius-gp/gpytorch.git
 
 If you use GPyTorch, please cite the following papers:
 > [Gardner, Jacob R., Geoff Pleiss, David Bindel, Kilian Q. Weinberger, and Andrew Gordon Wilson. "
-GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration." In *NIPS* (2018).](https://arxiv.org/abs/1809.11165)
+GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration." In *NeurIPS* (2018).](https://arxiv.org/abs/1809.11165)
 ```
 @inproceedings{gardner2018gpytorch,
   title={
