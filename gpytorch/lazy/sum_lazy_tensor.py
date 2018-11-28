@@ -88,3 +88,10 @@ class SumLazyTensor(LazyTensor):
 
     def sum_batch(self, sum_batch_size=None):
         return self.__class__(*(lazy_tensor.sum_batch(sum_batch_size) for lazy_tensor in self.lazy_tensors))
+
+    def __getitem__(self, index):
+        results = tuple(lazy_tensor.__getitem__(index) for lazy_tensor in self.lazy_tensors)
+        if isinstance(results[0], LazyTensor):
+            return SumLazyTensor(*results)
+        else:
+            return sum(results)
