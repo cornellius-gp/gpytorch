@@ -3,6 +3,8 @@
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
+import torch
+from math import pi
 
 
 class RBFKernel(Kernel):
@@ -94,3 +96,20 @@ class RBFKernel(Kernel):
         x2_ = x2.div(self.lengthscale)
         diff = self._covar_dist(x1_, x2_, square_dist=True, **params)
         return diff.div_(-2).exp_()
+
+    def integrate_inner(self, x1, x2, min_bounds, max_bounds, **params):
+        x1_ = x1.div(self.lengthscale)
+        x2_ = x2.div(self.lengthscale)
+
+        x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
+        kernel_part = (x1_ - x2_).norm(2, dim=-1).pow(2).div_(-4).exp_()
+        constant = (-0.5 * torch.sqrt(torch.tensor(pi)) * self.lengthscale).prod()
+
+        z_bar = 0.5 * (x1_ + x2_)
+        erf_max = torch.erf(z_bar - max_bounds.div(self.lengthscale))
+        erf_min = torch.erf(z_bar - min_bounds.div(self.lengthscale))
+
+        erf_part = (erf_max - erf_min).prod(-1)
+
+        return constant * kernel_part * erf_part
+>>>>>>> Working on Cox processes implementation

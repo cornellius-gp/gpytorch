@@ -102,3 +102,10 @@ class ScaleKernel(Kernel):
             return delazify(orig_output) * outputscales
 
         return orig_output.mul(outputscales)
+
+    def integrate_inner(self, x1, x2, min_bounds, max_bounds, **params):
+        outputscales = self.outputscale
+        orig_output = self.base_kernel.integrate_inner(x1, x2, min_bounds, max_bounds, **params)
+        if torch.is_tensor(orig_output):
+            outputscales = outputscales.view(-1, *([1] * (orig_output.dim() - 1)))
+        return orig_output.mul(outputscales.pow(2))
