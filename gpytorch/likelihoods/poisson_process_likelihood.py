@@ -23,8 +23,8 @@ class PoissonProcessLikelihood(Likelihood):
         min_bounds,
         max_bounds,
         hypergeo_grid_size=30000,
-        hypergeo_grid_lower=-1000,
-        hypergeo_grid_upper=-1e-5
+        hypergeo_grid_lower=-100,
+        hypergeo_grid_upper=1,
     ):
         super().__init__()
 
@@ -72,6 +72,7 @@ class PoissonProcessLikelihood(Likelihood):
             raise RuntimeError('Models using a Poisson process likelihood must return a covar call directly.')
 
         kernel = inducing_covar.kernel
+        # print(kernel)
         inducing_covar = inducing_covar.add_jitter()
         psi_matrix = kernel.integrate_inner(
             inducing_points,
@@ -79,6 +80,7 @@ class PoissonProcessLikelihood(Likelihood):
             self.min_bounds,
             self.max_bounds
         ).squeeze(0)
+        # print(psi_matrix, kernel.base_kernel.integrate_inner(inducing_points, inducing_points, self.min_bounds, self.max_bounds))
 
         # TODO: Obviously, do this a better way.
         Kzz_inv = inducing_covar.evaluate().inverse()
@@ -95,24 +97,28 @@ class PoissonProcessLikelihood(Likelihood):
         raise NotImplementedError
 
     def variational_log_probability(self, latent_func, target, model):
+        # print(latent_func.mean)
         q_mu_squared = latent_func.mean.pow(2)
         q_var = latent_func.variance
         scaled_mean = q_mu_squared / (2 * q_var)
+        # print(-scaled_mean.min(), -scaled_mean.max())
 
-        num_samples = 1000
-        samples = latent_func.rsample(torch.Size([num_samples]))
+        num_samples = 100
+        samples = q_var.sqrt() * torch.randn(num_samples, target.size(-1), dtype=q_var.dtype) + latent_func.mean
+        # samples = latent_func.rsample(torch.Size([num_samples]))
         expected_log_probs_sample = samples.pow(2).log().mean(-2).sum()
 
         # Easy term
         expected_log_probs = -self._hypergeo(-scaled_mean) + (q_var / 2).log() - EULER_MASCHERONI_CONSTANT
+        # print(expected_log_probs.shape)
         expected_log_prob = expected_log_probs.sum()
 
         # print(expected_log_prob, expected_log_probs_sample)
 
         # Hard term
         moment_integral = self._integrate_moments(model)
-        log_prob = (-moment_integral + expected_log_prob)
-        print(expected_log_probs_sample.item(), moment_integral.item())
+        log_prob = -moment_integral + expected_log_prob
+        # print(expected_log_prob.item(), expected_log_probs_sample.item(), moment_integral.item())
         return log_prob
 
     def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
