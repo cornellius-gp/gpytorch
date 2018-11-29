@@ -32,28 +32,84 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def device(self):
         return self.x1.device
 
-    def _matmul(self, rhs):
-        raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
-
-    def _t_matmul(self, rhs):
-        raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
-
-    def _quad_form_derivative(self, left_vecs, right_vecs):
-        raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
-
-    def _transpose_nonbatch(self):
-        return self.__class__(self.kernel, self.x2, self.x1, **self.params)
-
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         from ..kernels import Kernel
 
-        x1 = self.x1.__getitem__((*batch_indices, left_indices)).unsqueeze(0)
-        x2 = self.x2.__getitem__((*batch_indices, right_indices)).unsqueeze(0)
+        x1 = self.x1[(*batch_indices, left_indices)].unsqueeze(0)
+        x2 = self.x2[(*batch_indices, right_indices)].unsqueeze(0)
         res = super(Kernel, self.kernel).__call__(x1.transpose(0, 1), x2.transpose(0, 1))
         if isinstance(res, LazyTensor):
             res = res.evaluate()
         res = res.view(-1)
         return res
+
+    def _getitem(self, *indices):
+        if self.is_batch:
+            batch_index = indices[0]
+            left_index = indices[1]
+            right_index = indices[2]
+            squeeze_row = self.squeeze_row
+            squeeze_col = self.squeeze_col
+
+            x1 = self.x1
+            if self.batch_dims == (0, 2):
+                x1 = x1.permute(0, 2, 1).contiguous()
+                x1 = x1.view(-1, x1.size(-1), 1)
+            x1 = x1[batch_index, left_index, :]
+            if x1.dim() == 2 and not isinstance(batch_index, int):
+                x1 = x1.unsqueeze(1)
+                squeeze_row = True
+            x2 = self.x2
+            if self.batch_dims == (0, 2):
+                x2 = x2.permute(0, 2, 1).contiguous()
+                x2 = x2.view(-1, x2.size(-1), 1)
+            x2 = x2[batch_index, right_index, :]
+            if x2.dim() == 2 and not isinstance(batch_index, int):
+                x2 = x2.unsqueeze(1)
+                squeeze_col = True
+
+            return LazyEvaluatedKernelTensor(
+                self.kernel, x1, x2, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
+            )
+        else:
+            left_index = indices[0]
+            right_index = indices[1]
+            squeeze_row = self.squeeze_row
+            squeeze_col = self.squeeze_col
+
+            x1 = self.x1[left_index, :]
+            if x1.dim() == 1:
+                x1 = x1.unsqueeze(1)
+                squeeze_row = True
+            x2 = self.x2[right_index, :]
+            if x2.dim() == 1:
+                x2 = x2.unsqueeze(1)
+                squeeze_col = True
+
+            return LazyEvaluatedKernelTensor(
+                self.kernel, x1, x2, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
+            )
+
+    def _matmul(self, rhs):
+        raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
+
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
+
+    def _size(self):
+        size = self.kernel.size(self.x1, self.x2)
+        if self.batch_dims == (0, 2):
+            if len(size) == 2:
+                return torch.Size((self.x1.size(-1), size[0], size[1]))
+            else:
+                return torch.Size((self.x1.size(-1) * size[0], size[1], size[2]))
+        return size
+
+    def _transpose_nonbatch(self):
+        return self.__class__(self.kernel, self.x2, self.x1, **self.params)
+
+    def _t_matmul(self, rhs):
+        raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
 
     def diag(self):
         """
@@ -156,12 +212,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 self._cached_kernel_eval = NonLazyTensor(self._cached_kernel_eval)
             return self._cached_kernel_eval
 
-    def representation(self):
-        return self.evaluate_kernel().representation()
-
-    def representation_tree(self):
-        return LazyTensorRepresentationTree(self.evaluate_kernel())
-
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 
@@ -210,78 +260,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         return LazyEvaluatedKernelTensor(self.kernel, x1, x2, **self.params)
 
-    def __getitem__(self, index):
-        ndimension = self.ndimension()
-        index = list(index) if isinstance(index, tuple) else [index]
+    def representation(self):
+        return self.evaluate_kernel().representation()
 
-        # Handle the ellipsis
-        # Find the index of the ellipsis
-        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
-        if settings.debug.on():
-            if len(ellipsis_locs) > 1:
-                raise RuntimeError(
-                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
-                    " received index {}.".format(self, index)
-                )
-        if len(ellipsis_locs) == 1:
-            ellipsis_loc = ellipsis_locs[0]
-            num_to_fill_in = ndimension - (len(index) - 1)
-            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
-
-        # Pad the index with empty slices
-        index += [slice(None, None, None)] * (ndimension - len(index))
-
-        if self.is_batch:
-            batch_index = index[0]
-            left_index = index[1]
-            right_index = index[2]
-            squeeze_row = self.squeeze_row
-            squeeze_col = self.squeeze_col
-
-            x1 = self.x1
-            if self.batch_dims == (0, 2):
-                x1 = x1.permute(0, 2, 1).contiguous()
-                x1 = x1.view(-1, x1.size(-1), 1)
-            x1 = x1[batch_index, left_index, :]
-            if x1.dim() == 2 and not isinstance(batch_index, int):
-                x1 = x1.unsqueeze(1)
-                squeeze_row = True
-            x2 = self.x2
-            if self.batch_dims == (0, 2):
-                x2 = x2.permute(0, 2, 1).contiguous()
-                x2 = x2.view(-1, x2.size(-1), 1)
-            x2 = x2[batch_index, right_index, :]
-            if x2.dim() == 2 and not isinstance(batch_index, int):
-                x2 = x2.unsqueeze(1)
-                squeeze_col = True
-
-            return LazyEvaluatedKernelTensor(
-                self.kernel, x1, x2, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
-            )
-        else:
-            left_index = index[0]
-            right_index = index[1]
-            squeeze_row = self.squeeze_row
-            squeeze_col = self.squeeze_col
-
-            x1 = self.x1[left_index, :]
-            if x1.dim() == 1:
-                x1 = x1.unsqueeze(1)
-                squeeze_row = True
-            x2 = self.x2[right_index, :]
-            if x2.dim() == 1:
-                x2 = x2.unsqueeze(1)
-                squeeze_col = True
-
-            return LazyEvaluatedKernelTensor(
-                self.kernel, x1, x2, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
-            )
-
-    def _size(self):
-        size = self.kernel.size(self.x1, self.x2)
-        if self.batch_dims == (0, 2):
-            if len(size) == 2:
-                return torch.Size((self.x1.size(-1), size[0], size[1]))
-            else:
-                return torch.Size((self.x1.size(-1) * size[0], size[1], size[2]))
-        return size
+    def representation_tree(self):
+        return LazyTensorRepresentationTree(self.evaluate_kernel())

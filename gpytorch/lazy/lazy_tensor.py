@@ -63,10 +63,6 @@ class LazyTensor(object):
         operate on these batches if present.
     """
 
-    def __init__(self, *args, **kwargs):
-        self._args = args
-        self._kwargs = kwargs
-
     def _get_indices(self, *batch_indices, left_indices, right_indices):
         """
         Returns entries of the matrix, indexed by batch, row, and column indices
@@ -91,38 +87,6 @@ class LazyTensor(object):
             :obj:`torch.tensor`: matrix * rhs
         """
         raise NotImplementedError("The class {} requires a _matmul function!".format(self.__class__.__name__))
-
-    def _quad_form_derivative(self, left_vecs, right_vecs):
-        """
-        Given u (left_vecs) and v (right_vecs),
-        Computes the derivatives of (u^t K v) w.r.t. K
-
-        ..note::
-            This method is intended to be used only internally by various Functions that support backpropagation.
-            For example, this method is used internally by :func:`~gpytorch.lazy.LazyTensor.inv_quad_log_det`. It is
-            not likely that users will need to call this method directly.
-
-        Returns:
-            :obj:`torch.tensor`: derivative with respect to the arguments that are actually used to represent this
-                                   this LazyTensor.
-        """
-        args = self.representation()
-
-        toggled = [False] * len(args)
-
-        for i, arg in enumerate(args):
-            if not arg.requires_grad:
-                arg.requires_grad = True
-                toggled[i] = True
-
-        loss = (left_vecs * self._matmul(right_vecs)).sum()
-        grads = torch.autograd.grad(loss, args)
-
-        for i, arg in enumerate(args):
-            if toggled[i]:
-                arg.requires_grad = False
-
-        return grads
 
     def _size(self):
         """
@@ -149,6 +113,10 @@ class LazyTensor(object):
         raise NotImplementedError(
             "The class {} requires a _transpose_nonbatch function!".format(self.__class__.__name__)
         )
+
+    def __init__(self, *args, **kwargs):
+        self._args = args
+        self._kwargs = kwargs
 
     @property
     def _args(self):
@@ -202,6 +170,118 @@ class LazyTensor(object):
         # Here the precomputed cache represents S,
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
+
+    def _getitem(self, *indices):
+        """
+        Supports subindexing of the matrix this LazyTensor represents. This may return either another
+        :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
+
+        ..note::
+            LazyTensor.__getitem__ uses this as a helper method. If you are writing your own custom LazyTensor,
+            override this method rather than __getitem__ (so that you don't have to repeat the extra work)
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.__getitem__`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Args:
+            :attr:`indices` (tuple of int, slice, or LongTensor):
+                A collection of indices for each of the dimensions. There will be exactly one index per dimension.
+        """
+        if settings.debug.on():
+            if len(indices) != self.dim():
+                raise RuntimeError(
+                    f"{self.__class__.__name__}._getitem() called with {len(indices)} indices - expected {self.dim()}. "
+                    "This is potentially a bug in GPyTorch."
+                )
+
+        components = list(self._args)
+        indices = list(indices)
+
+        # Normal case if we're indexing the LT with ints or slices
+        # Also squeeze dimensions if we're indexing with tensors
+        squeeze_left = False
+        squeeze_right = False
+        if isinstance(indices[-2], int):
+            indices[-2] = slice(indices[-2], indices[-2] + 1, None)
+            squeeze_left = True
+        elif torch.is_tensor(indices[-2]):
+            squeeze_left = True
+        if isinstance(indices[-1], int):
+            indices[-1] = slice(indices[-1], indices[-1] + 1, None)
+            squeeze_right = True
+        elif torch.is_tensor(indices[-1]):
+            squeeze_right = True
+
+        # Handle batch dimensions
+        isbatch = self.dim() >= 3
+        first_tensor_index_dim = None
+        if isbatch:
+            batch_index = tuple(indices[:-2])
+            for i, item in enumerate(components):
+                components[i] = item[batch_index]
+
+            for i, idx in enumerate(batch_index):
+                if torch.is_tensor(idx):
+                    first_tensor_index_dim = i
+                    break
+
+        new_lazy_tensor = self.__class__(*components, **self._kwargs)
+
+        # Handle index
+        left_index = indices[-2]
+        right_index = indices[-1]
+
+        # Special case: if both row and col are not indexed, then we are done
+        if (
+            not torch.is_tensor(left_index)
+            and left_index == slice(None, None, None)
+            and not torch.is_tensor(right_index)
+            and right_index == slice(None, None, None)
+        ):
+            return new_lazy_tensor
+
+        # Special case: if both row and col are tensor indexed, then we use _get_indices
+        if torch.is_tensor(left_index) and torch.is_tensor(right_index):
+            if left_index.numel() != right_index.numel():
+                raise RuntimeError(
+                    "Expected the tensor indices to be the same size: got {} and {}".format(
+                        left_index.numel(), right_index.numel()
+                    )
+                )
+
+            if new_lazy_tensor.ndimension() == 2:
+                return new_lazy_tensor._get_indices(left_index, right_index)
+
+            else:
+                batch_index = torch.arange(0, new_lazy_tensor.size(0), dtype=torch.long, device=self.device)
+                if first_tensor_index_dim is not None:
+                    if batch_index.numel() != left_index.numel():
+                        raise RuntimeError(
+                            "Expected the tensor indices to be the same size: got {}, {} and {}".format(
+                                batch_index.numel(), left_index.numel(), right_index.numel()
+                            )
+                        )
+                    return new_lazy_tensor._get_indices(left_index, right_index, batch_index)
+                else:
+                    batch_size = batch_index.numel()
+                    row_col_size = left_index.numel()
+                    batch_index = batch_index.unsqueeze(1).repeat(1, row_col_size).view(-1)
+                    left_index = left_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
+                    right_index = right_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
+                    res = new_lazy_tensor._get_indices(left_index, right_index, batch_index)
+                    return res.view(batch_size, row_col_size)
+
+        # Normal case: we have to do some processing on eithe rthe rows or columns
+        res = new_lazy_tensor._getitem_nonbatch(left_index, right_index, first_tensor_index_dim)
+        if (squeeze_left or squeeze_right) and isinstance(res, LazyTensor):
+            res = res.evaluate()
+        if squeeze_left:
+            res = res.squeeze(-2)
+        if squeeze_right:
+            res = res.squeeze(-1)
+
+        return res
 
     def _getitem_nonbatch(self, row_index, col_index, first_tensor_index_dim=None):
         """
@@ -291,6 +371,38 @@ class LazyTensor(object):
             return preconditioner
         else:
             return None
+
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        """
+        Given u (left_vecs) and v (right_vecs),
+        Computes the derivatives of (u^t K v) w.r.t. K
+
+        ..note::
+            This method is intended to be used only internally by various Functions that support backpropagation.
+            For example, this method is used internally by :func:`~gpytorch.lazy.LazyTensor.inv_quad_log_det`. It is
+            not likely that users will need to call this method directly.
+
+        Returns:
+            :obj:`torch.tensor`: derivative with respect to the arguments that are actually used to represent this
+                                   this LazyTensor.
+        """
+        args = self.representation()
+
+        toggled = [False] * len(args)
+
+        for i, arg in enumerate(args):
+            if not arg.requires_grad:
+                arg.requires_grad = True
+                toggled[i] = True
+
+        loss = (left_vecs * self._matmul(right_vecs)).sum()
+        grads = torch.autograd.grad(loss, args)
+
+        for i, arg in enumerate(args):
+            if toggled[i]:
+                arg.requires_grad = False
+
+        return grads
 
     def _preconditioner(self):
         """
@@ -1239,15 +1351,14 @@ class LazyTensor(object):
         :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
         """
         ndimension = self.ndimension()
-        components = list(self._args)
 
         # Process the index
-        index = list(index) if isinstance(index, tuple) else [index]
-        index = [torch.tensor(idx) if isinstance(idx, list) else idx for idx in index]
+        index = index if isinstance(index, tuple) else (index,)
+        index = tuple(torch.tensor(idx) if isinstance(idx, list) else idx for idx in index)
 
         # Handle the ellipsis
         # Find the index of the ellipsis
-        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
+        ellipsis_locs = tuple(index for index, item in enumerate(index) if item is Ellipsis)
         if settings.debug.on():
             if len(ellipsis_locs) > 1:
                 raise RuntimeError(
@@ -1257,95 +1368,17 @@ class LazyTensor(object):
         if len(ellipsis_locs) == 1:
             ellipsis_loc = ellipsis_locs[0]
             num_to_fill_in = ndimension - (len(index) - 1)
-            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
+            index = index[:ellipsis_loc] + tuple(slice(None, None, None) for _ in range(num_to_fill_in)) + \
+                index[ellipsis_loc + 1:]
 
         # Pad the index with empty slices
-        index += [slice(None, None, None)] * (ndimension - len(index))
+        index = index + tuple(slice(None, None, None) for _ in range(ndimension - len(index)))
 
-        # Normal case if we're indexing the LT with ints or slices
-        # Also squeeze dimensions if we're indexing with tensors
-        squeeze_left = False
-        squeeze_right = False
-        if isinstance(index[-2], int):
-            index[-2] = slice(index[-2], index[-2] + 1, None)
-            squeeze_left = True
-        elif torch.is_tensor(index[-2]):
-            squeeze_left = True
-        if isinstance(index[-1], int):
-            index[-1] = slice(index[-1], index[-1] + 1, None)
-            squeeze_right = True
-        elif torch.is_tensor(index[-1]):
-            squeeze_right = True
+        # Make the index a tuple again
+        index = tuple(index)
 
-        # Handle batch dimensions
-        isbatch = ndimension >= 3
-        first_tensor_index_dim = None
-        if isbatch:
-            batch_index = tuple(index[:-2])
-            for i, item in enumerate(components):
-                components[i] = item[batch_index]
-
-            for i, idx in enumerate(batch_index):
-                if torch.is_tensor(idx):
-                    first_tensor_index_dim = i
-                    break
-
-        new_lazy_tensor = self.__class__(*components, **self._kwargs)
-
-        # Handle index
-        left_index = index[-2]
-        right_index = index[-1]
-
-        # Special case: if both row and col are not indexed, then we are done
-        if (
-            not torch.is_tensor(left_index)
-            and left_index == slice(None, None, None)
-            and not torch.is_tensor(right_index)
-            and right_index == slice(None, None, None)
-        ):
-            return new_lazy_tensor
-
-        # Special case: if both row and col are tensor indexed, then we use _get_indices
-        if torch.is_tensor(left_index) and torch.is_tensor(right_index):
-            if left_index.numel() != right_index.numel():
-                raise RuntimeError(
-                    "Expected the tensor indices to be the same size: got {} and {}".format(
-                        left_index.numel(), right_index.numel()
-                    )
-                )
-
-            if new_lazy_tensor.ndimension() == 2:
-                return new_lazy_tensor._get_indices(left_index, right_index)
-
-            else:
-                batch_index = torch.arange(0, new_lazy_tensor.size(0), dtype=torch.long, device=self.device)
-                if first_tensor_index_dim is not None:
-                    if batch_index.numel() != left_index.numel():
-                        raise RuntimeError(
-                            "Expected the tensor indices to be the same size: got {}, {} and {}".format(
-                                batch_index.numel(), left_index.numel(), right_index.numel()
-                            )
-                        )
-                    return new_lazy_tensor._get_indices(left_index, right_index, batch_index)
-                else:
-                    batch_size = batch_index.numel()
-                    row_col_size = left_index.numel()
-                    batch_index = batch_index.unsqueeze(1).repeat(1, row_col_size).view(-1)
-                    left_index = left_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-                    right_index = right_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-                    res = new_lazy_tensor._get_indices(left_index, right_index, batch_index)
-                    return res.view(batch_size, row_col_size)
-
-        # Normal case: we have to do some processing on eithe rthe rows or columns
-        res = new_lazy_tensor._getitem_nonbatch(left_index, right_index, first_tensor_index_dim)
-        if (squeeze_left or squeeze_right) and isinstance(res, LazyTensor):
-            res = res.evaluate()
-        if squeeze_left:
-            res = res.squeeze(-2)
-        if squeeze_right:
-            res = res.squeeze(-1)
-
-        return res
+        # Call self._getitem - now that the index has been processed
+        return self._getitem(*index)
 
     def __mul__(self, other):
         """

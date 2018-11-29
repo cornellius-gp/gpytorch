@@ -2,7 +2,6 @@
 
 import torch
 from .lazy_tensor import LazyTensor
-from .. import settings
 
 
 class ConstantMulLazyTensor(LazyTensor):
@@ -73,15 +72,33 @@ class ConstantMulLazyTensor(LazyTensor):
         self.base_lazy_tensor = base_lazy_tensor
         self.constant = constant
 
-    def _matmul(self, rhs):
-        res = self.base_lazy_tensor._matmul(rhs)
+    def _approx_diag(self):
+        res = self.base_lazy_tensor._approx_diag()
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        res = res * constant
-        return res
+        return res * constant
 
-    def _t_matmul(self, rhs):
-        res = self.base_lazy_tensor._t_matmul(rhs)
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
+        constant = self.constant.__getitem__(batch_indices)
+        return res * constant
+
+    def _getitem(self, *indices):
+        # NOTE TO FUTURE SELF:
+        # This custom __getitem__ is actually very important!
+        # It prevents constructing an InterpolatedLazyTensor when one isn't needed
+        # This effects runntimes by up to 5x on simple exat GPs
+        # Run __getitem__ on the base_lazy_tensor and the constant
+        base_lazy_tensor = self.base_lazy_tensor._getitem(*indices)
+        constant = self.constant[indices[:-2]]
+
+        if torch.is_tensor(base_lazy_tensor):
+            constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))
+
+        return base_lazy_tensor * constant
+
+    def _matmul(self, rhs):
+        res = self.base_lazy_tensor._matmul(rhs)
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         res = res * constant
@@ -103,16 +120,18 @@ class ConstantMulLazyTensor(LazyTensor):
     def _size(self):
         return self.base_lazy_tensor.size()
 
+    def _t_matmul(self, rhs):
+        res = self.base_lazy_tensor._t_matmul(rhs)
+        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
+        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
+        res = res * constant
+        return res
+
     def _transpose_nonbatch(self):
         return ConstantMulLazyTensor(self.base_lazy_tensor._transpose_nonbatch(), self.constant)
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
-        constant = self.constant.__getitem__(batch_indices)
-        return res * constant
-
-    def _approx_diag(self):
-        res = self.base_lazy_tensor._approx_diag()
+    def diag(self):
+        res = self.base_lazy_tensor.diag()
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         return res * constant
@@ -122,49 +141,3 @@ class ConstantMulLazyTensor(LazyTensor):
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         return constant * res
-
-    def diag(self):
-        res = self.base_lazy_tensor.diag()
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
-        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        return res * constant
-
-    def __getitem__(self, index):
-        # NOTE TO FUTURE SELF:
-        # This custom __getitem__ is actually very important!
-        # It prevents constructing an InterpolatedLazyTensor when one isn't needed
-        # This effects runntimes by up to 5x on simple exat GPs
-
-        # Process the index
-        ndimension = self.ndimension()
-        index = list(index) if isinstance(index, tuple) else [index]
-        index = [torch.tensor(idx) if isinstance(idx, list) else idx for idx in index]
-
-        # Handle the ellipsis
-        # Find the index of the ellipsis
-        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
-        if settings.debug.on():
-            if len(ellipsis_locs) > 1:
-                raise RuntimeError(
-                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
-                    " received index {}.".format(self, index)
-                )
-        if len(ellipsis_locs) == 1:
-            ellipsis_loc = ellipsis_locs[0]
-            num_to_fill_in = ndimension - (len(index) - 1)
-            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
-
-        # Pad the index with empty slices
-        index += [slice(None, None, None)] * (ndimension - len(index))
-
-        # Convert the index back to a tuple
-        index = tuple(index)
-
-        # Run __getitem__ on the base_lazy_tensor and the constant
-        base_lazy_tensor = self.base_lazy_tensor.__getitem__(index)
-        constant = self.constant[index[:-2]]
-
-        if torch.is_tensor(base_lazy_tensor):
-            constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))
-
-        return base_lazy_tensor * constant

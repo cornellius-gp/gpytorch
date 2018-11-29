@@ -19,11 +19,21 @@ class SumLazyTensor(LazyTensor):
 
         self.lazy_tensors = lazy_tensors
 
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        return sum(
+            lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
+            for lazy_tensor in self.lazy_tensors
+        )
+
+    def _getitem(self, *indices):
+        results = tuple(lazy_tensor._getitem(*indices) for lazy_tensor in self.lazy_tensors)
+        if isinstance(results[0], LazyTensor):
+            return SumLazyTensor(*results)
+        else:
+            return sum(results)
+
     def _matmul(self, rhs):
         return sum(lazy_tensor._matmul(rhs) for lazy_tensor in self.lazy_tensors)
-
-    def _t_matmul(self, rhs):
-        return sum(lazy_tensor._t_matmul(rhs) for lazy_tensor in self.lazy_tensors)
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         return tuple(
@@ -33,15 +43,12 @@ class SumLazyTensor(LazyTensor):
     def _size(self):
         return self.lazy_tensors[0].size()
 
+    def _t_matmul(self, rhs):
+        return sum(lazy_tensor._t_matmul(rhs) for lazy_tensor in self.lazy_tensors)
+
     def _transpose_nonbatch(self):
         lazy_tensors_t = [lazy_tensor.transpose(-1, -2) for lazy_tensor in self.lazy_tensors]
         return SumLazyTensor(*lazy_tensors_t)
-
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        return sum(
-            lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
-            for lazy_tensor in self.lazy_tensors
-        )
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         return tuple(
@@ -88,10 +95,3 @@ class SumLazyTensor(LazyTensor):
 
     def sum_batch(self, sum_batch_size=None):
         return self.__class__(*(lazy_tensor.sum_batch(sum_batch_size) for lazy_tensor in self.lazy_tensors))
-
-    def __getitem__(self, index):
-        results = tuple(lazy_tensor.__getitem__(index) for lazy_tensor in self.lazy_tensors)
-        if isinstance(results[0], LazyTensor):
-            return SumLazyTensor(*results)
-        else:
-            return sum(results)

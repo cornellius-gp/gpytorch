@@ -2,7 +2,6 @@
 
 import torch
 from .lazy_tensor import LazyTensor
-from .. import settings
 
 
 class BlockLazyTensor(LazyTensor):
@@ -38,57 +37,19 @@ class BlockLazyTensor(LazyTensor):
         self.base_lazy_tensor = base_lazy_tensor
         self.num_blocks = num_blocks
 
-    def _transpose_nonbatch(self):
-        return self.__class__(self.base_lazy_tensor._transpose_nonbatch(), num_blocks=self.num_blocks)
-
-    def mul(self, other):
-        # We're using a custom method here - the constant mul is applied to the base_lazy tensor
-        # This preserves the block structure
-
-        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
-            torch.is_tensor(other) and other.numel() == 1
-        ):
-            from .constant_mul_lazy_tensor import ConstantMulLazyTensor
-
-            return self.__class__(ConstantMulLazyTensor(self.base_lazy_tensor, other), num_blocks=self.num_blocks)
-        else:
-            return super(BlockLazyTensor, self).mul(other)
-
-    def __getitem__(self, index):
-        # Process the index
-        ndimension = self.ndimension()
-        index = list(index) if isinstance(index, tuple) else [index]
-        index = [torch.tensor(idx) if isinstance(idx, list) else idx for idx in index]
-
-        # Handle the ellipsis
-        # Find the index of the ellipsis
-        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
-        if settings.debug.on():
-            if len(ellipsis_locs) > 1:
-                raise RuntimeError(
-                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
-                    " received index {}.".format(self, index)
-                )
-        if len(ellipsis_locs) == 1:
-            ellipsis_loc = ellipsis_locs[0]
-            num_to_fill_in = ndimension - (len(index) - 1)
-            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
-
-        # Convert index back to tuple
-        index = tuple(index)
-
+    def _getitem(self, *indices):
         if self.num_blocks is None:
-            res = super(BlockLazyTensor, self).__getitem__(index)
+            res = super(BlockLazyTensor, self)._getitem(*indices)
             return res
 
         # Cases for when there's an inner batch
         else:
-            batch_index = index[0]
+            batch_index = indices[0]
             first_tensor_index_dim = None
 
             # Keeping all batch dimensions - recursion base case
             if isinstance(batch_index, slice) and batch_index == slice(None, None, None):
-                res = super(BlockLazyTensor, self).__getitem__(index)
+                res = super(BlockLazyTensor, self)._getitem(*indices)
                 return res
 
             # Construct a new lazy tensor
@@ -119,13 +80,13 @@ class BlockLazyTensor(LazyTensor):
             new_var = self.__class__(*components, num_blocks=num_blocks)
 
             # If the index was only on the batch index, we're done
-            if len(index) == 1:
+            if len(indices) == 1:
                 return new_var
 
             # Else - recurse
             else:
-                left_index = index[1]
-                right_index = index[2] if len(index) >= 3 else slice(None, None, None)
+                left_index = indices[1]
+                right_index = indices[2] if len(indices) >= 3 else slice(None, None, None)
 
                 # Normal case if we're indexing the LT with ints or slices
                 # Also squeeze dimensions if we're indexing with tensors
@@ -182,3 +143,19 @@ class BlockLazyTensor(LazyTensor):
                     res = res.squeeze(-1)
 
                 return res
+
+    def _transpose_nonbatch(self):
+        return self.__class__(self.base_lazy_tensor._transpose_nonbatch(), num_blocks=self.num_blocks)
+
+    def mul(self, other):
+        # We're using a custom method here - the constant mul is applied to the base_lazy tensor
+        # This preserves the block structure
+
+        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
+            torch.is_tensor(other) and other.numel() == 1
+        ):
+            from .constant_mul_lazy_tensor import ConstantMulLazyTensor
+
+            return self.__class__(ConstantMulLazyTensor(self.base_lazy_tensor, other), num_blocks=self.num_blocks)
+        else:
+            return super(BlockLazyTensor, self).mul(other)

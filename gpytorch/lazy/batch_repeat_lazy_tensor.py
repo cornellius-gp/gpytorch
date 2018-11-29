@@ -24,6 +24,23 @@ class BatchRepeatLazyTensor(LazyTensor):
         batch_indices = batch_indices[-num_true_batch_dims:] if num_true_batch_dims else []
         return self.base_lazy_tensor._get_indices(row_indices, col_indices, *batch_indices)
 
+    def _getitem(self, *indices):
+        args = []
+        kwargs = self.base_lazy_tensor._kwargs
+        num_base_batch_dims = len(self.base_lazy_tensor.batch_shape)
+
+        for arg in self.base_lazy_tensor._args:
+            if torch.is_tensor(arg):
+                arg_base_shape_len = max(arg.dim() - num_base_batch_dims, 0)
+                args.append(arg.repeat(*self.batch_repeat, *[1 for _ in range(arg_base_shape_len)]))
+            elif isinstance(arg, LazyTensor):
+                args.append(BatchRepeatLazyTensor(arg, batch_repeat=self.batch_repeat))
+            else:
+                args.append(arg)
+
+        new_lazy_tensor = self.base_lazy_tensor.__class__(*args, **kwargs)
+        return new_lazy_tensor._getitem(*indices)
+
     def _matmul(self, rhs):
         rhs = self._move_repeat_batches_to_columns(rhs)
         res = self.base_lazy_tensor._matmul(rhs)
@@ -167,20 +184,3 @@ class BatchRepeatLazyTensor(LazyTensor):
                 initial_vectors=initial_vectors, test_vectors=test_vectors
             ).root.repeat(*self.batch_repeat, 1, 1)
         )
-
-    def __getitem__(self, index):
-        args = []
-        kwargs = self.base_lazy_tensor._kwargs
-        num_base_batch_dims = len(self.base_lazy_tensor.batch_shape)
-
-        for arg in self.base_lazy_tensor._args:
-            if torch.is_tensor(arg):
-                arg_base_shape_len = max(arg.dim() - num_base_batch_dims, 0)
-                args.append(arg.repeat(*self.batch_repeat, *[1 for _ in range(arg_base_shape_len)]))
-            elif isinstance(arg, LazyTensor):
-                args.append(BatchRepeatLazyTensor(arg, batch_repeat=self.batch_repeat))
-            else:
-                args.append(arg)
-
-        new_lazy_tensor = self.base_lazy_tensor.__class__(*args, **kwargs)
-        return new_lazy_tensor.__getitem__(index)
