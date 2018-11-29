@@ -52,7 +52,7 @@ GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleratio
   title={
 GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration},
   author={Gardner, Jacob R and Pleiss, Geoff and Bindel, David and Weinberger, Kilian Q and Wilson, Andrew Gordon},
-  booktitle={NIPS},
+  booktitle={NeurIPS},
   year={2018}
 }
 ```
