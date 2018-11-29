@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import torch
-from .. import settings
 from ..lazy import LazyTensor
 
 
@@ -19,11 +18,22 @@ class NonLazyTensor(LazyTensor):
         super(NonLazyTensor, self).__init__(tsr)
         self.tensor = tsr
 
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        return self.tensor.__getitem__((*batch_indices, left_indices, right_indices))
+
+    def _getitem(self, *indices):
+        # Perform the __getitem__
+        res = self.tensor[indices]
+
+        row_index = indices[-2]
+        col_index = indices[-1]
+        if isinstance(row_index, int) or torch.is_tensor(row_index) or isinstance(col_index, int) or \
+                torch.is_tensor(col_index):
+            return res
+        return NonLazyTensor(res)
+
     def _matmul(self, rhs):
         return torch.matmul(self.tensor, rhs)
-
-    def _t_matmul(self, rhs):
-        return torch.matmul(self.tensor.transpose(-1, -2), rhs)
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         res = left_vecs.matmul(right_vecs.transpose(-1, -2))
@@ -35,8 +45,8 @@ class NonLazyTensor(LazyTensor):
     def _transpose_nonbatch(self):
         return NonLazyTensor(self.tensor.transpose(-1, -2))
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        return self.tensor.__getitem__((*batch_indices, left_indices, right_indices))
+    def _t_matmul(self, rhs):
+        return torch.matmul(self.tensor.transpose(-1, -2), rhs)
 
     def diag(self):
         if self.tensor.ndimension() < 3:
@@ -47,41 +57,3 @@ class NonLazyTensor(LazyTensor):
 
     def evaluate(self):
         return self.tensor
-
-    def __getitem__(self, index):
-        # Make sure index is a list
-        if not isinstance(index, tuple):
-            index = [index]
-        else:
-            index = list(index)
-
-        # Handle the ellipsis
-        # Find the index of the ellipsis
-        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
-        if settings.debug.on():
-            if len(ellipsis_locs) > 1:
-                raise RuntimeError(
-                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
-                    " received index {}.".format(self, index)
-                )
-        if len(ellipsis_locs) == 1:
-            ellipsis_loc = ellipsis_locs[0]
-            num_to_fill_in = self.ndimension() - (len(index) - 1)
-            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
-
-        # Make the index a tuple again
-        index = tuple(index)
-
-        # Perform the __getitem__
-        res = self.tensor[index]
-
-        # Determine if we should return a LazyTensor or a Tensor
-        if len(index) >= self.ndimension() - 1:
-            row_index = index[self.ndimension() - 2]
-            if isinstance(row_index, int) or torch.is_tensor(row_index):
-                return res
-        if len(index) == self.ndimension():
-            col_index = index[self.ndimension() - 1]
-            if isinstance(col_index, int) or torch.is_tensor(col_index):
-                return res
-        return NonLazyTensor(res)

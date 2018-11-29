@@ -72,15 +72,33 @@ class ConstantMulLazyTensor(LazyTensor):
         self.base_lazy_tensor = base_lazy_tensor
         self.constant = constant
 
-    def _matmul(self, rhs):
-        res = self.base_lazy_tensor._matmul(rhs)
+    def _approx_diag(self):
+        res = self.base_lazy_tensor._approx_diag()
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        res = res * constant
-        return res
+        return res * constant
 
-    def _t_matmul(self, rhs):
-        res = self.base_lazy_tensor._t_matmul(rhs)
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
+        res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
+        constant = self.constant.__getitem__(batch_indices)
+        return res * constant
+
+    def _getitem(self, *indices):
+        # NOTE TO FUTURE SELF:
+        # This custom __getitem__ is actually very important!
+        # It prevents constructing an InterpolatedLazyTensor when one isn't needed
+        # This effects runntimes by up to 5x on simple exat GPs
+        # Run __getitem__ on the base_lazy_tensor and the constant
+        base_lazy_tensor = self.base_lazy_tensor._getitem(*indices)
+        constant = self.constant[indices[:-2]]
+
+        if torch.is_tensor(base_lazy_tensor):
+            constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))
+
+        return base_lazy_tensor * constant
+
+    def _matmul(self, rhs):
+        res = self.base_lazy_tensor._matmul(rhs)
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         res = res * constant
@@ -102,16 +120,18 @@ class ConstantMulLazyTensor(LazyTensor):
     def _size(self):
         return self.base_lazy_tensor.size()
 
+    def _t_matmul(self, rhs):
+        res = self.base_lazy_tensor._t_matmul(rhs)
+        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
+        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
+        res = res * constant
+        return res
+
     def _transpose_nonbatch(self):
         return ConstantMulLazyTensor(self.base_lazy_tensor._transpose_nonbatch(), self.constant)
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
-        constant = self.constant.__getitem__(batch_indices)
-        return res * constant
-
-    def _approx_diag(self):
-        res = self.base_lazy_tensor._approx_diag()
+    def diag(self):
+        res = self.base_lazy_tensor.diag()
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         return res * constant
@@ -121,27 +141,3 @@ class ConstantMulLazyTensor(LazyTensor):
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         return constant * res
-
-    def diag(self):
-        res = self.base_lazy_tensor.diag()
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
-        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        return res * constant
-
-    def __getitem__(self, i):
-        # TODO: Fix to support ellipsis
-        constant = self.constant
-        if constant.numel() > 1:
-            first_index = i[0] if isinstance(i, tuple) else i
-            constant = constant[first_index]
-
-        base_lazy_tensor = self.base_lazy_tensor.__getitem__(i)
-
-        if torch.is_tensor(base_lazy_tensor):
-            constant = constant.view(*constant.shape, *[1] * (len(base_lazy_tensor.shape) - len(constant.shape)))
-            return constant * base_lazy_tensor
-
-        if constant.numel() == 1:
-            constant = constant.squeeze()
-
-        return base_lazy_tensor * constant

@@ -2,7 +2,6 @@
 
 import torch
 from .lazy_tensor import LazyTensor
-from .. import settings
 
 
 class ZeroLazyTensor(LazyTensor):
@@ -25,13 +24,35 @@ class ZeroLazyTensor(LazyTensor):
     def device(self):
         return self._device
 
-    def _matmul(self, rhs):
-        rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
-        if self.size(-1) != rhs.size(rhs_size_ind):
-            raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
-        return rhs * 0
+    def _getitem(self, *indices):
+        has_added_tensor_index = False
+        evaluate = False
+        new_sizes = []
 
-    def _t_matmul(self, rhs):
+        for ix, sub_index in enumerate(indices):
+            if isinstance(sub_index, int):
+                if ix >= self.dim() - 2:
+                    evaluate = True
+                continue
+
+            elif torch.is_tensor(sub_index):
+                if ix >= self.dim() - 2:
+                    evaluate = True
+                if not has_added_tensor_index:
+                    new_sizes.append(sub_index.numel())
+                    has_added_tensor_index = True
+
+            elif isinstance(sub_index, slice):
+                new_sizes.append(len(torch.arange(self.size(ix))[sub_index]))
+            else:
+                new_sizes.append(len(sub_index))
+
+        if evaluate:
+            return torch.zeros(*new_sizes, dtype=self.dtype, device=self.device)
+        else:
+            return ZeroLazyTensor(*new_sizes)
+
+    def _matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
         if self.size(-1) != rhs.size(rhs_size_ind):
             raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
@@ -42,6 +63,12 @@ class ZeroLazyTensor(LazyTensor):
 
     def _size(self):
         return torch.Size(self.sizes)
+
+    def _t_matmul(self, rhs):
+        rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
+        if self.size(-1) != rhs.size(rhs_size_ind):
+            raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
+        return rhs * 0
 
     def add_diag(self, diag):
         from .diag_lazy_tensor import DiagLazyTensor
@@ -143,50 +170,3 @@ class ZeroLazyTensor(LazyTensor):
 
     def __mul__(self, other):
         return self
-
-    def __getitem__(self, index):
-        ndimension = self.ndimension()
-        index = list(index) if isinstance(index, tuple) else [index]
-
-        # Handle the ellipsis
-        # Find the index of the ellipsis
-        ellipsis_locs = [index for index, item in enumerate(index) if item is Ellipsis]
-        if settings.debug.on():
-            if len(ellipsis_locs) > 1:
-                raise RuntimeError(
-                    "Cannot have multiple ellipsis in a __getitem__ call. LazyTensor {} "
-                    " received index {}.".format(self, index)
-                )
-        if len(ellipsis_locs) == 1:
-            ellipsis_loc = ellipsis_locs[0]
-            num_to_fill_in = ndimension - (len(index) - 1)
-            index = index[:ellipsis_loc] + [slice(None, None, None)] * num_to_fill_in + index[ellipsis_loc + 1:]
-
-        # Pad the index with empty slices
-        index += [slice(None, None, None)] * (ndimension - len(index))
-
-        has_added_tensor_index = False
-        evaluate = False
-        new_sizes = []
-        for ix, sub_index in enumerate(index):
-            if isinstance(sub_index, int):
-                if ix >= ndimension - 2:
-                    evaluate = True
-                continue
-
-            elif torch.is_tensor(sub_index):
-                if ix >= ndimension - 2:
-                    evaluate = True
-                if not has_added_tensor_index:
-                    new_sizes.append(sub_index.numel())
-                    has_added_tensor_index = True
-
-            elif isinstance(sub_index, slice):
-                new_sizes.append(len(torch.arange(self.size(ix))[sub_index]))
-            else:
-                new_sizes.append(len(sub_index))
-
-        if evaluate:
-            return torch.zeros(*new_sizes, dtype=self.dtype, device=self.device)
-        else:
-            return ZeroLazyTensor(*new_sizes)

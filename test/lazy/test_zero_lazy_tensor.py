@@ -28,8 +28,8 @@ class TestZeroLazyTensor(unittest.TestCase):
         lv = ZeroLazyTensor(5, 4, 3)
 
         res_one = lv[[0, 1]].evaluate()
-        res_two = lv[:, [0, 1], :].evaluate()
-        res_three = lv[:, :, [0, 2]].evaluate()
+        res_two = lv[:, [0, 1], :]
+        res_three = lv[:, :, [0, 2]]
 
         self.assertLess(torch.norm(res_one - torch.zeros(2, 4, 3)), 1e-4)
         self.assertLess(torch.norm(res_two - torch.zeros(5, 2, 3)), 1e-4)
@@ -39,8 +39,8 @@ class TestZeroLazyTensor(unittest.TestCase):
         lv = ZeroLazyTensor(5, 4, 3)
 
         res_one = lv[[0, 1]].evaluate()
-        res_two = lv[:, [0, 1], ...].evaluate()
-        res_three = lv[..., [0, 2]].evaluate()
+        res_two = lv[:, [0, 1], ...]
+        res_three = lv[..., [0, 2]]
 
         self.assertLess(torch.norm(res_one - torch.zeros(2, 4, 3)), 1e-4)
         self.assertLess(torch.norm(res_two - torch.zeros(5, 2, 3)), 1e-4)
