@@ -143,6 +143,32 @@ class num_trace_samples(_value_context):
     _global_value = 10
 
 
+class skip_logdet_forward(_feature_flag):
+    """
+    .. warning:
+
+        ADVANCED FEATURE. Use this feature ONLY IF you're using
+        `gpytorch.mlls.MarginalLogLikelihood` as loss functions for optimizing
+        hyperparameters/variational parameters.  DO NOT use this feature if you
+        need accurate estimates of the MLL (i.e. for model selection, MCMC,
+        second order optimizaiton methods, etc.)
+
+    This feature does not affect the gradients returned by
+    :meth:`gpytorch.distributions.MultivariateNormal.log_prob`
+    (used by `gpytorch.mlls.MarginalLogLikelihood`).
+    The gradients remain unbiased estimates, and therefore can be used with SGD.
+    However, the actual likelihood value returned by the forward
+    pass will skip certain computations (i.e. the logdet computation), and will therefore
+    be improper estimates.
+
+    If you're using SGD (or a varient) to optimize parameters, you probably
+    don't need an accurate MLL estimate; you only need accurate gradients. So
+    this setting may give your model a performance boost.
+    """
+
+    _state = False
+
+
 class terminate_cg_by_size(_feature_flag):
     """
     If set to true, cg will terminate after n iterations for an n x n matrix.
