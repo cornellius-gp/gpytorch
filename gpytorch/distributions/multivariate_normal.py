@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import torch
 import math
+
+import torch
 from torch.distributions import MultivariateNormal as TMultivariateNormal
-from torch.distributions.utils import _standard_normal, lazy_property
 from torch.distributions.kl import register_kl
+from torch.distributions.utils import _standard_normal, lazy_property
 
 from ..lazy import LazyTensor, NonLazyTensor
 from .distribution import Distribution
@@ -133,10 +134,10 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
         else:
             # Make sure that the base samples agree with the distribution
-            if tuple(self.loc.size()) != tuple(base_samples.size()[-self.loc.dim() :]):
+            if self.loc.shape != base_samples.shape[-self.loc.dim() :]:
                 raise RuntimeError(
                     "The size of base_samples (minus sample shape dimensions) should agree with the size "
-                    "of self.loc. Expected ...{} but got {}".format(self.loc.size(), base_samples.size())
+                    "of self.loc. Expected ...{} but got {}".format(self.loc.shape, base_samples.shape)
                 )
 
             # Determine what the appropriate sample_shape parameter is
@@ -148,7 +149,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             base_samples = base_samples.permute(*tuple(i + 1 for i in range(self.loc.dim())), 0)
 
             # Now reparameterize those base samples
-            covar_root = covar.root_decomposition().root
+            covar_root = covar.root_decomposition()
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
