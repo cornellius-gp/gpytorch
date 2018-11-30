@@ -86,6 +86,25 @@ class TestInvQuadLogDetNonBatch(unittest.TestCase):
         self.assertLess(torch.max((self.mat_clone.grad - self.mat.grad).abs()).item(), 1e-1)
         self.assertLess(torch.max((self.vecs_clone.grad - self.vecs.grad).abs()).item(), 1e-1)
 
+    def test_inv_quad_log_det_many_vectors_improper(self):
+        # Forward pass
+        actual_inv_quad = self.mat_clone.inverse().matmul(self.vecs_clone).mul(self.vecs_clone).sum()
+        actual_log_det = self.mat_clone.logdet()
+        with gpytorch.settings.num_trace_samples(1000), gpytorch.settings.skip_logdet_forward(True):
+            non_lazy_tsr = NonLazyTensor(self.mat)
+            res_inv_quad, res_log_det = non_lazy_tsr.inv_quad_log_det(inv_quad_rhs=self.vecs, log_det=True)
+        self.assertAlmostEqual(res_inv_quad.item(), actual_inv_quad.item(), places=1)
+        self.assertAlmostEqual(res_log_det.item(), torch.zeros(non_lazy_tsr.batch_shape), places=1)
+
+        # Backward
+        actual_inv_quad.backward()
+        actual_log_det.backward()
+        res_inv_quad.backward(retain_graph=True)
+        res_log_det.backward()
+
+        self.assertLess(torch.max((self.mat_clone.grad - self.mat.grad).abs()).item(), 1e-1)
+        self.assertLess(torch.max((self.vecs_clone.grad - self.vecs.grad).abs()).item(), 1e-1)
+
     def test_inv_quad_only_many_vectors(self):
         # Forward pass
         res = NonLazyTensor(self.mat).inv_quad(self.vecs)
@@ -152,6 +171,36 @@ class TestInvQuadLogDetBatch(unittest.TestCase):
         self.assertEqual(res_log_det.shape, actual_log_det.shape)
         self.assertLess(torch.max((res_inv_quad - actual_inv_quad).abs()).item(), 1e-1)
         self.assertLess(torch.max((res_log_det - actual_log_det).abs()).item(), 1e-1)
+
+        # Backward
+        inv_quad_grad_output = torch.randn(5, dtype=torch.float)
+        log_det_grad_output = torch.randn(5, dtype=torch.float)
+        actual_inv_quad.backward(gradient=inv_quad_grad_output)
+        actual_log_det.backward(gradient=log_det_grad_output)
+        res_inv_quad.backward(gradient=inv_quad_grad_output, retain_graph=True)
+        res_log_det.backward(gradient=log_det_grad_output)
+
+        self.assertLess(torch.max((self.mats_clone.grad - self.mats.grad).abs()).item(), 1e-1)
+        self.assertLess(torch.max((self.vecs_clone.grad - self.vecs.grad).abs()).item(), 1e-1)
+
+    def test_inv_quad_log_det_many_vectors_improper(self):
+        # Forward pass
+        actual_inv_quad = (
+            torch.cat([mat.inverse().unsqueeze(0) for mat in self.mats_clone])
+            .matmul(self.vecs_clone)
+            .mul(self.vecs_clone)
+            .sum(2)
+            .sum(1)
+        )
+        actual_log_det = torch.cat([mat.logdet().unsqueeze(0) for mat in self.mats_clone])
+        with gpytorch.settings.num_trace_samples(2000), gpytorch.settings.skip_logdet_forward(True):
+            non_lazy_tsr = NonLazyTensor(self.mats)
+            res_inv_quad, res_log_det = non_lazy_tsr.inv_quad_log_det(inv_quad_rhs=self.vecs, log_det=True)
+
+        self.assertEqual(res_inv_quad.shape, actual_inv_quad.shape)
+        self.assertEqual(res_log_det.shape, actual_log_det.shape)
+        self.assertLess(torch.max((res_inv_quad - actual_inv_quad).abs()).item(), 1e-1)
+        self.assertLess(torch.max(res_log_det.abs()).item(), 1e-1)
 
         # Backward
         inv_quad_grad_output = torch.randn(5, dtype=torch.float)
