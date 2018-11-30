@@ -149,7 +149,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             base_samples = base_samples.permute(*tuple(i + 1 for i in range(self.loc.dim())), 0)
 
             # Now reparameterize those base samples
-            covar_root = covar.root_decomposition()
+            covar_root = covar.root_decomposition().root
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
