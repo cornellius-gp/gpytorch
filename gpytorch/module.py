@@ -85,8 +85,14 @@ class Module(nn.Module):
 
             if not hasattr(self, name):
                 raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
-            if torch.is_tensor(val):
-                self.__getattr__(name).data.copy_(val)
+            elif name not in self._parameters:
+                setattr(self, name, val)
+            elif torch.is_tensor(val):
+                try:
+                    self.__getattr__(name).data.copy_(val.expand_as(self.__getattr__(name)))
+                except RuntimeError:
+                    self.__getattr__(name).data.copy_(val.view_as(self.__getattr__(name)))
+
             elif isinstance(val, float):
                 self.__getattr__(name).data.fill_(val)
             else:
