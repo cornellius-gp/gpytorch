@@ -118,13 +118,40 @@ class SpectralMixtureKernel(Kernel):
     def mixture_scales(self):
         return self._param_transform(self.raw_mixture_scales).clamp(self.eps, 1e5)
 
+    @mixture_scales.setter
+    def mixture_scales(self, value):
+        self._set_mixture_scales(value)
+
+    def _set_mixture_scales(self, value):
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+        self.initialize(raw_mixture_scales=self._inv_param_transform(value))
+
     @property
     def mixture_means(self):
         return self._param_transform(self.raw_mixture_means).clamp(self.eps, 1e5)
 
+    @mixture_means.setter
+    def mixture_means(self, value):
+        self._set_mixture_means(value)
+
+    def _set_mixture_means(self, value):
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+        self.initialize(raw_mixture_means=self._inv_param_transform(value))
+
     @property
     def mixture_weights(self):
         return self._param_transform(self.raw_mixture_weights).clamp(self.eps, 1e5)
+
+    @mixture_weights.setter
+    def mixture_weights(self, value):
+        self._set_mixture_weights(value)
+
+    def _set_mixture_weights(self, value):
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+        self.initialize(raw_mixture_weights=self._inv_param_transform(value))
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):

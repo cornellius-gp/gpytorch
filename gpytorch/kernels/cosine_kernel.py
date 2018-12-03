@@ -91,7 +91,9 @@ class CosineKernel(Kernel):
         return self._set_period_length(value)
 
     def _set_period_length(self, value):
-        self.initialize(log_period_length=self._inv_param_transform(value))
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+        self.initialize(raw_period_length=self._inv_param_transform(value))
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)

@@ -138,7 +138,10 @@ class Kernel(Module):
     def _set_lengthscale(self, value):
         if not self.has_lengthscale:
             raise RuntimeError("Kernel has no lengthscale.")
-        self.initialize(log_lengthscale=self._inv_param_transform(value))
+
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+        self.initialize(raw_lengthscale=self._inv_param_transform(value))
 
     @property
     def has_custom_exact_predictions(self):

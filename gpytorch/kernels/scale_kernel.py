@@ -83,7 +83,9 @@ class ScaleKernel(Kernel):
         self._set_outputscale(value)
 
     def _set_outputscale(self, value):
-        self.initialize(log_outputscale=self._inv_param_transform(value))
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+        self.initialize(raw_outputscale=self._inv_param_transform(value))
 
     def forward(self, x1, x2, batch_dims=None, **params):
         outputscales = self.outputscale

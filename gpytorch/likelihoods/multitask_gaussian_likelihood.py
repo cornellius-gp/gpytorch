@@ -179,6 +179,8 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         self._set_noise(value)
 
     def _set_noise(self, value):
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
         self.initialize(raw_noise=self._inv_param_transform(value))
 
     def forward(self, input, *params):
