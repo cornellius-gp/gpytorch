@@ -76,6 +76,19 @@ class TestScaleKernel(unittest.TestCase):
         actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
+    def test_initialize_outputscale(self):
+        kernel = ScaleKernel(RBFKernel())
+        kernel.initialize(outputscale=3.14)
+        actual_value = torch.tensor(3.14).view_as(kernel.outputscale)
+        self.assertLess(torch.norm(kernel.outputscale - actual_value), 1e-5)
+
+    def test_initialize_outputscale_batch(self):
+        kernel = ScaleKernel(RBFKernel(), batch_size=2)
+        ls_init = torch.tensor([3.14, 4.13])
+        kernel.initialize(outputscale=ls_init)
+        actual_value = ls_init.view_as(kernel.outputscale)
+        self.assertLess(torch.norm(kernel.outputscale - actual_value), 1e-5)
+
 
 if __name__ == "__main__":
     unittest.main()

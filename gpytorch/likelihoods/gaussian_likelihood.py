@@ -68,7 +68,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
     @raw_noise.setter
     def raw_noise(self, value):
-        self.noise_covar.raw_noise = value
+        self.noise_covar.initialize(raw_noise=value)
 
     def variational_log_probability(self, input, target):
         mean, variance = input.mean, input.variance

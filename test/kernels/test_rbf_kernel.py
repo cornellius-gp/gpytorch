@@ -174,6 +174,19 @@ class TestRBFKernel(unittest.TestCase):
 
         self.assertLess(torch.norm(res - actual_param_grad), 1e-5)
 
+    def test_initialize_lengthscale(self):
+        kernel = RBFKernel()
+        kernel.initialize(lengthscale=3.14)
+        actual_value = torch.tensor(3.14).view_as(kernel.lengthscale)
+        self.assertLess(torch.norm(kernel.lengthscale - actual_value), 1e-5)
+
+    def test_initialize_lengthscale_batch(self):
+        kernel = RBFKernel(batch_size=2)
+        ls_init = torch.tensor([3.14, 4.13])
+        kernel.initialize(lengthscale=ls_init)
+        actual_value = ls_init.view_as(kernel.lengthscale)
+        self.assertLess(torch.norm(kernel.lengthscale - actual_value), 1e-5)
+
 
 if __name__ == "__main__":
     unittest.main()
