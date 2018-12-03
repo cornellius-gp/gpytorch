@@ -60,7 +60,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
     @noise.setter
     def noise(self, value):
-        self.noise_covar.noise = value
+        self.noise_covar.initialize(value)
 
     @property
     def raw_noise(self):
