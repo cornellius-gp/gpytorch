@@ -150,6 +150,11 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
             # Now reparameterize those base samples
             covar_root = covar.root_decomposition().root
+            # If necessary, adjust base_samples for rank of root decomposition
+            if covar_root.shape[-1] < base_samples.shape[-2]:
+                base_samples = base_samples[..., : covar_root.shape[-1], :]
+            elif covar_root.shape[-1] > base_samples.shape[-2]:
+                raise RuntimeError("Incompatible dimension of `base_samples`")
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
