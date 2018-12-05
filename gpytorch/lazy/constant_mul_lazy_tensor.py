@@ -74,7 +74,7 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _approx_diag(self):
         res = self.base_lazy_tensor._approx_diag()
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
+        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         return res * constant
 
@@ -99,7 +99,7 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _matmul(self, rhs):
         res = self.base_lazy_tensor._matmul(rhs)
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
+        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         res = res * constant
         return res
@@ -110,7 +110,7 @@ class ConstantMulLazyTensor(LazyTensor):
         constant_deriv = constant_deriv.sum(-2).sum(-1)
 
         # Get derivaties of everything else
-        res_mat_shape = left_vecs.shape[len(self.base_lazy_tensor.batch_shape):]
+        res_mat_shape = left_vecs.shape[len(self.base_lazy_tensor.batch_shape) :]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         left_vecs = left_vecs * constant
         res = self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
@@ -122,7 +122,7 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _t_matmul(self, rhs):
         res = self.base_lazy_tensor._t_matmul(rhs)
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
+        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         res = res * constant
         return res
@@ -132,12 +132,12 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def diag(self):
         res = self.base_lazy_tensor.diag()
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
+        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         return res * constant
 
     def evaluate(self):
         res = self.base_lazy_tensor.evaluate()
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape):]
+        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         return constant * res

@@ -70,7 +70,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         if self.num_blocks is None:
             if settings.debug.on():
-                assert(len(batch_indices) == 0)
+                assert len(batch_indices) == 0
             block_size = self.base_lazy_tensor.size(-1)
             left_batch_indices = left_indices.div(block_size).long()
             right_batch_indices = left_indices.div(block_size).long()
@@ -82,7 +82,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             return res
         else:
             if settings.debug.on():
-                assert(len(batch_indices) == 1)
+                assert len(batch_indices) == 1
             batch_indices = batch_indices[0]
             block_size = self.base_lazy_tensor.size(-1)
             left_batch_indices = left_indices.div(block_size).long()

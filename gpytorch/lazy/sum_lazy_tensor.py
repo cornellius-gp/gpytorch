@@ -21,8 +21,7 @@ class SumLazyTensor(LazyTensor):
 
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         return sum(
-            lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
-            for lazy_tensor in self.lazy_tensors
+            lazy_tensor._get_indices(left_indices, right_indices, *batch_indices) for lazy_tensor in self.lazy_tensors
         )
 
     def _getitem(self, *indices):

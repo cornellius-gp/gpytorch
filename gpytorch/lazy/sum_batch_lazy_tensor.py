@@ -80,7 +80,7 @@ class SumBatchLazyTensor(BlockLazyTensor):
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         if self.num_blocks is None:
             if settings.debug.on():
-                assert(len(batch_indices) == 0)
+                assert len(batch_indices) == 0
             batch_indices = torch.arange(0, self.base_lazy_tensor.size(0), dtype=torch.long, device=left_indices.device)
             batch_indices = batch_indices.unsqueeze(1).repeat(1, len(left_indices)).view(-1)
             left_indices = left_indices.unsqueeze(1).repeat(self.base_lazy_tensor.size(0), 1).view(-1)
@@ -89,7 +89,7 @@ class SumBatchLazyTensor(BlockLazyTensor):
             return res.view(self.base_lazy_tensor.size(0), -1).sum(0)
         else:
             if settings.debug.on():
-                assert(len(batch_indices) == 1)
+                assert len(batch_indices) == 1
             batch_indices = batch_indices[0]
             inner_batch_indices = torch.arange(0, self.num_blocks, dtype=torch.long, device=left_indices.device)
             inner_batch_indices.unsqueeze_(1)

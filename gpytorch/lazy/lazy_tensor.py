@@ -1368,8 +1368,11 @@ class LazyTensor(object):
         if len(ellipsis_locs) == 1:
             ellipsis_loc = ellipsis_locs[0]
             num_to_fill_in = ndimension - (len(index) - 1)
-            index = index[:ellipsis_loc] + tuple(slice(None, None, None) for _ in range(num_to_fill_in)) + \
-                index[ellipsis_loc + 1:]
+            index = (
+                index[:ellipsis_loc]
+                + tuple(slice(None, None, None) for _ in range(num_to_fill_in))
+                + index[ellipsis_loc + 1 :]
+            )
 
         # Pad the index with empty slices
         index = index + tuple(slice(None, None, None) for _ in range(ndimension - len(index)))

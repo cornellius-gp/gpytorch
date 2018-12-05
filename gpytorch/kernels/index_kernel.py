@@ -42,9 +42,7 @@ class IndexKernel(Kernel):
             The element-wise log of the :math:`\mathbf v` vector.
     """
 
-    def __init__(
-        self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=softplus, inv_param_transform=None
-    ):
+    def __init__(self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=softplus, inv_param_transform=None):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
         super(IndexKernel, self).__init__(param_transform=param_transform, inv_param_transform=inv_param_transform)

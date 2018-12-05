@@ -27,8 +27,12 @@ class NonLazyTensor(LazyTensor):
 
         row_index = indices[-2]
         col_index = indices[-1]
-        if isinstance(row_index, int) or torch.is_tensor(row_index) or isinstance(col_index, int) or \
-                torch.is_tensor(col_index):
+        if (
+            isinstance(row_index, int)
+            or torch.is_tensor(row_index)
+            or isinstance(col_index, int)
+            or torch.is_tensor(col_index)
+        ):
             return res
         return NonLazyTensor(res)
 

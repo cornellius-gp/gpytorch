@@ -27,8 +27,7 @@ class PyroVariationalGP(AbstractVariationalGP):
         prior_dist = self.variational_strategy.prior_distribution
         if len(prior_dist.batch_shape):
             prior_dist = prior_dist.__class__(
-                prior_dist.mean.contiguous().view(-1),
-                BlockDiagLazyTensor(prior_dist.lazy_covariance_matrix),
+                prior_dist.mean.contiguous().view(-1), BlockDiagLazyTensor(prior_dist.lazy_covariance_matrix)
             )
         inducing_value_samples = pyro.sample(self.name_prefix + "._inducing_values", prior_dist)
         sample_shape = inducing_value_samples.shape[: inducing_value_samples.dim() - len(prior_dist.shape())]
