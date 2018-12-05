@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+import math
 import torch
 from .kernel import Kernel
 from ..functions import add_jitter
-from ..lazy import DiagLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor
+from ..lazy import DiagLazyTensor, LazyTensor, MatmulLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..distributions import MultivariateNormal
 from ..mlls import InducingPointKernelAddedLossTerm
 
@@ -57,11 +58,16 @@ class InducingPointKernel(Kernel):
         k_ux1 = self.base_kernel(x1, self.inducing_points).evaluate()
         if torch.equal(x1, x2):
             covar = RootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
+
+            # Diagonal correction for predictive posterior
+            correction = (self.base_kernel(x1, x2).diag() - covar.diag()).clamp(0, math.inf)
+            covar = PsdSumLazyTensor(DiagLazyTensor(correction) + covar)
         else:
             k_ux2 = self.base_kernel(x2, self.inducing_points).evaluate()
             covar = MatmulLazyTensor(
                 k_ux1.matmul(self._inducing_inv_root), k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2)
             )
+
         return covar
 
     def _covar_diag(self, inputs):
