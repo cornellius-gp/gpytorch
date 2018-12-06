@@ -679,6 +679,8 @@ class LazyTensor(object):
             res = test_train_covar.matmul(precomputed_cache.unsqueeze(-1)).squeeze(-1)
         else:
             test_train_covar = self[num_train:, :num_train]
+            if non_batch_train and precomputed_cache.dim() == 2:
+                precomputed_cache = precomputed_cache[0]
             res = test_train_covar.matmul(precomputed_cache)
 
         res = res + test_mean
