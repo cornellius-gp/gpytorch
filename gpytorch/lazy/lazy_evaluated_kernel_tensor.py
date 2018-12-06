@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import torch
-from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import NonLazyTensor
-from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
+
 from .. import settings
+from ..utils.memoize import cached
+from .lazy_tensor import LazyTensor
+from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
+from .non_lazy_tensor import NonLazyTensor
 
 
 LAZY_KERNEL_TENSOR_WARNING = (
@@ -212,6 +214,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 self._cached_kernel_eval = NonLazyTensor(self._cached_kernel_eval)
             return self._cached_kernel_eval
 
+    @cached
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 

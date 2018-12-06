@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 from itertools import product
+
 import torch
+
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .root_lazy_tensor import RootLazyTensor
 from .non_lazy_tensor import NonLazyTensor
+from .root_lazy_tensor import RootLazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
@@ -109,6 +112,7 @@ class DiagLazyTensor(LazyTensor):
     def diag(self):
         return self._diag
 
+    @cached
     def evaluate(self):
         return self._diag.unsqueeze(-1) * torch.eye(self._diag.shape[-1], dtype=self.dtype, device=self.device)
 

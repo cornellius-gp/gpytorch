@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 
 
@@ -136,6 +138,7 @@ class ConstantMulLazyTensor(LazyTensor):
         constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
         return res * constant
 
+    @cached
     def evaluate(self):
         res = self.base_lazy_tensor.evaluate()
         res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]

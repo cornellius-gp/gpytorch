@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 
 
@@ -113,6 +115,7 @@ class ZeroLazyTensor(LazyTensor):
             raise RuntimeError("diag works on square matrices (or batches)")
         return torch.zeros(shape[:-1], dtype=self.dtype, device=self.device)
 
+    @cached
     def evaluate(self):
         return torch.zeros(*self.sizes)
 
