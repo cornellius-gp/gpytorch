@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
@@ -67,6 +69,7 @@ class SumLazyTensor(LazyTensor):
             )
         )
 
+    @cached
     def evaluate(self):
         return sum(lazy_tensor.evaluate() for lazy_tensor in self.lazy_tensors)
 

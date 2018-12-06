@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 
@@ -19,12 +21,6 @@ class RootLazyTensor(LazyTensor):
             root = NonLazyTensor(root)
         super(RootLazyTensor, self).__init__(root)
         self.root = root
-
-    @property
-    def _evaluated_root(self):
-        if not hasattr(self, "_evaluated_root_memo"):
-            self._evaluated_root_memo = self.root.evaluate()
-        return self._evaluated_root_memo
 
     def _matmul(self, rhs):
         return self.root._matmul(self.root._t_matmul(rhs))
@@ -81,10 +77,10 @@ class RootLazyTensor(LazyTensor):
         else:
             return super(RootLazyTensor, self).diag()
 
+    @cached
     def evaluate(self):
-        if not hasattr(self, "_evaluated_memo"):
-            self._evaluated_memo = torch.matmul(self._evaluated_root, self._evaluated_root.transpose(-1, -2))
-        return self._evaluated_memo
+        eval_root = self.root.evaluate()
+        return torch.matmul(eval_root, eval_root.transpose(-1, -2))
 
     def root_decomposition_size(self):
         return self.root.size(-1)

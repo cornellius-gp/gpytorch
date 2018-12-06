@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 
@@ -23,18 +25,6 @@ class MatmulLazyTensor(LazyTensor):
         super(MatmulLazyTensor, self).__init__(left_lazy_tensor, right_lazy_tensor)
         self.left_lazy_tensor = left_lazy_tensor
         self.right_lazy_tensor = right_lazy_tensor
-
-    @property
-    def _evaluated_left_lazy_tensor(self):
-        if not hasattr(self, "_evaluated_left_lazy_tensor_memo"):
-            self._evaluated_left_lazy_tensor_memo = self.left_lazy_tensor.evaluate()
-        return self._evaluated_left_lazy_tensor_memo
-
-    @property
-    def _evaluated_right_lazy_tensor(self):
-        if not hasattr(self, "_evaluated_right_lazy_tensor_memo"):
-            self._evaluated_right_lazy_tensor_memo = self.right_lazy_tensor.evaluate()
-        return self._evaluated_right_lazy_tensor_memo
 
     def _matmul(self, right_lazy_tensor):
         return self.left_lazy_tensor._matmul(self.right_lazy_tensor._matmul(right_lazy_tensor))
@@ -93,7 +83,6 @@ class MatmulLazyTensor(LazyTensor):
         else:
             return super(MatmulLazyTensor, self).diag()
 
+    @cached
     def evaluate(self):
-        if not hasattr(self, "_evaluated_memo"):
-            self._evaluated_memo = torch.matmul(self._evaluated_left_lazy_tensor, self._evaluated_right_lazy_tensor)
-        return self._evaluated_memo
+        return torch.matmul(self.left_lazy_tensor.evaluate(), self.right_lazy_tensor.evaluate())

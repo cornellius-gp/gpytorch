@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from .memoize import cached
 from .linear_cg import linear_cg
 from .stochastic_lq import StochasticLQ
 from . import cholesky
@@ -25,6 +26,7 @@ def prod(items):
 
 
 __all__ = [
+    "cached",
     "linear_cg",
     "StochasticLQ",
     "cholesky",

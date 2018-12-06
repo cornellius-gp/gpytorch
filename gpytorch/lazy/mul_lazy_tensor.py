@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils import prod
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .root_lazy_tensor import RootLazyTensor
-from ..utils import prod
 
 
 class MulLazyTensor(LazyTensor):
@@ -200,9 +202,9 @@ class MulLazyTensor(LazyTensor):
         res = prod([lazy_tensor.diag() for lazy_tensor in self.lazy_tensors])
         return res
 
+    @cached
     def evaluate(self):
-        res = prod([lazy_tensor.evaluate() for lazy_tensor in self.lazy_tensors])
-        return res
+        return prod([lazy_tensor.evaluate() for lazy_tensor in self.lazy_tensors])
 
     def mul(self, other):
         if isinstance(other, int) or isinstance(other, float) or (torch.is_tensor(other) and other.numel() == 1):

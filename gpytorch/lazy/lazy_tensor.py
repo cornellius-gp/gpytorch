@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 
 import math
+
 import gpytorch
 import torch
+
+from .. import beta_features, settings
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
-from ..functions._root_decomposition import RootDecomposition
 from ..functions._matmul import Matmul
-from .. import beta_features, settings
-from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
+from ..functions._root_decomposition import RootDecomposition
 from ..utils.broadcasting import _matmul_broadcast_shape
+from ..utils.memoize import cached
 from ..utils.qr import batch_qr
 from ..utils.svd import batch_svd
+from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
 class LazyTensor(object):
@@ -489,7 +492,7 @@ class LazyTensor(object):
         """
         Returns the shape over which the tensor is batched.
         """
-        return torch.Size(self.shape[:-2])
+        return self.shape[:-2]
 
     def clone(self):
         """
@@ -593,6 +596,7 @@ class LazyTensor(object):
         )
         return self.repeat(*repeat_shape)
 
+    @cached
     def evaluate(self):
         """
         Explicitly evaluates the matrix this LazyTensor represents. This function
