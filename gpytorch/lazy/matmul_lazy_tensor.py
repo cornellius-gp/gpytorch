@@ -59,7 +59,7 @@ class MatmulLazyTensor(LazyTensor):
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         n_indices = left_indices.numel()
         if n_indices > self.size(-1) * self.size(-2):
-            return self._evaluated.__getitem__((*batch_indices, left_indices, right_indices))
+            return self.evaluate().__getitem__((*batch_indices, left_indices, right_indices))
 
         else:
             outer_size = left_indices.size(0)
