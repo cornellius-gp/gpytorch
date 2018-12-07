@@ -301,7 +301,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
                     )
                 task_noises = task_noises.squeeze(0)
             task_var_lt = DiagLazyTensor(task_noises)
-            device = task_noises.device
+            dtype, device = task_noises.dtype, task_noises.device
         else:
             task_noise_covar_factor = self.task_noise_covar_factor
             if covar.ndimension() == 2:
@@ -311,12 +311,14 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
                     )
                 task_noise_covar_factor = task_noise_covar_factor.squeeze(0)
             task_var_lt = RootLazyTensor(task_noise_covar_factor)
-            device = task_noise_covar_factor.device
+            dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
 
         if covar.ndimension() == 2:
-            eye_lt = DiagLazyTensor(torch.ones(covar.size(-1) // self.num_tasks, device=device))
+            eye_lt = DiagLazyTensor(torch.ones(covar.size(-1) // self.num_tasks, dtype=dtype, device=device))
         else:
-            eye_lt = DiagLazyTensor(torch.ones(covar.size(0), covar.size(-1) // self.num_tasks, device=device))
+            eye_lt = DiagLazyTensor(
+                torch.ones(covar.size(0), covar.size(-1) // self.num_tasks, dtype=dtype, device=device)
+            )
             # Make sure the batch sizes are going to match
             if task_var_lt.size(0) == 1:
                 task_var_lt = task_var_lt.repeat(eye_lt.size(0), 1, 1)
