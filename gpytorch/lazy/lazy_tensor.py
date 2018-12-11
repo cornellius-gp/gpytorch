@@ -1074,9 +1074,12 @@ class LazyTensor(object):
             )
 
         # when dealing with small matrices, it's usually faster to use Choleksy decomposition
-        if self.numel() < 250:
-            res = torch.cholesky(self.evaluate())
-            return RootLazyTensor(res)
+        if self.matrix_shape.numel() <= (settings.max_cholesky_numel.value()):
+            try:
+                res = torch.cholesky(self.evaluate())
+                return RootLazyTensor(res)
+            except RuntimeError:
+                pass
 
         res, _ = RootDecomposition(
             self.representation_tree(),

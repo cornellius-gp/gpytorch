@@ -80,6 +80,16 @@ class max_cg_iterations(_value_context):
     _global_value = 20
 
 
+class max_cholesky_numel(_value_context):
+    """
+    If the number of elements of a LazyTensor is less than `max_cholesky_numel`,
+    then the `root_decomposition` of LazyTensor will use Cholesky rather than Lanczos.
+    Default: 256
+    """
+
+    _global_value = 256
+
+
 class max_root_decomposition_size(_value_context):
     """
     The maximum number of Lanczos iterations to perform
