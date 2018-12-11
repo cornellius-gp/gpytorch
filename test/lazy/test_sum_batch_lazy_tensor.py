@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import SumBatchLazyTensor, NonLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestSumBatchLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -21,7 +21,7 @@ class TestSumBatchLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return blocks.sum(0)
 
 
-class TestSumBatchLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestSumBatchLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 6
     should_test_sample = True
 

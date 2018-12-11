@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import BlockDiagLazyTensor, NonLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestBlockDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -25,7 +25,7 @@ class TestBlockDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return actual
 
 
-class TestBlockDiagLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestBlockDiagLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
 

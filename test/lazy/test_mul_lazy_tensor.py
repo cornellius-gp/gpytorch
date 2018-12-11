@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import MulLazyTensor, RootLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
 def make_random_mat(size, rank, batch_size=None):
@@ -65,7 +65,7 @@ class TestMulLazyTensorMulti(LazyTensorTestCase, unittest.TestCase):
         return res
 
 
-class TestMulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 2
 
     def create_lazy_tensor(self):
@@ -84,7 +84,7 @@ class TestMulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
         return res
 
 
-class TestMulLazyTensorMultiBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestMulLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 3
 
     def test_quad_form_derivative(self):
@@ -113,7 +113,7 @@ class TestMulLazyTensorMultiBatch(BatchLazyTensorTestCase, unittest.TestCase):
         return res
 
 
-class TestMulLazyTensorWithConstantMul(BatchLazyTensorTestCase, unittest.TestCase):
+class TestMulLazyTensorWithConstantMul(LazyTensorTestCase, unittest.TestCase):
     seed = 2
 
     def test_quad_form_derivative(self):

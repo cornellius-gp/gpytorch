@@ -3,8 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import KroneckerProductLazyTensor, NonLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
-from test.lazy._lazy_tensor_test_case import RectangularLazyTensorTestCase, RectangularBatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, RectangularLazyTensorTestCase
 
 
 def kron(a, b):
@@ -42,7 +41,7 @@ class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return res
 
 
-class TestKroneckerProductLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestKroneckerProductLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float).repeat(3, 1, 1)
         b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float).repeat(3, 1, 1)
@@ -73,7 +72,7 @@ class TestKroneckerProductLazyTensorRectangular(RectangularLazyTensorTestCase, u
         return res
 
 
-class TestKroneckerProductLazyTensorRectangularBatch(RectangularBatchLazyTensorTestCase, unittest.TestCase):
+class TestKroneckerProductLazyTensorRectangularBatch(RectangularLazyTensorTestCase, unittest.TestCase):
     def create_lazy_tensor(self):
         a = torch.randn(4, 2, 3, requires_grad=True)
         b = torch.randn(4, 5, 2, requires_grad=True)

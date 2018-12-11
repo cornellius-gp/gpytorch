@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import CholLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestCholLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -31,7 +31,7 @@ class TestCholLazyTensor(LazyTensorTestCase, unittest.TestCase):
         pass
 
 
-class TestCholLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestCholLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
 

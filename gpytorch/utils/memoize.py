@@ -9,7 +9,9 @@ def cached(f):
     @functools.wraps(f)
     def g(self):
         if not hasattr(self, "__cache"):
-            self.__cache = f(self)
-        return self.__cache
+            self.__cache = dict()
+        if f not in self.__cache:
+            self.__cache[f] = f(self)
+        return self.__cache[f]
 
     return g
