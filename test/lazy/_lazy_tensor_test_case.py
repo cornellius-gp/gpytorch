@@ -33,8 +33,8 @@ class RectangularLazyTensorTestCase(object):
             torch.set_rng_state(self.rng_state)
 
     def test_matmul_vec(self):
-        lazy_tensor = self.create_lazy_tensor()
-        lazy_tensor_copy = lazy_tensor.clone()
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
         test_vector = torch.randn(lazy_tensor.size(-1))
@@ -52,8 +52,8 @@ class RectangularLazyTensorTestCase(object):
                 )
 
     def test_matmul_matrix(self):
-        lazy_tensor = self.create_lazy_tensor()
-        lazy_tensor_copy = lazy_tensor.clone()
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
         test_vector = torch.randn(lazy_tensor.size(-1), 5)
@@ -132,12 +132,13 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     should_test_sample = False
 
     def test_quad_form_derivative(self):
-        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_clone = lazy_tensor.clone().detach_().requires_grad_(True)
         left_vecs = torch.randn(lazy_tensor.size(-1), 2)
         right_vecs = torch.randn(lazy_tensor.size(-1), 2)
 
         deriv_custom = lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
-        deriv_auto = gpytorch.lazy.LazyTensor._quad_form_derivative(lazy_tensor, left_vecs, right_vecs)
+        deriv_auto = gpytorch.lazy.LazyTensor._quad_form_derivative(lazy_tensor_clone, left_vecs, right_vecs)
 
         for dc, da in zip(deriv_custom, deriv_auto):
             self.assertLess(torch.norm(dc - da), 1e-1)
@@ -190,8 +191,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
     def test_inv_matmul_vec(self):
-        lazy_tensor = self.create_lazy_tensor()
-        lazy_tensor_copy = lazy_tensor.clone()
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
         test_vector = torch.randn(lazy_tensor.size(-1))
@@ -210,8 +211,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 )
 
     def test_inv_matmul_matrix(self):
-        lazy_tensor = self.create_lazy_tensor()
-        lazy_tensor_copy = lazy_tensor.clone()
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
         test_vector = torch.randn(lazy_tensor.size(-1), 5)
@@ -244,7 +245,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
 
         vecs = torch.randn(lazy_tensor.size(1), 3, requires_grad=True)
-        vecs_copy = vecs.clone()
+        vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
         with gpytorch.settings.num_trace_samples(128):
             res_inv_quad, res_log_det = lazy_tensor.inv_quad_log_det(inv_quad_rhs=vecs, log_det=True)
@@ -262,7 +263,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
 
         vecs = torch.randn(lazy_tensor.size(1), 3, requires_grad=True)
-        vecs_copy = vecs.clone()
+        vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
         with gpytorch.settings.num_trace_samples(128):
             res_inv_quad, res_log_det = lazy_tensor.inv_quad_log_det(
@@ -288,8 +289,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
 class RectangularBatchLazyTensorTestCase(object):
     def test_matmul_matrix(self):
-        lazy_tensor = self.create_lazy_tensor()
-        lazy_tensor_copy = lazy_tensor.clone()
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
         test_vector = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
@@ -385,12 +386,13 @@ class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):
         raise NotImplementedError()
 
     def test_quad_form_derivative(self):
-        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_clone = lazy_tensor.clone().detach_().requires_grad_(True)
         left_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
         right_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
 
         deriv_custom = lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
-        deriv_auto = gpytorch.lazy.LazyTensor._quad_form_derivative(lazy_tensor, left_vecs, right_vecs)
+        deriv_auto = gpytorch.lazy.LazyTensor._quad_form_derivative(lazy_tensor_clone, left_vecs, right_vecs)
 
         for dc, da in zip(deriv_custom, deriv_auto):
             self.assertLess(torch.norm(dc - da), 1e-1)
@@ -442,8 +444,8 @@ class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):
             self.assertTrue(approx_equal(res, actual))
 
     def test_inv_matmul_matrix(self):
-        lazy_tensor = self.create_lazy_tensor()
-        lazy_tensor_copy = lazy_tensor.clone()
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
         flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
@@ -486,7 +488,7 @@ class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):
         flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
         vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
-        vecs_copy = vecs.clone()
+        vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
         with gpytorch.settings.num_trace_samples(128):
             res_inv_quad, res_log_det = lazy_tensor.inv_quad_log_det(inv_quad_rhs=vecs, log_det=True)
@@ -515,7 +517,7 @@ class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
 
         vecs = torch.randn(lazy_tensor.size(0), lazy_tensor.size(1), 3, requires_grad=True)
-        vecs_copy = vecs.clone()
+        vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
         with gpytorch.settings.num_trace_samples(128):
             res_inv_quad, res_log_det = lazy_tensor.inv_quad_log_det(

@@ -399,7 +399,8 @@ class LazyTensor(object):
                 toggled[i] = True
 
         loss = (left_vecs * self._matmul(right_vecs)).sum()
-        grads = torch.autograd.grad(loss, args)
+        loss.requires_grad_(True)
+        grads = torch.autograd.grad(loss, args, allow_unused=True)
 
         for i, arg in enumerate(args):
             if toggled[i]:
@@ -549,6 +550,26 @@ class LazyTensor(object):
     @property
     def device(self):
         return self._args[0].device
+
+    def detach(self):
+        """
+        Removes the LazyTensor from the current computation graph.
+        (In practice, this function removes all Tensors that make up the
+        LazyTensor from the computation graph.)
+        """
+        return self.clone().detach_()
+
+    def detach_(self):
+        """
+        An in-place version of `detach`.
+        """
+        for arg in self._args:
+            if hasattr(arg, "detach"):
+                arg.detach_()
+        for val in self._kwargs.values():
+            if hasattr(val, "detach"):
+                val.detach_()
+        return self
 
     def diag(self):
         """
@@ -1058,6 +1079,28 @@ class LazyTensor(object):
         including all subobjects. This is used internally.
         """
         return LazyTensorRepresentationTree(self)
+
+    @property
+    def requires_grad(self):
+        return any(arg.requires_grad for arg in tuple(self._args) + tuple(self._kwargs.values()))
+
+    @requires_grad.setter
+    def requires_grad(self, val):
+        for arg in self._args:
+            if hasattr(arg, "requires_grad"):
+                if arg.dtype in (torch.float, torch.double, torch.half):
+                    arg.requires_grad = val
+        for val in self._kwargs.values():
+            if hasattr(val, "requires_grad"):
+                val.requires_grad = val
+
+    def requires_grad_(self, val):
+        """
+        Sets `requires_grad=val` on all the Tensors that make up the LazyTensor
+        This is an inplace operation.
+        """
+        self.requires_grad = val
+        return self
 
     def root_decomposition(self):
         """

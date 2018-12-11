@@ -194,9 +194,14 @@ class MulLazyTensor(LazyTensor):
         return tuple(list(left_deriv_args) + list(right_deriv_args))
 
     def clone(self):
-        args = [arg.clone() for arg in self.lazy_tensors]
-        kwargs = dict((key, val.clone() if hasattr(val, "clone") else val) for key, val in self._kwargs.items())
-        return self.__class__(*args, **kwargs)
+        return self.__class__(*tuple(lazy_tensor.clone() for lazy_tensor in self.lazy_tensors))
+
+    def detach_(self):
+        if hasattr(self, "_mul_args_memo"):
+            del self._mul_args_memo
+        for lazy_tensor in self.lazy_tensors:
+            lazy_tensor.detach_()
+        return self
 
     def diag(self):
         res = prod([lazy_tensor.diag() for lazy_tensor in self.lazy_tensors])
@@ -250,3 +255,16 @@ class MulLazyTensor(LazyTensor):
             return self.non_lazy_self.representation_tree()
         else:
             return super(MulLazyTensor, self).representation_tree()
+
+    @property
+    def requires_grad(self):
+        if hasattr(self, "_mul_args_memo"):
+            del self._mul_args_memo
+        return any(lazy_tensor for lazy_tensor in self.lazy_tensors)
+
+    @requires_grad.setter
+    def requires_grad(self, val):
+        if hasattr(self, "_mul_args_memo"):
+            del self._mul_args_memo
+        for lazy_tensor in self.lazy_tensors:
+            lazy_tensor.requires_grad = val

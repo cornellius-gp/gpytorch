@@ -58,21 +58,10 @@ class ConstantMulLazyTensor(LazyTensor):
     def __init__(self, base_lazy_tensor, constant):
         if not torch.is_tensor(constant):
             constant = torch.tensor(constant, device=base_lazy_tensor.device, dtype=base_lazy_tensor.dtype)
-        orig_constant = constant
-
-        # Make sure that the constant can be expanded to the appropriate size
-        try:
-            constant = orig_constant.expand(base_lazy_tensor.batch_shape)
-        except RuntimeError:
-            raise RuntimeError(
-                "ConstantMulLazyTensor of size {} received an invalid constant of size {}.".format(
-                    base_lazy_tensor.shape, orig_constant.shape
-                )
-            )
 
         super(ConstantMulLazyTensor, self).__init__(base_lazy_tensor, constant)
         self.base_lazy_tensor = base_lazy_tensor
-        self.constant = constant
+        self._constant = constant
 
     def _approx_diag(self):
         res = self.base_lazy_tensor._approx_diag()
@@ -131,6 +120,21 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return ConstantMulLazyTensor(self.base_lazy_tensor._transpose_nonbatch(), self.constant)
+
+    @property
+    @cached
+    def constant(self):
+        # Make sure that the constant can be expanded to the appropriate size
+        try:
+            constant = self._constant.expand(self.base_lazy_tensor.batch_shape)
+        except RuntimeError:
+            raise RuntimeError(
+                "ConstantMulLazyTensor of size {} received an invalid constant of size {}.".format(
+                    self.base_lazy_tensor.shape, self._constant.shape
+                )
+            )
+
+        return constant
 
     def diag(self):
         res = self.base_lazy_tensor.diag()
