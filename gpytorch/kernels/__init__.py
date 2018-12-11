@@ -15,6 +15,7 @@ from .multitask_kernel import MultitaskKernel
 from .periodic_kernel import PeriodicKernel
 from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
+from .rbf_kernel_grad import RBFKernelGrad
 from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 from .white_noise_kernel import WhiteNoiseKernel
@@ -38,6 +39,7 @@ __all__ = [
     "ProductKernel",
     "ProductStructureKernel",
     "RBFKernel",
+    "RBFKernelGrad",
     "ScaleKernel",
     "SpectralMixtureKernel",
     "WhiteNoiseKernel",
