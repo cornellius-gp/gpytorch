@@ -162,14 +162,22 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         self.assertTrue(approx_equal(res, actual))
 
     def test_root_decomposition(self):
+        # Test with Cholesky
         lazy_tensor = self.create_lazy_tensor()
-        root_approx = lazy_tensor.root_decomposition()
-
         test_mat = torch.randn(lazy_tensor.size(-1))
+        with gpytorch.settings.max_cholesky_numel(lazy_tensor.matrix_shape.numel() + 1):
+            root_approx = lazy_tensor.root_decomposition()
+            res = root_approx.matmul(test_mat)
+            actual = lazy_tensor.matmul(test_mat)
+            self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
-        res = root_approx.matmul(test_mat)
-        actual = lazy_tensor.matmul(test_mat)
-        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
+        # Test with Lanczos
+        lazy_tensor = self.create_lazy_tensor()
+        with gpytorch.settings.max_cholesky_numel(lazy_tensor.matrix_shape.numel() - 1):
+            root_approx = lazy_tensor.root_decomposition()
+            res = root_approx.matmul(test_mat)
+            actual = lazy_tensor.matmul(test_mat)
+            self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
     def test_root_inv_decomposition(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -533,6 +541,6 @@ class BatchLazyTensorTestCase(RectangularBatchLazyTensorTestCase):
             lazy_tensor = self.create_lazy_tensor()
             evaluated = self.evaluate_lazy_tensor(lazy_tensor)
 
-            samples = lazy_tensor.zero_mean_mvn_samples(10000)
+            samples = lazy_tensor.zero_mean_mvn_samples(50000)
             sample_covar = samples.unsqueeze(-1).matmul(samples.unsqueeze(-2)).mean(0)
             self.assertLess(((sample_covar - evaluated).abs() / evaluated.abs().clamp(1, 1e5)).max().item(), 3e-1)
