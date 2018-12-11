@@ -55,7 +55,7 @@ class SumLazyTensor(LazyTensor):
         return tuple(
             lazy_tensor._exact_predictive_covar_inv_quad_form_cache(
                 train_train_covar_inv_root, test_train_covar_comp
-            ).detach()
+            )
             for lazy_tensor, test_train_covar_comp in zip(self.lazy_tensors, test_train_covar.lazy_tensors)
         )
 

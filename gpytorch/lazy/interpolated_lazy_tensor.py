@@ -342,6 +342,7 @@ class InterpolatedLazyTensor(LazyTensor):
 
     def exact_predictive_mean(
         self,
+        test_train_covar,
         full_mean,
         train_inputs,
         train_labels,
@@ -353,21 +354,12 @@ class InterpolatedLazyTensor(LazyTensor):
         from ..distributions import MultivariateNormal
 
         if precomputed_cache is None:
-            train_interp_indices = self.left_interp_indices.narrow(-2, 0, num_train)
-            train_interp_values = self.left_interp_values.narrow(-2, 0, num_train)
+            train_interp_indices = self.left_interp_indices
+            train_interp_values = self.left_interp_values
 
-            # Get inverse root
-            train_train_covar = self.__class__(
-                self.base_lazy_tensor,
-                train_interp_indices,
-                train_interp_values,
-                train_interp_indices,
-                train_interp_values,
-            )
+            train_mean = full_mean.narrow(-1, 0, train_labels.size(-1))
 
-            train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
-
-            mvn = likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
+            mvn = likelihood(MultivariateNormal(train_mean, self), train_inputs)
             train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
 
             train_train_covar_inv_labels = train_train_covar.inv_matmul((train_labels - train_mean).unsqueeze(-1))
@@ -382,10 +374,10 @@ class InterpolatedLazyTensor(LazyTensor):
             precomputed_cache = precomputed_cache.detach()
 
         # Compute the exact predictive posterior
-        n_test = self.size(-1) - num_train
+        n_test = test_train_covar.size(-2)
         test_mean = full_mean.narrow(-1, num_train, n_test)
-        test_interp_indices = self.left_interp_indices.narrow(-2, num_train, n_test)
-        test_interp_values = self.left_interp_values.narrow(-2, num_train, n_test)
+        test_interp_indices = test_train_covar.left_interp_indices
+        test_interp_values = test_train_covar.left_interp_values
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache).squeeze(-1) + test_mean
         return res, precomputed_cache
 
@@ -408,23 +400,26 @@ class InterpolatedLazyTensor(LazyTensor):
         return res
 
     def exact_predictive_covar(
-        self, train_inputs, num_train, likelihood, precomputed_cache=None, non_batch_train=False
+        self,
+        test_train_covar,
+        test_test_covar,
+        train_inputs,
+        num_train,
+        likelihood,
+        precomputed_cache=None,
+        non_batch_train=False
     ):
         from ..distributions import MultivariateNormal
 
         if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
             return super(InterpolatedLazyTensor, self).exact_predictive_covar(
-                train_inputs, num_train, likelihood, precomputed_cache
+                test_train_covar, test_test_covar, train_inputs, num_train, likelihood, precomputed_cache
             )
 
-        n_test = self.size(-2) - num_train
-        train_interp_indices = self.left_interp_indices.narrow(-2, 0, num_train)
-        train_interp_values = self.left_interp_values.narrow(-2, 0, num_train)
-        test_interp_indices = self.left_interp_indices.narrow(-2, num_train, n_test)
-        test_interp_values = self.left_interp_values.narrow(-2, num_train, n_test)
-        test_train_covar = self.__class__(
-            self.base_lazy_tensor, test_interp_indices, test_interp_values, train_interp_indices, train_interp_values
-        )
+        train_interp_indices = self.left_interp_indices
+        train_interp_values = self.left_interp_values
+        test_interp_indices = test_train_covar.left_interp_indices
+        test_interp_values = test_train_covar.left_interp_values
 
         if (
             precomputed_cache is None
@@ -432,15 +427,8 @@ class InterpolatedLazyTensor(LazyTensor):
             or (not beta_features.fast_pred_samples.on() and precomputed_cache[1] is None)
         ):
             # Get inverse root
-            train_train_covar = self.__class__(
-                self.base_lazy_tensor,
-                train_interp_indices,
-                train_interp_values,
-                train_interp_indices,
-                train_interp_values,
-            )
 
-            grv = MultivariateNormal(torch.zeros(1), train_train_covar)
+            grv = MultivariateNormal(torch.zeros(1), self)
             train_train_covar = likelihood(grv, train_inputs).lazy_covariance_matrix
 
             # Get probe vectors for inverse root
@@ -499,11 +487,8 @@ class InterpolatedLazyTensor(LazyTensor):
             res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache[0], test_train_covar)
             res = RootLazyTensor(res)
         else:
-            test_test_prior_covar = InterpolatedLazyTensor(
-                self.base_lazy_tensor, test_interp_indices, test_interp_values, test_interp_indices, test_interp_values
-            )
             root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1])
-            res = test_test_prior_covar + RootLazyTensor(root).mul(-1)
+            res = test_test_covar + RootLazyTensor(root).mul(-1)
         return res, precomputed_cache
 
     def matmul(self, tensor):
