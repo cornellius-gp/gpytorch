@@ -48,7 +48,7 @@ class MultitaskKernel(Kernel):
         covar_x = self.data_covar_module.forward(x1, x2, **params)
         if not isinstance(covar_x, LazyTensor):
             covar_x = NonLazyTensor(covar_x)
-        res = KroneckerProductLazyTensor(covar_i, covar_x)
+        res = KroneckerProductLazyTensor(covar_x, covar_i)
         return res.diag() if diag else res
 
     def size(self, x1, x2):

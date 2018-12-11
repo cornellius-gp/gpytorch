@@ -389,23 +389,30 @@ class LazyTensor(object):
             :obj:`torch.tensor`: derivative with respect to the arguments that are actually used to represent this
                                    this LazyTensor.
         """
-        args = self.representation()
+        from collections import deque
 
-        toggled = [False] * len(args)
+        args = tuple(self.representation())
+        args_with_grads = tuple(arg for arg in args if arg.requires_grad)
 
-        for i, arg in enumerate(args):
-            if not arg.requires_grad:
-                arg.requires_grad = True
-                toggled[i] = True
+        # Easy case: if we don't require any gradients, then just return!
+        if not len(args_with_grads):
+            return tuple(None for _ in args)
 
-        loss = (left_vecs * self._matmul(right_vecs)).sum()
-        loss.requires_grad_(True)
-        grads = torch.autograd.grad(loss, args, allow_unused=True)
+        # Normal case: we'll use the autograd to get us a derivative
+        with torch.autograd.enable_grad():
+            loss = (left_vecs * self._matmul(right_vecs)).sum()
+            loss.requires_grad_(True)
+            actual_grads = deque(torch.autograd.grad(loss, args_with_grads, allow_unused=True))
 
-        for i, arg in enumerate(args):
-            if toggled[i]:
-                arg.requires_grad = False
+        # Now make sure that the object we return has one entry for every item in args
+        grads = []
+        for arg in args:
+            if arg.requires_grad:
+                grads.append(actual_grads.popleft())
+            else:
+                grads.append(None)
 
+        args_with_grads = tuple(arg for arg in args if arg.requires_grad)
         return grads
 
     def _preconditioner(self):
