@@ -3,10 +3,10 @@
 import torch
 import unittest
 from gpytorch.lazy import ToeplitzLazyTensor, BatchRepeatLazyTensor
-from test.lazy._lazy_tensor_test_case import BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
-class TestBatchRepeatLazyTensor(BatchLazyTensorTestCase, unittest.TestCase):
+class TestBatchRepeatLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
 
@@ -19,7 +19,7 @@ class TestBatchRepeatLazyTensor(BatchLazyTensorTestCase, unittest.TestCase):
         return evaluated.repeat(*lazy_tensor.batch_repeat, 1, 1)
 
 
-class TestBatchRepeatLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestBatchRepeatLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
 

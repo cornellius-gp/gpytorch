@@ -382,11 +382,3 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             samples = lazy_tensor.zero_mean_mvn_samples(50000)
             sample_covar = samples.unsqueeze(-1).matmul(samples.unsqueeze(-2)).mean(0)
             self.assertLess(((sample_covar - evaluated).abs() / evaluated.abs().clamp(1, math.inf)).max().item(), 3e-1)
-
-
-class RectangularBatchLazyTensorTestCase(RectangularLazyTensorTestCase):
-    pass
-
-
-class BatchLazyTensorTestCase(LazyTensorTestCase):
-    pass

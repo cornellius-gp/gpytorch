@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import RootLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestRootLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -19,7 +19,7 @@ class TestRootLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return res
 
 
-class TestRootLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestRootLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 1
 
     def create_lazy_tensor(self):

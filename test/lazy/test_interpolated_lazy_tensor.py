@@ -3,7 +3,7 @@
 import unittest
 import torch
 from gpytorch.lazy import NonLazyTensor, InterpolatedLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestInterpolatedLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -43,7 +43,7 @@ class TestInterpolatedLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return actual
 
 
-class TestInterpolatedLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestInterpolatedLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
 

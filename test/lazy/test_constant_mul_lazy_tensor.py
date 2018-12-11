@@ -4,7 +4,7 @@ import torch
 import unittest
 from gpytorch.lazy import ToeplitzLazyTensor
 from gpytorch.utils.toeplitz import sym_toeplitz
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestConstantMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -21,7 +21,7 @@ class TestConstantMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return sym_toeplitz(column) * constant
 
 
-class TestConstantMulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestConstantMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
 
     def create_lazy_tensor(self):

@@ -3,8 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import MatmulLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, BatchLazyTensorTestCase
-from test.lazy._lazy_tensor_test_case import RectangularLazyTensorTestCase, RectangularBatchLazyTensorTestCase
+from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, RectangularLazyTensorTestCase
 
 
 class TestMatmulLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -20,7 +19,7 @@ class TestMatmulLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return lazy_tensor.left_lazy_tensor.tensor.matmul(lazy_tensor.right_lazy_tensor.tensor)
 
 
-class TestMatmulLazyTensorBatch(BatchLazyTensorTestCase, unittest.TestCase):
+class TestMatmulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 3
 
     def create_lazy_tensor(self):
@@ -44,7 +43,7 @@ class TestMatmulLazyTensorRectangular(RectangularLazyTensorTestCase, unittest.Te
         return lazy_tensor.left_lazy_tensor.tensor.matmul(lazy_tensor.right_lazy_tensor.tensor)
 
 
-class TestMatmulLazyTensorRectangularBatch(RectangularBatchLazyTensorTestCase, unittest.TestCase):
+class TestMatmulLazyTensorRectangularBatch(RectangularLazyTensorTestCase, unittest.TestCase):
     def create_lazy_tensor(self):
         lhs = torch.randn(3, 5, 3, requires_grad=True)
         rhs = torch.randn(3, 3, 6, requires_grad=True)
