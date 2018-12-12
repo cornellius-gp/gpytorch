@@ -18,10 +18,6 @@ Functions
 
 .. autofunction:: dsmm
 
-.. autofunction:: exact_predictive_mean
-
-.. autofunction:: exact_predictive_covar
-
 .. autofunction:: inv_matmul
 
 .. autofunction:: inv_quad

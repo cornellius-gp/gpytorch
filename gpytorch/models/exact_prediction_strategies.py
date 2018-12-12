@@ -69,10 +69,9 @@ class DefaultPredictionStrategy(object):
     ):
         """
         Computes the posterior predictive covariance of a GP
-        Assumes that self is the block prior covariance matrix of training and testing points
-        [ K_XX, K_XX*; K_X*X, K_X*X* ]
 
         Args:
+            test_train_covar (:obj:`gpytorch.lazy.LazyTensor`): Covariance matrix between test and train inputs
             full_mean (:obj:`torch.tensor`): the training and test prior means, stacked on top of each other
             train_inputs (:obj:`torch.tensor`): The training data inputs
             train_labels (:obj:`torch.tensor`): the training labels minus the training prior mean
@@ -135,14 +134,15 @@ class DefaultPredictionStrategy(object):
     ):
         """
         Computes the posterior predictive covariance of a GP
-        Assumes that self is the block prior covariance matrix of training and testing points
-        [ K_XX, K_XX*; K_X*X, K_X*X* ]
 
         Args:
+            test_train_covar (:obj:`gpytorch.lazy.LazyTensor`): Covariance matrix between test and train inputs
+            test_test_covar (:obj:`gpytorch.lazy.LazyTensor`): Covariance matrix between test inputs
             train_inputs (:obj:`torch.tensor`): The training data inputs
             num_train (int): The number of training points in the full covariance matrix
             noise (scalar): The observed noise (from the likelihood)
             precomputed_cache (optional): speeds up subsequent computations (default: None)
+            non_batch_train (bool, optional): True if the training data was not batch mode.
 
         Returns:
             :obj:`gpytorch.lazy.LazyTensor`: A LazyTensor representing the predictive posterior covariance of the
