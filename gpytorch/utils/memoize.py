@@ -12,7 +12,7 @@ def cached(method=None, name=None):
     def g(self):
         if not hasattr(self, "__cache"):
             self.__cache = dict()
-        cache_name = name if name is None else method
+        cache_name = name if name is not None else method
         if cache_name not in self.__cache:
             self.__cache[cache_name] = method(self)
         return self.__cache[cache_name]
