@@ -2,7 +2,7 @@ import torch
 from .. import beta_features
 from ..lazy import LazyTensor, InterpolatedLazyTensor, SumLazyTensor, MatmulLazyTensor, RootLazyTensor
 from ..utils.interpolation import left_interp, left_t_interp
-from ..utils.memoize import named_cached
+from ..utils.memoize import cached
 from ..distributions import MultivariateNormal
 
 _PREDICTION_STRATEGY_REGISTRY = {}
@@ -69,7 +69,7 @@ class DefaultPredictionStrategy(object):
         return test_train_covar.matmul(precomputed_cache)
 
     @property
-    @named_cached('mean_cache')
+    @cached(name='mean_cache')
     def mean_cache(self):
         train_mean = self.train_mean
         train_labels = self.train_labels
@@ -100,7 +100,7 @@ class DefaultPredictionStrategy(object):
         return mean_cache.detach()
 
     @property
-    @named_cached('covar_cache')
+    @cached(name='covar_cache')
     def covar_cache(self):
         train_train_covar = self.likelihood(
             MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
@@ -190,7 +190,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return res
 
     @property
-    @named_cached('mean_cache')
+    @cached(name='mean_cache')
     def mean_cache(self):
         train_interp_indices = self.train_train_covar.left_interp_indices
         train_interp_values = self.train_train_covar.left_interp_values
@@ -210,7 +210,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return mean_cache.detach()
 
     @property
-    @named_cached('covar_cache')
+    @cached(name='covar_cache')
     def covar_cache(self):
         # Get inverse root
         grv = MultivariateNormal(torch.zeros(1), self.train_train_covar)
