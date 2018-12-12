@@ -27,8 +27,7 @@ class ExactGP(GP):
             self.train_targets = None
         self.likelihood = likelihood
 
-        self.mean_cache = None
-        self.covar_cache = None
+        self.prediction_strategy = None
 
     def _apply(self, fn):
         if self.train_inputs is not None:
@@ -52,13 +51,11 @@ class ExactGP(GP):
                 if strict and getattr(targets, attr) != getattr(self.train_targets, attr):
                     raise RuntimeError("Cannot modify {attr} of targets".format(attr=attr))
             self.train_targets = targets
-        self.mean_cache = None
-        self.covar_cache = None
+        self.prediction_strategy = None
 
     def train(self, mode=True):
         if mode:
-            self.mean_cache = None
-            self.covar_cache = None
+            self.prediction_strategy = None
         return super(ExactGP, self).train(mode)
 
     def __call__(self, *args, **kwargs):
@@ -148,35 +145,26 @@ class ExactGP(GP):
                     # non-batch mode (standard)
                     num_train = train_targets.size(-1)
 
-                train_train_covar = full_covar[..., :num_train, :num_train].evaluate_kernel()
-                test_train_covar = full_covar[..., num_train:, :num_train]
+                if self.prediction_strategy is None:
+                    train_train_covar = full_covar[..., :num_train, :num_train].evaluate_kernel()
+                    train_mean = full_mean.narrow(-1, 0, train_targets.size(-1))
+                    self.prediction_strategy = prediction_strategy(
+                        num_train,
+                        train_inputs,
+                        train_mean,
+                        train_train_covar,
+                        train_targets,
+                        self.likelihood,
+                        non_batch_train,
+                    )
+
+                test_mean = full_mean.narrow(-1, train_targets.size(-1), full_mean.size(-1) - train_targets.size(-1))
                 test_test_covar = full_covar[..., num_train:, num_train:]
+                test_train_covar = full_covar[..., num_train:, :num_train]
 
-                pred_strat = prediction_strategy(train_train_covar)
+                predictive_mean = self.prediction_strategy.exact_predictive_mean(test_mean, test_train_covar)
+                predictive_covar = self.prediction_strategy.exact_predictive_covar(test_test_covar, test_train_covar)
 
-                predictive_mean, mean_cache = pred_strat.exact_predictive_mean(
-                    test_train_covar=test_train_covar,
-                    full_mean=full_mean,
-                    train_inputs=train_inputs,
-                    train_labels=train_targets,
-                    num_train=num_train,
-                    likelihood=self.likelihood,
-                    precomputed_cache=self.mean_cache,
-                    non_batch_train=non_batch_train,
-                )
-
-                predictive_covar, covar_cache = pred_strat.exact_predictive_covar(
-                    test_train_covar=test_train_covar,
-                    test_test_covar=test_test_covar,
-                    train_inputs=train_inputs,
-                    num_train=num_train,
-                    likelihood=self.likelihood,
-                    precomputed_cache=self.covar_cache,
-                    non_batch_train=non_batch_train,
-                )
-
-                self.mean_cache = mean_cache
-                self.covar_cache = covar_cache
                 if num_tasks > 1:
                     if train_targets.ndimension() == 2:
                         # Batch multitask
