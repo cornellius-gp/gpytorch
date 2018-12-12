@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import torch
 from .. import beta_features
 from ..lazy import LazyTensor, InterpolatedLazyTensor, SumLazyTensor, MatmulLazyTensor, RootLazyTensor
