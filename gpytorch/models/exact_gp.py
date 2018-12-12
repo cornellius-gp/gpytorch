@@ -29,6 +29,14 @@ class ExactGP(GP):
 
         self.prediction_strategy = None
 
+    @property
+    def train_targets(self):
+        return self._train_targets
+
+    @train_targets.setter
+    def train_targets(self, value):
+        object.__setattr__(self, '_train_targets', value)
+
     def _apply(self, fn):
         if self.train_inputs is not None:
             self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
