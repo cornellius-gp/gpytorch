@@ -70,6 +70,65 @@ class debug(_feature_flag):
     _state = True
 
 
+class fast_pred_var(_feature_flag):
+    """
+    Fast predictive variances using Lanczos Variance Estimates (LOVE)
+    Use this for improved performance when computing predictive variances.
+
+    As described in the paper:
+
+    `Constant-Time Predictive Distributions for Gaussian Processes`_.
+
+    See also: :class:`gpytorch.settings.max_root_decomposition_size` (to control the
+    size of the low rank decomposition used for variance estimates).
+
+    .. _`Constant-Time Predictive Distributions for Gaussian Processes`:
+        https://arxiv.org/pdf/1803.06058.pdf
+    """
+
+    _num_probe_vectors = 1
+
+    @classmethod
+    def num_probe_vectors(cls):
+        return cls._num_probe_vectors
+
+    @classmethod
+    def _set_num_probe_vectors(cls, value):
+        cls._num_probe_vectors = value
+
+    def __init__(self, state=True, num_probe_vectors=1):
+        self.orig_value = self.__class__.num_probe_vectors()
+        self.value = num_probe_vectors
+        super(fast_pred_var, self).__init__(state)
+
+    def __enter__(self):
+        self.__class__._set_num_probe_vectors(self.value)
+        super(fast_pred_var, self).__enter__()
+
+    def __exit__(self, *args):
+        self.__class__._set_num_probe_vectors(self.orig_value)
+        return super(fast_pred_var, self).__exit__()
+
+
+class fast_pred_samples(_feature_flag):
+    """
+    Fast predictive samples using Lanczos Variance Estimates (LOVE).
+    Use this for improved performance when sampling from a predictive posterior matrix.
+
+    As described in the paper:
+
+    `Constant-Time Predictive Distributions for Gaussian Processes`_.
+
+    See also: :class:`gpytorch.settings.max_root_decomposition_size` (to control the
+    size of the low rank decomposition used for samples).
+
+    .. _`Constant-Time Predictive Distributions for Gaussian Processes`:
+        https://arxiv.org/pdf/1803.06058.pdf
+    """
+
+    pass
+
+
 class max_cg_iterations(_value_context):
     """
     The maximum number of conjugate gradient iterations to perform (when computing

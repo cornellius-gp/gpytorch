@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from .. import beta_features
+from .. import settings
 from ..lazy import LazyTensor, InterpolatedLazyTensor, SumLazyTensor, MatmulLazyTensor, RootLazyTensor
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached
@@ -153,7 +153,7 @@ class DefaultPredictionStrategy(object):
         """
         from ..distributions import MultivariateNormal
 
-        if not beta_features.fast_pred_var.on():
+        if not settings.fast_pred_var.on():
             train_train_covar = self.likelihood(
                 MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
             ).lazy_covariance_matrix
@@ -222,7 +222,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         train_interp_values = self.train_train_covar.left_interp_values
 
         # Get probe vectors for inverse root
-        num_probe_vectors = beta_features.fast_pred_var.num_probe_vectors()
+        num_probe_vectors = settings.fast_pred_var.num_probe_vectors()
         batch_size = train_interp_indices.size(0)
         n_inducing = self.train_train_covar.base_lazy_tensor.size(-1)
         vector_indices = torch.randperm(n_inducing).type_as(train_interp_indices)
@@ -263,7 +263,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
 
         # Precomputed factor
-        if beta_features.fast_pred_samples.on():
+        if settings.fast_pred_samples.on():
             inside = self.train_train_covar.base_lazy_tensor + RootLazyTensor(root).mul(-1)
             inside_root = inside.root_decomposition().root.evaluate()
             # Prevent backprop through this variable
@@ -287,7 +287,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return res
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
-        if not beta_features.fast_pred_var.on() and not beta_features.fast_pred_samples.on():
+        if not settings.fast_pred_var.on() and not settings.fast_pred_samples.on():
             return super(InterpolatedPredictionStrategy, self).exact_predictive_covar(test_test_covar, test_train_covar)
 
         test_train_covar = test_train_covar.evaluate_kernel()
@@ -298,14 +298,14 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         test_interp_values = test_train_covar.left_interp_values
 
         precomputed_cache = self.covar_cache
-        if (beta_features.fast_pred_samples.on() and precomputed_cache[0] is None) or (
-            not beta_features.fast_pred_samples.on() and precomputed_cache[1] is None
+        if (settings.fast_pred_samples.on() and precomputed_cache[0] is None) or (
+            not settings.fast_pred_samples.on() and precomputed_cache[1] is None
         ):
             self.__cache.pop('covar_cache')
             precomputed_cache = self.covar_cache
 
         # Compute the exact predictive posterior
-        if beta_features.fast_pred_samples.on():
+        if settings.fast_pred_samples.on():
             res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache[0], test_train_covar)
             res = RootLazyTensor(res)
         else:

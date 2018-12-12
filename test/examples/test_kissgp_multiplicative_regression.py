@@ -94,7 +94,7 @@ class TestKISSGPMultiplicativeRegression(unittest.TestCase):
         gp_model.eval()
         likelihood.eval()
 
-        with gpytorch.fast_pred_var():
+        with gpytorch.settings.fast_pred_var():
             test_preds = likelihood(gp_model(test_x)).mean
         mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
         self.assertLess(mean_abs_error.squeeze().item(), 0.15)

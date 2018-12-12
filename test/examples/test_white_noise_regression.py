@@ -141,7 +141,7 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_fast_pred_var(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
-        with gpytorch.fast_pred_var(), gpytorch.settings.debug(False):
+        with gpytorch.settings.fast_pred_var(), gpytorch.settings.debug(False):
             # We're manually going to set the hyperparameters to something they shouldn't be
             likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
             gp_model = ExactGPModel(train_x, train_y, likelihood)
