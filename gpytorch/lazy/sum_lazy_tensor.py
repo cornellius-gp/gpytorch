@@ -51,24 +51,6 @@ class SumLazyTensor(LazyTensor):
         lazy_tensors_t = [lazy_tensor.transpose(-1, -2) for lazy_tensor in self.lazy_tensors]
         return SumLazyTensor(*lazy_tensors_t)
 
-    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
-        return tuple(
-            lazy_tensor._exact_predictive_covar_inv_quad_form_cache(
-                train_train_covar_inv_root, test_train_covar_comp
-            )
-            for lazy_tensor, test_train_covar_comp in zip(self.lazy_tensors, test_train_covar.lazy_tensors)
-        )
-
-    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
-        # Here the precomputed cache is a list
-        # where each component in the list is the precomputed cache for each component lazy tensor
-        return sum(
-            lazy_tensor._exact_predictive_covar_inv_quad_form_root(cache_comp, test_train_covar_comp)
-            for lazy_tensor, cache_comp, test_train_covar_comp in zip(
-                self.lazy_tensors, precomputed_cache, test_train_covar.lazy_tensors
-            )
-        )
-
     @cached
     def evaluate(self):
         return sum(lazy_tensor.evaluate() for lazy_tensor in self.lazy_tensors)

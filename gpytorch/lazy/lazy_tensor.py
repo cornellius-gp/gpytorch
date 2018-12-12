@@ -5,7 +5,7 @@ import math
 import gpytorch
 import torch
 
-from .. import beta_features, settings
+from .. import settings
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
@@ -143,36 +143,6 @@ class LazyTensor(object):
             tensor: - the diagonal (or batch of diagonals)
         """
         return self.diag()
-
-    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
-        """
-        Computes a cache for K_X*X (K_XX + sigma^2 I)^-1 K_X*X if possible. By default, this does no work and returns
-        the first argument.
-
-        Args:
-            train_train_covar_inv_root (:obj:`torch.tensor`): a root of (K_XX + sigma^2 I)^-1
-            test_train_covar (:obj:`torch.tensor`): the observed noise (from the likelihood)
-
-        Returns
-            - A precomputed cache
-        """
-        return train_train_covar_inv_root.detach()
-
-    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
-        """
-        Computes :math:`K_{X^{*}X} S` given a precomputed cache
-        Where :math:`S` is a tensor such that :math:`SS^{\\top} = (K_{XX} + \sigma^2 I)^{-1}`
-
-        Args:
-            precomputed_cache (:obj:`torch.tensor`): What was computed in _exact_predictive_covar_inv_quad_form_cache
-            test_train_covar (:obj:`torch.tensor`): The observed noise (from the likelihood)
-
-        Returns
-            :obj:`~gpytorch.lazy.LazyTensor`: :math:`K_{X^{*}X} S`
-        """
-        # Here the precomputed cache represents S,
-        # where S S^T = (K_XX + sigma^2 I)^-1
-        return test_train_covar.matmul(precomputed_cache)
 
     def _getitem(self, *indices):
         """
@@ -640,127 +610,6 @@ class LazyTensor(object):
         all lazily evaluated kernels actually evaluated.
         """
         return self.representation_tree()(*self.representation())
-
-    def exact_predictive_mean(
-        self,
-        test_train_covar,
-        full_mean,
-        train_inputs,
-        train_labels,
-        num_train,
-        likelihood,
-        precomputed_cache=None,
-        non_batch_train=False,
-    ):
-        """
-        Computes the posterior predictive covariance of a GP
-        Assumes that self is the block prior covariance matrix of training and testing points
-        [ K_XX, K_XX*; K_X*X, K_X*X* ]
-
-        Args:
-            full_mean (:obj:`torch.tensor`): the training and test prior means, stacked on top of each other
-            train_inputs (:obj:`torch.tensor`): The training data inputs
-            train_labels (:obj:`torch.tensor`): the training labels minus the training prior mean
-            noise (:obj:`torch.tensor`): the observed noise (from the likelihood)
-            precomputed_cache (optional): speeds up subsequent computations (default: None)
-
-        Returns:
-            :obj:`torch.tensor`: The predictive posterior mean of the test points
-        """
-        from ..distributions import MultivariateNormal
-
-        if precomputed_cache is None:
-            train_mean = full_mean.narrow(-1, 0, num_train)
-
-            if non_batch_train and self.dim() == 3:
-                train_train_covar = self[0]
-            else:
-                train_train_covar = self
-
-            train_mean = full_mean.narrow(-1, 0, train_train_covar.size(-1))
-            if non_batch_train and train_mean.dim() == 2:
-                train_mean = train_mean[0]
-                train_labels = train_labels[0]
-            mvn = likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
-
-            train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
-
-            train_labels_offset = train_labels - train_mean
-
-            if self.dim() == 3:
-                # Batch mode
-                train_labels_offset = train_labels_offset.unsqueeze(-1)
-                precomputed_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
-            else:
-                # Standard mode
-                precomputed_cache = train_train_covar.inv_matmul(train_labels_offset)
-
-        test_mean = full_mean.narrow(-1, train_labels.size(-1), full_mean.size(-1) - train_labels.size(-1))
-
-        if self.dim() == 3:
-            res = test_train_covar.matmul(precomputed_cache.unsqueeze(-1)).squeeze(-1)
-        else:
-            if non_batch_train and precomputed_cache.dim() == 2:
-                precomputed_cache = precomputed_cache[0]
-            res = test_train_covar.matmul(precomputed_cache)
-
-        res = res + test_mean
-
-        return res, precomputed_cache.detach()
-
-    def exact_predictive_covar(
-        self,
-        test_train_covar,
-        test_test_covar,
-        train_inputs,
-        num_train,
-        likelihood,
-        precomputed_cache=None,
-        non_batch_train=False
-    ):
-        """
-        Computes the posterior predictive covariance of a GP
-        Assumes that self is the block prior covariance matrix of training and testing points
-        [ K_XX, K_XX*; K_X*X, K_X*X* ]
-
-        Args:
-            train_inputs (:obj:`torch.tensor`): The training data inputs
-            num_train (int): The number of training points in the full covariance matrix
-            noise (scalar): The observed noise (from the likelihood)
-            precomputed_cache (optional): speeds up subsequent computations (default: None)
-
-        Returns:
-            :obj:`gpytorch.lazy.LazyTensor`: A LazyTensor representing the predictive posterior covariance of the
-                                               test points
-        """
-        from ..distributions import MultivariateNormal
-
-        train_train_covar = likelihood(
-            MultivariateNormal(torch.zeros(1), self), train_inputs
-        ).lazy_covariance_matrix
-        if not beta_features.fast_pred_var.on():
-            from .matmul_lazy_tensor import MatmulLazyTensor
-
-            test_train_covar = test_train_covar.evaluate()
-            train_test_covar = test_train_covar.transpose(-1, -2)
-            covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
-            res = test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs)
-            return res, None
-
-        if precomputed_cache is None:
-            if non_batch_train and train_train_covar.dim() == 3:
-                train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition().root.evaluate()
-            else:
-                train_train_covar_inv_root = train_train_covar.root_inv_decomposition().root.evaluate()
-            precomputed_cache = self._exact_predictive_covar_inv_quad_form_cache(
-                train_train_covar_inv_root, test_train_covar
-            )
-
-        from .root_lazy_tensor import RootLazyTensor
-
-        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
-        res = test_test_covar + RootLazyTensor(covar_inv_quad_form_root).mul(-1)
-        return res, precomputed_cache
 
     def inv_matmul(self, tensor):
         """

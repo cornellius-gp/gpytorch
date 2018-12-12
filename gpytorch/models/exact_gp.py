@@ -4,9 +4,9 @@ import warnings
 import torch
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
-from ..lazy import InterpolatedLazyTensor
 from .. import settings
 from .gp import GP
+from .exact_prediction_strategies import prediction_strategy
 
 
 class ExactGP(GP):
@@ -131,34 +131,30 @@ class ExactGP(GP):
                     if train_targets.ndimension() == 2:
                         # Multitask
                         full_mean = full_mean.view(-1)
-                        train_targets = train_targets.view(-1)
                         num_train = train_targets.size(0)
+                        train_targets = train_targets.view(-1)
                     else:
                         # batch mode multitask
                         batch_size = full_mean.size(0)
                         full_mean = full_mean.view(batch_size, -1)
-                        train_targets = train_targets.view(batch_size, -1)
                         num_train = train_targets.size(1)
+                        train_targets = train_targets.view(batch_size, -1)
                 elif train_targets.ndimension() > 1:
                     # batch mode (standard)
                     full_mean = full_mean.view(full_mean.size(0), -1)
-                    train_targets = train_targets.view(train_targets.size(0), -1)
                     num_train = train_targets.size(1)
+                    train_targets = train_targets.view(train_targets.size(0), -1)
                 else:
                     # non-batch mode (standard)
                     num_train = train_targets.size(-1)
-
-                full_covar = full_covar.evaluate_kernel()
-                if isinstance(full_covar, InterpolatedLazyTensor):
-                    pass
-                    # from IPython.core.debugger import set_trace
-                    # set_trace()
 
                 train_train_covar = full_covar[..., :num_train, :num_train].evaluate_kernel()
                 test_train_covar = full_covar[..., num_train:, :num_train]
                 test_test_covar = full_covar[..., num_train:, num_train:]
 
-                predictive_mean, mean_cache = train_train_covar.exact_predictive_mean(
+                pred_strat = prediction_strategy(train_train_covar)
+
+                predictive_mean, mean_cache = pred_strat.exact_predictive_mean(
                     test_train_covar=test_train_covar,
                     full_mean=full_mean,
                     train_inputs=train_inputs,
@@ -169,7 +165,7 @@ class ExactGP(GP):
                     non_batch_train=non_batch_train,
                 )
 
-                predictive_covar, covar_cache = train_train_covar.exact_predictive_covar(
+                predictive_covar, covar_cache = pred_strat.exact_predictive_covar(
                     test_train_covar=test_train_covar,
                     test_test_covar=test_test_covar,
                     train_inputs=train_inputs,

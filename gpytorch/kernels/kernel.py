@@ -143,10 +143,6 @@ class Kernel(Module):
             value = torch.tensor(value)
         self.initialize(raw_lengthscale=self._inv_param_transform(value))
 
-    @property
-    def has_custom_exact_predictions(self):
-        return False
-
     def size(self, x1, x2):
         non_batch_size = (x1.size(-2), x2.size(-2))
         if x1.ndimension() == 3:
