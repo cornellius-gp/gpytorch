@@ -2,7 +2,6 @@
 
 import warnings
 import torch
-from ..functions import exact_predictive_mean, exact_predictive_covar
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from ..lazy import InterpolatedLazyTensor
