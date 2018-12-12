@@ -71,10 +71,11 @@ class DefaultPredictionStrategy(object):
         return test_train_covar.matmul(precomputed_cache)
 
     @property
-    @cached(name='mean_cache')
+    @cached(name="mean_cache")
     def mean_cache(self):
         train_mean = self.train_mean
         train_labels = self.train_labels
+        train_inputs = self.train_inputs
 
         if self.non_batch_train and self.train_train_covar.dim() == 3:
             train_train_covar = self.train_train_covar[0]
@@ -84,8 +85,9 @@ class DefaultPredictionStrategy(object):
         if self.non_batch_train and train_mean.dim() == 2:
             train_mean = train_mean[0]
             train_labels = train_labels[0]
+            train_inputs = tuple(ti[0] for ti in train_inputs)
 
-        mvn = self.likelihood(MultivariateNormal(train_mean, train_train_covar), self.train_inputs)
+        mvn = self.likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
 
         train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
 
@@ -102,7 +104,7 @@ class DefaultPredictionStrategy(object):
         return mean_cache.detach()
 
     @property
-    @cached(name='covar_cache')
+    @cached(name="covar_cache")
     def covar_cache(self):
         train_train_covar = self.likelihood(
             MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
@@ -129,7 +131,9 @@ class DefaultPredictionStrategy(object):
         precomputed_cache = self.mean_cache
 
         if self.train_train_covar.dim() == 3:
-            res = test_train_covar.matmul(precomputed_cache.unsqueeze(-1)).squeeze(-1)
+            res = test_train_covar.matmul(
+                precomputed_cache.expand(*test_train_covar.shape[:-2], test_train_covar.shape[-1]).unsqueeze(-1)
+            ).squeeze(-1)
         else:
             if self.non_batch_train and precomputed_cache.dim() == 2:
                 precomputed_cache = precomputed_cache[0]
@@ -192,7 +196,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return res
 
     @property
-    @cached(name='mean_cache')
+    @cached(name="mean_cache")
     def mean_cache(self):
         train_interp_indices = self.train_train_covar.left_interp_indices
         train_interp_values = self.train_train_covar.left_interp_values
@@ -212,7 +216,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return mean_cache.detach()
 
     @property
-    @cached(name='covar_cache')
+    @cached(name="covar_cache")
     def covar_cache(self):
         # Get inverse root
         grv = MultivariateNormal(torch.zeros(1), self.train_train_covar)
@@ -301,7 +305,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         if (settings.fast_pred_samples.on() and precomputed_cache[0] is None) or (
             not settings.fast_pred_samples.on() and precomputed_cache[1] is None
         ):
-            self.__cache.pop('covar_cache')
+            self.__cache.pop("covar_cache")
             precomputed_cache = self.covar_cache
 
         # Compute the exact predictive posterior
@@ -355,12 +359,8 @@ class SumPredictionStrategy(DefaultPredictionStrategy):
             )
         else:
             return sum(
-                sub_strat._exact_predictive_covar_inv_quad_form_root(
-                    cache_comp, test_train_covar_comp
-                )
+                sub_strat._exact_predictive_covar_inv_quad_form_root(cache_comp, test_train_covar_comp)
                 for sub_strat, cache_comp, test_train_covar_comp in zip(
-                    self._sub_strategies,
-                    precomputed_cache,
-                    test_train_covar.evaluate_kernel().lazy_tensors,
+                    self._sub_strategies, precomputed_cache, test_train_covar.evaluate_kernel().lazy_tensors
                 )
             )
