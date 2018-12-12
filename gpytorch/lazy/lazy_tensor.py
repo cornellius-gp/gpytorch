@@ -412,7 +412,6 @@ class LazyTensor(object):
             else:
                 grads.append(None)
 
-        args_with_grads = tuple(arg for arg in args if arg.requires_grad)
         return grads
 
     def _preconditioner(self):
