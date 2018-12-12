@@ -113,10 +113,6 @@ class GridInterpolationKernel(GridKernel):
             for bound, spacing in zip(self.grid_bounds, grid_spacings)
         )
 
-    @property
-    def has_custom_exact_predictions(self):
-        return True
-
     def _compute_grid(self, inputs, batch_dims):
         batch_size, n_data, n_dimensions = inputs.size()
         if batch_dims == (0, 2):

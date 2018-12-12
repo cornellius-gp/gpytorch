@@ -61,7 +61,7 @@ class InducingPointKernel(Kernel):
 
             # Diagonal correction for predictive posterior
             correction = (self.base_kernel(x1, x2).diag() - covar.diag()).clamp(0, math.inf)
-            covar = PsdSumLazyTensor(DiagLazyTensor(correction) + covar)
+            covar = PsdSumLazyTensor(DiagLazyTensor(correction), covar)
         else:
             k_ux2 = self.base_kernel(x2, self.inducing_points).evaluate()
             covar = MatmulLazyTensor(

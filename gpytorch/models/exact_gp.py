@@ -2,11 +2,11 @@
 
 import warnings
 import torch
-from ..functions import exact_predictive_mean, exact_predictive_covar
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .. import settings
 from .gp import GP
+from .exact_prediction_strategies import prediction_strategy
 
 
 class ExactGP(GP):
@@ -115,6 +115,7 @@ class ExactGP(GP):
 
             num_train = 0
             train_targets = None
+
             if self.train_targets is not None:
                 train_targets = self.train_targets
 
@@ -147,33 +148,44 @@ class ExactGP(GP):
                     # non-batch mode (standard)
                     num_train = train_targets.size(-1)
 
-            predictive_mean, mean_cache = exact_predictive_mean(
-                full_covar=full_covar,
-                full_mean=full_mean,
-                train_inputs=train_inputs,
-                train_labels=train_targets,
-                num_train=num_train,
-                likelihood=self.likelihood,
-                precomputed_cache=self.mean_cache,
-                non_batch_train=non_batch_train,
-            )
-            predictive_covar, covar_cache = exact_predictive_covar(
-                full_covar=full_covar,
-                train_inputs=train_inputs,
-                num_train=num_train,
-                likelihood=self.likelihood,
-                precomputed_cache=self.covar_cache,
-                non_batch_train=non_batch_train,
-            )
+                train_train_covar = full_covar[..., :num_train, :num_train].evaluate_kernel()
+                test_train_covar = full_covar[..., num_train:, :num_train]
+                test_test_covar = full_covar[..., num_train:, num_train:]
 
-            self.mean_cache = mean_cache
-            self.covar_cache = covar_cache
-            if num_tasks > 1:
-                if train_targets.ndimension() == 2:
-                    # Batch multitask
-                    predictive_mean = predictive_mean.view(train_targets.size(0), -1, num_tasks).contiguous()
-                else:
-                    # Standard multitask
-                    predictive_mean = predictive_mean.view(-1, num_tasks).contiguous()
+                pred_strat = prediction_strategy(train_train_covar)
+
+                predictive_mean, mean_cache = pred_strat.exact_predictive_mean(
+                    test_train_covar=test_train_covar,
+                    full_mean=full_mean,
+                    train_inputs=train_inputs,
+                    train_labels=train_targets,
+                    num_train=num_train,
+                    likelihood=self.likelihood,
+                    precomputed_cache=self.mean_cache,
+                    non_batch_train=non_batch_train,
+                )
+
+                predictive_covar, covar_cache = pred_strat.exact_predictive_covar(
+                    test_train_covar=test_train_covar,
+                    test_test_covar=test_test_covar,
+                    train_inputs=train_inputs,
+                    num_train=num_train,
+                    likelihood=self.likelihood,
+                    precomputed_cache=self.covar_cache,
+                    non_batch_train=non_batch_train,
+                )
+
+                self.mean_cache = mean_cache
+                self.covar_cache = covar_cache
+                if num_tasks > 1:
+                    if train_targets.ndimension() == 2:
+                        # Batch multitask
+                        predictive_mean = predictive_mean.view(train_targets.size(0), -1, num_tasks).contiguous()
+                    else:
+                        # Standard multitask
+                        predictive_mean = predictive_mean.view(-1, num_tasks).contiguous()
+            else:
+                predictive_mean = full_mean
+                predictive_covar = full_covar
 
             return full_output.__class__(predictive_mean, predictive_covar)
