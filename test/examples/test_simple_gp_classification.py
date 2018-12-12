@@ -85,7 +85,7 @@ class TestSimpleGPClassification(unittest.TestCase):
         assert mean_abs_error.item() < 1e-5
 
     def test_classification_fast_pred_var(self):
-        with gpytorch.fast_pred_var():
+        with gpytorch.settings.fast_pred_var():
             train_x, train_y = train_data()
             likelihood = BernoulliLikelihood()
             model = GPClassificationModel(train_x)

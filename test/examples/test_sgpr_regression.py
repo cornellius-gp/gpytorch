@@ -123,12 +123,12 @@ class TestSGPRRegression(unittest.TestCase):
         likelihood.eval()
 
         with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.max_cg_iterations(50):
-            with gpytorch.fast_pred_var(True):
+            with gpytorch.settings.fast_pred_var(True):
                 fast_var = gp_model(test_x).variance
                 fast_var_cache = gp_model(test_x).variance
                 self.assertLess(torch.max((fast_var_cache - fast_var).abs()), 1e-3)
 
-            with gpytorch.fast_pred_var(False):
+            with gpytorch.settings.fast_pred_var(False):
                 slow_var = gp_model(test_x).variance
 
         self.assertLess(torch.max((fast_var_cache - slow_var).abs()), 1e-3)

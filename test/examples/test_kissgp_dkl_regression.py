@@ -110,7 +110,7 @@ class TestDKLRegression(unittest.TestCase):
             self.assertLess(mean_abs_error.squeeze().item(), 0.15)
 
     def test_dkl_gp_fast_pred_var(self):
-        with gpytorch.fast_pred_var(), gpytorch.settings.debug(False):
+        with gpytorch.settings.fast_pred_var(), gpytorch.settings.debug(False):
             train_x, train_y, test_x, test_y = make_data()
             likelihood = GaussianLikelihood()
             gp_model = GPRegressionModel(train_x, train_y, likelihood)

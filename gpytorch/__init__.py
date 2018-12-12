@@ -33,7 +33,7 @@ from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 
 
 # Old deprecated stuff
-fast_pred_var = beta_features._moved_beta_feature(settings.fast_pred_var, "gpytorch.fast_pred_var")
+fast_pred_var = beta_features._moved_beta_feature(settings.fast_pred_var, "gpytorch.settings.fast_pred_var")
 
 
 __all__ = [
