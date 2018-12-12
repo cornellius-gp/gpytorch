@@ -60,7 +60,7 @@ class ExactGP(GP):
 
     def __call__(self, *args, **kwargs):
         train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
-        inputs = tuple(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args)
+        inputs = list(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args)
 
         # Training mode: optimizing
         if self.training:
@@ -94,14 +94,19 @@ class ExactGP(GP):
             # Exact inference
             non_batch_train = False
 
-            batch_shape = inputs[0].shape[:-2]
-
             if all(tin.dim() == 2 for tin in self.train_inputs):
                 # Train inputs were non-batch
                 non_batch_train = True
-            # If we're doing batch testing, but did std training, adjust the training inputs
+            # Expand train_input to match input's batch size, or vice versa if they don't match.
             for i, (train_input, input) in enumerate(zip(train_inputs, inputs)):
-                train_inputs[i] = train_input.expand(*batch_shape, *train_input.shape[-2:])
+                if train_input.dim() < input.dim():
+                    batch_shape = inputs[0].shape[:-2]
+                    train_inputs[i] = train_input.expand(*batch_shape, *train_input.shape[-2:])
+                elif input.dim() < train_input.dim():
+                    batch_shape = train_inputs[0].shape[:-2]
+                    inputs[i] = input.expand(*batch_shape, *input.shape[-2:])
+                else:
+                    batch_shape = train_inputs[0].shape[:-2]
 
             full_inputs = tuple(
                 torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)
@@ -146,7 +151,11 @@ class ExactGP(GP):
                 # The test batch shape has changed, update prediction strategy with expanded objects
                 batch_shape = train_inputs[0].shape[:-2]
                 train_train_covar = self.prediction_strategy.train_train_covar
-                expanded_covar = train_train_covar.expand(*batch_shape, *train_train_covar.matrix_shape)
+                if len(batch_shape) > len(train_train_covar.batch_shape):
+                    expanded_covar = train_train_covar.expand(*batch_shape, *train_train_covar.matrix_shape)
+                else:
+                    # We are leaving batch mode, not entering it.
+                    expanded_covar = train_train_covar[0]
                 self.prediction_strategy.train_train_covar = expanded_covar
                 self.prediction_strategy.num_train = num_train
                 self.prediction_strategy.train_targets = train_targets
