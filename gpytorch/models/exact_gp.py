@@ -82,8 +82,7 @@ class ExactGP(GP):
             if settings.debug().on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
-            full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
-            return full_output.__class__(full_mean, full_covar)
+            return full_output
         # Posterior mode
         else:
             if settings.debug.on():
