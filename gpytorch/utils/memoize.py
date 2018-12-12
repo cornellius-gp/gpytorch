@@ -15,3 +15,19 @@ def cached(f):
         return self.__cache[f]
 
     return g
+
+
+def named_cached(name):
+    """A decorator allowing for specifying the name of a cache, allowing it to be modified elsewhere."""
+    def named_cached_decorator(f):
+        @functools.wraps(f)
+        def g(self):
+            if not hasattr(self, "__cache"):
+                self.__cache = dict()
+            if name not in self.__cache:
+                self.__cache[name] = f(self)
+            return self.__cache[name]
+
+        return g
+
+    return named_cached_decorator
