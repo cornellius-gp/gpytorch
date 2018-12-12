@@ -88,7 +88,7 @@ class GridKernel(Kernel):
                     covars = [full_covar[i : i + 1] for i in range(n_dim)]
 
             if len(covars) > 1:
-                covar = KroneckerProductLazyTensor(*covars)
+                covar = KroneckerProductLazyTensor(*covars[::-1])
             else:
                 covar = covars[0]
 

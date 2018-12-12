@@ -122,7 +122,6 @@ class ConstantMulLazyTensor(LazyTensor):
         return ConstantMulLazyTensor(self.base_lazy_tensor._transpose_nonbatch(), self.constant)
 
     @property
-    @cached
     def constant(self):
         # Make sure that the constant can be expanded to the appropriate size
         try:

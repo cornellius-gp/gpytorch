@@ -8,20 +8,12 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, RectangularLazy
 
 def kron(a, b):
     res = []
-    if b.ndimension() == 2:
-        for i in range(b.size(0)):
-            row_res = []
-            for j in range(b.size(1)):
-                row_res.append(a * b[i, j])
-            res.append(torch.cat(row_res, 1))
-        return torch.cat(res, 0)
-    else:
-        for i in range(b.size(1)):
-            row_res = []
-            for j in range(b.size(2)):
-                row_res.append(a * b[:, i, j].unsqueeze(1).unsqueeze(2))
-            res.append(torch.cat(row_res, 2))
-        return torch.cat(res, 1)
+    for i in range(a.size(-2)):
+        row_res = []
+        for j in range(a.size(-1)):
+            row_res.append(b * a[..., i, j].unsqueeze(-1).unsqueeze(-2))
+        res.append(torch.cat(row_res, -1))
+    return torch.cat(res, -2)
 
 
 class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):

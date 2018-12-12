@@ -323,7 +323,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             if task_var_lt.size(0) == 1:
                 task_var_lt = task_var_lt.repeat(eye_lt.size(0), 1, 1)
 
-        covar_kron_lt = KroneckerProductLazyTensor(task_var_lt, eye_lt)
+        covar_kron_lt = KroneckerProductLazyTensor(eye_lt, task_var_lt)
         covar = covar + covar_kron_lt
 
         noise = self.noise
