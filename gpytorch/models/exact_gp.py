@@ -153,7 +153,14 @@ class ExactGP(GP):
                 batch_shape = train_inputs[0].shape[:-2]
                 train_train_covar = self.prediction_strategy.train_train_covar
                 if len(batch_shape) > len(train_train_covar.batch_shape):
+                    # Expanding to add more batches
                     expanded_covar = train_train_covar.expand(*batch_shape, *train_train_covar.matrix_shape)
+                elif (
+                    len(batch_shape) == len(train_train_covar.batch_shape)
+                    and batch_shape.numel() != train_train_covar.batch_shape.numel()
+                ):
+                    # The test batch size has changed, we need to repeat it to a new batch size.
+                    expanded_covar = train_train_covar[0].expand(*batch_shape, *train_train_covar.matrix_shape)
                 else:
                     # We are leaving batch mode, not entering it.
                     expanded_covar = train_train_covar[0]
