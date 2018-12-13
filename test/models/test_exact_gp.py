@@ -19,7 +19,7 @@ class ExactGPModel(ExactGP):
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
 
-class TestVariationalGP(_ModelTestCase, unittest.TestCase):
+class TestExactGP(_ModelTestCase, unittest.TestCase):
     def create_model(self, train_x, train_y, likelihood):
         model = ExactGPModel(train_x, train_y, likelihood)
         return model
