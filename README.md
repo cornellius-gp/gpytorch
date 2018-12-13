@@ -14,7 +14,7 @@ GPyTorch provides (1) significant GPU acceleration (through MVM based inference)
 
 ## Examples and Tutorials
 
-See our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. These example notebooks and a walk through of GPyTorch are also available at our **ReadTheDocs page [here](https://gpytorch.readthedocs.io/en/latest/index.html)**
+See our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. These example notebooks and a walk through of GPyTorch are also available at our **ReadTheDocs page [here](https://gpytorch.readthedocs.io/en/latest/index.html)**.
 
 ## Installation
 
@@ -45,14 +45,12 @@ pip install git+https://github.com/cornellius-gp/gpytorch.git
 ## Citing Us
 
 If you use GPyTorch, please cite the following papers:
-> [Gardner, Jacob R., Geoff Pleiss, David Bindel, Kilian Q. Weinberger, and Andrew Gordon Wilson. "
-GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration." In *NeurIPS* (2018).](https://arxiv.org/abs/1809.11165)
+> [Gardner, Jacob R., Geoff Pleiss, David Bindel, Kilian Q. Weinberger, and Andrew Gordon Wilson. "GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration." In Advances in Neural Information Processing Systems (2018).](https://arxiv.org/abs/1809.11165)
 ```
 @inproceedings{gardner2018gpytorch,
-  title={
-GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration},
+  title={GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration},
   author={Gardner, Jacob R and Pleiss, Geoff and Bindel, David and Weinberger, Kilian Q and Wilson, Andrew Gordon},
-  booktitle={NeurIPS},
+  booktitle={Advances in Neural Information Processing Systems},
   year={2018}
 }
 ```
