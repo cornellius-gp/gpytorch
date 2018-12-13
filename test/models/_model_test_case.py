@@ -7,7 +7,7 @@ import gpytorch
 
 class _ModelTestCase(object):
     @abstractmethod
-    def create_model(self, train_data):
+    def create_model(self, train_x, train_y, likelihood):
         raise NotImplementedError()
 
     @abstractmethod
@@ -19,16 +19,17 @@ class _ModelTestCase(object):
         raise NotImplementedError()
 
     @abstractmethod
-    def create_batch_test_data(self):
+    def create_batch_test_data(self, batch_size=3):
         raise NotImplementedError()
 
     @abstractmethod
-    def create_batch_likelihood_and_labels(self):
+    def create_batch_likelihood_and_labels(self, batch_size=3):
         raise NotImplementedError()
 
     def test_forward_train(self):
         data = self.create_test_data()
-        model = self.create_model(data)
+        likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(data, labels, likelihood)
         model.train()
         output = model(data)
         self.assertTrue(output.lazy_covariance_matrix.dim() == 2)
@@ -37,7 +38,8 @@ class _ModelTestCase(object):
 
     def test_batch_forward_train(self):
         batch_data = self.create_batch_test_data()
-        model = self.create_model(batch_data)
+        likelihood, labels = self.create_batch_likelihood_and_labels()
+        model = self.create_model(batch_data, labels, likelihood)
         model.train()
         output = model(batch_data)
         self.assertTrue(output.lazy_covariance_matrix.dim() == 3)
@@ -46,7 +48,8 @@ class _ModelTestCase(object):
 
     def test_forward_eval(self):
         data = self.create_test_data()
-        model = self.create_model(data)
+        likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(data, labels, likelihood)
         model.eval()
         output = model(data)
         self.assertTrue(output.lazy_covariance_matrix.dim() == 2)
@@ -55,7 +58,8 @@ class _ModelTestCase(object):
 
     def test_batch_forward_eval(self):
         batch_data = self.create_batch_test_data()
-        model = self.create_model(batch_data)
+        likelihood, labels = self.create_batch_likelihood_and_labels()
+        model = self.create_model(batch_data, labels, likelihood)
         model.eval()
         output = model(batch_data)
         self.assertTrue(output.lazy_covariance_matrix.dim() == 3)
@@ -66,8 +70,8 @@ class _ModelTestCase(object):
 class VariationalModelTestCase(_ModelTestCase):
     def test_backward_train(self):
         data = self.create_test_data()
-        model = self.create_model(data)
         likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(data, labels, likelihood)
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=labels.size(-1))
         model.train()
         likelihood.train()
@@ -94,8 +98,8 @@ class VariationalModelTestCase(_ModelTestCase):
 
     def test_batch_backward_train(self):
         data = self.create_batch_test_data()
-        model = self.create_model(data)
         likelihood, labels = self.create_batch_likelihood_and_labels()
+        model = self.create_model(data, labels, likelihood)
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=labels.size(-1))
         model.train()
         likelihood.train()

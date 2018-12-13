@@ -97,6 +97,12 @@ class TestBatchGPRegression(unittest.TestCase):
         gp_model.eval()
         likelihood.eval()
 
+        # First test on non-batch
+        non_batch_predictions = likelihood(gp_model(test_x1))
+        preds1 = non_batch_predictions.mean
+        mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1))
+        self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
+
         # Make predictions for both sets of test points, and check MAEs.
         batch_predictions = likelihood(gp_model(test_x12))
         preds1 = batch_predictions.mean[0]
@@ -105,6 +111,18 @@ class TestBatchGPRegression(unittest.TestCase):
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
         self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
         self.assertLess(mean_abs_error2.squeeze().item(), 0.1)
+
+        # Smoke test for non-batch mode derivatives failing
+        test_x_param = torch.nn.Parameter(test_x1.data)
+        batch_predictions = likelihood(gp_model(test_x_param))
+        batch_predictions.mean.sum().backward()
+        self.assertTrue(test_x_param.grad is not None)
+
+        # Smoke test for batch mode derivatives failing
+        test_x_param = torch.nn.Parameter(test_x12.data)
+        batch_predictions = likelihood(gp_model(test_x_param))
+        batch_predictions.mean.sum().backward()
+        self.assertTrue(test_x_param.grad is not None)
 
     def test_train_on_batch_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -136,6 +154,12 @@ class TestBatchGPRegression(unittest.TestCase):
         gp_model.eval()
         likelihood.eval()
 
+        # First test on non-batch
+        non_batch_predictions = likelihood(gp_model(test_x1))
+        preds1 = non_batch_predictions.mean
+        mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1[0]))
+        self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
+
         # Make predictions for both sets of test points, and check MAEs.
         batch_predictions = likelihood(gp_model(test_x12))
         preds1 = batch_predictions.mean[0]
@@ -144,6 +168,18 @@ class TestBatchGPRegression(unittest.TestCase):
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
         self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
         self.assertLess(mean_abs_error2.squeeze().item(), 0.1)
+
+        # Smoke test for batch mode derivatives failing
+        test_x_param = torch.nn.Parameter(test_x12.data)
+        batch_predictions = likelihood(gp_model(test_x_param))
+        batch_predictions.mean.sum().backward()
+        self.assertTrue(test_x_param.grad is not None)
+
+        # Smoke test for non-batch mode derivatives failing
+        test_x_param = torch.nn.Parameter(test_x1.data)
+        batch_predictions = likelihood(gp_model(test_x_param))
+        batch_predictions.mean.sum().backward()
+        self.assertTrue(test_x_param.grad is not None)
 
     def test_train_on_batch_test_on_batch_shared_hypers_over_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -175,6 +211,12 @@ class TestBatchGPRegression(unittest.TestCase):
         gp_model.eval()
         likelihood.eval()
 
+        # First test on non-batch
+        non_batch_predictions = likelihood(gp_model(test_x1))
+        preds1 = non_batch_predictions.mean
+        mean_abs_error1 = torch.mean(torch.abs(test_y1 - preds1[0]))
+        self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
+
         # Make predictions for both sets of test points, and check MAEs.
         batch_predictions = likelihood(gp_model(test_x12))
         preds1 = batch_predictions.mean[0]
@@ -183,6 +225,18 @@ class TestBatchGPRegression(unittest.TestCase):
         mean_abs_error2 = torch.mean(torch.abs(test_y2 - preds2))
         self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
         self.assertLess(mean_abs_error2.squeeze().item(), 0.1)
+
+        # Smoke test for batch mode derivatives failing
+        test_x_param = torch.nn.Parameter(test_x12.data)
+        batch_predictions = likelihood(gp_model(test_x_param))
+        batch_predictions.mean.sum().backward()
+        self.assertTrue(test_x_param.grad is not None)
+
+        # Smoke test for non-batch mode derivatives failing
+        test_x_param = torch.nn.Parameter(test_x1.data)
+        batch_predictions = likelihood(gp_model(test_x_param))
+        batch_predictions.mean.sum().backward()
+        self.assertTrue(test_x_param.grad is not None)
 
 
 if __name__ == "__main__":
