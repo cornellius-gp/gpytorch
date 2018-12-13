@@ -39,7 +39,7 @@ GPyTorch supports the following inducing point methods:
     - An [example that combines KISS-GP with Deep Kernel Learning](05_Scalable_GP_Regression_Multidimensional/KISSGP_Deep_Kernel_Regression_CUDA.ipynb)
     - And [more regression examples](05_Scalable_GP_Regression_Multidimensional)!
 - **SGPR** - [more info on SGPR](http://proceedings.mlr.press/v5/titsias09a/titsias09a.pdf)
-    - Example coming soon!
+    - An [example using SGPR on the elevators UCI dataset](05_Scalable_GP_Regression_Multidimensional/SGPR_Example_CUDA.ipynb)
 
 While there are lots of different choices, switching between methods requires a quick one-line change to your model.
 In addition, it is fairly straightforward to create your own custom scalable GP method. (Tutorial coming soon!)
