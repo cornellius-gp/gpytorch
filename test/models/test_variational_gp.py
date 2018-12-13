@@ -28,8 +28,8 @@ class GPClassificationModel(AbstractVariationalGP):
 
 
 class TestVariationalGP(VariationalModelTestCase, unittest.TestCase):
-    def create_model(self, train_data):
-        model = GPClassificationModel(train_data)
+    def create_model(self, train_x, train_y, likelihood):
+        model = GPClassificationModel(train_x)
         return model
 
     def create_test_data(self):
@@ -40,12 +40,12 @@ class TestVariationalGP(VariationalModelTestCase, unittest.TestCase):
         labels = torch.randn(50) + 2
         return likelihood, labels
 
-    def create_batch_test_data(self):
-        return torch.randn(3, 50, 1)
+    def create_batch_test_data(self, batch_size=3):
+        return torch.randn(batch_size, 50, 1)
 
-    def create_batch_likelihood_and_labels(self):
-        likelihood = gpytorch.likelihoods.GaussianLikelihood(batch_size=3)
-        labels = torch.randn(3, 50) + 2
+    def create_batch_likelihood_and_labels(self, batch_size=3):
+        likelihood = gpytorch.likelihoods.GaussianLikelihood(batch_size=batch_size)
+        labels = torch.randn(batch_size, 50) + 2
         return likelihood, labels
 
 
