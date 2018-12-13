@@ -13,3 +13,4 @@
    Scalable_Kernel_Interpolation_for_Products_CUDA.ipynb
    SVDKL_Regression_GridInterp_CUDA.ipynb
    SVDKL_Regression_SVGP_CUDA.ipynb
+   SGPR_Example_CUDA.ipynb
