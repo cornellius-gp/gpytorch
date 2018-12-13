@@ -85,7 +85,6 @@ class ExactGP(GP):
             return full_output
         # Posterior mode
         else:
-            inputs = list(i.squeeze(0) if i.ndimension() == 3 else i for i in inputs)
             if settings.debug.on():
                 if all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
                     warnings.warn(
