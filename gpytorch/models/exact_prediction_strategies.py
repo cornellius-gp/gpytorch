@@ -52,7 +52,10 @@ class DefaultPredictionStrategy(object):
         Returns
             - A precomputed cache
         """
-        return train_train_covar_inv_root.detach()
+        if settings.detach_test_caches.on():
+            return train_train_covar_inv_root.detach()
+        else:
+            return train_train_covar_inv_root
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         """
@@ -101,7 +104,10 @@ class DefaultPredictionStrategy(object):
             # Standard mode
             mean_cache = train_train_covar.inv_matmul(train_labels_offset)
 
-        return mean_cache.detach()
+        if settings.detach_test_caches.on():
+            return mean_cache.detach()
+        else:
+            return mean_cache
 
     @property
     @cached(name="covar_cache")
@@ -213,7 +219,10 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         )
 
         # Prevent backprop through this variable
-        return mean_cache.detach()
+        if settings.detach_test_caches.on():
+            return mean_cache.detach()
+        else:
+            return mean_cache
 
     @property
     @cached(name="covar_cache")
@@ -271,11 +280,13 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             inside = self.train_train_covar.base_lazy_tensor + RootLazyTensor(root).mul(-1)
             inside_root = inside.root_decomposition().root.evaluate()
             # Prevent backprop through this variable
-            inside_root = inside_root.detach()
+            if settings.detach_test_caches.on():
+                inside_root = inside_root.detach()
             covar_cache = inside_root, None
         else:
             # Prevent backprop through this variable
-            root = root.detach()
+            if settings.detach_test_caches.on():
+                root = root.detach()
             covar_cache = None, root
 
         return covar_cache
