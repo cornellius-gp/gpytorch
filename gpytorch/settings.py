@@ -59,6 +59,17 @@ class check_training_data(_feature_flag):
     _state = True
 
 
+class detach_test_caches(_feature_flag):
+    """
+    Whether or not to detach caches computed for making predictions. In most cases, you will want this,
+    as this will speed up derivative computations of the predictions with respect to test inputs. However,
+    if you also need derivatives with respect to training inputs (e.g., because you have fantasy observations),
+    then you must disable this.
+    """
+
+    _state = True
+
+
 class debug(_feature_flag):
     """
     Whether or not to perform "safety" checks on the supplied data.
