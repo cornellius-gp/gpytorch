@@ -12,7 +12,7 @@ _PREDICTION_STRATEGY_REGISTRY = {}
 
 def register_prediction_strategy(lazy_tsr_type):
     if not isinstance(lazy_tsr_type, type) and issubclass(lazy_tsr_type, LazyTensor):
-        raise TypeError(f"register_prediction_strategy expects a LazyTensor subtype but got {lazy_tsr_type}")
+        raise TypeError("register_prediction_strategy expects a LazyTensor subtype but got {}".format(lazy_tsr_type))
 
     def decorator(cls):
         _PREDICTION_STRATEGY_REGISTRY[lazy_tsr_type] = cls

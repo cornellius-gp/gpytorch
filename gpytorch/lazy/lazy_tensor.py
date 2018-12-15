@@ -164,8 +164,8 @@ class LazyTensor(object):
         if settings.debug.on():
             if len(indices) != self.dim():
                 raise RuntimeError(
-                    f"{self.__class__.__name__}._getitem() called with {len(indices)} indices - expected {self.dim()}. "
-                    "This is potentially a bug in GPyTorch."
+                    "{}._getitem() called with {} indices - expected {}. "
+                    "This is potentially a bug in GPyTorch.".format(self.__class__.__name__, len(indices), self.dim())
                 )
 
         components = list(self._args)

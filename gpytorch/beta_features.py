@@ -9,11 +9,11 @@ from .settings import fast_pred_samples as _fast_pred_samples
 class _moved_beta_feature(object):
     def __init__(self, new_cls, orig_name=None):
         self.new_cls = new_cls
-        self.orig_name = orig_name if orig_name is not None else f"gpytorch.settings.{new_cls.__name__}"
+        self.orig_name = orig_name if orig_name is not None else "gpytorch.settings.{}".format(new_cls.__name__)
 
     def __call__(self, *args, **kwargs):
         warnings.warn(
-            f"`{self.orig_name}` has moved to `gpytorch.settings.{self.new_cls.__name__}`.",
+            "`{}` has moved to `gpytorch.settings.{}`.".format(self.orig_name, self.new_cls.__name__),
             DeprecationWarning
         )
         return self.new_cls(*args, **kwargs)
