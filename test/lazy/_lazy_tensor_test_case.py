@@ -282,10 +282,11 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
-        test_vector = torch.randn(lazy_tensor.size(-1))
+        test_vector = torch.randn(lazy_tensor.size(-1), requires_grad=True)
+        test_vector_copy = test_vector.clone().detach().requires_grad_(True)
         with gpytorch.settings.max_cg_iterations(200):
             res = lazy_tensor.inv_matmul(test_vector)
-        actual = evaluated.inverse().matmul(test_vector)
+        actual = evaluated.inverse().matmul(test_vector_copy)
         self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 
         grad = torch.randn_like(res)
@@ -296,16 +297,55 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertLess(
                     ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
                 )
+        self.assertLess(
+            ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+        )
+
+    def test_inv_matmul_vector_with_left(self):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+
+        # We skip this test if we're dealing with batch LazyTensors
+        # They shouldn't multiply by a vec
+        if lazy_tensor.ndimension() > 2:
+            return
+
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+
+        test_vector = torch.randn(lazy_tensor.size(-1), requires_grad=True)
+        test_left = torch.randn(6, lazy_tensor.size(-1), requires_grad=True)
+        test_vector_copy = test_vector.clone().detach().requires_grad_(True)
+        test_left_copy = test_left.clone().detach().requires_grad_(True)
+        with gpytorch.settings.max_cg_iterations(100):
+            res = lazy_tensor.inv_matmul(test_vector, test_left)
+        actual = test_left_copy @ evaluated.inverse() @ test_vector_copy
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
+
+        grad = torch.randn_like(res)
+        res.backward(gradient=grad)
+        actual.backward(gradient=grad)
+        for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+            if arg_copy.grad is not None:
+                self.assertLess(
+                    ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+                )
+        self.assertLess(
+            ((test_left.grad - test_left_copy.grad).abs() / test_left.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+        )
+        self.assertLess(
+            ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+        )
 
     def test_inv_matmul_matrix(self):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
-        test_vector = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
+        test_vector = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5, requires_grad=True)
+        test_vector_copy = test_vector.clone().detach().requires_grad_(True)
         with gpytorch.settings.max_cg_iterations(100):
             res = lazy_tensor.inv_matmul(test_vector)
-        actual = evaluated.inverse().matmul(test_vector)
+        actual = evaluated.inverse().matmul(test_vector_copy)
         self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 
         grad = torch.randn_like(res)
@@ -316,6 +356,38 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertLess(
                     ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
                 )
+        self.assertLess(
+            ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+        )
+
+    def test_inv_matmul_matrix_with_left(self):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+
+        test_vector = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5, requires_grad=True)
+        test_left = torch.randn(*lazy_tensor.batch_shape, 6, lazy_tensor.size(-1), requires_grad=True)
+        test_vector_copy = test_vector.clone().detach().requires_grad_(True)
+        test_left_copy = test_left.clone().detach().requires_grad_(True)
+        with gpytorch.settings.max_cg_iterations(100):
+            res = lazy_tensor.inv_matmul(test_vector, test_left)
+        actual = test_left_copy @ evaluated.inverse() @ test_vector_copy
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
+
+        grad = torch.randn_like(res)
+        res.backward(gradient=grad)
+        actual.backward(gradient=grad)
+        for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+            if arg_copy.grad is not None:
+                self.assertLess(
+                    ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+                )
+        self.assertLess(
+            ((test_left.grad - test_left_copy.grad).abs() / test_left.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+        )
+        self.assertLess(
+            ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+        )
 
     def test_diag(self):
         lazy_tensor = self.create_lazy_tensor()
