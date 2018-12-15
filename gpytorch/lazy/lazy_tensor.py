@@ -617,15 +617,36 @@ class LazyTensor(object):
         """
         return self.representation_tree()(*self.representation())
 
-    def inv_matmul(self, tensor):
+    def inv_matmul(self, right_tensor, left_tensor=None):
         """
-        Computes a linear solve (w.r.t self = :math:`K`) with several right hand sides :math:`M`.
+        Computes a linear solve (w.r.t self = :math:`A`) with several right hand sides :math:`R`.
+        I.e. computes
+
+        ... math::
+
+            \begin{equation}
+                A^{-1} R,
+            \end{equation}
+
+        where :math:`R` is :attr:`right_tensor` and :math:`A` is the LazyTensor.
+
+        If :attr:`left_tensor` is supplied, computes
+
+        ... math::
+
+            \begin{equation}
+                L A^{-1} R,
+            \end{equation}
+
+        where :math:`L` is :attr:`left_tensor`. Supplying this can reduce the number of
+        CG calls required.
 
         Args:
-            - :obj:`torch.tensor` (n x k) - Matrix :math:`M` right hand sides
+            - :obj:`torch.tensor` (n x k) - Matrix :math:`R` right hand sides
+            - :obj:`torch.tensor` (m x n) - Optional matrix :math:`L` to perform left multiplication with
 
         Returns:
-            - :obj:`torch.tensor` - :math:`K^{-1}M`
+            - :obj:`torch.tensor` - :math:`A^{-1}R` or :math:`LA^{-1}R`.
         """
         if not self.is_square:
             raise RuntimeError(
@@ -633,16 +654,22 @@ class LazyTensor(object):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if self.dim() == 2 and tensor.dim() == 1:
-            if self.shape[-1] != tensor.numel():
+        if self.dim() == 2 and right_tensor.dim() == 1:
+            if self.shape[-1] != right_tensor.numel():
                 raise RuntimeError(
                     "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
-                        self.shape, tensor.shape
+                        self.shape, right_tensor.shape
                     )
                 )
 
-        func = InvMatmul(self.representation_tree(), preconditioner=self._inv_matmul_preconditioner())
-        return func(tensor, *self.representation())
+        func = InvMatmul(
+            self.representation_tree(), preconditioner=self._inv_matmul_preconditioner(),
+            has_left=(left_tensor is not None)
+        )
+        if left_tensor is None:
+            return func(right_tensor, *self.representation())
+        else:
+            return func(left_tensor, right_tensor, *self.representation())
 
     def inv_quad(self, tensor):
         """

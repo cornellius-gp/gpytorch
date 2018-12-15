@@ -119,7 +119,7 @@ class ZeroLazyTensor(LazyTensor):
     def evaluate(self):
         return torch.zeros(*self.sizes)
 
-    def inv_matmul(self, tensor):
+    def inv_matmul(self, right_tensor, left_tensor=None):
         raise RuntimeError("ZeroLazyTensors are not invertible!")
 
     def inv_quad(self, tensor):
