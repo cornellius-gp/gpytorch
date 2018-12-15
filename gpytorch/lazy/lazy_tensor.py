@@ -10,6 +10,7 @@ from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
+from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
 from ..utils.qr import batch_qr
@@ -90,6 +91,9 @@ class LazyTensor(object):
             :obj:`torch.tensor`: matrix * rhs
         """
         raise NotImplementedError("The class {} requires a _matmul function!".format(self.__class__.__name__))
+
+    def _solve(self, rhs, preconditioner):
+        return linear_cg(self._matmul, rhs, max_iter=settings.max_cg_iterations.value(), preconditioner=preconditioner)
 
     def _size(self):
         """

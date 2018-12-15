@@ -3,7 +3,7 @@
 import math
 import torch
 from .. import beta_features
-from ..lazy import DiagLazyTensor, NonLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from ..lazy import DiagLazyTensor, CachedCGLazyTensor, NonLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
 
@@ -109,6 +109,8 @@ class VariationalStrategy(Module):
             eye = torch.eye(root_variational_covar.size(-1), dtype=mean_diff.dtype, device=mean_diff.device)
             eye = eye.expand_as(root_variational_covar)
             left_tensors = torch.cat([mean_diff, root_variational_covar.transpose(-1, -2), eye], -1)
+            eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
+            induc_induc_covar = CachedCGLazyTensor(induc_induc_covar, [eager_rhs.detach()])
             inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))
 
             # Cache the prior distribution, for faster training

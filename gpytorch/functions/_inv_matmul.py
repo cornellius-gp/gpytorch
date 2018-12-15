@@ -2,7 +2,6 @@
 
 import torch
 from torch.autograd import Function
-from ..utils import linear_cg
 from .. import settings
 
 
@@ -21,7 +20,6 @@ class InvMatmul(Function):
         else:
             right_tensor, *matrix_args = args
         lazy_tsr = self.representation_tree(*matrix_args)
-        matmul_closure = lazy_tsr._matmul
 
         self.is_vector = False
         if right_tensor.ndimension() == 1:
@@ -31,16 +29,11 @@ class InvMatmul(Function):
         # Perform solves (for inv_quad) and tridiagonalization (for estimating log_det)
         if self.has_left:
             rhs = torch.cat([left_tensor.transpose(-1, -2), right_tensor], -1)
-            solves = linear_cg(
-                matmul_closure, rhs, max_iter=settings.max_cg_iterations.value(), preconditioner=self.preconditioner
-            )
+            solves = lazy_tsr._solve(rhs, self.preconditioner)
             res = solves[..., left_tensor.size(-2):]
             res = left_tensor @ res
         else:
-            solves = linear_cg(
-                matmul_closure, right_tensor, max_iter=settings.max_cg_iterations.value(),
-                preconditioner=self.preconditioner
-            )
+            solves = lazy_tsr._solve(right_tensor, self.preconditioner)
             res = solves
 
         if self.is_vector:
@@ -71,7 +64,6 @@ class InvMatmul(Function):
             lazy_tsr = self._lazy_tsr
         else:
             lazy_tsr = self.representation_tree(*matrix_args)
-        matmul_closure = lazy_tsr._matmul
 
         # Define gradient placeholders
         arg_grads = [None] * len(matrix_args)
@@ -88,12 +80,7 @@ class InvMatmul(Function):
                     right_solves.unsqueeze_(-1)
 
                 # Compute self^{-1} grad_output
-                left_solves = linear_cg(
-                    matmul_closure,
-                    grad_output,
-                    max_iter=settings.max_cg_iterations.value(),
-                    preconditioner=self.preconditioner,
-                )
+                left_solves = lazy_tsr._solve(grad_output, self.preconditioner)
 
                 if any(self.needs_input_grad[1:]):
                     arg_grads = lazy_tsr._quad_form_derivative(left_solves, right_solves.mul(-1))
