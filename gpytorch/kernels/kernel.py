@@ -187,42 +187,28 @@ class Kernel(Module):
         """
         raise NotImplementedError()
 
-    def _create_input_grid(self, x1, x2, diag=False, batch_dims=None, **params):
-        """
-        This is a helper method for creating a grid of the kernel's inputs.
-        Use this helper rather than maually creating a meshgrid.
+    def _covar_sq_dist(self, x1, x2, **params):
+        if params.get('batch_dims') == (0, 2):
+            x1 = x1.unsqueeze(0).transpose(0, -1)
+            x2 = x2.unsqueeze(0).transpose(0, -1)
 
-        The grid dimensions depend on the kernel's evaluation mode.
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
 
-        Args:
-            :attr:`x1` (Tensor `n x d` or `b x n x d`)
-            :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
-
-        Returns:
-            (:class:`Tensor`, :class:`Tensor) corresponding to the gridded `x1` and `x2`.
-            The shape depends on the kernel's mode
-
-            * `full_covar`: (`b x n x 1 x d` and `b x 1 x m x d`)
-            * `full_covar` with `batch_dims=(0, 2)`: (`b x k x n x 1 x 1` and `b x k x 1 x m x 1`)
-            * `diag`: (`b x n x d` and `b x n x d`)
-            * `diag` with `batch_dims=(0, 2)`: (`b x k x n x 1` and `b x k x n x 1`)
-        """
-        x1_, x2_ = x1, x2
-        if batch_dims == (0, 2):
-            x1_ = x1_.view(*x1.size()[:-1], -1, 1)
-            x1_ = x1_.permute(0, -2, *list(range(1, x1_.dim() - 2)), -1).contiguous()
-            x1_ = x1_.view(-1, *x1_.size()[2:])
-            if torch.equal(x1, x2):
-                x2_ = x1_
-            else:
-                x2_ = x2_.view(*x2.size()[:-1], -1, 1)
-                x2_ = x2_.permute(0, -2, *list(range(1, x2_.dim() - 2)), -1).contiguous()
-                x2_ = x2_.view(-1, *x2_.size()[2:])
-
-        if diag:
-            return x1_, x2_
+        if params.get('diag'):
+            mid = (x1 * x2).sum(dim=-1, keepdim=True)
+            res = (x1_norm - 2 * mid + x2_norm).squeeze(-1)
         else:
-            return x1_.unsqueeze(-2), x2_.unsqueeze(-3)
+            mid = x1.matmul(x2.transpose(-2, -1))
+            res = x1_norm - 2 * mid + x2_norm.transpose(-2, -1)
+
+        if params.get('batch_dims') == (0, 2):
+            if params.get('diag'):
+                res = res.transpose(0, 1).contiguous().view(-1, res.shape[-1])
+            else:
+                res = res.transpose(0, 1).contiguous().view(-1, *res.shape[-2:])
+
+        return res
 
     def __call__(self, x1, x2=None, diag=False, batch_dims=None, **params):
         x1_, x2_ = x1, x2
