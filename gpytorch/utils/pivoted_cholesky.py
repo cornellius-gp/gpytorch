@@ -22,7 +22,8 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
 
     # What we're returning
     L = torch.zeros(*batch_shape, max_iter, matrix_shape[-1], dtype=matrix.dtype, device=matrix.device)
-    errors = torch.norm(matrix_diag, 1, dim=-1)
+    orig_error = torch.norm(matrix_diag, 1, dim=-1)
+    errors = torch.norm(matrix_diag, 1, dim=-1) / orig_error
 
     # The permutation
     permutation = torch.arange(0, matrix_shape[-1], dtype=torch.long, device=matrix_diag.device)
@@ -75,7 +76,7 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
             matrix_diag.scatter_(-1, pi_i, matrix_diag_current - L_m_new ** 2)
             L[..., m, :] = L_m
 
-            errors = torch.norm(matrix_diag.gather(-1, pi_i), 1, dim=-1)
+            errors = torch.norm(matrix_diag.gather(-1, pi_i), 1, dim=-1) / orig_error
         m = m + 1
 
     return L[..., :m, :].contiguous()
