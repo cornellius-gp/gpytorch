@@ -21,10 +21,12 @@ class CachedCGLazyTensor(LazyTensor):
         # This will make it faster when we reconstruct the LazyTensor inside functions
         with torch.no_grad():
             if solves is None:
-                solves = [
-                    base_lazy_tensor._solve(eager_rhs, base_lazy_tensor._preconditioner()[0])
-                    for eager_rhs in eager_rhss
-                ]
+                all_solves = base_lazy_tensor._solve(torch.cat(eager_rhss, -1), base_lazy_tensor._preconditioner()[0])
+                solves = []
+                for eager_rhs in eager_rhss:
+                    solve = all_solves[..., :eager_rhs.size(-1)]
+                    all_solves = all_solves[..., eager_rhs.size(-1):]
+                    solves.append(solve.detach())  # The detach is necessary here for some reason?
 
         super(CachedCGLazyTensor, self).__init__(
             base_lazy_tensor, eager_rhss=eager_rhss, solves=solves,
@@ -53,7 +55,11 @@ class CachedCGLazyTensor(LazyTensor):
     def _quad_form_derivative(self, left_vecs, right_vecs):
         return self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
 
-    def _solve(self, rhs, preconditioner):
+    def _solve(self, rhs, preconditioner, num_tridiag=None):
+        # Temporary
+        if num_tridiag is not None:
+            return super(CachedCGLazyTensor, self)._solve(rhs, preconditioner, num_tridiag=num_tridiag)
+
         # Here we check to see what solves we've already performed
         for eager_rhs, solve in zip(self.eager_rhss, self.solves):
             if torch.equal(rhs, eager_rhs):

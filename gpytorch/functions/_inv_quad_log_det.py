@@ -4,7 +4,6 @@ import torch
 from torch.autograd import Function
 from ..utils.lanczos import lanczos_tridiag_to_diag
 from ..utils.stochastic_lq import StochasticLQ
-from ..utils import linear_cg
 from .. import settings
 
 
@@ -27,6 +26,8 @@ class InvQuadLogDet(Function):
         log_det=False,
         preconditioner=None,
         log_det_correction=None,
+        probe_vectors=None,
+        probe_vector_norms=None,
     ):
         if not (inv_quad or log_det):
             raise RuntimeError("Either inv_quad or log_det must be true (or both)")
@@ -40,6 +41,19 @@ class InvQuadLogDet(Function):
         self.log_det = log_det
         self.preconditioner = preconditioner
         self.log_det_correction = log_det_correction
+
+        if (probe_vectors is None or probe_vector_norms is None) and log_det:
+            num_random_probes = settings.num_trace_samples.value()
+            probe_vectors = torch.empty(matrix_shape[-1], num_random_probes, dtype=dtype, device=device)
+            probe_vectors.bernoulli_().mul_(2).add_(-1)
+            probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
+            if batch_shape is not None:
+                probe_vectors = probe_vectors.expand(*batch_shape, matrix_shape[-1], num_random_probes)
+                probe_vector_norms = probe_vector_norms.expand(*batch_shape, 1, num_random_probes)
+            probe_vectors = probe_vectors.div(probe_vector_norms)
+
+        self.probe_vectors = probe_vectors
+        self.probe_vector_norms = probe_vector_norms
 
     def forward(self, *args):
         """
@@ -61,7 +75,6 @@ class InvQuadLogDet(Function):
 
         # Get closure for matmul
         lazy_tsr = self.representation_tree(*matrix_args)
-        matmul_closure = lazy_tsr._matmul
 
         # Collect terms for LinearCG
         # We use LinearCG for both matrix solves and for stochastically estimating the log det
@@ -69,19 +82,10 @@ class InvQuadLogDet(Function):
         num_random_probes = 0
         num_inv_quad_solves = 0
 
-        # Probe vector for lanczos quadrature (log_det estimation)
-        probe_vectors = None
-        probe_vector_norms = None
+        # RHS for log_det
         if self.log_det:
-            num_random_probes = settings.num_trace_samples.value()
-            probe_vectors = torch.empty(self.matrix_shape[-1], num_random_probes, dtype=self.dtype, device=self.device)
-            probe_vectors.bernoulli_().mul_(2).add_(-1)
-            probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
-            if self.batch_shape is not None:
-                probe_vectors = probe_vectors.expand(*self.batch_shape, self.matrix_shape[-1], num_random_probes)
-                probe_vector_norms = probe_vector_norms.expand(*self.batch_shape, 1, num_random_probes)
-            probe_vectors = probe_vectors.div(probe_vector_norms)
-            rhs_list.append(probe_vectors)
+            rhs_list.append(self.probe_vectors)
+            num_random_probes = self.probe_vectors.size(-1)
 
         # RHS for inv_quad
         self.is_vector = False
@@ -96,23 +100,10 @@ class InvQuadLogDet(Function):
         rhs = torch.cat(rhs_list, -1)
         t_mat = None
         if self.log_det and settings.skip_logdet_forward.off():
-            solves, t_mat = linear_cg(
-                matmul_closure,
-                rhs,
-                n_tridiag=num_random_probes,
-                max_iter=settings.max_cg_iterations.value(),
-                max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
-                preconditioner=self.preconditioner,
-            )
+            solves, t_mat = lazy_tsr._solve(rhs, self.preconditioner, num_tridiag=num_random_probes)
 
         else:
-            solves = linear_cg(
-                matmul_closure,
-                rhs,
-                n_tridiag=0,
-                max_iter=settings.max_cg_iterations.value(),
-                preconditioner=self.preconditioner,
-            )
+            solves = lazy_tsr._solve(rhs, self.preconditioner, num_tridiag=0)
 
         # Final values to return
         log_det_term = torch.zeros(lazy_tsr.batch_shape, dtype=self.dtype, device=self.device)
@@ -141,7 +132,7 @@ class InvQuadLogDet(Function):
         self.num_random_probes = num_random_probes
         self.num_inv_quad_solves = num_inv_quad_solves
 
-        to_save = list(matrix_args) + [solves, probe_vectors, probe_vector_norms]
+        to_save = list(matrix_args) + [solves, ]
         self.save_for_backward(*to_save)
 
         if settings.memory_efficient.off():
@@ -158,10 +149,8 @@ class InvQuadLogDet(Function):
         compute_log_det_grad = log_det_grad_output.abs().sum() and self.log_det
 
         # Get input arguments, and get gradients in the proper form
-        matrix_args = self.saved_tensors[:-3]
-        solves = self.saved_tensors[-3]
-        probe_vectors = self.saved_tensors[-2]
-        probe_vector_norms = self.saved_tensors[-1]
+        matrix_args = self.saved_tensors[:-1]
+        solves = self.saved_tensors[-1]
 
         if hasattr(self, "_lazy_tsr"):
             lazy_tsr = self._lazy_tsr
@@ -180,10 +169,10 @@ class InvQuadLogDet(Function):
         inv_quad_solves = None
         neg_inv_quad_solves_times_grad_out = None
         if compute_log_det_grad:
-            coef = 1.0 / probe_vectors.size(-1)
+            coef = 1.0 / self.probe_vectors.size(-1)
             probe_vector_solves = solves.narrow(-1, 0, self.num_random_probes).mul(coef)
-            probe_vector_solves.mul_(probe_vector_norms).mul_(log_det_grad_output)
-            probe_vectors = probe_vectors.mul(probe_vector_norms)
+            probe_vector_solves.mul_(self.probe_vector_norms).mul_(log_det_grad_output)
+            probe_vectors = self.probe_vectors.mul(self.probe_vector_norms)
         if self.inv_quad:
             inv_quad_solves = solves.narrow(-1, self.num_random_probes, self.num_inv_quad_solves)
             neg_inv_quad_solves_times_grad_out = inv_quad_solves.mul(inv_quad_grad_output).mul_(-1)

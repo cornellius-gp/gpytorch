@@ -92,8 +92,18 @@ class LazyTensor(object):
         """
         raise NotImplementedError("The class {} requires a _matmul function!".format(self.__class__.__name__))
 
-    def _solve(self, rhs, preconditioner):
-        return linear_cg(self._matmul, rhs, max_iter=settings.max_cg_iterations.value(), preconditioner=preconditioner)
+    def _probe_vectors_and_norms(self):
+        return None, None
+
+    def _solve(self, rhs, preconditioner, num_tridiag=None):
+        return linear_cg(
+            self._matmul,
+            rhs,
+            n_tridiag=num_tridiag,
+            max_iter=settings.max_cg_iterations.value(),
+            max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+            preconditioner=preconditioner
+        )
 
     def _size(self):
         """
@@ -735,6 +745,7 @@ class LazyTensor(object):
         if inv_quad_rhs is not None:
             args = [inv_quad_rhs] + list(args)
 
+        probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
         inv_quad_term, log_det_term = InvQuadLogDet(
             representation_tree=self.representation_tree(),
             matrix_shape=self.matrix_shape,
@@ -745,6 +756,8 @@ class LazyTensor(object):
             log_det=log_det,
             preconditioner=self._preconditioner()[0],
             log_det_correction=self._preconditioner()[1],
+            probe_vectors=probe_vectors,
+            probe_vector_norms=probe_vector_norms,
         )(*args)
 
         if inv_quad_term.numel() and reduce_inv_quad:
