@@ -61,6 +61,54 @@ class ExactGP(GP):
             self.train_targets = targets
         self.prediction_strategy = None
 
+    def get_fantasy_model(self, inputs, targets, **kwargs):
+        if self.prediction_strategy is None:
+            raise RuntimeError("Fantasy observations can only be added after making predictions with a model so that "
+                               "all test independent caches exist. Call the model on some data first!")
+
+        if self.train_inputs[0].dim() > 2:
+            raise RuntimeError("Adding fantasy observations to a GP that is already batch mode will not be supported "
+                               "until GPyTorch supports multiple batch dimensions.")
+
+        if self.train_targets.dim() > 1:
+            raise RuntimeError("Cannot yet add fantasy observations to multitask GPs, but this is coming soon!")
+
+        if not isinstance(inputs, list):
+            inputs = [inputs]
+
+        # TODO: Move this code to a new method for re-use with __call__
+        inputs = list(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs)
+
+        # If input is n x d but targets is b x n x d, expand input to b x n x d
+        for i, input in enumerate(inputs):
+            if input.dim() == targets.dim() + 1:
+                batch_shape = input.shape[:-2]
+            elif input.dim() < targets.dim():
+                batch_shape = targets.shape[:-2]
+                inputs[i] = input.expand(*batch_shape, *input.shape[-2:])
+
+        train_inputs = [tin.expand(*batch_shape, *tin.shape[-2:]) for tin in list(self.train_inputs)]
+        train_targets = self.train_targets.expand(*batch_shape, *self.train_targets.shape[-2:])
+
+        full_inputs = [torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)]
+        full_targets = torch.cat([train_targets, targets], dim=-1)
+
+        full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
+
+        from copy import deepcopy
+        new_model = deepcopy(self)
+        new_model.train_inputs = full_inputs
+        new_model.train_targets = full_targets
+        new_model.prediction_strategy = self.prediction_strategy.get_fantasy_strategy(
+            inputs,
+            targets,
+            full_inputs,
+            full_targets,
+            full_output
+        )
+
+        return new_model
+
     def train(self, mode=True):
         if mode:
             self.prediction_strategy = None

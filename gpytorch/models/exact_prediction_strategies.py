@@ -40,6 +40,9 @@ class DefaultPredictionStrategy(object):
         self.likelihood = likelihood
         self.non_batch_train = non_batch_train
 
+        mvn = self.likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
+        self.lik_train_train_covar = mvn.lazy_covariance_matrix
+
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         """
         Computes a cache for K_X*X (K_XX + sigma^2 I)^-1 K_X*X if possible. By default, this does no work and returns
@@ -72,6 +75,53 @@ class DefaultPredictionStrategy(object):
         # Here the precomputed cache represents S,
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+        full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
+
+        batch_shape = full_inputs[0].shape[:-2]
+
+        full_mean = full_mean.view(*batch_shape, -1)
+        num_train = self.num_train
+
+        # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
+        fant_fant_covar = full_covar[..., num_train:, num_train:]
+        mvn = self.likelihood(MultivariateNormal(torch.zeros(1), fant_fant_covar), inputs)
+        fant_fant_covar = mvn.covariance_matrix
+
+        fant_train_covar = full_covar[..., num_train:, :num_train].evaluate()
+        fant_mean = full_mean[..., num_train:]
+
+        self.fantasy_inputs = inputs
+        self.fantasy_targets = targets
+
+        # Get cached K inverse decomp. (or compute if we somehow don't already have the covariance cache)
+        K_inverse = self.lik_train_train_covar.root_inv_decomposition()
+        fant_solve = K_inverse.matmul(fant_train_covar.transpose(-2, -1))
+
+        schur_complement = fant_fant_covar - fant_train_covar.matmul(fant_solve)
+        small_system_rhs = targets - fant_mean - fant_train_covar.matmul(self.mean_cache)
+
+        # Schur complement of a spd matrix is guaranteed to be positive definite
+        fant_cache_lower = torch.potrs(small_system_rhs, torch.cholesky(schur_complement, upper=True)).squeeze(-1)
+        fant_cache_upper = self.mean_cache - fant_solve.matmul(fant_cache_lower)
+
+        fant_mean_cache = torch.cat((fant_cache_upper, fant_cache_lower), dim=-1)
+
+        # Create new DefaultPredictionStrategy object
+        new_num_train = full_inputs[0].size(len(batch_shape))
+        fant_strat = self.__class__(
+            new_num_train,
+            full_inputs,
+            full_mean,
+            full_covar,
+            full_targets,
+            self.likelihood,
+            True
+        )
+        setattr(fant_strat, '__cache', {"mean_cache": fant_mean_cache})
+
+        return fant_strat
 
     @property
     @cached(name="mean_cache")
@@ -112,9 +162,7 @@ class DefaultPredictionStrategy(object):
     @property
     @cached(name="covar_cache")
     def covar_cache(self):
-        train_train_covar = self.likelihood(
-            MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
-        ).lazy_covariance_matrix
+        train_train_covar = self.lik_train_train_covar
 
         if self.non_batch_train and train_train_covar.dim() == 3:
             train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition().root.evaluate()
@@ -200,6 +248,10 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         test_interp_values = test_train_covar.left_interp_values
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+        raise NotImplementedError("Fantasy observation updates not yet supported for models "
+                                  "using InterpolatedLazyTensors")
 
     @property
     @cached(name="mean_cache")
