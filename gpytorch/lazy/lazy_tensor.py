@@ -992,6 +992,7 @@ class LazyTensor(object):
         )(*self.representation())
         return RootLazyTensor(res)
 
+    @cached
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         """
         Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
