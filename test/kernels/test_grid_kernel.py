@@ -28,7 +28,7 @@ class TestGridKernel(unittest.TestCase):
         self.assertIsInstance(grid_covar, KroneckerProductLazyTensor)
         grid_eval = kernel(grid_data, grid_data).evaluate()
         actual_eval = base_kernel(grid_data, grid_data).evaluate()
-        self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
+        self.assertLess(torch.norm(grid_eval - actual_eval), 1e-5)
 
     def test_nongrid_grid(self):
         base_kernel = RBFKernel()
@@ -36,7 +36,7 @@ class TestGridKernel(unittest.TestCase):
         kernel = GridKernel(base_kernel, grid)
         grid_eval = kernel(grid_data, data).evaluate()
         actual_eval = base_kernel(grid_data, data).evaluate()
-        self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
+        self.assertLess(torch.norm(grid_eval - actual_eval), 1e-5)
 
     def test_nongrid_nongrid(self):
         base_kernel = RBFKernel()
@@ -44,7 +44,7 @@ class TestGridKernel(unittest.TestCase):
         kernel = GridKernel(base_kernel, grid)
         grid_eval = kernel(data, data).evaluate()
         actual_eval = base_kernel(data, data).evaluate()
-        self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
+        self.assertLess(torch.norm(grid_eval - actual_eval), 1e-5)
 
 
 if __name__ == "__main__":
