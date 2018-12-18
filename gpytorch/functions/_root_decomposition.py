@@ -50,6 +50,7 @@ class RootDecomposition(Function):
             batch_shape=self.batch_shape,
             init_vecs=self.initial_vectors,
         )
+
         if self.batch_shape is None:
             q_mat = q_mat.unsqueeze(-3)
             t_mat = t_mat.unsqueeze(-3)
@@ -58,11 +59,12 @@ class RootDecomposition(Function):
             t_mat = t_mat.unsqueeze(0)
         n_probes = t_mat.size(0)
 
-        eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
+        eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat + 1e-5 * torch.eye(t_mat.size(-1)).expand_as(t_mat))
 
         # Get orthogonal matrix and eigenvalue roots
         q_mat = q_mat.matmul(eigenvectors)
         root_evals = eigenvalues.sqrt()
+
         # Store q_mat * t_mat_chol
         # Decide if we're computing the inverse, or the regular root
         root = torch.empty(0, dtype=q_mat.dtype, device=q_mat.device)
