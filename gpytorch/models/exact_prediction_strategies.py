@@ -108,6 +108,26 @@ class DefaultPredictionStrategy(object):
 
         fant_mean_cache = torch.cat((fant_cache_upper, fant_cache_lower), dim=-1)
 
+        # [K U; U S] = [L 0; lower_left schur_root]
+        L_inverse = self.covar_cache
+        L = self.lik_train_train_covar.root_decomposition().root.evaluate()
+        lower_left = fant_train_covar.matmul(L_inverse)
+        schur_root = torch.cholesky(fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1)))
+        upper_right = torch.zeros(L.size(-2), schur_root.size(-1))
+
+        # Form pseudo-inverse of [L 0; lower_left schur_root]
+        new_root_upper = torch.cat((L, upper_right), dim=-1)
+        new_root_lower = torch.cat((lower_left, schur_root), dim=-1)
+        new_root = torch.cat((new_root_upper, new_root_lower), dim=-2)
+
+        cap_mat = new_root.transpose(-2, -1).matmul(new_root)
+        if cap_mat.requires_grad or new_root.requires_grad:
+            # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
+            new_covar_cache = torch.gesv(new_root, cap_mat)[0]
+        else:
+            new_covar_cache = torch.potrs(new_root.transpose(-2, -1), torch.cholesky(cap_mat, upper=True))
+            new_covar_cache = new_covar_cache.transpose(-2, -1)
+
         # Create new DefaultPredictionStrategy object
         new_num_train = full_inputs[0].size(len(batch_shape))
         fant_strat = self.__class__(
@@ -119,7 +139,7 @@ class DefaultPredictionStrategy(object):
             self.likelihood,
             True
         )
-        setattr(fant_strat, '__cache', {"mean_cache": fant_mean_cache})
+        setattr(fant_strat, '__cache', {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
 
         return fant_strat
 
