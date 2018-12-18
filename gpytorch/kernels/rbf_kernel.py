@@ -90,8 +90,7 @@ class RBFKernel(Kernel):
         )
 
     def forward(self, x1, x2, **params):
-        center = x1.mean(dim=-2, keepdim=True)
-        x1_ = (x1 - center).div(self.lengthscale)
-        x2_ = (x2 - center).div(self.lengthscale)
+        x1_ = x1.div(self.lengthscale)
+        x2_ = x2.div(self.lengthscale)
         diff = self._covar_sq_dist(x1_, x2_, **params)
         return diff.div_(-2).exp_()

@@ -205,6 +205,10 @@ class Kernel(Module):
             * `diag=True` and `batch_dims=None`: (`b x n`)
             * `diag=True` and `batch_dims=(0, 2)`: (`bd x n`)
         """
+
+        center = x1.mean(dim=-2, keepdim=True)
+        x1 = x1 - center
+        x2 = x2 - center
         if batch_dims == (0, 2):
             x1 = x1.unsqueeze(0).transpose(0, -1)
             x2 = x2.unsqueeze(0).transpose(0, -1)
