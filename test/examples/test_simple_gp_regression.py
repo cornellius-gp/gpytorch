@@ -200,17 +200,25 @@ class TestSimpleGPRegression(unittest.TestCase):
             self.assertGreater(param.grad.norm().item(), 0)
         optimizer.step()
 
-        with gpytorch.settings.fast_pred_var():
+        train_x.requires_grad = True
+        gp_model.set_train_data(train_x, train_y)
+        with gpytorch.settings.fast_pred_var(), gpytorch.settings.detach_test_caches(False):
             # Test the model
             gp_model.eval()
             likelihood.eval()
             test_function_predictions = likelihood(gp_model(test_x))
+            test_function_predictions.mean.sum().backward()
+
+            real_fant_x_grad = train_x.grad[5:].clone()
+            train_x.grad = None
+            train_x.requires_grad = False
+            gp_model.set_train_data(train_x, train_y)
 
             # Cut data down, and then add back via the fantasy interface
             gp_model.set_train_data(train_x[:5], train_y[:5], strict=False)
             likelihood(gp_model(test_x))
 
-            fantasy_x = train_x[5:].clone().requires_grad_(True)
+            fantasy_x = train_x[5:].clone().detach().requires_grad_(True)
             fant_model = gp_model.get_fantasy_model(fantasy_x, train_y[5:])
             fant_function_predictions = likelihood(fant_model(test_x))
 
@@ -218,6 +226,9 @@ class TestSimpleGPRegression(unittest.TestCase):
 
             fant_function_predictions.mean.sum().backward()
             self.assertTrue(fantasy_x.grad is not None)
+
+            relative_error = torch.norm(real_fant_x_grad - fantasy_x.grad) / fantasy_x.grad.norm()
+            self.assertLess(relative_error, 1e-1)
 
     def test_fantasy_updates_batch_cuda(self):
         if torch.cuda.is_available():
