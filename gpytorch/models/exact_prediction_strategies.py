@@ -116,12 +116,15 @@ class DefaultPredictionStrategy(object):
         # Schur complement of a spd matrix is guaranteed to be positive definite
         if small_system_rhs.requires_grad or schur_complement.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
-            fant_cache_lower = torch.gesv(small_system_rhs.unsqueeze(-1), schur_complement)[0].squeeze(-1)
+            fant_cache_lower = torch.gesv(small_system_rhs.unsqueeze(-1), schur_complement)[0]
         else:
-            fant_cache_lower = torch.potrs(small_system_rhs, torch.cholesky(schur_complement, upper=True)).squeeze(-1)
+            fant_cache_lower = torch.potrs(small_system_rhs, torch.cholesky(schur_complement, upper=True))
 
         # Get "a", the new upper portion of the cache corresponding to the old training points.
-        fant_cache_upper = self.mean_cache - fant_solve.matmul(fant_cache_lower)
+        fant_cache_upper = self.mean_cache.unsqueeze(-1) - fant_solve.matmul(fant_cache_lower)
+
+        fant_cache_upper = fant_cache_upper.squeeze(-1)
+        fant_cache_lower = fant_cache_lower.squeeze(-1)
 
         # New mean cache.
         fant_mean_cache = torch.cat((fant_cache_upper, fant_cache_lower), dim=-1)
@@ -143,6 +146,8 @@ class DefaultPredictionStrategy(object):
         we can form a pseudo-inverse of Z directly to approximate [K U; U' S]^{-1}.
         """
         # [K U; U' S] = [L 0; lower_left schur_root]
+        batch_shape = fant_train_covar.shape[:-2]
+
         L_inverse = self.covar_cache
         L = self.lik_train_train_covar.root_decomposition().root.evaluate()
         lower_left = fant_train_covar.matmul(L_inverse)
@@ -150,17 +155,18 @@ class DefaultPredictionStrategy(object):
         upper_right = torch.zeros(L.size(-2), schur_root.size(-1)).type_as(L)
 
         # Form new root Z = [L 0; lower_left schur_root]
-        new_root = torch.zeros(L.size(-2) + schur_root.size(-2), L.size(-1) + schur_root.size(-1)).type_as(L)
-        new_root[:L.size(-2), :L.size(-1)] = L
-        new_root[:L.size(-2), L.size(-1):] = upper_right
-        new_root[L.size(-2):, :L.size(-1)] = lower_left
-        new_root[L.size(-2):, L.size(-1):] = schur_root
+        num_fant = schur_root.size(-2)
+        new_root = torch.zeros(*batch_shape, L.size(-2) + num_fant, L.size(-1) + num_fant).type_as(L)
+        new_root[..., :L.size(-2), :L.size(-1)] = L
+        new_root[..., :L.size(-2), L.size(-1):] = upper_right
+        new_root[..., L.size(-2):, :L.size(-1)] = lower_left
+        new_root[..., L.size(-2):, L.size(-1):] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
         cap_mat = new_root.transpose(-2, -1).matmul(new_root)
         if cap_mat.requires_grad or new_root.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
-            new_covar_cache = torch.gesv(new_root.transpose(-2, -1), cap_mat)[0]
+            new_covar_cache = torch.gesv(new_root.transpose(-2, -1), cap_mat)[0].transpose(-2, -1)
         else:
             new_covar_cache = torch.potrs(new_root.transpose(-2, -1), torch.cholesky(cap_mat, upper=True))
             new_covar_cache = new_covar_cache.transpose(-2, -1)
@@ -174,7 +180,7 @@ class DefaultPredictionStrategy(object):
             train_train_covar=full_covar,
             train_labels=full_targets,
             likelihood=self.likelihood,
-            non_batch_train=True
+            non_batch_train=(len(batch_shape) == 0)
         )
         setattr(fant_strat, '__cache', {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
 
