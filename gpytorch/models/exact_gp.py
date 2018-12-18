@@ -2,6 +2,7 @@
 
 import warnings
 import torch
+from copy import deepcopy
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .. import settings
@@ -60,6 +61,80 @@ class ExactGP(GP):
                     raise RuntimeError("Cannot modify {attr} of targets".format(attr=attr))
             self.train_targets = targets
         self.prediction_strategy = None
+
+    def get_fantasy_model(self, inputs, targets, **kwargs):
+        """
+        Returns a new GP model that incorporates the specified inputs and targets as new training data.
+
+        Using this method is more efficient than updating with `set_train_data` when the number of inputs is relatively
+        small, because any computed test-time caches will be updated in linear time rather than computed from scratch.
+
+        .. note::
+            If `targets` is a batch (e.g. `b x m`), then the GP returned from this method will be a batch mode GP.
+
+        Args:
+            - :attr:`inputs` (Tensor `m x d` or `b x m x d`): Locations of fantasy observations.
+            - :attr:`targets` (Tensor `m` or `b x m`): Labels of fantasy observations.
+        Returns:
+            - :class:`ExactGP`
+                An `ExactGP` model with `n + m` training examples, where the `m` fantasy examples have been added
+                and all test-time caches have been updated.
+        """
+        if self.prediction_strategy is None:
+            raise RuntimeError("Fantasy observations can only be added after making predictions with a model so that "
+                               "all test independent caches exist. Call the model on some data first!")
+
+        if self.train_inputs[0].dim() > 2:
+            raise RuntimeError("Adding fantasy observations to a GP that is already batch mode will not be supported "
+                               "until GPyTorch supports multiple batch dimensions.")
+
+        if self.train_targets.dim() > 1:
+            raise RuntimeError("Cannot yet add fantasy observations to multitask GPs, but this is coming soon!")
+
+        if not isinstance(inputs, list):
+            inputs = [inputs]
+
+        inputs = list(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs)
+
+        # If input is n x d but targets is b x n x d, expand input to b x n x d
+        for i, input in enumerate(inputs):
+            if input.dim() == targets.dim() + 1:
+                batch_shape = input.shape[:-2]
+            elif input.dim() < targets.dim():
+                batch_shape = targets.shape[:-2]
+                inputs[i] = input.expand(*batch_shape, *input.shape[-2:])
+
+        train_inputs = [tin.expand(*batch_shape, *tin.shape[-2:]) for tin in list(self.train_inputs)]
+        train_targets = self.train_targets.expand(*batch_shape, *self.train_targets.shape[-2:])
+
+        full_inputs = [torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)]
+        full_targets = torch.cat([train_targets, targets], dim=-1)
+
+        full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
+
+        # Copy model without copying training data or prediction strategy (since we'll overwrite those)
+        old_pred_strat = self.prediction_strategy
+        old_train_inputs = self.train_inputs
+        old_train_targets = self.train_targets
+        self.prediction_strategy = None
+        self.train_inputs = None
+        self.train_targets = None
+        new_model = deepcopy(self)
+        self.prediction_strategy = old_pred_strat
+        self.train_inputs = old_train_inputs
+        self.train_targets = old_train_targets
+
+        new_model.train_inputs = full_inputs
+        new_model.train_targets = full_targets
+        new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
+            inputs,
+            targets,
+            full_inputs,
+            full_targets,
+            full_output
+        )
+
+        return new_model
 
     def train(self, mode=True):
         if mode:

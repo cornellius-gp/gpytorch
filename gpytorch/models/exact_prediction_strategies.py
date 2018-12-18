@@ -39,6 +39,9 @@ class DefaultPredictionStrategy(object):
         self.train_labels = train_labels
         self.likelihood = likelihood
         self.non_batch_train = non_batch_train
+        self._last_test_train_covar = None
+        mvn = self.likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
+        self.lik_train_train_covar = mvn.lazy_covariance_matrix
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         """
@@ -72,6 +75,133 @@ class DefaultPredictionStrategy(object):
         # Here the precomputed cache represents S,
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+        """
+        Returns a new PredictionStrategy that incorporates the specified inputs and targets as new training data.
+
+        This method is primary responsible for updating the mean and covariance caches. To add fantasy data to a
+        GP model, use the :meth:`~gpytorch.models.ExactGP.get_fantasy_model` method.
+
+        Args:
+            - :attr:`inputs` (Tensor `m x d` or `b x m x d`): Locations of fantasy observations.
+            - :attr:`targets` (Tensor `m` or `b x m`): Labels of fantasy observations.
+            - :attr:`full_inputs` (Tensor `n+m x d` or `b x n+m x d`): Training data concatenated with fantasy inputs
+            - :attr:`full_targets` (Tensor `n+m` or `b x n+m`): Training labels concatenated with fantasy labels.
+            - :attr:`full_output` (:class:`gpytorch.distributions.MultivariateNormal`): Prior called on full_inputs
+        Returns:
+            - :class:`DefaultPredictionStrategy`
+                A `DefaultPredictionStrategy` model with `n + m` training examples, where the `m` fantasy examples have
+                been added and all test-time caches have been updated.
+        """
+        full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
+
+        batch_shape = full_inputs[0].shape[:-2]
+
+        full_mean = full_mean.view(*batch_shape, -1)
+        num_train = self.num_train
+
+        # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
+        fant_fant_covar = full_covar[..., num_train:, num_train:]
+        fant_mean = full_mean[..., num_train:]
+        mvn = self.likelihood(MultivariateNormal(fant_mean, fant_fant_covar), inputs)
+        fant_fant_covar = mvn.covariance_matrix
+
+        fant_train_covar = full_covar[..., num_train:, :num_train].evaluate()
+
+        self.fantasy_inputs = inputs
+        self.fantasy_targets = targets
+
+        """
+        Compute a new mean cache given the old mean cache.
+
+        We have \\alpha = K^{-1}y, and we want to solve [K U; U' S][a; b] = [y; y_f], where U' is fant_train_covar,
+        S is fant_fant_covar, and y_f is (targets - fant_mean)
+
+        To do this, we solve the bordered linear system of equations for [a; b]:
+            AQ = U  # Q = fant_solve
+            [S - U'Q]b = y_f - U'\\alpha   ==> b = [S - U'Q]^{-1}(y_f - U'\\alpha)
+            a = \\alpha - Qb
+        """
+        # Get cached K inverse decomp. (or compute if we somehow don't already have the covariance cache)
+        K_inverse = self.lik_train_train_covar.root_inv_decomposition()
+        fant_solve = K_inverse.matmul(fant_train_covar.transpose(-2, -1))
+
+        # Solve for "b", the lower portion of the *new* \\alpha corresponding to the fantasy points.
+        schur_complement = fant_fant_covar - fant_train_covar.matmul(fant_solve)
+        small_system_rhs = targets - fant_mean - fant_train_covar.matmul(self.mean_cache)
+        # Schur complement of a spd matrix is guaranteed to be positive definite
+        if small_system_rhs.requires_grad or schur_complement.requires_grad:
+            # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
+            fant_cache_lower = torch.gesv(small_system_rhs.unsqueeze(-1), schur_complement)[0]
+        else:
+            fant_cache_lower = torch.potrs(small_system_rhs, torch.cholesky(schur_complement, upper=True))
+
+        # Get "a", the new upper portion of the cache corresponding to the old training points.
+        fant_cache_upper = self.mean_cache.unsqueeze(-1) - fant_solve.matmul(fant_cache_lower)
+
+        fant_cache_upper = fant_cache_upper.squeeze(-1)
+        fant_cache_lower = fant_cache_lower.squeeze(-1)
+
+        # New mean cache.
+        fant_mean_cache = torch.cat((fant_cache_upper, fant_cache_lower), dim=-1)
+
+        """
+        Compute a new covariance cache given the old covariance cache.
+
+        We have access to K \\approx LL' and K^{-1} \\approx R^{-1}R^{-T}, where L and R are low rank matrices
+        resulting from Lanczos (see the LOVE paper).
+
+        To update R^{-1}, we first update L:
+            [K U; U' S] = [L 0; A B][L' A'; 0 B']
+        Solving this matrix equation, we get:
+            K = LL' ==>       L = L
+            U = LA' ==>       A = UR^{-1}
+            S = AA' + BB' ==> B = cholesky(S - AA')
+
+        Once we've computed Z = [L 0; A B], we have that the new kernel matrix [K U; U' S] \approx ZZ'. Therefore,
+        we can form a pseudo-inverse of Z directly to approximate [K U; U' S]^{-1}.
+        """
+        # [K U; U' S] = [L 0; lower_left schur_root]
+        batch_shape = fant_train_covar.shape[:-2]
+
+        L_inverse = self.covar_cache
+        L = self.lik_train_train_covar.root_decomposition().root.evaluate()
+        lower_left = fant_train_covar.matmul(L_inverse)
+        schur_root = torch.cholesky(fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1)))
+        upper_right = torch.zeros(L.size(-2), schur_root.size(-1)).type_as(L)
+
+        # Form new root Z = [L 0; lower_left schur_root]
+        num_fant = schur_root.size(-2)
+        new_root = torch.zeros(*batch_shape, L.size(-2) + num_fant, L.size(-1) + num_fant).type_as(L)
+        new_root[..., :L.size(-2), :L.size(-1)] = L
+        new_root[..., :L.size(-2), L.size(-1):] = upper_right
+        new_root[..., L.size(-2):, :L.size(-1)] = lower_left
+        new_root[..., L.size(-2):, L.size(-1):] = schur_root
+
+        # Use pseudo-inverse of Z as new inv root
+        cap_mat = new_root.transpose(-2, -1).matmul(new_root)
+        if cap_mat.requires_grad or new_root.requires_grad:
+            # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
+            new_covar_cache = torch.gesv(new_root.transpose(-2, -1), cap_mat)[0].transpose(-2, -1)
+        else:
+            new_covar_cache = torch.potrs(new_root.transpose(-2, -1), torch.cholesky(cap_mat, upper=True))
+            new_covar_cache = new_covar_cache.transpose(-2, -1)
+
+        # Create new DefaultPredictionStrategy object
+        new_num_train = full_inputs[0].size(len(batch_shape))
+        fant_strat = self.__class__(
+            num_train=new_num_train,
+            train_inputs=full_inputs,
+            train_mean=full_mean,
+            train_train_covar=full_covar,
+            train_labels=full_targets,
+            likelihood=self.likelihood,
+            non_batch_train=(len(batch_shape) == 0)
+        )
+        setattr(fant_strat, '__cache', {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
+
+        return fant_strat
 
     @property
     @cached(name="mean_cache")
@@ -112,9 +242,7 @@ class DefaultPredictionStrategy(object):
     @property
     @cached(name="covar_cache")
     def covar_cache(self):
-        train_train_covar = self.likelihood(
-            MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
-        ).lazy_covariance_matrix
+        train_train_covar = self.lik_train_train_covar
 
         if self.non_batch_train and train_train_covar.dim() == 3:
             train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition().root.evaluate()
@@ -200,6 +328,10 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         test_interp_values = test_train_covar.left_interp_values
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+        raise NotImplementedError("Fantasy observation updates not yet supported for models "
+                                  "using InterpolatedLazyTensors")
 
     @property
     @cached(name="mean_cache")

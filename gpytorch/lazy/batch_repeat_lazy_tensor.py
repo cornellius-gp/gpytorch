@@ -2,6 +2,7 @@
 
 import itertools
 import torch
+from ..utils.memoize import cached
 
 from .lazy_tensor import LazyTensor
 from .root_lazy_tensor import RootLazyTensor
@@ -178,6 +179,7 @@ class BatchRepeatLazyTensor(LazyTensor):
     def root_decomposition(self):
         return RootLazyTensor(self.base_lazy_tensor.root_decomposition().root.repeat(*self.batch_repeat, 1, 1))
 
+    @cached
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         return RootLazyTensor(
             self.base_lazy_tensor.root_inv_decomposition(
