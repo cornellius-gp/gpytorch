@@ -86,11 +86,11 @@ class DefaultPredictionStrategy(object):
 
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
-        mvn = self.likelihood(MultivariateNormal(torch.zeros(1), fant_fant_covar), inputs)
+        fant_mean = full_mean[..., num_train:]
+        mvn = self.likelihood(MultivariateNormal(fant_mean, fant_fant_covar), inputs)
         fant_fant_covar = mvn.covariance_matrix
 
         fant_train_covar = full_covar[..., num_train:, :num_train].evaluate()
-        fant_mean = full_mean[..., num_train:]
 
         self.fantasy_inputs = inputs
         self.fantasy_targets = targets
@@ -118,17 +118,19 @@ class DefaultPredictionStrategy(object):
         L = self.lik_train_train_covar.root_decomposition().root.evaluate()
         lower_left = fant_train_covar.matmul(L_inverse)
         schur_root = torch.cholesky(fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1)))
-        upper_right = torch.zeros(L.size(-2), schur_root.size(-1))
+        upper_right = torch.zeros(L.size(-2), schur_root.size(-1)).type_as(L)
 
         # Form pseudo-inverse of [L 0; lower_left schur_root]
-        new_root_upper = torch.cat((L, upper_right), dim=-1)
-        new_root_lower = torch.cat((lower_left, schur_root), dim=-1)
-        new_root = torch.cat((new_root_upper, new_root_lower), dim=-2)
+        new_root = torch.zeros(L.size(-2) + schur_root.size(-2), L.size(-1) + schur_root.size(-1)).type_as(L)
+        new_root[:L.size(-2), :L.size(-1)] = L
+        new_root[:L.size(-2), L.size(-1):] = upper_right
+        new_root[L.size(-2):, :L.size(-1)] = lower_left
+        new_root[L.size(-2):, L.size(-1):] = schur_root
 
         cap_mat = new_root.transpose(-2, -1).matmul(new_root)
         if cap_mat.requires_grad or new_root.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
-            new_covar_cache = torch.gesv(new_root, cap_mat)[0]
+            new_covar_cache = torch.gesv(new_root.transpose(-2, -1), cap_mat)[0]
         else:
             new_covar_cache = torch.potrs(new_root.transpose(-2, -1), torch.cholesky(cap_mat, upper=True))
             new_covar_cache = new_covar_cache.transpose(-2, -1)
@@ -136,13 +138,13 @@ class DefaultPredictionStrategy(object):
         # Create new DefaultPredictionStrategy object
         new_num_train = full_inputs[0].size(len(batch_shape))
         fant_strat = self.__class__(
-            new_num_train,
-            full_inputs,
-            full_mean,
-            full_covar,
-            full_targets,
-            self.likelihood,
-            True
+            num_train=new_num_train,
+            train_inputs=full_inputs,
+            train_mean=full_mean,
+            train_train_covar=full_covar,
+            train_labels=full_targets,
+            likelihood=self.likelihood,
+            non_batch_train=True
         )
         setattr(fant_strat, '__cache', {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
 

@@ -159,6 +159,10 @@ class TestSimpleGPRegression(unittest.TestCase):
 
         self.assertLess(mean_abs_error.item(), 0.05)
 
+    def test_fantasy_updates_cuda(self):
+        if torch.cuda.is_available():
+            self.test_fantasy_updates(cuda=True)
+
     def test_fantasy_updates(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -204,7 +208,7 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model.set_train_data(train_x[:5], train_y[:5], strict=False)
         likelihood(gp_model(test_x))
 
-        fantasy_x = torch.nn.Parameter(train_x[5:])
+        fantasy_x = train_x[5:].clone().requires_grad_(True)
         fant_model = gp_model.get_fantasy_model(fantasy_x, train_y[5:])
         fant_function_predictions = likelihood(fant_model(test_x))
 

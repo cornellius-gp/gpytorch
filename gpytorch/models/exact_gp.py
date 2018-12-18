@@ -76,7 +76,6 @@ class ExactGP(GP):
         if not isinstance(inputs, list):
             inputs = [inputs]
 
-        # TODO: Move this code to a new method for re-use with __call__
         inputs = list(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs)
 
         # If input is n x d but targets is b x n x d, expand input to b x n x d
