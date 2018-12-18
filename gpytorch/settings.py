@@ -182,6 +182,17 @@ class max_preconditioner_size(_value_context):
     _global_value = 5
 
 
+class tridiagonal_jitter(_value_context):
+    """
+    The (relative) amount of noise to add to the diagonal of tridiagonal matrices before
+    eigendecomposing. root_decomposition becomes slightly more stable with this, as we need
+    to take the square root of the eigenvalues. Any eigenvalues still negative after adding jitter
+    will be zeroed out.
+    """
+
+    _global_value = 1e-6
+
+
 class max_lanczos_quadrature_iterations(_value_context):
     """
     The maximum number of Lanczos iterations to perform when doing stochastic

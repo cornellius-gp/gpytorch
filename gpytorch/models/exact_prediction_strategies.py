@@ -77,6 +77,23 @@ class DefaultPredictionStrategy(object):
         return test_train_covar.matmul(precomputed_cache)
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+        """
+        Returns a new PredictionStrategy that incorporates the specified inputs and targets as new training data.
+
+        This method is primary responsible for updating the mean and covariance caches. To add fantasy data to a
+        GP model, use the :meth:`~gpytorch.models.ExactGP.get_fantasy_model` method.
+
+        Args:
+            - :attr:`inputs` (Tensor `m x d` or `b x m x d`): Locations of fantasy observations.
+            - :attr:`targets` (Tensor `m` or `b x m`): Labels of fantasy observations.
+            - :attr:`full_inputs` (Tensor `n+m x d` or `b x n+m x d`): Training data concatenated with fantasy inputs
+            - :attr:`full_targets` (Tensor `n+m` or `b x n+m`): Training labels concatenated with fantasy labels.
+            - :attr:`full_output` (:class:`gpytorch.distributions.MultivariateNormal`): Prior called on full_inputs
+        Returns:
+            - :class:`DefaultPredictionStrategy`
+                A `DefaultPredictionStrategy` model with `n + m` training examples, where the `m` fantasy examples have
+                been added and all test-time caches have been updated.
+        """
         full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
         batch_shape = full_inputs[0].shape[:-2]

@@ -2,6 +2,7 @@
 
 import warnings
 import torch
+from copy import deepcopy
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from .. import settings
@@ -62,6 +63,23 @@ class ExactGP(GP):
         self.prediction_strategy = None
 
     def get_fantasy_model(self, inputs, targets, **kwargs):
+        """
+        Returns a new GP model that incorporates the specified inputs and targets as new training data.
+
+        Using this method is more efficient than updating with `set_train_data` when the number of inputs is relatively
+        small, because any computed test-time caches will be updated in linear time rather than computed from scratch.
+
+        .. note::
+            If `targets` is a batch (e.g. `b x m`), then the GP returned from this method will be a batch mode GP.
+
+        Args:
+            - :attr:`inputs` (Tensor `m x d` or `b x m x d`): Locations of fantasy observations.
+            - :attr:`targets` (Tensor `m` or `b x m`): Labels of fantasy observations.
+        Returns:
+            - :class:`ExactGP`
+                An `ExactGP` model with `n + m` training examples, where the `m` fantasy examples have been added
+                and all test-time caches have been updated.
+        """
         if self.prediction_strategy is None:
             raise RuntimeError("Fantasy observations can only be added after making predictions with a model so that "
                                "all test independent caches exist. Call the model on some data first!")
@@ -95,7 +113,6 @@ class ExactGP(GP):
         full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
 
         # Copy model without copying training data or prediction strategy (since we'll overwrite those)
-        from copy import deepcopy
         old_pred_strat = self.prediction_strategy
         old_train_inputs = self.train_inputs
         old_train_targets = self.train_targets

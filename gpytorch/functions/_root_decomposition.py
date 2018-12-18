@@ -38,6 +38,7 @@ class RootDecomposition(Function):
         - (Tensor) R_inv, such that R_inv R_inv^T \approx A^{-1} (will only be populated if self.inverse = True)
         """
         from ..lazy import NonLazyTensor
+
         # Get closure for matmul
         lazy_tsr = self.representation_tree(*matrix_args)
         matmul_closure = lazy_tsr._matmul
@@ -61,7 +62,9 @@ class RootDecomposition(Function):
         n_probes = t_mat.size(0)
 
         mins = NonLazyTensor(t_mat).diag().min(dim=-1, keepdim=True)[0].unsqueeze(-1)
-        jitter_mat = (1e-6 * mins) * torch.eye(t_mat.size(-1)).type_as(t_mat).expand_as(t_mat)
+        jitter_mat = (settings.tridiagonal_jitter.value() * mins) * torch.eye(t_mat.size(-1)).type_as(t_mat).expand_as(
+            t_mat
+        )
         eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat + jitter_mat)
 
         # Get orthogonal matrix and eigenvalue roots
