@@ -112,9 +112,7 @@ class MaternKernel(Kernel):
 
         x1_ = (x1 - mean).div(self.lengthscale)
         x2_ = (x2 - mean).div(self.lengthscale)
-        x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
-
-        distance = (x1_ - x2_).norm(2, dim=-1)
+        distance = self._covar_sq_dist(x1_, x2_, **params).sqrt_()
         exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)
 
         if self.nu == 0.5:
