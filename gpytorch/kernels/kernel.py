@@ -156,20 +156,11 @@ class Kernel(Module):
         Computes the covariance between x1 and x2.
         This method should be imlemented by all Kernel subclasses.
 
-        .. note::
-
-            All non-compositional kernels should use the :meth:`gpytorch.kernels.Kernel._create_input_grid`
-            method to create a meshgrid between x1 and x2 (if necessary).
-
-            Do not manually create the grid - this is inefficient and will cause erroneous behavior in certain
-            evaluation modes.
-
         Args:
             - :attr:`x1` (Tensor `n x d` or `b x n x d`)
             - :attr:`x2` (Tensor `m x d` or `b x m x d`)
             - :attr:`diag` (bool):
                 Should the Kernel compute the whole kernel, or just the diag?
-                For most Kernels, this option will be passed into `create_input_grid`
             - :attr:`batch_dims` (tuple, optional):
                 If this option is passed in, it will tell the tensor which of the
                 three dimensions are batch dimensions.
@@ -187,23 +178,49 @@ class Kernel(Module):
         """
         raise NotImplementedError()
 
-    def _covar_sq_dist(self, x1, x2, **params):
-        if params.get('batch_dims') == (0, 2):
+    def _covar_sq_dist(self, x1, x2, diag=False, batch_dims=None, **params):
+        """
+        This is a helper method for computing the squared Euclidean distance between
+        all pairs of points in x1 and x2.
+
+        The dimensionality of the output depends on the
+
+        Args:
+            - :attr:`x1` (Tensor `n x d` or `b x n x d`)
+            - :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
+            - :attr:`diag` (bool):
+                Should we return the whole distance matrix, or just the diagonal?
+            - :attr:`batch_dims` (tuple, optional):
+                If this option is passed in, it will tell the tensor which of the
+                three dimensions are batch dimensions.
+                Currently accepts: standard mode (either None or (0,))
+                or (0, 2) for use with Additive/Multiplicative kernels
+
+        Returns:
+            (:class:`Tensor`, :class:`Tensor) corresponding to the distance matrix between `x1` and `x2`.
+            The shape depends on the kernel's mode
+
+            * `diag=False` and `batch_dims=None`: (`b x n x n`)
+            * `diag=False` and `batch_dims=(0, 2)`: (`bd x n x n`)
+            * `diag=True` and `batch_dims=None`: (`b x n`)
+            * `diag=True` and `batch_dims=(0, 2)`: (`bd x n`)
+        """
+        if batch_dims == (0, 2):
             x1 = x1.unsqueeze(0).transpose(0, -1)
             x2 = x2.unsqueeze(0).transpose(0, -1)
 
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
         x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
 
-        if params.get('diag'):
+        if diag:
             mid = (x1 * x2).sum(dim=-1, keepdim=True)
             res = (x1_norm - 2 * mid + x2_norm).squeeze(-1)
         else:
             mid = x1.matmul(x2.transpose(-2, -1))
             res = x1_norm - 2 * mid + x2_norm.transpose(-2, -1)
 
-        if params.get('batch_dims') == (0, 2):
-            if params.get('diag'):
+        if batch_dims == (0, 2):
+            if diag:
                 res = res.transpose(0, 1).contiguous().view(-1, res.shape[-1])
             else:
                 res = res.transpose(0, 1).contiguous().view(-1, *res.shape[-2:])
