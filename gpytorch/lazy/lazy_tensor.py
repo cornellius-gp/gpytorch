@@ -960,6 +960,7 @@ class LazyTensor(object):
         self.requires_grad = val
         return self
 
+    @cached(name="root_decomposition")
     def root_decomposition(self):
         """
         Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
@@ -1038,6 +1039,11 @@ class LazyTensor(object):
             inverse=True,
             initial_vectors=initial_vectors,
         )(*self.representation())
+
+        if initial_vectors is not None and initial_vectors.size(-1) > 1:
+            getattr(self, '__cache')["root_decomposition"] = RootLazyTensor(roots[0])
+        else:
+            getattr(self, '__cache')["root_decomposition"] = RootLazyTensor(roots)
 
         # Choose the best of the inv_roots, if there were more than one initial vectors
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
