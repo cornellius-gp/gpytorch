@@ -95,13 +95,24 @@ class DefaultPredictionStrategy(object):
         self.fantasy_inputs = inputs
         self.fantasy_targets = targets
 
+        """
+        Compute a new mean cache given the old mean cache.
+
+        We have \\alpha = K^{-1}y, and we want to solve [K U; U' S][a; b] = [y; y_f], where U' is fant_train_covar,
+        S is fant_fant_covar, and y_f is (targets - fant_mean)
+
+        To do this, we solve the bordered linear system of equations for [a; b]:
+            AQ = U  # Q = fant_solve
+            [S - U'Q]b = y_f - U'\\alpha   ==> b = [S - U'Q]^{-1}(y_f - U'\\alpha)
+            a = \\alpha - Qb
+        """
         # Get cached K inverse decomp. (or compute if we somehow don't already have the covariance cache)
         K_inverse = self.lik_train_train_covar.root_inv_decomposition()
         fant_solve = K_inverse.matmul(fant_train_covar.transpose(-2, -1))
 
+        # Solve for "b", the lower portion of the *new* \\alpha corresponding to the fantasy points.
         schur_complement = fant_fant_covar - fant_train_covar.matmul(fant_solve)
         small_system_rhs = targets - fant_mean - fant_train_covar.matmul(self.mean_cache)
-
         # Schur complement of a spd matrix is guaranteed to be positive definite
         if small_system_rhs.requires_grad or schur_complement.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
@@ -109,24 +120,43 @@ class DefaultPredictionStrategy(object):
         else:
             fant_cache_lower = torch.potrs(small_system_rhs, torch.cholesky(schur_complement, upper=True)).squeeze(-1)
 
+        # Get "a", the new upper portion of the cache corresponding to the old training points.
         fant_cache_upper = self.mean_cache - fant_solve.matmul(fant_cache_lower)
 
+        # New mean cache.
         fant_mean_cache = torch.cat((fant_cache_upper, fant_cache_lower), dim=-1)
 
-        # [K U; U S] = [L 0; lower_left schur_root]
+        """
+        Compute a new covariance cache given the old covariance cache.
+
+        We have access to K \\approx LL' and K^{-1} \\approx R^{-1}R^{-T}, where L and R are low rank matrices
+        resulting from Lanczos (see the LOVE paper).
+
+        To update R^{-1}, we first update L:
+            [K U; U' S] = [L 0; A B][L' A'; 0 B']
+        Solving this matrix equation, we get:
+            K = LL' ==>       L = L
+            U = LA' ==>       A = UR^{-1}
+            S = AA' + BB' ==> B = cholesky(S - AA')
+
+        Once we've computed Z = [L 0; A B], we have that the new kernel matrix [K U; U' S] \approx ZZ'. Therefore,
+        we can form a pseudo-inverse of Z directly to approximate [K U; U' S]^{-1}.
+        """
+        # [K U; U' S] = [L 0; lower_left schur_root]
         L_inverse = self.covar_cache
         L = self.lik_train_train_covar.root_decomposition().root.evaluate()
         lower_left = fant_train_covar.matmul(L_inverse)
         schur_root = torch.cholesky(fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1)))
         upper_right = torch.zeros(L.size(-2), schur_root.size(-1)).type_as(L)
 
-        # Form pseudo-inverse of [L 0; lower_left schur_root]
+        # Form new root Z = [L 0; lower_left schur_root]
         new_root = torch.zeros(L.size(-2) + schur_root.size(-2), L.size(-1) + schur_root.size(-1)).type_as(L)
         new_root[:L.size(-2), :L.size(-1)] = L
         new_root[:L.size(-2), L.size(-1):] = upper_right
         new_root[L.size(-2):, :L.size(-1)] = lower_left
         new_root[L.size(-2):, L.size(-1):] = schur_root
 
+        # Use pseudo-inverse of Z as new inv root
         cap_mat = new_root.transpose(-2, -1).matmul(new_root)
         if cap_mat.requires_grad or new_root.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
