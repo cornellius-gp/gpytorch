@@ -96,10 +96,13 @@ class ExactGP(GP):
         full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
 
         from copy import deepcopy
+        old_pred_strat = self.prediction_strategy
+        self.prediction_strategy = None
         new_model = deepcopy(self)
+        self.prediction_strategy = old_pred_strat
         new_model.train_inputs = full_inputs
         new_model.train_targets = full_targets
-        new_model.prediction_strategy = self.prediction_strategy.get_fantasy_strategy(
+        new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
             inputs,
             targets,
             full_inputs,

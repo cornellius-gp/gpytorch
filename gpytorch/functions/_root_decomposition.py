@@ -59,7 +59,8 @@ class RootDecomposition(Function):
             t_mat = t_mat.unsqueeze(0)
         n_probes = t_mat.size(0)
 
-        eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat + 1e-5 * torch.eye(t_mat.size(-1)).expand_as(t_mat))
+        jitter_mat = 1e-5 * torch.eye(t_mat.size(-1)).type_as(t_mat).expand_as(t_mat)
+        eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat + jitter_mat)
 
         # Get orthogonal matrix and eigenvalue roots
         q_mat = q_mat.matmul(eigenvectors)

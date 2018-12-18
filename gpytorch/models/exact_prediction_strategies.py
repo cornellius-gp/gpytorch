@@ -39,7 +39,7 @@ class DefaultPredictionStrategy(object):
         self.train_labels = train_labels
         self.likelihood = likelihood
         self.non_batch_train = non_batch_train
-
+        self._last_test_train_covar = None
         mvn = self.likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
         self.lik_train_train_covar = mvn.lazy_covariance_matrix
 
@@ -103,7 +103,12 @@ class DefaultPredictionStrategy(object):
         small_system_rhs = targets - fant_mean - fant_train_covar.matmul(self.mean_cache)
 
         # Schur complement of a spd matrix is guaranteed to be positive definite
-        fant_cache_lower = torch.potrs(small_system_rhs, torch.cholesky(schur_complement, upper=True)).squeeze(-1)
+        if small_system_rhs.requires_grad or schur_complement.requires_grad:
+            # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
+            fant_cache_lower = torch.gesv(small_system_rhs.unsqueeze(-1), schur_complement)[0].squeeze(-1)
+        else:
+            fant_cache_lower = torch.potrs(small_system_rhs, torch.cholesky(schur_complement, upper=True)).squeeze(-1)
+
         fant_cache_upper = self.mean_cache - fant_solve.matmul(fant_cache_lower)
 
         fant_mean_cache = torch.cat((fant_cache_upper, fant_cache_lower), dim=-1)

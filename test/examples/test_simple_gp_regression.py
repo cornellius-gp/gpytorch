@@ -159,6 +159,60 @@ class TestSimpleGPRegression(unittest.TestCase):
 
         self.assertLess(mean_abs_error.item(), 0.05)
 
+    def test_fantasy_updates(self, cuda=False):
+        train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
+        # We're manually going to set the hyperparameters to something they shouldn't be
+        likelihood = GaussianLikelihood()
+        gp_model = ExactGPModel(train_x, train_y, likelihood)
+        mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
+        gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
+        gp_model.mean_module.initialize(constant=0)
+        likelihood.initialize(log_noise=1)
+
+        if cuda:
+            gp_model.cuda()
+            likelihood.cuda()
+
+        # Find optimal model hyperparameters
+        gp_model.train()
+        likelihood.train()
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
+        optimizer.n_iter = 0
+        for _ in range(50):
+            optimizer.zero_grad()
+            with gpytorch.settings.debug(False):
+                output = gp_model(train_x)
+            loss = -mll(output, train_y)
+            loss.backward()
+            optimizer.n_iter += 1
+            optimizer.step()
+
+        for param in gp_model.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        for param in likelihood.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        optimizer.step()
+
+        # Test the model
+        gp_model.eval()
+        likelihood.eval()
+        test_function_predictions = likelihood(gp_model(test_x))
+
+        # Cut data down, and then add back via the fantasy interface
+        gp_model.set_train_data(train_x[:5], train_y[:5], strict=False)
+        likelihood(gp_model(test_x))
+
+        fantasy_x = torch.nn.Parameter(train_x[5:])
+        fant_model = gp_model.get_fantasy_model(fantasy_x, train_y[5:])
+        fant_function_predictions = likelihood(fant_model(test_x))
+
+        self.assertLess(torch.norm(test_function_predictions.mean - fant_function_predictions.mean), 1e-3)
+
+        fant_function_predictions.mean.sum().backward()
+        self.assertTrue(fantasy_x.grad is not None)
+
     def test_posterior_latent_gp_and_likelihood_with_optimization_cuda(self):
         if torch.cuda.is_available():
             self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=True)
