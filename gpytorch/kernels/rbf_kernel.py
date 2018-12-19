@@ -92,5 +92,7 @@ class RBFKernel(Kernel):
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        diff = self._covar_sq_dist(x1_, x2_, **params)
-        return diff.div_(-2).exp_()
+        x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
+
+        diff = (x1_ - x2_).norm(2, dim=-1)
+        return diff.pow(2).div_(-2).exp_()
