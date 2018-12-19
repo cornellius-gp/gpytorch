@@ -98,6 +98,8 @@ class CosineKernel(Kernel):
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)
         x2_ = x2.div(self.period_length)
-        diff = self._covar_sq_dist(x1_, x2_, **params).sqrt_()
+        x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
+
+        diff = torch.norm((x1_ - x2_).abs(), 2, -1)
         res = torch.cos(diff.mul(math.pi))
         return res
