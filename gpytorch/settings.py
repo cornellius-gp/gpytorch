@@ -47,6 +47,29 @@ class _value_context(object):
         return False
 
 
+class _fast_covar_root_decomposition(_feature_flag):
+    r"""
+    This feature flag controls how matrix root decompositions (:math:`K = L L^\top`) are computed
+    (e.g. for sampling, computing caches, etc.).
+
+    If set to True, covariance matrices :math:`K` are decomposed with low-rank approximations :math:`L L^\top`,
+    (:math:`L \in \mathbb R^{n \times k}`) using the Lanczos algorithm.
+    This is faster and exploits structure in the covariance matrix if applicable.
+
+    If set to False, covariance matrices :math:`K` are decomposed using the Cholesky decomposition.
+
+    .. warning ::
+
+        Setting this to False will compute a complete Cholesky decomposition of covariance matrices.
+        This may be infeasible for GPs with structure covariance matrices.
+
+    See also: :class:`gpytorch.settings.max_root_decomposition_size` (to control the
+    size of the low rank decomposition used).
+    """
+
+    _state = True
+
+
 class check_training_data(_feature_flag):
     """
     Check whether the correct training data is supplied in Exact GP training mode
@@ -140,6 +163,45 @@ class fast_pred_samples(_feature_flag):
     pass
 
 
+class fast_computations(object):
+    r"""
+    This feature flag controls whether or not to use fast approximations to various mathematical
+    functions used in GP inference.
+    The functions that can be controlled are:
+
+    * :attr:`covar_root_decomposition` - This feature flag controls how matrix root decompositions
+        (:math:`K = L L^\top`) are computed (e.g. for sampling, computing caches, etc.).
+
+        * If set to True, covariance matrices :math:`K` are decomposed with low-rank approximations :math:`L L^\top`,
+            (:math:`L \in \mathbb R^{n \times k}`) using the Lanczos algorithm.
+            This is faster and exploits structure in the covariance matrix if applicable.
+
+        * If set to False, covariance matrices :math:`K` are decomposed using the Cholesky decomposition.
+
+    By default, approximations are used for all of these functions. Setting any of them to False will use
+    exact computations instead.
+
+    .. warning ::
+
+        Setting any of these options to False will compute a complete Cholesky decomposition of covariance matrices.
+        This may be infeasible for GPs with structure covariance matrices.
+
+    See also: :class:`gpytorch.settings.max_root_decomposition_size` (to control the
+    size of the low rank decomposition used).
+    """
+    covar_root_decomposition = _fast_covar_root_decomposition
+
+    def __init__(self, covar_root_decomposition=True):
+        self.covar_root_decomposition = _fast_covar_root_decomposition(covar_root_decomposition)
+
+    def __enter__(self):
+        self.covar_root_decomposition.__enter__()
+
+    def __exit__(self, *args):
+        self.covar_root_decomposition.__exit__()
+        return False
+
+
 class max_cg_iterations(_value_context):
     """
     The maximum number of conjugate gradient iterations to perform (when computing
@@ -180,17 +242,6 @@ class max_preconditioner_size(_value_context):
     """
 
     _global_value = 5
-
-
-class tridiagonal_jitter(_value_context):
-    """
-    The (relative) amount of noise to add to the diagonal of tridiagonal matrices before
-    eigendecomposing. root_decomposition becomes slightly more stable with this, as we need
-    to take the square root of the eigenvalues. Any eigenvalues still negative after adding jitter
-    will be zeroed out.
-    """
-
-    _global_value = 1e-6
 
 
 class max_lanczos_quadrature_iterations(_value_context):
@@ -266,6 +317,17 @@ class terminate_cg_by_size(_feature_flag):
     """
 
     _state = True
+
+
+class tridiagonal_jitter(_value_context):
+    """
+    The (relative) amount of noise to add to the diagonal of tridiagonal matrices before
+    eigendecomposing. root_decomposition becomes slightly more stable with this, as we need
+    to take the square root of the eigenvalues. Any eigenvalues still negative after adding jitter
+    will be zeroed out.
+    """
+
+    _global_value = 1e-6
 
 
 class use_toeplitz(_feature_flag):

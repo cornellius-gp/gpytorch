@@ -968,29 +968,32 @@ class LazyTensor(object):
         low-rank version of a matrix
         """
         from .root_lazy_tensor import RootLazyTensor
-
         if not self.is_square:
             raise RuntimeError(
                 "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        # when dealing with small matrices, it's usually faster to use Choleksy decomposition
-        if self.matrix_shape.numel() <= (settings.max_cholesky_numel.value()):
-            try:
-                res = torch.cholesky(self.evaluate())
-                return RootLazyTensor(res)
-            except RuntimeError:
-                pass
+        if settings.fast_computations.covar_root_decomposition.on():
+            # when dealing with small matrices, it's usually faster to use Choleksy decomposition
+            if self.matrix_shape.numel() <= (settings.max_cholesky_numel.value()):
+                try:
+                    res = torch.cholesky(self.evaluate())
+                    return RootLazyTensor(res)
+                except RuntimeError:
+                    pass
 
-        res, _ = RootDecomposition(
-            self.representation_tree(),
-            max_iter=self.root_decomposition_size(),
-            dtype=self.dtype,
-            device=self.device,
-            batch_shape=self.batch_shape,
-            matrix_shape=self.matrix_shape,
-        )(*self.representation())
+            res, _ = RootDecomposition(
+                self.representation_tree(),
+                max_iter=self.root_decomposition_size(),
+                dtype=self.dtype,
+                device=self.device,
+                batch_shape=self.batch_shape,
+                matrix_shape=self.matrix_shape,
+            )(*self.representation())
+        else:
+            res = torch.cholesky(self.evaluate())
+
         return RootLazyTensor(res)
 
     @cached
