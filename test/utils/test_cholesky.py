@@ -18,7 +18,7 @@ class TestTriDiag(unittest.TestCase):
 
         mat = torch.randn(1, 4, 3)
         self.assertTrue(
-            approx_equal(torch.potrs(mat[0], chol[0], upper=False), tridiag_batch_potrs(mat, chol, upper=False)[0])
+            approx_equal(torch.cholesky_solve(mat[0], chol[0]), tridiag_batch_potrs(mat, chol, upper=False)[0])
         )
 
 

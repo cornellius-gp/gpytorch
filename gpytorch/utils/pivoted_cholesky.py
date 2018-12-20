@@ -100,7 +100,7 @@ def woodbury_factor(low_rank_mat, shift):
 
     shifted_mat = shifted_mat + torch.eye(k, dtype=shifted_mat.dtype, device=shifted_mat.device)
 
-    R = torch.potrs(low_rank_mat, torch.cholesky(shifted_mat, upper=True))
+    R = torch.cholesky_solve(low_rank_mat, torch.cholesky(shifted_mat))
     return R
 
 
