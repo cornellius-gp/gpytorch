@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import math
-
+import warnings
 import gpytorch
 import torch
 
@@ -974,25 +974,22 @@ class LazyTensor(object):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if settings.fast_computations.covar_root_decomposition.on():
-            # when dealing with small matrices, it's usually faster to use Choleksy decomposition
-            if self.matrix_shape.numel() <= (settings.max_cholesky_numel.value()):
-                try:
-                    res = torch.cholesky(self.evaluate())
-                    return RootLazyTensor(res)
-                except RuntimeError:
-                    pass
+        if (self.matrix_shape.numel() <= settings.max_cholesky_numel.value()) or \
+                (not settings.fast_computations.covar_root_decomposition.on()):
+            try:
+                res = torch.cholesky(self.evaluate())
+                return RootLazyTensor(res)
+            except RuntimeError as e:
+                warnings.warn(f"Runtime Error when computing Cholesky decomposition: {e}. Using RootDecomposition.")
 
-            res, _ = RootDecomposition(
-                self.representation_tree(),
-                max_iter=self.root_decomposition_size(),
-                dtype=self.dtype,
-                device=self.device,
-                batch_shape=self.batch_shape,
-                matrix_shape=self.matrix_shape,
-            )(*self.representation())
-        else:
-            res = torch.cholesky(self.evaluate())
+        res, _ = RootDecomposition(
+            self.representation_tree(),
+            max_iter=self.root_decomposition_size(),
+            dtype=self.dtype,
+            device=self.device,
+            batch_shape=self.batch_shape,
+            matrix_shape=self.matrix_shape,
+        )(*self.representation())
 
         return RootLazyTensor(res)
 
