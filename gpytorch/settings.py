@@ -54,7 +54,7 @@ class _fast_covar_root_decomposition(_feature_flag):
 
     If set to True, covariance matrices :math:`K` are decomposed with low-rank approximations :math:`L L^\top`,
     (:math:`L \in \mathbb R^{n \times k}`) using the Lanczos algorithm.
-    This is faster and exploits structure in the covariance matrix if applicable.
+    This is faster for large matrices and exploits structure in the covariance matrix if applicable.
 
     If set to False, covariance matrices :math:`K` are decomposed using the Cholesky decomposition.
 
