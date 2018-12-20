@@ -948,9 +948,9 @@ class LazyTensor(object):
             if hasattr(arg, "requires_grad"):
                 if arg.dtype in (torch.float, torch.double, torch.half):
                     arg.requires_grad = val
-        for val in self._kwargs.values():
-            if hasattr(val, "requires_grad"):
-                val.requires_grad = val
+        for arg in self._kwargs.values():
+            if hasattr(arg, "requires_grad"):
+                arg.requires_grad = val
 
     def requires_grad_(self, val):
         """
