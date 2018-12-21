@@ -225,7 +225,7 @@ except ImportError:
 @register_kl(MultivariateNormal, MultivariateNormal)
 def kl_mvn_mvn(p_dist, q_dist):
     q_mean = q_dist.loc
-    q_covar = q_dist.lazy_covariance_matrix.add_jitter()
+    q_covar = q_dist.lazy_covariance_matrix
 
     p_mean = p_dist.loc
     p_covar = p_dist.lazy_covariance_matrix
@@ -236,7 +236,7 @@ def kl_mvn_mvn(p_dist, q_dist):
         # right now this just catches if root_p_covar is a DiagLazyTensor,
         # but we may want to be smarter about this in the future
         root_p_covar = root_p_covar.evaluate()
-    inv_quad_rhs = torch.cat([root_p_covar, mean_diffs.unsqueeze(-1)], -1)
+    inv_quad_rhs = torch.cat([mean_diffs.unsqueeze(-1), root_p_covar], -1)
     log_det_p_covar = p_covar.log_det()
     trace_plus_inv_quad_form, log_det_q_covar = q_covar.inv_quad_log_det(inv_quad_rhs=inv_quad_rhs, log_det=True)
 

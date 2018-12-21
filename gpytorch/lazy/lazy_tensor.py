@@ -685,7 +685,7 @@ class LazyTensor(object):
         else:
             return func(left_tensor, right_tensor, *self.representation())
 
-    def inv_quad(self, tensor):
+    def inv_quad(self, tensor, reduce_inv_quad=True):
         """
         Computes an inverse quadratic form (w.r.t self) with several right hand sides.
         I.e. computes tr( tensor^T self^{-1} tensor )
@@ -699,7 +699,7 @@ class LazyTensor(object):
         Returns:
             - tensor - tr( tensor^T (self)^{-1} tensor )
         """
-        res, _ = self.inv_quad_log_det(inv_quad_rhs=tensor, log_det=False)
+        res, _ = self.inv_quad_log_det(inv_quad_rhs=tensor, log_det=False, reduce_inv_quad=reduce_inv_quad)
         return res
 
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):

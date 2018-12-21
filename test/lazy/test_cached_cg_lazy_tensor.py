@@ -16,8 +16,18 @@ class TestCachedCGLazyTensor(LazyTensorTestCase, unittest.TestCase):
         mat = mat.matmul(mat.transpose(-1, -2))
         mat.requires_grad_(True)
 
-        eager_rhss = [torch.randn(5, 10), torch.randn(5, 1)]
-        return CachedCGLazyTensor(NonLazyTensor(mat), eager_rhss)
+        lazy_tensor = NonLazyTensor(mat)
+        eager_rhs = torch.randn(5, 10).detach()
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
+            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                lazy_tensor, eager_rhs.detach()
+            )
+            eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
+            solves = [solve.detach(), solve[..., -2:-1].detach()]
+
+        return CachedCGLazyTensor(
+            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
+        )
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         return lazy_tensor.base_lazy_tensor.tensor
@@ -167,8 +177,16 @@ class TestCachedCGLazyTensorBatch(TestCachedCGLazyTensor):
         mat = mat.matmul(mat.transpose(-1, -2))
         mat.requires_grad_(True)
 
-        eager_rhss = [torch.randn(3, 5, 10)]
-        return CachedCGLazyTensor(NonLazyTensor(mat), eager_rhss)
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
+            lazy_tensor = NonLazyTensor(mat)
+            eager_rhs = torch.randn(3, 5, 10).detach()
+            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                lazy_tensor, eager_rhs.detach()
+            )
+
+        return CachedCGLazyTensor(
+            lazy_tensor, [eager_rhs], [solve], probe_vecs, probe_vec_norms, probe_vec_solves, tmats
+        )
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         return lazy_tensor.base_lazy_tensor.tensor
