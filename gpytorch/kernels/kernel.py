@@ -9,6 +9,8 @@ from .. import settings
 from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
 from torch.nn.functional import softplus
+from numpy import triu_indices
+import warnings
 
 
 class Kernel(Module):
@@ -120,6 +122,9 @@ class Kernel(Module):
                     "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
                 )
 
+        # TODO: Remove this on next official PyTorch release.
+        self.__pdist_supports_batch = True
+
     @property
     def has_lengthscale(self):
         return self.__has_lengthscale
@@ -178,6 +183,37 @@ class Kernel(Module):
         """
         raise NotImplementedError()
 
+    def __pdist_sq_dist(self, x1):
+        # Compute squared distance matrix using torch.pdist
+        dists = torch.pdist(x1).pow(2)
+        inds_l, inds_r = triu_indices(x1.shape[-2], 1)
+        res = torch.zeros(*x1.shape[:-2], x1.shape[-2], x1.shape[-2], dtype=x1.dtype, device=x1.device)
+        res[..., inds_l, inds_r] = dists
+        res[..., inds_r, inds_l] = dists
+
+        return res
+
+    def __slow_sq_dist(self, x1, x2, diag, x1_eq_x2):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+
+        if diag:
+            mid = (x1 * x2).sum(dim=-1, keepdim=True)
+            res = (x1_norm - 2 * mid + x2_norm).squeeze(-1)
+        else:
+            mid = x1.matmul(x2.transpose(-2, -1))
+            res = x1_norm - 2 * mid + x2_norm.transpose(-2, -1)
+
+        if x1_eq_x2:
+            # Ensure zero diagonal
+            res[..., torch.arange(x1.shape[-2]), torch.arange(x1.shape[-2])] = 0
+
+        # Zero out negative values
+        res[res < 0] = 0
+
+        return res
+
     def _covar_sq_dist(self, x1, x2, diag=False, batch_dims=None, **params):
         """
         This is a helper method for computing the squared Euclidean distance between
@@ -205,23 +241,51 @@ class Kernel(Module):
             * `diag=True` and `batch_dims=None`: (`b x n`)
             * `diag=True` and `batch_dims=(0, 2)`: (`bd x n`)
         """
-
-        center = x1.mean(dim=-2, keepdim=True)
-        x1 = x1 - center
-        x2 = x2 - center
         if batch_dims == (0, 2):
             x1 = x1.unsqueeze(0).transpose(0, -1)
             x2 = x2.unsqueeze(0).transpose(0, -1)
 
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+        x1_eq_x2 = torch.equal(x1, x2)
+
+        res = None
 
         if diag:
-            mid = (x1 * x2).sum(dim=-1, keepdim=True)
-            res = (x1_norm - 2 * mid + x2_norm).squeeze(-1)
-        else:
-            mid = x1.matmul(x2.transpose(-2, -1))
-            res = x1_norm - 2 * mid + x2_norm.transpose(-2, -1)
+            # Special case the diagonal because we can return all zeros most of the time.
+            if x1_eq_x2:
+                # We are computing distances between points and themselves, which are all zero
+                if batch_dims == (0, 2):
+                    res = torch.zeros(x1.shape[0] * x1.shape[-1], x2.shape[-2], dtype=x1.dtype, device=x1.device)
+                else:
+                    res = torch.zeros(x1.shape[0], x2.shape[-2], dtype=x1.dtype, device=x1.device)
+                return res
+            else:
+                # We want pairwise distances between the sets of points, __slow_sq_dist handles this efficiently
+                res = self.__slow_sq_dist(x1, x2, diag, x1_eq_x2)
+        elif x1_eq_x2:
+            # Full distance matrix in the square symmetric case
+            if x1.shape[0] == 1:
+                # If we aren't in batch mode, we can always use torch.pdist
+                res = self.__pdist_sq_dist(x1.squeeze(0)).unsqueeze(0)
+            elif self.__pdist_supports_batch:
+                # torch.pdist still works on the latest pytorch-nightly
+                # TODO: This else branch is not needed on the next PyTorch release (> 1.0.0).
+                try:
+                    res = self.__pdist_sq_dist(x1)
+                except RuntimeError:
+                    warnings.warn('You are using a version of PyTorch where torch.pdist does not support batch '
+                                  'matrices. Falling back on manual distance computation. Updating PyTorch to the '
+                                  'latest pytorch-nightly build will offer significant memory savings during kernel '
+                                  'computation.')
+                    self.__pdist_supports_batch = False
+
+        if res is None:
+            """
+            We have to fall back on __slow_sq_dist.
+
+            Either the PyTorch version wasn't high enough, or we are just in this case because torch.pdist
+            doesn't support non-square distance computations :-(
+            """
+            res = self.__slow_sq_dist(x1, x2, diag, x1_eq_x2)
 
         if batch_dims == (0, 2):
             if diag:
