@@ -175,6 +175,9 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
         actual = lazy_tensor.inv_matmul(test_mat)
         self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
+    def test_inv_matmul_matrix_broadcast(self):
+        pass
+
 
 class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
     seed = 0

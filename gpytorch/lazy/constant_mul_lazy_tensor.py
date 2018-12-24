@@ -65,13 +65,11 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _approx_diag(self):
         res = self.base_lazy_tensor._approx_diag()
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
-        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        return res * constant
+        return res * self._constant.unsqueeze(-1)
 
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
-        constant = self.constant.__getitem__(batch_indices)
+        constant = self._constant.expand(self.batch_shape).__getitem__(batch_indices)
         return res * constant
 
     def _getitem(self, *indices):
@@ -81,7 +79,7 @@ class ConstantMulLazyTensor(LazyTensor):
         # This effects runntimes by up to 5x on simple exat GPs
         # Run __getitem__ on the base_lazy_tensor and the constant
         base_lazy_tensor = self.base_lazy_tensor._getitem(*indices)
-        constant = self.constant[indices[:-2]]
+        constant = self._constant.expand(self.batch_shape)[indices[:-2]]
 
         if torch.is_tensor(base_lazy_tensor):
             constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))
@@ -90,9 +88,7 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _matmul(self, rhs):
         res = self.base_lazy_tensor._matmul(rhs)
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
-        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        res = res * constant
+        res = res * self.expanded_constant
         return res
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
@@ -101,9 +97,7 @@ class ConstantMulLazyTensor(LazyTensor):
         constant_deriv = constant_deriv.sum(-2).sum(-1)
 
         # Get derivaties of everything else
-        res_mat_shape = left_vecs.shape[len(self.base_lazy_tensor.batch_shape) :]
-        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        left_vecs = left_vecs * constant
+        left_vecs = left_vecs * self.expanded_constant
         res = self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
 
         return res + (constant_deriv,)
@@ -113,19 +107,17 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def _t_matmul(self, rhs):
         res = self.base_lazy_tensor._t_matmul(rhs)
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
-        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        res = res * constant
+        res = res * self.expanded_constant
         return res
 
     def _transpose_nonbatch(self):
-        return ConstantMulLazyTensor(self.base_lazy_tensor._transpose_nonbatch(), self.constant)
+        return ConstantMulLazyTensor(self.base_lazy_tensor._transpose_nonbatch(), self._constant)
 
     @property
-    def constant(self):
+    def expanded_constant(self):
         # Make sure that the constant can be expanded to the appropriate size
         try:
-            constant = self._constant.expand(self.base_lazy_tensor.batch_shape)
+            constant = self._constant.view(*self._constant.shape, 1, 1)
         except RuntimeError:
             raise RuntimeError(
                 "ConstantMulLazyTensor of size {} received an invalid constant of size {}.".format(
@@ -137,13 +129,9 @@ class ConstantMulLazyTensor(LazyTensor):
 
     def diag(self):
         res = self.base_lazy_tensor.diag()
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
-        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        return res * constant
+        return res * self._constant.unsqueeze(-1)
 
     @cached
     def evaluate(self):
         res = self.base_lazy_tensor.evaluate()
-        res_mat_shape = res.shape[len(self.base_lazy_tensor.batch_shape) :]
-        constant = self.constant.view(*self.constant.shape, *[1 for i in res_mat_shape])
-        return constant * res
+        return res * self.expanded_constant

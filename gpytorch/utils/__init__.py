@@ -3,6 +3,8 @@
 from .memoize import cached
 from .linear_cg import linear_cg
 from .stochastic_lq import StochasticLQ
+from . import batch
+from . import broadcasting
 from . import cholesky
 from . import eig
 from . import fft
@@ -26,6 +28,8 @@ def prod(items):
 
 
 __all__ = [
+    "batch",
+    "broadcasting",
     "cached",
     "linear_cg",
     "StochasticLQ",

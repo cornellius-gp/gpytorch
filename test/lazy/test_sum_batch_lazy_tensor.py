@@ -9,6 +9,7 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 class TestSumBatchLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 6
     should_test_sample = True
+    no_broadcast_tests = True
 
     def create_lazy_tensor(self):
         blocks = torch.randn(12, 4, 4)
@@ -24,6 +25,7 @@ class TestSumBatchLazyTensor(LazyTensorTestCase, unittest.TestCase):
 class TestSumBatchLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 6
     should_test_sample = True
+    no_broadcast_tests = True
 
     def create_lazy_tensor(self):
         blocks = torch.randn(12, 4, 4)

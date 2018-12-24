@@ -9,6 +9,7 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 class TestCatLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
+    no_broadcast_tests = True
 
     def create_lazy_tensor(self):
         root = torch.randn(6, 7)
@@ -31,6 +32,7 @@ class TestCatLazyTensor(LazyTensorTestCase, unittest.TestCase):
 class TestCatLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
+    no_broadcast_tests = True
 
     def create_lazy_tensor(self):
         root = torch.randn(3, 6, 7)

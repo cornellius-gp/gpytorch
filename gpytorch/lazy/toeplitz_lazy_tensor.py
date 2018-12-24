@@ -22,16 +22,16 @@ class ToeplitzLazyTensor(LazyTensor):
             left_vecs = left_vecs.unsqueeze(1)
             right_vecs = right_vecs.unsqueeze(1)
 
-        res = (sym_toeplitz_derivative_quadratic_form(left_vecs, right_vecs),)
-        if self.column.ndimension() == 1 and res[0].ndimension() == 2:
-            res = (res[0].sum(0),)
-        return res
+        res = sym_toeplitz_derivative_quadratic_form(left_vecs, right_vecs)
+
+        # Collapse any expanded broadcast dimensions
+        if res.dim() > self.column.dim():
+            res = res.view(-1, *self.column.shape).sum(0)
+
+        return res,
 
     def _size(self):
-        if self.column.ndimension() == 2:
-            return torch.Size((self.column.size(0), self.column.size(-1), self.column.size(-1)))
-        else:
-            return torch.Size((self.column.size(-1), self.column.size(-1)))
+        return torch.Size((*self.column.shape, self.column.size(-1)))
 
     def _transpose_nonbatch(self):
         return ToeplitzLazyTensor(self.column)
@@ -50,7 +50,7 @@ class ToeplitzLazyTensor(LazyTensor):
         """
         Gets the diagonal of the Toeplitz matrix wrapped by this object.
         """
-        diag_term = self.column.select(-1, 0)
+        diag_term = self.column[..., 0]
         if self.column.ndimension() > 1:
             diag_term = diag_term.unsqueeze(-1)
         return diag_term.expand(*self.column.size())
