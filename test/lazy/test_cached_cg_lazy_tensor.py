@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import torch
 import gpytorch
 import unittest
@@ -157,6 +158,54 @@ class TestCachedCGLazyTensor(LazyTensorTestCase, unittest.TestCase):
         self.assertLess(
             ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
         )
+
+    def test_inv_quad_log_det(self):
+        # Forward
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+
+        vecs = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
+        vecs_copy = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
+
+        with gpytorch.settings.num_trace_samples(128), warnings.catch_warnings(record=True) as w:
+            res_inv_quad, res_log_det = lazy_tensor.inv_quad_log_det(inv_quad_rhs=vecs, log_det=True)
+            self.assertEqual(len(w), 0)
+        res = res_inv_quad + res_log_det
+
+        actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
+        actual_log_det = torch.cat(
+            [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
+        ).view(lazy_tensor.batch_shape)
+        actual = actual_inv_quad + actual_log_det
+
+        diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
+        self.assertLess(diff.max().item(), 15e-2)
+
+    def test_inv_quad_log_det_no_reduce(self):
+        # Forward
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+
+        vecs = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
+        vecs_copy = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
+
+        with gpytorch.settings.num_trace_samples(128), warnings.catch_warnings(record=True) as w:
+            res_inv_quad, res_log_det = lazy_tensor.inv_quad_log_det(
+                inv_quad_rhs=vecs, log_det=True, reduce_inv_quad=False
+            )
+            self.assertEqual(len(w), 0)
+        res = res_inv_quad.sum(-1) + res_log_det
+
+        actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
+        actual_log_det = torch.cat(
+            [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
+        ).view(lazy_tensor.batch_shape)
+        actual = actual_inv_quad + actual_log_det
+
+        diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
+        self.assertLess(diff.max().item(), 15e-2)
 
     def test_root_inv_decomposition(self):
         lazy_tensor = self.create_lazy_tensor()

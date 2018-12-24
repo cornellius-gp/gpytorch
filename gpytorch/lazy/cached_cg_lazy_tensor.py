@@ -13,7 +13,22 @@ class CachedCGLazyTensor(LazyTensor):
     Used primarily for variational inference with GPs.
 
     Args:
-        :attr:`base_lazy_tensor` (:class:`gpytorch.lazy.LazyTensor`): the LazyTensor to wrap
+        :attr:`base_lazy_tensor` (:class:`gpytorch.lazy.LazyTensor`):
+            the LazyTensor to wrap
+        :attr:`eager_rhss` (list of :class:`gpytorch.lazy.LazyTensor`):
+            list of right-hand sides with eagerly-computed solves
+        :attr:`solves` (list of :class:`gpytorch.lazy.LazyTensor`):
+            list of solves associated with :attr:`eager_rhss`
+        :attr:`probe_vectors` (:class:`gpytorch.lazy.LazyTensor`, optional):
+            normalized probe vectors (for computing logdet with SLQ)
+        :attr:`probe_vector_norms` (:class:`gpytorch.lazy.LazyTensor`, optional):
+            norms associated with :attr:`probe_vectors` that will return :attr:`probe_vectors`
+            to having identity covariance (for computing logdet with SLQ)
+        :attr:`probe_vector_solves` (:class:`gpytorch.lazy.LazyTensor`, optional):
+            solves associated with :attr:`probe_vectors` (for computing logdet with SLQ)
+        :attr:`probe_vector_tmats` (:class:`gpytorch.lazy.LazyTensor`, optional):
+            Lanczos tridiagonal matrices associated with :attr:`probe_vectors`
+            (for computing logdet with SLQ)
     """
 
     @classmethod
