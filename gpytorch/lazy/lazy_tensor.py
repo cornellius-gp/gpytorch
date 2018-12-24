@@ -67,7 +67,7 @@ class LazyTensor(object):
         operate on these batches if present.
     """
 
-    def _get_indices(self, *batch_indices, left_indices, right_indices):
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
         """
         Returns entries of the matrix, indexed by batch, row, and column indices
         """
