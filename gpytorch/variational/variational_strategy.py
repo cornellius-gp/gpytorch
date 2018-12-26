@@ -2,7 +2,7 @@
 
 import math
 import torch
-from .. import beta_features
+from .. import beta_features, settings
 from ..lazy import DiagLazyTensor, CachedCGLazyTensor, NonLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
@@ -109,12 +109,13 @@ class VariationalStrategy(Module):
             eye = torch.eye(root_variational_covar.size(-1), dtype=neg_mean_diff.dtype, device=neg_mean_diff.device)
             eye = eye.expand_as(root_variational_covar)
             left_tensors = torch.cat([neg_mean_diff, root_variational_covar], -1)
-            eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
 
             # Cache the CG results
             with torch.no_grad():
+                eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
                 solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                    induc_induc_covar, eager_rhs.detach()
+                    induc_induc_covar, eager_rhs.detach(), logdet_terms=self.training,
+                    include_tmats=(not settings.skip_logdet_forward.on())
                 )
                 eager_rhss = [
                     eager_rhs.detach(), eager_rhs[..., left_tensors.size(-1):].detach(),
@@ -124,6 +125,9 @@ class VariationalStrategy(Module):
                     solve.detach(), solve[..., left_tensors.size(-1):].detach(),
                     solve[..., :left_tensors.size(-1)].detach()
                 ]
+                if settings.skip_logdet_forward.on():
+                    eager_rhss.append(torch.cat([probe_vecs, left_tensors], -1))
+                    solves.append(torch.cat([probe_vec_solves, solve[..., left_tensors.size(-1):]], -1))
             induc_induc_covar = CachedCGLazyTensor(
                 induc_induc_covar, eager_rhss=eager_rhss, solves=solves, probe_vectors=probe_vecs,
                 probe_vector_norms=probe_vec_norms, probe_vector_solves=probe_vec_solves,

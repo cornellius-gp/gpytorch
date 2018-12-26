@@ -9,7 +9,7 @@ from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor
 from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
-class TestCachedCGLazyTensor(LazyTensorTestCase, unittest.TestCase):
+class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
     seed = 0
 
     def create_lazy_tensor(self):
@@ -21,7 +21,7 @@ class TestCachedCGLazyTensor(LazyTensorTestCase, unittest.TestCase):
         eager_rhs = torch.randn(5, 10).detach()
         with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
             solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                lazy_tensor, eager_rhs.detach()
+                lazy_tensor, eager_rhs.detach(), logdet_terms=False
             )
             eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
             solves = [solve.detach(), solve[..., -2:-1].detach()]
@@ -160,6 +160,47 @@ class TestCachedCGLazyTensor(LazyTensorTestCase, unittest.TestCase):
         )
 
     def test_inv_quad_log_det(self):
+        pass
+
+    def test_inv_quad_log_det_no_reduce(self):
+        pass
+
+    def test_root_inv_decomposition(self):
+        lazy_tensor = self.create_lazy_tensor()
+        root_approx = lazy_tensor.root_inv_decomposition()
+
+        test_mat = lazy_tensor.eager_rhss[0].clone().detach()
+
+        res = root_approx.matmul(test_mat)
+        actual = lazy_tensor.inv_matmul(test_mat)
+        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
+
+
+class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
+    seed = 0
+
+    def create_lazy_tensor(self):
+        mat = torch.randn(5, 6)
+        mat = mat.matmul(mat.transpose(-1, -2))
+        mat.requires_grad_(True)
+
+        lazy_tensor = NonLazyTensor(mat)
+        eager_rhs = torch.randn(5, 10).detach()
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
+            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                lazy_tensor, eager_rhs.detach()
+            )
+            eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
+            solves = [solve.detach(), solve[..., -2:-1].detach()]
+
+        return CachedCGLazyTensor(
+            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
+        )
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.base_lazy_tensor.tensor
+
+    def test_inv_quad_log_det(self):
         # Forward
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -207,15 +248,34 @@ class TestCachedCGLazyTensor(LazyTensorTestCase, unittest.TestCase):
         diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
         self.assertLess(diff.max().item(), 15e-2)
 
-    def test_root_inv_decomposition(self):
-        lazy_tensor = self.create_lazy_tensor()
-        root_approx = lazy_tensor.root_inv_decomposition()
 
-        test_mat = lazy_tensor.eager_rhss[0].clone().detach()
+class TestCachedCGLazyTensorNoLogdetBatch(TestCachedCGLazyTensorNoLogdet):
+    seed = 0
 
-        res = root_approx.matmul(test_mat)
-        actual = lazy_tensor.inv_matmul(test_mat)
-        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
+    def create_lazy_tensor(self):
+        mat = torch.randn(3, 5, 6)
+        mat = mat.matmul(mat.transpose(-1, -2))
+        mat.requires_grad_(True)
+
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
+            lazy_tensor = NonLazyTensor(mat)
+            eager_rhs = torch.randn(3, 5, 10).detach()
+            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                lazy_tensor, eager_rhs.detach(), logdet_terms=False
+            )
+
+        return CachedCGLazyTensor(
+            lazy_tensor, [eager_rhs], [solve], probe_vecs, probe_vec_norms, probe_vec_solves, tmats
+        )
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.base_lazy_tensor.tensor
+
+    def test_inv_matmul_vec(self):
+        pass
+
+    def test_inv_matmul_vector_with_left(self):
+        pass
 
 
 class TestCachedCGLazyTensorBatch(TestCachedCGLazyTensor):

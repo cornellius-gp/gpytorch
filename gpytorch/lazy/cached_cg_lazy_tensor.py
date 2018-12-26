@@ -32,36 +32,51 @@ class CachedCGLazyTensor(LazyTensor):
     """
 
     @classmethod
-    def precompute_terms(cls, base_lazy_tensor, eager_rhs):
+    def precompute_terms(cls, base_lazy_tensor, eager_rhs, logdet_terms=True, include_tmats=True):
         """
         Computes the solves, probe vectors, probe_vector norms, probe vector solves, and probe vector
         tridiagonal matrices to construct a CachedCGLazyTensor
+
+        Set logdet_terms to False if you are not going to compute the logdet of the LazyTensor
         """
         with torch.no_grad():
-            # Generate probe vectors
-            num_random_probes = settings.num_trace_samples.value()
-            probe_vectors = torch.empty(
-                base_lazy_tensor.matrix_shape[-1], num_random_probes, dtype=base_lazy_tensor.dtype,
-                device=base_lazy_tensor.device
-            )
-            probe_vectors.bernoulli_().mul_(2).add_(-1)
-            probe_vectors = probe_vectors.expand(
-                *base_lazy_tensor.batch_shape, base_lazy_tensor.matrix_shape[-1], num_random_probes
-            )
-            probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
-            probe_vectors = probe_vectors.div(probe_vector_norms)
+            if logdet_terms:
+                # Generate probe vectors
+                num_random_probes = settings.num_trace_samples.value()
+                probe_vectors = torch.empty(
+                    base_lazy_tensor.matrix_shape[-1], num_random_probes, dtype=base_lazy_tensor.dtype,
+                    device=base_lazy_tensor.device
+                )
+                probe_vectors.bernoulli_().mul_(2).add_(-1)
+                probe_vectors = probe_vectors.expand(
+                    *base_lazy_tensor.batch_shape, base_lazy_tensor.matrix_shape[-1], num_random_probes
+                )
+                probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
+                probe_vectors = probe_vectors.div(probe_vector_norms)
 
-            # Compute solves
-            all_solves, probe_vector_tmats, = base_lazy_tensor._solve(
-                torch.cat([probe_vectors, eager_rhs], -1),
-                preconditioner=base_lazy_tensor._preconditioner()[0],
-                num_tridiag=probe_vectors.size(-1)
-            )
-            probe_vector_solves = all_solves[..., :probe_vectors.size(-1)].detach()
-            solves = all_solves[..., probe_vectors.size(-1):]
+                # Compute solves
+                if include_tmats:
+                    all_solves, probe_vector_tmats, = base_lazy_tensor._solve(
+                        torch.cat([probe_vectors, eager_rhs], -1),
+                        preconditioner=base_lazy_tensor._preconditioner()[0],
+                        num_tridiag=probe_vectors.size(-1)
+                    )
+                else:
+                    all_solves = base_lazy_tensor._solve(
+                        torch.cat([probe_vectors, eager_rhs], -1),
+                        preconditioner=base_lazy_tensor._preconditioner()[0],
+                    )
+                    probe_vector_tmats = torch.tensor([])
+                probe_vector_solves = all_solves[..., :probe_vectors.size(-1)].detach()
+                solves = all_solves[..., probe_vectors.size(-1):]
 
-            return solves.detach(), probe_vectors.detach(), probe_vector_norms.detach(), \
-                probe_vector_solves.detach(), probe_vector_tmats.detach()
+                return solves.detach(), probe_vectors.detach(), probe_vector_norms.detach(), \
+                    probe_vector_solves.detach(), probe_vector_tmats.detach()
+
+            else:
+                # Compute solves
+                solves = base_lazy_tensor._solve(eager_rhs, preconditioner=base_lazy_tensor._preconditioner()[0])
+                return solves.detach(), torch.tensor([]), torch.tensor([]), torch.tensor([]), torch.tensor([])
 
     def __init__(
         self, base_lazy_tensor, eager_rhss=[], solves=[], probe_vectors=torch.tensor([]),
