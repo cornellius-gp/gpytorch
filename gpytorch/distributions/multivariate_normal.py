@@ -7,6 +7,7 @@ from torch.distributions import MultivariateNormal as TMultivariateNormal
 from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
+from .. import settings
 from ..lazy import LazyTensor, NonLazyTensor
 from .distribution import Distribution
 
@@ -47,7 +48,9 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     def _unbroadcasted_scale_tril(self):
         if self.islazy and self.__unbroadcasted_scale_tril is None:
             # cache root decoposition
-            self.__unbroadcasted_scale_tril = self.lazy_covariance_matrix.root_decomposition()
+            with settings.fast_computations(covar_root_decomposition=False):
+                ust = self.lazy_covariance_matrix.root_decomposition().root.evaluate()
+            self.__unbroadcasted_scale_tril = ust
         return self.__unbroadcasted_scale_tril
 
     @_unbroadcasted_scale_tril.setter
