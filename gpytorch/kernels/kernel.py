@@ -207,10 +207,11 @@ class Kernel(Module):
 
         if x1_eq_x2:
             # Ensure zero diagonal
-            res[..., torch.arange(x1.shape[-2]), torch.arange(x1.shape[-2])] = 0
+            diag_inds = torch.arange(x1.shape[-2])
+            res[..., diag_inds, diag_inds] = 0
 
         # Zero out negative values
-        res[res < 0] = 0
+        res.clamp_min_(0)
 
         return res
 
@@ -263,7 +264,7 @@ class Kernel(Module):
                 res = self.__slow_sq_dist(x1, x2, diag, x1_eq_x2)
         elif x1_eq_x2:
             # Full distance matrix in the square symmetric case
-            if x1.shape[0] == 1:
+            if x1.dim() == 3 and x1.shape[0] == 1:
                 # If we aren't in batch mode, we can always use torch.pdist
                 res = self.__pdist_sq_dist(x1.squeeze(0)).unsqueeze(0)
             elif self.__pdist_supports_batch:
@@ -271,12 +272,15 @@ class Kernel(Module):
                 # TODO: This else branch is not needed on the next PyTorch release (> 1.0.0).
                 try:
                     res = self.__pdist_sq_dist(x1)
-                except RuntimeError:
-                    warnings.warn('You are using a version of PyTorch where torch.pdist does not support batch '
-                                  'matrices. Falling back on manual distance computation. Updating PyTorch to the '
-                                  'latest pytorch-nightly build will offer significant memory savings during kernel '
-                                  'computation.')
-                    self.__pdist_supports_batch = False
+                except RuntimeError as e:
+                    if 'pdist only supports 2D tensors, got:' in str(e):
+                        warnings.warn('You are using a version of PyTorch where torch.pdist does not support batch '
+                                      'matrices. Falling back on manual distance computation. Updating PyTorch to the '
+                                      'latest pytorch-nightly build will offer significant memory savings during kernel'
+                                      ' computation.')
+                        self.__pdist_supports_batch = False
+                    else:
+                        raise e
 
         if res is None:
             """
