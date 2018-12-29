@@ -2,6 +2,7 @@
 
 from .additive_structure_kernel import AdditiveStructureKernel
 from .cosine_kernel import CosineKernel
+from .distributed_kernel import DistributedKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .grid_kernel import GridKernel
 from .index_kernel import IndexKernel
@@ -23,6 +24,7 @@ __all__ = [
     "Kernel",
     "AdditiveKernel",
     "AdditiveStructureKernel",
+    "DistributedKernel",
     "CosineKernel",
     "GridKernel",
     "GridInterpolationKernel",

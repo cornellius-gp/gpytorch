@@ -113,7 +113,6 @@ class CatLazyTensor(LazyTensor):
         return self.__class__(res_list, dim=self.cat_dim)
 
     def _matmul(self, rhs):
-
         isvector = rhs.ndimension() == 1
         if isvector:
             rhs = rhs.unsqueeze(1)
