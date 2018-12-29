@@ -98,7 +98,10 @@ class ExactGP(GP):
 
         # If input is n x d but targets is b x n x d, expand input to b x n x d
         for i, input in enumerate(inputs):
-            if input.dim() == targets.dim() + 1:
+            if input.dim() == targets.dim():
+                inputs[i] = input.unsqueeze(0).repeat(*targets.shape[:-1], 1, 1)
+                batch_shape = inputs[i].shape[:-2]
+            elif input.dim() == targets.dim() + 1:
                 batch_shape = input.shape[:-2]
             elif input.dim() < targets.dim():
                 batch_shape = targets.shape[:-2]
