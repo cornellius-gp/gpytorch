@@ -26,8 +26,10 @@ class CatLazyTensor(LazyTensor):
             raise RuntimeError("List of LazyTensors must be non-empty")
         if not all([isinstance(t, LazyTensor) for t in lazy_tensors]):
             raise RuntimeError("CatLazyTensor requires a list of all LazyTensors")
-        super(CatLazyTensor, self).__init__(*lazy_tensors, dim=dim,
-                                            output_device=output_device)
+        if len(lazy_tensors) == 1:
+            dim = 0
+
+        super().__init__(*lazy_tensors, dim=dim, output_device=output_device)
 
         def remove_dim(tuple, dim):
             return tuple[:dim] + tuple[dim + 1:]
@@ -96,23 +98,27 @@ class CatLazyTensor(LazyTensor):
         else:
             return [slice(start_idx, stop_idx, None)]
 
-    def _getitem(self, left_indices, right_indices, *batch_indices):
-        indices = list(batch_indices) + [left_indices, right_indices]
+    def _getitem(self, *indices):
+        squeeze = [isinstance(i, int) for i in indices]
+        indices = list(indices)
+        target_indices = indices[self.cat_dim]
+        new_cat_dim = (None if squeeze[self.cat_dim]
+                       else self.cat_dim - sum(squeeze[:self.cat_dim + 1]))
+
+        if new_cat_dim is None:
+            # target_indices must be a int so we let the LazyTensor squeeze out cat_dim
+            t_idx = self.idx_to_tensor_idx[target_indices]
+            return self.lazy_tensors[t_idx]._getitem(*indices)
+
         if all(torch.is_tensor(x) for x in indices):
             left_indices, right_indices = indices[-2], indices[-1]
             batch_indices = indices[:-2]
-            # return a torch.Tensor
-            return self._get_indices(left_indices, right_indices, *batch_indices)
+            return self._lazify(self._get_indices(left_indices, right_indices, *batch_indices))
 
-        target_indices = indices[self.cat_dim]
-        if torch.is_tensor(target_indices):
-            # this means another `indices` is a slice object
-            target_indices = [idx.item() for idx in target_indices]
-        elif isinstance(target_indices, slice):
+        if isinstance(target_indices, slice):
             if target_indices == slice(None, None, None):
-                res_list = [self._lazify(t._getitem(left_indices, right_indices, *batch_indices))
-                            for t in self.lazy_tensors]
-                return self.__class__(res_list, dim=self.cat_dim)
+                res_list = [self._lazify(t._getitem(*indices)) for t in self.lazy_tensors]
+                return self.__class__(*res_list, dim=new_cat_dim)
             else:
                 target_slices = self._split_slice(target_indices)
                 target_tensors = [self.idx_to_tensor_idx[sl.start] for sl in target_slices]
@@ -125,8 +131,25 @@ class CatLazyTensor(LazyTensor):
                     indices[self.cat_dim] = shifted_slice
                     res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
                     res_list.append(res)
+                return self.__class__(*res_list, dim=new_cat_dim)
+        elif torch.is_tensor(target_indices):
+            # this means another `indices` is a slice object
+            target_indices = [idx.item() for idx in target_indices]
+            target_tensors = [self.idx_to_tensor_idx[idx] for idx in target_indices]
 
-                return self.__class__(*res_list, dim=self.cat_dim)
+            res_list = []
+            curr_tensor, slice_indices = target_tensors[0], []
+            for idx, t_idx in zip(target_indices, target_tensors):
+                if t_idx != curr_tensor:
+                    indices[self.cat_dim] = torch.tensor(slice_indices)
+                    res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
+                    res_list.append(res)
+                    curr_tensor, slice_indices = t_idx, []
+                slice_indices.append(idx - self.tensor_idx_to_start_idx[t_idx])
+            indices[self.cat_dim] = torch.tensor(slice_indices)
+            res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
+            res_list.append(res)
+            return self.__class__(*res_list, dim=new_cat_dim)
 
         res_list = []
         curr_tensor, slice_indices = target_tensors[0], []
@@ -145,58 +168,59 @@ class CatLazyTensor(LazyTensor):
         return self.__class__(*res_list, dim=self.cat_dim)
 
     def _get_indices(self, left_indices, right_indices, *batch_indices):
+        # tensor indices must all have the same length
         indices = list(batch_indices) + [left_indices, right_indices]
         indices = torch.stack(indices, dim=0)
         target_indices = indices[self.cat_dim, :]
         target_tensors = [self.idx_to_tensor_idx[idx.item()] for idx in target_indices]
         starting_indices = [self.tensor_idx_to_start_idx[t_idx] for t_idx in target_tensors]
         local_indices = target_indices - torch.tensor(starting_indices)
+        indices[self.cat_dim, :] = local_indices
         if len(set(target_tensors)) == 1:
             # shortcut if target_indices are all on the same LazyTensor
-            indices[self.cat_dim, :] = local_indices
             left_indices, right_indices = indices[-2, :], indices[-1, :]
             batch_indices = tuple(indices[:-2, :])
             return self.lazy_tensors[target_tensors[0]]._get_indices(left_indices, right_indices, *batch_indices)
 
-        #TODO: untested below here
         d = defaultdict(list)
         for i, t_idx in enumerate(target_tensors):
             d[t_idx].append(i)
 
         res_list = []
         for t_idx, slices in sorted(d.items()):
-            local_indices_ = local_indices[:, slices]
-            left_indices, right_indices = local_indices_[-2, :], local_indices_[-1, :]
-            batch_indices = tuple(local_indices_[:-2, :])
+            indices_ = indices[:, slices]
+            left_indices, right_indices = indices_[-2, :], indices_[-1, :]
+            batch_indices = tuple(indices_[:-2, :])
             res = self.lazy_tensors[t_idx]._get_indices(left_indices,
                                                         right_indices,
                                                         *batch_indices)
             res_list.append(res)
-        #TODO: collect all the res in res_list onto one device
-        res = torch.cat(res_list, dim=0)
+        # collect all the res in res_list onto one device
+        res = torch.cat([r.to(self.device) for r in res_list], dim=0)
 
         t_idx_to_res_idx = []
         curr_idx = 0
         for t_idx in sorted(d.keys()):
             t_idx_to_res_idx.append(curr_idx)
             curr_idx += len(d[t_idx])
-
-        # reverse the lists to pop in O(1) time later
         lookup = []
+        # use the fact that order of elements retrieved from each LazyTensor is
+        # the same as the order they appear in target_indices
         for t_idx in target_tensors:
             idx = t_idx_to_res_idx[t_idx]
             lookup.append(idx)
             t_idx_to_res_idx[t_idx] += 1
-        indices_ = [slice(None, None, None)] * len(indices)
-        indices_[self.cat_dim] = lookup
-        return res[indices_]
+        #indices_ = [slice(None, None, None)] * len(indices)
+        #indices_[self.cat_dim] = lookup
+        #return res[indices_]
+        return res[lookup]
 
     def _matmul(self, rhs):
         isvector = rhs.ndimension() == 1
         if isvector:
             rhs = rhs.unsqueeze(1)
 
-        output_device = (self.output_device if self.output_device is not None
+        output_device = (self.device if self.device is not None
                          else rhs.device)
         # make a copy of `rhs` on each device
         rhs_ = []
@@ -215,8 +239,10 @@ class CatLazyTensor(LazyTensor):
         elif self.cat_dim == self.ndimension() - 1:
             curr_idx = 0
             res_list = []
+            index = [slice(None, None, None) for _ in range(rhs.ndimension())]
             for t, size, rhs in zip(self.lazy_tensors, self.cat_dim_sizes, rhs_):
-                res_list.append(t._matmul(rhs[curr_idx:curr_idx + size]))
+                index[-2] = slice(curr_idx, curr_idx + size, None)
+                res_list.append(t._matmul(rhs[index]))
                 curr_idx += size
             # copy result back to output device
             res_list = [x.to(output_device) for x in res_list]
@@ -252,6 +278,33 @@ class CatLazyTensor(LazyTensor):
             new_dim = self.cat_dim
         return self.__class__(*[t._transpose_nonbatch()
                                 for t in self.lazy_tensors], dim=new_dim)
+
+    def diag(self):
+        return super().diag().to(self.device)
+
+    def __getitem__(self, *indices):
+        res = super().__getitem__(*indices)
+        if not isinstance(res, CatLazyTensor):
+            res = res.to(self.device)
+
+        return res
+
+    def inv_matmul(self, tensor):
+        return super().inv_matmul(tensor).to(self.device)
+
+    def inv_quad(self, tensor):
+        return super().inv_quad(tensor).to(self.device)
+
+    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
+        res = super().inv_quad_log_det(self, inv_quad_rhs, log_det, reduce_inv_quad)
+        return res.to(self.device)
+
+    def matmul(self, other):
+        return super().matmul(other).to(self.device)
+
+    @property
+    def device(self):
+        return self.output_device
 
     @property
     def devices(self):

@@ -26,6 +26,8 @@ class DistributedKernel(Kernel):
         self.output_device = output_device if output_device else device_ids[0]
 
     def forward(self, x1, x2, **params):
+        if diag:
+            return self.base_kernel.forward(x1, x2, diag=True, **params).to(self.output_device)
         # Assume x1 is `n x d` and x2 is `m x d`
         n, m = x1.size(-2), x2.size(-2)
 
@@ -39,17 +41,12 @@ class DistributedKernel(Kernel):
 
         kernel_chunks = []
         for i, x1_piece in enumerate(x1_pieces):
-<<<<<<< HEAD
             chunk = self.base_kernel.forward(x1_piece, x2, **params).to(self.device_ids[i])
             if isinstance(chunk, torch.Tensor):
                 chunk = NonLazyTensor(chunk)
-=======
-            base_kernel = self.base_kernel.to(self.device_ids[i])
-            chunk = base_kernel(x1_piece, x2, **params).to(self.device_ids[i])
->>>>>>> e0e84a2... WIP: debugging kernel device different from input
             kernel_chunks.append(chunk)
 
-        return CatLazyTensor(*kernel_chunks, dim=-2)
+        return CatLazyTensor(*kernel_chunks, dim=-2, output_device=self.output_device)
 
     def _split(self, x, dim, n_pieces):
         """
