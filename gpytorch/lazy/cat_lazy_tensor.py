@@ -67,46 +67,51 @@ class CatLazyTensor(LazyTensor):
         self.output_device = output_device
 
     def _get_indices(self, left_indices, right_indices, *batch_indices):
-        indices = batch_indices + [left_indices, right_indices]
+        indices = list(batch_indices) + [left_indices, right_indices]
         cat_dim_indices = indices[self.cat_dim]
 
-        if cat_dim_indices == slice(None, None, None):
-            res_list = [t._get_indices(left_indices, right_indices, *batch_indices)
-                        for t in self.lazy_tensors]
-            return self.__class__(res_list, dim=self.cat_dim)
+        if torch.is_tensor(cat_dim_indices):
+            slices = list(cat_dim_indices.cpu().numpy())
+            sliced_tensors = [self.idx_to_tensor_idx[idx] for idx in slices]
+        elif isinstance(cat_dim_indices, slice):
+            if cat_dim_indices == slice(None, None, None):
+                res_list = [t._get_indices(left_indices, right_indices, *batch_indices)
+                            for t in self.lazy_tensors]
+                return self.__class__(res_list, dim=self.cat_dim)
 
-        if cat_dim_indices.start == cat_dim_indices.stop:
-            raise NotImplemented("slicing a 0 dimensional tensor is not supported yet")
+            slices = list(range(self.cat_dim_len))[cat_dim_indices]
+            sliced_tensors = self.idx_to_tensor_idx[cat_dim_indices]
 
-        slices = list(range(self.cat_dim_len))[cat_dim_indices]
-        sliced_tensors = self.idx_to_tensor_idx[cat_dim_indices]
-
-        # map tensor index to slice object
+        # map indices to slice object
         d = {}
         start = slices[0]
         stop = start
         last_slice = slices[0]
         last_t_idx = sliced_tensors[0]
-        for slice, t_idx in zip(slices, sliced_tensors):
-            step = slice - last_slice
+        for slice_, t_idx in zip(slices, sliced_tensors):
+            step = slice_ - last_slice
             stop += step
             if t_idx != last_t_idx:
                 step = None if step == 1 else step
-                d[t_idx] = slice(start, stop, step)
+                d[t_idx] = slice(start, stop + 1, step)
 
-                start = slice
+                start = slice_
                 stop = start
-            last_t_idx = t_idx
+            last_slice, last_t_idx = slice_, t_idx
+        step = None if step == 1 else step
+        d[t_idx] = slice(start, stop + 1, step)
 
         if len(d) == 1:
             t_idx = sliced_tensors[0]
             t = self.lazy_tensors[t_idx]
             indices[self.cat_dim] = d[t_idx]
+            indices = tuple(indices)
             return t._get_indices(indices[-2], indices[-1], *indices[:-2])
 
         res_list = []
         for t_idx, t in zip(sliced_tensors, self.lazy_tensors[sliced_tensors]):
             indices[self.cat_dim] = d[t_idx]
+            indices = tuple(indices)
             res = t._get_indices(indices[-2], indices[-1], *indices[:-2])
             res_list.append(res)
 
