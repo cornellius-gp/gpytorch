@@ -172,7 +172,7 @@ class LazyTensor(object):
             which does some additional work. Calling this method directly is discouraged.
 
         Args:
-            :attr:`indices` (tuple of int, slice, or LongTensor):
+            :attr:`indices` (tuple of `int`s, `slice`s, or `LongTensor`s):
                 A collection of indices for each of the dimensions. There will be exactly one index per dimension.
         """
         if settings.debug.on():
