@@ -980,7 +980,9 @@ class LazyTensor(object):
                 res = torch.cholesky(self.evaluate())
                 return RootLazyTensor(res)
             except RuntimeError as e:
-                warnings.warn(f"Runtime Error when computing Cholesky decomposition: {e}. Using RootDecomposition.")
+                warnings.warn(
+                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
+                )
 
         res, _ = RootDecomposition(
             self.representation_tree(),
