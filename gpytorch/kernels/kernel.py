@@ -262,7 +262,8 @@ class Kernel(Module):
             else:
                 # We want pairwise distances between the sets of points, __slow_sq_dist handles this efficiently
                 res = self.__slow_sq_dist(x1, x2, diag, x1_eq_x2)
-        elif x1_eq_x2:
+        # TODO: Remove the size check when pytorch/15511 is fixed.
+        elif x1.size(-2) < 500 and x1_eq_x2:
             # Full distance matrix in the square symmetric case
             if x1.dim() == 3 and x1.shape[0] == 1:
                 # If we aren't in batch mode, we can always use torch.pdist
