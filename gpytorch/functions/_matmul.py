@@ -22,7 +22,7 @@ class Matmul(Function):
 
         to_save = [orig_rhs] + list(matrix_args)
         self.save_for_backward(*to_save)
-        if not settings.memory_efficient.on():
+        if settings.memory_efficient.off():
             self._lazy_tsr = lazy_tsr
 
         # Squeeze if necessary

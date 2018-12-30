@@ -974,8 +974,8 @@ class LazyTensor(object):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if (self.matrix_shape.numel() <= settings.max_cholesky_numel.value()) or \
-                (not settings.fast_computations.covar_root_decomposition.on()):
+        if (self.matrix_shape.numel() <= settings.max_cholesky_numel.value()
+                or settings.fast_computations.covar_root_decomposition.off()):
             try:
                 res = torch.cholesky(self.evaluate())
                 return RootLazyTensor(res)

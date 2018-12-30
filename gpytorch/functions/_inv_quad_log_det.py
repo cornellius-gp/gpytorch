@@ -95,7 +95,7 @@ class InvQuadLogDet(Function):
         # Perform solves (for inv_quad) and tridiagonalization (for estimating log_det)
         rhs = torch.cat(rhs_list, -1)
         t_mat = None
-        if self.log_det and not settings.skip_logdet_forward.on():
+        if self.log_det and settings.skip_logdet_forward.off():
             solves, t_mat = linear_cg(
                 matmul_closure,
                 rhs,
@@ -119,7 +119,7 @@ class InvQuadLogDet(Function):
         inv_quad_term = torch.zeros(lazy_tsr.batch_shape, dtype=self.dtype, device=self.device)
 
         # Compute log_det from tridiagonalization
-        if self.log_det and not settings.skip_logdet_forward.on():
+        if self.log_det and settings.skip_logdet_forward.off():
             if torch.any(torch.isnan(t_mat)).item():
                 log_det_term = float("nan")
             else:
@@ -144,7 +144,7 @@ class InvQuadLogDet(Function):
         to_save = list(matrix_args) + [solves, probe_vectors, probe_vector_norms]
         self.save_for_backward(*to_save)
 
-        if not settings.memory_efficient.on():
+        if settings.memory_efficient.off():
             self._lazy_tsr = lazy_tsr
 
         return inv_quad_term, log_det_term

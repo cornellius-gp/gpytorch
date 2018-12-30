@@ -9,6 +9,10 @@ class _feature_flag(object):
         return cls._state
 
     @classmethod
+    def off(cls):
+        return (not cls._state)
+
+    @classmethod
     def _set_state(cls, state):
         cls._state = state
 
