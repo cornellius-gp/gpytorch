@@ -118,7 +118,7 @@ class CatLazyTensor(LazyTensor):
         if isinstance(target_indices, slice):
             if target_indices == slice(None, None, None):
                 res_list = [self._lazify(t._getitem(*indices)) for t in self.lazy_tensors]
-                return self.__class__(*res_list, dim=new_cat_dim)
+                return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
             else:
                 target_slices = self._split_slice(target_indices)
                 target_tensors = [self.idx_to_tensor_idx[sl.start] for sl in target_slices]
@@ -131,7 +131,7 @@ class CatLazyTensor(LazyTensor):
                     indices[self.cat_dim] = shifted_slice
                     res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
                     res_list.append(res)
-                return self.__class__(*res_list, dim=new_cat_dim)
+                return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
         elif torch.is_tensor(target_indices):
             # this means another `indices` is a slice object
             target_indices = [idx.item() for idx in target_indices]
@@ -149,7 +149,7 @@ class CatLazyTensor(LazyTensor):
             indices[self.cat_dim] = torch.tensor(slice_indices)
             res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
             res_list.append(res)
-            return self.__class__(*res_list, dim=new_cat_dim)
+            return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
 
         res_list = []
         curr_tensor, slice_indices = target_tensors[0], []
@@ -277,7 +277,7 @@ class CatLazyTensor(LazyTensor):
         else:
             new_dim = self.cat_dim
         return self.__class__(*[t._transpose_nonbatch()
-                                for t in self.lazy_tensors], dim=new_dim)
+                                for t in self.lazy_tensors], dim=new_dim, output_device=self.output_device)
 
     def diag(self):
         return super().diag().to(self.device)
