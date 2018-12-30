@@ -160,7 +160,7 @@ class DefaultPredictionStrategy(object):
             S = AA' + BB' ==> B = cholesky(S - AA')
 
         Once we've computed Z = [L 0; A B], we have that the new kernel matrix [K U; U' S] \approx ZZ'. Therefore,
-        we can form a pseudo-inverse of Z directly to approximate [K U; U' S]^{-1}.
+        we can form a pseudo-inverse of Z directly to approximate [K U; U' S]^{-1/2}.
         """
         # [K U; U' S] = [L 0; lower_left schur_root]
         batch_shape = fant_train_covar.shape[:-2]
@@ -180,6 +180,8 @@ class DefaultPredictionStrategy(object):
         new_root[..., L.size(-2):, L.size(-1):] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
+        # TODO: Replace pseudo-inverse calculation with something more stable than normal equations once
+        # one of torch.svd, torch.qr, or torch.pinverse works in batch mode.
         cap_mat = new_root.transpose(-2, -1).matmul(new_root)
         if cap_mat.requires_grad or new_root.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
