@@ -1277,6 +1277,7 @@ class LazyTensor(object):
         # Process the index
         index = index if isinstance(index, tuple) else (index,)
         index = tuple(torch.tensor(idx) if isinstance(idx, list) else idx for idx in index)
+        index = tuple(idx.item() if torch.is_tensor(idx) and not len(idx.shape) else idx for idx in index)
 
         # Handle the ellipsis
         # Find the index of the ellipsis
