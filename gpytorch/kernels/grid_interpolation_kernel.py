@@ -159,6 +159,8 @@ class GridInterpolationKernel(GridKernel):
                 self.update_grid(grid)
 
         base_lazy_tsr = self._inducing_forward(batch_dims=batch_dims, **params)
+        if batch_dims == (0, 2):
+            base_lazy_tsr = base_lazy_tsr.repeat(x1.size(-1), 1, 1)
         if x1.size(0) > 1:
             base_lazy_tsr = base_lazy_tsr.repeat(x1.size(0), 1, 1)
 
