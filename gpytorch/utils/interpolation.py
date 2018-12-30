@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-from copy import deepcopy
-
 import torch
+from .broadcasting import _matmul_broadcast_shape
 
 
 class Interpolation(object):
@@ -164,49 +163,17 @@ def left_interp(interp_indices, interp_values, rhs):
         return res
 
     else:
-        # Special cuda version -- this is faster on the GPU for some reason
-        if interp_indices.is_cuda:
-            if interp_indices.ndimension() == 3:
-                num_batch, n_data, n_interp = interp_indices.size()
-                interp_indices = interp_indices.contiguous().view(-1)
-                interp_values = interp_values.contiguous().view(-1, 1)
+        num_rows, num_interp = interp_indices.shape[-2:]
+        num_data, num_columns = rhs.shape[-2:]
+        interp_shape = torch.Size((*interp_indices.shape[:-1], num_data))
+        output_shape = _matmul_broadcast_shape(interp_shape, rhs.shape)
+        batch_shape = output_shape[:-2]
 
-                if rhs.ndimension() == 3:
-                    if rhs.size(0) == 1 and interp_indices.size(0) > 1:
-                        rhs = rhs.expand(interp_indices.size(0), rhs.size(1), rhs.size(2))
-                    batch_indices = torch.arange(0, num_batch, dtype=torch.long, device=rhs.device).unsqueeze_(1)
-                    batch_indices = batch_indices.repeat(1, n_data * n_interp).view(-1)
-                    res = rhs[batch_indices, interp_indices, :] * interp_values
-                else:
-                    res = rhs[interp_indices, :].unsqueeze(0) * interp_values
-                res = res.view(num_batch, n_data, n_interp, -1)
-                res = res.sum(-2)
-                return res
-            else:
-                n_data, n_interp = interp_indices.size()
-                interp_indices = interp_indices.contiguous().view(-1)
-                interp_values = interp_values.contiguous().view(-1, 1)
-                if rhs.ndimension() == 3:
-                    num_batch, _, num_cols = rhs.size()
-                    rhs = rhs.transpose(0, 1).contiguous().view(-1, num_batch * num_cols)
-                    res = rhs[interp_indices, :] * interp_values
-                    res = res.view(n_data, n_interp, num_batch, num_cols)
-                    res = res.sum(-2).transpose(0, 1).contiguous()
-                else:
-                    res = rhs[interp_indices, :] * interp_values
-                    res = res.view(n_data, n_interp, -1)
-                    res = res.sum(-2)
-                return res
-
-        # Special non-cuda version -- this is faster on the CPU
-        else:
-            interp_size = list(interp_indices.size()) + [rhs.size(-1)]
-            rhs_size = deepcopy(interp_size)
-            rhs_size[-3] = rhs.size()[-2]
-            interp_indices_expanded = interp_indices.unsqueeze(-1).expand(*interp_size)
-            res = rhs.unsqueeze(-2).expand(*rhs_size).gather(-3, interp_indices_expanded)
-            res = res.mul(interp_values.unsqueeze(-1).expand(interp_size))
-            return res.sum(-2)
+        interp_indices_expanded = interp_indices.unsqueeze(-1).expand(*batch_shape, num_rows, num_interp, num_columns)
+        interp_values_expanded = interp_values.unsqueeze(-1).expand(*batch_shape, num_rows, num_interp, num_columns)
+        rhs_expanded = rhs.unsqueeze(-2).expand(*batch_shape, num_data, num_interp, num_columns)
+        res = rhs_expanded.gather(-3, interp_indices_expanded).mul(interp_values_expanded)
+        return res.sum(-2)
 
 
 def left_t_interp(interp_indices, interp_values, rhs, output_dim):
@@ -218,30 +185,27 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
     if is_vector:
         rhs = rhs.unsqueeze(-1)
 
-    is_batch = rhs.ndimension() == 3
-    if not is_batch:
-        rhs = rhs.unsqueeze(0)
-    if not interp_indices.ndimension() == 3:
-        interp_indices = interp_indices.unsqueeze(0)
-        interp_values = interp_values.unsqueeze(0)
+    # Multiply the rhs by the interp_values
+    # This multiplication here will give us the ability to perform backprop
+    values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1))
 
-    batch_size, n_data, n_interp = interp_values.size()
-    _, _, num_cols = rhs.size()
+    # Define a bunch of sizes
+    num_data, num_interp = interp_values.shape[-2:]
+    num_cols = rhs.size(-1)
+    batch_shape = torch.Size(values.shape[:-3])
+    batch_size = batch_shape.numel()
 
-    values = (rhs.unsqueeze(-2) * interp_values.unsqueeze(-1)).view(batch_size, n_data * n_interp, num_cols)
-
-    flat_interp_indices = interp_indices.contiguous().view(1, -1)
+    # Using interp_indices, create a sparse matrix that will sum up the values
+    interp_indices = interp_indices.expand(*batch_shape, *interp_indices.shape[-2:]).contiguous()
     batch_indices = torch.arange(0, batch_size, dtype=torch.long, device=values.device).unsqueeze_(1)
-    batch_indices = batch_indices.repeat(1, n_data * n_interp).view(1, -1)
-    column_indices = torch.arange(0, n_data * n_interp, dtype=torch.long, device=values.device).unsqueeze_(1)
-    column_indices = column_indices.repeat(batch_size, 1).view(1, -1)
-
-    summing_matrix_indices = torch.cat([batch_indices, flat_interp_indices, column_indices])
+    batch_indices = batch_indices.repeat(1, num_data * num_interp)
+    column_indices = torch.arange(0, num_data * num_interp, dtype=torch.long, device=values.device).unsqueeze_(1)
+    column_indices = column_indices.repeat(batch_size, 1)
+    summing_matrix_indices = torch.stack([batch_indices.view(-1), interp_indices.view(-1), column_indices.view(-1)], 0)
     summing_matrix_values = torch.ones(
-        batch_size * n_data * n_interp, dtype=interp_values.dtype, device=interp_values.device
+        batch_size * num_data * num_interp, dtype=interp_values.dtype, device=interp_values.device
     )
-    size = torch.Size((batch_size, output_dim, n_data * n_interp))
-
+    size = torch.Size((batch_size, output_dim, num_data * num_interp))
     type_name = summing_matrix_values.type().split(".")[-1]  # e.g. FloatTensor
     if interp_values.is_cuda:
         cls = getattr(torch.cuda.sparse, type_name)
@@ -249,10 +213,11 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
         cls = getattr(torch.sparse, type_name)
     summing_matrix = cls(summing_matrix_indices, summing_matrix_values, size)
 
+    # Sum up the values appropriately by performing sparse matrix multiplication
+    values = values.view(batch_size, num_data * num_interp, num_cols)
     res = dsmm(summing_matrix, values)
 
-    if not is_batch:
-        res = res.squeeze(0)
+    res = res.view(*batch_shape, *res.shape[-2:])
     if is_vector:
         res = res.squeeze(-1)
     return res
