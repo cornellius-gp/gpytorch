@@ -1338,3 +1338,25 @@ def _import_dotted_name(name):
     for component in components[1:]:
         obj = getattr(obj, component)
     return obj
+
+
+def delazify(obj):
+    """
+    A function which ensures that `obj` is a (normal) Tensor.
+
+    If `obj` is a Tensor, this function does nothing.
+    If `obj` is a LazyTensor, this function evaluates it.
+    """
+
+    if torch.is_tensor(obj):
+        return obj
+    elif isinstance(obj, LazyTensor):
+        return obj.evaluate()
+    else:
+        raise TypeError("object of class {} cannot be made into a Tensor".format(obj.__class__.__name__))
+
+
+__all__ = [
+    "LazyTensor",
+    "delazify",
+]

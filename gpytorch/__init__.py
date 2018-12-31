@@ -41,7 +41,6 @@ __all__ = [
     # Submodules
     "distributions",
     "kernels",
-    "lazify",
     "lazy",
     "likelihoods",
     "means",
@@ -57,10 +56,12 @@ __all__ = [
     # Functions
     "add_diag",
     "add_jitter",
+    "delazify",
     "dsmm",
     "inv_matmul",
     "inv_quad",
     "inv_quad_log_det",
+    "lazify",
     "log_det",
     "log_normal_cdf",
     "matmul",

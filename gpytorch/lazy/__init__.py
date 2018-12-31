@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .lazy_tensor import LazyTensor
+from .lazy_tensor import delazify, LazyTensor
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
 from .block_lazy_tensor import BlockLazyTensor
@@ -23,6 +23,7 @@ from .zero_lazy_tensor import ZeroLazyTensor
 
 
 __all__ = [
+    "delazify",
     "lazify",
     "LazyTensor",
     "LazyEvaluatedKernelTensor",
