@@ -41,6 +41,10 @@ class _SubDistribution(object):
     pass
 
 
+class _Kernel(object):
+    pass
+
+
 # Putting all of our dirty hacks together
 class Mock(MagicMock):
     __metaclass__ = type
@@ -53,6 +57,8 @@ class Mock(MagicMock):
             return _Distribution
         elif "Normal" in name or "Gamma" in name or "Wishart" in name:
             return _SubDistribution
+        elif "Kernel" in name or "Parallel" in name:
+            return _Kernel
         else:
             res = MagicMock()
             res.Module = ModuleMock
@@ -68,6 +74,7 @@ MOCK_MODULES = [
     "torch.autograd",
     "torch.nn",
     "torch.nn.functional",
+    "torch.nn.parallel",
     "torch.optim",
     "torch.utils",
     "torch.utils.data",

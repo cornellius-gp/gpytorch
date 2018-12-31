@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import torch
 from torch.nn.parallel import DataParallel
 from .kernel import Kernel
-from ..lazy import CatLazyTensor, NonLazyTensor
-from math import ceil
+from ..lazy import CatLazyTensor
 
 
 class MultiDeviceKernel(DataParallel, Kernel):
@@ -29,13 +27,13 @@ class MultiDeviceKernel(DataParallel, Kernel):
     def forward(self, x1, x2, diag=False, **kwargs):
         if diag:
             return self.module.forward(x1, x2, diag=True, **kwargs).to(self.output_device)
-         
+
         x1_scattered, kwargs = self.scatter((x1,), kwargs, self.device_ids)
         inputs = tuple((x1_[0], x2.to(x1_[0].device)) for x1_ in x1_scattered)
 
         if not self.device_ids:
             return self.module(*inputs, **kwargs)
-        
+
         if len(self.device_ids) == 1:
             return self.module(*inputs[0], **kwargs[0])
 
