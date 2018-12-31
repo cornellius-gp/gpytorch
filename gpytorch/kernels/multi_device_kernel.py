@@ -6,7 +6,7 @@ from ..lazy import CatLazyTensor, NonLazyTensor
 from math import ceil
 
 
-class DistributedKernel(Kernel):
+class MultiDeviceKernel(Kernel):
     r"""
     Allocates the covariance matrix on distributed devices, e.g. multiple GPUs.
 
@@ -17,7 +17,7 @@ class DistributedKernel(Kernel):
     """
 
     def __init__(self, base_kernel, device_ids, output_device=None, **kwargs):
-        super(DistributedKernel, self).__init__(base_kernel=base_kernel,
+        super(MultiDeviceKernel, self).__init__(base_kernel=base_kernel,
                                                 device_ids=device_ids,
                                                 output_device=output_device,
                                                 **kwargs)

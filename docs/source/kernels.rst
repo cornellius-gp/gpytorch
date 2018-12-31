@@ -76,10 +76,10 @@ Composition/Decoration Kernels
 :hidden:`AdditiveStructureKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-:hidden:`DistributedKernel`
+:hidden:`MultiDeviceKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: DistributedKernel 
+.. autoclass:: MultiDeviceKernel
    :members:
 
 
