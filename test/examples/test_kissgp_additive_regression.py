@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from math import exp
-
 import random
 import os
 import torch
@@ -11,7 +9,6 @@ from torch import optim
 from gpytorch.kernels import RBFKernel, AdditiveStructureKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ZeroMean
-from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
 
 n = 20

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from math import exp, pi
+from math import pi
 
 import os
 import random
