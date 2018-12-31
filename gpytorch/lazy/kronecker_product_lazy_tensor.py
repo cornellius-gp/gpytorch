@@ -3,6 +3,7 @@
 import torch
 import operator
 from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import lazify
 from functools import reduce
 
 
@@ -34,7 +35,9 @@ def _t_matmul(lazy_tensors, rhs):
 
 class KroneckerProductLazyTensor(LazyTensor):
     def __init__(self, *lazy_tensors):
-        if not all(isinstance(lazy_tensor, LazyTensor) for lazy_tensor in lazy_tensors):
+        try:
+            lazy_tensors = tuple(lazify(lazy_tensor) for lazy_tensor in lazy_tensors)
+        except TypeError:
             raise RuntimeError("KroneckerProductLazyTensor is intended to wrap lazy tensors.")
         for prev_lazy_tensor, curr_lazy_tensor in zip(lazy_tensors[:-1], lazy_tensors[1:]):
             if prev_lazy_tensor.ndimension() != curr_lazy_tensor.ndimension():

@@ -206,6 +206,19 @@ class fast_computations(object):
         return False
 
 
+class lazily_evaluate_kernels(_feature_flag):
+    """
+    Lazily compute the entries of covariance matrices (set to True by default).
+    This can result in memory and speed savings - if say cross covariance terms are not needed
+    or if you only need to compute variances (not covariances).
+
+    If set to False, gpytorch will always compute the entire covariance matrix between
+    training and test data.
+    """
+
+    _state = True
+
+
 class max_cg_iterations(_value_context):
     """
     The maximum number of conjugate gradient iterations to perform (when computing

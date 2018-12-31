@@ -4,7 +4,7 @@ import math
 import torch
 from .kernel import Kernel
 from ..functions import add_jitter
-from ..lazy import DiagLazyTensor, LazyTensor, MatmulLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from ..lazy import lazify, delazify, DiagLazyTensor, MatmulLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..distributions import MultivariateNormal
 from ..mlls import InducingPointKernelAddedLossTerm
 
@@ -32,7 +32,7 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat
         else:
-            res = self.base_kernel(self.inducing_points, self.inducing_points).evaluate()
+            res = delazify(self.base_kernel(self.inducing_points, self.inducing_points))
             if not self.training:
                 self._cached_kernel_mat = res
             return res
@@ -55,15 +55,15 @@ class InducingPointKernel(Kernel):
             return res
 
     def _get_covariance(self, x1, x2):
-        k_ux1 = self.base_kernel(x1, self.inducing_points).evaluate()
+        k_ux1 = delazify(self.base_kernel(x1, self.inducing_points))
         if torch.equal(x1, x2):
             covar = RootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
 
             # Diagonal correction for predictive posterior
-            correction = (self.base_kernel(x1, x2).diag() - covar.diag()).clamp(0, math.inf)
+            correction = (lazify(self.base_kernel(x1, x2)).diag() - covar.diag()).clamp(0, math.inf)
             covar = PsdSumLazyTensor(DiagLazyTensor(correction), covar)
         else:
-            k_ux2 = self.base_kernel(x2, self.inducing_points).evaluate()
+            k_ux2 = delazify(self.base_kernel(x2, self.inducing_points))
             covar = MatmulLazyTensor(
                 k_ux1.matmul(self._inducing_inv_root), k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2)
             )
@@ -79,9 +79,7 @@ class InducingPointKernel(Kernel):
         inputs = inputs.unsqueeze(-2).view(-1, 1, inputs.size(-1))
 
         # Get diagonal of covar
-        covar_diag = self.base_kernel(inputs)
-        if isinstance(covar_diag, LazyTensor):
-            covar_diag = covar_diag.evaluate()
+        covar_diag = delazify(self.base_kernel(inputs))
         covar_diag = covar_diag.view(orig_size[:-1])
         return DiagLazyTensor(covar_diag)
 
