@@ -76,6 +76,13 @@ Composition/Decoration Kernels
 :hidden:`AdditiveStructureKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+:hidden:`DistributedKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: DistributedKernel 
+   :members:
+
+
 .. autoclass:: AdditiveStructureKernel
    :members:
 

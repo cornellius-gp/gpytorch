@@ -34,6 +34,13 @@ Structured LazyTensors
 .. autoclass:: BlockDiagLazyTensor
    :members:
 
+:hidden:`CatLazyTensor`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: CatLazyTensor
+   :members:
+
+
 :hidden:`CholLazyTensor`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

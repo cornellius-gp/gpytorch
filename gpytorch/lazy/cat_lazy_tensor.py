@@ -8,15 +8,15 @@ from .non_lazy_tensor import NonLazyTensor
 
 
 class CatLazyTensor(LazyTensor):
-    """
-    A `LazyTensor` that represents the concatenation of `LazyTensor`s.
+    r"""
+    A `LazyTensor` that represents the concatenation of other lazy tensors.
     Each LazyTensor must have the same shape except in the concatenating
     dimension.
 
     Args:
         - :attr:`lazy_tensors` (list of LazyTensors):
             A list of LazyTensors whose sizes are the same except in
-            concatenating dimension :attr:`dim`.
+            concatenating dimension :attr:`dim`
         - :attr:`dim` (int):
             The concatenating dimension which can be a batch dimension.
         - :attr:`output_device` (torch.device):

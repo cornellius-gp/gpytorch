@@ -11,9 +11,9 @@ class DistributedKernel(Kernel):
     Allocates the covariance matrix on distributed devices, e.g. multiple GPUs.
 
     Args:
-        - :attr:`base_kernel` (Kernel)
-        - :attr:`device_ids` (list of `torch.device`s)
-        - :attr:`output_device` `torch.device` where outputs will be placed
+        - :attr:`base_kernel`: Base kernel to distribute
+        - :attr:`device_ids`: list of `torch.device` objects to place kernel chunks on
+        - :attr:`output_device`: Device where outputs will be placed
     """
 
     def __init__(self, base_kernel, device_ids, output_device=None, **kwargs):
