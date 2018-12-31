@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import torch
+from torch.nn.parallel import DataParallel
 from .kernel import Kernel
 from ..lazy import CatLazyTensor, NonLazyTensor
 from math import ceil
 
 
-class MultiDeviceKernel(Kernel):
+class MultiDeviceKernel(DataParallel, Kernel):
     r"""
     Allocates the covariance matrix on distributed devices, e.g. multiple GPUs.
 
@@ -17,46 +18,30 @@ class MultiDeviceKernel(Kernel):
     """
 
     def __init__(self, base_kernel, device_ids, output_device=None, **kwargs):
-        super(MultiDeviceKernel, self).__init__(base_kernel=base_kernel,
-                                                device_ids=device_ids,
-                                                output_device=output_device,
-                                                **kwargs)
-        self.base_kernel = base_kernel
-        self.device_ids = device_ids
-        self.num_devices = len(device_ids)
+        DataParallel.__init__(self,
+                              module=base_kernel,
+                              device_ids=device_ids,
+                              output_device=output_device,
+                              dim=-2)
+
         self.output_device = output_device if output_device else device_ids[0]
 
-    def forward(self, x1, x2, diag=False, **params):
+    def forward(self, x1, x2, diag=False, **kwargs):
         if diag:
-            return self.base_kernel.forward(x1, x2, diag=True, **params).to(self.output_device)
-        # Assume x1 is `n x d` and x2 is `m x d`
-        n, m = x1.size(-2), x2.size(-2)
+            return self.module.forward(x1, x2, diag=True, **kwargs).to(self.output_device)
+         
+        x1_scattered, kwargs = self.scatter((x1,), kwargs, self.device_ids)
+        inputs = tuple((x1_[0], x2.to(x1_[0].device)) for x1_ in x1_scattered)
 
-        # Internally, x1 will always be the longer input
-        # We can always compute K(x2,x1) and then transpose at the end
-        if n < m:
-            res = self.forward(x2, x1, **params)
-            return res.transpose(-2, -1)
+        if not self.device_ids:
+            return self.module(*inputs, **kwargs)
+        
+        if len(self.device_ids) == 1:
+            return self.module(*inputs[0], **kwargs[0])
 
-        x1_pieces = self._split(x1, -2, self.num_devices)
+        replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
+        outputs = self.parallel_apply(replicas, inputs, kwargs)
+        return self.gather(outputs, self.output_device)
 
-        kernel_chunks = []
-        for i, x1_piece in enumerate(x1_pieces):
-            chunk = self.base_kernel.forward(x1_piece, x2, **params).to(self.device_ids[i])
-            if isinstance(chunk, torch.Tensor):
-                chunk = NonLazyTensor(chunk)
-            kernel_chunks.append(chunk)
-
-        return CatLazyTensor(*kernel_chunks, dim=-2, output_device=self.output_device)
-
-    def _split(self, x, dim, n_pieces):
-        """
-        Generator that splits `x` into `n_pieces`.
-        Yields each piece of x
-        """
-        n = x.size(dim)
-        index = [slice(None, None, None)] * x.ndimension()
-        piece_len = ceil(n / n_pieces)
-        for i in range(0, n, piece_len):
-            index[dim] = slice(i, i + piece_len, None)
-            yield x[index]
+    def gather(self, outputs, output_device):
+        return CatLazyTensor(*outputs, dim=self.dim, output_device=self.output_device)

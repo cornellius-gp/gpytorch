@@ -270,7 +270,28 @@ class CatLazyTensor(LazyTensor):
                                 for t in self.lazy_tensors], dim=new_dim, output_device=self.output_device)
 
     def diag(self):
-        return super().diag().to(self.device)
+        """
+        As :func:`torch.diag`, returns the diagonal of the matrix :math:`K` this LazyTensor represents as a vector.
+
+        Returns:
+            :obj:`torch.tensor`: The diagonal of :math:`K`. If :math:`K` is :math:`n \times n`, this will be a length
+            n vector. If this LazyTensor represents a batch (e.g., is :math:`b \times n \times n`), this will be a
+            :math:`b \times n` matrix of diagonals, one for each matrix in the batch.
+        """
+        size = self.size()
+        if size[-1] != size[-2]:
+            raise RuntimeError("Diag works on square matrices (or batches)")
+
+        row_col_iter = torch.arange(0, size[-1], dtype=torch.long)
+        if self.ndimension() == 3:
+            batch_iter = torch.arange(0, size[0], dtype=torch.long)
+            batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
+            row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
+            res = self._get_indices(row_col_iter, row_col_iter, batch_iter).view(size[0], size[1])
+        else:
+            res = self._get_indices(row_col_iter, row_col_iter)
+
+        return res.to(self.device)
 
     def __getitem__(self, *indices):
         res = super().__getitem__(*indices)
