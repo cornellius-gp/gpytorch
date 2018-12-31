@@ -3,7 +3,7 @@
 import math
 import torch
 from .. import beta_features, settings
-from ..lazy import DiagLazyTensor, CachedCGLazyTensor, NonLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from ..lazy import DiagLazyTensor, CachedCGLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
 
@@ -99,18 +99,13 @@ class VariationalStrategy(Module):
             neg_mean_diff = (induc_mean - var_dist_mean).unsqueeze(-1)
 
             # Covariance terms
-            induc_induc_covar = NonLazyTensor(full_covar[..., :num_induc, :num_induc].evaluate()).add_jitter()
-            # TODO: FIX
+            induc_induc_covar = full_covar[..., :num_induc, :num_induc].evaluate_kernel().add_jitter()
             induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
             data_data_covar = full_covar[..., num_induc:, num_induc:]
             root_variational_covar = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate()
 
-            # Compute all products with `induc_induc_covar^{-1}` simultaneously
-            eye = torch.eye(root_variational_covar.size(-1), dtype=neg_mean_diff.dtype, device=neg_mean_diff.device)
-            eye = eye.expand_as(root_variational_covar)
-            left_tensors = torch.cat([neg_mean_diff, root_variational_covar], -1)
-
             # Cache the CG results
+            left_tensors = torch.cat([neg_mean_diff, root_variational_covar], -1)
             with torch.no_grad():
                 eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
                 solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
@@ -134,15 +129,13 @@ class VariationalStrategy(Module):
                 probe_vector_tmats=tmats,
             )
 
-            # Compute all inv products
-            inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))
-
             # Cache the prior distribution, for faster training
             if self.training:
                 prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
                 self._prior_distribution_memo = prior_dist
 
             # Compute predictive mean/covariance
+            inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))
             predictive_mean = torch.add(test_mean, inv_products[..., 0, :].mul(-1))
             predictive_covar = RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2))
 
