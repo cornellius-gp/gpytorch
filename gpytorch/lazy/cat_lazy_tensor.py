@@ -29,6 +29,7 @@ class CatLazyTensor(LazyTensor):
             raise RuntimeError("List of LazyTensors must be non-empty")
         if not all([isinstance(t, LazyTensor) for t in lazy_tensors]):
             raise RuntimeError("CatLazyTensor requires a list of all LazyTensors")
+
         if len(lazy_tensors) == 1:
             dim = 0
 
@@ -47,7 +48,7 @@ class CatLazyTensor(LazyTensor):
         cat_dim_len = 0
         cat_dim_sizes = []
         tensor_idx_to_start_idx = []
-        for t_idx, t in enumerate(lazy_tensors):
+        for t in lazy_tensors:
             if t.ndimension() != ndims:
                 raise RuntimeError("All tensors must have the same number of dimensions")
             if remove_dim(t.size(), dim) != remove_dim(rep_tensor.size(), dim):
@@ -109,7 +110,7 @@ class CatLazyTensor(LazyTensor):
                        else self.cat_dim - sum(squeeze[:self.cat_dim + 1]))
 
         if new_cat_dim is None:
-            # target_indices must be a int so we let the LazyTensor squeeze out cat_dim
+            # target_indices must be a int so we can let the LazyTensor squeeze out cat_dim
             t_idx = self.idx_to_tensor_idx[target_indices]
             return self.lazy_tensors[t_idx]._getitem(*indices)
 
