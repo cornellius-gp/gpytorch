@@ -3,7 +3,7 @@
 import torch
 from .block_diag_lazy_tensor import BlockDiagLazyTensor
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify
 from .root_lazy_tensor import RootLazyTensor
 from ..utils import sparse
 from ..utils.interpolation import left_interp, left_t_interp
@@ -19,8 +19,7 @@ class InterpolatedLazyTensor(LazyTensor):
         right_interp_indices=None,
         right_interp_values=None,
     ):
-        if torch.is_tensor(base_lazy_tensor):
-            base_lazy_tensor = NonLazyTensor(base_lazy_tensor)
+        base_lazy_tensor = lazify(base_lazy_tensor)
 
         if left_interp_indices is None:
             num_rows = base_lazy_tensor.size()[-2]

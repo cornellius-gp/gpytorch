@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import torch
-
 from ..utils.memoize import cached
+from .non_lazy_tensor import lazify
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import NonLazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
 
 
@@ -12,11 +10,10 @@ class SumLazyTensor(LazyTensor):
     def __init__(self, *lazy_tensors):
         lazy_tensors = list(lazy_tensors)
         for i, lazy_tensor in enumerate(lazy_tensors):
-            if not isinstance(lazy_tensor, LazyTensor):
-                if torch.is_tensor(lazy_tensor):
-                    lazy_tensors[i] = NonLazyTensor(lazy_tensor)
-                else:
-                    raise RuntimeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
+            try:
+                lazy_tensors[i] = lazify(lazy_tensor)
+            except TypeError:
+                raise TypeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
         super(SumLazyTensor, self).__init__(*lazy_tensors)
 
         self.lazy_tensors = lazy_tensors

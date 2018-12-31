@@ -8,7 +8,7 @@ from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
-from ..lazy import LazyTensor, NonLazyTensor
+from ..lazy import LazyTensor, lazify
 from .distribution import Distribution
 
 
@@ -103,7 +103,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         if self.islazy:
             return self._covar
         else:
-            return NonLazyTensor(super(_MultivariateNormalBase, self).covariance_matrix)
+            return lazify(super(_MultivariateNormalBase, self).covariance_matrix)
 
     def log_prob(self, value):
         if self._validate_args:

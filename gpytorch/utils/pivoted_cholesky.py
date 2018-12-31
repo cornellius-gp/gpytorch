@@ -4,18 +4,16 @@ import torch
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
-    from ..lazy import LazyTensor, NonLazyTensor
+    from ..lazy import lazify, LazyTensor
 
     batch_shape = matrix.shape[:-2]
     matrix_shape = matrix.shape[-2:]
 
     # Need to get diagonals. This is easy if it's a LazyTensor, since
     # LazyTensor.diag() operates in batch mode.
-    if isinstance(matrix, LazyTensor):
-        matrix = matrix.evaluate_kernel()
-        matrix_diag = matrix._approx_diag()
-    elif torch.is_tensor(matrix):
-        matrix_diag = NonLazyTensor(matrix).diag()
+    matrix = lazify(matrix)
+    matrix = matrix.evaluate_kernel()
+    matrix_diag = matrix._approx_diag()
 
     # Make sure max_iter isn't bigger than the matrix
     max_iter = min(max_iter, matrix_shape[-1])

@@ -6,11 +6,11 @@ from torch.nn.functional import softplus
 from .. import settings
 from ..functions import add_diag
 from ..lazy import (
+    lazify,
     BlockDiagLazyTensor,
     DiagLazyTensor,
     KroneckerProductLazyTensor,
     MatmulLazyTensor,
-    NonLazyTensor,
     RootLazyTensor,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
@@ -93,7 +93,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             exp_shape = batch_shape + torch.Size([n]) + task_corr.shape[-2:]
             if len(batch_shape) == 1:
                 task_corr = task_corr.unsqueeze(-3)
-            task_corr_exp = NonLazyTensor(task_corr.expand(exp_shape))
+            task_corr_exp = lazify(task_corr.expand(exp_shape))
             noise_sem = noise_covar.sqrt()
             task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(noise_sem, task_corr_exp), noise_sem)
         else:
@@ -104,7 +104,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             # TODO: Properly support general batch shapes in BlockDiagLazyTensor (no shape arithmetic)
             tcb_eval = task_covar_blocks.evaluate()
             task_covar = BlockDiagLazyTensor(
-                NonLazyTensor(tcb_eval.view(-1, *tcb_eval.shape[-2:])), num_blocks=tcb_eval.shape[0]
+                lazify(tcb_eval.view(-1, *tcb_eval.shape[-2:])), num_blocks=tcb_eval.shape[0]
             )
         else:
             task_covar = BlockDiagLazyTensor(task_covar_blocks)

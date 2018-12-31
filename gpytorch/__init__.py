@@ -30,6 +30,7 @@ from .functions import (
     root_inv_decomposition,
 )
 from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
+from .lazy import lazify
 
 
 # Old deprecated stuff
@@ -40,6 +41,7 @@ __all__ = [
     # Submodules
     "distributions",
     "kernels",
+    "lazify",
     "lazy",
     "likelihoods",
     "means",

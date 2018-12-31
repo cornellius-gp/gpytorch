@@ -4,7 +4,7 @@ import torch
 
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify, NonLazyTensor
 
 
 def _inner_repeat(tensor, amt):
@@ -17,10 +17,8 @@ def _outer_repeat(tensor, amt):
 
 class MatmulLazyTensor(LazyTensor):
     def __init__(self, left_lazy_tensor, right_lazy_tensor):
-        if not isinstance(left_lazy_tensor, LazyTensor):
-            left_lazy_tensor = NonLazyTensor(left_lazy_tensor)
-        if not isinstance(right_lazy_tensor, LazyTensor):
-            right_lazy_tensor = NonLazyTensor(right_lazy_tensor)
+        left_lazy_tensor = lazify(left_lazy_tensor)
+        right_lazy_tensor = lazify(right_lazy_tensor)
 
         super(MatmulLazyTensor, self).__init__(left_lazy_tensor, right_lazy_tensor)
         self.left_lazy_tensor = left_lazy_tensor

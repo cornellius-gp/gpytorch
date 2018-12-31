@@ -61,3 +61,25 @@ class NonLazyTensor(LazyTensor):
 
     def evaluate(self):
         return self.tensor
+
+
+def lazify(obj):
+    """
+    A function which ensures that `obj` is a LazyTensor.
+
+    If `obj` is a LazyTensor, this function does nothing.
+    If `obj` is a (normal) Tensor, this function wraps it with a `NonLazyTensor`.
+    """
+
+    if torch.is_tensor(obj):
+        return NonLazyTensor(obj)
+    elif isinstance(obj, LazyTensor):
+        return obj
+    else:
+        raise TypeError("object of class {} cannot be made into a LazyTensor".format(obj.__class__.__name__))
+
+
+__all__ = [
+    "NonLazyTensor",
+    "lazify",
+]

@@ -6,7 +6,7 @@ from .. import settings
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify
 
 
 LAZY_KERNEL_TENSOR_WARNING = (
@@ -210,9 +210,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 and self._cached_kernel_eval.size(0) == 1
             ):
                 self._cached_kernel_eval = self._cached_kernel_eval[0]
-            if not isinstance(self._cached_kernel_eval, LazyTensor):
-                self._cached_kernel_eval = NonLazyTensor(self._cached_kernel_eval)
 
+            self._cached_kernel_eval = lazify(self._cached_kernel_eval)
             return self._cached_kernel_eval
 
     @cached

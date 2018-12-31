@@ -6,7 +6,7 @@ import torch
 
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify
 from .root_lazy_tensor import RootLazyTensor
 
 
@@ -97,9 +97,7 @@ class DiagLazyTensor(LazyTensor):
         return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
 
     def __mul__(self, other):
-        if torch.is_tensor(other):
-            other = NonLazyTensor(other)
-
+        other = lazify(other)
         if isinstance(other, DiagLazyTensor):
             return DiagLazyTensor(self._diag * other._diag)
         else:
