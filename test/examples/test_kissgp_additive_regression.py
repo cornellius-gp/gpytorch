@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from math import exp
-
 import random
 import os
 import torch
@@ -11,7 +9,6 @@ from torch import optim
 from gpytorch.kernels import RBFKernel, AdditiveStructureKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ZeroMean
-from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
 
 n = 20
@@ -37,11 +34,9 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ZeroMean()
-        self.base_covar_module = ScaleKernel(
-            RBFKernel(ard_num_dims=2, lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
-        )
+        self.base_covar_module = ScaleKernel(RBFKernel())
         self.covar_module = AdditiveStructureKernel(
-            GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=2), num_dims=2
+            GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=1), num_dims=2
         )
 
     def forward(self, x):
