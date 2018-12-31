@@ -86,7 +86,7 @@ class CatLazyTensor(LazyTensor):
         stop_idx = slice_idx.stop if slice_idx.stop is not None else self.shape[self.cat_dim]
 
         start_tensor_idx = self.idx_to_tensor_idx[start_idx]
-        stop_tensor_idx = self.idx_to_tensor_idx[stop_idx]
+        stop_tensor_idx = self.idx_to_tensor_idx[stop_idx - 1]
 
         if start_tensor_idx != stop_tensor_idx:
             # By definition, stop is on a later tensor than start since they are in order.
@@ -116,7 +116,7 @@ class CatLazyTensor(LazyTensor):
         if all(torch.is_tensor(x) for x in indices):
             left_indices, right_indices = indices[-2], indices[-1]
             batch_indices = indices[:-2]
-            return self._lazify(self._get_indices(left_indices, right_indices, *batch_indices))
+            return self._get_indices(left_indices, right_indices, *batch_indices)
 
         if isinstance(target_indices, slice):
             if target_indices == slice(None, None, None):
@@ -134,7 +134,12 @@ class CatLazyTensor(LazyTensor):
                     indices[self.cat_dim] = shifted_slice
                     res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
                     res_list.append(res)
-                return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
+                if len(res_list) == 1:
+                    return res_list[0]
+                elif all([rl.dim() == 1 for rl in res_list]):
+                    return torch.cat([rl.evaluate().to(self.device) for rl in res_list])
+                else:
+                    return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
         elif torch.is_tensor(target_indices):
             # this means another `indices` is a slice object
             target_indices = [idx.item() for idx in target_indices]
@@ -280,8 +285,8 @@ class CatLazyTensor(LazyTensor):
         return super().inv_quad(tensor).to(self.device)
 
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
-        res = super().inv_quad_log_det(self, inv_quad_rhs, log_det, reduce_inv_quad)
-        return res.to(self.device)
+        res = super().inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad)
+        return tuple(r.to(self.device) for r in res)
 
     def matmul(self, other):
         return super().matmul(other).to(self.device)
