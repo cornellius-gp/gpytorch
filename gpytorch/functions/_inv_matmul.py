@@ -31,7 +31,7 @@ class InvMatmul(Function):
 
         args = [res, rhs] + list(matrix_args)
         self.save_for_backward(*args)
-        if not settings.memory_efficient.on():
+        if settings.memory_efficient.off():
             self._lazy_tsr = lazy_tsr
 
         return res

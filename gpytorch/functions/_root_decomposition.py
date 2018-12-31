@@ -80,7 +80,7 @@ class RootDecomposition(Function):
         if self.root:
             root = q_mat * root_evals.unsqueeze(-2)
 
-        if not settings.memory_efficient.on():
+        if settings.memory_efficient.off():
             self._lazy_tsr = lazy_tsr
 
         if self.batch_shape is None:

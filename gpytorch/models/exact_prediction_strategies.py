@@ -293,7 +293,7 @@ class DefaultPredictionStrategy(object):
         """
         from ..distributions import MultivariateNormal
 
-        if not settings.fast_pred_var.on():
+        if settings.fast_pred_var.off():
             train_train_covar = self.likelihood(
                 MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
             ).lazy_covariance_matrix
@@ -436,7 +436,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return res
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
-        if not settings.fast_pred_var.on() and not settings.fast_pred_samples.on():
+        if settings.fast_pred_var.off() and settings.fast_pred_samples.off():
             return super(InterpolatedPredictionStrategy, self).exact_predictive_covar(test_test_covar, test_train_covar)
 
         test_train_covar = test_train_covar.evaluate_kernel()
@@ -448,7 +448,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         precomputed_cache = self.covar_cache
         if (settings.fast_pred_samples.on() and precomputed_cache[0] is None) or (
-            not settings.fast_pred_samples.on() and precomputed_cache[1] is None
+            settings.fast_pred_samples.off() and precomputed_cache[1] is None
         ):
             self.__cache.pop("covar_cache")
             precomputed_cache = self.covar_cache
