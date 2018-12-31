@@ -12,7 +12,8 @@ class DistributedKernel(Kernel):
 
     Args:
         - :attr:`base_kernel` (Kernel)
-        - :attr:`device_ids` (list of strings)
+        - :attr:`device_ids` (list of `torch.device`s)
+        - :attr:`output_device` `torch.device` where outputs will be placed
     """
 
     def __init__(self, base_kernel, device_ids, output_device=None, **kwargs):
@@ -25,7 +26,7 @@ class DistributedKernel(Kernel):
         self.num_devices = len(device_ids)
         self.output_device = output_device if output_device else device_ids[0]
 
-    def forward(self, x1, x2, **params):
+    def forward(self, x1, x2, diag=False, **params):
         if diag:
             return self.base_kernel.forward(x1, x2, diag=True, **params).to(self.output_device)
         # Assume x1 is `n x d` and x2 is `m x d`

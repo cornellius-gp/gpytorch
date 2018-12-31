@@ -19,6 +19,9 @@ class CatLazyTensor(LazyTensor):
             concatenating dimension :attr:`dim`.
         - :attr:`dim` (int):
             The concatenating dimension which can be a batch dimension.
+        - :attr:`output_device` (torch.device):
+            The CatLazyTensor will appear to appear on :attr:`output_device`
+            and place any output `torch.Tensors` on :attr:`output_device`
     """
 
     def __init__(self, *lazy_tensors, dim=0, output_device=None):
@@ -151,22 +154,6 @@ class CatLazyTensor(LazyTensor):
             res_list.append(res)
             return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
 
-        res_list = []
-        curr_tensor, slice_indices = target_tensors[0], []
-        # group adjacent calls to the same LazyTensor
-        for idx, t_idx in zip(target_indices, target_tensors):
-            if t_idx != curr_tensor:
-                indices[self.cat_dim] = torch.tensor(slice_indices)
-                res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
-                res_list.append(res)
-                curr_tensor, slice_indices = t_idx, []
-            slice_indices.append(idx - self.tensor_idx_to_start_idx[t_idx])
-        indices[self.cat_dim] = torch.tensor(slice_indices)
-        res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
-        res_list.append(res)
-
-        return self.__class__(*res_list, dim=self.cat_dim)
-
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         # tensor indices must all have the same length
         indices = list(batch_indices) + [left_indices, right_indices]
@@ -210,9 +197,6 @@ class CatLazyTensor(LazyTensor):
             idx = t_idx_to_res_idx[t_idx]
             lookup.append(idx)
             t_idx_to_res_idx[t_idx] += 1
-        #indices_ = [slice(None, None, None)] * len(indices)
-        #indices_[self.cat_dim] = lookup
-        #return res[indices_]
         return res[lookup]
 
     def _matmul(self, rhs):
