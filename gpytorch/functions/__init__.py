@@ -117,7 +117,7 @@ def inv_matmul(mat, right_tensor, left_tensor=None):
         - :obj:`torch.tensor` - :math:`A^{-1}R` or :math:`LA^{-1}R`.
     """
     from ..lazy import lazify
-    return lazify(mat).inv_matmul(rhs, left_tensor)
+    return lazify(mat).inv_matmul(right_tensor, left_tensor)
 
 
 def inv_quad(mat, tensor):
