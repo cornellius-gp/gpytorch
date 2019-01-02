@@ -300,8 +300,8 @@ class CatLazyTensor(LazyTensor):
 
         return res
 
-    def inv_matmul(self, tensor):
-        return super().inv_matmul(tensor).to(self.device)
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        return super().inv_matmul(right_tensor, left_tensor).to(self.device)
 
     def inv_quad(self, tensor):
         return super().inv_quad(tensor).to(self.device)
