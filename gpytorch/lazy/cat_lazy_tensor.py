@@ -109,6 +109,7 @@ class CatLazyTensor(LazyTensor):
                        else self.cat_dim - sum(squeeze[:self.cat_dim + 1]))
 
         eval_result = (torch.is_tensor(indices[-2]) and torch.is_tensor(indices[-1]))
+        eval_result = eval_result or (isinstance(indices[-2], int) or isinstance(indices[-1], int))
 
         if new_cat_dim is None:
             # target_indices must be a int so we can let the LazyTensor squeeze out cat_dim
@@ -137,14 +138,16 @@ class CatLazyTensor(LazyTensor):
                     res = lazify(self.lazy_tensors[t_idx]._getitem(*indices))
                     res_list.append(res)
                 if len(res_list) == 1:
-                    return res_list[0]
+                    result = res_list[0]
                 elif all([rl.dim() == 1 for rl in res_list]):
                     return torch.cat([rl.evaluate().to(self.device) for rl in res_list])
                 else:
                     shape_diffs = torch.tensor(res_list[0].shape) - torch.tensor(res_list[1].shape)
                     new_cat_dims = (shape_diffs != 0).nonzero()
                     new_cat_dim = new_cat_dims.item() if new_cat_dims.numel() > 0 else self.cat_dim
-                    return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
+                    result = self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
+
+                return result.evaluate().to(self.output_device) if eval_result else result.to(self.output_device)
         elif torch.is_tensor(target_indices):
             # this means another `indices` is a slice object
             target_indices = [idx.item() for idx in target_indices]

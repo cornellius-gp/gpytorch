@@ -108,11 +108,9 @@ class RectangularLazyTensorTestCase(object):
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
             res = lazy_tensor[..., 0:2, 2]
             actual = evaluated[..., 0:2, 2]
-            res = res.evaluate() if isinstance(res, gpytorch.lazy.LazyTensor) else res
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
             res = lazy_tensor[0:2, ..., 2]
             actual = evaluated[0:2, ..., 2]
-            res = res.evaluate() if isinstance(res, gpytorch.lazy.LazyTensor) else res
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
 
         # Batch case
