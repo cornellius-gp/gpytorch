@@ -79,11 +79,16 @@ class VariationalStrategy(Module):
             :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
         """
         variational_dist = self.variational_distribution.variational_distribution
-        if torch.equal(x, self.inducing_points):
+        inducing_points = self.inducing_points
+
+        if inducing_points.dim() < x.dim():
+            inducing_points = inducing_points.expand(*x.shape[:-2], *inducing_points.shape[-2:])
+            variational_dist = variational_dist.expand(x.shape[:-2])
+        if torch.equal(x, inducing_points):
             return variational_dist
         else:
-            n_induc = self.inducing_points.size(-2)
-            full_inputs = torch.cat([self.inducing_points, x], dim=-2)
+            n_induc = inducing_points.size(-2)
+            full_inputs = torch.cat([inducing_points, x], dim=-2)
             full_output = self.model.forward(full_inputs)
             full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
