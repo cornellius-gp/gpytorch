@@ -94,11 +94,6 @@ class ScaleKernel(Kernel):
             outputscales = outputscales.unsqueeze(1).repeat(1, x1.size(-1)).view(-1)
 
         orig_output = self.base_kernel.forward(x1, x2, diag=diag, batch_dims=batch_dims, **params)
-<<<<<<< HEAD
-=======
-        if diag:
-            return delazify(orig_output) * outputscales
->>>>>>> ScaleKernel uses base_kernel.forward instead of __call__
 
         if torch.is_tensor(orig_output):
             outputscales = outputscales.view(-1, *([1] * (orig_output.dim() - 1)))

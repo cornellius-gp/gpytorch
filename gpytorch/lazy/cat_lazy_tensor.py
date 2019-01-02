@@ -4,7 +4,7 @@ import torch
 import itertools
 from collections import defaultdict
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify
 
 
 class CatLazyTensor(LazyTensor):
@@ -121,7 +121,7 @@ class CatLazyTensor(LazyTensor):
 
         if isinstance(target_indices, slice):
             if target_indices == slice(None, None, None):
-                res_list = [self._lazify(t._getitem(*indices)) for t in self.lazy_tensors]
+                res_list = [lazify(t._getitem(*indices)) for t in self.lazy_tensors]
                 return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
             else:
                 target_slices = self._split_slice(target_indices)
@@ -133,7 +133,7 @@ class CatLazyTensor(LazyTensor):
                     shifted_stop = idx.stop - self.tensor_idx_to_start_idx[t_idx]
                     shifted_slice = slice(shifted_start, shifted_stop, idx.step)
                     indices[self.cat_dim] = shifted_slice
-                    res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
+                    res = lazify(self.lazy_tensors[t_idx]._getitem(*indices))
                     res_list.append(res)
                 if len(res_list) == 1:
                     return res_list[0]
@@ -151,12 +151,12 @@ class CatLazyTensor(LazyTensor):
             for idx, t_idx in zip(target_indices, target_tensors):
                 if t_idx != curr_tensor:
                     indices[self.cat_dim] = torch.tensor(slice_indices)
-                    res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
+                    res = lazify(self.lazy_tensors[t_idx]._getitem(*indices))
                     res_list.append(res)
                     curr_tensor, slice_indices = t_idx, []
                 slice_indices.append(idx - self.tensor_idx_to_start_idx[t_idx])
             indices[self.cat_dim] = torch.tensor(slice_indices)
-            res = self._lazify(self.lazy_tensors[t_idx]._getitem(*indices))
+            res = lazify(self.lazy_tensors[t_idx]._getitem(*indices))
             res_list.append(res)
             return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
 
@@ -324,10 +324,3 @@ class CatLazyTensor(LazyTensor):
     @property
     def device_count(self):
         return len(set(self.devices))
-
-    def _lazify(self, tsr):
-        if torch.is_tensor(tsr):
-            tsr = NonLazyTensor(tsr)
-        elif not isinstance(tsr, LazyTensor):
-            raise RuntimeError("Can only _lazify a Tensor or a LazyTensor")
-        return tsr

@@ -3,7 +3,8 @@
 import torch
 from torch.nn.parallel import DataParallel
 from .kernel import Kernel
-from ..lazy import CatLazyTensor
+from ..lazy import CatLazyTensor, lazify
+from .. import settings
 
 
 class MultiDeviceKernel(DataParallel, Kernel):
@@ -52,9 +53,10 @@ class MultiDeviceKernel(DataParallel, Kernel):
         replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
 
         # TODO: parallel_apply might be too heavyweight in some cases?
-        outputs = self.parallel_apply(replicas, inputs, self._kwargs)
+        with settings.lazily_evaluate_kernels(False):
+            outputs = self.parallel_apply(replicas, inputs, self._kwargs)
 
         return self.gather(outputs, self.output_device)
 
     def gather(self, outputs, output_device):
-        return CatLazyTensor(*outputs, dim=self.dim, output_device=self.output_device)
+        return CatLazyTensor(*[lazify(o) for o in outputs], dim=self.dim, output_device=self.output_device)
