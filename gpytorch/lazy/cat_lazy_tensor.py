@@ -27,11 +27,10 @@ class CatLazyTensor(LazyTensor):
     def __init__(self, *lazy_tensors, dim=0, output_device=None):
         if len(lazy_tensors) == 0:
             raise RuntimeError("List of LazyTensors must be non-empty")
+        elif len(lazy_tensors) == 1:
+            raise RuntimeError("Why are we trying to concatenate a single LazyTensor?")
         if not all([isinstance(t, LazyTensor) for t in lazy_tensors]):
             raise RuntimeError("CatLazyTensor requires a list of all LazyTensors")
-
-        if len(lazy_tensors) == 1:
-            dim = 0
 
         super().__init__(*lazy_tensors, dim=dim, output_device=output_device)
 
@@ -166,12 +165,16 @@ class CatLazyTensor(LazyTensor):
             res = lazify(self.lazy_tensors[t_idx]._getitem(*new_inds))
             res_list.append(res)
 
-            shape_diffs = torch.tensor(res_list[0].shape) - torch.tensor(res_list[1].shape)
-            new_cat_dims = (shape_diffs != 0).nonzero()
-            new_cat_dim = new_cat_dims.item() if new_cat_dims.numel() > 0 else self.cat_dim
+            if len(res_list) == 1:
+                result = res_list[0]
+            else:
+                shape_diffs = torch.tensor(res_list[0].shape) - torch.tensor(res_list[1].shape)
+                new_cat_dims = (shape_diffs != 0).nonzero()
+                new_cat_dim = new_cat_dims.item() if new_cat_dims.numel() > 0 else self.cat_dim
 
-            result = self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
-            return result.evaluate().to(self.output_device) if eval_result else result
+                result = self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
+
+            return result.evaluate().to(self.output_device) if eval_result else result.to(self.output_device)
 
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         # tensor indices must all have the same length
