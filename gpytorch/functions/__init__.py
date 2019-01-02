@@ -85,19 +85,39 @@ def matmul(mat, rhs):
     return mat.matmul(rhs)
 
 
-def inv_matmul(mat, rhs):
-    """
-    Computes a linear solve with several right hand sides.
+def inv_matmul(mat, right_tensor, left_tensor=None):
+    r"""
+    Computes a linear solve (w.r.t :attr:`mat` = :math:`A`) with several right hand sides :math:`R`.
+    I.e. computes
+
+    ... math::
+
+        \begin{equation}
+            A^{-1} R,
+        \end{equation}
+
+    where :math:`R` is :attr:`right_tensor` and :math:`A` is :attr:`mat`.
+
+    If :attr:`left_tensor` is supplied, computes
+
+    ... math::
+
+        \begin{equation}
+            L A^{-1} R,
+        \end{equation}
+
+    where :math:`L` is :attr:`left_tensor`. Supplying this can reduce the number of
+    CG calls required.
 
     Args:
-        - mat (matrix nxn) - Matrix to solve with
-        - rhs (matrix nxk) - rhs matrix or vector
+        - :obj:`torch.tensor` (n x k) - Matrix :math:`R` right hand sides
+        - :obj:`torch.tensor` (m x n) - Optional matrix :math:`L` to perform left multiplication with
 
     Returns:
-        - matrix nxk - (mat)^{-1} rhs
+        - :obj:`torch.tensor` - :math:`A^{-1}R` or :math:`LA^{-1}R`.
     """
     from ..lazy import lazify
-    return lazify(mat).inv_matmul(rhs)
+    return lazify(mat).inv_matmul(right_tensor, left_tensor)
 
 
 def inv_quad(mat, tensor):

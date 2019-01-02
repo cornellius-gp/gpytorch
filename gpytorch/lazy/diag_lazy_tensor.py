@@ -120,8 +120,11 @@ class DiagLazyTensor(LazyTensor):
     def inverse(self):
         return DiagLazyTensor(self._diag.reciprocal())
 
-    def inv_matmul(self, tensor):
-        return self.inverse()._matmul(tensor)
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        res = self.inverse()._matmul(right_tensor)
+        if left_tensor is not None:
+            res = left_tensor @ res
+        return res
 
     def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
 
