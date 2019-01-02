@@ -2,7 +2,7 @@
 
 import torch
 from .kernel import Kernel
-from ..lazy import ToeplitzLazyTensor, KroneckerProductLazyTensor
+from ..lazy import delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor
 from .. import settings
 from gpytorch.utils.grid import create_data_from_grid
 
@@ -75,13 +75,13 @@ class GridKernel(Kernel):
             if settings.use_toeplitz.on():
                 first_item = grid[:, 0:1]
                 covar_columns = self.base_kernel(first_item, grid, diag=False, batch_dims=(0, 2), **params)
-                covar_columns = covar_columns.evaluate().squeeze(-2)
+                covar_columns = delazify(covar_columns).squeeze(-2)
                 if batch_dims == (0, 2):
                     covars = [ToeplitzLazyTensor(covar_columns)]
                 else:
                     covars = [ToeplitzLazyTensor(covar_columns[i : i + 1]) for i in range(n_dim)]
             else:
-                full_covar = self.base_kernel(grid, grid, batch_dims=(0, 2), **params).evaluate_kernel()
+                full_covar = self.base_kernel(grid, grid, batch_dims=(0, 2), **params)
                 if batch_dims == (0, 2):
                     covars = [full_covar]
                 else:

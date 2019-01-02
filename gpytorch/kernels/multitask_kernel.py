@@ -3,7 +3,7 @@
 import torch
 from .kernel import Kernel
 from .index_kernel import IndexKernel
-from ..lazy import LazyTensor, NonLazyTensor, KroneckerProductLazyTensor
+from ..lazy import lazify, KroneckerProductLazyTensor
 
 
 class MultitaskKernel(Kernel):
@@ -45,9 +45,7 @@ class MultitaskKernel(Kernel):
             raise RuntimeError("AdditiveGridInterpolationKernel does not accept the batch_dims argument.")
         covar_i = self.task_covar_module.covar_matrix
         covar_i = covar_i.repeat(x1.size(0), 1, 1)
-        covar_x = self.data_covar_module.forward(x1, x2, **params)
-        if not isinstance(covar_x, LazyTensor):
-            covar_x = NonLazyTensor(covar_x)
+        covar_x = lazify(self.data_covar_module.forward(x1, x2, **params))
         res = KroneckerProductLazyTensor(covar_x, covar_i)
         return res.diag() if diag else res
 

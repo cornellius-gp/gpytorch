@@ -5,7 +5,7 @@ import torch
 from ..utils import prod
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify, NonLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 
 
@@ -23,11 +23,10 @@ class MulLazyTensor(LazyTensor):
                 raise RuntimeError("MulLazyTensor can only have one LazyTensor if it is a NonLazyTensor")
         else:
             for i, lazy_tensor in enumerate(lazy_tensors):
-                if not isinstance(lazy_tensor, LazyTensor):
-                    if torch.is_tensor(lazy_tensor):
-                        lazy_tensors[i] = NonLazyTensor(lazy_tensor)
-                    else:
-                        raise RuntimeError("All arguments of a MulLazyTensor should be LazyTensors or Tensors")
+                try:
+                    lazy_tensors[i] = lazify(lazy_tensor)
+                except TypeError:
+                    raise TypeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
 
         super(MulLazyTensor, self).__init__(*lazy_tensors)
         self.lazy_tensors = lazy_tensors
@@ -72,7 +71,7 @@ class MulLazyTensor(LazyTensor):
                         if left_lazy_tensor.root_decomposition_size() < left_lazy_tensor.size(-1):
                             left_lazy_tensor = left_lazy_tensor.root_decomposition()
                         else:
-                            left_lazy_tensor = NonLazyTensor(left_lazy_tensor.evaluate())
+                            left_lazy_tensor = lazify(left_lazy_tensor.evaluate())
                     else:
                         # Make sure we're not constructing a MulLazyTensor of length 1
                         left_lazy_tensor = interleaved_lazy_tensors[0]
@@ -81,7 +80,7 @@ class MulLazyTensor(LazyTensor):
                     if right_lazy_tensor.root_decomposition_size() < right_lazy_tensor.size(-1):
                         right_lazy_tensor = right_lazy_tensor.root_decomposition()
                     else:
-                        right_lazy_tensor = NonLazyTensor(right_lazy_tensor.evaluate())
+                        right_lazy_tensor = lazify(right_lazy_tensor.evaluate())
                 else:
                     left_lazy_tensor = lazy_tensors[0]
                     right_lazy_tensor = lazy_tensors[1]

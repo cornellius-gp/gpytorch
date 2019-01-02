@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .lazy_tensor import LazyTensor
+from .lazy_tensor import delazify, LazyTensor
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
 from .block_lazy_tensor import BlockLazyTensor
@@ -13,7 +13,7 @@ from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
 from .lazy_evaluated_kernel_tensor import LazyEvaluatedKernelTensor
 from .matmul_lazy_tensor import MatmulLazyTensor
 from .mul_lazy_tensor import MulLazyTensor
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify, NonLazyTensor
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
@@ -23,6 +23,8 @@ from .zero_lazy_tensor import ZeroLazyTensor
 
 
 __all__ = [
+    "delazify",
+    "lazify",
     "LazyTensor",
     "LazyEvaluatedKernelTensor",
     "AddedDiagLazyTensor",

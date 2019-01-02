@@ -3,7 +3,7 @@
 from abc import abstractmethod
 import torch
 from torch.nn import ModuleList
-from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor
+from ..lazy import lazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
 from .. import settings
 from ..utils.deprecation import _deprecate_kwarg
@@ -373,7 +373,10 @@ class Kernel(Module):
             return res
 
         else:
-            res = LazyEvaluatedKernelTensor(self, x1_, x2_, batch_dims=batch_dims, **params)
+            if settings.lazily_evaluate_kernels.on():
+                res = LazyEvaluatedKernelTensor(self, x1_, x2_, batch_dims=batch_dims, **params)
+            else:
+                res = super(Kernel, self).__call__(x1_, x2_, batch_dims=batch_dims, **params)
 
             # Now we'll make sure that the shape we're getting makes sense
             if settings.debug.on():
@@ -426,9 +429,7 @@ class AdditiveKernel(Kernel):
         res = ZeroLazyTensor()
         for kern in self.kernels:
             next_term = kern(x1, x2, **params)
-            if isinstance(next_term, LazyEvaluatedKernelTensor):
-                next_term = next_term.evaluate_kernel()
-            res = res + next_term
+            res = res + lazify(next_term)
         return res
 
 
@@ -447,10 +448,8 @@ class ProductKernel(Kernel):
         self.kernels = ModuleList(kernels)
 
     def forward(self, x1, x2, **params):
-        res = self.kernels[0](x1, x2, **params)
+        res = lazify(self.kernels[0](x1, x2, **params))
         for kern in self.kernels[1:]:
             next_term = kern(x1, x2, **params)
-            if isinstance(next_term, LazyEvaluatedKernelTensor):
-                next_term = next_term.evaluate_kernel()
-            res = res * next_term
+            res = res * lazify(next_term)
         return res

@@ -30,6 +30,7 @@ from .functions import (
     root_inv_decomposition,
 )
 from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
+from .lazy import lazify
 
 
 # Old deprecated stuff
@@ -55,10 +56,12 @@ __all__ = [
     # Functions
     "add_diag",
     "add_jitter",
+    "delazify",
     "dsmm",
     "inv_matmul",
     "inv_quad",
     "inv_quad_log_det",
+    "lazify",
     "log_det",
     "log_normal_cdf",
     "matmul",

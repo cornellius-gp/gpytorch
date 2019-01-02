@@ -4,7 +4,7 @@ import torch
 
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify, NonLazyTensor
 
 
 def _inner_repeat(tensor, amt):
@@ -17,8 +17,7 @@ def _outer_repeat(tensor, amt):
 
 class RootLazyTensor(LazyTensor):
     def __init__(self, root):
-        if not isinstance(root, LazyTensor):
-            root = NonLazyTensor(root)
+        root = lazify(root)
         super(RootLazyTensor, self).__init__(root)
         self.root = root
 

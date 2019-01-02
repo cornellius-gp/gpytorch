@@ -2,7 +2,7 @@
 
 import torch
 from ..functions import add_diag
-from ..lazy import CholLazyTensor, NonLazyTensor
+from ..lazy import lazify, CholLazyTensor
 from ..distributions import MultivariateNormal
 from .variational_distribution import VariationalDistribution
 
@@ -48,7 +48,7 @@ class CholeskyVariationalDistribution(VariationalDistribution):
         that the diagonal remains positive.
         """
         chol_variational_covar = self.chol_variational_covar
-        diagonal = NonLazyTensor(chol_variational_covar).diag()
+        diagonal = lazify(chol_variational_covar).diag()
         dtype = chol_variational_covar.dtype
         device = chol_variational_covar.device
 

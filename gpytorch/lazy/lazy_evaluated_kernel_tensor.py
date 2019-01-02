@@ -6,7 +6,7 @@ from .. import settings
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
-from .non_lazy_tensor import NonLazyTensor
+from .non_lazy_tensor import lazify
 
 
 LAZY_KERNEL_TENSOR_WARNING = (
@@ -184,8 +184,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         NB: This is a meta LazyTensor, in the sense that evaluate can return
         a LazyTensor if the kernel being evaluated does so.
         """
-        from ..kernels import Kernel
-
         if hasattr(self, "_cached_kernel_eval"):
             return self._cached_kernel_eval
         else:
@@ -196,9 +194,10 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 x1 = self.x1
                 x2 = self.x2
 
-            self._cached_kernel_eval = super(Kernel, self.kernel).__call__(
-                x1, x2, diag=False, batch_dims=self.batch_dims, **self.params
-            )
+            with settings.lazily_evaluate_kernels(False):
+                self._cached_kernel_eval = self.kernel(
+                    x1, x2, diag=False, batch_dims=self.batch_dims, **self.params
+                )
             if self.squeeze_row:
                 self._cached_kernel_eval.squeeze_(-2)
             if self.squeeze_col:
@@ -210,9 +209,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 and self._cached_kernel_eval.size(0) == 1
             ):
                 self._cached_kernel_eval = self._cached_kernel_eval[0]
-            if not isinstance(self._cached_kernel_eval, LazyTensor):
-                self._cached_kernel_eval = NonLazyTensor(self._cached_kernel_eval)
 
+            self._cached_kernel_eval = lazify(self._cached_kernel_eval)
             return self._cached_kernel_eval
 
     @cached

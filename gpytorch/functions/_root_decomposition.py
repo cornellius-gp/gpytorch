@@ -37,7 +37,7 @@ class RootDecomposition(Function):
         - (Tensor) R, such that R R^T \approx A
         - (Tensor) R_inv, such that R_inv R_inv^T \approx A^{-1} (will only be populated if self.inverse = True)
         """
-        from ..lazy import NonLazyTensor
+        from ..lazy import lazify
 
         # Get closure for matmul
         lazy_tsr = self.representation_tree(*matrix_args)
@@ -61,7 +61,7 @@ class RootDecomposition(Function):
             t_mat = t_mat.unsqueeze(0)
         n_probes = t_mat.size(0)
 
-        mins = NonLazyTensor(t_mat).diag().min(dim=-1, keepdim=True)[0].unsqueeze(-1)
+        mins = lazify(t_mat).diag().min(dim=-1, keepdim=True)[0].unsqueeze(-1)
         jitter_mat = (settings.tridiagonal_jitter.value() * mins) * torch.eye(t_mat.size(-1)).type_as(t_mat).expand_as(
             t_mat
         )

@@ -20,12 +20,8 @@ def add_diag(input, diag):
     Returns:
         :obj:`Tensor` (bxnxn or nxn)
     """
-    if torch.is_tensor(input):
-        from ..lazy import NonLazyTensor
-
-        return NonLazyTensor(input).add_diag(diag)
-    else:
-        return input.add_diag(diag)
+    from ..lazy import lazify
+    return lazify(input).add_diag(diag)
 
 
 def add_jitter(mat, jitter_val=1e-3):
@@ -100,12 +96,8 @@ def inv_matmul(mat, rhs):
     Returns:
         - matrix nxk - (mat)^{-1} rhs
     """
-    if hasattr(mat, "inv_matmul"):
-        return mat.inv_matmul(rhs)
-    else:
-        from ..lazy.non_lazy_tensor import NonLazyTensor
-
-        return NonLazyTensor(mat).inv_matmul(rhs)
+    from ..lazy import lazify
+    return lazify(mat).inv_matmul(rhs)
 
 
 def inv_quad(mat, tensor):
@@ -136,12 +128,8 @@ def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True
         - scalar - tr( tensor^T (mat)^{-1} tensor )
         - scalar - log determinant
     """
-    if hasattr(mat, "inv_quad_log_det"):
-        return mat.inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad)
-    else:
-        from ..lazy.non_lazy_tensor import NonLazyTensor
-
-        return NonLazyTensor(mat).inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad)
+    from ..lazy import lazify
+    return lazify(mat).inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad)
 
 
 def log_det(mat):
@@ -168,12 +156,8 @@ def root_decomposition(mat):
     This can be used for sampling from a Gaussian distribution, or for obtaining a
     low-rank version of a matrix
     """
-    if hasattr(mat, "root_decomposition"):
-        return mat.root_decomposition()
-    else:
-        from ..lazy.non_lazy_tensor import NonLazyTensor
-
-        return NonLazyTensor(mat).root_decomposition()
+    from ..lazy import lazify
+    return lazify(mat).root_decomposition()
 
 
 def root_inv_decomposition(mat, initial_vectors=None, test_vectors=None):
@@ -182,12 +166,8 @@ def root_inv_decomposition(mat, initial_vectors=None, test_vectors=None):
     This can be used for sampling from a Gaussian distribution, or for obtaining a
     low-rank version of a matrix
     """
-    if hasattr(mat, "root_inv_decomposition"):
-        return mat.root_inv_decomposition(initial_vectors, test_vectors)
-    else:
-        from ..lazy.non_lazy_tensor import NonLazyTensor
-
-        return NonLazyTensor(mat).root_inv_decomposition(initial_vectors, test_vectors)
+    from ..lazy import lazify
+    return lazify(mat).root_inv_decomposition(initial_vectors, test_vectors)
 
 
 __all__ = [
