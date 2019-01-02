@@ -30,7 +30,7 @@ from .functions import (
     root_inv_decomposition,
 )
 from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
-from .lazy import lazify
+from .lazy import lazify, delazify
 
 
 # Old deprecated stuff
