@@ -7,7 +7,7 @@ this_file = os.path.dirname(__file__)
 
 setup(
     name="gpytorch",
-    version="0.1.0",
+    version="0.1.1",
     description="An implementation of Gaussian Processes in Pytorch",
     url="https://gpytorch.ai",
     author="Jake Gardner, Geoff Pleiss",
