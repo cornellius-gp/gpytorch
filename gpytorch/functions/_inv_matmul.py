@@ -19,11 +19,12 @@ class InvMatmul(Function):
             left_tensor, right_tensor, *matrix_args = args
         else:
             right_tensor, *matrix_args = args
+        orig_right_tensor = right_tensor
         lazy_tsr = self.representation_tree(*matrix_args)
 
         self.is_vector = False
         if right_tensor.ndimension() == 1:
-            right_tensor.unsqueeze_(-1)
+            right_tensor = right_tensor.unsqueeze(-1)
             self.is_vector = True
 
         # Perform solves (for inv_quad) and tridiagonalization (for estimating log_det)
@@ -37,13 +38,12 @@ class InvMatmul(Function):
             res = solves
 
         if self.is_vector:
-            res.squeeze_(-1)
-            right_tensor.squeeze_(-1)
+            res = res.squeeze(-1)
 
         if self.has_left:
-            args = [solves, left_tensor, right_tensor] + list(matrix_args)
+            args = [solves, left_tensor, orig_right_tensor] + list(matrix_args)
         else:
-            args = [solves, right_tensor] + list(matrix_args)
+            args = [solves, orig_right_tensor] + list(matrix_args)
         self.save_for_backward(*args)
         if settings.memory_efficient.off():
             self._lazy_tsr = lazy_tsr
@@ -73,12 +73,9 @@ class InvMatmul(Function):
             # De-vectorize objects
             if self.is_vector:
                 right_tensor = right_tensor.unsqueeze(-1)
+                grad_output = grad_output.unsqueeze(-1)
 
             if not self.has_left:
-                if self.is_vector:
-                    grad_output = grad_output.unsqueeze(-1)
-                    right_solves.unsqueeze_(-1)
-
                 # Compute self^{-1} grad_output
                 left_solves = lazy_tsr._solve(grad_output, self.preconditioner)
 
@@ -92,9 +89,6 @@ class InvMatmul(Function):
                 return tuple([right_grad] + list(arg_grads))
 
             else:
-                if self.is_vector:
-                    grad_output = grad_output.unsqueeze(-1)
-
                 left_solves = left_solves @ grad_output
 
                 if self.needs_input_grad[1]:
