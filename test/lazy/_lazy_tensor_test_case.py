@@ -134,7 +134,6 @@ class RectangularLazyTensorTestCase(object):
                 self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
                 res = lazy_tensor.__getitem__((*batch_index, 1, slice(0, 2, None)))
                 actual = evaluated.__getitem__((*batch_index, 1, slice(0, 2, None)))
-                res = res.evaluate() if isinstance(res, gpytorch.lazy.LazyTensor) else res
                 self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
                 res = lazy_tensor.__getitem__((*batch_index, slice(1, None, None), 2))
                 actual = evaluated.__getitem__((*batch_index, slice(1, None, None), 2))
@@ -178,7 +177,6 @@ class RectangularLazyTensorTestCase(object):
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
             index = (Ellipsis, torch.tensor([0, 0, 1, 2]), torch.tensor([0, 1, 0, 2]))
             res, actual = lazy_tensor[index], evaluated[index]
-            res = res.evaluate() if isinstance(res, gpytorch.lazy.LazyTensor) else res
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
 
         # Batch case
@@ -188,7 +186,6 @@ class RectangularLazyTensorTestCase(object):
             ):
                 index = (*batch_index, torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1]))
                 res, actual = lazy_tensor[index], evaluated[index]
-                res = res.evaluate() if isinstance(res, gpytorch.lazy.LazyTensor) else res
                 self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
                 index = (*batch_index, torch.tensor([0, 1, 0, 2]), slice(None, None, None))
                 res, actual = lazy_tensor[index], evaluated[index]
@@ -206,7 +203,6 @@ class RectangularLazyTensorTestCase(object):
             # Ellipsis
             res = lazy_tensor.__getitem__((Ellipsis, torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1])))
             actual = evaluated.__getitem__((Ellipsis, torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1])))
-            res = res.evaluate() if isinstance(res, gpytorch.lazy.LazyTensor) else res
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
             res = lazy_tensor.__getitem__((torch.tensor([0, 1, 0, 1]), Ellipsis, torch.tensor([1, 2, 0, 1])))
             actual = evaluated.__getitem__((torch.tensor([0, 1, 0, 1]), Ellipsis, torch.tensor([1, 2, 0, 1])))
