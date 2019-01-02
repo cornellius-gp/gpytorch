@@ -11,12 +11,12 @@ class TestCatLazyTensor(LazyTensorTestCase, unittest.TestCase):
     should_test_sample = True
 
     def create_lazy_tensor(self):
-        root = torch.randn(9, 9)
+        root = torch.randn(6, 7)
         self.psd_mat = root.matmul(root.t())
 
-        slice1_mat = self.psd_mat[:3, :].requires_grad_()
-        slice2_mat = self.psd_mat[3:6, :].requires_grad_()
-        slice3_mat = self.psd_mat[6:9, :].requires_grad_()
+        slice1_mat = self.psd_mat[:2, :].requires_grad_()
+        slice2_mat = self.psd_mat[2:4, :].requires_grad_()
+        slice3_mat = self.psd_mat[4:6, :].requires_grad_()
 
         slice1 = NonLazyTensor(slice1_mat)
         slice2 = NonLazyTensor(slice2_mat)
@@ -33,12 +33,12 @@ class TestCatLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     should_test_sample = True
 
     def create_lazy_tensor(self):
-        root = torch.randn(3, 9, 9)
+        root = torch.randn(3, 6, 7)
         self.psd_mat = root.matmul(root.transpose(-2, -1))
 
-        slice1_mat = self.psd_mat[..., :3, :].requires_grad_()
-        slice2_mat = self.psd_mat[..., 3:6, :].requires_grad_()
-        slice3_mat = self.psd_mat[..., 6:9, :].requires_grad_()
+        slice1_mat = self.psd_mat[..., :2, :].requires_grad_()
+        slice2_mat = self.psd_mat[..., 2:4, :].requires_grad_()
+        slice3_mat = self.psd_mat[..., 4:6, :].requires_grad_()
 
         slice1 = NonLazyTensor(slice1_mat)
         slice2 = NonLazyTensor(slice2_mat)
