@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import torch
+
 from .. import settings
-from ..lazy import LazyTensor, InterpolatedLazyTensor, SumLazyTensor, MatmulLazyTensor, RootLazyTensor
+from ..distributions import MultivariateNormal
+from ..lazy import InterpolatedLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached
-from ..distributions import MultivariateNormal
+
 
 _PREDICTION_STRATEGY_REGISTRY = {}
 
@@ -42,6 +44,13 @@ class DefaultPredictionStrategy(object):
         self._last_test_train_covar = None
         mvn = self.likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
         self.lik_train_train_covar = mvn.lazy_covariance_matrix
+
+    def __deepcopy__(self, memo):
+        # deepcopying prediciton strategies of a model evaluated on inputs that require gradients fails
+        # with RuntimeError (Only Tensors created explicitly by the user (graph leaves) support the deepcopy
+        # protocol at the moment). Overwriting this method make sure that the prediction strategies of a
+        # model are set to None upon deepcopying.
+        pass
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         """
@@ -174,10 +183,10 @@ class DefaultPredictionStrategy(object):
         # Form new root Z = [L 0; lower_left schur_root]
         num_fant = schur_root.size(-2)
         new_root = torch.zeros(*batch_shape, L.size(-2) + num_fant, L.size(-1) + num_fant).type_as(L)
-        new_root[..., :L.size(-2), :L.size(-1)] = L
-        new_root[..., :L.size(-2), L.size(-1):] = upper_right
-        new_root[..., L.size(-2):, :L.size(-1)] = lower_left
-        new_root[..., L.size(-2):, L.size(-1):] = schur_root
+        new_root[..., : L.size(-2), : L.size(-1)] = L
+        new_root[..., : L.size(-2), L.size(-1) :] = upper_right
+        new_root[..., L.size(-2) :, : L.size(-1)] = lower_left
+        new_root[..., L.size(-2) :, L.size(-1) :] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
         # TODO: Replace pseudo-inverse calculation with something more stable than normal equations once
@@ -199,9 +208,9 @@ class DefaultPredictionStrategy(object):
             train_train_covar=full_covar,
             train_labels=full_targets,
             likelihood=self.likelihood,
-            non_batch_train=(len(batch_shape) == 0)
+            non_batch_train=(len(batch_shape) == 0),
         )
-        setattr(fant_strat, '__cache', {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
+        setattr(fant_strat, "__cache", {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
 
         return fant_strat
 
@@ -332,8 +341,9 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return res
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
-        raise NotImplementedError("Fantasy observation updates not yet supported for models "
-                                  "using InterpolatedLazyTensors")
+        raise NotImplementedError(
+            "Fantasy observation updates not yet supported for models using InterpolatedLazyTensors"
+        )
 
     @property
     @cached(name="mean_cache")
