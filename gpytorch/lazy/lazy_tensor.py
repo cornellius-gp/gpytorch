@@ -67,7 +67,7 @@ class LazyTensor(object):
         operate on these batches if present.
     """
 
-    def _get_indices(self, *batch_indices, left_indices, right_indices):
+    def _get_indices(self, left_indices, right_indices, *batch_indices):
         """
         Returns entries of the matrix, indexed by batch, row, and column indices
         """
@@ -172,7 +172,7 @@ class LazyTensor(object):
             which does some additional work. Calling this method directly is discouraged.
 
         Args:
-            :attr:`indices` (tuple of int, slice, or LongTensor):
+            :attr:`indices` (tuple of `int`s, `slice`s, or `LongTensor`s):
                 A collection of indices for each of the dimensions. There will be exactly one index per dimension.
         """
         if settings.debug.on():
