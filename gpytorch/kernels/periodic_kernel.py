@@ -121,7 +121,7 @@ class PeriodicKernel(Kernel):
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)
         x2_ = x2.div(self.period_length)
-        diff = self._covar_sq_dist(x1_, x2_, **params).sqrt_()
+        diff = self._covar_dist(x1_, x2_, **params)
         res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
         if diff.ndimension() == 2:
             res = res.squeeze(0)

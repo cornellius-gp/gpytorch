@@ -112,7 +112,7 @@ class MaternKernel(Kernel):
 
         x1_ = (x1 - mean).div(self.lengthscale)
         x2_ = (x2 - mean).div(self.lengthscale)
-        distance = self._covar_sq_dist(x1_, x2_, **params).sqrt_()
+        distance = self._covar_dist(x1_, x2_, **params)
         exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)
 
         if self.nu == 0.5:
