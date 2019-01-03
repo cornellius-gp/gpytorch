@@ -3,7 +3,7 @@
 import torch
 import itertools
 from collections import defaultdict
-from .lazy_tensor import LazyTensor
+from .lazy_tensor import LazyTensor, delazify
 from .non_lazy_tensor import lazify
 
 
@@ -110,21 +110,22 @@ class CatLazyTensor(LazyTensor):
 
         eval_result = (torch.is_tensor(indices[-2]) and torch.is_tensor(indices[-1]))
         eval_result = eval_result or (isinstance(indices[-2], int) or isinstance(indices[-1], int))
+        maybe_lazify = delazify if eval_result else lazify
 
         if new_cat_dim is None:
             # target_indices must be a int so we can let the LazyTensor squeeze out cat_dim
             t_idx = self.idx_to_tensor_idx[target_indices]
-            return self.lazy_tensors[t_idx]._getitem(*indices)
+            return maybe_lazify(self.lazy_tensors[t_idx]._getitem(*indices))
 
         if all(torch.is_tensor(x) for x in indices):
             left_indices, right_indices = indices[-2], indices[-1]
             batch_indices = indices[:-2]
-            return self._get_indices(left_indices, right_indices, *batch_indices)
+            return maybe_lazify(self._get_indices(left_indices, right_indices, *batch_indices))
 
         if isinstance(target_indices, slice):
             if target_indices == slice(None, None, None):
                 res_list = [lazify(t._getitem(*indices)) for t in self.lazy_tensors]
-                return self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
+                return maybe_lazify(self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device))
             else:
                 target_slices = self._split_slice(target_indices)
                 target_tensors = [self.idx_to_tensor_idx[sl.start] for sl in target_slices]
@@ -140,14 +141,14 @@ class CatLazyTensor(LazyTensor):
                 if len(res_list) == 1:
                     result = res_list[0]
                 elif all([rl.dim() == 1 for rl in res_list]):
-                    return torch.cat([rl.evaluate().to(self.device) for rl in res_list])
+                    return maybe_lazify(torch.cat([rl.evaluate().to(self.device) for rl in res_list]))
                 else:
                     shape_diffs = torch.tensor(res_list[0].shape) - torch.tensor(res_list[1].shape)
                     new_cat_dims = (shape_diffs != 0).nonzero()
                     new_cat_dim = new_cat_dims.item() if new_cat_dims.numel() > 0 else self.cat_dim
                     result = self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
 
-                return result.evaluate().to(self.output_device) if eval_result else result.to(self.output_device)
+                return maybe_lazify(result.to(self.output_device))
         elif torch.is_tensor(target_indices):
             # this means another `indices` is a slice object
             target_indices = [idx.item() for idx in target_indices]
@@ -177,7 +178,7 @@ class CatLazyTensor(LazyTensor):
 
                 result = self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
 
-            return result.evaluate().to(self.output_device) if eval_result else result.to(self.output_device)
+            return maybe_lazify(result.to(self.output_device))
 
     def _get_indices(self, left_indices, right_indices, *batch_indices):
         # tensor indices must all have the same length
