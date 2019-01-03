@@ -121,7 +121,7 @@ class InvQuadLogDet(Function):
         # Compute log_det from tridiagonalization
         if self.log_det and settings.skip_logdet_forward.off():
             if torch.any(torch.isnan(t_mat)).item():
-                log_det_term = float("nan")
+                log_det_term = torch.tensor(float("nan"), dtype=self.dtype, device=self.device)
             else:
                 if self.batch_shape is None:
                     t_mat = t_mat.unsqueeze(1)
