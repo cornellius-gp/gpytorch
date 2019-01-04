@@ -85,15 +85,45 @@ class RBFKernelGrad(RBFKernel):
             K = K[..., pi1, :][..., :, pi2]
 
             return K
-        else:
+        else: # TODO: This will change when ARD is supported
             kernel_diag = super(RBFKernelGrad, self).forward(x1, x2, diag=True)
-            print(kernel_diag.size())
-            # TODO: This will change when ARD is supported
-            grad_diags = (1 / self.lengthscale.squeeze().pow(2)).expand_as(kernel_diag).repeat(1, d)
-
-            k_diag = torch.cat((kernel_diag, grad_diags), dim=-1)
-            pi = torch.arange(n1 * (d + 1)).view(d + 1, n2).t().contiguous().view((n1 * (d + 1)))
+            grad_diag = (1 / self.lengthscale.item() ** 2) * torch.ones(1, n2*d)
+            k_diag = torch.cat((kernel_diag, grad_diag), dim=-1)
+            pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             return k_diag[..., pi]
+
+    def _create_input_grid(self, x1, x2, diag=False, batch_dims=None, **params):  # TODO: Remove me please
+        """
+        This is a helper method for creating a grid of the kernel's inputs.
+        Use this helper rather than maually creating a meshgrid.
+        The grid dimensions depend on the kernel's evaluation mode.
+        Args:
+            :attr:`x1` (Tensor `n x d` or `b x n x d`)
+            :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
+        Returns:
+            (:class:`Tensor`, :class:`Tensor) corresponding to the gridded `x1` and `x2`.
+            The shape depends on the kernel's mode
+            * `full_covar`: (`b x n x 1 x d` and `b x 1 x m x d`)
+            * `full_covar` with `batch_dims=(0, 2)`: (`b x k x n x 1 x 1` and `b x k x 1 x m x 1`)
+            * `diag`: (`b x n x d` and `b x n x d`)
+            * `diag` with `batch_dims=(0, 2)`: (`b x k x n x 1` and `b x k x n x 1`)
+        """
+        x1_, x2_ = x1, x2
+        if batch_dims == (0, 2):
+            x1_ = x1_.view(*x1.size()[:-1], -1, 1)
+            x1_ = x1_.permute(0, -2, *list(range(1, x1_.dim() - 2)), -1).contiguous()
+            x1_ = x1_.view(-1, *x1_.size()[2:])
+            if torch.equal(x1, x2):
+                x2_ = x1_
+            else:
+                x2_ = x2_.view(*x2.size()[:-1], -1, 1)
+                x2_ = x2_.permute(0, -2, *list(range(1, x2_.dim() - 2)), -1).contiguous()
+                x2_ = x2_.view(-1, *x2_.size()[2:])
+
+        if diag:
+            return x1_, x2_
+        else:
+            return x1_.unsqueeze(-2), x2_.unsqueeze(-3)
 
     def size(self, x1, x2):
         """
