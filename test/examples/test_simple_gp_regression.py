@@ -299,8 +299,8 @@ class TestSimpleGPRegression(unittest.TestCase):
             self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=False)
 
     def test_posterior_with_exact_computations_cuda(self):
-        with gpytorch.settings.fast_computations(covar_root_decomposition=False, log_prob=False):
-            if torch.cuda.is_available():
+        if torch.cuda.is_available():
+            with gpytorch.settings.fast_computations(covar_root_decomposition=False, log_prob=False):
                 self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=True)
 
     def test_posterior_latent_gp_and_likelihood_fast_pred_var(self, cuda=False):
