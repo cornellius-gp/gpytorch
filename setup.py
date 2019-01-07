@@ -12,10 +12,9 @@ setup(
     url="https://gpytorch.ai",
     author="Jake Gardner, Geoff Pleiss",
     author_email="jrg365@cornell.edu, gpleiss@gmail.com",
-    install_requires=[],
-    setup_requires=[],
-    packages=find_packages(),
     python_requires=">=3.6",
+    install_requires=["torch>=1.0.0"],
+    packages=find_packages(),
     classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
     project_urls={
         "Documentation": "https://gpytorch.readthedocs.io",
