@@ -13,7 +13,11 @@ class ConstantMeanGrad(Mean):
             self.register_prior("mean_prior", prior, "constant")
 
     def forward(self, input):
-        mean = self.constant.unsqueeze(-1).repeat(input.size(0), input.size(1), input.size(2) + 1)
+        mean = self.constant.squeeze().repeat(input.size(-2), input.size(-1) + 1)
+        if input.ndimension() == 3:
+            mean = self.constant.squeeze().repeat(input.size(0), input.size(1), input.size(2) + 1)
+        else:
+            mean = self.constant.squeeze().repeat(input.size(0), input.size(1) + 1)
         mean[..., :, 1:] = 0
         return mean
     

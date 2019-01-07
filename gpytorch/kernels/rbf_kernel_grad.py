@@ -4,6 +4,7 @@ from ..lazy import DiagLazyTensor, NonLazyTensor
 from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 import torch
+from ..lazy.kronecker_product_lazy_tensor import KroneckerProductLazyTensor
 
 
 class RBFKernelGrad(RBFKernel):
@@ -22,7 +23,7 @@ class RBFKernelGrad(RBFKernel):
         if ard_num_dims is not None:
             raise RuntimeError('ARD is not supported with derivative observations yet!')
 
-        super(RBFKernelGrad, self).__init__(
+        super().__init__(
             ard_num_dims=None,
             batch_size=1,
             active_dims=None,
@@ -34,55 +35,52 @@ class RBFKernelGrad(RBFKernel):
         )
 
     def forward(self, x1, x2, diag=False, **params):
-        if len(x1.size()) == 1:
-            d = 1
-            n1, n2 = x1.size()[0], x2.size()[0]
-        elif len(x1.size()) == 2:
+        if len(x1.size()) == 2:
             n1, d = x1.size()
-            n2, _ = x2.size()
+            n2, d = x2.size()
         else:
             _, n1, d = x1.size()
             _, n2, _ = x2.size()
 
         if not diag:
-            K = torch.zeros(*x1.shape[:-2], n1 * (d + 1), n2 * (d + 1))
-            x1_ = x1 / self.lengthscale
-            x2_ = x2 / self.lengthscale
-            x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
-
-            all_diff = (x1_ - x2_)
-            diff = all_diff.norm(2, dim=-1)
-            all_diff = all_diff.squeeze(len(all_diff.size()) - 1)
+            ell = self.lengthscale.double()
+            K = torch.zeros(*x1.shape[:-2], n1 * (d + 1), n2 * (d + 1), dtype=torch.double)
+            x1_ = x1.double() / ell
+            x2_ = x2.double() / ell
 
             # 1) Kernel block
-            K_11 = diff.pow(2).div(-2).exp()
+            diff = self._covar_dist(x1_, x2_, square_dist=True, **params)
+            K_11 = diff.div_(-2).exp_()
             K[..., :n1, :n2] = K_11
 
             shape_list = [1] * len(K_11.shape[:-2])
+            outer = x1_.view(shape_list + [n1, 1, d]) - x2_.view(shape_list + [1, n2, d])
+            outer = torch.transpose(outer, -1, -2).contiguous()
 
             # 2) First gradient block
-            K_rep = K_11.repeat(*(shape_list + [1, d]))
-            all_K = (all_diff / self.lengthscale) * K_rep
-            deriv_K = all_K.contiguous().view(d * n1, n2)
-            K[..., :n1, n2:] = deriv_K
+            outer1 = outer.view(shape_list + [n1, n2*d])
+            K[..., :n1, n2:] = outer1 * K_11.repeat(shape_list + [1, d]) / ell
 
             # 3) Second gradient block
-            K_rep = K_11.repeat(*(shape_list + [d, 1]))
-            all_K = (all_diff / self.lengthscale) * K_rep
-            deriv_K = all_K.permute(0, 2, 1).contiguous().view(d * n2, n1)
-            K[..., n1:, :n2] = -deriv_K.transpose(0, 1)
+            outer2 = outer.transpose(-1, -3).contiguous().view(shape_list + [n2, n1*d])
+            outer2 = outer2.transpose(-1, -2) 
+            K[..., n1:, :n2] = -outer2 * K_11.repeat(shape_list + [d, 1]) / ell
 
             # 4) Hessian block
-            outer_prod = all_diff.contiguous().view(d * n1, n2)
-            outer_prod = - (outer_prod * outer_prod) / self.lengthscale.pow(2)
-            I = torch.eye(d) / self.lengthscale.pow(2)
-            outer_prod += I.repeat(shape_list + [n1, n2])
-            repeated_K = K_11.repeat(shape_list + [d, d])
-            K[..., n1:, n2:] = outer_prod * repeated_K
+            outer3 = outer1.repeat(shape_list + [d, 1]) * outer2.repeat(shape_list + [1, d])
+            kp = KroneckerProductLazyTensor(torch.eye(d, d, dtype=torch.double), \
+                torch.ones(n1, n2, dtype=torch.double))
+            fact1 = kp.evaluate() - outer3
+            K[..., n1:, n2:] = fact1 * K_11.repeat(shape_list + [d, d]) / (ell ** 2)
+
+            if n1 == n2 and torch.eq(x1, x2).all():  # Symmetrize for stability
+                K = 0.5*(K.transpose(-1, -2) + K)
 
             pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().contiguous().view((n1 * (d + 1)))
             pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             K = K[..., pi1, :][..., :, pi2]
+
+            K = K.float()  # Convert back to float
 
             return K
         else: # TODO: This will change when ARD is supported
@@ -91,39 +89,6 @@ class RBFKernelGrad(RBFKernel):
             k_diag = torch.cat((kernel_diag, grad_diag), dim=-1)
             pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             return k_diag[..., pi]
-
-    def _create_input_grid(self, x1, x2, diag=False, batch_dims=None, **params):  # TODO: Remove me please
-        """
-        This is a helper method for creating a grid of the kernel's inputs.
-        Use this helper rather than maually creating a meshgrid.
-        The grid dimensions depend on the kernel's evaluation mode.
-        Args:
-            :attr:`x1` (Tensor `n x d` or `b x n x d`)
-            :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
-        Returns:
-            (:class:`Tensor`, :class:`Tensor) corresponding to the gridded `x1` and `x2`.
-            The shape depends on the kernel's mode
-            * `full_covar`: (`b x n x 1 x d` and `b x 1 x m x d`)
-            * `full_covar` with `batch_dims=(0, 2)`: (`b x k x n x 1 x 1` and `b x k x 1 x m x 1`)
-            * `diag`: (`b x n x d` and `b x n x d`)
-            * `diag` with `batch_dims=(0, 2)`: (`b x k x n x 1` and `b x k x n x 1`)
-        """
-        x1_, x2_ = x1, x2
-        if batch_dims == (0, 2):
-            x1_ = x1_.view(*x1.size()[:-1], -1, 1)
-            x1_ = x1_.permute(0, -2, *list(range(1, x1_.dim() - 2)), -1).contiguous()
-            x1_ = x1_.view(-1, *x1_.size()[2:])
-            if torch.equal(x1, x2):
-                x2_ = x1_
-            else:
-                x2_ = x2_.view(*x2.size()[:-1], -1, 1)
-                x2_ = x2_.permute(0, -2, *list(range(1, x2_.dim() - 2)), -1).contiguous()
-                x2_ = x2_.view(-1, *x2_.size()[2:])
-
-        if diag:
-            return x1_, x2_
-        else:
-            return x1_.unsqueeze(-2), x2_.unsqueeze(-3)
 
     def size(self, x1, x2):
         """
