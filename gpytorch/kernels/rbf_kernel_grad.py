@@ -43,10 +43,10 @@ class RBFKernelGrad(RBFKernel):
             _, n2, _ = x2.size()
 
         if not diag:
-            ell = self.lengthscale.double()
-            K = torch.zeros(*x1.shape[:-2], n1 * (d + 1), n2 * (d + 1), dtype=torch.double)
-            x1_ = x1.double() / ell
-            x2_ = x2.double() / ell
+            ell = self.lengthscale
+            K = torch.zeros(*x1.shape[:-2], n1 * (d + 1), n2 * (d + 1))
+            x1_ = x1 / ell
+            x2_ = x2 / ell
 
             # 1) Kernel block
             diff = self._covar_dist(x1_, x2_, square_dist=True, **params)
@@ -59,19 +59,18 @@ class RBFKernelGrad(RBFKernel):
 
             # 2) First gradient block
             outer1 = outer.view(shape_list + [n1, n2*d])
-            K[..., :n1, n2:] = outer1 * K_11.repeat(shape_list + [1, d]) / ell
+            K[..., :n1, n2:] = (outer1  / ell) * K_11.repeat(shape_list + [1, d])
 
             # 3) Second gradient block
             outer2 = outer.transpose(-1, -3).contiguous().view(shape_list + [n2, n1*d])
             outer2 = outer2.transpose(-1, -2) 
-            K[..., n1:, :n2] = -outer2 * K_11.repeat(shape_list + [d, 1]) / ell
+            K[..., n1:, :n2] = - (outer2  / ell) * K_11.repeat(shape_list + [d, 1])
 
             # 4) Hessian block
             outer3 = outer1.repeat(shape_list + [d, 1]) * outer2.repeat(shape_list + [1, d])
-            kp = KroneckerProductLazyTensor(torch.eye(d, d, dtype=torch.double), \
-                torch.ones(n1, n2, dtype=torch.double))
-            fact1 = kp.evaluate() - outer3
-            K[..., n1:, n2:] = fact1 * K_11.repeat(shape_list + [d, d]) / (ell ** 2)
+            kp = KroneckerProductLazyTensor(torch.eye(d, d), torch.ones(n1, n2))
+            fact1 = kp.evaluate() / ell.pow(2) - outer3 / ell.pow(2)
+            K[..., n1:, n2:] = fact1 * K_11.repeat(shape_list + [d, d]) 
 
             if n1 == n2 and torch.eq(x1, x2).all():  # Symmetrize for stability
                 K = 0.5*(K.transpose(-1, -2) + K)
@@ -79,8 +78,6 @@ class RBFKernelGrad(RBFKernel):
             pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().contiguous().view((n1 * (d + 1)))
             pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             K = K[..., pi1, :][..., :, pi2]
-
-            K = K.float()  # Convert back to float
 
             return K
         else: # TODO: This will change when ARD is supported
