@@ -106,6 +106,9 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             return lazify(super(_MultivariateNormalBase, self).covariance_matrix)
 
     def log_prob(self, value):
+        if settings.fast_computations.log_prob.off():
+            return super().log_prob(value)
+
         if self._validate_args:
             self._validate_sample(value)
 

@@ -74,6 +74,33 @@ class _fast_covar_root_decomposition(_feature_flag):
     _state = True
 
 
+class _fast_log_prob(_feature_flag):
+    r"""
+    This feature flag controls how to compute the marginal log likelihood of exact GPs
+    and the log probability of multivariate normal distributions.
+
+    If set to True, log_prob is computed using a modified conjugate gradients algorithm (as
+    described in `GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration`_.
+    This is a stochastic computation, but it is much faster for large matrices
+    and exploits structure in the covariance matrix if applicable.
+
+    If set to False, `log_prob` is computed using the Cholesky decomposition.
+
+    .. warning ::
+
+        Setting this to False will compute a complete Cholesky decomposition of covariance matrices.
+        This may be infeasible for GPs with structure covariance matrices.
+
+    See also: :class:`gpytorch.settings.num_trace_samples` (to control the
+    stochasticity of the fast `log_prob` estimates).
+
+    .. _GPyTorch: Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration:
+        https://arxiv.org/pdf/1809.11165.pdf
+    """
+
+    _state = True
+
+
 class check_training_data(_feature_flag):
     """
     Check whether the correct training data is supplied in Exact GP training mode
@@ -173,36 +200,61 @@ class fast_computations(object):
     functions used in GP inference.
     The functions that can be controlled are:
 
-    * :attr:`covar_root_decomposition` - This feature flag controls how matrix root decompositions
+    * :attr:`covar_root_decomposition`
+        This feature flag controls how matrix root decompositions
         (:math:`K = L L^\top`) are computed (e.g. for sampling, computing caches, etc.).
 
-        * If set to True, covariance matrices :math:`K` are decomposed with low-rank approximations :math:`L L^\top`,
+        * If set to True,
+            covariance matrices :math:`K` are decomposed with low-rank approximations :math:`L L^\top`,
             (:math:`L \in \mathbb R^{n \times k}`) using the Lanczos algorithm.
             This is faster for large matrices and exploits structure in the covariance matrix if applicable.
 
-        * If set to False, covariance matrices :math:`K` are decomposed using the Cholesky decomposition.
+        * If set to False,
+            covariance matrices :math:`K` are decomposed using the Cholesky decomposition.
+
+    * :attr:`log_prob`
+        This feature flag controls how GPyTorch computes the marginal log likelihood for exact GPs
+        and `log_prob` for multivariate normal distributions
+
+        * If set to True,
+            `log_prob` is computed using a modified conjugate gradients algorithm (as
+            described in `GPyTorch Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration`_.
+            This is a stochastic computation, but it is much faster for large matrices
+            and exploits structure in the covariance matrix if applicable.
+
+        * If set to False,
+            `log_prob` is computed using the Cholesky decomposition.
+
+    .. warning ::
+
+        Setting this to False will compute a complete Cholesky decomposition of covariance matrices.
+        This may be infeasible for GPs with structure covariance matrices.
 
     By default, approximations are used for all of these functions. Setting any of them to False will use
     exact computations instead.
 
-    .. warning ::
+    See also:
+        * :class:`gpytorch.settings.max_root_decomposition_size`
+            (to control the size of the low rank decomposition used)
+        * :class:`gpytorch.settings.num_trace_samples`
+            (to control the stochasticity of the fast `log_prob` estimates)
 
-        Setting any of these options to False will compute a complete Cholesky decomposition of covariance matrices.
-        This may be infeasible for GPs with structure covariance matrices.
-
-    See also: :class:`gpytorch.settings.max_root_decomposition_size` (to control the
-    size of the low rank decomposition used).
+    .. _GPyTorch Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration:
+        https://arxiv.org/pdf/1809.11165.pdf
     """
     covar_root_decomposition = _fast_covar_root_decomposition
+    log_prob = _fast_log_prob
 
-    def __init__(self, covar_root_decomposition=True):
+    def __init__(self, covar_root_decomposition=True, log_prob=True):
         self.covar_root_decomposition = _fast_covar_root_decomposition(covar_root_decomposition)
+        self.log_prob = _fast_log_prob(log_prob)
 
     def __enter__(self):
         self.covar_root_decomposition.__enter__()
+        self.log_prob.__enter__()
 
     def __exit__(self, *args):
-        self.covar_root_decomposition.__exit__()
+        self.log_prob.__exit__()
         return False
 
 
