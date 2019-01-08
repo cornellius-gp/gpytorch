@@ -1352,6 +1352,9 @@ class LazyTensor(object):
         # Call self._getitem - now that the index has been processed
         return self._getitem(*index)
 
+    def __matmul__(self, other):
+        return self.matmul(other)
+
     def __mul__(self, other):
         """
         Convenience alias of :meth:`~gpytorch.lazy.LazyTensor.mul` that allows the standard product operator to be
