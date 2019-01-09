@@ -326,8 +326,8 @@ class CatLazyTensor(LazyTensor):
     def inv_quad(self, tensor):
         return super().inv_quad(tensor).to(self.device)
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
-        res = super().inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad)
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
+        res = super().inv_quad_logdet(inv_quad_rhs, logdet, reduce_inv_quad)
         return tuple(r.to(self.device) for r in res)
 
     def matmul(self, other):

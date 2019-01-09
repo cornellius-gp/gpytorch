@@ -19,7 +19,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
 
         lazy_tensor = NonLazyTensor(mat)
         eager_rhs = torch.randn(5, 10).detach()
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
             solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
                 lazy_tensor, eager_rhs.detach(), logdet_terms=False
             )
@@ -159,10 +159,10 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
             ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
         )
 
-    def test_inv_quad_log_det(self):
+    def test_inv_quad_logdet(self):
         pass
 
-    def test_inv_quad_log_det_no_reduce(self):
+    def test_inv_quad_logdet_no_reduce(self):
         pass
 
     def test_root_inv_decomposition(self):
@@ -186,7 +186,7 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
 
         lazy_tensor = NonLazyTensor(mat)
         eager_rhs = torch.randn(5, 10).detach()
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
             solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
                 lazy_tensor, eager_rhs.detach()
             )
@@ -200,7 +200,7 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
     def evaluate_lazy_tensor(self, lazy_tensor):
         return lazy_tensor.base_lazy_tensor.tensor
 
-    def test_inv_quad_log_det(self):
+    def test_inv_quad_logdet(self):
         # Forward
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -210,20 +210,20 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
         vecs_copy = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
 
         with gpytorch.settings.num_trace_samples(128), warnings.catch_warnings(record=True) as w:
-            res_inv_quad, res_log_det = lazy_tensor.inv_quad_log_det(inv_quad_rhs=vecs, log_det=True)
+            res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=vecs, logdet=True)
             self.assertEqual(len(w), 0)
-        res = res_inv_quad + res_log_det
+        res = res_inv_quad + res_logdet
 
         actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
-        actual_log_det = torch.cat(
+        actual_logdet = torch.cat(
             [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
         ).view(lazy_tensor.batch_shape)
-        actual = actual_inv_quad + actual_log_det
+        actual = actual_inv_quad + actual_logdet
 
         diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
         self.assertLess(diff.max().item(), 15e-2)
 
-    def test_inv_quad_log_det_no_reduce(self):
+    def test_inv_quad_logdet_no_reduce(self):
         # Forward
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -233,17 +233,17 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
         vecs_copy = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
 
         with gpytorch.settings.num_trace_samples(128), warnings.catch_warnings(record=True) as w:
-            res_inv_quad, res_log_det = lazy_tensor.inv_quad_log_det(
-                inv_quad_rhs=vecs, log_det=True, reduce_inv_quad=False
+            res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
+                inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
             )
             self.assertEqual(len(w), 0)
-        res = res_inv_quad.sum(-1) + res_log_det
+        res = res_inv_quad.sum(-1) + res_logdet
 
         actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
-        actual_log_det = torch.cat(
+        actual_logdet = torch.cat(
             [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
         ).view(lazy_tensor.batch_shape)
-        actual = actual_inv_quad + actual_log_det
+        actual = actual_inv_quad + actual_logdet
 
         diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
         self.assertLess(diff.max().item(), 15e-2)
@@ -257,7 +257,7 @@ class TestCachedCGLazyTensorNoLogdetBatch(TestCachedCGLazyTensorNoLogdet):
         mat = mat.matmul(mat.transpose(-1, -2))
         mat.requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
             lazy_tensor = NonLazyTensor(mat)
             eager_rhs = torch.randn(3, 5, 10).detach()
             solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
@@ -286,7 +286,7 @@ class TestCachedCGLazyTensorBatch(TestCachedCGLazyTensor):
         mat = mat.matmul(mat.transpose(-1, -2))
         mat.requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_log_det tests
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
             lazy_tensor = NonLazyTensor(mat)
             eager_rhs = torch.randn(3, 5, 10).detach()
             solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
