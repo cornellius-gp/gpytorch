@@ -27,7 +27,7 @@ class InvMatmul(Function):
             right_tensor = right_tensor.unsqueeze(-1)
             self.is_vector = True
 
-        # Perform solves (for inv_quad) and tridiagonalization (for estimating log_det)
+        # Perform solves (for inv_quad) and tridiagonalization (for estimating logdet)
         if self.has_left:
             rhs = torch.cat([left_tensor.transpose(-1, -2), right_tensor], -1)
             solves = lazy_tsr._solve(rhs, self.preconditioner)

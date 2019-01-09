@@ -126,7 +126,7 @@ class DiagLazyTensor(LazyTensor):
             res = left_tensor @ res
         return res
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
 
         # TODO: Use proper batching for inv_quad_rhs (prepand to shape rathern than append)
         if inv_quad_rhs is None:
@@ -144,12 +144,12 @@ class DiagLazyTensor(LazyTensor):
             if reduce_inv_quad:
                 inv_quad_term = inv_quad_term.sum(-1)
 
-        if not log_det:
-            log_det_term = torch.empty(0, dtype=self.dtype, device=self.device)
+        if not logdet:
+            logdet_term = torch.empty(0, dtype=self.dtype, device=self.device)
         else:
-            log_det_term = self._diag.log().sum(-1)
+            logdet_term = self._diag.log().sum(-1)
 
-        return inv_quad_term, log_det_term
+        return inv_quad_term, logdet_term
 
     def log(self):
         return DiagLazyTensor(self._diag.log())

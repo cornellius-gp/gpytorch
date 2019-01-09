@@ -12,6 +12,7 @@ from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape
+from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.memoize import cached
 from ..utils.qr import batch_qr
 from ..utils.svd import batch_svd
@@ -366,7 +367,7 @@ class LazyTensor(object):
 
         ..note::
             This method is intended to be used only internally by various Functions that support backpropagation.
-            For example, this method is used internally by :func:`~gpytorch.lazy.LazyTensor.inv_quad_log_det`. It is
+            For example, this method is used internally by :func:`~gpytorch.lazy.LazyTensor.inv_quad_logdet`. It is
             not likely that users will need to call this method directly.
 
         Returns:
@@ -691,7 +692,7 @@ class LazyTensor(object):
         I.e. computes tr( tensor^T self^{-1} tensor )
 
         NOTE: Don't overwrite this function!
-        Instead, overwrite inv_quad_log_det
+        Instead, overwrite inv_quad_logdet
 
         Args:
             - tensor (tensor nxk) - Vector (or matrix) for inverse quad
@@ -699,10 +700,10 @@ class LazyTensor(object):
         Returns:
             - tensor - tr( tensor^T (self)^{-1} tensor )
         """
-        res, _ = self.inv_quad_log_det(inv_quad_rhs=tensor, log_det=False, reduce_inv_quad=reduce_inv_quad)
+        res, _ = self.inv_quad_logdet(inv_quad_rhs=tensor, logdet=False, reduce_inv_quad=reduce_inv_quad)
         return res
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         """
         Computes an inverse quadratic form (w.r.t self) with several right hand sides.
         I.e. computes tr( tensor^T self^{-1} tensor )
@@ -717,7 +718,7 @@ class LazyTensor(object):
         """
         if not self.is_square:
             raise RuntimeError(
-                "inv_quad_log_det only operates on (batches of) square (positive semi-definite) LazyTensors. "
+                "inv_quad_logdet only operates on (batches of) square (positive semi-definite) LazyTensors. "
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
@@ -746,39 +747,39 @@ class LazyTensor(object):
             args = [inv_quad_rhs] + list(args)
 
         probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
-        inv_quad_term, log_det_term = InvQuadLogDet(
+        inv_quad_term, logdet_term = InvQuadLogDet(
             representation_tree=self.representation_tree(),
             matrix_shape=self.matrix_shape,
             batch_shape=self.batch_shape,
             dtype=self.dtype,
             device=self.device,
             inv_quad=(inv_quad_rhs is not None),
-            log_det=log_det,
+            logdet=logdet,
             preconditioner=self._preconditioner()[0],
-            log_det_correction=self._preconditioner()[1],
+            logdet_correction=self._preconditioner()[1],
             probe_vectors=probe_vectors,
             probe_vector_norms=probe_vector_norms,
         )(*args)
 
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
-        return inv_quad_term, log_det_term
+        return inv_quad_term, logdet_term
 
     @property
     def is_square(self):
         return self.matrix_shape[0] == self.matrix_shape[1]
 
-    def log_det(self):
+    def logdet(self):
         """
         Computes an (approximate) log determinant of the matrix
 
         NOTE: Don't overwrite this function!
-        Instead, overwrite inv_quad_log_det
+        Instead, overwrite inv_quad_logdet
 
         Returns:
             - scalar: log determinant
         """
-        _, res = self.inv_quad_log_det(inv_quad_rhs=None, log_det=True)
+        _, res = self.inv_quad_logdet(inv_quad_rhs=None, logdet=True)
         return res
 
     def matmul(self, other):
@@ -1402,6 +1403,12 @@ def delazify(obj):
     else:
         raise TypeError("object of class {} cannot be made into a Tensor".format(obj.__class__.__name__))
 
+
+_deprecate_renamed_methods(
+    LazyTensor,
+    inv_quad_log_det="inv_quad_logdet",
+    log_det="logdet",
+)
 
 __all__ = [
     "LazyTensor",

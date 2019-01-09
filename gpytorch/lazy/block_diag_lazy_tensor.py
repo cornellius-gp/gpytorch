@@ -103,20 +103,20 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             res = res.view(-1)
         return res
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         if inv_quad_rhs is not None:
             inv_quad_rhs = inv_quad_rhs.view(-1, self.base_lazy_tensor.size(-1), inv_quad_rhs.size(-1))
-        inv_quad_res, log_det_res = self.base_lazy_tensor.inv_quad_log_det(
-            inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad
+        inv_quad_res, logdet_res = self.base_lazy_tensor.inv_quad_logdet(
+            inv_quad_rhs, logdet, reduce_inv_quad=reduce_inv_quad
         )
         if inv_quad_res is not None and inv_quad_res.numel():
             if reduce_inv_quad:
                 inv_quad_res = inv_quad_res.view(*self.batch_shape, -1).sum(-1)
             else:
                 inv_quad_res = inv_quad_res.view(*self.batch_shape, -1, inv_quad_res.size(-1)).sum(-2)
-        if log_det_res is not None and log_det_res.numel():
-            log_det_res = log_det_res.view(*self.batch_shape, -1).sum(-1)
-        return inv_quad_res, log_det_res
+        if logdet_res is not None and logdet_res.numel():
+            logdet_res = logdet_res.view(*self.batch_shape, -1).sum(-1)
+        return inv_quad_res, logdet_res
 
     def zero_mean_mvn_samples(self, num_samples):
         res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)

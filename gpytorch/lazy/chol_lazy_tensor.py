@@ -43,16 +43,16 @@ class CholLazyTensor(RootLazyTensor):
                 self._chol_diag_memo = self._chol.diag()
         return self._chol_diag_memo
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         inv_quad_term = None
-        log_det_term = None
+        logdet_term = None
 
         if inv_quad_rhs is not None:
-            inv_quad_term, _ = super(CholLazyTensor, self).inv_quad_log_det(
-                inv_quad_rhs, log_det=False, reduce_inv_quad=reduce_inv_quad
+            inv_quad_term, _ = super(CholLazyTensor, self).inv_quad_logdet(
+                inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
             )
 
-        if log_det:
-            log_det_term = self._chol_diag.log().sum(-1).mul(2)
+        if logdet:
+            logdet_term = self._chol_diag.log().sum(-1).mul(2)
 
-        return inv_quad_term, log_det_term
+        return inv_quad_term, logdet_term

@@ -66,8 +66,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 tensor, self._piv_chol_self, self._woodbury_cache, self._diag_tensor.diag()
             )
 
-        # log_det correction
-        if not hasattr(self, "_precond_log_det_cache"):
+        # logdet correction
+        if not hasattr(self, "_precond_logdet_cache"):
             lr_flipped = self._piv_chol_self.matmul(
                 self._piv_chol_self.transpose(-2, -1).div(self._diag_tensor.diag().unsqueeze(-1))
             )
@@ -78,6 +78,6 @@ class AddedDiagLazyTensor(SumLazyTensor):
             else:
                 ld_one = lr_flipped.cholesky(upper=True).diag().log().sum() * 2
                 ld_two = self._diag_tensor.diag().log().sum().item()
-            self._precond_log_det_cache = ld_one + ld_two
+            self._precond_logdet_cache = ld_one + ld_two
 
-        return precondition_closure, self._precond_log_det_cache
+        return precondition_closure, self._precond_logdet_cache

@@ -5,6 +5,7 @@ import torch
 from ._dsmm import DSMM
 from ._normal_cdf import NormalCDF
 from ._log_normal_cdf import LogNormalCDF
+from ..utils.deprecation import _deprecated_function_for
 
 
 def add_diag(input, diag):
@@ -131,11 +132,11 @@ def inv_quad(mat, tensor):
     Returns:
         - tensor - tr( tensor^T (mat)^{-1} tensor )
     """
-    res, _ = inv_quad_log_det(mat, inv_quad_rhs=tensor, log_det=False)
+    res, _ = inv_quad_logdet(mat, inv_quad_rhs=tensor, logdet=False)
     return res
 
 
-def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
+def inv_quad_logdet(mat, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
     """
     Computes an inverse quadratic form (w.r.t mat) with several right hand sides.
     I.e. computes tr( tensor^T mat^{-1} tensor )
@@ -149,17 +150,17 @@ def inv_quad_log_det(mat, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True
         - scalar - log determinant
     """
     from ..lazy import lazify
-    return lazify(mat).inv_quad_log_det(inv_quad_rhs, log_det, reduce_inv_quad=reduce_inv_quad)
+    return lazify(mat).inv_quad_logdet(inv_quad_rhs, logdet, reduce_inv_quad=reduce_inv_quad)
 
 
-def log_det(mat):
+def logdet(mat):
     """
     Computes an (approximate) log determinant of the matrix
 
     Returns:
         - scalar - log determinant
     """
-    _, res = inv_quad_log_det(mat, inv_quad_rhs=None, log_det=True)
+    _, res = inv_quad_logdet(mat, inv_quad_rhs=None, logdet=True)
     return res
 
 
@@ -190,16 +191,23 @@ def root_inv_decomposition(mat, initial_vectors=None, test_vectors=None):
     return lazify(mat).root_inv_decomposition(initial_vectors, test_vectors)
 
 
+log_det = _deprecated_function_for("log_det", logdet)
+inv_quad_log_det = _deprecated_function_for("inv_quad_log_det", inv_quad_logdet)
+
+
 __all__ = [
     "add_diag",
     "dsmm",
     "inv_matmul",
     "inv_quad",
-    "inv_quad_log_det",
-    "log_det",
+    "inv_quad_logdet",
+    "logdet",
     "log_normal_cdf",
     "matmul",
     "normal_cdf",
     "root_decomposition",
     "root_inv_decomposition",
+    # Deprecated
+    "log_det"
+    "inv_quad_log_det"
 ]

@@ -22,11 +22,11 @@ Functions
 
 .. autofunction:: inv_quad
 
-.. autofunction:: inv_quad_log_det
+.. autofunction:: inv_quad_logdet
 
 .. autofunction:: matmul
 
-.. autofunction:: log_det
+.. autofunction:: logdet
 
 .. autofunction:: log_normal_cdf
 

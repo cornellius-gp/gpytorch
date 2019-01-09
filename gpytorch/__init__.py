@@ -21,13 +21,16 @@ from .functions import (
     dsmm,
     inv_matmul,
     inv_quad,
-    inv_quad_log_det,
-    log_det,
+    inv_quad_logdet,
+    logdet,
     log_normal_cdf,
     matmul,
     normal_cdf,
     root_decomposition,
     root_inv_decomposition,
+    # Deprecated
+    inv_quad_log_det,
+    log_det,
 )
 from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 from .lazy import lazify, delazify
@@ -60,9 +63,9 @@ __all__ = [
     "dsmm",
     "inv_matmul",
     "inv_quad",
-    "inv_quad_log_det",
+    "inv_quad_logdet",
     "lazify",
-    "log_det",
+    "logdet",
     "log_normal_cdf",
     "matmul",
     "normal_cdf",
@@ -70,6 +73,9 @@ __all__ = [
     "root_inv_decomposition",
     # Context managers
     "beta_features",
-    "fast_pred_var",
     "settings",
+    # Deprecated
+    "fast_pred_var",
+    "inv_quad_log_det",
+    "log_det",
 ]

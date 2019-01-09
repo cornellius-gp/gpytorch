@@ -122,10 +122,10 @@ class BatchRepeatLazyTensor(LazyTensor):
     def add_jitter(self, jitter_val=1e-3):
         return self.__class__(self.base_lazy_tensor.add_jitter(jitter_val=jitter_val), batch_repeat=self.batch_repeat)
 
-    def inv_quad_log_det(self, inv_quad_rhs=None, log_det=False, reduce_inv_quad=True):
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         if not self.is_square:
             raise RuntimeError(
-                "inv_quad_log_det only operates on (batches of) square (positive semi-definite) LazyTensors. "
+                "inv_quad_logdet only operates on (batches of) square (positive semi-definite) LazyTensors. "
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
@@ -145,8 +145,8 @@ class BatchRepeatLazyTensor(LazyTensor):
         if inv_quad_rhs is not None:
             inv_quad_rhs = self._move_repeat_batches_to_columns(inv_quad_rhs)
 
-        inv_quad_term, log_det_term = self.base_lazy_tensor.inv_quad_log_det(
-            inv_quad_rhs, log_det, reduce_inv_quad=False
+        inv_quad_term, logdet_term = self.base_lazy_tensor.inv_quad_logdet(
+            inv_quad_rhs, logdet, reduce_inv_quad=False
         )
 
         if inv_quad_term is not None and inv_quad_term.numel():
@@ -155,10 +155,10 @@ class BatchRepeatLazyTensor(LazyTensor):
             if reduce_inv_quad:
                 inv_quad_term = inv_quad_term.sum(-1)
 
-        if log_det_term is not None and log_det_term.numel():
-            log_det_term = log_det_term.repeat(*self.batch_repeat)
+        if logdet_term is not None and logdet_term.numel():
+            logdet_term = logdet_term.repeat(*self.batch_repeat)
 
-        return inv_quad_term, log_det_term
+        return inv_quad_term, logdet_term
 
     def repeat(self, *sizes):
         if len(sizes) < 3 or tuple(sizes[-2:]) != (1, 1):
