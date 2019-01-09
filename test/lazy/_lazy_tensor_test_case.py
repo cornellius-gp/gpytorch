@@ -462,7 +462,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
         with gpytorch.settings.num_trace_samples(128):
-            res_inv_quad, res_logdet = lazy_tensor.inv_quad_log_det(
+            res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
                 inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
             )
         res = res_inv_quad.sum(-1) + res_logdet
