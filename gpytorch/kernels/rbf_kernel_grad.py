@@ -23,7 +23,7 @@ class RBFKernelGrad(RBFKernel):
         if ard_num_dims is not None:
             raise RuntimeError('ARD is not supported with derivative observations yet!')
 
-        super().__init__(
+        super(RBFKernelGrad, self).__init__(
             ard_num_dims=None,
             batch_size=1,
             active_dims=None,
@@ -36,41 +36,42 @@ class RBFKernelGrad(RBFKernel):
 
     def forward(self, x1, x2, diag=False, **params):
         if len(x1.size()) == 2:
+            b = 1
             n1, d = x1.size()
             n2, d = x2.size()
         else:
-            _, n1, d = x1.size()
+            b, n1, d = x1.size()
             _, n2, _ = x2.size()
+
+        K = torch.zeros(b, n1 * (d + 1), n2 * (d + 1))
 
         if not diag:
             ell = self.lengthscale
-            K = torch.zeros(*x1.shape[:-2], n1 * (d + 1), n2 * (d + 1))
             x1_ = x1 / ell
             x2_ = x2 / ell
+
+            outer = x1_.view([b, n1, 1, d]) - x2_.view([b, 1, n2, d])
+            outer = torch.transpose(outer, -1, -2).contiguous()
 
             # 1) Kernel block
             diff = self._covar_dist(x1_, x2_, square_dist=True, **params)
             K_11 = diff.div_(-2).exp_()
             K[..., :n1, :n2] = K_11
 
-            shape_list = [1] * len(K_11.shape[:-2])
-            outer = x1_.view(shape_list + [n1, 1, d]) - x2_.view(shape_list + [1, n2, d])
-            outer = torch.transpose(outer, -1, -2).contiguous()
-
             # 2) First gradient block
-            outer1 = outer.view(shape_list + [n1, n2*d])
-            K[..., :n1, n2:] = (outer1  / ell) * K_11.repeat(shape_list + [1, d])
+            outer1 = outer.view([b, n1, n2*d])
+            K[..., :n1, n2:] = (outer1  / ell) * K_11.repeat([1, 1, d])
 
             # 3) Second gradient block
-            outer2 = outer.transpose(-1, -3).contiguous().view(shape_list + [n2, n1*d])
+            outer2 = outer.transpose(-1, -3).contiguous().view([b, n2, n1*d])
             outer2 = outer2.transpose(-1, -2) 
-            K[..., n1:, :n2] = - (outer2  / ell) * K_11.repeat(shape_list + [d, 1])
+            K[..., n1:, :n2] = - (outer2  / ell) * K_11.repeat([1, d, 1])
 
             # 4) Hessian block
-            outer3 = outer1.repeat(shape_list + [d, 1]) * outer2.repeat(shape_list + [1, d])
+            outer3 = outer1.repeat([1, d, 1]) * outer2.repeat([1, 1, d])
             kp = KroneckerProductLazyTensor(torch.eye(d, d), torch.ones(n1, n2))
             fact1 = kp.evaluate() / ell.pow(2) - outer3 / ell.pow(2)
-            K[..., n1:, n2:] = fact1 * K_11.repeat(shape_list + [d, d]) 
+            K[..., n1:, n2:] = fact1 * K_11.repeat([1, d, d]) 
 
             # Symmetrize for stability
             if n1 == n2 and torch.eq(x1, x2).all():  
@@ -82,8 +83,11 @@ class RBFKernelGrad(RBFKernel):
             K = K[..., pi1, :][..., :, pi2]
 
             return K
-            
+
         else: # TODO: This will change when ARD is supported
+            if not (n1 == n2 and torch.eq(x1, x2).all()):
+                raise RuntimeError('diag=True only works when x1 == x2')
+
             kernel_diag = super(RBFKernelGrad, self).forward(x1, x2, diag=True)
             grad_diag = (1 / self.lengthscale.item() ** 2) * torch.ones(1, n2*d)
             k_diag = torch.cat((kernel_diag, grad_diag), dim=-1)
