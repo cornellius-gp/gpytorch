@@ -72,14 +72,17 @@ class RBFKernelGrad(RBFKernel):
             fact1 = kp.evaluate() / ell.pow(2) - outer3 / ell.pow(2)
             K[..., n1:, n2:] = fact1 * K_11.repeat(shape_list + [d, d]) 
 
-            if n1 == n2 and torch.eq(x1, x2).all():  # Symmetrize for stability
+            # Symmetrize for stability
+            if n1 == n2 and torch.eq(x1, x2).all():  
                 K = 0.5*(K.transpose(-1, -2) + K)
 
+            # Apply a perfect shuffle permutation to match the MutiTask ordering
             pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().contiguous().view((n1 * (d + 1)))
             pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             K = K[..., pi1, :][..., :, pi2]
 
             return K
+            
         else: # TODO: This will change when ARD is supported
             kernel_diag = super(RBFKernelGrad, self).forward(x1, x2, diag=True)
             grad_diag = (1 / self.lengthscale.item() ** 2) * torch.ones(1, n2*d)
