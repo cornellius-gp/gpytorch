@@ -239,7 +239,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         deriv_auto = gpytorch.lazy.LazyTensor._quad_form_derivative(lazy_tensor_clone, left_vecs, right_vecs)
 
         for dc, da in zip(deriv_custom, deriv_auto):
-            self.assertLess(torch.norm(dc - da), 1e-1)
+            self.assertTrue(torch.allclose(dc, da, atol=1e-2, rtol=1e-2))
 
     def test_add_diag(self):
         lazy_tensor = self.create_lazy_tensor()

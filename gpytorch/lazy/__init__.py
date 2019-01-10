@@ -20,6 +20,7 @@ from .psd_sum_lazy_tensor import PsdSumLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 from .sum_batch_lazy_tensor import SumBatchLazyTensor
+from .symmetric_kernel_interpolated_lazy_tensor import SymmetricKernelInterpolatedLazyTensor
 from .toeplitz_lazy_tensor import ToeplitzLazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
 
@@ -47,6 +48,7 @@ __all__ = [
     "RootLazyTensor",
     "SumLazyTensor",
     "SumBatchLazyTensor",
+    "SymmetricKernelInterpolatedLazyTensor",
     "ToeplitzLazyTensor",
     "ZeroLazyTensor",
 ]
