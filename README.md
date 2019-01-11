@@ -26,10 +26,11 @@ See our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gp
 
 First make sure that you have PyTorch (`>= 1.0.0`) installed using the appropriate command from [here](https://pytorch.org/get-started/locally/).
 
-Then install GPyTorch using pip:
+Then install GPyTorch using pip or conda:
 
 ```bash
 pip install gpytorch
+conda install gpytorch -c gpytorch
 ```
 
 To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.
