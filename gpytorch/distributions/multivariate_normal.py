@@ -234,7 +234,7 @@ def kl_mvn_mvn(p_dist, q_dist):
     p_covar = p_dist.lazy_covariance_matrix
     root_p_covar = p_covar.root_decomposition().root.evaluate()
 
-    mean_diffs = q_mean - p_mean
+    mean_diffs = p_mean - q_mean
     if isinstance(root_p_covar, LazyTensor):
         # right now this just catches if root_p_covar is a DiagLazyTensor,
         # but we may want to be smarter about this in the future

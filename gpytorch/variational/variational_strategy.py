@@ -96,7 +96,7 @@ class VariationalStrategy(Module):
             test_mean = full_mean[..., num_induc:]
             induc_mean = full_mean[..., :num_induc]
             var_dist_mean = variational_dist.mean
-            neg_mean_diff = (induc_mean - var_dist_mean).unsqueeze(-1)
+            mean_diff = (var_dist_mean - induc_mean).unsqueeze(-1)
 
             # Covariance terms
             induc_induc_covar = full_covar[..., :num_induc, :num_induc].evaluate_kernel().add_jitter()
@@ -105,7 +105,7 @@ class VariationalStrategy(Module):
             root_variational_covar = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate()
 
             # Cache the CG results
-            left_tensors = torch.cat([neg_mean_diff, root_variational_covar], -1)
+            left_tensors = torch.cat([mean_diff, root_variational_covar], -1)
             with torch.no_grad():
                 eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
                 solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
@@ -136,7 +136,7 @@ class VariationalStrategy(Module):
 
             # Compute predictive mean/covariance
             inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))
-            predictive_mean = torch.add(test_mean, inv_products[..., 0, :].mul(-1))
+            predictive_mean = torch.add(test_mean, inv_products[..., 0, :])
             predictive_covar = RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2))
 
             # Compute a diagonal correction for the covariance. It is the diagonal of the Schur complement
