@@ -6,12 +6,9 @@ from gpytorch.kernels import RBFKernelGrad
 
 
 class TestRBFKernelGrad(unittest.TestCase):
-    def test_kernel(self):
+    def test_kernel(self, cuda=False):
         a = torch.tensor([[[1, 2], [2, 4]]], dtype=torch.float)
         b = torch.tensor([[[1, 3], [0, 4]]], dtype=torch.float)
-
-        kernel = RBFKernelGrad()
-        res = kernel(a, b).evaluate()
 
         actual = torch.tensor(
             [
@@ -24,7 +21,19 @@ class TestRBFKernelGrad(unittest.TestCase):
             ]
         )
 
+        if cuda:
+            a = a.cuda()
+            b = b.cuda()
+            actual = actual.cuda()
+
+        kernel = RBFKernelGrad()
+        res = kernel(a, b).evaluate()
+
         self.assertLess(torch.norm(res - actual), 1e-5)
+
+    def test_kernel_cuda(self):
+        if torch.cuda.is_available():
+            self.test_kernel(cuda=True)
 
     def test_kernel_batch(self):
         a = torch.tensor([[[1, 2, 3], [2, 4, 0]], [[-1, 1, 2], [2, 1, 4]]], dtype=torch.float)
