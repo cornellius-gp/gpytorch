@@ -20,4 +20,3 @@ class ConstantMeanGrad(Mean):
             mean = self.constant.squeeze().repeat(input.size(0), input.size(1) + 1)
         mean[..., :, 1:] = 0
         return mean
-    
