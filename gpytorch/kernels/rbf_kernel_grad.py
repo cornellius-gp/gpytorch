@@ -35,22 +35,23 @@ class RBFKernelGrad(RBFKernel):
         )
 
     def forward(self, x1, x2, diag=False, **params):
+        b = 1
         if len(x1.size()) == 2:
-            b = 1
             n1, d = x1.size()
-            n2, d = x2.size()
+            n2, _ = x2.size()
         else:
             b, n1, d = x1.size()
             _, n2, _ = x2.size()
 
-        K = torch.zeros(b, n1 * (d + 1), n2 * (d + 1))
+        K = torch.zeros(b, n1 * (d + 1), n2 * (d + 1))  # batch x n1(d+1) x n2(d+1)
 
         if not diag:
             ell = self.lengthscale
             x1_ = x1 / ell
             x2_ = x2 / ell
 
-            outer = x1_.view([b, n1, 1, d]) - x2_.view([b, 1, n2, d])
+            # Form all possible rank-1 product for the gradient and Hessian blocks
+            outer = x1_.view([b, n1, 1, d]) - x2_.view([b, 1, n2, d])  
             outer = torch.transpose(outer, -1, -2).contiguous()
 
             # 1) Kernel block
@@ -70,8 +71,8 @@ class RBFKernelGrad(RBFKernel):
             # 4) Hessian block
             outer3 = outer1.repeat([1, d, 1]) * outer2.repeat([1, 1, d])
             kp = KroneckerProductLazyTensor(torch.eye(d, d), torch.ones(n1, n2))
-            fact1 = kp.evaluate() / ell.pow(2) - outer3 / ell.pow(2)
-            K[..., n1:, n2:] = fact1 * K_11.repeat([1, d, d]) 
+            chain_rule = kp.evaluate() / ell.pow(2) - outer3 / ell.pow(2)
+            K[..., n1:, n2:] = chain_rule * K_11.repeat([1, d, d]) 
 
             # Symmetrize for stability
             if n1 == n2 and torch.eq(x1, x2).all():  
@@ -89,7 +90,7 @@ class RBFKernelGrad(RBFKernel):
                 raise RuntimeError('diag=True only works when x1 == x2')
 
             kernel_diag = super(RBFKernelGrad, self).forward(x1, x2, diag=True)
-            grad_diag = (1 / self.lengthscale.item() ** 2) * torch.ones(1, n2*d)
+            grad_diag = (1 / self.lengthscale.pow(2)) * torch.ones(1, n2*d)
             k_diag = torch.cat((kernel_diag, grad_diag), dim=-1)
             pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             return k_diag[..., pi]
