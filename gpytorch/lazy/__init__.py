@@ -6,6 +6,7 @@ from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
 from .block_lazy_tensor import BlockLazyTensor
 from .block_diag_lazy_tensor import BlockDiagLazyTensor
 from .cached_cg_lazy_tensor import CachedCGLazyTensor
+from .cached_samples_lazy_tensor import CachedSamplesLazyTensor
 from .cat_lazy_tensor import CatLazyTensor
 from .chol_lazy_tensor import CholLazyTensor
 from .constant_mul_lazy_tensor import ConstantMulLazyTensor
@@ -35,6 +36,7 @@ __all__ = [
     "BlockLazyTensor",
     "BlockDiagLazyTensor",
     "CachedCGLazyTensor",
+    "CachedSamplesLazyTensor",
     "CatLazyTensor",
     "CholLazyTensor",
     "ConstantMulLazyTensor",
