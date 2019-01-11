@@ -5,7 +5,7 @@ import torch
 from torch.nn.functional import softplus
 from torch.distributions import Normal
 
-from .. import settings
+from .. import settings, beta_features
 from ..distributions import MultivariateNormal
 from ..likelihoods import Likelihood
 from ..lazy import BlockDiagLazyTensor, DiagLazyTensor
@@ -72,7 +72,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(raw_noise=value)
 
     def variational_log_probability(self, input, target):
-        if self.training:
+        if self.training and beta_features.stochastic_gaussian_likelihood_log_prob.on():
             num_samples = settings.num_likelihood_samples.value()
             samples = input.rsample(torch.Size([num_samples])).view(-1)
             noise = self.noise_covar.noise.sqrt().expand(num_samples, *input.event_shape).contiguous().view(-1)

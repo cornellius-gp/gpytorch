@@ -136,9 +136,9 @@ class CachedCGLazyTensor(LazyTensor):
         for eager_rhs, solve in zip(self.eager_rhss, self.solves):
             if torch.equal(truncated_rhs, eager_rhs):
                 if num_tridiag:
-                    return torch.cat([probe_vector_solves, solve], -1), tmats
+                    return torch.cat([probe_vector_solves, solve], -1).detach(), tmats.detach()
                 else:
-                    return solve
+                    return solve.detach()
 
         if settings.debug.on():
             warnings.warn(

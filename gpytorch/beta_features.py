@@ -42,4 +42,13 @@ class default_preconditioner(_feature_flag):
     pass
 
 
+class stochastic_gaussian_likelihood_log_prob(_feature_flag):
+    """
+    Compute the expected log probability for Gaussian likelihoods
+    with MC-integration (rather than an exact equation)
+    """
+
+    _state = False
+
+
 __all__ = ["fast_pred_var", "fast_pred_samples", "diagonal_correction", "default_preconditioner"]
