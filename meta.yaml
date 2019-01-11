@@ -1,0 +1,42 @@
+{% set data = load_setup_py_data(setup_file="setup.py", from_recipe_dir=True) %}
+
+package:
+  name: {{ data.get("name")|lower }}
+  version: {{ data.get("version") }}
+
+source:
+  path: ./
+
+build:
+  noarch: python
+  script: "$PYTHON setup.py install --single-version-externally-managed --record=record.txt"
+
+requirements:
+  host:
+    - python>=3.6
+
+  run:
+    - pytorch>=1.0
+
+test:
+  imports:
+    - gpytorch
+    - gpytorch.distributions
+    - gpytorch.functions
+    - gpytorch.kernels
+    - gpytorch.lazy
+    - gpytorch.likelihoods
+    - gpytorch.means
+    - gpytorch.mlls
+    - gpytorch.models
+    - gpytorch.priors
+    - gpytorch.utils
+    - gpytorch.variational
+
+about:
+  home: https://gpytorch.ai
+  license: MIT
+  license_file: LICENSE
+  summary: An implementation of Gaussian Processes in Pytorch
+  doc_url: https://gpytorch.readthedocs.io/en/latest/
+  dev_url: https://github.com/cornellius-gp/gpytorch
