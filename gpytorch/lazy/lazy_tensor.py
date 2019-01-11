@@ -1238,7 +1238,7 @@ class LazyTensor(object):
 
         return res
 
-    def zero_mean_mvn_samples(self, num_samples):
+    def zero_mean_mvn_samples(self, num_samples, samples_dim=0):
         """
         Assumes that self is a covariance matrix, or a batch of covariance matrices.
         Returns samples from a zero-mean MVN, defined by self (as covariance matrix)
@@ -1248,26 +1248,27 @@ class LazyTensor(object):
         Args:
             :attr:`num_samples` (int):
                 Number of samples to draw.
+            :attr:`samples_dim` (int - 0 or -1)
+                What dimension the samples should go to: either front of tensor (0) or back (-1)
 
         Returns:
             :obj:`torch.tensor`:
                 Samples from MVN (num_samples x batch_size x num_dim) or (num_samples x num_dim)
         """
-        if self.size()[-2:] == torch.Size([1, 1]):
-            covar_root = self.evaluate().sqrt()
-        else:
-            covar_root = self.root_decomposition().root
+        covar_root = self.evaluate().sqrt() if self.matrix_shape.numel() == 1 else self.root_decomposition().root
+        base_samples = torch.randn(
+            *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
+        )
+        samples = covar_root @ base_samples
 
-        if self.ndimension() == 3:
-            base_samples = torch.randn(
-                self.size(0), covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
+        if samples_dim == 0:
+            return samples.permute(-1, *range(self.dim() - 1)).contiguous()
+        elif samples_dim == -1:
+            return samples
+        else:
+            raise RuntimeError(
+                "LazyTensor.zero_mean_mvn_samples expects samples_dim=0 or samples_dim=-1. Got {}".format(samples_dim)
             )
-            samples = covar_root.matmul(base_samples).permute(2, 0, 1).contiguous()
-        else:
-            base_samples = torch.randn(covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device)
-            samples = covar_root.matmul(base_samples).permute(1, 0).contiguous()
-
-        return samples
 
     def __add__(self, other):
         """
