@@ -84,7 +84,7 @@ class RBFKernelGrad(RBFKernel):
             b, n1, d = x1.size()
             _, n2, _ = x2.size()
 
-        K = torch.zeros(b, n1 * (d + 1), n2 * (d + 1))  # batch x n1(d+1) x n2(d+1)
+        K = torch.zeros(b, n1 * (d + 1), n2 * (d + 1), device=x1.device, dtype=x1.dtype)  # batch x n1(d+1) x n2(d+1)
         ell = self.lengthscale.squeeze()
 
         if not diag:
@@ -112,7 +112,10 @@ class RBFKernelGrad(RBFKernel):
 
             # 4) Hessian block
             outer3 = outer1.repeat([1, d, 1]) * outer2.repeat([1, 1, d])
-            kp = KroneckerProductLazyTensor(torch.eye(d, d), torch.ones(n1, n2))
+            kp = KroneckerProductLazyTensor(
+                torch.eye(d, d, device=x1.device, dtype=x1.dtype),
+                torch.ones(n1, n2, device=x1.device, dtype=x1.dtype)
+            )
             chain_rule = kp.evaluate() / ell.pow(2) - outer3
             K[..., n1:, n2:] = chain_rule * K_11.repeat([1, d, d])
 
@@ -132,7 +135,7 @@ class RBFKernelGrad(RBFKernel):
                 raise RuntimeError("diag=True only works when x1 == x2")
 
             kernel_diag = super(RBFKernelGrad, self).forward(x1, x2, diag=True)
-            grad_diag = torch.ones(1, n2 * d) / (ell.pow(2))
+            grad_diag = torch.ones(1, n2 * d, device=x1.device, dtype=x1.dtype) / (ell.pow(2))
             k_diag = torch.cat((kernel_diag, grad_diag), dim=-1)
             pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             return k_diag[..., pi]
