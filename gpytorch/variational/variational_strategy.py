@@ -3,7 +3,7 @@
 import math
 import torch
 from .. import beta_features, settings
-from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CachedSamplesLazyTensor, PsdSumLazyTensor
+from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CachedSamplesLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..lazy import SymmetricKernelInterpolatedLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
@@ -114,9 +114,13 @@ class VariationalStrategy(Module):
             induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
             data_data_covar = full_covar[..., num_induc:, num_induc:]
             variational_covar = variational_dist.lazy_covariance_matrix
-            predictive_samples = variational_covar.zero_mean_mvn_samples(
-                num_samples=settings.num_likelihood_samples.value(), samples_dim=-1
-            )
+
+            if settings.fast_computations.mvn_kl_trace.on():
+                variational_covar_root = variational_covar.zero_mean_mvn_samples(
+                    num_samples=settings.num_likelihood_samples.value(), samples_dim=-1
+                )
+            else:
+                variational_covar_root = variational_covar.root_decomposition().root.evaluate()
 
             # Cache the CG results
             with torch.no_grad():
@@ -124,7 +128,7 @@ class VariationalStrategy(Module):
                 eager_rhs = torch.cat([
                     induc_data_covar,
                     mean_diff,
-                    predictive_samples,
+                    variational_covar_root,
                 ], -1)
 
                 # Get the initial set of solves and other information
@@ -135,14 +139,14 @@ class VariationalStrategy(Module):
 
                 # Divide up the rhss
                 variational_mean_rhs = eager_rhs[..., :induc_data_covar.size(-1) + mean_diff.size(-1)]
-                posterior_samples_rhs = torch.cat([induc_data_covar, predictive_samples], -1)
+                posterior_covar_rhs = torch.cat([induc_data_covar, variational_covar_root], -1)
                 inv_quad_logdet_rhs = eager_rhs[..., induc_data_covar.size(-1):]
 
                 # Divide up all the solves
                 induc_data_covar_solve = solve[..., :induc_data_covar.size(-1)]
                 variational_mean_solve = solve[..., :induc_data_covar.size(-1) + mean_diff.size(-1)]
-                posterior_samples_solve = torch.cat(
-                    [induc_data_covar_solve, solve[..., -predictive_samples.size(-1):]], -1
+                posterior_covar_solve = torch.cat(
+                    [induc_data_covar_solve, solve[..., -variational_covar_root.size(-1):]], -1
                 )
                 inv_quad_logdet_solve = solve[..., induc_data_covar.size(-1):]
 
@@ -150,13 +154,13 @@ class VariationalStrategy(Module):
                 eager_rhss = [
                     induc_data_covar.detach(),
                     variational_mean_rhs.detach(),
-                    posterior_samples_rhs.detach(),
+                    posterior_covar_rhs.detach(),
                     inv_quad_logdet_rhs.detach(),
                 ]
                 solves = [
                     induc_data_covar_solve.detach(),
                     variational_mean_solve.detach(),
-                    posterior_samples_solve.detach(),
+                    posterior_covar_solve.detach(),
                     inv_quad_logdet_solve.detach(),
                 ]
 
@@ -182,9 +186,17 @@ class VariationalStrategy(Module):
                 test_mean,
                 induc_induc_covar.inv_matmul(mean_diff, induc_data_covar.transpose(-1, -2)).squeeze(-1)
             )
-            predictive_covar = SymmetricKernelInterpolatedLazyTensor(
-                variational_covar, induc_induc_covar, induc_data_covar.transpose(-1, -2),
-            )
+            if settings.fast_computations.mvn_kl_trace.on():
+                predictive_covar = SymmetricKernelInterpolatedLazyTensor(
+                    variational_covar, induc_induc_covar, induc_data_covar.transpose(-1, -2),
+                )
+            else:
+                predictive_covar = RootLazyTensor(
+                    induc_induc_covar.inv_matmul(
+                        variational_covar_root, left_tensor=induc_data_covar.transpose(-1, -2)
+                    )
+                )
+
 
             # Compute a diagonal correction for the covariance. It is the diagonal of the Schur complement
             # K_{data,data} - K_{data,induc} K_{induc,induc}^{-1} K_{induc,data}

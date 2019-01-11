@@ -47,6 +47,14 @@ class CachedSamplesLazyTensor(LazyTensor):
             inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad
         )
 
+    def root_decomposition(self):
+        return self.base_lazy_tensor.root_decomposition()
+
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+        return self.base_lazy_tensor.root_inv_decomposition(
+            initial_vectors=initial_vectors, test_vectors=test_vectors
+        )
+
     def zero_mean_mvn_samples(self, num_samples, samples_dim=0):
         if num_samples != self.num_samples:
             warnings.warn(
