@@ -8,7 +8,7 @@ from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
-from ..lazy import LazyTensor, lazify
+from ..lazy import LazyTensor, lazify, delazify
 from .distribution import Distribution
 
 
@@ -229,20 +229,29 @@ except ImportError:
 def kl_mvn_mvn(p_dist, q_dist):
     q_mean = q_dist.loc
     q_covar = q_dist.lazy_covariance_matrix
-
     p_mean = p_dist.loc
     p_covar = p_dist.lazy_covariance_matrix
-    root_p_covar = p_covar.root_decomposition().root.evaluate()
-
     mean_diffs = p_mean - q_mean
-    if isinstance(root_p_covar, LazyTensor):
-        # right now this just catches if root_p_covar is a DiagLazyTensor,
-        # but we may want to be smarter about this in the future
-        root_p_covar = root_p_covar.evaluate()
-    inv_quad_rhs = torch.cat([mean_diffs.unsqueeze(-1), root_p_covar], -1)
-    logdet_p_covar = p_covar.logdet()
-    trace_plus_inv_quad_form, logdet_q_covar = q_covar.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=True)
 
+    if settings.fast_computations.mvn_kl_trace.on():
+        projected_root_p_covar = p_covar.zero_mean_mvn_samples(
+            num_samples=settings.num_likelihood_samples.value(),
+            samples_dim=-1
+        )
+        inv_quad_rhs = torch.cat([mean_diffs.unsqueeze(-1), projected_root_p_covar], -1)
+        inv_quad_form_and_trace_terms, logdet_q_covar = q_covar.inv_quad_logdet(
+            inv_quad_rhs=inv_quad_rhs, logdet=True, reduce_inv_quad=False
+        )
+
+        inv_quad_form = inv_quad_form_and_trace_terms[..., 0]
+        trace_terms = inv_quad_form_and_trace_terms[..., 1:]
+        trace_plus_inv_quad_form = inv_quad_form + trace_terms.mean(-1)
+    else:
+        root_p_covar = delazify(p_covar.root_decomposition().root.evaluate())
+        inv_quad_rhs = torch.cat([mean_diffs.unsqueeze(-1), root_p_covar], -1)
+        trace_plus_inv_quad_form, logdet_q_covar = q_covar.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=True)
+
+    logdet_p_covar = p_covar.logdet()
     # Compute the KL Divergence.
     res = 0.5 * sum([logdet_q_covar, logdet_p_covar.mul(-1), trace_plus_inv_quad_form, -float(mean_diffs.size(-1))])
     return res

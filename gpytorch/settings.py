@@ -101,6 +101,20 @@ class _fast_log_prob(_feature_flag):
     _state = True
 
 
+class _fast_mvn_kl_trace(_feature_flag):
+    r"""
+    This feature flag controls how to compute the tr(K_q^-1 K_p) term in the MVN KL divergence.
+
+    If set to True, this term is computed with stochastic trace estimation.
+    Otherwise, it is computed deterministically.
+
+    See also: :class:`gpytorch.settings.num_trace_samples` (to control the
+    stochasticity of the fast trace estimates).
+    """
+
+    _state = True
+
+
 class check_training_data(_feature_flag):
     """
     Check whether the correct training data is supplied in Exact GP training mode
@@ -225,6 +239,15 @@ class fast_computations(object):
         * If set to False,
             `log_prob` is computed using the Cholesky decomposition.
 
+    * :attr:`mvn_kl_trace`
+        This feature flag controls how to compute the tr(K_q^-1 K_p) term in the MVN KL divergence.
+
+        * If set to True,
+            the trace term term is computed with stochastic trace estimation.
+
+        * If set to False,
+            the trace term term is computed deterministically.
+
     .. warning ::
 
         Setting this to False will compute a complete Cholesky decomposition of covariance matrices.
@@ -237,24 +260,29 @@ class fast_computations(object):
         * :class:`gpytorch.settings.max_root_decomposition_size`
             (to control the size of the low rank decomposition used)
         * :class:`gpytorch.settings.num_trace_samples`
-            (to control the stochasticity of the fast `log_prob` estimates)
+            (to control the stochasticity of the fast `log_prob` and trace estimates)
 
     .. _GPyTorch Blackbox Matrix-Matrix Gaussian Process Inference with GPU Acceleration:
         https://arxiv.org/pdf/1809.11165.pdf
     """
     covar_root_decomposition = _fast_covar_root_decomposition
     log_prob = _fast_log_prob
+    mvn_kl_trace = _fast_mvn_kl_trace
 
-    def __init__(self, covar_root_decomposition=True, log_prob=True):
+    def __init__(self, covar_root_decomposition=True, log_prob=True, mvn_kl_trace=True):
         self.covar_root_decomposition = _fast_covar_root_decomposition(covar_root_decomposition)
         self.log_prob = _fast_log_prob(log_prob)
+        self.mvn_kl_trace = _fast_mvn_kl_trace(mvn_kl_trace)
 
     def __enter__(self):
         self.covar_root_decomposition.__enter__()
         self.log_prob.__enter__()
+        self.mvn_kl_trace.__enter__()
 
     def __exit__(self, *args):
+        self.covar_root_decomposition.__exit__()
         self.log_prob.__exit__()
+        self.mvn_kl_trace.__exit__()
         return False
 
 

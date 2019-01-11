@@ -84,8 +84,8 @@ class TestSimpleGPClassification(unittest.TestCase):
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         assert mean_abs_error.item() < 1e-5
 
-    def test_classification_fast_pred_var(self):
-        with gpytorch.settings.fast_pred_var():
+    def test_classification_no_stochastic_trace_kl_divergence(self):
+        with gpytorch.settings.fast_computations(mvn_kl_trace=False):
             train_x, train_y = train_data()
             likelihood = BernoulliLikelihood()
             model = GPClassificationModel(train_x)
