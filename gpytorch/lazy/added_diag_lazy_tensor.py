@@ -81,3 +81,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
             self._precond_logdet_cache = ld_one + ld_two
 
         return precondition_closure, self._precond_logdet_cache
+
+    def _matmul(self, rhs):
+        res = self._lazy_tensor._matmul(rhs)
+        res.addcmul_(self._diag_tensor._diag.unsqueeze(-1), rhs)
+        return res

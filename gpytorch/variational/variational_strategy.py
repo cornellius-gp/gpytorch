@@ -28,7 +28,9 @@ class VariationalStrategy(Module):
     apply the derivation in Wilson et al., 2016 and exploit a deterministic relationship between f and u.
     """
 
-    def __init__(self, model, inducing_points, variational_distribution_strategy, learn_inducing_locations=False):
+    def __init__(
+        self, model, inducing_points, variational_distribution_strategy, learn_inducing_locations=False, eps=1e-5
+    ):
         """
         Args:
             model (:obj:`gpytorch.model.AbstractVariationalGP`): Model this strategy is applied to. Typically passed in
@@ -53,6 +55,7 @@ class VariationalStrategy(Module):
 
         self.variational_distribution_strategy = variational_distribution_strategy
         self.register_buffer("variational_params_initialized", torch.tensor(0))
+        self.eps = eps
 
     @property
     def prior_distribution(self):
@@ -203,7 +206,7 @@ class VariationalStrategy(Module):
             if beta_features.diagonal_correction.on():
                 # interp_data_data_var = diag(K_{data,induc} K_{induc,induc}^{-1} K_{induc,data})
                 interp_data_data_var = induc_induc_covar.inv_quad(induc_data_covar, reduce_inv_quad=False)
-                diag_correction = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
+                diag_correction = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(self.eps, math.inf))
                 predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
 
             return MultivariateNormal(predictive_mean, predictive_covar)
