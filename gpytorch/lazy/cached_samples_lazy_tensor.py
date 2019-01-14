@@ -47,6 +47,9 @@ class CachedSamplesLazyTensor(LazyTensor):
             inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad
         )
 
+    def logdet(self):
+        return self.base_lazy_tensor.logdet()
+
     def root_decomposition(self):
         return self.base_lazy_tensor.root_decomposition()
 

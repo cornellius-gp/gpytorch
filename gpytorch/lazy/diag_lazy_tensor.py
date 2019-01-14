@@ -176,6 +176,12 @@ class DiagLazyTensor(LazyTensor):
             return DiagLazyTensor(self._diag.view(-1, sum_batch_size, self._diag.shape[-1]))
         return DiagLazyTensor(self._diag.sum([i for i in range(self.batch_dim)]))
 
-    def zero_mean_mvn_samples(self, num_samples):
-        base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)
-        return base_samples * self._diag.sqrt()
+    def zero_mean_mvn_samples(self, num_samples, samples_dim=0):
+        if samples_dim == 0:
+            base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)
+            return base_samples * self._diag.sqrt()
+        elif samples_dim == -1:
+            base_samples = torch.randn(*self._diag.shape, num_samples, dtype=self.dtype, device=self.device)
+            return base_samples * self._diag.sqrt().unsqueeze(-1)
+        else:
+            raise RuntimeError

@@ -233,6 +233,7 @@ def kl_mvn_mvn(p_dist, q_dist):
     p_covar = p_dist.lazy_covariance_matrix
     mean_diffs = p_mean - q_mean
 
+    logdet_p_covar = p_covar.logdet()
     if settings.fast_computations.mvn_kl_trace.on():
         projected_root_p_covar = p_covar.zero_mean_mvn_samples(
             num_samples=settings.num_likelihood_samples.value(),
@@ -251,7 +252,6 @@ def kl_mvn_mvn(p_dist, q_dist):
         inv_quad_rhs = torch.cat([mean_diffs.unsqueeze(-1), root_p_covar], -1)
         trace_plus_inv_quad_form, logdet_q_covar = q_covar.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=True)
 
-    logdet_p_covar = p_covar.logdet()
     # Compute the KL Divergence.
     res = 0.5 * sum([logdet_q_covar, logdet_p_covar.mul(-1), trace_plus_inv_quad_form, -float(mean_diffs.size(-1))])
     return res
