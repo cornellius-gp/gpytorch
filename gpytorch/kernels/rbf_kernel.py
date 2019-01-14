@@ -3,6 +3,7 @@
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
+import torch
 
 
 class RBFKernel(Kernel):
@@ -89,8 +90,31 @@ class RBFKernel(Kernel):
             eps=eps,
         )
 
-    def forward(self, x1, x2, **params):
+    @torch.jit.script
+    def __jit_rbf_kernel(x1, x2, diag, x1_eq_x2):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        if bool(x1_eq_x2):
+            x2_norm = x1_norm
+        else:
+            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+
+        res = x1.matmul(x2.transpose(-2, -1))
+        res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+
+        if bool(x1_eq_x2):
+            # Ensure zero diagonal
+            res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+
+        return res.div_(-2).exp_()
+
+    def forward(self, x1, x2, diag=False, **params):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        diff = self._covar_dist(x1_, x2_, square_dist=True, **params)
-        return diff.div_(-2).exp_()
+        diff = self._covar_dist(x1_, x2_, square_dist=True, diag=diag, jit_func=self.__jit_rbf_kernel, **params)
+        if diag:
+            diff.div_(-2).exp_()
+        return diff
