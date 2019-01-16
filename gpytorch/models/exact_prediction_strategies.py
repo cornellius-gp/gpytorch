@@ -176,17 +176,20 @@ class DefaultPredictionStrategy(object):
 
         L_inverse = self.covar_cache
         L = self.lik_train_train_covar.root_decomposition().root.evaluate()
+        m, n = L.shape[-2:]
+
         lower_left = fant_train_covar.matmul(L_inverse)
         schur_root = torch.cholesky(fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1)))
-        upper_right = torch.zeros(L.size(-2), schur_root.size(-1)).type_as(L)
+        upper_right = torch.zeros(m, schur_root.size(-1), device=L.device, dtype=L.dtype)
 
         # Form new root Z = [L 0; lower_left schur_root]
         num_fant = schur_root.size(-2)
-        new_root = torch.zeros(*batch_shape, L.size(-2) + num_fant, L.size(-1) + num_fant).type_as(L)
-        new_root[..., : L.size(-2), : L.size(-1)] = L
-        new_root[..., : L.size(-2), L.size(-1) :] = upper_right
-        new_root[..., L.size(-2) :, : L.size(-1)] = lower_left
-        new_root[..., L.size(-2) :, L.size(-1) :] = schur_root
+        m, n = L.shape[-2:]
+        new_root = torch.zeros(*batch_shape, m + num_fant, n + num_fant, device=L.device, dtype=L.dtype)
+        new_root[..., :m, :n] = L
+        new_root[..., :m, n:] = upper_right
+        new_root[..., m:, :n] = lower_left
+        new_root[..., m:, n:] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
         # TODO: Replace pseudo-inverse calculation with something more stable than normal equations once
