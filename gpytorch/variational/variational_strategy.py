@@ -168,7 +168,7 @@ class VariationalStrategy(Module):
                 ]
 
                 # Additional solves that we need if we're skipping logdet forward
-                if settings.skip_logdet_forward.on():
+                if settings.skip_logdet_forward.on() and self.training:
                     eager_rhss[-1] = torch.cat([probe_vecs, eager_rhss[-1]], -1)
                     solves[-1] = torch.cat([probe_vec_solves, solves[-1]], -1)
 
