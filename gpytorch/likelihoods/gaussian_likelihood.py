@@ -72,27 +72,20 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(raw_noise=value)
 
     def variational_log_probability(self, input, target):
-        if self.training and beta_features.stochastic_gaussian_likelihood_log_prob.on():
-            num_samples = settings.num_likelihood_samples.value()
-            samples = input.rsample(torch.Size([num_samples])).view(-1)
-            noise = self.noise_covar.noise.sqrt().expand(num_samples, *input.event_shape).contiguous().view(-1)
-            target = target.unsqueeze(0).repeat(num_samples, 1).view(-1)
-            return Normal(samples, noise).log_prob(target).sum().div(num_samples)
-        else:
-            mean, variance = input.mean, input.variance
-            noise = self.noise_covar.noise
+        mean, variance = input.mean, input.variance
+        noise = self.noise_covar.noise
 
-            if mean.dim() > target.dim():
-                target = target.unsqueeze(-1)
+        if mean.dim() > target.dim():
+            target = target.unsqueeze(-1)
 
-            if variance.ndimension() == 1:
-                if settings.debug.on() and noise.size(0) > 1:
-                    raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
-                noise = noise.squeeze(0)
+        if variance.ndimension() == 1:
+            if settings.debug.on() and noise.size(0) > 1:
+                raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
+            noise = noise.squeeze(0)
 
-            res = -0.5 * ((target - mean) ** 2 + variance) / noise
-            res += -0.5 * noise.log() - 0.5 * math.log(2 * math.pi)
-            return res.sum(-1)
+        res = -0.5 * ((target - mean) ** 2 + variance) / noise
+        res += -0.5 * noise.log() - 0.5 * math.log(2 * math.pi)
+        return res.sum(-1)
 
     def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
         import pyro

@@ -193,6 +193,11 @@ class VariationalStrategy(Module):
                 predictive_covar = SymmetricKernelInterpolatedLazyTensor(
                     variational_covar, induc_induc_covar, induc_data_covar.transpose(-1, -2),
                 )
+                if beta_features.stochastic_gaussian_likelihood_log_prob.on():
+                    num_samples = settings.num_likelihood_samples.value()
+                    samples = predictive_covar.zero_mean_mvn_samples(num_samples, samples_dim=-1)
+                    samples = samples.div(math.sqrt(float(num_samples)))
+                    predictive_covar = RootLazyTensor(samples)
             else:
                 predictive_covar = RootLazyTensor(
                     induc_induc_covar.inv_matmul(
