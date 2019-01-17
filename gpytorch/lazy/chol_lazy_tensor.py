@@ -7,22 +7,6 @@ from .root_lazy_tensor import RootLazyTensor
 
 
 class CholLazyTensor(RootLazyTensor):
-    def __init__(self, chol):
-        if isinstance(chol, LazyTensor):  # Probably is an instance of NonLazyTensor
-            chol = chol.evaluate()
-
-        # Check that we have a lower triangular matrix
-        mask = torch.ones(chol.shape[-2:], dtype=chol.dtype, device=chol.device).triu_(1)
-        if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
-            raise RuntimeError("CholLazyVaraiable should take a lower-triangular " "matrix in the constructor.")
-
-        # Run super constructor
-        super(CholLazyTensor, self).__init__(chol)
-
-        # Check that the diagonal is
-        if not torch.equal(self._chol_diag.abs(), self._chol_diag):
-            raise RuntimeError("The diagonal of the cholesky decomposition should be positive.")
-
     @property
     def _chol(self):
         if not hasattr(self, "_chol_memo"):
@@ -53,6 +37,6 @@ class CholLazyTensor(RootLazyTensor):
             )
 
         if logdet:
-            logdet_term = self._chol_diag.log().sum(-1).mul(2)
+            logdet_term = self._chol_diag.pow(2).log().sum(-1)
 
         return inv_quad_term, logdet_term
