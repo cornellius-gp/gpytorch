@@ -9,6 +9,25 @@ from ..module import Module
 from ..distributions import MultivariateNormal
 
 
+class SamplesRootLazyTensor(RootLazyTensor):
+    def zero_mean_mvn_samples(self, num_samples, samples_dim=0):
+        if num_samples != self.root.shape[-1]:
+            raise RuntimeError(
+                "Not using the cached sampled (cached sample size is {}, asked for {} "
+                "samples).".format(self.num_samples, num_samples)
+            )
+
+        base_samples = self.root.evaluate().mul(math.sqrt(float(self.root.shape[-1])))
+        if samples_dim == 0:
+            return base_samples.permute(-1, *range(self.dim() - 1)).contiguous()
+        elif samples_dim == -1:
+            return base_samples
+        else:
+            raise RuntimeError(
+                "LazyTensor.zero_mean_mvn_samples expects samples_dim=0 or samples_dim=-1. Got {}".format(samples_dim)
+            )
+
+
 class VariationalStrategy(Module):
     """
     VariationalStrategy objects control how certain aspects of variational inference should be performed. In particular,
@@ -197,7 +216,7 @@ class VariationalStrategy(Module):
                     num_samples = settings.num_likelihood_samples.value()
                     samples = predictive_covar.zero_mean_mvn_samples(num_samples, samples_dim=-1)
                     samples = samples.div(math.sqrt(float(num_samples)))
-                    predictive_covar = RootLazyTensor(samples)
+                    predictive_covar = SamplesRootLazyTensor(samples)
             else:
                 predictive_covar = RootLazyTensor(
                     induc_induc_covar.inv_matmul(
