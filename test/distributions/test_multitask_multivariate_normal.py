@@ -44,6 +44,7 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
         self.assertTrue(torch.equal(mtmvn.mean, mean))
         self.assertTrue(approx_equal(mtmvn.variance, variance.view(2, 2)))
         self.assertTrue(torch.equal(mtmvn.scale_tril, covmat.sqrt()))
+        self.assertTrue(mtmvn.event_shape == torch.Size([2, 2]))
         mvn_plus1 = mtmvn + 1
         self.assertTrue(torch.equal(mvn_plus1.mean, mtmvn.mean + 1))
         self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mtmvn.covariance_matrix))

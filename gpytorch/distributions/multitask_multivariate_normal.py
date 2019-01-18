@@ -36,6 +36,10 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             validate_args=validate_args,
         )
 
+    @property
+    def event_shape(self):
+        return self._output_shape
+
     def get_base_samples(self, sample_shape=torch.Size()):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
         res = super(MultitaskMultivariateNormal, self).get_base_samples(sample_shape)
