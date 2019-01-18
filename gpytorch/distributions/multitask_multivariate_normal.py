@@ -36,6 +36,10 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             validate_args=validate_args,
         )
 
+    @property
+    def event_shape(self):
+        return self._output_shape
+
     @classmethod
     def from_independent_mvns(cls, mvns):
         if len(mvns) < 2:
