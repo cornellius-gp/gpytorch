@@ -2,7 +2,7 @@
 
 import torch
 
-from ..lazy import LazyTensor
+from ..lazy import BlockDiagLazyTensor, LazyTensor, NonLazyTensor
 from .multivariate_normal import MultivariateNormal
 
 
@@ -39,6 +39,23 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     @property
     def event_shape(self):
         return self._output_shape
+
+    @classmethod
+    def from_independent_mvns(cls, mvns):
+        if len(mvns) < 2:
+            raise ValueError("Must provide at least 2 MVNs to form a MultitaskMultivariateNormal")
+        if not all(m.batch_shape == mvns[0].batch_shape for m in mvns[1:]):
+            raise ValueError("All MultivariateNormals must have the same batch shape")
+        if not all(m.event_shape == mvns[0].event_shape for m in mvns[1:]):
+            raise ValueError("All MultivariateNormals must have the same event shape")
+        mean = torch.stack([mvn.mean for mvn in mvns], -1)
+        # TODO: To do the following efficiently, we don't want to evaluate the
+        # covariance matrices. Instead, we want to use the lazies directly in the
+        # BlockDiagLazyTensor. This will require implementing a new BatchLazyTensor:
+        # https://github.com/cornellius-gp/gpytorch/issues/468
+        covar = torch.stack([mvn.covariance_matrix for mvn in mvns])
+        covar_lazy = BlockDiagLazyTensor(NonLazyTensor(covar))
+        return cls(mean=mean, covariance_matrix=covar_lazy)
 
     def get_base_samples(self, sample_shape=torch.Size()):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
