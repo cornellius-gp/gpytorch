@@ -7,6 +7,58 @@ from .. import settings
 def _default_preconditioner(x):
     return x.clone()
 
+@torch.jit.script
+def _jit_linear_cg_updates_no_precond(
+    mvms, result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
+):
+    torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
+    torch.sum(mul_storage, dim=-2, keepdim=True, out=alpha)
+    alpha.add_(eps)
+    torch.div(residual_inner_prod, alpha, out=alpha)
+
+    # Update residual
+    # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
+    torch.addcmul(residual, -alpha, mvms, out=residual)
+
+    # Update precond_residual
+    # precon_residual{k} = M^-1 residual_{k}
+    precond_residual = residual.clone() # preconditioner(residual)
+
+    # # Update result
+    # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
+    torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
+
+    # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
+    residual_inner_prod.add_(eps)
+    torch.reciprocal(residual_inner_prod, out=beta)
+    torch.mul(residual, precond_residual, out=mul_storage)
+    torch.sum(mul_storage, dim=-2, keepdim=True, out=residual_inner_prod)
+    beta.mul_(residual_inner_prod)
+
+    # Update curr_conjugate_vec
+    # curr_conjugate_vec_{k} = precon_residual{k} + beta_{k} curr_conjugate_vec_{k-1}
+    curr_conjugate_vec.mul_(beta).add_(precond_residual)
+
+
+@torch.jit.script
+def _jit_linear_cg_updates(
+    result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
+):
+    # # Update result
+    # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
+    torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
+
+    # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
+    residual_inner_prod.add_(eps)
+    torch.reciprocal(residual_inner_prod, out=beta)
+    torch.mul(residual, precond_residual, out=mul_storage)
+    torch.sum(mul_storage, -2, keepdim=True, out=residual_inner_prod)
+    beta.mul_(residual_inner_prod)
+
+    # Update curr_conjugate_vec
+    # curr_conjugate_vec_{k} = precon_residual{k} + beta_{k} curr_conjugate_vec_{k-1}
+    curr_conjugate_vec.mul_(beta).add_(precond_residual)
+
 
 def linear_cg(
     matmul_closure,
@@ -55,6 +107,9 @@ def linear_cg(
         initial_guess = torch.zeros_like(rhs)
     if preconditioner is None:
         preconditioner = _default_preconditioner
+        no_precond = True
+    else:
+        no_precond = False
 
     # If we are running m CG iterations, we obviously can't get more than m Lanczos coefficients
     if max_tridiag_iter > max_iter:
@@ -115,39 +170,46 @@ def linear_cg(
         # Get next alpha
         # alpha_{k} = (residual_{k-1}^T precon_residual{k-1}) / (p_vec_{k-1}^T mat p_vec_{k-1})
         mvms = matmul_closure(curr_conjugate_vec)
-        torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
-        torch.sum(mul_storage, -2, keepdim=True, out=alpha)
-        alpha.add_(eps)
-        torch.div(residual_inner_prod, alpha, out=alpha)
+        if not no_precond:
+            torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
+            torch.sum(mul_storage, -2, keepdim=True, out=alpha)
+            alpha.add_(eps)
+            torch.div(residual_inner_prod, alpha, out=alpha)
 
-        # Update result
-        # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
-        torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
+            # Update residual
+            # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
+            torch.addcmul(residual, -1, alpha, mvms, out=residual)
 
-        # Update residual
-        # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
-        torch.addcmul(residual, -1, alpha, mvms, out=residual)
+            # Update precond_residual
+            # precon_residual{k} = M^-1 residual_{k}
+            precond_residual = preconditioner(residual)
 
-        # If residual are sufficiently small, then exit loop
-        # Alternatively, exit if this is our last iteration
-        torch.norm(residual, 2, dim=-2, out=residual_norm)
-        if (residual_norm < tolerance).all() and not (n_tridiag and k < n_tridiag_iter):
-            break
-
-        # Update precond_residual
-        # precon_residual{k} = M^-1 residual_{k}
-        precond_residual = preconditioner(residual)
-
-        # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
-        residual_inner_prod.add_(eps)
-        torch.reciprocal(residual_inner_prod, out=beta)
-        torch.mul(residual, precond_residual, out=mul_storage)
-        torch.sum(mul_storage, -2, keepdim=True, out=residual_inner_prod)
-        beta.mul_(residual_inner_prod)
-
-        # Update curr_conjugate_vec
-        # curr_conjugate_vec_{k} = precon_residual{k} + beta_{k} curr_conjugate_vec_{k-1}
-        curr_conjugate_vec.mul_(beta).add_(precond_residual)
+            _jit_linear_cg_updates(
+                result,
+                alpha,
+                residual_inner_prod,
+                torch.tensor(eps),
+                beta,
+                residual,
+                precond_residual,
+                mul_storage,
+                curr_conjugate_vec,
+            )
+        else:
+            _jit_linear_cg_updates_no_precond(
+                mvms,
+                result,
+                alpha,
+                residual_inner_prod,
+                torch.tensor(eps),
+                beta,
+                residual,
+                precond_residual,
+                mul_storage,
+                curr_conjugate_vec,
+            )
+        # # if (residual_norm < tolerance).all() and not (n_tridiag and k < n_tridiag_iter):
+        # #     break
 
         # Update tridiagonal matrices, if applicable
         if n_tridiag and k < n_tridiag_iter and update_tridiag:
