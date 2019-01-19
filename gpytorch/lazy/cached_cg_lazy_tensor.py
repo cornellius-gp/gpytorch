@@ -76,7 +76,13 @@ class CachedCGLazyTensor(LazyTensor):
             else:
                 # Compute solves
                 solves = base_lazy_tensor._solve(eager_rhs, preconditioner=base_lazy_tensor._preconditioner()[0])
-                return solves.detach(), torch.tensor([]), torch.tensor([]), torch.tensor([]), torch.tensor([])
+                dtype = solves.dtype
+                device = solves.device
+                return (
+                    solves.detach(), torch.tensor([], dtype=dtype, device=device),
+                    torch.tensor([], dtype=dtype, device=device), torch.tensor([], dtype=dtype, device=device),
+                    torch.tensor([], dtype=dtype, device=device)
+                )
 
     def __init__(
         self, base_lazy_tensor, eager_rhss=[], solves=[], probe_vectors=torch.tensor([]),
