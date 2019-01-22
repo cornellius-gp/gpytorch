@@ -263,8 +263,10 @@ class Kernel(Module):
         elif jit_func is not None:
             res = jit_func(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
         elif not square_dist:
-            # TODO: Use torch.pdist here when it isn't buggy.
-            res = torch.norm(x1.unsqueeze(-2) - x2.unsqueeze(-3), p=2, dim=-1)
+            if x1_eq_x2:
+                res = self.__jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2)).clamp_min_(1e-30).sqrt_()
+            else:
+                res = torch.norm(x1.unsqueeze(-2) - x2.unsqueeze(-3), p=2, dim=-1)
         else:
             res = self.__jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
 
