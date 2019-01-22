@@ -7,6 +7,7 @@ from .. import settings
 def _default_preconditioner(x):
     return x.clone()
 
+
 @torch.jit.script
 def _jit_linear_cg_updates_no_precond(
     mvms, result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
@@ -22,7 +23,7 @@ def _jit_linear_cg_updates_no_precond(
 
     # Update precond_residual
     # precon_residual{k} = M^-1 residual_{k}
-    precond_residual = residual.clone() # preconditioner(residual)
+    precond_residual = residual.clone()
 
     # # Update result
     # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
@@ -208,8 +209,6 @@ def linear_cg(
                 mul_storage,
                 curr_conjugate_vec,
             )
-        # # if (residual_norm < tolerance).all() and not (n_tridiag and k < n_tridiag_iter):
-        # #     break
 
         # Update tridiagonal matrices, if applicable
         if n_tridiag and k < n_tridiag_iter and update_tridiag:
