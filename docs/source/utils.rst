@@ -25,6 +25,12 @@ Pivoted Cholesky Utilities
 .. automodule:: gpytorch.utils.pivoted_cholesky
    :members:
 
+Quadrature Utilities
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: gpytorch.utils.quadrature
+   :members:
+
 Sparse Utilities
 ~~~~~~~~~~~~~~~~~
 
