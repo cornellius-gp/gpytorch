@@ -4,6 +4,8 @@ import torch
 import operator
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
+from ..utils.broadcasting import _matmul_broadcast_shape
+from ..utils.memoize import cached
 from functools import reduce
 
 
@@ -11,25 +13,32 @@ def _prod(iterable):
     return reduce(operator.mul, iterable, 1)
 
 
-def _matmul(lazy_tensors, rhs):
-    res = rhs.contiguous()
+def _matmul(lazy_tensors, kp_shape, rhs):
+    output_shape = _matmul_broadcast_shape(kp_shape, rhs.shape)
+    output_batch_shape = output_shape[:-2]
+
+    res = rhs.contiguous().expand(*output_batch_shape, *rhs.shape[-2:])
     num_cols = rhs.size(-1)
     for lazy_tensor in lazy_tensors:
-        res = res.view(*lazy_tensor.batch_shape, lazy_tensor.size(-1), -1)
+        res = res.view(*output_batch_shape, lazy_tensor.size(-1), -1)
         factor = lazy_tensor._matmul(res)
-        factor = factor.view(*lazy_tensor.batch_shape, lazy_tensor.size(-2), -1, num_cols).transpose(-3, -2)
-        res = factor.contiguous().view(*lazy_tensor.batch_shape, -1, num_cols)
+        factor = factor.view(*output_batch_shape, lazy_tensor.size(-2), -1, num_cols).transpose(-3, -2)
+        res = factor.contiguous().view(*output_batch_shape, -1, num_cols)
     return res
 
 
-def _t_matmul(lazy_tensors, rhs):
-    res = rhs.contiguous()
+def _t_matmul(lazy_tensors, kp_shape, rhs):
+    kp_t_shape = (*kp_shape[:-2], kp_shape[-1], kp_shape[-2])
+    output_shape = _matmul_broadcast_shape(kp_t_shape, rhs.shape)
+    output_batch_shape = torch.Size(output_shape[:-2])
+
+    res = rhs.contiguous().expand(*output_batch_shape, *rhs.shape[-2:])
     num_cols = rhs.size(-1)
     for lazy_tensor in lazy_tensors:
-        res = res.view(*lazy_tensor.batch_shape, lazy_tensor.size(-2), -1)
+        res = res.view(*output_batch_shape, lazy_tensor.size(-2), -1)
         factor = lazy_tensor._t_matmul(res)
-        factor = factor.view(*lazy_tensor.batch_shape, lazy_tensor.size(-1), -1, num_cols).transpose(-3, -2)
-        res = factor.contiguous().view(*lazy_tensor.batch_shape, -1, num_cols)
+        factor = factor.view(*output_batch_shape, lazy_tensor.size(-1), -1, num_cols).transpose(-3, -2)
+        res = factor.contiguous().view(*output_batch_shape, -1, num_cols)
     return res
 
 
@@ -40,17 +49,11 @@ class KroneckerProductLazyTensor(LazyTensor):
         except TypeError:
             raise RuntimeError("KroneckerProductLazyTensor is intended to wrap lazy tensors.")
         for prev_lazy_tensor, curr_lazy_tensor in zip(lazy_tensors[:-1], lazy_tensors[1:]):
-            if prev_lazy_tensor.ndimension() != curr_lazy_tensor.ndimension():
+            if prev_lazy_tensor.batch_shape != curr_lazy_tensor.batch_shape:
                 raise RuntimeError(
                     "KroneckerProductLazyTensor expects lazy tensors with the "
-                    "same number of dimensions. Got {}.".format([lv.ndimension() for lv in lazy_tensors])
+                    "same batch shapes. Got {}.".format([lv.batch_shape for lv in lazy_tensors])
                 )
-            if curr_lazy_tensor.ndimension() >= 3:
-                if prev_lazy_tensor.shape[:-2] != curr_lazy_tensor.shape[:-2]:
-                    raise RuntimeError(
-                        "KroneckerProductLazyTensor expects the same batch sizes for component tensors. "
-                        "Got sizes: {}".format([lv.size() for lv in lazy_tensors])
-                    )
         super(KroneckerProductLazyTensor, self).__init__(*lazy_tensors)
         self.lazy_tensors = lazy_tensors
 
@@ -59,7 +62,7 @@ class KroneckerProductLazyTensor(LazyTensor):
         if is_vec:
             rhs = rhs.unsqueeze(-1)
 
-        res = _matmul(self.lazy_tensors, rhs.contiguous())
+        res = _matmul(self.lazy_tensors, self.shape, rhs.contiguous())
 
         if is_vec:
             res = res.squeeze(-1)
@@ -70,12 +73,13 @@ class KroneckerProductLazyTensor(LazyTensor):
         if is_vec:
             rhs = rhs.unsqueeze(-1)
 
-        res = _t_matmul(self.lazy_tensors, rhs.contiguous())
+        res = _t_matmul(self.lazy_tensors, self.shape, rhs.contiguous())
 
         if is_vec:
             res = res.squeeze(-1)
         return res
 
+    @cached(name="size")
     def _size(self):
         left_size = _prod(lazy_tensor.size(-2) for lazy_tensor in self.lazy_tensors)
         right_size = _prod(lazy_tensor.size(-1) for lazy_tensor in self.lazy_tensors)

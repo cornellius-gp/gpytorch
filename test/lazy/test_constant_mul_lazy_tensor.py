@@ -16,7 +16,7 @@ class TestConstantMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return ToeplitzLazyTensor(column) * constant
 
     def evaluate_lazy_tensor(self, lazy_tensor):
-        constant = lazy_tensor.constant
+        constant = lazy_tensor.expanded_constant
         column = lazy_tensor.base_lazy_tensor.column
         return sym_toeplitz(column) * constant
 
@@ -31,7 +31,7 @@ class TestConstantMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
         return ToeplitzLazyTensor(column) * constant
 
     def evaluate_lazy_tensor(self, lazy_tensor):
-        constant = lazy_tensor.constant
+        constant = lazy_tensor.expanded_constant
         column = lazy_tensor.base_lazy_tensor.column
         return torch.cat([sym_toeplitz(column[0]).unsqueeze(0), sym_toeplitz(column[1]).unsqueeze(0)]) * constant.view(
             2, 1, 1

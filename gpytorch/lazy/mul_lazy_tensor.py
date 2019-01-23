@@ -3,6 +3,7 @@
 import torch
 
 from ..utils import prod
+from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify, NonLazyTensor
@@ -106,6 +107,9 @@ class MulLazyTensor(LazyTensor):
         pass
 
     def _matmul(self, rhs):
+        output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
+        output_batch_shape = output_shape[:-2]
+
         if self.non_lazy_self is not None:
             return self.non_lazy_self._matmul(rhs)
 
@@ -113,7 +117,6 @@ class MulLazyTensor(LazyTensor):
         if rhs.ndimension() == 1:
             rhs = rhs.unsqueeze(1)
             is_vector = True
-        batch_size = max(rhs.size(0), self.size(0)) if rhs.ndimension() == 3 else None
 
         # Here we have a root decomposition
         if isinstance(self.left_lazy_tensor, RootLazyTensor):
@@ -124,9 +127,9 @@ class MulLazyTensor(LazyTensor):
             n = self.size(-1)
             m = rhs.size(-1)
             # Now implement the formula (A . B) v = diag(A D_v B)
-            left_res = left_res.view(n, rank * m) if batch_size is None else left_res.view(batch_size, n, rank * m)
+            left_res = left_res.view(*output_batch_shape, n, rank * m)
             left_res = self.right_lazy_tensor._matmul(left_res)
-            left_res = left_res.view(n, rank, m) if batch_size is None else left_res.view(batch_size, n, rank, m)
+            left_res = left_res.view(*output_batch_shape, n, rank, m)
             res = left_res.mul_(left_root.unsqueeze(-1)).sum(-2)
         # This is the case where we're not doing a root decomposition, because the matrix is too small
         else:
@@ -141,20 +144,13 @@ class MulLazyTensor(LazyTensor):
         if left_vecs.ndimension() == 1:
             left_vecs = left_vecs.unsqueeze(1)
             right_vecs = right_vecs.unsqueeze(1)
-        batch_size = self.size(0) if self.ndimension() == 3 else None
 
-        n = None
-        num_vecs = None
-        if self.ndimension() == 3:
-            _, n, num_vecs = left_vecs.size()
-        else:
-            n, num_vecs = left_vecs.size()
+        *batch_shape, n, num_vecs = left_vecs.size()
 
         if isinstance(self.right_lazy_tensor, RootLazyTensor):
             right_root = self.right_lazy_tensor.root.evaluate()
             left_factor = left_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * right_root.unsqueeze(-1)
-
             right_rank = right_root.size(-1)
         else:
             right_rank = n
@@ -162,19 +158,14 @@ class MulLazyTensor(LazyTensor):
             left_factor = left_vecs.unsqueeze(-2) * self.right_lazy_tensor.evaluate().unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * eye.unsqueeze(-1)
 
-        if batch_size is None:
-            left_factor = left_factor.view(n, num_vecs * right_rank)
-            right_factor = right_factor.view(n, num_vecs * right_rank)
-        else:
-            left_factor = left_factor.view(batch_size, n, num_vecs * right_rank)
-            right_factor = right_factor.view(batch_size, n, num_vecs * right_rank)
+        left_factor = left_factor.view(*batch_shape, n, num_vecs * right_rank)
+        right_factor = right_factor.view(*batch_shape, n, num_vecs * right_rank)
         left_deriv_args = self.left_lazy_tensor._quad_form_derivative(left_factor, right_factor)
 
         if isinstance(self.left_lazy_tensor, RootLazyTensor):
             left_root = self.left_lazy_tensor.root.evaluate()
             left_factor = left_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * left_root.unsqueeze(-1)
-
             left_rank = left_root.size(-1)
         else:
             left_rank = n
@@ -182,12 +173,8 @@ class MulLazyTensor(LazyTensor):
             left_factor = left_vecs.unsqueeze(-2) * self.left_lazy_tensor.evaluate().unsqueeze(-1)
             right_factor = right_vecs.unsqueeze(-2) * eye.unsqueeze(-1)
 
-        if batch_size is None:
-            left_factor = left_factor.view(n, num_vecs * left_rank)
-            right_factor = right_factor.view(n, num_vecs * left_rank)
-        else:
-            left_factor = left_factor.view(batch_size, n, num_vecs * left_rank)
-            right_factor = right_factor.view(batch_size, n, num_vecs * left_rank)
+        left_factor = left_factor.view(*batch_shape, n, num_vecs * left_rank)
+        right_factor = right_factor.view(*batch_shape, n, num_vecs * left_rank)
         right_deriv_args = self.right_lazy_tensor._quad_form_derivative(left_factor, right_factor)
 
         return tuple(list(left_deriv_args) + list(right_deriv_args))

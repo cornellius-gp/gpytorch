@@ -192,7 +192,9 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
     # Define a bunch of sizes
     num_data, num_interp = interp_values.shape[-2:]
     num_cols = rhs.size(-1)
-    batch_shape = torch.Size(values.shape[:-3])
+    interp_shape = torch.Size((*interp_indices.shape[:-2], output_dim, num_data))
+    output_shape = _matmul_broadcast_shape(interp_shape, rhs.shape)
+    batch_shape = output_shape[:-2]
     batch_size = batch_shape.numel()
 
     # Using interp_indices, create a sparse matrix that will sum up the values
