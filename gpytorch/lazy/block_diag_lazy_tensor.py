@@ -125,9 +125,10 @@ class BlockDiagLazyTensor(BlockLazyTensor):
     @cached(name="root_decomposition")
     def root_decomposition(self):
         if settings.fast_computations.covar_root_decomposition.on():
-            return super().root_decomposition()
-        chol = torch.cholesky(self.base_lazy_tensor.evaluate())
-        res = self.__class__(NonLazyTensor(chol), num_blocks=self.num_blocks)
+            res = self.__class__(self.base_lazy_tensor.root_decomposition().root, num_blocks=self.num_blocks)
+        else:
+            chol = torch.cholesky(self.base_lazy_tensor.evaluate())
+            res = self.__class__(NonLazyTensor(chol), num_blocks=self.num_blocks)
         return RootLazyTensor(res)
 
     def zero_mean_mvn_samples(self, num_samples):
