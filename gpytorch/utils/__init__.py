@@ -11,6 +11,7 @@ from . import interpolation
 from . import lanczos
 from . import pivoted_cholesky
 from . import sparse
+from . import quadrature
 
 
 def prod(items):
@@ -36,5 +37,6 @@ __all__ = [
     "interpolation",
     "lanczos",
     "pivoted_cholesky",
+    "quadrature",
     "sparse",
 ]
