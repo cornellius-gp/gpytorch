@@ -343,6 +343,16 @@ class num_likelihood_samples(_value_context):
     _global_value = 10
 
 
+class num_gauss_hermite_locs(_value_context):
+    """
+    The number of samples to draw from a latent GP when computing a likelihood
+    This is used in variational inference and training
+    Default: 10
+    """
+
+    _global_value = 20
+
+
 class num_trace_samples(_value_context):
     """
     The number of samples to draw when stochastically computing the trace of a matrix

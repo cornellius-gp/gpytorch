@@ -2,9 +2,8 @@
 
 import torch
 from torch.distributions import Bernoulli
-
-from .. import settings
 from ..distributions import MultivariateNormal
+from ..utils.quadrature import GaussHermiteQuadrature1D
 from ..functions import log_normal_cdf, normal_cdf
 from .likelihood import Likelihood
 
@@ -21,6 +20,9 @@ class BernoulliLikelihood(Likelihood):
             p(Y=y|f)=\Phi(yf)
         \end{equation*}
     """
+    def __init__(self):
+        super().__init__()
+        self.quadrature = GaussHermiteQuadrature1D()
 
     def forward(self, input):
         if not isinstance(input, MultivariateNormal):
@@ -35,10 +37,9 @@ class BernoulliLikelihood(Likelihood):
         return Bernoulli(probs=output_probs)
 
     def variational_log_probability(self, latent_func, target):
-        num_samples = settings.num_likelihood_samples.value()
-        samples = latent_func.rsample(torch.Size([num_samples])).view(-1)
-        target = target.unsqueeze(0).repeat(num_samples, 1).view(-1)
-        return log_normal_cdf(samples.mul(target)).sum().div(num_samples)
+        likelihood_func = lambda locs: log_normal_cdf(locs.mul(target.unsqueeze(-1)))
+        res = self.quadrature(likelihood_func, latent_func)
+        return res.sum()
 
     def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
         import pyro
