@@ -20,27 +20,9 @@ class Module(nn.Module):
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
-
-        if isinstance(outputs, tuple):
-            if not all(
-                torch.is_tensor(output) or isinstance(output, Distribution) or isinstance(output, LazyTensor)
-                for output in outputs
-            ):
-                raise RuntimeError(
-                    "All outputs must be a Distribution, torch.Tensor, or LazyTensor. "
-                    "Got {}".format([output.__class__.__name__ for output in outputs])
-                )
-            if len(outputs) == 1:
-                outputs = outputs[0]
-            return outputs
-
-        return outputs
-        # elif torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyTensor):
-        #     return outputs
-        # else:
-        #     raise RuntimeError(
-        #         "Output must be a Distribution, torch.Tensor, or LazyTensor. Got {}".format(outputs.__class__.__name__)
-        #     )
+        if isinstance(outputs, list):
+            return [_validate_module_outputs(output) for output in outputs]
+        return _validate_module_outputs(outputs)
 
     def _get_module_and_name(self, parameter_name):
         """Get module and name from full parameter name."""
@@ -285,6 +267,27 @@ class Module(nn.Module):
                     return super().__getattribute__(name)
                 except AttributeError:
                     raise e
+
+
+def _validate_module_outputs(outputs):
+    if isinstance(outputs, tuple):
+        if not all(
+            torch.is_tensor(output) or isinstance(output, Distribution) or isinstance(output, LazyTensor)
+            for output in outputs
+        ):
+            raise RuntimeError(
+                "All outputs must be a Distribution, torch.Tensor, or LazyTensor. "
+                "Got {}".format([output.__class__.__name__ for output in outputs])
+            )
+        if len(outputs) == 1:
+            outputs = outputs[0]
+        return outputs
+    elif torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyTensor):
+        return outputs
+    else:
+        raise RuntimeError(
+            "Output must be a Distribution, torch.Tensor, or LazyTensor. Got {}".format(outputs.__class__.__name__)
+        )
 
 
 def _extract_named_added_loss_terms(module, memo=None, prefix=""):

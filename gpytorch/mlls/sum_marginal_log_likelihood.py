@@ -28,7 +28,11 @@ class SumMarginalLogLikelihood(MarginalLogLikelihood):
             params: (Iterable[Iterable[Tensor]]) - the arguments to be passed through
                 (e.g. parameters in case of heteroskedastic likelihoods)
         """
-        sum_mll = sum(
-            mll(output, target, *iparams) for mll, output, target, iparams in zip(self.mlls, outputs, targets, params)
-        )
+        if len(params) == 0:
+            sum_mll = sum(mll(output, target) for mll, output, target in zip(self.mlls, outputs, targets))
+        else:
+            sum_mll = sum(
+                mll(output, target, *iparams)
+                for mll, output, target, iparams in zip(self.mlls, outputs, targets, params)
+            )
         return sum_mll.div_(len(self.mlls))
