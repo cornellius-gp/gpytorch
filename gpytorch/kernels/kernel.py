@@ -13,25 +13,44 @@ from numpy import triu_indices
 
 
 @torch.jit.script
-def _jit_sq_dist(x1, x2, diag, x1_eq_x2):
-    # Compute squared distance matrix using quadratic expansion
-    x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-    if bool(x1_eq_x2):
-        x2_norm = x1_norm
-    else:
-        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+def default_postprocess_script(x):
+    return x
 
-    res = x1.matmul(x2.transpose(-2, -1))
-    res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
 
-    if bool(x1_eq_x2):
-        # Ensure zero diagonal
-        res.diagonal(dim1=-2, dim2=-1).fill_(0)
+class Distance(torch.jit.ScriptModule):
+    def __init__(self, postprocess_script=None):
+        super().__init__()
+        if postprocess_script is not None:
+            self._postprocess = postprocess_script
+        else:
+            self._postprocess = default_postprocess_script
 
-    # Zero out negative values
-    res.clamp_min_(0)
+    @torch.jit.script_method
+    def _jit_sq_dist(self, x1, x2, diag, x1_eq_x2):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        if bool(x1_eq_x2):
+            x2_norm = x1_norm
+        else:
+            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
 
-    return res
+        res = x1.matmul(x2.transpose(-2, -1))
+        res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+
+        if bool(x1_eq_x2):
+            # Ensure zero diagonal
+            res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+
+        return self._postprocess(res)
+
+    @torch.jit.script_method
+    def _jit_dist(self, x1, x2, diag, x1_eq_x2):
+        res = self._jit_sq_dist(x1, x2, diag, x1_eq_x2)
+        res = res.clamp_min_(1e-30).sqrt_()
+        return self._postprocess(res)
 
 
 class Kernel(Module):
@@ -214,7 +233,11 @@ class Kernel(Module):
 
         return res
 
-    def _covar_dist(self, x1, x2, diag=False, batch_dims=None, square_dist=False, jit_func=None, **params):
+    @torch.jit.script_method
+    def _postprocess(self, dist_mat):
+        return dist_mat
+
+    def _covar_dist(self, x1, x2, diag=False, batch_dims=None, square_dist=False, postprocess_func=None, **params):
         """
         This is a helper method for computing the Euclidean distance between
         all pairs of points in x1 and x2.
@@ -247,6 +270,8 @@ class Kernel(Module):
 
         res = None
 
+        distance_module = Distance(postprocess_func)
+
         if diag:
             # Special case the diagonal because we can return all zeros most of the time.
             if x1_eq_x2:
@@ -261,15 +286,10 @@ class Kernel(Module):
                     res = (x1 - x2).pow(2).sum(-1)
                 else:
                     res = torch.norm(x1 - x2, p=2, dim=-1)
-        elif jit_func is not None:
-            res = jit_func(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
         elif not square_dist:
-            if x1_eq_x2:
-                res = _jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2)).clamp_min_(1e-30).sqrt_()
-            else:
-                res = torch.norm(x1.unsqueeze(-2) - x2.unsqueeze(-3), p=2, dim=-1)
+            res = distance_module._jit_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
         else:
-            res = _jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
+            res = distance_module._jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
 
         if batch_dims == (0, 2):
             if diag:
