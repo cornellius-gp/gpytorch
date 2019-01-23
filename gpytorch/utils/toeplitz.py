@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from ..utils import fft
+from ..utils import fft, broadcasting
 
 
 def toeplitz(toeplitz_column, toeplitz_row):
@@ -102,32 +102,15 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
     if toeplitz_column.size() != toeplitz_row.size():
         raise RuntimeError("c and r should have the same length (Toeplitz matrices are necessarily square).")
 
-    is_batch = True
-    if toeplitz_column.ndimension() == 1:
-        toeplitz_column = toeplitz_column.unsqueeze(0)
-        toeplitz_row = toeplitz_row.unsqueeze(0)
-        if tensor.ndimension() < 3:
-            tensor = tensor.unsqueeze(0)
-        is_batch = False
+    toeplitz_shape = torch.Size((*toeplitz_column.shape, toeplitz_row.size(-1)))
+    output_shape = broadcasting._matmul_broadcast_shape(toeplitz_shape, tensor.shape)
+    broadcasted_t_shape = output_shape[:-1] if tensor.dim() > 1 else output_shape
 
-    if toeplitz_column.ndimension() != 2:
-        raise RuntimeError(
-            "The first two inputs to ToeplitzMV should be vectors \
-                            (or matrices, representing batch) \
-                            (first column c and row r of the Toeplitz matrix)"
-        )
-
-    if toeplitz_column.size(0) == 1:
-        toeplitz_column = toeplitz_column.expand(tensor.size(0), toeplitz_column.size(1))
-        toeplitz_row = toeplitz_row.expand(tensor.size(0), toeplitz_row.size(1))
-
-    if toeplitz_column.size()[:2] != tensor.size()[:2]:
-        raise RuntimeError(
-            "Dimension mismatch: attempting to multiply a {}x{} Toeplitz matrix "
-            "against a matrix with leading dimension {}.".format(
-                len(toeplitz_column), len(toeplitz_column), len(tensor)
-            )
-        )
+    if tensor.ndimension() == 1:
+        tensor = tensor.unsqueeze(-1)
+    toeplitz_column = toeplitz_column.expand(*broadcasted_t_shape).contiguous().view(-1, toeplitz_column.size(-1))
+    toeplitz_row = toeplitz_row.expand(*broadcasted_t_shape).contiguous().view(-1, toeplitz_row.size(-1))
+    tensor = tensor.expand(*output_shape).contiguous().view(-1, *tensor.shape[-2:])
 
     if not torch.equal(toeplitz_column[:, 0], toeplitz_row[:, 0]):
         raise RuntimeError(
@@ -139,44 +122,31 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
     if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(tensor):
         raise RuntimeError("The types of all inputs to ToeplitzMV must match.")
 
-    output_dims = tensor.ndimension()
-    if output_dims == 2:
-        tensor = tensor.unsqueeze(2)
+    batch_size, orig_size, num_rhs = tensor.size()
+    r_reverse = toeplitz_row[:, 1:].flip(dims=(1,))
 
-    if toeplitz_column.size(1) == 1:
-        output = toeplitz_column.view(-1, 1, 1).matmul(tensor)
+    c_r_rev = torch.zeros(batch_size, orig_size + r_reverse.size(1), dtype=tensor.dtype, device=tensor.device)
+    c_r_rev[:, :orig_size] = toeplitz_column
+    c_r_rev[:, orig_size:] = r_reverse
 
-    else:
-        batch_size, orig_size, num_rhs = tensor.size()
-        r_reverse = toeplitz_row[:, 1:].flip(dims=(1,))
+    temp_tensor = torch.zeros(
+        batch_size, 2 * orig_size - 1, num_rhs, dtype=toeplitz_column.dtype, device=toeplitz_column.device
+    )
+    temp_tensor[:, :orig_size, :] = tensor
 
-        c_r_rev = torch.zeros(batch_size, orig_size + r_reverse.size(1), dtype=tensor.dtype, device=tensor.device)
-        c_r_rev[:, :orig_size] = toeplitz_column
-        c_r_rev[:, orig_size:] = r_reverse
+    fft_M = fft.fft1(temp_tensor.transpose(1, 2).contiguous())
+    fft_c = fft.fft1(c_r_rev).unsqueeze(1).expand_as(fft_M)
+    fft_product = torch.zeros_like(fft_M)
 
-        temp_tensor = torch.zeros(
-            batch_size, 2 * orig_size - 1, num_rhs, dtype=toeplitz_column.dtype, device=toeplitz_column.device
-        )
-        temp_tensor[:, :orig_size, :] = tensor
+    fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 0])
+    fft_product[:, :, :, 0].addcmul_(-1, fft_c[:, :, :, 1], fft_M[:, :, :, 1])
+    fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 0])
+    fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 1])
 
-        fft_M = fft.fft1(temp_tensor.transpose(1, 2).contiguous())
-        fft_c = fft.fft1(c_r_rev).unsqueeze(1).expand_as(fft_M)
-        fft_product = torch.zeros_like(fft_M)
+    output = fft.ifft1(fft_product).transpose(1, 2)
+    output = output[:, :orig_size, :]
 
-        fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 0])
-        fft_product[:, :, :, 0].addcmul_(-1, fft_c[:, :, :, 1], fft_M[:, :, :, 1])
-        fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 0])
-        fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 1])
-
-        output = fft.ifft1(fft_product).transpose(1, 2)
-        output = output[:, :orig_size, :]
-
-    if output_dims == 2:
-        output = output.squeeze(2)
-
-    if not is_batch:
-        output = output.squeeze(0)
-
+    output = output.view(*output_shape)
     return output
 
 
@@ -215,34 +185,21 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
         left_vectors = left_vectors.unsqueeze(1)
         right_vectors = right_vectors.unsqueeze(1)
 
-    left_vectors = left_vectors.transpose(-1, -2)
-    right_vectors = right_vectors.transpose(-1, -2)
+    batch_shape = left_vectors.shape[:-2]
+    toeplitz_size = left_vectors.size(-2)
+    num_vectors = left_vectors.size(-1)
 
-    if left_vectors.ndimension() == 3:
-        batch = True
-        batch_size, s, _ = left_vectors.size()
-        left_vectors = left_vectors.contiguous().view(batch_size * s, -1)
-        right_vectors = right_vectors.contiguous().view(batch_size * s, -1)
-    else:
-        batch = False
+    left_vectors = left_vectors.transpose(-1, -2).contiguous()
+    right_vectors = right_vectors.transpose(-1, -2).contiguous()
 
-    s, m = left_vectors.size()
+    columns = torch.zeros_like(left_vectors)
+    columns[..., 0] = left_vectors[..., 0]
+    res = toeplitz_matmul(columns, left_vectors, right_vectors.unsqueeze(-1))
+    rows = left_vectors.flip(dims=(-1,))
+    columns[..., 0] = rows[..., 0]
+    res += toeplitz_matmul(columns, rows, torch.flip(right_vectors, dims=(-1,)).unsqueeze(-1))
 
-    left_vectors.contiguous()
-    right_vectors.contiguous()
-
-    columns = torch.zeros(s, m, dtype=left_vectors.dtype, device=left_vectors.device)
-    columns[:, 0] = left_vectors[:, 0]
-    res = toeplitz_matmul(columns, left_vectors, right_vectors)
-    rows = left_vectors.flip(dims=(1,))
-    columns[:, 0] = rows[:, 0]
-    res += toeplitz_matmul(columns, rows, torch.flip(right_vectors, dims=(1,)))
-
-    if not batch:
-        res = res.sum(0)
-        res[0] -= (left_vectors * right_vectors).sum()
-    else:
-        res = res.contiguous().view(batch_size, -1, m).sum(1)
-        res[:, 0] -= (left_vectors * right_vectors).view(batch_size, -1).sum(1)
+    res = res.contiguous().view(*batch_shape, num_vectors, toeplitz_size).sum(-2)
+    res[..., 0] -= (left_vectors * right_vectors).view(*batch_shape, -1).sum(-1)
 
     return res
