@@ -185,7 +185,7 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
         left_vectors = left_vectors.unsqueeze(1)
         right_vectors = right_vectors.unsqueeze(1)
 
-    batch_shape = torch.Size(left_vectors.shape[:-2])
+    batch_shape = left_vectors.shape[:-2]
     toeplitz_size = left_vectors.size(-2)
     num_vectors = left_vectors.size(-1)
 

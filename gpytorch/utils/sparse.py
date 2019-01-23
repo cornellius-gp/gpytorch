@@ -87,7 +87,7 @@ def bdsmm(sparse, dense):
     if sparse.ndimension() > 2:
         # Expand the tensors to account for broadcasting
         output_shape = _matmul_broadcast_shape(sparse.shape, dense.shape)
-        expanded_sparse_shape = torch.Size(output_shape[:-2] + sparse.shape[-2:])
+        expanded_sparse_shape = output_shape[:-2] + sparse.shape[-2:]
         unsqueezed_sparse_shape = [1 for _ in range(len(output_shape) - sparse.dim())] + list(sparse.shape)
         repeat_sizes = tuple(
             output_size // sparse_size
@@ -104,7 +104,10 @@ def bdsmm(sparse, dense):
             [torch.Size(batch_shape[i + 1:]).numel() for i in range(len(batch_shape))],
             dtype=torch.long, device=sparse.device
         )
-        batch_assignment = sparse._indices()[:-2].t() @ batch_multiplication_factor
+        if batch_multiplication_factor.is_cuda:
+            batch_assignment = (sparse._indices()[:-2].float().t() @ batch_multiplication_factor.float()).long()
+        else:
+            batch_assignment = sparse._indices()[:-2].t() @ batch_multiplication_factor
 
         # Create block-diagonal sparse tensor
         indices = sparse._indices()[-2:].clone()

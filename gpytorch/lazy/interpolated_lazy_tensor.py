@@ -177,7 +177,7 @@ class InterpolatedLazyTensor(LazyTensor):
 
         # right_interp_values_grad
         left_interp_left_res = self.base_lazy_tensor._t_matmul(left_res).contiguous()
-        batch_shape = torch.Size(left_interp_left_res.shape[:-2])
+        batch_shape = left_interp_left_res.shape[:-2]
         batch_size = batch_shape.numel()
         if len(batch_shape):
             batch_offset = torch.arange(0, batch_size, dtype=torch.long, device=self.device).view(*batch_shape)
@@ -408,10 +408,10 @@ class InterpolatedLazyTensor(LazyTensor):
 
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
-        batch_iter = tuple((i + 1) for i in range(base_samples.dim() - 1))
+        batch_iter = tuple(range(1, base_samples.dim()))
         base_samples = base_samples.permute(*batch_iter, 0)
         res = left_interp(self.left_interp_indices, self.left_interp_values, base_samples).contiguous()
-        batch_iter = tuple(i for i in range(res.dim() - 1))
+        batch_iter = tuple(range(res.dim() - 1))
         return res.permute(-1, *batch_iter).contiguous()
 
     def _getitem_nonbatch(self, row_index, col_index, first_tensor_index_dim=None):

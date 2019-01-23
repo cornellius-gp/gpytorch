@@ -108,7 +108,7 @@ class MulLazyTensor(LazyTensor):
 
     def _matmul(self, rhs):
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
-        output_batch_shape = torch.Size(output_shape[:-2])
+        output_batch_shape = output_shape[:-2]
 
         if self.non_lazy_self is not None:
             return self.non_lazy_self._matmul(rhs)
