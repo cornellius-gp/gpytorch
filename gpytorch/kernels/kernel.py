@@ -12,6 +12,28 @@ from torch.nn.functional import softplus
 from numpy import triu_indices
 
 
+@torch.jit.script
+def _jit_sq_dist(x1, x2, diag, x1_eq_x2):
+    # Compute squared distance matrix using quadratic expansion
+    x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+    if bool(x1_eq_x2):
+        x2_norm = x1_norm
+    else:
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+
+    res = x1.matmul(x2.transpose(-2, -1))
+    res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+
+    if bool(x1_eq_x2):
+        # Ensure zero diagonal
+        res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+    # Zero out negative values
+    res.clamp_min_(0)
+
+    return res
+
+
 class Kernel(Module):
     """
     Kernels in GPyTorch are implemented as a :class:`gpytorch.Module` that, when called on two :obj:`torch.tensor`
@@ -192,27 +214,6 @@ class Kernel(Module):
 
         return res
 
-    @torch.jit.script
-    def __jit_sq_dist(x1, x2, diag, x1_eq_x2):
-        # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        if bool(x1_eq_x2):
-            x2_norm = x1_norm
-        else:
-            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
-
-        res = x1.matmul(x2.transpose(-2, -1))
-        res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
-
-        if bool(x1_eq_x2):
-            # Ensure zero diagonal
-            res.diagonal(dim1=-2, dim2=-1).fill_(0)
-
-        # Zero out negative values
-        res.clamp_min_(0)
-
-        return res
-
     def _covar_dist(self, x1, x2, diag=False, batch_dims=None, square_dist=False, jit_func=None, **params):
         """
         This is a helper method for computing the Euclidean distance between
@@ -264,11 +265,11 @@ class Kernel(Module):
             res = jit_func(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
         elif not square_dist:
             if x1_eq_x2:
-                res = self.__jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2)).clamp_min_(1e-30).sqrt_()
+                res = _jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2)).clamp_min_(1e-30).sqrt_()
             else:
                 res = torch.norm(x1.unsqueeze(-2) - x2.unsqueeze(-3), p=2, dim=-1)
         else:
-            res = self.__jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
+            res = _jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
 
         if batch_dims == (0, 2):
             if diag:

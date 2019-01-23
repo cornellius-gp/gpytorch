@@ -9,39 +9,6 @@ def _default_preconditioner(x):
 
 
 @torch.jit.script
-def _jit_linear_cg_updates_no_precond(
-    mvms, result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
-):
-    torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
-    torch.sum(mul_storage, dim=-2, keepdim=True, out=alpha)
-    alpha.add_(eps)
-    torch.div(residual_inner_prod, alpha, out=alpha)
-
-    # Update residual
-    # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
-    torch.addcmul(residual, -alpha, mvms, out=residual)
-
-    # Update precond_residual
-    # precon_residual{k} = M^-1 residual_{k}
-    precond_residual = residual.clone()
-
-    # # Update result
-    # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
-    torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
-
-    # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
-    residual_inner_prod.add_(eps)
-    torch.reciprocal(residual_inner_prod, out=beta)
-    torch.mul(residual, precond_residual, out=mul_storage)
-    torch.sum(mul_storage, dim=-2, keepdim=True, out=residual_inner_prod)
-    beta.mul_(residual_inner_prod)
-
-    # Update curr_conjugate_vec
-    # curr_conjugate_vec_{k} = precon_residual{k} + beta_{k} curr_conjugate_vec_{k-1}
-    curr_conjugate_vec.mul_(beta).add_(precond_residual)
-
-
-@torch.jit.script
 def _jit_linear_cg_updates(
     result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
 ):
@@ -59,6 +26,28 @@ def _jit_linear_cg_updates(
     # Update curr_conjugate_vec
     # curr_conjugate_vec_{k} = precon_residual{k} + beta_{k} curr_conjugate_vec_{k-1}
     curr_conjugate_vec.mul_(beta).add_(precond_residual)
+
+
+@torch.jit.script
+def _jit_linear_cg_updates_no_precond(
+    mvms, result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
+):
+    torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
+    torch.sum(mul_storage, dim=-2, keepdim=True, out=alpha)
+    alpha.add_(eps)
+    torch.div(residual_inner_prod, alpha, out=alpha)
+
+    # Update residual
+    # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
+    torch.addcmul(residual, -alpha, mvms, out=residual)
+
+    # Update precond_residual
+    # precon_residual{k} = M^-1 residual_{k}
+    precond_residual = residual.clone()
+
+    _jit_linear_cg_updates(
+        result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
+    )
 
 
 def linear_cg(

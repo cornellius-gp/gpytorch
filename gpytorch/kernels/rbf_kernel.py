@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
+from .kernel import _jit_sq_dist
 from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 import torch
@@ -92,23 +93,7 @@ class RBFKernel(Kernel):
 
     @torch.jit.script
     def __jit_rbf_kernel(x1, x2, diag, x1_eq_x2):
-        # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        if bool(x1_eq_x2):
-            x2_norm = x1_norm
-        else:
-            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
-
-        res = x1.matmul(x2.transpose(-2, -1))
-        res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
-
-        if bool(x1_eq_x2):
-            # Ensure zero diagonal
-            res.diagonal(dim1=-2, dim2=-1).fill_(0)
-
-        # Zero out negative values
-        res.clamp_min_(0)
-
+        res = _jit_sq_dist(x1, x2, diag, x1_eq_x2)
         return res.div_(-2).exp_()
 
     def forward(self, x1, x2, diag=False, **params):
