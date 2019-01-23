@@ -3,6 +3,7 @@
 from .likelihood import Likelihood
 from .bernoulli_likelihood import BernoulliLikelihood
 from .gaussian_likelihood import GaussianLikelihood, _GaussianLikelihoodBase
+from .multi_output_likelihood import MultiOutputLikelihood
 from .multitask_gaussian_likelihood import (
     MultitaskGaussianLikelihood,
     MultitaskGaussianLikelihoodKronecker,
@@ -19,6 +20,7 @@ __all__ = [
     "GaussianLikelihood",
     "HeteroskedasticNoise",
     "Likelihood",
+    "MultiOutputLikelihood",
     "MultitaskGaussianLikelihood",
     "MultitaskGaussianLikelihoodKronecker",
     "SoftmaxLikelihood",

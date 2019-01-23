@@ -34,12 +34,13 @@ class Module(nn.Module):
                 outputs = outputs[0]
             return outputs
 
-        elif torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyTensor):
-            return outputs
-        else:
-            raise RuntimeError(
-                "Output must be a Distribution, torch.Tensor, or LazyTensor. Got {}".format(outputs.__class__.__name__)
-            )
+        return outputs
+        # elif torch.is_tensor(outputs) or isinstance(outputs, Distribution) or isinstance(outputs, LazyTensor):
+        #     return outputs
+        # else:
+        #     raise RuntimeError(
+        #         "Output must be a Distribution, torch.Tensor, or LazyTensor. Got {}".format(outputs.__class__.__name__)
+        #     )
 
     def _get_module_and_name(self, parameter_name):
         """Get module and name from full parameter name."""
