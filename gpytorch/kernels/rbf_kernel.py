@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-from .kernel import _jit_sq_dist
 from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 import torch
+
+
+@torch.jit.script
+def postprocess_rbf(dist_mat):
+    return dist_mat.div_(-2).exp_()
 
 
 class RBFKernel(Kernel):
@@ -91,15 +95,10 @@ class RBFKernel(Kernel):
             eps=eps,
         )
 
-    @torch.jit.script
-    def __jit_rbf_kernel(x1, x2, diag, x1_eq_x2):
-        res = _jit_sq_dist(x1, x2, diag, x1_eq_x2)
-        return res.div_(-2).exp_()
-
     def forward(self, x1, x2, diag=False, **params):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        diff = self._covar_dist(x1_, x2_, square_dist=True, diag=diag, jit_func=self.__jit_rbf_kernel, **params)
+        diff = self._covar_dist(x1_, x2_, square_dist=True, diag=diag, postprocess_func=postprocess_rbf, **params)
         if diag:
             diff.div_(-2).exp_()
         return diff
