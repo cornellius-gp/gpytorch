@@ -10,7 +10,44 @@ from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
 from torch.nn.functional import softplus
 from numpy import triu_indices
-import warnings
+
+
+@torch.jit.script
+def default_postprocess_script(x):
+    return x
+
+
+class Distance(torch.jit.ScriptModule):
+    def __init__(self, postprocess_script=default_postprocess_script):
+        super().__init__()
+        self._postprocess = postprocess_script
+
+    @torch.jit.script_method
+    def _jit_sq_dist(self, x1, x2, diag, x1_eq_x2):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        if bool(x1_eq_x2):
+            x2_norm = x1_norm
+        else:
+            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+
+        res = x1.matmul(x2.transpose(-2, -1))
+        res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+
+        if bool(x1_eq_x2):
+            # Ensure zero diagonal
+            res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+
+        return self._postprocess(res)
+
+    @torch.jit.script_method
+    def _jit_dist(self, x1, x2, diag, x1_eq_x2):
+        res = self._jit_sq_dist(x1, x2, diag, x1_eq_x2)
+        res = res.clamp_min_(1e-30).sqrt_()
+        return self._postprocess(res)
 
 
 class Kernel(Module):
@@ -193,29 +230,20 @@ class Kernel(Module):
 
         return res
 
-    def __slow_sq_dist(self, x1, x2, diag, x1_eq_x2):
-        # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+    @torch.jit.script_method
+    def _postprocess(self, dist_mat):
+        return dist_mat
 
-        if diag:
-            mid = (x1 * x2).sum(dim=-1, keepdim=True)
-            res = (x1_norm - 2 * mid + x2_norm).squeeze(-1)
-        else:
-            mid = x1.matmul(x2.transpose(-2, -1))
-            res = x1_norm - 2 * mid + x2_norm.transpose(-2, -1)
-
-        if x1_eq_x2:
-            # Ensure zero diagonal
-            diag_inds = torch.arange(x1.shape[-2])
-            res[..., diag_inds, diag_inds] = 0
-
-        # Zero out negative values
-        res.clamp_min_(0)
-
-        return res
-
-    def _covar_dist(self, x1, x2, diag=False, batch_dims=None, square_dist=False, **params):
+    def _covar_dist(
+        self,
+        x1,
+        x2,
+        diag=False,
+        batch_dims=None,
+        square_dist=False,
+        postprocess_func=default_postprocess_script,
+        **params
+    ):
         """
         This is a helper method for computing the Euclidean distance between
         all pairs of points in x1 and x2.
@@ -248,6 +276,8 @@ class Kernel(Module):
 
         res = None
 
+        distance_module = Distance(postprocess_func)
+
         if diag:
             # Special case the diagonal because we can return all zeros most of the time.
             if x1_eq_x2:
@@ -256,41 +286,18 @@ class Kernel(Module):
                     res = torch.zeros(x1.shape[0] * x1.shape[-1], x2.shape[-2], dtype=x1.dtype, device=x1.device)
                 else:
                     res = torch.zeros(x1.shape[0], x2.shape[-2], dtype=x1.dtype, device=x1.device)
-                return res
+                return postprocess_func(res)
             else:
                 if square_dist:
                     res = (x1 - x2).pow(2).sum(-1)
                 else:
                     res = torch.norm(x1 - x2, p=2, dim=-1)
 
-        # TODO: Remove the size check when pytorch/15511 is fixed.
-        elif x1.size(-2) < 200 and x1_eq_x2:
-            # Full distance matrix in the square symmetric case
-            if x1.dim() == 3 and x1.shape[0] == 1:
-                # If we aren't in batch mode, we can always use torch.pdist
-                res = self.__pdist_dist(x1.squeeze(0)).unsqueeze(0)
-                res = res.pow(2) if square_dist else res
-            elif self.__pdist_supports_batch:
-                # torch.pdist still works on the latest pytorch-nightly
-                # TODO: This else branch is not needed on the next PyTorch release (> 1.0.0).
-                try:
-                    res = self.__pdist_dist(x1)
-                    res = res.pow(2) if square_dist else res
-                except RuntimeError as e:
-                    if 'pdist only supports 2D tensors, got:' in str(e):
-                        warnings.warn('You are using a version of PyTorch where torch.pdist does not support batch '
-                                      'matrices. Falling back on manual distance computation. Updating PyTorch to the '
-                                      'latest pytorch-nightly build will offer significant memory savings during kernel'
-                                      ' computation.')
-                        self.__pdist_supports_batch = False
-                    else:
-                        raise e
-
-        if res is None:
-            if not square_dist:
-                res = torch.norm(x1.unsqueeze(-2) - x2.unsqueeze(-3), p=2, dim=-1)
-            else:
-                res = self.__slow_sq_dist(x1, x2, diag, x1_eq_x2)
+            res = postprocess_func(res)
+        elif not square_dist:
+            res = distance_module._jit_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
+        else:
+            res = distance_module._jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
 
         if batch_dims == (0, 2):
             if diag:
