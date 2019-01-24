@@ -2,11 +2,10 @@
 
 from abc import ABC, abstractproperty
 
+import torch
 from gpytorch.likelihoods import MultiOutputLikelihood
 from gpytorch.models import GP
 from torch.nn import ModuleList
-
-from .utils import _get_tensor_args
 
 
 class AbstractMultiOutputGP(GP, ABC):
@@ -53,3 +52,11 @@ class IndependentMultiOutputGP(AbstractMultiOutputGP):
     @property
     def train_targets(self):
         return [model.train_targets for model in self.models]
+
+
+def _get_tensor_args(*args):
+    for arg in args:
+        if torch.is_tensor(arg):
+            yield (arg,)
+        else:
+            yield arg
