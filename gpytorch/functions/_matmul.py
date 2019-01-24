@@ -57,6 +57,8 @@ class Matmul(Function):
             else:
                 rhs_grad = lazy_tsr._t_matmul(grad_output)
 
-            rhs_grad = rhs_grad.view(rhs_shape)
+            # For broadcasting
+            if rhs_grad.dim() > len(rhs_shape):
+                rhs_grad = rhs_grad.contiguous().view(-1, *rhs_shape).sum(0)
 
         return tuple([rhs_grad] + list(arg_grads))

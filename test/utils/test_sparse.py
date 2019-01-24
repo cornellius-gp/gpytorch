@@ -2,7 +2,7 @@
 
 import torch
 import unittest
-from gpytorch.utils.sparse import sparse_eye, sparse_getitem, sparse_repeat, to_sparse
+from gpytorch.utils.sparse import sparse_eye, sparse_getitem, to_sparse
 
 
 class TestSparse(unittest.TestCase):
@@ -44,29 +44,6 @@ class TestSparse(unittest.TestCase):
     def test_sparse_getitem_two_dim_slice(self):
         actual = self.dense[2:4, 1:3]
         res = sparse_getitem(self.sparse, (slice(2, 4), slice(1, 3)))
-        self.assertTrue(torch.equal(actual, res.to_dense()))
-
-    def test_sparse_repeat_1d(self):
-        sparse_1d = sparse_getitem(self.sparse, 1)
-        actual = sparse_1d.to_dense().repeat(3, 1)
-        res = sparse_repeat(sparse_1d, 3, 1)
-        self.assertTrue(torch.equal(actual, res.to_dense()))
-
-        actual = sparse_1d.to_dense().repeat(2, 3)
-        res = sparse_repeat(sparse_1d, 2, 3)
-        self.assertTrue(torch.equal(actual, res.to_dense()))
-
-    def test_sparse_repeat_2d(self):
-        actual = self.sparse.to_dense().repeat(3, 2)
-        res = sparse_repeat(self.sparse, 3, 2)
-        self.assertTrue(torch.equal(actual, res.to_dense()))
-
-        actual = self.sparse.to_dense().repeat(1, 2)
-        res = sparse_repeat(self.sparse, 1, 2)
-        self.assertTrue(torch.equal(actual, res.to_dense()))
-
-        actual = self.sparse.to_dense().repeat(3, 1)
-        res = sparse_repeat(self.sparse, 3, 1)
         self.assertTrue(torch.equal(actual, res.to_dense()))
 
     def test_to_sparse(self):

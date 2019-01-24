@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
 import torch
-from .block_lazy_tensor import BlockLazyTensor
+
 from .. import settings
+from ..utils.memoize import cached
+from .block_lazy_tensor import BlockLazyTensor
+from .non_lazy_tensor import NonLazyTensor
+from .root_lazy_tensor import RootLazyTensor
 
 
 class BlockDiagLazyTensor(BlockLazyTensor):
@@ -117,6 +121,15 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         if logdet_res is not None and logdet_res.numel():
             logdet_res = logdet_res.view(*self.batch_shape, -1).sum(-1)
         return inv_quad_res, logdet_res
+
+    @cached(name="root_decomposition")
+    def root_decomposition(self):
+        if settings.fast_computations.covar_root_decomposition.on():
+            res = self.__class__(self.base_lazy_tensor.root_decomposition().root, num_blocks=self.num_blocks)
+        else:
+            chol = torch.cholesky(self.base_lazy_tensor.evaluate())
+            res = self.__class__(NonLazyTensor(chol), num_blocks=self.num_blocks)
+        return RootLazyTensor(res)
 
     def zero_mean_mvn_samples(self, num_samples):
         res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)

@@ -6,6 +6,7 @@ from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 from .root_lazy_tensor import RootLazyTensor
 from ..utils import sparse
+from ..utils.batch import _create_batch_indices
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.sparse import bdsmm
 
@@ -22,19 +23,10 @@ class InterpolatedLazyTensor(LazyTensor):
         base_lazy_tensor = lazify(base_lazy_tensor)
 
         if left_interp_indices is None:
-            num_rows = base_lazy_tensor.size()[-2]
+            num_rows = base_lazy_tensor.size(-2)
             left_interp_indices = torch.arange(0, num_rows, dtype=torch.long, device=base_lazy_tensor.device)
             left_interp_indices.unsqueeze_(-1)
-            if base_lazy_tensor.ndimension() == 3:
-                left_interp_indices = left_interp_indices.unsqueeze(0).expand(base_lazy_tensor.size(0), num_rows, 1)
-            elif right_interp_indices is not None and right_interp_indices.ndimension() == 3:
-                left_interp_indices = left_interp_indices.unsqueeze(0).expand(right_interp_indices.size(0), num_rows, 1)
-        else:
-            if left_interp_indices.dim() != base_lazy_tensor.ndimension():
-                raise RuntimeError(
-                    "Expected left_interp_indices ({}) to have the same number of dimensions as "
-                    "base_lazy_Tensor ({})".format(left_interp_indices.size(), base_lazy_tensor.size())
-                )
+            left_interp_indices = left_interp_indices.expand(*base_lazy_tensor.batch_shape, num_rows, 1)
 
         if left_interp_values is None:
             left_interp_values = torch.ones(
@@ -48,21 +40,10 @@ class InterpolatedLazyTensor(LazyTensor):
                 )
 
         if right_interp_indices is None:
-            num_rows = base_lazy_tensor.size()[-2]
+            num_rows = base_lazy_tensor.size(-2)
             right_interp_indices = torch.arange(0, num_rows, dtype=torch.long, device=base_lazy_tensor.device)
             right_interp_indices.unsqueeze_(-1)
-            if base_lazy_tensor.ndimension() == 3:
-                right_interp_indices = right_interp_indices.unsqueeze(0).expand(base_lazy_tensor.size(0), num_rows, 1)
-            elif left_interp_indices.ndimension() == 3:
-                right_interp_indices = right_interp_indices.unsqueeze(0).expand(
-                    left_interp_indices.size(0), num_rows, 1
-                )
-        else:
-            if left_interp_indices.dim() != base_lazy_tensor.ndimension():
-                raise RuntimeError(
-                    "Expected left_interp_indices ({}) to have the same number of dimensions as "
-                    "base_lazy_Tensor ({})".format(left_interp_indices.size(), base_lazy_tensor.size())
-                )
+            right_interp_indices = right_interp_indices.expand(*base_lazy_tensor.batch_shape, num_rows, 1)
 
         if right_interp_values is None:
             right_interp_values = torch.ones(
@@ -74,6 +55,18 @@ class InterpolatedLazyTensor(LazyTensor):
                     "Expected left_interp_indices ({}) to have the same size as "
                     "left_interp_values ({})".format(left_interp_indices.size(), left_interp_values.size())
                 )
+
+        # Make sure that left/right interp tensors have the same batch shape as the base_lazy_tensor
+        if left_interp_indices.shape[:-2] != base_lazy_tensor.batch_shape:
+            raise RuntimeError(
+                "left interp size ({}) is incompatible with base_lazy_tensor size ({}). Make sure the two "
+                "have the same number of batch dimensions".format(left_interp_indices.size(), base_lazy_tensor.size())
+            )
+        if right_interp_indices.shape[:-2] != base_lazy_tensor.batch_shape:
+            raise RuntimeError(
+                "right interp size ({}) is incompatible with base_lazy_tensor size ({}). Make sure the two "
+                "have the same number of batch dimensions".format(right_interp_indices.size(), base_lazy_tensor.size())
+            )
 
         super(InterpolatedLazyTensor, self).__init__(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
@@ -164,39 +157,38 @@ class InterpolatedLazyTensor(LazyTensor):
         n_left_interp = self.left_interp_indices.size(-1)
         n_right_interp = self.right_interp_indices.size(-1)
         n_inducing = right_res.size(-2)
-        if self.left_interp_indices.ndimension() == 3:
-            batch_size = self.left_interp_indices.size(0)
 
         # left_interp_values grad
         right_interp_right_res = self.base_lazy_tensor._matmul(right_res).contiguous()
-        if self.left_interp_indices.ndimension() == 3:
-            batch_offset = torch.arange(0, batch_size, dtype=torch.long, device=self.device)
+        batch_shape = torch.Size(right_interp_right_res.shape[:-2])
+        batch_size = batch_shape.numel()
+        if len(batch_shape):
+            batch_offset = torch.arange(0, batch_size, dtype=torch.long, device=self.device).view(*batch_shape)
             batch_offset.unsqueeze_(-1).unsqueeze_(-1).mul_(n_inducing)
-
+            batched_right_interp_indices = self.right_interp_indices
             batched_left_interp_indices = (self.left_interp_indices + batch_offset).view(-1)
-            flattened_right_interp_right_res = right_interp_right_res.view(batch_size * n_inducing, n_vecs)
-
-            selected_right_vals = flattened_right_interp_right_res.index_select(0, batched_left_interp_indices)
-            selected_right_vals = selected_right_vals.view(batch_size, n_left_rows, n_left_interp, n_vecs)
         else:
-            selected_right_vals = right_interp_right_res.index_select(0, self.left_interp_indices.view(-1))
-            selected_right_vals = selected_right_vals.view(n_left_rows, n_left_interp, n_vecs)
+            batched_left_interp_indices = self.left_interp_indices.view(-1)
+
+        flattened_right_interp_right_res = right_interp_right_res.view(batch_size * n_inducing, n_vecs)
+        selected_right_vals = flattened_right_interp_right_res.index_select(0, batched_left_interp_indices)
+        selected_right_vals = selected_right_vals.view(*batch_shape, n_left_rows, n_left_interp, n_vecs)
         left_values_grad = (selected_right_vals * left_vecs.unsqueeze(-2)).sum(-1)
 
         # right_interp_values_grad
         left_interp_left_res = self.base_lazy_tensor._t_matmul(left_res).contiguous()
-        if self.right_interp_indices.ndimension() == 3:
-            batch_offset = torch.arange(0, batch_size, dtype=torch.long, device=self.device)
+        batch_shape = left_interp_left_res.shape[:-2]
+        batch_size = batch_shape.numel()
+        if len(batch_shape):
+            batch_offset = torch.arange(0, batch_size, dtype=torch.long, device=self.device).view(*batch_shape)
             batch_offset.unsqueeze_(-1).unsqueeze_(-1).mul_(n_inducing)
-
             batched_right_interp_indices = (self.right_interp_indices + batch_offset).view(-1)
-            flattened_left_interp_left_res = left_interp_left_res.view(batch_size * n_inducing, n_vecs)
-
-            selected_left_vals = flattened_left_interp_left_res.index_select(0, batched_right_interp_indices)
-            selected_left_vals = selected_left_vals.view(batch_size, n_right_rows, n_right_interp, n_vecs)
         else:
-            selected_left_vals = left_interp_left_res.index_select(0, self.right_interp_indices.view(-1))
-            selected_left_vals = selected_left_vals.view(n_right_rows, n_right_interp, n_vecs)
+            batched_right_interp_indices = self.right_interp_indices.view(-1)
+
+        flattened_left_interp_left_res = left_interp_left_res.view(batch_size * n_inducing, n_vecs)
+        selected_left_vals = flattened_left_interp_left_res.index_select(0, batched_right_interp_indices)
+        selected_left_vals = selected_left_vals.view(*batch_shape, n_right_rows, n_right_interp, n_vecs)
         right_values_grad = (selected_left_vals * right_vecs.unsqueeze(-2)).sum(-1)
 
         # Return zero grad for interp indices
@@ -212,12 +204,9 @@ class InterpolatedLazyTensor(LazyTensor):
         return res
 
     def _size(self):
-        if self.left_interp_indices.ndimension() == 3:
-            return torch.Size(
-                (self.left_interp_indices.size(0), self.left_interp_indices.size(1), self.right_interp_indices.size(1))
-            )
-        else:
-            return torch.Size((self.left_interp_indices.size(0), self.right_interp_indices.size(0)))
+        return torch.Size(
+            self.base_lazy_tensor.batch_shape + (self.left_interp_indices.size(-2), self.right_interp_indices.size(-2))
+        )
 
     def _transpose_nonbatch(self):
         res = self.__class__(
@@ -285,57 +274,38 @@ class InterpolatedLazyTensor(LazyTensor):
         return self._sparse_right_interp_t_memo
 
     def diag(self):
+        if self.left_interp_indices.size(-2) != self.right_interp_indices.size(-2):
+            raise RuntimeError(
+                "diag is only defined for square LazyTensors - won't work for LazyTensor of size {}".format(self.shape)
+            )
+
         if isinstance(self.base_lazy_tensor, RootLazyTensor):
             res = left_interp(self.left_interp_indices, self.left_interp_values, self.base_lazy_tensor.root.evaluate())
             return res.pow(2).sum(-1)
         else:
-            batch_size = None
-            n_data = None
-            n_interp = None
-            if self.left_interp_indices.ndimension() == 3:
-                batch_size, n_data, n_interp = self.left_interp_indices.size()
-            else:
-                n_data, n_interp = self.left_interp_indices.size()
+            num_data, num_left_interp = self.left_interp_indices.shape[-2:]
+            num_right_interp = self.left_interp_indices.size(-1)
 
             # Batch compute the non-zero values of the outer products w_left^k w_right^k^T
             left_interp_values = self.left_interp_values.unsqueeze(-1)
             right_interp_values = self.right_interp_values.unsqueeze(-2)
             interp_values = torch.matmul(left_interp_values, right_interp_values).view(-1)
+            left_interp_indices = self.left_interp_indices.unsqueeze(-1).expand(
+                *self.batch_shape, num_data, num_left_interp, num_right_interp
+            ).contiguous().view(-1)
+            right_interp_indices = self.right_interp_indices.unsqueeze(-2).expand(
+                *self.batch_shape, num_data, num_left_interp, num_right_interp
+            ).contiguous().view(-1)
 
-            # Batch compute indicies that will be non-zero for row k
-            if batch_size is None:
-                left_interp_indices = self.left_interp_indices.unsqueeze(-1).expand(n_data, n_interp, n_interp)
-                right_interp_indices = self.right_interp_indices.unsqueeze(-2).expand(n_data, n_interp, n_interp)
-            else:
-                left_interp_indices = self.left_interp_indices.unsqueeze(-1).expand(
-                    batch_size, n_data, n_interp, n_interp
-                )
-                right_interp_indices = self.right_interp_indices.unsqueeze(-2).expand(
-                    batch_size, n_data, n_interp, n_interp
-                )
-
-            left_interp_indices = left_interp_indices.contiguous().view(-1)
-            right_interp_indices = right_interp_indices.contiguous().view(-1)
-
-            base_batch_indices = (
-                [
-                    torch.arange(0, batch_size, dtype=torch.long, device=self.device)
-                    .unsqueeze(-1)
-                    .repeat(1, n_data * n_interp * n_interp)
-                    .view(-1)
-                ]
-                if batch_size is not None
-                else []
+            batch_indices = _create_batch_indices(
+                self.batch_shape, num_data * num_left_interp * num_right_interp, self.device
             )
             base_var_vals = self.base_lazy_tensor._get_indices(
-                left_interp_indices, right_interp_indices, *base_batch_indices
+                left_interp_indices, right_interp_indices, *batch_indices
             )
             res = interp_values * base_var_vals
 
-            if batch_size is None:
-                res = res.view(n_data, -1).sum(-1)
-            else:
-                res = res.view(batch_size, n_data, -1).sum(-1)
+            res = res.view(*self.batch_shape, num_data, -1).sum(-1)
             return res
 
     def matmul(self, tensor):
@@ -438,16 +408,11 @@ class InterpolatedLazyTensor(LazyTensor):
 
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
-        if self.ndimension() == 3:
-            res = left_interp(
-                self.left_interp_indices, self.left_interp_values, base_samples.permute(1, 2, 0).contiguous()
-            )
-            return res.permute(2, 0, 1).contiguous()
-        else:
-            res = left_interp(
-                self.left_interp_indices, self.left_interp_values, base_samples.permute(1, 0).contiguous()
-            )
-            return res.permute(1, 0).contiguous()
+        batch_iter = tuple(range(1, base_samples.dim()))
+        base_samples = base_samples.permute(*batch_iter, 0)
+        res = left_interp(self.left_interp_indices, self.left_interp_values, base_samples).contiguous()
+        batch_iter = tuple(range(res.dim() - 1))
+        return res.permute(-1, *batch_iter).contiguous()
 
     def _getitem_nonbatch(self, row_index, col_index, first_tensor_index_dim=None):
         """

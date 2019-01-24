@@ -3,6 +3,12 @@
 from .kernel import Kernel
 from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
+import torch
+
+
+@torch.jit.script
+def postprocess_rbf(dist_mat):
+    return dist_mat.div_(-2).exp_()
 
 
 class RBFKernel(Kernel):
@@ -89,8 +95,8 @@ class RBFKernel(Kernel):
             eps=eps,
         )
 
-    def forward(self, x1, x2, **params):
+    def forward(self, x1, x2, diag=False, **params):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        diff = self._covar_dist(x1_, x2_, square_dist=True, **params)
-        return diff.div_(-2).exp_()
+        diff = self._covar_dist(x1_, x2_, square_dist=True, diag=diag, postprocess_func=postprocess_rbf, **params)
+        return diff
