@@ -99,6 +99,4 @@ class RBFKernel(Kernel):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
         diff = self._covar_dist(x1_, x2_, square_dist=True, diag=diag, postprocess_func=postprocess_rbf, **params)
-        if diag:
-            diff.div_(-2).exp_()
         return diff

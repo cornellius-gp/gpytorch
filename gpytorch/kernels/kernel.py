@@ -18,12 +18,9 @@ def default_postprocess_script(x):
 
 
 class Distance(torch.jit.ScriptModule):
-    def __init__(self, postprocess_script=None):
+    def __init__(self, postprocess_script=default_postprocess_script):
         super().__init__()
-        if postprocess_script is not None:
-            self._postprocess = postprocess_script
-        else:
-            self._postprocess = default_postprocess_script
+        self._postprocess = postprocess_script
 
     @torch.jit.script_method
     def _jit_sq_dist(self, x1, x2, diag, x1_eq_x2):
@@ -237,7 +234,16 @@ class Kernel(Module):
     def _postprocess(self, dist_mat):
         return dist_mat
 
-    def _covar_dist(self, x1, x2, diag=False, batch_dims=None, square_dist=False, postprocess_func=None, **params):
+    def _covar_dist(
+        self,
+        x1,
+        x2,
+        diag=False,
+        batch_dims=None,
+        square_dist=False,
+        postprocess_func=default_postprocess_script,
+        **params
+    ):
         """
         This is a helper method for computing the Euclidean distance between
         all pairs of points in x1 and x2.
@@ -280,12 +286,14 @@ class Kernel(Module):
                     res = torch.zeros(x1.shape[0] * x1.shape[-1], x2.shape[-2], dtype=x1.dtype, device=x1.device)
                 else:
                     res = torch.zeros(x1.shape[0], x2.shape[-2], dtype=x1.dtype, device=x1.device)
-                return res
+                return postprocess_func(res)
             else:
                 if square_dist:
                     res = (x1 - x2).pow(2).sum(-1)
                 else:
                     res = torch.norm(x1 - x2, p=2, dim=-1)
+
+            res = postprocess_func(res)
         elif not square_dist:
             res = distance_module._jit_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
         else:
