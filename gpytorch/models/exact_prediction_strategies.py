@@ -213,7 +213,7 @@ class DefaultPredictionStrategy(object):
             likelihood=self.likelihood,
             non_batch_train=(len(batch_shape) == 0),
         )
-        setattr(fant_strat, "__cache", {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
+        setattr(fant_strat, "_memoize_cache", {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
 
         return fant_strat
 
@@ -463,7 +463,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         if (settings.fast_pred_samples.on() and precomputed_cache[0] is None) or (
             settings.fast_pred_samples.off() and precomputed_cache[1] is None
         ):
-            self.__cache.pop("covar_cache")
+            self._memoize_cache.pop("covar_cache")
             precomputed_cache = self.covar_cache
 
         # Compute the exact predictive posterior

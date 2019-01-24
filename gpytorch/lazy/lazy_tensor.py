@@ -1088,9 +1088,9 @@ class LazyTensor(object):
         )(*self.representation())
 
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
-            getattr(self, '__cache')["root_decomposition"] = RootLazyTensor(roots[0])
+            self._memoize_cache["root_decomposition"] = RootLazyTensor(roots[0])
         else:
-            getattr(self, '__cache')["root_decomposition"] = RootLazyTensor(roots)
+            self._memoize_cache["root_decomposition"] = RootLazyTensor(roots)
 
         # Choose the best of the inv_roots, if there were more than one initial vectors
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
