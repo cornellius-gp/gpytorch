@@ -97,9 +97,9 @@ def linear_cg(
         initial_guess = torch.zeros_like(rhs)
     if preconditioner is None:
         preconditioner = _default_preconditioner
-        no_precond = True
+        precond = False
     else:
-        no_precond = False
+        precond = True
 
     # If we are running m CG iterations, we obviously can't get more than m Lanczos coefficients
     if max_tridiag_iter > max_iter:
@@ -160,7 +160,7 @@ def linear_cg(
         # Get next alpha
         # alpha_{k} = (residual_{k-1}^T precon_residual{k-1}) / (p_vec_{k-1}^T mat p_vec_{k-1})
         mvms = matmul_closure(curr_conjugate_vec)
-        if not no_precond:
+        if precond:
             torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
             torch.sum(mul_storage, -2, keepdim=True, out=alpha)
             alpha.add_(eps)
