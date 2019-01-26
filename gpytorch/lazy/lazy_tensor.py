@@ -2,6 +2,7 @@
 
 import math
 import warnings
+
 import gpytorch
 import torch
 
@@ -170,7 +171,7 @@ class LazyTensor(object):
             n_tridiag=num_tridiag,
             max_iter=settings.max_cg_iterations.value(),
             max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
-            preconditioner=preconditioner
+            preconditioner=preconditioner,
         )
 
     def _size(self):
@@ -716,8 +717,9 @@ class LazyTensor(object):
                 )
 
         func = InvMatmul(
-            self.representation_tree(), preconditioner=self._inv_matmul_preconditioner(),
-            has_left=(left_tensor is not None)
+            self.representation_tree(),
+            preconditioner=self._inv_matmul_preconditioner(),
+            has_left=(left_tensor is not None),
         )
         if left_tensor is None:
             return func(right_tensor, *self.representation())
@@ -1022,14 +1024,17 @@ class LazyTensor(object):
         low-rank version of a matrix
         """
         from .root_lazy_tensor import RootLazyTensor
+
         if not self.is_square:
             raise RuntimeError(
                 "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if (self.matrix_shape.numel() <= settings.max_cholesky_numel.value()
-                or settings.fast_computations.covar_root_decomposition.off()):
+        if (
+            self.matrix_shape.numel() <= settings.max_cholesky_numel.value()
+            or settings.fast_computations.covar_root_decomposition.off()
+        ):
             try:
                 res = torch.cholesky(self.evaluate())
                 return RootLazyTensor(res)
@@ -1279,31 +1284,29 @@ class LazyTensor(object):
         res = self._unsqueeze_batch(positive_dim)
         return res
 
-    def zero_mean_mvn_samples(self, num_samples):
+    def zero_mean_mvn_samples(self, sample_shape=torch.Size()):
         """
         Assumes that self is a covariance matrix, or a batch of covariance matrices.
         Returns samples from a zero-mean MVN, defined by self (as covariance matrix)
 
-        Self should be symmetric, either (batch_size x num_dim x num_dim) or (num_dim x num_dim)
+        Self should be symmetric, of shape (b1 x ... bk x num_dim x num_dim)
 
         Args:
-            :attr:`num_samples` (int):
-                Number of samples to draw.
+            :attr:`sample_shape` (torch.Size):
+                The shape of the samples to draw.
 
         Returns:
             :obj:`torch.tensor`:
-                Samples from MVN (num_samples x batch_size x num_dim) or (num_samples x num_dim)
+                Samples from MVN (sample_shape x b1 x ... bk x num_dim)
         """
-        if self.size()[-2:] == torch.Size([1, 1]):
+        if self.shape[-2:] == torch.Size([1, 1]):
             covar_root = self.evaluate().sqrt()
         else:
             covar_root = self.root_decomposition().root
 
-        base_samples = torch.randn(
-            *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
-        )
-        samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
-
+        base_shape = sample_shape + self.shape[:-2] + self.shape[-1:]
+        base_samples = torch.randn(base_shape, device=self.device, dtype=self.dtype)
+        samples = covar_root.matmul(base_samples.unsqueeze(-1)).squeeze(-1).contiguous()
         return samples
 
     def __add__(self, other):
@@ -1496,13 +1499,6 @@ def delazify(obj):
         raise TypeError("object of class {} cannot be made into a Tensor".format(obj.__class__.__name__))
 
 
-_deprecate_renamed_methods(
-    LazyTensor,
-    inv_quad_log_det="inv_quad_logdet",
-    log_det="logdet",
-)
+_deprecate_renamed_methods(LazyTensor, inv_quad_log_det="inv_quad_logdet", log_det="logdet")
 
-__all__ = [
-    "LazyTensor",
-    "delazify",
-]
+__all__ = ["LazyTensor", "delazify"]

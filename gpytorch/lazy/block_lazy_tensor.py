@@ -100,8 +100,3 @@ class BlockLazyTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(self.base_lazy_tensor._transpose_nonbatch(), block_dim=self.block_dim)
-
-    def zero_mean_mvn_samples(self, num_samples):
-        res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
-        res = self._remove_batch_dim(res.unsqueeze(-1)).squeeze(-1)
-        return res

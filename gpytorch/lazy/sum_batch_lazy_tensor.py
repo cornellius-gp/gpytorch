@@ -86,3 +86,7 @@ class SumBatchLazyTensor(BlockLazyTensor):
     def diag(self):
         diag = self.base_lazy_tensor.diag().sum(self._positive_block_dim)
         return diag
+
+    def zero_mean_mvn_samples(self, sample_shape=torch.Size()):
+        res = self.base_lazy_tensor.zero_mean_mvn_samples(sample_shape=sample_shape)
+        return res.sum(self.block_dim + 1)  # self.block_dim is a negative index - and we lost one of those

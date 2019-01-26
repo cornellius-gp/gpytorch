@@ -136,6 +136,6 @@ class DiagLazyTensor(LazyTensor):
     def sqrt(self):
         return DiagLazyTensor(self._diag.sqrt())
 
-    def zero_mean_mvn_samples(self, num_samples):
-        base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)
+    def zero_mean_mvn_samples(self, sample_shape=torch.Size()):
+        base_samples = torch.randn(sample_shape + self._diag.shape, dtype=self.dtype, device=self.device)
         return base_samples * self._diag.sqrt()

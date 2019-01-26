@@ -411,10 +411,7 @@ class InterpolatedLazyTensor(LazyTensor):
             res = res.squeeze(-1)
         return res
 
-    def zero_mean_mvn_samples(self, num_samples):
-        base_samples = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
-        batch_iter = tuple(range(1, base_samples.dim()))
-        base_samples = base_samples.permute(*batch_iter, 0)
-        res = left_interp(self.left_interp_indices, self.left_interp_values, base_samples).contiguous()
-        batch_iter = tuple(range(res.dim() - 1))
-        return res.permute(-1, *batch_iter).contiguous()
+    def zero_mean_mvn_samples(self, sample_shape=torch.Size()):
+        base_samples = self.base_lazy_tensor.zero_mean_mvn_samples(sample_shape=sample_shape).unsqueeze(-1)
+        res = left_interp(self.left_interp_indices, self.left_interp_values, base_samples).squeeze(-1)
+        return res

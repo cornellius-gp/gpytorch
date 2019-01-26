@@ -83,3 +83,11 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             chol = torch.cholesky(self.base_lazy_tensor.evaluate())
             res = self.__class__(NonLazyTensor(chol), block_dim=self.block_dim)
         return RootLazyTensor(res)
+
+    def zero_mean_mvn_samples(self, sample_shape=torch.Size()):
+        res = self.base_lazy_tensor.zero_mean_mvn_samples(sample_shape=sample_shape)
+
+        # Move the block dimension to the appropriate place
+        res = res.unsqueeze(-2).transpose(-2, self.block_dim).squeeze(self.block_dim).contiguous()
+        res = res.view(*sample_shape, *self.batch_shape, self.size(-2))
+        return res
