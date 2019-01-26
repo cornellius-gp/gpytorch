@@ -4,7 +4,6 @@ import logging
 import math
 import torch
 from .kernel import Kernel
-from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 
 logger = logging.getLogger()
@@ -83,16 +82,6 @@ class SpectralMixtureKernel(Kernel):
         inv_param_transform=None,
         **kwargs
     ):
-        mixture_scales_prior = _deprecate_kwarg(
-            kwargs, "log_mixture_scales_prior", "mixture_scales_prior", mixture_scales_prior
-        )
-        mixture_means_prior = _deprecate_kwarg(
-            kwargs, "log_mixture_means_prior", "mixture_means_prior", mixture_means_prior
-        )
-        mixture_weights_prior = _deprecate_kwarg(
-            kwargs, "log_mixture_weights_prior", "mixture_weights_prior", mixture_weights_prior
-        )
-
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")
         if mixture_means_prior is not None or mixture_scales_prior is not None or mixture_weights_prior is not None:

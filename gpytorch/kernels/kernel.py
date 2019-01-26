@@ -6,7 +6,6 @@ from torch.nn import ModuleList
 from ..lazy import lazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
 from .. import settings
-from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
 from torch.nn.functional import softplus
 from numpy import triu_indices
@@ -138,7 +137,6 @@ class Kernel(Module):
         eps=1e-6,
         **kwargs
     ):
-        lengthscale_prior = _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
         super(Kernel, self).__init__()
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
