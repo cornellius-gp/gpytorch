@@ -48,13 +48,22 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             raise ValueError("All MultivariateNormals must have the same batch shape")
         if not all(m.event_shape == mvns[0].event_shape for m in mvns[1:]):
             raise ValueError("All MultivariateNormals must have the same event shape")
+        if len(mvns[0].batch_shape) > 1:
+            raise ValueError("Multiple batch dimensions are not supported in from_independent_mvns.")
         mean = torch.stack([mvn.mean for mvn in mvns], -1)
         # TODO: To do the following efficiently, we don't want to evaluate the
         # covariance matrices. Instead, we want to use the lazies directly in the
         # BlockDiagLazyTensor. This will require implementing a new BatchLazyTensor:
         # https://github.com/cornellius-gp/gpytorch/issues/468
-        covar = torch.stack([mvn.covariance_matrix for mvn in mvns])
-        covar_lazy = BlockDiagLazyTensor(NonLazyTensor(covar))
+        batch_mode = len(mvns[0].covariance_matrix.shape) == 3
+        covar = torch.cat(
+            [mvn.covariance_matrix if batch_mode else mvn.covariance_matrix.unsqueeze(0) for mvn in mvns],
+            dim=0
+        )
+        covar_lazy = BlockDiagLazyTensor(
+            NonLazyTensor(covar),
+            num_blocks=len(mvns) if batch_mode else None
+        )
         return cls(mean=mean, covariance_matrix=covar_lazy)
 
     def get_base_samples(self, sample_shape=torch.Size()):

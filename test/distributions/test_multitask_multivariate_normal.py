@@ -6,7 +6,7 @@ import os
 import random
 import math
 import torch
-from gpytorch.distributions import MultitaskMultivariateNormal
+from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
 from test._utils import approx_equal
 
@@ -158,6 +158,40 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
         res = MultitaskMultivariateNormal(mean, DiagLazyTensor(var)).log_prob(values)
         actual = -0.5 * (math.log(math.pi * 2) * 12 + var.log().sum(-1) + (diffs / var * diffs).sum(-1))
         self.assertLess((res - actual).div(res).abs().norm(), 1e-2)
+
+    def test_from_independent_mvns(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        # Test non-batch mode mvns
+        n_tasks = 2
+        n = 4
+        mvns = [
+            MultivariateNormal(
+                mean=torch.randn(4, device=device),
+                covariance_matrix=DiagLazyTensor(torch.randn(n, device=device).abs_())
+            ) for i in range(n_tasks)
+        ]
+        mvn = MultitaskMultivariateNormal.from_independent_mvns(mvns=mvns)
+        expected_mean_shape = [n, n_tasks]
+        expected_covar_shape = [n * n_tasks] * 2
+        self.assertEqual(list(mvn.mean.shape), expected_mean_shape)
+        self.assertEqual(list(mvn.covariance_matrix.shape), expected_covar_shape)
+
+        # Test batch mode mvns
+        b = 3
+        mvns = [
+            MultivariateNormal(
+                mean=torch.randn(b, n, device=device),
+                covariance_matrix=DiagLazyTensor(torch.randn(b, n, device=device).abs_())
+            ) for i in range(n_tasks)
+        ]
+        mvn = MultitaskMultivariateNormal.from_independent_mvns(mvns=mvns)
+        self.assertEqual(list(mvn.mean.shape), [b] + expected_mean_shape)
+        self.assertEqual(list(mvn.covariance_matrix.shape), [b] + expected_covar_shape)
+
+
+    def test_from_independent_mvns_cuda(self):
+        if torch.cuda.is_available():
+            self.test_from_independent_mvns(cuda=True)
 
 
 if __name__ == "__main__":
