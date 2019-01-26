@@ -74,6 +74,22 @@ class VariationalStrategy(Module):
         kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
         return kl_divergence
 
+    def initialize_variational_dist(self):
+        """
+        Describes what distribution to pass to the VariationalDistribution to initialize with. Most commonly, this
+        should be the prior distribution for the inducing points, N(m_u, K_uu). However, if a subclass assumes
+        a different parameterization of the variational distribution, it may need to modify what the prior is
+        with respect to that reparameterization.
+        """
+        if not self.variational_params_initialized.item():
+            prior_dist = self.prior_distribution
+            eval_prior_dist = torch.distributions.MultivariateNormal(
+                loc=prior_dist.mean,
+                covariance_matrix=prior_dist.covariance_matrix
+            )
+            self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
+            self.variational_params_initialized.fill_(1)
+
     def forward(self, x):
         """
         The :func:`~gpytorch.variational.VariationalStrategy.forward` method determines how to marginalize out the
@@ -148,8 +164,8 @@ class VariationalStrategy(Module):
             predictive_mean = torch.add(test_mean, inv_products[..., 0, :])
             predictive_covar = RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2))
             if beta_features.diagonal_correction.on():
-                interp_data_data_var, logdet = induc_induc_covar.inv_quad_logdet(
-                    induc_data_covar, logdet=(self.training), reduce_inv_quad=False
+                interp_data_data_var, _ = induc_induc_covar.inv_quad_logdet(
+                    induc_data_covar, logdet=False, reduce_inv_quad=False
                 )
                 diag_correction = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
                 predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
@@ -161,15 +177,7 @@ class VariationalStrategy(Module):
             return MultivariateNormal(predictive_mean, predictive_covar)
 
     def __call__(self, x):
-        if not self.variational_params_initialized.item():
-            prior_dist = self.prior_distribution
-            eval_prior_dist = torch.distributions.MultivariateNormal(
-                loc=prior_dist.mean,
-                covariance_matrix=prior_dist.covariance_matrix
-            )
-            self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
-            self.variational_params_initialized.fill_(1)
-
+        self.initialize_variational_dist()
         if self.training:
             if hasattr(self, "_memoize_cache"):
                 delattr(self, "_memoize_cache")

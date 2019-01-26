@@ -5,7 +5,7 @@ import torch
 from .. import settings, beta_features
 from .variational_strategy import VariationalStrategy
 from ..utils.memoize import cached
-from ..lazy import RootLazyTensor, MatmulLazyTensor, CachedCGLazyTensor, DiagLazyTensor
+from ..lazy import RootLazyTensor, MatmulLazyTensor, CachedCGLazyTensor, DiagLazyTensor, BatchRepeatLazyTensor
 from ..distributions import MultivariateNormal
 
 
@@ -31,23 +31,39 @@ class WhitenedVariationalStrategy(VariationalStrategy):
     def kl_divergence(self):
         variational_dist_u = self.variational_distribution.variational_distribution
         prior_dist = self.prior_distribution
-        kl_divergence = 0.5 * sum([
-            # log|k| - log|S|
-            # = log|K| - log|K var_dist_covar K|
-            # = -log|K| - log|var_dist_covar|
-            self.prior_covar_logdet(),
-            -variational_dist_u.lazy_covariance_matrix.logdet(),
-            # tr(K^-1 S) = tr(K^1 K var_dist_covar K) = tr(K var_dist_covar)
-            self.covar_trace(),
-            # (m - \mu u)^T K^-1 (m - \mu u)
-            # = (K^-1 (m - \mu u)) K (K^1 (m - \mu u))
-            # = (var_dist_mean)^T K (var_dist_mean)
-            self.mean_diff_inv_quad(),
-            # d
-            -prior_dist.event_shape.numel()
-        ])
+        kl_divergence = 0.5 * sum(
+            [
+                # log|k| - log|S|
+                # = log|K| - log|K var_dist_covar K|
+                # = -log|K| - log|var_dist_covar|
+                self.prior_covar_logdet(),
+                -variational_dist_u.lazy_covariance_matrix.logdet(),
+                # tr(K^-1 S) = tr(K^1 K var_dist_covar K) = tr(K var_dist_covar)
+                self.covar_trace(),
+                # (m - \mu u)^T K^-1 (m - \mu u)
+                # = (K^-1 (m - \mu u)) K (K^1 (m - \mu u))
+                # = (var_dist_mean)^T K (var_dist_mean)
+                self.mean_diff_inv_quad(),
+                # d
+                -prior_dist.event_shape.numel(),
+            ]
+        )
 
         return kl_divergence
+
+    def initialize_variational_dist(self):
+        if not self.variational_params_initialized.item():
+            prior_dist = self.prior_distribution
+            inv_prior_dist = torch.distributions.MultivariateNormal(
+                prior_dist.mean,
+                prior_dist.lazy_covariance_matrix.add_jitter()
+                .evaluate()
+                .double()
+                .inverse()
+                .type_as(prior_dist.covariance_matrix),
+            )
+            self.variational_distribution.initialize_variational_distribution(inv_prior_dist)
+            self.variational_params_initialized.fill_(1)
 
     def forward(self, x):
         """
@@ -148,9 +164,18 @@ class WhitenedVariationalStrategy(VariationalStrategy):
             )
 
             # Compute the predictive covariance
-            if isinstance(variational_dist.lazy_covariance_matrix, RootLazyTensor):
+            is_root_lt = isinstance(variational_dist.lazy_covariance_matrix, RootLazyTensor)
+            is_repeated_root_lt = isinstance(
+                variational_dist.lazy_covariance_matrix, BatchRepeatLazyTensor
+            ) and isinstance(variational_dist.lazy_covariance_matrix.base_lazy_tensor, RootLazyTensor)
+            if is_root_lt:
                 predictive_covar = RootLazyTensor(
                     induc_data_covar.transpose(-1, -2) @ variational_dist.lazy_covariance_matrix.root.evaluate()
+                )
+            elif is_repeated_root_lt:
+                predictive_covar = RootLazyTensor(
+                    induc_data_covar.transpose(-1, -2)
+                    @ variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate()
                 )
             else:
                 predictive_covar = MatmulLazyTensor(
@@ -168,19 +193,3 @@ class WhitenedVariationalStrategy(VariationalStrategy):
                 self._memoize_cache["mean_diff_inv_quad_memo"] = mean_diff_inv_quad
 
             return MultivariateNormal(predictive_mean, predictive_covar)
-
-    def __call__(self, x):
-        if not self.variational_params_initialized.item():
-            prior_dist = self.prior_distribution
-            inv_prior_dist = torch.distributions.MultivariateNormal(
-                prior_dist.mean,
-                prior_dist.lazy_covariance_matrix.add_jitter()
-                .evaluate()
-                .double()
-                .inverse()
-                .type_as(prior_dist.covariance_matrix),
-            )
-            self.variational_distribution.initialize_variational_distribution(inv_prior_dist)
-            self.variational_params_initialized.fill_(1)
-
-        return super().__call__(x)
