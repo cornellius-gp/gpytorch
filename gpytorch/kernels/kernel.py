@@ -437,6 +437,9 @@ class AdditiveKernel(Kernel):
             res = res + lazify(next_term)
         return res
 
+    def size(self, x1, x2):
+        return self.kernels[0].size(x1, x2)
+
 
 class ProductKernel(Kernel):
     """
@@ -458,3 +461,6 @@ class ProductKernel(Kernel):
             next_term = kern(x1, x2, **params)
             res = res * lazify(next_term)
         return res
+
+    def size(self, x1, x2):
+        return self.kernels[0].size(x1, x2)
