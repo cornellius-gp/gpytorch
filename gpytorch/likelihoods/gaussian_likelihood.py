@@ -8,7 +8,6 @@ from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import Likelihood
 from ..lazy import BlockDiagLazyTensor, DiagLazyTensor
-from ..utils.deprecation import _deprecate_kwarg
 from .noise_models import HomoskedasticNoise
 
 
@@ -39,7 +38,6 @@ class _GaussianLikelihoodBase(Likelihood):
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, **kwargs):
-        noise_prior = _deprecate_kwarg(kwargs, "log_noise_prior", "noise_prior", noise_prior)
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior,
             batch_size=batch_size,
@@ -60,7 +58,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
     @noise.setter
     def noise(self, value):
-        self.noise_covar.initialize(value)
+        self.noise_covar.initialize(noise=value)
 
     @property
     def raw_noise(self):

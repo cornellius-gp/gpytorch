@@ -13,7 +13,7 @@ class TestRBFKernel(unittest.TestCase):
         lengthscales = torch.tensor([1, 2], dtype=torch.float).view(1, 1, 2)
 
         kernel = RBFKernel(ard_num_dims=2)
-        kernel.initialize(log_lengthscale=lengthscales.log())
+        kernel.initialize(lengthscale=lengthscales)
         kernel.eval()
 
         scaled_a = a.div(lengthscales)
@@ -44,7 +44,7 @@ class TestRBFKernel(unittest.TestCase):
         lengthscales = torch.tensor([[[1, 2, 1]]], dtype=torch.float)
 
         kernel = RBFKernel(batch_size=2, ard_num_dims=3)
-        kernel.initialize(log_lengthscale=lengthscales.log())
+        kernel.initialize(lengthscale=lengthscales)
         kernel.eval()
 
         scaled_a = a.div(lengthscales)
@@ -75,7 +75,7 @@ class TestRBFKernel(unittest.TestCase):
         lengthscales = torch.tensor([[[1, 2, 1]], [[2, 1, 0.5]]], dtype=torch.float)
 
         kernel = RBFKernel(batch_size=2, ard_num_dims=3)
-        kernel.initialize(log_lengthscale=lengthscales.log())
+        kernel.initialize(lengthscale=lengthscales)
         kernel.eval()
 
         scaled_a = a.div(lengthscales)
@@ -97,7 +97,7 @@ class TestRBFKernel(unittest.TestCase):
         lengthscale = 2
 
         kernel = RBFKernel(active_dims=[0])
-        kernel.initialize(log_lengthscale=math.log(lengthscale))
+        kernel.initialize(lengthscale=lengthscale)
         kernel.eval()
 
         actual = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float)
@@ -115,7 +115,7 @@ class TestRBFKernel(unittest.TestCase):
         b = torch.tensor([0, 2, 4], dtype=torch.float).view(3, 1)
         lengthscale = 2
 
-        kernel = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel = RBFKernel().initialize(lengthscale=lengthscale)
         kernel.eval()
 
         actual = torch.tensor([[16, 4, 0], [4, 0, 4], [64, 36, 16]], dtype=torch.float)
@@ -134,7 +134,7 @@ class TestRBFKernel(unittest.TestCase):
         b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
         lengthscale = 2
 
-        kernel = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel = RBFKernel().initialize(lengthscale=lengthscale)
         kernel.eval()
 
         param = math.log(math.exp(lengthscale) - 1) * torch.ones(3, 3)
@@ -166,7 +166,7 @@ class TestRBFKernel(unittest.TestCase):
         actual_param_grad = param.grad.sum()
 
         kernel = RBFKernel(active_dims=[0])
-        kernel.initialize(log_lengthscale=math.log(lengthscale))
+        kernel.initialize(lengthscale=lengthscale)
         kernel.eval()
         output = kernel(a, b).evaluate()
         output.backward(gradient=torch.eye(3))

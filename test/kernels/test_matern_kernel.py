@@ -12,7 +12,7 @@ class TestMaternKernel(unittest.TestCase):
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
-        kernel = MaternKernel(nu=0.5).initialize(log_lengthscale=math.log(lengthscale))
+        kernel = MaternKernel(nu=0.5).initialize(lengthscale=lengthscale)
         kernel.eval()
 
         actual = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).div_(-lengthscale).exp()
@@ -24,7 +24,7 @@ class TestMaternKernel(unittest.TestCase):
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
-        kernel = MaternKernel(nu=1.5).initialize(log_lengthscale=math.log(lengthscale))
+        kernel = MaternKernel(nu=1.5).initialize(lengthscale=lengthscale)
         kernel.eval()
 
         dist = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).mul_(math.sqrt(3) / lengthscale)
@@ -37,7 +37,7 @@ class TestMaternKernel(unittest.TestCase):
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
-        kernel = MaternKernel(nu=2.5).initialize(log_lengthscale=math.log(lengthscale))
+        kernel = MaternKernel(nu=2.5).initialize(lengthscale=lengthscale)
         kernel.eval()
 
         dist = torch.tensor([[4, 2], [2, 0], [8, 6]], dtype=torch.float).mul_(math.sqrt(5) / lengthscale)
@@ -51,7 +51,7 @@ class TestMaternKernel(unittest.TestCase):
         lengthscales = torch.tensor([1, 2], dtype=torch.float).view(1, 1, 2)
 
         kernel = MaternKernel(nu=2.5, ard_num_dims=2)
-        kernel.initialize(log_lengthscale=torch.log(lengthscales))
+        kernel.initialize(lengthscale=lengthscales)
         kernel.eval()
 
         dist = torch.tensor([[1, 1], [2, 2]], dtype=torch.float)
@@ -83,7 +83,7 @@ class TestMaternKernel(unittest.TestCase):
         lengthscales = torch.tensor([[[1, 2, 1]]], dtype=torch.float)
 
         kernel = MaternKernel(nu=2.5, batch_size=2, ard_num_dims=3)
-        kernel.initialize(log_lengthscale=torch.log(lengthscales))
+        kernel.initialize(lengthscale=lengthscales)
         kernel.eval()
 
         dist = torch.tensor([[[1], [1]], [[2], [0]]], dtype=torch.float).mul_(math.sqrt(5))
@@ -97,7 +97,7 @@ class TestMaternKernel(unittest.TestCase):
         lengthscales = torch.tensor([[[1, 2, 1]], [[2, 1, 0.5]]], dtype=torch.float)
 
         kernel = MaternKernel(nu=2.5, batch_size=2, ard_num_dims=3)
-        kernel.initialize(log_lengthscale=torch.log(lengthscales))
+        kernel.initialize(lengthscale=lengthscales)
         kernel.eval()
 
         dist = torch.tensor([[[1, 1], [1, 1]], [[4, 4], [0, 0]]], dtype=torch.float).mul_(math.sqrt(5))

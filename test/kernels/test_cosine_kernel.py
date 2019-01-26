@@ -11,7 +11,7 @@ class TestCosineKernel(unittest.TestCase):
         a = torch.tensor([[4, 1], [2, 2], [8, 0]], dtype=torch.float)
         b = torch.tensor([[0, 0], [2, 1], [1, 0]], dtype=torch.float)
         period = 1
-        kernel = CosineKernel().initialize(log_period_length=math.log(period))
+        kernel = CosineKernel().initialize(period_length=period)
         kernel.eval()
 
         actual = torch.zeros(3, 3)
@@ -45,7 +45,7 @@ class TestCosineKernel(unittest.TestCase):
         a = torch.tensor([[4, 2, 8], [1, 2, 3]], dtype=torch.float).view(2, 3, 1)
         b = torch.tensor([[0, 2, 1], [-1, 2, 0]], dtype=torch.float).view(2, 3, 1)
         period = torch.tensor(1, dtype=torch.float).view(1, 1, 1)
-        kernel = CosineKernel().initialize(log_period_length=torch.log(period))
+        kernel = CosineKernel().initialize(period_length=period)
         kernel.eval()
 
         actual = torch.zeros(2, 3, 3)
@@ -61,7 +61,7 @@ class TestCosineKernel(unittest.TestCase):
         a = torch.tensor([[[4, 1], [2, 2], [8, 0]], [[2, 5], [6, 1], [0, 1]]], dtype=torch.float)
         b = torch.tensor([[[0, 0], [2, 1], [1, 0]], [[1, 1], [2, 3], [1, 0]]], dtype=torch.float)
         period = torch.tensor([1, 2], dtype=torch.float).view(2, 1, 1)
-        kernel = CosineKernel(batch_size=2).initialize(log_period_length=torch.log(period))
+        kernel = CosineKernel(batch_size=2).initialize(period_length=period)
         kernel.eval()
 
         actual = torch.zeros(2, 3, 3)
