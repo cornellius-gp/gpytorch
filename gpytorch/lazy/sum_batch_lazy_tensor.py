@@ -133,11 +133,11 @@ class SumBatchLazyTensor(BlockLazyTensor):
             diag = diag.view(-1, self.num_blocks, diag.size(-1))
         return diag.sum(-2)
 
-    def zero_mean_mvn_samples(self, num_samples):
+    def zero_mean_mvn_samples(self, sample_shape=torch.Size()):
         num_dim = self.size(-2)
-        res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
+        res = self.base_lazy_tensor.zero_mean_mvn_samples(sample_shape=sample_shape)
         if self.num_blocks is None:
-            res = res.view(num_samples, -1, num_dim).sum(1)
+            res = res.view(*sample_shape, -1, num_dim).sum(1)
         else:
-            res = res.view(num_samples, -1, self.num_blocks, num_dim).sum(2)
+            res = res.view(*sample_shape, -1, self.num_blocks, num_dim).sum(2)
         return res

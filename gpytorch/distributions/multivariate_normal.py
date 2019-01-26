@@ -131,12 +131,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
         if base_samples is None:
-            # Create some samples
-            num_samples = sample_shape.numel() or 1
-
-            # Get samples
-            res = covar.zero_mean_mvn_samples(num_samples) + self.loc.unsqueeze(0)
-            res = res.view(*tuple(sample_shape), *tuple(self.loc.size()))
+            return self.loc + covar.zero_mean_mvn_samples(sample_shape)
 
         else:
             # Make sure that the base samples agree with the distribution
@@ -147,7 +142,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
                 )
 
             # Determine what the appropriate sample_shape parameter is
-            sample_shape = torch.Size(tuple(base_samples.size(i) for i in range(base_samples.dim() - self.loc.dim())))
+            sample_shape = base_samples.shape[:-self.loc.dim()]
 
             # Reshape samples to be batch_size x num_dim x num_samples
             # or num_bim x num_samples

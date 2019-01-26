@@ -131,10 +131,10 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             res = self.__class__(NonLazyTensor(chol), num_blocks=self.num_blocks)
         return RootLazyTensor(res)
 
-    def zero_mean_mvn_samples(self, num_samples):
-        res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
+    def zero_mean_mvn_samples(self, sample_shape=torch.Size()):
+        res = self.base_lazy_tensor.zero_mean_mvn_samples(sample_shape=sample_shape)
         if self.num_blocks is None:
-            res = res.view(num_samples, -1)
+            res = res.view(*sample_shape, -1)
         else:
-            res = res.view(num_samples, self.base_lazy_tensor.size(0) // self.num_blocks, -1)
+            res = res.view(*sample_shape, self.base_lazy_tensor.size(0) // self.num_blocks, -1)
         return res
