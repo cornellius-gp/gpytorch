@@ -3,7 +3,6 @@
 import math
 import torch
 from .kernel import Kernel
-from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 
 
@@ -83,10 +82,6 @@ class PeriodicKernel(Kernel):
         eps=1e-6,
         **kwargs
     ):
-        lengthscale_prior = _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
-        period_length_prior = _deprecate_kwarg(
-            kwargs, "log_period_length_prior", "period_length_prior", period_length_prior
-        )
         super(PeriodicKernel, self).__init__(
             has_lengthscale=True,
             active_dims=active_dims,

@@ -3,7 +3,6 @@
 import math
 import torch
 from .kernel import Kernel
-from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 
 
@@ -66,9 +65,6 @@ class CosineKernel(Kernel):
         inv_param_transform=None,
         **kwargs
     ):
-        period_length_prior = _deprecate_kwarg(
-            kwargs, "log_period_length_prior", "period_length_prior", period_length_prior
-        )
         super(CosineKernel, self).__init__(
             active_dims=active_dims, param_transform=param_transform, inv_param_transform=inv_param_transform
         )

@@ -2,7 +2,6 @@
 
 import torch
 from .kernel import Kernel
-from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
 from torch.nn.functional import softplus
 from ..lazy import delazify
@@ -64,7 +63,6 @@ class ScaleKernel(Kernel):
         inv_param_transform=None,
         **kwargs
     ):
-        outputscale_prior = _deprecate_kwarg(kwargs, "log_outputscale_prior", "outputscale_prior", outputscale_prior)
         super(ScaleKernel, self).__init__(has_lengthscale=False, batch_size=batch_size)
         self.base_kernel = base_kernel
         self._param_transform = param_transform
