@@ -77,3 +77,6 @@ class ProductStructureKernel(Kernel):
             .__call__(x1_, x2_, diag=diag, batch_dims=batch_dims, **params)
             .evaluate_kernel()
         )
+
+    def size(self, x1, x2):
+        return self.base_kernel.size(x1, x2)

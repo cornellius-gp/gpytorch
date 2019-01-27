@@ -98,3 +98,6 @@ class InducingPointKernel(Kernel):
             self.update_added_loss_term("inducing_point_loss_term", new_added_loss_term)
 
         return covar
+
+    def size(self, x1, x2):
+        return self.base_kernel.size(x1, x2)

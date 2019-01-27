@@ -180,3 +180,6 @@ class GridInterpolationKernel(GridKernel):
         )
 
         return res
+
+    def size(self, x1, x2):
+        return self.base_kernel.size(x1, x2)
