@@ -188,7 +188,6 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
         self.assertEqual(list(mvn.mean.shape), [b] + expected_mean_shape)
         self.assertEqual(list(mvn.covariance_matrix.shape), [b] + expected_covar_shape)
 
-
     def test_from_independent_mvns_cuda(self):
         if torch.cuda.is_available():
             self.test_from_independent_mvns(cuda=True)
