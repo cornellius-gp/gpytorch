@@ -3,7 +3,6 @@
 import math
 import torch
 from .kernel import Kernel
-from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 
 
@@ -92,7 +91,6 @@ class MaternKernel(Kernel):
         eps=1e-6,
         **kwargs
     ):
-        _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
         super(MaternKernel, self).__init__(

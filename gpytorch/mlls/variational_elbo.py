@@ -9,7 +9,6 @@ class VariationalELBO(MarginalLogLikelihood):
     def __init__(self, likelihood, model, num_data, combine_terms=True):
         """
         A special MLL designed for variational inference
-
         Args:
         - likelihood: (Likelihood) - the likelihood for the model
         - model: (Module) - the variational GP model
@@ -32,7 +31,7 @@ class VariationalELBO(MarginalLogLikelihood):
             num_batch
         )
 
-        kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
+        kl_divergence = self.model.variational_strategy.kl_divergence()
 
         if kl_divergence.dim() > log_likelihood.dim():
             kl_divergence = kl_divergence.sum(-1)

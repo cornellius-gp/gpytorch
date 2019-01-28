@@ -77,7 +77,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
                 assert len(batch_indices) == 0
             block_size = self.base_lazy_tensor.size(-1)
             left_batch_indices = left_indices.div(block_size).long()
-            right_batch_indices = left_indices.div(block_size).long()
+            right_batch_indices = right_indices.div(block_size).long()
             left_indices = left_indices.fmod(block_size)
             right_indices = right_indices.fmod(block_size)
 
@@ -90,7 +90,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
             batch_indices = batch_indices[0]
             block_size = self.base_lazy_tensor.size(-1)
             left_batch_indices = left_indices.div(block_size).long()
-            right_batch_indices = left_indices.div(block_size).long()
+            right_batch_indices = right_indices.div(block_size).long()
             batch_indices = batch_indices * block_size + left_batch_indices
             left_indices = left_indices.fmod(block_size)
             right_indices = right_indices.fmod(block_size)

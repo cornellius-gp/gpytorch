@@ -127,6 +127,12 @@ Specialty Kernels
 .. autoclass:: MultitaskKernel
    :members:
 
+:hidden:`RBFKernelGrad`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: RBFKernelGrad
+   :members:
+
 
 Kernels for Scalable GP Regression Methods
 --------------------------------------------

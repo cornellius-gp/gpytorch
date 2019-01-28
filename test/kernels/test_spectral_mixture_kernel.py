@@ -14,9 +14,9 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         weights = [4, 2]
         kernel = SpectralMixtureKernel(num_mixtures=2, ard_num_dims=2)
         kernel.initialize(
-            log_mixture_weights=torch.tensor([[4, 2]], dtype=torch.float).log(),
-            log_mixture_means=torch.tensor([[[[1, 2]], [[2, 1]]]], dtype=torch.float).log(),
-            log_mixture_scales=torch.tensor([[[[0.5, 0.25]], [[0.25, 0.5]]]], dtype=torch.float).log(),
+            mixture_weights=torch.tensor([[4, 2]], dtype=torch.float),
+            mixture_means=torch.tensor([[[[1, 2]], [[2, 1]]]], dtype=torch.float),
+            mixture_scales=torch.tensor([[[[0.5, 0.25]], [[0.25, 0.5]]]], dtype=torch.float),
         )
         kernel.eval()
 
@@ -68,7 +68,7 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         weights = torch.tensor([[4, 2], [1, 2]], dtype=torch.float).view(2, 2)
         kernel = SpectralMixtureKernel(batch_size=2, num_mixtures=2)
         kernel.initialize(
-            log_mixture_weights=weights.log(), log_mixture_means=means.log(), log_mixture_scales=scales.log()
+            mixture_weights=weights, mixture_means=means, mixture_scales=scales
         )
         kernel.eval()
 

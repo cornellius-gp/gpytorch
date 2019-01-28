@@ -12,8 +12,8 @@ class TestAdditiveKernel(unittest.TestCase):
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
-        kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel = kernel_1 * kernel_2
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
@@ -28,8 +28,8 @@ class TestAdditiveKernel(unittest.TestCase):
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
-        kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel = kernel_1 + kernel_2
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
@@ -44,9 +44,9 @@ class TestAdditiveKernel(unittest.TestCase):
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
-        kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_3 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel = ProductKernel(kernel_1, kernel_2, kernel_3)
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
@@ -61,9 +61,9 @@ class TestAdditiveKernel(unittest.TestCase):
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
 
-        kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_3 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel = AdditiveKernel(kernel_1, kernel_2, kernel_3)
 
         actual = (
@@ -87,8 +87,8 @@ class TestAdditiveKernel(unittest.TestCase):
         actual_output.backward(torch.eye(3))
         actual_param_grad = param.grad.sum() * 2
 
-        kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel = kernel_1 + kernel_2
         kernel.eval()
 
@@ -110,9 +110,9 @@ class TestAdditiveKernel(unittest.TestCase):
         actual_output.backward(torch.eye(3))
         actual_param_grad = param.grad.sum() * 3
 
-        kernel_1 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_2 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
-        kernel_3 = RBFKernel().initialize(log_lengthscale=math.log(lengthscale))
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel = AdditiveKernel(kernel_1, kernel_2, kernel_3)
         kernel.eval()
 

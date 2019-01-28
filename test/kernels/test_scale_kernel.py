@@ -12,9 +12,9 @@ class TestScaleKernel(unittest.TestCase):
         lengthscales = torch.tensor([1, 2], dtype=torch.float).view(1, 1, 2)
 
         base_kernel = RBFKernel(ard_num_dims=2)
-        base_kernel.initialize(log_lengthscale=lengthscales.log())
+        base_kernel.initialize(lengthscale=lengthscales)
         kernel = ScaleKernel(base_kernel)
-        kernel.initialize(log_outputscale=torch.tensor([3], dtype=torch.float).log())
+        kernel.initialize(outputscale=torch.tensor([3], dtype=torch.float))
         kernel.eval()
 
         scaled_a = a.div(lengthscales)
@@ -47,9 +47,9 @@ class TestScaleKernel(unittest.TestCase):
         lengthscales = torch.tensor([[[1, 2, 1]]], dtype=torch.float)
 
         base_kernel = RBFKernel(batch_size=2, ard_num_dims=3)
-        base_kernel.initialize(log_lengthscale=lengthscales.log())
+        base_kernel.initialize(lengthscale=lengthscales)
         kernel = ScaleKernel(base_kernel, batch_size=2)
-        kernel.initialize(log_outputscale=torch.tensor([1, 2], dtype=torch.float).log())
+        kernel.initialize(outputscale=torch.tensor([1, 2], dtype=torch.float))
         kernel.eval()
 
         scaled_a = a.div(lengthscales)
