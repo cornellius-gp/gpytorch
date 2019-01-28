@@ -3,12 +3,12 @@
 from abc import ABC, abstractproperty
 
 import torch
-from gpytorch.likelihoods import MultiOutputLikelihood
+from gpytorch.likelihoods import LikelihoodList
 from gpytorch.models import GP
 from torch.nn import ModuleList
 
 
-class AbstractMultiOutputGP(GP, ABC):
+class AbstractModelList(GP, ABC):
     @abstractproperty
     def num_outputs(self):
         """The model's number of outputs"""
@@ -23,11 +23,16 @@ class AbstractMultiOutputGP(GP, ABC):
         raise NotImplementedError
 
 
-class IndependentMultiOutputGP(AbstractMultiOutputGP):
-    def __init__(self, *gp_models):
+class IndependentModelList(AbstractModelList):
+    def __init__(self, *models):
         super().__init__()
-        self.models = ModuleList(gp_models)
-        self.likelihood = MultiOutputLikelihood(*[m.likelihood for m in gp_models])
+        self.models = ModuleList(models)
+        for m in models:
+            if not hasattr(m, "likelihood"):
+                raise ValueError(
+                    "IndependentModelList currently only supports models that have a likelihood (e.g. ExactGPs)"
+                )
+        self.likelihood = LikelihoodList(*[m.likelihood for m in models])
 
     @property
     def num_outputs(self):

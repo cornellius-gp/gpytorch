@@ -7,10 +7,10 @@ import gpytorch
 import torch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
-from gpytorch.likelihoods import GaussianLikelihood, MultiOutputLikelihood
+from gpytorch.likelihoods import GaussianLikelihood, LikelihoodList
 from gpytorch.means import ConstantMean
 from gpytorch.mlls import SumMarginalLogLikelihood
-from gpytorch.models import IndependentMultiOutputGP
+from gpytorch.models import IndependentModelList
 from gpytorch.priors import SmoothedBoxPrior
 
 
@@ -28,8 +28,8 @@ class ExactGPModel(gpytorch.models.ExactGP):
         return MultivariateNormal(mean_x, covar_x)
 
 
-class TestMultiOutputGPRegression(unittest.TestCase):
-    def test_simple_multi_output_gp(self, cuda=False):
+class TestModelListGPRegression(unittest.TestCase):
+    def test_simple_model_list_gp_regression(self, cuda=False):
         train_x1 = torch.linspace(0, 0.95, 25) + 0.05 * torch.rand(25)
         train_x2 = torch.linspace(0, 0.95, 15) + 0.05 * torch.rand(15)
 
@@ -42,8 +42,8 @@ class TestMultiOutputGPRegression(unittest.TestCase):
         likelihood2 = GaussianLikelihood()
         model2 = ExactGPModel(train_x2, train_y2, likelihood2)
 
-        model = IndependentMultiOutputGP(model1, model2)
-        likelihood = MultiOutputLikelihood(model1.likelihood, model2.likelihood)
+        model = IndependentModelList(model1, model2)
+        likelihood = LikelihoodList(model1.likelihood, model2.likelihood)
 
         if cuda:
             model = model.cuda()
@@ -75,9 +75,9 @@ class TestMultiOutputGPRegression(unittest.TestCase):
         self.assertIsInstance(predictions_obs_noise, list)
         self.assertEqual(len(predictions_obs_noise), 2)
 
-    def test_simple_multi_output_gp_cuda(self):
+    def test_simple_model_list_gp_regression_cuda(self):
         if torch.cuda.is_available():
-            self.test_simple_multi_output_gp(cuda=True)
+            self.test_simple_model_list_gp_regression(cuda=True)
 
 
 if __name__ == "__main__":

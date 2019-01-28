@@ -5,7 +5,7 @@ from .abstract_variational_gp import AbstractVariationalGP
 from .additive_grid_inducing_variational_gp import AdditiveGridInducingVariationalGP
 from .exact_gp import ExactGP
 from .grid_inducing_variational_gp import GridInducingVariationalGP
-from .multi_output_gp import AbstractMultiOutputGP, IndependentMultiOutputGP
+from .model_list import AbstractModelList, IndependentModelList
 from .variational_gp import VariationalGP
 
 
@@ -19,13 +19,13 @@ except ImportError:
 
 
 __all__ = [
-    "AbstractMultiOutputGP",
+    "AbstractModelList",
     "AbstractVariationalGP",
     "AdditiveGridInducingVariationalGP",
     "ExactGP",
     "GP",
     "GridInducingVariationalGP",
-    "IndependentMultiOutputGP",
+    "IndependentModelList",
     "PyroVariationalGP",
     "VariationalGP",
 ]

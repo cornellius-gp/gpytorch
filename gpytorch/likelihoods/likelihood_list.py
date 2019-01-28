@@ -12,7 +12,7 @@ def _get_tuple_args_(*args):
             yield (arg,)
 
 
-class MultiOutputLikelihood(Likelihood):
+class LikelihoodList(Likelihood):
     def __init__(self, *likelihoods):
         super().__init__()
         self.likelihoods = ModuleList(likelihoods)
