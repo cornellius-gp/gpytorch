@@ -21,12 +21,14 @@ class TestRBFKernelGrad(unittest.TestCase):
             ]
         )
 
+        kernel = RBFKernelGrad()
+
         if cuda:
             a = a.cuda()
             b = b.cuda()
             actual = actual.cuda()
+            kernel = kernel.cuda()
 
-        kernel = RBFKernelGrad()
         res = kernel(a, b).evaluate()
 
         self.assertLess(torch.norm(res - actual), 1e-5)
