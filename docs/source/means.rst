@@ -39,3 +39,9 @@ Specialty Means
 
 .. autoclass:: MultitaskMean
    :members:
+
+:hidden:`ConstantMeanGrad`
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ConstantMeanGrad
+   :members:

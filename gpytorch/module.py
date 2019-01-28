@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import itertools
-import warnings
 from collections import OrderedDict
 
 import torch
@@ -46,26 +44,16 @@ class Module(nn.Module):
             yield param
 
     def initialize(self, **kwargs):
-        # TODO: Change to initialize actual parameter (e.g. lengthscale) rather than untransformed parameter.
         """
         Set a value for a parameter
 
         kwargs: (param_name, value) - parameter to initialize
         Value can take the form of a tensor, a float, or an int
         """
-        from .utils.log_deprecation import MODULES_WITH_LOG_PARAMS
 
         for name, val in kwargs.items():
             if isinstance(val, int):
                 val = float(val)
-            if any(isinstance(self, mod_type) for mod_type in MODULES_WITH_LOG_PARAMS) and "log_" in name:
-                base_name = name.split("log_")[1]
-                name = "raw_" + base_name
-                if not torch.is_tensor(val):
-                    val = self._inv_param_transform(torch.tensor(val).exp()).item()
-                else:
-                    val = self._inv_param_transform(val.exp())
-
             if not hasattr(self, name):
                 raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
             elif name not in self._parameters:
@@ -217,56 +205,14 @@ class Module(nn.Module):
         for _, param in self.named_variational_parameters():
             yield param
 
-    def _load_from_state_dict(
-        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-    ):
-        from .utils.log_deprecation import LOG_DEPRECATION_MSG, MODULES_WITH_LOG_PARAMS
-
-        local_name_params = itertools.chain(self._parameters.items(), self._buffers.items())
-        local_state = {k: v.data for k, v in local_name_params if v is not None}
-
-        super()._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-        )
-        if not any(isinstance(self, mod_type) for mod_type in MODULES_WITH_LOG_PARAMS):
-            return
-
-        # Load log space parameters and throw deprecation warnings.
-        for name, param in local_state.items():
-            if "raw_" in name:
-                base_name = name.split("raw_")[1]
-                log_name = "log_" + base_name
-                log_key = prefix + log_name
-                if log_key in state_dict and log_key not in local_state:
-                    warnings.warn(LOG_DEPRECATION_MSG.format(log_name=log_name, name=name), DeprecationWarning)
-                    input_param = state_dict[log_key]
-                    if isinstance(input_param, nn.Parameter):
-                        input_param = input_param.data
-
-                    real_input_param = self._inv_param_transform(input_param.exp())
-                    param.copy_(real_input_param)
-
-                    if prefix + name in missing_keys:
-                        missing_keys.remove(prefix + name)
-                    if prefix + name in unexpected_keys:
-                        unexpected_keys.remove(prefix + log_name)
-
     def __getattr__(self, name):
         try:
             return super().__getattr__(name)
         except AttributeError as e:
-            from .utils.log_deprecation import LOG_DEPRECATION_MSG, MODULES_WITH_LOG_PARAMS
-
-            if any(isinstance(self, mod_type) for mod_type in MODULES_WITH_LOG_PARAMS) and "log_" in name:
-                base_name = name.split("log_")[1]  # e.g. log_lengthscale -> lengthscale
-                raw_name = "raw_" + base_name
-                warnings.warn(LOG_DEPRECATION_MSG.format(log_name=name, name=raw_name), DeprecationWarning)
-                return super().__getattribute__(base_name).log()  # Get real param value and transform to log
-            else:
-                try:
-                    return super().__getattribute__(name)
-                except AttributeError:
-                    raise e
+            try:
+                return super().__getattribute__(name)
+            except AttributeError:
+                raise e
 
 
 def _validate_module_outputs(outputs):

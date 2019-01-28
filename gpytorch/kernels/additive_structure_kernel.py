@@ -54,3 +54,6 @@ class AdditiveStructureKernel(Kernel):
         if evaluate:
             res = res.evaluate()
         return res
+
+    def size(self, x1, x2):
+        return self.base_kernel.size(x1, x2)

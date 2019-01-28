@@ -10,11 +10,11 @@ def cached(method=None, name=None):
 
     @functools.wraps(method)
     def g(self, *args, **kwargs):
-        if not hasattr(self, "__cache"):
-            self.__cache = dict()
+        if not hasattr(self, "_memoize_cache"):
+            self._memoize_cache = dict()
         cache_name = name if name is not None else method
-        if cache_name not in self.__cache:
-            self.__cache[cache_name] = method(self, *args, **kwargs)
-        return self.__cache[cache_name]
+        if cache_name not in self._memoize_cache:
+            self._memoize_cache[cache_name] = method(self, *args, **kwargs)
+        return self._memoize_cache[cache_name]
 
     return g

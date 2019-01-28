@@ -14,7 +14,6 @@ from ..lazy import (
     RootLazyTensor,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
-from ..utils.deprecation import _deprecate_kwarg
 from ..utils.transforms import _get_inv_param_transform
 from .noise_models import MultitaskHomoskedasticNoise
 
@@ -149,9 +148,6 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             Only used when `rank` > 0.
 
         """
-        task_correlation_prior = _deprecate_kwarg(
-            kwargs, "task_prior", "task_correlation_prior", task_correlation_prior
-        )
         noise_covar = MultitaskHomoskedasticNoise(
             num_tasks=num_tasks,
             noise_prior=noise_prior,
@@ -230,7 +226,6 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
         """
-        noise_prior = _deprecate_kwarg(kwargs, "log_noise_prior", "noise_prior", noise_prior)
         super(Likelihood, self).__init__()
         self._param_transform = param_transform
         self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)

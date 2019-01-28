@@ -57,11 +57,11 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model = ExactGPModel(None, None, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
         gp_model.covar_module.base_kernel.register_prior(
-            "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "raw_lengthscale"
+            "lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "raw_lengthscale"
         )
         gp_model.mean_module.initialize(constant=1.5)
-        gp_model.covar_module.base_kernel.initialize(log_lengthscale=0)
-        likelihood.initialize(log_noise=0)
+        gp_model.covar_module.base_kernel.initialize(lengthscale=1)
+        likelihood.initialize(noise=0)
 
         if cuda:
             gp_model.cuda()
@@ -87,8 +87,8 @@ class TestSimpleGPRegression(unittest.TestCase):
         # We're manually going to set the hyperparameters to be ridiculous
         likelihood = GaussianLikelihood()
         gp_model = ExactGPModel(train_x, train_y, likelihood)
-        gp_model.covar_module.base_kernel.initialize(raw_lengthscale=-15)
-        likelihood.initialize(log_noise=-15)
+        gp_model.covar_module.base_kernel.initialize(lengthscale=exp(-15))
+        likelihood.initialize(noise=exp(-15))
 
         if cuda:
             gp_model.cuda()
@@ -122,9 +122,9 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
-        gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
+        gp_model.covar_module.base_kernel.initialize(lengthscale=exp(1))
         gp_model.mean_module.initialize(constant=0)
-        likelihood.initialize(log_noise=1)
+        likelihood.initialize(noise=exp(1))
 
         if cuda:
             gp_model.cuda()
@@ -170,9 +170,9 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood = GaussianLikelihood()
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
-        gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
+        gp_model.covar_module.base_kernel.initialize(lengthscale=exp(1))
         gp_model.mean_module.initialize(constant=0)
-        likelihood.initialize(log_noise=1)
+        likelihood.initialize(noise=exp(1))
 
         if cuda:
             gp_model.cuda()
@@ -240,9 +240,9 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood = GaussianLikelihood()
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
-        gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
+        gp_model.covar_module.base_kernel.initialize(lengthscale=exp(1))
         gp_model.mean_module.initialize(constant=0)
-        likelihood.initialize(log_noise=1)
+        likelihood.initialize(noise=exp(1))
 
         if cuda:
             gp_model.cuda()
@@ -311,9 +311,9 @@ class TestSimpleGPRegression(unittest.TestCase):
             likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
             gp_model = ExactGPModel(train_x, train_y, likelihood)
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
-            gp_model.covar_module.base_kernel.initialize(log_lengthscale=1)
+            gp_model.covar_module.base_kernel.initialize(lengthscale=exp(1))
             gp_model.mean_module.initialize(constant=0)
-            likelihood.initialize(log_noise=1)
+            likelihood.initialize(noise=exp(1))
 
             if cuda:
                 gp_model.cuda()

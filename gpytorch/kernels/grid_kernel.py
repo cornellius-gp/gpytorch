@@ -98,3 +98,6 @@ class GridKernel(Kernel):
             return covar
         else:
             return self.base_kernel.forward(x1, x2, diag=diag, batch_dims=batch_dims, **params)
+
+    def size(self, x1, x2):
+        return self.base_kernel.size(x1, x2)
