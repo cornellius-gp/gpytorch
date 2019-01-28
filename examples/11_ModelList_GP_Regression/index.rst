@@ -5,4 +5,4 @@
    :maxdepth: 1
    :hidden:
 
-ModelList_GP_Regression.ipynb
+   ModelList_GP_Regression.ipynb
