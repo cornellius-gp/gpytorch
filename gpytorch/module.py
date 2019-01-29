@@ -47,14 +47,26 @@ class Module(nn.Module):
         """
         Set a value for a parameter
 
-        kwargs: (param_name, value) - parameter to initialize
+        kwargs: (param_name, value) - parameter to initialize.
+        Can also initialize recursively by passing in the full name of a
+        parameter. For example if model has attribute model.likelihood,
+        we can initialize the noise with either
+        `model.initialize(**{'likelihood.noise': 0.1})`
+        or
+        `model.likelihood.initialize(noise=0.1)`.
+        The former method would allow users to more easily store the
+        initialization values as one object.
+
         Value can take the form of a tensor, a float, or an int
         """
 
         for name, val in kwargs.items():
             if isinstance(val, int):
                 val = float(val)
-            if not hasattr(self, name):
+            if '.' in name:
+                attribute = name.split('.')
+                getattr(self, attribute[0]).initialize(**{'.'.join(attribute[1:]): val})
+            elif not hasattr(self, name):
                 raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
             elif name not in self._parameters:
                 setattr(self, name, val)
