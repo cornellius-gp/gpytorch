@@ -64,8 +64,8 @@ class Module(nn.Module):
             if isinstance(val, int):
                 val = float(val)
             if '.' in name:
-                attribute = name.split('.')
-                getattr(self, attribute[0]).initialize(**{'.'.join(attribute[1:]): val})
+                module, name = self._get_module_and_name(name)
+                module.initialize(**{name: val})
             elif not hasattr(self, name):
                 raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
             elif name not in self._parameters:
