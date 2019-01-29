@@ -2,13 +2,7 @@
 
 import torch
 
-from ..lazy import (
-    lazify,
-    BlockDiagLazyTensor,
-    CatLazyTensor,
-    LazyTensor,
-    NonLazyTensor,
-)
+from ..lazy import BlockDiagLazyTensor, CatLazyTensor, LazyTensor, NonLazyTensor
 from .multivariate_normal import MultivariateNormal
 
 
@@ -69,10 +63,12 @@ class MultitaskMultivariateNormal(MultivariateNormal):
                 output_device=mean.device
             )
         else:
-            covar_blocks_lazy = lazify(torch.cat(
-                [mvn.covariance_matrix.unsqueeze(0) for mvn in mvns],
-                dim=0
-            ))
+            covar_blocks_lazy = NonLazyTensor(
+                torch.cat(
+                    [mvn.covariance_matrix.unsqueeze(0) for mvn in mvns],
+                    dim=0
+                )
+            )
         covar_lazy = BlockDiagLazyTensor(
             covar_blocks_lazy,
             num_blocks=len(mvns) if batch_mode else None
