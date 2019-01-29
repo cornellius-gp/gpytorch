@@ -58,8 +58,8 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         if left_vecs.ndimension() == 1:
             left_vecs = left_vecs.unsqueeze(1)
             right_vecs = right_vecs.unsqueeze(1)
-        left_vecs = left_vecs.view(-1, block_size, left_vecs.size(-1))
-        right_vecs = right_vecs.view(-1, block_size, right_vecs.size(-1))
+        left_vecs = left_vecs.contiguous().view(-1, block_size, left_vecs.size(-1))
+        right_vecs = right_vecs.contiguous().view(-1, block_size, right_vecs.size(-1))
         res = self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
         return res
 
