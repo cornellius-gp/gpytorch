@@ -62,4 +62,4 @@ class MultiDeviceKernel(DataParallel, Kernel):
         return CatLazyTensor(*[lazify(o) for o in outputs], dim=self.dim, output_device=self.output_device)
 
     def size(self, x1, x2):
-        return self.base_kernel.size(x1, x2)
+        return self.module.size(x1, x2)
