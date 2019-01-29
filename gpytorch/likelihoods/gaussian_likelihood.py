@@ -7,7 +7,6 @@ from torch.nn.functional import softplus
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import Likelihood
-from ..lazy import BlockDiagLazyTensor, DiagLazyTensor
 from .noise_models import HomoskedasticNoise
 
 
