@@ -2,7 +2,13 @@
 
 import torch
 
-from ..lazy import BlockDiagLazyTensor, LazyTensor, NonLazyTensor
+from ..lazy import (
+    lazify,
+    BlockDiagLazyTensor,
+    CatLazyTensor,
+    LazyTensor,
+    NonLazyTensor,
+)
 from .multivariate_normal import MultivariateNormal
 
 
@@ -56,12 +62,19 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         # BlockDiagLazyTensor. This will require implementing a new BatchLazyTensor:
         # https://github.com/cornellius-gp/gpytorch/issues/468
         batch_mode = len(mvns[0].covariance_matrix.shape) == 3
-        covar = torch.cat(
-            [mvn.covariance_matrix if batch_mode else mvn.covariance_matrix.unsqueeze(0) for mvn in mvns],
-            dim=0
-        )
+        if batch_mode:
+            covar_blocks_lazy = CatLazyTensor(
+                *[mvn.lazy_covariance_matrix for mvn in mvns],
+                dim=0,
+                output_device=mean.device
+            )
+        else:
+            covar_blocks_lazy = lazify(torch.cat(
+                [mvn.covariance_matrix.unsqueeze(0) for mvn in mvns],
+                dim=0
+            ))
         covar_lazy = BlockDiagLazyTensor(
-            NonLazyTensor(covar),
+            covar_blocks_lazy,
             num_blocks=len(mvns) if batch_mode else None
         )
         return cls(mean=mean, covariance_matrix=covar_lazy)
