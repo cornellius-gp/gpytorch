@@ -21,7 +21,7 @@ from gpytorch.distributions import MultivariateNormal
 def make_data(cuda=False):
     train_x = torch.linspace(0, 1, 100)
     train_y = torch.sin(train_x * (2 * pi))
-    test_x = torch.linspace(0, 1, 51)
+    test_x = torch.rand(51)
     test_y = torch.sin(test_x * (2 * pi))
     if cuda:
         train_x = train_x.cuda()
@@ -70,7 +70,7 @@ class TestSGPRRegression(unittest.TestCase):
         likelihood.train()
 
         optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
-        for _ in range(50):
+        for _ in range(30):
             optimizer.zero_grad()
             output = gp_model(train_x)
             loss = -mll(output, train_y)

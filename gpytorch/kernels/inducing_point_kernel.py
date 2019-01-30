@@ -4,7 +4,7 @@ import math
 import torch
 from .kernel import Kernel
 from ..functions import add_jitter
-from ..lazy import lazify, delazify, DiagLazyTensor, MatmulLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from ..lazy import delazify, DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, PsdSumLazyTensor
 from ..distributions import MultivariateNormal
 from ..mlls import InducingPointKernelAddedLossTerm
 
@@ -42,14 +42,11 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_inv_root"):
             return self._cached_kernel_inv_root
         else:
-            inv_roots_list = []
-            for i in range(self._inducing_mat.size(0)):
-                jitter_mat = add_jitter(self._inducing_mat[i])
-                chol = torch.cholesky(jitter_mat, upper=True)
-                eye = torch.eye(chol.size(-1), device=chol.device)
-                inv_roots_list.append(torch.trtrs(eye, chol)[0])
+            chols = torch.cholesky(add_jitter(self._inducing_mat), upper=True)
+            eye = torch.eye(chols[0].size(-1), device=chols[0].device)
+            inv_root_list = [torch.trtrs(eye, chol)[0].unsqueeze(0) for chol in chols]
 
-            res = torch.cat(inv_roots_list, 0)
+            res = torch.cat(inv_root_list, 0)
             if not self.training:
                 self._cached_kernel_inv_root = res
             return res
@@ -60,8 +57,8 @@ class InducingPointKernel(Kernel):
             covar = RootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
 
             # Diagonal correction for predictive posterior
-            correction = (lazify(self.base_kernel(x1, x2)).diag() - covar.diag()).clamp(0, math.inf)
-            covar = PsdSumLazyTensor(DiagLazyTensor(correction), covar)
+            correction = (self.base_kernel(x1, x2, diag=True) - covar.diag()).clamp(0, math.inf)
+            covar = PsdSumLazyTensor(covar, DiagLazyTensor(correction))
         else:
             k_ux2 = delazify(self.base_kernel(x2, self.inducing_points))
             covar = MatmulLazyTensor(
