@@ -4,7 +4,9 @@ import torch
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..lazy import InterpolatedLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor
+from ..lazy import (
+    InterpolatedLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, ZeroLazyTensor
+)
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached
 
@@ -318,8 +320,12 @@ class DefaultPredictionStrategy(object):
         self._last_test_train_covar = test_train_covar
         precomputed_cache = self.covar_cache
 
-        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
-        res = test_test_covar + RootLazyTensor(covar_inv_quad_form_root).mul(-1)
+        if settings.compute_posterior_covar.on():
+            covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
+                                                                                       test_train_covar)
+            res = test_test_covar + RootLazyTensor(covar_inv_quad_form_root).mul(-1)
+        else:
+            res = ZeroLazyTensor(*test_test_covar.size())
         return res
 
 
