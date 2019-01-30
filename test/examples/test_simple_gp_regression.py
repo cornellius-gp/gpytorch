@@ -156,8 +156,8 @@ class TestSimpleGPRegression(unittest.TestCase):
         mean = gp_model(test_x).mean
         likelihood_mean = likelihood(gp_model(test_x)).mean
 
-        self.assertTrue(torch.equal(mean_skip_var, mean))
-        self.assertTrue(torch.equal(mean_skip_var, likelihood_mean))
+        self.assertTrue(torch.allclose(mean_skip_var, mean))
+        self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
 
     def test_gp_posterior_mean_skip_variances_slow_cuda(self, cuda=False):
         if torch.cuda.is_available():
@@ -182,8 +182,8 @@ class TestSimpleGPRegression(unittest.TestCase):
             mean = gp_model(test_x).mean
             likelihood_mean = likelihood(gp_model(test_x)).mean
 
-        self.assertTrue(torch.equal(mean_skip_var, mean))
-        self.assertTrue(torch.equal(mean_skip_var, likelihood_mean))
+        self.assertTrue(torch.allclose(mean_skip_var, mean))
+        self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
