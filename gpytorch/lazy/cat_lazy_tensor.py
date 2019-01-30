@@ -344,3 +344,31 @@ class CatLazyTensor(LazyTensor):
     @property
     def device_count(self):
         return len(set(self.devices))
+
+    def to(self, device_id):
+        """
+        Change the output_device of CatLazyTensor.
+        """
+        new_kwargs = dict(self._kwargs)
+        new_kwargs['output_device'] = device_id
+        return self.__class__(*self._args, **new_kwargs)
+
+    def all_to(self, device_id):
+        """
+        Move all LazyTensors in CatLazyTensor to one device even if they are on
+        the different devices. Also change the output_device to device_id
+        """
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, "to"):
+                new_args.append(arg.to(device_id))
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, "to"):
+                new_kwargs[name] = val.to(device_id)
+            else:
+                new_kwargs[name] = val
+        new_kwargs['output_device'] = device_id
+        return self.__class__(*new_args, **new_kwargs)
