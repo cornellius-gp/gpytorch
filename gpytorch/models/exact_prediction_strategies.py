@@ -307,6 +307,12 @@ class DefaultPredictionStrategy(object):
         """
         from ..distributions import MultivariateNormal
 
+        if settings.fast_pred_var.on():
+            self._last_test_train_covar = test_train_covar
+
+        if settings.skip_posterior_variances.on():
+            return ZeroLazyTensor(*test_test_covar.size())
+
         if settings.fast_pred_var.off():
             train_train_covar = self.likelihood(
                 MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
@@ -314,19 +320,12 @@ class DefaultPredictionStrategy(object):
             test_train_covar = test_train_covar.evaluate()
             train_test_covar = test_train_covar.transpose(-1, -2)
             covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
-            res = test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs)
-            return res
+            return test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs)
 
-        self._last_test_train_covar = test_train_covar
         precomputed_cache = self.covar_cache
-
-        if settings.skip_posterior_variances.on():
-            res = ZeroLazyTensor(*test_test_covar.size())
-        else:
-            covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
-                                                                                       test_train_covar)
-            res = test_test_covar + RootLazyTensor(covar_inv_quad_form_root).mul(-1)
-        return res
+        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
+                                                                                   test_train_covar)
+        return test_test_covar + RootLazyTensor(covar_inv_quad_form_root).mul(-1)
 
 
 @register_prediction_strategy(InterpolatedLazyTensor)
