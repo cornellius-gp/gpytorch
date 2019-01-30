@@ -139,7 +139,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             self.test_gp_posterior_mean_skip_variances_fast(cuda=True)
 
     def test_gp_posterior_mean_skip_variances_fast(self, cuda=False):
-        train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
+        train_x, test_x, train_y, _ = self._get_data(cuda=cuda)
         likelihood = GaussianLikelihood()
         gp_model = ExactGPModel(train_x, train_y, likelihood)
 
@@ -152,9 +152,9 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood.eval()
 
         with gpytorch.settings.skip_posterior_variances(True):
-            mean_skip_var = gp_model(train_x).mean
-        mean = gp_model(train_x).mean
-        likelihood_mean = likelihood(gp_model(train_x)).mean
+            mean_skip_var = gp_model(test_x).mean
+        mean = gp_model(test_x).mean
+        likelihood_mean = likelihood(gp_model(test_x)).mean
 
         self.assertTrue(torch.equal(mean_skip_var, mean))
         self.assertTrue(torch.equal(mean_skip_var, likelihood_mean))
@@ -164,7 +164,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             self.test_gp_posterior_mean_skip_variances_slow(cuda=True)
 
     def test_gp_posterior_mean_skip_variances_slow(self, cuda=False):
-        train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
+        train_x, test_x, train_y, _ = self._get_data(cuda=cuda)
         likelihood = GaussianLikelihood()
         gp_model = ExactGPModel(train_x, train_y, likelihood)
 
@@ -178,9 +178,9 @@ class TestSimpleGPRegression(unittest.TestCase):
 
         with gpytorch.settings.fast_pred_var(False):
             with gpytorch.settings.skip_posterior_variances(True):
-                mean_skip_var = gp_model(train_x).mean
-            mean = gp_model(train_x).mean
-            likelihood_mean = likelihood(gp_model(train_x)).mean
+                mean_skip_var = gp_model(test_x).mean
+            mean = gp_model(test_x).mean
+            likelihood_mean = likelihood(gp_model(test_x)).mean
 
         self.assertTrue(torch.equal(mean_skip_var, mean))
         self.assertTrue(torch.equal(mean_skip_var, likelihood_mean))
