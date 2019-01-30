@@ -320,12 +320,12 @@ class DefaultPredictionStrategy(object):
         self._last_test_train_covar = test_train_covar
         precomputed_cache = self.covar_cache
 
-        if settings.compute_posterior_covar.on():
+        if settings.skip_posterior_variances.on():
+            res = ZeroLazyTensor(*test_test_covar.size())
+        else:
             covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
                                                                                        test_train_covar)
             res = test_test_covar + RootLazyTensor(covar_inv_quad_form_root).mul(-1)
-        else:
-            res = ZeroLazyTensor(*test_test_covar.size())
         return res
 
 
