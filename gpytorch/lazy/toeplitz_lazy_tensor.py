@@ -36,11 +36,6 @@ class ToeplitzLazyTensor(LazyTensor):
     def _transpose_nonbatch(self):
         return ToeplitzLazyTensor(self.column)
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        n_grid = self.column.size(-1)
-        toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
-        return self.column.__getitem__((*batch_indices, toeplitz_indices))
-
     def add_jitter(self, jitter_val=1e-3):
         jitter = torch.zeros_like(self.column)
         jitter.narrow(-1, 0, 1).fill_(jitter_val)

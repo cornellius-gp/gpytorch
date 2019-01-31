@@ -18,33 +18,30 @@ class TestZeroLazyTensor(unittest.TestCase):
         lv = ZeroLazyTensor(5, 4, 3)
 
         res_one = lv[0].evaluate()
-        res_two = lv[:, 1, :]
-        res_three = lv[:, :, 2]
-
         self.assertLess(torch.norm(res_one - torch.zeros(4, 3)), 1e-4)
+        res_two = lv[:, 1, :]
         self.assertLess(torch.norm(res_two - torch.zeros(5, 3)), 1e-4)
+        res_three = lv[:, :, 2]
         self.assertLess(torch.norm(res_three - torch.zeros(5, 4)), 1e-4)
 
     def test_getitem_complex(self):
         lv = ZeroLazyTensor(5, 4, 3)
 
         res_one = lv[[0, 1]].evaluate()
-        res_two = lv[:, [0, 1], :]
-        res_three = lv[:, :, [0, 2]]
-
         self.assertLess(torch.norm(res_one - torch.zeros(2, 4, 3)), 1e-4)
+        res_two = lv[:, [0, 1], :].evaluate()
         self.assertLess(torch.norm(res_two - torch.zeros(5, 2, 3)), 1e-4)
+        res_three = lv[:, :, [0, 2]].evaluate()
         self.assertLess(torch.norm(res_three - torch.zeros(5, 4, 2)), 1e-4)
 
     def test_getitem_ellipsis(self):
         lv = ZeroLazyTensor(5, 4, 3)
 
         res_one = lv[[0, 1]].evaluate()
-        res_two = lv[:, [0, 1], ...]
-        res_three = lv[..., [0, 2]]
-
         self.assertLess(torch.norm(res_one - torch.zeros(2, 4, 3)), 1e-4)
+        res_two = lv[:, [0, 1], ...].evaluate()
         self.assertLess(torch.norm(res_two - torch.zeros(5, 2, 3)), 1e-4)
+        res_three = lv[..., [0, 2]].evaluate()
         self.assertLess(torch.norm(res_three - torch.zeros(5, 4, 2)), 1e-4)
 
     def test_get_item_tensor_index(self):
@@ -55,13 +52,13 @@ class TestZeroLazyTensor(unittest.TestCase):
         index = (torch.tensor([0, 0, 1, 2]), torch.tensor([0, 1, 0, 2]))
         self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
         index = (torch.tensor([0, 0, 1, 2]), slice(None, None, None))
-        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        self.assertTrue(approx_equal(lazy_tensor[index].evaluate(), evaluated[index]))
         index = (slice(None, None, None), torch.tensor([0, 0, 1, 2]))
-        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        self.assertTrue(approx_equal(lazy_tensor[index].evaluate(), evaluated[index]))
         index = (Ellipsis, slice(None, None, None), torch.tensor([0, 0, 1, 2]))
-        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        self.assertTrue(approx_equal(lazy_tensor[index].evaluate(), evaluated[index]))
         index = (Ellipsis, torch.tensor([0, 0, 1, 2]))
-        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        self.assertTrue(approx_equal(lazy_tensor[index].evaluate(), evaluated[index]))
 
     def test_get_item_tensor_index_on_batch(self):
         # Tests the default LV.__getitem__ behavior
@@ -85,7 +82,7 @@ class TestZeroLazyTensor(unittest.TestCase):
         index = (torch.tensor([0, 0, 1, 0]), slice(None, None, None), torch.tensor([0, 0, 1, 1]))
         self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
         index = (Ellipsis, torch.tensor([0, 1, 1, 0]))
-        self.assertTrue(approx_equal(lazy_tensor[index], evaluated[index]))
+        self.assertTrue(approx_equal(lazy_tensor[index].evaluate(), evaluated[index]))
 
     def test_add_diag(self):
         diag = torch.tensor(1.5)
