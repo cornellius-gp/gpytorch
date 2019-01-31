@@ -3,6 +3,7 @@
 import torch
 
 from ..utils.memoize import cached
+from ..utils.getitem import _compute_getitem_size
 from .lazy_tensor import LazyTensor
 
 
@@ -26,33 +27,12 @@ class ZeroLazyTensor(LazyTensor):
     def device(self):
         return self._device
 
-    def _getitem(self, *indices):
-        has_added_tensor_index = False
-        evaluate = False
-        new_sizes = []
-
-        for ix, sub_index in enumerate(indices):
-            if isinstance(sub_index, int):
-                if ix >= self.dim() - 2:
-                    evaluate = True
-                continue
-
-            elif torch.is_tensor(sub_index):
-                if ix >= self.dim() - 2:
-                    evaluate = True
-                if not has_added_tensor_index:
-                    new_sizes.append(sub_index.numel())
-                    has_added_tensor_index = True
-
-            elif isinstance(sub_index, slice):
-                new_sizes.append(len(torch.arange(self.size(ix))[sub_index]))
-            else:
-                new_sizes.append(len(sub_index))
-
-        if evaluate:
-            return torch.zeros(*new_sizes, dtype=self.dtype, device=self.device)
+    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+        new_size = _compute_getitem_size(self, batch_indices + (row_index, col_index))
+        if row_col_are_absorbed:
+            return torch.zeros(new_size, dtype=self.dtype, device=self.device)
         else:
-            return ZeroLazyTensor(*new_sizes)
+            return ZeroLazyTensor(*new_size)
 
     def _matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
@@ -71,6 +51,11 @@ class ZeroLazyTensor(LazyTensor):
         if self.size(-1) != rhs.size(rhs_size_ind):
             raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
         return rhs * 0
+
+    def _unsqueeze_batch(self, dim):
+        sizes = self.sizes.copy()
+        sizes.insert(dim, 1)
+        return self.__class__(*sizes, dtype=self._dtype, device=self._device)
 
     def add_diag(self, diag):
         from .diag_lazy_tensor import DiagLazyTensor
@@ -151,11 +136,6 @@ class ZeroLazyTensor(LazyTensor):
 
     def root_decomposition_size(self):
         raise RuntimeError("ZeroLazyTensors are not positive definite!")
-
-    def sum_batch(self, sum_batch_size=None):
-        from .sum_batch.lazy_tensor import SumBatchLazyTensor
-
-        return SumBatchLazyTensor(self, sum_batch_size=sum_batch_size)
 
     def transpose(self, dim1, dim2):
         sizes = self.sizes.copy()

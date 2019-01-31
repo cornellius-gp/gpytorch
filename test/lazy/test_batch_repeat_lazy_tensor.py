@@ -8,7 +8,6 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 class TestBatchRepeatLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
-    no_broadcast_tests = True
     should_test_sample = True
 
     def create_lazy_tensor(self):
@@ -22,7 +21,6 @@ class TestBatchRepeatLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
 class TestBatchRepeatLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
-    no_broadcast_tests = True
     should_test_sample = True
 
     def create_lazy_tensor(self):

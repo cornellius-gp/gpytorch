@@ -11,8 +11,6 @@ from test._utils import approx_equal
 
 
 class RectangularLazyTensorTestCase(object):
-    no_broadcast_tests = False
-
     @abstractmethod
     def create_lazy_tensor(self):
         raise NotImplementedError()
@@ -80,9 +78,6 @@ class RectangularLazyTensorTestCase(object):
                 )
 
     def test_matmul_matrix_broadcast(self):
-        if self.__class__.no_broadcast_tests:
-            return
-
         # Right hand size has one more batch dimension
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
@@ -452,9 +447,6 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         )
 
     def test_inv_matmul_matrix_broadcast(self):
-        if self.__class__.no_broadcast_tests:
-            return
-
         # Right hand size has one more batch dimension
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)

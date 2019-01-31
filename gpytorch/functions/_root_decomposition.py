@@ -103,7 +103,6 @@ class RootDecomposition(Function):
     def backward(self, root_grad_output, inverse_grad_output):
         # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
         if any(self.needs_input_grad):
-
             def is_empty(tensor):
                 return tensor.numel() == 0 or (tensor.numel() == 1 and tensor[0] == 0)
 
