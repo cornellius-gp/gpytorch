@@ -22,7 +22,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         self.x1 = x1
         self.x2 = x2
         self.batch_dims = batch_dims
-        self.is_batch = self.x1.ndimension() == 3
         self.params = params
 
     @property
@@ -34,12 +33,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         return self.x1.device
 
     def _expand_batch(self, batch_shape):
-        return LazyEvaluatedKernelTensor(
-            self.kernel,
-            self.x1.expand(*batch_shape, self.x1.shape[-2:]),
-            self.x2.expand(*batch_shape, self.x2.shape[-2:]),
-            **self.params
-        )
+        return self.evaluate_kernel()._expand_batch(batch_shape)
 
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         x1 = self.x1
@@ -78,6 +72,9 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def _t_matmul(self, rhs):
         raise RuntimeError(LAZY_KERNEL_TENSOR_WARNING)
 
+    def _unsqueeze_batch(self, dim):
+        return self.evaluate_kernel()._unsqueeze_batch(dim)
+
     def diag(self):
         """
         Getting the diagonal of a kernel can be handled more efficiently by
@@ -92,20 +89,24 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         elif hasattr(self, "_cached_kernel_eval"):
             return self._cached_kernel_eval.diag()
         else:
-            if not self.is_batch:
-                x1 = self.x1.unsqueeze(0)
-                x2 = self.x2.unsqueeze(0)
-            else:
-                x1 = self.x1
-                x2 = self.x2
+            x1 = self.x1
+            x2 = self.x2
 
-            # If x1 or x2 only has one data point, make sure to unsqueeze the data-size dimension
-            if x1.dim() == 2:  # We only have a single data point
-                x1 = x1.unsqueeze(1)
-            if x2.dim() == 2:  # We only have a single data point
-                x2 = x2.unsqueeze(1)
+            # TODO: until kernels support multi-batch mode, we have to ensure that the kernel has a batch dimension
+            is_batch = True
+            if x1.dim() == 2:
+                is_batch = False
+                x1 = x1.unsqueeze(0)
+                x2 = x2.unsqueeze(0)
 
             res = super(Kernel, self.kernel).__call__(x1, x2, diag=True, batch_dims=self.batch_dims, **self.params)
+
+            # TODO: until kernels support multi-batch mode, we have to remove any artificial batch dimension
+            # that we've added
+            if not is_batch:
+                x1 = x1.squeeze(0)
+                x2 = x2.squeeze(0)
+                res = res.squeeze(0)
 
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
@@ -152,24 +153,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         if hasattr(self, "_cached_kernel_eval"):
             return self._cached_kernel_eval
         else:
-            if not self.is_batch:
-                x1 = self.x1.unsqueeze(0)
-                x2 = self.x2.unsqueeze(0)
-            else:
-                x1 = self.x1
-                x2 = self.x2
+            x1 = self.x1
+            x2 = self.x2
 
             with settings.lazily_evaluate_kernels(False):
                 self._cached_kernel_eval = self.kernel(
                     x1, x2, diag=False, batch_dims=self.batch_dims, **self.params
                 )
-
-            if (
-                not self.is_batch
-                and self._cached_kernel_eval.ndimension() == 3
-                and self._cached_kernel_eval.size(0) == 1
-            ):
-                self._cached_kernel_eval = self._cached_kernel_eval[0]
 
             self._cached_kernel_eval = lazify(self._cached_kernel_eval)
             return self._cached_kernel_eval
@@ -178,16 +168,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 
-    def repeat(self, *sizes):
-        if len(sizes) == 3:
-            x1 = self.x1.repeat(sizes[0], sizes[1], 1)
-            x2 = self.x2.repeat(sizes[0], sizes[1], 1)
-        elif len(sizes) == 2 and x1.ndim() == 2:
-            x1 = self.x1.repeat(sizes[0], 1)
-            x2 = self.x2.repeat(sizes[0], 1)
-        else:
-            raise RuntimeError("Invalid number of sizes (expected 2 or 3)")
+    def repeat(self, *repeats):
+        if len(repeats) == 1 and hasattr(repeats[0], "__iter__"):
+            repeats = repeats[0]
+        *batch_repeat, row_repeat, col_repeat = repeats
 
+        x1 = self.x1.repeat(*batch_repeat, row_repeat, 1)
+        x2 = self.x2.repeat(*batch_repeat, col_repeat, 1)
         return LazyEvaluatedKernelTensor(self.kernel, x1, x2, **self.params)
 
     def representation(self):
