@@ -224,7 +224,8 @@ class TestSimpleGPRegression(unittest.TestCase):
         # Test the model
         gp_model.eval()
         likelihood.eval()
-        test_function_predictions = likelihood(gp_model(test_x))
+        with gpytorch.settings.skip_posterior_variances(True):
+            test_function_predictions = likelihood(gp_model(test_x))
         mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean))
 
         self.assertLess(mean_abs_error.item(), 0.05)
