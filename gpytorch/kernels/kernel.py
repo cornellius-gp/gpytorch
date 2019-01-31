@@ -325,6 +325,13 @@ class Kernel(Module):
             if not x1_.size(-1) == x2_.size(-1):
                 raise RuntimeError("x1_ and x2_ must have the same number of dimensions!")
 
+        # TODO: remove bach checking once kernels support arbitrary batch dimensions
+        is_batch = x1_.dim() > 2
+        if not is_batch:
+            x1_ = x1_.unsqueeze(0)
+            if x2_ is not None:
+                x2_ = x2_.unsqueeze(0)
+
         if x2_ is None:
             x2_ = x1_
 
@@ -345,6 +352,13 @@ class Kernel(Module):
 
         if diag:
             res = super(Kernel, self).__call__(x1_, x2_, diag=True, batch_dims=batch_dims, **params)
+
+            # TODO: remove bach checking once kernels support arbitrary batch dimensions
+            if not is_batch:
+                res = res.squeeze(0)
+                x1_ = x1_.squeeze(0)
+                if x2_ is not x1_:
+                    x2_ = x2_.squeeze(0)
 
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
@@ -384,6 +398,13 @@ class Kernel(Module):
                 res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, batch_dims=batch_dims, **params)
             else:
                 res = super(Kernel, self).__call__(x1_, x2_, batch_dims=batch_dims, **params)
+
+            # TODO: remove bach checking once kernels support arbitrary batch dimensions
+            if not is_batch:
+                res = res.squeeze(0)
+                x1_ = x1_.squeeze(0)
+                if x2_ is not x1_:
+                    x2_ = x2_.squeeze(0)
 
             # Now we'll make sure that the shape we're getting makes sense
             if settings.debug.on():
