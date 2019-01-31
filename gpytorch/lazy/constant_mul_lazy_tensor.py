@@ -67,19 +67,14 @@ class ConstantMulLazyTensor(LazyTensor):
         res = self.base_lazy_tensor._approx_diag()
         return res * self._constant.unsqueeze(-1)
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
-        constant = self._constant.expand(self.batch_shape).__getitem__(batch_indices)
-        return res * constant
-
-    def _getitem(self, *indices):
+    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         # NOTE TO FUTURE SELF:
         # This custom __getitem__ is actually very important!
         # It prevents constructing an InterpolatedLazyTensor when one isn't needed
         # This effects runntimes by up to 5x on simple exat GPs
         # Run __getitem__ on the base_lazy_tensor and the constant
-        base_lazy_tensor = self.base_lazy_tensor._getitem(*indices)
-        constant = self._constant.expand(self.batch_shape)[indices[:-2]]
+        base_lazy_tensor = self.base_lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+        constant = self._constant.expand(self.batch_shape)[batch_indices]
 
         if torch.is_tensor(base_lazy_tensor):
             constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))

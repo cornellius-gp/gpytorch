@@ -87,18 +87,3 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
-
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        res = torch.ones(left_indices.size(), dtype=self.dtype, device=self.device)
-        left_size = self.size(-2)
-        right_size = self.size(-1)
-        for lazy_tensor in self.lazy_tensors:
-            left_size = left_size / lazy_tensor.size(-2)
-            right_size = right_size / lazy_tensor.size(-1)
-            left_indices_i = left_indices.div(left_size)
-            right_indices_i = right_indices.div(right_size)
-
-            res = res * lazy_tensor._get_indices(left_indices_i, right_indices_i, *batch_indices)
-            left_indices = left_indices - (left_indices_i * left_size)
-            right_indices = right_indices - (right_indices_i * right_size)
-        return res

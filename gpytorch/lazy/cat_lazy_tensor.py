@@ -2,9 +2,11 @@
 
 import torch
 import itertools
-from collections import defaultdict
-from .lazy_tensor import LazyTensor, delazify
-from .non_lazy_tensor import lazify
+# from collections import defaultdict
+from .lazy_tensor import LazyTensor
+# from .lazy_tensor import delazify
+# from .non_lazy_tensor import lazify
+# from ..utils.getitem import _noop_index
 
 
 class CatLazyTensor(LazyTensor):
@@ -101,31 +103,28 @@ class CatLazyTensor(LazyTensor):
         else:
             return [slice(start_idx, stop_idx, None)]
 
-    def _getitem(self, *indices):
-        squeeze = [isinstance(i, int) for i in indices]
-        indices = list(indices)
+    def _expand_batch(self, batch_shape):
+        # If the concatenated dimenison is a batch dimension, use the default behavior
+        if self.cat_dim < len(self.batch_shape):
+            return super(CatLazyTensor, self)._expand_batch(batch_shape)
+        else:
+            lazy_tensors = [lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors]
+            res = self.__class__(*lazy_tensors, dim=self.cat_dim)
+            return res
+
+    """
+    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+        indices = [*batch_indices, row_index, col_idex]
         target_indices = indices[self.cat_dim]
-        new_cat_dim = (None if squeeze[self.cat_dim]
-                       else self.cat_dim - sum(squeeze[:self.cat_dim + 1]))
-
-        eval_result = (torch.is_tensor(indices[-2]) and torch.is_tensor(indices[-1]))
-        eval_result = eval_result or (isinstance(indices[-2], int) or isinstance(indices[-1], int))
-        maybe_lazify = delazify if eval_result else lazify
-
-        if new_cat_dim is None:
-            # target_indices must be a int so we can let the LazyTensor squeeze out cat_dim
-            t_idx = self.idx_to_tensor_idx[target_indices]
-            return maybe_lazify(self.lazy_tensors[t_idx]._getitem(*indices))
-
-        if all(torch.is_tensor(x) for x in indices):
-            left_indices, right_indices = indices[-2], indices[-1]
-            batch_indices = indices[:-2]
-            return maybe_lazify(self._get_indices(left_indices, right_indices, *batch_indices))
 
         if isinstance(target_indices, slice):
-            if target_indices == slice(None, None, None):
-                res_list = [lazify(t._getitem(*indices)) for t in self.lazy_tensors]
-                return maybe_lazify(self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device))
+            if target_indices == _noop_index:
+                res_list = [
+                    lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+                    for lazy_tensor in self.lazy_tensors
+                ]
+                if row_col_are_absorbed:
+                    return maybe_lazify(self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device))
             else:
                 target_slices = self._split_slice(target_indices)
                 target_tensors = [self.idx_to_tensor_idx[sl.start] for sl in target_slices]
@@ -149,6 +148,7 @@ class CatLazyTensor(LazyTensor):
                     result = self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
 
                 return maybe_lazify(result.to(self.output_device))
+
         elif torch.is_tensor(target_indices):
             # this means another `indices` is a slice object
             target_indices = [idx.item() for idx in target_indices]
@@ -224,14 +224,10 @@ class CatLazyTensor(LazyTensor):
             lookup.append(idx)
             t_idx_to_res_idx[t_idx] += 1
         return res[lookup]
+    """
 
     def _matmul(self, rhs):
-        isvector = rhs.ndimension() == 1
-        if isvector:
-            rhs = rhs.unsqueeze(1)
-
-        output_device = (self.device if self.device is not None
-                         else rhs.device)
+        output_device = (self.device if self.device is not None else rhs.device)
         # make a copy of `rhs` on each device
         rhs_ = []
         for d in self.devices:
@@ -245,7 +241,7 @@ class CatLazyTensor(LazyTensor):
                         for t, rhs in zip(self.lazy_tensors, rhs_)]
             # copy result back to output device
             res_list = [x.to(output_device) for x in res_list]
-            res = torch.cat(res_list, dim=self.cat_dim)
+            res = torch.cat(res_list, dim=-2)
         elif self.cat_dim == self.ndimension() - 1:
             curr_idx = 0
             res_list = []
@@ -269,10 +265,8 @@ class CatLazyTensor(LazyTensor):
                 curr_idx += size
             # copy result back to output device
             res_list = [x.to(output_device) for x in res_list]
-            res = torch.cat(res_list, dim=self.cat_dim)
+            res = torch.cat(res_list, dim=(self.cat_dim - self.dim()))
 
-        if isvector:
-            res = res.squeeze(-1)
         return res
 
     def _size(self):
@@ -289,35 +283,9 @@ class CatLazyTensor(LazyTensor):
         return self.__class__(*[t._transpose_nonbatch()
                                 for t in self.lazy_tensors], dim=new_dim, output_device=self.output_device)
 
-    def diag(self):
-        """
-        As :func:`torch.diag`, returns the diagonal of the matrix :math:`K` this LazyTensor represents as a vector.
-
-        Returns:
-            :obj:`torch.tensor`: The diagonal of :math:`K`. If :math:`K` is :math:`n \times n`, this will be a length
-            n vector. If this LazyTensor represents a batch (e.g., is :math:`b \times n \times n`), this will be a
-            :math:`b \times n` matrix of diagonals, one for each matrix in the batch.
-        """
-        size = self.size()
-        if size[-1] != size[-2]:
-            raise RuntimeError("Diag works on square matrices (or batches)")
-
-        row_col_iter = torch.arange(0, size[-1], dtype=torch.long)
-        if self.ndimension() == 3:
-            batch_iter = torch.arange(0, size[0], dtype=torch.long)
-            batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
-            row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
-            res = self._get_indices(row_col_iter, row_col_iter, batch_iter).view(size[0], size[1])
-        else:
-            res = self._get_indices(row_col_iter, row_col_iter)
-
-        return res.to(self.device)
-
-    def __getitem__(self, *indices):
-        res = super().__getitem__(*indices)
-        if not isinstance(res, CatLazyTensor):
-            res = res.to(self.device)
-
+    def _unsqueeze_batch(self, dim):
+        lazy_tensors = [lazy_tensor._unsqueeze_batch(dim) for lazy_tensor in self.lazy_tensors]
+        res = self.__class__(*lazy_tensors, dim=(self.cat_dim + 1 if dim <= self.cat_dim else self.cat_dim))
         return res
 
     def inv_matmul(self, right_tensor, left_tensor=None):

@@ -15,6 +15,7 @@ from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
+from ..utils.getitem import _noop_index
 from ..utils.memoize import cached
 from ..utils.qr import batch_qr
 from ..utils.svd import batch_svd
@@ -39,20 +40,13 @@ class LazyTensor(object):
     In order to define a new LazyTensor class that can be used as a covariance matrix in GPyTorch, a user must define
     at a minimum the following methods (in each example, :math:`K` denotes the matrix that the LazyTensor represents)
 
-    * :func:`~gpytorch.lazy.LazyTensor._get_indices`, which returns a Tensor where the entries are determined by
-      LongTensors of indices.
     * :func:`~gpytorch.lazy.LazyTensor._matmul`, which performs a matrix multiplication :math:`KM`
-    * :func:`~gpytorch.lazy.LazyTensor._quad_form_derivative`, which computes a quadratic form with the derivative,
-      :math:`\mathbf{v}^{\\top}\\frac{dK}{dR}\mathbf{v}`, where :math:`R` denotes the actual tensors used to represent
-      :math:`K`. In the linear kernel example, :math:`K=XX^{\\top}`, this would be :math:`\\frac{dK}{dX}`. If :math:`K`
-      is a Toeplitz matrix (see :class:`gpytorch.lazy.ToeplitzLazyTensor`) represented by its first column
-      :math:`\mathbf{c}`, this would return :math:`\mathbf{v}^{\\top}\\frac{dK}{d\mathbf{c}}\mathbf{v}`.
     * :func:`~gpytorch.lazy.LazyTensor._size`, which returns a :class:`torch.Size` containing the dimensions of
       :math:`K`.
     * :func:`~gpytorch.lazy.LazyTensor._transpose_nonbatch`, which returns a transposed version of the LazyTensor
 
-    In addition to these, a LazyTensor may need to define the :func:`~gpytorch.lazy.LazyTensor._transpose_nonbatch`,
-    :func:`~gpytorch.lazy.LazyTensor._get_indices`, and :func:`~gpytorch.lazy.LazyTensor._get_indices`
+    In addition to these, a LazyTensor may need to define
+    :func:`~gpytorch.lazy.LazyTensor._quad_form_derivative` and :func:`~gpytorch.lazy.LazyTensor._getitem`
     functions in special cases. See the documentation for these methods for details.
 
     .. note::
@@ -69,12 +63,6 @@ class LazyTensor(object):
         LazyTensor may be (for example) :math:`b \times n \times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
     """
-
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        """
-        Returns entries of the matrix, indexed by batch, row, and column indices
-        """
-        raise NotImplementedError("The class {} requires a _get_indices function!".format(self.__class__.__name__))
 
     def _matmul(self, rhs):
         """
@@ -97,6 +85,57 @@ class LazyTensor(object):
 
     def _probe_vectors_and_norms(self):
         return None, None
+
+    def _prod_batch(self, dim):
+        """
+        Multiply the LazyTensor across a batch dimension (supplied as a positive number).
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.prod`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`gpytorch.lazy.LazyTensor`
+        """
+        from .mul_lazy_tensor import MulLazyTensor
+        from .root_lazy_tensor import RootLazyTensor
+
+        if self.size(dim) == 1:
+            return self.squeeze(dim)
+
+        roots = self.root_decomposition().root.evaluate()
+        num_batch = roots.size(dim)
+
+        while True:
+            # Take care of extra roots (odd roots), if they exist
+            if num_batch % 2:
+                shape = list(roots.shape)
+                shape[dim] = 1
+                extra_root = (
+                    torch.randn(shape).mul_(1e-6 / math.sqrt(roots.size(dim))).add_(1.0 / math.sqrt(roots.size(dim)))
+                )
+                roots = torch.cat([roots, extra_root], dim)
+                num_batch += 1
+
+            # Divide and conqour
+            # Assumes that there's an even number of roots
+            part1_index = [_noop_index] * roots.dim()
+            part1_index[dim] = slice(None, num_batch // 2, None)
+            part1 = roots[tuple(part1_index)].contiguous()
+            part2_index = [_noop_index] * roots.dim()
+            part2_index[dim] = slice(num_batch // 2, None, None)
+            part2 = roots[tuple(part2_index)].contiguous()
+
+            if num_batch // 2 == 1:
+                part1 = part1.squeeze(dim)
+                part2 = part2.squeeze(dim)
+                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2))
+                break
+            else:
+                roots = res.root_decomposition().root.evaluate()
+                num_batch = num_batch // 2
+
+        return res
 
     def _solve(self, rhs, preconditioner, num_tridiag=None):
         return linear_cg(
@@ -121,6 +160,20 @@ class LazyTensor(object):
         """
         raise NotImplementedError("The class {} requires a _size function!".format(self.__class__.__name__))
 
+    def _sum_batch(self, dim):
+        """
+        Sum the LazyTensor across a batch dimension (supplied as a positive number).
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.sum`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`gpytorch.lazy.LazyTensor`
+        """
+        from .sum_batch_lazy_tensor import SumBatchLazyTensor
+        return SumBatchLazyTensor(self, block_dim=dim)
+
     def _transpose_nonbatch(self):
         """
         Transposes non-batch dimensions (e.g. last two)
@@ -133,6 +186,20 @@ class LazyTensor(object):
         raise NotImplementedError(
             "The class {} requires a _transpose_nonbatch function!".format(self.__class__.__name__)
         )
+
+    def _unsqueeze_batch(self, dim):
+        """
+        Unsqueezes a batch dimension (positive-indexed only)
+        This probably won't have to be overwritten by LazyTensors, unless they use batch dimensions
+        in a special way (e.g. BlockDiagLazyTensor, SumBatchLazyTensor)
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.unsqueeze`,
+            which does some additional work. Calling this method directly is discouraged.
+        """
+        components = [component.unsqueeze(dim) for component in self._args]
+        res = self.__class__(*components, **self._kwargs)
+        return res
 
     def __init__(self, *args, **kwargs):
         self._args = args
@@ -161,7 +228,23 @@ class LazyTensor(object):
         """
         return self.diag()
 
-    def _getitem(self, *indices):
+    def _expand_batch(self, batch_shape):
+        """
+        Expands along batch dimensions.
+        This probably won't have to be overwritten by LazyTensors, unless they use batch dimensions
+        in a special way (e.g. BlockDiagLazyTensor, SumBatchLazyTensor)
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.expand`,
+            which does some additional work. Calling this method directly is discouraged.
+        """
+        current_shape = torch.Size([1 for _ in range(len(batch_shape) - self.dim() - 2)] + list(self.batch_shape))
+        batch_repeat = torch.Size(
+            [expand_size // current_size for expand_size, current_size in zip(batch_shape, current_shape)]
+        )
+        return self.repeat(*batch_repeat, 1, 1)
+
+    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         """
         Supports subindexing of the matrix this LazyTensor represents. This may return either another
         :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
@@ -178,148 +261,51 @@ class LazyTensor(object):
             :attr:`indices` (tuple of `int`s, `slice`s, or `LongTensor`s):
                 A collection of indices for each of the dimensions. There will be exactly one index per dimension.
         """
-        if settings.debug.on():
-            if len(indices) != self.dim():
-                raise RuntimeError(
-                    "{}._getitem() called with {} indices - expected {}. "
-                    "This is potentially a bug in GPyTorch.".format(self.__class__.__name__, len(indices), self.dim())
-                )
-
-        components = list(self._args)
-        indices = list(indices)
-
-        # Normal case if we're indexing the LT with ints or slices
-        # Also squeeze dimensions if we're indexing with tensors
-        squeeze_left = False
-        squeeze_right = False
-        if isinstance(indices[-2], int):
-            indices[-2] = slice(indices[-2], indices[-2] + 1, None)
-            squeeze_left = True
-        elif torch.is_tensor(indices[-2]):
-            squeeze_left = True
-        if isinstance(indices[-1], int):
-            indices[-1] = slice(indices[-1], indices[-1] + 1, None)
-            squeeze_right = True
-        elif torch.is_tensor(indices[-1]):
-            squeeze_right = True
-
         # Handle batch dimensions
-        isbatch = self.dim() >= 3
-        first_tensor_index_dim = None
-        if isbatch:
-            batch_index = tuple(indices[:-2])
-            for i, item in enumerate(components):
-                components[i] = item[batch_index]
-
-            for i, idx in enumerate(batch_index):
-                if torch.is_tensor(idx):
-                    first_tensor_index_dim = i
-                    break
-
-        new_lazy_tensor = self.__class__(*components, **self._kwargs)
-
-        # Handle index
-        left_index = indices[-2]
-        right_index = indices[-1]
+        # Construt a new LazyTensor
+        res = self
+        if len(batch_indices):
+            components = [component[batch_indices] for component in res._args]
+            res = self.__class__(*components, **self._kwargs)
 
         # Special case: if both row and col are not indexed, then we are done
-        if (
-            not torch.is_tensor(left_index)
-            and left_index == slice(None, None, None)
-            and not torch.is_tensor(right_index)
-            and right_index == slice(None, None, None)
-        ):
-            return new_lazy_tensor
+        if (row_index is _noop_index and col_index is _noop_index):
+            return res
 
-        # Special case: if both row and col are tensor indexed, then we use _get_indices
-        if torch.is_tensor(left_index) and torch.is_tensor(right_index):
-            if left_index.numel() != right_index.numel():
-                raise RuntimeError(
-                    "Expected the tensor indices to be the same size: got {} and {}".format(
-                        left_index.numel(), right_index.numel()
-                    )
-                )
-
-            if new_lazy_tensor.ndimension() == 2:
-                return new_lazy_tensor._get_indices(left_index, right_index)
-
-            else:
-                batch_index = torch.arange(0, new_lazy_tensor.size(0), dtype=torch.long, device=self.device)
-                if first_tensor_index_dim is not None:
-                    if batch_index.numel() != left_index.numel():
-                        raise RuntimeError(
-                            "Expected the tensor indices to be the same size: got {}, {} and {}".format(
-                                batch_index.numel(), left_index.numel(), right_index.numel()
-                            )
-                        )
-                    return new_lazy_tensor._get_indices(left_index, right_index, batch_index)
-                else:
-                    batch_size = batch_index.numel()
-                    row_col_size = left_index.numel()
-                    batch_index = batch_index.unsqueeze(1).repeat(1, row_col_size).view(-1)
-                    left_index = left_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-                    right_index = right_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-                    res = new_lazy_tensor._get_indices(left_index, right_index, batch_index)
-                    return res.view(batch_size, row_col_size)
-
-        # Normal case: we have to do some processing on eithe rthe rows or columns
-        res = new_lazy_tensor._getitem_nonbatch(left_index, right_index, first_tensor_index_dim)
-        if (squeeze_left or squeeze_right) and isinstance(res, LazyTensor):
-            res = res.evaluate()
-        if squeeze_left:
-            res = res.squeeze(-2)
-        if squeeze_right:
-            res = res.squeeze(-1)
-
-        return res
-
-    def _getitem_nonbatch(self, row_index, col_index, first_tensor_index_dim=None):
-        """
-        Given an index over rows and columns, gets those items from the LazyTensor.
-        Implementing this is not necessary, but it improves performance
-
-        Args:
-            row_index (slice or LongTensor): index over rows
-            col_index (slice or LongTensor): index over columns
-            first_tensor_index_dim (int or None): first batch dim to have a tensor index (default: None)
-
-        Returns:
-            LazyTensor
-        """
-        from .interpolated_lazy_tensor import InterpolatedLazyTensor
-
-        ndimension = self.ndimension()
-        batch_sizes = list(self.size()[:-2])
-
-        left_row_iter = torch.arange(0, self.size()[-2], dtype=torch.long, device=self.device)
-        right_row_iter = torch.arange(0, self.size()[-1], dtype=torch.long, device=self.device)
-        left_interp_indices = left_row_iter[row_index].unsqueeze(-1)
-        right_interp_indices = right_row_iter[col_index].unsqueeze(-1)
-
-        left_interp_len = len(left_interp_indices)
-        right_interp_len = len(right_interp_indices)
-        for _ in range(ndimension - 2):
-            left_interp_indices.unsqueeze_(0)
-            right_interp_indices.unsqueeze_(0)
-
-        if first_tensor_index_dim is not None and torch.is_tensor(row_index):
-            view_size = [1] * ndimension
-            view_size[first_tensor_index_dim] = left_interp_indices.numel()
-            left_interp_indices = left_interp_indices.view(*view_size).expand(*(batch_sizes + [1, 1]))
+        # Normal case: we have to do some processing on either the rows or columns
+        # We will handle this through "interpolation"
+        row_interp_indices = torch.arange(
+            0, self.size(-2), dtype=torch.long, device=self.device
+        )[row_index].view(-1).unsqueeze_(-1)
+        # If we have previously seen tensor indices, the row interpolation will be absorbed into the batch
+        if row_col_are_absorbed and torch.is_tensor(row_index):
+            row_interp_indices = row_interp_indices.unsqueeze_(-1).expand(*res.batch_shape, 1, 1)
         else:
-            left_interp_indices = left_interp_indices.expand(*(batch_sizes + [left_interp_len, 1]))
-        left_interp_values = torch.ones(left_interp_indices.size(), dtype=self.dtype, device=self.device)
-        if first_tensor_index_dim is not None and torch.is_tensor(col_index):
-            view_size = [1] * ndimension
-            view_size[first_tensor_index_dim] = right_interp_indices.numel()
-            right_interp_indices = right_interp_indices.view(*view_size).expand(*(batch_sizes + [1, 1]))
+            row_interp_indices = row_interp_indices.expand(*res.batch_shape, -1, 1)
+        row_interp_values = torch.tensor(1., dtype=self.dtype, device=self.device).expand_as(row_interp_indices)
+
+        # Construct column interpolation
+        # If we have previously seen tensor indices, the col interpolation will
+        # be absorbed into the batch/row
+        col_interp_indices = torch.arange(
+            0, self.size(-1), dtype=torch.long, device=self.device
+        )[col_index].view(-1).unsqueeze_(-1)
+        # If we have previously seen tensor indices, the col interpolation will be absorbed into the batch/row
+        if row_col_are_absorbed and torch.is_tensor(col_index):
+            col_interp_indices = col_interp_indices.unsqueeze_(-1).expand(*res.batch_shape, 1, 1)
         else:
-            right_interp_indices = right_interp_indices.expand(*(batch_sizes + [right_interp_len, 1]))
-        right_interp_values = torch.ones(right_interp_indices.size(), dtype=self.dtype, device=self.device)
+            col_interp_indices = col_interp_indices.expand(*res.batch_shape, -1, 1)
+        col_interp_values = torch.tensor(1., dtype=self.dtype, device=self.device).expand_as(col_interp_indices)
+
+        # Construct interpolated LazyTensor
+        from . import InterpolatedLazyTensor
 
         res = InterpolatedLazyTensor(
-            self, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
+            res, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values
         )
+        if row_col_are_absorbed:
+            res = res.evaluate().squeeze(-2).squeeze(-1)
+
         return res
 
     def _inv_matmul_preconditioner(self):
@@ -573,18 +559,12 @@ class LazyTensor(object):
             n vector. If this LazyTensor represents a batch (e.g., is :math:`b \times n \times n`), this will be a
             :math:`b \times n` matrix of diagonals, one for each matrix in the batch.
         """
-        size = self.size()
-        if size[-1] != size[-2]:
-            raise RuntimeError("Diag works on square matrices (or batches)")
+        if settings.debug.on():
+            if not self.is_square:
+                raise RuntimeError("Diag works on square matrices (or batches)")
 
-        row_col_iter = torch.arange(0, size[-1], dtype=torch.long, device=self.device)
-        if self.ndimension() == 3:
-            batch_iter = torch.arange(0, size[0], dtype=torch.long, device=self.device)
-            batch_iter = batch_iter.unsqueeze(1).repeat(1, size[1]).view(-1)
-            row_col_iter = row_col_iter.unsqueeze(1).repeat(size[0], 1).view(-1)
-            return self._get_indices(row_col_iter, row_col_iter, batch_iter).view(size[0], size[1])
-        else:
-            return self._get_indices(row_col_iter, row_col_iter)
+        row_col_iter = torch.arange(0, self.matrix_shape[-1], dtype=torch.long, device=self.device)
+        return self[..., row_col_iter, row_col_iter]
 
     def dim(self):
         """
@@ -598,17 +578,19 @@ class LazyTensor(object):
 
     def expand(self, *sizes):
         if len(sizes) == 1 and hasattr(sizes, "__iter__"):
-            shape = sizes[0]
+            sizes = sizes[0]
+        if len(sizes) < 3 or tuple(sizes[-2:]) != self.matrix_shape:
+            raise RuntimeError(
+                "Invalid expand arguments {}. Currently, repeat only works to create repeated "
+                "batches of a 2D LazyTensor.".format(tuple(sizes))
+            )
         elif all(isinstance(size, int) for size in sizes):
             shape = torch.Size(sizes)
         else:
             raise RuntimeError("Invalid arguments {} to expand.".format(sizes))
 
-        current_shape = torch.Size([1 for _ in range(len(shape) - self.dim())] + list(self.shape))
-        repeat_shape = torch.Size(
-            [expand_size // current_size for expand_size, current_size in zip(shape, current_shape)]
-        )
-        return self.repeat(*repeat_shape)
+        res = self._expand_batch(batch_shape=shape[:-2])
+        return res
 
     @cached
     def evaluate(self):
@@ -857,7 +839,19 @@ class LazyTensor(object):
                 % (self.size(0) if self.ndimension() == 3 else 1, repr(self.size()), repr(other.size()))
             )
 
-    def mul_batch(self, mul_batch_size=None):
+    def ndimension(self):
+        """
+        Returns the number of dimensions
+        """
+        return len(self.size())
+
+    def numel(self):
+        """
+        Returns the number of elements
+        """
+        return self.shape.numel()
+
+    def prod(self, dim=None):
         """
         For a `b x n x m` LazyTensor, compute the product over the batch dimension.
 
@@ -886,62 +880,19 @@ class LazyTensor(object):
             >>> lazy_tensor.mul_batch(mul_batch_size=2)
             >>> # Returns: torch.Tensor([[[2, 4], [0, -2]], [[6, 2], [2, 0]]])
         """
-        from .mul_lazy_tensor import MulLazyTensor
-        from .root_lazy_tensor import RootLazyTensor
+        if dim is None:
+            raise ValueError("At the moment, LazyTensor.prod requires a dim argument (got None)")
 
-        if self.ndimension() < 3:
-            raise RuntimeError("mul_batch only works with batched lazy tensors")
-        if self.size(0) == 1:
-            return self.sum_batch()
+        orig_dim = dim
+        if dim < 0:
+            dim = self.dim() + dim
+        if dim >= len(self.batch_shape):
+            raise ValueError(
+                "At the moment, LazyTensor.prod only works on batch dimensions. "
+                "Got dim={} for LazyTensor of shape {}".format(orig_dim, self.shape)
+            )
 
-        roots = self.root_decomposition().root.evaluate()
-        n_batch = roots.size(0) if mul_batch_size is None else mul_batch_size
-        true_batch_size = roots.size(0) // mul_batch_size if mul_batch_size is not None else 1
-
-        while True:
-            roots = roots.view(true_batch_size, n_batch, roots.size(1), roots.size(2))
-
-            # Take care of extra roots (odd roots), if they exist
-            if n_batch % 2:
-                extra_root = (
-                    torch.randn(roots.size(0), 1, roots.size(2), roots.size(3), dtype=roots.dtype, device=roots.device)
-                    .mul_(1e-6 / math.sqrt(roots.size(3)))
-                    .add_(1.0 / math.sqrt(roots.size(3)))
-                )
-                roots = torch.cat([roots, extra_root], 1)
-                n_batch += 1
-
-            # Divide and conqour
-            # Assumes that there's an even number of roots
-            part1 = roots[:, : n_batch // 2]
-            part1 = part1.contiguous().view(-1, roots.size(2), roots.size(3))
-            part2 = roots[:, n_batch // 2 : 2 * (n_batch // 2)]
-            part2 = part2.contiguous().view(-1, roots.size(2), roots.size(3))
-
-            if n_batch // 2 == 1:
-                if mul_batch_size is None:
-                    part1 = part1.squeeze(0)
-                    part2 = part2.squeeze(0)
-                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2)).evaluate_kernel()
-                break
-            else:
-                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2)).evaluate_kernel()
-                roots = res.root_decomposition().root.evaluate()
-                n_batch = n_batch // 2
-
-        return res
-
-    def ndimension(self):
-        """
-        Returns the number of dimensions
-        """
-        return len(self.size())
-
-    def numel(self):
-        """
-        Returns the number of elements
-        """
-        return self.shape.numel()
+        return self._prod_batch(dim)
 
     def repeat(self, *sizes):
         """
@@ -960,14 +911,13 @@ class LazyTensor(object):
                      [1.0000, 4.0000, 1.0000],
                      [0.5000, 1.0000, 4.0000]]])
         """
+        from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
+
         if len(sizes) < 3 or tuple(sizes[-2:]) != (1, 1):
             raise RuntimeError(
                 "Invalid repeat arguments {}. Currently, repeat only works to create repeated "
                 "batches of a 2D LazyTensor.".format(tuple(sizes))
             )
-
-        from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
-
         return BatchRepeatLazyTensor(self, batch_repeat=torch.Size(sizes[:-2]))
 
     def representation(self):
@@ -1160,26 +1110,31 @@ class LazyTensor(object):
             return size[val]
         return size
 
+    def squeeze(self, dim):
+        if self.size(dim) != 1:
+            return self
+        else:
+            index = [_noop_index] * self.dim()
+            index[dim] = 0
+            index = tuple(index)
+            return self[index]
+
     @property
     def shape(self):
         return self.size()
 
-    def sum_batch(self, sum_batch_size=None):
+    def sum(self, dim=None):
         """
-        Sum the `b x n x m` LazyTensor over the batch dimension.
-
-        The `sum_batch_size` controls whether or not the batch dimension is grouped when summing.
-            * `sum_batch_size=None` (default): The entire batch dimension is summed. Returns a `n x n` LazyTensor.
-            * `sum_batch_size=k`: Creates `b/k` groups, and sums the `k` entries of this group.
-                (The LazyTensor is reshaped as a `b/k x k x n x m` LazyTensor and the `k` dimension is summed over.
-                Returns a `b/k x n x m` LazyTensor.
+        Sum the LazyTensor across a dimension.
+        The `dim` controls which batch dimension is summed over.
+        If set to None, then sums all dimensions
 
         Args:
-            :attr:`sum_batch_size` (int or None):
-                Controls the number of groups that are summed over (default: None).
+            :attr:`dim` (int):
+                Which dimension is being summed over (default=None)
 
         Returns:
-            :obj:`~gpytorch.lazy.LazyTensor`
+            :obj:`~gpytorch.lazy.LazyTensor` or Tensor.
 
         Example:
             >>> lazy_tensor = gpytorch.lazy.NonLazyTensor(torch.tensor([
@@ -1188,14 +1143,31 @@ class LazyTensor(object):
                     [[2, 1], [1, 0]],
                     [[3, 2], [2, -1]],
                 ]))
-            >>> lazy_tensor.sum_batch().evaluate()
-            >>> # Returns: torch.Tensor([[8, 8], [4, 0]])
-            >>> lazy_tensor.sum_batch(sum_batch_size=2)
-            >>> # Returns: torch.Tensor([[[3, 5], [1, 1]], [[5, 3], [3, -1]]])
+            >>> lazy_tensor.sum(0).evaluate()
         """
-        from .sum_batch_lazy_tensor import SumBatchLazyTensor
+        # Case: summing everything
+        if dim is None:
+            ones = torch.ones(self.size(-2), 1, dtype=self.dtype, device=self.device)
+            return (self @ ones).sum()
 
-        return SumBatchLazyTensor(self, num_blocks=sum_batch_size)
+        # Otherwise: make dim positive
+        orig_dim = dim
+        if dim < 0:
+            dim = self.dim() + dim
+
+        # Case: summing across columns
+        if dim == (self.dim() - 1):
+            ones = torch.ones(self.size(-2), 1, dtype=self.dtype, device=self.device)
+            return (self @ ones).squeeze(-1)
+        # Case: summing across rows
+        elif dim == (self.dim() - 2):
+            ones = torch.ones(self.size(-1), 1, dtype=self.dtype, device=self.device)
+            return (self.transpose(-1, -2) @ ones).squeeze(-1)
+        # Otherwise: it's a batch dimension
+        elif dim < self.dim():
+            return self._sum_batch(dim)
+        else:
+            raise ValueError("Invalid dim ({}) for LazyTensor of size {}".format(orig_dim, self.shape))
 
     def to(self, device_id):
         """
@@ -1257,6 +1229,16 @@ class LazyTensor(object):
 
         return res
 
+    def unsqueeze(self, dim):
+        positive_dim = (self.dim() + dim + 1) if dim < 0 else dim
+        if positive_dim > len(self.batch_shape):
+            raise ValueError(
+                "Can only unsqueeze batch dimensions of {} (size {}). Got "
+                "dim={}.".format(self.__class__.__name__, self.shape, dim)
+            )
+        res = self._unsqueeze_batch(positive_dim)
+        return res
+
     def zero_mean_mvn_samples(self, num_samples):
         """
         Assumes that self is a covariance matrix, or a batch of covariance matrices.
@@ -1277,14 +1259,10 @@ class LazyTensor(object):
         else:
             covar_root = self.root_decomposition().root
 
-        if self.ndimension() == 3:
-            base_samples = torch.randn(
-                self.size(0), covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
-            )
-            samples = covar_root.matmul(base_samples).permute(2, 0, 1).contiguous()
-        else:
-            base_samples = torch.randn(covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device)
-            samples = covar_root.matmul(base_samples).permute(1, 0).contiguous()
+        base_samples = torch.randn(
+            *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
+        )
+        samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
 
         return samples
 
@@ -1359,18 +1337,63 @@ class LazyTensor(object):
             num_to_fill_in = ndimension - (len(index) - 1)
             index = (
                 index[:ellipsis_loc]
-                + tuple(slice(None, None, None) for _ in range(num_to_fill_in))
+                + tuple(_noop_index for _ in range(num_to_fill_in))
                 + index[ellipsis_loc + 1 :]
             )
 
-        # Pad the index with empty slices
-        index = index + tuple(slice(None, None, None) for _ in range(ndimension - len(index)))
+        # Pad the index with empty indices
+        index = index + tuple(_noop_index for _ in range(ndimension - len(index)))
 
         # Make the index a tuple again
-        index = tuple(index)
+        *batch_indices, row_index, col_index = index
+
+        # Helpers to determine what the final shape will be if we're tensor indexed
+        batch_has_tensor_index = bool(len(batch_indices)) and any(torch.is_tensor(index) for index in batch_indices)
+        row_has_tensor_index = torch.is_tensor(row_index)
+        col_has_tensor_index = torch.is_tensor(col_index)
+        # These are the cases where the row and/or column indices will be "absorbed" into other indices
+        row_col_are_absorbed = any((
+            batch_has_tensor_index and (row_has_tensor_index or col_has_tensor_index),
+            not batch_has_tensor_index and (row_has_tensor_index and col_has_tensor_index),
+        ))
+
+        # If we're indexing the LT with ints or slices
+        # Replace the ints with slices, and we'll just squeeze the dimensions later
+        squeeze_row = False
+        squeeze_col = False
+        if isinstance(row_index, int):
+            row_index = slice(row_index, row_index + 1, None)
+            squeeze_row = True
+        if isinstance(col_index, int):
+            col_index = slice(col_index, col_index + 1, None)
+            squeeze_col = True
+
+        # Here's a little hack for when the column is absorbed into the row, but the row isn't
+        # i.e. when row/col are tensor indexed, but no batch dimension is
+        # We'll introduce a fake batch dimension, tensor index it
+        # And then this becomes the case where both row/col are absorbed into the batch index
+        res = self
+        if row_col_are_absorbed and not batch_has_tensor_index:
+            batch_shape = res.batch_shape
+            res = res.unsqueeze(-3)
+            res = res.expand(*batch_shape, row_index.numel(), *res.matrix_shape)
+            new_batch_index = torch.arange(0, row_index.numel(), dtype=torch.long, device=row_index.device)
+            batch_indices.append(new_batch_index)
 
         # Call self._getitem - now that the index has been processed
-        return self._getitem(*index)
+        res = res._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+
+        # If we selected a single row and/or column (or did tensor indexing), we'll be retuning a tensor
+        # with the appropriate shape
+        if (squeeze_row or squeeze_col):
+            res = delazify(res)
+        if squeeze_row:
+            res = res.squeeze(-2)
+        if squeeze_col:
+            res = res.squeeze(-1)
+
+        # We're done!
+        return res
 
     def __matmul__(self, other):
         return self.matmul(other)

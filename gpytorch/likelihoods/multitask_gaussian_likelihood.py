@@ -102,9 +102,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         if len(batch_shape) == 1:
             # TODO: Properly support general batch shapes in BlockDiagLazyTensor (no shape arithmetic)
             tcb_eval = task_covar_blocks.evaluate()
-            task_covar = BlockDiagLazyTensor(
-                lazify(tcb_eval.view(-1, *tcb_eval.shape[-2:])), num_blocks=tcb_eval.shape[0]
-            )
+            task_covar = BlockDiagLazyTensor(lazify(tcb_eval), block_dim=-3)
         else:
             task_covar = BlockDiagLazyTensor(task_covar_blocks)
         return input.__class__(mean, covar + task_covar)

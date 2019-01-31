@@ -177,6 +177,10 @@ class MulLazyTensor(LazyTensor):
 
         return tuple(list(left_deriv_args) + list(right_deriv_args))
 
+    def _expand_batch(self, batch_shape):
+        expanded_tensors = [lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors]
+        return self.__class__(*expanded_tensors)
+
     def clone(self):
         return self.__class__(*tuple(lazy_tensor.clone() for lazy_tensor in self.lazy_tensors))
 
@@ -214,12 +218,6 @@ class MulLazyTensor(LazyTensor):
 
     def _size(self):
         return self.lazy_tensors[0].size()
-
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        res = prod(
-            [lazy_tensor._get_indices(left_indices, right_indices, *batch_indices) for lazy_tensor in self.lazy_tensors]
-        )
-        return res
 
     def _transpose_nonbatch(self):
         # mul.lazy_tensor only works with symmetric matrices

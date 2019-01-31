@@ -4,28 +4,27 @@ import torch
 
 from .. import settings, beta_features
 from ..utils.memoize import cached
+from ..utils.getitem import _noop_index
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 
 
 class LazyEvaluatedKernelTensor(LazyTensor):
-    def _check_args(self, x1, x2, kernel, batch_dims=None, squeeze_row=False, squeeze_col=False, **params):
+    def _check_args(self, x1, x2, kernel, batch_dims=None, **params):
         if not torch.is_tensor(x1):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
         if not torch.is_tensor(x2):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
 
-    def __init__(self, x1, x2, kernel, batch_dims=None, squeeze_row=False, squeeze_col=False, **params):
+    def __init__(self, x1, x2, kernel, batch_dims=None, **params):
         super(LazyEvaluatedKernelTensor, self).__init__(
-            x1, x2, kernel=kernel, batch_dims=batch_dims, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **params
+            x1, x2, kernel=kernel, batch_dims=batch_dims, **params
         )
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2
         self.batch_dims = batch_dims
-        self.squeeze_row = squeeze_row
-        self.squeeze_col = squeeze_col
-        self.is_batch = self.x1.ndimension() == 3 or (self.x1.ndimension() == 2 and self.squeeze_row)
+        self.is_batch = self.x1.ndimension() == 3
         self.params = params
 
     @property
@@ -36,63 +35,29 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def device(self):
         return self.x1.device
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        from ..kernels.kernel import Kernel
+    def _expand_batch(self, batch_shape):
+        return LazyEvaluatedKernelTensor(
+            self.kernel,
+            self.x1.expand(*batch_shape, self.x1.shape[-2:]),
+            self.x2.expand(*batch_shape, self.x2.shape[-2:]),
+            **self.params
+        )
 
-        x1 = self.x1[(*batch_indices, left_indices)].unsqueeze(0)
-        x2 = self.x2[(*batch_indices, right_indices)].unsqueeze(0)
-        res = super(Kernel, self.kernel).__call__(x1.transpose(0, 1), x2.transpose(0, 1))
-        if isinstance(res, LazyTensor):
-            res = res.evaluate()
-        res = res.view(-1)
-        return res
+    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+        x1 = self.x1
+        if self.batch_dims == (0, 2):
+            x1 = x1.permute(0, 2, 1).contiguous()
+            x1 = x1.view(-1, x1.size(-1), 1)
+        x1 = x1[(*batch_indices, row_index, _noop_index)]
+        x2 = self.x2
+        if self.batch_dims == (0, 2):
+            x2 = x2.permute(0, 2, 1).contiguous()
+            x2 = x2.view(-1, x2.size(-1), 1)
+        x2 = x2[(*batch_indices, col_index, _noop_index)]
 
-    def _getitem(self, *indices):
-        if self.is_batch:
-            batch_index = indices[0]
-            left_index = indices[1]
-            right_index = indices[2]
-            squeeze_row = self.squeeze_row
-            squeeze_col = self.squeeze_col
-
-            x1 = self.x1
-            if self.batch_dims == (0, 2):
-                x1 = x1.permute(0, 2, 1).contiguous()
-                x1 = x1.view(-1, x1.size(-1), 1)
-            x1 = x1[batch_index, left_index, :]
-            if x1.dim() == 2 and not isinstance(batch_index, int):
-                x1 = x1.unsqueeze(1)
-                squeeze_row = True
-            x2 = self.x2
-            if self.batch_dims == (0, 2):
-                x2 = x2.permute(0, 2, 1).contiguous()
-                x2 = x2.view(-1, x2.size(-1), 1)
-            x2 = x2[batch_index, right_index, :]
-            if x2.dim() == 2 and not isinstance(batch_index, int):
-                x2 = x2.unsqueeze(1)
-                squeeze_col = True
-
-            return self.__class__(
-                x1, x2, kernel=self.kernel, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
-            )
-        else:
-            left_index = indices[0]
-            right_index = indices[1]
-            squeeze_row = self.squeeze_row
-            squeeze_col = self.squeeze_col
-
-            x1 = self.x1[left_index, :]
-            if x1.dim() == 1:
-                x1 = x1.unsqueeze(1)
-                squeeze_row = True
-            x2 = self.x2[right_index, :]
-            if x2.dim() == 1:
-                x2 = x2.unsqueeze(1)
-                squeeze_col = True
-
-            return self.__class__(
-                x1, x2, kernel=self.kernel, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
-            )
+        return self.__class__(
+            x1, x2, kernel=self.kernel, **self.params
+        )
 
     def _matmul(self, rhs):
         # This _matmul is defined computes the kernel in chunks
@@ -264,10 +229,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 x1, x2, diag=False, batch_dims=self.batch_dims, **self.params
             )
             self.kernel.active_dims = temp_active_dims
-        if self.squeeze_row:
-            res.squeeze_(-2)
-        if self.squeeze_col:
-            res.squeeze_(-1)
 
         if (
             not self.is_batch
@@ -288,16 +249,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         return self.evaluate_kernel().mul(other)
 
     def repeat(self, *sizes):
-        if self.squeeze_row or self.squeeze_col:
-            raise RuntimeError("Can't repeat a row/col of a LazyEvaluatedKernelTensor")
-        elif len(sizes) == 3:
-            x1 = self.x1.repeat(sizes[0], sizes[1], 1)
-            x2 = self.x2.repeat(sizes[0], sizes[1], 1)
-        elif len(sizes) == 2 and x1.ndim() == 2:
-            x1 = self.x1.repeat(sizes[0], 1)
-            x2 = self.x2.repeat(sizes[0], 1)
-        else:
-            raise RuntimeError("Invalid number of sizes (expected 2 or 3)")
+        x1 = self.x1.repeat(sizes[:-2], sizes[-2], 1)
+        x2 = self.x1.repeat(sizes[:-2], sizes[-1], 1)
 
         return self.__class__(x1, x2, kernel=self.kernel, batch_dims=self.batch_dims, **self.params)
 

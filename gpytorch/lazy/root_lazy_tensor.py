@@ -2,9 +2,11 @@
 
 import torch
 
-from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify, NonLazyTensor
+from .matmul_lazy_tensor import MatmulLazyTensor
+from ..utils.getitem import _noop_index, _equal_indices
+from ..utils.memoize import cached
 
 
 def _inner_repeat(tensor, amt):
@@ -20,6 +22,29 @@ class RootLazyTensor(LazyTensor):
         root = lazify(root)
         super(RootLazyTensor, self).__init__(root)
         self.root = root
+
+    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+        # Make sure we're not generating more memory with our "efficient" method
+        if torch.is_tensor(row_index) and torch.is_tensor(col_index):
+            num_indices = row_index.numel()
+            if num_indices > self.matrix_shape.numel():
+                return lazify(self.evaluate())._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+
+        left_tensor = self.root._getitem(False, row_index, _noop_index, *batch_indices)
+        if row_col_are_absorbed and torch.is_tensor(row_index):
+            left_tensor = lazify(left_tensor.evaluate().unsqueeze(-2))
+
+        if not _equal_indices(row_index, col_index):
+            right_tensor = self.root._getitem(False, col_index, _noop_index, *batch_indices)
+            if row_col_are_absorbed and torch.is_tensor(col_index):
+                right_tensor = lazify(right_tensor.evaluate().unsqueeze(-2))
+            res = MatmulLazyTensor(left_tensor, right_tensor.transpose(-1, -2))
+        else:
+            res = self.__class__(left_tensor)
+
+        if row_col_are_absorbed:
+            res = res.evaluate().squeeze(-2).squeeze(-1)
+        return res
 
     def _matmul(self, rhs):
         return self.root._matmul(self.root._t_matmul(rhs))
@@ -41,34 +66,10 @@ class RootLazyTensor(LazyTensor):
         return tuple(deriv)
 
     def _size(self):
-        if self.root.ndimension() > 2:
-            return torch.Size((self.root.size(0), self.root.size(1), self.root.size(1)))
-        else:
-            return torch.Size((self.root.size(0), self.root.size(0)))
+        return torch.Size((*self.root.batch_shape, self.root.size(-2), self.root.size(-2)))
 
     def _transpose_nonbatch(self):
         return self
-
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        n_indices = left_indices.numel()
-        if n_indices > self.size(-1) * self.size(-2):
-            return self.evaluate().__getitem__((*batch_indices, left_indices, right_indices))
-
-        else:
-            outer_size = left_indices.size(0)
-            inner_size = self.root.size(-1)
-            inner_indices = torch.arange(0, inner_size, dtype=torch.long, device=self.device)
-
-            # Repeat the indices to get all the appropriate terms
-            batch_indices = [_outer_repeat(batch_index, inner_size) for batch_index in batch_indices]
-            left_indices = _outer_repeat(left_indices, inner_size)
-            right_indices = _outer_repeat(right_indices, inner_size)
-            inner_indices = _inner_repeat(inner_indices, outer_size)
-
-            left_vals = self.root._get_indices(left_indices, inner_indices, *batch_indices)
-            right_vals = self.root.transpose(-1, -2)._get_indices(inner_indices, right_indices, *batch_indices)
-
-        return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def diag(self):
         if isinstance(self.root, NonLazyTensor):

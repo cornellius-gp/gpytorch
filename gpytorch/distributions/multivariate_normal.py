@@ -59,7 +59,6 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             self.__unbroadcasted_scale_tril = ust
 
     def expand(self, batch_size):
-
         new_loc = self.loc.expand(torch.Size(batch_size) + self.loc.shape[-1:])
         new_covar = self._covar.expand(torch.Size(batch_size) + self._covar.shape[-2:])
         res = self.__class__(new_loc, new_covar)
