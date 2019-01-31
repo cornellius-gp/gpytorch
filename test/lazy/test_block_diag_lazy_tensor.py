@@ -9,7 +9,6 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 class TestBlockDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
-    no_broadcast_tests = True
 
     def create_lazy_tensor(self):
         blocks = torch.randn(8, 4, 4)
@@ -29,21 +28,20 @@ class TestBlockDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
 class TestBlockDiagLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
-    no_broadcast_tests = True
 
     def create_lazy_tensor(self):
-        blocks = torch.randn(8, 4, 4)
+        blocks = torch.randn(2, 4, 4, 4)
         blocks = blocks.matmul(blocks.transpose(-1, -2))
-        blocks.add_(torch.eye(4, 4).unsqueeze_(0))
+        blocks.add_(torch.eye(4, 4))
         blocks.requires_grad_(True)
-        return BlockDiagLazyTensor(NonLazyTensor(blocks), num_blocks=4)
+        return BlockDiagLazyTensor(NonLazyTensor(blocks))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         blocks = lazy_tensor.base_lazy_tensor.tensor
         actual = torch.zeros(2, 16, 16)
         for i in range(2):
             for j in range(4):
-                actual[i, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4] = blocks[i * 4 + j]
+                actual[i, j * 4 : (j + 1) * 4, j * 4 : (j + 1) * 4] = blocks[i, j]
         return actual
 
 
