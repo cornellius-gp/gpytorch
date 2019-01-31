@@ -347,7 +347,9 @@ class CatLazyTensor(LazyTensor):
 
     def to(self, device_id):
         """
-        Change the output_device of CatLazyTensor.
+        returns a new CatLazyTensor with device_id as the output_device
+        Warning: this does not move the LazyTensors in this CatLazyTensor to
+        device_id
         """
         new_kwargs = dict(self._kwargs)
         new_kwargs['output_device'] = device_id
@@ -355,8 +357,9 @@ class CatLazyTensor(LazyTensor):
 
     def all_to(self, device_id):
         """
-        Move all LazyTensors in CatLazyTensor to one device even if they are on
-        the different devices. Also change the output_device to device_id
+        Create a new CatLazyTensor with all LazyTensors in CatLazyTensor moved
+        to one device device. The new CatLazyTensor also has device_id as the
+        output_device.
         """
         new_args = []
         new_kwargs = {}
