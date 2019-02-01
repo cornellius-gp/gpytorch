@@ -27,6 +27,9 @@ class ZeroLazyTensor(LazyTensor):
     def device(self):
         return self._device
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(*batch_shape, *self.sizes[-2:], dtype=self._dtype, device=self._device)
+
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         new_size = _compute_getitem_size(self, batch_indices + (row_index, col_index))
         if row_col_are_absorbed:

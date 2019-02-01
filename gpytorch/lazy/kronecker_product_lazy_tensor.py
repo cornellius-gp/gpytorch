@@ -79,6 +79,9 @@ class KroneckerProductLazyTensor(LazyTensor):
             res = res.squeeze(-1)
         return res
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(*[lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors])
+
     @cached(name="size")
     def _size(self):
         left_size = _prod(lazy_tensor.size(-2) for lazy_tensor in self.lazy_tensors)
