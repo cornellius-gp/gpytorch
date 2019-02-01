@@ -67,6 +67,12 @@ class ConstantMulLazyTensor(LazyTensor):
         res = self.base_lazy_tensor._approx_diag()
         return res * self._constant.unsqueeze(-1)
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(
+            self.base_lazy_tensor._expand_batch(batch_shape),
+            self._constant.expand(*batch_shape)
+        )
+
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         # NOTE TO FUTURE SELF:
         # This custom __getitem__ is actually very important!
