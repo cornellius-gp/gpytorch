@@ -134,56 +134,47 @@ class TestSimpleGPRegression(unittest.TestCase):
         if torch.cuda.is_available():
             self.test_posterior_latent_gp_and_likelihood_without_optimization(cuda=True)
 
-    def test_gp_posterior_mean_skip_variances_fast_cuda(self, cuda=False):
+    def test_gp_posterior_mean_skip_variances_fast_cuda(self):
         if torch.cuda.is_available():
-            self.test_gp_posterior_mean_skip_variances_fast(cuda=True)
+            train_x, test_x, train_y, _ = self._get_data(cuda=True)
+            likelihood = GaussianLikelihood()
+            gp_model = ExactGPModel(train_x, train_y, likelihood)
 
-    def test_gp_posterior_mean_skip_variances_fast(self, cuda=False):
-        train_x, test_x, train_y, _ = self._get_data(cuda=cuda)
-        likelihood = GaussianLikelihood()
-        gp_model = ExactGPModel(train_x, train_y, likelihood)
-
-        if cuda:
             gp_model.cuda()
             likelihood.cuda()
 
-        # Compute posterior distribution
-        gp_model.eval()
-        likelihood.eval()
+            # Compute posterior distribution
+            gp_model.eval()
+            likelihood.eval()
 
-        with gpytorch.settings.skip_posterior_variances(True):
-            mean_skip_var = gp_model(test_x).mean
-        mean = gp_model(test_x).mean
-        likelihood_mean = likelihood(gp_model(test_x)).mean
-
-        self.assertTrue(torch.allclose(mean_skip_var, mean))
-        self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
-
-    def test_gp_posterior_mean_skip_variances_slow_cuda(self, cuda=False):
-        if torch.cuda.is_available():
-            self.test_gp_posterior_mean_skip_variances_slow(cuda=True)
-
-    def test_gp_posterior_mean_skip_variances_slow(self, cuda=False):
-        train_x, test_x, train_y, _ = self._get_data(cuda=cuda)
-        likelihood = GaussianLikelihood()
-        gp_model = ExactGPModel(train_x, train_y, likelihood)
-
-        if cuda:
-            gp_model.cuda()
-            likelihood.cuda()
-
-        # Compute posterior distribution
-        gp_model.eval()
-        likelihood.eval()
-
-        with gpytorch.settings.fast_pred_var(False):
             with gpytorch.settings.skip_posterior_variances(True):
                 mean_skip_var = gp_model(test_x).mean
             mean = gp_model(test_x).mean
             likelihood_mean = likelihood(gp_model(test_x)).mean
 
-        self.assertTrue(torch.allclose(mean_skip_var, mean))
-        self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
+            self.assertTrue(torch.allclose(mean_skip_var, mean))
+            self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
+
+    def test_gp_posterior_mean_skip_variances_slow_cuda(self):
+        if torch.cuda.is_available():
+            train_x, test_x, train_y, _ = self._get_data(cuda=True)
+            likelihood = GaussianLikelihood()
+            gp_model = ExactGPModel(train_x, train_y, likelihood)
+
+            gp_model.cuda()
+            likelihood.cuda()
+
+            # Compute posterior distribution
+            gp_model.eval()
+            likelihood.eval()
+
+            with gpytorch.settings.fast_pred_var(False):
+                with gpytorch.settings.skip_posterior_variances(True):
+                    mean_skip_var = gp_model(test_x).mean
+                mean = gp_model(test_x).mean
+                likelihood_mean = likelihood(gp_model(test_x)).mean
+            self.assertTrue(torch.allclose(mean_skip_var, mean))
+            self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
