@@ -166,6 +166,17 @@ class InterpolatedLazyTensor(LazyTensor):
             res = res.squeeze(-1)
         return res
 
+    def _mul_constant(self, other):
+        # We're using a custom method here - the constant mul is applied to the base_lazy tensor
+        # This preserves the interpolated structure
+        return self.__class__(
+            self.base_lazy_tensor._mul_constant(other),
+            self.left_interp_indices,
+            self.left_interp_values,
+            self.right_interp_indices,
+            self.right_interp_values,
+        )
+
     def _t_matmul(self, rhs):
         # Get sparse tensor representations of left/right interp matrices
         left_interp_t = self._sparse_left_interp_t(self.left_interp_indices, self.left_interp_values)
@@ -399,24 +410,6 @@ class InterpolatedLazyTensor(LazyTensor):
         if is_vector:
             res = res.squeeze(-1)
         return res
-
-    def mul(self, other):
-        # We're using a custom method here - the constant mul is applied to the base_lazy tensor
-        # This preserves the interpolated structure
-        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
-            torch.is_tensor(other) and other.numel() == 1
-        ):
-            from .constant_mul_lazy_tensor import ConstantMulLazyTensor
-
-            return self.__class__(
-                ConstantMulLazyTensor(self.base_lazy_tensor, other),
-                self.left_interp_indices,
-                self.left_interp_values,
-                self.right_interp_indices,
-                self.right_interp_values,
-            )
-        else:
-            return super(InterpolatedLazyTensor, self).mul(other)
 
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
