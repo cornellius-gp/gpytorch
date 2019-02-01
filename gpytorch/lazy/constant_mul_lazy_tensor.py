@@ -82,9 +82,7 @@ class ConstantMulLazyTensor(LazyTensor):
         base_lazy_tensor = self.base_lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
         constant = self._constant.expand(self.batch_shape)[batch_indices]
 
-        if torch.is_tensor(base_lazy_tensor):
-            constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))
-
+        constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))
         return base_lazy_tensor * constant
 
     def _matmul(self, rhs):
