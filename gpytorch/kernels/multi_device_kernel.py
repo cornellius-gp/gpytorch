@@ -17,7 +17,14 @@ class MultiDeviceKernel(DataParallel, Kernel):
         - :attr:`output_device`: Device where outputs will be placed
     """
 
-    def __init__(self, base_kernel, device_ids, output_device=None, **kwargs):
+    def __init__(self, base_kernel, device_ids, output_device=None,
+                 create_cuda_context=True, **kwargs):
+        # Need to warm up each GPU otherwise scattering in forward will be
+        # EXTREMELY slow. This memory will be available as soon as we leave __init__
+        if create_cuda_context:
+            for d in device_ids:
+                _ = torch.tensor([], device=d)
+
         DataParallel.__init__(self,
                               module=base_kernel,
                               device_ids=device_ids,
