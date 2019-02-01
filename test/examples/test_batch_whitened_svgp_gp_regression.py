@@ -60,11 +60,14 @@ class TestSVGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_regression_error(self):
-        train_x, train_y = train_data()
+    def test_regression_error(self, cuda=False):
+        train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
         inducing_points = torch.linspace(0, 1, 25).unsqueeze(-1).repeat(2, 1, 1)
         model = SVGPRegressionModel(inducing_points)
+        if cuda:
+            likelihood.cuda()
+            model.cuda()
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(-1))
 
         # Find optimal model hyperparameters
@@ -94,6 +97,10 @@ class TestSVGPRegression(unittest.TestCase):
         mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
         self.assertLess(mean_abs_error.item(), 1e-1)
         self.assertLess(mean_abs_error2.item(), 1e-1)
+
+    def test_regression_error_cuda(self):
+        if torch.cuda.is_available():
+            self.test_regression_error(cuda=True)
 
     def test_regression_error_shared_inducing_locations(self):
         train_x, train_y = train_data()
@@ -129,42 +136,6 @@ class TestSVGPRegression(unittest.TestCase):
         mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
         self.assertLess(mean_abs_error.item(), 1e-1)
         self.assertLess(mean_abs_error2.item(), 1e-1)
-
-    def test_regression_error_cuda(self):
-        if torch.cuda.is_available():
-            train_x, train_y = train_data(cuda=True)
-            likelihood = GaussianLikelihood().cuda()
-            inducing_points = torch.linspace(0, 1, 25).unsqueeze(-1).repeat(2, 1, 1)
-            model = SVGPRegressionModel(inducing_points).cuda()
-            mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(-1))
-
-            # Find optimal model hyperparameters
-            model.train()
-            likelihood.train()
-            optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
-            for _ in range(150):
-                optimizer.zero_grad()
-                output = model(train_x)
-                loss = -mll(output, train_y)
-                loss = loss.sum()
-                loss.backward()
-                optimizer.step()
-
-            for param in model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-
-            # Set back to eval mode
-            model.eval()
-            likelihood.eval()
-            test_preds = likelihood(model(train_x)).mean.squeeze()
-            mean_abs_error = torch.mean(torch.abs(train_y[0, :] - test_preds[0, :]) / 2)
-            mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
-            self.assertLess(mean_abs_error.item(), 1e-1)
-            self.assertLess(mean_abs_error2.item(), 1e-1)
 
 
 if __name__ == "__main__":

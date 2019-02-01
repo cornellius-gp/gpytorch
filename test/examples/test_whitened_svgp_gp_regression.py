@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
 
-import os
-import random
-import unittest
 from math import pi
 
-import gpytorch
+import os
+import random
 import torch
+import unittest
+import gpytorch
+from torch import optim
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
-from gpytorch.variational import CholeskyVariationalDistribution, WhitenedVariationalStrategy
-from torch import optim
+from gpytorch.variational import CholeskyVariationalDistribution
+from gpytorch.variational import WhitenedVariationalStrategy
 
 
 def train_data(cuda=False):
-    train_x = torch.linspace(0, 1, 260).unsqueeze(-1)
-    train_y_cos = torch.cos(train_x * (2 * pi)).squeeze() + 0.01 * torch.randn(260)
-    train_y_sin = torch.sin(train_x * (2 * pi)).squeeze() + 0.01 * torch.randn(260)
-
-    # Make train_x (2 x 260 x 1) and train_y (2 x 260)
-    train_x = torch.cat([train_x, train_x], dim=1).transpose(-2, 1).unsqueeze(-1)
-    train_y = torch.cat([train_y_cos.unsqueeze(-1), train_y_sin.unsqueeze(-1)], dim=1).transpose(-2, -1)
+    train_x = torch.linspace(0, 1, 260)
+    train_y = torch.cos(train_x * (2 * pi))
     if cuda:
         return train_x.cuda(), train_y.cuda()
     else:
@@ -28,10 +24,10 @@ def train_data(cuda=False):
 
 
 class SVGPRegressionModel(AbstractVariationalGP):
-    def __init__(self, inducing_points):
-        variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-2), batch_size=2)
+    def __init__(self, inducing_points, learn_locs=True):
+        variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-1))
         variational_strategy = WhitenedVariationalStrategy(
-            self, inducing_points, variational_distribution, learn_inducing_locations=True
+            self, inducing_points, variational_distribution, learn_inducing_locations=learn_locs
         )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
@@ -59,28 +55,26 @@ class TestSVGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_regression_error(self, cuda=False):
+    def test_regression_error(self, skip_logdet_forward=False, cuda=False):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
-        inducing_points = torch.linspace(0, 1, 25).unsqueeze(-1).repeat(2, 1, 1)
-        model = SVGPRegressionModel(inducing_points)
+        model = SVGPRegressionModel(torch.linspace(0, 1, 25))
         if cuda:
             likelihood.cuda()
             model.cuda()
-
-        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(-1))
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
-        for _ in range(200):
-            optimizer.zero_grad()
-            output = model(train_x)
-            loss = -mll(output, train_y)
-            loss = loss.sum()
-            loss.backward()
-            optimizer.step()
+        with gpytorch.settings.skip_logdet_forward(skip_logdet_forward):
+            for _ in range(170):
+                optimizer.zero_grad()
+                output = model(train_x)
+                loss = -mll(output, train_y)
+                loss.backward()
+                optimizer.step()
 
         for param in model.parameters():
             self.assertTrue(param.grad is not None)
@@ -93,33 +87,33 @@ class TestSVGPRegression(unittest.TestCase):
         model.eval()
         likelihood.eval()
         test_preds = likelihood(model(train_x)).mean.squeeze()
-        mean_abs_error = torch.mean(torch.abs(train_y[0, :] - test_preds[0, :]) / 2)
-        mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
+        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         self.assertLess(mean_abs_error.item(), 1e-1)
-        self.assertLess(mean_abs_error2.item(), 1e-1)
 
     def test_regression_error_cuda(self):
         if torch.cuda.is_available():
-            self.test_regression_error(cuda=True)
+            self.test_regression_error(skip_logdet_forward=False, cuda=True)
 
-    def test_regression_error_shared_inducing_locations(self):
-        train_x, train_y = train_data()
+    def test_regression_error_full(self, skip_logdet_forward=False, cuda=False):
+        train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
-        inducing_points = torch.linspace(0, 1, 25).unsqueeze(-1)
-        model = SVGPRegressionModel(inducing_points)
-        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(-1))
+        model = SVGPRegressionModel(inducing_points=train_x, learn_locs=False)
+        if cuda:
+            likelihood.cuda()
+            model.cuda()
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
-        for _ in range(200):
-            optimizer.zero_grad()
-            output = model(train_x)
-            loss = -mll(output, train_y)
-            loss = loss.sum()
-            loss.backward()
-            optimizer.step()
+        with gpytorch.settings.skip_logdet_forward(skip_logdet_forward):
+            for _ in range(200):
+                optimizer.zero_grad()
+                output = model(train_x)
+                loss = -mll(output, train_y)
+                loss.backward()
+                optimizer.step()
 
         for param in model.parameters():
             self.assertTrue(param.grad is not None)
@@ -132,10 +126,19 @@ class TestSVGPRegression(unittest.TestCase):
         model.eval()
         likelihood.eval()
         test_preds = likelihood(model(train_x)).mean.squeeze()
-        mean_abs_error = torch.mean(torch.abs(train_y[0, :] - test_preds[0, :]) / 2)
-        mean_abs_error2 = torch.mean(torch.abs(train_y[1, :] - test_preds[1, :]) / 2)
+        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         self.assertLess(mean_abs_error.item(), 1e-1)
-        self.assertLess(mean_abs_error2.item(), 1e-1)
+
+    def test_regression_error_full_cuda(self):
+        if torch.cuda.is_available():
+            self.test_regression_error_full(skip_logdet_forward=False, cuda=True)
+
+    def test_regression_error_skip_logdet_forward(self):
+        self.test_regression_error(skip_logdet_forward=True)
+
+    def test_regression_error_skip_logdet_forward_cuda(self):
+        if torch.cuda.is_available():
+            self.test_regression_error(skip_logdet_forward=True, cuda=True)
 
 
 if __name__ == "__main__":
