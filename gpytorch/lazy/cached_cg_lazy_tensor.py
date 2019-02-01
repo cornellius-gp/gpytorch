@@ -109,6 +109,9 @@ class CachedCGLazyTensor(LazyTensor):
     def requires_grad(self, val):
         self.base_lazy_tensor.requires_grad = val
 
+    def _expand_batch(self, batch_shape):
+        return self.base_lazy_tensor._expand_batch(batch_shape)
+
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         return self.base_lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
 

@@ -25,6 +25,12 @@ class MatmulLazyTensor(LazyTensor):
         self.left_lazy_tensor = left_lazy_tensor
         self.right_lazy_tensor = right_lazy_tensor
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(
+            self.left_lazy_tensor._expand_batch(batch_shape),
+            self.right_lazy_tensor._expand_batch(batch_shape),
+        )
+
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         # If only some of the batch indices are tensor indexed, then some weird behavior occurs
         # We'll just default to the standard behavior in this case

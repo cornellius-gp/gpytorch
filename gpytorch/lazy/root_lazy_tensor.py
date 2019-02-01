@@ -23,6 +23,9 @@ class RootLazyTensor(LazyTensor):
         super(RootLazyTensor, self).__init__(root)
         self.root = root
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(self.root._expand_batch(batch_shape))
+
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         # Make sure we're not generating more memory with our "efficient" method
         if torch.is_tensor(row_index) and torch.is_tensor(col_index):

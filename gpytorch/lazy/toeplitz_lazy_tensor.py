@@ -10,6 +10,9 @@ class ToeplitzLazyTensor(LazyTensor):
         super(ToeplitzLazyTensor, self).__init__(column)
         self.column = column
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(self.column.expand(*batch_shape, self.column.size(-1)))
+
     def _matmul(self, rhs):
         return sym_toeplitz_matmul(self.column, rhs)
 

@@ -83,6 +83,15 @@ class InterpolatedLazyTensor(LazyTensor):
         res = left_res * right_res
         return res.squeeze(-1)
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(
+            self.base_lazy_tensor._expand_batch(batch_shape),
+            self.left_interp_indices.expand(*batch_shape, *self.left_interp_indices.shape[-2:]),
+            self.left_interp_values.expand(*batch_shape, *self.left_interp_values.shape[-2:]),
+            self.right_interp_indices.expand(*batch_shape, *self.right_interp_indices.shape[-2:]),
+            self.right_interp_values.expand(*batch_shape, *self.right_interp_values.shape[-2:]),
+        )
+
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         # Handle batch dimensions
         # Construt a new LazyTensor
