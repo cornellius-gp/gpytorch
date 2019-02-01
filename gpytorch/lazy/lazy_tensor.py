@@ -11,7 +11,7 @@ from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..utils import linear_cg
-from ..utils.broadcasting import _matmul_broadcast_shape
+from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.getitem import _noop_index, _tensor_index_to_start
 from ..utils.memoize import cached
@@ -80,6 +80,34 @@ class LazyTensor(object):
             :obj:`torch.tensor`: matrix * rhs
         """
         raise NotImplementedError("The class {} requires a _matmul function!".format(self.__class__.__name__))
+
+    def _mul_constant(self, other):
+        """
+        Multiplies the LazyTensor by a costant.
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.mul`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`gpytorch.lazy.LazyTensor`
+        """
+        from .constant_mul_lazy_tensor import ConstantMulLazyTensor
+        return ConstantMulLazyTensor(self, other)
+
+    def _mul_matrix(self, other):
+        """
+        Multiplies the LazyTensor by a (batch of) matrices.
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.mul`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`gpytorch.lazy.LazyTensor`
+        """
+        from .mul_lazy_tensor import MulLazyTensor
+        return MulLazyTensor(self, other).evaluate_kernel()
 
     def _probe_vectors_and_norms(self):
         return None, None
@@ -807,25 +835,28 @@ class LazyTensor(object):
             :obj:`gpytorch.lazy.ConstantMulLazyTensor`. If other was
             another matrix, this will likely be a :obj:`gpytorch.lazy.MulLazyTensor`.
         """
-        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
-            torch.is_tensor(other) and (other.numel() == 1 or (self.dim() == 3 and other.numel() == self.size(0)))
-        ):
-            from .constant_mul_lazy_tensor import ConstantMulLazyTensor
+        from .zero_lazy_tensor import ZeroLazyTensor
 
-            return ConstantMulLazyTensor(self, other)
+        if isinstance(other, ZeroLazyTensor):
+            return other
 
-        elif other.size() == self.size():
-            from .mul_lazy_tensor import MulLazyTensor
+        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)):
+            other = torch.tensor(other, dtype=self.dtype, device=self.device)
 
-            return MulLazyTensor(self, other).evaluate_kernel()
-
-        else:
+        try:
+            _mul_broadcast_shape(self.shape, other.shape)
+        except RuntimeError:
             raise RuntimeError(
-                '"other" must be a constant (or batch of constants), or the same size as self.\n'
-                "Expected: size of [1] or [%d] or %s.\n"
-                "Got: size of %s"
-                % (self.size(0) if self.ndimension() == 3 else 1, repr(self.size()), repr(other.size()))
+                "Cannot multiply LazyTensor of size {} by an object of size {}".format(self.shape, other.shape)
             )
+
+        if torch.is_tensor(other):
+            if other.numel() == 1:
+                return self._mul_constant(other.squeeze())
+            elif other.shape[-2:] == torch.Size((1, 1)):
+                return self._mul_constant(other.view(*other.shape[:-2]))
+
+        return self._mul_matrix(other)
 
     def ndimension(self):
         """
@@ -1400,14 +1431,6 @@ class LazyTensor(object):
         Convenience alias of :meth:`~gpytorch.lazy.LazyTensor.mul` that allows the standard product operator to be
         used.
         """
-        from .zero_lazy_tensor import ZeroLazyTensor
-        from .diag_lazy_tensor import DiagLazyTensor
-
-        if isinstance(other, ZeroLazyTensor):
-            return other
-        elif isinstance(other, DiagLazyTensor):
-            return other * self
-
         return self.mul(other)
 
     def __setattr__(self, name, val):
