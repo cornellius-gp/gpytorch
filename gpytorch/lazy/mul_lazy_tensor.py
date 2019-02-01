@@ -135,6 +135,22 @@ class MulLazyTensor(LazyTensor):
         res = res.squeeze(-1) if is_vector else res
         return res
 
+    def _mul_constant(self, other):
+        lazy_tensors = list(self.lazy_tensors[:-1])
+        lazy_tensors.append(self.lazy_tensors[-1]._mul_constant(other))
+        return self.__class__(*lazy_tensors)
+
+    def _mul_matrix(self, other):
+        if isinstance(other, MulLazyTensor):
+            res = list(self.lazy_tensors) + list(other.lazy_tensors)
+            return MulLazyTensor(*res)
+        elif isinstance(other, NonLazyTensor):
+            return NonLazyTensor(self.evaluate() * other.evaluate())
+        elif self.non_lazy_self is not None:
+            return NonLazyTensor(self.non_lazy_self.evaluate() * other.evaluate())
+        else:
+            return MulLazyTensor(*(list(self.lazy_tensors) + [other]))
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         if self.non_lazy_self is not None:
             return self.non_lazy_self._quad_form_derivative(left_vecs, right_vecs)
@@ -198,23 +214,6 @@ class MulLazyTensor(LazyTensor):
     @cached
     def evaluate(self):
         return prod([lazy_tensor.evaluate() for lazy_tensor in self.lazy_tensors])
-
-    def mul(self, other):
-        if isinstance(other, int) or isinstance(other, float) or (torch.is_tensor(other) and other.numel() == 1):
-            lazy_tensors = list(self.lazy_tensors[:-1])
-            lazy_tensors.append(self.lazy_tensors[-1] * other)
-            return MulLazyTensor(*lazy_tensors)
-        elif isinstance(other, MulLazyTensor):
-            res = list(self.lazy_tensors) + list(other.lazy_tensors)
-            return MulLazyTensor(*res)
-        elif isinstance(other, NonLazyTensor):
-            return NonLazyTensor(self.evaluate() * other.evaluate())
-        elif self.non_lazy_self is not None:
-            return NonLazyTensor(self.non_lazy_self.evaluate() * other.evaluate())
-        elif isinstance(other, LazyTensor):
-            return MulLazyTensor(*(list(self.lazy_tensors) + [other]))
-        else:
-            raise RuntimeError("other must be a LazyTensor, int or float.")
 
     def _size(self):
         return self.lazy_tensors[0].size()

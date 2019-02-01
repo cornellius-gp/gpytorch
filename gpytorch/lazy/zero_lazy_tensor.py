@@ -4,6 +4,7 @@ import torch
 
 from ..utils.memoize import cached
 from ..utils.getitem import _compute_getitem_size
+from ..utils.broadcasting import _mul_broadcast_shape
 from .lazy_tensor import LazyTensor
 
 
@@ -126,10 +127,8 @@ class ZeroLazyTensor(LazyTensor):
         return tensor * 0
 
     def mul(self, other):
-        return self
-
-    def mul_batch(self, mul_batch_size=None):
-        return ZeroLazyTensor(*self.sizes[-2:])
+        shape = _mul_broadcast_shape(self.shape, other.shape)
+        return self.__class__(*shape, dtype=self._dtype, device=self._device)
 
     def root_decomposition(self):
         raise RuntimeError("ZeroLazyTensors are not positive definite!")

@@ -91,21 +91,14 @@ class BlockLazyTensor(LazyTensor):
     def _remove_batch_dim(self, other):
         raise NotImplementedError
 
-    def _transpose_nonbatch(self):
-        return self.__class__(self.base_lazy_tensor._transpose_nonbatch(), block_dim=self.block_dim)
-
-    def mul(self, other):
+    def _mul_constant(self, other):
         # We're using a custom method here - the constant mul is applied to the base_lazy tensor
         # This preserves the block structure
+        from .constant_mul_lazy_tensor import ConstantMulLazyTensor
+        return self.__class__(ConstantMulLazyTensor(self.base_lazy_tensor, other), block_dim=self.block_dim)
 
-        if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
-            torch.is_tensor(other) and other.numel() == 1
-        ):
-            from .constant_mul_lazy_tensor import ConstantMulLazyTensor
-
-            return self.__class__(ConstantMulLazyTensor(self.base_lazy_tensor, other), block_dim=self.block_dim)
-        else:
-            return super(BlockLazyTensor, self).mul(other)
+    def _transpose_nonbatch(self):
+        return self.__class__(self.base_lazy_tensor._transpose_nonbatch(), block_dim=self.block_dim)
 
     def zero_mean_mvn_samples(self, num_samples):
         res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)
