@@ -73,6 +73,30 @@ def _compute_getitem_size(obj, indices):
     return torch.Size(final_shape)
 
 
+def _tensor_index_to_start(indices):
+    """
+    Given an index, determine if the indexed part of the getitem is moved to the zero'th dimension
+    """
+    has_tensor_index = False
+    continuous_tensor_index = True
+
+    if torch.is_tensor(indices[0]):
+        return True
+
+    for index in indices[1:]:
+        if torch.is_tensor(index):
+            if not has_tensor_index:
+                has_tensor_index = True
+            elif not continuous_tensor_index:
+                return True
+
+        elif isinstance(index, slice):
+            if has_tensor_index:
+                continuous_tensor_index = False
+
+    return False
+
+
 def _equal_indices(a, b):
     if torch.is_tensor(a) and torch.is_tensor(b):
         return torch.equal(a, b)

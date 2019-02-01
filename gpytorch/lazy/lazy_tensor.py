@@ -15,7 +15,7 @@ from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
-from ..utils.getitem import _noop_index
+from ..utils.getitem import _noop_index, _tensor_index_to_start
 from ..utils.memoize import cached
 from ..utils.qr import batch_qr
 from ..utils.svd import batch_svd
@@ -276,12 +276,19 @@ class LazyTensor(object):
         # We will handle this through "interpolation"
         row_interp_indices = torch.arange(
             0, self.size(-2), dtype=torch.long, device=self.device
-        )[row_index].view(-1).unsqueeze_(-1)
+        )[row_index].view(-1)
         # If we have previously seen tensor indices, the row interpolation will be absorbed into the batch
         if row_col_are_absorbed and torch.is_tensor(row_index):
-            row_interp_indices = row_interp_indices.unsqueeze_(-1).expand(*res.batch_shape, 1, 1)
+            # First case: tensor indexed dims moving to the front
+            if torch.is_tensor(batch_indices[0]):
+                row_interp_indices = row_interp_indices.view(-1, *[1 for _ in res.batch_shape], 1)
+                row_interp_indices = row_interp_indices.expand(*res.batch_shape, 1, 1)
+            # Second case: the tensor indexed dims being at the end
+            else:
+                row_interp_indices = row_interp_indices.unsqueeze_(-1).unsqueeze_(-1)
+                row_interp_indices = row_interp_indices.expand(*res.batch_shape, 1, 1)
         else:
-            row_interp_indices = row_interp_indices.expand(*res.batch_shape, -1, 1)
+            row_interp_indices = row_interp_indices.unsqueeze_(-1).expand(*res.batch_shape, -1, 1)
         row_interp_values = torch.tensor(1., dtype=self.dtype, device=self.device).expand_as(row_interp_indices)
 
         # Construct column interpolation
@@ -289,12 +296,19 @@ class LazyTensor(object):
         # be absorbed into the batch/row
         col_interp_indices = torch.arange(
             0, self.size(-1), dtype=torch.long, device=self.device
-        )[col_index].view(-1).unsqueeze_(-1)
+        )[col_index].view(-1)
         # If we have previously seen tensor indices, the col interpolation will be absorbed into the batch/row
         if row_col_are_absorbed and torch.is_tensor(col_index):
-            col_interp_indices = col_interp_indices.unsqueeze_(-1).expand(*res.batch_shape, 1, 1)
+            # First case: tensor indexed dims moving to the front
+            if torch.is_tensor(batch_indices[0]):
+                col_interp_indices = col_interp_indices.view(-1, *[1 for _ in res.batch_shape], 1)
+                col_interp_indices = col_interp_indices.expand(*res.batch_shape, 1, 1)
+            # Second case: the tensor indexed dims being at the end
+            else:
+                col_interp_indices = col_interp_indices.unsqueeze_(-1).unsqueeze_(-1)
+                col_interp_indices = col_interp_indices.expand(*res.batch_shape, 1, 1)
         else:
-            col_interp_indices = col_interp_indices.expand(*res.batch_shape, -1, 1)
+            col_interp_indices = col_interp_indices.unsqueeze_(-1).expand(*res.batch_shape, -1, 1)
         col_interp_values = torch.tensor(1., dtype=self.dtype, device=self.device).expand_as(col_interp_indices)
 
         # Construct interpolated LazyTensor
@@ -420,35 +434,19 @@ class LazyTensor(object):
         from .diag_lazy_tensor import DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
 
-        if self.size(-1) != self.size(-2):
+        if not self.is_square:
             raise RuntimeError("add_diag only defined for square matrices")
 
-        # Expand things the correct way
-        if self.ndimension() == 3:
-            if diag.dim() == 0:
-                diag = diag.view(1, 1).expand(self.size(0), self.size(1))
-            elif diag.dim() == 1:
-                diag = diag.unsqueeze(0).expand(self.size(0), self.size(1))
-            elif diag.ndimension() == 2:
-                diag = diag.expand(self.size(0), self.size(1))
-            else:
-                raise RuntimeError(
-                    "For a 3D tensor ({}), add_diag expects a 1D or 2D diag. "
-                    "Got size ({})".format(self.size(), diag.size())
+        try:
+            expanded_diag = diag.expand(self.shape[:-1])
+        except RuntimeError:
+            raise RuntimeError(
+                "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
+                    self.shape, diag.shape
                 )
-        else:
-            if diag.dim() == 0:
-                diag = diag.view(1).expand(self.size(0))
-            elif diag.dim() == 1:
-                diag = diag.expand(self.size(0))
-            else:
-                raise RuntimeError(
-                    "For a 2D tensor ({}), add_diag expects a 0D or 1D diag. "
-                    "Got size ({})".format(self.size(), diag.size())
-                )
+            )
 
-        diag_lazy_tsr = DiagLazyTensor(diag)
-        return AddedDiagLazyTensor(self, diag_lazy_tsr)
+        return AddedDiagLazyTensor(self, DiagLazyTensor(expanded_diag))
 
     def add_jitter(self, jitter_val=1e-3):
         """
@@ -1368,17 +1366,35 @@ class LazyTensor(object):
             col_index = slice(col_index, col_index + 1, None)
             squeeze_col = True
 
-        # Here's a little hack for when the column is absorbed into the row, but the row isn't
-        # i.e. when row/col are tensor indexed, but no batch dimension is
-        # We'll introduce a fake batch dimension, tensor index it
-        # And then this becomes the case where both row/col are absorbed into the batch index
         res = self
-        if row_col_are_absorbed and not batch_has_tensor_index:
-            batch_shape = res.batch_shape
-            res = res.unsqueeze(-3)
-            res = res.expand(*batch_shape, row_index.numel(), *res.matrix_shape)
-            new_batch_index = torch.arange(0, row_index.numel(), dtype=torch.long, device=row_index.device)
-            batch_indices.append(new_batch_index)
+        if row_col_are_absorbed:
+            # Here's a little hack for when the column is absorbed into the row, but the row isn't
+            # i.e. when row/col are tensor indexed, but no batch dimension is
+            # We'll introduce a fake batch dimension, tensor index it
+            # And then this becomes the case where both row/col are absorbed into the batch index
+            if not(batch_has_tensor_index):
+                batch_shape = res.batch_shape
+                res = res.unsqueeze(-3)
+                res = res.expand(*batch_shape, row_index.numel(), *res.matrix_shape)
+                new_batch_index = torch.arange(0, row_index.numel(), dtype=torch.long, device=self.device)
+                batch_indices.append(new_batch_index)
+
+            # When the tensored index should be moved to the front, we also want it to be the case
+            # that the tensored index IS moved to the front when only calling __getitem__ with the batch_indices
+            # This makes the routines in _getitem much easier to write.
+            # We'll introduce two fake batch dimensions: one on the front and end of the batch
+            # This will force the tensor index to move to the front, even when calling __getitem__ with only the
+            # batch indices
+            else:
+                tensor_index_first = _tensor_index_to_start((*batch_indices, row_index, col_index))
+                batch_puts_tensor_index_first = _tensor_index_to_start(batch_indices)
+                if tensor_index_first and not batch_puts_tensor_index_first:
+                    batch_shape = res.batch_shape
+                    res = res.unsqueeze(-3).unsqueeze(0)
+                    numel = row_index.numel() if torch.is_tensor(row_index) else col_index.numel()
+                    res = res.expand(numel, *batch_shape, numel, *res.matrix_shape)
+                    new_batch_index = torch.arange(0, numel, dtype=torch.long, device=self.device)
+                    batch_indices = [new_batch_index, *batch_indices, new_batch_index]
 
         # Call self._getitem - now that the index has been processed
         res = res._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
