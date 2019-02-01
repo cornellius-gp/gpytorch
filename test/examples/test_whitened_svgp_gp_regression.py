@@ -55,10 +55,13 @@ class TestSVGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_regression_error(self, skip_logdet_forward=False):
-        train_x, train_y = train_data()
+    def test_regression_error(self, skip_logdet_forward=False, cuda=False):
+        train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
         model = SVGPRegressionModel(torch.linspace(0, 1, 25))
+        if cuda:
+            likelihood.cuda()
+            model.cuda()
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
         # Find optimal model hyperparameters
@@ -87,10 +90,17 @@ class TestSVGPRegression(unittest.TestCase):
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         self.assertLess(mean_abs_error.item(), 1e-1)
 
-    def test_regression_error_full(self, skip_logdet_forward=False):
-        train_x, train_y = train_data()
+    def test_regression_error_cuda(self):
+        if torch.cuda.is_available():
+            self.test_regression_error(skip_logdet_forward=False, cuda=True)
+
+    def test_regression_error_full(self, skip_logdet_forward=False, cuda=False):
+        train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
         model = SVGPRegressionModel(inducing_points=train_x, learn_locs=False)
+        if cuda:
+            likelihood.cuda()
+            model.cuda()
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
         # Find optimal model hyperparameters
@@ -119,41 +129,16 @@ class TestSVGPRegression(unittest.TestCase):
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         self.assertLess(mean_abs_error.item(), 1e-1)
 
-    def test_regression_error_skip_logdet_forward(self):
-        return self.test_regression_error(skip_logdet_forward=True)
-
-    def test_regression_error_cuda(self):
+    def test_regression_error_full_cuda(self):
         if torch.cuda.is_available():
-            train_x, train_y = train_data(cuda=True)
-            likelihood = GaussianLikelihood().cuda()
-            model = SVGPRegressionModel(torch.linspace(0, 1, 25)).cuda()
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
+            self.test_regression_error_full(skip_logdet_forward=False, cuda=True)
 
-            # Find optimal model hyperparameters
-            model.train()
-            optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
-            optimizer.n_iter = 0
-            for _ in range(150):
-                optimizer.zero_grad()
-                output = model(train_x)
-                loss = -mll(output, train_y)
-                loss.backward()
-                optimizer.n_iter += 1
-                optimizer.step()
+    def test_regression_error_skip_logdet_forward(self):
+        self.test_regression_error(skip_logdet_forward=True)
 
-            for param in model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            optimizer.step()
-
-            # Set back to eval mode
-            model.eval()
-            test_preds = likelihood(model(train_x)).mean.squeeze()
-            mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-            self.assertLess(mean_abs_error.item(), 1e-1)
+    def test_regression_error_skip_logdet_forward_cuda(self):
+        if torch.cuda.is_available():
+            self.test_regression_error(skip_logdet_forward=True, cuda=True)
 
 
 if __name__ == "__main__":
