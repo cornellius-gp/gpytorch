@@ -2,6 +2,7 @@
 
 import torch
 from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import lazify
 from abc import abstractmethod
 
 
@@ -18,8 +19,8 @@ class BlockLazyTensor(LazyTensor):
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks.
 
     Args:
-        - :attr:`base_lazy_tensor` (LazyTensor):
-            A `k x n x n` LazyTensor, or a `b x k x n x n` LazyTensor.
+        - :attr:`base_lazy_tensor` (LazyTensor or Tensor):
+            Must be at least 3 dimenional.
         - :attr:`block_dim` (int):
             The dimension that specifies blocks.
     """
@@ -27,14 +28,14 @@ class BlockLazyTensor(LazyTensor):
     def __init__(self, base_lazy_tensor, block_dim=-3):
         if base_lazy_tensor.dim() < 3:
             raise RuntimeError(
-                "base_lazy_tensor must be a batch matrix (i.e.l at least 3 dimensions - got "
+                "base_lazy_tensor must be a batch matrix (i.e. at least 3 dimensions - got "
                 "{}".format(base_lazy_tensor.dim())
             )
 
         # Make sure block_dim is positive
         block_dim = block_dim if block_dim < 0 else (block_dim - base_lazy_tensor.dim())
 
-        super(BlockLazyTensor, self).__init__(base_lazy_tensor, block_dim=block_dim)
+        super(BlockLazyTensor, self).__init__(lazify(base_lazy_tensor), block_dim=block_dim)
         self.base_lazy_tensor = base_lazy_tensor
         self.block_dim = block_dim
 

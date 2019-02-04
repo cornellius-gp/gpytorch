@@ -16,33 +16,35 @@ class BlockDiagLazyTensor(BlockLazyTensor):
     The :attr:`block_dim` attribute specifies which dimension of the base LazyTensor
     specifies the blocks.
     For example, (with `block_dim=-3` a `k x n x n` tensor represents `k` `n x n` blocks (a `kn x kn` matrix).
-    A `b x k x n x n` tensor represents `k` `b x n x n` blocks (a `b x kn x kn` batch atrix).
+    A `b x k x n x n` tensor represents `k` `b x n x n` blocks (a `b x kn x kn` batch matrix).
 
     Args:
-        :attr:`base_lazy_tensor` (LazyTensor):
-            A `k x n x n` LazyTensor, or a `b x k x n x n` LazyTensor.
+        :attr:`base_lazy_tensor` (LazyTensor or Tensor):
+            Must be at least 3 dimensional.
         :attr:`block_dim` (int):
             The dimension that specifies the blocks.
     """
+    @property
+    def num_blocks(self):
+        return self.base_lazy_tensor.size(self.block_dim)
+
     def _add_batch_dim(self, other):
         *batch_shape, num_rows, num_cols = other.shape
         batch_shape = list(batch_shape)
-        num_blocks = self.base_lazy_tensor.size(self.block_dim)
 
         if self.block_dim == -3:
-            batch_shape.append(num_blocks)
+            batch_shape.append(self.num_blocks)
         else:
             insert_dim = self.block_dim + 3
-            batch_shape.insert(insert_dim, num_blocks)
-        other = other.contiguous().view(*batch_shape, num_rows // num_blocks, num_cols)
+            batch_shape.insert(insert_dim, self.num_blocks)
+        other = other.contiguous().view(*batch_shape, num_rows // self.num_blocks, num_cols)
         return other
 
     def _remove_batch_dim(self, other):
         shape = list(other.shape)
-        num_blocks = self.base_lazy_tensor.size(self.block_dim)
 
         del shape[self.block_dim]
-        shape[-2] *= num_blocks
+        shape[-2] *= self.num_blocks
         other = other.contiguous().view(*shape)
         return other
 

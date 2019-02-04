@@ -25,7 +25,7 @@ class BatchRepeatLazyTensor(LazyTensor):
                     )
                 )
 
-        super(BatchRepeatLazyTensor, self).__init__(base_lazy_tensor, batch_repeat=batch_repeat)
+        super().__init__(base_lazy_tensor, batch_repeat=batch_repeat)
         self.base_lazy_tensor = base_lazy_tensor
         self.batch_repeat = batch_repeat
 
@@ -81,12 +81,13 @@ class BatchRepeatLazyTensor(LazyTensor):
 
         # Now we have to move the columns back to their original repeat dimensions
         batch_matrix = batch_matrix.view(*padded_base_batch_shape, output_shape[-2], -1, *batch_repeat)
+        output_dims = len(output_shape)
         dims = tuple(
-            itertools.chain.from_iterable([i + len(output_shape), i] for i in range(len(padded_base_batch_shape)))
-        ) + (len(output_shape) - 2, len(output_shape) - 1)
+            itertools.chain.from_iterable([i + output_dims, i] for i in range(len(padded_base_batch_shape)))
+        ) + (output_dims - 2, output_dims - 1)
         batch_matrix = batch_matrix.permute(*dims).contiguous()
 
-        # Combine the repeat and the batch dimensions, and return the batch_matrixult!
+        # Combine the repeat and the batch dimensions, and return the batch_matrix
         batch_matrix = batch_matrix.view(*output_shape)
         return batch_matrix
 
@@ -126,7 +127,7 @@ class BatchRepeatLazyTensor(LazyTensor):
         if num_batch_dims is None:
             num_batch_dims = len(self.batch_repeat)
         base_batch_shape = self.base_lazy_tensor.batch_shape
-        return torch.Size(([1] * (num_batch_dims - len(base_batch_shape))) + list(base_batch_shape))
+        return torch.Size(([1] * (num_batch_dims - len(base_batch_shape)))) + base_batch_shape
 
     def _quad_form_derivative(self, left_vectors, right_vectors):
         left_output_shape = _matmul_broadcast_shape(self.shape, left_vectors.shape)

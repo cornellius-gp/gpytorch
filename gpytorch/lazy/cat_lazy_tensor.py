@@ -227,7 +227,7 @@ class CatLazyTensor(LazyTensor):
     """
 
     def _matmul(self, rhs):
-        output_device = (self.device if self.device is not None else rhs.device)
+        output_device = self.device if self.device is not None else rhs.device
         # make a copy of `rhs` on each device
         rhs_ = []
         for d in self.devices:

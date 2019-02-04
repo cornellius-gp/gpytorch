@@ -275,7 +275,11 @@ class LazyTensor(object):
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         """
         Supports subindexing of the matrix this LazyTensor represents. This may return either another
-        :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
+        :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the arguments.
+
+        The indices passed into this method will either be:
+            Tensor indices
+            Slices
 
         ..note::
             LazyTensor.__getitem__ uses this as a helper method. If you are writing your own custom LazyTensor,
@@ -285,9 +289,35 @@ class LazyTensor(object):
             This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.__getitem__`,
             which does some additional work. Calling this method directly is discouraged.
 
+        This method has a number of restrictions on the type of arguments that are passed in to reduce
+        the complexity of __getitem__ calls in PyTorch. In particular:
+            - Each dimension in the LazyTensor receives an index
+            - This method only accepts slices and tensors for the row/column indices (no ints)
+            - There are fewer __getitem__ cases to worry about.
+
+        There are two cases to consider with `_getitem`:
+            - If `row_col_are_absorbed=False`, then the output of the method is a LazyTensor
+                (i.e. the row and column dimensions are preserved).
+                The matrix shape is determined by `row_index` and `col_index`.
+            - If `row_col_are_absorbed=True`, then the output of the method is no longer a LazyTensor.
+                This occurs when `_getitem` is used to select certain elements via Tensor indexing.
+                If this is true, is *will* be the case that Tensor-indexed dimensions are absorbed
+                into one of the batch dimensions (because at least one of the batch dimensions will
+                also be tensor indexed).
+
         Args:
-            :attr:`indices` (tuple of `int`s, `slice`s, or `LongTensor`s):
-                A collection of indices for each of the dimensions. There will be exactly one index per dimension.
+            :attr:`row_col_are_absorbed` (bool):
+                Determines if the output is a `LazyTensor` (if False) or a `Tensor` (if True).
+                If True, then all tensor-indexed dimensions are absorbed into one of the batch dimensions.
+            :attr:`row_index` (slice, Tensor):
+                Index for the row of the LazyTensor
+            :attr:`col_index` (slice, Tensor):
+                Index for the col of the LazyTensor
+            :attr:`batch_indices` (tuple of slice, int, Tensor):
+                Indices for the batch dimensions
+
+        Returns:
+            `LazyTensor` (if `row_col_are_absorbed=False`) or `Tensor` (if `row_col_are_absorbed=True`).
         """
         # Handle batch dimensions
         # Construt a new LazyTensor
