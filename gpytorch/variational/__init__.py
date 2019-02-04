@@ -6,6 +6,7 @@ from .additive_grid_interpolation_variational_strategy import AdditiveGridInterp
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 from .variational_distribution import VariationalDistribution
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
+from .multitask_cholesky_variational_distribution import MultitaskCholeskyVariationalDistribution
 
 __all__ = [
     "VariationalStrategy",
@@ -15,4 +16,5 @@ __all__ = [
     "NewVariationalStrategy",
     "VariationalDistribution",
     "CholeskyVariationalDistribution",
+    "MultitaskCholeskyVariationalDistribution",
 ]

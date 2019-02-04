@@ -81,14 +81,12 @@ class VariationalStrategy(Module):
         a different parameterization of the variational distribution, it may need to modify what the prior is
         with respect to that reparameterization.
         """
-        if not self.variational_params_initialized.item():
-            prior_dist = self.prior_distribution
-            eval_prior_dist = torch.distributions.MultivariateNormal(
-                loc=prior_dist.mean,
-                covariance_matrix=prior_dist.covariance_matrix
-            )
-            self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
-            self.variational_params_initialized.fill_(1)
+        prior_dist = self.prior_distribution
+        eval_prior_dist = torch.distributions.MultivariateNormal(
+            loc=prior_dist.mean,
+            covariance_matrix=prior_dist.covariance_matrix
+        )
+        self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
 
     def forward(self, x):
         """
@@ -177,7 +175,9 @@ class VariationalStrategy(Module):
             return MultivariateNormal(predictive_mean, predictive_covar)
 
     def __call__(self, x):
-        self.initialize_variational_dist()
+        if not self.variational_params_initialized.item():
+            self.initialize_variational_dist()
+            self.variational_params_initialized.fill_(1)
         if self.training:
             if hasattr(self, "_memoize_cache"):
                 delattr(self, "_memoize_cache")
