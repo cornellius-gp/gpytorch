@@ -64,7 +64,21 @@ class LazyTensor(ABC):
         LazyTensor may be (for example) :math:`b \times n \times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
     """
+    def _check_args(self, *args, **kwargs):
+        """
+        (Optional) run checks to see that input arguments and kwargs are valid
+
+        Return:
+            None (if all checks pass) or str (error message to raise)
+        """
+        return None
+
     def __init__(self, *args, **kwargs):
+        if settings.debug.on():
+            err = self._check_args(*args, **kwargs)
+            if err is not None:
+                raise ValueError(err)
+
         self._args = args
         self._kwargs = kwargs
 
