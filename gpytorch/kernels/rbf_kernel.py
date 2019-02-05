@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-from ..utils.deprecation import _deprecate_kwarg
 from torch.nn.functional import softplus
 import torch
 
@@ -83,7 +82,6 @@ class RBFKernel(Kernel):
         eps=1e-6,
         **kwargs
     ):
-        _deprecate_kwarg(kwargs, "log_lengthscale_prior", "lengthscale_prior", lengthscale_prior)
         super(RBFKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,

@@ -7,8 +7,6 @@ from torch.nn.functional import softplus
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import Likelihood
-from ..lazy import BlockDiagLazyTensor, DiagLazyTensor
-from ..utils.deprecation import _deprecate_kwarg
 from .noise_models import HomoskedasticNoise
 
 
@@ -39,7 +37,6 @@ class _GaussianLikelihoodBase(Likelihood):
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, **kwargs):
-        noise_prior = _deprecate_kwarg(kwargs, "log_noise_prior", "noise_prior", noise_prior)
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior,
             batch_size=batch_size,
@@ -60,7 +57,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
     @noise.setter
     def noise(self, value):
-        self.noise_covar.initialize(value)
+        self.noise_covar.initialize(noise=value)
 
     @property
     def raw_noise(self):
@@ -94,11 +91,15 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         y_mean = variational_dist_f.mean
         if y_mean.dim() == 1:
             noise = noise.squeeze(0)
-        y_lazy_covar = DiagLazyTensor(var_f + noise.expand_as(var_f))
-        y_dist = MultivariateNormal(y_mean, y_lazy_covar)
-        if len(y_dist.batch_shape):
-            y_dist = y_dist.__class__(
-                y_dist.mean.contiguous().view(-1), BlockDiagLazyTensor(y_dist.lazy_covariance_matrix)
-            )
-            y_obs = y_obs.view_as(y_dist.mean)
-        pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)
+
+        y_dist = pyro.distributions.Independent(
+            pyro.distributions.Normal(y_mean, (var_f + noise.expand_as(var_f)).sqrt()),
+            reinterpreted_batch_ndims=y_mean.dim(),
+        )
+
+        # See if we're using a sampled GP distribution
+        # Samples will occur in the first batch dimension
+        sample_shape = y_dist.shape()[:-y_obs.dim()]
+        y_obs = y_obs.expand(y_dist.shape())
+        with pyro.poutine.scale(scale=float(1. / sample_shape.numel())):
+            pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)

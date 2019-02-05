@@ -68,7 +68,7 @@ Some examples:
 
 ## Deep Kernel Learning
 
-GPyTorch seemlessly integrates with PyTorch, making it extremely easy to combine GPs with neural networks.
+GPyTorch seamlessly integrates with PyTorch, making it extremely easy to combine GPs with neural networks.
 The following examples use [the Deep Kernel Learning method](https://arxiv.org/abs/1511.02222):
   - A [large-scale regression problem](05_Scalable_GP_Regression_Multidimensional/KISSGP_Deep_Kernel_Regression_CUDA.ipynb) with Deep Kernel Learning
   - Training [a GP for CIFAR image classification](08_Deep_Kernel_Learning/Deep_Kernel_Learning_DenseNet_CIFAR_Tutorial.ipynb) with Deep Kernel Learning

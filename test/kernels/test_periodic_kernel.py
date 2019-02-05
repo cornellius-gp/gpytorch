@@ -12,7 +12,7 @@ class TestPeriodicKernel(unittest.TestCase):
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
         lengthscale = 2
         period = 3
-        kernel = PeriodicKernel().initialize(log_lengthscale=math.log(lengthscale), log_period_length=math.log(period))
+        kernel = PeriodicKernel().initialize(lengthscale=lengthscale, period_length=period)
         kernel.eval()
 
         actual = torch.zeros(3, 2)
@@ -30,7 +30,7 @@ class TestPeriodicKernel(unittest.TestCase):
         period = torch.tensor(1, dtype=torch.float).view(1, 1, 1)
         lengthscale = torch.tensor(2, dtype=torch.float).view(1, 1, 1)
         kernel = PeriodicKernel().initialize(
-            log_lengthscale=torch.log(lengthscale), log_period_length=torch.log(period)
+            lengthscale=lengthscale, period_length=period
         )
         kernel.eval()
 
@@ -50,7 +50,7 @@ class TestPeriodicKernel(unittest.TestCase):
         period = torch.tensor([1, 2], dtype=torch.float).view(2, 1, 1)
         lengthscale = torch.tensor([2, 1], dtype=torch.float).view(2, 1, 1)
         kernel = PeriodicKernel(batch_size=2).initialize(
-            log_lengthscale=torch.log(lengthscale), log_period_length=torch.log(period)
+            lengthscale=lengthscale, period_length=period
         )
         kernel.eval()
 

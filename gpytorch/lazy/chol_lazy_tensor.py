@@ -4,6 +4,7 @@ import torch
 
 from .lazy_tensor import LazyTensor
 from .root_lazy_tensor import RootLazyTensor
+from .. import settings
 
 
 class CholLazyTensor(RootLazyTensor):
@@ -12,16 +13,13 @@ class CholLazyTensor(RootLazyTensor):
             chol = chol.evaluate()
 
         # Check that we have a lower triangular matrix
-        mask = torch.ones(chol.shape[-2:], dtype=chol.dtype, device=chol.device).triu_(1)
-        if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
-            raise RuntimeError("CholLazyVaraiable should take a lower-triangular " "matrix in the constructor.")
+        if settings.debug.on():
+            mask = torch.ones(chol.shape[-2:], dtype=chol.dtype, device=chol.device).triu_(1)
+            if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
+                raise RuntimeError("CholLazyVaraiable should take a lower-triangular matrix in the constructor.")
 
         # Run super constructor
         super(CholLazyTensor, self).__init__(chol)
-
-        # Check that the diagonal is
-        if not torch.equal(self._chol_diag.abs(), self._chol_diag):
-            raise RuntimeError("The diagonal of the cholesky decomposition should be positive.")
 
     @property
     def _chol(self):
@@ -32,15 +30,7 @@ class CholLazyTensor(RootLazyTensor):
     @property
     def _chol_diag(self):
         if not hasattr(self, "_chol_diag_memo"):
-            if self._chol.ndimension() == 3:
-                batch_size, diag_size, _ = self._chol.size()
-                batch_index = torch.arange(0, batch_size, dtype=torch.long, device=self.device)
-                batch_index = batch_index.unsqueeze(1).repeat(1, diag_size).view(-1)
-                diag_index = torch.arange(0, diag_size, dtype=torch.long, device=self.device)
-                diag_index = diag_index.unsqueeze(1).repeat(batch_size, 1).view(-1)
-                self._chol_diag_memo = self._chol[batch_index, diag_index, diag_index].view(batch_size, diag_size)
-            else:
-                self._chol_diag_memo = self._chol.diag()
+            self._chol_diag_memo = self._chol.diagonal(dim1=-2, dim2=-1).clone()
         return self._chol_diag_memo
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
@@ -53,6 +43,6 @@ class CholLazyTensor(RootLazyTensor):
             )
 
         if logdet:
-            logdet_term = self._chol_diag.log().sum(-1).mul(2)
+            logdet_term = self._chol_diag.pow(2).log().sum(-1)
 
         return inv_quad_term, logdet_term

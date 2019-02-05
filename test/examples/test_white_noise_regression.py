@@ -59,11 +59,11 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
             gp_model = ExactGPModel(train_x, train_y, likelihood)
             # Update lengthscale prior to accommodate extreme parameters
             gp_model.rbf_covar_module.register_prior(
-                "log_lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "raw_lengthscale"
+                "lengthscale_prior", SmoothedBoxPrior(exp(-10), exp(10), sigma=0.5), "raw_lengthscale"
             )
-            gp_model.rbf_covar_module.initialize(log_lengthscale=-10)
+            gp_model.rbf_covar_module.initialize(lengthscale=exp(-10))
             gp_model.mean_module.initialize(constant=0)
-            likelihood.initialize(log_noise=-10)
+            likelihood.initialize(noise=exp(-10))
 
             if cuda:
                 gp_model.cuda()
@@ -96,9 +96,9 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
         likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
-        gp_model.rbf_covar_module.initialize(log_lengthscale=1)
+        gp_model.rbf_covar_module.initialize(lengthscale=exp(1))
         gp_model.mean_module.initialize(constant=0)
-        likelihood.initialize(log_noise=1)
+        likelihood.initialize(noise=exp(1))
 
         if cuda:
             gp_model.cuda()
@@ -146,9 +146,9 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
             likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
             gp_model = ExactGPModel(train_x, train_y, likelihood)
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
-            gp_model.rbf_covar_module.initialize(log_lengthscale=1)
+            gp_model.rbf_covar_module.initialize(lengthscale=exp(1))
             gp_model.mean_module.initialize(constant=0)
-            likelihood.initialize(log_noise=1)
+            likelihood.initialize(noise=exp(1))
 
             if cuda:
                 gp_model.cuda()
