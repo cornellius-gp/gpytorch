@@ -25,7 +25,7 @@ def scale_to_bounds(x, lower_bound, upper_bound):
     return x
 
 
-def choose_grid_size(train_inputs, ratio=1.0):
+def choose_grid_size(train_inputs, ratio=1.0, kronecker_structure=True):
     """
     Given some training inputs, determine a good grid size for KISS-GP.
 
@@ -34,6 +34,9 @@ def choose_grid_size(train_inputs, ratio=1.0):
             training data
         :attr:`ratio` (float, optional):
             Ratio - number of grid points to the amount of data (default: 1.)
+        :attr:`kronecker_structure` (bool, default=True):
+            Whether or not the model will use Kronecker structure in the grid
+            (set to True unless there is an additive or product decomposition in the prior)
 
     Returns:
         :obj:`int`
@@ -41,7 +44,10 @@ def choose_grid_size(train_inputs, ratio=1.0):
     # Scale features so they fit inside grid bounds
     num_data = train_inputs.numel() if train_inputs.dim() == 1 else train_inputs.size(-2)
     num_dim = 1 if train_inputs.dim() == 1 else train_inputs.size(-1)
-    return int(ratio * math.pow(num_data, 1.0 / num_dim))
+    if kronecker_structure:
+        return int(ratio * math.pow(num_data, 1.0 / num_dim))
+    else:
+        return (ratio * num_data)
 
 
 def create_data_from_grid(grid):
