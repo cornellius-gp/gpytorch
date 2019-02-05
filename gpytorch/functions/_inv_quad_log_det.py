@@ -24,8 +24,6 @@ class InvQuadLogDet(Function):
         batch_shape=torch.Size(),
         inv_quad=False,
         logdet=False,
-        preconditioner=None,
-        logdet_correction=None,
         probe_vectors=None,
         probe_vector_norms=None,
     ):
@@ -39,8 +37,6 @@ class InvQuadLogDet(Function):
         self.batch_shape = batch_shape
         self.inv_quad = inv_quad
         self.logdet = logdet
-        self.preconditioner = preconditioner
-        self.logdet_correction = logdet_correction
 
         if (probe_vectors is None or probe_vector_norms is None) and logdet:
             num_random_probes = settings.num_trace_samples.value()
@@ -75,6 +71,8 @@ class InvQuadLogDet(Function):
 
         # Get closure for matmul
         lazy_tsr = self.representation_tree(*matrix_args)
+        preconditioner = lazy_tsr._preconditioner()[0]
+        logdet_correction = lazy_tsr._preconditioner()[1]
 
         # Collect terms for LinearCG
         # We use LinearCG for both matrix solves and for stochastically estimating the log det
@@ -100,10 +98,10 @@ class InvQuadLogDet(Function):
         rhs = torch.cat(rhs_list, -1)
         t_mat = None
         if self.logdet and settings.skip_logdet_forward.off():
-            solves, t_mat = lazy_tsr._solve(rhs, self.preconditioner, num_tridiag=num_random_probes)
+            solves, t_mat = lazy_tsr._solve(rhs, preconditioner, num_tridiag=num_random_probes)
 
         else:
-            solves = lazy_tsr._solve(rhs, self.preconditioner, num_tridiag=0)
+            solves = lazy_tsr._solve(rhs, preconditioner, num_tridiag=0)
 
         # Final values to return
         logdet_term = torch.zeros(lazy_tsr.batch_shape, dtype=self.dtype, device=self.device)
@@ -121,8 +119,8 @@ class InvQuadLogDet(Function):
                 logdet_term, = slq.evaluate(self.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
 
                 # Add correction
-                if self.logdet_correction is not None:
-                    logdet_term = logdet_term + self.logdet_correction
+                if logdet_correction is not None:
+                    logdet_term = logdet_term + logdet_correction
 
         # Extract inv_quad solves from all the solves
         if self.inv_quad:
