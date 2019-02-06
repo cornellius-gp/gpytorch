@@ -12,6 +12,7 @@ from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape
+from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.memoize import cached
 from ..utils.qr import batch_qr
@@ -1021,22 +1022,16 @@ class LazyTensor(object):
 
         if (self.matrix_shape.numel() <= settings.max_cholesky_numel.value()
                 or settings.fast_computations.covar_root_decomposition.off()):
-            try:
-                res = torch.cholesky(self.evaluate())
-                return RootLazyTensor(res)
-            except RuntimeError as e:
-                warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
-                )
-
-        res, _ = RootDecomposition(
-            self.representation_tree(),
-            max_iter=self.root_decomposition_size(),
-            dtype=self.dtype,
-            device=self.device,
-            batch_shape=self.batch_shape,
-            matrix_shape=self.matrix_shape,
-        )(*self.representation())
+            res = psd_safe_cholesky(self.evaluate())
+        else:
+            res, _ = RootDecomposition(
+                self.representation_tree(),
+                max_iter=self.root_decomposition_size(),
+                dtype=self.dtype,
+                device=self.device,
+                batch_shape=self.batch_shape,
+                matrix_shape=self.matrix_shape,
+            )(*self.representation())
 
         return RootLazyTensor(res)
 
