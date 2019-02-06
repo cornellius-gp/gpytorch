@@ -1304,7 +1304,9 @@ class LazyTensor(object):
         else:
             covar_root = self.root_decomposition().root
 
-        base_shape = sample_shape + self.shape[:-2] + self.shape[-1:]
+        # the last dimension here is covar_root.shape[-1] and not self.shape[-1], since the root may
+        # be a low-rank approximation
+        base_shape = sample_shape + self.shape[:-2] + covar_root.shape[-1:]
         base_samples = torch.randn(base_shape, device=self.device, dtype=self.dtype)
         samples = covar_root.matmul(base_samples.unsqueeze(-1)).squeeze(-1).contiguous()
         return samples
