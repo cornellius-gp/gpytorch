@@ -3,6 +3,7 @@
 import torch
 
 from .. import settings
+from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 from .block_lazy_tensor import BlockLazyTensor
 from .non_lazy_tensor import NonLazyTensor
@@ -127,7 +128,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         if settings.fast_computations.covar_root_decomposition.on():
             res = self.__class__(self.base_lazy_tensor.root_decomposition().root, num_blocks=self.num_blocks)
         else:
-            chol = torch.cholesky(self.base_lazy_tensor.evaluate())
+            chol = psd_safe_cholesky(self.base_lazy_tensor.evaluate())
             res = self.__class__(NonLazyTensor(chol), num_blocks=self.num_blocks)
         return RootLazyTensor(res)
 

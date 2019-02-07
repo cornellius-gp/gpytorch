@@ -2,6 +2,7 @@
 
 import math
 import warnings
+
 import gpytorch
 import torch
 
@@ -12,6 +13,7 @@ from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape
+from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.memoize import cached
 from ..utils.qr import batch_qr
@@ -103,7 +105,7 @@ class LazyTensor(object):
             n_tridiag=num_tridiag,
             max_iter=settings.max_cg_iterations.value(),
             max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
-            preconditioner=preconditioner
+            preconditioner=preconditioner,
         )
 
     def _size(self):
@@ -678,8 +680,9 @@ class LazyTensor(object):
                 )
 
         func = InvMatmul(
-            self.representation_tree(), preconditioner=self._inv_matmul_preconditioner(),
-            has_left=(left_tensor is not None)
+            self.representation_tree(),
+            preconditioner=self._inv_matmul_preconditioner(),
+            has_left=(left_tensor is not None),
         )
         if left_tensor is None:
             return func(right_tensor, *self.representation())
@@ -1013,30 +1016,33 @@ class LazyTensor(object):
         low-rank version of a matrix
         """
         from .root_lazy_tensor import RootLazyTensor
+        from .mul_lazy_tensor import MulLazyTensor
+
         if not self.is_square:
             raise RuntimeError(
                 "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if (self.matrix_shape.numel() <= settings.max_cholesky_numel.value()
-                or settings.fast_computations.covar_root_decomposition.off()):
+        if not isinstance(self, MulLazyTensor) and (
+            self.matrix_shape.numel() <= settings.max_cholesky_numel.value()
+            or settings.fast_computations.covar_root_decomposition.off()
+        ):
             try:
-                res = torch.cholesky(self.evaluate())
-                return RootLazyTensor(res)
+                res = psd_safe_cholesky(self.evaluate())
             except RuntimeError as e:
                 warnings.warn(
                     "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
                 )
-
-        res, _ = RootDecomposition(
-            self.representation_tree(),
-            max_iter=self.root_decomposition_size(),
-            dtype=self.dtype,
-            device=self.device,
-            batch_shape=self.batch_shape,
-            matrix_shape=self.matrix_shape,
-        )(*self.representation())
+        else:
+            res, _ = RootDecomposition(
+                self.representation_tree(),
+                max_iter=self.root_decomposition_size(),
+                dtype=self.dtype,
+                device=self.device,
+                batch_shape=self.batch_shape,
+                matrix_shape=self.matrix_shape,
+            )(*self.representation())
 
         return RootLazyTensor(res)
 
@@ -1404,13 +1410,6 @@ def delazify(obj):
         raise TypeError("object of class {} cannot be made into a Tensor".format(obj.__class__.__name__))
 
 
-_deprecate_renamed_methods(
-    LazyTensor,
-    inv_quad_log_det="inv_quad_logdet",
-    log_det="logdet",
-)
+_deprecate_renamed_methods(LazyTensor, inv_quad_log_det="inv_quad_logdet", log_det="logdet")
 
-__all__ = [
-    "LazyTensor",
-    "delazify",
-]
+__all__ = ["LazyTensor", "delazify"]
