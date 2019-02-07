@@ -77,7 +77,7 @@ class TestPSDSafeCholesky(unittest.TestCase):
                 idx = torch.arange(A.shape[-1], device=A.device)
                 # default values
                 Aprime = A.clone()
-                Aprime[..., idx, idx] += 1e-5 if A.dtype == torch.float32 else 1e-7
+                Aprime[..., idx, idx] += 1e-6 if A.dtype == torch.float32 else 1e-8
                 L_exp = torch.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as ws:
                     L_safe = psd_safe_cholesky(A)
