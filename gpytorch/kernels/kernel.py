@@ -157,6 +157,7 @@ class Kernel(Module):
                     "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
                 )
 
+        self.distance_module = None
         # TODO: Remove this on next official PyTorch release.
         self.__pdist_supports_batch = True
 
@@ -232,6 +233,14 @@ class Kernel(Module):
     def _postprocess(self, dist_mat):
         return dist_mat
 
+    def __getstate__(self):
+        # JIT ScriptModules cannot be pickled
+        self.distance_module = None
+        return self.__dict__
+
+    def __setstate__(self, d):
+        self.__dict__ = d
+
     def _covar_dist(
         self,
         x1,
@@ -239,7 +248,7 @@ class Kernel(Module):
         diag=False,
         batch_dims=None,
         square_dist=False,
-        postprocess_func=default_postprocess_script,
+        dist_postprocess_func=default_postprocess_script,
         **params
     ):
         """
@@ -274,7 +283,9 @@ class Kernel(Module):
 
         res = None
 
-        distance_module = Distance(postprocess_func)
+        # Cache the Distance object or else JIT will recompile every time
+        if not self.distance_module:
+            self.distance_module = Distance(dist_postprocess_func)
 
         if diag:
             # Special case the diagonal because we can return all zeros most of the time.
@@ -284,18 +295,18 @@ class Kernel(Module):
                     res = torch.zeros(x1.shape[0] * x1.shape[-1], x2.shape[-2], dtype=x1.dtype, device=x1.device)
                 else:
                     res = torch.zeros(x1.shape[0], x2.shape[-2], dtype=x1.dtype, device=x1.device)
-                return postprocess_func(res)
+                return dist_postprocess_func(res)
             else:
                 if square_dist:
                     res = (x1 - x2).pow(2).sum(-1)
                 else:
                     res = torch.norm(x1 - x2, p=2, dim=-1)
 
-            res = postprocess_func(res)
+            res = dist_postprocess_func(res)
         elif not square_dist:
-            res = distance_module._jit_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
+            res = self.distance_module._jit_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
         else:
-            res = distance_module._jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
+            res = self.distance_module._jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
 
         if batch_dims == (0, 2):
             if diag:
