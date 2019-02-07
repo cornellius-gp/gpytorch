@@ -96,5 +96,5 @@ class RBFKernel(Kernel):
     def forward(self, x1, x2, diag=False, **params):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        diff = self._covar_dist(x1_, x2_, square_dist=True, diag=diag, postprocess_func=postprocess_rbf, **params)
+        diff = self._covar_dist(x1_, x2_, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rbf, **params)
         return diff
