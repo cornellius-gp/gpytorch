@@ -681,7 +681,6 @@ class LazyTensor(object):
 
         func = InvMatmul(
             self.representation_tree(),
-            preconditioner=self._inv_matmul_preconditioner(),
             has_left=(left_tensor is not None),
         )
         if left_tensor is None:
@@ -758,8 +757,6 @@ class LazyTensor(object):
             device=self.device,
             inv_quad=(inv_quad_rhs is not None),
             logdet=logdet,
-            preconditioner=self._preconditioner()[0],
-            logdet_correction=self._preconditioner()[1],
             probe_vectors=probe_vectors,
             probe_vector_norms=probe_vector_norms,
         )(*args)
