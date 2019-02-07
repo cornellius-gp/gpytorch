@@ -96,7 +96,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
             See torch.cholesky
         :attr:`jitter` (float, optional):
             The jitter to add to the diagonal of A in case A is only p.s.d. If omitted, chosen
-            as 1e-5 (float) or 1e-7 (double)
+            as 1e-6 (float) or 1e-8 (double)
     """
     try:
         L = torch.cholesky(A, upper=upper, out=out)
@@ -106,7 +106,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
                 raise RuntimeError
     except RuntimeError:
         if jitter is None:
-            jitter = 1e-5 if A.dtype == torch.float32 else 1e-7
+            jitter = 1e-6 if A.dtype == torch.float32 else 1e-8
         idx = torch.arange(A.shape[-1], device=A.device)
         Aprime = A.clone()
         Aprime[..., idx, idx] += jitter
