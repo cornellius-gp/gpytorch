@@ -6,9 +6,8 @@ from .. import settings
 
 
 class InvMatmul(Function):
-    def __init__(self, representation_tree, preconditioner=None, has_left=False):
+    def __init__(self, representation_tree, has_left=False):
         self.representation_tree = representation_tree
-        self.preconditioner = preconditioner
         self.has_left = has_left
 
     def forward(self, *args):
@@ -21,6 +20,9 @@ class InvMatmul(Function):
             right_tensor, *matrix_args = args
         orig_right_tensor = right_tensor
         lazy_tsr = self.representation_tree(*matrix_args)
+
+        with torch.no_grad():
+            self.preconditioner = lazy_tsr.detach()._inv_matmul_preconditioner()
 
         self.is_vector = False
         if right_tensor.ndimension() == 1:

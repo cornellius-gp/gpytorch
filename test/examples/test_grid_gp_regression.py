@@ -12,14 +12,14 @@ from torch import optim
 
 def make_data(grid, cuda=False):
     train_x = gpytorch.utils.grid.create_data_from_grid(grid)
-    train_y = torch.sin((train_x[:, 0] + train_x[:, 1]) * (2 * math.pi)) + torch.randn_like(train_x[:, 0]).mul(0.01)
+    train_y = torch.sin((train_x.sum(-1)) * (2 * math.pi)) + torch.randn_like(train_x[:, 0]).mul(0.01)
     n = 20
     test_x = torch.zeros(int(pow(n, 2)), 2)
     for i in range(n):
         for j in range(n):
             test_x[i * n + j][0] = float(i) / (n - 1)
             test_x[i * n + j][1] = float(j) / (n - 1)
-    test_y = torch.sin(((test_x[:, 0] + test_x[:, 1]) * (2 * math.pi)))
+    test_y = torch.sin(((test_x.sum(-1)) * (2 * math.pi)))
     if cuda:
         train_x = train_x.cuda()
         train_y = train_y.cuda()
@@ -53,9 +53,9 @@ class TestGridGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_grid_gp_mean_abs_error(self, cuda=False):
+    def test_grid_gp_mean_abs_error(self, num_dim=1, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
-        grid_bounds = [(0, 1), (0, 2)]
+        grid_bounds = [(0, 1)] if num_dim == 1 else [(0, 1), (0, 2)]
         grid_size = 25
         grid = torch.zeros(grid_size, len(grid_bounds), device=device)
         for i in range(len(grid_bounds)):
@@ -107,6 +107,13 @@ class TestGridGPRegression(unittest.TestCase):
     def test_grid_gp_mean_abs_error_cuda(self):
         if torch.cuda.is_available():
             self.test_grid_gp_mean_abs_error(cuda=True)
+
+    def test_grid_gp_mean_abs_error_2d(self):
+        self.test_grid_gp_mean_abs_error(num_dim=2)
+
+    def test_grid_gp_mean_abs_error_2d_cuda(self):
+        if torch.cuda.is_available():
+            self.test_grid_gp_mean_abs_error(cuda=True, num_dim=2)
 
 
 if __name__ == "__main__":

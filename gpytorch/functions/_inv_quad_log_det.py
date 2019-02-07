@@ -71,8 +71,8 @@ class InvQuadLogDet(Function):
 
         # Get closure for matmul
         lazy_tsr = self.representation_tree(*matrix_args)
-        preconditioner = lazy_tsr._preconditioner()[0]
-        logdet_correction = lazy_tsr._preconditioner()[1]
+        with torch.no_grad():
+            preconditioner, logdet_correction = lazy_tsr.detach()._preconditioner()
 
         # Collect terms for LinearCG
         # We use LinearCG for both matrix solves and for stochastically estimating the log det

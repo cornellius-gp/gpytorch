@@ -681,7 +681,6 @@ class LazyTensor(object):
 
         func = InvMatmul(
             self.representation_tree(),
-            preconditioner=self._inv_matmul_preconditioner(),
             has_left=(left_tensor is not None),
         )
         if left_tensor is None:
