@@ -1029,21 +1029,20 @@ class LazyTensor(object):
             or settings.fast_computations.covar_root_decomposition.off()
         ):
             try:
-                res = psd_safe_cholesky(self.evaluate())
+                return RootLazyTensor(psd_safe_cholesky(self.evaluate()))
             except RuntimeError as e:
                 warnings.warn(
                     "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
                 )
-        else:
-            res, _ = RootDecomposition(
-                self.representation_tree(),
-                max_iter=self.root_decomposition_size(),
-                dtype=self.dtype,
-                device=self.device,
-                batch_shape=self.batch_shape,
-                matrix_shape=self.matrix_shape,
-            )(*self.representation())
 
+        res, _ = RootDecomposition(
+            self.representation_tree(),
+            max_iter=self.root_decomposition_size(),
+            dtype=self.dtype,
+            device=self.device,
+            batch_shape=self.batch_shape,
+            matrix_shape=self.matrix_shape,
+        )(*self.representation())
         return RootLazyTensor(res)
 
     @cached

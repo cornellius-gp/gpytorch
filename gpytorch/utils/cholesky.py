@@ -95,7 +95,8 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
         :attr:`out` (Tensor, optional):
             See torch.cholesky
         :attr:`jitter` (float, optional):
-            The jitter to add to the diagonal of A in case A is only p.s.d. If omitted, chosen as 1e-5 (float) or 1e-7 (double)
+            The jitter to add to the diagonal of A in case A is only p.s.d. If omitted, chosen
+            as 1e-5 (float) or 1e-7 (double)
     """
     try:
         L = torch.cholesky(A, upper=upper, out=out)
