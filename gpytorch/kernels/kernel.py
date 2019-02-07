@@ -8,7 +8,6 @@ from ..module import Module
 from .. import settings
 from ..utils.transforms import _get_inv_param_transform
 from torch.nn.functional import softplus
-from numpy import triu_indices
 
 
 @torch.jit.script
@@ -218,16 +217,6 @@ class Kernel(Module):
                 * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
         """
         raise NotImplementedError()
-
-    def __pdist_dist(self, x1):
-        # Compute squared distance matrix using torch.pdist
-        dists = torch.pdist(x1)
-        inds_l, inds_r = triu_indices(x1.shape[-2], 1)
-        res = torch.zeros(*x1.shape[:-2], x1.shape[-2], x1.shape[-2], dtype=x1.dtype, device=x1.device)
-        res[..., inds_l, inds_r] = dists
-        res[..., inds_r, inds_l] = dists
-
-        return res
 
     @torch.jit.script_method
     def _postprocess(self, dist_mat):
