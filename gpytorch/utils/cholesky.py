@@ -42,3 +42,10 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
 
     if out is None:
         return L
+
+
+def cholesky_solve(b, u, upper=False):
+    if hasattr(torch, "cholesky_solve"):
+        return torch.cholesky_solve(b, u, upper=False)
+    else:
+        return torch.potrs(b, u, upper=False)

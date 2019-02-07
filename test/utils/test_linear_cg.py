@@ -6,6 +6,7 @@ import torch
 import unittest
 from test._utils import approx_equal
 from gpytorch.utils.linear_cg import linear_cg
+from gpytorch.utils.cholesky import cholesky_solve
 
 
 class TestLinearCG(unittest.TestCase):
@@ -32,8 +33,8 @@ class TestLinearCG(unittest.TestCase):
         solves = linear_cg(matrix.matmul, rhs=rhs, max_iter=size)
 
         # Check cg
-        matrix_chol = matrix.cholesky(upper=True)
-        actual = torch.potrs(rhs, matrix_chol)
+        matrix_chol = matrix.cholesky()
+        actual = cholesky_solve(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
     def test_cg_with_tridiag(self):
@@ -49,8 +50,8 @@ class TestLinearCG(unittest.TestCase):
         )
 
         # Check cg
-        matrix_chol = matrix.cholesky(upper=True)
-        actual = torch.potrs(rhs, matrix_chol)
+        matrix_chol = matrix.cholesky()
+        actual = cholesky_solve(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
         # Check tridiag
@@ -71,8 +72,8 @@ class TestLinearCG(unittest.TestCase):
         solves = linear_cg(matrix.matmul, rhs=rhs, max_iter=size)
 
         # Check cg
-        matrix_chol = torch.cholesky(matrix, upper=True)
-        actual = torch.potrs(rhs, matrix_chol)
+        matrix_chol = torch.cholesky(matrix)
+        actual = cholesky_solve(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
     def test_batch_cg_with_tridiag(self):
@@ -89,8 +90,8 @@ class TestLinearCG(unittest.TestCase):
         )
 
         # Check cg
-        matrix_chol = torch.cholesky(matrix, upper=True)
-        actual = torch.potrs(rhs, matrix_chol)
+        matrix_chol = torch.cholesky(matrix)
+        actual = cholesky_solve(rhs, matrix_chol)
         self.assertTrue(approx_equal(solves, actual))
 
         # Check tridiag
