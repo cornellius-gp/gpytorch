@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 from .module import Module
 from . import (
     beta_features,
@@ -36,9 +35,10 @@ from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 from .lazy import lazify, delazify
 
 
+__version__ = "0.1.1"
+
 # Old deprecated stuff
 fast_pred_var = beta_features._moved_beta_feature(settings.fast_pred_var, "gpytorch.settings.fast_pred_var")
-
 
 __all__ = [
     # Submodules
@@ -74,6 +74,8 @@ __all__ = [
     # Context managers
     "beta_features",
     "settings",
+    # Other
+    "__version__",
     # Deprecated
     "fast_pred_var",
     "inv_quad_log_det",
