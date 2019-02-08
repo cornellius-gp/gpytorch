@@ -7,6 +7,7 @@ from ..distributions import MultivariateNormal
 from ..lazy import InterpolatedLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached
+from ..utils.cholesky import cholesky_solve
 
 
 _PREDICTION_STRATEGY_REGISTRY = {}
@@ -141,10 +142,10 @@ class DefaultPredictionStrategy(object):
         small_system_rhs = targets - fant_mean - fant_train_covar.matmul(self.mean_cache)
         # Schur complement of a spd matrix is guaranteed to be positive definite
         if small_system_rhs.requires_grad or schur_complement.requires_grad:
-            # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
+            # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
             fant_cache_lower = torch.gesv(small_system_rhs.unsqueeze(-1), schur_complement)[0]
         else:
-            fant_cache_lower = torch.potrs(small_system_rhs, torch.cholesky(schur_complement, upper=True))
+            fant_cache_lower = cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
 
         # Get "a", the new upper portion of the cache corresponding to the old training points.
         fant_cache_upper = self.mean_cache.unsqueeze(-1) - fant_solve.matmul(fant_cache_lower)
@@ -196,10 +197,10 @@ class DefaultPredictionStrategy(object):
         # one of torch.svd, torch.qr, or torch.pinverse works in batch mode.
         cap_mat = new_root.transpose(-2, -1).matmul(new_root)
         if cap_mat.requires_grad or new_root.requires_grad:
-            # TODO: Delete this part of the if statement when PyTorch implements potrs derivative.
+            # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
             new_covar_cache = torch.gesv(new_root.transpose(-2, -1), cap_mat)[0].transpose(-2, -1)
         else:
-            new_covar_cache = torch.potrs(new_root.transpose(-2, -1), torch.cholesky(cap_mat, upper=True))
+            new_covar_cache = cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
             new_covar_cache = new_covar_cache.transpose(-2, -1)
 
         # Create new DefaultPredictionStrategy object
