@@ -134,6 +134,48 @@ class TestSimpleGPRegression(unittest.TestCase):
         if torch.cuda.is_available():
             self.test_posterior_latent_gp_and_likelihood_without_optimization(cuda=True)
 
+    def test_gp_posterior_mean_skip_variances_fast_cuda(self):
+        if torch.cuda.is_available():
+            train_x, test_x, train_y, _ = self._get_data(cuda=True)
+            likelihood = GaussianLikelihood()
+            gp_model = ExactGPModel(train_x, train_y, likelihood)
+
+            gp_model.cuda()
+            likelihood.cuda()
+
+            # Compute posterior distribution
+            gp_model.eval()
+            likelihood.eval()
+
+            with gpytorch.settings.skip_posterior_variances(True):
+                mean_skip_var = gp_model(test_x).mean
+            mean = gp_model(test_x).mean
+            likelihood_mean = likelihood(gp_model(test_x)).mean
+
+            self.assertTrue(torch.allclose(mean_skip_var, mean))
+            self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
+
+    def test_gp_posterior_mean_skip_variances_slow_cuda(self):
+        if torch.cuda.is_available():
+            train_x, test_x, train_y, _ = self._get_data(cuda=True)
+            likelihood = GaussianLikelihood()
+            gp_model = ExactGPModel(train_x, train_y, likelihood)
+
+            gp_model.cuda()
+            likelihood.cuda()
+
+            # Compute posterior distribution
+            gp_model.eval()
+            likelihood.eval()
+
+            with gpytorch.settings.fast_pred_var(False):
+                with gpytorch.settings.skip_posterior_variances(True):
+                    mean_skip_var = gp_model(test_x).mean
+                mean = gp_model(test_x).mean
+                likelihood_mean = likelihood(gp_model(test_x)).mean
+            self.assertTrue(torch.allclose(mean_skip_var, mean))
+            self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
+
     def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
         # We're manually going to set the hyperparameters to something they shouldn't be
@@ -173,7 +215,8 @@ class TestSimpleGPRegression(unittest.TestCase):
         # Test the model
         gp_model.eval()
         likelihood.eval()
-        test_function_predictions = likelihood(gp_model(test_x))
+        with gpytorch.settings.skip_posterior_variances(True):
+            test_function_predictions = likelihood(gp_model(test_x))
         mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean))
 
         self.assertLess(mean_abs_error.item(), 0.05)
