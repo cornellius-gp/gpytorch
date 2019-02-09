@@ -2,7 +2,6 @@
 
 import torch
 import warnings
-from .non_lazy_tensor import lazify
 from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 from ..utils import pivoted_cholesky
