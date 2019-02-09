@@ -72,12 +72,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 self._piv_chol_self.transpose(-2, -1).div(self._diag_tensor.diag().unsqueeze(-1))
             )
             lr_flipped = lr_flipped + torch.eye(n=lr_flipped.size(-2), dtype=lr_flipped.dtype, device=lr_flipped.device)
-            if lr_flipped.ndimension() == 3:
-                ld_one = (lazify(torch.cholesky(lr_flipped, upper=True)).diag().log().sum(-1)) * 2
-                ld_two = self._diag_tensor.diag().log().sum(-1)
-            else:
-                ld_one = lr_flipped.cholesky(upper=True).diag().log().sum() * 2
-                ld_two = self._diag_tensor.diag().log().sum().item()
+            ld_one = lr_flipped.cholesky(upper=True).diagonal(dim1=-1, dim2=-2).log().sum(-1) * 2
+            ld_two = self._diag_tensor.diag().log().sum(-1)
             self._precond_logdet_cache = ld_one + ld_two
 
         return precondition_closure, self._precond_logdet_cache
