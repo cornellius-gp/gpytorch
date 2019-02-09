@@ -12,6 +12,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
 from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy
+from .._utils import least_used_cuda_device
 
 
 def train_data(cuda=False):
@@ -91,7 +92,9 @@ class TestSVGPRegression(unittest.TestCase):
         return self.test_regression_error(skip_logdet_forward=True)
 
     def test_regression_error_cuda(self):
-        if torch.cuda.is_available():
+        if not torch.cuda.is_available():
+            return None
+        with least_used_cuda_device():
             train_x, train_y = train_data(cuda=True)
             likelihood = GaussianLikelihood().cuda()
             model = SVGPRegressionModel(torch.linspace(0, 1, 25)).cuda()
