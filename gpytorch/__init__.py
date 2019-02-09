@@ -35,7 +35,7 @@ from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 from .lazy import lazify, delazify
 
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 # Old deprecated stuff
 fast_pred_var = beta_features._moved_beta_feature(settings.fast_pred_var, "gpytorch.settings.fast_pred_var")

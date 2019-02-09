@@ -24,9 +24,8 @@ def find_version(*file_paths):
     raise RuntimeError("Unable to find version string.")
 
 
-readme = open('README.md').read()
-version = find_version('gpytorch', '__init__.py')
-
+readme = open("README.md").read()
+version = find_version("gpytorch", "__init__.py")
 
 # See if we have the development version of pytorch installed
 # We will skip installing the stable version of PyTOrch if this is true
@@ -37,13 +36,14 @@ except ImportError:
     has_dev_pytorch = False
 
 # Base equirements
-with open("requirements.txt", "r") as f:
-    install_requires = f.read().strip().split("\n")
-    if has_dev_pytorch:  # Remove the PyTorch requirement
-        install_requires = [
-            install_require for install_require in install_requires
-            if "torch" != re.split(r"(=|<|>)", install_require)[0]
-        ]
+install_requires = [
+    "torch>=1.0.0",
+]
+if has_dev_pytorch:  # Remove the PyTorch requirement
+    install_requires = [
+        install_require for install_require in install_requires
+        if "torch" != re.split(r"(=|<|>)", install_require)[0]
+    ]
 
 # Run the setup
 setup(

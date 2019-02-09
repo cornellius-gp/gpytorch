@@ -2,5 +2,4 @@ name: gpytorch
 channels:
   - pytorch
 dependencies:
-  - pytorch-nightly
-  - torchvision
+  - pytorch
