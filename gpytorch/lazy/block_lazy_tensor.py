@@ -13,7 +13,7 @@ class BlockLazyTensor(LazyTensor):
     (e.g. block diagonal, sum over blocks, etc.)
 
     BlockLazyTensors represent the groups of blocks as a batched Tensor.
-    The :attr:`block_dim` attribute specifies which dimension of the base LazyTensor
+    The :attr:block_dim` attribute specifies which dimension of the base LazyTensor
     specifies the blocks.
     For example, (with `block_dim=-3` a `k x n x n` tensor represents `k` `n x n` blocks.
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks.
@@ -32,29 +32,30 @@ class BlockLazyTensor(LazyTensor):
                 "{}".format(base_lazy_tensor.dim())
             )
 
-        # Make sure block_dim is positive
-        block_dim = block_dim if block_dim < 0 else (block_dim - base_lazy_tensor.dim())
+        # Make sure block_dim is negative
+        block_dim = block_dim if block_dim < 0 else (block_dim - base_lazy_tensor.dim() - 1)
 
-        super(BlockLazyTensor, self).__init__(lazify(base_lazy_tensor), block_dim=block_dim)
+        # Everything is MUCH easier to write if the last batch dimension is the block dimension
+        # I.e. blopck_dim = -3
+        # We'll permute the dimensions if this is not the case
+        if block_dim != -3:
+            positive_block_dim = base_lazy_tensor.dim() + block_dim
+            base_lazy_tensor = base_lazy_tensor._permute_batch(
+                *range(positive_block_dim), *range(positive_block_dim + 1, base_lazy_tensor.dim() - 2),
+                positive_block_dim
+            )
+
+        super(BlockLazyTensor, self).__init__(lazify(base_lazy_tensor))
         self.base_lazy_tensor = base_lazy_tensor
-        self.block_dim = block_dim
-
-    @property
-    def _positive_block_dim(self):
-        """
-        The block dimension - in positive number format
-        """
-        return self.base_lazy_tensor.dim() + self.block_dim
 
     @abstractmethod
     def _add_batch_dim(self, other):
         raise NotImplementedError
 
     def _expand_batch(self, batch_shape):
-        batch_shape = list(batch_shape)
-        batch_shape.insert(self._positive_block_dim, self.base_lazy_tensor.size(self._positive_block_dim))
-        batch_shape = torch.Size(batch_shape)
-        return self.__class__(self.base_lazy_tensor._expand_batch(batch_shape), block_dim=self.block_dim)
+        batch_shape = torch.Size((*batch_shape, self.base_lazy_tensor.size(-3)))
+        res = self.__class__(self.base_lazy_tensor._expand_batch(batch_shape))
+        return res
 
     def _matmul(self, rhs):
         isvector = rhs.ndimension() == 1
@@ -78,14 +79,13 @@ class BlockLazyTensor(LazyTensor):
         res = self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
         return res
 
+    def _permute_batch(self, *dims):
+        res = self.__class__(self.base_lazy_tensor._permute_batch(*dims, self.base_lazy_tensor.dim() - 3))
+        return res
+
     def _unsqueeze_batch(self, dim):
-        if dim > self._positive_block_dim:
-            base_lazy_tensor = self.base_lazy_tensor._unsqueeze_batch(dim + 1)
-            block_dim = self._positive_block_dim
-        else:
-            base_lazy_tensor = self.base_lazy_tensor._unsqueeze_batch(dim)
-            block_dim = self.block_dim
-        res = self.__class__(base_lazy_tensor, block_dim=block_dim)
+        base_lazy_tensor = self.base_lazy_tensor._unsqueeze_batch(dim)
+        res = self.__class__(base_lazy_tensor)
         return res
 
     @abstractmethod
@@ -96,10 +96,10 @@ class BlockLazyTensor(LazyTensor):
         # We're using a custom method here - the constant mul is applied to the base_lazy tensor
         # This preserves the block structure
         from .constant_mul_lazy_tensor import ConstantMulLazyTensor
-        return self.__class__(ConstantMulLazyTensor(self.base_lazy_tensor, other), block_dim=self.block_dim)
+        return self.__class__(ConstantMulLazyTensor(self.base_lazy_tensor, other))
 
     def _transpose_nonbatch(self):
-        return self.__class__(self.base_lazy_tensor._transpose_nonbatch(), block_dim=self.block_dim)
+        return self.__class__(self.base_lazy_tensor._transpose_nonbatch())
 
     def zero_mean_mvn_samples(self, num_samples):
         res = self.base_lazy_tensor.zero_mean_mvn_samples(num_samples)

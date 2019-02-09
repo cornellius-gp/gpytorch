@@ -26,33 +26,28 @@ class BlockDiagLazyTensor(BlockLazyTensor):
     """
     @property
     def num_blocks(self):
-        return self.base_lazy_tensor.size(self.block_dim)
+        return self.base_lazy_tensor.size(-3)
 
     def _add_batch_dim(self, other):
         *batch_shape, num_rows, num_cols = other.shape
         batch_shape = list(batch_shape)
 
-        if self.block_dim == -3:
-            batch_shape.append(self.num_blocks)
-        else:
-            insert_dim = self.block_dim + 3
-            batch_shape.insert(insert_dim, self.num_blocks)
-        other = other.contiguous().view(*batch_shape, num_rows // self.num_blocks, num_cols)
+        batch_shape.append(self.num_blocks)
+        other = other.view(*batch_shape, num_rows // self.num_blocks, num_cols)
         return other
 
     def _remove_batch_dim(self, other):
         shape = list(other.shape)
-
-        del shape[self.block_dim]
+        del shape[-3]
         shape[-2] *= self.num_blocks
         other = other.contiguous().view(*shape)
         return other
 
     def _size(self):
         shape = list(self.base_lazy_tensor.shape)
-        shape[-2] *= shape[self.block_dim]
-        shape[-1] *= shape[self.block_dim]
-        del shape[self.block_dim]
+        shape[-2] *= shape[-3]
+        shape[-1] *= shape[-3]
+        del shape[-3]
         return torch.Size(shape)
 
     def diag(self):
@@ -68,19 +63,19 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         if inv_quad_res is not None and inv_quad_res.numel():
             if reduce_inv_quad:
                 inv_quad_res = inv_quad_res.view(*self.base_lazy_tensor.batch_shape)
-                inv_quad_res = inv_quad_res.sum(self._positive_block_dim)
+                inv_quad_res = inv_quad_res.sum(-1)
             else:
                 inv_quad_res = inv_quad_res.view(*self.base_lazy_tensor.batch_shape, inv_quad_res.size(-1))
-                inv_quad_res = inv_quad_res.sum(self._positive_block_dim)
+                inv_quad_res = inv_quad_res.sum(-2)
         if logdet_res is not None and logdet_res.numel():
-            logdet_res = logdet_res.view(*logdet_res.shape).sum(self._positive_block_dim)
+            logdet_res = logdet_res.view(*logdet_res.shape).sum(-1)
         return inv_quad_res, logdet_res
 
     @cached(name="root_decomposition")
     def root_decomposition(self):
         if settings.fast_computations.covar_root_decomposition.on():
-            res = self.__class__(self.base_lazy_tensor.root_decomposition().root, block_dim=self.block_dim)
+            res = self.__class__(self.base_lazy_tensor.root_decomposition().root)
         else:
             chol = psd_safe_cholesky(self.base_lazy_tensor.evaluate())
-            res = self.__class__(NonLazyTensor(chol), block_dim=self.block_dim)
+            res = self.__class__(NonLazyTensor(chol))
         return RootLazyTensor(res)

@@ -3,15 +3,15 @@
 import math
 import os
 import random
-from abc import abstractmethod
-from itertools import product
+from abc import ABC, abstractmethod
+from itertools import product, combinations
 from test._utils import approx_equal
 
 import gpytorch
 import torch
 
 
-class RectangularLazyTensorTestCase(object):
+class RectangularLazyTensorTestCase(ABC):
     @abstractmethod
     def create_lazy_tensor(self):
         raise NotImplementedError()
@@ -603,3 +603,14 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             samples = lazy_tensor.zero_mean_mvn_samples(50000)
             sample_covar = samples.unsqueeze(-1).matmul(samples.unsqueeze(-2)).mean(0)
             self.assertLess(((sample_covar - evaluated).abs() / evaluated.abs().clamp(1, math.inf)).max().item(), 3e-1)
+
+    def test_transpose_batch(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        if lazy_tensor.dim() >= 4:
+            for i, j in combinations(range(lazy_tensor.dim() - 2), 2):
+                res = lazy_tensor.transpose(i, j).evaluate()
+                actual = evaluated.transpose(i, j)
+                diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
+                self.assertLess(diff.max().item(), 15e-2)
