@@ -2,6 +2,7 @@
 
 import math
 import warnings
+from abc import ABC, abstractmethod
 
 import gpytorch
 import torch
@@ -22,7 +23,7 @@ from ..utils.svd import batch_svd
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
-class LazyTensor(object):
+class LazyTensor(ABC):
     """
     Base class for LazyTensors in GPyTorch.
 
@@ -63,7 +64,14 @@ class LazyTensor(object):
         LazyTensor may be (for example) :math:`b \times n \times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
     """
+    def __init__(self, *args, **kwargs):
+        self._args = args
+        self._kwargs = kwargs
 
+    ####
+    # The following methods need to be defined by the LazyTensor
+    ####
+    @abstractmethod
     def _matmul(self, rhs):
         """
         Performs a matrix multiplication :math:`KM` with the matrix :math:`K` that this LazyTensor represents. Should
@@ -83,98 +91,7 @@ class LazyTensor(object):
         """
         raise NotImplementedError("The class {} requires a _matmul function!".format(self.__class__.__name__))
 
-    def _mul_constant(self, other):
-        """
-        Multiplies the LazyTensor by a costant.
-
-        ..note::
-            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.mul`,
-            which does some additional work. Calling this method directly is discouraged.
-
-        Returns:
-            :obj:`gpytorch.lazy.LazyTensor`
-        """
-        from .constant_mul_lazy_tensor import ConstantMulLazyTensor
-        return ConstantMulLazyTensor(self, other)
-
-    def _mul_matrix(self, other):
-        """
-        Multiplies the LazyTensor by a (batch of) matrices.
-
-        ..note::
-            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.mul`,
-            which does some additional work. Calling this method directly is discouraged.
-
-        Returns:
-            :obj:`gpytorch.lazy.LazyTensor`
-        """
-        from .mul_lazy_tensor import MulLazyTensor
-        return MulLazyTensor(self, other).evaluate_kernel()
-
-    def _probe_vectors_and_norms(self):
-        return None, None
-
-    def _prod_batch(self, dim):
-        """
-        Multiply the LazyTensor across a batch dimension (supplied as a positive number).
-
-        ..note::
-            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.prod`,
-            which does some additional work. Calling this method directly is discouraged.
-
-        Returns:
-            :obj:`gpytorch.lazy.LazyTensor`
-        """
-        from .mul_lazy_tensor import MulLazyTensor
-        from .root_lazy_tensor import RootLazyTensor
-
-        if self.size(dim) == 1:
-            return self.squeeze(dim)
-
-        roots = self.root_decomposition().root.evaluate()
-        num_batch = roots.size(dim)
-
-        while True:
-            # Take care of extra roots (odd roots), if they exist
-            if num_batch % 2:
-                shape = list(roots.shape)
-                shape[dim] = 1
-                extra_root = (
-                    torch.randn(shape).mul_(1e-6 / math.sqrt(roots.size(dim))).add_(1.0 / math.sqrt(roots.size(dim)))
-                )
-                roots = torch.cat([roots, extra_root], dim)
-                num_batch += 1
-
-            # Divide and conqour
-            # Assumes that there's an even number of roots
-            part1_index = [_noop_index] * roots.dim()
-            part1_index[dim] = slice(None, num_batch // 2, None)
-            part1 = roots[tuple(part1_index)].contiguous()
-            part2_index = [_noop_index] * roots.dim()
-            part2_index[dim] = slice(num_batch // 2, None, None)
-            part2 = roots[tuple(part2_index)].contiguous()
-
-            if num_batch // 2 == 1:
-                part1 = part1.squeeze(dim)
-                part2 = part2.squeeze(dim)
-                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2))
-                break
-            else:
-                roots = res.root_decomposition().root.evaluate()
-                num_batch = num_batch // 2
-
-        return res
-
-    def _solve(self, rhs, preconditioner, num_tridiag=None):
-        return linear_cg(
-            self._matmul,
-            rhs,
-            n_tridiag=num_tridiag,
-            max_iter=settings.max_cg_iterations.value(),
-            max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
-            preconditioner=preconditioner,
-        )
-
+    @abstractmethod
     def _size(self):
         """
         Returns the size of the resulting Tensor that the lazy tensor represents.
@@ -188,20 +105,7 @@ class LazyTensor(object):
         """
         raise NotImplementedError("The class {} requires a _size function!".format(self.__class__.__name__))
 
-    def _sum_batch(self, dim):
-        """
-        Sum the LazyTensor across a batch dimension (supplied as a positive number).
-
-        ..note::
-            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.sum`,
-            which does some additional work. Calling this method directly is discouraged.
-
-        Returns:
-            :obj:`gpytorch.lazy.LazyTensor`
-        """
-        from .sum_batch_lazy_tensor import SumBatchLazyTensor
-        return SumBatchLazyTensor(self, block_dim=dim)
-
+    @abstractmethod
     def _transpose_nonbatch(self):
         """
         Transposes non-batch dimensions (e.g. last two)
@@ -215,62 +119,37 @@ class LazyTensor(object):
             "The class {} requires a _transpose_nonbatch function!".format(self.__class__.__name__)
         )
 
-    def _unsqueeze_batch(self, dim):
+    ####
+    # The following methods MIGHT have be over-written by LazyTensor subclasses
+    # if the LazyTensor does weird things with the batch dimensions
+    ####
+    def _permute_batch(self, *dims):
         """
-        Unsqueezes a batch dimension (positive-indexed only)
+        Permute the batch dimensions.
         This probably won't have to be overwritten by LazyTensors, unless they use batch dimensions
         in a special way (e.g. BlockDiagLazyTensor, SumBatchLazyTensor)
 
         ..note::
             This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.unsqueeze`,
             which does some additional work. Calling this method directly is discouraged.
+
+        Args:
+            dims (tuple of ints):
+                The new order for the `self.dim() - 2` dimensions.
+                It WILL contain each of the positive batch dimensions exactly once.
         """
-        components = [component.unsqueeze(dim) for component in self._args]
+        components = []
+        for component in self._args:
+            if torch.is_tensor(component):
+                extra_dims = range(len(dims), component.dim())
+                components.append(component.permute(*dims, *extra_dims))
+            elif isinstance(component, LazyTensor):
+                components.append(component._permute_batch(*dims))
+            else:
+                components.append(component)
+
         res = self.__class__(*components, **self._kwargs)
         return res
-
-    def __init__(self, *args, **kwargs):
-        self._args = args
-        self._kwargs = kwargs
-
-    @property
-    def _args(self):
-        return self._args_memo
-
-    @_args.setter
-    def _args(self, args):
-        self._args_memo = args
-
-    def _approx_diag(self):
-        """
-        (Optional) returns an (approximate) diagonal of the matrix
-
-        Sometimes computing an exact diagonal is a bit computationally slow
-        When we don't need an exact diagonal (e.g. for the pivoted cholesky
-        decomposition, this function is called
-
-        Defaults to calling the exact diagonal function
-
-        Returns:
-            tensor: - the diagonal (or batch of diagonals)
-        """
-        return self.diag()
-
-    def _expand_batch(self, batch_shape):
-        """
-        Expands along batch dimensions.
-        This probably won't have to be overwritten by LazyTensors, unless they use batch dimensions
-        in a special way (e.g. BlockDiagLazyTensor, SumBatchLazyTensor)
-
-        ..note::
-            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.expand`,
-            which does some additional work. Calling this method directly is discouraged.
-        """
-        current_shape = torch.Size([1 for _ in range(len(batch_shape) - self.dim() - 2)] + list(self.batch_shape))
-        batch_repeat = torch.Size(
-            [expand_size // current_size for expand_size, current_size in zip(batch_shape, current_shape)]
-        )
-        return self.repeat(*batch_repeat, 1, 1)
 
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
         """
@@ -380,45 +259,38 @@ class LazyTensor(object):
 
         return res
 
-    def _inv_matmul_preconditioner(self):
+    def _unsqueeze_batch(self, dim):
         """
-        (Optional) define a preconditioner that can be used for linear systems, but not necessarily
-        for log determinants. By default, this can call :meth:`~gpytorch.lazy.LazyTensor._preconditioner`.
+        Unsqueezes a batch dimension (positive-indexed only)
+        This probably won't have to be overwritten by LazyTensors, unless they use batch dimensions
+        in a special way (e.g. BlockDiagLazyTensor, SumBatchLazyTensor)
 
-        Returns:
-            function: a function on x which performs P^{-1}(x)
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.unsqueeze`,
+            which does some additional work. Calling this method directly is discouraged.
         """
-        base_precond, _ = self._preconditioner()
+        components = [component.unsqueeze(dim) for component in self._args]
+        res = self.__class__(*components, **self._kwargs)
+        return res
 
-        if base_precond is not None:
-            return base_precond
-        elif gpytorch.beta_features.default_preconditioner.on():
-            if hasattr(self, "_default_preconditioner_cache"):
-                U, S, V = self._default_preconditioner_cache
-            else:
-                precond_basis_size = min(gpytorch.settings.max_preconditioner_size.value(), self.size(-1))
-                random_basis = torch.randn(
-                    self.batch_shape + torch.Size((self.size(-2), precond_basis_size)),
-                    device=self.device,
-                    dtype=self.dtype,
-                )
-                projected_mat = self._matmul(random_basis)
-                proj_q = batch_qr(projected_mat)
-                orthog_projected_mat = self._matmul(proj_q).transpose(-2, -1)
-                U, S, V = batch_svd(orthog_projected_mat)
-                U = proj_q.matmul(U)
+    ####
+    # The following methods PROBABLY should be over-written by LazyTensor subclasses for efficiency
+    ####
+    def _expand_batch(self, batch_shape):
+        """
+        Expands along batch dimensions.
+        This probably won't have to be overwritten by LazyTensors, unless they use batch dimensions
+        in a special way (e.g. BlockDiagLazyTensor, SumBatchLazyTensor)
 
-                self._default_preconditioner_cache = (U, S, V)
-
-            def preconditioner(v):
-                res = V.transpose(-2, -1).matmul(v)
-                res = (1 / S).unsqueeze(-1) * res
-                res = U.matmul(res)
-                return res
-
-            return preconditioner
-        else:
-            return None
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.expand`,
+            which does some additional work. Calling this method directly is discouraged.
+        """
+        current_shape = torch.Size([1 for _ in range(len(batch_shape) - self.dim() - 2)] + list(self.batch_shape))
+        batch_repeat = torch.Size(
+            [expand_size // current_size for expand_size, current_size in zip(batch_shape, current_shape)]
+        )
+        return self.repeat(*batch_repeat, 1, 1)
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         """
@@ -459,6 +331,100 @@ class LazyTensor(object):
 
         return grads
 
+    ####
+    # Standard LazyTensor methods
+    ####
+    @property
+    def _args(self):
+        return self._args_memo
+
+    @_args.setter
+    def _args(self, args):
+        self._args_memo = args
+
+    def _approx_diag(self):
+        """
+        (Optional) returns an (approximate) diagonal of the matrix
+
+        Sometimes computing an exact diagonal is a bit computationally slow
+        When we don't need an exact diagonal (e.g. for the pivoted cholesky
+        decomposition, this function is called
+
+        Defaults to calling the exact diagonal function
+
+        Returns:
+            tensor: - the diagonal (or batch of diagonals)
+        """
+        return self.diag()
+
+    def _inv_matmul_preconditioner(self):
+        """
+        (Optional) define a preconditioner that can be used for linear systems, but not necessarily
+        for log determinants. By default, this can call :meth:`~gpytorch.lazy.LazyTensor._preconditioner`.
+
+        Returns:
+            function: a function on x which performs P^{-1}(x)
+        """
+        base_precond, _ = self._preconditioner()
+
+        if base_precond is not None:
+            return base_precond
+        elif gpytorch.beta_features.default_preconditioner.on():
+            if hasattr(self, "_default_preconditioner_cache"):
+                U, S, V = self._default_preconditioner_cache
+            else:
+                precond_basis_size = min(gpytorch.settings.max_preconditioner_size.value(), self.size(-1))
+                random_basis = torch.randn(
+                    self.batch_shape + torch.Size((self.size(-2), precond_basis_size)),
+                    device=self.device,
+                    dtype=self.dtype,
+                )
+                projected_mat = self._matmul(random_basis)
+                proj_q = batch_qr(projected_mat)
+                orthog_projected_mat = self._matmul(proj_q).transpose(-2, -1)
+                U, S, V = batch_svd(orthog_projected_mat)
+                U = proj_q.matmul(U)
+
+                self._default_preconditioner_cache = (U, S, V)
+
+            def preconditioner(v):
+                res = V.transpose(-2, -1).matmul(v)
+                res = (1 / S).unsqueeze(-1) * res
+                res = U.matmul(res)
+                return res
+
+            return preconditioner
+        else:
+            return None
+
+    def _mul_constant(self, other):
+        """
+        Multiplies the LazyTensor by a costant.
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.mul`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`gpytorch.lazy.LazyTensor`
+        """
+        from .constant_mul_lazy_tensor import ConstantMulLazyTensor
+        return ConstantMulLazyTensor(self, other)
+
+    def _mul_matrix(self, other):
+        """
+        Multiplies the LazyTensor by a (batch of) matrices.
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.mul`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`gpytorch.lazy.LazyTensor`
+        """
+        from .mul_lazy_tensor import MulLazyTensor
+        return MulLazyTensor(self, other).evaluate_kernel()
+
     def _preconditioner(self):
         """
         (Optional) define a preconditioner (P) for linear conjugate gradients
@@ -468,6 +434,84 @@ class LazyTensor(object):
             scalar: the log determinant of P
         """
         return None, None
+
+    def _probe_vectors_and_norms(self):
+        return None, None
+
+    def _prod_batch(self, dim):
+        """
+        Multiply the LazyTensor across a batch dimension (supplied as a positive number).
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.prod`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`gpytorch.lazy.LazyTensor`
+        """
+        from .mul_lazy_tensor import MulLazyTensor
+        from .root_lazy_tensor import RootLazyTensor
+
+        if self.size(dim) == 1:
+            return self.squeeze(dim)
+
+        roots = self.root_decomposition().root.evaluate()
+        num_batch = roots.size(dim)
+
+        while True:
+            # Take care of extra roots (odd roots), if they exist
+            if num_batch % 2:
+                shape = list(roots.shape)
+                shape[dim] = 1
+                extra_root = (
+                    torch.randn(shape).mul_(1e-6 / math.sqrt(roots.size(dim))).add_(1.0 / math.sqrt(roots.size(dim)))
+                )
+                roots = torch.cat([roots, extra_root], dim)
+                num_batch += 1
+
+            # Divide and conqour
+            # Assumes that there's an even number of roots
+            part1_index = [_noop_index] * roots.dim()
+            part1_index[dim] = slice(None, num_batch // 2, None)
+            part1 = roots[tuple(part1_index)].contiguous()
+            part2_index = [_noop_index] * roots.dim()
+            part2_index[dim] = slice(num_batch // 2, None, None)
+            part2 = roots[tuple(part2_index)].contiguous()
+
+            if num_batch // 2 == 1:
+                part1 = part1.squeeze(dim)
+                part2 = part2.squeeze(dim)
+                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2))
+                break
+            else:
+                roots = res.root_decomposition().root.evaluate()
+                num_batch = num_batch // 2
+
+        return res
+
+    def _solve(self, rhs, preconditioner, num_tridiag=None):
+        return linear_cg(
+            self._matmul,
+            rhs,
+            n_tridiag=num_tridiag,
+            max_iter=settings.max_cg_iterations.value(),
+            max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+            preconditioner=preconditioner,
+        )
+
+    def _sum_batch(self, dim):
+        """
+        Sum the LazyTensor across a batch dimension (supplied as a positive number).
+
+        ..note::
+            This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.sum`,
+            which does some additional work. Calling this method directly is discouraged.
+
+        Returns:
+            :obj:`gpytorch.lazy.LazyTensor`
+        """
+        from .sum_batch_lazy_tensor import SumBatchLazyTensor
+        return SumBatchLazyTensor(self, block_dim=dim)
 
     def _t_matmul(self, rhs):
         """
@@ -900,6 +944,29 @@ class LazyTensor(object):
         """
         return self.shape.numel()
 
+    def permute(self, *dims):
+        num_dims = self.dim()
+        orig_dims = dims
+        dims = (dim if dim >= 0 else dim + num_dims for dim in dims)
+
+        if settings.debug.on():
+            if len(dims) != num_dims:
+                raise RuntimeError("number of dims don't match in permute")
+            if tuple(set(dims)) != dims:
+                raise RuntimeError("repeated dim in permute")
+
+            for dim, orig_dim in zip(dims, orig_dims):
+                if dim >= num_dims:
+                    raise RuntimeError(
+                        "Dimension out of range (expected to be in range of [{}, {}], but got "
+                        "{}.".format(-num_dims, num_dims - 1, orig_dim)
+                    )
+
+        if dims[-2:] != (num_dims - 2, num_dims - 1):
+            raise ValueError("At the moment, cannot permute the non-batch dimensions of LazyTensors.")
+
+        return self._permute_batch(*dims[:-2])
+
     def prod(self, dim=None):
         """
         For a `b x n x m` LazyTensor, compute the product over the batch dimension.
@@ -1268,7 +1335,12 @@ class LazyTensor(object):
 
         # Batch case
         if dim1 < ndimension - 2 and dim2 < ndimension - 2:
-            res = self.__class__(*(arg.transpose(dim1, dim2) for arg in self._args), **self._kwargs)
+            small_dim = dim1 if dim1 < dim2 else dim2
+            large_dim = dim2 if dim1 < dim2 else dim1
+            res = self._permute_batch(
+                *range(small_dim), large_dim, *range(small_dim + 1, large_dim), small_dim,
+                *range(large_dim + 1, ndimension - 2)
+            )
 
         elif dim1 >= ndimension - 2 and dim2 >= ndimension - 2:
             res = self._transpose_nonbatch()
