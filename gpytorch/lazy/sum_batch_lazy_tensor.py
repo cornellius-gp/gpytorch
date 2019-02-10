@@ -13,7 +13,6 @@ class SumBatchLazyTensor(BlockLazyTensor):
     For example, (with `block_dim=-3` a `k x n x n` tensor represents `k` `n x n` blocks (a `n x n` matrix).
     A `b x k x n x n` tensor represents `k` `b x n x n` blocks (a `b x n x n` batch matrix).
 
-
     Args:
         :attr:`base_lazy_tensor` (LazyTensor):
             A `k x n x n` LazyTensor, or a `b x k x n x n` LazyTensor.
@@ -23,10 +22,8 @@ class SumBatchLazyTensor(BlockLazyTensor):
     def _add_batch_dim(self, other):
         shape = list(other.shape)
         expand_shape = list(other.shape)
-
-        insert_dim = self.block_dim + 1
-        shape.insert(insert_dim, 1)
-        expand_shape.insert(insert_dim, self.base_lazy_tensor.size(self.block_dim))
+        shape.insert(-2, 1)
+        expand_shape.insert(-2, self.base_lazy_tensor.size(-3))
         other = other.contiguous().view(*shape).expand(*expand_shape)
         return other
 
@@ -62,11 +59,9 @@ class SumBatchLazyTensor(BlockLazyTensor):
         if any(torch.is_tensor(batch_index) for batch_index in batch_indices) and len(batch_indices):
             return super(SumBatchLazyTensor, self)._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
 
-        batch_indices = list(batch_indices)
-        batch_indices.insert(self._positive_block_dim, _noop_index)
-        res = self.base_lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+        res = self.base_lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices, _noop_index)
         if row_col_are_absorbed:
-            block_dim = self.block_dim
+            block_dim = -3
             if torch.is_tensor(row_index):
                 block_dim += 1
             if torch.is_tensor(col_index):
@@ -76,13 +71,13 @@ class SumBatchLazyTensor(BlockLazyTensor):
             return self.__class__(res, **self._kwargs)
 
     def _remove_batch_dim(self, other):
-        return other.sum(self.block_dim)
+        return other.sum(-3)
 
     def _size(self):
         shape = list(self.base_lazy_tensor.shape)
-        del shape[self.block_dim]
+        del shape[-3]
         return torch.Size(shape)
 
     def diag(self):
-        diag = self.base_lazy_tensor.diag().sum(self._positive_block_dim)
+        diag = self.base_lazy_tensor.diag().sum(-2)
         return diag

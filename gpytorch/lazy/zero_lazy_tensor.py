@@ -56,6 +56,9 @@ class ZeroLazyTensor(LazyTensor):
             raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
         return rhs * 0
 
+    def _transpose_nonbatch(self):
+        return self.transpose(-2, -1)
+
     def _unsqueeze_batch(self, dim):
         sizes = self.sizes.copy()
         sizes.insert(dim, 1)
