@@ -612,5 +612,4 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             for i, j in combinations(range(lazy_tensor.dim() - 2), 2):
                 res = lazy_tensor.transpose(i, j).evaluate()
                 actual = evaluated.transpose(i, j)
-                diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
-                self.assertLess(diff.max().item(), 15e-2)
+                self.assertTrue(torch.allclose(res, actual))
