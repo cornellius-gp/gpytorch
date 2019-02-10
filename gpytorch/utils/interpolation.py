@@ -216,7 +216,7 @@ def left_t_interp(interp_indices, interp_values, rhs, output_dim):
     summing_matrix = cls(summing_matrix_indices, summing_matrix_values, size)
 
     # Sum up the values appropriately by performing sparse matrix multiplication
-    values = values.view(batch_size, num_data * num_interp, num_cols)
+    values = values.contiguous().view(batch_size, num_data * num_interp, num_cols)
     res = dsmm(summing_matrix, values)
 
     res = res.view(*batch_shape, *res.shape[-2:])
