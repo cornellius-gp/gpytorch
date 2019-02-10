@@ -209,6 +209,11 @@ class LazyTensor(ABC):
         if (row_index is _noop_index and col_index is _noop_index):
             return res
 
+        # Determine if the first index stores the tensor index
+        # This helps determine the final shape when there is tensor indexing that affects rows/cols
+        if row_col_are_absorbed:
+            tensor_index_first = _tensor_index_to_start((*batch_indices, row_index, col_index))
+
         # Normal case: we have to do some processing on either the rows or columns
         # We will handle this through "interpolation"
         row_interp_indices = torch.arange(
@@ -217,7 +222,7 @@ class LazyTensor(ABC):
         # If we have previously seen tensor indices, the row interpolation will be absorbed into the batch
         if row_col_are_absorbed and torch.is_tensor(row_index):
             # First case: tensor indexed dims moving to the front
-            if torch.is_tensor(batch_indices[0]):
+            if tensor_index_first:
                 row_interp_indices = row_interp_indices.view(-1, *[1 for _ in res.batch_shape], 1)
                 row_interp_indices = row_interp_indices.expand(*res.batch_shape, 1, 1)
             # Second case: the tensor indexed dims being at the end
@@ -237,7 +242,7 @@ class LazyTensor(ABC):
         # If we have previously seen tensor indices, the col interpolation will be absorbed into the batch/row
         if row_col_are_absorbed and torch.is_tensor(col_index):
             # First case: tensor indexed dims moving to the front
-            if torch.is_tensor(batch_indices[0]):
+            if tensor_index_first:
                 col_interp_indices = col_interp_indices.view(-1, *[1 for _ in res.batch_shape], 1)
                 col_interp_indices = col_interp_indices.expand(*res.batch_shape, 1, 1)
             # Second case: the tensor indexed dims being at the end
