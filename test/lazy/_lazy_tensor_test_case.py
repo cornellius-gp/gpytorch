@@ -612,4 +612,4 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             for i, j in combinations(range(lazy_tensor.dim() - 2), 2):
                 res = lazy_tensor.transpose(i, j).evaluate()
                 actual = evaluated.transpose(i, j)
-                self.assertTrue(torch.allclose(res, actual))
+                self.assertTrue(torch.allclose(res, actual, rtol=1e-4, atol=1e-5))
