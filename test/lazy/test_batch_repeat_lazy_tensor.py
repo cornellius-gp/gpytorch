@@ -11,7 +11,8 @@ class TestBatchRepeatLazyTensor(LazyTensorTestCase, unittest.TestCase):
     should_test_sample = True
 
     def create_lazy_tensor(self):
-        toeplitz_column = torch.tensor([4, 0.1, 0.05, 0.01, 0.0], dtype=torch.float, requires_grad=True)
+        toeplitz_column = torch.tensor([4, 0.1, 0.05, 0.01, 0.0], dtype=torch.float)
+        toeplitz_column.detach_()
         return BatchRepeatLazyTensor(ToeplitzLazyTensor(toeplitz_column), torch.Size((3,)))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
@@ -24,7 +25,9 @@ class TestBatchRepeatLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     should_test_sample = True
 
     def create_lazy_tensor(self):
-        toeplitz_column = torch.tensor([[4, 0, 0, 1], [3, 0, -0.5, -1]], dtype=torch.float, requires_grad=True)
+        toeplitz_column = torch.tensor([[4, 0, 0, 1], [3, 0, -0.5, -1]], dtype=torch.float)
+        toeplitz_column.detach_()
+        return BatchRepeatLazyTensor(ToeplitzLazyTensor(toeplitz_column), torch.Size((3,)))
         return BatchRepeatLazyTensor(ToeplitzLazyTensor(toeplitz_column), torch.Size((3,)))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
@@ -42,9 +45,10 @@ class TestBatchRepeatLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase)
                 [[4, 0, 0, 1], [3, 0, -0.5, -1]],
                 [[2, 0.1, 0.01, 0.], [3, 0, -0.1, -2]],
             ],
-            dtype=torch.float, requires_grad=True
+            dtype=torch.float
         )
-        return BatchRepeatLazyTensor(ToeplitzLazyTensor(toeplitz_column), torch.Size((2, 4,)))
+        toeplitz_column.detach_()
+        return BatchRepeatLazyTensor(ToeplitzLazyTensor(toeplitz_column), torch.Size((2, 3, 1, 4,)))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         evaluated = lazy_tensor.base_lazy_tensor.evaluate()
