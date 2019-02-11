@@ -40,6 +40,9 @@ class TestConstantMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
 
 class TestConstantMulLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
+    # Because these LTs are large, we'll skil the big tests
+    should_test_sample = False
+    skip_slq_tests = True
 
     def create_lazy_tensor(self):
         column = torch.tensor([[5, 1, 2, 0]], dtype=torch.float).repeat(3, 2, 1)
