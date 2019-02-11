@@ -6,15 +6,10 @@ from gpytorch.lazy import MulLazyTensor, RootLazyTensor
 from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
-def make_random_mat(size, rank, batch_size=None):
-    if batch_size is None:
-        res = torch.randn(size, rank)
-        res.requires_grad_()
-        return res
-    else:
-        res = torch.randn(batch_size, size, rank)
-        res.requires_grad_()
-        return res
+def make_random_mat(size, rank, batch_shape=torch.Size(())):
+    res = torch.randn(*batch_shape, size, rank)
+    res.requires_grad_()
+    return res
 
 
 class TestMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -69,8 +64,8 @@ class TestMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 2
 
     def create_lazy_tensor(self):
-        mat1 = make_random_mat(6, rank=5, batch_size=2)
-        mat2 = make_random_mat(6, rank=5, batch_size=2)
+        mat1 = make_random_mat(6, rank=5, batch_shape=torch.Size((2,)))
+        mat2 = make_random_mat(6, rank=5, batch_shape=torch.Size((2,)))
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2))
         return res.add_diag(torch.tensor(2.0))
 
@@ -93,11 +88,11 @@ class TestMulLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
         pass
 
     def create_lazy_tensor(self):
-        mat1 = make_random_mat(40, rank=5, batch_size=2)
-        mat2 = make_random_mat(40, rank=5, batch_size=2)
-        mat3 = make_random_mat(40, rank=5, batch_size=2)
-        mat4 = make_random_mat(40, rank=5, batch_size=2)
-        mat5 = make_random_mat(40, rank=5, batch_size=2)
+        mat1 = make_random_mat(40, rank=5, batch_shape=torch.Size((2, 3,)))
+        mat2 = make_random_mat(40, rank=5, batch_shape=torch.Size((2, 3,)))
+        mat3 = make_random_mat(40, rank=5, batch_shape=torch.Size((2, 3,)))
+        mat4 = make_random_mat(40, rank=5, batch_shape=torch.Size((2, 3,)))
+        mat5 = make_random_mat(40, rank=5, batch_shape=torch.Size((2, 3,)))
         res = MulLazyTensor(
             RootLazyTensor(mat1), RootLazyTensor(mat2), RootLazyTensor(mat3), RootLazyTensor(mat4), RootLazyTensor(mat5)
         )
@@ -125,8 +120,8 @@ class TestMulLazyTensorWithConstantMul(LazyTensorTestCase, unittest.TestCase):
         pass
 
     def create_lazy_tensor(self):
-        mat1 = make_random_mat(20, rank=5, batch_size=2)
-        mat2 = make_random_mat(20, rank=5, batch_size=2)
+        mat1 = make_random_mat(20, rank=5, batch_shape=torch.Size((2,)))
+        mat2 = make_random_mat(20, rank=5, batch_shape=torch.Size((2,)))
         constant = torch.tensor(4.0)
         res = MulLazyTensor(RootLazyTensor(mat1), RootLazyTensor(mat2))
         return res.mul(constant).add_diag(torch.tensor(2.0))
