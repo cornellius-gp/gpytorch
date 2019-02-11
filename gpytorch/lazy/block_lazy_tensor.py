@@ -33,7 +33,7 @@ class BlockLazyTensor(LazyTensor):
             )
 
         # Make sure block_dim is negative
-        block_dim = block_dim if block_dim < 0 else (block_dim - base_lazy_tensor.dim() - 1)
+        block_dim = block_dim if block_dim < 0 else (block_dim - base_lazy_tensor.dim())
 
         # Everything is MUCH easier to write if the last batch dimension is the block dimension
         # I.e. blopck_dim = -3
