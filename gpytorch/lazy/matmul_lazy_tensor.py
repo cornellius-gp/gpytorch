@@ -32,12 +32,6 @@ class MatmulLazyTensor(LazyTensor):
         )
 
     def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
-        # If only some of the batch indices are tensor indexed, then some weird behavior occurs
-        # We'll just default to the standard behavior in this case
-        batch_indices_are_tensors = [torch.is_tensor(batch_index) for batch_index in batch_indices]
-        if any(batch_indices_are_tensors) and not all(batch_indices_are_tensors):
-            return super(MatmulLazyTensor, self)._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
-
         # Make sure we're not generating more memory with our "efficient" method
         if torch.is_tensor(row_index) and torch.is_tensor(col_index):
             num_indices = row_index.numel()
@@ -47,9 +41,12 @@ class MatmulLazyTensor(LazyTensor):
         left_tensor = self.left_lazy_tensor._getitem(False, row_index, _noop_index, *batch_indices)
         if row_col_are_absorbed and torch.is_tensor(row_index):
             left_tensor = lazify(left_tensor.evaluate().unsqueeze(-2))
-        right_tensor = self.right_lazy_tensor._getitem(False, _noop_index, col_index, *batch_indices)
+        right_tensor = self.right_lazy_tensor._transpose_nonbatch()._getitem(
+            False, col_index, _noop_index, *batch_indices
+        )
         if row_col_are_absorbed and torch.is_tensor(col_index):
-            right_tensor = lazify(right_tensor.evaluate().unsqueeze(-1))
+            right_tensor = lazify(right_tensor.evaluate().unsqueeze(-2))
+        right_tensor = right_tensor._transpose_nonbatch()
 
         res = MatmulLazyTensor(left_tensor, right_tensor)
         if row_col_are_absorbed:
