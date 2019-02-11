@@ -64,11 +64,11 @@ class TestKroneckerProductLazyTensorRectangular(RectangularLazyTensorTestCase, u
         return res
 
 
-class TestKroneckerProductLazyTensorRectangularBatch(RectangularLazyTensorTestCase, unittest.TestCase):
+class TestKroneckerProductLazyTensorRectangularMultiBatch(RectangularLazyTensorTestCase, unittest.TestCase):
     def create_lazy_tensor(self):
-        a = torch.randn(4, 2, 3, requires_grad=True)
-        b = torch.randn(4, 5, 2, requires_grad=True)
-        c = torch.randn(4, 6, 4, requires_grad=True)
+        a = torch.randn(3, 4, 2, 3, requires_grad=True)
+        b = torch.randn(3, 4, 5, 2, requires_grad=True)
+        c = torch.randn(3, 4, 6, 4, requires_grad=True)
         kp_lazy_tensor = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
         return kp_lazy_tensor
 

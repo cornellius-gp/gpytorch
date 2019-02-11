@@ -43,10 +43,10 @@ class TestMatmulLazyTensorRectangular(RectangularLazyTensorTestCase, unittest.Te
         return lazy_tensor.left_lazy_tensor.tensor.matmul(lazy_tensor.right_lazy_tensor.tensor)
 
 
-class TestMatmulLazyTensorRectangularBatch(RectangularLazyTensorTestCase, unittest.TestCase):
+class TestMatmulLazyTensorRectangularMultiBatch(RectangularLazyTensorTestCase, unittest.TestCase):
     def create_lazy_tensor(self):
-        lhs = torch.randn(3, 5, 3, requires_grad=True)
-        rhs = torch.randn(3, 3, 6, requires_grad=True)
+        lhs = torch.randn(2, 3, 5, 3, requires_grad=True)
+        rhs = torch.randn(2, 3, 3, 6, requires_grad=True)
         covar = MatmulLazyTensor(lhs, rhs)
         return covar
 

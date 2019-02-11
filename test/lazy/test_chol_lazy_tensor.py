@@ -55,7 +55,9 @@ class TestCholLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
 
 class TestCholLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
-    should_test_sample = True
+    # Because these LTs are large, we'll skil the big tests
+    should_test_sample = False
+    skip_slq_tests = True
 
     def create_lazy_tensor(self):
         chol = torch.tensor(
