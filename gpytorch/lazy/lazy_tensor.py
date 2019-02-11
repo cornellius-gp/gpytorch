@@ -468,9 +468,9 @@ class LazyTensor(ABC):
             if num_batch % 2:
                 shape = list(roots.shape)
                 shape[dim] = 1
-                extra_root = (
-                    torch.randn(shape).mul_(1e-6 / math.sqrt(roots.size(dim))).add_(1.0 / math.sqrt(roots.size(dim)))
-                )
+                extra_root = torch.randn(
+                    shape, dtype=self.dtype, device=self.device
+                ).mul_(1e-6 / math.sqrt(roots.size(dim))).add_(1.0 / math.sqrt(roots.size(dim)))
                 roots = torch.cat([roots, extra_root], dim)
                 num_batch += 1
 
@@ -489,7 +489,7 @@ class LazyTensor(ABC):
                 res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2))
                 break
             else:
-                roots = res.root_decomposition().root.evaluate()
+                roots = self.root_decomposition().root.evaluate()
                 num_batch = num_batch // 2
 
         return res
