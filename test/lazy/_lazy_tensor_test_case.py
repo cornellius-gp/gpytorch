@@ -307,6 +307,7 @@ class RectangularLazyTensorTestCase(ABC):
 
 class LazyTensorTestCase(RectangularLazyTensorTestCase):
     should_test_sample = False
+    skip_slq_tests = False
 
     def test_add_diag(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -532,50 +533,52 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         )
 
     def test_inv_quad_logdet(self):
-        # Forward
-        lazy_tensor = self.create_lazy_tensor()
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+        if not self.__class__.skip_slq_tests:
+            # Forward
+            lazy_tensor = self.create_lazy_tensor()
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+            flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
-        vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
-        vecs_copy = vecs.clone().detach_().requires_grad_(True)
+            vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
+            vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(1024):
-            res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=vecs, logdet=True)
+            with gpytorch.settings.num_trace_samples(128):
+                res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=vecs, logdet=True)
 
-        actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
-        actual_logdet = torch.cat(
-            [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
-        ).view(lazy_tensor.batch_shape)
+            actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
+            actual_logdet = torch.cat(
+                [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
+            ).view(lazy_tensor.batch_shape)
 
-        diff_invq = (res_inv_quad - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
-        diff_logdet = (res_logdet - actual_logdet).abs() / actual_logdet.abs().clamp(1, math.inf)
-        self.assertLess(diff_invq.max().item(), 0.01)
-        self.assertLess(diff_logdet.max().item(), 0.3)
+            diff_invq = (res_inv_quad - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
+            diff_logdet = (res_logdet - actual_logdet).abs() / actual_logdet.abs().clamp(1, math.inf)
+            self.assertLess(diff_invq.max().item(), 0.01)
+            self.assertLess(diff_logdet.max().item(), 0.3)
 
     def test_inv_quad_logdet_no_reduce(self):
-        # Forward
-        lazy_tensor = self.create_lazy_tensor()
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+        if not self.__class__.skip_slq_tests:
+            # Forward
+            lazy_tensor = self.create_lazy_tensor()
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+            flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
-        vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
-        vecs_copy = vecs.clone().detach_().requires_grad_(True)
+            vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
+            vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(128):
-            res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
-                inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
-            )
+            with gpytorch.settings.num_trace_samples(128):
+                res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
+                    inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
+                )
 
-        actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
-        actual_logdet = torch.cat(
-            [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
-        ).view(lazy_tensor.batch_shape)
+            actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
+            actual_logdet = torch.cat(
+                [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
+            ).view(lazy_tensor.batch_shape)
 
-        diff_invq = (res_inv_quad.sum(-1) - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
-        diff_logdet = (res_logdet - actual_logdet).abs() / res_logdet.abs().clamp(1, math.inf)
-        self.assertLess(diff_invq.max().item(), 0.01)
-        self.assertLess(diff_logdet.max().item(), 0.3)
+            diff_invq = (res_inv_quad.sum(-1) - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
+            diff_logdet = (res_logdet - actual_logdet).abs() / res_logdet.abs().clamp(1, math.inf)
+            self.assertLess(diff_invq.max().item(), 0.01)
+            self.assertLess(diff_logdet.max().item(), 0.3)
 
     def test_root_decomposition(self):
         # Test with Cholesky
