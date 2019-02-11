@@ -41,10 +41,13 @@ class CatLazyTensor(LazyTensor):
 
         rep_tensor = lazy_tensors[0]
         ndims = rep_tensor.ndimension()
-        if dim < 0:
-            dim = ndims + dim
-        pre_cat_size = tuple(rep_tensor.size()[:dim])
-        post_cat_size = tuple(rep_tensor.size()[dim + 1:])
+        if dim >= 0:
+            positive_dim = dim
+            dim = dim - ndims
+        else:
+            positive_dim = ndims + dim
+        pre_cat_size = tuple(rep_tensor.size()[:positive_dim])
+        post_cat_size = tuple(rep_tensor.size()[positive_dim + 1:])
 
         cat_dim_len = 0
         cat_dim_sizes = []
@@ -56,7 +59,7 @@ class CatLazyTensor(LazyTensor):
                 raise RuntimeError("All LazyTensors must have the same size in "
                                    "the non-concatenation dimension")
             tensor_idx_to_start_idx.append(cat_dim_len)
-            cat_dim_size = t.size()[dim]
+            cat_dim_size = t.size(dim)
             cat_dim_len += cat_dim_size
             cat_dim_sizes.append(cat_dim_size)
 
@@ -105,7 +108,7 @@ class CatLazyTensor(LazyTensor):
 
     def _expand_batch(self, batch_shape):
         # If the concatenated dimenison is a batch dimension, use the default behavior
-        if self.cat_dim < len(self.batch_shape):
+        if self.cat_dim < -2:
             return super(CatLazyTensor, self)._expand_batch(batch_shape)
         else:
             lazy_tensors = [lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors]
@@ -236,13 +239,13 @@ class CatLazyTensor(LazyTensor):
             else:
                 rhs_.append(rhs)
 
-        if self.cat_dim == self.ndimension() - 2:
+        if self.cat_dim == -2:
             res_list = [t._matmul(rhs)
                         for t, rhs in zip(self.lazy_tensors, rhs_)]
             # copy result back to output device
             res_list = [x.to(output_device) for x in res_list]
             res = torch.cat(res_list, dim=-2)
-        elif self.cat_dim == self.ndimension() - 1:
+        elif self.cat_dim == -1:
             curr_idx = 0
             res_list = []
             index = [slice(None, None, None) for _ in range(rhs.ndimension())]
@@ -265,27 +268,37 @@ class CatLazyTensor(LazyTensor):
                 curr_idx += size
             # copy result back to output device
             res_list = [x.to(output_device) for x in res_list]
-            res = torch.cat(res_list, dim=(self.cat_dim - self.dim()))
+            res = torch.cat(res_list, dim=self.cat_dim)
 
         return res
+
+    def _permute_batch(self, *dims):
+        lazy_tensors = [lazy_tensor._permute_batch(*dims) for lazy_tensor in self.lazy_tensors]
+        if self.cat_dim < -2:
+            positive_cat_dim = self.dim() + self.cat_dim
+            new_cat_dim = dims.index(positive_cat_dim)
+        return self.__class__(*lazy_tensors, dim=new_cat_dim, output_device=self.output_device)
 
     def _size(self):
         size = self.pre_cat_size + (self.cat_dim_len,) + self.post_cat_size
         return torch.Size(size)
 
     def _transpose_nonbatch(self):
-        if self.cat_dim == self.ndimension() - 2:
-            new_dim = self.cat_dim + 1
-        elif self.cat_dim == self.ndimension() - 1:
-            new_dim = self.cat_dim - 1
+        if self.cat_dim == -2:
+            new_dim = -1
+        elif self.cat_dim == -1:
+            new_dim = -2
         else:
             new_dim = self.cat_dim
-        return self.__class__(*[t._transpose_nonbatch()
-                                for t in self.lazy_tensors], dim=new_dim, output_device=self.output_device)
+        return self.__class__(
+            *[t._transpose_nonbatch() for t in self.lazy_tensors],
+            dim=new_dim, output_device=self.output_device
+        )
 
     def _unsqueeze_batch(self, dim):
+        cat_dim = self.dim() + self.cat_dim
         lazy_tensors = [lazy_tensor._unsqueeze_batch(dim) for lazy_tensor in self.lazy_tensors]
-        res = self.__class__(*lazy_tensors, dim=(self.cat_dim + 1 if dim <= self.cat_dim else self.cat_dim))
+        res = self.__class__(*lazy_tensors, dim=(cat_dim + 1 if dim <= cat_dim else cat_dim))
         return res
 
     def inv_matmul(self, right_tensor, left_tensor=None):
