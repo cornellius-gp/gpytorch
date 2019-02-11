@@ -14,7 +14,6 @@ class TestBlockDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
         blocks = torch.randn(8, 4, 4)
         blocks = blocks.matmul(blocks.transpose(-1, -2))
         blocks.add_(torch.eye(4, 4).unsqueeze_(0))
-        blocks.requires_grad_(True)
         return BlockDiagLazyTensor(NonLazyTensor(blocks))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
@@ -33,7 +32,6 @@ class TestBlockDiagLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
         blocks = torch.randn(2, 6, 4, 4)
         blocks = blocks.matmul(blocks.transpose(-1, -2))
         blocks.add_(torch.eye(4, 4))
-        blocks.requires_grad_(True)
         return BlockDiagLazyTensor(NonLazyTensor(blocks), block_dim=2)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
@@ -56,7 +54,7 @@ class TestBlockDiagLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
         blocks = blocks.matmul(blocks.transpose(-1, -2))
         blocks.add_(torch.eye(4, 4))
         blocks.detach_()
-        return BlockDiagLazyTensor(NonLazyTensor(blocks), block_dim=2)
+        return BlockDiagLazyTensor(NonLazyTensor(blocks), block_dim=1)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         blocks = lazy_tensor.base_lazy_tensor.tensor
