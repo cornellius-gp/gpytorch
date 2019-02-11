@@ -277,6 +277,8 @@ class CatLazyTensor(LazyTensor):
         if self.cat_dim < -2:
             positive_cat_dim = self.dim() + self.cat_dim
             new_cat_dim = dims.index(positive_cat_dim)
+        else:
+            new_cat_dim = self.cat_dim
         return self.__class__(*lazy_tensors, dim=new_cat_dim, output_device=self.output_device)
 
     def _size(self):
