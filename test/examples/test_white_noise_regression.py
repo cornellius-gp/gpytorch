@@ -4,6 +4,7 @@ import os
 import random
 import unittest
 from math import exp, pi
+from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -88,7 +89,8 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_without_optimization_cuda(self):
         if torch.cuda.is_available():
-            self.test_posterior_latent_gp_and_likelihood_without_optimization(cuda=True)
+            with least_used_cuda_device():
+                self.test_posterior_latent_gp_and_likelihood_without_optimization(cuda=True)
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
@@ -137,7 +139,8 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_with_optimization_cuda(self):
         if torch.cuda.is_available():
-            self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=True)
+            with least_used_cuda_device():
+                self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=True)
 
     def test_posterior_latent_gp_and_likelihood_fast_pred_var(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
@@ -193,7 +196,8 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_fast_pred_var_cuda(self):
         if torch.cuda.is_available():
-            self.test_posterior_latent_gp_and_likelihood_fast_pred_var(cuda=True)
+            with least_used_cuda_device():
+                self.test_posterior_latent_gp_and_likelihood_fast_pred_var(cuda=True)
 
 
 if __name__ == "__main__":

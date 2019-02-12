@@ -2,11 +2,12 @@
 
 import os
 import random
-import torch
 import unittest
-from gpytorch.utils import pivoted_cholesky
 from test._utils import approx_equal
+
+import torch
 from gpytorch.kernels import RBFKernel
+from gpytorch.utils import pivoted_cholesky
 
 
 class TestPivotedCholesky(unittest.TestCase):

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import os
-import torch
 import random
 import unittest
-from gpytorch.lazy import NonLazyTensor
 from test._utils import approx_equal
+
+import torch
+from gpytorch.lazy import NonLazyTensor
 
 
 class TestRootDecomposition(unittest.TestCase):

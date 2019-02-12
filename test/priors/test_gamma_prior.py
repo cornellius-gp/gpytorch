@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+from test._utils import least_used_cuda_device
 
 import torch
 from gpytorch.priors import GammaPrior
@@ -36,7 +37,8 @@ class TestGammaPrior(unittest.TestCase):
 
     def test_gamma_prior_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_gamma_prior_log_prob(cuda=True)
+            with least_used_cuda_device():
+                return self.test_gamma_prior_log_prob(cuda=True)
 
     def test_gamma_prior_log_prob_log_transform(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -54,7 +56,8 @@ class TestGammaPrior(unittest.TestCase):
 
     def test_gamma_prior_log_prob_log_transform_cuda(self):
         if torch.cuda.is_available():
-            return self.test_gamma_prior_log_prob_log_transform(cuda=True)
+            with least_used_cuda_device():
+                return self.test_gamma_prior_log_prob_log_transform(cuda=True)
 
     def test_gamma_prior_batch_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -85,7 +88,8 @@ class TestGammaPrior(unittest.TestCase):
 
     def test_gamma_prior_batch_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_gamma_prior_batch_log_prob(cuda=True)
+            with least_used_cuda_device():
+                return self.test_gamma_prior_batch_log_prob(cuda=True)
 
 
 if __name__ == "__main__":

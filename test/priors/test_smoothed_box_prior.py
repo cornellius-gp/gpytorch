@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
+from test._utils import approx_equal, least_used_cuda_device
 
 import torch
 from gpytorch.priors import SmoothedBoxPrior
-from test._utils import approx_equal
 
 
 class TestSmoothedBoxPrior(unittest.TestCase):
@@ -45,7 +45,8 @@ class TestSmoothedBoxPrior(unittest.TestCase):
 
     def test_smoothed_box_prior_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_smoothed_box_prior_log_prob(cuda=True)
+            with least_used_cuda_device():
+                return self.test_smoothed_box_prior_log_prob(cuda=True)
 
     def test_smoothed_box_prior_log_prob_log_transform(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -63,7 +64,8 @@ class TestSmoothedBoxPrior(unittest.TestCase):
 
     def test_smoothed_box_prior_log_prob_log_transform_cuda(self):
         if torch.cuda.is_available():
-            return self.test_smoothed_box_prior_log_prob_log_transform(cuda=True)
+            with least_used_cuda_device():
+                return self.test_smoothed_box_prior_log_prob_log_transform(cuda=True)
 
     def test_smoothed_box_prior_batch_log_prob(self, cuda=False):
         # TODO: Implement test for batch mode
@@ -71,7 +73,8 @@ class TestSmoothedBoxPrior(unittest.TestCase):
 
     def test_smoothed_box_prior_batch_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_smoothed_box_prior_batch_log_prob(cuda=True)
+            with least_used_cuda_device():
+                return self.test_smoothed_box_prior_batch_log_prob(cuda=True)
 
 
 if __name__ == "__main__":

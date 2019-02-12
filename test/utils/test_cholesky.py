@@ -2,6 +2,7 @@
 
 import unittest
 import warnings
+from test._utils import least_used_cuda_device
 
 import torch
 from gpytorch.utils.cholesky import psd_safe_cholesky
@@ -47,7 +48,8 @@ class TestPSDSafeCholesky(unittest.TestCase):
 
     def test_psd_safe_cholesky_pd_cuda(self, cuda=False):
         if torch.cuda.is_available():
-            self.test_psd_safe_cholesky_pd(cuda=True)
+            with least_used_cuda_device():
+                self.test_psd_safe_cholesky_pd(cuda=True)
 
     def test_psd_safe_cholesky_psd(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -79,7 +81,8 @@ class TestPSDSafeCholesky(unittest.TestCase):
 
     def test_psd_safe_cholesky_psd_cuda(self, cuda=False):
         if torch.cuda.is_available():
-            self.test_psd_safe_cholesky_psd(cuda=True)
+            with least_used_cuda_device():
+                self.test_psd_safe_cholesky_psd(cuda=True)
 
 
 if __name__ == "__main__":

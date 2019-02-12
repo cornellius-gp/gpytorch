@@ -4,6 +4,7 @@ import os
 import random
 import unittest
 from math import pi
+from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -96,7 +97,8 @@ class TestKroneckerMultiTaskKISSGPRegression(unittest.TestCase):
 
     def test_multitask_gp_mean_abs_error_cuda(self):
         if torch.cuda.is_available():
-            self.test_multitask_gp_mean_abs_error(cuda=True)
+            with least_used_cuda_device():
+                self.test_multitask_gp_mean_abs_error(cuda=True)
 
 
 if __name__ == "__main__":

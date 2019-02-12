@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
 from test._utils import approx_equal
+
+import torch
 from gpytorch.lazy import ZeroLazyTensor
 
 

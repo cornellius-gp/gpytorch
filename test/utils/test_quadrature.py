@@ -2,12 +2,13 @@
 
 import os
 import random
-import torch
 import unittest
+from test._utils import least_used_cuda_device
 
-from gpytorch.utils.quadrature import GaussHermiteQuadrature1D
+import torch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
+from gpytorch.utils.quadrature import GaussHermiteQuadrature1D
 
 
 class TestQuadrature(unittest.TestCase):
@@ -48,7 +49,8 @@ class TestQuadrature(unittest.TestCase):
 
     def test_gauss_hermite_quadrature_1D_normal_nonbatch_cuda(self):
         if torch.cuda.is_available():
-            self.test_gauss_hermite_quadrature_1D_normal_nonbatch(cuda=True)
+            with least_used_cuda_device():
+                self.test_gauss_hermite_quadrature_1D_normal_nonbatch(cuda=True)
 
     def test_gauss_hermite_quadrature_1D_normal_batch(self, cuda=False):
         func = lambda x: torch.sin(x)
@@ -75,7 +77,8 @@ class TestQuadrature(unittest.TestCase):
 
     def test_gauss_hermite_quadrature_1D_normal_batch_cuda(self):
         if torch.cuda.is_available():
-            self.test_gauss_hermite_quadrature_1D_normal_nonbatch(cuda=True)
+            with least_used_cuda_device():
+                self.test_gauss_hermite_quadrature_1D_normal_nonbatch(cuda=True)
 
     def test_gauss_hermite_quadrature_1D_mvn_nonbatch(self, cuda=False):
         func = lambda x: torch.sin(x)
@@ -103,7 +106,8 @@ class TestQuadrature(unittest.TestCase):
 
     def test_gauss_hermite_quadrature_1D_mvn_nonbatch_cuda(self):
         if torch.cuda.is_available():
-            self.test_gauss_hermite_quadrature_1D_normal_nonbatch(cuda=True)
+            with least_used_cuda_device():
+                self.test_gauss_hermite_quadrature_1D_normal_nonbatch(cuda=True)
 
     def test_gauss_hermite_quadrature_1D_mvn_batch(self, cuda=False):
         func = lambda x: torch.sin(x)
@@ -130,7 +134,8 @@ class TestQuadrature(unittest.TestCase):
 
     def test_gauss_hermite_quadrature_1D_mvn_batch_cuda(self):
         if torch.cuda.is_available():
-            self.test_gauss_hermite_quadrature_1D_normal_nonbatch(cuda=True)
+            with least_used_cuda_device():
+                self.test_gauss_hermite_quadrature_1D_normal_nonbatch(cuda=True)
 
 
 if __name__ == "__main__":

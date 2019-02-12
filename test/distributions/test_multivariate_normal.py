@@ -4,7 +4,7 @@ import math
 import os
 import random
 import unittest
-from test._utils import approx_equal
+from test._utils import approx_equal, least_used_cuda_device
 
 import torch
 from gpytorch.distributions import MultivariateNormal
@@ -57,7 +57,8 @@ class TestMultivariateNormal(unittest.TestCase):
 
     def test_multivariate_normal_non_lazy_cuda(self):
         if torch.cuda.is_available():
-            self.test_multivariate_normal_non_lazy(cuda=True)
+            with least_used_cuda_device():
+                self.test_multivariate_normal_non_lazy(cuda=True)
 
     def test_multivariate_normal_batch_non_lazy(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -93,7 +94,8 @@ class TestMultivariateNormal(unittest.TestCase):
 
     def test_multivariate_normal_batch_non_lazy_cuda(self):
         if torch.cuda.is_available():
-            self.test_multivariate_normal_batch_non_lazy(cuda=True)
+            with least_used_cuda_device():
+                self.test_multivariate_normal_batch_non_lazy(cuda=True)
 
     def test_multivariate_normal_lazy(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -136,7 +138,8 @@ class TestMultivariateNormal(unittest.TestCase):
 
     def test_multivariate_normal_lazy_cuda(self):
         if torch.cuda.is_available():
-            self.test_multivariate_normal_lazy(cuda=True)
+            with least_used_cuda_device():
+                self.test_multivariate_normal_lazy(cuda=True)
 
     def test_multivariate_normal_batch_lazy(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -178,7 +181,8 @@ class TestMultivariateNormal(unittest.TestCase):
 
     def test_multivariate_normal_batch_lazy_cuda(self):
         if torch.cuda.is_available():
-            self.test_multivariate_normal_batch_lazy(cuda=True)
+            with least_used_cuda_device():
+                self.test_multivariate_normal_batch_lazy(cuda=True)
 
     def test_multivariate_normal_correlated_samples(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -194,7 +198,8 @@ class TestMultivariateNormal(unittest.TestCase):
 
     def test_multivariate_normal_correlated_samples_cuda(self):
         if torch.cuda.is_available():
-            self.test_multivariate_normal_correlated_samples(cuda=True)
+            with least_used_cuda_device():
+                self.test_multivariate_normal_correlated_samples(cuda=True)
 
     def test_multivariate_normal_batch_correlated_samples(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -210,7 +215,8 @@ class TestMultivariateNormal(unittest.TestCase):
 
     def test_multivariate_normal_batch_correlated_samples_cuda(self):
         if torch.cuda.is_available():
-            self.test_multivariate_normal_batch_correlated_samples(cuda=True)
+            with least_used_cuda_device():
+                self.test_multivariate_normal_batch_correlated_samples(cuda=True)
 
     def test_log_prob(self):
         mean = torch.randn(4)

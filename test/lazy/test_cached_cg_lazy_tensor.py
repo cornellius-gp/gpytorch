@@ -26,9 +26,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
             eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
             solves = [solve.detach(), solve[..., -2:-1].detach()]
 
-        return CachedCGLazyTensor(
-            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
-        )
+        return CachedCGLazyTensor(lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         return lazy_tensor.base_lazy_tensor.tensor
@@ -196,9 +194,7 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
             eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
             solves = [solve.detach(), solve[..., -2:-1].detach()]
 
-        return CachedCGLazyTensor(
-            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
-        )
+        return CachedCGLazyTensor(lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         return lazy_tensor.base_lazy_tensor.tensor
