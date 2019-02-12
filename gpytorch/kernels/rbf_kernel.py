@@ -3,6 +3,7 @@
 from .kernel import Kernel
 from torch.nn.functional import softplus
 import torch
+from ..functions import RBFCovariance
 
 
 @torch.jit.script
@@ -94,7 +95,21 @@ class RBFKernel(Kernel):
         )
 
     def forward(self, x1, x2, diag=False, **params):
-        x1_ = x1.div(self.lengthscale)
-        x2_ = x2.div(self.lengthscale)
-        diff = self._covar_dist(x1_, x2_, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rbf, **params)
-        return diff
+        if (
+            x1.requires_grad
+            or x2.requires_grad
+            or (self.ard_num_dims is not None and self.ard_num_dims > 1)
+            or diag
+        ):
+            x1_ = x1.div(self.lengthscale)
+            x2_ = x2.div(self.lengthscale)
+            return self._covar_dist(x1_, x2_, square_dist=True, diag=diag,
+                                    dist_postprocess_func=postprocess_rbf,
+                                    postprocess=True, **params)
+        return RBFCovariance().apply(x1, x2, self.lengthscale,
+                                     lambda x1, x2: self._covar_dist(x1, x2,
+                                                                     square_dist=True,
+                                                                     diag=False,
+                                                                     dist_postprocess_func=postprocess_rbf,
+                                                                     postprocess=False,
+                                                                     **params))

@@ -21,7 +21,7 @@ class Distance(torch.jit.ScriptModule):
         self._postprocess = postprocess_script
 
     @torch.jit.script_method
-    def _jit_sq_dist(self, x1, x2, diag, x1_eq_x2):
+    def _jit_sq_dist(self, x1, x2, x1_eq_x2, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
         if bool(x1_eq_x2):
@@ -38,14 +38,15 @@ class Distance(torch.jit.ScriptModule):
 
         # Zero out negative values
         res.clamp_min_(0)
-
-        return self._postprocess(res)
+        return self._postprocess(res) if bool(postprocess) else res
 
     @torch.jit.script_method
-    def _jit_dist(self, x1, x2, diag, x1_eq_x2):
-        res = self._jit_sq_dist(x1, x2, diag, x1_eq_x2)
+    def _jit_dist(self, x1, x2, x1_eq_x2, postprocess, false_tensor):
+        # Need to do a hack to get a False tensor because pytorch stable doesn't
+        # support creating of tensors in torch scripts
+        res = self._jit_sq_dist(x1, x2, x1_eq_x2, postprocess=false_tensor)
         res = res.clamp_min_(1e-30).sqrt_()
-        return self._postprocess(res)
+        return self._postprocess(res) if bool(postprocess) else res
 
 
 class Kernel(Module):
@@ -218,10 +219,6 @@ class Kernel(Module):
         """
         raise NotImplementedError()
 
-    @torch.jit.script_method
-    def _postprocess(self, dist_mat):
-        return dist_mat
-
     def __getstate__(self):
         # JIT ScriptModules cannot be pickled
         self.distance_module = None
@@ -238,6 +235,7 @@ class Kernel(Module):
         batch_dims=None,
         square_dist=False,
         dist_postprocess_func=default_postprocess_script,
+        postprocess=True,
         **params
     ):
         """
@@ -269,11 +267,13 @@ class Kernel(Module):
             x2 = x2.unsqueeze(0).transpose(0, -1)
 
         x1_eq_x2 = torch.equal(x1, x2)
+        # torch scripts expect tensors
+        postprocess = torch.tensor(postprocess)
 
         res = None
 
         # Cache the Distance object or else JIT will recompile every time
-        if not self.distance_module:
+        if not self.distance_module or self.distance_module._postprocess != dist_postprocess_func:
             self.distance_module = Distance(dist_postprocess_func)
 
         if diag:
@@ -284,18 +284,20 @@ class Kernel(Module):
                     res = torch.zeros(x1.shape[0] * x1.shape[-1], x2.shape[-2], dtype=x1.dtype, device=x1.device)
                 else:
                     res = torch.zeros(x1.shape[0], x2.shape[-2], dtype=x1.dtype, device=x1.device)
-                return dist_postprocess_func(res)
+                if postprocess:
+                    res = dist_postprocess_func(res)
+                return res
             else:
+                res = torch.norm(x1 - x2, p=2, dim=-1)
                 if square_dist:
-                    res = (x1 - x2).pow(2).sum(-1)
-                else:
-                    res = torch.norm(x1 - x2, p=2, dim=-1)
+                    res = res.pow(2)
+            if postprocess:
+                res = dist_postprocess_func(res)
 
-            res = dist_postprocess_func(res)
-        elif not square_dist:
-            res = self.distance_module._jit_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
+        elif square_dist:
+            res = self.distance_module._jit_sq_dist(x1, x2, torch.tensor(x1_eq_x2), postprocess)
         else:
-            res = self.distance_module._jit_sq_dist(x1, x2, torch.tensor(diag), torch.tensor(x1_eq_x2))
+            res = self.distance_module._jit_dist(x1, x2, torch.tensor(x1_eq_x2), postprocess, torch.tensor(False))
 
         if batch_dims == (0, 2):
             if diag:
