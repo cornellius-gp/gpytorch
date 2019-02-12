@@ -4,7 +4,7 @@ import os
 import random
 import unittest
 from math import exp, pi
-from test._utils import approx_equal
+from test._utils import approx_equal, least_used_cuda_device
 
 import gpytorch
 import torch
