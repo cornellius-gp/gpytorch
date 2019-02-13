@@ -4,6 +4,7 @@ import re
 import os
 import io
 from setuptools import setup, find_packages
+from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
 
 
 # Get version
@@ -44,6 +45,23 @@ if has_dev_pytorch:  # Remove the PyTorch requirement
         install_require for install_require in install_requires
         if "torch" != re.split(r"(=|<|>)", install_require)[0]
     ]
+
+# For CPP Extension
+ext_modules = [
+    CppExtension(
+        "_gpytorch_solver",
+        ["gpytorch/csrc/gpytorch_solver.cpp"],
+        extra_compile_args=["-fopenmp"],
+    ),
+]
+if torch.cuda.is_available():
+    ext_modules.append(
+        CUDAExtension(
+            "_gpytorch_solver_cuda",
+            ["gpytorch/csrc/gpytorch_solver_cuda.cpp", "gpytorch/csrc/gpytorch_solver_cuda_kernel.cu"],
+            libraries=["cusolver"],
+        ),
+    )
 
 # Run the setup
 setup(
@@ -91,4 +109,6 @@ setup(
             "flake8-print",
         ]
     },
+    ext_modules=ext_modules,
+    cmdclass={"build_ext": BuildExtension},
 )

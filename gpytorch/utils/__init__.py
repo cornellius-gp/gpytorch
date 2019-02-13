@@ -6,14 +6,14 @@ from .stochastic_lq import StochasticLQ
 from . import batch
 from . import broadcasting
 from . import cholesky
-from . import eig
 from . import fft
+from . import eig
 from . import grid
 from . import interpolation
 from . import lanczos
 from . import pivoted_cholesky
-from . import sparse
 from . import quadrature
+from . import sparse
 
 
 def prod(items):
@@ -32,15 +32,15 @@ __all__ = [
     "batch",
     "broadcasting",
     "cached",
-    "linear_cg",
-    "StochasticLQ",
-    "cholesky",
     "eig",
+    "cholesky",
     "fft",
     "grid",
     "interpolation",
     "lanczos",
+    "linear_cg",
     "pivoted_cholesky",
     "quadrature",
+    "StochasticLQ",
     "sparse",
 ]
