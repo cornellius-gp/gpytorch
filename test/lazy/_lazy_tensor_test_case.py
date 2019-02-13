@@ -344,10 +344,9 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     def test_diag(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
         res = lazy_tensor.diag()
-        actual = torch.stack([flattened_evaluated[i].diag() for i in range(flattened_evaluated.size(0))])
+        actual = evaluated.diagonal(dim1=-2, dim2=-1)
         actual = actual.view(*lazy_tensor.batch_shape, -1)
         self.assertEqual(res.size(), lazy_tensor.size()[:-1])
         self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
