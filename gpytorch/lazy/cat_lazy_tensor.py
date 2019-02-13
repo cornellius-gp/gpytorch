@@ -158,6 +158,18 @@ class CatLazyTensor(LazyTensor):
                 for lazy_tensor, sub_index in zip(lazy_tensors, sub_indices)
             ]
 
+        elif isinstance(cat_dim_indices, int):  # It is an int
+            lazy_tensor_idx = self.idx_to_tensor_idx[cat_dim_indices]
+            new_cat_dim_index = cat_dim_indices - self.cat_dim_cum_sizes[lazy_tensor_idx]
+            indices[self.cat_dim] = new_cat_dim_index
+            return self.lazy_tensors[lazy_tensor_idx]._getitem(
+                row_col_are_absorbed, indices[-2], indices[-1], *indices[:-2]
+            )
+
+        else:
+            # We shouldn't end up here
+            raise RuntimeError("Unknown index type {}. This is a bug in GPyTorch".format(cat_dim_indices.__class__))
+
         # Process the list
         if len(res_list) == 1:
             return res_list[0]
