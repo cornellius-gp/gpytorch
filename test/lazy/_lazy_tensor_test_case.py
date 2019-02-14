@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-import gpytorch
-import torch
-import os
 import math
+import os
 import random
 from abc import abstractmethod
 from itertools import product
 from test._utils import approx_equal
+
+import gpytorch
+import torch
 
 
 class RectangularLazyTensorTestCase(object):

@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
-from math import exp, pi
-
 import os
 import random
-import torch
 import unittest
+from math import exp, pi
+from test._utils import least_used_cuda_device
+
 import gpytorch
-from torch import optim
-from gpytorch.kernels import RBFKernel, InducingPointKernel, ScaleKernel
+import torch
+from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import InducingPointKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
-from gpytorch.distributions import MultivariateNormal
+from torch import optim
 
 
 # Simple training data: let's try to learn a sine function,
@@ -134,7 +135,9 @@ class TestSGPRRegression(unittest.TestCase):
         self.assertLess(torch.max((fast_var_cache - slow_var).abs()), 1e-3)
 
     def test_sgpr_mean_abs_error_cuda(self):
-        if torch.cuda.is_available():
+        if not torch.cuda.is_available():
+            return
+        with least_used_cuda_device():
             train_x, train_y, test_x, test_y = make_data(cuda=True)
             likelihood = GaussianLikelihood().cuda()
             gp_model = GPRegressionModel(train_x, train_y, likelihood).cuda()

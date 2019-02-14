@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-import unittest
-
+import math
 import os
 import random
-import math
+import unittest
+from test._utils import approx_equal, least_used_cuda_device
+
 import torch
 from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
-from test._utils import approx_equal
 
 
 class TestMultiTaskMultivariateNormal(unittest.TestCase):
@@ -33,7 +33,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
 
     def test_multitask_multivariate_normal_exceptions_cuda(self):
         if torch.cuda.is_available():
-            self.test_multitask_multivariate_normal_exceptions(cuda=True)
+            with least_used_cuda_device():
+                self.test_multitask_multivariate_normal_exceptions(cuda=True)
 
     def test_multitask_multivariate_normal(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -68,7 +69,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
 
     def test_multitask_multivariate_normal_cuda(self):
         if torch.cuda.is_available():
-            self.test_multitask_multivariate_normal(cuda=True)
+            with least_used_cuda_device():
+                self.test_multitask_multivariate_normal(cuda=True)
 
     def test_multitask_multivariate_normal_batch(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -104,7 +106,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
 
     def test_multitask_multivariate_normal_batch_cuda(self):
         if torch.cuda.is_available():
-            self.test_multitask_multivariate_normal_batch(cuda=True)
+            with least_used_cuda_device():
+                self.test_multitask_multivariate_normal_batch(cuda=True)
 
     def test_multivariate_normal_correlated_sampels(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -121,7 +124,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
 
     def test_multivariate_normal_correlated_sampels_cuda(self):
         if torch.cuda.is_available():
-            self.test_multivariate_normal_correlated_sampels(cuda=True)
+            with least_used_cuda_device():
+                self.test_multivariate_normal_correlated_sampels(cuda=True)
 
     def test_multivariate_normal_batch_correlated_sampels(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -138,7 +142,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
 
     def test_multivariate_normal_batch_correlated_sampels_cuda(self):
         if torch.cuda.is_available():
-            self.test_multivariate_normal_batch_correlated_sampels(cuda=True)
+            with least_used_cuda_device():
+                self.test_multivariate_normal_batch_correlated_sampels(cuda=True)
 
     def test_log_prob(self):
         mean = torch.randn(4, 3)
@@ -167,8 +172,9 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
         mvns = [
             MultivariateNormal(
                 mean=torch.randn(4, device=device),
-                covariance_matrix=DiagLazyTensor(torch.randn(n, device=device).abs_())
-            ) for i in range(n_tasks)
+                covariance_matrix=DiagLazyTensor(torch.randn(n, device=device).abs_()),
+            )
+            for i in range(n_tasks)
         ]
         mvn = MultitaskMultivariateNormal.from_independent_mvns(mvns=mvns)
         expected_mean_shape = [n, n_tasks]
@@ -181,8 +187,9 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
         mvns = [
             MultivariateNormal(
                 mean=torch.randn(b, n, device=device),
-                covariance_matrix=DiagLazyTensor(torch.randn(b, n, device=device).abs_())
-            ) for i in range(n_tasks)
+                covariance_matrix=DiagLazyTensor(torch.randn(b, n, device=device).abs_()),
+            )
+            for i in range(n_tasks)
         ]
         mvn = MultitaskMultivariateNormal.from_independent_mvns(mvns=mvns)
         self.assertEqual(list(mvn.mean.shape), [b] + expected_mean_shape)
@@ -190,7 +197,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
 
     def test_from_independent_mvns_cuda(self):
         if torch.cuda.is_available():
-            self.test_from_independent_mvns(cuda=True)
+            with least_used_cuda_device():
+                self.test_from_independent_mvns(cuda=True)
 
 
 if __name__ == "__main__":

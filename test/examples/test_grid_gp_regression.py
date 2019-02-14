@@ -4,6 +4,7 @@ import math
 import os
 import random
 import unittest
+from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -106,14 +107,16 @@ class TestGridGPRegression(unittest.TestCase):
 
     def test_grid_gp_mean_abs_error_cuda(self):
         if torch.cuda.is_available():
-            self.test_grid_gp_mean_abs_error(cuda=True)
+            with least_used_cuda_device():
+                self.test_grid_gp_mean_abs_error(cuda=True)
 
     def test_grid_gp_mean_abs_error_2d(self):
         self.test_grid_gp_mean_abs_error(num_dim=2)
 
     def test_grid_gp_mean_abs_error_2d_cuda(self):
         if torch.cuda.is_available():
-            self.test_grid_gp_mean_abs_error(cuda=True, num_dim=2)
+            with least_used_cuda_device():
+                self.test_grid_gp_mean_abs_error(cuda=True, num_dim=2)
 
 
 if __name__ == "__main__":

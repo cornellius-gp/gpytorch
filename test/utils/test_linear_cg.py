@@ -2,11 +2,12 @@
 
 import os
 import random
-import torch
 import unittest
 from test._utils import approx_equal
-from gpytorch.utils.linear_cg import linear_cg
+
+import torch
 from gpytorch.utils.cholesky import cholesky_solve
+from gpytorch.utils.linear_cg import linear_cg
 
 
 class TestLinearCG(unittest.TestCase):

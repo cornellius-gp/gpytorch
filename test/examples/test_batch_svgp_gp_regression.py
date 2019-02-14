@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-from math import pi
-
 import os
 import random
-import torch
 import unittest
+from math import pi
+from test._utils import least_used_cuda_device
+
 import gpytorch
-from torch import optim
+import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
-from gpytorch.variational import CholeskyVariationalDistribution
-from gpytorch.variational import VariationalStrategy
+from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
+from torch import optim
 
 
 def train_data(cuda=False):
@@ -131,7 +131,9 @@ class TestSVGPRegression(unittest.TestCase):
         self.assertLess(mean_abs_error2.item(), 1e-1)
 
     def test_regression_error_cuda(self):
-        if torch.cuda.is_available():
+        if not torch.cuda.is_available():
+            return
+        with least_used_cuda_device():
             train_x, train_y = train_data(cuda=True)
             likelihood = GaussianLikelihood().cuda()
             inducing_points = torch.linspace(0, 1, 25).unsqueeze(-1).repeat(2, 1, 1)

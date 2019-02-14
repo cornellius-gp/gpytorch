@@ -2,10 +2,10 @@
 
 import unittest
 from math import exp
+from test._utils import approx_equal, least_used_cuda_device
 
 import torch
 from gpytorch.priors import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior, SmoothedBoxPrior
-from test._utils import approx_equal
 
 
 class TestLKJPrior(unittest.TestCase):
@@ -39,7 +39,8 @@ class TestLKJPrior(unittest.TestCase):
 
     def test_lkj_prior_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_lkj_prior_log_prob(cuda=True)
+            with least_used_cuda_device():
+                self.test_lkj_prior_log_prob(cuda=True)
 
     def test_lkj_prior_batch_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -54,7 +55,8 @@ class TestLKJPrior(unittest.TestCase):
 
     def test_lkj_prior_batch_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_lkj_prior_batch_log_prob(cuda=True)
+            with least_used_cuda_device():
+                self.test_lkj_prior_batch_log_prob(cuda=True)
 
 
 class TestLKJCholeskyFactorPrior(unittest.TestCase):
@@ -89,7 +91,8 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
 
     def test_lkj_cholesky_factor_prior_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_lkj_cholesky_factor_prior_log_prob(cuda=True)
+            with least_used_cuda_device():
+                self.test_lkj_cholesky_factor_prior_log_prob(cuda=True)
 
     def test_lkj_cholesky_factor_prior_batch_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -106,7 +109,8 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
 
     def test_lkj_cholesky_factor_prior_batch_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_lkj_cholesky_factor_prior_batch_log_prob(cuda=True)
+            with least_used_cuda_device():
+                self.test_lkj_cholesky_factor_prior_batch_log_prob(cuda=True)
 
 
 class TestLKJCovariancePrior(unittest.TestCase):
@@ -147,7 +151,8 @@ class TestLKJCovariancePrior(unittest.TestCase):
 
     def test_lkj_covariance_prior_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_lkj_covariance_prior_log_prob(cuda=True)
+            with least_used_cuda_device():
+                self.test_lkj_covariance_prior_log_prob(cuda=True)
 
     def test_lkj_covariance_prior_log_prob_hetsd(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -170,7 +175,8 @@ class TestLKJCovariancePrior(unittest.TestCase):
 
     def test_lkj_covariance_prior_log_prob_hetsd_cuda(self):
         if torch.cuda.is_available():
-            return self.test_lkj_covariance_prior_log_prob_hetsd(cuda=True)
+            with least_used_cuda_device():
+                self.test_lkj_covariance_prior_log_prob_hetsd(cuda=True)
 
     def test_lkj_covariance_prior_batch_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -187,7 +193,8 @@ class TestLKJCovariancePrior(unittest.TestCase):
 
     def test_lkj_covariance_prior_batch_log_prob_cuda(self):
         if torch.cuda.is_available():
-            return self.test_lkj_covariance_prior_batch_log_prob(cuda=True)
+            with least_used_cuda_device():
+                self.test_lkj_covariance_prior_batch_log_prob(cuda=True)
 
 
 if __name__ == "__main__":

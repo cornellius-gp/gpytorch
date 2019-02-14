@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-from math import pi
-
 import os
 import random
-import torch
 import unittest
+from math import pi
+from test._utils import least_used_cuda_device
+
 import gpytorch
-from torch import optim
+import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
-from gpytorch.variational import CholeskyVariationalDistribution
-from gpytorch.variational import WhitenedVariationalStrategy
+from gpytorch.variational import CholeskyVariationalDistribution, WhitenedVariationalStrategy
+from torch import optim
 
 
 def train_data(cuda=False):
@@ -100,7 +100,8 @@ class TestSVGPRegression(unittest.TestCase):
 
     def test_regression_error_cuda(self):
         if torch.cuda.is_available():
-            self.test_regression_error(cuda=True)
+            with least_used_cuda_device():
+                self.test_regression_error(cuda=True)
 
     def test_regression_error_shared_inducing_locations(self):
         train_x, train_y = train_data()

@@ -67,9 +67,7 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         scales = torch.tensor([[0.5, 0.25], [0.25, 1]], dtype=torch.float).view(2, 2, 1, 1)
         weights = torch.tensor([[4, 2], [1, 2]], dtype=torch.float).view(2, 2)
         kernel = SpectralMixtureKernel(batch_size=2, num_mixtures=2)
-        kernel.initialize(
-            mixture_weights=weights, mixture_means=means, mixture_scales=scales
-        )
+        kernel.initialize(mixture_weights=weights, mixture_means=means, mixture_scales=scales)
         kernel.eval()
 
         actual = torch.zeros(2, 3, 3)

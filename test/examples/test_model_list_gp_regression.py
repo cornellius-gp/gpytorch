@@ -2,6 +2,7 @@
 
 import math
 import unittest
+from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -77,7 +78,8 @@ class TestModelListGPRegression(unittest.TestCase):
 
     def test_simple_model_list_gp_regression_cuda(self):
         if torch.cuda.is_available():
-            self.test_simple_model_list_gp_regression(cuda=True)
+            with least_used_cuda_device():
+                self.test_simple_model_list_gp_regression(cuda=True)
 
 
 if __name__ == "__main__":

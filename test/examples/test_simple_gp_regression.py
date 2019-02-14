@@ -4,6 +4,7 @@ import os
 import random
 import unittest
 from math import exp, pi
+from test._utils import approx_equal, least_used_cuda_device
 
 import gpytorch
 import torch
@@ -13,7 +14,6 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from torch import optim
-from test._utils import approx_equal
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
@@ -80,7 +80,8 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_prior_cuda(self):
         if torch.cuda.is_available():
-            self.test_prior(cuda=True)
+            with least_used_cuda_device():
+                self.test_prior(cuda=True)
 
     def test_recursive_initialize(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
@@ -91,14 +92,15 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood_2 = GaussianLikelihood()
         gp_model_2 = ExactGPModel(train_x, train_y, likelihood_2)
 
-        gp_model_1.initialize(**{"likelihood.noise": 1e-2,
-                                 "covar_module.base_kernel.lengthscale": 1e-1})
+        gp_model_1.initialize(**{"likelihood.noise": 1e-2, "covar_module.base_kernel.lengthscale": 1e-1})
         gp_model_2.likelihood.initialize(noise=1e-2)
         gp_model_2.covar_module.base_kernel.initialize(lengthscale=1e-1)
-        self.assertTrue(torch.equal(gp_model_1.likelihood.noise,
-                                    gp_model_2.likelihood.noise))
-        self.assertTrue(torch.equal(gp_model_1.covar_module.base_kernel.lengthscale,
-                                    gp_model_2.covar_module.base_kernel.lengthscale))
+        self.assertTrue(torch.equal(gp_model_1.likelihood.noise, gp_model_2.likelihood.noise))
+        self.assertTrue(
+            torch.equal(
+                gp_model_1.covar_module.base_kernel.lengthscale, gp_model_2.covar_module.base_kernel.lengthscale
+            )
+        )
 
     def test_posterior_latent_gp_and_likelihood_without_optimization(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
@@ -132,10 +134,13 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_without_optimization_cuda(self):
         if torch.cuda.is_available():
-            self.test_posterior_latent_gp_and_likelihood_without_optimization(cuda=True)
+            with least_used_cuda_device():
+                self.test_posterior_latent_gp_and_likelihood_without_optimization(cuda=True)
 
     def test_gp_posterior_mean_skip_variances_fast_cuda(self):
-        if torch.cuda.is_available():
+        if not torch.cuda.is_available():
+            return
+        with least_used_cuda_device():
             train_x, test_x, train_y, _ = self._get_data(cuda=True)
             likelihood = GaussianLikelihood()
             gp_model = ExactGPModel(train_x, train_y, likelihood)
@@ -156,7 +161,9 @@ class TestSimpleGPRegression(unittest.TestCase):
             self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
 
     def test_gp_posterior_mean_skip_variances_slow_cuda(self):
-        if torch.cuda.is_available():
+        if not torch.cuda.is_available():
+            return
+        with least_used_cuda_device():
             train_x, test_x, train_y, _ = self._get_data(cuda=True)
             likelihood = GaussianLikelihood()
             gp_model = ExactGPModel(train_x, train_y, likelihood)
@@ -223,7 +230,8 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_fantasy_updates_cuda(self):
         if torch.cuda.is_available():
-            self.test_fantasy_updates(cuda=True)
+            with least_used_cuda_device():
+                self.test_fantasy_updates(cuda=True)
 
     def test_fantasy_updates(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
@@ -293,7 +301,8 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_fantasy_updates_batch_cuda(self):
         if torch.cuda.is_available():
-            self.test_fantasy_updates_batch(cuda=True)
+            with least_used_cuda_device():
+                self.test_fantasy_updates_batch(cuda=True)
 
     def test_fantasy_updates_batch(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
@@ -353,7 +362,8 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_with_optimization_cuda(self):
         if torch.cuda.is_available():
-            self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=True)
+            with least_used_cuda_device():
+                self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=True)
 
     def test_posterior_with_exact_computations(self):
         with gpytorch.settings.fast_computations(covar_root_decomposition=False, log_prob=False):
@@ -361,8 +371,9 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_posterior_with_exact_computations_cuda(self):
         if torch.cuda.is_available():
-            with gpytorch.settings.fast_computations(covar_root_decomposition=False, log_prob=False):
-                self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=True)
+            with least_used_cuda_device():
+                with gpytorch.settings.fast_computations(covar_root_decomposition=False, log_prob=False):
+                    self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=True)
 
     def test_posterior_latent_gp_and_likelihood_fast_pred_var(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
@@ -419,7 +430,8 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_fast_pred_var_cuda(self):
         if torch.cuda.is_available():
-            self.test_posterior_latent_gp_and_likelihood_fast_pred_var(cuda=True)
+            with least_used_cuda_device():
+                self.test_posterior_latent_gp_and_likelihood_fast_pred_var(cuda=True)
 
 
 if __name__ == "__main__":
