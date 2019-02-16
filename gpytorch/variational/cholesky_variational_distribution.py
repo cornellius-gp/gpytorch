@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from ..lazy import CholLazyTensor
+from ..lazy import CholLazyTensor, RootLazyTensor
 from ..distributions import MultivariateNormal
 from .variational_distribution import VariationalDistribution
 
@@ -55,5 +55,5 @@ class CholeskyVariationalDistribution(VariationalDistribution):
         chol_variational_covar = chol_variational_covar.mul(lower_mask)
 
         # Now construct the actual matrix
-        variational_covar = CholLazyTensor(chol_variational_covar)
+        variational_covar = RootLazyTensor(chol_variational_covar[..., :10])
         return MultivariateNormal(self.variational_mean, variational_covar)

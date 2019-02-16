@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .variational_strategy import VariationalStrategy
+from .fully_transformed_variational_strategy import FullyTransformedVariationalStrategy
 from .whitened_variational_strategy import WhitenedVariationalStrategy
 from .additive_grid_interpolation_variational_strategy import AdditiveGridInterpolationVariationalStrategy
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
