@@ -167,7 +167,7 @@ class CatLazyTensor(LazyTensor):
             new_cat_dim = next((i for i, x in enumerate(shape_diff) if x), None)  # First nonzero element
 
             if row_col_are_absorbed:
-                return torch.cat(res_list, dim=new_cat_dim)
+                return torch.cat([res.to(self.output_device) for res in res_list], dim=new_cat_dim)
             else:
                 res = self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
                 return res
