@@ -64,6 +64,9 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
         # preconditioner
         def precondition_closure(tensor):
+            if tensor.dim() == 1:
+                tensor = tensor.unsqueeze(-1)
+
             return pivoted_cholesky.woodbury_solve(
                 tensor, self._woodbury_cache, self._diag_tensor.diag()
             )
