@@ -3,4 +3,5 @@
 
 
 // Actual function definitions
+std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_svd(at::Tensor mat);
 std::tuple<at::Tensor, at::Tensor> batch_symeig(at::Tensor mat);
