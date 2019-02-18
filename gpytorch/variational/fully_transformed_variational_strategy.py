@@ -114,6 +114,7 @@ class FullyTransformedVariationalStrategy(VariationalStrategy):
             (data_induc_covar @ variational_covar_root).pow(2).sum(-1)
         )
         print(predictive_var.min().item())
+        print(predictive_var.max().item())
         predictive_covar = DiagLazyTensor(predictive_var.clamp(1e-5, math.inf))
 
         # Save the logdet, mean_diff_inv_quad, prior distribution for the ELBO

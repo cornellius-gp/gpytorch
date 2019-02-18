@@ -36,10 +36,10 @@ class WhitenedVariationalStrategy(VariationalStrategy):
                 # log|k| - log|S|
                 # = log|K| - log|K var_dist_covar K|
                 # = -log|K| - log|var_dist_covar|
-                self.prior_covar_logdet(),
-                -variational_dist_u.lazy_covariance_matrix.logdet(),
+                # self.prior_covar_logdet(),
+                # -variational_dist_u.lazy_covariance_matrix.logdet(),
                 # tr(K^-1 S) = tr(K^1 K var_dist_covar K) = tr(K var_dist_covar)
-                self.covar_trace(),
+                # self.covar_trace(),
                 # (m - \mu u)^T K^-1 (m - \mu u)
                 # = (K^-1 (m - \mu u)) K (K^1 (m - \mu u))
                 # = (var_dist_mean)^T K (var_dist_mean)
@@ -48,6 +48,8 @@ class WhitenedVariationalStrategy(VariationalStrategy):
                 -prior_dist.event_shape.numel(),
             ]
         )
+
+        print(self.mean_diff_inv_quad().item())
 
         return kl_divergence
 
@@ -185,6 +187,10 @@ class WhitenedVariationalStrategy(VariationalStrategy):
             if beta_features.diagonal_correction.on():
                 diag_correction = (data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf)
                 predictive_covar = DiagLazyTensor(predictive_covar.diag() + diag_correction)
+                predictive_covar = DiagLazyTensor(data_data_covar.diag())
+                predictive_var = predictive_covar.diag()
+                print(predictive_var.min().item())
+                print(predictive_var.max().item())
 
             # Save the logdet, mean_diff_inv_quad, prior distribution for the ELBO
             if self.training:
