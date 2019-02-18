@@ -2,6 +2,7 @@
 
 import torch
 import warnings
+from .non_lazy_tensor import lazify
 from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 from ..utils import pivoted_cholesky
@@ -57,12 +58,14 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     "NaNs encountered in preconditioner computation. Attempting to continue without " "preconditioning."
                 )
                 return None, None
-            self._woodbury_cache = pivoted_cholesky.woodbury_factor(self._piv_chol_self, self._diag_tensor.diag())
+            self._woodbury_cache = pivoted_cholesky.woodbury_factor(
+                self._piv_chol_self, self._piv_chol_self, self._diag_tensor.diag()
+            )
 
         # preconditioner
         def precondition_closure(tensor):
             return pivoted_cholesky.woodbury_solve(
-                tensor, self._piv_chol_self, self._woodbury_cache, self._diag_tensor.diag()
+                tensor, self._woodbury_cache, self._diag_tensor.diag()
             )
 
         # logdet correction
