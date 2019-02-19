@@ -34,6 +34,13 @@ class AddedDiagLazyTensor(SumLazyTensor):
         else:
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
+    def _matmul(self, rhs):
+        return torch.addcmul(
+            self._lazy_tensor._matmul(rhs),
+            self._diag_tensor._diag.unsqueeze(-1),
+            rhs
+        )
+
     def add_diag(self, added_diag):
         return AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor.add_diag(added_diag))
 
