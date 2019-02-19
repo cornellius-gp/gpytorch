@@ -78,12 +78,12 @@ def woodbury_factor(umat, vmat, diag, logdet=False):
         logdet = logdet + inv_scale.log().mul(n - k)
         # Reshape
         logdet = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
-        return R, logdet
+        return R, inv_scale, logdet
     else:
-        return R
+        return R, inv_scale
 
 
-def woodbury_solve(rhs, umat, woodbury_factor, diag):
+def woodbury_solve(rhs, scaled_inv_diag_umat, woodbury_factor, scaled_inv_diag, inv_scale):
     """
     Solves the system of equations: :math:`(D + U V^T)x = b` using the Woodbury formula,
     where x is the right-hand-side (size n), U, V are (n x k), and D is a (n x n) diagonal matrix.
@@ -94,25 +94,18 @@ def woodbury_solve(rhs, umat, woodbury_factor, diag):
     Args:
         :attr:`rhs` (size n x t)
             Right hand side vector b to solve with.
-        :attr:`umat` (n x k)
-            The U matrix
+        :attr:`scaled_inv_diag_umat` (n x k)
+            The `D^{-1} U` matrix
         :attr:`woodbury_factor` (n x k)
             The result of calling woodbury_factor on U, V, and D.
         :attr:`diag` (vector)
             The diagonal of D
     """
-    # These reshapes make it easier to use faster blas calls
-    # Scale the diagonal (using the same scale from woodbury factor)
-    # s = scale = max |1 / diag|
-    # E^-1 = 1/s D^-1
-    inv_scale = diag.abs().min()
-    scaled_inv_diag = inv_scale / diag.unsqueeze(-1)
-
     # (D + UV^T)x = D^-1 x - D^-1 U ((I + V^T D^-1 U)^-1 V^T) D^-1 x
     #             = D^-1 x - D^-1 U (1/s (woodbury_factor)) D^-1 x
     #             = s( E^-1 x - E^-1 U (woodbury_factor) E^-1 x )
     scaled_inv_diag_rhs = rhs * scaled_inv_diag
-    res = torch.addcmul(scaled_inv_diag_rhs, -1, scaled_inv_diag, umat @ woodbury_factor @ scaled_inv_diag_rhs)
+    res = torch.add(scaled_inv_diag_rhs, -1, scaled_inv_diag_umat @ (woodbury_factor @ scaled_inv_diag_rhs))
     res = res.div_(inv_scale)
 
     # Reshape the result to be the correct shape

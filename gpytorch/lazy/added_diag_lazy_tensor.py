@@ -63,14 +63,18 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     "NaNs encountered in preconditioner computation. Attempting to continue without " "preconditioning."
                 )
                 return None, None
-            self._woodbury_cache, self._precond_logdet_cache = woodbury.woodbury_factor(
+            self._woodbury_cache, self._inv_scale, self._precond_logdet_cache = woodbury.woodbury_factor(
                 self._piv_chol_self, self._piv_chol_self, self._diag_tensor.diag(), logdet=True
             )
+            self._scaled_inv_diag = self._inv_scale / self._diag_tensor.diag().unsqueeze(-1)
+            self._scaled_inv_diag_piv_chol_self = self._piv_chol_self * self._scaled_inv_diag
 
         # preconditioner
         def precondition_closure(tensor):
-            return woodbury.woodbury_solve(
-                tensor, self._piv_chol_self, self._woodbury_cache, self._diag_tensor.diag()
+            res = woodbury.woodbury_solve(
+                tensor, self._scaled_inv_diag_piv_chol_self, self._woodbury_cache,
+                self._scaled_inv_diag, self._inv_scale
             )
+            return res
 
         return precondition_closure, self._precond_logdet_cache
