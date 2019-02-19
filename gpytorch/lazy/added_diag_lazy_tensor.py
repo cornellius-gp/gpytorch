@@ -2,7 +2,6 @@
 
 import torch
 import warnings
-from .non_lazy_tensor import lazify
 from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 from ..utils import broadcasting, pivoted_cholesky, woodbury
@@ -64,8 +63,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     "NaNs encountered in preconditioner computation. Attempting to continue without " "preconditioning."
                 )
                 return None, None
-            self._woodbury_cache = woodbury.woodbury_factor(
-                self._piv_chol_self, self._piv_chol_self, self._diag_tensor.diag()
+            self._woodbury_cache, self._precond_logdet_cache = woodbury.woodbury_factor(
+                self._piv_chol_self, self._piv_chol_self, self._diag_tensor.diag(), logdet=True
             )
 
         # preconditioner
@@ -73,19 +72,5 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return woodbury.woodbury_solve(
                 tensor, self._piv_chol_self, self._woodbury_cache, self._diag_tensor.diag()
             )
-
-        # logdet correction
-        if not hasattr(self, "_precond_logdet_cache"):
-            lr_flipped = self._piv_chol_self.transpose(-1, -2).matmul(
-                self._piv_chol_self.div(self._diag_tensor.diag().unsqueeze(-1))
-            )
-            lr_flipped = lr_flipped + torch.eye(n=lr_flipped.size(-2), dtype=lr_flipped.dtype, device=lr_flipped.device)
-            if lr_flipped.ndimension() == 3:
-                ld_one = (lazify(torch.cholesky(lr_flipped, upper=True)).diag().log().sum(-1)) * 2
-                ld_two = self._diag_tensor.diag().log().sum(-1)
-            else:
-                ld_one = lr_flipped.cholesky(upper=True).diag().log().sum() * 2
-                ld_two = self._diag_tensor.diag().log().sum().item()
-            self._precond_logdet_cache = ld_one + ld_two
 
         return precondition_closure, self._precond_logdet_cache

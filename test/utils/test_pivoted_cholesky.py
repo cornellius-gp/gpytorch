@@ -36,7 +36,8 @@ class TestPivotedCholesky(unittest.TestCase):
         train_x = torch.linspace(0, 1, size)
         covar_matrix = RBFKernel()(train_x, train_x).evaluate()
         piv_chol = pivoted_cholesky.pivoted_cholesky(covar_matrix, 10)
-        woodbury_factor = woodbury.woodbury_factor(piv_chol, piv_chol, torch.ones(100))
+        woodbury_factor, logdet = woodbury.woodbury_factor(piv_chol, piv_chol, torch.ones(100), logdet=True)
+        self.assertTrue(approx_equal(logdet, (piv_chol @ piv_chol.transpose(-1, -2) + torch.eye(100)).logdet(), 2e-4))
 
         rhs_vector = torch.randn(100, 50)
         shifted_covar_matrix = covar_matrix + torch.eye(size)
@@ -77,7 +78,11 @@ class TestPivotedCholeskyBatch(unittest.TestCase):
         ).unsqueeze(-1)
         covar_matrix = RBFKernel()(train_x, train_x).evaluate()
         piv_chol = pivoted_cholesky.pivoted_cholesky(covar_matrix, 10)
-        woodbury_factor = woodbury.woodbury_factor(piv_chol, piv_chol, torch.ones(2, 100))
+        woodbury_factor, logdet = woodbury.woodbury_factor(piv_chol, piv_chol, torch.ones(2, 100), logdet=True)
+        actual_logdet = torch.stack([
+            mat.logdet() for mat in (piv_chol @ piv_chol.transpose(-1, -2) + torch.eye(100)).view(-1, 100, 100)
+        ], 0).view(2)
+        self.assertTrue(approx_equal(logdet, actual_logdet, 2e-4))
 
         rhs_vector = torch.randn(2, 100, 5)
         shifted_covar_matrix = covar_matrix + torch.eye(size)
@@ -152,7 +157,11 @@ class TestPivotedCholeskyMultiBatch(unittest.TestCase):
         ).unsqueeze(-1)
         covar_matrix = RBFKernel()(train_x, train_x).evaluate().view(2, 2, 3, size, size)
         piv_chol = pivoted_cholesky.pivoted_cholesky(covar_matrix, 10)
-        woodbury_factor = woodbury.woodbury_factor(piv_chol, piv_chol, torch.ones(2, 2, 3, 100))
+        woodbury_factor, logdet = woodbury.woodbury_factor(piv_chol, piv_chol, torch.ones(2, 2, 3, 100), logdet=True)
+        actual_logdet = torch.stack([
+            mat.logdet() for mat in (piv_chol @ piv_chol.transpose(-1, -2) + torch.eye(100)).view(-1, 100, 100)
+        ], 0).view(2, 2, 3)
+        self.assertTrue(approx_equal(logdet, actual_logdet, 2e-4))
 
         rhs_vector = torch.randn(2, 2, 3, 100, 5)
         shifted_covar_matrix = covar_matrix + torch.eye(size)

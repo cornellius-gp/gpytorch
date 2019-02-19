@@ -5,20 +5,22 @@ from .cholesky import cholesky_solve
 from .. import settings
 
 
-def woodbury_factor(umat, vmat, diag):
+def woodbury_factor(umat, vmat, diag, logdet=False):
     r"""
-    Given a matrix factorized as (D + U V^T), where
-    U, V are (n x k) and D is a (n x n) diagonal matrix,
-    returns the matrix R so that
+    Given a matrix factorized as :math:`(D + U V^T)`, where
+    :math:`U`, :math:`V` are (n x k) and :math:`D` is a (n x n) diagonal matrix,
+    returns the matrix :math:`R` so that
 
     .. math::
-
         \begin{equation*}
             R = (I_k + V^T D^-1 U)^{-1} V^T
         \end{equation*}
 
     to be used in solves with (D + U V^T) via the Woodbury formula.
     Can also be used in batch mode, where U, V, and D are batches of matrices
+
+    If the :attr:`logdet=True` flag is set, this function will also return the
+    log determinant of :math:`(D + U V^T)`.
 
     Args:
         :attr:`umat` (Tensor n x k):
@@ -27,7 +29,12 @@ def woodbury_factor(umat, vmat, diag):
             The right matrix factor
         :attr:`diag` (Tensor n):
             The diagonal of D
+        :attr:`logdet` (bool):
+            Whether or not to return the log determinant
 
+    Returns:
+        Tensor (k x n) (if `logdet=False`)
+        Tensor (k x n), Tensor () (if `logdet=True`)
     """
     if settings.debug.on():
         if umat.shape != vmat.shape:
@@ -57,9 +64,23 @@ def woodbury_factor(umat, vmat, diag):
         umat * scaled_inv_diag
     )
 
-    # Compute s (I_k + V^T D^-1 U))^-1 V^T
-    R = cholesky_solve(vmat.transpose(-1, -2), torch.cholesky(inner_mat))
-    return R.view(*batch_shape, k, n)
+    # Compute the cholesky factor of (1/s (I_k + V^T D^-1 U))
+    chol = torch.cholesky(inner_mat)
+
+    # Compute s (I_k + V^T D^-1 U)^-1 V^T
+    R = cholesky_solve(vmat.transpose(-1, -2), chol).view(*batch_shape, k, n)
+
+    # Maybe compute the log determinant
+    if logdet:
+        # Using the matrix determinant lemma here
+        logdet = chol.diagonal(dim1=-1, dim2=-2).log().sum(-1).mul(2) - scaled_inv_diag.log().sum([-1, -2])
+        # Undo the effect of scaling on D^{-1}
+        logdet = logdet + inv_scale.log().mul(n - k)
+        # Reshape
+        logdet = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
+        return R, logdet
+    else:
+        return R
 
 
 def woodbury_solve(rhs, umat, woodbury_factor, diag):
