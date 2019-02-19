@@ -160,7 +160,7 @@ class CatLazyTensor(LazyTensor):
 
         # Process the list
         if len(res_list) == 1:
-            return res_list[0]
+            return res_list[0].to(self.output_device)
         else:
             # Figure out the new concat dimension
             shape_diff = [res_size - target_size for res_size, target_size in zip(res_list[0].shape, target_shape)]
