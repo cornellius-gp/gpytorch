@@ -2,12 +2,10 @@
 
 import torch
 import warnings
-from .non_lazy_tensor import lazify
 from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
-from ..utils import pivoted_cholesky
+from ..utils import broadcasting, pivoted_cholesky, woodbury
 from .. import settings
-from ..utils import broadcasting
 
 
 class AddedDiagLazyTensor(SumLazyTensor):
@@ -35,6 +33,13 @@ class AddedDiagLazyTensor(SumLazyTensor):
         else:
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
+    def _matmul(self, rhs):
+        return torch.addcmul(
+            self._lazy_tensor._matmul(rhs),
+            self._diag_tensor._diag.unsqueeze(-1),
+            rhs
+        )
+
     def add_diag(self, added_diag):
         return AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor.add_diag(added_diag))
 
@@ -58,26 +63,18 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     "NaNs encountered in preconditioner computation. Attempting to continue without " "preconditioning."
                 )
                 return None, None
-            self._woodbury_cache = pivoted_cholesky.woodbury_factor(self._piv_chol_self, self._diag_tensor.diag())
+            self._woodbury_cache, self._inv_scale, self._precond_logdet_cache = woodbury.woodbury_factor(
+                self._piv_chol_self, self._piv_chol_self, self._diag_tensor.diag(), logdet=True
+            )
+            self._scaled_inv_diag = self._inv_scale / self._diag_tensor.diag().unsqueeze(-1)
+            self._scaled_inv_diag_piv_chol_self = self._piv_chol_self * self._scaled_inv_diag
 
         # preconditioner
         def precondition_closure(tensor):
-            return pivoted_cholesky.woodbury_solve(
-                tensor, self._piv_chol_self, self._woodbury_cache, self._diag_tensor.diag()
+            res = woodbury.woodbury_solve(
+                tensor, self._scaled_inv_diag_piv_chol_self, self._woodbury_cache,
+                self._scaled_inv_diag, self._inv_scale
             )
-
-        # logdet correction
-        if not hasattr(self, "_precond_logdet_cache"):
-            lr_flipped = self._piv_chol_self.matmul(
-                self._piv_chol_self.transpose(-2, -1).div(self._diag_tensor.diag().unsqueeze(-1))
-            )
-            lr_flipped = lr_flipped + torch.eye(n=lr_flipped.size(-2), dtype=lr_flipped.dtype, device=lr_flipped.device)
-            if lr_flipped.ndimension() == 3:
-                ld_one = (lazify(torch.cholesky(lr_flipped, upper=True)).diag().log().sum(-1)) * 2
-                ld_two = self._diag_tensor.diag().log().sum(-1)
-            else:
-                ld_one = lr_flipped.cholesky(upper=True).diag().log().sum() * 2
-                ld_two = self._diag_tensor.diag().log().sum().item()
-            self._precond_logdet_cache = ld_one + ld_two
+            return res
 
         return precondition_closure, self._precond_logdet_cache

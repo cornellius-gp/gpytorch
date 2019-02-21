@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import torch
-from .cholesky import cholesky_solve
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
@@ -78,44 +77,4 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
             errors = torch.norm(matrix_diag.gather(-1, pi_i), 1, dim=-1) / orig_error
         m = m + 1
 
-    return L[..., :m, :].contiguous()
-
-
-def woodbury_factor(low_rank_mat, shift):
-    r"""
-    Given a low rank (k x n) matrix V and a shift, returns the
-    matrix R so that
-
-    .. math::
-
-        \begin{equation*}
-            R = (I_k + 1/shift VV')^{-1}V
-        \end{equation*}
-
-    to be used in solves with (V'V + shift I) via the Woodbury formula
-    """
-    k = low_rank_mat.size(-2)
-    shifted_mat = low_rank_mat.matmul(low_rank_mat.transpose(-1, -2) / shift.unsqueeze(-1))
-
-    shifted_mat = shifted_mat + torch.eye(k, dtype=shifted_mat.dtype, device=shifted_mat.device)
-
-    R = cholesky_solve(low_rank_mat, torch.cholesky(shifted_mat))
-    return R
-
-
-def woodbury_solve(vector, low_rank_mat, woodbury_factor, shift):
-    """
-    Solves the system of equations: :math:`(sigma*I + VV')x = b`
-    Using the Woodbury formula.
-
-    Input:
-        - vector (size n) - right hand side vector b to solve with.
-        - woodbury_factor (k x n) - The result of calling woodbury_factor on V
-          and the shift, \sigma
-        - shift (vector) - shift value sigma
-    """
-    if vector.ndimension() > 1:
-        shift = shift.unsqueeze(-1)
-
-    right = low_rank_mat.transpose(-1, -2).matmul(woodbury_factor.matmul(vector / shift))
-    return (vector - right) / shift
+    return L[..., :m, :].transpose(-1, -2).contiguous()
