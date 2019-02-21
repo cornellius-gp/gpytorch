@@ -30,6 +30,7 @@ class CholeskyVariationalDistribution(VariationalDistribution):
             mean_init = mean_init.repeat(batch_size, 1)
             covar_init = covar_init.repeat(batch_size, 1, 1)
 
+        self.batch_size = batch_size
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(mean_init))
         self.register_parameter(name="chol_variational_covar", parameter=torch.nn.Parameter(covar_init))
 
