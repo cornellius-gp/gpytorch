@@ -52,6 +52,7 @@ class VariationalStrategy(Module):
 
         self.variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
+        self.batch_size = self.variational_distribution.batch_size
 
     @property
     @cached(name="prior_distribution_memo")
@@ -61,7 +62,11 @@ class VariationalStrategy(Module):
         GP prior distribution of the inducing points, e.g. :math:`p(u) \sim N(\mu(X_u), K(X_u, X_u))`. Most commonly,
         this is done simply by calling the user defined GP prior on the inducing point data directly.
         """
-        out = self.model.forward(self.inducing_points)
+        if self.batch_size is not None:
+            inducing_points = self.inducing_points.expand(self.batch_size, *self.inducing_points.shape[-2:])
+        else:
+            inducing_points = self.inducing_points
+        out = self.model.forward(inducing_points)
         res = MultivariateNormal(
             out.mean, out.lazy_covariance_matrix.evaluate_kernel().add_jitter()
         )
