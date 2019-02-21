@@ -151,8 +151,8 @@ class VariationalStrategy(Module):
                         solve[..., :left_tensors.size(-1)].detach()
                     ]
                     if settings.skip_logdet_forward.on():
-                        eager_rhss.append(torch.cat([probe_vecs, induc_data_covar], -1))
-                        solves.append(torch.cat([probe_vec_solves, solve[..., left_tensors.size(-1):]], -1))
+                        eager_rhss.append(torch.cat([probe_vecs, left_tensors], -1))
+                        solves.append(torch.cat([probe_vec_solves, solve[..., :left_tensors.size(-1)]], -1))
                 induc_induc_covar = CachedCGLazyTensor(
                     induc_induc_covar, eager_rhss=eager_rhss, solves=solves, probe_vectors=probe_vecs,
                     probe_vector_norms=probe_vec_norms, probe_vector_solves=probe_vec_solves,
