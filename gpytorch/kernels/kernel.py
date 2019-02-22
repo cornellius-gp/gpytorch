@@ -3,7 +3,7 @@
 from abc import abstractmethod
 import torch
 from torch.nn import ModuleList
-from ..lazy import lazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
+from ..lazy import lazify, delazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
 from .. import settings
 from ..utils.transforms import _get_inv_param_transform
@@ -456,10 +456,19 @@ class ProductKernel(Kernel):
         self.kernels = ModuleList(kernels)
 
     def forward(self, x1, x2, **params):
-        res = lazify(self.kernels[0](x1, x2, **params))
+        x1_eq_x2 = torch.equal(x1, x2)
+
+        if not x1_eq_x2:
+            res = delazify(self.kernels[0](x1, x2, **params))
+        else:
+            res = lazify(self.kernels[0](x1, x2, **params))
+
         for kern in self.kernels[1:]:
             next_term = kern(x1, x2, **params)
-            res = res * lazify(next_term)
+            if not x1_eq_x2:
+                res = res * delazify(next_term)
+            else:
+                res = res * lazify(next_term)
         return res
 
     def size(self, x1, x2):

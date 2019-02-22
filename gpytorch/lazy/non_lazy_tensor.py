@@ -62,6 +62,18 @@ class NonLazyTensor(LazyTensor):
     def evaluate(self):
         return self.tensor
 
+    def __add__(self, other):
+        if isinstance(other, NonLazyTensor):
+            return NonLazyTensor(self.tensor + other.tensor)
+        else:
+            return super(NonLazyTensor, self).__add__(other)
+
+    def mul(self, other):
+        if isinstance(other, NonLazyTensor):
+            return NonLazyTensor(self.tensor * other.tensor)
+        else:
+            return super(NonLazyTensor, self).mul(other)
+
 
 def lazify(obj):
     """
