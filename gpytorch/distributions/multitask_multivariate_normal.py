@@ -26,14 +26,12 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         if not torch.is_tensor(covariance_matrix) and not isinstance(covariance_matrix, LazyTensor):
             raise RuntimeError("The covariance of a MultitaskMultivariateNormal must be a Tensor or LazyTensor")
 
-        if mean.ndimension() not in {2, 3}:
+        if mean.ndimension() < 2:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
 
         self._output_shape = mean.shape
-        super(MultitaskMultivariateNormal, self).__init__(
-            mean=mean.view(mean.shape[:-2] + torch.Size([-1])),
-            covariance_matrix=covariance_matrix,
-            validate_args=validate_args,
+        super().__init__(
+            mean=mean.view(*mean.shape[:-2], -1), covariance_matrix=covariance_matrix, validate_args=validate_args
         )
 
     @property
@@ -48,36 +46,23 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             raise ValueError("All MultivariateNormals must have the same batch shape")
         if not all(m.event_shape == mvns[0].event_shape for m in mvns[1:]):
             raise ValueError("All MultivariateNormals must have the same event shape")
-        if len(mvns[0].batch_shape) > 1:
-            raise ValueError("Multiple batch dimensions are not supported in from_independent_mvns.")
         mean = torch.stack([mvn.mean for mvn in mvns], -1)
-        # TODO: To do the following efficiently, we don't want to evaluate the
-        # covariance matrices. Instead, we want to use the lazies directly in the
-        # BlockDiagLazyTensor. This will require implementing a new BatchLazyTensor:
-        # https://github.com/cornellius-gp/gpytorch/issues/468
         covar_blocks_lazy = CatLazyTensor(
-            *[mvn.lazy_covariance_matrix.unsqueeze(0) for mvn in mvns],
-            dim=0,
-            output_device=mean.device
+            *[mvn.lazy_covariance_matrix.unsqueeze(0) for mvn in mvns], dim=0, output_device=mean.device
         )
-        covar_lazy = BlockDiagLazyTensor(
-            covar_blocks_lazy,
-            block_dim=0
-        )
+        covar_lazy = BlockDiagLazyTensor(covar_blocks_lazy, block_dim=0)
         return cls(mean=mean, covariance_matrix=covar_lazy)
 
     def get_base_samples(self, sample_shape=torch.Size()):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
-        res = super(MultitaskMultivariateNormal, self).get_base_samples(sample_shape)
-        res = res.view(*sample_shape, *self._output_shape)
-        return res
+        return super().get_base_samples(sample_shape).view(*sample_shape, *self._output_shape)
 
     def log_prob(self, value):
-        return super(MultitaskMultivariateNormal, self).log_prob(value.view(value.shape[:-2] + torch.Size([-1])))
+        return super().log_prob(value.view(*value.shape[:-2], -1))
 
     @property
     def mean(self):
-        return super(MultivariateNormal, self).mean.view(self._output_shape)
+        return super().mean.view(self._output_shape)
 
     @property
     def num_tasks(self):
@@ -86,19 +71,19 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         if base_samples is not None:
             # Make sure that the base samples agree with the distribution
-            if tuple(self.mean.size()) != tuple(self.mean.size()[-self.mean.dim() :]):
+            mean_shape = self.mean.shape
+            base_sample_shape = base_samples.shape[-self.mean.ndimension() :]
+            if mean_shape != base_sample_shape:
                 raise RuntimeError(
-                    "The size of base_samples (minus sample shape dimensions) should agree with the size "
-                    "of self.mean. Expected ...{} but got {}".format(self.loc.size(), base_samples.size())
+                    "The shape of base_samples (minus sample shape dimensions) should agree with the shape "
+                    "of self.mean. Expected ...{} but got {}".format(mean_shape, base_sample_shape)
                 )
-
-            sample_shape = torch.Size(tuple(base_samples.size(i) for i in range(base_samples.dim() - self.mean.dim())))
+            sample_shape = base_samples.shape[: -self.mean.ndimension()]
             base_samples = base_samples.view(*sample_shape, *self.loc.shape)
 
-        samples = super(MultitaskMultivariateNormal, self).rsample(sample_shape=sample_shape, base_samples=base_samples)
-        samples = samples.view(sample_shape + self._output_shape)
-        return samples
+        samples = super().rsample(sample_shape=sample_shape, base_samples=base_samples)
+        return samples.view(sample_shape + self._output_shape)
 
     @property
     def variance(self):
-        return super(MultivariateNormal, self).variance.view(self._output_shape)
+        return super().variance.view(self._output_shape)
