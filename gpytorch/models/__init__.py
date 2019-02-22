@@ -7,6 +7,7 @@ from .exact_gp import ExactGP
 from .grid_inducing_variational_gp import GridInducingVariationalGP
 from .model_list import AbstractModelList, IndependentModelList
 from .variational_gp import VariationalGP
+from . import deep_gps
 
 
 try:
@@ -28,4 +29,5 @@ __all__ = [
     "IndependentModelList",
     "PyroVariationalGP",
     "VariationalGP",
+    "deep_gps",
 ]
