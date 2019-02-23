@@ -54,7 +54,7 @@ def linear_cg(
     matmul_closure,
     rhs,
     n_tridiag=0,
-    tolerance=1e-6,
+    tolerance=None,
     eps=1e-10,
     max_iter=None,
     max_tridiag_iter=None,
@@ -95,6 +95,8 @@ def linear_cg(
         max_tridiag_iter = settings.max_lanczos_quadrature_iterations.value()
     if initial_guess is None:
         initial_guess = torch.zeros_like(rhs)
+    if tolerance is None:
+        tolerance = settings.cg_tolerance.value()
     if preconditioner is None:
         preconditioner = _default_preconditioner
         precond = False
@@ -198,6 +200,12 @@ def linear_cg(
                 mul_storage,
                 curr_conjugate_vec,
             )
+
+        torch.norm(residual, 2, dim=-2, out=residual_norm)
+        mean_norm = (residual_norm / rhs.norm(-2)).mean()
+
+        if k >= 10 and bool(mean_norm < tolerance) and not (n_tridiag and k < n_tridiag_iter):
+            break
 
         # Update tridiagonal matrices, if applicable
         if n_tridiag and k < n_tridiag_iter and update_tridiag:
