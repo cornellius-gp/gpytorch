@@ -21,6 +21,10 @@ class VariationalELBO(MarginalLogLikelihood):
 
     def forward(self, variational_dist_f, target, **kwargs):
         num_batch = variational_dist_f.event_shape.numel()
+
+        if 'num_samples' in kwargs:
+            num_batch = num_batch / kwargs['num_samples']
+
         variational_dist_u = self.model.variational_strategy.variational_distribution.variational_distribution
         prior_dist = self.model.variational_strategy.prior_distribution
 
@@ -51,7 +55,7 @@ class VariationalELBO(MarginalLogLikelihood):
             for added_loss_term in self.model.added_loss_terms():
                 added_loss.add(added_loss_term.loss())
 
-            return res + added_loss
+            return res + added_loss.div(self.num_data)
         else:
             log_prior = torch.zeros_like(log_likelihood)
             for _, prior, closure, _ in self.named_priors():
