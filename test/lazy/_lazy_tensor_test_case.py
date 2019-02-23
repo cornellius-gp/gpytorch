@@ -566,18 +566,18 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(1), 3, requires_grad=True)
         vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(128):
+        with gpytorch.settings.num_trace_samples(1024):
             res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=vecs, logdet=True)
-        res = res_inv_quad + res_logdet
 
         actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
         actual_logdet = torch.cat(
             [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
         ).view(lazy_tensor.batch_shape)
-        actual = actual_inv_quad + actual_logdet
 
-        diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
-        self.assertLess(diff.max().item(), 15e-2)
+        diff_invq = (res_inv_quad - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
+        diff_logdet = (res_logdet - actual_logdet).abs() / actual_logdet.abs().clamp(1, math.inf)
+        self.assertLess(diff_invq.max().item(), 0.01)
+        self.assertLess(diff_logdet.max().item(), 0.3)
 
     def test_inv_quad_logdet_no_reduce(self):
         # Forward
@@ -592,16 +592,16 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
                 inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
             )
-        res = res_inv_quad.sum(-1) + res_logdet
 
         actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
         actual_logdet = torch.cat(
             [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
         ).view(lazy_tensor.batch_shape)
-        actual = actual_inv_quad + actual_logdet
 
-        diff = (res - actual).abs() / actual.abs().clamp(1, math.inf)
-        self.assertLess(diff.max().item(), 15e-2)
+        diff_invq = (res_inv_quad.sum(-1) - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
+        diff_logdet = (res_logdet - actual_logdet).abs() / res_logdet.abs().clamp(1, math.inf)
+        self.assertLess(diff_invq.max().item(), 0.01)
+        self.assertLess(diff_logdet.max().item(), 0.3)
 
     def test_sample(self):
         if self.__class__.should_test_sample:

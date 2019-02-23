@@ -288,7 +288,17 @@ class max_cg_iterations(_value_context):
     Default: 20
     """
 
-    _global_value = 20
+    _global_value = 100
+
+
+class cg_tolerance(_value_context):
+    """
+    Relative residual tolerance to use for terminating CG.
+
+    Default: 0.05
+    """
+
+    _global_value = 0.05
 
 
 class max_cholesky_numel(_value_context):
@@ -320,7 +330,7 @@ class max_preconditioner_size(_value_context):
     Default: 0
     """
 
-    _global_value = 5
+    _global_value = 10
 
 
 class max_lanczos_quadrature_iterations(_value_context):
@@ -330,7 +340,7 @@ class max_lanczos_quadrature_iterations(_value_context):
     computing Tr(K^{-1}dK/d\theta)
     """
 
-    _global_value = 15
+    _global_value = 20
 
 
 class memory_efficient(_feature_flag):
@@ -405,7 +415,7 @@ class terminate_cg_by_size(_feature_flag):
     If set to true, cg will terminate after n iterations for an n x n matrix.
     """
 
-    _state = True
+    _state = False
 
 
 class tridiagonal_jitter(_value_context):
