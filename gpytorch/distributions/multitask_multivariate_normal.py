@@ -75,17 +75,25 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
         base_samples = super().get_base_samples(sample_shape)
         if not self._interleaved:
-            base_samples = base_samples.transpose(-1, -2).contiguous()
+            # flip shape of last two dimensions
+            new_shape = sample_shape + self._output_shape[:-3] + self._output_shape[:-3:-1]
+            return base_samples.view(new_shape).transpose(-1, -2).contiguous()
         return base_samples.view(*sample_shape, *self._output_shape)
 
     def log_prob(self, value):
+        if not self._interleaved:
+            # flip shape of last two dimensions
+            new_shape = value.shape[:-2] + value.shape[:-3:-1]
+            value = value.view(new_shape).transpose(-1, -2).contiguous()
         return super().log_prob(value.view(*value.shape[:-2], -1))
 
     @property
     def mean(self):
         mean = super().mean
         if not self._interleaved:
-            mean = mean.view(self._output_shape).transpose(-1, -2).contiguous()
+            # flip shape of last two dimensions
+            new_shape = self._output_shape[:-2] + self._output_shape[:-3:-1]
+            return mean.view(new_shape).transpose(-1, -2).contiguous()
         return mean.view(self._output_shape)
 
     @property
@@ -107,12 +115,16 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
         samples = super().rsample(sample_shape=sample_shape, base_samples=base_samples)
         if not self._interleaved:
-            samples = samples.transpose(-1, -2).contiguous()
+            # flip shape of last two dimensions
+            new_shape = sample_shape + self._output_shape[:-2] + self._output_shape[:-3:-1]
+            return samples.view(new_shape).transpose(-1, -2).contiguous()
         return samples.view(sample_shape + self._output_shape)
 
     @property
     def variance(self):
         var = super().variance
         if not self._interleaved:
-            var = var.view(self._output_shape).transpose(-1, -2).contiguous()
+            # flip shape of last two dimensions
+            new_shape = self._output_shape[:-2] + self._output_shape[:-3:-1]
+            return var.view(new_shape).transpose(-1, -2).contiguous()
         return var.view(self._output_shape)
