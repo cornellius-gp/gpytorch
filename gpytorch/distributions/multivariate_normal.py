@@ -40,7 +40,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
         else:
-            super(_MultivariateNormalBase, self).__init__(
+            super().__init__(
                 loc=mean, covariance_matrix=covariance_matrix, validate_args=validate_args
             )
 
@@ -61,8 +61,9 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             self.__unbroadcasted_scale_tril = ust
 
     def expand(self, batch_size):
-        new_loc = self.loc.expand(torch.Size(list(batch_size) + [self.loc.size(-1)]))
-        new_covar = self._covar.expand(torch.Size(list(batch_size) + list(self._covar.shape[-2:])))
+
+        new_loc = self.loc.expand(torch.Size(batch_size) + self.loc.shape[-1:])
+        new_covar = self._covar.expand(torch.Size(batch_size) + self._covar.shape[-2:])
         res = self.__class__(new_loc, new_covar)
         return res
 
@@ -86,7 +87,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         if self.islazy:
             return self._covar.evaluate()
         else:
-            return super(_MultivariateNormalBase, self).covariance_matrix
+            return super().covariance_matrix
 
     def get_base_samples(self, sample_shape=torch.Size()):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
@@ -103,7 +104,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         if self.islazy:
             return self._covar
         else:
-            return lazify(super(_MultivariateNormalBase, self).covariance_matrix)
+            return lazify(super().covariance_matrix)
 
     def log_prob(self, value):
         if settings.fast_computations.log_prob.off():
@@ -136,7 +137,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
             # Get samples
             res = covar.zero_mean_mvn_samples(num_samples) + self.loc.unsqueeze(0)
-            res = res.view(*tuple(sample_shape), *tuple(self.loc.size()))
+            res = res.view(sample_shape + self.loc.shape)
 
         else:
             # Make sure that the base samples agree with the distribution
@@ -147,12 +148,12 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
                 )
 
             # Determine what the appropriate sample_shape parameter is
-            sample_shape = torch.Size(tuple(base_samples.size(i) for i in range(base_samples.dim() - self.loc.dim())))
+            sample_shape = base_samples.shape[:base_samples.dim() - self.loc.dim()]
 
             # Reshape samples to be batch_size x num_dim x num_samples
             # or num_bim x num_samples
-            base_samples = base_samples.view(-1, *tuple(self.loc.size()))
-            base_samples = base_samples.permute(*tuple(i + 1 for i in range(self.loc.dim())), 0)
+            base_samples = base_samples.view(-1, *self.loc.shape)
+            base_samples = base_samples.permute(*tuple(range(1, self.loc.dim() + 1)), 0)
 
             # Now reparameterize those base samples
             covar_root = covar.root_decomposition().root
@@ -164,8 +165,8 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
-            res = res.permute(-1, *tuple(i for i in range(self.loc.dim()))).contiguous()
-            res = res.view(*tuple(sample_shape), *tuple(self.loc.size()))
+            res = res.permute(-1, *tuple(range(self.loc.dim()))).contiguous()
+            res = res.view(sample_shape + self.loc.shape)
 
         return res
 
@@ -182,7 +183,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             else:
                 return self.lazy_covariance_matrix.diag().expand(self._batch_shape + self._event_shape)
         else:
-            return super(_MultivariateNormalBase, self).variance
+            return super().variance
 
     def __add__(self, other):
         if isinstance(other, _MultivariateNormalBase):
