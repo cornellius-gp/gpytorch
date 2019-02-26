@@ -34,6 +34,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
 
         self._output_shape = mean.shape
+        # TODO: Instead of transpose / view operations, use a PermutationLazyTensor (see #539) to handle interleaving
         self._interleaved = interleaved
         if self._interleaved:
             mean_mvn = mean.view(*mean.shape[:-2], -1)

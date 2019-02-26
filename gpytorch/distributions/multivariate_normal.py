@@ -40,9 +40,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
         else:
-            super().__init__(
-                loc=mean, covariance_matrix=covariance_matrix, validate_args=validate_args
-            )
+            super().__init__(loc=mean, covariance_matrix=covariance_matrix, validate_args=validate_args)
 
     @property
     def _unbroadcasted_scale_tril(self):
@@ -148,7 +146,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
                 )
 
             # Determine what the appropriate sample_shape parameter is
-            sample_shape = base_samples.shape[:base_samples.dim() - self.loc.dim()]
+            sample_shape = base_samples.shape[: base_samples.dim() - self.loc.dim()]
 
             # Reshape samples to be batch_size x num_dim x num_samples
             # or num_bim x num_samples
