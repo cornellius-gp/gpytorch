@@ -40,8 +40,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
     def test_multitask_multivariate_normal(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         for dtype in (torch.float, torch.double):
-            mean = torch.tensor([[0, 1], [2, 3]], dtype=dtype, device=device)
-            variance = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
+            mean = torch.tensor([[0, 1], [2, 3], [4, 5]], dtype=dtype, device=device)
+            variance = torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=dtype, device=device)
 
             # interleaved
             covmat = variance.view(-1).diag()
@@ -49,7 +49,7 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
             self.assertTrue(torch.allclose(mtmvn.scale_tril, covmat.sqrt()))
-            self.assertTrue(mtmvn.event_shape == torch.Size([2, 2]))
+            self.assertTrue(mtmvn.event_shape == torch.Size([3, 2]))
             mvn_plus1 = mtmvn + 1
             self.assertTrue(torch.equal(mvn_plus1.mean, mtmvn.mean + 1))
             self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mtmvn.covariance_matrix))
@@ -59,19 +59,19 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
             mvn_divby2 = mtmvn / 2
             self.assertTrue(torch.equal(mvn_divby2.mean, mtmvn.mean / 2))
             self.assertTrue(torch.equal(mvn_divby2.covariance_matrix, mtmvn.covariance_matrix / 4))
-            self.assertAlmostEqual(mtmvn.entropy().item(), 7.2648, places=4)
+            self.assertAlmostEqual(mtmvn.entropy().item(), 11.80326, places=4)
             self.assertAlmostEqual(
-                mtmvn.log_prob(torch.zeros(2, 2, device=device, dtype=dtype)).item(), -7.3064, places=4
+                mtmvn.log_prob(torch.zeros(3, 2, device=device, dtype=dtype)).item(), -14.52826, places=4
             )
-            logprob = mtmvn.log_prob(torch.zeros(3, 2, 2, device=device, dtype=dtype))
-            logprob_expected = -7.3064 * torch.ones(3, device=device, dtype=dtype)
+            logprob = mtmvn.log_prob(torch.zeros(2, 3, 2, device=device, dtype=dtype))
+            logprob_expected = -14.52826 * torch.ones(2, device=device, dtype=dtype)
             self.assertTrue(torch.allclose(logprob, logprob_expected))
             conf_lower, conf_upper = mtmvn.confidence_region()
             self.assertTrue(torch.allclose(conf_lower, mtmvn.mean - 2 * mtmvn.stddev))
             self.assertTrue(torch.allclose(conf_upper, mtmvn.mean + 2 * mtmvn.stddev))
-            self.assertTrue(mtmvn.sample().shape == torch.Size([2, 2]))
-            self.assertTrue(mtmvn.sample(torch.Size([3])).shape == torch.Size([3, 2, 2]))
-            self.assertTrue(mtmvn.sample(torch.Size([3, 4])).shape == torch.Size([3, 4, 2, 2]))
+            self.assertTrue(mtmvn.sample().shape == torch.Size([3, 2]))
+            self.assertTrue(mtmvn.sample(torch.Size([3])).shape == torch.Size([3, 3, 2]))
+            self.assertTrue(mtmvn.sample(torch.Size([3, 4])).shape == torch.Size([3, 4, 3, 2]))
 
             # non-interleaved
             covmat = variance.transpose(-1, -2).reshape(-1).diag()
@@ -79,7 +79,7 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
             self.assertTrue(torch.allclose(mtmvn.scale_tril, covmat.sqrt()))
-            self.assertTrue(mtmvn.event_shape == torch.Size([2, 2]))
+            self.assertTrue(mtmvn.event_shape == torch.Size([3, 2]))
 
     def test_multitask_multivariate_normal_cuda(self):
         if torch.cuda.is_available():
@@ -89,16 +89,16 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
     def test_multitask_multivariate_normal_batch(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         for dtype in (torch.float, torch.double):
-            mean = torch.tensor([[0, 1], [2, 3]], device=device, dtype=dtype).repeat(2, 1, 1)
-            variance = torch.tensor([[1, 2], [3, 4]], device=device, dtype=dtype).repeat(2, 1, 1)
+            mean = torch.tensor([[0, 1], [2, 3], [4, 5]], dtype=dtype, device=device).repeat(2, 1, 1)
+            variance = torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=dtype, device=device).repeat(2, 1, 1)
 
             # interleaved
-            covmat = variance.view(2, 1, -1) * torch.eye(4, device=device, dtype=dtype)
+            covmat = variance.view(2, 1, -1) * torch.eye(6, device=device, dtype=dtype)
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat)
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
             self.assertTrue(torch.allclose(mtmvn.scale_tril, covmat.sqrt()))
-            self.assertTrue(mtmvn.event_shape == torch.Size([2, 2, 2]))
+            self.assertTrue(mtmvn.event_shape == torch.Size([2, 3, 2]))
             mvn_plus1 = mtmvn + 1
             self.assertTrue(torch.equal(mvn_plus1.mean, mtmvn.mean + 1))
             self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mtmvn.covariance_matrix))
@@ -108,66 +108,66 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
             mvn_divby2 = mtmvn / 2
             self.assertTrue(torch.equal(mvn_divby2.mean, mtmvn.mean / 2))
             self.assertTrue(torch.equal(mvn_divby2.covariance_matrix, mtmvn.covariance_matrix / 4))
-            self.assertTrue(torch.allclose(mtmvn.entropy(), 7.2648 * torch.ones(2, device=device, dtype=dtype)))
-            logprob = mtmvn.log_prob(torch.zeros(2, 2, 2, device=device, dtype=dtype))
-            logprob_expected = -7.3064 * torch.ones(2, device=device, dtype=dtype)
+            self.assertTrue(torch.allclose(mtmvn.entropy(), 11.80326 * torch.ones(2, device=device, dtype=dtype)))
+            logprob = mtmvn.log_prob(torch.zeros(2, 3, 2, device=device, dtype=dtype))
+            logprob_expected = -14.52826 * torch.ones(2, device=device, dtype=dtype)
             self.assertTrue(torch.allclose(logprob, logprob_expected))
-            logprob = mtmvn.log_prob(torch.zeros(3, 2, 2, 2, device=device, dtype=dtype))
-            logprob_expected = -7.3064 * torch.ones(3, 2, device=device, dtype=dtype)
+            logprob = mtmvn.log_prob(torch.zeros(3, 2, 3, 2, device=device, dtype=dtype))
+            logprob_expected = -14.52826 * torch.ones(3, 2, device=device, dtype=dtype)
             self.assertTrue(torch.allclose(logprob, logprob_expected))
             conf_lower, conf_upper = mtmvn.confidence_region()
             self.assertTrue(torch.allclose(conf_lower, mtmvn.mean - 2 * mtmvn.stddev))
             self.assertTrue(torch.allclose(conf_upper, mtmvn.mean + 2 * mtmvn.stddev))
-            self.assertTrue(mtmvn.sample().shape == torch.Size([2, 2, 2]))
-            self.assertTrue(mtmvn.sample(torch.Size([3])).shape == torch.Size([3, 2, 2, 2]))
-            self.assertTrue(mtmvn.sample(torch.Size([3, 4])).shape == torch.Size([3, 4, 2, 2, 2]))
+            self.assertTrue(mtmvn.sample().shape == torch.Size([2, 3, 2]))
+            self.assertTrue(mtmvn.sample(torch.Size([3])).shape == torch.Size([3, 2, 3, 2]))
+            self.assertTrue(mtmvn.sample(torch.Size([3, 4])).shape == torch.Size([3, 4, 2, 3, 2]))
 
             # non-interleaved
-            covmat = variance.transpose(-1, -2).reshape(2, 1, -1) * torch.eye(4, device=device, dtype=dtype)
+            covmat = variance.transpose(-1, -2).reshape(2, 1, -1) * torch.eye(6, device=device, dtype=dtype)
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat, interleaved=False)
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
             self.assertTrue(torch.allclose(mtmvn.scale_tril, covmat.sqrt()))
-            self.assertTrue(mtmvn.event_shape == torch.Size([2, 2, 2]))
+            self.assertTrue(mtmvn.event_shape == torch.Size([2, 3, 2]))
 
     def test_multitask_multivariate_normal_batch_cuda(self):
         if torch.cuda.is_available():
             with least_used_cuda_device():
                 self.test_multitask_multivariate_normal_batch(cuda=True)
 
-    def test_multivariate_normal_correlated_sampels(self, cuda=False):
+    def test_multivariate_normal_correlated_samples(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         for dtype in (torch.float, torch.double):
-            mean = torch.tensor([[0, 1], [2, 3]], dtype=dtype, device=device)
-            variance = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
+            mean = torch.tensor([[0, 1], [2, 3], [4, 5]], dtype=dtype, device=device)
+            variance = torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=dtype, device=device)
             covmat = variance.view(-1).diag()
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat)
             base_samples = mtmvn.get_base_samples(torch.Size([3, 4]))
-            self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([3, 4, 2, 2]))
+            self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([3, 4, 3, 2]))
             base_samples = mtmvn.get_base_samples()
-            self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([2, 2]))
+            self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([3, 2]))
 
-    def test_multivariate_normal_correlated_sampels_cuda(self):
+    def test_multivariate_normal_correlated_samples_cuda(self):
         if torch.cuda.is_available():
             with least_used_cuda_device():
-                self.test_multivariate_normal_correlated_sampels(cuda=True)
+                self.test_multivariate_normal_correlated_samples(cuda=True)
 
-    def test_multivariate_normal_batch_correlated_sampels(self, cuda=False):
+    def test_multivariate_normal_batch_correlated_samples(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         for dtype in (torch.float, torch.double):
-            mean = torch.tensor([[0, 1], [2, 3]], device=device, dtype=dtype).repeat(2, 1, 1)
-            variance = torch.tensor([[1, 2], [3, 4]], device=device, dtype=dtype).repeat(2, 1, 1)
-            covmat = variance.view(2, 1, -1) * torch.eye(4, device=device, dtype=dtype)
+            mean = torch.tensor([[0, 1], [2, 3], [4, 5]], dtype=dtype, device=device).repeat(2, 1, 1)
+            variance = torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=dtype, device=device).repeat(2, 1, 1)
+            covmat = variance.view(2, 1, -1) * torch.eye(6, device=device, dtype=dtype)
             mtmvn = MultitaskMultivariateNormal(mean=mean, covariance_matrix=covmat)
             base_samples = mtmvn.get_base_samples(torch.Size((3, 4)))
-            self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([3, 4, 2, 2, 2]))
+            self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([3, 4, 2, 3, 2]))
             base_samples = mtmvn.get_base_samples()
-            self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([2, 2, 2]))
+            self.assertTrue(mtmvn.sample(base_samples=base_samples).shape == torch.Size([2, 3, 2]))
 
-    def test_multivariate_normal_batch_correlated_sampels_cuda(self):
+    def test_multivariate_normal_batch_correlated_samples_cuda(self):
         if torch.cuda.is_available():
             with least_used_cuda_device():
-                self.test_multivariate_normal_batch_correlated_sampels(cuda=True)
+                self.test_multivariate_normal_batch_correlated_samples(cuda=True)
 
     def test_log_prob(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
