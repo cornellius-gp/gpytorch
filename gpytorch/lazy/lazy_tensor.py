@@ -830,6 +830,8 @@ class LazyTensor(object):
         if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
             torch.is_tensor(other) and (other.numel() == 1 or (self.dim() == 3 and other.numel() == self.size(0)))
         ):
+            if torch.is_tensor(other) and self.dim() == 3 and other.numel() == self.size(0):
+                other = other.view(self.size(0))
             from .constant_mul_lazy_tensor import ConstantMulLazyTensor
 
             return ConstantMulLazyTensor(self, other)
