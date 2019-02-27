@@ -459,6 +459,7 @@ class ProductKernel(Kernel):
         x1_eq_x2 = torch.equal(x1, x2)
 
         if not x1_eq_x2:
+            # If x1 != x2, then we can't make a MulLazyTensor because the kernel won't necessarily be square/symmetric
             res = delazify(self.kernels[0](x1, x2, **params))
         else:
             res = lazify(self.kernels[0](x1, x2, **params))
@@ -466,6 +467,7 @@ class ProductKernel(Kernel):
         for kern in self.kernels[1:]:
             next_term = kern(x1, x2, **params)
             if not x1_eq_x2:
+                # Again delazify if x1 != x2
                 res = res * delazify(next_term)
             else:
                 res = res * lazify(next_term)
