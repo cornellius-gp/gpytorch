@@ -827,6 +827,14 @@ class LazyTensor(object):
             :obj:`gpytorch.lazy.ConstantMulLazyTensor`. If other was
             another matrix, this will likely be a :obj:`gpytorch.lazy.MulLazyTensor`.
         """
+        from .zero_lazy_tensor import ZeroLazyTensor
+        from .diag_lazy_tensor import DiagLazyTensor
+
+        if isinstance(other, ZeroLazyTensor):
+            return other
+        elif isinstance(other, DiagLazyTensor):
+            return other * self
+
         if not (torch.is_tensor(other) or isinstance(other, LazyTensor)) or (
             torch.is_tensor(other) and (other.numel() == 1 or (self.dim() == 3 and other.numel() == self.size(0)))
         ):
@@ -1363,14 +1371,6 @@ class LazyTensor(object):
         Convenience alias of :meth:`~gpytorch.lazy.LazyTensor.mul` that allows the standard product operator to be
         used.
         """
-        from .zero_lazy_tensor import ZeroLazyTensor
-        from .diag_lazy_tensor import DiagLazyTensor
-
-        if isinstance(other, ZeroLazyTensor):
-            return other
-        elif isinstance(other, DiagLazyTensor):
-            return other * self
-
         return self.mul(other)
 
     def __setattr__(self, name, val):
