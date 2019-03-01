@@ -10,18 +10,23 @@ def _default_preconditioner(x):
 
 @torch.jit.script
 def _jit_linear_cg_updates(
-    result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
+    result, alpha, residual_inner_prod, eps, beta, residual, precond_residual,
+    mul_storage, is_zero, curr_conjugate_vec
 ):
     # # Update result
     # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
     torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
 
     # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
-    residual_inner_prod.add_(eps)
-    torch.reciprocal(residual_inner_prod, out=beta)
+    beta.resize_as_(residual_inner_prod).copy_(residual_inner_prod)
     torch.mul(residual, precond_residual, out=mul_storage)
     torch.sum(mul_storage, -2, keepdim=True, out=residual_inner_prod)
-    beta.mul_(residual_inner_prod)
+
+    # Do a safe division here
+    torch.lt(beta, eps, out=is_zero)
+    beta.masked_fill_(is_zero, 1)
+    torch.div(residual_inner_prod, beta, out=beta)
+    beta.masked_fill_(is_zero, 0)
 
     # Update curr_conjugate_vec
     # curr_conjugate_vec_{k} = precon_residual{k} + beta_{k} curr_conjugate_vec_{k-1}
@@ -30,12 +35,20 @@ def _jit_linear_cg_updates(
 
 @torch.jit.script
 def _jit_linear_cg_updates_no_precond(
-    mvms, result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
+    mvms, result, has_converged, alpha, residual_inner_prod, eps, beta, residual, precond_residual,
+    mul_storage, is_zero, curr_conjugate_vec
 ):
     torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
     torch.sum(mul_storage, dim=-2, keepdim=True, out=alpha)
-    alpha.add_(eps)
+
+    # Do a safe division here
+    torch.lt(alpha, eps, out=is_zero)
+    alpha.masked_fill_(is_zero, 1)
     torch.div(residual_inner_prod, alpha, out=alpha)
+    alpha.masked_fill_(is_zero, 0)
+
+    # We'll cancel out any updates by setting alpha=0 for any vector that has already converged
+    alpha.masked_fill_(has_converged, 0)
 
     # Update residual
     # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
@@ -46,7 +59,8 @@ def _jit_linear_cg_updates_no_precond(
     precond_residual = residual.clone()
 
     _jit_linear_cg_updates(
-        result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, curr_conjugate_vec
+        result, alpha, residual_inner_prod, eps, beta, residual, precond_residual,
+        mul_storage, is_zero, curr_conjugate_vec
     )
 
 
@@ -56,6 +70,7 @@ def linear_cg(
     n_tridiag=0,
     tolerance=None,
     eps=1e-10,
+    stop_updating_after=1e-10,
     max_iter=None,
     max_tridiag_iter=None,
     initial_guess=None,
@@ -74,6 +89,7 @@ def linear_cg(
       - n_tridiag - returns a tridiagonalization of the first n_tridiag columns of rhs
       - tolerance - stop the solve when the max residual is less than this
       - eps - noise to add to prevent division by zero
+      - stop_updating_after - will stop updating a vector after this residual norm is reached
       - max_iter - the maximum number of CG iterations
       - max_tridiag_iter - the maximum size of the tridiagonalization matrix
       - initial_guess - an initial guess at the solution `result`
@@ -118,6 +134,17 @@ def linear_cg(
     num_rows = rhs.size(-2)
     n_iter = min(max_iter, num_rows) if settings.terminate_cg_by_size.on() else max_iter
     n_tridiag_iter = min(max_tridiag_iter, num_rows)
+    eps = torch.tensor(eps, dtype=rhs.dtype, device=rhs.device)
+
+    # Get the norm of the rhs - used for convergence checks
+    # Here we're going to make almost-zero norms actually be 1 (so we don't get divide-by-zero issues)
+    # But we'll store which norms were actually close to zero
+    rhs_norm = rhs.norm(2, dim=-2, keepdim=True)
+    rhs_is_zero = rhs_norm.lt(eps)
+    rhs_norm = rhs_norm.masked_fill_(rhs_is_zero, 1)
+
+    # Let's normalize. We'll un-normalize afterwards
+    rhs = rhs.div(rhs_norm)
 
     # result <- x_{0}
     result = initial_guess
@@ -130,8 +157,11 @@ def linear_cg(
         raise RuntimeError("NaNs encounterd when trying to perform matrix-vector multiplication")
 
     # Sometime we're lucky and the preconditioner solves the system right away
-    residual_norm = residual.norm(2, dim=-2)
-    if (residual_norm < tolerance).all() and not n_tridiag:
+    # Check for convergence
+    residual_norm = residual.norm(2, dim=-2, keepdim=True)
+    has_converged = torch.lt(residual_norm, stop_updating_after)
+
+    if has_converged.all() and not n_tridiag:
         n_iter = 0  # Skip the iteration!
 
     # Otherwise, let's define precond_residual and curr_conjugate_vec
@@ -143,14 +173,16 @@ def linear_cg(
 
         # Define storage matrices
         mul_storage = torch.empty_like(residual)
-        alpha = torch.empty(*batch_shape, rhs.size(-1), dtype=residual.dtype, device=residual.device)
+        alpha = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=residual.dtype, device=residual.device)
         beta = torch.empty_like(alpha)
+        is_zero = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=torch.uint8, device=residual.device)
 
     # Define tridiagonal matrices, if applicable
     if n_tridiag:
         t_mat = torch.zeros(
             n_tridiag_iter, n_tridiag_iter, *batch_shape, n_tridiag, dtype=alpha.dtype, device=alpha.device
         )
+        alpha_tridiag_is_zero = torch.empty(*batch_shape, n_tridiag, dtype=torch.uint8, device=t_mat.device)
         alpha_reciprocal = torch.empty(*batch_shape, n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
         prev_alpha_reciprocal = torch.empty_like(alpha_reciprocal)
         prev_beta = torch.empty_like(alpha_reciprocal)
@@ -165,8 +197,15 @@ def linear_cg(
         if precond:
             torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
             torch.sum(mul_storage, -2, keepdim=True, out=alpha)
-            alpha.add_(eps)
+
+            # Do a safe division here
+            torch.lt(alpha, eps, out=is_zero)
+            alpha.masked_fill_(is_zero, 1)
             torch.div(residual_inner_prod, alpha, out=alpha)
+            alpha.masked_fill_(is_zero, 0)
+
+            # We'll cancel out any updates by setting alpha=0 for any vector that has already converged
+            alpha.masked_fill_(has_converged, 0)
 
             # Update residual
             # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
@@ -180,38 +219,45 @@ def linear_cg(
                 result,
                 alpha,
                 residual_inner_prod,
-                torch.tensor(eps),
+                eps,
                 beta,
                 residual,
                 precond_residual,
                 mul_storage,
+                is_zero,
                 curr_conjugate_vec,
             )
         else:
             _jit_linear_cg_updates_no_precond(
                 mvms,
                 result,
+                has_converged,
                 alpha,
                 residual_inner_prod,
-                torch.tensor(eps),
+                eps,
                 beta,
                 residual,
                 precond_residual,
                 mul_storage,
+                is_zero,
                 curr_conjugate_vec,
             )
 
-        torch.norm(residual, 2, dim=-2, out=residual_norm)
-        mean_norm = (residual_norm / rhs.norm(-2)).mean()
+        torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
+        residual_norm.masked_fill_(rhs_is_zero, 0)
+        torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
-        if k >= 10 and bool(mean_norm < tolerance) and not (n_tridiag and k < n_tridiag_iter):
+        if k >= 10 and bool(residual_norm.mean() < tolerance) and not (n_tridiag and k < n_tridiag_iter):
             break
 
         # Update tridiagonal matrices, if applicable
         if n_tridiag and k < n_tridiag_iter and update_tridiag:
             alpha_tridiag = alpha.squeeze_(-2).narrow(-1, 0, n_tridiag)
             beta_tridiag = beta.squeeze_(-2).narrow(-1, 0, n_tridiag)
+            torch.eq(alpha_tridiag, 0, out=alpha_tridiag_is_zero)
+            alpha_tridiag.masked_fill_(alpha_tridiag_is_zero, 1)
             torch.reciprocal(alpha_tridiag, out=alpha_reciprocal)
+            alpha_tridiag.masked_fill_(alpha_tridiag_is_zero, 0)
 
             if k == 0:
                 t_mat[k, k].copy_(alpha_reciprocal)
@@ -227,6 +273,9 @@ def linear_cg(
 
             prev_alpha_reciprocal.copy_(alpha_reciprocal)
             prev_beta.copy_(beta_tridiag)
+
+    # Un-normalize
+    result.mul_(rhs_norm)
 
     if is_vector:
         result = result.squeeze(-1)
