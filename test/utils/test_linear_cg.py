@@ -3,7 +3,6 @@
 import os
 import random
 import unittest
-from test._utils import approx_equal
 
 import torch
 from gpytorch.utils.cholesky import cholesky_solve
