@@ -70,7 +70,7 @@ def linear_cg(
     n_tridiag=0,
     tolerance=None,
     eps=1e-10,
-    stop_updating_after=1e-6,
+    stop_updating_after=1e-10,
     max_iter=None,
     max_tridiag_iter=None,
     initial_guess=None,
