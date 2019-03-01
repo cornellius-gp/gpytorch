@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
 import torch
+from .. import settings
 
 
-def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
+def pivoted_cholesky(matrix, max_iter, error_tol=None):
     from ..lazy import lazify, LazyTensor
 
     batch_shape = matrix.shape[:-2]
     matrix_shape = matrix.shape[-2:]
+
+    if error_tol is None:
+        error_tol = settings.preconditioner_tolerance.value()
 
     # Need to get diagonals. This is easy if it's a LazyTensor, since
     # LazyTensor.diag() operates in batch mode.
