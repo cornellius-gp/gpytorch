@@ -45,17 +45,17 @@ class VariationalELBO(MarginalLogLikelihood):
 
         kl_divergence = kl_divergence.div(self.num_data)
 
+        # Add any additional registered loss terms
+        added_loss = torch.zeros_like(kl_divergence)
+        for added_loss_term in self.model.added_loss_terms():
+            added_loss.add(added_loss_term.loss())
+
+        kl_divergence = kl_divergence + added_loss.div(self.num_data)
+
         if self.combine_terms:
             res = log_likelihood - kl_divergence
             for _, prior, closure, _ in self.named_priors():
                 res.add_(prior.log_prob(closure()).sum().div(self.num_data))
-
-            # Add any additional registered loss terms
-            added_loss = torch.zeros_like(res)
-            for added_loss_term in self.model.added_loss_terms():
-                added_loss.add(added_loss_term.loss())
-
-            return res + added_loss.div(self.num_data)
         else:
             log_prior = torch.zeros_like(log_likelihood)
             for _, prior, closure, _ in self.named_priors():
