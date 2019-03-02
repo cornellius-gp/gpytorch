@@ -7,8 +7,9 @@ def batch_symeig(mat):
     """
     """
     mat_orig = mat
-    batch_shape = torch.Size(mat_orig.shape[:-2])
-    matrix_shape = torch.Size(mat_orig.shape[-2:])
+    dtkwargs = {"device": mat.device, "dtype": mat.dtype}
+    batch_shape = mat_orig.shape[:-2]
+    matrix_shape = mat_orig.shape[-2:]
 
     # Smaller matrices are faster on the CPU than the GPU
     if mat.size(-1) <= 32:
@@ -24,4 +25,6 @@ def batch_symeig(mat):
         eigenvectors[i] = evecs * mask.type_as(evecs).unsqueeze(0)
         eigenvalues[i] = evals.masked_fill_(1 - mask, 1)
 
-    return eigenvalues.type_as(mat_orig).view(*batch_shape, -1), eigenvectors.type_as(mat_orig).view_as(mat_orig)
+    eigenvalues = eigenvalues.to(**dtkwargs).view(*batch_shape, -1)
+    eigenvectors = eigenvectors.to(**dtkwargs).view_as(mat_orig)
+    return eigenvalues, eigenvectors
