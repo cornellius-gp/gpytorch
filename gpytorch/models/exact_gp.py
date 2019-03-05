@@ -144,6 +144,19 @@ class ExactGP(GP):
             self.prediction_strategy = None
         return super(ExactGP, self).train(mode)
 
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        self.prediction_strategy = None
+        super()._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs
+        )
+
     def __call__(self, *args, **kwargs):
         train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
         inputs = list(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args)
