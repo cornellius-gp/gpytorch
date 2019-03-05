@@ -87,10 +87,30 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         else:
             return super().covariance_matrix
 
-    def get_base_samples(self, sample_shape=torch.Size()):
-        """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
+    def get_base_samples(self, sample_shape=None, collapse_dims=None):
+        """Get i.i.d. standard Normal samples.
+
+        The resulting samples are typically used with `rsample(base_samples=base_samples)`.
+
+        Args:
+            sample_shape: The shape or the samples. If None, use torch.Size().
+            collapse_dims: An iterable of dimensions for which to collapse the samples to size 1. For instance,
+                if `event_shape = b1 x b2 x n` and collapse_dims=(0, 1), then the resulting `base_samples` will
+                have shape `sample_shape x 1 x 1 x n` instead of `sample_shape x b1 x b2 x n` as in the standard
+                case. This useful in order to avoid sampling variance across batches when using `rsample`.
+
+        Returns:
+            Tensor: The tensor of base samples.
+        """
+        if sample_shape is None:
+            sample_shape = torch.Size()
+        shape = self._extended_shape(sample_shape)
+        if collapse_dims is not None:
+            new_event_shape = torch.Size(
+                [d if i not in collapse_dims else 1 for i, d in enumerate(shape[len(sample_shape) :])]
+            )
+            shape = shape[: len(sample_shape)] + new_event_shape
         with torch.no_grad():
-            shape = self._extended_shape(sample_shape)
             base_samples = _standard_normal(shape, dtype=self.loc.dtype, device=self.loc.device)
         return base_samples
 

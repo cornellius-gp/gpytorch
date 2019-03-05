@@ -44,7 +44,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
     @property
     def event_shape(self):
-        return self._output_shape
+        return self._output_shape[-2:]
 
     @classmethod
     def from_independent_mvns(cls, mvns):
@@ -71,14 +71,32 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         covar_lazy = BlockDiagLazyTensor(covar_blocks_lazy, num_blocks=len(mvns) if batch_mode else None)
         return cls(mean=mean, covariance_matrix=covar_lazy, interleaved=False)
 
-    def get_base_samples(self, sample_shape=torch.Size()):
-        """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
-        base_samples = super().get_base_samples(sample_shape)
+    def get_base_samples(self, sample_shape=None, collapse_dims=None):
+        """Get i.i.d. standard Normal samples.
+
+        The resulting samples are typically used with `rsample(base_samples=base_samples)`.
+
+        Args:
+            sample_shape: The shape or the samples. If None, use torch.Size().
+            collapse_dims: An iterable of dimensions for which to collapse the samples to size 1. For instance,
+                if `event_shape = b1 x b2 x n x t` and collapse_dims=(0, 1), then the resulting `base_samples` will
+                have shape `sample_shape x 1 x 1 x n x t` instead of `sample_shape x b1 x b2 x n x t` as in the standard
+                case. This useful in order to avoid sampling variance across batches when using `rsample`.
+
+        Returns:
+            Tensor: The tensor of base samples.
+        """
+        if sample_shape is None:
+            sample_shape = torch.Size()
+        base_samples = super().get_base_samples(sample_shape=sample_shape, collapse_dims=collapse_dims)
+        output_shape = self._output_shape
+        if collapse_dims is not None:
+            output_shape = torch.Size([d if i not in collapse_dims else 1 for i, d in enumerate(output_shape)])
         if not self._interleaved:
             # flip shape of last two dimensions
-            new_shape = sample_shape + self._output_shape[:-2] + self._output_shape[:-3:-1]
+            new_shape = sample_shape + output_shape[:-2] + output_shape[:-3:-1]
             return base_samples.view(new_shape).transpose(-1, -2).contiguous()
-        return base_samples.view(*sample_shape, *self._output_shape)
+        return base_samples.view(*sample_shape, *output_shape)
 
     def log_prob(self, value):
         if not self._interleaved:
