@@ -50,6 +50,7 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
             self.assertTrue(torch.allclose(mtmvn.scale_tril, covmat.sqrt()))
             self.assertTrue(mtmvn.event_shape == torch.Size([3, 2]))
+            self.assertTrue(mtmvn.batch_shape == torch.Size())
             mvn_plus1 = mtmvn + 1
             self.assertTrue(torch.equal(mvn_plus1.mean, mtmvn.mean + 1))
             self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mtmvn.covariance_matrix))
@@ -80,6 +81,7 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
             self.assertTrue(torch.allclose(mtmvn.scale_tril, covmat.sqrt()))
             self.assertTrue(mtmvn.event_shape == torch.Size([3, 2]))
+            self.assertTrue(mtmvn.batch_shape == torch.Size())
 
     def test_multitask_multivariate_normal_cuda(self):
         if torch.cuda.is_available():
@@ -98,7 +100,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
             self.assertTrue(torch.allclose(mtmvn.scale_tril, covmat.sqrt()))
-            self.assertTrue(mtmvn.event_shape == torch.Size([2, 3, 2]))
+            self.assertTrue(mtmvn.event_shape == torch.Size([3, 2]))
+            self.assertTrue(mtmvn.batch_shape == torch.Size([2]))
             mvn_plus1 = mtmvn + 1
             self.assertTrue(torch.equal(mvn_plus1.mean, mtmvn.mean + 1))
             self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mtmvn.covariance_matrix))
@@ -128,7 +131,8 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
             self.assertTrue(torch.equal(mtmvn.mean, mean))
             self.assertTrue(torch.allclose(mtmvn.variance, variance))
             self.assertTrue(torch.allclose(mtmvn.scale_tril, covmat.sqrt()))
-            self.assertTrue(mtmvn.event_shape == torch.Size([2, 3, 2]))
+            self.assertTrue(mtmvn.event_shape == torch.Size([3, 2]))
+            self.assertTrue(mtmvn.batch_shape == torch.Size([2]))
 
     def test_multitask_multivariate_normal_batch_cuda(self):
         if torch.cuda.is_available():
