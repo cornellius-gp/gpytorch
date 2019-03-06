@@ -330,7 +330,7 @@ class max_preconditioner_size(_value_context):
     Default: 0
     """
 
-    _global_value = 10
+    _global_value = 15
 
 
 class max_lanczos_quadrature_iterations(_value_context):

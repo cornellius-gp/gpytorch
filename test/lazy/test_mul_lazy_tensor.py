@@ -112,6 +112,9 @@ class TestMulLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
         res = res + diag_tensor
         return res
 
+    def test_inv_quad_logdet(self):
+        pass
+
 
 class TestMulLazyTensorWithConstantMul(LazyTensorTestCase, unittest.TestCase):
     seed = 2
