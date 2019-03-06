@@ -44,7 +44,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
     @property
     def event_shape(self):
-        return self._output_shape
+        return self._output_shape[-2:]
 
     @classmethod
     def from_independent_mvns(cls, mvns):
