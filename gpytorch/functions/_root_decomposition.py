@@ -62,9 +62,9 @@ class RootDecomposition(Function):
         n_probes = t_mat.size(0)
 
         mins = lazify(t_mat).diag().min(dim=-1, keepdim=True)[0].unsqueeze(-1)
-        jitter_mat = (settings.tridiagonal_jitter.value() * mins) * torch.eye(t_mat.size(-1)).type_as(t_mat).expand_as(
-            t_mat
-        )
+        jitter_mat = (settings.tridiagonal_jitter.value() * mins) * torch.eye(
+            t_mat.size(-1), device=t_mat.device, dtype=t_mat.dtype
+        ).expand_as(t_mat)
         eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat + jitter_mat)
 
         # Get orthogonal matrix and eigenvalue roots
