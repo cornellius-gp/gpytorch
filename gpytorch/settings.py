@@ -288,7 +288,7 @@ class max_cg_iterations(_value_context):
     Default: 20
     """
 
-    _global_value = 100
+    _global_value = 20
 
 
 class cg_tolerance(_value_context):
