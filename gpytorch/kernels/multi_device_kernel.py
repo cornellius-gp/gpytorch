@@ -40,6 +40,9 @@ class MultiDeviceKernel(DataParallel, Kernel):
         if diag:
             return self.module.forward(x1, x2, diag=True, **kwargs).to(self.output_device)
 
+        if x1.size(-2) < len(self.device_ids) + 1:
+            return self.module.forward(x1, x2, diag=diag, **kwargs).to(self.output_device)
+
         if not x1.device == self.__cached_x1.device or not torch.equal(x1, self.__cached_x1):
             self._x1_scattered, self._kwargs = self.scatter((x1,), kwargs, self.device_ids)
             self.__cached_x1 = x1
