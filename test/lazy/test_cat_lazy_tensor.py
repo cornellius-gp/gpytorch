@@ -28,7 +28,7 @@ class TestCatLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
 
 class TestCatLazyTensorColumn(LazyTensorTestCase, unittest.TestCase):
-    seed = 0
+    seed = 1
 
     def create_lazy_tensor(self):
         root = torch.randn(6, 7)

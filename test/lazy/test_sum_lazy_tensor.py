@@ -42,11 +42,17 @@ class TestSumLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
     skip_slq_tests = True
 
     def create_lazy_tensor(self):
-        mat1 = torch.randn(2, 3, 4, 4)
-        lt1 = NonLazyTensor(mat1 @ mat1.transpose(-1, -2))
-        mat2 = torch.randn(2, 3, 4, 4)
-        lt2 = NonLazyTensor(mat2 @ mat2.transpose(-1, -2))
-        return lt1 + lt2
+        c1 = torch.tensor([
+            [[2, 0.5, 0, 0], [5, 1, 2, 0]],
+            [[2, 0.5, 0, 0], [5, 1, 2, 0]]
+        ], dtype=torch.float, requires_grad=True)
+        t1 = ToeplitzLazyTensor(c1)
+        c2 = torch.tensor([
+            [[2, 0.5, 0, 0], [5, 1, 2, 0]],
+            [[2, 0.5, 0, 0], [6, 0, 1, -1]],
+        ], dtype=torch.float, requires_grad=True)
+        t2 = ToeplitzLazyTensor(c2)
+        return t1 + t2
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         tensors = [lt.evaluate() for lt in lazy_tensor.lazy_tensors]
