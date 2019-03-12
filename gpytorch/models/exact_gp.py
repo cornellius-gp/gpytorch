@@ -45,20 +45,39 @@ class ExactGP(GP):
         return super(ExactGP, self)._apply(fn)
 
     def set_train_data(self, inputs=None, targets=None, strict=True):
-        """Set training data (does not re-fit model hyper-parameters)"""
+        """
+        Set training data (does not re-fit model hyper-parameters).
+
+        Args:
+            - :attr:`inputs` the new training inputs
+            - :attr:`targets` the new training targets
+            - :attr:`strict`
+                if `True`, the new inputs and targets must have the same shape, dtype, and device
+                as the current inputs and targets. Otherwise, any shape/dtype/device are allowed.
+        """
         if inputs is not None:
             if torch.is_tensor(inputs):
                 inputs = (inputs,)
             inputs = tuple(input_.unsqueeze(-1) if input_.ndimension() == 1 else input_ for input_ in inputs)
-            for input, t_input in zip(inputs, self.train_inputs):
-                for attr in {"shape", "dtype", "device"}:
-                    if strict and getattr(input, attr) != getattr(t_input, attr):
-                        raise RuntimeError("Cannot modify {attr} of inputs".format(attr=attr))
+            if strict:
+                for input_, t_input in zip(inputs, self.train_inputs or (None,)):
+                    for attr in {"shape", "dtype", "device"}:
+                        expected_attr = getattr(t_input, attr, None)
+                        found_attr = getattr(input_, attr, None)
+                        if expected_attr != found_attr:
+                            msg = "Cannot modify {attr} of inputs (expected {e_attr}, found {f_attr})."
+                            msg = msg.format(attr=attr, e_attr=expected_attr, f_attr=found_attr)
+                            raise RuntimeError(msg)
             self.train_inputs = inputs
         if targets is not None:
-            for attr in {"shape", "dtype", "device"}:
-                if strict and getattr(targets, attr) != getattr(self.train_targets, attr):
-                    raise RuntimeError("Cannot modify {attr} of targets".format(attr=attr))
+            if strict:
+                for attr in {"shape", "dtype", "device"}:
+                    expected_attr = getattr(self.train_targets, attr, None)
+                    found_attr = getattr(targets, attr, None)
+                    if expected_attr != found_attr:
+                        msg = "Cannot modify {attr} of targets (expected {e_attr}, found {f_attr})."
+                        msg = msg.format(attr=attr, e_attr=expected_attr, f_attr=found_attr)
+                        raise RuntimeError(msg)
             self.train_targets = targets
         self.prediction_strategy = None
 
