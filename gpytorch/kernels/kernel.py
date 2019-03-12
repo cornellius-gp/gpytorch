@@ -10,6 +10,7 @@ from ..utils.transforms import _get_inv_param_transform
 from ..utils.deprecation import _deprecate_kwarg_with_transform
 from torch.nn.functional import softplus
 from ..utils import broadcasting
+import math
 
 
 @torch.jit.script
@@ -185,7 +186,7 @@ class Kernel(Module):
     @property
     def lengthscale(self):
         if self.has_lengthscale:
-            return self._param_transform(self.raw_lengthscale).clamp(self.eps, 1e5)
+            return self._param_transform(self.raw_lengthscale).clamp(self.eps, math.inf)
         else:
             return None
 
