@@ -51,16 +51,24 @@ class ExactGP(GP):
                 inputs = (inputs,)
             inputs = tuple(input_.unsqueeze(-1) if input_.ndimension() == 1 else input_ for input_ in inputs)
             if strict:
-                for input, t_input in zip(inputs, self.train_inputs):
+                for input_, t_input in zip(inputs, self.train_inputs or (None,)):
                     for attr in {"shape", "dtype", "device"}:
-                        if getattr(input, attr) != getattr(t_input, attr):
-                            raise RuntimeError("Cannot modify {attr} of inputs".format(attr=attr))
+                        expected_attr = getattr(t_input, attr, None)
+                        found_attr = getattr(input_, attr, None)
+                        if expected_attr != found_attr:
+                            msg = "Cannot modify {attr} of inputs (expected {e_attr}, found {f_attr})."
+                            msg = msg.format(attr=attr, e_attr=expected_attr, f_attr=found_attr)
+                            raise RuntimeError(msg)
             self.train_inputs = inputs
         if targets is not None:
             if strict:
                 for attr in {"shape", "dtype", "device"}:
-                    if getattr(targets, attr) != getattr(self.train_targets, attr):
-                        raise RuntimeError("Cannot modify {attr} of targets".format(attr=attr))
+                    expected_attr = getattr(self.train_targets, attr, None)
+                    found_attr = getattr(targets, attr, None)
+                    if expected_attr != found_attr:
+                        msg = "Cannot modify {attr} of targets (expected {e_attr}, found {f_attr})."
+                        msg = msg.format(attr=attr, e_attr=expected_attr, f_attr=found_attr)
+                        raise RuntimeError(msg)
             self.train_targets = targets
         self.prediction_strategy = None
 
