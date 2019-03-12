@@ -50,15 +50,17 @@ class ExactGP(GP):
             if torch.is_tensor(inputs):
                 inputs = (inputs,)
             inputs = tuple(input_.unsqueeze(-1) if input_.ndimension() == 1 else input_ for input_ in inputs)
-            for input, t_input in zip(inputs, self.train_inputs):
-                for attr in {"shape", "dtype", "device"}:
-                    if strict and getattr(input, attr) != getattr(t_input, attr):
-                        raise RuntimeError("Cannot modify {attr} of inputs".format(attr=attr))
+            if strict:
+                for input, t_input in zip(inputs, self.train_inputs):
+                    for attr in {"shape", "dtype", "device"}:
+                        if getattr(input, attr) != getattr(t_input, attr):
+                            raise RuntimeError("Cannot modify {attr} of inputs".format(attr=attr))
             self.train_inputs = inputs
         if targets is not None:
-            for attr in {"shape", "dtype", "device"}:
-                if strict and getattr(targets, attr) != getattr(self.train_targets, attr):
-                    raise RuntimeError("Cannot modify {attr} of targets".format(attr=attr))
+            if strict:
+                for attr in {"shape", "dtype", "device"}:
+                    if getattr(targets, attr) != getattr(self.train_targets, attr):
+                        raise RuntimeError("Cannot modify {attr} of targets".format(attr=attr))
             self.train_targets = targets
         self.prediction_strategy = None
 
