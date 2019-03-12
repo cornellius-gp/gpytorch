@@ -294,6 +294,7 @@ def linear_cg(
             " If performance is affected, consider raising the maximum number of CG iterations by running code in"
             " a gpytorch.settings.max_cg_iterations(value) context.".format(k + 1, residual_norm.mean(), tolerance)
         )
+    print('Final CG residual norm after {} iterations: {}'.format(residual_norm.mean().item(), k))
 
     if is_vector:
         result = result.squeeze(-1)
