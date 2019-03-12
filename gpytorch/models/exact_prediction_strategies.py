@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+import contextlib
 
 from .. import settings
 from ..distributions import MultivariateNormal
@@ -315,9 +316,18 @@ class DefaultPredictionStrategy(object):
             return ZeroLazyTensor(*test_test_covar.size())
 
         if settings.fast_pred_var.off():
-            train_train_covar = self.likelihood(
-                MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
-            ).lazy_covariance_matrix
+            if settings.detach_test_caches.on():
+                if self.train_train_covar.requires_grad:
+                    self.train_train_covar = self.train_train_covar.detach()
+                lik_context = torch.no_grad
+            else:
+                lik_context = contextlib.suppress
+
+            with lik_context():
+                train_train_covar = self.likelihood(
+                    MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
+                ).lazy_covariance_matrix
+
             test_train_covar = test_train_covar.evaluate()
             train_test_covar = test_train_covar.transpose(-1, -2)
             covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
