@@ -45,7 +45,16 @@ class ExactGP(GP):
         return super(ExactGP, self)._apply(fn)
 
     def set_train_data(self, inputs=None, targets=None, strict=True):
-        """Set training data (does not re-fit model hyper-parameters)"""
+        """
+        Set training data (does not re-fit model hyper-parameters).
+
+        Args:
+            - :attr:`inputs` the new training inputs
+            - :attr:`targets` the new training targets
+            - :attr:`strict`
+                if `True`, the new inputs and targets must have the same shape, dtype, and device
+                as the current inputs and targets. Otherwise, any shape/dtype/device are allowed.
+        """
         if inputs is not None:
             if torch.is_tensor(inputs):
                 inputs = (inputs,)
