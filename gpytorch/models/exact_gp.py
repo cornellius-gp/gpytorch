@@ -292,8 +292,9 @@ class ExactGP(GP):
             test_test_covar = full_covar[..., num_train:, num_train:]
             test_train_covar = full_covar[..., num_train:, :num_train]
 
-            predictive_mean = self.prediction_strategy.exact_predictive_mean(test_mean, test_train_covar)
-            predictive_covar = self.prediction_strategy.exact_predictive_covar(test_test_covar, test_train_covar)
+            with settings._use_eval_tolerance():
+                predictive_mean = self.prediction_strategy.exact_predictive_mean(test_mean, test_train_covar)
+                predictive_covar = self.prediction_strategy.exact_predictive_covar(test_test_covar, test_train_covar)
 
             if num_tasks > 1:
                 if train_targets.ndimension() == 2:

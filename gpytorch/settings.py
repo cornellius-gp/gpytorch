@@ -311,6 +311,20 @@ class preconditioner_tolerance(_value_context):
     _global_value = 1e-3
 
 
+class eval_cg_tolerance(_value_context):
+    """
+    Relative residual tolerance to use for terminating CG when making predictions.
+
+    Default: 0.01
+    """
+
+    _global_value = 0.01
+
+
+class _use_eval_tolerance(_feature_flag):
+    _state = False
+
+
 class max_cholesky_numel(_value_context):
     """
     If the number of elements of a LazyTensor is less than `max_cholesky_numel`,
