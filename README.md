@@ -92,7 +92,7 @@ GPyTorch is primarily maintained by:
 
 <img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
 
-We would like to thank our other contributors including (but not limited to) Eytan Bakshy, David Arbour, Ruihan Wu, Bram Wallace, Sam Stanton, and Jared Frank.
+We would like to thank our other contributors including (but not limited to)  David Arbour, Eytan Bakshy, Jared Frank, Sam Stanton, Bram Wallace, Ke Alexander Wang, Ruihan Wu.
 
 ## Acknowledgements
 Development of GPyTorch is supported by funding from [Facebook](https://research.fb.com/), the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/), the [National Science Foundation](https://www.nsf.gov/), and [SAP](https://www.sap.com/index.html).
