@@ -40,8 +40,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
                 raise RuntimeError("Adding jitter of {} to the diagonal did not make A p.d.".format(jitter))
         warnings.warn("A not p.d., added jitter of {} to the diagonal".format(jitter), RuntimeWarning)
 
-    if out is None:
-        return L
+    return L
 
 
 def cholesky_solve(b, u, upper=False):

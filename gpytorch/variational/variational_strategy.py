@@ -63,7 +63,7 @@ class VariationalStrategy(Module):
         """
         out = self.model.forward(self.inducing_points)
         res = MultivariateNormal(
-            out.mean, out.lazy_covariance_matrix.evaluate_kernel().add_jitter()
+            out.mean, out.lazy_covariance_matrix.add_jitter()
         )
         return res
 
@@ -125,7 +125,7 @@ class VariationalStrategy(Module):
             mean_diff = (variational_dist.mean - induc_mean).unsqueeze(-1)
 
             # Covariance terms
-            induc_induc_covar = full_covar[..., :num_induc, :num_induc].evaluate_kernel().add_jitter()
+            induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
             induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
             data_data_covar = full_covar[..., num_induc:, num_induc:]
             root_variational_covar = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate()

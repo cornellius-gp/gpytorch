@@ -113,7 +113,7 @@ class WhitenedVariationalStrategy(VariationalStrategy):
             mean_diff = (variational_dist.mean - induc_mean).unsqueeze(-1)
 
             # Covariance terms
-            induc_induc_covar = full_covar[..., :num_induc, :num_induc].evaluate_kernel().add_jitter()
+            induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
             induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
             data_data_covar = full_covar[..., num_induc:, num_induc:]
 

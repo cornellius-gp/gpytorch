@@ -52,9 +52,7 @@ class MulLazyTensor(LazyTensor):
     @property
     def _args(self):
         if not hasattr(self, "_mul_args_memo") and not hasattr(self, "_non_lazy_self"):
-            lazy_tensors = sorted(
-                (lv.evaluate_kernel() for lv in self.lazy_tensors), key=lambda lv: lv.root_decomposition_size()
-            )
+            lazy_tensors = sorted(self.lazy_tensors, key=lambda lv: lv.root_decomposition_size())
 
             if any(isinstance(lv, NonLazyTensor) for lv in lazy_tensors):
                 self._non_lazy_self = [NonLazyTensor(prod([lv.evaluate() for lv in lazy_tensors]))]

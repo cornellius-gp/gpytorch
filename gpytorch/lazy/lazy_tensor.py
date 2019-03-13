@@ -978,7 +978,7 @@ class LazyTensor(object):
         for arg in self._args:
             if torch.is_tensor(arg):
                 representation.append(arg)
-            elif isinstance(arg, LazyTensor):
+            elif hasattr(arg, "representation") and callable(arg.representation):  # Is it a LazyTensor?
                 representation += list(arg.representation())
             else:
                 raise RuntimeError("Representation of a LazyTensor should consist only of Tensors")

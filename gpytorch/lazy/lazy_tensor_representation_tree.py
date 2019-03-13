@@ -9,7 +9,7 @@ class LazyTensorRepresentationTree(object):
         counter = 0
         self.children = []
         for arg in lazy_tsr._args:
-            if hasattr(arg, "representation"):  # Is it a lazy tensor?
+            if hasattr(arg, "representation") and callable(arg.representation):  # Is it a lazy tensor?
                 representation_size = len(arg.representation())
                 self.children.append((slice(counter, counter + representation_size, None), arg.representation_tree()))
                 counter += representation_size

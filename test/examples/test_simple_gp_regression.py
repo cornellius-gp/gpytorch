@@ -41,11 +41,13 @@ class TestSimpleGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def _get_data(self, cuda=False):
+    def _get_data(self, cuda=False, num_data=11, add_noise=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         # Simple training data: let's try to learn a sine function
-        train_x = torch.linspace(0, 1, 11, device=device)
+        train_x = torch.linspace(0, 1, num_data, device=device)
         train_y = torch.sin(train_x * (2 * pi))
+        if add_noise:
+            train_y.add_(torch.randn_like(train_x).mul_(0.1))
         test_x = torch.linspace(0, 1, 51, device=device)
         test_y = torch.sin(test_x * (2 * pi))
         return train_x, test_x, train_y, test_y
@@ -183,8 +185,10 @@ class TestSimpleGPRegression(unittest.TestCase):
             self.assertTrue(torch.allclose(mean_skip_var, mean))
             self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
 
-    def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False):
-        train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
+    def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False, checkpoint=0):
+        train_x, test_x, train_y, test_y = self._get_data(
+            cuda=cuda, num_data=(1000 if checkpoint else 11), add_noise=bool(checkpoint),
+        )
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
         gp_model = ExactGPModel(train_x, train_y, likelihood)
@@ -202,22 +206,22 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood.train()
         optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
         optimizer.n_iter = 0
-        for _ in range(50):
-            optimizer.zero_grad()
-            with gpytorch.settings.debug(False):
+        with gpytorch.beta_features.checkpoint_kernel(checkpoint), gpytorch.settings.fast_pred_var():
+            for _ in range(20 if checkpoint else 50):
+                optimizer.zero_grad()
                 output = gp_model(train_x)
-            loss = -mll(output, train_y)
-            loss.backward()
-            optimizer.n_iter += 1
-            optimizer.step()
+                loss = -mll(output, train_y)
+                loss.backward()
+                optimizer.n_iter += 1
+                optimizer.step()
 
-        for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        optimizer.step()
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            optimizer.step()
 
         # Test the model
         gp_model.eval()
@@ -227,6 +231,9 @@ class TestSimpleGPRegression(unittest.TestCase):
         mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean))
 
         self.assertLess(mean_abs_error.item(), 0.05)
+
+    def test_gp_with_checkpointing(self, cuda=False):
+        return self.test_posterior_latent_gp_and_likelihood_with_optimization(cuda=cuda, checkpoint=250)
 
     def test_fantasy_updates_cuda(self):
         if torch.cuda.is_available():

@@ -235,7 +235,7 @@ class ExactGP(GP):
             train_mean = full_mean.narrow(-1, 0, train_targets.size(-1))
 
             if self.prediction_strategy is None:
-                train_train_covar = full_covar[..., :num_train, :num_train].evaluate_kernel()
+                train_train_covar = full_covar[..., :num_train, :num_train]
                 self.prediction_strategy = prediction_strategy(
                     num_train,
                     train_inputs,

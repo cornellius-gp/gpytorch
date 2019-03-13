@@ -18,3 +18,10 @@ def cached(method=None, name=None):
         return self._memoize_cache[cache_name]
 
     return g
+
+
+def is_cached(self, name):
+    """
+    Determine if a cached item has been computed
+    """
+    return hasattr(self, "_memoize_cache") and name in self._memoize_cache.keys()
