@@ -995,7 +995,11 @@ class LazyTensor(object):
 
     @property
     def requires_grad(self):
-        return any(arg.requires_grad for arg in tuple(self._args) + tuple(self._kwargs.values()))
+        return any(
+            arg.requires_grad
+            for arg in tuple(self._args) + tuple(self._kwargs.values())
+            if hasattr(arg, "requires_grad")
+        )
 
     @requires_grad.setter
     def requires_grad(self, val):
