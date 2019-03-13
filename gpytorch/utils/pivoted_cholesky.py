@@ -12,7 +12,6 @@ def pivoted_cholesky(matrix, max_iter, error_tol=1e-3):
     # Need to get diagonals. This is easy if it's a LazyTensor, since
     # LazyTensor.diag() operates in batch mode.
     matrix = lazify(matrix)
-    matrix = matrix.evaluate_kernel()
     matrix_diag = matrix._approx_diag()
 
     # Make sure max_iter isn't bigger than the matrix

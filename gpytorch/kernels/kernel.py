@@ -379,7 +379,7 @@ class Kernel(Module):
 
         else:
             if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(self, x1_, x2_, batch_dims=batch_dims, **params)
+                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, batch_dims=batch_dims, **params)
             else:
                 res = super(Kernel, self).__call__(x1_, x2_, batch_dims=batch_dims, **params)
 
