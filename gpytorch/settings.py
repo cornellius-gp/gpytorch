@@ -301,6 +301,16 @@ class cg_tolerance(_value_context):
     _global_value = 0.05
 
 
+class preconditioner_tolerance(_value_context):
+    """
+    Diagonal trace tolerance to use for checking preconditioner convergence.
+
+    Default: 1e-3
+    """
+
+    _global_value = 1e-3
+
+
 class max_cholesky_numel(_value_context):
     """
     If the number of elements of a LazyTensor is less than `max_cholesky_numel`,
