@@ -284,21 +284,21 @@ class lazily_evaluate_kernels(_feature_flag):
 class max_cg_iterations(_value_context):
     """
     The maximum number of conjugate gradient iterations to perform (when computing
-    matrix solves). More values results in more accurate solves
-    Default: 20
+    matrix solves). A higher value rarely results in more accurate solves -- instead, lower the CG tolerance.
+    Default: 1000
     """
 
-    _global_value = 100
+    _global_value = 1000
 
 
 class cg_tolerance(_value_context):
     """
     Relative residual tolerance to use for terminating CG.
 
-    Default: 0.05
+    Default: 1
     """
 
-    _global_value = 0.05
+    _global_value = 1
 
 
 class preconditioner_tolerance(_value_context):
@@ -309,6 +309,20 @@ class preconditioner_tolerance(_value_context):
     """
 
     _global_value = 1e-3
+
+
+class eval_cg_tolerance(_value_context):
+    """
+    Relative residual tolerance to use for terminating CG when making predictions.
+
+    Default: 0.01
+    """
+
+    _global_value = 0.01
+
+
+class _use_eval_tolerance(_feature_flag):
+    _state = False
 
 
 class max_cholesky_numel(_value_context):

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+import warnings
 from .. import settings
 
 
@@ -112,7 +113,10 @@ def linear_cg(
     if initial_guess is None:
         initial_guess = torch.zeros_like(rhs)
     if tolerance is None:
-        tolerance = settings.cg_tolerance.value()
+        if settings._use_eval_tolerance.on():
+            tolerance = settings.eval_cg_tolerance.value()
+        else:
+            tolerance = settings.cg_tolerance.value()
     if preconditioner is None:
         preconditioner = _default_preconditioner
         precond = False
@@ -189,6 +193,10 @@ def linear_cg(
 
     update_tridiag = True
     last_tridiag_iter = 0
+
+    # It's conceivable we reach the tolerance on the last iteration, so can't just check iteration number.
+    tolerance_reached = False
+
     # Start the iteration
     for k in range(n_iter):
         # Get next alpha
@@ -248,6 +256,7 @@ def linear_cg(
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
         if k >= 10 and bool(residual_norm.mean() < tolerance) and not (n_tridiag and k < n_tridiag_iter):
+            tolerance_reached = True
             break
 
         # Update tridiagonal matrices, if applicable
@@ -276,6 +285,13 @@ def linear_cg(
 
     # Un-normalize
     result.mul_(rhs_norm)
+
+    if not tolerance_reached:
+        warnings.warn(
+            "CG terminated before reaching the tolerance specified by gpytorch.settings.cg_tolerance. If performance"
+            " is affected, consider raising the maximum number of CG iterations by running code in"
+            " a gpytorch.settings.max_cg_iterations(value) context."
+        )
 
     if is_vector:
         result = result.squeeze(-1)
