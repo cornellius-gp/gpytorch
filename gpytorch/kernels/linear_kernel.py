@@ -44,17 +44,28 @@ class LinearKernel(Kernel):
             `len(active_dims)` should equal `num_dimensions`.
     """
 
-    def __init__(self, num_dimensions, variance_prior=None, offset_prior=None, active_dims=None):
+    def __init__(self, num_dimensions, variance_prior=None, active_dims=None):
         super(LinearKernel, self).__init__(active_dims=active_dims)
-        self.register_parameter(name="variance", parameter=torch.nn.Parameter(torch.zeros(1)))
+        self.register_parameter(name="raw_variance", parameter=torch.nn.Parameter(torch.zeros(1)))
         self.register_parameter(name="offset", parameter=torch.nn.Parameter(torch.zeros(1, 1, num_dimensions)))
         if variance_prior is not None:
             self.register_prior("variance_prior", variance_prior, "variance")
-        if offset_prior is not None:
-            self.register_prior("offset_prior", offset_prior, "offset")
 
-    def forward(self, x1, x2, batch_dims=None, **params):
-        x1_ = x1 - self.offset
+    @property
+    def variance(self):
+        return self._param_transform(self.raw_variance)
+
+    @variance.setter
+    def variance(self, value):
+        self._set_variance(value)
+
+    def _set_variance(self, value):
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+        self.initialize(raw_variance=self._inv_param_transform(value))
+
+    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
+        x1_ = x1 * self.variance.sqrt()
         if batch_dims == (0, 2):
             x1_ = x1_.view(x1_.size(0), x1_.size(1), -1, 1)
             x1_ = x1_.permute(0, 2, 1, 3).contiguous()
@@ -66,7 +77,7 @@ class LinearKernel(Kernel):
             prod = RootLazyTensor(x1_)
 
         else:
-            x2_ = x2 - self.offset
+            x2_ = x2 * self.variance.sqrt()
             if batch_dims == (0, 2):
                 x2_ = x2_.view(x2_.size(0), x2_.size(1), -1, 1)
                 x2_ = x2_.permute(0, 2, 1, 3).contiguous()
@@ -74,4 +85,4 @@ class LinearKernel(Kernel):
 
             prod = MatmulLazyTensor(x1_, x2_.transpose(2, 1))
 
-        return prod + self.variance.expand(prod.size())
+        return prod
