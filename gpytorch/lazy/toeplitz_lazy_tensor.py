@@ -13,6 +13,10 @@ class ToeplitzLazyTensor(LazyTensor):
     def _expand_batch(self, batch_shape):
         return self.__class__(self.column.expand(*batch_shape, self.column.size(-1)))
 
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        toeplitz_indices = (row_index - col_index).fmod(self.size(-1)).abs().long()
+        return self.column[(*batch_indices, toeplitz_indices)]
+
     def _matmul(self, rhs):
         return sym_toeplitz_matmul(self.column, rhs)
 

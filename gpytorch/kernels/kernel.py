@@ -162,6 +162,17 @@ class Kernel(Module):
         self.__pdist_supports_batch = True
 
     @property
+    def dtype(self):
+        if self.has_lengthscale:
+            return self.lengthscale.dtype
+        else:
+            params = tuple(self.parameters())
+            if len(params):
+                return params[0].dtype
+            else:
+                return torch.get_default_dtype()
+
+    @property
     def has_lengthscale(self):
         return self.__has_lengthscale
 

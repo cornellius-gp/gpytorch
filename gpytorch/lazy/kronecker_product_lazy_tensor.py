@@ -57,6 +57,26 @@ class KroneckerProductLazyTensor(LazyTensor):
         super(KroneckerProductLazyTensor, self).__init__(*lazy_tensors)
         self.lazy_tensors = lazy_tensors
 
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        row_factor = self.size(-2)
+        col_factor = self.size(-1)
+
+        res = None
+        for lazy_tensor in self.lazy_tensors:
+            sub_row_size = lazy_tensor.size(-2)
+            sub_col_size = lazy_tensor.size(-1)
+
+            row_factor //= sub_row_size
+            col_factor //= sub_col_size
+            sub_res = lazy_tensor._get_indices(
+                row_index.div(row_factor).fmod(sub_row_size),
+                col_index.div(col_factor).fmod(sub_col_size),
+                *batch_indices
+            )
+            res = sub_res if res is None else (sub_res * res)
+
+        return res
+
     def _matmul(self, rhs):
         is_vec = rhs.ndimension() == 1
         if is_vec:

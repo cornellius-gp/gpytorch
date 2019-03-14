@@ -2,6 +2,7 @@
 
 import torch
 from .block_lazy_tensor import BlockLazyTensor
+from ..utils.broadcasting import _pad_with_singletons
 from ..utils.getitem import _noop_index
 
 
@@ -54,21 +55,20 @@ class SumBatchLazyTensor(BlockLazyTensor):
         return res
     """
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
-        # Weird behavior can happen if any of the batch indices are tensors, so we'll use the default behavior
-        if any(torch.is_tensor(batch_index) for batch_index in batch_indices) and len(batch_indices):
-            return super(SumBatchLazyTensor, self)._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        # Create an extra index for the summed dimension
+        sum_index = torch.arange(0, self.base_lazy_tensor.size(-3), device=self.device)
+        sum_index = _pad_with_singletons(sum_index, row_index.dim(), 0)
+        row_index = row_index.unsqueeze(-1)
+        col_index = col_index.unsqueeze(-1)
+        batch_indices = [index.unsqueeze(-1) for index in batch_indices]
 
-        res = self.base_lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices, _noop_index)
-        if row_col_are_absorbed:
-            block_dim = -3
-            if torch.is_tensor(row_index):
-                block_dim += 1
-            if torch.is_tensor(col_index):
-                block_dim += 1
-            return res.sum(block_dim)
-        else:
-            return self.__class__(res, **self._kwargs)
+        res = self.base_lazy_tensor._get_indices(row_index, col_index, *batch_indices, sum_index)
+        return res.sum(-1)
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        res = self.base_lazy_tensor._getitem(row_index, col_index, *batch_indices, _noop_index)
+        return self.__class__(res, **self._kwargs)
 
     def _remove_batch_dim(self, other):
         return other.sum(-3)

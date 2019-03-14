@@ -22,15 +22,19 @@ class SumLazyTensor(LazyTensor):
         expanded_tensors = [lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors]
         return self.__class__(*expanded_tensors)
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
         results = [
-            lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+            lazy_tensor._get_indices(row_index, col_index, *batch_indices)
             for lazy_tensor in self.lazy_tensors
         ]
-        if isinstance(results[0], LazyTensor):
-            return SumLazyTensor(*results)
-        else:
-            return sum(results)
+        return sum(results)
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        results = [
+            lazy_tensor._getitem(row_index, col_index, *batch_indices)
+            for lazy_tensor in self.lazy_tensors
+        ]
+        return SumLazyTensor(*results)
 
     def _matmul(self, rhs):
         return sum(lazy_tensor._matmul(rhs) for lazy_tensor in self.lazy_tensors)

@@ -73,16 +73,25 @@ class ConstantMulLazyTensor(LazyTensor):
             self._constant.expand(*batch_shape)
         )
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
         # NOTE TO FUTURE SELF:
         # This custom __getitem__ is actually very important!
         # It prevents constructing an InterpolatedLazyTensor when one isn't needed
         # This affects runntimes by up to 5x on simple exat GPs
         # Run __getitem__ on the base_lazy_tensor and the constant
-        base_lazy_tensor = self.base_lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+        base_lazy_tensor = self.base_lazy_tensor._get_indices(row_index, col_index, *batch_indices)
         constant = self._constant.expand(self.batch_shape)[batch_indices]
+        return base_lazy_tensor * constant
 
-        constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))
+    def _getitem(self, row_index, col_index, *batch_indices):
+        # NOTE TO FUTURE SELF:
+        # This custom __getitem__ is actually very important!
+        # It prevents constructing an InterpolatedLazyTensor when one isn't needed
+        # This affects runntimes by up to 5x on simple exat GPs
+        # Run __getitem__ on the base_lazy_tensor and the constant
+        base_lazy_tensor = self.base_lazy_tensor._getitem(row_index, col_index, *batch_indices)
+        constant = self._constant.expand(self.batch_shape)[batch_indices]
+        constant = constant.view(*constant.shape, 1, 1)
         return base_lazy_tensor * constant
 
     def _matmul(self, rhs):

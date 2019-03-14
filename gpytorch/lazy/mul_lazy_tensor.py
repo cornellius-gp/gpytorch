@@ -104,6 +104,17 @@ class MulLazyTensor(LazyTensor):
         # This is a no-op. We do something different here
         pass
 
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        results = tuple(
+            lazy_tensor._get_indices(row_index, col_index, *batch_indices)
+            for lazy_tensor in self.lazy_tensors
+        )
+
+        res = results[0]
+        for result in results[1:]:
+            res = torch.mul(res, result)
+        return res
+
     def _matmul(self, rhs):
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
         output_batch_shape = output_shape[:-2]

@@ -21,12 +21,15 @@ class NonLazyTensor(LazyTensor):
     def _expand_batch(self, batch_shape):
         return self.__class__(self.tensor.expand(*batch_shape, *self.matrix_shape))
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
         # Perform the __getitem__
         res = self.tensor[(*batch_indices, row_index, col_index)]
-        if not row_col_are_absorbed:
-            res = NonLazyTensor(res)
         return res
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        # Perform the __getitem__
+        res = self.tensor[(*batch_indices, row_index, col_index)]
+        return self.__class__(res)
 
     def _matmul(self, rhs):
         return torch.matmul(self.tensor, rhs)

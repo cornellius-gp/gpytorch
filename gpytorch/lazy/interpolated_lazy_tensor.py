@@ -92,7 +92,22 @@ class InterpolatedLazyTensor(LazyTensor):
             self.right_interp_values.expand(*batch_shape, *self.right_interp_values.shape[-2:]),
         )
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        left_interp_indices = self.left_interp_indices.__getitem__((*batch_indices, row_index)).unsqueeze(-2)
+        right_interp_indices = self.right_interp_indices.__getitem__((*batch_indices, col_index)).unsqueeze(-1)
+        base_vals = self.base_lazy_tensor._get_indices(
+            left_interp_indices, right_interp_indices,
+            *[batch_index.view(*batch_index.shape, 1, 1) for batch_index in batch_indices]
+        )
+
+        left_interp_values = self.left_interp_values.__getitem__((*batch_indices, row_index)).unsqueeze(-2)
+        right_interp_values = self.right_interp_values.__getitem__((*batch_indices, col_index)).unsqueeze(-1)
+        interp_values = left_interp_values * right_interp_values
+
+        res = (base_vals * interp_values).sum([-2, -1])
+        return res
+
+    def _getitem(self, row_index, col_index, *batch_indices):
         # Handle batch dimensions
         # Construt a new LazyTensor
         base_lazy_tensor = self.base_lazy_tensor
@@ -102,7 +117,7 @@ class InterpolatedLazyTensor(LazyTensor):
         right_interp_values = self.right_interp_values
 
         if len(batch_indices):
-            base_lazy_tensor = base_lazy_tensor[batch_indices]
+            base_lazy_tensor = base_lazy_tensor._getitem(_noop_index, _noop_index, *batch_indices)
 
         # Special case: if both row and col are not indexed, then we are done
         if (row_index is _noop_index and col_index is _noop_index):
@@ -123,21 +138,11 @@ class InterpolatedLazyTensor(LazyTensor):
         right_interp_indices = right_interp_indices[(*batch_indices, col_index, _noop_index)]
         right_interp_values = right_interp_values[(*batch_indices, col_index, _noop_index)]
 
-        if row_col_are_absorbed and torch.is_tensor(row_index):
-            left_interp_indices = left_interp_indices.unsqueeze_(-2)
-            left_interp_values = left_interp_values.unsqueeze(-2)
-        if row_col_are_absorbed and torch.is_tensor(col_index):
-            right_interp_indices = right_interp_indices.unsqueeze_(-2)
-            right_interp_values = right_interp_values.unsqueeze(-2)
-
         # Construct interpolated LazyTensor
         res = self.__class__(
             base_lazy_tensor, left_interp_indices, left_interp_values,
             right_interp_indices, right_interp_values, **self._kwargs
         )
-        if row_col_are_absorbed:
-            res = res.evaluate().squeeze(-2).squeeze(-1)
-
         return res
 
     def _matmul(self, rhs):

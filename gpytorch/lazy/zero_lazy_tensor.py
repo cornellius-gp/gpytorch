@@ -31,12 +31,13 @@ class ZeroLazyTensor(LazyTensor):
     def _expand_batch(self, batch_shape):
         return self.__class__(*batch_shape, *self.sizes[-2:], dtype=self._dtype, device=self._device)
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
         new_size = _compute_getitem_size(self, batch_indices + (row_index, col_index))
-        if row_col_are_absorbed:
-            return torch.zeros(new_size, dtype=self.dtype, device=self.device)
-        else:
-            return ZeroLazyTensor(*new_size)
+        return ZeroLazyTensor(*new_size)
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        new_size = _compute_getitem_size(self, batch_indices + (row_index, col_index))
+        return ZeroLazyTensor(*new_size)
 
     def _matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1

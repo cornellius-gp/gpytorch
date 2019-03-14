@@ -10,6 +10,8 @@ from .non_lazy_tensor import lazify
 
 
 class LazyEvaluatedKernelTensor(LazyTensor):
+    _check_size = False
+
     def _check_args(self, x1, x2, kernel, batch_dims=None, **params):
         if not torch.is_tensor(x1):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
@@ -28,7 +30,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
     @property
     def dtype(self):
-        return self.x1.dtype
+        return self.kernel.dtype
 
     @property
     def device(self):
@@ -37,7 +39,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def _expand_batch(self, batch_shape):
         return self.evaluate_kernel()._expand_batch(batch_shape)
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+    def _getitem(self, row_index, col_index, *batch_indices):
         x1 = self.x1
         if self.batch_dims == (0, 2):
             x1 = x1.permute(0, 2, 1).contiguous()

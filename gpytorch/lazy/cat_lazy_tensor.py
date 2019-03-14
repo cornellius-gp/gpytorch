@@ -2,7 +2,8 @@
 
 import torch
 from .lazy_tensor import LazyTensor
-from ..utils.getitem import _noop_index, _compute_getitem_size
+from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.getitem import _noop_index
 
 
 class CatLazyTensor(LazyTensor):
@@ -107,15 +108,52 @@ class CatLazyTensor(LazyTensor):
         res = self.__class__(*lazy_tensors, dim=self.cat_dim, output_device=self.output_device)
         return res
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
         indices = [*batch_indices, row_index, col_index]
-        target_shape = _compute_getitem_size(self, indices)
+        target_shape = _mul_broadcast_shape(*[index.shape for index in indices])
+        indices = [index.expand(target_shape).contiguous().view(-1) for index in indices]
+        cat_dim_indices = indices[self.cat_dim]
+
+        # Find out for which indices we switch to different tensors
+        target_tensors = self.idx_to_tensor_idx[cat_dim_indices]
+        does_switch_tensor = torch.ones(target_tensors.numel() + 1, dtype=torch.uint8, device=self.device)
+        torch.ne(target_tensors[:-1], target_tensors[1:], out=does_switch_tensor[1:-1])
+
+        # Get the LazyTensors that will comprise the new LazyTensor
+        lazy_tensor_indices = target_tensors[does_switch_tensor[:-1]].tolist()
+        lazy_tensors = [self.lazy_tensors[idx] for idx in lazy_tensor_indices]
+
+        # Get the new set of indices for each of the LazyTensors
+        switch_tensor = does_switch_tensor.nonzero().squeeze(-1)
+        split_sizes = (switch_tensor[1:] - switch_tensor[:-1]).tolist()
+        sub_indices = zip(*[
+            list(index.split(split_sizes)) if torch.is_tensor(index) else [index] * len(split_sizes)
+            for index in indices
+        ])
+        # Make everything a list
+        sub_indices = [list(sub_index) for sub_index in sub_indices]
+
+        # Make sure that we have adjusted the start and ends of the indices that correspond to the cat dim
+        for lazy_tensor_idx, sub_index in zip(lazy_tensor_indices, sub_indices):
+            sub_index[self.cat_dim] = sub_index[self.cat_dim] - self.cat_dim_cum_sizes[lazy_tensor_idx]
+
+        res_list = [
+            lazy_tensor._get_indices(sub_index[-2], sub_index[-1], *sub_index[:-2])
+            for lazy_tensor, sub_index in zip(lazy_tensors, sub_indices)
+        ]
+        if len(res_list) == 1:
+            return res_list[0].view(target_shape).to(self.device)
+        else:
+            return torch.cat(res_list).view(target_shape).to(self.device)
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        indices = [*batch_indices, row_index, col_index]
         cat_dim_indices = indices[self.cat_dim]
 
         if isinstance(cat_dim_indices, slice):
             if cat_dim_indices == _noop_index:
                 res_list = [
-                    lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+                    lazy_tensor._getitem(row_index, col_index, *batch_indices)
                     for lazy_tensor in self.lazy_tensors
                 ]
 
@@ -124,9 +162,7 @@ class CatLazyTensor(LazyTensor):
                 tensor_idxs, target_slices = self._split_slice(cat_dim_indices)
                 for tensor_idx, target_slice in zip(tensor_idxs, target_slices):
                     indices[self.cat_dim] = target_slice
-                    res = self.lazy_tensors[tensor_idx]._getitem(
-                        row_col_are_absorbed, indices[-2], indices[-1], *indices[:-2]
-                    )
+                    res = self.lazy_tensors[tensor_idx]._getitem(indices[-2], indices[-1], *indices[:-2])
                     res_list.append(res)
 
         elif torch.is_tensor(cat_dim_indices):
@@ -154,7 +190,7 @@ class CatLazyTensor(LazyTensor):
                 sub_index[self.cat_dim] = sub_index[self.cat_dim] - self.cat_dim_cum_sizes[lazy_tensor_idx]
 
             res_list = [
-                lazy_tensor._getitem(row_col_are_absorbed, sub_index[-2], sub_index[-1], *sub_index[:-2])
+                lazy_tensor._getitem(sub_index[-2], sub_index[-1], *sub_index[:-2])
                 for lazy_tensor, sub_index in zip(lazy_tensors, sub_indices)
             ]
 
@@ -162,15 +198,8 @@ class CatLazyTensor(LazyTensor):
         if len(res_list) == 1:
             return res_list[0].to(self.output_device)
         else:
-            # Figure out the new concat dimension
-            shape_diff = [res_size - target_size for res_size, target_size in zip(res_list[0].shape, target_shape)]
-            new_cat_dim = next((i for i, x in enumerate(shape_diff) if x), None)  # First nonzero element
-
-            if row_col_are_absorbed:
-                return torch.cat([res.to(self.output_device) for res in res_list], dim=new_cat_dim)
-            else:
-                res = self.__class__(*res_list, dim=new_cat_dim, output_device=self.output_device)
-                return res
+            res = self.__class__(*res_list, dim=self.cat_dim, output_device=self.output_device)
+            return res
 
     def _matmul(self, rhs):
         output_device = self.device if self.device is not None else rhs.device

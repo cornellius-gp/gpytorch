@@ -36,6 +36,21 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         other = other.view(*batch_shape, num_rows // self.num_blocks, num_cols)
         return other
 
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        # Figure out what block the row/column indices belong to
+        row_index_block = row_index.div(self.base_lazy_tensor.size(-2))
+        col_index_block = col_index.div(self.base_lazy_tensor.size(-1))
+
+        # Find the row/col index within each block
+        row_index = row_index.fmod(self.base_lazy_tensor.size(-2))
+        col_index = col_index.fmod(self.base_lazy_tensor.size(-1))
+
+        # If the row/column blocks do not agree, then we have off diagonal elements
+        # These elements should be zeroed out
+        res = self.base_lazy_tensor._get_indices(row_index, col_index, *batch_indices, row_index_block)
+        res = res * torch.eq(row_index_block, col_index_block).type_as(res)
+        return res
+
     def _remove_batch_dim(self, other):
         shape = list(other.shape)
         del shape[-3]

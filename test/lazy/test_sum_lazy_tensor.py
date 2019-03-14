@@ -2,7 +2,7 @@
 
 import torch
 import unittest
-from gpytorch.lazy import ToeplitzLazyTensor, NonLazyTensor
+from gpytorch.lazy import ToeplitzLazyTensor
 from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 

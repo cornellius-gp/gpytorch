@@ -30,6 +30,13 @@ class DiagLazyTensor(LazyTensor):
     def _expand_batch(self, batch_shape):
         return self.__class__(self._diag.expand(*batch_shape, self._diag.size(-1)))
 
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        res = self._diag[(*batch_indices, row_index)]
+        # If row and col index don't agree, then we have off diagonal elements
+        # Those should be zero'd out
+        res = res * torch.eq(row_index, col_index).type_as(res)
+        return res
+
     def _matmul(self, rhs):
         # to perform matrix multiplication with diagonal matrices we can just
         # multiply element-wise with the diagonal (using proper broadcasting)

@@ -50,7 +50,21 @@ class BatchRepeatLazyTensor(LazyTensor):
             self.base_lazy_tensor, batch_repeat=self._compute_batch_repeat_size(current_batch_shape, batch_shape)
         )
 
-    def _getitem(self, row_col_are_absorbed, row_index, col_index, *batch_indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        # First remove any new batch indices that were added - they aren't necessary
+        num_true_batch_indices = self.base_lazy_tensor.dim() - 2
+        batch_indices = batch_indices[len(batch_indices) - num_true_batch_indices:]
+
+        # Now adjust the indices batch_indices that were repeated
+        batch_indices = [
+            batch_index.fmod(size) for batch_index, size in zip(batch_indices, self.base_lazy_tensor.batch_shape)
+        ]
+
+        # Now call the sub _get_indices method
+        res = self.base_lazy_tensor._get_indices(row_index, col_index, *batch_indices)
+        return res
+
+    def _getitem(self, row_index, col_index, *batch_indices):
         args = []
         kwargs = self.base_lazy_tensor._kwargs
         num_base_batch_dims = len(self.base_lazy_tensor.batch_shape)
@@ -63,7 +77,7 @@ class BatchRepeatLazyTensor(LazyTensor):
                 args.append(arg)
 
         new_lazy_tensor = self.base_lazy_tensor.__class__(*args, **kwargs)
-        return new_lazy_tensor._getitem(row_col_are_absorbed, row_index, col_index, *batch_indices)
+        return new_lazy_tensor._getitem(row_index, col_index, *batch_indices)
 
     def _matmul(self, rhs):
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
