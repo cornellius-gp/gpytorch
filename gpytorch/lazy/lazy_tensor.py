@@ -431,8 +431,17 @@ class LazyTensor(ABC):
         Returns:
             :obj:`gpytorch.lazy.LazyTensor`
         """
+        from .non_lazy_tensor import NonLazyTensor
         from .mul_lazy_tensor import MulLazyTensor
-        return MulLazyTensor(self, other).evaluate_kernel()
+
+        self = self.evaluate_kernel()
+        other = other.evaluate_kernel()
+        if isinstance(self, NonLazyTensor) or isinstance(other, NonLazyTensor):
+            return NonLazyTensor(self.evaluate() * other.evaluate())
+        else:
+            left_lazy_tensor = self if self.root_decomposition_size() < other.root_decomposition_size() else other
+            right_lazy_tensor = other if left_lazy_tensor is self else self
+            return MulLazyTensor(left_lazy_tensor.root_decomposition(), right_lazy_tensor.root_decomposition())
 
     def _preconditioner(self):
         """
@@ -493,7 +502,8 @@ class LazyTensor(ABC):
                 res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2))
                 break
             else:
-                roots = self.root_decomposition().root.evaluate()
+                res = MulLazyTensor(RootLazyTensor(part1), RootLazyTensor(part2))
+                roots = res.root_decomposition().root.evaluate()
                 num_batch = num_batch // 2
 
         return res
