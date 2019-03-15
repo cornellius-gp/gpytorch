@@ -134,6 +134,11 @@ class RectangularLazyTensorTestCase(ABC):
                         ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
                     )
 
+    def test_constant_mul(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        self.assertTrue(approx_equal((lazy_tensor * 5).evaluate(), evaluated * 5))
+
     def test_evaluate(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)

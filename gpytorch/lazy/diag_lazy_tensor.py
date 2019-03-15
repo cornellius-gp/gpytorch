@@ -3,7 +3,6 @@
 import torch
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import lazify
 from .root_lazy_tensor import RootLazyTensor
 
 
@@ -44,6 +43,15 @@ class DiagLazyTensor(LazyTensor):
             return self._diag * rhs
         return self._diag.unsqueeze(-1) * rhs
 
+    def _mul_constant(self, constant):
+        return self.__class__(self._diag * constant.unsqueeze(-1))
+
+    def _mul_matrix(self, other):
+        if isinstance(other, DiagLazyTensor):
+            return self.__class__(self._diag * other._diag)
+        else:
+            return self.__class__(self._diag * other.diag())
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         # TODO: Use proper batching for input vectors (prepand to shape rathern than append)
         res = left_vecs * right_vecs
@@ -69,17 +77,6 @@ class DiagLazyTensor(LazyTensor):
 
     def add_diag(self, added_diag):
         return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
-
-    def __mul__(self, other):
-        other = lazify(other)
-        if isinstance(other, DiagLazyTensor):
-            return DiagLazyTensor(self._diag * other._diag)
-        else:
-            other_diag = other.diag()
-            new_diag = self._diag * other_diag
-            corrected_diag = new_diag - other_diag
-
-            return other.add_diag(corrected_diag)
 
     def diag(self):
         return self._diag
