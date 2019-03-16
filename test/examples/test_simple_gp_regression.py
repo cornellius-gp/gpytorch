@@ -185,6 +185,34 @@ class TestSimpleGPRegression(unittest.TestCase):
             self.assertTrue(torch.allclose(mean_skip_var, mean))
             self.assertTrue(torch.allclose(mean_skip_var, likelihood_mean))
 
+    def test_gp_posterior_single_training_point_smoke_test(self):
+        train_x, test_x, train_y, _ = self._get_data()
+        train_x = train_x[0].unsqueeze(-1).unsqueeze(-1)
+        train_y = train_y[0].unsqueeze(-1)
+        likelihood = GaussianLikelihood()
+        gp_model = ExactGPModel(train_x, train_y, likelihood)
+
+        gp_model.eval()
+        likelihood.eval()
+
+        with gpytorch.settings.fast_pred_var():
+            preds = gp_model(test_x)
+            single_mean = preds.mean
+            single_variance = preds.variance
+
+        self.assertFalse(torch.any(torch.isnan(single_variance)))
+        self.assertFalse(torch.any(torch.isnan(single_mean)))
+
+        gp_model.train()
+        gp_model.eval()
+
+        preds = gp_model(test_x)
+        single_mean = preds.mean
+        single_variance = preds.variance
+
+        self.assertFalse(torch.any(torch.isnan(single_variance)))
+        self.assertFalse(torch.any(torch.isnan(single_mean)))
+
     def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False, checkpoint=0):
         train_x, test_x, train_y, test_y = self._get_data(
             cuda=cuda, num_data=(1000 if checkpoint else 11), add_noise=bool(checkpoint),
