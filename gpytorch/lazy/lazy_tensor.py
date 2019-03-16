@@ -1065,6 +1065,9 @@ class LazyTensor(object):
         """
         from .root_lazy_tensor import RootLazyTensor
 
+        if self.shape[-2:].numel() == 1:
+            return RootLazyTensor(1 / self.evaluate().sqrt())
+
         if not self.is_square:
             raise RuntimeError(
                 "root_inv_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
