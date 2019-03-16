@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .additive_structure_kernel import AdditiveStructureKernel
+from .cylindrical_kernel import CylindricalKernel
 from .cosine_kernel import CosineKernel
 from .multi_device_kernel import MultiDeviceKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
@@ -25,6 +26,7 @@ __all__ = [
     "Kernel",
     "AdditiveKernel",
     "AdditiveStructureKernel",
+    "CylindricalKernel",
     "MultiDeviceKernel",
     "CosineKernel",
     "GridKernel",
