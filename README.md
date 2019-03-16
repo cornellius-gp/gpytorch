@@ -6,9 +6,9 @@
  - The Beta release is currently out! Note that it **requires PyTorch >= 1.0.0**
  - If you need to install the alpha release (we recommend you use the latest version though!), check out [the alpha release](https://github.com/cornellius-gp/gpytorch/tree/alpha).
 
-GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease. 
+GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease.
 
-Internally, GPyTorch differs from many existing approaches to GP inference by performing all inference operations using modern numerical linear algebra techniques like preconditioned conjugate gradients. Implementing a scalable GP method is as simple as providing a matrix multiplication routine with the kernel matrix and its derivative via our `LazyTensor` interface, or by composing many of our already existing `LazyTensors`. This allows not only for easy implementation of popular scalable GP techniques, but often also for significantly improved utilization of GPU computing compared to solvers based on the Cholesky decomposition. 
+Internally, GPyTorch differs from many existing approaches to GP inference by performing all inference operations using modern numerical linear algebra techniques like preconditioned conjugate gradients. Implementing a scalable GP method is as simple as providing a matrix multiplication routine with the kernel matrix and its derivative via our `LazyTensor` interface, or by composing many of our already existing `LazyTensors`. This allows not only for easy implementation of popular scalable GP techniques, but often also for significantly improved utilization of GPU computing compared to solvers based on the Cholesky decomposition.
 
 GPyTorch provides (1) significant GPU acceleration (through MVM based inference); (2) state-of-the-art implementations of the latest algorithmic advances for scalability and flexibility ([SKI/KISS-GP](http://proceedings.mlr.press/v37/wilson15.pdf), [stochastic Lanczos expansions](https://arxiv.org/abs/1711.03481), [LOVE](https://arxiv.org/pdf/1803.06058.pdf), [SKIP](https://arxiv.org/pdf/1802.08903.pdf), [stochastic variational](https://arxiv.org/pdf/1611.00336.pdf) [deep kernel learning](http://proceedings.mlr.press/v51/wilson16.pdf), ...); (3) easy integration with deep learning frameworks.
 
@@ -84,14 +84,14 @@ flake8
 ## The Team
 
 GPyTorch is primarily maintained by:
-- [Jake Gardner](http://github.com/jacobrgardner) (Cornell University)
+- [Jake Gardner](http://github.com/jacobrgardner) (Uber AI Labs)
 - [Geoff Pleiss](http://github.com/gpleiss) (Cornell University)
 - [Kilian Weinberger](http://kilian.cs.cornell.edu/) (Cornell University)
 - [Andrew Gordon Wilson](https://people.orie.cornell.edu/andrew/) (Cornell University)
 - [Max Balandat](https://research.fb.com/people/balandat-max/) (Facebook)
 
 <img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
-
+<img width="300" src=https://gpytorch.ai/static/media/uber_ai_horizontal.fe9ab653.png alt="Uber AI Logo" />
 We would like to thank our other contributors including (but not limited to)  David Arbour, Eytan Bakshy, Jared Frank, Sam Stanton, Bram Wallace, Ke Alexander Wang, Ruihan Wu.
 
 ## Acknowledgements
