@@ -286,11 +286,13 @@ def linear_cg(
     # Un-normalize
     result.mul_(rhs_norm)
 
-    if not tolerance_reached:
+    if not tolerance_reached and n_iter > 0:
         warnings.warn(
-            "CG terminated before reaching the tolerance specified by gpytorch.settings.cg_tolerance. If performance"
-            " is affected, consider raising the maximum number of CG iterations by running code in"
-            " a gpytorch.settings.max_cg_iterations(value) context."
+            "CG terminated in {} iterations with average residual norm {}"
+            " which is larger than the tolerance of {} specified by"
+            " gpytorch.settings.cg_tolerance."
+            " If performance is affected, consider raising the maximum number of CG iterations by running code in"
+            " a gpytorch.settings.max_cg_iterations(value) context.".format(k + 1, residual_norm.mean(), tolerance)
         )
 
     if is_vector:
