@@ -722,11 +722,12 @@ class LazyTensor(ABC):
         if num_rows < num_cols:
             eye = torch.eye(num_rows, dtype=self.dtype, device=self.device)
             eye = eye.expand(*self.batch_shape, num_rows, num_rows)
-            return self.transpose(-1, -2).matmul(eye).transpose(-1, -2).contiguous()
+            res = self.transpose(-1, -2).matmul(eye).transpose(-1, -2).contiguous()
         else:
             eye = torch.eye(num_cols, dtype=self.dtype, device=self.device)
             eye = eye.expand(*self.batch_shape, num_cols, num_cols)
-            return self.matmul(eye)
+            res = self.matmul(eye)
+        return res
 
     def evaluate_kernel(self):
         """

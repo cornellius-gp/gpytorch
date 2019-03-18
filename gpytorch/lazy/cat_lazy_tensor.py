@@ -2,7 +2,7 @@
 
 import torch
 from .lazy_tensor import LazyTensor
-from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.broadcasting import _mul_broadcast_shape, _matmul_broadcast_shape
 from ..utils.getitem import _noop_index
 
 
@@ -194,6 +194,12 @@ class CatLazyTensor(LazyTensor):
                 for lazy_tensor, sub_index in zip(lazy_tensors, sub_indices)
             ]
 
+        elif isinstance(cat_dim_indices, int):  # Should only happen for cat on batch dim
+            target_tensor = self.idx_to_tensor_idx[cat_dim_indices].item()
+            cat_dim_indices = cat_dim_indices - self.cat_dim_cum_sizes[target_tensor]
+            indices[self.cat_dim] = cat_dim_indices
+            res_list = [self.lazy_tensors[target_tensor]._getitem(indices[-2], indices[-1], *indices[:-2])]
+
         # Process the list
         if len(res_list) == 1:
             return res_list[0].to(self.output_device)
@@ -229,14 +235,13 @@ class CatLazyTensor(LazyTensor):
             res_list = [x.to(output_device) for x in res_list]
             res = torch.sum(torch.stack(res_list), dim=0)
         else:
-            while rhs.ndimension() < self.ndimension():
-                rhs = rhs.unsqueeze(0)
+            output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
+            rhs = rhs.expand(*output_shape[:-2], *rhs.shape[-2:])
             curr_idx = 0
             res_list = []
-            index = [slice(None, None, None) for _ in range(self.ndimension())]
-            for t, size, rhs in zip(self.lazy_tensors, self.cat_dim_sizes, rhs_):
-                index[self.cat_dim] = slice(curr_idx, curr_idx + size, None)
-                res_list.append(t._matmul(rhs[index]))
+            for t, size in zip(self.lazy_tensors, self.cat_dim_sizes):
+                sub_rhs = rhs.narrow(self.cat_dim, curr_idx, size)
+                res_list.append(t._matmul(sub_rhs))
                 curr_idx += size
             # copy result back to output device
             res_list = [x.to(output_device) for x in res_list]
@@ -276,18 +281,9 @@ class CatLazyTensor(LazyTensor):
         )
         return res
 
-    def inv_matmul(self, right_tensor, left_tensor=None):
-        return super().inv_matmul(right_tensor, left_tensor).to(self.device)
-
-    def inv_quad(self, tensor):
-        return super().inv_quad(tensor).to(self.device)
-
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         res = super().inv_quad_logdet(inv_quad_rhs, logdet, reduce_inv_quad)
         return tuple(r.to(self.device) for r in res)
-
-    def matmul(self, other):
-        return super().matmul(other).to(self.device)
 
     @property
     def device(self):
