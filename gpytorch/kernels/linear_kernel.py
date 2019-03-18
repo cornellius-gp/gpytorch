@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+import warnings
 from .kernel import Kernel
 from ..lazy import MatmulLazyTensor, RootLazyTensor
 
@@ -34,11 +35,26 @@ class LinearKernel(Kernel):
         :attr:`variance_prior` (:class:`gpytorch.priors.Prior`):
             Prior over the variance parameter (default `None`).
         :attr:`active_dims` (list):
-            List of data dimensions to operate on (default `None`).
+            List of data dimensions to operate on.
+            `len(active_dims)` should equal `num_dimensions`.
     """
 
-    def __init__(self, variance_prior=None, active_dims=None):
+    def __init__(self, num_dimensions=None, offset_prior=None, variance_prior=None, active_dims=None):
         super(LinearKernel, self).__init__(active_dims=active_dims)
+        if num_dimensions is not None:
+            warnings.warn(
+                "The `num_dimensions` argument is deprecated and no longer used.",
+                DeprecationWarning
+            )
+            self.register_parameter(
+                name="offset",
+                parameter=torch.nn.Parameter(torch.zeros(1, 1, num_dimensions))
+            )
+        if offset_prior is not None:
+            warnings.warn(
+                "The `offset_prior` argument is deprecated and no longer used.",
+                DeprecationWarning
+            )
         self.register_parameter(name="raw_variance", parameter=torch.nn.Parameter(torch.zeros(1)))
         if variance_prior is not None:
             self.register_prior(
