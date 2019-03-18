@@ -258,9 +258,12 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             x2 = self.x2
 
         with settings.lazily_evaluate_kernels(False):
+            temp_active_dims = self.kernel.active_dims
+            self.kernel.active_dims = None
             res = self.kernel(
                 x1, x2, diag=False, batch_dims=self.batch_dims, **self.params
             )
+            self.kernel.active_dims = temp_active_dims
         if self.squeeze_row:
             res.squeeze_(-2)
         if self.squeeze_col:

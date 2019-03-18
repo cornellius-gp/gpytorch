@@ -3,9 +3,13 @@
 import torch
 import unittest
 from gpytorch.kernels import LinearKernel
+from test.kernels._base_kernel_test_case import BaseKernelTestCase
 
 
-class TestLinearKernel(unittest.TestCase):
+class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
+    def create_kernel_no_ard(self, **kwargs):
+        return LinearKernel(num_dimensions=10, **kwargs)
+
     def test_computes_linear_function_rectangular(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2, 1], dtype=torch.float).view(3, 1)

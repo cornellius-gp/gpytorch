@@ -4,9 +4,13 @@ import math
 import torch
 import unittest
 from gpytorch.kernels import RBFKernel
+from test.kernels._base_kernel_test_case import BaseKernelTestCase
 
 
-class TestRBFKernel(unittest.TestCase):
+class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
+    def create_kernel_no_ard(self, **kwargs):
+        return RBFKernel(**kwargs)
+
     def test_ard(self):
         a = torch.tensor([[[1, 2], [2, 4]]], dtype=torch.float)
         b = torch.tensor([[[1, 3], [0, 4]]], dtype=torch.float)
