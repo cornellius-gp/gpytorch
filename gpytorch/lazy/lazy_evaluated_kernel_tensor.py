@@ -121,8 +121,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(
-            self.x2, self.x1, kernel=self.kernel, batch_dims=self.batch_dims,
-            squeeze_row=self.squeeze_col, squeeze_col=self.squeeze_row, **self.params
+            self.x2, self.x1, kernel=self.kernel, batch_dims=self.batch_dims, **self.params
         )
 
     def add_jitter(self, jitter_val=1e-3):
