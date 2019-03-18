@@ -46,9 +46,21 @@ class LazyTensor(ABC):
       :math:`K`.
     * :func:`~gpytorch.lazy.LazyTensor._transpose_nonbatch`, which returns a transposed version of the LazyTensor
 
-    In addition to these, a LazyTensor may need to define
-    :func:`~gpytorch.lazy.LazyTensor._quad_form_derivative` and :func:`~gpytorch.lazy.LazyTensor._getitem`
-    functions in special cases. See the documentation for these methods for details.
+    In addition to these, the following methods should be implemented for maximum efficiency
+
+    * :func:`~gpytorch.lazy.LazyTensor._quad_form_derivative`, which computes the derivative of a quadratic form
+      with the LazyTensor (e.g. :math:`d (a^T X b) / dX`).
+    * :func:`~gpytorch.lazy.LazyTensor._get_indices`, which returns a :class:`torch.Tensor` containing elements that
+      are given by various tensor indices.
+    * :func:`~gpytorch.lazy.LazyTensor._expand_batch`, which expands the batch dimensions of LazyTensors.
+    * :func:`~gpytorch.lazy.LazyTensor._check_args`, which performs error checking on the arguments supplied to the
+      LazyTensor constructor.
+
+    In addition to these, a LazyTensor *may* need to define the following functions if it does anything interesting
+    with the batch dimensions (e.g. sums along them, adds additional ones, etc):
+    :func:`~gpytorch.lazy.LazyTensor._unsqueeze_batch`, :func:`~gpytorch.lazy.LazyTensor._getitem`, and
+    :func:`~gpytorch.lazy.LazyTensor._permute_batch`.
+    See the documentation for these methods for details.
 
     .. note::
         The base LazyTensor class provides default implementations of many other operations in order to mimic the
@@ -56,8 +68,9 @@ class LazyTensor(ABC):
         :func:`~gpytorch.lazy.LazyTensor.__getitem__`, :func:`~gpytorch.lazy.LazyTensor.__add__`, etc that either
         make use of other lazy tensors or exploit the functions that **must** be defined above.
 
-        While these implementations are provided for convenience, it is advisable in many cases to override them for the
-        sake of efficiency.
+        Rather than overriding the public methods, we recommend that you override the private versions associated
+        with these methods (e.g. - write a custom `_getitem` verses a custom `__getitem__`). This is because the
+        public methods do quite a bit of error checking and casing that doesn't need to be repeated.
 
     .. note::
         LazyTensors are designed by default to optionally represent batches of matrices. Thus, the size of a
