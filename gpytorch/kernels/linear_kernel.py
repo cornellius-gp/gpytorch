@@ -34,8 +34,7 @@ class LinearKernel(Kernel):
         :attr:`variance_prior` (:class:`gpytorch.priors.Prior`):
             Prior over the variance parameter (default `None`).
         :attr:`active_dims` (list):
-            List of data dimensions to operate on.
-            `len(active_dims)` should equal `num_dimensions`.
+            List of data dimensions to operate on (default `None`).
     """
 
     def __init__(self, variance_prior=None, active_dims=None):
