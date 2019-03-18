@@ -14,7 +14,7 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2, 1], dtype=torch.float).view(3, 1)
 
-        kernel = LinearKernel(num_dimensions=1).initialize(variance=1.0)
+        kernel = LinearKernel().initialize(variance=1.0)
         kernel.eval()
         actual = torch.matmul(a, b.t())
         res = kernel(a, b).evaluate()
@@ -28,7 +28,7 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
     def test_computes_linear_function_square(self):
         a = torch.tensor([[4, 1], [2, 0], [8, 3]], dtype=torch.float)
 
-        kernel = LinearKernel(1).initialize(variance=3.14)
+        kernel = LinearKernel().initialize(variance=3.14)
         kernel.eval()
         actual = torch.matmul(a, a.t()) * 3.14
         res = kernel(a, a).evaluate()
@@ -54,7 +54,7 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
     def test_computes_linear_function_square_batch(self):
         a = torch.tensor([[[4, 1], [2, 0], [8, 3]], [[1, 1], [2, 1], [1, 3]]], dtype=torch.float)
 
-        kernel = LinearKernel(1).initialize(variance=1.0)
+        kernel = LinearKernel().initialize(variance=1.0)
         kernel.eval()
         actual = torch.matmul(a, a.transpose(-1, -2))
         res = kernel(a, a).evaluate()
