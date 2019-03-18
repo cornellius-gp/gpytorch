@@ -33,7 +33,7 @@ class DiagLazyTensor(LazyTensor):
         res = self._diag[(*batch_indices, row_index)]
         # If row and col index don't agree, then we have off diagonal elements
         # Those should be zero'd out
-        res = res * torch.eq(row_index, col_index).type_as(res)
+        res = res * torch.eq(row_index, col_index).to(device=res.device, dtype=res.dtype)
         return res
 
     def _matmul(self, rhs):

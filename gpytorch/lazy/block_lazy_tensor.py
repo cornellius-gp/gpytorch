@@ -84,7 +84,10 @@ class BlockLazyTensor(LazyTensor):
         return res
 
     def _unsqueeze_batch(self, dim):
-        base_lazy_tensor = self.base_lazy_tensor._unsqueeze_batch(dim)
+        if torch.is_tensor(self.base_lazy_tensor):
+            base_lazy_tensor = self.base_lazy_tensor.unsqueeze(dim)
+        else:
+            base_lazy_tensor = self.base_lazy_tensor._unsqueeze_batch(dim)
         res = self.__class__(base_lazy_tensor)
         return res
 
