@@ -5,6 +5,14 @@ from ..lazy import LazyTensor
 
 
 class NonLazyTensor(LazyTensor):
+    def _check_args(self, tsr):
+        if not torch.is_tensor(tsr):
+            return "NonLazyTensor must take a torch.Tensor; got {}".format(tsr.__class__.__name__)
+        if tsr.dim() < 2:
+            return "NonLazyTensor expects a matrix (or batches of matrices) - got a Tensor of size {}.".format(
+                tsr.shape
+            )
+
     def __init__(self, tsr):
         """
         Not a lazy tensor
@@ -12,9 +20,6 @@ class NonLazyTensor(LazyTensor):
         Args:
         - tsr (Tensor: matrix) a Tensor
         """
-        if not torch.is_tensor(tsr):
-            raise RuntimeError("NonLazyTensor must take a torch.Tensor; got {}".format(tsr.__class__.__name__))
-
         super(NonLazyTensor, self).__init__(tsr)
         self.tensor = tsr
 
