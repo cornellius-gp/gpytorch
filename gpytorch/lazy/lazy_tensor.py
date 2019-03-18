@@ -967,12 +967,12 @@ class LazyTensor(ABC):
     def permute(self, *dims):
         num_dims = self.dim()
         orig_dims = dims
-        dims = (dim if dim >= 0 else dim + num_dims for dim in dims)
+        dims = tuple(dim if dim >= 0 else dim + num_dims for dim in dims)
 
         if settings.debug.on():
             if len(dims) != num_dims:
                 raise RuntimeError("number of dims don't match in permute")
-            if tuple(set(dims)) != dims:
+            if sorted(set(dims)) != sorted(dims):
                 raise RuntimeError("repeated dim in permute")
 
             for dim, orig_dim in zip(dims, orig_dims):

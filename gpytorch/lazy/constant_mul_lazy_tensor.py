@@ -99,10 +99,21 @@ class ConstantMulLazyTensor(LazyTensor):
         res = res * self.expanded_constant
         return res
 
+    def _permute_batch(self, *dims):
+        return self.__class__(
+            self.base_lazy_tensor._permute_batch(*dims),
+            self._constant.expand(self.batch_shape).permute(*dims),
+        )
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         # Gradient with respect to the constant
         constant_deriv = left_vecs * self.base_lazy_tensor._matmul(right_vecs)
         constant_deriv = constant_deriv.sum(-2).sum(-1)
+        while constant_deriv.dim() > self._constant.dim():
+            constant_deriv = constant_deriv.sum(0)
+        for i in range(self._constant.dim()):
+            if self._constant.size(i) == 1:
+                constant_deriv = constant_deriv.sum(i, keepdim=True)
 
         # Get derivaties of everything else
         left_vecs = left_vecs * self.expanded_constant

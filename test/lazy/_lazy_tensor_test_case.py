@@ -287,6 +287,15 @@ class RectangularLazyTensorTestCase(ABC):
             self.assertEqual(res.shape, actual.shape)
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
 
+    def test_permute(self):
+        lazy_tensor = self.create_lazy_tensor()
+        if lazy_tensor.dim() >= 4:
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+            dims = torch.randperm(lazy_tensor.dim() - 2).tolist()
+            res = lazy_tensor.permute(*dims, -2, -1).evaluate()
+            actual = evaluated.permute(*dims, -2, -1)
+            self.assertTrue(approx_equal(res, actual))
+
     def test_quad_form_derivative(self):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_clone = lazy_tensor.clone().detach_().requires_grad_(True)
