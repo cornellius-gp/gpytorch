@@ -2,6 +2,7 @@
 
 from .memoize import cached
 from .linear_cg import linear_cg
+from .contour_integral_quad import sqrt_matmul
 from .stochastic_lq import StochasticLQ
 from . import broadcasting
 from . import cholesky
@@ -41,4 +42,5 @@ __all__ = [
     "pivoted_cholesky",
     "quadrature",
     "sparse",
+    "sqrt_matmul",
 ]
