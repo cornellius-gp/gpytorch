@@ -45,11 +45,21 @@ class ZeroLazyTensor(LazyTensor):
             raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
         return rhs * 0
 
+    def _prod_batch(self, dim):
+        sizes = list(self.sizes)
+        del sizes[dim]
+        return self.__class__(*sizes, dtype=self._dtype, device=self._device)
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         raise RuntimeError("Backwards through a ZeroLazyTensor is not possible")
 
     def _size(self):
         return torch.Size(self.sizes)
+
+    def _sum_batch(self, dim):
+        sizes = list(self.sizes)
+        del sizes[dim]
+        return self.__class__(*sizes, dtype=self._dtype, device=self._device)
 
     def _t_matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1

@@ -299,6 +299,17 @@ class RectangularLazyTensorTestCase(ABC):
         for dc, da in zip(deriv_custom, deriv_auto):
             self.assertLess(torch.norm(dc - da), 1e-1)
 
+    def test_sum(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        self.assertTrue(approx_equal(lazy_tensor.sum(-1), evaluated.sum(-1)))
+        self.assertTrue(approx_equal(lazy_tensor.sum(-2), evaluated.sum(-2)))
+        if lazy_tensor.ndimension() > 2:
+            self.assertTrue(approx_equal(lazy_tensor.sum(-3).evaluate(), evaluated.sum(-3)))
+        if lazy_tensor.ndimension() > 3:
+            self.assertTrue(approx_equal(lazy_tensor.sum(-4).evaluate(), evaluated.sum(-4)))
+
     def test_transpose_batch(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -583,6 +594,20 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             diff_logdet = (res_logdet - actual_logdet).abs() / res_logdet.abs().clamp(1, math.inf)
             self.assertLess(diff_invq.max().item(), 0.01)
             self.assertLess(diff_logdet.max().item(), 0.3)
+
+    def test_prod(self):
+        with gpytorch.settings.fast_computations(covar_root_decomposition=False):
+            lazy_tensor = self.create_lazy_tensor()
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+            if lazy_tensor.ndimension() > 2:
+                self.assertTrue(
+                    torch.allclose(lazy_tensor.prod(-3).evaluate(), evaluated.prod(-3), atol=1e-2, rtol=1e-2)
+                )
+            if lazy_tensor.ndimension() > 3:
+                self.assertTrue(
+                    torch.allclose(lazy_tensor.prod(-4).evaluate(), evaluated.prod(-4), atol=1e-2, rtol=1e-2)
+                )
 
     def test_root_decomposition(self):
         # Test with Cholesky

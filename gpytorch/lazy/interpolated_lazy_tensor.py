@@ -6,6 +6,7 @@ from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify, NonLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from ..utils import sparse
+from ..utils.broadcasting import _pad_with_singletons
 from ..utils.getitem import _noop_index
 from ..utils.interpolation import left_interp, left_t_interp
 
@@ -321,65 +322,43 @@ class InterpolatedLazyTensor(LazyTensor):
         self._sparse_right_interp_t_memo = right_interp_t
         return self._sparse_right_interp_t_memo
 
-    """
     def _sum_batch(self, dim):
         left_interp_indices = self.left_interp_indices
         left_interp_values = self.left_interp_values
         right_interp_indices = self.right_interp_indices
         right_interp_values = self.right_interp_values
 
-        n_interp = left_interp_indices.size(-1)
-        n_left = left_interp_indices.size(-2)
-        n_right = right_interp_indices.size(-2)
-
-        # Deal with the two batch dimensions, if necessary
-        if sum_batch_size is not None:
-            left_interp_indices = left_interp_indices.view(-1, sum_batch_size, n_left, n_interp)
-            left_interp_values = left_interp_values.view(-1, sum_batch_size, n_left, n_interp)
-            right_interp_indices = right_interp_indices.view(-1, sum_batch_size, n_right, n_interp)
-            right_interp_values = right_interp_values.view(-1, sum_batch_size, n_right, n_interp)
-
         # Increase interpolation indices appropriately
-        factor = torch.arange(0, left_interp_indices.size(-3), dtype=torch.long, device=self.device)
-        factor = factor.unsqueeze(-1).unsqueeze(-1)
-        factor = factor * self.base_lazy_tensor.size(-1)
-        if sum_batch_size is not None:
-            factor = factor.unsqueeze(0)
-        left_interp_indices = left_interp_indices.add(factor)
-        right_interp_indices = right_interp_indices.add(factor)
+        left_factor = torch.arange(0, left_interp_indices.size(dim), dtype=torch.long, device=self.device)
+        left_factor = _pad_with_singletons(left_factor, 0, self.dim() - dim - 1)
+        left_factor = left_factor * self.base_lazy_tensor.size(-2)
+        left_interp_indices = left_interp_indices.add(left_factor)
+        right_factor = torch.arange(0, right_interp_indices.size(dim), dtype=torch.long, device=self.device)
+        right_factor = _pad_with_singletons(right_factor, 0, self.dim() - dim - 1)
+        right_factor = right_factor * self.base_lazy_tensor.size(-1)
+        right_interp_indices = right_interp_indices.add(right_factor)
 
         # Rearrange the indices and values
-        if sum_batch_size is not None:
-            left_interp_indices = left_interp_indices.permute(0, 2, 3, 1).contiguous()
-            left_interp_indices = left_interp_indices.view(-1, n_left, n_interp * sum_batch_size)
-            left_interp_values = left_interp_values.permute(0, 2, 3, 1).contiguous()
-            left_interp_values = left_interp_values.view(-1, n_left, n_interp * sum_batch_size)
-            right_interp_indices = right_interp_indices.permute(0, 2, 3, 1).contiguous()
-            right_interp_indices = right_interp_indices.view(-1, n_right, n_interp * sum_batch_size)
-            right_interp_values = right_interp_values.permute(0, 2, 3, 1).contiguous()
-            right_interp_values = right_interp_values.view(-1, n_right, n_interp * sum_batch_size)
-        else:
-            left_interp_indices = left_interp_indices.permute(1, 2, 0).contiguous()
-            left_interp_indices = left_interp_indices.view(n_left, -1)
-            left_interp_values = left_interp_values.permute(1, 2, 0).contiguous()
-            left_interp_values = left_interp_values.view(n_left, -1)
-            right_interp_indices = right_interp_indices.permute(1, 2, 0).contiguous()
-            right_interp_indices = right_interp_indices.view(n_right, -1)
-            right_interp_values = right_interp_values.permute(1, 2, 0).contiguous()
-            right_interp_values = right_interp_values.view(n_right, -1)
+        permute_order = (*range(0, dim), *range(dim + 1, self.dim()), dim)
+        left_shape = (*left_interp_indices.shape[:dim], *left_interp_indices.shape[dim + 1:-1], -1)
+        right_shape = (*right_interp_indices.shape[:dim], *right_interp_indices.shape[dim + 1:-1], -1)
+        left_interp_indices = left_interp_indices.permute(permute_order).contiguous().view(left_shape)
+        left_interp_values = left_interp_values.permute(permute_order).contiguous().view(left_shape)
+        right_interp_indices = right_interp_indices.permute(permute_order).contiguous().view(right_shape)
+        right_interp_values = right_interp_values.permute(permute_order).contiguous().view(right_shape)
 
         # Make the base_lazy tensor block diagonal
-        block_diag = BlockDiagLazyTensor(self.base_lazy_tensor, num_blocks=sum_batch_size)
+        from .block_diag_lazy_tensor import BlockDiagLazyTensor
+
+        block_diag = BlockDiagLazyTensor(self.base_lazy_tensor, block_dim=dim)
 
         # Finally! We have an interpolated lazy tensor again
         return InterpolatedLazyTensor(
             block_diag, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
         )
-    """
 
     def diag(self):
-        if isinstance(self.base_lazy_tensor, RootLazyTensor) \
-                and isinstance(self.base_lazy_tensor.root, NonLazyTensor):
+        if isinstance(self.base_lazy_tensor, RootLazyTensor) and isinstance(self.base_lazy_tensor.root, NonLazyTensor):
             left_interp_vals = left_interp(
                 self.left_interp_indices, self.left_interp_values, self.base_lazy_tensor.root.evaluate()
             )

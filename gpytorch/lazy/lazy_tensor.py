@@ -481,9 +481,9 @@ class LazyTensor(ABC):
             if num_batch % 2:
                 shape = list(roots.shape)
                 shape[dim] = 1
-                extra_root = torch.randn(
-                    shape, dtype=self.dtype, device=self.device
-                ).mul_(1e-6 / math.sqrt(roots.size(dim))).add_(1.0 / math.sqrt(roots.size(dim)))
+                extra_root = torch.full(
+                    shape, dtype=self.dtype, device=self.device, fill_value=(1.0 / math.sqrt(self.size(-2)))
+                )
                 roots = torch.cat([roots, extra_root], dim)
                 num_batch += 1
 
@@ -1112,7 +1112,6 @@ class LazyTensor(ABC):
         low-rank version of a matrix
         """
         from .root_lazy_tensor import RootLazyTensor
-        from .mul_lazy_tensor import MulLazyTensor
 
         if not self.is_square:
             raise RuntimeError(
@@ -1120,7 +1119,7 @@ class LazyTensor(ABC):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if not isinstance(self, MulLazyTensor) and (
+        if (
             self.matrix_shape.numel() <= settings.max_cholesky_numel.value()
             or settings.fast_computations.covar_root_decomposition.off()
         ):
@@ -1292,11 +1291,11 @@ class LazyTensor(ABC):
 
         # Case: summing across columns
         if dim == (self.dim() - 1):
-            ones = torch.ones(self.size(-2), 1, dtype=self.dtype, device=self.device)
+            ones = torch.ones(self.size(-1), 1, dtype=self.dtype, device=self.device)
             return (self @ ones).squeeze(-1)
         # Case: summing across rows
         elif dim == (self.dim() - 2):
-            ones = torch.ones(self.size(-1), 1, dtype=self.dtype, device=self.device)
+            ones = torch.ones(self.size(-2), 1, dtype=self.dtype, device=self.device)
             return (self.transpose(-1, -2) @ ones).squeeze(-1)
         # Otherwise: it's a batch dimension
         elif dim < self.dim():

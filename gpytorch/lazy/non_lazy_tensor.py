@@ -34,12 +34,18 @@ class NonLazyTensor(LazyTensor):
     def _matmul(self, rhs):
         return torch.matmul(self.tensor, rhs)
 
+    def _prod_batch(self, dim):
+        return self.__class__(self.tensor.prod(dim))
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         res = left_vecs.matmul(right_vecs.transpose(-1, -2))
         return (res,)
 
     def _size(self):
         return self.tensor.size()
+
+    def _sum_batch(self, dim):
+        return self.__class__(self.tensor.sum(dim))
 
     def _transpose_nonbatch(self):
         return NonLazyTensor(self.tensor.transpose(-1, -2))

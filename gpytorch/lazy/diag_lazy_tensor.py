@@ -52,6 +52,9 @@ class DiagLazyTensor(LazyTensor):
         else:
             return self.__class__(self._diag * other.diag())
 
+    def _prod_batch(self, dim):
+        return self.__class__(self._diag.prod(dim))
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         # TODO: Use proper batching for input vectors (prepand to shape rathern than append)
         res = left_vecs * right_vecs
@@ -63,7 +66,7 @@ class DiagLazyTensor(LazyTensor):
         return self._diag.shape + self._diag.shape[-1:]
 
     def _sum_batch(self, dim):
-        return DiagLazyTensor(self._diag.sum(dim))
+        return self.__class__(self._diag.sum(dim))
 
     def _t_matmul(self, rhs):
         # Diagonal matrices always commute
