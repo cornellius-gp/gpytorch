@@ -12,6 +12,28 @@ from ..utils.interpolation import left_interp, left_t_interp
 
 
 class InterpolatedLazyTensor(LazyTensor):
+    def _check_args(
+        self, base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values
+    ):
+        if left_interp_indices.size() != left_interp_values.size():
+            return "Expected left_interp_indices ({}) to have the same size as left_interp_values ({})".format(
+                left_interp_indices.size(), left_interp_values.size()
+            )
+        if right_interp_indices.size() != right_interp_values.size():
+            return "Expected right_interp_indices ({}) to have the same size as right_interp_values ({})".format(
+                right_interp_indices.size(), right_interp_values.size()
+            )
+        if left_interp_indices.shape[:-2] != right_interp_indices.shape[:-2]:
+            return (
+                "left interp size ({}) is incompatible with right interp size ({}). Make sure the two have the "
+                "same number of batch dimensions".format(left_interp_indices.size(), right_interp_indices.size())
+            )
+        if left_interp_indices.shape[:-2] != base_lazy_tensor.shape[:-2]:
+            return (
+                "left interp size ({}) is incompatible with base lazy tensor size ({}). Make sure the two have the "
+                "same number of batch dimensions".format(left_interp_indices.size(), base_lazy_tensor.size())
+            )
+
     def __init__(
         self,
         base_lazy_tensor,
@@ -32,12 +54,6 @@ class InterpolatedLazyTensor(LazyTensor):
             left_interp_values = torch.ones(
                 left_interp_indices.size(), dtype=base_lazy_tensor.dtype, device=base_lazy_tensor.device
             )
-        else:
-            if left_interp_indices.size() != left_interp_values.size():
-                raise RuntimeError(
-                    "Expected left_interp_indices ({}) to have the same size as "
-                    "left_interp_values ({})".format(left_interp_indices.size(), left_interp_values.size())
-                )
 
         if right_interp_indices is None:
             num_rows = base_lazy_tensor.size(-2)
@@ -49,24 +65,16 @@ class InterpolatedLazyTensor(LazyTensor):
             right_interp_values = torch.ones(
                 right_interp_indices.size(), dtype=base_lazy_tensor.dtype, device=base_lazy_tensor.device
             )
-        else:
-            if left_interp_indices.size() != left_interp_values.size():
-                raise RuntimeError(
-                    "Expected left_interp_indices ({}) to have the same size as "
-                    "left_interp_values ({})".format(left_interp_indices.size(), left_interp_values.size())
-                )
 
-        # Make sure that left/right interp tensors have the same batch shape as the base_lazy_tensor
         if left_interp_indices.shape[:-2] != base_lazy_tensor.batch_shape:
-            raise RuntimeError(
-                "left interp size ({}) is incompatible with base_lazy_tensor size ({}). Make sure the two "
-                "have the same number of batch dimensions".format(left_interp_indices.size(), base_lazy_tensor.size())
-            )
-        if right_interp_indices.shape[:-2] != base_lazy_tensor.batch_shape:
-            raise RuntimeError(
-                "right interp size ({}) is incompatible with base_lazy_tensor size ({}). Make sure the two "
-                "have the same number of batch dimensions".format(right_interp_indices.size(), base_lazy_tensor.size())
-            )
+            try:
+                base_lazy_tensor = base_lazy_tensor._expand_batch(left_interp_indices.shape[:-2])
+            except RuntimeError:
+                raise RuntimeError(
+                    "interp size ({}) is incompatible with base_lazy_tensor size ({}). ".format(
+                        right_interp_indices.size(), base_lazy_tensor.size()
+                    )
+                )
 
         super(InterpolatedLazyTensor, self).__init__(
             base_lazy_tensor, left_interp_indices, left_interp_values, right_interp_indices, right_interp_values

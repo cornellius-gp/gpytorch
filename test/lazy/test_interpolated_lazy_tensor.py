@@ -106,9 +106,8 @@ class TestInterpolatedLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase
         right_interp_values = torch.tensor([[0.1, 0.9], [1, 2], [0.5, 1], [1, 3]], dtype=torch.float).repeat(2, 5, 1, 1)
         right_interp_values.requires_grad = True
 
-        base_tensor = torch.randn(2, 5, 6, 6)
+        base_tensor = torch.randn(5, 6, 6)
         base_tensor = base_tensor.transpose(-2, -1).matmul(base_tensor)
-        base_tensor.requires_grad = True
         base_lazy_tensor = NonLazyTensor(base_tensor)
 
         return InterpolatedLazyTensor(
