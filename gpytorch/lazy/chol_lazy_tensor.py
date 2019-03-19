@@ -33,6 +33,12 @@ class CholLazyTensor(RootLazyTensor):
             self._chol_diag_memo = self._chol.diagonal(dim1=-2, dim2=-1).clone()
         return self._chol_diag_memo
 
+    def _cholesky(self):
+        return self.root
+
+    def _solve(self, rhs, preconditioner):
+        return self._cholesky_solve(rhs)
+
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         inv_quad_term = None
         logdet_term = None

@@ -264,6 +264,7 @@ class fast_computations(object):
         self.log_prob.__enter__()
 
     def __exit__(self, *args):
+        self.covar_root_decomposition.__exit__()
         self.log_prob.__exit__()
         return False
 

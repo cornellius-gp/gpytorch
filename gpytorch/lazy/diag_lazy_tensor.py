@@ -3,7 +3,6 @@
 import torch
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .root_lazy_tensor import RootLazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
@@ -25,6 +24,13 @@ class DiagLazyTensor(LazyTensor):
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
 
         return AddedDiagLazyTensor(other, self)
+
+    @cached(name="cholesky")
+    def _cholesky(self):
+        return self.sqrt()
+
+    def _cholesky_solve(self, rhs):
+        return rhs / self._diag.pow(2)
 
     def _expand_batch(self, batch_shape):
         return self.__class__(self._diag.expand(*batch_shape, self._diag.size(-1)))
@@ -61,6 +67,12 @@ class DiagLazyTensor(LazyTensor):
         if res.ndimension() > self._diag.ndimension():
             res = res.sum(-1)
         return (res,)
+
+    def _root_decomposition(self):
+        return self.sqrt()
+
+    def _root_inv_decomposition(self, initial_vectors=None):
+        return DiagLazyTensor(self._diag.reciprocal()).sqrt()
 
     def _size(self):
         return self._diag.shape + self._diag.shape[-1:]
@@ -133,12 +145,6 @@ class DiagLazyTensor(LazyTensor):
         if isinstance(other, DiagLazyTensor):
             return DiagLazyTensor(self._diag * other._diag)
         return super(DiagLazyTensor, self).matmul(other)
-
-    def root_decomposition(self):
-        return RootLazyTensor(self.sqrt())
-
-    def root_inv_decomposition(self):
-        return RootLazyTensor(DiagLazyTensor(self._diag.reciprocal()).sqrt())
 
     def sqrt(self):
         return DiagLazyTensor(self._diag.sqrt())

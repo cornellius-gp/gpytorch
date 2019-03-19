@@ -14,10 +14,10 @@ from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
-from ..utils.cholesky import psd_safe_cholesky
+from ..utils.cholesky import psd_safe_cholesky, cholesky_solve
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.getitem import _noop_index, _convert_indices_to_tensors, _compute_getitem_size
-from ..utils.memoize import cached
+from ..utils.memoize import add_to_cache, cached
 from ..utils.qr import batch_qr
 from ..utils.svd import batch_svd
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
@@ -379,6 +379,33 @@ class LazyTensor(ABC):
         """
         return self.diag()
 
+    @cached(name="cholesky")
+    def _cholesky(self):
+        """
+        (Optional) Cholesky-factorizes the LazyTensor
+
+        ..note::
+            This method is used as an internal helper. Calling this method directly is discouraged.
+
+        Returns:
+            (LazyTensor) Cholesky factor
+        """
+        from .non_lazy_tensor import NonLazyTensor
+        cholesky = psd_safe_cholesky(self.evaluate().double()).to(self.dtype)
+        return NonLazyTensor(cholesky)
+
+    def _cholesky_solve(self, rhs):
+        """
+        (Optional) Assuming that `self` is a Cholesky factor, computes the cholesky solve
+
+        ..note::
+            This method is used as an internal helper. Calling this method directly is discouraged.
+
+        Returns:
+            (LazyTensor) Cholesky factor
+        """
+        return cholesky_solve(rhs.double(), self.evaluate().double()).to(self.dtype)
+
     def _inv_matmul_preconditioner(self):
         """
         (Optional) define a preconditioner that can be used for linear systems, but not necessarily
@@ -452,7 +479,7 @@ class LazyTensor(ABC):
         if isinstance(self, NonLazyTensor) or isinstance(other, NonLazyTensor):
             return NonLazyTensor(self.evaluate() * other.evaluate())
         else:
-            left_lazy_tensor = self if self.root_decomposition_size() < other.root_decomposition_size() else other
+            left_lazy_tensor = self if self._root_decomposition_size() < other._root_decomposition_size() else other
             right_lazy_tensor = other if left_lazy_tensor is self else self
             return MulLazyTensor(left_lazy_tensor.root_decomposition(), right_lazy_tensor.root_decomposition())
 
@@ -520,6 +547,69 @@ class LazyTensor(ABC):
                 num_batch = num_batch // 2
 
         return res
+
+    def _root_decomposition(self):
+        """
+        Returns the (usually low-rank) root of a lazy tensor of a PSD matrix.
+
+        ..note::
+            This method is used internally by the related function
+            :func:`~gpytorch.lazy.LazyTensor.root_decomposition`, which does some additional work.
+            Calling this method directly is discouraged.
+
+        Returns:
+            (Tensor or LazyTensor): The root of the root decomposition
+        """
+        res, _ = RootDecomposition(
+            self.representation_tree(),
+            max_iter=self._root_decomposition_size(),
+            dtype=self.dtype,
+            device=self.device,
+            batch_shape=self.batch_shape,
+            matrix_shape=self.matrix_shape,
+        )(*self.representation())
+        return res
+
+    def _root_decomposition_size(self):
+        """
+        This is the inner size of the root decomposition.
+        This is primarily used to determine if it will be cheaper to compute a
+        different root or not
+        """
+        return settings.max_root_decomposition_size.value()
+
+    def _root_inv_decomposition(self, initial_vectors=None):
+        """
+        Returns the (usually low-rank) inverse root of a lazy tensor of a PSD matrix.
+
+        ..note::
+            This method is used internally by the related function
+            :func:`~gpytorch.lazy.LazyTensor.root_inv_decomposition`, which does some additional work.
+            Calling this method directly is discouraged.
+
+        Returns:
+            (Tensor or LazyTensor): The root of the inverse root decomposition
+        """
+        from .root_lazy_tensor import RootLazyTensor
+
+        roots, inv_roots = RootDecomposition(
+            self.representation_tree(),
+            max_iter=self._root_decomposition_size(),
+            dtype=self.dtype,
+            device=self.device,
+            batch_shape=self.batch_shape,
+            matrix_shape=self.matrix_shape,
+            root=True,
+            inverse=True,
+            initial_vectors=initial_vectors,
+        )(*self.representation())
+
+        if initial_vectors is not None and initial_vectors.size(-1) > 1:
+            add_to_cache(self, "root_decomposition", RootLazyTensor(roots[0]))
+        else:
+            add_to_cache(self, "root_decomposition", RootLazyTensor(roots))
+
+        return inv_roots
 
     def _solve(self, rhs, preconditioner, num_tridiag=None):
         return linear_cg(
@@ -1125,6 +1215,7 @@ class LazyTensor(ABC):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
+        from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
         if not self.is_square:
@@ -1138,23 +1229,18 @@ class LazyTensor(ABC):
             or settings.fast_computations.covar_root_decomposition.off()
         ):
             try:
-                return RootLazyTensor(psd_safe_cholesky(self.evaluate()))
+                res = self._cholesky()
+                return CholLazyTensor(res)
+
             except RuntimeError as e:
                 warnings.warn(
                     "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
                 )
 
-        res, _ = RootDecomposition(
-            self.representation_tree(),
-            max_iter=self.root_decomposition_size(),
-            dtype=self.dtype,
-            device=self.device,
-            batch_shape=self.batch_shape,
-            matrix_shape=self.matrix_shape,
-        )(*self.representation())
+        res = self._root_decomposition()
         return RootLazyTensor(res)
 
-    @cached
+    @cached(name="root_inv_decomposition")
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         """
         Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
@@ -1192,22 +1278,7 @@ class LazyTensor(ABC):
                     )
                 )
 
-        roots, inv_roots = RootDecomposition(
-            self.representation_tree(),
-            max_iter=self.root_decomposition_size(),
-            dtype=self.dtype,
-            device=self.device,
-            batch_shape=self.batch_shape,
-            matrix_shape=self.matrix_shape,
-            root=True,
-            inverse=True,
-            initial_vectors=initial_vectors,
-        )(*self.representation())
-
-        if initial_vectors is not None and initial_vectors.size(-1) > 1:
-            self._memoize_cache["root_decomposition"] = RootLazyTensor(roots[0])
-        else:
-            self._memoize_cache["root_decomposition"] = RootLazyTensor(roots)
+        inv_roots = self._root_inv_decomposition(initial_vectors)
 
         # Choose the best of the inv_roots, if there were more than one initial vectors
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
@@ -1240,14 +1311,6 @@ class LazyTensor(ABC):
             inv_root = inv_roots
 
         return RootLazyTensor(inv_root)
-
-    def root_decomposition_size(self):
-        """
-        This is the inner size of the root decomposition.
-        This is primarily used to determine if it will be cheaper to compute a
-        different root or not
-        """
-        return settings.max_root_decomposition_size.value()
 
     def size(self, val=None):
         """

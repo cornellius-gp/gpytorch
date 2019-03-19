@@ -630,7 +630,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
         # Test with Lanczos
         lazy_tensor = self.create_lazy_tensor()
-        with gpytorch.settings.max_cholesky_numel(lazy_tensor.matrix_shape.numel() - 1):
+        with gpytorch.settings.max_cholesky_numel(0):
             root_approx = lazy_tensor.root_decomposition()
             res = root_approx.matmul(test_mat)
             actual = lazy_tensor.matmul(test_mat)

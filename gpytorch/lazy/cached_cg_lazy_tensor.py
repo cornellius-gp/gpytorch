@@ -75,7 +75,10 @@ class CachedCGLazyTensor(LazyTensor):
 
             else:
                 # Compute solves
-                solves = base_lazy_tensor._solve(eager_rhs, preconditioner=base_lazy_tensor._preconditioner()[0])
+                if settings.fast_computations.log_prob.on():
+                    solves = base_lazy_tensor._solve(eager_rhs, preconditioner=base_lazy_tensor._preconditioner()[0])
+                else:
+                    solves = base_lazy_tensor._cholesky()._cholesky_solve(eager_rhs)
                 dtype = solves.dtype
                 device = solves.device
                 return (
@@ -108,6 +111,9 @@ class CachedCGLazyTensor(LazyTensor):
     @requires_grad.setter
     def requires_grad(self, val):
         self.base_lazy_tensor.requires_grad = val
+
+    def _cholesky(self):
+        return self.base_lazy_tensor._cholesky()
 
     def _expand_batch(self, batch_shape):
         return self.base_lazy_tensor._expand_batch(batch_shape)
