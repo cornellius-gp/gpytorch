@@ -80,7 +80,11 @@ class BlockLazyTensor(LazyTensor):
         return res
 
     def _permute_batch(self, *dims):
-        res = self.__class__(self.base_lazy_tensor._permute_batch(*dims, self.base_lazy_tensor.dim() - 3))
+        if torch.is_tensor(self.base_lazy_tensor):
+            base_lazy_tensor = self.base_lazy_tensor.permute(*dims, -3, -2, -1)
+        else:
+            base_lazy_tensor = self.base_lazy_tensor._permute_batch(*dims, self.base_lazy_tensor.dim() - 3)
+        res = self.__class__(base_lazy_tensor)
         return res
 
     def _unsqueeze_batch(self, dim):
