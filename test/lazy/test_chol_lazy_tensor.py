@@ -22,14 +22,6 @@ class TestCholLazyTensor(LazyTensorTestCase, unittest.TestCase):
         chol = lazy_tensor.root.evaluate()
         return chol.matmul(chol.transpose(-1, -2))
 
-    def test_inv_matmul_vec(self):
-        # We're skipping this test, since backward passes aren't defined in torch for this
-        pass
-
-    def test_inv_matmul_matrix(self):
-        # We're skipping this test, since backward passes aren't defined in torch for this
-        pass
-
 
 class TestCholLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0

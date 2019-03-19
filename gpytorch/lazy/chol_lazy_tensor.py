@@ -36,8 +36,15 @@ class CholLazyTensor(RootLazyTensor):
     def _cholesky(self):
         return self.root
 
-    def _solve(self, rhs, preconditioner):
-        return self._cholesky_solve(rhs)
+    def _solve(self, rhs, preconditioner, num_tridiag=None):
+        if num_tridiag is None:
+            return self.root._cholesky_solve(rhs)
+        else:
+            return super()._solve(rhs, preconditioner, num_tridiag=num_tridiag)
+
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        with settings.fast_computations(solves=False):
+            return super().inv_matmul(right_tensor, left_tensor=left_tensor)
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         inv_quad_term = None

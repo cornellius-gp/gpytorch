@@ -39,26 +39,26 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
         test_vector = lazy_tensor.eager_rhss[1].squeeze(-1).clone().detach().requires_grad_(True)
         test_vector_copy = lazy_tensor_copy.eager_rhss[1].squeeze(-1).clone().detach().requires_grad_(True)
         # Make sure that we get no warning about CG
-        with gpytorch.settings.max_cg_iterations(200), warnings.catch_warnings(record=True) as w:
+        with gpytorch.settings.max_cholesky_numel(0), warnings.catch_warnings(record=True) as w:
             res = lazy_tensor.inv_matmul(test_vector)
             actual = evaluated.inverse().matmul(test_vector_copy)
             self.assertEqual(len(w), 0)
-        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
+            self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 
-        grad = torch.randn_like(res)
-        # Make sure that we get a warning that CG was run
-        with warnings.catch_warnings(record=True) as w:
-            res.backward(gradient=grad)
-            actual.backward(gradient=grad)
-            self.assertEqual(len(w), 1)
-        for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-            if arg_copy.grad is not None:
-                self.assertLess(
-                    ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-                )
-        self.assertLess(
-            ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-        )
+            grad = torch.randn_like(res)
+            # Make sure that we get a warning that CG was run
+            with warnings.catch_warnings(record=True) as w:
+                res.backward(gradient=grad)
+                actual.backward(gradient=grad)
+                self.assertEqual(len(w), 1)
+            for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+                if arg_copy.grad is not None:
+                    self.assertLess(
+                        ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
+                    )
+            self.assertLess((
+                (test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)
+            ).max().item(), 3e-1)
 
     def test_inv_matmul_vector_with_left(self):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
@@ -94,7 +94,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
             ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
         )
 
-    def test_inv_matmul_matrix(self):
+    def test_inv_matmul_matrix(self, cholesky=False):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
@@ -102,26 +102,30 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
         test_vector = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
         test_vector_copy = lazy_tensor_copy.eager_rhss[0].clone().detach().requires_grad_(True)
         # Make sure that we get no warning about CG
-        with gpytorch.settings.max_cg_iterations(100), warnings.catch_warnings(record=True) as w:
-            res = lazy_tensor.inv_matmul(test_vector)
-            actual = evaluated.inverse().matmul(test_vector_copy)
-            self.assertEqual(len(w), 0)
-        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
+        with gpytorch.settings.max_cholesky_numel(math.inf if cholesky else 0):
+            with gpytorch.settings.max_cg_iterations(100), warnings.catch_warnings(record=True) as w:
+                res = lazy_tensor.inv_matmul(test_vector)
+                actual = evaluated.inverse().matmul(test_vector_copy)
+                self.assertEqual(len(w), 0)
+            self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 
-        grad = torch.randn_like(res)
-        # Make sure that we get a warning that CG was run
-        with warnings.catch_warnings(record=True) as w:
-            res.backward(gradient=grad)
-            actual.backward(gradient=grad)
-            self.assertEqual(len(w), 1)
+            grad = torch.randn_like(res)
+            # Make sure that we get a warning that CG was run
+            with warnings.catch_warnings(record=True) as w:
+                res.backward(gradient=grad)
+                actual.backward(gradient=grad)
+                self.assertEqual(len(w), 1)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.grad is not None:
                 self.assertLess(
                     ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
                 )
-        self.assertLess(
-            ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-        )
+        self.assertLess((
+            (test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)
+        ).max().item(), 3e-1)
+
+    def test_inv_matmul_matrix_cholesky(self):
+        pass
 
     def test_inv_matmul_matrix_with_left(self):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)

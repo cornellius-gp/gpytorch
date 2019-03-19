@@ -101,6 +101,21 @@ class _fast_log_prob(_feature_flag):
     _state = True
 
 
+class _fast_solves(_feature_flag):
+    r"""
+    This feature flag controls how to compute solves with positive definite matrices.
+    If set to True, solves are computed using preconditioned conjugate gradients.
+    If set to False, `log_prob` is computed using the Cholesky decomposition.
+
+    .. warning ::
+
+        Setting this to False will compute a complete Cholesky decomposition of covariance matrices.
+        This may be infeasible for GPs with structure covariance matrices.
+    """
+
+    _state = True
+
+
 class check_training_data(_feature_flag):
     """
     Check whether the correct training data is supplied in Exact GP training mode
@@ -235,13 +250,22 @@ class fast_computations(object):
         * If set to False,
             `log_prob` is computed using the Cholesky decomposition.
 
+    * :attr:`fast_solves`
+        This feature flag controls how GPyTorch computes the solves of positive-definite matrices.
+
+        * If set to True,
+            Solves are computed with preconditioned conjugate gradients.
+
+        * If set to False,
+            Solves are computed using the Cholesky decomposition.
+
     .. warning ::
 
         Setting this to False will compute a complete Cholesky decomposition of covariance matrices.
         This may be infeasible for GPs with structure covariance matrices.
 
-    By default, approximations are used for all of these functions. Setting any of them to False will use
-    exact computations instead.
+    By default, approximations are used for all of these functions (except for solves).
+    Setting any of them to False will use exact computations instead.
 
     See also:
         * :class:`gpytorch.settings.max_root_decomposition_size`
@@ -254,18 +278,22 @@ class fast_computations(object):
     """
     covar_root_decomposition = _fast_covar_root_decomposition
     log_prob = _fast_log_prob
+    solves = _fast_solves
 
-    def __init__(self, covar_root_decomposition=True, log_prob=True):
+    def __init__(self, covar_root_decomposition=True, log_prob=True, solves=True):
         self.covar_root_decomposition = _fast_covar_root_decomposition(covar_root_decomposition)
         self.log_prob = _fast_log_prob(log_prob)
+        self.solves = _fast_solves(solves)
 
     def __enter__(self):
         self.covar_root_decomposition.__enter__()
         self.log_prob.__enter__()
+        self.solves.__enter__()
 
     def __exit__(self, *args):
         self.covar_root_decomposition.__exit__()
         self.log_prob.__exit__()
+        self.solves.__exit__()
         return False
 
 
