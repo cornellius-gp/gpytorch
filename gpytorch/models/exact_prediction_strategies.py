@@ -317,13 +317,10 @@ class DefaultPredictionStrategy(object):
 
         if settings.fast_pred_var.off():
             if settings.detach_test_caches.on():
-                if self.train_train_covar.requires_grad:
-                    self.train_train_covar = self.train_train_covar.detach()
-                lik_context = torch.no_grad
+                train_train_covar = self.likelihood(
+                    MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
+                ).lazy_covariance_matrix.detach()
             else:
-                lik_context = contextlib.suppress
-
-            with lik_context():
                 train_train_covar = self.likelihood(
                     MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
                 ).lazy_covariance_matrix
