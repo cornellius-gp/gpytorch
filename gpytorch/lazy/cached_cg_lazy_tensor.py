@@ -109,11 +109,14 @@ class CachedCGLazyTensor(LazyTensor):
     def requires_grad(self, val):
         self.base_lazy_tensor.requires_grad = val
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        return self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
+    def _expand_batch(self, batch_shape):
+        return self.base_lazy_tensor._expand_batch(batch_shape)
 
-    def _getitem(self, *indices):
-        return self.base_lazy_tensor._getitem(*indices)
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        return self.base_lazy_tensor._get_indices(row_index, col_index, *batch_indices)
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        return self.base_lazy_tensor._getitem(row_index, col_index, *batch_indices)
 
     def _matmul(self, tensor):
         return self.base_lazy_tensor._matmul(tensor)

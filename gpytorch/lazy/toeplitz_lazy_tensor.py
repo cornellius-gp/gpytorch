@@ -10,6 +10,13 @@ class ToeplitzLazyTensor(LazyTensor):
         super(ToeplitzLazyTensor, self).__init__(column)
         self.column = column
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(self.column.expand(*batch_shape, self.column.size(-1)))
+
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        toeplitz_indices = (row_index - col_index).fmod(self.size(-1)).abs().long()
+        return self.column[(*batch_indices, toeplitz_indices)]
+
     def _matmul(self, rhs):
         return sym_toeplitz_matmul(self.column, rhs)
 
@@ -35,11 +42,6 @@ class ToeplitzLazyTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return ToeplitzLazyTensor(self.column)
-
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        n_grid = self.column.size(-1)
-        toeplitz_indices = (left_indices - right_indices).fmod(n_grid).abs().long()
-        return self.column.__getitem__((*batch_indices, toeplitz_indices))
 
     def add_jitter(self, jitter_val=1e-3):
         jitter = torch.zeros_like(self.column)

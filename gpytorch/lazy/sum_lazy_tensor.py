@@ -18,17 +18,23 @@ class SumLazyTensor(LazyTensor):
 
         self.lazy_tensors = lazy_tensors
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        return sum(
-            lazy_tensor._get_indices(left_indices, right_indices, *batch_indices) for lazy_tensor in self.lazy_tensors
-        )
+    def _expand_batch(self, batch_shape):
+        expanded_tensors = [lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors]
+        return self.__class__(*expanded_tensors)
 
-    def _getitem(self, *indices):
-        results = tuple(lazy_tensor._getitem(*indices) for lazy_tensor in self.lazy_tensors)
-        if isinstance(results[0], LazyTensor):
-            return SumLazyTensor(*results)
-        else:
-            return sum(results)
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        results = [
+            lazy_tensor._get_indices(row_index, col_index, *batch_indices)
+            for lazy_tensor in self.lazy_tensors
+        ]
+        return sum(results)
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        results = [
+            lazy_tensor._getitem(row_index, col_index, *batch_indices)
+            for lazy_tensor in self.lazy_tensors
+        ]
+        return SumLazyTensor(*results)
 
     def _matmul(self, rhs):
         return sum(lazy_tensor._matmul(rhs) for lazy_tensor in self.lazy_tensors)
@@ -41,12 +47,15 @@ class SumLazyTensor(LazyTensor):
     def _size(self):
         return self.lazy_tensors[0].size()
 
+    def _sum_batch(self, dim):
+        return self.__class__(*(lazy_tensor._sum_batch(dim) for lazy_tensor in self.lazy_tensors))
+
     def _t_matmul(self, rhs):
         return sum(lazy_tensor._t_matmul(rhs) for lazy_tensor in self.lazy_tensors)
 
     def _transpose_nonbatch(self):
         lazy_tensors_t = [lazy_tensor.transpose(-1, -2) for lazy_tensor in self.lazy_tensors]
-        return SumLazyTensor(*lazy_tensors_t)
+        return self.__class__(*lazy_tensors_t)
 
     @cached
     def evaluate(self):
@@ -73,6 +82,3 @@ class SumLazyTensor(LazyTensor):
         res = sum(diag.view(-1) for diag in diags)
         res = res.view(size)
         return res
-
-    def sum_batch(self, sum_batch_size=None):
-        return self.__class__(*(lazy_tensor.sum_batch(sum_batch_size) for lazy_tensor in self.lazy_tensors))

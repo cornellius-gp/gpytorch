@@ -57,6 +57,26 @@ class KroneckerProductLazyTensor(LazyTensor):
         super(KroneckerProductLazyTensor, self).__init__(*lazy_tensors)
         self.lazy_tensors = lazy_tensors
 
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        row_factor = self.size(-2)
+        col_factor = self.size(-1)
+
+        res = None
+        for lazy_tensor in self.lazy_tensors:
+            sub_row_size = lazy_tensor.size(-2)
+            sub_col_size = lazy_tensor.size(-1)
+
+            row_factor //= sub_row_size
+            col_factor //= sub_col_size
+            sub_res = lazy_tensor._get_indices(
+                row_index.div(row_factor).fmod(sub_row_size),
+                col_index.div(col_factor).fmod(sub_col_size),
+                *batch_indices
+            )
+            res = sub_res if res is None else (sub_res * res)
+
+        return res
+
     def _matmul(self, rhs):
         is_vec = rhs.ndimension() == 1
         if is_vec:
@@ -79,6 +99,9 @@ class KroneckerProductLazyTensor(LazyTensor):
             res = res.squeeze(-1)
         return res
 
+    def _expand_batch(self, batch_shape):
+        return self.__class__(*[lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors])
+
     @cached(name="size")
     def _size(self):
         left_size = _prod(lazy_tensor.size(-2) for lazy_tensor in self.lazy_tensors)
@@ -87,18 +110,3 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
-
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        res = torch.ones(left_indices.size(), dtype=self.dtype, device=self.device)
-        left_size = self.size(-2)
-        right_size = self.size(-1)
-        for lazy_tensor in self.lazy_tensors:
-            left_size = left_size / lazy_tensor.size(-2)
-            right_size = right_size / lazy_tensor.size(-1)
-            left_indices_i = left_indices.div(left_size)
-            right_indices_i = right_indices.div(right_size)
-
-            res = res * lazy_tensor._get_indices(left_indices_i, right_indices_i, *batch_indices)
-            left_indices = left_indices - (left_indices_i * left_size)
-            right_indices = right_indices - (right_indices_i * right_size)
-        return res

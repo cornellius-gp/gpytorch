@@ -36,5 +36,28 @@ class TestSumLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
         return sum(tensors)
 
 
+class TestSumLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
+    seed = 0
+    # Because these LTs are large, we'll skil the big tests
+    skip_slq_tests = True
+
+    def create_lazy_tensor(self):
+        c1 = torch.tensor([
+            [[2, 0.5, 0, 0], [5, 1, 2, 0]],
+            [[2, 0.5, 0, 0], [5, 1, 2, 0]]
+        ], dtype=torch.float, requires_grad=True)
+        t1 = ToeplitzLazyTensor(c1)
+        c2 = torch.tensor([
+            [[2, 0.5, 0, 0], [5, 1, 2, 0]],
+            [[2, 0.5, 0, 0], [6, 0, 1, -1]],
+        ], dtype=torch.float, requires_grad=True)
+        t2 = ToeplitzLazyTensor(c2)
+        return t1 + t2
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        tensors = [lt.evaluate() for lt in lazy_tensor.lazy_tensors]
+        return sum(tensors)
+
+
 if __name__ == "__main__":
     unittest.main()

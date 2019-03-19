@@ -8,6 +8,7 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 class TestRootLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
+    should_test_sample = True
 
     def create_lazy_tensor(self):
         root = torch.randn(3, 5, requires_grad=True)
@@ -21,10 +22,28 @@ class TestRootLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
 class TestRootLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 1
+    should_test_sample = True
 
     def create_lazy_tensor(self):
         root = torch.randn(3, 5, 5)
         root.add_(torch.eye(5).unsqueeze(0))
+        root.requires_grad_(True)
+        return RootLazyTensor(root)
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        root = lazy_tensor.root.tensor
+        res = root.matmul(root.transpose(-1, -2))
+        return res
+
+
+class TestRootLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
+    seed = 0
+    # Because these LTs are large, we'll skil the big tests
+    should_test_sample = False
+    skip_slq_tests = True
+
+    def create_lazy_tensor(self):
+        root = torch.randn(4, 3, 5, 5)
         root.requires_grad_(True)
         return RootLazyTensor(root)
 

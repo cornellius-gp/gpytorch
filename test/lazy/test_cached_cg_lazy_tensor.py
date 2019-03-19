@@ -304,3 +304,35 @@ class TestCachedCGLazyTensorBatch(TestCachedCGLazyTensor):
 
     def test_inv_matmul_vector_with_left(self):
         pass
+
+
+class TestCachedCGLazyTensorMultiBatch(TestCachedCGLazyTensor):
+    seed = 0
+    # Because these LTs are large, we'll skil the big tests
+    should_test_sample = False
+    skip_slq_tests = True
+
+    def create_lazy_tensor(self):
+        mat = torch.randn(2, 3, 5, 6)
+        mat = mat.matmul(mat.transpose(-1, -2))
+        mat.requires_grad_(True)
+
+        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
+            lazy_tensor = NonLazyTensor(mat)
+            eager_rhs = torch.randn(2, 3, 5, 10).detach()
+            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                lazy_tensor, eager_rhs.detach()
+            )
+
+        return CachedCGLazyTensor(
+            lazy_tensor, [eager_rhs], [solve], probe_vecs, probe_vec_norms, probe_vec_solves, tmats
+        )
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.base_lazy_tensor.tensor
+
+    def test_inv_matmul_vec(self):
+        pass
+
+    def test_inv_matmul_vector_with_left(self):
+        pass

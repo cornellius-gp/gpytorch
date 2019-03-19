@@ -5,6 +5,14 @@ from ..lazy import LazyTensor
 
 
 class NonLazyTensor(LazyTensor):
+    def _check_args(self, tsr):
+        if not torch.is_tensor(tsr):
+            return "NonLazyTensor must take a torch.Tensor; got {}".format(tsr.__class__.__name__)
+        if tsr.dim() < 2:
+            return "NonLazyTensor expects a matrix (or batches of matrices) - got a Tensor of size {}.".format(
+                tsr.shape
+            )
+
     def __init__(self, tsr):
         """
         Not a lazy tensor
@@ -12,32 +20,27 @@ class NonLazyTensor(LazyTensor):
         Args:
         - tsr (Tensor: matrix) a Tensor
         """
-        if not torch.is_tensor(tsr):
-            raise RuntimeError("NonLazyTensor must take a torch.Tensor; got {}".format(tsr.__class__.__name__))
-
         super(NonLazyTensor, self).__init__(tsr)
         self.tensor = tsr
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        return self.tensor.__getitem__((*batch_indices, left_indices, right_indices))
+    def _expand_batch(self, batch_shape):
+        return self.__class__(self.tensor.expand(*batch_shape, *self.matrix_shape))
 
-    def _getitem(self, *indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
         # Perform the __getitem__
-        res = self.tensor[indices]
+        res = self.tensor[(*batch_indices, row_index, col_index)]
+        return res
 
-        row_index = indices[-2]
-        col_index = indices[-1]
-        if (
-            isinstance(row_index, int)
-            or torch.is_tensor(row_index)
-            or isinstance(col_index, int)
-            or torch.is_tensor(col_index)
-        ):
-            return res
-        return NonLazyTensor(res)
+    def _getitem(self, row_index, col_index, *batch_indices):
+        # Perform the __getitem__
+        res = self.tensor[(*batch_indices, row_index, col_index)]
+        return self.__class__(res)
 
     def _matmul(self, rhs):
         return torch.matmul(self.tensor, rhs)
+
+    def _prod_batch(self, dim):
+        return self.__class__(self.tensor.prod(dim))
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         res = left_vecs.matmul(right_vecs.transpose(-1, -2))
@@ -45,6 +48,9 @@ class NonLazyTensor(LazyTensor):
 
     def _size(self):
         return self.tensor.size()
+
+    def _sum_batch(self, dim):
+        return self.__class__(self.tensor.sum(dim))
 
     def _transpose_nonbatch(self):
         return NonLazyTensor(self.tensor.transpose(-1, -2))

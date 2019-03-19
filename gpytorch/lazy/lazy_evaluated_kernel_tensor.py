@@ -4,107 +4,63 @@ import torch
 
 from .. import settings, beta_features
 from ..utils.memoize import cached
+from ..utils.getitem import _noop_index
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 
 
 class LazyEvaluatedKernelTensor(LazyTensor):
-    def _check_args(self, x1, x2, kernel, batch_dims=None, squeeze_row=False, squeeze_col=False, **params):
+    _check_size = False
+
+    def _check_args(self, x1, x2, kernel, batch_dims=None, **params):
         if not torch.is_tensor(x1):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
         if not torch.is_tensor(x2):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
 
-    def __init__(self, x1, x2, kernel, batch_dims=None, squeeze_row=False, squeeze_col=False, **params):
+    def __init__(self, x1, x2, kernel, batch_dims=None, **params):
         super(LazyEvaluatedKernelTensor, self).__init__(
-            x1, x2, kernel=kernel, batch_dims=batch_dims, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **params
+            x1, x2, kernel=kernel, batch_dims=batch_dims, **params
         )
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2
         self.batch_dims = batch_dims
-        self.squeeze_row = squeeze_row
-        self.squeeze_col = squeeze_col
-        self.is_batch = self.x1.ndimension() == 3 or (self.x1.ndimension() == 2 and self.squeeze_row)
         self.params = params
 
     @property
     def dtype(self):
-        return self.x1.dtype
+        return self.kernel.dtype
 
     @property
     def device(self):
         return self.x1.device
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        from ..kernels.kernel import Kernel
+    def _expand_batch(self, batch_shape):
+        return self.evaluate_kernel()._expand_batch(batch_shape)
 
-        x1 = self.x1[(*batch_indices, left_indices)].unsqueeze(0)
-        x2 = self.x2[(*batch_indices, right_indices)].unsqueeze(0)
-        res = super(Kernel, self.kernel).__call__(x1.transpose(0, 1), x2.transpose(0, 1))
-        if isinstance(res, LazyTensor):
-            res = res.evaluate()
-        res = res.view(-1)
-        return res
+    def _getitem(self, row_index, col_index, *batch_indices):
+        x1 = self.x1
+        if self.batch_dims == (0, 2):
+            x1 = x1.permute(0, 2, 1).contiguous()
+            x1 = x1.view(-1, x1.size(-1), 1)
+        x1 = x1[(*batch_indices, row_index, _noop_index)]
+        x2 = self.x2
+        if self.batch_dims == (0, 2):
+            x2 = x2.permute(0, 2, 1).contiguous()
+            x2 = x2.view(-1, x2.size(-1), 1)
+        x2 = x2[(*batch_indices, col_index, _noop_index)]
 
-    def _getitem(self, *indices):
-        if self.is_batch:
-            batch_index = indices[0]
-            left_index = indices[1]
-            right_index = indices[2]
-            squeeze_row = self.squeeze_row
-            squeeze_col = self.squeeze_col
-
-            x1 = self.x1
-            if self.batch_dims == (0, 2):
-                x1 = x1.permute(0, 2, 1).contiguous()
-                x1 = x1.view(-1, x1.size(-1), 1)
-            x1 = x1[batch_index, left_index, :]
-            if x1.dim() == 2 and not isinstance(batch_index, int):
-                x1 = x1.unsqueeze(1)
-                squeeze_row = True
-            x2 = self.x2
-            if self.batch_dims == (0, 2):
-                x2 = x2.permute(0, 2, 1).contiguous()
-                x2 = x2.view(-1, x2.size(-1), 1)
-            x2 = x2[batch_index, right_index, :]
-            if x2.dim() == 2 and not isinstance(batch_index, int):
-                x2 = x2.unsqueeze(1)
-                squeeze_col = True
-
-            return self.__class__(
-                x1, x2, kernel=self.kernel, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
-            )
-        else:
-            left_index = indices[0]
-            right_index = indices[1]
-            squeeze_row = self.squeeze_row
-            squeeze_col = self.squeeze_col
-
-            x1 = self.x1[left_index, :]
-            if x1.dim() == 1:
-                x1 = x1.unsqueeze(1)
-                squeeze_row = True
-            x2 = self.x2[right_index, :]
-            if x2.dim() == 1:
-                x2 = x2.unsqueeze(1)
-                squeeze_col = True
-
-            return self.__class__(
-                x1, x2, kernel=self.kernel, squeeze_row=squeeze_row, squeeze_col=squeeze_col, **self.params
-            )
+        return self.__class__(
+            x1, x2, kernel=self.kernel, **self.params
+        )
 
     def _matmul(self, rhs):
         # This _matmul is defined computes the kernel in chunks
         # It is only used when we are using kernel checkpointing
         # It won't be called if checkpointing is off
-        if not self.is_batch:
-            x1 = self.x1.unsqueeze(0)
-            x2 = self.x2.unsqueeze(0)
-            rhs = rhs.unsqueeze(0)
-        else:
-            x1 = self.x1
-            x2 = self.x2
+        x1 = self.x1
+        x2 = self.x2
 
         split_size = beta_features.checkpoint_kernel.value()
         if not split_size:
@@ -123,8 +79,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 res.append(sub_kernel_matrix._matmul(rhs))
 
             res = torch.cat(res, dim=-2)
-            if not self.is_batch:
-                res = res.squeeze(0)
             return res
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
@@ -138,17 +92,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 "checkpointing. This is probably a bug in GPyTorch."
             )
 
-        if not self.is_batch:
-            x1 = self.x1.unsqueeze(0)
-            x2 = self.x2.unsqueeze(0)
-            left_vecs = left_vecs.unsqueeze(0)
-            right_vecs = right_vecs.unsqueeze(0)
-        else:
-            x1 = self.x1
-            x2 = self.x2
-
-        x1 = x1.detach()
-        x2 = x2.detach()
+        x1 = self.x1.detach()
+        x2 = self.x2.detach()
 
         # Break objects into chunks
         sub_x1s = torch.split(x1, split_size, dim=-2)
@@ -176,12 +121,14 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(
-            self.x2, self.x1, kernel=self.kernel, batch_dims=self.batch_dims,
-            squeeze_row=self.squeeze_col, squeeze_col=self.squeeze_row, **self.params
+            self.x2, self.x1, kernel=self.kernel, batch_dims=self.batch_dims, **self.params
         )
 
     def add_jitter(self, jitter_val=1e-3):
         return self.evaluate_kernel().add_jitter(jitter_val)
+
+    def _unsqueeze_batch(self, dim):
+        return self.evaluate_kernel()._unsqueeze_batch(dim)
 
     @cached(name="kernel_diag")
     def diag(self):
@@ -193,20 +140,24 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         """
         from ..kernels import Kernel
 
-        if not self.is_batch:
-            x1 = self.x1.unsqueeze(0)
-            x2 = self.x2.unsqueeze(0)
-        else:
-            x1 = self.x1
-            x2 = self.x2
+        x1 = self.x1
+        x2 = self.x2
 
-        # If x1 or x2 only has one data point, make sure to unsqueeze the data-size dimension
-        if x1.dim() == 2:  # We only have a single data point
-            x1 = x1.unsqueeze(1)
-        if x2.dim() == 2:  # We only have a single data point
-            x2 = x2.unsqueeze(1)
+        # TODO: until kernels support multi-batch mode, we have to ensure that the kernel has a batch dimension
+        is_batch = True
+        if x1.dim() == 2:
+            is_batch = False
+            x1 = x1.unsqueeze(0)
+            x2 = x2.unsqueeze(0)
 
         res = super(Kernel, self.kernel).__call__(x1, x2, diag=True, batch_dims=self.batch_dims, **self.params)
+
+        # TODO: until kernels support multi-batch mode, we have to remove any artificial batch dimension
+        # that we've added
+        if not is_batch:
+            x1 = x1.squeeze(0)
+            x2 = x2.squeeze(0)
+            res = res.squeeze(0)
 
         # Did this Kernel eat the diag option?
         # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
@@ -250,12 +201,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         NB: This is a meta LazyTensor, in the sense that evaluate can return
         a LazyTensor if the kernel being evaluated does so.
         """
-        if not self.is_batch:
-            x1 = self.x1.unsqueeze(0)
-            x2 = self.x2.unsqueeze(0)
-        else:
-            x1 = self.x1
-            x2 = self.x2
+        x1 = self.x1
+        x2 = self.x2
 
         with settings.lazily_evaluate_kernels(False):
             temp_active_dims = self.kernel.active_dims
@@ -264,17 +211,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 x1, x2, diag=False, batch_dims=self.batch_dims, **self.params
             )
             self.kernel.active_dims = temp_active_dims
-        if self.squeeze_row:
-            res.squeeze_(-2)
-        if self.squeeze_col:
-            res.squeeze_(-1)
-
-        if (
-            not self.is_batch
-            and res.ndimension() == 3
-            and res.size(0) == 1
-        ):
-            res = res[0]
 
         return lazify(res)
 
@@ -282,24 +218,14 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 
-    def mul(self, other):
-        if isinstance(other, LazyEvaluatedKernelTensor):
-            other = other.evaluate_kernel()
-        return self.evaluate_kernel().mul(other)
+    def repeat(self, *repeats):
+        if len(repeats) == 1 and hasattr(repeats[0], "__iter__"):
+            repeats = repeats[0]
+        *batch_repeat, row_repeat, col_repeat = repeats
 
-    def repeat(self, *sizes):
-        if self.squeeze_row or self.squeeze_col:
-            raise RuntimeError("Can't repeat a row/col of a LazyEvaluatedKernelTensor")
-        elif len(sizes) == 3:
-            x1 = self.x1.repeat(sizes[0], sizes[1], 1)
-            x2 = self.x2.repeat(sizes[0], sizes[1], 1)
-        elif len(sizes) == 2 and x1.ndim() == 2:
-            x1 = self.x1.repeat(sizes[0], 1)
-            x2 = self.x2.repeat(sizes[0], 1)
-        else:
-            raise RuntimeError("Invalid number of sizes (expected 2 or 3)")
-
-        return self.__class__(x1, x2, kernel=self.kernel, batch_dims=self.batch_dims, **self.params)
+        x1 = self.x1.repeat(*batch_repeat, row_repeat, 1)
+        x2 = self.x2.repeat(*batch_repeat, col_repeat, 1)
+        return LazyEvaluatedKernelTensor(self.kernel, x1, x2, **self.params)
 
     def representation(self):
         # If we're checkpointing the kernel, we'll use chunked _matmuls defined in LazyEvaluatedKernelTensor

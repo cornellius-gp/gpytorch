@@ -9,7 +9,6 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 class TestSumBatchLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 6
     should_test_sample = True
-    no_broadcast_tests = True
 
     def create_lazy_tensor(self):
         blocks = torch.randn(12, 4, 4)
@@ -25,17 +24,33 @@ class TestSumBatchLazyTensor(LazyTensorTestCase, unittest.TestCase):
 class TestSumBatchLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 6
     should_test_sample = True
-    no_broadcast_tests = True
 
     def create_lazy_tensor(self):
-        blocks = torch.randn(12, 4, 4)
+        blocks = torch.randn(2, 6, 4, 4)
         blocks = blocks.transpose(-1, -2).matmul(blocks)
         blocks.requires_grad_(True)
-        return SumBatchLazyTensor(NonLazyTensor(blocks), num_blocks=6)
+        return SumBatchLazyTensor(NonLazyTensor(blocks))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         blocks = lazy_tensor.base_lazy_tensor.tensor
         return blocks.view(2, 6, 4, 4).sum(1)
+
+
+class TestSumBatchLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
+    seed = 6
+    # Because these LTs are large, we'll skil the big tests
+    should_test_sample = False
+    skip_slq_tests = True
+
+    def create_lazy_tensor(self):
+        blocks = torch.randn(2, 3, 6, 4, 4)
+        blocks = blocks.transpose(-1, -2).matmul(blocks)
+        blocks.detach_()
+        return SumBatchLazyTensor(NonLazyTensor(blocks), block_dim=1)
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        blocks = lazy_tensor.base_lazy_tensor.tensor
+        return blocks.sum(-3)
 
 
 if __name__ == "__main__":

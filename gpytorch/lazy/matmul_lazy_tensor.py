@@ -2,9 +2,11 @@
 
 import torch
 
-from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify, NonLazyTensor
+from ..utils.broadcasting import _pad_with_singletons
+from ..utils.getitem import _noop_index
+from ..utils.memoize import cached
 
 
 def _inner_repeat(tensor, amt):
@@ -23,6 +25,37 @@ class MatmulLazyTensor(LazyTensor):
         super(MatmulLazyTensor, self).__init__(left_lazy_tensor, right_lazy_tensor)
         self.left_lazy_tensor = left_lazy_tensor
         self.right_lazy_tensor = right_lazy_tensor
+
+    def _expand_batch(self, batch_shape):
+        return self.__class__(
+            self.left_lazy_tensor._expand_batch(batch_shape),
+            self.right_lazy_tensor._expand_batch(batch_shape),
+        )
+
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        row_index = row_index.unsqueeze(-1)
+        col_index = col_index.unsqueeze(-1)
+        batch_indices = tuple(batch_index.unsqueeze(-1) for batch_index in batch_indices)
+        inner_index = torch.arange(0, self.left_lazy_tensor.size(-1), device=self.device)
+        inner_index = _pad_with_singletons(inner_index, row_index.dim() - 1, 0)
+
+        left_tensor = self.left_lazy_tensor._get_indices(row_index, inner_index, *batch_indices)
+        right_tensor = self.right_lazy_tensor._get_indices(inner_index, col_index, *batch_indices)
+        res = (left_tensor * right_tensor).sum(-1)
+        return res
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        # Make sure we're not generating more memory with our "efficient" method
+        if torch.is_tensor(row_index) and torch.is_tensor(col_index):
+            num_indices = row_index.numel()
+            if num_indices > self.matrix_shape.numel():
+                return lazify(self.evaluate())._getitem(row_index, col_index, *batch_indices)
+
+        left_tensor = self.left_lazy_tensor._getitem(row_index, _noop_index, *batch_indices)
+        right_tensor = self.right_lazy_tensor._getitem(_noop_index, col_index, *batch_indices)
+
+        res = MatmulLazyTensor(left_tensor, right_tensor)
+        return res
 
     def _matmul(self, right_lazy_tensor):
         return self.left_lazy_tensor._matmul(self.right_lazy_tensor._matmul(right_lazy_tensor))
@@ -44,36 +77,12 @@ class MatmulLazyTensor(LazyTensor):
         return left_grad + right_grad
 
     def _size(self):
-        if self.left_lazy_tensor.ndimension() > 2:
-            return torch.Size(
-                (self.left_lazy_tensor.size(0), self.left_lazy_tensor.size(1), self.right_lazy_tensor.size(2))
-            )
-        else:
-            return torch.Size((self.left_lazy_tensor.size(0), self.right_lazy_tensor.size(1)))
+        return torch.Size(
+            (*self.left_lazy_tensor.batch_shape, self.left_lazy_tensor.size(-2), self.right_lazy_tensor.size(-1))
+        )
 
     def _transpose_nonbatch(self, *args):
         return self.__class__(self.right_lazy_tensor._transpose_nonbatch(), self.left_lazy_tensor._transpose_nonbatch())
-
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        n_indices = left_indices.numel()
-        if n_indices > self.size(-1) * self.size(-2):
-            return self.evaluate().__getitem__((*batch_indices, left_indices, right_indices))
-
-        else:
-            outer_size = left_indices.size(0)
-            inner_size = self.left_lazy_tensor.size(-1)
-            inner_indices = torch.arange(0, inner_size, dtype=torch.long, device=self.device)
-
-            # Repeat the indices to get all the appropriate terms
-            batch_indices = [_outer_repeat(batch_index, inner_size) for batch_index in batch_indices]
-            left_indices = _outer_repeat(left_indices, inner_size)
-            right_indices = _outer_repeat(right_indices, inner_size)
-            inner_indices = _inner_repeat(inner_indices, outer_size)
-
-            left_vals = self.left_lazy_tensor._get_indices(left_indices, inner_indices, *batch_indices)
-            right_vals = self.right_lazy_tensor._get_indices(inner_indices, right_indices, *batch_indices)
-
-            return (left_vals.view(-1, inner_size) * right_vals.view(-1, inner_size)).sum(-1)
 
     def diag(self):
         if isinstance(self.left_lazy_tensor, NonLazyTensor) and isinstance(self.right_lazy_tensor, NonLazyTensor):

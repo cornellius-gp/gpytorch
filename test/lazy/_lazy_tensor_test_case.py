@@ -3,17 +3,15 @@
 import math
 import os
 import random
-from abc import abstractmethod
-from itertools import product
+from abc import ABC, abstractmethod
+from itertools import product, combinations
 from test._utils import approx_equal
 
 import gpytorch
 import torch
 
 
-class RectangularLazyTensorTestCase(object):
-    no_broadcast_tests = False
-
+class RectangularLazyTensorTestCase(ABC):
     @abstractmethod
     def create_lazy_tensor(self):
         raise NotImplementedError()
@@ -81,9 +79,6 @@ class RectangularLazyTensorTestCase(object):
                 )
 
     def test_matmul_matrix_broadcast(self):
-        if self.__class__.no_broadcast_tests:
-            return
-
         # Right hand size has one more batch dimension
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
@@ -138,6 +133,11 @@ class RectangularLazyTensorTestCase(object):
                     self.assertLess(
                         ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
                     )
+
+    def test_constant_mul(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        self.assertTrue(approx_equal((lazy_tensor * 5).evaluate(), evaluated * 5))
 
     def test_evaluate(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -287,14 +287,19 @@ class RectangularLazyTensorTestCase(object):
             self.assertEqual(res.shape, actual.shape)
             self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 1e-1)
 
-
-class LazyTensorTestCase(RectangularLazyTensorTestCase):
-    should_test_sample = False
+    def test_permute(self):
+        lazy_tensor = self.create_lazy_tensor()
+        if lazy_tensor.dim() >= 4:
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+            dims = torch.randperm(lazy_tensor.dim() - 2).tolist()
+            res = lazy_tensor.permute(*dims, -2, -1).evaluate()
+            actual = evaluated.permute(*dims, -2, -1)
+            self.assertTrue(approx_equal(res, actual))
 
     def test_quad_form_derivative(self):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_clone = lazy_tensor.clone().detach_().requires_grad_(True)
-        left_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
+        left_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-2), 2)
         right_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
 
         deriv_custom = lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
@@ -302,6 +307,32 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
         for dc, da in zip(deriv_custom, deriv_auto):
             self.assertLess(torch.norm(dc - da), 1e-1)
+
+    def test_sum(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        self.assertTrue(approx_equal(lazy_tensor.sum(-1), evaluated.sum(-1)))
+        self.assertTrue(approx_equal(lazy_tensor.sum(-2), evaluated.sum(-2)))
+        if lazy_tensor.ndimension() > 2:
+            self.assertTrue(approx_equal(lazy_tensor.sum(-3).evaluate(), evaluated.sum(-3)))
+        if lazy_tensor.ndimension() > 3:
+            self.assertTrue(approx_equal(lazy_tensor.sum(-4).evaluate(), evaluated.sum(-4)))
+
+    def test_transpose_batch(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        if lazy_tensor.dim() >= 4:
+            for i, j in combinations(range(lazy_tensor.dim() - 2), 2):
+                res = lazy_tensor.transpose(i, j).evaluate()
+                actual = evaluated.transpose(i, j)
+                self.assertTrue(torch.allclose(res, actual, rtol=1e-4, atol=1e-5))
+
+
+class LazyTensorTestCase(RectangularLazyTensorTestCase):
+    should_test_sample = False
+    skip_slq_tests = False
 
     def test_add_diag(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -335,33 +366,15 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 actual[..., i, i] = actual[..., i, i] + other_diag[..., i]
             self.assertTrue(approx_equal(res, actual))
 
-    def test_root_decomposition(self):
-        # Test with Cholesky
+    def test_diag(self):
         lazy_tensor = self.create_lazy_tensor()
-        test_mat = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
-        with gpytorch.settings.max_cholesky_numel(lazy_tensor.matrix_shape.numel() + 1):
-            root_approx = lazy_tensor.root_decomposition()
-            res = root_approx.matmul(test_mat)
-            actual = lazy_tensor.matmul(test_mat)
-            self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
 
-        # Test with Lanczos
-        lazy_tensor = self.create_lazy_tensor()
-        with gpytorch.settings.max_cholesky_numel(lazy_tensor.matrix_shape.numel() - 1):
-            root_approx = lazy_tensor.root_decomposition()
-            res = root_approx.matmul(test_mat)
-            actual = lazy_tensor.matmul(test_mat)
-            self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
-
-    def test_root_inv_decomposition(self):
-        lazy_tensor = self.create_lazy_tensor()
-        root_approx = lazy_tensor.root_inv_decomposition()
-
-        test_mat = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
-
-        res = root_approx.matmul(test_mat)
-        actual = lazy_tensor.inv_matmul(test_mat)
-        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
+        res = lazy_tensor.diag()
+        actual = evaluated.diagonal(dim1=-2, dim2=-1)
+        actual = actual.view(*lazy_tensor.batch_shape, -1)
+        self.assertEqual(res.size(), lazy_tensor.size()[:-1])
+        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
 
     def test_inv_matmul_vec(self):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
@@ -453,9 +466,6 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         )
 
     def test_inv_matmul_matrix_broadcast(self):
-        if self.__class__.no_broadcast_tests:
-            return
-
         # Right hand size has one more batch dimension
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
@@ -546,62 +556,95 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
         )
 
-    def test_diag(self):
-        lazy_tensor = self.create_lazy_tensor()
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
-
-        res = lazy_tensor.diag()
-        actual = torch.stack([flattened_evaluated[i].diag() for i in range(flattened_evaluated.size(0))])
-        actual = actual.view(*lazy_tensor.batch_shape, -1)
-        self.assertEqual(res.size(), lazy_tensor.size()[:-1])
-        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
-
     def test_inv_quad_logdet(self):
-        # Forward
-        lazy_tensor = self.create_lazy_tensor()
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+        if not self.__class__.skip_slq_tests:
+            # Forward
+            lazy_tensor = self.create_lazy_tensor()
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+            flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
-        vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(1), 3, requires_grad=True)
-        vecs_copy = vecs.clone().detach_().requires_grad_(True)
+            vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
+            vecs_copy = vecs.clone().detach_().requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(1024):
-            res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=vecs, logdet=True)
+            with gpytorch.settings.num_trace_samples(128):
+                res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=vecs, logdet=True)
 
-        actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
-        actual_logdet = torch.cat(
-            [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
-        ).view(lazy_tensor.batch_shape)
+            actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
+            actual_logdet = torch.cat(
+                [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
+            ).view(lazy_tensor.batch_shape)
 
-        diff_invq = (res_inv_quad - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
-        diff_logdet = (res_logdet - actual_logdet).abs() / actual_logdet.abs().clamp(1, math.inf)
-        self.assertLess(diff_invq.max().item(), 0.01)
-        self.assertLess(diff_logdet.max().item(), 0.3)
+            diff_invq = (res_inv_quad - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
+            diff_logdet = (res_logdet - actual_logdet).abs() / actual_logdet.abs().clamp(1, math.inf)
+            self.assertLess(diff_invq.max().item(), 0.01)
+            self.assertLess(diff_logdet.max().item(), 0.3)
 
     def test_inv_quad_logdet_no_reduce(self):
-        # Forward
+        if not self.__class__.skip_slq_tests:
+            # Forward
+            lazy_tensor = self.create_lazy_tensor()
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+            flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+
+            vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
+            vecs_copy = vecs.clone().detach_().requires_grad_(True)
+
+            with gpytorch.settings.num_trace_samples(128):
+                res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
+                    inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
+                )
+
+            actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
+            actual_logdet = torch.cat(
+                [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
+            ).view(lazy_tensor.batch_shape)
+
+            diff_invq = (res_inv_quad.sum(-1) - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
+            diff_logdet = (res_logdet - actual_logdet).abs() / res_logdet.abs().clamp(1, math.inf)
+            self.assertLess(diff_invq.max().item(), 0.01)
+            self.assertLess(diff_logdet.max().item(), 0.3)
+
+    def test_prod(self):
+        with gpytorch.settings.fast_computations(covar_root_decomposition=False):
+            lazy_tensor = self.create_lazy_tensor()
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+            if lazy_tensor.ndimension() > 2:
+                self.assertTrue(
+                    torch.allclose(lazy_tensor.prod(-3).evaluate(), evaluated.prod(-3), atol=1e-2, rtol=1e-2)
+                )
+            if lazy_tensor.ndimension() > 3:
+                self.assertTrue(
+                    torch.allclose(lazy_tensor.prod(-4).evaluate(), evaluated.prod(-4), atol=1e-2, rtol=1e-2)
+                )
+
+    def test_root_decomposition(self):
+        # Test with Cholesky
         lazy_tensor = self.create_lazy_tensor()
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+        test_mat = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
+        with gpytorch.settings.max_cholesky_numel(lazy_tensor.matrix_shape.numel() + 1):
+            root_approx = lazy_tensor.root_decomposition()
+            res = root_approx.matmul(test_mat)
+            actual = lazy_tensor.matmul(test_mat)
+            self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
-        vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(1), 3, requires_grad=True)
-        vecs_copy = vecs.clone().detach_().requires_grad_(True)
+        # Test with Lanczos
+        lazy_tensor = self.create_lazy_tensor()
+        with gpytorch.settings.max_cholesky_numel(lazy_tensor.matrix_shape.numel() - 1):
+            root_approx = lazy_tensor.root_decomposition()
+            res = root_approx.matmul(test_mat)
+            actual = lazy_tensor.matmul(test_mat)
+            self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
-        with gpytorch.settings.num_trace_samples(128):
-            res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
-                inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
-            )
+    def test_root_inv_decomposition(self):
+        lazy_tensor = self.create_lazy_tensor()
+        root_approx = lazy_tensor.root_inv_decomposition()
 
-        actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
-        actual_logdet = torch.cat(
-            [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
-        ).view(lazy_tensor.batch_shape)
+        test_mat = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
 
-        diff_invq = (res_inv_quad.sum(-1) - actual_inv_quad).abs() / actual_inv_quad.abs().clamp(1, math.inf)
-        diff_logdet = (res_logdet - actual_logdet).abs() / res_logdet.abs().clamp(1, math.inf)
-        self.assertLess(diff_invq.max().item(), 0.01)
-        self.assertLess(diff_logdet.max().item(), 0.3)
+        res = root_approx.matmul(test_mat)
+        actual = lazy_tensor.inv_matmul(test_mat)
+        self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
     def test_sample(self):
         if self.__class__.should_test_sample:

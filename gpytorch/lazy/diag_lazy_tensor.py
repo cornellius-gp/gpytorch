@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 
-from itertools import product
-
 import torch
-
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import lazify
 from .root_lazy_tensor import RootLazyTensor
 
 
@@ -30,41 +26,15 @@ class DiagLazyTensor(LazyTensor):
 
         return AddedDiagLazyTensor(other, self)
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        """Extract elements from the LazyTensor. Supports arbitrary batch sizes.
+    def _expand_batch(self, batch_shape):
+        return self.__class__(self._diag.expand(*batch_shape, self._diag.size(-1)))
 
-        Args:
-            :attr:`left_indices` (LongTensor): An `i`-dim tensor of row indices (these are the
-                same across all batches).
-            :attr:`left_indices` (LongTensor): An `i`-dim tensor of column indices (these are the
-                same across all batches).
-            :attr:`batch_indices` (LongTensor): A variable number of `i`-dim tensors of batch indices,
-                one for each batch dimension. If smaller than the number of batch dimensions of the
-                DiagLazyTensor, select all elements of the omitted batches.
-
-        Returns:
-            An `i`-dim tensor containing the requested elements if all batch index tensors were
-            passed in, otherwise a `bl x ... bk x i` batch of such tensors, where `l = len(batch_indices) + 1`.
-
-        """
-        batch_dims = len(batch_indices)
-        if batch_dims > self.batch_dim:
-            raise RuntimeError(
-                "Received {} batch index tensors, DiagLazyTensor has {} batches".format(batch_dims, self.batch_dim)
-            )
-        full_batch_shape = self._diag.shape[batch_dims:-1]
-        if len(full_batch_shape) == 0:
-            diag_elements = self._diag[batch_indices + (left_indices,)]
-        else:
-            d = torch.ones_like(left_indices)
-            diag_elements = torch.stack(
-                [
-                    self._diag[batch_indices + tuple(j * d for j in js) + (left_indices,)]
-                    for js in product(*[range(b) for b in full_batch_shape])
-                ]
-            )
-        equal_indices = (left_indices == right_indices).type_as(self._diag)
-        return diag_elements * equal_indices
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        res = self._diag[(*batch_indices, row_index)]
+        # If row and col index don't agree, then we have off diagonal elements
+        # Those should be zero'd out
+        res = res * torch.eq(row_index, col_index).to(device=res.device, dtype=res.dtype)
+        return res
 
     def _matmul(self, rhs):
         # to perform matrix multiplication with diagonal matrices we can just
@@ -72,6 +42,18 @@ class DiagLazyTensor(LazyTensor):
         if rhs.ndimension() == 1:
             return self._diag * rhs
         return self._diag.unsqueeze(-1) * rhs
+
+    def _mul_constant(self, constant):
+        return self.__class__(self._diag * constant.unsqueeze(-1))
+
+    def _mul_matrix(self, other):
+        if isinstance(other, DiagLazyTensor):
+            return self.__class__(self._diag * other._diag)
+        else:
+            return self.__class__(self._diag * other.diag())
+
+    def _prod_batch(self, dim):
+        return self.__class__(self._diag.prod(dim))
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         # TODO: Use proper batching for input vectors (prepand to shape rathern than append)
@@ -82,6 +64,9 @@ class DiagLazyTensor(LazyTensor):
 
     def _size(self):
         return self._diag.shape + self._diag.shape[-1:]
+
+    def _sum_batch(self, dim):
+        return self.__class__(self._diag.sum(dim))
 
     def _t_matmul(self, rhs):
         # Diagonal matrices always commute
@@ -95,17 +80,6 @@ class DiagLazyTensor(LazyTensor):
 
     def add_diag(self, added_diag):
         return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
-
-    def __mul__(self, other):
-        other = lazify(other)
-        if isinstance(other, DiagLazyTensor):
-            return DiagLazyTensor(self._diag * other._diag)
-        else:
-            other_diag = other.diag()
-            new_diag = self._diag * other_diag
-            corrected_diag = new_diag - other_diag
-
-            return other.add_diag(corrected_diag)
 
     def diag(self):
         return self._diag
@@ -168,13 +142,6 @@ class DiagLazyTensor(LazyTensor):
 
     def sqrt(self):
         return DiagLazyTensor(self._diag.sqrt())
-
-    def sum_batch(self, sum_batch_size=None):
-        if sum_batch_size is not None:
-            if self.batch_dim > 1:
-                raise NotImplementedError("batch dimensions > 1 not yet supported with sum_batch_size")
-            return DiagLazyTensor(self._diag.view(-1, sum_batch_size, self._diag.shape[-1]))
-        return DiagLazyTensor(self._diag.sum([i for i in range(self.batch_dim)]))
 
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)

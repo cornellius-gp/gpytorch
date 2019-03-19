@@ -67,23 +67,31 @@ class ConstantMulLazyTensor(LazyTensor):
         res = self.base_lazy_tensor._approx_diag()
         return res * self._constant.unsqueeze(-1)
 
-    def _get_indices(self, left_indices, right_indices, *batch_indices):
-        res = self.base_lazy_tensor._get_indices(left_indices, right_indices, *batch_indices)
-        constant = self._constant.expand(self.batch_shape).__getitem__(batch_indices)
-        return res * constant
+    def _expand_batch(self, batch_shape):
+        return self.__class__(
+            self.base_lazy_tensor._expand_batch(batch_shape),
+            self._constant.expand(*batch_shape)
+        )
 
-    def _getitem(self, *indices):
+    def _get_indices(self, row_index, col_index, *batch_indices):
         # NOTE TO FUTURE SELF:
         # This custom __getitem__ is actually very important!
         # It prevents constructing an InterpolatedLazyTensor when one isn't needed
-        # This effects runntimes by up to 5x on simple exat GPs
+        # This affects runntimes by up to 5x on simple exact GPs
         # Run __getitem__ on the base_lazy_tensor and the constant
-        base_lazy_tensor = self.base_lazy_tensor._getitem(*indices)
-        constant = self._constant.expand(self.batch_shape)[indices[:-2]]
+        base_lazy_tensor = self.base_lazy_tensor._get_indices(row_index, col_index, *batch_indices)
+        constant = self._constant.expand(self.batch_shape)[batch_indices]
+        return base_lazy_tensor * constant
 
-        if torch.is_tensor(base_lazy_tensor):
-            constant = constant.view(*constant.shape, *[1] * (base_lazy_tensor.dim() - constant.dim()))
-
+    def _getitem(self, row_index, col_index, *batch_indices):
+        # NOTE TO FUTURE SELF:
+        # This custom __getitem__ is actually very important!
+        # It prevents constructing an InterpolatedLazyTensor when one isn't needed
+        # This affects runntimes by up to 5x on simple exact GPs
+        # Run __getitem__ on the base_lazy_tensor and the constant
+        base_lazy_tensor = self.base_lazy_tensor._getitem(row_index, col_index, *batch_indices)
+        constant = self._constant.expand(self.batch_shape)[batch_indices]
+        constant = constant.view(*constant.shape, 1, 1)
         return base_lazy_tensor * constant
 
     def _matmul(self, rhs):
@@ -91,10 +99,21 @@ class ConstantMulLazyTensor(LazyTensor):
         res = res * self.expanded_constant
         return res
 
+    def _permute_batch(self, *dims):
+        return self.__class__(
+            self.base_lazy_tensor._permute_batch(*dims),
+            self._constant.expand(self.batch_shape).permute(*dims),
+        )
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         # Gradient with respect to the constant
         constant_deriv = left_vecs * self.base_lazy_tensor._matmul(right_vecs)
         constant_deriv = constant_deriv.sum(-2).sum(-1)
+        while constant_deriv.dim() > self._constant.dim():
+            constant_deriv = constant_deriv.sum(0)
+        for i in range(self._constant.dim()):
+            if self._constant.size(i) == 1:
+                constant_deriv = constant_deriv.sum(i, keepdim=True)
 
         # Get derivaties of everything else
         left_vecs = left_vecs * self.expanded_constant
