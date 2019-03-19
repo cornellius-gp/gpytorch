@@ -67,7 +67,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             output_device=mean.device
         )
         covar_lazy = BlockDiagLazyTensor(covar_blocks_lazy, block_dim=0)
-        return cls(mean=mean, covariance_matrix=covar_lazy)
+        return cls(mean=mean, covariance_matrix=covar_lazy, interleaved=False)
 
     def get_base_samples(self, sample_shape=torch.Size()):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
