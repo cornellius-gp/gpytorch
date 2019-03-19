@@ -794,6 +794,17 @@ class LazyTensor(ABC):
                     )
                 )
 
+        if self.size(-1) < settings.max_cholesky_numel.value() and left_tensor is None:
+            squeeze_res = False
+            if right_tensor.dim() == 1:
+                # torch.potrs doesn't let you run with vectors why
+                right_tensor = right_tensor.unsqueeze(-1)
+                squeeze_res = True
+            res = torch.potrs(right_tensor, self.evaluate().cholesky(), upper=False)
+            if squeeze_res:
+                res = res.squeeze(-1)
+            return res
+
         func = InvMatmul(
             self.representation_tree(),
             has_left=(left_tensor is not None),
