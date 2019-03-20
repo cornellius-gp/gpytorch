@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from .rbf_kernel import RBFKernel
-from torch.nn.functional import softplus
 import torch
 from ..lazy.kronecker_product_lazy_tensor import KroneckerProductLazyTensor
 

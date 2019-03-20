@@ -2,8 +2,6 @@
 
 import torch
 from .kernel import Kernel
-from ..utils.transforms import _get_inv_param_transform
-from torch.nn.functional import softplus
 from ..lazy import delazify
 
 

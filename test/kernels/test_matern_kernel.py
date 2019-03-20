@@ -11,6 +11,9 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
     def create_kernel_no_ard(self, **kwargs):
         return MaternKernel(nu=1.5, **kwargs)
 
+    def create_kernel_ard(self, num_dims, **kwargs):
+        return MaternKernel(nu=1.5, ard_num_dims=num_dims, **kwargs)
+
     def test_forward_nu_1_over_2(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)

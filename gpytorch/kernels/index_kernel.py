@@ -3,8 +3,6 @@
 import torch
 from .kernel import Kernel
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
-from torch.nn.functional import softplus
-from ..utils.deprecation import _deprecate_kwarg_with_transform
 
 
 class IndexKernel(Kernel):

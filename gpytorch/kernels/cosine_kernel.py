@@ -3,7 +3,6 @@
 import math
 import torch
 from .kernel import Kernel
-from torch.nn.functional import softplus
 
 
 class CosineKernel(Kernel):

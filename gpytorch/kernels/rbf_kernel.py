@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-from torch.nn.functional import softplus
 import torch
 from ..functions import RBFCovariance
 
