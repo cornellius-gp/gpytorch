@@ -7,6 +7,7 @@ from ..lazy import lazify, delazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
 from .. import settings
 from ..utils.transforms import _get_inv_param_transform
+from ..utils.deprecation import _deprecate_kwarg_with_transform
 from torch.nn.functional import softplus
 
 
@@ -97,9 +98,9 @@ class Kernel(Module):
         :attr:`ard_num_dims` (int, optional):
             Set this if you want a separate lengthscale for each input
             dimension. It should be `d` if :attr:`x1` is a `n x d` matrix.  Default: `None`
-        :attr:`batch_size` (int, optional):
+        :attr:`batch_shape` (torch.Size, optional):
             Set this if you want a separate lengthscale for each batch of input
-            data. It should be `b` if :attr:`x1` is a `b x n x d` tensor.  Default: `1`
+            data. It should be `b1 x ... x bk` if :attr:`x1` is a `b1 x ... x bk x n x d` tensor.  Default: `1`
         :attr:`active_dims` (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
@@ -129,7 +130,7 @@ class Kernel(Module):
         self,
         has_lengthscale=False,
         ard_num_dims=None,
-        batch_size=1,
+        batch_shape=torch.Size([1]),
         active_dims=None,
         lengthscale_prior=None,
         param_transform=softplus,
@@ -142,15 +143,21 @@ class Kernel(Module):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.register_buffer("active_dims", active_dims)
         self.ard_num_dims = ard_num_dims
-        self.batch_size = batch_size
+
+        self.batch_shape = _deprecate_kwarg_with_transform(
+            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
+        )
+
         self.__has_lengthscale = has_lengthscale
         self._param_transform = param_transform
         self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
+        self.eps = eps
+
         if has_lengthscale:
-            self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
-                name="raw_lengthscale", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims))
+                name="raw_lengthscale",
+                parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, lengthscale_num_dims))
             )
             if lengthscale_prior is not None:
                 self.register_prior(
@@ -194,11 +201,8 @@ class Kernel(Module):
         self.initialize(raw_lengthscale=self._inv_param_transform(value))
 
     def size(self, x1, x2):
-        non_batch_size = (x1.size(-2), x2.size(-2))
-        if x1.ndimension() == 3:
-            return torch.Size((x1.size(0),) + non_batch_size)
-        else:
-            return torch.Size(non_batch_size)
+        non_batch_shape = torch.Size([x1.size(-2), x2.size(-2)])
+        return x1.shape[:-2] + non_batch_shape
 
     @abstractmethod
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):

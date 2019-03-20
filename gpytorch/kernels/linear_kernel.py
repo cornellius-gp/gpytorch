@@ -39,8 +39,8 @@ class LinearKernel(Kernel):
             `len(active_dims)` should equal `num_dimensions`.
     """
 
-    def __init__(self, num_dimensions=None, offset_prior=None, variance_prior=None, active_dims=None):
-        super(LinearKernel, self).__init__(active_dims=active_dims)
+    def __init__(self, num_dimensions=None, offset_prior=None, variance_prior=None, **kwargs):
+        super(LinearKernel, self).__init__(**kwargs)
         if num_dimensions is not None:
             warnings.warn(
                 "The `num_dimensions` argument is deprecated and no longer used.",
@@ -55,7 +55,9 @@ class LinearKernel(Kernel):
                 "The `offset_prior` argument is deprecated and no longer used.",
                 DeprecationWarning
             )
-        self.register_parameter(name="raw_variance", parameter=torch.nn.Parameter(torch.zeros(1)))
+        self.register_parameter(
+            name="raw_variance", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1))
+        )
         if variance_prior is not None:
             self.register_prior(
                 "variance_prior",

@@ -41,7 +41,7 @@ class MaternKernel(Kernel):
         :attr:`ard_num_dims` (int, optional):
             Set this if you want a separate lengthscale for each
             input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
-        :attr:`batch_size` (int, optional):
+        :attr:`batch_shape` (int, optional):
             Set this if you want a separate lengthscale for each
             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
         :attr:`active_dims` (tuple of ints, optional):
@@ -80,30 +80,10 @@ class MaternKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(
-        self,
-        nu=2.5,
-        ard_num_dims=None,
-        batch_size=1,
-        active_dims=None,
-        lengthscale_prior=None,
-        param_transform=softplus,
-        inv_param_transform=None,
-        eps=1e-6,
-        **kwargs
-    ):
+    def __init__(self, nu=2.5, **kwargs):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
-        super(MaternKernel, self).__init__(
-            has_lengthscale=True,
-            ard_num_dims=ard_num_dims,
-            batch_size=batch_size,
-            active_dims=active_dims,
-            lengthscale_prior=lengthscale_prior,
-            param_transform=param_transform,
-            inv_param_transform=inv_param_transform,
-            eps=eps,
-        )
+        super(MaternKernel, self).__init__(has_lengthscale=True, **kwargs)
         self.nu = nu
 
     def forward(self, x1, x2, **params):

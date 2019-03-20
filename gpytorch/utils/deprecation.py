@@ -30,6 +30,14 @@ def _deprecate_kwarg(kwargs, old_kw, new_kw, new_kw_value):
     return new_kw_value
 
 
+def _deprecate_kwarg_with_transform(kwargs, old_kw, new_kw, new_kw_value, transform):
+    old_kwarg = kwargs.get(old_kw)
+    if old_kwarg is not None:
+        warnings.warn("The `{}` argument is deprecated. Use `{}` instead.".format(old_kw, new_kw), DeprecationWarning)
+        return transform(old_kwarg)
+    return new_kw_value
+
+
 def _deprecated_renamed_method(cls, old_method_name, new_method_name):
     def _deprecated_method(self, *args, **kwargs):
         warnings.warn(
