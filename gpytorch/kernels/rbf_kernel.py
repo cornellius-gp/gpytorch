@@ -34,9 +34,9 @@ class RBFKernel(Kernel):
         :attr:`ard_num_dims` (int, optional):
             Set this if you want a separate lengthscale for each
             input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
-        :attr:`batch_size` (int, optional):
+        :attr:`batch_shape` (int, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`.
+            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`.
         :attr:`active_dims` (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
@@ -53,7 +53,7 @@ class RBFKernel(Kernel):
     Attributes:
         :attr:`lengthscale` (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`ard_num_dims` and :attr:`batch_size` arguments.
+            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -67,7 +67,7 @@ class RBFKernel(Kernel):
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         >>> # Batch: different lengthscale for each batch
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_size=2))
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2])))
         >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
 

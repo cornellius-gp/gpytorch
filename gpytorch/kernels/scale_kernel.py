@@ -30,7 +30,7 @@ class ScaleKernel(Kernel):
             The base kernel to be scaled.
         :attr:`batch_shape` (int, optional):
             Set this if you want a separate outputscale for each batch of input data. It should be `b`
-            if :attr:`x1` is a `b x n x d` tensor. Default: `1`
+            if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`
         :attr:`outputscale_prior` (Prior, optional): Set this if you want to apply a prior to the outputscale
             parameter.  Default: `None`
         :attr:`param_transform` (function, optional):

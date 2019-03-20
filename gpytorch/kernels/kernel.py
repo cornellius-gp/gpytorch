@@ -84,7 +84,7 @@ class Kernel(Module):
       This is controlled by the `ard_num_dims` keyword argument (as well has `has_lengthscale=True`).
 
     In batch-mode (i.e. when :math:`x_1` and :math:`x_2` are batches of input matrices), each
-    batch of data can have its own lengthscale parameter by setting the `batch_size`
+    batch of data can have its own lengthscale parameter by setting the `batch_shape`
     keyword argument to the appropriate number of batches.
 
     .. note::
@@ -117,7 +117,7 @@ class Kernel(Module):
     Base Attributes:
         :attr:`lengthscale` (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`ard_num_dims` and :attr:`batch_size` arguments.
+            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
 
     Example:
         >>> covar_module = gpytorch.kernels.LinearKernel()

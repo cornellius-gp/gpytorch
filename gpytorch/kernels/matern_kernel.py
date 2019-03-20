@@ -61,7 +61,7 @@ class MaternKernel(Kernel):
     Attributes:
         :attr:`lengthscale` (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`ard_num_dims` and :attr:`batch_size` arguments.
+            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -75,7 +75,7 @@ class MaternKernel(Kernel):
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=0.5))
         >>> # Batch: different lengthscale for each batch
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=0.5, batch_size=2))
+        >>> covar_module = gpytorch.kernels.MaternKernel(nu=0.5, batch_shape=torch.Size([2])
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
