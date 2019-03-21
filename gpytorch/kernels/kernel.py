@@ -9,6 +9,7 @@ from .. import settings
 from ..utils.transforms import _get_inv_param_transform
 from ..utils.deprecation import _deprecate_kwarg_with_transform
 from torch.nn.functional import softplus
+from ..utils import broadcasting
 
 
 @torch.jit.script
@@ -201,8 +202,13 @@ class Kernel(Module):
         self.initialize(raw_lengthscale=self._inv_param_transform(value))
 
     def size(self, x1, x2):
-        non_batch_shape = torch.Size([x1.size(-2), x2.size(-2)])
-        return x1.shape[:-2] + non_batch_shape
+        expected_size = broadcasting._matmul_broadcast_shape(
+            torch.Size([*x1.shape[:-2], x1.size(-2), x1.size(-1)]),
+            torch.Size([*x2.shape[:-2], x2.size(-1), x2.size(-2)]),
+            error_msg="x1 and x2 were not broadcastable to a proper kernel shape."
+            "Got x1.shape = {} and x2.shape = {}".format(str(x1.shape), str(x2.shape))
+        )
+        return expected_size
 
     @abstractmethod
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):

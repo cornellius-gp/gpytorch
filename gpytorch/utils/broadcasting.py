@@ -25,17 +25,23 @@ def _mul_broadcast_shape(*shapes):
     return torch.Size(final_size)
 
 
-def _matmul_broadcast_shape(shape_a, shape_b):
+def _matmul_broadcast_shape(shape_a, shape_b, error_msg=None):
     """Compute dimension of matmul operation on shapes (supports broadcasting)"""
     m, n, p = shape_a[-2], shape_a[-1], shape_b[-1]
 
     if len(shape_b) == 1:
         if n != p:
-            raise RuntimeError("Incompatible dimensions for matmul")
+            if error_msg is None:
+                raise RuntimeError("Incompatible dimensions for matmul")
+            else:
+                raise RuntimeError(error_msg)
         return shape_a[:-1]
 
     if n != shape_b[-2]:
-        raise RuntimeError("Incompatible dimensions for matmul")
+        if error_msg is not None:
+            raise RuntimeError("Incompatible dimensions for matmul")
+        else:
+            raise RuntimeError(error_msg)
 
     tail_shape = torch.Size([m, p])
     bc_shape = _mul_broadcast_shape(shape_a[:-2], shape_b[:-2])

@@ -4,7 +4,6 @@ import logging
 import math
 import torch
 from .kernel import Kernel
-from torch.nn.functional import softplus
 
 logger = logging.getLogger()
 
