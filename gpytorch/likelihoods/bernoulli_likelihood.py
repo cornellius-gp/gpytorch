@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
-from torch.distributions import Bernoulli
-from ..distributions import MultivariateNormal
-from ..utils.quadrature import GaussHermiteQuadrature1D
-from ..functions import log_normal_cdf, normal_cdf
+from ..distributions import base_distributions
+from ..functions import log_normal_cdf
 from .likelihood import Likelihood
+import warnings
 
 
 class BernoulliLikelihood(Likelihood):
@@ -20,31 +19,27 @@ class BernoulliLikelihood(Likelihood):
             p(Y=y|f)=\Phi(yf)
         \end{equation*}
     """
-    def __init__(self):
-        super().__init__()
-        self.quadrature = GaussHermiteQuadrature1D()
+    def forward(self, function_samples, **kwargs):
+        output_probs = base_distributions.Normal(0, 1).cdf(function_samples)
+        return base_distributions.Bernoulli(probs=output_probs)
 
-    def forward(self, input):
-        if not isinstance(input, MultivariateNormal):
-            raise RuntimeError(
-                "BernoulliLikelihood expects a multi-variate normally distributed latent function to make predictions"
-            )
-
-        mean = input.mean
-        var = input.variance
+    def marginal(self, function_dist, **kwargs):
+        mean = function_dist.mean
+        var = function_dist.variance
         link = mean.div(torch.sqrt(1 + var))
-        output_probs = normal_cdf(link)
-        return Bernoulli(probs=output_probs)
+        output_probs = base_distributions.Normal(0, 1).cdf(link)
+        return base_distributions.Bernoulli(probs=output_probs)
 
-    def variational_log_probability(self, latent_func, target):
-        likelihood_func = lambda locs: log_normal_cdf(locs.mul(target.unsqueeze(-1)))
-        res = self.quadrature(likelihood_func, latent_func)
-        return res.sum()
-
-    def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
-        import pyro
-
-        f_samples = variational_dist_f(sample_shape)
-        y_prob_samples = torch.distributions.Normal(0, 1).cdf(f_samples)
-        y_dist = pyro.distributions.Bernoulli(y_prob_samples)
-        pyro.sample(name_prefix + "._training_labels", y_dist.independent(1), obs=y_obs)
+    def expected_log_prob(self, observations, function_dist, *params, **kwargs):
+        if torch.any(observations.eq(-1)):
+            warnings.warn(
+                "BernoulliLikelihood.expected_log_prob expects observations with labels in {0, 1}. "
+                "Observations with labels in {-1, 1} are deprecated.", DeprecationWarning
+            )
+        else:
+            observations = observations.mul(2).sub(1)
+        # Custom function here so we can use log_normal_cdf rather than Normal.cdf
+        # This is going to be less prone to overflow errors
+        log_prob_lambda = lambda function_samples: log_normal_cdf(function_samples.mul(observations))
+        log_prob = self.quadrature(log_prob_lambda, function_dist)
+        return log_prob.sum(tuple(range(len(function_dist.event_shape))))

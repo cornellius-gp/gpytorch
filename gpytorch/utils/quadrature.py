@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch.nn import Module
 from .. import settings
+from .broadcasting import _pad_with_singletons
 
 
 class GaussHermiteQuadrature1D(Module):
@@ -54,10 +55,14 @@ class GaussHermiteQuadrature1D(Module):
         Returns:
             - Result of integrating func against each univariate Gaussian in gaussian_dists.
         """
-        mus = gaussian_dists.mean
-        vars = gaussian_dists.variance
+        means = gaussian_dists.mean
+        variances = gaussian_dists.variance
 
-        shifted_locs = torch.sqrt(2.0 * vars).unsqueeze(-1) * self.locations + mus.unsqueeze(-1)
-        res = (1 / math.sqrt(math.pi)) * (func(shifted_locs) * self.weights).sum(-1)
+        locations = _pad_with_singletons(self.locations, num_singletons_before=0, num_singletons_after=means.dim())
+        weights = _pad_with_singletons(self.weights, num_singletons_before=0, num_singletons_after=means.dim())
+
+        shifted_locs = torch.sqrt(2.0 * variances) * locations + means
+        res = (1 / math.sqrt(math.pi)) * (func(shifted_locs) * weights)
+        res = res.sum(tuple(range(self.locations.dim())))
 
         return res

@@ -22,7 +22,7 @@ train_x[:, 0].copy_(torch.linspace(-1, 1, n).repeat(n))
 train_x[:, 1].copy_(torch.linspace(-1, 1, n).unsqueeze(1).repeat(1, n).view(-1))
 train_y = train_x[:, 0].abs().lt(0.5).float()
 train_y = train_y * (train_x[:, 1].abs().lt(0.5)).float()
-train_y = train_y.float() * 2 - 1
+train_y = train_y.float()
 
 
 class GPClassificationModel(AbstractVariationalGP):
@@ -95,7 +95,7 @@ class TestKISSGPAdditiveClassification(unittest.TestCase):
             model.eval()
             likelihood.eval()
 
-            test_preds = model(train_x).mean.ge(0.5).float().mul(2).sub(1).squeeze()
+            test_preds = model(train_x).mean.ge(0.5).float()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
 
         self.assertLess(mean_abs_error.squeeze().item(), 0.15)

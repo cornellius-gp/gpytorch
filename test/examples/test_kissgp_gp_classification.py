@@ -16,12 +16,18 @@ from gpytorch.distributions import MultivariateNormal
 
 
 train_x = torch.linspace(0, 1, 10)
-train_y = torch.sign(torch.cos(train_x * (16 * pi)))
+train_y = torch.sign(torch.cos(train_x * (16 * pi))).add(1).div(2)
 
 
-class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
-    def __init__(self):
-        super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])
+class GPClassificationModel(gpytorch.models.AbstractVariationalGP):
+    def __init__(self, grid_size=32, grid_bounds=[(0, 1)]):
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
+            num_inducing_points=int(pow(grid_size, len(grid_bounds)))
+        )
+        variational_strategy = gpytorch.variational.GridInterpolationVariationalStrategy(
+            self, grid_size=grid_size, grid_bounds=grid_bounds, variational_distribution=variational_distribution
+        )
+        super(GPClassificationModel, self).__init__(variational_strategy)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-5, 5))
         self.covar_module = ScaleKernel(
             RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1)),
@@ -78,7 +84,7 @@ class TestKISSGPClassification(unittest.TestCase):
         # Set back to eval mode
         model.eval()
         likelihood.eval()
-        test_preds = likelihood(model(train_x)).mean.ge(0.5).float().mul(2).sub(1).squeeze()
+        test_preds = likelihood(model(train_x)).mean.ge(0.5).float()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         self.assertLess(mean_abs_error.squeeze().item(), 1e-5)
 

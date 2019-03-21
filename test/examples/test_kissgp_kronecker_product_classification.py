@@ -23,12 +23,18 @@ for i in range(n):
         train_x[i * n + j][1] = float(j) / (n - 1)
         train_y[i * n + j] = pow(-1, int(i / 2) + int(j / 2))
 train_x = train_x
-train_y = train_y
+train_y = train_y.add(1).div(2)
 
 
-class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
-    def __init__(self):
-        super(GPClassificationModel, self).__init__(grid_size=8, grid_bounds=[(0, 3), (0, 3)])
+class GPClassificationModel(gpytorch.models.AbstractVariationalGP):
+    def __init__(self, grid_size=8, grid_bounds=[(0, 3), (0, 3)]):
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
+            num_inducing_points=int(pow(grid_size, len(grid_bounds)))
+        )
+        variational_strategy = gpytorch.variational.GridInterpolationVariationalStrategy(
+            self, grid_size=grid_size, grid_bounds=grid_bounds, variational_distribution=variational_distribution
+        )
+        super(GPClassificationModel, self).__init__(variational_strategy)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.covar_module = ScaleKernel(
             RBFKernel(ard_num_dims=2, lengthscale_prior=SmoothedBoxPrior(exp(-2.5), exp(3), sigma=0.1))
@@ -85,7 +91,7 @@ class TestKISSGPKroneckerProductClassification(unittest.TestCase):
             model.eval()
             likelihood.eval()
 
-            test_preds = model(train_x).mean.ge(0.5).float().mul(2).sub(1).squeeze()
+            test_preds = model(train_x).mean.ge(0.5).float()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
             self.assertLess(mean_abs_error.squeeze().item(), 1e-5)
 

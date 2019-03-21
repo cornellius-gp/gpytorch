@@ -16,7 +16,7 @@ from torch import optim
 
 def train_data(cuda=False):
     train_x = torch.linspace(0, 1, 10)
-    train_y = torch.sign(torch.cos(train_x * (4 * pi)))
+    train_y = torch.sign(torch.cos(train_x * (4 * pi))).add(1).div(2)
     if cuda:
         return train_x.cuda(), train_y.cuda()
     else:
@@ -80,7 +80,7 @@ class TestSimpleGPClassification(unittest.TestCase):
         # Set back to eval mode
         model.eval()
         likelihood.eval()
-        test_preds = likelihood(model(train_x)).mean.ge(0.5).float().mul(2).sub(1).squeeze()
+        test_preds = likelihood(model(train_x)).mean.round()
         mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
         assert mean_abs_error.item() < 1e-5
 
@@ -115,7 +115,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             # Set back to eval mode
             model.eval()
             likelihood.eval()
-            test_preds = likelihood(model(train_x)).mean.ge(0.5).float().mul(2).sub(1).squeeze()
+            test_preds = likelihood(model(train_x)).mean.round()
 
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
             self.assertLess(mean_abs_error.item(), 1e-5)
@@ -151,7 +151,7 @@ class TestSimpleGPClassification(unittest.TestCase):
 
             # Set back to eval mode
             model.eval()
-            test_preds = likelihood(model(train_x)).mean.ge(0.5).float().mul(2).sub(1).squeeze()
+            test_preds = likelihood(model(train_x)).mean.round()
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
             self.assertLess(mean_abs_error.item(), 1e-5)
 
