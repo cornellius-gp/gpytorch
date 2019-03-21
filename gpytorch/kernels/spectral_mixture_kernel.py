@@ -29,9 +29,9 @@ class SpectralMixtureKernel(Kernel):
         :attr:`ard_num_dims` (int, optional):
             Set this to match the dimensionality of the input.
             It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `1`
-        :attr:`batch_shape` (int, optional):
+        :attr:`batch_shape` (torch.Size, optional):
             Set this if the data is
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
+             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`
         :attr:`active_dims` (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.

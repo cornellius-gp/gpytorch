@@ -50,7 +50,7 @@ class IndexKernel(Kernel):
     ):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
-        super(IndexKernel, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.register_parameter(
             name="covar_factor", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks, rank))
