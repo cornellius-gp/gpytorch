@@ -63,17 +63,11 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         sem_inv = 1 / torch.diagonal(M, dim1=-2, dim2=-1).sqrt().unsqueeze(-1)
         return M * sem_inv.matmul(sem_inv.transpose(-1, -2))
 
-    def forward(self, input, *params):
-        """
-        Adds the task noises to the diagonal of the covariance matrix of the supplied
-        :obj:`gpytorch.distributions.MultivariateNormal` or :obj:`gpytorch.distributions.MultitaskMultivariateNormal`,
-        in case of `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
-
-        This scales the task correlations appropriately by the variances at the different points provided
-        by the noise variance model (evalutated at the provided params)
-        """
-        mean, covar = input.mean, input.lazy_covariance_matrix
-        batch_shape, n = covar.shape[:-2], covar.shape[-1] // self.num_tasks
+    def _shaped_noise_covar(self, base_shape, *params):
+        if len(base_shape) >= 2:
+            *batch_shape, n, _ = base_shape
+        else:
+            *batch_shape, n = base_shape
 
         if len(batch_shape) > 1:
             raise NotImplementedError("Batch shapes with dim > 1 not yet supported for MulitTask Likelihoods")
@@ -82,7 +76,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         if len(params) > 0:
             shape = None
         else:
-            shape = mean.shape if len(mean.shape) == 1 else mean.shape[:-1]
+            shape = base_shape if len(base_shape) == 1 else base_shape[:-1]
         noise_covar = self.noise_covar(*params, shape=shape)
 
         if hasattr(self, "task_noise_corr_factor"):
@@ -105,10 +99,8 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             task_covar = BlockDiagLazyTensor(lazify(tcb_eval), block_dim=-3)
         else:
             task_covar = BlockDiagLazyTensor(task_covar_blocks)
-        return input.__class__(mean, covar + task_covar)
 
-    def variational_log_probability(self, input, target):
-        raise NotImplementedError("Variational inference with Multitask Gaussian likelihood is not yet supported")
+        return task_covar
 
 
 class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
@@ -177,16 +169,14 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             value = torch.tensor(value)
         self.initialize(raw_noise=self._inv_param_transform(value))
 
-    def forward(self, input, *params):
-        mvn = super().forward(input, *params)
-        mean, covar = mvn.mean, mvn.lazy_covariance_matrix
+    def _shaped_noise_covar(self, base_shape, *params):
+        noise_covar = super()._shaped_noise_covar(base_shape, *params)
         noise = self.noise
-        if covar.ndimension() == 2:
+        if noise_covar.ndimension() == 2:
             if settings.debug.on() and noise.size(0) > 1:
                 raise RuntimeError("With batch_size > 1, expected a batched MultitaskMultivariateNormal distribution.")
             noise = noise.squeeze(0)
-        covar = add_diag(covar, noise)
-        return input.__class__(mean, covar)
+        return noise_covar.add_diag(noise)
 
 
 class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
@@ -260,7 +250,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         D = noise * torch.eye(self.num_tasks, dtype=noise.dtype, device=noise.device)
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
 
-    def forward(self, input, *params):
+    def marginal(self, function_dist, *params, **kwargs):
         """
         Adds the task noises to the diagonal of the covariance matrix of the supplied
         :obj:`gpytorch.distributions.MultivariateNormal` or :obj:`gpytorch.distributions.MultitaskMultivariateNormal`,
@@ -276,14 +266,14 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         The final covariance matrix after this method is then :math:`K + D_{t} \otimes I_{n} + \sigma^{2}I_{nt}`.
 
         Args:
-            input (:obj:`gpytorch.distributions.MultitaskMultivariateNormal`): Random variable whose covariance
+            function_dist (:obj:`gpytorch.distributions.MultitaskMultivariateNormal`): Random variable whose covariance
                 matrix is a :obj:`gpytorch.lazy.LazyTensor` we intend to augment.
         Returns:
             :obj:`gpytorch.distributions.MultitaskMultivariateNormal`: A new random variable whose covariance
             matrix is a :obj:`gpytorch.lazy.LazyTensor` with :math:`D_{t} \otimes I_{n}` and :math:`\sigma^{2}I_{nt}`
             added.
         """
-        mean, covar = input.mean, input.lazy_covariance_matrix
+        mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
 
         if self.rank == 0:
             task_noises = self._param_transform(self.raw_task_noises)
@@ -326,4 +316,4 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             noise = noise.squeeze(0)
 
         covar = add_diag(covar, noise)
-        return input.__class__(mean, covar)
+        return function_dist.__class__(mean, covar)
