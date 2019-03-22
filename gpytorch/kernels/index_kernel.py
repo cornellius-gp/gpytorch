@@ -3,7 +3,6 @@
 import torch
 from .kernel import Kernel
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
-from torch.nn.functional import softplus
 
 
 class IndexKernel(Kernel):
@@ -22,7 +21,7 @@ class IndexKernel(Kernel):
     Args:
         :attr:`num_tasks` (int):
             Total number of indices.
-        :attr:`batch_size` (int, optional):
+        :attr:`batch_shape` (torch.Size, optional):
             Set if the MultitaskKernel is operating on batches of data (and you want different
             parameters for each batch)
         :attr:`rank` (int):
@@ -42,14 +41,21 @@ class IndexKernel(Kernel):
             The element-wise log of the :math:`\mathbf v` vector.
     """
 
-    def __init__(self, num_tasks, rank=1, batch_size=1, prior=None, param_transform=softplus, inv_param_transform=None):
+    def __init__(
+        self,
+        num_tasks,
+        rank=1,
+        prior=None,
+        **kwargs
+    ):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
-        super(IndexKernel, self).__init__(param_transform=param_transform, inv_param_transform=inv_param_transform)
+        super().__init__(**kwargs)
+
         self.register_parameter(
-            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
+            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks, rank))
         )
-        self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks)))
+        self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks)))
         if prior is not None:
             self.register_prior("IndexKernelPrior", prior, self._eval_covar_matrix)
 
