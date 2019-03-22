@@ -7,159 +7,124 @@ import unittest
 import warnings
 from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor
 from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from unittest.mock import MagicMock, patch
 
 
 class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
     seed = 0
 
-    def create_lazy_tensor(self):
+    def create_lazy_tensor(self, with_solves=False, with_logdet=False):
         mat = torch.randn(5, 6)
         mat = mat.matmul(mat.transpose(-1, -2))
         mat.requires_grad_(True)
 
         lazy_tensor = NonLazyTensor(mat)
         eager_rhs = torch.randn(5, 10).detach()
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
-            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                lazy_tensor, eager_rhs.detach(), logdet_terms=False
-            )
-            eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
-            solves = [solve.detach(), solve[..., -2:-1].detach()]
+        if with_solves:
+            with gpytorch.settings.num_trace_samples(1000 if with_logdet else 1):  # For inv_quad_logdet tests
+                solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                    lazy_tensor, eager_rhs.detach(), logdet_terms=with_logdet
+                )
+                eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
+                solves = [solve.detach(), solve[..., -2:-1].detach()]
+        else:
+            eager_rhss = [eager_rhs]
+            solves = []
+            probe_vecs = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            probe_vec_norms = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            probe_vec_solves = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            tmats = torch.tensor([], dtype=mat.dtype, device=mat.device)
 
         return CachedCGLazyTensor(lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         return lazy_tensor.base_lazy_tensor.tensor
 
-    def test_inv_matmul_vec(self):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+    def _test_inv_matmul(self, rhs, lhs=None, cholesky=False):
+        if cholesky:  # These tests don't make sense for CachedCGLazyTensor
+            return
+
+        lazy_tensor = self.create_lazy_tensor(with_solves=True).requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
-        test_vector = lazy_tensor.eager_rhss[1].squeeze(-1).clone().detach().requires_grad_(True)
-        test_vector_copy = lazy_tensor_copy.eager_rhss[1].squeeze(-1).clone().detach().requires_grad_(True)
-        # Make sure that we get no warning about CG
-        with gpytorch.settings.max_cholesky_numel(0), warnings.catch_warnings(record=True) as w:
-            res = lazy_tensor.inv_matmul(test_vector)
-            actual = evaluated.inverse().matmul(test_vector_copy)
-            self.assertEqual(len(w), 0)
-            self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
+        # Rather than the supplied rhs and lhs,
+        # we'll replace them with ones that we've precomputed solves for
+        rhs_orig = rhs
+        if rhs_orig.dim() == 1:
+            rhs = lazy_tensor.eager_rhss[0][..., -1].squeeze(-1).clone().detach().requires_grad_(True)
+            # Make sure we're setting this test up correctly
+            self.assertEqual(rhs_orig.shape, rhs.shape)
+        else:
+            if lhs is not None:
+                rhs = lazy_tensor.eager_rhss[0][..., 2:].clone().detach().requires_grad_(True)
+            else:
+                rhs = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
+            # Make sure we're setting this test up correctly
+            self.assertEqual(rhs_orig.shape[:-1], rhs.shape[:-1])
 
-            grad = torch.randn_like(res)
-            # Make sure that we get a warning that CG was run
-            with warnings.catch_warnings(record=True) as w:
-                res.backward(gradient=grad)
-                actual.backward(gradient=grad)
-                self.assertEqual(len(w), 1)
-            for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-                if arg_copy.grad is not None:
-                    self.assertLess(
-                        ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-                    )
-            self.assertLess((
-                (test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)
-            ).max().item(), 3e-1)
+        lhs = lhs
+        if lhs is not None:
+            lhs_orig = lhs
+            if rhs_orig.dim() == 1:
+                lhs = lazy_tensor.eager_rhss[0][..., :-1].transpose(-1, -2).clone().detach().requires_grad_(True)
+            else:
+                lhs = lazy_tensor.eager_rhss[0][..., :2].transpose(-1, -2).clone().detach().requires_grad_(True)
 
-    def test_inv_matmul_vector_with_left(self):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+            # Make sure we're setting this test up correctly
+            self.assertEqual(lhs_orig.shape[:-2], lhs.shape[:-2])
 
-        test_vector = lazy_tensor.eager_rhss[0][..., -1].squeeze(-1).clone().detach().requires_grad_(True)
-        test_vector_copy = lazy_tensor_copy.eager_rhss[0][..., -1].squeeze(-1).clone().detach().requires_grad_(True)
-        test_left = lazy_tensor.eager_rhss[0][..., :-1].t().clone().detach().requires_grad_(True)
-        test_left_copy = lazy_tensor_copy.eager_rhss[0][..., :-1].t().clone().detach().requires_grad_(True)
-        # Make sure that we get no warning about CG
-        with gpytorch.settings.max_cg_iterations(200), warnings.catch_warnings(record=True) as w:
-            res = lazy_tensor.inv_matmul(test_vector, test_left)
-            actual = test_left_copy @ evaluated.inverse() @ test_vector_copy
-            self.assertEqual(len(w), 0)
-        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
+        # Create a test right hand side and left hand side
+        rhs.requires_grad_(True)
+        rhs_copy = rhs.clone().detach().requires_grad_(True)
+        if lhs is not None:
+            lhs.requires_grad_(True)
+            lhs_copy = lhs.clone().detach().requires_grad_(True)
 
-        grad = torch.randn_like(res)
-        # Make sure that we get no warning about CG
-        with warnings.catch_warnings(record=True) as w:
-            res.backward(gradient=grad)
-            actual.backward(gradient=grad)
-            self.assertEqual(len(w), 0)
-        for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-            if arg_copy.grad is not None:
-                self.assertLess(
-                    ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-                )
-        self.assertLess(
-            ((test_left.grad - test_left_copy.grad).abs() / test_left.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-        )
-        self.assertLess(
-            ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-        )
+        _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
+        with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+            with gpytorch.settings.max_cholesky_numel(math.inf if cholesky else 0), \
+                    gpytorch.settings.cg_tolerance(1e-4):
+                with warnings.catch_warnings(record=True) as w:
+                    # Perform the inv_matmul
+                    if lhs is not None:
+                        res = lazy_tensor.inv_matmul(rhs, lhs)
+                        actual = lhs_copy @ evaluated.inverse() @ rhs_copy
+                    else:
+                        res = lazy_tensor.inv_matmul(rhs)
+                        actual = evaluated.inverse().matmul(rhs_copy)
+                    self.assertAllClose(res, actual, rtol=0.02, atol=1e-5)
+                    self.assertEqual(len(w), 0)
 
-    def test_inv_matmul_matrix(self, cholesky=False):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+                with warnings.catch_warnings(record=True) as w:
+                    # Perform backward pass
+                    grad = torch.randn_like(res)
+                    res.backward(gradient=grad)
+                    actual.backward(gradient=grad)
+                    for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+                        if arg_copy.grad is not None:
+                            self.assertAllClose(arg.grad, arg_copy.grad, rtol=0.03, atol=1e-5)
+                    self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=0.03, atol=1e-5)
+                    if lhs is not None:
+                        self.assertAllClose(lhs.grad, lhs_copy.grad, rtol=0.03, atol=1e-5)
 
-        test_vector = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
-        test_vector_copy = lazy_tensor_copy.eager_rhss[0].clone().detach().requires_grad_(True)
-        # Make sure that we get no warning about CG
-        with gpytorch.settings.max_cholesky_numel(math.inf if cholesky else 0):
-            with gpytorch.settings.max_cg_iterations(100), warnings.catch_warnings(record=True) as w:
-                res = lazy_tensor.inv_matmul(test_vector)
-                actual = evaluated.inverse().matmul(test_vector_copy)
-                self.assertEqual(len(w), 0)
-            self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
+                    # Determine if we've called CG or not
+                    # We shouldn't if we supplied a lhs
+                    if lhs is None:
+                        self.assertEqual(len(w), 1)
+                        if not cholesky and self.__class__.should_call_cg:
+                            self.assertTrue(linear_cg_mock.called)
+                    else:
+                        self.assertEqual(len(w), 0)
+                        self.assertFalse(linear_cg_mock.called)
 
-            grad = torch.randn_like(res)
-            # Make sure that we get a warning that CG was run
-            with warnings.catch_warnings(record=True) as w:
-                res.backward(gradient=grad)
-                actual.backward(gradient=grad)
-                self.assertEqual(len(w), 1)
-        for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-            if arg_copy.grad is not None:
-                self.assertLess(
-                    ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-                )
-        self.assertLess((
-            (test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)
-        ).max().item(), 3e-1)
-
-    def test_inv_matmul_matrix_cholesky(self):
+    def test_inv_matmul_vector(self):
+        # Skipping this test because it's not really necessary for CachedCGLazyTensor
+        # We'll only ever be performing inv_matmul against matrices ,r owhen a left hand side is supplied
         pass
 
-    def test_inv_matmul_matrix_with_left(self):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
-
-        test_vector = lazy_tensor.eager_rhss[0][..., 2:].clone().detach().requires_grad_(True)
-        test_vector_copy = lazy_tensor_copy.eager_rhss[0][..., 2:].clone().detach().requires_grad_(True)
-        test_left = lazy_tensor.eager_rhss[0][..., :2].transpose(-1, -2).clone().detach().requires_grad_(True)
-        test_left_copy = lazy_tensor_copy.eager_rhss[0][..., :2].transpose(-1, -2).clone().detach().requires_grad_(True)
-        # Make sure that we get no warning about CG
-        with gpytorch.settings.max_cg_iterations(100), warnings.catch_warnings(record=True) as w:
-            res = lazy_tensor.inv_matmul(test_vector, test_left)
-            actual = test_left_copy @ evaluated.inverse() @ test_vector_copy
-            self.assertEqual(len(w), 0)
-        self.assertLess(((res - actual).abs() / actual.abs().clamp(1, 1e5)).max().item(), 3e-1)
-
-        grad = torch.randn_like(res)
-        # Make sure that we get no warning about CG
-        with warnings.catch_warnings(record=True) as w:
-            res.backward(gradient=grad)
-            actual.backward(gradient=grad)
-            self.assertEqual(len(w), 0)
-        for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-            if arg_copy.grad is not None:
-                self.assertLess(
-                    ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-                )
-        self.assertLess(
-            ((test_left.grad - test_left_copy.grad).abs() / test_left.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-        )
-        self.assertLess(
-            ((test_vector.grad - test_vector_copy.grad).abs() / test_vector.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
-        )
+    def test_inv_matmul_matrix_broadcast(self):
+        pass
 
     def test_inv_quad_logdet(self):
         pass
@@ -177,35 +142,13 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
         actual = lazy_tensor.inv_matmul(test_mat)
         self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
-    def test_inv_matmul_matrix_broadcast(self):
-        pass
-
 
 class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
     seed = 0
 
-    def create_lazy_tensor(self):
-        mat = torch.randn(5, 6)
-        mat = mat.matmul(mat.transpose(-1, -2))
-        mat.requires_grad_(True)
-
-        lazy_tensor = NonLazyTensor(mat)
-        eager_rhs = torch.randn(5, 10).detach()
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
-            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                lazy_tensor, eager_rhs.detach()
-            )
-            eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
-            solves = [solve.detach(), solve[..., -2:-1].detach()]
-
-        return CachedCGLazyTensor(lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats)
-
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        return lazy_tensor.base_lazy_tensor.tensor
-
     def test_inv_quad_logdet(self):
         # Forward
-        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_lazy_tensor(with_solves=True, with_logdet=True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
         flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
@@ -228,7 +171,7 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
 
     def test_inv_quad_logdet_no_reduce(self):
         # Forward
-        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_lazy_tensor(with_solves=True, with_logdet=True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
         flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
@@ -255,59 +198,61 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
 class TestCachedCGLazyTensorNoLogdetBatch(TestCachedCGLazyTensorNoLogdet):
     seed = 0
 
-    def create_lazy_tensor(self):
+    def create_lazy_tensor(self, with_solves=False, with_logdet=False):
         mat = torch.randn(3, 5, 6)
         mat = mat.matmul(mat.transpose(-1, -2))
         mat.requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
-            lazy_tensor = NonLazyTensor(mat)
-            eager_rhs = torch.randn(3, 5, 10).detach()
-            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                lazy_tensor, eager_rhs.detach(), logdet_terms=False
-            )
+        lazy_tensor = NonLazyTensor(mat)
+        eager_rhs = torch.randn(3, 5, 10).detach()
+        if with_solves:
+            with gpytorch.settings.num_trace_samples(1000 if with_logdet else 1):  # For inv_quad_logdet tests
+                solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                    lazy_tensor, eager_rhs.detach(), logdet_terms=with_logdet
+                )
+                eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
+                solves = [solve.detach(), solve[..., -2:-1].detach()]
+        else:
+            eager_rhss = [eager_rhs]
+            solves = []
+            probe_vecs = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            probe_vec_norms = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            probe_vec_solves = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            tmats = torch.tensor([], dtype=mat.dtype, device=mat.device)
 
         return CachedCGLazyTensor(
-            lazy_tensor, [eager_rhs], [solve], probe_vecs, probe_vec_norms, probe_vec_solves, tmats
+            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
         )
-
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        return lazy_tensor.base_lazy_tensor.tensor
-
-    def test_inv_matmul_vec(self):
-        pass
-
-    def test_inv_matmul_vector_with_left(self):
-        pass
 
 
 class TestCachedCGLazyTensorBatch(TestCachedCGLazyTensor):
     seed = 0
 
-    def create_lazy_tensor(self):
+    def create_lazy_tensor(self, with_solves=False, with_logdet=False):
         mat = torch.randn(3, 5, 6)
         mat = mat.matmul(mat.transpose(-1, -2))
         mat.requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
-            lazy_tensor = NonLazyTensor(mat)
-            eager_rhs = torch.randn(3, 5, 10).detach()
-            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                lazy_tensor, eager_rhs.detach()
-            )
+        lazy_tensor = NonLazyTensor(mat)
+        eager_rhs = torch.randn(3, 5, 10).detach()
+        if with_solves:
+            with gpytorch.settings.num_trace_samples(1000 if with_logdet else 1):  # For inv_quad_logdet tests
+                solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                    lazy_tensor, eager_rhs.detach(), logdet_terms=with_logdet
+                )
+                eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
+                solves = [solve.detach(), solve[..., -2:-1].detach()]
+        else:
+            eager_rhss = [eager_rhs]
+            solves = []
+            probe_vecs = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            probe_vec_norms = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            probe_vec_solves = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            tmats = torch.tensor([], dtype=mat.dtype, device=mat.device)
 
         return CachedCGLazyTensor(
-            lazy_tensor, [eager_rhs], [solve], probe_vecs, probe_vec_norms, probe_vec_solves, tmats
+            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
         )
-
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        return lazy_tensor.base_lazy_tensor.tensor
-
-    def test_inv_matmul_vec(self):
-        pass
-
-    def test_inv_matmul_vector_with_left(self):
-        pass
 
 
 class TestCachedCGLazyTensorMultiBatch(TestCachedCGLazyTensor):
@@ -316,27 +261,28 @@ class TestCachedCGLazyTensorMultiBatch(TestCachedCGLazyTensor):
     should_test_sample = False
     skip_slq_tests = True
 
-    def create_lazy_tensor(self):
+    def create_lazy_tensor(self, with_solves=False, with_logdet=False):
         mat = torch.randn(2, 3, 5, 6)
         mat = mat.matmul(mat.transpose(-1, -2))
         mat.requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(1000):  # For inv_quad_logdet tests
-            lazy_tensor = NonLazyTensor(mat)
-            eager_rhs = torch.randn(2, 3, 5, 10).detach()
-            solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                lazy_tensor, eager_rhs.detach()
-            )
+        lazy_tensor = NonLazyTensor(mat)
+        eager_rhs = torch.randn(2, 3, 5, 10).detach()
+        if with_solves:
+            with gpytorch.settings.num_trace_samples(1000 if with_logdet else 1):  # For inv_quad_logdet tests
+                solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
+                    lazy_tensor, eager_rhs.detach(), logdet_terms=with_logdet
+                )
+                eager_rhss = [eager_rhs.detach(), eager_rhs[..., -2:-1].detach()]
+                solves = [solve.detach(), solve[..., -2:-1].detach()]
+        else:
+            eager_rhss = [eager_rhs]
+            solves = []
+            probe_vecs = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            probe_vec_norms = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            probe_vec_solves = torch.tensor([], dtype=mat.dtype, device=mat.device)
+            tmats = torch.tensor([], dtype=mat.dtype, device=mat.device)
 
         return CachedCGLazyTensor(
-            lazy_tensor, [eager_rhs], [solve], probe_vecs, probe_vec_norms, probe_vec_solves, tmats
+            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
         )
-
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        return lazy_tensor.base_lazy_tensor.tensor
-
-    def test_inv_matmul_vec(self):
-        pass
-
-    def test_inv_matmul_vector_with_left(self):
-        pass

@@ -76,6 +76,15 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         del shape[-3]
         return torch.Size(shape)
 
+    def _solve(self, rhs, preconditioner, num_tridiag=0):
+        if num_tridiag:
+            return super()._solve(rhs, preconditioner, num_tridiag=num_tridiag)
+        else:
+            rhs = self._add_batch_dim(rhs)
+            res = self.base_lazy_tensor._solve(rhs, preconditioner, num_tridiag=None)
+            res = self._remove_batch_dim(res)
+            return res
+
     def diag(self):
         res = self.base_lazy_tensor.diag().contiguous()
         return res.view(*self.batch_shape, self.size(-1))

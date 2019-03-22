@@ -36,11 +36,11 @@ class CholLazyTensor(RootLazyTensor):
     def _cholesky(self):
         return self.root
 
-    def _solve(self, rhs, preconditioner, num_tridiag=None):
-        if num_tridiag is None:
-            return self.root._cholesky_solve(rhs)
-        else:
+    def _solve(self, rhs, preconditioner, num_tridiag=0):
+        if num_tridiag:
             return super()._solve(rhs, preconditioner, num_tridiag=num_tridiag)
+        else:
+            return self.root._cholesky_solve(rhs)
 
     def inv_matmul(self, right_tensor, left_tensor=None):
         with settings.fast_computations(solves=False):

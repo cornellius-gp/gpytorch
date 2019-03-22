@@ -133,7 +133,7 @@ class CachedCGLazyTensor(LazyTensor):
     def _quad_form_derivative(self, left_vecs, right_vecs):
         return self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
 
-    def _solve(self, rhs, preconditioner, num_tridiag=None):
+    def _solve(self, rhs, preconditioner, num_tridiag=0):
         if num_tridiag:
             probe_vectors = rhs[..., :num_tridiag].detach()
             if torch.equal(probe_vectors, self.probe_vectors):

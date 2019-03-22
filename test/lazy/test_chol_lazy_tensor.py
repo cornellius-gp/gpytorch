@@ -9,6 +9,8 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 class TestCholLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
+    should_call_cg = False
+    should_call_lanczos = False
 
     def create_lazy_tensor(self):
         chol = torch.tensor(
@@ -23,9 +25,8 @@ class TestCholLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return chol.matmul(chol.transpose(-1, -2))
 
 
-class TestCholLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
+class TestCholLazyTensorBatch(TestCholLazyTensor):
     seed = 0
-    should_test_sample = True
 
     def create_lazy_tensor(self):
         chol = torch.tensor(
@@ -39,13 +40,8 @@ class TestCholLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
         chol.requires_grad_(True)
         return CholLazyTensor(chol)
 
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        chol = lazy_tensor.root.evaluate()
-        res = chol.matmul(chol.transpose(-1, -2))
-        return res
 
-
-class TestCholLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
+class TestCholLazyTensorMultiBatch(TestCholLazyTensor):
     seed = 0
     # Because these LTs are large, we'll skil the big tests
     should_test_sample = False
@@ -65,11 +61,6 @@ class TestCholLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
         chol.add_(torch.eye(5).unsqueeze_(0).unsqueeze_(0))
         chol.requires_grad_(True)
         return CholLazyTensor(chol)
-
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        chol = lazy_tensor.root.evaluate()
-        res = chol.matmul(chol.transpose(-1, -2))
-        return res
 
 
 if __name__ == "__main__":

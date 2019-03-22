@@ -51,6 +51,9 @@ class InvQuadLogDet(Function):
         self.probe_vectors = probe_vectors
         self.probe_vector_norms = probe_vector_norms
 
+        if self.logdet and not self.probe_vectors.numel():
+            raise RuntimeError("Probe vectors were not supplied for logdet computation")
+
     def forward(self, *args):
         """
         *args - The arguments representing the PSD matrix A (or batch of PSD matrices A)

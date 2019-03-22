@@ -8,11 +8,11 @@ import gpytorch
 import torch
 
 from .. import settings
+from .. import utils
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
-from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky, cholesky_solve
 from ..utils.deprecation import _deprecate_renamed_methods
@@ -611,8 +611,8 @@ class LazyTensor(ABC):
 
         return inv_roots
 
-    def _solve(self, rhs, preconditioner, num_tridiag=None):
-        return linear_cg(
+    def _solve(self, rhs, preconditioner, num_tridiag=0):
+        return utils.linear_cg(
             self._matmul,
             rhs,
             n_tridiag=num_tridiag,
