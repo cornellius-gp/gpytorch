@@ -10,6 +10,7 @@ import torch
 from .. import settings
 from .. import utils
 from ..functions._inv_matmul import InvMatmul
+from ..functions._inv_quad import InvQuad
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
@@ -907,8 +908,37 @@ class LazyTensor(ABC):
         Returns:
             - tensor - tr( tensor^T (self)^{-1} tensor )
         """
-        res, _ = self.inv_quad_logdet(inv_quad_rhs=tensor, logdet=False, reduce_inv_quad=reduce_inv_quad)
-        return res
+        if not self.is_square:
+            raise RuntimeError(
+                "inv_quad only operates on (batches of) square (positive semi-definite) LazyTensors. "
+                "Got a {} of size {}.".format(self.__class__.__name__, self.size())
+            )
+
+        if self.dim() == 2 and tensor.dim() == 1:
+            if self.shape[-1] != tensor.numel():
+                raise RuntimeError(
+                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                        self.shape, tensor.shape
+                    )
+                )
+        elif self.dim() != tensor.dim():
+            raise RuntimeError(
+                "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
+                "of dimensions.".format(self.shape, tensor.shape)
+            )
+        elif self.batch_shape != tensor.shape[:-2] or self.shape[-1] != tensor.shape[-2]:
+            raise RuntimeError(
+                "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                    self.shape, tensor.shape
+                )
+            )
+
+        args = (tensor,) + self.representation()
+        inv_quad_term = InvQuad(representation_tree=self.representation_tree())(*args)
+
+        if reduce_inv_quad:
+            inv_quad_term = inv_quad_term.sum(-1)
+        return inv_quad_term
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         """
@@ -923,6 +953,16 @@ class LazyTensor(ABC):
             - scalar - tr( tensor^T (self)^{-1} tensor )
             - scalar - log determinant
         """
+        # Special case: use Cholesky to compute these terms
+        if settings.fast_computations.log_prob.off() or \
+                (self.matrix_shape.numel() <= settings.max_cholesky_numel.value()):
+            from .chol_lazy_tensor import CholLazyTensor
+
+            cholesky = CholLazyTensor(self._cholesky())
+            return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
+
+        # Default: use modified batch conjugate gradients to compute these terms
+        # See NeurIPS 2018 paper: https://arxiv.org/abs/1809.11165
         if not self.is_square:
             raise RuntimeError(
                 "inv_quad_logdet only operates on (batches of) square (positive semi-definite) LazyTensors. "

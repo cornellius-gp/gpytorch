@@ -283,6 +283,43 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             # Determine if we've called CG or not
             if not cholesky and self.__class__.should_call_cg:
                 self.assertTrue(linear_cg_mock.called)
+            else:
+                self.assertFalse(linear_cg_mock.called)
+
+    def _test_inv_quad_logdet(self, reduce_inv_quad=True, cholesky=False):
+        if not self.__class__.skip_slq_tests:
+            # Forward
+            lazy_tensor = self.create_lazy_tensor()
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+            flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+
+            vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
+            vecs_copy = vecs.clone().detach_().requires_grad_(True)
+
+            _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
+            with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+                with gpytorch.settings.num_trace_samples(128), \
+                        gpytorch.settings.max_cholesky_numel(math.inf if cholesky else 0), \
+                        gpytorch.settings.cg_tolerance(1e-5):
+
+                    res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
+                        inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=reduce_inv_quad
+                    )
+
+            actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2)
+            if reduce_inv_quad:
+                actual_inv_quad = actual_inv_quad.sum(-1)
+            actual_logdet = torch.cat(
+                [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
+            ).view(lazy_tensor.batch_shape)
+
+            self.assertAllClose(res_inv_quad, actual_inv_quad, rtol=0.01, atol=0.01)
+            self.assertAllClose(res_logdet, actual_logdet, rtol=0.2, atol=0.03)
+
+            if not cholesky and self.__class__.should_call_cg:
+                self.assertTrue(linear_cg_mock.called)
+            else:
+                self.assertFalse(linear_cg_mock.called)
 
     def test_add_diag(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -388,50 +425,13 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             self._test_inv_matmul(rhs)
 
     def test_inv_quad_logdet(self):
-        if not self.__class__.skip_slq_tests:
-            # Forward
-            lazy_tensor = self.create_lazy_tensor()
-            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-            flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
-
-            vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
-            vecs_copy = vecs.clone().detach_().requires_grad_(True)
-
-            with gpytorch.settings.num_trace_samples(128):
-                with gpytorch.settings.max_cholesky_numel(0), gpytorch.settings.cg_tolerance(1e-5):
-                    res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=vecs, logdet=True)
-
-            actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
-            actual_logdet = torch.cat(
-                [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
-            ).view(lazy_tensor.batch_shape)
-
-            self.assertAllClose(res_inv_quad, actual_inv_quad, rtol=0.01, atol=0.01)
-            self.assertAllClose(res_logdet, actual_logdet, rtol=0.2, atol=0.03)
+        return self._test_inv_quad_logdet(reduce_inv_quad=False, cholesky=False)
 
     def test_inv_quad_logdet_no_reduce(self):
-        if not self.__class__.skip_slq_tests:
-            # Forward
-            lazy_tensor = self.create_lazy_tensor()
-            evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-            flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
+        return self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=False)
 
-            vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
-            vecs_copy = vecs.clone().detach_().requires_grad_(True)
-
-            with gpytorch.settings.num_trace_samples(128):
-                with gpytorch.settings.max_cholesky_numel(0), gpytorch.settings.cg_tolerance(1e-5):
-                    res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
-                        inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
-                    )
-
-            actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
-            actual_logdet = torch.cat(
-                [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
-            ).view(lazy_tensor.batch_shape)
-
-            self.assertAllClose(res_inv_quad.sum(-1), actual_inv_quad, rtol=0.01, atol=0.01)
-            self.assertAllClose(res_logdet, actual_logdet, rtol=0.2, atol=0.03)
+    def test_inv_quad_logdet_no_reduce_cholesky(self):
+        return self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=True)
 
     def test_prod(self):
         with gpytorch.settings.fast_computations(covar_root_decomposition=False):
@@ -457,6 +457,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             # Make sure that we're calling the correct function
             if not cholesky and self.__class__.should_call_lanczos:
                 self.assertTrue(lanczos_mock.called)
+            else:
+                self.assertFalse(lanczos_mock.called)
 
     def test_root_decomposition_cholesky(self):
         return self.test_root_decomposition(cholesky=True)
