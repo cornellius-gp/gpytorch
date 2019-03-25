@@ -2,7 +2,7 @@
 
 import torch
 from torch.autograd import Function
-from ..utils.lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
+from ..utils import lanczos
 from .. import settings
 
 
@@ -43,7 +43,7 @@ class RootDecomposition(Function):
         lazy_tsr = self.representation_tree(*matrix_args)
         matmul_closure = lazy_tsr._matmul
         # Do lanczos
-        q_mat, t_mat = lanczos_tridiag(
+        q_mat, t_mat = lanczos.lanczos_tridiag(
             matmul_closure,
             self.max_iter,
             dtype=self.dtype,
@@ -65,7 +65,7 @@ class RootDecomposition(Function):
         jitter_mat = (settings.tridiagonal_jitter.value() * mins) * torch.eye(
             t_mat.size(-1), device=t_mat.device, dtype=t_mat.dtype
         ).expand_as(t_mat)
-        eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat + jitter_mat)
+        eigenvalues, eigenvectors = lanczos.lanczos_tridiag_to_diag(t_mat + jitter_mat)
 
         # Get orthogonal matrix and eigenvalue roots
         q_mat = q_mat.matmul(eigenvectors)

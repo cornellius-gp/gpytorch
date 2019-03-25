@@ -53,6 +53,15 @@ class ZeroLazyTensor(LazyTensor):
     def _quad_form_derivative(self, left_vecs, right_vecs):
         raise RuntimeError("Backwards through a ZeroLazyTensor is not possible")
 
+    def _root_decomposition(self):
+        raise RuntimeError("ZeroLazyTensors are not positive definite!")
+
+    def _root_inv_decomposition(self, initial_vectors=None):
+        raise RuntimeError("ZeroLazyTensors are not positive definite!")
+
+    def _root_decomposition_size(self):
+        raise RuntimeError("ZeroLazyTensors are not positive definite!")
+
     def _size(self):
         return torch.Size(self.sizes)
 
@@ -143,15 +152,6 @@ class ZeroLazyTensor(LazyTensor):
     def mul(self, other):
         shape = _mul_broadcast_shape(self.shape, other.shape)
         return self.__class__(*shape, dtype=self._dtype, device=self._device)
-
-    def root_decomposition(self):
-        raise RuntimeError("ZeroLazyTensors are not positive definite!")
-
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
-        raise RuntimeError("ZeroLazyTensors are not positive definite!")
-
-    def root_decomposition_size(self):
-        raise RuntimeError("ZeroLazyTensors are not positive definite!")
 
     def transpose(self, dim1, dim2):
         sizes = self.sizes.copy()

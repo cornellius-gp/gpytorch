@@ -69,6 +69,12 @@ class RootLazyTensor(LazyTensor):
             deriv.append(item_part_1 + item_part_2)
         return tuple(deriv)
 
+    def _root_decomposition(self):
+        return self.root
+
+    def _root_decomposition_size(self):
+        return self.root.size(-1)
+
     def _size(self):
         return torch.Size((*self.root.batch_shape, self.root.size(-2), self.root.size(-2)))
 
@@ -85,9 +91,3 @@ class RootLazyTensor(LazyTensor):
     def evaluate(self):
         eval_root = self.root.evaluate()
         return torch.matmul(eval_root, eval_root.transpose(-1, -2))
-
-    def root_decomposition_size(self):
-        return self.root.size(-1)
-
-    def root_decomposition(self):
-        return self
