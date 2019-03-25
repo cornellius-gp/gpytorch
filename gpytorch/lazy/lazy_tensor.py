@@ -954,8 +954,7 @@ class LazyTensor(ABC):
             - scalar - log determinant
         """
         # Special case: use Cholesky to compute these terms
-        if settings.fast_computations.log_prob.off() or \
-                (self.matrix_shape.numel() <= settings.max_cholesky_numel.value()):
+        if settings.fast_computations.log_prob.off() or (self.size(-1) <= settings.max_cholesky_size.value()):
             from .chol_lazy_tensor import CholLazyTensor
 
             cholesky = CholLazyTensor(self._cholesky())
@@ -1265,7 +1264,7 @@ class LazyTensor(ABC):
             )
 
         if (
-            self.matrix_shape.numel() <= settings.max_cholesky_numel.value()
+            self.size(-1) <= settings.max_cholesky_size.value()
             or settings.fast_computations.covar_root_decomposition.off()
         ):
             try:

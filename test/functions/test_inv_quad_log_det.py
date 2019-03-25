@@ -38,7 +38,7 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
         # Compute values with LazyTensor
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         with gpytorch.settings.num_trace_samples(2000), \
-                gpytorch.settings.max_cholesky_numel(0), \
+                gpytorch.settings.max_cholesky_size(0), \
                 gpytorch.settings.cg_tolerance(1e-5), \
                 gpytorch.settings.skip_logdet_forward(improper_logdet), \
                 patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:

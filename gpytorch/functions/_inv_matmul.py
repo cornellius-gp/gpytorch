@@ -6,7 +6,7 @@ from .. import settings
 
 
 def _solve(lazy_tsr, rhs, preconditioner):
-    if settings.fast_computations.solves.off() or lazy_tsr.matrix_shape.numel() <= settings.max_cholesky_numel.value():
+    if settings.fast_computations.solves.off() or lazy_tsr.size(-1) <= settings.max_cholesky_size.value():
         return lazy_tsr._cholesky()._cholesky_solve(rhs)
     else:
         return lazy_tsr._solve(rhs, preconditioner)

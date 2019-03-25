@@ -354,14 +354,14 @@ class _use_eval_tolerance(_feature_flag):
     _state = False
 
 
-class max_cholesky_numel(_value_context):
+class max_cholesky_size(_value_context):
     """
-    If the number of elements of a LazyTensor is less than `max_cholesky_numel`,
+    If the size of of a LazyTensor is less than `max_cholesky_size`,
     then the `root_decomposition` of LazyTensor will use Cholesky rather than Lanczos.
-    Default: 256
+    Default: 128
     """
 
-    _global_value = 256
+    _global_value = 128
 
 
 class max_root_decomposition_size(_value_context):

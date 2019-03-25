@@ -83,7 +83,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
-            with gpytorch.settings.max_cholesky_numel(math.inf if cholesky else 0), \
+            with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), \
                     gpytorch.settings.cg_tolerance(1e-4):
                 with warnings.catch_warnings(record=True) as w:
                     # Perform the inv_matmul

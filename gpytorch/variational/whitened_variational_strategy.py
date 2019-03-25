@@ -120,8 +120,7 @@ class WhitenedVariationalStrategy(VariationalStrategy):
 
             # If we're less than a certain size, we'll compute the Cholesky decomposition of induc_induc_covar
             cholesky = False
-            numel = induc_induc_covar.numel()
-            if settings.fast_computations.log_prob.off() or (numel <= settings.max_cholesky_numel.value()):
+            if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
                 induc_induc_covar = CholLazyTensor(induc_induc_covar._cholesky())
                 cholesky = True
 
