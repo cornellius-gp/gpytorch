@@ -357,7 +357,7 @@ class _use_eval_tolerance(_feature_flag):
 class max_cholesky_size(_value_context):
     """
     If the size of of a LazyTensor is less than `max_cholesky_size`,
-    then the `root_decomposition` of LazyTensor will use Cholesky rather than Lanczos.
+    then `root_decomposition` and `inv_matmul` of LazyTensor will use Cholesky rather than Lanczos/CG.
     Default: 128
     """
 
