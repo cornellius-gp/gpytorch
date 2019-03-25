@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+from torch import Tensor
 from torch.nn import Parameter
 from torch.nn.functional import softplus
 
@@ -108,3 +109,12 @@ class HeteroskedasticNoise(Module):
         # will return a batched DiagLazyTensors of size n x num_tasks x num_tasks
         noise_diag = output.mean if self._noise_indices is None else output.mean[..., self._noise_indices]
         return DiagLazyTensor(self._noise_transform(noise_diag))
+
+
+class FixedGaussianNoise(Module):
+    def __init__(self, noise: Tensor) -> None:
+        super().__init__()
+        self.register_buffer("noise", noise)
+
+    def forward(self, *params, **kwargs) -> DiagLazyTensor:
+        return DiagLazyTensor(self.noise)
