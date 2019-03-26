@@ -3,7 +3,6 @@
 import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
 from .. import settings
-import warnings
 
 
 class VariationalELBO(MarginalLogLikelihood):
