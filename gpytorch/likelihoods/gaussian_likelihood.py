@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 
 import math
-
-from torch.nn.functional import softplus
+import warnings
 
 from .. import settings
 from ..likelihoods import Likelihood
 from ..distributions import base_distributions
+from ..constraints import Positive
 from .noise_models import HomoskedasticNoise
 
 
 class _GaussianLikelihoodBase(Likelihood):
     """Base class for Gaussian Likelihoods, supporting general heteroskedastic noise models. """
 
-    def __init__(self, noise_covar):
+    def __init__(self, noise_covar, param_transform=None, inv_param_transform=None, **kwargs):
         super().__init__()
+        if param_transform is not None:
+            warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
+                          "transformaton, specify a different 'lengthscale_constraint' instead.")
+
         self.noise_covar = noise_covar
 
     def _shaped_noise_covar(self, base_shape, *params):
@@ -38,20 +42,13 @@ class _GaussianLikelihoodBase(Likelihood):
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
-    def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, **kwargs):
+    def __init__(self, noise_prior=None, noise_constraint=Positive(), batch_size=1, **kwargs):
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior,
+            noise_constraint=noise_constraint,
             batch_size=batch_size,
-            param_transform=param_transform,
-            inv_param_transform=inv_param_transform,
         )
         super().__init__(noise_covar=noise_covar)
-
-    def _param_transform(self, value):
-        return self.noise_covar._param_transform(value)
-
-    def _inv_param_transform(self, value):
-        return self.noise_covar._inv_param_transform(value)
 
     @property
     def noise(self):

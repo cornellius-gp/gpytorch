@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
-from torch.nn.functional import softplus
+import warnings
 
 from .. import settings
+from ..constraints import Positive
 from ..functions import add_diag
 from ..lazy import (
     lazify,
@@ -14,14 +15,23 @@ from ..lazy import (
     RootLazyTensor,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
-from ..utils.transforms import _get_inv_param_transform
 from .noise_models import MultitaskHomoskedasticNoise
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
     """Base class for multi-task Gaussian Likelihoods, supporting general heteroskedastic noise models. """
 
-    def __init__(self, num_tasks, noise_covar, rank=0, task_correlation_prior=None, batch_size=1):
+    def __init__(
+        self,
+        num_tasks,
+        noise_covar,
+        rank=0,
+        task_correlation_prior=None,
+        batch_size=1,
+        param_transform=None,
+        inv_param_transform=None,
+        **kwargs,
+    ):
         """
         Args:
             num_tasks (int):
@@ -37,6 +47,10 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             batch_size (int):
                 Number of batches.
         """
+        if param_transform is not None:
+            warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
+                          "transformaton, specify a different 'lengthscale_constraint' instead.")
+
         super().__init__(noise_covar=noise_covar)
         if rank != 0:
             self.register_parameter(
@@ -123,8 +137,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         task_correlation_prior=None,
         batch_size=1,
         noise_prior=None,
-        param_transform=softplus,
-        inv_param_transform=None,
+        noise_constraint=Positive(),
         **kwargs
     ):
         """
@@ -141,9 +154,8 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         noise_covar = MultitaskHomoskedasticNoise(
             num_tasks=num_tasks,
             noise_prior=noise_prior,
+            noise_constraint=noise_constraint,
             batch_size=batch_size,
-            param_transform=param_transform,
-            inv_param_transform=inv_param_transform,
         )
         super().__init__(
             num_tasks=num_tasks,
@@ -151,14 +163,15 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             rank=rank,
             task_correlation_prior=task_correlation_prior,
             batch_size=batch_size,
+            **kwargs,
         )
-        self._param_transform = param_transform
-        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
+
         self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
+        self.register_constraint("noise_constraint", Positive())
 
     @property
     def noise(self):
-        return self._param_transform(self.raw_noise)
+        return self.noise_constraint.transform(self.raw_noise)
 
     @noise.setter
     def noise(self, value):
@@ -167,7 +180,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     def _set_noise(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_noise=self._inv_param_transform(value))
+        self.initialize(raw_noise=self.noise_constraint.inverse_transform(value))
 
     def _shaped_noise_covar(self, base_shape, *params):
         noise_covar = super()._shaped_noise_covar(base_shape, *params)
@@ -199,8 +212,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         task_prior=None,
         batch_size=1,
         noise_prior=None,
-        param_transform=softplus,
-        inv_param_transform=None,
+        noise_constraint=Positive(),
         **kwargs
     ):
         """
@@ -215,8 +227,6 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
 
         """
         super(Likelihood, self).__init__()
-        self._param_transform = param_transform
-        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
         self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
         if rank == 0:
             self.register_parameter(
@@ -233,16 +243,18 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         self.num_tasks = num_tasks
         self.rank = rank
 
+        self.register_constraint("noise_constraint", noise_constraint)
+
     @property
     def noise(self):
-        return self._param_transform(self.raw_noise)
+        return self.noise_constraint.transform(self.raw_noise)
 
     @noise.setter
     def noise(self, value):
         self._set_noise(value)
 
     def _set_noise(self, value):
-        self.initialize(raw_noise=self._inv_param_transform(value))
+        self.initialize(raw_noise=self.noise_constraint.inverse_transform(value))
 
     def _eval_covar_matrix(self):
         covar_factor = self.task_noise_covar_factor
@@ -276,7 +288,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
 
         if self.rank == 0:
-            task_noises = self._param_transform(self.raw_task_noises)
+            task_noises = self.noise_constraint.transform(self.raw_task_noises)
             if covar.ndimension() == 2:
                 if settings.debug.on() and task_noises.size(0) > 1:
                     raise RuntimeError(

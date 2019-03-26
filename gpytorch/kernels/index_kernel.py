@@ -3,6 +3,7 @@
 import torch
 from .kernel import Kernel
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from ..constraints import Positive
 
 
 class IndexKernel(Kernel):
@@ -28,11 +29,8 @@ class IndexKernel(Kernel):
             Rank of :math:`B` matrix.
         :attr:`prior` (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
-        :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than softplus to ensure positiveness of parameters.
-        :attr:`inv_param_transform` (function, optional):
-            Set this to allow setting parameters directly in transformed space and sampling from priors.
-            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
+        :attr:`var_constraint` (Constraint, optional):
+            Constraint for added diagonal component. Default: `Positive`.
 
     Attributes:
         covar_factor:
@@ -46,6 +44,7 @@ class IndexKernel(Kernel):
         num_tasks,
         rank=1,
         prior=None,
+        var_constraint=Positive(),
         **kwargs
     ):
         if rank > num_tasks:
@@ -59,16 +58,18 @@ class IndexKernel(Kernel):
         if prior is not None:
             self.register_prior("IndexKernelPrior", prior, self._eval_covar_matrix)
 
+        self.register_constraint("var_constraint", var_constraint)
+
     @property
     def var(self):
-        return self._param_transform(self.raw_var)
+        return self.var_constraint.transform(self.raw_var)
 
     @var.setter
     def var(self, value):
         self._set_var(value)
 
     def _set_var(self, value):
-        self.initialize(log_var=self._inv_param_transform(value))
+        self.initialize(raw_var=self.var_constraint.inverse_transform(value))
 
     def _eval_covar_matrix(self):
         var = self.var

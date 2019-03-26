@@ -1,14 +1,14 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
+#!/usr/bin/env python3
 
 import torch
 
 
 def inv_softplus(x):
     return torch.log(torch.exp(x) - 1)
+
+
+def inv_sigmoid(x):
+    return torch.log(x / (1 - x))
 
 
 def _get_inv_param_transform(param_transform, inv_param_transform=None):
@@ -22,4 +22,8 @@ def _get_inv_param_transform(param_transform, inv_param_transform=None):
     return reg_inv_tf
 
 
-TRANSFORM_REGISTRY = {torch.exp: torch.log, torch.nn.functional.softplus: inv_softplus}
+TRANSFORM_REGISTRY = {
+    torch.exp: torch.log,
+    torch.nn.functional.softplus: inv_softplus,
+    torch.nn.functional.sigmoid: inv_sigmoid,
+}

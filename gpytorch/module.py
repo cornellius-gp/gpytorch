@@ -8,6 +8,7 @@ from torch.distributions import Distribution
 
 from .lazy import LazyTensor
 from .utils.deprecation import DeprecationError
+from .constraints import Interval
 
 
 class Module(nn.Module):
@@ -15,6 +16,7 @@ class Module(nn.Module):
         super().__init__()
         self._added_loss_terms = OrderedDict()
         self._priors = OrderedDict()
+        self._constraints = OrderedDict()
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
@@ -121,6 +123,9 @@ class Module(nn.Module):
         """
         return _extract_named_priors(module=self, memo=None, prefix="")
 
+    def named_constraints(self, memo=None, prefix=""):
+        return _extract_named_constraints(module=self, memo=None, prefix="")
+
     def named_variational_parameters(self):
         for name, param in self.named_parameters():
             if "variational_" in name:
@@ -194,6 +199,20 @@ class Module(nn.Module):
             closure = param_or_closure
         self.add_module(name, prior)
         self._priors[name] = (prior, closure, setting_closure)
+
+    def register_constraint(self, name, constraint, replace=True):
+        if name in self._constraints:
+            current_constraint = self._constraints[name]
+        else:
+            current_constraint = None
+
+        if isinstance(current_constraint, Interval) and not replace:
+            new_constraint = constraint.intersect(current_constraint)
+        else:
+            new_constraint = constraint
+
+        self.add_module(name, new_constraint)
+        self._constraints[name] = new_constraint
 
     def sample_from_prior(self, prior_name):
         """Sample parameter values from prior. Modifies the module's parameters in-place."""
@@ -275,3 +294,18 @@ def _extract_named_priors(module, memo=None, prefix=""):
         submodule_prefix = prefix + ("." if prefix else "") + mname
         for name, prior, closure, inv_closure in _extract_named_priors(module_, memo=memo, prefix=submodule_prefix):
             yield name, prior, closure, inv_closure
+
+
+def _extract_named_constraints(module, memo=None, prefix=""):
+    if memo is None:
+        memo = set()
+    if hasattr(module, "_constraints"):
+        for name, constraint in module._constraints.items():
+            if constraint is not None and constraint not in memo:
+                memo.add(constraint)
+                full_name = ("." if prefix else "").join([prefix, name])
+                yield full_name, constraint
+    for mname, module_ in module.named_children():
+        submodule_prefix = prefix + ("." if prefix else "") + mname
+        for name, constriant in _extract_named_constraints(module_, memo=memo, prefix=submodule_prefix):
+            yield name, constraint

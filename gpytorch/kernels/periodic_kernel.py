@@ -3,6 +3,7 @@
 import math
 import torch
 from .kernel import Kernel
+from ..constraints import Positive
 
 
 class PeriodicKernel(Kernel):
@@ -42,11 +43,10 @@ class PeriodicKernel(Kernel):
             Set this if you want to apply a prior to the period length parameter.  Default: `None`.
         :attr:`lengthscale_prior` (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
-        :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than softplus to ensure positiveness of parameters.
-        :attr:`inv_param_transform` (function, optional):
-            Set this to allow setting parameters directly in transformed space and sampling from priors.
-            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
+        :attr:`lengthscale_constraint` (Constraint, optional):
+            Set this if you want to apply a constraint to the value of the lengthscale. Default: `Positive`.
+        :attr:`period_length_constraint` (Constraint, optional):
+            Set this if you want to apply a constraint to the value of the period length. Default: `Positive`.
         :attr:`eps` (float):
             The minimum value that the lengthscale/period length can take
             (prevents divide by zero errors). Default: `1e-6`.
@@ -70,7 +70,7 @@ class PeriodicKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(self, period_length_prior=None, **kwargs):
+    def __init__(self, period_length_prior=None, period_length_constraint=Positive(), **kwargs):
         super(PeriodicKernel, self).__init__(has_lengthscale=True, **kwargs)
         self.register_parameter(
             name="raw_period_length",
@@ -84,9 +84,11 @@ class PeriodicKernel(Kernel):
                 lambda v: self._set_period_length(v),
             )
 
+        self.register_constraint("period_length_constraint", period_length_constraint)
+
     @property
     def period_length(self):
-        return self._param_transform(self.raw_period_length).clamp(self.eps, 1e5)
+        return self.period_length_constraint.transform(self.raw_period_length)
 
     @period_length.setter
     def period_length(self, value):
@@ -95,7 +97,7 @@ class PeriodicKernel(Kernel):
     def _set_period_length(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_period_length=self._inv_param_transform(value))
+        self.initialize(raw_period_length=self.period_length_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)

@@ -6,10 +6,10 @@ from torch.nn import ModuleList
 from ..lazy import lazify, delazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
 from .. import settings
-from ..utils.transforms import _get_inv_param_transform
 from ..utils.deprecation import _deprecate_kwarg_with_transform
-from torch.nn.functional import softplus
 from ..utils import broadcasting
+from ..constraints import Positive
+import warnings
 
 
 @torch.jit.script
@@ -107,11 +107,8 @@ class Kernel(Module):
             corresponds to the indices of the dimensions. Default: `None`.
         :attr:`lengthscale_prior` (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than softplus to ensure positiveness of parameters.
-        :attr:`inv_param_transform` (function, optional):
-            Set this to allow setting parameters directly in transformed space and sampling from priors.
-            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
+        :attr:`lengthscale_constraint` (Constraint, optional):
+            Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
         :attr:`eps` (float):
             The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
@@ -134,7 +131,8 @@ class Kernel(Module):
         batch_shape=torch.Size([1]),
         active_dims=None,
         lengthscale_prior=None,
-        param_transform=softplus,
+        lengthscale_constraint=Positive(),
+        param_transform=None,
         inv_param_transform=None,
         eps=1e-6,
         **kwargs
@@ -150,9 +148,11 @@ class Kernel(Module):
         )
 
         self.__has_lengthscale = has_lengthscale
-        self._param_transform = param_transform
-        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
         self.eps = eps
+
+        if param_transform is not None:
+            warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
+                          "transformaton, specify a different 'lengthscale_constraint' instead.")
 
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
@@ -164,6 +164,8 @@ class Kernel(Module):
                 self.register_prior(
                     "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
                 )
+
+            self.register_constraint("lengthscale_constraint", lengthscale_constraint)
 
         self.distance_module = None
         # TODO: Remove this on next official PyTorch release.
@@ -185,7 +187,7 @@ class Kernel(Module):
     @property
     def lengthscale(self):
         if self.has_lengthscale:
-            return self._param_transform(self.raw_lengthscale).clamp(self.eps, 1e5)
+            return self.lengthscale_constraint.transform(self.raw_lengthscale)
         else:
             return None
 
@@ -199,7 +201,8 @@ class Kernel(Module):
 
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_lengthscale=self._inv_param_transform(value))
+
+        self.initialize(raw_lengthscale=self.lengthscale_constraint.inverse_transform(value))
 
     def size(self, x1, x2):
         expected_size = broadcasting._matmul_broadcast_shape(

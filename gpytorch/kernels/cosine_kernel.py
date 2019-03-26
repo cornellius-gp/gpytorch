@@ -3,6 +3,7 @@
 import math
 import torch
 from .kernel import Kernel
+from ..constraints import Positive
 
 
 class CosineKernel(Kernel):
@@ -26,16 +27,13 @@ class CosineKernel(Kernel):
         :attr:`active_dims` (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`log_period_length_prior` (Prior, optional):
+        :attr:`period_length_prior` (Prior, optional):
             Set this if you want to apply a prior to the period length parameter.  Default: `None`
+        :attr:`period_length_constraint` (Constraint, optional):
+            Set this if you want to apply a constraint to the period length parameter. Default: `Positive`.
         :attr:`eps` (float):
             The minimum value that the lengthscale/period length can take
             (prevents divide by zero errors). Default: `1e-6`.
-        :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than softplus to ensure positiveness of parameters.
-        :attr:`inv_param_transform` (function, optional):
-            Set this to allow setting parameters directly in transformed space and sampling from priors.
-            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
 
     Attributes:
         :attr:`period_length` (Tensor):
@@ -54,7 +52,7 @@ class CosineKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(self, period_length_prior=None, **kwargs):
+    def __init__(self, period_length_prior=None, period_length_constraint=Positive(), **kwargs):
         super(CosineKernel, self).__init__(**kwargs)
 
         self.register_parameter(
@@ -69,9 +67,11 @@ class CosineKernel(Kernel):
                 lambda v: self._set_period_length(v),
             )
 
+        self.register_constraint("period_length_constraint", period_length_constraint)
+
     @property
     def period_length(self):
-        return self._param_transform(self.raw_period_length).clamp(self.eps, 1e5)
+        return self.period_length_constraint.transform(self.raw_period_length)
 
     @period_length.setter
     def period_length(self, value):
@@ -80,7 +80,8 @@ class CosineKernel(Kernel):
     def _set_period_length(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_period_length=self._inv_param_transform(value))
+
+        self.initialize(raw_period_length=self.period_length_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)

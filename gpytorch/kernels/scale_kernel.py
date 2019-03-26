@@ -3,6 +3,7 @@
 import torch
 from .kernel import Kernel
 from ..lazy import delazify
+from ..constraints import Positive
 
 
 class ScaleKernel(Kernel):
@@ -33,11 +34,8 @@ class ScaleKernel(Kernel):
             if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`
         :attr:`outputscale_prior` (Prior, optional): Set this if you want to apply a prior to the outputscale
             parameter.  Default: `None`
-        :attr:`param_transform` (function, optional):
-            Set this if you want to use something other than softplus to ensure positiveness of parameters.
-        :attr:`inv_param_transform` (function, optional):
-            Set this to allow setting parameters directly in transformed space and sampling from priors.
-            Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
+        :attr:`outputscale_constraint` (Constraint, optional): Set this if you want to apply a constraint to the
+            outputscale parameter. Default: `Positive`.
 
     Attributes:
         :attr:`base_kernel` (Kernel):
@@ -52,7 +50,7 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
 
-    def __init__(self, base_kernel, outputscale_prior=None, **kwargs):
+    def __init__(self, base_kernel, outputscale_prior=None, outputscale_constraint=Positive(), **kwargs):
         super(ScaleKernel, self).__init__(has_lengthscale=False, **kwargs)
         self.base_kernel = base_kernel
         self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape)))
@@ -61,9 +59,12 @@ class ScaleKernel(Kernel):
                 "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)
             )
 
+        self.register_constraint("outputscale_constraint", outputscale_constraint)
+
     @property
     def outputscale(self):
-        return self._param_transform(self.raw_outputscale)
+        constraint = self._constraints["outputscale_constraint"]
+        return constraint.transform(self.raw_outputscale)
 
     @outputscale.setter
     def outputscale(self, value):
@@ -72,7 +73,8 @@ class ScaleKernel(Kernel):
     def _set_outputscale(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_outputscale=self._inv_param_transform(value))
+        constraint = self._constraints["outputscale_constraint"]
+        self.initialize(raw_outputscale=constraint.inverse_transform(value))
 
     def forward(self, x1, x2, batch_dims=None, diag=False, **params):
         outputscales = self.outputscale
