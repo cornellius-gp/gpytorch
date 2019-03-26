@@ -10,6 +10,7 @@ from .cat_lazy_tensor import CatLazyTensor
 from .chol_lazy_tensor import CholLazyTensor
 from .constant_mul_lazy_tensor import ConstantMulLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
+from .half_non_lazy_tensor import HalfNonLazyTensor
 from .interpolated_lazy_tensor import InterpolatedLazyTensor
 from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
 from .lazy_evaluated_kernel_tensor import LazyEvaluatedKernelTensor
@@ -38,6 +39,7 @@ __all__ = [
     "CholLazyTensor",
     "ConstantMulLazyTensor",
     "DiagLazyTensor",
+    "HalfNonLazyTensor",
     "InterpolatedLazyTensor",
     "KroneckerProductLazyTensor",
     "MatmulLazyTensor",
