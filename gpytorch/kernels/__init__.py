@@ -6,6 +6,7 @@ from .multi_device_kernel import MultiDeviceKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .grid_kernel import GridKernel
 from .index_kernel import IndexKernel
+from .half_matern_kernel import HalfMaternKernel
 from .half_rbf_kernel import HalfRBFKernel
 from .inducing_point_kernel import InducingPointKernel
 from .kernel import AdditiveKernel, Kernel, ProductKernel
@@ -30,6 +31,7 @@ __all__ = [
     "CosineKernel",
     "GridKernel",
     "GridInterpolationKernel",
+    "HalfMaternKernel",
     "HalfRBFKernel",
     "IndexKernel",
     "InducingPointKernel",
