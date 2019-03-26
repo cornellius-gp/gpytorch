@@ -317,7 +317,6 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
             fant_model = gp_model.get_fantasy_model(fantasy_x, train_y[5:])
             fant_function_predictions = likelihood(fant_model(test_x))
 
-        for _ in range(50):
             self.assertAllClose(test_function_predictions.mean, fant_function_predictions.mean, atol=1e-4)
 
             fant_function_predictions.mean.sum().backward()
