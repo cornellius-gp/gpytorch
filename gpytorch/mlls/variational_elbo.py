@@ -27,10 +27,9 @@ class VariationalELBO(MarginalLogLikelihood):
         if len(variational_dist_u.batch_shape) < len(prior_dist.batch_shape):
             variational_dist_u = variational_dist_u.expand(prior_dist.batch_shape)
 
-        log_likelihood = self.likelihood.variational_log_probability(variational_dist_f, target, **kwargs).div(
+        log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs).div(
             num_batch
         )
-
         kl_divergence = self.model.variational_strategy.kl_divergence()
 
         if kl_divergence.dim() > log_likelihood.dim():
@@ -71,7 +70,7 @@ class VariationalELBOEmpirical(VariationalELBO):
         variational_dist_u = self.model.variational_strategy.variational_distribution.variational_distribution
         prior_dist = self.model.variational_strategy.prior_distribution
 
-        log_likelihood = self.likelihood.variational_log_probability(variational_dist_f, target, **kwargs)
+        log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs)
         log_likelihood = log_likelihood.div(num_batch)
 
         num_samples = settings.num_likelihood_samples.value()
