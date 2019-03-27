@@ -173,6 +173,8 @@ def linear_cg(
         # precon_residual{0} = M^-1 residual_{0}
         precond_residual = preconditioner(residual)
         curr_conjugate_vec = precond_residual
+        if settings.use_fp16:
+            curr_conjugate_vec_half = curr_conjugate_vec.half()
         residual_inner_prod = precond_residual.mul(residual).sum(-2, keepdim=True)
 
         # Define storage matrices
@@ -201,7 +203,7 @@ def linear_cg(
     for k in range(n_iter):
         # Get next alpha
         # alpha_{k} = (residual_{k-1}^T precon_residual{k-1}) / (p_vec_{k-1}^T mat p_vec_{k-1})
-        mvms = matmul_closure(curr_conjugate_vec)
+        mvms = matmul_closure(curr_conjugate_vec if not settings.use_fp16 else curr_conjugate_vec_half)
         if precond:
             torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
             torch.sum(mul_storage, -2, keepdim=True, out=alpha)
@@ -251,6 +253,8 @@ def linear_cg(
                 curr_conjugate_vec,
             )
 
+        if settings.use_fp16: curr_conjugate_vec_half = curr_conjugate_vec.half()
+
         torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
@@ -294,7 +298,7 @@ def linear_cg(
             " If performance is affected, consider raising the maximum number of CG iterations by running code in"
             " a gpytorch.settings.max_cg_iterations(value) context.".format(k + 1, residual_norm.mean(), tolerance)
         )
-    print('Final CG residual norm after {} iterations: {}'.format(residual_norm.mean().item(), k))
+    print('Final CG residual norm after {} iterations: {}'.format(k, residual_norm.mean().item()))
 
     if is_vector:
         result = result.squeeze(-1)

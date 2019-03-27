@@ -490,3 +490,11 @@ class use_toeplitz(_feature_flag):
     """
 
     _state = True
+
+class use_fp16(_feature_flag):
+    """
+    Whether or not to use FP16 precision for computing the covariance matrix and matrix
+    multiplications.
+    """
+
+    _state = False
