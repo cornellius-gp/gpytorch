@@ -1,6 +1,6 @@
-from torch import Tensor
+from torch import FloatTensor
 
-class DualPrecisionTensor(Tensor):
+class DualPrecisionTensor(FloatTensor):
     def __init__(self, float_tensor):
         self.float_tensor = float_tensor.float()
         self.half_tensor = float_tensor.half()
@@ -9,4 +9,4 @@ class DualPrecisionTensor(Tensor):
         return self.half_tensor
 
     def __getattr__(self, name):
-        return float_tensor.__getattr__(name)
+        return self.float_tensor.__getattr__(name)
