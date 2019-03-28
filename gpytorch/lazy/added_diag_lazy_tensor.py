@@ -37,7 +37,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         return torch.addcmul(
             self._lazy_tensor._matmul(rhs),
             self._diag_tensor._diag.unsqueeze(-1),
-            rhs
+            rhs.float()
         )
 
     def add_diag(self, added_diag):
