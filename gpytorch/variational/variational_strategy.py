@@ -176,10 +176,6 @@ class VariationalStrategy(Module):
                 diag_correction = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
                 predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
 
-            # Save the logdet, mean_diff_inv_quad, prior distribution for the ELBO
-            if self.training:
-                self._memoize_cache["prior_distribution_memo"] = MultivariateNormal(induc_mean, induc_induc_covar)
-
             return MultivariateNormal(predictive_mean, predictive_covar)
 
     def __call__(self, x):
