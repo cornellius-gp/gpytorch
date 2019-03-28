@@ -174,6 +174,7 @@ def linear_cg(
         precond_residual = preconditioner(residual)
         curr_conjugate_vec = precond_residual
         if settings.use_fp16:
+            print(type(curr_conjugate_vec))
             curr_conjugate_vec = DualPrecisionTensor(curr_conjugate_vec)
         residual_inner_prod = precond_residual.mul(residual).sum(-2, keepdim=True)
 
