@@ -11,6 +11,7 @@ from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
+from gpytorch.constraints import Positive
 from torch import optim
 from test._base_test_case import BaseTestCase
 
@@ -44,7 +45,10 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
     def test_prior(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
         # We're manually going to set the hyperparameters to be ridiculous
-        likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
+        likelihood = GaussianLikelihood(
+            noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1),
+            noise_constraint=Positive(),  # Prior for this test is looser than default bound
+        )
         gp_model = ExactGPModel(None, None, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
         gp_model.covar_module.base_kernel.register_prior(
@@ -99,7 +103,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
     def test_posterior_latent_gp_and_likelihood_without_optimization(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
         # We're manually going to set the hyperparameters to be ridiculous
-        likelihood = GaussianLikelihood()
+        likelihood = GaussianLikelihood(noise_constraint=Positive())  # This test actually wants a noise < 1e-4
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         gp_model.covar_module.base_kernel.initialize(lengthscale=exp(-15))
         likelihood.initialize(noise=exp(-15))

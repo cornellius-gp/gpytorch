@@ -4,7 +4,7 @@ import torch
 import warnings
 
 from .. import settings
-from ..constraints import Positive
+from ..constraints import GreaterThan
 from ..functions import add_diag
 from ..lazy import (
     lazify,
@@ -137,7 +137,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         task_correlation_prior=None,
         batch_size=1,
         noise_prior=None,
-        noise_constraint=Positive(),
+        noise_constraint=GreaterThan(1e-4),
         **kwargs
     ):
         """
@@ -160,6 +160,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         super().__init__(
             num_tasks=num_tasks,
             noise_covar=noise_covar,
+            noise_constraint=GreaterThan(1e-4),
             rank=rank,
             task_correlation_prior=task_correlation_prior,
             batch_size=batch_size,
@@ -167,7 +168,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         )
 
         self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
-        self.register_constraint("noise_constraint", Positive())
+        self.register_constraint("noise_constraint", noise_constraint)
 
     @property
     def noise(self):
@@ -212,7 +213,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         task_prior=None,
         batch_size=1,
         noise_prior=None,
-        noise_constraint=Positive(),
+        noise_constraint=GreaterThan(1e-4),
         **kwargs
     ):
         """

@@ -82,9 +82,9 @@ class Interval(Module):
         transformed_tensor = self._transform(tensor)
 
         upper_bound = self.upper_bound.clone()
-        upper_bound[upper_bound == math.inf] = 1
+        upper_bound[upper_bound == math.inf] = 1.
         lower_bound = self.lower_bound.clone()
-        lower_bound[lower_bound == -math.inf] = 0
+        lower_bound[lower_bound == -math.inf] = 0.
 
         transformed_tensor = transformed_tensor * upper_bound
         transformed_tensor = transformed_tensor + lower_bound

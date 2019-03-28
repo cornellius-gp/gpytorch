@@ -6,7 +6,7 @@ import warnings
 from .. import settings
 from ..likelihoods import Likelihood
 from ..distributions import base_distributions
-from ..constraints import Positive
+from ..constraints import GreaterThan
 from .noise_models import HomoskedasticNoise
 
 
@@ -42,7 +42,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
-    def __init__(self, noise_prior=None, noise_constraint=Positive(), batch_size=1, **kwargs):
+    def __init__(self, noise_prior=None, noise_constraint=GreaterThan(1e-4), batch_size=1, **kwargs):
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
