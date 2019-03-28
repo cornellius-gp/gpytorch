@@ -12,7 +12,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
 from torch import optim
-from .._base_test_case import BaseTestCase
+from test._base_test_case import BaseTestCase
 
 
 def train_data(cuda=False):

@@ -12,7 +12,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from torch import optim
-from .._base_test_case import BaseTestCase
+from test._base_test_case import BaseTestCase
 
 
 class ExactGPModel(gpytorch.models.ExactGP):

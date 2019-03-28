@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import gpytorch
 import torch
-from .._base_test_case import BaseTestCase
+from test._base_test_case import BaseTestCase
 
 
 class RectangularLazyTensorTestCase(BaseTestCase):
