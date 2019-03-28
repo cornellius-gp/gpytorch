@@ -307,5 +307,5 @@ def _extract_named_constraints(module, memo=None, prefix=""):
                 yield full_name, constraint
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
-        for name, constriant in _extract_named_constraints(module_, memo=memo, prefix=submodule_prefix):
+        for name, constraint in _extract_named_constraints(module_, memo=memo, prefix=submodule_prefix):
             yield name, constraint
