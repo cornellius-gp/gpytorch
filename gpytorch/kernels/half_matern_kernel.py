@@ -9,7 +9,7 @@ class HalfMaternKernel(MaternKernel):
     def forward(self, x1, x2, **params):
         if not settings.use_fp16_kernel.on():
             base_out = super().forward(x1, x2, **params)
-            return HalfNonLazyTensor(base_out.half())
+            return HalfNonLazyTensor(base_out.half().float())
 
         else:
             if (
