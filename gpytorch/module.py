@@ -41,6 +41,10 @@ class Module(nn.Module):
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
 
+    def constraints(self):
+        for _, constraint in self.named_constraints():
+            yield constraint
+
     def hyperparameters(self):
         for _, param in self.named_hyperparameters():
             yield param
