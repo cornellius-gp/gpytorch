@@ -1,6 +1,8 @@
+import math
+import torch
+from ..functions import MaternCovariance
 from .matern_kernel import MaternKernel
 from ..lazy import HalfNonLazyTensor
-
 
 class HalfMaternKernel(MaternKernel):
     # def forward(self, x1, x2, **params):
