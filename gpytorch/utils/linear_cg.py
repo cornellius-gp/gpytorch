@@ -173,7 +173,7 @@ def linear_cg(
         # precon_residual{0} = M^-1 residual_{0}
         precond_residual = preconditioner(residual)
         curr_conjugate_vec = precond_residual
-        if settings.use_fp16:
+        if settings.use_fp16.on():
             curr_conjugate_vec = DualPrecisionTensor(curr_conjugate_vec)
         residual_inner_prod = precond_residual.mul(residual).sum(-2, keepdim=True)
 
@@ -254,7 +254,7 @@ def linear_cg(
                 curr_conjugate_vec,
             )
 
-        if settings.use_fp16:
+        if settings.use_fp16.on():
             curr_conjugate_vec = DualPrecisionTensor(curr_conjugate_vec)
 
         torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
