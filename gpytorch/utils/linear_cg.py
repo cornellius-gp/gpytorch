@@ -172,9 +172,9 @@ def linear_cg(
         # precon_residual{0} = M^-1 residual_{0}
         precond_residual = preconditioner(residual)
         curr_conjugate_vec = precond_residual
-        if settings.use_fp16_mult.on():
-            curr_conjugate_vec_half = curr_conjugate_vec.half()
-            curr_conjugate_vec.half = lambda: curr_conjugate_vec_half
+        # if settings.use_fp16_mult.on():
+        #     curr_conjugate_vec_half = curr_conjugate_vec.half()
+        #     curr_conjugate_vec.half = lambda: curr_conjugate_vec_half
         residual_inner_prod = precond_residual.mul(residual).sum(-2, keepdim=True)
 
         # Define storage matrices
@@ -253,9 +253,9 @@ def linear_cg(
                 curr_conjugate_vec,
             )
 
-        if settings.use_fp16_mult.on():
-            curr_conjugate_vec_half = curr_conjugate_vec.half()
-            curr_conjugate_vec.half = lambda: curr_conjugate_vec_half
+        # if settings.use_fp16_mult.on():
+        #     curr_conjugate_vec_half = curr_conjugate_vec.half()
+        #     curr_conjugate_vec.half = lambda: curr_conjugate_vec_half
 
         torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
         residual_norm.masked_fill_(rhs_is_zero, 0)
