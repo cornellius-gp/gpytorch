@@ -21,7 +21,7 @@ class HalfMaternKernel(MaternKernel):
             x1_ = (x1 - mean).div(self.lengthscale.half())
             x2_ = (x2 - mean).div(self.lengthscale.half())
             distance = self._covar_dist(x1_, x2_, **params)
-            exp_component = torch.exp(-math.sqrt(self.nu.half() * 2) * distance)
+            exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)
 
             if self.nu == 0.5:
                 constant_component = 1
@@ -30,5 +30,5 @@ class HalfMaternKernel(MaternKernel):
             elif self.nu == 2.5:
                 constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance ** 2)
             return constant_component * exp_component
-        return HalfNonLazyTensor(MaternCovariance().apply(x1, x2, self.lengthscale.half(), self.nu.half(),
+        return HalfNonLazyTensor(MaternCovariance().apply(x1, x2, self.lengthscale.half(), self.nu,
                                         lambda x1, x2: self._covar_dist(x1, x2, **params)))
