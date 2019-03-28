@@ -3,7 +3,6 @@
 import torch
 import warnings
 from .. import settings
-from ..utils.dual_precision import DualPrecisionTensor
 
 def _default_preconditioner(x):
     return x.clone()
