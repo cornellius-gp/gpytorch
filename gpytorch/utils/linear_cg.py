@@ -3,7 +3,7 @@
 import torch
 import warnings
 from .. import settings
-
+from ..utils.dual_precision import DualPrecisionTensor
 
 def _default_preconditioner(x):
     return x.clone()
@@ -174,7 +174,7 @@ def linear_cg(
         precond_residual = preconditioner(residual)
         curr_conjugate_vec = precond_residual
         if settings.use_fp16:
-            curr_conjugate_vec_half = curr_conjugate_vec.half()
+            curr_conjugate_vec = utils.DualPrecisionTensor(curr_conjugate_vec)
         residual_inner_prod = precond_residual.mul(residual).sum(-2, keepdim=True)
 
         # Define storage matrices
@@ -203,7 +203,7 @@ def linear_cg(
     for k in range(n_iter):
         # Get next alpha
         # alpha_{k} = (residual_{k-1}^T precon_residual{k-1}) / (p_vec_{k-1}^T mat p_vec_{k-1})
-        mvms = matmul_closure(curr_conjugate_vec if not settings.use_fp16 else curr_conjugate_vec_half)
+        mvms = matmul_closure(curr_conjugate_vec)
         if precond:
             torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
             torch.sum(mul_storage, -2, keepdim=True, out=alpha)
@@ -253,7 +253,8 @@ def linear_cg(
                 curr_conjugate_vec,
             )
 
-        if settings.use_fp16: curr_conjugate_vec_half = curr_conjugate_vec.half()
+        if settings.use_fp16:
+            curr_conjugate_vec = DualPrecisionTensor(curr_conjugate_vec)
 
         torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
         residual_norm.masked_fill_(rhs_is_zero, 0)
