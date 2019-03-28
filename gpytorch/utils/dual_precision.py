@@ -9,4 +9,4 @@ class DualPrecisionTensor(Tensor):
         return self.half_tensor
 
     def __getattr__(self, name):
-        return float_tensor.__getattr__(name)
+        return self.float_tensor.__getattr__(name)
