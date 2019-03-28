@@ -14,7 +14,6 @@ class MaternCovariance(torch.autograd.Function):
         # because covariance matrix is stationary.
         needs_grad = any(ctx.needs_input_grad)
         mean = x1.contiguous().view(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
-        print(x1.dtype, mean.dtype, lengthscale.dtype)
         x1_ = (x1 - mean).div(lengthscale)
         x2_ = (x2 - mean).div(lengthscale)
         scaled_unitless_dist = dist_func(x1_, x2_).mul_(math.sqrt(2 * nu))
