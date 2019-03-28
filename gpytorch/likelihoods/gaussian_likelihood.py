@@ -13,8 +13,9 @@ from .noise_models import HomoskedasticNoise
 class _GaussianLikelihoodBase(Likelihood):
     """Base class for Gaussian Likelihoods, supporting general heteroskedastic noise models. """
 
-    def __init__(self, noise_covar, param_transform=None, inv_param_transform=None, **kwargs):
+    def __init__(self, noise_covar, **kwargs):
         super().__init__()
+        param_transform = kwargs.get("param_transform")
         if param_transform is not None:
             warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
                           "transformaton, specify a different 'lengthscale_constraint' instead.")

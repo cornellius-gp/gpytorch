@@ -132,8 +132,6 @@ class Kernel(Module):
         active_dims=None,
         lengthscale_prior=None,
         lengthscale_constraint=Positive(),
-        param_transform=None,
-        inv_param_transform=None,
         eps=1e-6,
         **kwargs
     ):
@@ -149,6 +147,8 @@ class Kernel(Module):
 
         self.__has_lengthscale = has_lengthscale
         self.eps = eps
+
+        param_transform = kwargs.get("param_transform")
 
         if param_transform is not None:
             warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "

@@ -28,8 +28,6 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         rank=0,
         task_correlation_prior=None,
         batch_size=1,
-        param_transform=None,
-        inv_param_transform=None,
         **kwargs,
     ):
         """
@@ -47,6 +45,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             batch_size (int):
                 Number of batches.
         """
+        param_transform = kwargs.get("param_transform")
         if param_transform is not None:
             warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
                           "transformaton, specify a different 'lengthscale_constraint' instead.")

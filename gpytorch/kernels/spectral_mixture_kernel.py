@@ -243,6 +243,6 @@ class SpectralMixtureKernel(Kernel):
         # Sum over mixtures
         mixture_weights = self.mixture_weights
         while mixture_weights.dim() < res.dim():
-            mixture_weights.unsqueeze_(-1)
+            mixture_weights = mixture_weights.unsqueeze(-1)
         res = (res * mixture_weights).sum(1)
         return res
