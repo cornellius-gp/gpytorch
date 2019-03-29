@@ -1,6 +1,6 @@
 import torch
 from .non_lazy_tensor import NonLazyTensor
-
+from .. import settings
 
 class HalfNonLazyTensor(NonLazyTensor):
     def _get_indices(self, left_indices, right_indices, *batch_indices):
@@ -10,7 +10,7 @@ class HalfNonLazyTensor(NonLazyTensor):
         return super()._getitem(*indices)
 
     def _matmul(self, rhs):
-        return super()._matmul(rhs.half().float()).float()
+        return super().half().float()._matmul(rhs.half().float()).half().float()
 
     def _t_matmul(self, rhs):
         return super()._t_matmul(rhs.half().float()).float()
