@@ -10,7 +10,7 @@ class HalfNonLazyTensor(NonLazyTensor):
         return super()._getitem(*indices)
 
     def _matmul(self, rhs):
-        return super().half().float()._matmul(rhs.half().float()).half().float()
+        return super()._matmul(rhs.half().float()).half().float()
 
     def _t_matmul(self, rhs):
         return super()._t_matmul(rhs.half().float()).float()
