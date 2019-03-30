@@ -1001,17 +1001,21 @@ class LazyTensor(ABC):
             args = [inv_quad_rhs] + list(args)
 
         probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
-        inv_quad_term, logdet_term = InvQuadLogDet(
-            representation_tree=self.representation_tree(),
-            matrix_shape=self.matrix_shape,
-            batch_shape=self.batch_shape,
-            dtype=self.dtype,
-            device=self.device,
-            inv_quad=(inv_quad_rhs is not None),
-            logdet=logdet,
-            probe_vectors=probe_vectors,
-            probe_vector_norms=probe_vector_norms,
-        )(*args)
+
+        func = InvQuadLogDet.apply
+
+        inv_quad_term, logdet_term = func(
+            self.representation_tree(),
+            self.dtype,
+            self.device,
+            self.matrix_shape,
+            self.batch_shape,
+            (inv_quad_rhs is not None),
+            logdet,
+            probe_vectors,
+            probe_vector_norms,
+            *args,
+        )
 
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
