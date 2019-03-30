@@ -5,17 +5,18 @@ from torch.autograd import Function
 from .. import settings
 
 
-def _solve(lazy_tsr, rhs, preconditioner):
-    if settings.fast_computations.solves.off() or lazy_tsr.size(-1) <= settings.max_cholesky_size.value():
-        return lazy_tsr._cholesky()._cholesky_solve(rhs)
-    else:
-        return lazy_tsr._solve(rhs, preconditioner)
-
-
 class InvMatmul(Function):
     def __init__(self, representation_tree, has_left=False):
         self.representation_tree = representation_tree
         self.has_left = has_left
+
+    def _solve(self, lazy_tsr, rhs):
+        if settings.fast_computations.solves.off() or lazy_tsr.size(-1) <= settings.max_cholesky_size.value():
+            return lazy_tsr._cholesky()._cholesky_solve(rhs)
+        else:
+            with torch.no_grad():
+                preconditioner = lazy_tsr.detach()._inv_matmul_preconditioner()
+            return lazy_tsr._solve(rhs, preconditioner)
 
     def forward(self, *args):
         left_tensor = None
@@ -28,9 +29,6 @@ class InvMatmul(Function):
         orig_right_tensor = right_tensor
         lazy_tsr = self.representation_tree(*matrix_args)
 
-        with torch.no_grad():
-            self.preconditioner = lazy_tsr.detach()._inv_matmul_preconditioner()
-
         self.is_vector = False
         if right_tensor.ndimension() == 1:
             right_tensor = right_tensor.unsqueeze(-1)
@@ -39,11 +37,11 @@ class InvMatmul(Function):
         # Perform solves (for inv_quad) and tridiagonalization (for estimating logdet)
         if self.has_left:
             rhs = torch.cat([left_tensor.transpose(-1, -2), right_tensor], -1)
-            solves = _solve(lazy_tsr, rhs, self.preconditioner)
+            solves = self._solve(lazy_tsr, rhs)
             res = solves[..., left_tensor.size(-2):]
             res = left_tensor @ res
         else:
-            solves = _solve(lazy_tsr, right_tensor, self.preconditioner)
+            solves = self._solve(lazy_tsr, right_tensor)
             res = solves
 
         if self.is_vector:
@@ -86,7 +84,7 @@ class InvMatmul(Function):
 
             if not self.has_left:
                 # Compute self^{-1} grad_output
-                left_solves = _solve(lazy_tsr, grad_output, self.preconditioner)
+                left_solves = self._solve(lazy_tsr, grad_output)
 
                 if any(self.needs_input_grad[1:]):
                     arg_grads = lazy_tsr._quad_form_derivative(left_solves, right_solves.mul(-1))
