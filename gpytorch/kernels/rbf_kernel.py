@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-from torch.nn.functional import softplus
 import torch
 from ..functions import RBFCovariance
 
@@ -35,9 +34,9 @@ class RBFKernel(Kernel):
         :attr:`ard_num_dims` (int, optional):
             Set this if you want a separate lengthscale for each
             input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
-        :attr:`batch_size` (int, optional):
+        :attr:`batch_shape` (torch.Size, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`.
+            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`.
         :attr:`active_dims` (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
@@ -54,7 +53,7 @@ class RBFKernel(Kernel):
     Attributes:
         :attr:`lengthscale` (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`ard_num_dims` and :attr:`batch_size` arguments.
+            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -68,31 +67,12 @@ class RBFKernel(Kernel):
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         >>> # Batch: different lengthscale for each batch
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_size=2))
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2])))
         >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
 
-    def __init__(
-        self,
-        ard_num_dims=None,
-        batch_size=1,
-        active_dims=None,
-        lengthscale_prior=None,
-        param_transform=softplus,
-        inv_param_transform=None,
-        eps=1e-6,
-        **kwargs
-    ):
-        super(RBFKernel, self).__init__(
-            has_lengthscale=True,
-            ard_num_dims=ard_num_dims,
-            batch_size=batch_size,
-            active_dims=active_dims,
-            lengthscale_prior=lengthscale_prior,
-            param_transform=param_transform,
-            inv_param_transform=inv_param_transform,
-            eps=eps,
-        )
+    def __init__(self, **kwargs):
+        super(RBFKernel, self).__init__(has_lengthscale=True, **kwargs)
 
     def forward(self, x1, x2, diag=False, **params):
         if (

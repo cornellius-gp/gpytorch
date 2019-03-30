@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import math
-import os
-import random
 import unittest
 from test._utils import least_used_cuda_device
+from .._base_test_case import BaseTestCase
 
 import torch
 from gpytorch.distributions import MultivariateNormal
@@ -12,18 +11,8 @@ from gpytorch.lazy import DiagLazyTensor, LazyTensor, NonLazyTensor
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 
 
-class TestMultivariateNormal(unittest.TestCase):
-    def setUp(self):
-        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(1)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(1)
-            random.seed(1)
-
-    def tearDown(self):
-        if hasattr(self, "rng_state"):
-            torch.set_rng_state(self.rng_state)
+class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
+    seed = 1
 
     def test_multivariate_normal_non_lazy(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -33,25 +22,25 @@ class TestMultivariateNormal(unittest.TestCase):
             mvn = MultivariateNormal(mean=mean, covariance_matrix=covmat, validate_args=True)
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
             self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
-            self.assertTrue(torch.allclose(mvn.variance, torch.diag(covmat)))
-            self.assertTrue(torch.allclose(mvn.scale_tril, covmat.sqrt()))
+            self.assertAllClose(mvn.variance, torch.diag(covmat))
+            self.assertAllClose(mvn.scale_tril, covmat.sqrt())
             mvn_plus1 = mvn + 1
-            self.assertTrue(torch.equal(mvn_plus1.mean, mvn.mean + 1))
-            self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mvn.covariance_matrix))
+            self.assertAllClose(mvn_plus1.mean, mvn.mean + 1)
+            self.assertAllClose(mvn_plus1.covariance_matrix, mvn.covariance_matrix)
             mvn_times2 = mvn * 2
-            self.assertTrue(torch.equal(mvn_times2.mean, mvn.mean * 2))
-            self.assertTrue(torch.equal(mvn_times2.covariance_matrix, mvn.covariance_matrix * 4))
+            self.assertAllClose(mvn_times2.mean, mvn.mean * 2)
+            self.assertAllClose(mvn_times2.covariance_matrix, mvn.covariance_matrix * 4)
             mvn_divby2 = mvn / 2
-            self.assertTrue(torch.equal(mvn_divby2.mean, mvn.mean / 2))
-            self.assertTrue(torch.equal(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4))
+            self.assertAllClose(mvn_divby2.mean, mvn.mean / 2)
+            self.assertAllClose(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4)
             self.assertAlmostEqual(mvn.entropy().item(), 4.3157, places=4)
             self.assertAlmostEqual(mvn.log_prob(torch.zeros(3, device=device, dtype=dtype)).item(), -4.8157, places=4)
             logprob = mvn.log_prob(torch.zeros(2, 3, device=device, dtype=dtype))
             logprob_expected = torch.tensor([-4.8157, -4.8157], device=device, dtype=dtype)
-            self.assertTrue(torch.allclose(logprob, logprob_expected))
+            self.assertAllClose(logprob, logprob_expected)
             conf_lower, conf_upper = mvn.confidence_region()
-            self.assertTrue(torch.allclose(conf_lower, mvn.mean - 2 * mvn.stddev))
-            self.assertTrue(torch.allclose(conf_upper, mvn.mean + 2 * mvn.stddev))
+            self.assertAllClose(conf_lower, mvn.mean - 2 * mvn.stddev)
+            self.assertAllClose(conf_upper, mvn.mean + 2 * mvn.stddev)
             self.assertTrue(mvn.sample().shape == torch.Size([3]))
             self.assertTrue(mvn.sample(torch.Size([2])).shape == torch.Size([2, 3]))
             self.assertTrue(mvn.sample(torch.Size([2, 4])).shape == torch.Size([2, 4, 3]))
@@ -71,27 +60,27 @@ class TestMultivariateNormal(unittest.TestCase):
             )
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
             self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
-            self.assertTrue(torch.allclose(mvn.variance, covmat.diag().repeat(2, 1)))
-            self.assertTrue(torch.allclose(mvn.scale_tril, torch.diag(covmat.diag().sqrt()).repeat(2, 1, 1)))
+            self.assertAllClose(mvn.variance, covmat.diag().repeat(2, 1))
+            self.assertAllClose(mvn.scale_tril, torch.diag(covmat.diag().sqrt()).repeat(2, 1, 1))
             mvn_plus1 = mvn + 1
-            self.assertTrue(torch.equal(mvn_plus1.mean, mvn.mean + 1))
-            self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mvn.covariance_matrix))
+            self.assertAllClose(mvn_plus1.mean, mvn.mean + 1)
+            self.assertAllClose(mvn_plus1.covariance_matrix, mvn.covariance_matrix)
             mvn_times2 = mvn * 2
-            self.assertTrue(torch.equal(mvn_times2.mean, mvn.mean * 2))
-            self.assertTrue(torch.equal(mvn_times2.covariance_matrix, mvn.covariance_matrix * 4))
+            self.assertAllClose(mvn_times2.mean, mvn.mean * 2)
+            self.assertAllClose(mvn_times2.covariance_matrix, mvn.covariance_matrix * 4)
             mvn_divby2 = mvn / 2
-            self.assertTrue(torch.equal(mvn_divby2.mean, mvn.mean / 2))
-            self.assertTrue(torch.equal(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4))
-            self.assertTrue(torch.allclose(mvn.entropy(), 4.3157 * torch.ones(2, device=device, dtype=dtype)))
+            self.assertAllClose(mvn_divby2.mean, mvn.mean / 2)
+            self.assertAllClose(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4)
+            self.assertAllClose(mvn.entropy(), 4.3157 * torch.ones(2, device=device, dtype=dtype))
             logprob = mvn.log_prob(torch.zeros(2, 3, device=device, dtype=dtype))
             logprob_expected = -4.8157 * torch.ones(2, device=device, dtype=dtype)
-            self.assertTrue(torch.allclose(logprob, logprob_expected))
+            self.assertAllClose(logprob, logprob_expected)
             logprob = mvn.log_prob(torch.zeros(2, 2, 3, device=device, dtype=dtype))
             logprob_expected = -4.8157 * torch.ones(2, 2, device=device, dtype=dtype)
-            self.assertTrue(torch.allclose(logprob, logprob_expected))
+            self.assertAllClose(logprob, logprob_expected)
             conf_lower, conf_upper = mvn.confidence_region()
-            self.assertTrue(torch.allclose(conf_lower, mvn.mean - 2 * mvn.stddev))
-            self.assertTrue(torch.allclose(conf_upper, mvn.mean + 2 * mvn.stddev))
+            self.assertAllClose(conf_lower, mvn.mean - 2 * mvn.stddev)
+            self.assertAllClose(conf_upper, mvn.mean + 2 * mvn.stddev)
             self.assertTrue(mvn.sample().shape == torch.Size([2, 3]))
             self.assertTrue(mvn.sample(torch.Size([2])).shape == torch.Size([2, 2, 3]))
             self.assertTrue(mvn.sample(torch.Size([2, 4])).shape == torch.Size([2, 4, 2, 3]))
@@ -110,21 +99,21 @@ class TestMultivariateNormal(unittest.TestCase):
             mvn = MultivariateNormal(mean=mean, covariance_matrix=NonLazyTensor(covmat))
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
             self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
-            self.assertTrue(torch.equal(mvn.variance, torch.diag(covmat)))
-            self.assertTrue(torch.equal(mvn.covariance_matrix, covmat))
-            self.assertTrue(torch.equal(mvn._unbroadcasted_scale_tril, covmat_chol))
+            self.assertAllClose(mvn.variance, torch.diag(covmat))
+            self.assertAllClose(mvn.covariance_matrix, covmat)
+            self.assertAllClose(mvn._unbroadcasted_scale_tril, covmat_chol)
             mvn_plus1 = mvn + 1
-            self.assertTrue(torch.equal(mvn_plus1.mean, mvn.mean + 1))
-            self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mvn.covariance_matrix))
-            self.assertTrue(torch.equal(mvn_plus1._unbroadcasted_scale_tril, covmat_chol))
+            self.assertAllClose(mvn_plus1.mean, mvn.mean + 1)
+            self.assertAllClose(mvn_plus1.covariance_matrix, mvn.covariance_matrix)
+            self.assertAllClose(mvn_plus1._unbroadcasted_scale_tril, covmat_chol)
             mvn_times2 = mvn * 2
-            self.assertTrue(torch.equal(mvn_times2.mean, mvn.mean * 2))
-            self.assertTrue(torch.equal(mvn_times2.covariance_matrix, mvn.covariance_matrix * 4))
-            self.assertTrue(torch.equal(mvn_times2._unbroadcasted_scale_tril, covmat_chol * 2))
+            self.assertAllClose(mvn_times2.mean, mvn.mean * 2)
+            self.assertAllClose(mvn_times2.covariance_matrix, mvn.covariance_matrix * 4)
+            self.assertAllClose(mvn_times2._unbroadcasted_scale_tril, covmat_chol * 2)
             mvn_divby2 = mvn / 2
-            self.assertTrue(torch.equal(mvn_divby2.mean, mvn.mean / 2))
-            self.assertTrue(torch.equal(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4))
-            self.assertTrue(torch.equal(mvn_divby2._unbroadcasted_scale_tril, covmat_chol / 2))
+            self.assertAllClose(mvn_divby2.mean, mvn.mean / 2)
+            self.assertAllClose(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4)
+            self.assertAllClose(mvn_divby2._unbroadcasted_scale_tril, covmat_chol / 2)
             # TODO: Add tests for entropy, log_prob, etc. - this an issue b/c it
             # uses using root_decomposition which is not very reliable
             # self.assertAlmostEqual(mvn.entropy().item(), 4.3157, places=4)
@@ -135,8 +124,8 @@ class TestMultivariateNormal(unittest.TestCase):
             #     )
             # )
             conf_lower, conf_upper = mvn.confidence_region()
-            self.assertTrue(torch.allclose(conf_lower, mvn.mean - 2 * mvn.stddev))
-            self.assertTrue(torch.allclose(conf_upper, mvn.mean + 2 * mvn.stddev))
+            self.assertAllClose(conf_lower, mvn.mean - 2 * mvn.stddev)
+            self.assertAllClose(conf_upper, mvn.mean + 2 * mvn.stddev)
             self.assertTrue(mvn.sample().shape == torch.Size([3]))
             self.assertTrue(mvn.sample(torch.Size([2])).shape == torch.Size([2, 3]))
             self.assertTrue(mvn.sample(torch.Size([2, 4])).shape == torch.Size([2, 4, 3]))
@@ -155,20 +144,20 @@ class TestMultivariateNormal(unittest.TestCase):
             mvn = MultivariateNormal(mean=mean, covariance_matrix=NonLazyTensor(covmat))
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
             self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
-            self.assertTrue(torch.allclose(mvn.variance, torch.diagonal(covmat, dim1=-2, dim2=-1)))
-            self.assertTrue(torch.equal(mvn._unbroadcasted_scale_tril, covmat_chol))
+            self.assertAllClose(mvn.variance, torch.diagonal(covmat, dim1=-2, dim2=-1))
+            self.assertAllClose(mvn._unbroadcasted_scale_tril, covmat_chol)
             mvn_plus1 = mvn + 1
-            self.assertTrue(torch.equal(mvn_plus1.mean, mvn.mean + 1))
-            self.assertTrue(torch.equal(mvn_plus1.covariance_matrix, mvn.covariance_matrix))
-            self.assertTrue(torch.equal(mvn_plus1._unbroadcasted_scale_tril, covmat_chol))
+            self.assertAllClose(mvn_plus1.mean, mvn.mean + 1)
+            self.assertAllClose(mvn_plus1.covariance_matrix, mvn.covariance_matrix)
+            self.assertAllClose(mvn_plus1._unbroadcasted_scale_tril, covmat_chol)
             mvn_times2 = mvn * 2
-            self.assertTrue(torch.equal(mvn_times2.mean, mvn.mean * 2))
-            self.assertTrue(torch.equal(mvn_times2.covariance_matrix, mvn.covariance_matrix * 4))
-            self.assertTrue(torch.equal(mvn_times2._unbroadcasted_scale_tril, covmat_chol * 2))
+            self.assertAllClose(mvn_times2.mean, mvn.mean * 2)
+            self.assertAllClose(mvn_times2.covariance_matrix, mvn.covariance_matrix * 4)
+            self.assertAllClose(mvn_times2._unbroadcasted_scale_tril, covmat_chol * 2)
             mvn_divby2 = mvn / 2
-            self.assertTrue(torch.equal(mvn_divby2.mean, mvn.mean / 2))
-            self.assertTrue(torch.equal(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4))
-            self.assertTrue(torch.equal(mvn_divby2._unbroadcasted_scale_tril, covmat_chol / 2))
+            self.assertAllClose(mvn_divby2.mean, mvn.mean / 2)
+            self.assertAllClose(mvn_divby2.covariance_matrix, mvn.covariance_matrix / 4)
+            self.assertAllClose(mvn_divby2._unbroadcasted_scale_tril, covmat_chol / 2)
             # TODO: Add tests for entropy, log_prob, etc. - this an issue b/c it
             # uses using root_decomposition which is not very reliable
             # self.assertTrue(torch.allclose(mvn.entropy(), 4.3157 * torch.ones(2)))
@@ -179,8 +168,8 @@ class TestMultivariateNormal(unittest.TestCase):
             #     torch.allclose(mvn.log_prob(torch.zeros(2, 2, 3)), -4.8157 * torch.ones(2, 2))
             # )
             conf_lower, conf_upper = mvn.confidence_region()
-            self.assertTrue(torch.allclose(conf_lower, mvn.mean - 2 * mvn.stddev))
-            self.assertTrue(torch.allclose(conf_upper, mvn.mean + 2 * mvn.stddev))
+            self.assertAllClose(conf_lower, mvn.mean - 2 * mvn.stddev)
+            self.assertAllClose(conf_upper, mvn.mean + 2 * mvn.stddev)
             self.assertTrue(mvn.sample().shape == torch.Size([2, 3]))
             self.assertTrue(mvn.sample(torch.Size([2])).shape == torch.Size([2, 2, 3]))
             self.assertTrue(mvn.sample(torch.Size([2, 4])).shape == torch.Size([2, 4, 2, 3]))

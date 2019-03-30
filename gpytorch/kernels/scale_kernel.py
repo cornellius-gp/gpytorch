@@ -2,8 +2,6 @@
 
 import torch
 from .kernel import Kernel
-from ..utils.transforms import _get_inv_param_transform
-from torch.nn.functional import softplus
 from ..lazy import delazify
 
 
@@ -20,7 +18,7 @@ class ScaleKernel(Kernel):
     where :math:`\theta_\text{scale}` is the `outputscale` parameter.
 
     In batch-mode (i.e. when :math:`x_1` and :math:`x_2` are batches of input matrices), each
-    batch of data can have its own `outputscale` parameter by setting the `batch_size`
+    batch of data can have its own `outputscale` parameter by setting the `batch_shape`
     keyword argument to the appropriate number of batches.
 
     .. note::
@@ -30,9 +28,9 @@ class ScaleKernel(Kernel):
     Args:
         :attr:`base_kernel` (Kernel):
             The base kernel to be scaled.
-        :attr:`batch_size` (int, optional):
+        :attr:`batch_shape` (int, optional):
             Set this if you want a separate outputscale for each batch of input data. It should be `b`
-            if :attr:`x1` is a `b x n x d` tensor. Default: `1`
+            if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`
         :attr:`outputscale_prior` (Prior, optional): Set this if you want to apply a prior to the outputscale
             parameter.  Default: `None`
         :attr:`param_transform` (function, optional):
@@ -45,7 +43,7 @@ class ScaleKernel(Kernel):
         :attr:`base_kernel` (Kernel):
             The kernel module to be scaled.
         :attr:`outputscale` (Tensor):
-            The outputscale parameter. Size/shape of parameter depends on the :attr:`batch_size` arguments.
+            The outputscale parameter. Size/shape of parameter depends on the :attr:`batch_shape` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -54,20 +52,10 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
 
-    def __init__(
-        self,
-        base_kernel,
-        batch_size=1,
-        outputscale_prior=None,
-        param_transform=softplus,
-        inv_param_transform=None,
-        **kwargs
-    ):
-        super(ScaleKernel, self).__init__(has_lengthscale=False, batch_size=batch_size)
+    def __init__(self, base_kernel, outputscale_prior=None, **kwargs):
+        super(ScaleKernel, self).__init__(has_lengthscale=False, **kwargs)
         self.base_kernel = base_kernel
-        self._param_transform = param_transform
-        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
-        self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(torch.zeros(batch_size)))
+        self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape)))
         if outputscale_prior is not None:
             self.register_prior(
                 "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)

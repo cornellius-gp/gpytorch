@@ -5,7 +5,8 @@ import torch
 from .. import settings, beta_features
 from .variational_strategy import VariationalStrategy
 from ..utils.memoize import cached
-from ..lazy import RootLazyTensor, MatmulLazyTensor, CachedCGLazyTensor, DiagLazyTensor, BatchRepeatLazyTensor
+from ..lazy import RootLazyTensor, MatmulLazyTensor, CholLazyTensor, \
+    CachedCGLazyTensor, DiagLazyTensor, BatchRepeatLazyTensor
 from ..distributions import MultivariateNormal
 
 
@@ -117,6 +118,12 @@ class WhitenedVariationalStrategy(VariationalStrategy):
             induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
             data_data_covar = full_covar[..., num_induc:, num_induc:]
 
+            # If we're less than a certain size, we'll compute the Cholesky decomposition of induc_induc_covar
+            cholesky = False
+            if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
+                induc_induc_covar = CholLazyTensor(induc_induc_covar._cholesky())
+                cholesky = True
+
             # Cache the CG results
             # Do not use preconditioning for whitened VI, as it does not seem to improve performance.
             with settings.max_preconditioner_size(0):
@@ -125,8 +132,8 @@ class WhitenedVariationalStrategy(VariationalStrategy):
                     solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
                         induc_induc_covar,
                         eager_rhs.detach(),
-                        logdet_terms=self.training,
-                        include_tmats=(not settings.skip_logdet_forward.on()),
+                        logdet_terms=(not cholesky),
+                        include_tmats=(not settings.skip_logdet_forward.on() and not cholesky),
                     )
                     eager_rhss = [eager_rhs.detach()]
                     solves = [solve.detach()]

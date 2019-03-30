@@ -29,16 +29,15 @@ class MultitaskKernel(Kernel):
             Prior to use for task kernel. See :class:`gpytorch.kernels.IndexKernel` for details.
     """
 
-    def __init__(self, data_covar_module, num_tasks, rank=1, batch_size=1, task_covar_prior=None):
+    def __init__(self, data_covar_module, num_tasks, rank=1, task_covar_prior=None, **kwargs):
         """
         """
-        super(MultitaskKernel, self).__init__()
+        super(MultitaskKernel, self).__init__(**kwargs)
         self.task_covar_module = IndexKernel(
-            num_tasks=num_tasks, batch_size=batch_size, rank=rank, prior=task_covar_prior
+            num_tasks=num_tasks, batch_shape=self.batch_shape, rank=rank, prior=task_covar_prior
         )
         self.data_covar_module = data_covar_module
         self.num_tasks = num_tasks
-        self.batch_size = 1
 
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         if batch_dims == (0, 2):

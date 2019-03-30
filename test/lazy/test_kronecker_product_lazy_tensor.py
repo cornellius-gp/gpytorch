@@ -17,6 +17,8 @@ def kron(a, b):
 
 
 class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
+    seed = 0
+
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
         b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float)
@@ -33,7 +35,9 @@ class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return res
 
 
-class TestKroneckerProductLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
+class TestKroneckerProductLazyTensorBatch(TestKroneckerProductLazyTensor):
+    seed = 0
+
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float).repeat(3, 1, 1)
         b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float).repeat(3, 1, 1)
@@ -44,13 +48,10 @@ class TestKroneckerProductLazyTensorBatch(LazyTensorTestCase, unittest.TestCase)
         kp_lazy_tensor = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
         return kp_lazy_tensor
 
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        res = kron(lazy_tensor.lazy_tensors[0].tensor, lazy_tensor.lazy_tensors[1].tensor)
-        res = kron(res, lazy_tensor.lazy_tensors[2].tensor)
-        return res
-
 
 class TestKroneckerProductLazyTensorRectangular(RectangularLazyTensorTestCase, unittest.TestCase):
+    seed = 0
+
     def create_lazy_tensor(self):
         a = torch.randn(2, 3, requires_grad=True)
         b = torch.randn(5, 2, requires_grad=True)
@@ -64,18 +65,15 @@ class TestKroneckerProductLazyTensorRectangular(RectangularLazyTensorTestCase, u
         return res
 
 
-class TestKroneckerProductLazyTensorRectangularMultiBatch(RectangularLazyTensorTestCase, unittest.TestCase):
+class TestKroneckerProductLazyTensorRectangularMultiBatch(TestKroneckerProductLazyTensorRectangular):
+    seed = 0
+
     def create_lazy_tensor(self):
         a = torch.randn(3, 4, 2, 3, requires_grad=True)
         b = torch.randn(3, 4, 5, 2, requires_grad=True)
         c = torch.randn(3, 4, 6, 4, requires_grad=True)
         kp_lazy_tensor = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
         return kp_lazy_tensor
-
-    def evaluate_lazy_tensor(self, lazy_tensor):
-        res = kron(lazy_tensor.lazy_tensors[0].tensor, lazy_tensor.lazy_tensors[1].tensor)
-        res = kron(res, lazy_tensor.lazy_tensors[2].tensor)
-        return res
 
 
 if __name__ == "__main__":

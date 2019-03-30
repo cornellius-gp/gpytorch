@@ -17,5 +17,17 @@ class LikelihoodList(Likelihood):
         super().__init__()
         self.likelihoods = ModuleList(likelihoods)
 
-    def forward(self, *args):
-        return [likelihood.forward(*args_) for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))]
+    def expected_log_prob(self, *args, **kwargs):
+        return [
+            likelihood.expected_log_prob(*args_, **kwargs)
+            for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
+        ]
+
+    def pyro_sample_output(self, *args, **kwargs):
+        return [
+            likelihood.pyro_sample_output(*args_, **kwargs)
+            for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
+        ]
+
+    def __call__(self, *args, **kwargs):
+        return [likelihood(*args_, **kwargs) for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))]

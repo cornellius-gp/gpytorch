@@ -22,8 +22,10 @@ class MulLazyTensor(LazyTensor):
         Args:
             - lazy_tensors (A list of LazyTensor) - A list of LazyTensor to multiplicate with.
         """
-        left_lazy_tensor = left_lazy_tensor.root_decomposition()
-        right_lazy_tensor = right_lazy_tensor.root_decomposition()
+        if not isinstance(left_lazy_tensor, RootLazyTensor):
+            left_lazy_tensor = left_lazy_tensor.root_decomposition()
+        if not isinstance(right_lazy_tensor, RootLazyTensor):
+            right_lazy_tensor = right_lazy_tensor.root_decomposition()
         super(MulLazyTensor, self).__init__(left_lazy_tensor, right_lazy_tensor)
         self.left_lazy_tensor = left_lazy_tensor
         self.right_lazy_tensor = right_lazy_tensor

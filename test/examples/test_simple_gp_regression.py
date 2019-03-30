@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import os
-import random
 import unittest
 from math import exp, pi
-from test._utils import approx_equal, least_used_cuda_device
+from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -14,6 +12,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from torch import optim
+from .._base_test_case import BaseTestCase
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
@@ -28,18 +27,8 @@ class ExactGPModel(gpytorch.models.ExactGP):
         return MultivariateNormal(mean_x, covar_x)
 
 
-class TestSimpleGPRegression(unittest.TestCase):
-    def setUp(self):
-        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(1)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(1)
-            random.seed(1)
-
-    def tearDown(self):
-        if hasattr(self, "rng_state"):
-            torch.set_rng_state(self.rng_state)
+class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
+    seed = 1
 
     def _get_data(self, cuda=False, num_data=11, add_noise=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
@@ -77,8 +66,11 @@ class TestSimpleGPRegression(unittest.TestCase):
         function_predictions = likelihood(gp_model(train_x))
         correct_variance = gp_model.covar_module.outputscale + likelihood.noise
 
-        self.assertLess(torch.norm(function_predictions.mean - 1.5), 1e-3)
-        self.assertLess(torch.norm(function_predictions.variance - correct_variance), 1e-3)
+        self.assertAllClose(function_predictions.mean, torch.full_like(function_predictions.mean, fill_value=1.5))
+        self.assertAllClose(
+            function_predictions.variance,
+            correct_variance.squeeze().expand_as(function_predictions.variance)
+        )
 
     def test_prior_cuda(self):
         if torch.cuda.is_available():
@@ -125,14 +117,17 @@ class TestSimpleGPRegression(unittest.TestCase):
         with gpytorch.settings.debug(False):
             function_predictions = likelihood(gp_model(train_x))
 
-        self.assertLess(torch.norm(function_predictions.mean - train_y), 1e-3)
-        self.assertLess(torch.norm(function_predictions.variance), 1e-3)
+        self.assertAllClose(function_predictions.mean, train_y)
+        self.assertAllClose(function_predictions.variance, torch.zeros_like(function_predictions.variance))
 
         # It shouldn't fit much else though
         test_function_predictions = gp_model(torch.tensor([1.1]).type_as(test_x))
 
-        self.assertLess(torch.norm(test_function_predictions.mean - 0), 1e-4)
-        self.assertLess(torch.norm(test_function_predictions.variance - gp_model.covar_module.outputscale), 1e-4)
+        self.assertAllClose(test_function_predictions.mean, torch.zeros_like(test_function_predictions.mean))
+        self.assertAllClose(
+            test_function_predictions.variance,
+            gp_model.covar_module.outputscale.expand_as(test_function_predictions.variance)
+        )
 
     def test_posterior_latent_gp_and_likelihood_without_optimization_cuda(self):
         if torch.cuda.is_available():
@@ -233,14 +228,12 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
         optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
-        optimizer.n_iter = 0
         with gpytorch.beta_features.checkpoint_kernel(checkpoint), gpytorch.settings.fast_pred_var():
             for _ in range(20 if checkpoint else 50):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
                 loss = -mll(output, train_y)
                 loss.backward()
-                optimizer.n_iter += 1
                 optimizer.step()
 
             for param in gp_model.parameters():
@@ -286,14 +279,12 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
         optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
-        optimizer.n_iter = 0
         for _ in range(50):
             optimizer.zero_grad()
             with gpytorch.settings.debug(False):
                 output = gp_model(train_x)
             loss = -mll(output, train_y)
             loss.backward()
-            optimizer.n_iter += 1
             optimizer.step()
 
         for param in gp_model.parameters():
@@ -326,7 +317,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             fant_model = gp_model.get_fantasy_model(fantasy_x, train_y[5:])
             fant_function_predictions = likelihood(fant_model(test_x))
 
-            self.assertTrue(approx_equal(test_function_predictions.mean, fant_function_predictions.mean))
+            self.assertAllClose(test_function_predictions.mean, fant_function_predictions.mean, atol=1e-4)
 
             fant_function_predictions.mean.sum().backward()
             self.assertTrue(fantasy_x.grad is not None)
@@ -357,14 +348,12 @@ class TestSimpleGPRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
         optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
-        optimizer.n_iter = 0
         for _ in range(50):
             optimizer.zero_grad()
             with gpytorch.settings.debug(False):
                 output = gp_model(train_x)
             loss = -mll(output, train_y)
             loss.backward()
-            optimizer.n_iter += 1
             optimizer.step()
 
         for param in gp_model.parameters():
@@ -390,7 +379,7 @@ class TestSimpleGPRegression(unittest.TestCase):
             fant_model = gp_model.get_fantasy_model(fantasy_x, fantasy_y)
             fant_function_predictions = likelihood(fant_model(test_x))
 
-            self.assertTrue(approx_equal(test_function_predictions.mean, fant_function_predictions.mean[0]))
+            self.assertAllClose(test_function_predictions.mean, fant_function_predictions.mean[0], atol=1e-4)
 
             fant_function_predictions.mean.sum().backward()
             self.assertTrue(fantasy_x.grad is not None)
@@ -430,13 +419,11 @@ class TestSimpleGPRegression(unittest.TestCase):
             gp_model.train()
             likelihood.train()
             optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
-            optimizer.n_iter = 0
             for _ in range(50):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
                 loss = -mll(output, train_y)
                 loss.backward()
-                optimizer.n_iter += 1
                 optimizer.step()
 
             for param in gp_model.parameters():

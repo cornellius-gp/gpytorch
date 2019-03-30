@@ -5,8 +5,8 @@ import math
 from torch.nn.functional import softplus
 
 from .. import settings
-from ..distributions import MultivariateNormal
 from ..likelihoods import Likelihood
+from ..distributions import base_distributions
 from .noise_models import HomoskedasticNoise
 
 
@@ -17,22 +17,24 @@ class _GaussianLikelihoodBase(Likelihood):
         super().__init__()
         self.noise_covar = noise_covar
 
-    def forward(self, input, *params):
-        if not isinstance(input, MultivariateNormal):
-            raise ValueError("Gaussian likelihoods require a MultivariateNormal input")
-        mean, covar = input.mean, input.lazy_covariance_matrix
+    def _shaped_noise_covar(self, base_shape, *params):
         if len(params) > 0:
             # we can infer the shape from the params
             shape = None
         else:
             # here shape[:-1] is the batch shape requested, and shape[-1] is `n`, the number of points
-            shape = mean.shape
-        noise_covar = self.noise_covar(*params, shape=shape)
-        full_covar = covar + noise_covar
-        return input.__class__(mean, full_covar)
+            shape = base_shape
+        return self.noise_covar(*params, shape=shape)
 
-    def variational_log_probability(self, input, target):
-        raise NotImplementedError
+    def forward(self, function_samples, *params, **kwargs):
+        return base_distributions.Normal(
+            function_samples, self._shaped_noise_covar(function_samples.shape, *params).diag()
+        )
+
+    def marginal(self, function_dist, *params, **kwargs):
+        mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
+        full_covar = covar + self._shaped_noise_covar(mean.shape, *params)
+        return function_dist.__class__(mean, full_covar)
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
@@ -67,7 +69,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
     def raw_noise(self, value):
         self.noise_covar.initialize(raw_noise=value)
 
-    def variational_log_probability(self, input, target):
+    def expected_log_prob(self, target, input, *params, **kwargs):
         mean, variance = input.mean, input.variance
         noise = self.noise_covar.noise
 
@@ -82,24 +84,3 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         res = -0.5 * ((target - mean) ** 2 + variance) / noise
         res += -0.5 * noise.log() - 0.5 * math.log(2 * math.pi)
         return res.sum(-1)
-
-    def pyro_sample_y(self, variational_dist_f, y_obs, sample_shape, name_prefix=""):
-        import pyro
-
-        noise = self.noise
-        var_f = variational_dist_f.lazy_covariance_matrix.diag()
-        y_mean = variational_dist_f.mean
-        if y_mean.dim() == 1:
-            noise = noise.squeeze(0)
-
-        y_dist = pyro.distributions.Independent(
-            pyro.distributions.Normal(y_mean, (var_f + noise.expand_as(var_f)).sqrt()),
-            reinterpreted_batch_ndims=y_mean.dim(),
-        )
-
-        # See if we're using a sampled GP distribution
-        # Samples will occur in the first batch dimension
-        sample_shape = y_dist.shape()[:-y_obs.dim()]
-        y_obs = y_obs.expand(y_dist.shape())
-        with pyro.poutine.scale(scale=float(1. / sample_shape.numel())):
-            pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)

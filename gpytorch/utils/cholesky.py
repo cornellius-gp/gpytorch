@@ -38,6 +38,8 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
         except RuntimeError as e:
             if "singular" in e.args[0]:
                 raise RuntimeError("Adding jitter of {} to the diagonal did not make A p.d.".format(jitter))
+            else:
+                raise e
         warnings.warn("A not p.d., added jitter of {} to the diagonal".format(jitter), RuntimeWarning)
 
     return L

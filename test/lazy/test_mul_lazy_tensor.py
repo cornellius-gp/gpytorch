@@ -8,7 +8,6 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 def make_random_mat(size, rank, batch_shape=torch.Size(())):
     res = torch.randn(*batch_shape, size, rank)
-    res.requires_grad_()
     return res
 
 
@@ -16,8 +15,8 @@ class TestMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 10
 
     def create_lazy_tensor(self):
-        mat1 = make_random_mat(6, 3)
-        mat2 = make_random_mat(6, 3)
+        mat1 = make_random_mat(6, 6)
+        mat2 = make_random_mat(6, 6)
         res = RootLazyTensor(mat1) * RootLazyTensor(mat2)
         return res.add_diag(torch.tensor(2.0))
 
@@ -35,8 +34,8 @@ class TestMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 2
 
     def create_lazy_tensor(self):
-        mat1 = make_random_mat(6, rank=5, batch_shape=torch.Size((2,)))
-        mat2 = make_random_mat(6, rank=5, batch_shape=torch.Size((2,)))
+        mat1 = make_random_mat(6, rank=6, batch_shape=torch.Size((2,)))
+        mat2 = make_random_mat(6, rank=6, batch_shape=torch.Size((2,)))
         res = RootLazyTensor(mat1) * RootLazyTensor(mat2)
         return res.add_diag(torch.tensor(2.0))
 
@@ -55,8 +54,8 @@ class TestMulLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
     skip_slq_tests = True
 
     def create_lazy_tensor(self):
-        mat1 = make_random_mat(6, rank=5, batch_shape=torch.Size((2, 3,)))
-        mat2 = make_random_mat(6, rank=5, batch_shape=torch.Size((2, 3,)))
+        mat1 = make_random_mat(6, rank=6, batch_shape=torch.Size((2, 3,)))
+        mat2 = make_random_mat(6, rank=6, batch_shape=torch.Size((2, 3,)))
         res = RootLazyTensor(mat1) * RootLazyTensor(mat2)
         return res.add_diag(torch.tensor(0.5))
 

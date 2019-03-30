@@ -3,7 +3,6 @@
 import math
 import torch
 from .kernel import Kernel
-from torch.nn.functional import softplus
 
 
 class PeriodicKernel(Kernel):
@@ -33,9 +32,9 @@ class PeriodicKernel(Kernel):
         This kernel does not have an ARD lengthscale option.
 
     Args:
-        :attr:`batch_size` (int, optional):
+        :attr:`batch_shape` (torch.Size, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`.
+             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`.
         :attr:`active_dims` (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
@@ -54,9 +53,9 @@ class PeriodicKernel(Kernel):
 
     Attributes:
         :attr:`lengthscale` (Tensor):
-            The lengthscale parameter. Size = `batch_size x 1 x 1`.
+            The lengthscale parameter. Size = `*batch_shape x 1 x 1`.
         :attr:`period_length` (Tensor):
-            The period length parameter. Size = `batch_size x 1 x 1`.
+            The period length parameter. Size = `*batch_shape x 1 x 1`.
 
     Example:
         >>> x = torch.randn(10, 5)
@@ -71,27 +70,12 @@ class PeriodicKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(
-        self,
-        active_dims=None,
-        batch_size=1,
-        lengthscale_prior=None,
-        period_length_prior=None,
-        param_transform=softplus,
-        inv_param_transform=None,
-        eps=1e-6,
-        **kwargs
-    ):
-        super(PeriodicKernel, self).__init__(
-            has_lengthscale=True,
-            active_dims=active_dims,
-            batch_size=batch_size,
-            lengthscale_prior=lengthscale_prior,
-            param_transform=param_transform,
-            inv_param_transform=inv_param_transform,
-            eps=eps,
-        )
-        self.register_parameter(name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)))
+    def __init__(self, period_length_prior=None, **kwargs):
+        super(PeriodicKernel, self).__init__(has_lengthscale=True, **kwargs)
+        self.register_parameter(
+            name="raw_period_length",
+            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1)))
+
         if period_length_prior is not None:
             self.register_prior(
                 "period_length_prior",

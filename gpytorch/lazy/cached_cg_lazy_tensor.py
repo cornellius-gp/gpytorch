@@ -75,7 +75,10 @@ class CachedCGLazyTensor(LazyTensor):
 
             else:
                 # Compute solves
-                solves = base_lazy_tensor._solve(eager_rhs, preconditioner=base_lazy_tensor._preconditioner()[0])
+                if settings.fast_computations.log_prob.on():
+                    solves = base_lazy_tensor._solve(eager_rhs, preconditioner=base_lazy_tensor._preconditioner()[0])
+                else:
+                    solves = base_lazy_tensor._cholesky()._cholesky_solve(eager_rhs)
                 dtype = solves.dtype
                 device = solves.device
                 return (
@@ -109,6 +112,9 @@ class CachedCGLazyTensor(LazyTensor):
     def requires_grad(self, val):
         self.base_lazy_tensor.requires_grad = val
 
+    def _cholesky(self):
+        return self.base_lazy_tensor._cholesky()
+
     def _expand_batch(self, batch_shape):
         return self.base_lazy_tensor._expand_batch(batch_shape)
 
@@ -127,7 +133,7 @@ class CachedCGLazyTensor(LazyTensor):
     def _quad_form_derivative(self, left_vecs, right_vecs):
         return self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
 
-    def _solve(self, rhs, preconditioner, num_tridiag=None):
+    def _solve(self, rhs, preconditioner, num_tridiag=0):
         if num_tridiag:
             probe_vectors = rhs[..., :num_tridiag].detach()
             if torch.equal(probe_vectors, self.probe_vectors):
