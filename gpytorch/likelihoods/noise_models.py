@@ -22,19 +22,10 @@ class _HomoskedasticNoiseBase(Noise):
     def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, num_tasks=1):
         super().__init__()
         self._param_transform = param_transform
-        self._inv_param_transform = _get_inv_param_transform(
-            param_transform, inv_param_transform
-        )
-        self.register_parameter(
-            name="raw_noise", parameter=Parameter(torch.zeros(batch_size, num_tasks))
-        )
+        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
+        self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(batch_size, num_tasks)))
         if noise_prior is not None:
-            self.register_prior(
-                "noise_prior",
-                noise_prior,
-                lambda: self.noise,
-                lambda v: self._set_noise(v),
-            )
+            self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
 
     @property
     def noise(self) -> Tensor:
@@ -84,13 +75,7 @@ class _HomoskedasticNoiseBase(Noise):
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(
-        self,
-        noise_prior=None,
-        batch_size=1,
-        param_transform=softplus,
-        inv_param_transform=None,
-    ):
+    def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None):
         super().__init__(
             noise_prior=noise_prior,
             batch_size=batch_size,
@@ -101,14 +86,7 @@ class HomoskedasticNoise(_HomoskedasticNoiseBase):
 
 
 class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(
-        self,
-        num_tasks,
-        noise_prior=None,
-        batch_size=1,
-        param_transform=softplus,
-        inv_param_transform=None,
-    ):
+    def __init__(self, num_tasks, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None):
         super().__init__(
             noise_prior=noise_prior,
             batch_size=batch_size,
@@ -134,16 +112,10 @@ class HeteroskedasticNoise(Noise):
         else:
             output = self.noise_model(*params)
         if not isinstance(output, MultivariateNormal):
-            raise NotImplementedError(
-                "Currently only noise models that return a MultivariateNormal are supported"
-            )
+            raise NotImplementedError("Currently only noise models that return a MultivariateNormal are supported")
         # note: this also works with MultitaskMultivariateNormal, where this
         # will return a batched DiagLazyTensors of size n x num_tasks x num_tasks
-        noise_diag = (
-            output.mean
-            if self._noise_indices is None
-            else output.mean[..., self._noise_indices]
-        )
+        noise_diag = output.mean if self._noise_indices is None else output.mean[..., self._noise_indices]
         return DiagLazyTensor(self._noise_transform(noise_diag))
 
 
