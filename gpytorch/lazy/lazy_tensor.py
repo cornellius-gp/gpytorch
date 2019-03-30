@@ -942,7 +942,8 @@ class LazyTensor(ABC):
             )
 
         args = (tensor,) + self.representation()
-        inv_quad_term = InvQuad(representation_tree=self.representation_tree())(*args)
+        func = InvQuad.apply
+        inv_quad_term = func(self.representation_tree(), *args)
 
         if reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
