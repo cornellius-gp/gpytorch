@@ -4,6 +4,7 @@ import torch
 from torch.autograd import Function
 from .. import settings
 
+
 def _solve(lazy_tsr, rhs):
     if settings.fast_computations.solves.off() or lazy_tsr.size(-1) <= settings.max_cholesky_size.value():
         return lazy_tsr._cholesky()._cholesky_solve(rhs)
@@ -11,6 +12,7 @@ def _solve(lazy_tsr, rhs):
         with torch.no_grad():
             preconditioner = lazy_tsr.detach()._inv_matmul_preconditioner()
         return lazy_tsr._solve(rhs, preconditioner)
+
 
 class InvMatmul(Function):
     @staticmethod
