@@ -97,12 +97,12 @@ class CachedCGLazyTensor(LazyTensor):
             probe_vector_tmats=probe_vector_tmats,
         )
         self.base_lazy_tensor = base_lazy_tensor
-        self.eager_rhss = [eager_rhs.detach_().requires_grad_(False) for eager_rhs in eager_rhss]
-        self.solves = [solve.detach_().requires_grad_(False) for solve in solves]
-        self.probe_vectors = probe_vectors.detach_().requires_grad_(False)
-        self.probe_vector_norms = probe_vector_norms.detach_().requires_grad_(False)
-        self.probe_vector_solves = probe_vector_solves.detach_().requires_grad_(False)
-        self.probe_vector_tmats = probe_vector_tmats.detach_().requires_grad_(False)
+        self.eager_rhss = [eager_rhs.detach() for eager_rhs in eager_rhss]
+        self.solves = [solve.detach() for solve in solves]
+        self.probe_vectors = probe_vectors.detach()
+        self.probe_vector_norms = probe_vector_norms.detach()
+        self.probe_vector_solves = probe_vector_solves.detach()
+        self.probe_vector_tmats = probe_vector_tmats.detach()
 
     @property
     def requires_grad(self):
