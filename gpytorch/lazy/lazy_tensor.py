@@ -885,14 +885,22 @@ class LazyTensor(ABC):
                     )
                 )
 
-        func = InvMatmul(
-            self.representation_tree(),
-            has_left=(left_tensor is not None),
-        )
+        func = InvMatmul
         if left_tensor is None:
-            return func(right_tensor, *self.representation())
+            return func.apply(
+                self.representation_tree(),
+                False,
+                right_tensor,
+                *self.representation(),
+            )
         else:
-            return func(left_tensor, right_tensor, *self.representation())
+            return func.apply(
+                self.representation_tree(),
+                True,
+                left_tensor,
+                right_tensor,
+                *self.representation(),
+            )
 
     def inv_quad(self, tensor, reduce_inv_quad=True):
         """
@@ -934,7 +942,8 @@ class LazyTensor(ABC):
             )
 
         args = (tensor,) + self.representation()
-        inv_quad_term = InvQuad(representation_tree=self.representation_tree())(*args)
+        func = InvQuad.apply
+        inv_quad_term = func(self.representation_tree(), *args)
 
         if reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
@@ -993,17 +1002,21 @@ class LazyTensor(ABC):
             args = [inv_quad_rhs] + list(args)
 
         probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
-        inv_quad_term, logdet_term = InvQuadLogDet(
-            representation_tree=self.representation_tree(),
-            matrix_shape=self.matrix_shape,
-            batch_shape=self.batch_shape,
-            dtype=self.dtype,
-            device=self.device,
-            inv_quad=(inv_quad_rhs is not None),
-            logdet=logdet,
-            probe_vectors=probe_vectors,
-            probe_vector_norms=probe_vector_norms,
-        )(*args)
+
+        func = InvQuadLogDet.apply
+
+        inv_quad_term, logdet_term = func(
+            self.representation_tree(),
+            self.dtype,
+            self.device,
+            self.matrix_shape,
+            self.batch_shape,
+            (inv_quad_rhs is not None),
+            logdet,
+            probe_vectors,
+            probe_vector_norms,
+            *args,
+        )
 
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
