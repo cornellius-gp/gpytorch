@@ -2,8 +2,7 @@
 
 from .likelihood import Likelihood
 from .bernoulli_likelihood import BernoulliLikelihood
-from .fixed_noise_likelihood import FixedNoiseGaussianLikelihood
-from .gaussian_likelihood import GaussianLikelihood, _GaussianLikelihoodBase
+from .gaussian_likelihood import FixedNoiseGaussianLikelihood, GaussianLikelihood, _GaussianLikelihoodBase
 from .likelihood_list import LikelihoodList
 from .multitask_gaussian_likelihood import (
     MultitaskGaussianLikelihood,

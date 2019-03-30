@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from typing import Any, Optional
+
 import torch
 from torch import Tensor
 from torch.nn import Parameter
@@ -12,7 +14,11 @@ from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.transforms import _get_inv_param_transform
 
 
-class _HomoskedasticNoiseBase(Module):
+class Noise(Module):
+    pass
+
+
+class _HomoskedasticNoiseBase(Noise):
     def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, num_tasks=1):
         super().__init__()
         self._param_transform = param_transform
@@ -22,19 +28,19 @@ class _HomoskedasticNoiseBase(Module):
             self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
 
     @property
-    def noise(self):
+    def noise(self) -> Tensor:
         return self._param_transform(self.raw_noise)
 
     @noise.setter
-    def noise(self, value):
+    def noise(self, value: Tensor) -> None:
         self._set_noise(value)
 
-    def _set_noise(self, value):
+    def _set_noise(self, value: Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.tensor(value)
         self.initialize(raw_noise=self._inv_param_transform(value))
 
-    def forward(self, *params, shape=None):
+    def forward(self, *params: Any, shape: Optional[torch.Size] = None) -> DiagLazyTensor:
         """In the homoskedastic case, the parameters are only used to infer the required shape.
         Here are the possible scenarios:
         - non-batched noise, non-batched input, non-MT -> noise_diag shape is `n`
@@ -90,7 +96,7 @@ class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
         )
 
 
-class HeteroskedasticNoise(Module):
+class HeteroskedasticNoise(Noise):
     def __init__(self, noise_model, noise_indices=None, noise_transform=torch.exp):
         super().__init__()
         self.noise_model = noise_model
@@ -98,7 +104,9 @@ class HeteroskedasticNoise(Module):
         self._noise_indices = noise_indices
         self._noise_transform = noise_transform
 
-    def forward(self, *params, batch_shape=None, shape=None):
+    def forward(
+        self, *params: Any, batch_shape: Optional[torch.Size] = None, shape: Optional[torch.Size] = None
+    ) -> DiagLazyTensor:
         if len(params) == 1 and not torch.is_tensor(params[0]):
             output = self.noise_model(*params[0])
         else:
@@ -116,5 +124,7 @@ class FixedGaussianNoise(Module):
         super().__init__()
         self.register_buffer("noise", noise)
 
-    def forward(self, *params, **kwargs) -> DiagLazyTensor:
+    def forward(self, *params: Any, observation_noise: Optional[Tensor] = None, **kwargs: Any) -> DiagLazyTensor:
+        if observation_noise is not None:
+            return DiagLazyTensor(observation_noise)
         return DiagLazyTensor(self.noise)
