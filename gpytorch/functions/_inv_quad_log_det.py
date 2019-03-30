@@ -151,9 +151,6 @@ class InvQuadLogDet(Function):
         compute_inv_quad_grad = inv_quad_grad_output.abs().sum() and ctx.inv_quad
         compute_logdet_grad = logdet_grad_output.abs().sum() and ctx.logdet
 
-        if not compute_logdet_grad and not compute_inv_quad_grad:
-            return None, None, None
-
         # Get input arguments, and get gradients in the proper form
         matrix_args = ctx.saved_tensors[:-1]
         solves = ctx.saved_tensors[-1]
