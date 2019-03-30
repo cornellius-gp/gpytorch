@@ -3,7 +3,6 @@
 import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
 from .. import settings
-import warnings
 
 
 class VariationalELBO(MarginalLogLikelihood):
@@ -28,21 +27,9 @@ class VariationalELBO(MarginalLogLikelihood):
         if len(variational_dist_u.batch_shape) < len(prior_dist.batch_shape):
             variational_dist_u = variational_dist_u.expand(prior_dist.batch_shape)
 
-        # Deprecation of Likelihood.variational_log_probability
-        if hasattr(self.likelihood, "variational_log_probability"):
-            warnings.warn(
-                "Likelihood.variational_log_probability is deprecated. Likelihoods now only need to implement "
-                "a `forward` method that defines the conditional distribution of the likelihood. See the "
-                "Likelihood documentation for more information.", DeprecationWarning
-            )
-            log_likelihood = self.likelihood.variational_log_probability(variational_dist_f, target, **kwargs).div(
-                num_batch
-            )
-        else:
-            log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs).div(
-                num_batch
-            )
-
+        log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs).div(
+            num_batch
+        )
         kl_divergence = self.model.variational_strategy.kl_divergence()
 
         if kl_divergence.dim() > log_likelihood.dim():

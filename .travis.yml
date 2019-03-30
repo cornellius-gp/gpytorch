@@ -32,6 +32,6 @@ matrix:
       addons:
         apt_packages:
           - pandoc
-      python: "3.5"
+      python: "3.6"
       install: pip install IPython ipykernel sphinx sphinx_rtd_theme nbsphinx m2r
       script: python setup.py build_sphinx

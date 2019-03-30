@@ -3,11 +3,9 @@
 import itertools
 import torch
 from .. import settings
-from ..utils.memoize import cached
 from ..utils.broadcasting import _matmul_broadcast_shape
-
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from .root_lazy_tensor import RootLazyTensor
 
 
 class BatchRepeatLazyTensor(LazyTensor):
@@ -33,6 +31,20 @@ class BatchRepeatLazyTensor(LazyTensor):
         super().__init__(base_lazy_tensor, batch_repeat=batch_repeat)
         self.base_lazy_tensor = base_lazy_tensor
         self.batch_repeat = batch_repeat
+
+    @cached(name="cholesky")
+    def _cholesky(self):
+        return self.base_lazy_tensor._cholesky().repeat(*self.batch_repeat, 1, 1)
+
+    def _cholesky_solve(self, rhs):
+        output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
+        if rhs.shape != output_shape:
+            rhs = rhs.expand(*output_shape)
+
+        rhs = self._move_repeat_batches_to_columns(rhs, output_shape)
+        res = self.base_lazy_tensor._cholesky_solve(rhs)
+        res = self._move_repeat_batches_back(res, output_shape)
+        return res
 
     def _compute_batch_repeat_size(self, current_batch_shape, desired_batch_shape):
         batch_repeat = torch.Size(
@@ -169,6 +181,12 @@ class BatchRepeatLazyTensor(LazyTensor):
         right_vectors = self._move_repeat_batches_to_columns(right_vectors, right_output_shape)
         return self.base_lazy_tensor._quad_form_derivative(left_vectors, right_vectors)
 
+    def _root_decomposition(self):
+        return self.base_lazy_tensor._root_decomposition().repeat(*self.batch_repeat, 1, 1)
+
+    def _root_inv_decomposition(self, initial_vectors=None):
+        return self.base_lazy_tensor._root_inv_decomposition().repeat(*self.batch_repeat, 1, 1)
+
     def _size(self):
         repeated_batch_shape = torch.Size(
             size * repeat for size, repeat in zip(self.base_lazy_tensor.batch_shape, self.batch_repeat)
@@ -249,15 +267,4 @@ class BatchRepeatLazyTensor(LazyTensor):
                 orig_repeat_size * new_repeat_size
                 for orig_repeat_size, new_repeat_size in zip(padded_batch_repeat, sizes[:-2])
             ),
-        )
-
-    def root_decomposition(self):
-        return RootLazyTensor(self.base_lazy_tensor.root_decomposition().root.repeat(*self.batch_repeat, 1, 1))
-
-    @cached
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
-        return RootLazyTensor(
-            self.base_lazy_tensor.root_inv_decomposition(
-                initial_vectors=initial_vectors, test_vectors=test_vectors
-            ).root.repeat(*self.batch_repeat, 1, 1)
         )

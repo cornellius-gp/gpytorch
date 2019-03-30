@@ -28,7 +28,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
     def forward(self, function_samples, *params, **kwargs):
         return base_distributions.Normal(
-            function_samples, self._shaped_noise_covar(function_samples.shape, *params)
+            function_samples, self._shaped_noise_covar(function_samples.shape, *params).diag()
         )
 
     def marginal(self, function_dist, *params, **kwargs):

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+import functools
 import torch
+import warnings
+
 from ..module import Module
 from ..distributions import MultivariateNormal
 from ..utils.quadrature import GaussHermiteQuadrature1D
 from .. import settings
-import warnings
 
 
 class _Likelihood(Module):
@@ -125,16 +127,99 @@ try:
     import pyro
 
     class Likelihood(_Likelihood):
-        def pyro_sample_outputs(self, observations, function_dist, *params, **kwargs):
-            name_prefix = kwargs.pop("name_prefix", "")
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._max_plate_nesting = 1
+
+        @property
+        def max_plate_nesting(self):
+            """
+            How many batch dimensions are plated (default = 1)
+            This should be modified if thew likelihood uses other plated random variables
+            """
+            return self._max_plate_nesting
+
+        @max_plate_nesting.setter
+        def max_plate_nesting(self, val):
+            self._max_plate_nesting = val
+
+        def pyro_sample_output(self, observations, function_dist, *params, **kwargs):
+            r"""
+            Returns observed pyro samples :math:`p(y)` from the likelihood distribution,
+            given the function distribution :math:`f`
+
+            .. math::
+                \mathbb{E}_{f(x)} \left[ \log p \left( y \mid f(x) \right) \right]
+
+            Args:
+                :attr:`observations` (:class:`torch.Tensor`) Values of :math:`y`.
+                :attr:`function_dist` (:class:`pyro.distributions`) Distribution for :math:`f(x)`.
+                :attr:`params`
+                :attr:`kwargs`
+
+            Returns:
+                `pyro.sample`
+            """
+            name_prefix = kwargs.get("name_prefix", "")
+
+            # Get the correct sample shape
+            # The default sample shape includes all the batch dimensions that can be smapled from
+            sample_shape = kwargs.get("sample_shape", torch.Size([1] * len(function_dist.batch_shape)))
+            sample_shape = sample_shape[:-len(function_dist.batch_shape)]
+            function_samples = function_dist(sample_shape)
+            output_dist = self(function_samples, *params, **kwargs)
             with pyro.plate(name_prefix + ".output_values_plate", function_dist.batch_shape[-1], dim=-1):
-                with pyro.poutine.block():
-                    function_samples = pyro.sample(name_prefix + ".function_values", function_dist)
-                output_dist = self(function_samples, *params, **kwargs)
                 samples = pyro.sample(name_prefix + ".output_values", output_dist, obs=observations)
                 return samples
 
+        def guide(self, *param, **kwargs):
+            """
+            Guide function for the likelihood
+            This should be defined if the likelihood contains any random variables that need to be infered.
+
+            If `forward` call to the likelihood function should contains any `pyro.sample` calls, then
+            the `guide` call should contain the same sample calls.
+            """
+            pass
+
+        def marginal(self, function_dist, *params, **kwargs):
+            name_prefix = kwargs.get("name_prefix", "")
+            num_samples = settings.num_likelihood_samples.value()
+            with pyro.plate(name_prefix + ".num_particles_vectorized", num_samples, dim=(-self.max_plate_nesting - 1)):
+                function_samples_shape = torch.Size(
+                    [num_samples] + [1] * (self.max_plate_nesting - len(function_dist.batch_shape))
+                )
+                function_samples = function_dist(function_samples_shape)
+                if self.training:
+                    return self(function_samples, *params, **kwargs)
+                else:
+                    guide_trace = pyro.poutine.trace(self.guide).get_trace(*params, **kwargs)
+                    marginal_fn = functools.partial(self.__call__, function_samples)
+                    return pyro.poutine.replay(marginal_fn, trace=guide_trace)(*params, **kwargs)
+
+        def __call__(self, input, *params, **kwargs):
+            # Conditional
+            if torch.is_tensor(input):
+                return super().__call__(input, *params, **kwargs)
+            # Marginal
+            elif any([
+                isinstance(input, MultivariateNormal),
+                isinstance(input, pyro.distributions.Normal),
+                (
+                    isinstance(input, pyro.distributions.Independent)
+                    and isinstance(input.base_dist, pyro.distributions.Normal)
+                ),
+            ]):
+                return self.marginal(input, *params, **kwargs)
+            # Error
+            else:
+                raise RuntimeError(
+                    "Likelihoods expects a MultivariateNormal or Normal input to make marginal predictions, or a "
+                    "torch.Tensor for conditional predictions. Got a {}".format(input.__class__.__name__)
+                )
+
 except ImportError:
     class Likelihood(_Likelihood):
-        def pyro_sample_outputs(self, *args, **kwargs):
+        def pyro_sample_output(self, *args, **kwargs):
             raise ImportError("Failed to import pyro. Is it installed correctly?")

@@ -23,9 +23,9 @@ class LikelihoodList(Likelihood):
             for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
         ]
 
-    def pyro_sample_outputs(self, *args, **kwargs):
+    def pyro_sample_output(self, *args, **kwargs):
         return [
-            likelihood.pyro_sample_outputs(*args_, **kwargs)
+            likelihood.pyro_sample_output(*args_, **kwargs)
             for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
         ]
 

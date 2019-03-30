@@ -3,7 +3,7 @@
 import math
 import torch
 from .. import beta_features, settings
-from ..lazy import DiagLazyTensor, CachedCGLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
 from ..utils.memoize import cached
@@ -130,6 +130,12 @@ class VariationalStrategy(Module):
             data_data_covar = full_covar[..., num_induc:, num_induc:]
             root_variational_covar = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate()
 
+            # If we're less than a certain size, we'll compute the Cholesky decomposition of induc_induc_covar
+            cholesky = False
+            if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
+                induc_induc_covar = CholLazyTensor(induc_induc_covar._cholesky())
+                cholesky = True
+
             # Cache the CG results
             # For now: run variational inference without a preconditioner
             # The preconditioner screws things up for some reason
@@ -139,8 +145,8 @@ class VariationalStrategy(Module):
                 with torch.no_grad():
                     eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
                     solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                        induc_induc_covar, eager_rhs.detach(), logdet_terms=self.training,
-                        include_tmats=(not settings.skip_logdet_forward.on())
+                        induc_induc_covar, eager_rhs.detach(), logdet_terms=(not cholesky),
+                        include_tmats=(not settings.skip_logdet_forward.on() and not cholesky)
                     )
                     eager_rhss = [
                         eager_rhs.detach(), eager_rhs[..., left_tensors.size(-1):].detach(),
@@ -169,10 +175,6 @@ class VariationalStrategy(Module):
                 )
                 diag_correction = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
                 predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
-
-            # Save the logdet, mean_diff_inv_quad, prior distribution for the ELBO
-            if self.training:
-                self._memoize_cache["prior_distribution_memo"] = MultivariateNormal(induc_mean, induc_induc_covar)
 
             return MultivariateNormal(predictive_mean, predictive_covar)
 

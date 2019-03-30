@@ -10,6 +10,7 @@ from torch.distributions.utils import _standard_normal, lazy_property
 from .. import settings
 from ..lazy import LazyTensor, lazify
 from .distribution import Distribution
+from ..utils.broadcasting import _mul_broadcast_shape
 
 
 class _MultivariateNormalBase(TMultivariateNormal, Distribution):
@@ -225,6 +226,12 @@ except ImportError:
 
 @register_kl(MultivariateNormal, MultivariateNormal)
 def kl_mvn_mvn(p_dist, q_dist):
+    output_shape = _mul_broadcast_shape(p_dist.batch_shape, q_dist.batch_shape)
+    if output_shape != p_dist.batch_shape:
+        p_dist = p_dist.expand(output_shape)
+    if output_shape != q_dist.batch_shape:
+        q_dist = q_dist.expand(output_shape)
+
     q_mean = q_dist.loc
     q_covar = q_dist.lazy_covariance_matrix
 

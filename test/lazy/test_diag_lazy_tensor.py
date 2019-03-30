@@ -9,6 +9,8 @@ from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 class TestDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
+    should_call_cg = False
+    should_call_lanczos = False
 
     def create_lazy_tensor(self):
         diag = torch.tensor([1.0, 2.0, 4.0, 2.0, 3.0], requires_grad=True)
@@ -19,9 +21,8 @@ class TestDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
         return diag.diag()
 
 
-class TestDiagLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
+class TestDiagLazyTensorBatch(TestDiagLazyTensor):
     seed = 0
-    should_test_sample = True
 
     def create_lazy_tensor(self):
         diag = torch.tensor(
@@ -34,7 +35,7 @@ class TestDiagLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
         return torch.cat([diag[i].diag().unsqueeze(0) for i in range(3)])
 
 
-class TestDiagLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
+class TestDiagLazyTensorMultiBatch(TestDiagLazyTensor):
     seed = 0
     # Because these LTs are large, we'll skil the big tests
     should_test_sample = True
