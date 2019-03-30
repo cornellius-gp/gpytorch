@@ -885,14 +885,22 @@ class LazyTensor(ABC):
                     )
                 )
 
-        func = InvMatmul(
-            self.representation_tree(),
-            has_left=(left_tensor is not None),
-        )
+        func = InvMatmul
         if left_tensor is None:
-            return func(right_tensor, *self.representation())
+            return func.apply(
+                self.representation_tree(),
+                False,
+                right_tensor,
+                *self.representation(),
+            )
         else:
-            return func(left_tensor, right_tensor, *self.representation())
+            return func.apply(
+                self.representation_tree(),
+                True,
+                left_tensor,
+                right_tensor,
+                *self.representation(),
+            )
 
     def inv_quad(self, tensor, reduce_inv_quad=True):
         """
