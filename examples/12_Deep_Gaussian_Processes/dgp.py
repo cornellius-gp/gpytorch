@@ -158,6 +158,8 @@ import time
 
 other_params = model.named_hyperparameters()
 
+vanilla = True
+
 for i in range(num_epochs):
     # Within each iteration, we will go over each minibatch of data
     for minibatch_i, (x_batch, y_batch) in enumerate(train_loader):
@@ -171,16 +173,18 @@ for i in range(num_epochs):
 
             log_lik_loss = log_lik * num_samples
             kl_div_loss = - kl_div + added_loss.div(mll.num_data)
+            loss = log_lik_loss + kl_div_loss
 
-            kl_div_loss.backward(retain_graph=True)
+            if vanilla:
+                loss.backward()
+            else:
+                q_f_means = [mod._mean_qf for mod in hidden_net]
+                q_f_stds = [mod._std_qf for mod in hidden_net]
 
-            q_f_means = [mod._mean_qf for mod in hidden_net]
-            q_f_stds = [mod._std_qf for mod in hidden_net]
-
-            fancy_backward(log_lik_loss, q_f_means[0], q_f_stds[0].pow(2.0), other_params=other_params)
-            loss = (log_lik_loss + kl_div_loss).item()
+                kl_div_loss.backward(retain_graph=True)
+                fancy_backward(log_lik_loss, q_f_means[0], q_f_stds[0].pow(2.0), other_params=other_params)
 
             print('Epoch %d [%d/%d] - Loss: %.3f - - Time: %.3f' % (i + 1, minibatch_i, len(train_loader),
-                                                                    loss, time.time() - start_time))
+                                                                    loss.item(), time.time() - start_time))
 
             optimizer.step()
