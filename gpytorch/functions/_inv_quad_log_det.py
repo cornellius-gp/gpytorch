@@ -207,8 +207,8 @@ class InvQuadLogDet(Function):
             inv_quad_rhs_grad.squeeze_(-1)
 
         if ctx.inv_quad:
-            res = tuple([inv_quad_rhs_grad] + list(matrix_arg_grads))
+            res = [inv_quad_rhs_grad] + list(matrix_arg_grads)
         else:
             res = matrix_arg_grads
 
-        return tuple([None] * 9 + [res])
+        return tuple([None] * 9 + res)
