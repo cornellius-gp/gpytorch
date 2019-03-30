@@ -70,6 +70,8 @@ class InvQuad(Function):
         inv_quad_grad_output = inv_quad_grad_output.unsqueeze(-2)
         neg_inv_quad_solves_times_grad_out = inv_quad_solves.mul(inv_quad_grad_output).mul(-1)
 
+        matrix_arg_grads = [None] * len(matrix_args)
+
         # input_1 gradient
         if any(ctx.needs_input_grad[2:]):
             left_factors = neg_inv_quad_solves_times_grad_out
