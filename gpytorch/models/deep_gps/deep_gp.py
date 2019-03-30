@@ -88,6 +88,9 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
         mean_qf = variational_dist_f.mean
         std_qf = variational_dist_f.variance.sqrt()
 
+        self._mean_qf = mean_qf
+        self._std_qf = std_qf
+
         if reshape_output:
             samples = torch.distributions.Normal(mean_qf, std_qf).rsample()
             samples = samples.view(self.output_dims, num_samples, -1).permute(1, 2, 0)
