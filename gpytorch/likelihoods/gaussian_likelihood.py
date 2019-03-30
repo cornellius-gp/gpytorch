@@ -52,7 +52,14 @@ class _GaussianLikelihoodBase(Likelihood):
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
-    def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, **kwargs):
+    def __init__(
+        self,
+        noise_prior=None,
+        batch_size=1,
+        param_transform=softplus,
+        inv_param_transform=None,
+        **kwargs
+    ):
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior,
             batch_size=batch_size,
@@ -92,7 +99,9 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
         if variance.ndimension() == 1:
             if settings.debug.on() and noise.size(0) > 1:
-                raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
+                raise RuntimeError(
+                    "With batch_size > 1, expected a batched MultivariateNormal distribution."
+                )
             noise = noise.squeeze(0)
 
         res = -0.5 * ((target - mean) ** 2 + variance) / noise
