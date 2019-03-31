@@ -136,23 +136,21 @@ class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):
         # batch_dims
         dist = torch.tensor(
             [
-                [[0, 0], [1, 1]],
-                [[1, 1], [0, 0]],
-                [[0, 0], [0, 0]],
-                [[0, 0], [0, 0]],
-                [[0, 0], [0, 0]],
-                [[4, 4], [0, 0]],
-            ],
-            dtype=torch.float,
+                [[[0.0, 0.0], [1.0, 1.0]], [[0.0, 0.0], [0.0, 0.0]]],
+                [[[1.0, 1.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0]]],
+                [[[0.0, 0.0], [0.0, 0.0]], [[4.0, 4.0], [0.0, 0.0]]],
+            ]
         )
+
         dist.mul_(math.sqrt(5))
+        dist = dist.view(3, 2, 2, 2)
         actual = (dist ** 2 / 3 + dist + 1).mul(torch.exp(-dist))
         res = kernel(a, b, batch_dims=(0, 2)).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
         res = kernel(a, b, batch_dims=(0, 2)).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
 

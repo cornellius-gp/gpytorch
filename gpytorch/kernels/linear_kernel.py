@@ -97,9 +97,7 @@ class LinearKernel(Kernel):
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         x1_ = x1 * self.variance.sqrt()
         if batch_dims == (0, 2):
-            x1_ = x1_.view(x1_.size(0), x1_.size(1), -1, 1)
-            x1_ = x1_.permute(0, 2, 1, 3).contiguous()
-            x1_ = x1_.view(-1, x1_.size(-2), x1_.size(-1))
+            x1_ = x1_.unsqueeze(0).transpose(0, -1)
 
         if x1.size() == x2.size() and torch.equal(x1, x2):
             # Use RootLazyTensor when x1 == x2 for efficiency when composing
@@ -109,10 +107,11 @@ class LinearKernel(Kernel):
         else:
             x2_ = x2 * self.variance.sqrt()
             if batch_dims == (0, 2):
-                x2_ = x2_.view(x2_.size(0), x2_.size(1), -1, 1)
-                x2_ = x2_.permute(0, 2, 1, 3).contiguous()
-                x2_ = x2_.view(-1, x2_.size(-2), x2_.size(-1))
+                x2_ = x2_.unsqueeze(0).transpose(0, -1)
 
-            prod = MatmulLazyTensor(x1_, x2_.transpose(2, 1))
+            prod = MatmulLazyTensor(x1_, x2_.transpose(-2, -1))
 
-        return prod
+        if diag:
+            return prod.diag()
+        else:
+            return prod

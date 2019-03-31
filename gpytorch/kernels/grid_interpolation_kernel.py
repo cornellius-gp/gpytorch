@@ -114,23 +114,22 @@ class GridInterpolationKernel(GridKernel):
         )
 
     def _compute_grid(self, inputs, batch_dims):
-        batch_size, n_data, n_dimensions = inputs.size()
+        n_data, n_dimensions = inputs.size(-2), inputs.size(-1)
         if batch_dims == (0, 2):
-            inputs = inputs.view(inputs.size(0), inputs.size(1), -1, 1)
-            inputs = inputs.transpose(1, 2).contiguous()
-            batch_size = batch_size * inputs.size(1)
-            n_dimensions = n_dimensions // inputs.size(1)
+            inputs = inputs.unsqueeze(0).transpose(0, -1)
+            n_dimensions = 1
+        batch_shape = inputs.shape[:-2]
 
-        inputs = inputs.view(batch_size * n_data, n_dimensions)
+        inputs = inputs.contiguous().view(-1, n_dimensions)
         interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
-        interp_indices = interp_indices.view(batch_size, n_data, -1)
-        interp_values = interp_values.view(batch_size, n_data, -1)
+        interp_indices = interp_indices.view(*batch_shape, n_data, -1)
+        interp_values = interp_values.view(*batch_shape, n_data, -1)
         return interp_indices, interp_values
 
     def _inducing_forward(self, batch_dims, **params):
         return super(GridInterpolationKernel, self).forward(self.grid, self.grid, batch_dims=batch_dims, **params)
 
-    def forward(self, x1, x2, batch_dims=None, **params):
+    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         # See if we need to update the grid or not
         if self.grid_is_dynamic:  # This is true if a grid_bounds wasn't passed in
             if torch.equal(x1, x2):
@@ -160,9 +159,9 @@ class GridInterpolationKernel(GridKernel):
 
         base_lazy_tsr = self._inducing_forward(batch_dims=batch_dims, **params)
         if batch_dims == (0, 2):
-            base_lazy_tsr = base_lazy_tsr.repeat(x1.size(-1), 1, 1)
-        if x1.size(0) > 1:
-            base_lazy_tsr = base_lazy_tsr.repeat(x1.size(0), 1, 1)
+            base_lazy_tsr = base_lazy_tsr.repeat(x1.size(-1), *x1.shape[:-2], 1, 1)
+        if x1.dim() > 2:
+            base_lazy_tsr = base_lazy_tsr.repeat(*x1.shape[:-2], 1, 1)
 
         left_interp_indices, left_interp_values = self._compute_grid(x1, batch_dims)
         if torch.equal(x1, x2):
@@ -179,7 +178,10 @@ class GridInterpolationKernel(GridKernel):
             right_interp_values,
         )
 
-        return res
+        if diag:
+            return res.diag()
+        else:
+            return res
 
     def size(self, x1, x2):
         return self.base_kernel.size(x1, x2)

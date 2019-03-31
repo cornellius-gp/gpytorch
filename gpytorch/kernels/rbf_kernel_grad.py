@@ -20,7 +20,7 @@ class RBFKernelGrad(RBFKernel):
     Args:
         :attr:`batch_shape` (torch.Size, optional):
             Set this if you want a separate lengthscale for each
-             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`.
+             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`.
         :attr:`active_dims` (tuple of ints, optional):
             Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
@@ -50,15 +50,11 @@ class RBFKernelGrad(RBFKernel):
         >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 60 x 60)
     """
     def forward(self, x1, x2, diag=False, **params):
-        b = 1
-        if len(x1.size()) == 2:
-            n1, d = x1.size()
-            n2, d = x2.size()
-        else:
-            b, n1, d = x1.size()
-            _, n2, _ = x2.size()
+        batch_shape = x1.shape[:-2]
+        n1, d = x1.shape[-2:]
+        n2 = x2.shape[-2]
 
-        K = torch.zeros(b, n1 * (d + 1), n2 * (d + 1), device=x1.device, dtype=x1.dtype)  # batch x n1(d+1) x n2(d+1)
+        K = torch.zeros(*batch_shape, n1 * (d + 1), n2 * (d + 1), device=x1.device, dtype=x1.dtype)
 
         if not diag:
             # Scale the inputs by the lengthscale (for stability)
@@ -66,7 +62,7 @@ class RBFKernelGrad(RBFKernel):
             x2_ = x2.div(self.lengthscale)
 
             # Form all possible rank-1 products for the gradient and Hessian blocks
-            outer = x1_.view([b, n1, 1, d]) - x2_.view([b, 1, n2, d])
+            outer = x1_.view(*batch_shape, n1, 1, d) - x2_.view(*batch_shape, 1, n2, d)
             outer = outer / self.lengthscale
             outer = torch.transpose(outer, -1, -2).contiguous()
 
@@ -76,19 +72,19 @@ class RBFKernelGrad(RBFKernel):
             K[..., :n1, :n2] = K_11
 
             # 2) First gradient block
-            outer1 = outer.view([b, n1, n2 * d])
+            outer1 = outer.view(*batch_shape, n1, n2 * d)
             K[..., :n1, n2:] = outer1 * K_11.repeat([1, 1, d])
 
             # 3) Second gradient block
-            outer2 = outer.transpose(-1, -3).contiguous().view([b, n2, n1 * d])
+            outer2 = outer.transpose(-1, -3).contiguous().view(*batch_shape, n2, n1 * d)
             outer2 = outer2.transpose(-1, -2)
             K[..., n1:, :n2] = -outer2 * K_11.repeat([1, d, 1])
 
             # 4) Hessian block
             outer3 = outer1.repeat([1, d, 1]) * outer2.repeat([1, 1, d])
             kp = KroneckerProductLazyTensor(
-                torch.eye(d, d, device=x1.device, dtype=x1.dtype).repeat([b, 1, 1]) / self.lengthscale.pow_(2),
-                torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat([b, 1, 1])
+                torch.eye(d, d, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1) / self.lengthscale.pow_(2),
+                torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1)
             )
             chain_rule = kp.evaluate() - outer3
             K[..., n1:, n2:] = chain_rule * K_11.repeat([1, d, d])
@@ -109,8 +105,8 @@ class RBFKernelGrad(RBFKernel):
                 raise RuntimeError("diag=True only works when x1 == x2")
 
             kernel_diag = super(RBFKernelGrad, self).forward(x1, x2, diag=True)
-            grad_diag = torch.ones(b, n2, d, device=x1.device, dtype=x1.dtype) / self.lengthscale.pow_(2)
-            grad_diag = grad_diag.transpose(-1, -2).contiguous().view([b, n2 * d])
+            grad_diag = torch.ones(*batch_shape, n2, d, device=x1.device, dtype=x1.dtype) / self.lengthscale.pow_(2)
+            grad_diag = grad_diag.transpose(-1, -2).contiguous().view(*batch_shape, n2 * d)
             k_diag = torch.cat((kernel_diag, grad_diag), dim=-1)
             pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             return k_diag[..., pi]

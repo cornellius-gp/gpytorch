@@ -15,9 +15,9 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         return RBFKernel(ard_num_dims=num_dims, **kwargs)
 
     def test_ard(self):
-        a = torch.tensor([[[1, 2], [2, 4]]], dtype=torch.float)
-        b = torch.tensor([[[1, 3], [0, 4]]], dtype=torch.float)
-        lengthscales = torch.tensor([1, 2], dtype=torch.float).view(1, 1, 2)
+        a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
+        b = torch.tensor([[1, 3], [0, 4]], dtype=torch.float)
+        lengthscales = torch.tensor([1, 2], dtype=torch.float).view(1, 2)
 
         kernel = RBFKernel(ard_num_dims=2)
         kernel.initialize(lengthscale=lengthscales)
@@ -31,7 +31,7 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
 
         # Diag
         res = kernel(a, b).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        actual = actual.diag()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
@@ -66,14 +66,16 @@ class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
-        actual = scaled_a.transpose(-1, -2).unsqueeze(-1) - scaled_b.transpose(-1, -2).unsqueeze(-2)
-        actual = actual.pow(2).mul_(-0.5).exp().view(6, 2, 2)
+        double_batch_a = scaled_a.unsqueeze(0).transpose(0, -1)
+        double_batch_b = scaled_b.unsqueeze(0).transpose(0, -1)
+        actual = double_batch_a.transpose(-1, -2).unsqueeze(-1) - double_batch_b.transpose(-1, -2).unsqueeze(-2)
+        actual = actual.pow(2).mul_(-0.5).exp().view(3, 2, 2, 2)
         res = kernel(a, b, batch_dims=(0, 2)).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims and diag
         res = kernel(a, b, batch_dims=(0, 2)).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
+        actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
     def test_ard_separate_batch(self):

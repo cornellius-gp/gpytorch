@@ -3,7 +3,7 @@
 import torch
 
 
-def _mul_broadcast_shape(*shapes):
+def _mul_broadcast_shape(*shapes, error_msg=None):
     """Compute dimension suggested by multiple tensor indices (supports broadcasting)"""
 
     # Pad each shape so they have the same number of dimensions
@@ -16,7 +16,10 @@ def _mul_broadcast_shape(*shapes):
         non_singleton_sizes = tuple(size for size in size_by_dim if size != 1)
         if len(non_singleton_sizes):
             if any(size != non_singleton_sizes[0] for size in non_singleton_sizes):
-                raise RuntimeError("Shapes {} are not broadcastable for mul operation")
+                if error_msg is None:
+                    raise RuntimeError("Shapes are not broadcastable for mul operation")
+                else:
+                    raise RuntimeError(error_msg)
             final_size.append(non_singleton_sizes[0])
         # In this case - all dimensions are singleton sizes
         else:

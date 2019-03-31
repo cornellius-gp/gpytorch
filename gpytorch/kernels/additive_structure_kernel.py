@@ -49,7 +49,7 @@ class AdditiveStructureKernel(Kernel):
             evaluate = True
             res = NonLazyTensor(res)
 
-        res = res.sum(-3).unsqueeze(0)
+        res = res.sum(0)
 
         if evaluate:
             res = res.evaluate()

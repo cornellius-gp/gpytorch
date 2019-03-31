@@ -44,12 +44,40 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         if self.batch_dims == (0, 2):
             x1 = x1.permute(0, 2, 1).contiguous()
             x1 = x1.view(-1, x1.size(-1), 1)
-        x1 = x1[(*batch_indices, row_index, _noop_index)]
+        try:
+            x1 = x1[(*batch_indices, row_index, _noop_index)]
+        except IndexError:
+            if isinstance(batch_indices, slice):
+                x1 = x1.expand(1, *self.x1.shape[-2:])[(*batch_indices, row_index, _noop_index)]
+            elif isinstance(batch_indices, tuple):
+                if any([not isinstance(bi, slice) for bi in batch_indices]):
+                    raise RuntimeError(
+                        f"Attempting to tensor index a non-batch matrix's batch dimensions. "
+                        "Got batch index {batch_indices} but my shape was {self.shape}"
+                    )
+                x1 = x1.expand(
+                    *([1] * len(batch_indices)),
+                    *self.x1.shape[-2:]
+                )[(*batch_indices, row_index, _noop_index)]
         x2 = self.x2
         if self.batch_dims == (0, 2):
             x2 = x2.permute(0, 2, 1).contiguous()
             x2 = x2.view(-1, x2.size(-1), 1)
-        x2 = x2[(*batch_indices, col_index, _noop_index)]
+        try:
+            x2 = x2[(*batch_indices, col_index, _noop_index)]
+        except IndexError:
+            if isinstance(batch_indices, slice):
+                x2 = x2.expand(1, *self.x2.shape[-2:])[(*batch_indices, row_index, _noop_index)]
+            elif isinstance(batch_indices, tuple):
+                if any([not isinstance(bi, slice) for bi in batch_indices]):
+                    raise RuntimeError(
+                        f"Attempting to tensor index a non-batch matrix's batch dimensions. "
+                        "Got batch index {batch_indices} but my shape was {self.shape}"
+                    )
+                x2 = x2.expand(
+                    *([1] * len(batch_indices)),
+                    *self.x2.shape[-2:]
+                )[(*batch_indices, row_index, _noop_index)]
 
         return self.__class__(
             x1, x2, kernel=self.kernel, **self.params
@@ -110,13 +138,11 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         return x1.grad, x2.grad
 
+    @cached(name="size")
     def _size(self):
         size = self.kernel.size(self.x1, self.x2)
         if self.batch_dims == (0, 2):
-            if len(size) == 2:
-                return torch.Size((self.x1.size(-1), size[0], size[1]))
-            else:
-                return torch.Size((self.x1.size(-1) * size[0], size[1], size[2]))
+            return torch.Size((self.x1.size(-1), ) + size)
         return size
 
     def _transpose_nonbatch(self):
@@ -143,37 +169,14 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         x1 = self.x1
         x2 = self.x2
 
-        # TODO: until kernels support multi-batch mode, we have to ensure that the kernel has a batch dimension
-        is_batch = True
-        if x1.dim() == 2:
-            is_batch = False
-            x1 = x1.unsqueeze(0)
-            x2 = x2.unsqueeze(0)
-
         res = super(Kernel, self.kernel).__call__(x1, x2, diag=True, batch_dims=self.batch_dims, **self.params)
-
-        # TODO: until kernels support multi-batch mode, we have to remove any artificial batch dimension
-        # that we've added
-        if not is_batch:
-            x1 = x1.squeeze(0)
-            x2 = x2.squeeze(0)
-            res = res.squeeze(0)
-
-        # Did this Kernel eat the diag option?
-        # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
-        if not isinstance(res, LazyEvaluatedKernelTensor):
-            if res.dim() == x1.dim() and res.shape[-2:] == torch.Size((x1.size(-2), x2.size(-2))):
-                res = res.diag()
 
         # Now we'll make sure that the shape we're getting from diag makes sense
         if settings.debug.on():
             # If we used batch_dims...
             shape = self.kernel.size(x1, x2)
             if self.batch_dims == (0, 2):
-                if len(shape) == 2:
-                    expected_shape = torch.Size((x1.size(-1), shape[0]))
-                else:
-                    expected_shape = torch.Size((shape[0] * x1.size(-1), shape[1]))
+                expected_shape = torch.Size((x1.size(-1),) + shape[:-1])
                 if res.shape != expected_shape:
                     raise RuntimeError(
                         "The kernel {} is not equipped to handle batch_dims=(0, 2) "

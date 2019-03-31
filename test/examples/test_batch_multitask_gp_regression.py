@@ -37,16 +37,27 @@ class ExactGPModel(gpytorch.models.ExactGP):
         self.mean_module = MultitaskMean(
             ConstantMean(batch_size=batch_size, prior=gpytorch.priors.SmoothedBoxPrior(-1, 1)), num_tasks=2
         )
-        self.covar_module = MultitaskKernel(
-            RBFKernel(
-                batch_size=batch_size,
-                lengthscale_prior=gpytorch.priors.NormalPrior(
-                    loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1)
+        if batch_size > 1:
+            self.covar_module = MultitaskKernel(
+                RBFKernel(
+                    batch_size=batch_size,
+                    lengthscale_prior=gpytorch.priors.NormalPrior(
+                        loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1)
+                    ),
                 ),
-            ),
-            num_tasks=2,
-            rank=1,
-        )
+                num_tasks=2,
+                rank=1,
+            )
+        else:
+            self.covar_module = MultitaskKernel(
+                RBFKernel(
+                    lengthscale_prior=gpytorch.priors.NormalPrior(
+                        loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1)
+                    ),
+                ),
+                num_tasks=2,
+                rank=1,
+            )
 
     def forward(self, x):
         mean_x = self.mean_module(x)

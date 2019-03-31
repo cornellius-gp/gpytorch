@@ -31,7 +31,7 @@ class ScaleKernel(Kernel):
             The base kernel to be scaled.
         :attr:`batch_shape` (int, optional):
             Set this if you want a separate outputscale for each batch of input data. It should be `b`
-            if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`
+            if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`
         :attr:`outputscale_prior` (Prior, optional): Set this if you want to apply a prior to the outputscale
             parameter.  Default: `None`
         :attr:`outputscale_constraint` (Constraint, optional): Set this if you want to apply a constraint to the
@@ -56,7 +56,8 @@ class ScaleKernel(Kernel):
             outputscale_constraint = Positive()
 
         self.base_kernel = base_kernel
-        self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape)))
+        outputscale = torch.zeros(*self.batch_shape) if len(self.batch_shape) else torch.tensor(0.)
+        self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(outputscale))
         if outputscale_prior is not None:
             self.register_prior(
                 "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)
@@ -79,11 +80,11 @@ class ScaleKernel(Kernel):
 
     def forward(self, x1, x2, batch_dims=None, diag=False, **params):
         outputscales = self.outputscale
-        if batch_dims == (0, 2) and outputscales.numel() > 1:
-            outputscales = outputscales.unsqueeze(1).repeat(1, x1.size(-1)).view(-1)
+        if batch_dims == (0, 2):
+            outputscales = outputscales.unsqueeze(0).repeat(x1.size(-1), *([1] * outputscales.dim()))
 
         orig_output = self.base_kernel.forward(x1, x2, diag=diag, batch_dims=batch_dims, **params)
-        outputscales = outputscales.view(-1, *([1] * (orig_output.dim() - 1)))
+        outputscales = outputscales.view(*outputscales.shape, *([1] * (orig_output.dim() - outputscales.dim())))
 
         if diag:
             return delazify(orig_output) * outputscales
