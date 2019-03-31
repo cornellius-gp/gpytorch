@@ -18,9 +18,9 @@ class FillGrads(Function):
 
 
 def fancy_backward(loss, *args, other_params=None):
+    print('op', other_params)
     if other_params is not None:
-        print('op', list(other_params))
-        other_grads = torch.autograd.grad(loss, list(other_params), retain_graph=True)
+        other_grads = torch.autograd.grad(loss, other_params, retain_graph=True)
         for param, grad in zip(other_params, other_grads):
             if param.grad is None:
                 param.grad = grad

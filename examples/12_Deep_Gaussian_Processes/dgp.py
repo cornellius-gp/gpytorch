@@ -65,7 +65,8 @@ class ToyDeepGPHiddenLayer(AbstractDeepGPHiddenLayer):
             batch_size=output_dims
         )
 
-        variational_strategy = WhitenedVariationalStrategy(
+        variational_strategy = VariationalStrategy(
+        #variational_strategy = WhitenedVariationalStrategy(
             self,
             inducing_points,
             variational_distribution,
@@ -101,7 +102,8 @@ class ToyDeepGP(AbstractDeepGP):
             batch_size=output_dims
         )
 
-        variational_strategy = WhitenedVariationalStrategy(
+        variational_strategy = VariationalStrategy(
+        #variational_strategy = WhitenedVariationalStrategy(
             self,
             inducing_points,
             variational_distribution,
@@ -156,9 +158,9 @@ optimizer = torch.optim.Adam([
 
 import time
 
-other_params = model.named_hyperparameters()
+other_params = list(model.named_hyperparameters())
 
-vanilla = True
+vanilla = False
 
 for i in range(num_epochs):
     # Within each iteration, we will go over each minibatch of data
@@ -171,9 +173,9 @@ for i in range(num_epochs):
             y_batch = y_batch.unsqueeze(0).unsqueeze(0).expand(model.output_dims, model.num_samples, -1)
             log_lik, kl_div, _, added_loss = mll(output, y_batch, num_samples=num_samples)
 
-            log_lik_loss = log_lik * num_samples
-            kl_div_loss = - kl_div + added_loss.div(mll.num_data)
-            loss = log_lik_loss + kl_div_loss
+            loss_ell = -log_lik * num_samples
+            loss_kl = kl_div - added_loss.div(mll.num_data)
+            loss = loss_ell + loss_kl
 
             if vanilla:
                 loss.backward()
@@ -181,8 +183,8 @@ for i in range(num_epochs):
                 q_f_means = [mod._mean_qf for mod in hidden_net]
                 q_f_stds = [mod._std_qf for mod in hidden_net]
 
-                kl_div_loss.backward(retain_graph=True)
-                fancy_backward(log_lik_loss, q_f_means[0], q_f_stds[0].pow(2.0), other_params=other_params)
+                loss_kl.backward(retain_graph=True)
+                fancy_backward(loss_ell, q_f_means[0], q_f_stds[0].pow(2.0), other_params=other_params)
 
             print('Epoch %d [%d/%d] - Loss: %.3f - - Time: %.3f' % (i + 1, minibatch_i, len(train_loader),
                                                                     loss.item(), time.time() - start_time))
