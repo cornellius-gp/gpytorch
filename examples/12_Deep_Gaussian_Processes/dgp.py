@@ -78,7 +78,7 @@ class ToyDeepGPHiddenLayer(AbstractDeepGPHiddenLayer):
                                             output_dims,
                                             num_samples=num_samples)
 
-        self.mean_module = ConstantMean(batch_size=output_dims)
+        # self.mean_module = ConstantMean(batch_size=output_dims)
         self.covar_module = ScaleKernel(RBFKernel(batch_size=output_dims,
                                                   ard_num_dims=input_dims), batch_size=output_dims,
                                         ard_num_dims=None)
@@ -158,7 +158,7 @@ optimizer = torch.optim.Adam([
 
 import time
 
-other_params = list(model.named_hyperparameters())
+other_params = list(model.hyperparameters())
 
 vanilla = False
 
