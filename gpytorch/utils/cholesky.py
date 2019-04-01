@@ -23,26 +23,27 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
         if A.dim() > 2 and A.is_cuda:
             if torch.isnan(L if out is None else out).any():
                 raise RuntimeError
-    except RuntimeError:
+
+        return L
+    except RuntimeError as e:
         if jitter is None:
             jitter = 1e-6 if A.dtype == torch.float32 else 1e-8
-        idx = torch.arange(A.shape[-1], device=A.device)
-        Aprime = A.clone()
-        Aprime[..., idx, idx] += jitter
-        try:
-            L = torch.cholesky(Aprime, upper=upper, out=out)
-            # TODO: Remove once fixed in pytorch (#16780)
-            if A.dim() > 2 and A.is_cuda:
-                if torch.isnan(L if out is None else out).any():
-                    raise RuntimeError("singular")
-        except RuntimeError as e:
-            if "singular" in e.args[0]:
-                raise RuntimeError("Adding jitter of {} to the diagonal did not make A p.d.".format(jitter))
-            else:
-                raise e
-        warnings.warn("A not p.d., added jitter of {} to the diagonal".format(jitter), RuntimeWarning)
+        for i in range(3):
+            jitter = jitter * (10 ** i)
+            Aprime = A.clone()
+            Aprime.diagonal(dim1=-2, dim2=-1).mul_(jitter)
+            try:
+                L = torch.cholesky(Aprime, upper=upper, out=out)
+                # TODO: Remove once fixed in pytorch (#16780)
+                if A.dim() > 2 and A.is_cuda:
+                    if torch.isnan(L if out is None else out).any():
+                        raise RuntimeError("singular")
+                return L
+            except RuntimeError:
+                continue
 
-    return L
+        warnings.warn("A not p.d., added jitter of {} to the diagonal".format(jitter), RuntimeWarning)
+        raise e
 
 
 def cholesky_solve(b, u, upper=False):
