@@ -31,7 +31,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
         for i in range(3):
             jitter = jitter * (10 ** i)
             Aprime = A.clone()
-            Aprime.diagonal(dim1=-2, dim2=-1).mul_(jitter)
+            Aprime.diagonal(dim1=-2, dim2=-1).add_(jitter)
             try:
                 L = torch.cholesky(Aprime, upper=upper, out=out)
                 # TODO: Remove once fixed in pytorch (#16780)
