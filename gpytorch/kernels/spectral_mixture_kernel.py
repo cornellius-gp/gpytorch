@@ -62,6 +62,7 @@ class SpectralMixtureKernel(Kernel):
     .. _Gaussian Process Kernels for Pattern Discovery and Extrapolation:
         https://arxiv.org/pdf/1302.4245.pdf
     """
+
     def __init__(
         self,
         num_mixtures=None,
@@ -94,13 +95,13 @@ class SpectralMixtureKernel(Kernel):
         self.register_parameter(name="raw_mixture_means", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
         self.register_parameter(name="raw_mixture_scales", parameter=torch.nn.Parameter(torch.zeros(ms_shape)))
 
-        self.register_constraint("mixture_scales_constraint", mixture_scales_constraint)
-        self.register_constraint("mixture_means_constraint", mixture_means_constraint)
-        self.register_constraint("mixture_weights_constraint", mixture_weights_constraint)
+        self.register_constraint("raw_mixture_scales", mixture_scales_constraint)
+        self.register_constraint("raw_mixture_means", mixture_means_constraint)
+        self.register_constraint("raw_mixture_weights", mixture_weights_constraint)
 
     @property
     def mixture_scales(self):
-        return self.mixture_scales_constraint.transform(self.raw_mixture_scales)
+        return self.raw_mixture_scales_constraint.transform(self.raw_mixture_scales)
 
     @mixture_scales.setter
     def mixture_scales(self, value):
@@ -109,11 +110,11 @@ class SpectralMixtureKernel(Kernel):
     def _set_mixture_scales(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_mixture_scales=self.mixture_scales_constraint.inverse_transform(value))
+        self.initialize(raw_mixture_scales=self.raw_mixture_scales_constraint.inverse_transform(value))
 
     @property
     def mixture_means(self):
-        return self.mixture_means_constraint.transform(self.raw_mixture_means)
+        return self.raw_mixture_means_constraint.transform(self.raw_mixture_means)
 
     @mixture_means.setter
     def mixture_means(self, value):
@@ -122,11 +123,11 @@ class SpectralMixtureKernel(Kernel):
     def _set_mixture_means(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_mixture_means=self.mixture_means_constraint.inverse_transform(value))
+        self.initialize(raw_mixture_means=self.raw_mixture_means_constraint.inverse_transform(value))
 
     @property
     def mixture_weights(self):
-        return self.mixture_weights_constraint.transform(self.raw_mixture_weights)
+        return self.raw_mixture_weights_constraint.transform(self.raw_mixture_weights)
 
     @mixture_weights.setter
     def mixture_weights(self, value):
@@ -135,7 +136,7 @@ class SpectralMixtureKernel(Kernel):
     def _set_mixture_weights(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_mixture_weights=self.mixture_weights_constraint.inverse_transform(value))
+        self.initialize(raw_mixture_weights=self.raw_mixture_weights_constraint.inverse_transform(value))
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
@@ -154,13 +155,17 @@ class SpectralMixtureKernel(Kernel):
 
         # Inverse of lengthscales should be drawn from truncated Gaussian | N(0, max_dist^2) |
         self.raw_mixture_scales.data.normal_().mul_(max_dist).abs_().pow_(-1)
-        self.raw_mixture_scales.data = self.mixture_scales_constraint.inverse_transform(self.raw_mixture_scales.data)
+        self.raw_mixture_scales.data = self.raw_mixture_scales_constraint.inverse_transform(
+            self.raw_mixture_scales.data
+        )
         # Draw means from Unif(0, 0.5 / minimum distance between two points)
         self.raw_mixture_means.data.uniform_().mul_(0.5).div_(min_dist)
-        self.raw_mixture_means.data = self.mixture_means_constraint.inverse_transform(self.raw_mixture_means.data)
+        self.raw_mixture_means.data = self.raw_mixture_means_constraint.inverse_transform(self.raw_mixture_means.data)
         # Mixture weights should be roughly the stdv of the y values divided by the number of mixtures
         self.raw_mixture_weights.data.fill_(train_y.std() / self.num_mixtures)
-        self.raw_mixture_weights.data = self.mixture_weights_constraint.inverse_transform(self.raw_mixture_weights.data)
+        self.raw_mixture_weights.data = self.raw_mixture_weights_constraint.inverse_transform(
+            self.raw_mixture_weights.data
+        )
 
     def _create_input_grid(self, x1, x2, diag=False, batch_dims=None, **params):
         """

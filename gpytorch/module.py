@@ -204,9 +204,13 @@ class Module(nn.Module):
         self.add_module(name, prior)
         self._priors[name] = (prior, closure, setting_closure)
 
-    def register_constraint(self, name, constraint, replace=True):
-        if name in self._constraints:
-            current_constraint = self._constraints[name]
+    def register_constraint(self, param_name, constraint, replace=True):
+        if param_name not in self._parameters:
+            raise RuntimeError("Attempting to register constraint for nonexistent parameter.")
+
+        constraint_name = param_name + "_constraint"
+        if constraint_name in self._constraints:
+            current_constraint = self._constraints[constraint_name]
         else:
             current_constraint = None
 
@@ -215,8 +219,27 @@ class Module(nn.Module):
         else:
             new_constraint = constraint
 
-        self.add_module(name, new_constraint)
-        self._constraints[name] = new_constraint
+        self.add_module(constraint_name, new_constraint)
+        self._constraints[constraint_name] = new_constraint
+
+    def constraint_for_parameter_name(self, param_name):
+        base_module = self
+        base_name = param_name
+
+        while "." in base_name:
+            components = base_name.split(".")
+            submodule_name = components[0]
+            submodule = getattr(base_module, submodule_name)
+
+            base_module = submodule
+            base_name = ".".join(components[1:])
+
+        constraint_name = base_name + "_constraint"
+        return base_module._constraints.get(constraint_name)
+
+    def named_parameters_and_constraints(self):
+        for name, param in self.named_parameters():
+            yield name, param, self.constraint_for_parameter_name(name)
 
     def sample_from_prior(self, prior_name):
         """Sample parameter values from prior. Modifies the module's parameters in-place."""

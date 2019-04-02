@@ -59,12 +59,11 @@ class ScaleKernel(Kernel):
                 "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)
             )
 
-        self.register_constraint("outputscale_constraint", outputscale_constraint)
+        self.register_constraint("raw_outputscale", outputscale_constraint)
 
     @property
     def outputscale(self):
-        constraint = self._constraints["outputscale_constraint"]
-        return constraint.transform(self.raw_outputscale)
+        return self.raw_outputscale_constraint.transform(self.raw_outputscale)
 
     @outputscale.setter
     def outputscale(self, value):
@@ -73,8 +72,7 @@ class ScaleKernel(Kernel):
     def _set_outputscale(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        constraint = self._constraints["outputscale_constraint"]
-        self.initialize(raw_outputscale=constraint.inverse_transform(value))
+        self.initialize(raw_outputscale=self.raw_outputscale_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, batch_dims=None, diag=False, **params):
         outputscales = self.outputscale

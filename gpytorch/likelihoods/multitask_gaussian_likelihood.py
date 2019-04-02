@@ -167,11 +167,11 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         )
 
         self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
-        self.register_constraint("noise_constraint", noise_constraint)
+        self.register_constraint("raw_noise", noise_constraint)
 
     @property
     def noise(self):
-        return self.noise_constraint.transform(self.raw_noise)
+        return self.raw_noise_constraint.transform(self.raw_noise)
 
     @noise.setter
     def noise(self, value):
@@ -180,7 +180,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     def _set_noise(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_noise=self.noise_constraint.inverse_transform(value))
+        self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
     def _shaped_noise_covar(self, base_shape, *params):
         noise_covar = super()._shaped_noise_covar(base_shape, *params)
@@ -243,18 +243,18 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         self.num_tasks = num_tasks
         self.rank = rank
 
-        self.register_constraint("noise_constraint", noise_constraint)
+        self.register_constraint("raw_noise", noise_constraint)
 
     @property
     def noise(self):
-        return self.noise_constraint.transform(self.raw_noise)
+        return self.raw_noise_constraint.transform(self.raw_noise)
 
     @noise.setter
     def noise(self, value):
         self._set_noise(value)
 
     def _set_noise(self, value):
-        self.initialize(raw_noise=self.noise_constraint.inverse_transform(value))
+        self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
     def _eval_covar_matrix(self):
         covar_factor = self.task_noise_covar_factor
@@ -288,7 +288,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
 
         if self.rank == 0:
-            task_noises = self.noise_constraint.transform(self.raw_task_noises)
+            task_noises = self.raw_noise_constraint.transform(self.raw_task_noises)
             if covar.ndimension() == 2:
                 if settings.debug.on() and task_noises.size(0) > 1:
                     raise RuntimeError(

@@ -17,11 +17,11 @@ class _HomoskedasticNoiseBase(Module):
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
 
-        self.register_constraint("noise_constraint", noise_constraint)
+        self.register_constraint("raw_noise", noise_constraint)
 
     @property
     def noise(self):
-        return self.noise_constraint.transform(self.raw_noise)
+        return self.raw_noise_constraint.transform(self.raw_noise)
 
     @noise.setter
     def noise(self, value):
@@ -30,7 +30,7 @@ class _HomoskedasticNoiseBase(Module):
     def _set_noise(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_noise=self.noise_constraint.inverse_transform(value))
+        self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
     def forward(self, *params, shape=None):
         """In the homoskedastic case, the parameters are only used to infer the required shape.

@@ -165,7 +165,7 @@ class Kernel(Module):
                     "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
                 )
 
-            self.register_constraint("lengthscale_constraint", lengthscale_constraint)
+            self.register_constraint("raw_lengthscale", lengthscale_constraint)
 
         self.distance_module = None
         # TODO: Remove this on next official PyTorch release.
@@ -187,7 +187,7 @@ class Kernel(Module):
     @property
     def lengthscale(self):
         if self.has_lengthscale:
-            return self.lengthscale_constraint.transform(self.raw_lengthscale)
+            return self.raw_lengthscale_constraint.transform(self.raw_lengthscale)
         else:
             return None
 
@@ -202,7 +202,7 @@ class Kernel(Module):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
 
-        self.initialize(raw_lengthscale=self.lengthscale_constraint.inverse_transform(value))
+        self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
 
     def size(self, x1, x2):
         expected_size = broadcasting._matmul_broadcast_shape(

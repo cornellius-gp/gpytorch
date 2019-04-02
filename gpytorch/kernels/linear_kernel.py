@@ -76,11 +76,11 @@ class LinearKernel(Kernel):
                 lambda v: self._set_variance(v)
             )
 
-        self.register_constraint("variance_constraint", variance_constraint)
+        self.register_constraint("raw_variance", variance_constraint)
 
     @property
     def variance(self):
-        return self.variance_constraint.transform(self.raw_variance)
+        return self.raw_variance_constraint.transform(self.raw_variance)
 
     @variance.setter
     def variance(self, value):
@@ -89,7 +89,7 @@ class LinearKernel(Kernel):
     def _set_variance(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_variance=self.variance_constraint.inverse_transform(value))
+        self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         x1_ = x1 * self.variance.sqrt()

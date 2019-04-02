@@ -84,11 +84,11 @@ class PeriodicKernel(Kernel):
                 lambda v: self._set_period_length(v),
             )
 
-        self.register_constraint("period_length_constraint", period_length_constraint)
+        self.register_constraint("raw_period_length", period_length_constraint)
 
     @property
     def period_length(self):
-        return self.period_length_constraint.transform(self.raw_period_length)
+        return self.raw_period_length_constraint.transform(self.raw_period_length)
 
     @period_length.setter
     def period_length(self, value):
@@ -97,7 +97,7 @@ class PeriodicKernel(Kernel):
     def _set_period_length(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_period_length=self.period_length_constraint.inverse_transform(value))
+        self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, **params):
         x1_ = x1.div(self.period_length)
