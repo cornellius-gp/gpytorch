@@ -55,7 +55,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         if settings.max_preconditioner_size.value() == 0:
             return None, None
 
-        if not hasattr(self, "_woodbury_cache"):
+        if not (hasattr(self, "_woodbury_cache") or hasattr(self, "self._q_cache")):
             max_iter = settings.max_preconditioner_size.value()
             self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_tensor, max_iter)
             if torch.any(torch.isnan(self._piv_chol_self)).item():
@@ -63,18 +63,35 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     "NaNs encountered in preconditioner computation. Attempting to continue without preconditioning."
                 )
                 return None, None
-            self._woodbury_cache, self._inv_scale, self._precond_logdet_cache = woodbury.woodbury_factor(
-                self._piv_chol_self, self._piv_chol_self, self._diag_tensor.diag(), logdet=True
-            )
-            self._scaled_inv_diag = self._inv_scale / self._diag_tensor.diag().unsqueeze(-1)
-            self._scaled_inv_diag_piv_chol_self = self._piv_chol_self * self._scaled_inv_diag
 
-        # preconditioner
-        def precondition_closure(tensor):
-            res = woodbury.woodbury_solve(
-                tensor, self._scaled_inv_diag_piv_chol_self, self._woodbury_cache,
-                self._scaled_inv_diag, self._inv_scale
-            )
-            return res
+            if self._diag_tensor.shape == 2:  # TODO: Whenever PyTorch supports batch mode
+                *batch_shape, n, k = self._piv_chol_self.shape
+                self._noise = self._diag_tensor.diag().unsqueeze(-1)
+                self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), torch.eye(k))))
+                self._q_cache = self._q_cache[:n, :] / self._noise.sqrt()
 
-        return precondition_closure, self._precond_logdet_cache
+                # Using the matrix determinant lemma here
+                logdet = R.diagonal(dim1=-1, dim2=-2).log().sum(-1).mul(2) - self._scaled_inv_diag.log().sum([-1, -2])
+                logdet = logdet + self._inv_scale.log().mul(n - k)
+                self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
+
+                def precondition_closure(rhs: tensor):
+                    return (rhs / self._noise) - self._q_cache.matmul(self._q_cache.t().matmul(rhs))
+            else:
+                self._woodbury_cache, self._inv_scale, self._precond_logdet_cache = woodbury.woodbury_factor(
+                    self._piv_chol_self, self._piv_chol_self, self._diag_tensor.diag(), logdet=True
+                )
+                self._scaled_inv_diag = self._inv_scale / self._diag_tensor.diag().unsqueeze(-1)
+                self._scaled_inv_diag_piv_chol_self = self._piv_chol_self * self._scaled_inv_diag
+
+                # preconditioner
+                def precondition_closure(tensor):
+                    res = woodbury.woodbury_solve(
+                        tensor, self._scaled_inv_diag_piv_chol_self, self._woodbury_cache,
+                        self._scaled_inv_diag, self._inv_scale
+                    )
+                    return res
+
+            self.precondition_closure = precondition_closure
+
+        return self.precondition_closure, self._precond_logdet_cache
