@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import unittest
-import warnings
 from test._utils import least_used_cuda_device
 
 import torch
@@ -64,19 +63,13 @@ class TestPSDSafeCholesky(unittest.TestCase):
                 Aprime = A.clone()
                 Aprime[..., idx, idx] += 1e-6 if A.dtype == torch.float32 else 1e-8
                 L_exp = torch.cholesky(Aprime)
-                with warnings.catch_warnings(record=True) as ws:
-                    L_safe = psd_safe_cholesky(A)
-                    self.assertEqual(len(ws), 1)
-                    self.assertEqual(ws[-1].category, RuntimeWarning)
+                L_safe = psd_safe_cholesky(A)
                 self.assertTrue(torch.allclose(L_exp, L_safe))
                 # user-defined value
                 Aprime = A.clone()
                 Aprime[..., idx, idx] += 1e-2
                 L_exp = torch.cholesky(Aprime)
-                with warnings.catch_warnings(record=True) as ws:
-                    L_safe = psd_safe_cholesky(A, jitter=1e-2)
-                    self.assertEqual(len(ws), 1)
-                    self.assertEqual(ws[-1].category, RuntimeWarning)
+                L_safe = psd_safe_cholesky(A, jitter=1e-2)
                 self.assertTrue(torch.allclose(L_exp, L_safe))
 
     def test_psd_safe_cholesky_psd_cuda(self, cuda=False):
