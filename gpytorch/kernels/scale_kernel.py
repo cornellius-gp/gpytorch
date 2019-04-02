@@ -50,8 +50,11 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
 
-    def __init__(self, base_kernel, outputscale_prior=None, outputscale_constraint=Positive(), **kwargs):
+    def __init__(self, base_kernel, outputscale_prior=None, outputscale_constraint=None, **kwargs):
         super(ScaleKernel, self).__init__(has_lengthscale=False, **kwargs)
+        if outputscale_constraint is None:
+            outputscale_constraint = Positive()
+
         self.base_kernel = base_kernel
         self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape)))
         if outputscale_prior is not None:

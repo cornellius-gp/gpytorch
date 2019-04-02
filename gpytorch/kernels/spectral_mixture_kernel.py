@@ -69,11 +69,11 @@ class SpectralMixtureKernel(Kernel):
         ard_num_dims=1,
         batch_shape=torch.Size([1]),
         mixture_scales_prior=None,
-        mixture_scales_constraint=Positive(),
+        mixture_scales_constraint=None,
         mixture_means_prior=None,
-        mixture_means_constraint=Positive(),
+        mixture_means_constraint=None,
         mixture_weights_prior=None,
-        mixture_weights_constraint=Positive(),
+        mixture_weights_constraint=None,
         **kwargs
     ):
         if num_mixtures is None:
@@ -87,6 +87,15 @@ class SpectralMixtureKernel(Kernel):
         # This kernel does not use the default lengthscale
         super(SpectralMixtureKernel, self).__init__(ard_num_dims=ard_num_dims, batch_shape=batch_shape, **kwargs)
         self.num_mixtures = num_mixtures
+
+        if mixture_scales_constraint is None:
+            mixture_scales_constraint = Positive()
+
+        if mixture_means_constraint is None:
+            mixture_means_constraint = Positive()
+
+        if mixture_weights_constraint is None:
+            mixture_weights_constraint = Positive()
 
         self.register_parameter(
             name="raw_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, self.num_mixtures))

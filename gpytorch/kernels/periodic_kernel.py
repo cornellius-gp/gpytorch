@@ -70,8 +70,11 @@ class PeriodicKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
-    def __init__(self, period_length_prior=None, period_length_constraint=Positive(), **kwargs):
+    def __init__(self, period_length_prior=None, period_length_constraint=None, **kwargs):
         super(PeriodicKernel, self).__init__(has_lengthscale=True, **kwargs)
+        if period_length_constraint is None:
+            period_length_constraint = Positive()
+
         self.register_parameter(
             name="raw_period_length",
             parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1)))

@@ -136,7 +136,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         task_correlation_prior=None,
         batch_size=1,
         noise_prior=None,
-        noise_constraint=GreaterThan(1e-4),
+        noise_constraint=None,
         **kwargs
     ):
         """
@@ -150,6 +150,10 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             Only used when `rank` > 0.
 
         """
+
+        if noise_constraint is None:
+            noise_constraint = GreaterThan(1e-4)
+
         noise_covar = MultitaskHomoskedasticNoise(
             num_tasks=num_tasks,
             noise_prior=noise_prior,
@@ -159,7 +163,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         super().__init__(
             num_tasks=num_tasks,
             noise_covar=noise_covar,
-            noise_constraint=GreaterThan(1e-4),
+            noise_constraint=noise_constraint,
             rank=rank,
             task_correlation_prior=task_correlation_prior,
             batch_size=batch_size,
@@ -212,7 +216,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         task_prior=None,
         batch_size=1,
         noise_prior=None,
-        noise_constraint=GreaterThan(1e-4),
+        noise_constraint=None,
         **kwargs
     ):
         """
@@ -227,6 +231,8 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
 
         """
         super(Likelihood, self).__init__()
+        if noise_constraint is None:
+            noise_constraint = GreaterThan(1e-4)
         self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
         if rank == 0:
             self.register_parameter(

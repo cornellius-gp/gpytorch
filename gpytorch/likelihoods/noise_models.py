@@ -11,8 +11,11 @@ from ..utils.broadcasting import _mul_broadcast_shape
 
 
 class _HomoskedasticNoiseBase(Module):
-    def __init__(self, noise_prior=None, noise_constraint=GreaterThan(1e-4), batch_size=1, num_tasks=1):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1, num_tasks=1):
         super().__init__()
+        if noise_constraint is None:
+            noise_constraint = GreaterThan(1e-4)
+
         self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(batch_size, num_tasks)))
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
@@ -67,7 +70,7 @@ class _HomoskedasticNoiseBase(Module):
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(self, noise_prior=None, noise_constraint=GreaterThan(1e-4), batch_size=1):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1):
         super().__init__(
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
@@ -77,7 +80,7 @@ class HomoskedasticNoise(_HomoskedasticNoiseBase):
 
 
 class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(self, num_tasks, noise_prior=None, noise_constraint=GreaterThan(1e-4), batch_size=1):
+    def __init__(self, num_tasks, noise_prior=None, noise_constraint=None, batch_size=1):
         super().__init__(
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
@@ -87,7 +90,9 @@ class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
 
 
 class HeteroskedasticNoise(Module):
-    def __init__(self, noise_model, noise_indices=None, noise_constraint=GreaterThan(1e-4)):
+    def __init__(self, noise_model, noise_indices=None, noise_constraint=None):
+        if noise_constraint is None:
+            noise_constraint = GreaterThan(1e-4)
         super().__init__()
         self.noise_model = noise_model
         self._noise_constraint = noise_constraint

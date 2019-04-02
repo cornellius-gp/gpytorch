@@ -20,7 +20,7 @@ class Interval(Module):
         lower_bound = torch.as_tensor(lower_bound)
         upper_bound = torch.as_tensor(upper_bound)
 
-        if torch.any(lower_bound >= upper_bound):
+        if torch.any(torch.ge(lower_bound, upper_bound)):
             raise RuntimeError("Got parameter bounds with empty intervals.")
 
         super().__init__()

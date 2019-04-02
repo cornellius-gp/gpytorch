@@ -47,10 +47,13 @@ class LinearKernel(Kernel):
         num_dimensions=None,
         offset_prior=None,
         variance_prior=None,
-        variance_constraint=Positive(),
+        variance_constraint=None,
         **kwargs
     ):
         super(LinearKernel, self).__init__(**kwargs)
+        if variance_constraint is None:
+            variance_constraint = Positive()
+
         if num_dimensions is not None:
             warnings.warn(
                 "The `num_dimensions` argument is deprecated and no longer used.",

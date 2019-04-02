@@ -131,7 +131,7 @@ class Kernel(Module):
         batch_shape=torch.Size([1]),
         active_dims=None,
         lengthscale_prior=None,
-        lengthscale_constraint=Positive(),
+        lengthscale_constraint=None,
         eps=1e-6,
         **kwargs
     ):
@@ -149,6 +149,9 @@ class Kernel(Module):
         self.eps = eps
 
         param_transform = kwargs.get("param_transform")
+
+        if lengthscale_constraint is None:
+            lengthscale_constraint = Positive()
 
         if param_transform is not None:
             warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
