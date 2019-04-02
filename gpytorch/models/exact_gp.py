@@ -5,6 +5,7 @@ import torch
 from copy import deepcopy
 from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
+from ..lazy import delazify
 from .. import settings
 from .gp import GP
 from .exact_prediction_strategies import prediction_strategy
@@ -289,8 +290,13 @@ class ExactGP(GP):
                 self.prediction_strategy.non_batch_train = non_batch_train
 
             test_mean = full_mean.narrow(-1, train_targets.size(-1), full_mean.size(-1) - train_targets.size(-1))
-            test_test_covar = full_covar[..., num_train:, num_train:]
-            test_train_covar = full_covar[..., num_train:, :num_train]
+            if full_mean.size(-1) <= settings.max_eager_kernel_size.value():
+                test_covar = delazify(full_covar[..., num_train:, :])
+                test_test_covar = test_covar[..., num_train:]
+                test_train_covar = test_covar[..., :num_train]
+            else:
+                test_test_covar = full_covar[..., num_train:, num_train:]
+                test_train_covar = full_covar[..., num_train:, :num_train]
 
             with settings._use_eval_tolerance():
                 predictive_mean = self.prediction_strategy.exact_predictive_mean(test_mean, test_train_covar)
