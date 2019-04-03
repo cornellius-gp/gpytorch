@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
 import math
-from typing import Any, Optional
+import warnings
+from typing import Any
 
 import torch
 from torch import Tensor
-from torch.nn.functional import softplus
 
 from .. import settings
 from ..distributions import MultivariateNormal, base_distributions
-from ..lazy import DiagLazyTensor
 from ..likelihoods import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 
@@ -17,55 +16,44 @@ from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 class _GaussianLikelihoodBase(Likelihood):
     """Base class for Gaussian Likelihoods, supporting general heteroskedastic noise models."""
 
-    def __init__(self, noise_covar: Noise) -> None:
+    def __init__(self, noise_covar: Noise, **kwargs: Any) -> None:
+
         super().__init__()
+        param_transform = kwargs.get("param_transform")
+        if param_transform is not None:
+            warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
+                          "transformaton, specify a different 'lengthscale_constraint' instead.")
+
         self.noise_covar = noise_covar
 
-    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any):
+    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
         if len(params) > 0:
             # we can infer the shape from the params
             shape = None
         else:
             # here shape[:-1] is the batch shape requested, and shape[-1] is `n`, the number of points
             shape = base_shape
-        return self.noise_covar(*params, shape=shape)
+        return self.noise_covar(*params, shape=shape, **kwargs)
 
-    def forward(
-        self, function_samples: Tensor, *params: Any, observation_noise: Optional[Tensor] = None, **kwargs: Any
-    ):
-        if observation_noise is None:
-            self._shaped_noise_covar(function_samples.shape, *params).diag()
-        else:
-            var = observation_noise
-        return base_distributions.Normal(function_samples, var)
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
+        observation_noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        return base_distributions.Normal(function_samples, observation_noise)
 
-    def marginal(
-        self, function_dist: MultivariateNormal, *params: Any, observation_noise: Optional[Tensor] = None, **kwargs: Any
-    ) -> MultivariateNormal:
+    def marginal(self, function_dist: MultivariateNormal, *params: Any, **kwargs: Any) -> MultivariateNormal:
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
-        if observation_noise is None:
-            noise_covar = self._shaped_noise_covar(mean.shape, *params)
-        else:
-            noise_covar = DiagLazyTensor(observation_noise)
+        noise_covar = self._shaped_noise_covar(mean.shape, *params, **kwargs)
         full_covar = covar + noise_covar
         return function_dist.__class__(mean, full_covar)
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
-    def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, **kwargs):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1, **kwargs):
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior,
+            noise_constraint=noise_constraint,
             batch_size=batch_size,
-            param_transform=param_transform,
-            inv_param_transform=inv_param_transform,
         )
         super().__init__(noise_covar=noise_covar)
-
-    def _param_transform(self, value: Tensor) -> Tensor:
-        return self.noise_covar._param_transform(value)
-
-    def _inv_param_transform(self, value: Tensor) -> Tensor:
-        return self.noise_covar._inv_param_transform(value)
 
     @property
     def noise(self) -> Tensor:
@@ -101,7 +89,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
 
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
-    def __init__(self, noise: Tensor, **kwargs) -> None:
+    def __init__(self, noise: Tensor, **kwargs: Any) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
 
     @property
@@ -111,3 +99,10 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     @noise.setter
     def noise(self, value: Tensor) -> None:
         self.noise_covar.initialize(noise=value)
+
+    def get_fantasy_likelihood(self, *args, **kwargs):
+        """Adds new observation noise to the FixedGaussianNoise model"""
+        new_obs_noise = kwargs.get("observation_noise")
+        if new_obs_noise is None:
+            raise RuntimeError("Must provide observation noise for FixedNoiseGaussianLikelihood")
+        self.noise_covar.noise = torch.cat([self.noise_covar.noise, new_obs_noise], dim=-1)

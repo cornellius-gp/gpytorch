@@ -32,19 +32,26 @@ def _matmul_broadcast_shape(shape_a, shape_b, error_msg=None):
     if len(shape_b) == 1:
         if n != p:
             if error_msg is None:
-                raise RuntimeError("Incompatible dimensions for matmul")
+                raise RuntimeError(f"Incompatible dimensions for matmul: {shape_a} and {shape_b}")
             else:
                 raise RuntimeError(error_msg)
         return shape_a[:-1]
 
     if n != shape_b[-2]:
         if error_msg is not None:
-            raise RuntimeError("Incompatible dimensions for matmul")
+            raise RuntimeError(f"Incompatible dimensions for matmul: {shape_a} and {shape_b}")
         else:
             raise RuntimeError(error_msg)
 
     tail_shape = torch.Size([m, p])
-    bc_shape = _mul_broadcast_shape(shape_a[:-2], shape_b[:-2])
+
+    # Figure out batch shape
+    batch_shape_a = shape_a[:-2]
+    batch_shape_b = shape_b[:-2]
+    if batch_shape_a == batch_shape_b:
+        bc_shape = batch_shape_a
+    else:
+        bc_shape = _mul_broadcast_shape(batch_shape_a, batch_shape_b)
     return bc_shape + tail_shape
 
 

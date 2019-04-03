@@ -88,7 +88,7 @@ class DefaultPredictionStrategy(object):
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
 
-    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
         """
         Returns a new PredictionStrategy that incorporates the specified inputs and targets as new training data.
 
@@ -116,7 +116,7 @@ class DefaultPredictionStrategy(object):
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
         fant_mean = full_mean[..., num_train:]
-        mvn = self.likelihood(MultivariateNormal(fant_mean, fant_fant_covar), inputs)
+        mvn = self.likelihood(MultivariateNormal(fant_mean, fant_fant_covar), inputs, **kwargs)
         fant_fant_covar = mvn.covariance_matrix
 
         fant_train_covar = full_covar[..., num_train:, :num_train].evaluate()

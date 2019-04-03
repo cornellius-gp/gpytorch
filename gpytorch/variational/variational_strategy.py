@@ -7,6 +7,7 @@ from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLaz
 from ..module import Module
 from ..distributions import MultivariateNormal
 from ..utils.memoize import cached
+from ..utils.cholesky import psd_safe_cholesky
 
 
 class VariationalStrategy(Module):
@@ -85,7 +86,7 @@ class VariationalStrategy(Module):
             prior_dist = self.prior_distribution
             eval_prior_dist = torch.distributions.MultivariateNormal(
                 loc=prior_dist.mean,
-                covariance_matrix=prior_dist.covariance_matrix
+                scale_tril=psd_safe_cholesky(prior_dist.covariance_matrix),
             )
             self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
             self.variational_params_initialized.fill_(1)

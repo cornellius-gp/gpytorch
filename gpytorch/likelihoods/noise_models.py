@@ -5,13 +5,12 @@ from typing import Any, Optional
 import torch
 from torch import Tensor
 from torch.nn import Parameter
-from torch.nn.functional import softplus
 
+from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
-from ..utils.transforms import _get_inv_param_transform
 
 
 class Noise(Module):
@@ -19,17 +18,20 @@ class Noise(Module):
 
 
 class _HomoskedasticNoiseBase(Noise):
-    def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None, num_tasks=1):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1, num_tasks=1):
         super().__init__()
-        self._param_transform = param_transform
-        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
+        if noise_constraint is None:
+            noise_constraint = GreaterThan(1e-4)
+
         self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(batch_size, num_tasks)))
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
 
+        self.register_constraint("raw_noise", noise_constraint)
+
     @property
-    def noise(self) -> Tensor:
-        return self._param_transform(self.raw_noise)
+    def noise(self):
+        return self.raw_noise_constraint.transform(self.raw_noise)
 
     @noise.setter
     def noise(self, value: Tensor) -> None:
@@ -38,7 +40,7 @@ class _HomoskedasticNoiseBase(Noise):
     def _set_noise(self, value: Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_noise=self._inv_param_transform(value))
+        self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
     def forward(self, *params: Any, shape: Optional[torch.Size] = None) -> DiagLazyTensor:
         """In the homoskedastic case, the parameters are only used to infer the required shape.
@@ -75,34 +77,33 @@ class _HomoskedasticNoiseBase(Noise):
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(self, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1):
         super().__init__(
             noise_prior=noise_prior,
+            noise_constraint=noise_constraint,
             batch_size=batch_size,
-            param_transform=param_transform,
-            inv_param_transform=inv_param_transform,
             num_tasks=1,
         )
 
 
 class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(self, num_tasks, noise_prior=None, batch_size=1, param_transform=softplus, inv_param_transform=None):
+    def __init__(self, num_tasks, noise_prior=None, noise_constraint=None, batch_size=1):
         super().__init__(
             noise_prior=noise_prior,
+            noise_constraint=noise_constraint,
             batch_size=batch_size,
-            param_transform=param_transform,
-            inv_param_transform=inv_param_transform,
             num_tasks=num_tasks,
         )
 
 
 class HeteroskedasticNoise(Noise):
-    def __init__(self, noise_model, noise_indices=None, noise_transform=torch.exp):
+    def __init__(self, noise_model, noise_indices=None, noise_constraint=None):
+        if noise_constraint is None:
+            noise_constraint = GreaterThan(1e-4)
         super().__init__()
         self.noise_model = noise_model
-        self._noise_transform = noise_transform
+        self._noise_constraint = noise_constraint
         self._noise_indices = noise_indices
-        self._noise_transform = noise_transform
 
     def forward(
         self, *params: Any, batch_shape: Optional[torch.Size] = None, shape: Optional[torch.Size] = None
@@ -116,7 +117,7 @@ class HeteroskedasticNoise(Noise):
         # note: this also works with MultitaskMultivariateNormal, where this
         # will return a batched DiagLazyTensors of size n x num_tasks x num_tasks
         noise_diag = output.mean if self._noise_indices is None else output.mean[..., self._noise_indices]
-        return DiagLazyTensor(self._noise_transform(noise_diag))
+        return DiagLazyTensor(self._noise_constraint.transform(noise_diag))
 
 
 class FixedGaussianNoise(Module):

@@ -8,6 +8,7 @@ from torch.distributions import Distribution
 
 from .lazy import LazyTensor
 from .utils.deprecation import DeprecationError
+from .constraints import Interval
 
 
 class Module(nn.Module):
@@ -15,6 +16,7 @@ class Module(nn.Module):
         super().__init__()
         self._added_loss_terms = OrderedDict()
         self._priors = OrderedDict()
+        self._constraints = OrderedDict()
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
@@ -38,6 +40,10 @@ class Module(nn.Module):
 
     def forward(self, *inputs, **kwargs):
         raise NotImplementedError
+
+    def constraints(self):
+        for _, constraint in self.named_constraints():
+            yield constraint
 
     def hyperparameters(self):
         for _, param in self.named_hyperparameters():
@@ -121,6 +127,9 @@ class Module(nn.Module):
         """
         return _extract_named_priors(module=self, memo=None, prefix="")
 
+    def named_constraints(self, memo=None, prefix=""):
+        return _extract_named_constraints(module=self, memo=None, prefix="")
+
     def named_variational_parameters(self):
         for name, param in self.named_parameters():
             if "variational_" in name:
@@ -194,6 +203,43 @@ class Module(nn.Module):
             closure = param_or_closure
         self.add_module(name, prior)
         self._priors[name] = (prior, closure, setting_closure)
+
+    def register_constraint(self, param_name, constraint, replace=True):
+        if param_name not in self._parameters:
+            raise RuntimeError("Attempting to register constraint for nonexistent parameter.")
+
+        constraint_name = param_name + "_constraint"
+        if constraint_name in self._constraints:
+            current_constraint = self._constraints[constraint_name]
+        else:
+            current_constraint = None
+
+        if isinstance(current_constraint, Interval) and not replace:
+            new_constraint = constraint.intersect(current_constraint)
+        else:
+            new_constraint = constraint
+
+        self.add_module(constraint_name, new_constraint)
+        self._constraints[constraint_name] = new_constraint
+
+    def constraint_for_parameter_name(self, param_name):
+        base_module = self
+        base_name = param_name
+
+        while "." in base_name:
+            components = base_name.split(".")
+            submodule_name = components[0]
+            submodule = getattr(base_module, submodule_name)
+
+            base_module = submodule
+            base_name = ".".join(components[1:])
+
+        constraint_name = base_name + "_constraint"
+        return base_module._constraints.get(constraint_name)
+
+    def named_parameters_and_constraints(self):
+        for name, param in self.named_parameters():
+            yield name, param, self.constraint_for_parameter_name(name)
 
     def sample_from_prior(self, prior_name):
         """Sample parameter values from prior. Modifies the module's parameters in-place."""
@@ -275,3 +321,18 @@ def _extract_named_priors(module, memo=None, prefix=""):
         submodule_prefix = prefix + ("." if prefix else "") + mname
         for name, prior, closure, inv_closure in _extract_named_priors(module_, memo=memo, prefix=submodule_prefix):
             yield name, prior, closure, inv_closure
+
+
+def _extract_named_constraints(module, memo=None, prefix=""):
+    if memo is None:
+        memo = set()
+    if hasattr(module, "_constraints"):
+        for name, constraint in module._constraints.items():
+            if constraint is not None and constraint not in memo:
+                memo.add(constraint)
+                full_name = ("." if prefix else "").join([prefix, name])
+                yield full_name, constraint
+    for mname, module_ in module.named_children():
+        submodule_prefix = prefix + ("." if prefix else "") + mname
+        for name, constraint in _extract_named_constraints(module_, memo=memo, prefix=submodule_prefix):
+            yield name, constraint

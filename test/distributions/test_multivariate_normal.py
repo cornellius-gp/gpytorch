@@ -3,7 +3,7 @@
 import math
 import unittest
 from test._utils import least_used_cuda_device
-from .._base_test_case import BaseTestCase
+from test._base_test_case import BaseTestCase
 
 import torch
 from gpytorch.distributions import MultivariateNormal

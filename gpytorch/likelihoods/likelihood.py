@@ -2,6 +2,7 @@
 
 import functools
 import warnings
+from copy import deepcopy
 
 import torch
 
@@ -84,6 +85,13 @@ class _Likelihood(Module):
         log_prob = self.quadrature(log_prob_lambda, function_dist)
         return log_prob.sum(tuple(range(len(function_dist.event_shape))))
 
+    def get_fantasy_likelihood(self, *args, **kwargs):
+        """
+        If necessary (e.g. for FixedNoiseGaussianLikelihood), updates the
+        liklihood to be used with fanatsy models.
+        """
+        pass
+
     def marginal(self, function_dist, *params, **kwargs):
         """
         Computes a predictive distribution :math:`p(y*|x*)` given either a posterior
@@ -124,7 +132,9 @@ class _Likelihood(Module):
         else:
             raise RuntimeError(
                 "Likelihoods expects a MultivariateNormal input to make marginal predictions, or a "
-                "torch.Tensor for conditional predictions. Got a {}".format(input.__class__.__name__)
+                "torch.Tensor for conditional predictions. Got a {}".format(
+                    input.__class__.__name__
+                )
             )
 
 
@@ -169,12 +179,20 @@ try:
 
             # Get the correct sample shape
             # The default sample shape includes all the batch dimensions that can be smapled from
-            sample_shape = kwargs.get("sample_shape", torch.Size([1] * len(function_dist.batch_shape)))
+            sample_shape = kwargs.get(
+                "sample_shape", torch.Size([1] * len(function_dist.batch_shape))
+            )
             sample_shape = sample_shape[: -len(function_dist.batch_shape)]
             function_samples = function_dist(sample_shape)
             output_dist = self(function_samples, *params, **kwargs)
-            with pyro.plate(name_prefix + ".output_values_plate", function_dist.batch_shape[-1], dim=-1):
-                samples = pyro.sample(name_prefix + ".output_values", output_dist, obs=observations)
+            with pyro.plate(
+                name_prefix + ".output_values_plate",
+                function_dist.batch_shape[-1],
+                dim=-1,
+            ):
+                samples = pyro.sample(
+                    name_prefix + ".output_values", output_dist, obs=observations
+                )
                 return samples
 
         def guide(self, *param, **kwargs):
@@ -190,17 +208,26 @@ try:
         def marginal(self, function_dist, *params, **kwargs):
             name_prefix = kwargs.get("name_prefix", "")
             num_samples = settings.num_likelihood_samples.value()
-            with pyro.plate(name_prefix + ".num_particles_vectorized", num_samples, dim=(-self.max_plate_nesting - 1)):
+            with pyro.plate(
+                name_prefix + ".num_particles_vectorized",
+                num_samples,
+                dim=(-self.max_plate_nesting - 1),
+            ):
                 function_samples_shape = torch.Size(
-                    [num_samples] + [1] * (self.max_plate_nesting - len(function_dist.batch_shape))
+                    [num_samples]
+                    + [1] * (self.max_plate_nesting - len(function_dist.batch_shape))
                 )
                 function_samples = function_dist(function_samples_shape)
                 if self.training:
                     return self(function_samples, *params, **kwargs)
                 else:
-                    guide_trace = pyro.poutine.trace(self.guide).get_trace(*params, **kwargs)
+                    guide_trace = pyro.poutine.trace(self.guide).get_trace(
+                        *params, **kwargs
+                    )
                     marginal_fn = functools.partial(self.__call__, function_samples)
-                    return pyro.poutine.replay(marginal_fn, trace=guide_trace)(*params, **kwargs)
+                    return pyro.poutine.replay(marginal_fn, trace=guide_trace)(
+                        *params, **kwargs
+                    )
 
         def __call__(self, input, *params, **kwargs):
             # Conditional
@@ -222,7 +249,9 @@ try:
             else:
                 raise RuntimeError(
                     "Likelihood expects a MultivariateNormal or Normal input to make marginal predictions, or a "
-                    "torch.Tensor for conditional predictions. Got a {}".format(input.__class__.__name__)
+                    "torch.Tensor for conditional predictions. Got a {}".format(
+                        input.__class__.__name__
+                    )
                 )
 
 
