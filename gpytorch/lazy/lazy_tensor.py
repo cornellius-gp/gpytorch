@@ -1297,7 +1297,7 @@ class LazyTensor(ABC):
         """
         Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
-        low-rank version of a matrixss
+        low-rank version of a matrix
         """
         from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
