@@ -38,11 +38,11 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
                 if A.dim() > 2 and A.is_cuda:
                     if torch.isnan(L if out is None else out).any():
                         raise RuntimeError("singular")
+                warnings.warn(f"A not p.d., added jitter of {jitter} to the diagonal", RuntimeWarning)
                 return L
             except RuntimeError:
                 continue
 
-        warnings.warn("A not p.d., added jitter of {} to the diagonal".format(jitter), RuntimeWarning)
         raise e
 
 
