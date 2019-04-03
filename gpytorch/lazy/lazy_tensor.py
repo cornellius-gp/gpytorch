@@ -1297,12 +1297,27 @@ class LazyTensor(ABC):
         """
         Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
-        low-rank version of a matrix
+        low-rank version of a matrixss
         """
+        from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
+        from .non_lazy_tensor import lazify
 
         if self.shape[-2:].numel() == 1:
             return RootLazyTensor(1 / self.evaluate().sqrt())
+
+        if (
+            self.size(-1) <= settings.max_cholesky_size.value()
+            or settings.fast_computations.covar_root_decomposition.off()
+        ):
+            try:
+                res = self._cholesky()
+                res = lazify(delazify(res).double().inverse().transpose(-2, -1).to(self.dtype))
+                return RootLazyTensor(res)
+            except RuntimeError as e:
+                warnings.warn(
+                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
+                )
 
         if not self.is_square:
             raise RuntimeError(
