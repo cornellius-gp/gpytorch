@@ -5,6 +5,7 @@ import random
 import unittest
 from gpytorch.utils import pivoted_cholesky, woodbury
 from test._utils import approx_equal
+import math
 
 import torch
 from gpytorch.kernels import RBFKernel
@@ -48,6 +49,25 @@ class TestPivotedCholesky(unittest.TestCase):
         )
 
         self.assertTrue(approx_equal(approx_solve, real_solve, 2e-4))
+
+    def test_solve_qr_float64(self):
+        size = 100
+        X = torch.rand((size, 3)).to(dtype=torch.float64)
+        y = torch.sin(torch.sum(X, 1)).unsqueeze(-1).to(dtype=torch.float64)
+
+        noise = torch.DoubleTensor(size,).uniform_(math.log(1e-6), math.log(1e-2)).exp_()
+        lazy_tsr = RBFKernel().to(dtype=torch.float64)(X).evaluate_kernel().add_diag(noise)
+        precondition_qr, logdet_qr = lazy_tsr._preconditioner()
+
+        F = lazy_tsr._piv_chol_self
+        M = noise.diag() + F.matmul(F.t())
+
+        x_exact = torch.gesv(y, M)[0]
+        x_qr = precondition_qr(y)
+        self.assertTrue(approx_equal(x_exact, x_qr, 1e-6))
+
+        logdet = 2 * torch.cholesky(M).diag().log().sum(-1)
+        self.assertTrue(approx_equal(logdet, logdet_qr, 1e-6))
 
 
 class TestPivotedCholeskyBatch(unittest.TestCase):

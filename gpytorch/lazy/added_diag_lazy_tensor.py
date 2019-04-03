@@ -64,18 +64,19 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 )
                 return None, None
 
-            if self._diag_tensor.shape == 2:  # TODO: Whenever PyTorch supports batch mode
+            if self._piv_chol_self.dim() == 2:  # TODO: Whenever PyTorch supports batch mode
                 *batch_shape, n, k = self._piv_chol_self.shape
                 self._noise = self._diag_tensor.diag().unsqueeze(-1)
-                self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), torch.eye(k))))
+                eye = torch.eye(k, dtype=self._piv_chol_self.dtype, device=self._piv_chol_self.device)
+                self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), eye)))
                 self._q_cache = self._q_cache[:n, :] / self._noise.sqrt()
 
-                # Using the matrix determinant lemma here
-                logdet = R.diagonal(dim1=-1, dim2=-2).log().sum(-1).mul(2) - self._scaled_inv_diag.log().sum([-1, -2])
-                logdet = logdet + self._inv_scale.log().mul(n - k)
+                # Use the matrix determinant lemma for the logdet
+                logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2) - \
+                    (1.0 / self._noise).log().sum([-1, -2])
                 self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
 
-                def precondition_closure(rhs: tensor):
+                def precondition_closure(rhs: torch.tensor):
                     return (rhs / self._noise) - self._q_cache.matmul(self._q_cache.t().matmul(rhs))
             else:
                 self._woodbury_cache, self._inv_scale, self._precond_logdet_cache = woodbury.woodbury_factor(
