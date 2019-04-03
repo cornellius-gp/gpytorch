@@ -39,6 +39,7 @@ GPyTorch's documentation
    kernels
    means
    marginal_log_likelihoods
+   constraints
    distributions
    priors
 

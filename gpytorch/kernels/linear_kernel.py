@@ -4,6 +4,7 @@ import torch
 import warnings
 from .kernel import Kernel
 from ..lazy import MatmulLazyTensor, RootLazyTensor
+from ..constraints import Positive
 
 
 class LinearKernel(Kernel):
@@ -34,13 +35,25 @@ class LinearKernel(Kernel):
     Args:
         :attr:`variance_prior` (:class:`gpytorch.priors.Prior`):
             Prior over the variance parameter (default `None`).
+        :attr:`variance_constraint` (Constraint, optional):
+            Constraint to place on variance parameter. Default: `Positive`.
         :attr:`active_dims` (list):
             List of data dimensions to operate on.
             `len(active_dims)` should equal `num_dimensions`.
     """
 
-    def __init__(self, num_dimensions=None, offset_prior=None, variance_prior=None, **kwargs):
+    def __init__(
+        self,
+        num_dimensions=None,
+        offset_prior=None,
+        variance_prior=None,
+        variance_constraint=None,
+        **kwargs
+    ):
         super(LinearKernel, self).__init__(**kwargs)
+        if variance_constraint is None:
+            variance_constraint = Positive()
+
         if num_dimensions is not None:
             warnings.warn(
                 "The `num_dimensions` argument is deprecated and no longer used.",
@@ -66,9 +79,11 @@ class LinearKernel(Kernel):
                 lambda v: self._set_variance(v)
             )
 
+        self.register_constraint("raw_variance", variance_constraint)
+
     @property
     def variance(self):
-        return self._param_transform(self.raw_variance)
+        return self.raw_variance_constraint.transform(self.raw_variance)
 
     @variance.setter
     def variance(self, value):
@@ -77,7 +92,7 @@ class LinearKernel(Kernel):
     def _set_variance(self, value):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(raw_variance=self._inv_param_transform(value))
+        self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
         x1_ = x1 * self.variance.sqrt()

@@ -8,6 +8,7 @@ from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
+from gpytorch.constraints import Positive
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel, WhiteNoiseKernel
 from gpytorch.likelihoods import GaussianLikelihood
@@ -56,7 +57,10 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
         with gpytorch.settings.debug(False):
             # We're manually going to set the hyperparameters to be ridiculous
-            likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.25))
+            likelihood = GaussianLikelihood(
+                noise_prior=SmoothedBoxPrior(exp(-10), exp(10), sigma=0.25),
+                noise_constraint=Positive(),
+            )
             gp_model = ExactGPModel(train_x, train_y, likelihood)
             # Update lengthscale prior to accommodate extreme parameters
             gp_model.rbf_covar_module.register_prior(
@@ -95,7 +99,10 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
     def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
         # We're manually going to set the hyperparameters to something they shouldn't be
-        likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
+        likelihood = GaussianLikelihood(
+            noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1),
+            noise_constraint=Positive(),
+        )
         gp_model = ExactGPModel(train_x, train_y, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
         gp_model.rbf_covar_module.initialize(lengthscale=exp(1))

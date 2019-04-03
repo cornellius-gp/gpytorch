@@ -6,7 +6,7 @@ import warnings
 import unittest
 from unittest.mock import MagicMock, patch
 from test._utils import least_used_cuda_device
-from .._base_test_case import BaseTestCase
+from test._base_test_case import BaseTestCase
 
 import gpytorch
 import torch
