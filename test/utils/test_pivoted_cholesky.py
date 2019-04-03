@@ -50,13 +50,13 @@ class TestPivotedCholesky(unittest.TestCase):
 
         self.assertTrue(approx_equal(approx_solve, real_solve, 2e-4))
 
-    def test_solve_qr_float64(self):
-        size = 100
-        X = torch.rand((size, 3)).to(dtype=torch.float64)
-        y = torch.sin(torch.sum(X, 1)).unsqueeze(-1).to(dtype=torch.float64)
+    def test_solve_qr(self, dtype=torch.float64, tol=1e-8):
+        size = 50
+        X = torch.rand((size, 2)).to(dtype=dtype)
+        y = torch.sin(torch.sum(X, 1)).unsqueeze(-1).to(dtype=dtype)
 
-        noise = torch.DoubleTensor(size,).uniform_(math.log(1e-6), math.log(1e-2)).exp_()
-        lazy_tsr = RBFKernel().to(dtype=torch.float64)(X).evaluate_kernel().add_diag(noise)
+        noise = torch.DoubleTensor(size,).uniform_(math.log(1e-3), math.log(1e-1)).exp_().to(dtype=dtype)
+        lazy_tsr = RBFKernel().to(dtype=dtype)(X).evaluate_kernel().add_diag(noise)
         precondition_qr, logdet_qr = lazy_tsr._preconditioner()
 
         F = lazy_tsr._piv_chol_self
@@ -64,10 +64,13 @@ class TestPivotedCholesky(unittest.TestCase):
 
         x_exact = torch.gesv(y, M)[0]
         x_qr = precondition_qr(y)
-        self.assertTrue(approx_equal(x_exact, x_qr, 1e-6))
+        self.assertTrue(approx_equal(x_exact, x_qr, tol))
 
         logdet = 2 * torch.cholesky(M).diag().log().sum(-1)
-        self.assertTrue(approx_equal(logdet, logdet_qr, 1e-6))
+        self.assertTrue(approx_equal(logdet, logdet_qr, tol))
+
+    def test_solve_qr_float32(self):
+        self.test_solve_qr(dtype=torch.float32, tol=1e-3)
 
 
 class TestPivotedCholeskyBatch(unittest.TestCase):
