@@ -155,7 +155,7 @@ class Kernel(Module):
 
         if param_transform is not None:
             warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
-                          "transformaton, specify a different 'lengthscale_constraint' instead.")
+                          "transformation, specify a different 'lengthscale_constraint' instead.")
 
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims

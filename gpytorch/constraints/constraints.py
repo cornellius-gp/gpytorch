@@ -15,7 +15,7 @@ class Interval(Module):
         details, see the documentation for :meth:`~gpytorch.module.Module.register_constraint`.
 
         Args:
-            - lower_bound (float or torch.Tensor):
+            lower_bound (float or torch.Tensor):
         """
         lower_bound = torch.as_tensor(lower_bound)
         upper_bound = torch.as_tensor(upper_bound)
