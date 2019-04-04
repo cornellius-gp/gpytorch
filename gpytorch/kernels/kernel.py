@@ -22,30 +22,80 @@ class Distance(torch.jit.ScriptModule):
         self._postprocess = postprocess_script
 
     @torch.jit.script_method
-    def _jit_sq_dist(self, x1, x2, x1_eq_x2, postprocess):
+    def _jit_sq_dist_x1_neq_x2(self, x1, x2, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        if bool(x1_eq_x2):
-            x2_norm = x1_norm
-        else:
-            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
 
-        res = x1.matmul(x2.transpose(-2, -1))
-        res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
-
-        if bool(x1_eq_x2):
-            # Ensure zero diagonal
-            res.diagonal(dim1=-2, dim2=-1).fill_(0)
+        res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
 
         # Zero out negative values
         res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
 
     @torch.jit.script_method
-    def _jit_dist(self, x1, x2, x1_eq_x2, postprocess, false_tensor):
+    def _jit_sq_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+
+        res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_sq_dist_x1_eq_x2(self, x1, postprocess):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
+        res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_sq_dist_x1_eq_x2_nobatch(self, x1, postprocess):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        res = torch.addmm(x1_norm.transpose(-2, -1), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
+        res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_dist_x1_neq_x2(self, x1, x2, postprocess, false_tensor):
         # Need to do a hack to get a False tensor because pytorch stable doesn't
         # support creating of tensors in torch scripts
-        res = self._jit_sq_dist(x1, x2, x1_eq_x2, postprocess=false_tensor)
+        res = self._jit_sq_dist_x1_neq_x2(x1, x2, postprocess=false_tensor)
+        res = res.clamp_min_(1e-30).sqrt_()
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess, false_tensor):
+        # Need to do a hack to get a False tensor because pytorch stable doesn't
+        # support creating of tensors in torch scripts
+        res = self._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess=false_tensor)
+        res = res.clamp_min_(1e-30).sqrt_()
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_dist_x1_eq_x2(self, x1, postprocess, false_tensor):
+        # Need to do a hack to get a False tensor because pytorch stable doesn't
+        # support creating of tensors in torch scripts
+        res = self._jit_sq_dist_x1_eq_x2(x1, postprocess=false_tensor)
+        res = res.clamp_min_(1e-30).sqrt_()
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_dist_x1_eq_x2_nobatch(self, x1, postprocess, false_tensor):
+        # Need to do a hack to get a False tensor because pytorch stable doesn't
+        # support creating of tensors in torch scripts
+        res = self._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess=false_tensor)
         res = res.clamp_min_(1e-30).sqrt_()
         return self._postprocess(res) if bool(postprocess) else res
 
@@ -318,6 +368,7 @@ class Kernel(Module):
             x2 = x2.unsqueeze(0).transpose(0, -1)
 
         x1_eq_x2 = torch.equal(x1, x2)
+
         # torch scripts expect tensors
         postprocess = torch.tensor(postprocess)
 
@@ -343,9 +394,27 @@ class Kernel(Module):
             return res
 
         elif square_dist:
-            res = self.distance_module._jit_sq_dist(x1, x2, torch.tensor(x1_eq_x2), postprocess)
+            if x1_eq_x2:
+                if x1.dim() == 2:
+                    res = self.distance_module._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess)
+                else:
+                    res = self.distance_module._jit_sq_dist_x1_eq_x2(x1, postprocess)
+            else:
+                if x1.dim() == 2:
+                    res = self.distance_module._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess)
+                else:
+                    res = self.distance_module._jit_sq_dist_x1_neq_x2(x1, x2, postprocess)
         else:
-            res = self.distance_module._jit_dist(x1, x2, torch.tensor(x1_eq_x2), postprocess, torch.tensor(False))
+            if x1_eq_x2:
+                if x1.dim() == 2:
+                    res = self.distance_module._jit_dist_x1_eq_x2_nobatch(x1, postprocess, torch.tensor(False))
+                else:
+                    res = self.distance_module._jit_dist_x1_eq_x2(x1, postprocess, torch.tensor(False))
+            else:
+                if x1.dim() == 2:
+                    res = self.distance_module._jit_dist_x1_neq_x2_nobatch(x1, x2, postprocess, torch.tensor(False))
+                else:
+                    res = self.distance_module._jit_dist_x1_neq_x2(x1, x2, postprocess, torch.tensor(False))
 
         return res
 

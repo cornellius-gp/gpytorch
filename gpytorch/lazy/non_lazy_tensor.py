@@ -80,6 +80,9 @@ class NonLazyTensor(LazyTensor):
         else:
             return super(NonLazyTensor, self).mul(other)
 
+    def __getitem__(self, index):
+        return self.tensor.__getitem__(index)
+
 
 def lazify(obj):
     """

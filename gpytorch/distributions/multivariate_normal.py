@@ -28,7 +28,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     """
 
     def __init__(self, mean, covariance_matrix, validate_args=False):
-        self._islazy = any(isinstance(arg, LazyTensor) for arg in (mean, covariance_matrix))
+        self._islazy = isinstance(mean, LazyTensor) or isinstance(covariance_matrix, LazyTensor)
         if self._islazy:
             if validate_args:
                 # TODO: add argument validation
