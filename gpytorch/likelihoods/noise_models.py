@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
+from typing import Any, Optional
+
 import torch
+from torch import Tensor
 from torch.nn import Parameter
 
 from ..constraints import GreaterThan
@@ -10,7 +13,11 @@ from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 
 
-class _HomoskedasticNoiseBase(Module):
+class Noise(Module):
+    pass
+
+
+class _HomoskedasticNoiseBase(Noise):
     def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1, num_tasks=1):
         super().__init__()
         if noise_constraint is None:
@@ -27,15 +34,15 @@ class _HomoskedasticNoiseBase(Module):
         return self.raw_noise_constraint.transform(self.raw_noise)
 
     @noise.setter
-    def noise(self, value):
+    def noise(self, value: Tensor) -> None:
         self._set_noise(value)
 
-    def _set_noise(self, value):
+    def _set_noise(self, value: Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.tensor(value)
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
-    def forward(self, *params, shape=None):
+    def forward(self, *params: Any, shape: Optional[torch.Size] = None) -> DiagLazyTensor:
         """In the homoskedastic case, the parameters are only used to infer the required shape.
         Here are the possible scenarios:
         - non-batched noise, non-batched input, non-MT -> noise_diag shape is `n`
@@ -89,7 +96,7 @@ class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
         )
 
 
-class HeteroskedasticNoise(Module):
+class HeteroskedasticNoise(Noise):
     def __init__(self, noise_model, noise_indices=None, noise_constraint=None):
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
@@ -98,7 +105,9 @@ class HeteroskedasticNoise(Module):
         self._noise_constraint = noise_constraint
         self._noise_indices = noise_indices
 
-    def forward(self, *params, batch_shape=None, shape=None):
+    def forward(
+        self, *params: Any, batch_shape: Optional[torch.Size] = None, shape: Optional[torch.Size] = None
+    ) -> DiagLazyTensor:
         if len(params) == 1 and not torch.is_tensor(params[0]):
             output = self.noise_model(*params[0])
         else:
@@ -109,3 +118,14 @@ class HeteroskedasticNoise(Module):
         # will return a batched DiagLazyTensors of size n x num_tasks x num_tasks
         noise_diag = output.mean if self._noise_indices is None else output.mean[..., self._noise_indices]
         return DiagLazyTensor(self._noise_constraint.transform(noise_diag))
+
+
+class FixedGaussianNoise(Module):
+    def __init__(self, noise: Tensor) -> None:
+        super().__init__()
+        self.register_buffer("noise", noise)
+
+    def forward(self, *params: Any, observation_noise: Optional[Tensor] = None, **kwargs: Any) -> DiagLazyTensor:
+        if observation_noise is not None:
+            return DiagLazyTensor(observation_noise)
+        return DiagLazyTensor(self.noise)

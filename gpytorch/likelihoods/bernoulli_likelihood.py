@@ -19,6 +19,7 @@ class BernoulliLikelihood(Likelihood):
             p(Y=y|f)=\Phi(yf)
         \end{equation*}
     """
+
     def forward(self, function_samples, **kwargs):
         output_probs = base_distributions.Normal(0, 1).cdf(function_samples)
         return base_distributions.Bernoulli(probs=output_probs)
@@ -34,7 +35,8 @@ class BernoulliLikelihood(Likelihood):
         if torch.any(observations.eq(-1)):
             warnings.warn(
                 "BernoulliLikelihood.expected_log_prob expects observations with labels in {0, 1}. "
-                "Observations with labels in {-1, 1} are deprecated.", DeprecationWarning
+                "Observations with labels in {-1, 1} are deprecated.",
+                DeprecationWarning,
             )
         else:
             observations = observations.mul(2).sub(1)
