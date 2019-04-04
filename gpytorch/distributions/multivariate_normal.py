@@ -116,10 +116,14 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
         # Repeat the covar to match the batch shape of diff
         if diff.shape[:-1] != covar.batch_shape:
-            padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
-            covar = covar.repeat(
-                *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)), 1, 1
-            )
+            if len(diff.shape[:-1]) < len(covar.batch_shape):
+                diff = diff.expand(covar.shape[:-1])
+            else:
+                padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
+                covar = covar.repeat(
+                    *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)),
+                    1, 1
+                )
 
         # Get log determininat and first part of quadratic form
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)

@@ -3,10 +3,10 @@
 import math
 import torch
 from .kernel import Kernel
-from ..functions import add_jitter
 from ..lazy import delazify, DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, PsdSumLazyTensor
 from ..distributions import MultivariateNormal
 from ..mlls import InducingPointKernelAddedLossTerm
+from ..utils.cholesky import psd_safe_cholesky
 
 
 class InducingPointKernel(Kernel):
@@ -19,7 +19,7 @@ class InducingPointKernel(Kernel):
             inducing_points = inducing_points.unsqueeze(-1)
         if inducing_points.ndimension() != 2:
             raise RuntimeError("Inducing points should be 2 dimensional")
-        self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points.unsqueeze(0)))
+        self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points))
         self.register_added_loss_term("inducing_point_loss_term")
 
     def train(self, mode=True):
@@ -42,11 +42,11 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_inv_root"):
             return self._cached_kernel_inv_root
         else:
-            chols = torch.cholesky(add_jitter(self._inducing_mat), upper=True)
-            eye = torch.eye(chols[0].size(-1), device=chols[0].device)
-            inv_root_list = [torch.trtrs(eye, chol)[0].unsqueeze(0) for chol in chols]
+            chol = psd_safe_cholesky(self._inducing_mat, upper=True)
+            eye = torch.eye(chol.size(-1), device=chol.device)
+            inv_root = torch.trtrs(eye, chol)[0]
 
-            res = torch.cat(inv_root_list, 0)
+            res = inv_root
             if not self.training:
                 self._cached_kernel_inv_root = res
             return res
@@ -70,17 +70,12 @@ class InducingPointKernel(Kernel):
     def _covar_diag(self, inputs):
         if inputs.ndimension() == 1:
             inputs = inputs.unsqueeze(1)
-        orig_size = list(inputs.size())
-
-        # Resize inputs so that everything is batch
-        inputs = inputs.unsqueeze(-2).view(-1, 1, inputs.size(-1))
 
         # Get diagonal of covar
-        covar_diag = delazify(self.base_kernel(inputs))
-        covar_diag = covar_diag.view(orig_size[:-1])
+        covar_diag = delazify(self.base_kernel(inputs, diag=True))
         return DiagLazyTensor(covar_diag)
 
-    def forward(self, x1, x2, **kwargs):
+    def forward(self, x1, x2, diag=False, **kwargs):
         covar = self._get_covariance(x1, x2)
 
         if self.training:
@@ -94,7 +89,10 @@ class InducingPointKernel(Kernel):
             )
             self.update_added_loss_term("inducing_point_loss_term", new_added_loss_term)
 
-        return covar
+        if diag:
+            return covar.diag()
+        else:
+            return covar
 
     def size(self, x1, x2):
         return self.base_kernel.size(x1, x2)

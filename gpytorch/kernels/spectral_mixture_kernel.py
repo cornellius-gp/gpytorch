@@ -67,7 +67,7 @@ class SpectralMixtureKernel(Kernel):
         self,
         num_mixtures=None,
         ard_num_dims=1,
-        batch_shape=torch.Size([1]),
+        batch_shape=torch.Size([]),
         mixture_scales_prior=None,
         mixture_scales_constraint=None,
         mixture_means_prior=None,
@@ -80,9 +80,6 @@ class SpectralMixtureKernel(Kernel):
             raise RuntimeError("num_mixtures is a required argument")
         if mixture_means_prior is not None or mixture_scales_prior is not None or mixture_weights_prior is not None:
             logger.warning("Priors not implemented for SpectralMixtureKernel")
-
-        if len(batch_shape) > 1:
-            raise RuntimeError("SpectralMixtureKernel does not yet support multiple batch dimensions.")
 
         # This kernel does not use the default lengthscale
         super(SpectralMixtureKernel, self).__init__(ard_num_dims=ard_num_dims, batch_shape=batch_shape, **kwargs)
@@ -198,25 +195,18 @@ class SpectralMixtureKernel(Kernel):
         """
         x1_, x2_ = x1, x2
         if batch_dims == (0, 2):
-            x1_ = x1_.view(*x1.size()[:-1], -1, 1)
-            x1_ = x1_.permute(0, -2, *list(range(1, x1_.dim() - 2)), -1).contiguous()
-            x1_ = x1_.view(-1, *x1_.size()[2:])
+            x1_ = x1_.unsqueeze(0).transpose(0, -1)
             if torch.equal(x1, x2):
                 x2_ = x1_
             else:
-                x2_ = x2_.view(*x2.size()[:-1], -1, 1)
-                x2_ = x2_.permute(0, -2, *list(range(1, x2_.dim() - 2)), -1).contiguous()
-                x2_ = x2_.view(-1, *x2_.size()[2:])
+                x2_ = x2_.unsqueeze(0).transpose(0, -1)
 
         if diag:
             return x1_, x2_
         else:
             return x1_.unsqueeze(-2), x2_.unsqueeze(-3)
 
-    def forward(self, x1, x2, **params):
-        if x1.dim() > 3 or x2.dim() > 3:
-            raise RuntimeError("SpectralMixtureKernel does not yet support multiple batch dimensions.")
-
+    def forward(self, x1, x2, batch_dims=None, **params):
         batch_shape = x1.shape[:-2]
         n, num_dims = x1.shape[-2:]
 
@@ -233,8 +223,8 @@ class SpectralMixtureKernel(Kernel):
 
         # Expand x1 and x2 to account for the number of mixtures
         # Should make x1/x2 (b x k x n x d) for k mixtures
-        x1_ = x1.unsqueeze(1)
-        x2_ = x2.unsqueeze(1)
+        x1_ = x1.unsqueeze(len(batch_shape))
+        x2_ = x2.unsqueeze(len(batch_shape))
 
         # Compute distances - scaled by appropriate parameters
         x1_exp = x1_ * self.mixture_scales
@@ -243,20 +233,31 @@ class SpectralMixtureKernel(Kernel):
         x2_cos = x2_ * self.mixture_means
 
         # Create grids
-        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, **params)
-        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, **params)
+        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, batch_dims=batch_dims, **params)
+        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, batch_dims=batch_dims, **params)
 
         # Compute the exponential and cosine terms
         exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi ** 2)
         cos_term = (x1_cos_ - x2_cos_).mul_(2 * math.pi)
         res = exp_term.exp_() * cos_term.cos_()
 
-        # Product omer dimensions
-        res = res.prod(-1)
+        # Product over dimensions
+        if batch_dims == (0, 2):
+            res = res.squeeze(-1)
+        else:
+            res = res.prod(-1)
 
         # Sum over mixtures
         mixture_weights = self.mixture_weights
-        while mixture_weights.dim() < res.dim():
-            mixture_weights = mixture_weights.unsqueeze(-1)
-        res = (res * mixture_weights).sum(1)
+
+        if batch_dims == (0, 2):
+            while mixture_weights.dim() < res.dim() - 1:
+                mixture_weights = mixture_weights.unsqueeze(-1)
+            mixture_weights = mixture_weights.unsqueeze(0)
+            res = (res * mixture_weights).sum(len(batch_shape) + 1)
+        else:
+            while mixture_weights.dim() < res.dim():
+                mixture_weights = mixture_weights.unsqueeze(-1)
+
+            res = (res * mixture_weights).sum(len(batch_shape))
         return res

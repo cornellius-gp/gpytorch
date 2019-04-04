@@ -54,7 +54,7 @@ class ProductStructureKernel(Kernel):
             evaluate = True
             res = NonLazyTensor(res)
 
-        res = res.prod(-3).unsqueeze(0)
+        res = res.prod(0)
 
         if evaluate:
             res = res.evaluate()

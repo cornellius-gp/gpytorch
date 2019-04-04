@@ -42,7 +42,7 @@ class MaternKernel(Kernel):
             input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
         :attr:`batch_shape` (torch.Size, optional):
             Set this if you want a separate lengthscale for each
-             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([1])`
+             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`
         :attr:`active_dims` (tuple of ints, optional):
             Set this if you want to
             compute the covariance of only a few input dimensions. The ints
@@ -81,18 +81,18 @@ class MaternKernel(Kernel):
         super(MaternKernel, self).__init__(has_lengthscale=True, **kwargs)
         self.nu = nu
 
-    def forward(self, x1, x2, **params):
+    def forward(self, x1, x2, diag=False, **params):
         if (
             x1.requires_grad
             or x2.requires_grad
             or (self.ard_num_dims is not None and self.ard_num_dims > 1)
-            or params.get('diag', False)
+            or diag
         ):
             mean = x1.contiguous().view(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
 
             x1_ = (x1 - mean).div(self.lengthscale)
             x2_ = (x2 - mean).div(self.lengthscale)
-            distance = self._covar_dist(x1_, x2_, **params)
+            distance = self._covar_dist(x1_, x2_, diag=diag, **params)
             exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)
 
             if self.nu == 0.5:
