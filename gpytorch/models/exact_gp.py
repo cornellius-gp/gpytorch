@@ -19,7 +19,7 @@ class ExactGP(GP):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("ExactGP can only handle Gaussian likelihoods")
 
-        super().__init__()
+        super(ExactGP, self).__init__()
         if train_inputs is not None:
             self.train_inputs = tuple(tri.unsqueeze(-1) if tri.ndimension() == 1 else tri for tri in train_inputs)
             self.train_targets = train_targets
@@ -113,7 +113,7 @@ class ExactGP(GP):
         if not isinstance(inputs, list):
             inputs = [inputs]
 
-        inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs]
+        inputs = list(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs)
 
         # If input is n x d but targets is b x n x d, expand input to b x n x d
         for i, input in enumerate(inputs):
@@ -142,7 +142,6 @@ class ExactGP(GP):
         self.train_inputs = None
         self.train_targets = None
         new_model = deepcopy(self)
-        new_model.likelihood.get_fantasy_likelihood(**kwargs)
         self.prediction_strategy = old_pred_strat
         self.train_inputs = old_train_inputs
         self.train_targets = old_train_targets
@@ -154,8 +153,7 @@ class ExactGP(GP):
             targets,
             full_inputs,
             full_targets,
-            full_output,
-            **kwargs,
+            full_output
         )
 
         return new_model

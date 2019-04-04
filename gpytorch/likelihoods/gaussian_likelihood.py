@@ -99,10 +99,3 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     @noise.setter
     def noise(self, value: Tensor) -> None:
         self.noise_covar.initialize(noise=value)
-
-    def get_fantasy_likelihood(self, *args, **kwargs):
-        """Adds new observation noise to the FixedGaussianNoise model"""
-        new_obs_noise = kwargs.get("observation_noise")
-        if new_obs_noise is None:
-            raise RuntimeError("Must provide observation noise for FixedNoiseGaussianLikelihood")
-        self.noise_covar.noise = torch.cat([self.noise_covar.noise, new_obs_noise], dim=-1)
