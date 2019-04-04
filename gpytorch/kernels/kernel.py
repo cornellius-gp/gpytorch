@@ -12,7 +12,6 @@ from ..constraints import Positive
 import warnings
 
 
-@torch.jit.script
 def default_postprocess_script(x):
     return x
 
