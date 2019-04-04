@@ -46,6 +46,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             x1 = x1.view(-1, x1.size(-1), 1)
         try:
             x1 = x1[(*batch_indices, row_index, _noop_index)]
+        # We're going to handle multi-batch indexing with a try-catch loop
+        # This way - in the default case, we can avoid doing expansions of x1 which can be timely
         except IndexError:
             if isinstance(batch_indices, slice):
                 x1 = x1.expand(1, *self.x1.shape[-2:])[(*batch_indices, row_index, _noop_index)]
@@ -65,6 +67,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             x2 = x2.view(-1, x2.size(-1), 1)
         try:
             x2 = x2[(*batch_indices, col_index, _noop_index)]
+        # We're going to handle multi-batch indexing with a try-catch loop
+        # This way - in the default case, we can avoid doing expansions of x1 which can be timely
         except IndexError:
             if isinstance(batch_indices, slice):
                 x2 = x2.expand(1, *self.x2.shape[-2:])[(*batch_indices, row_index, _noop_index)]
