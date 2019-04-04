@@ -90,7 +90,13 @@ class InvMatmul(Function):
                 left_solves = InvMatmul.apply(ctx.representation_tree, False, grad_output, *matrix_args)
 
                 if any(ctx.needs_input_grad[3:]):
-                    arg_grads = lazy_tsr._quad_form_derivative(left_solves, right_solves.mul(-1))
+                    # We call _quad_form_derivative to compute dl/dK
+                    # To ensure that this term is symmetric, we concatenate the left and right solves together,
+                    # and divide the result by 1/2
+                    arg_grads = lazy_tsr._quad_form_derivative(
+                        torch.cat([left_solves, right_solves], -1),
+                        torch.cat([right_solves, left_solves], -1).mul(-0.5)
+                    )
                 if ctx.needs_input_grad[2]:
                     right_grad = left_solves
                     if ctx.is_vector:
@@ -104,7 +110,11 @@ class InvMatmul(Function):
                 if ctx.needs_input_grad[3]:
                     left_grad = grad_output @ right_solves.transpose(-1, -2)
                 if any(ctx.needs_input_grad[4:]):
-                    arg_grads = lazy_tsr._quad_form_derivative(left_solves, right_solves.mul(-1))
+                    # We do this concatenation to ensure that the gradient of lazy_tsr is symmetric
+                    arg_grads = lazy_tsr._quad_form_derivative(
+                        torch.cat([left_solves, right_solves], -1),
+                        torch.cat([right_solves, left_solves], -1).mul(-0.5)
+                    )
                 if ctx.needs_input_grad[2]:
                     right_grad = left_solves
                     if ctx.is_vector:

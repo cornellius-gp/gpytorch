@@ -2,141 +2,70 @@
 
 import torch
 import unittest
-import os
-import random
 from gpytorch import settings
 from gpytorch.lazy import NonLazyTensor
+from gpytorch.utils.gradients import _ensure_symmetric_grad
+from test._base_test_case import BaseTestCase
 
 
-class TestInvMatmulNonBatch(unittest.TestCase):
-    def tearDown(self):
-        if hasattr(self, "rng_state"):
-            torch.set_rng_state(self.rng_state)
+class TestInvMatmulNonBatch(BaseTestCase, unittest.TestCase):
+    seed = 0
 
-    def setUp(self):
-        if os.getenv("unlock_seed") is None or os.getenv("unlock_seed").lower() == "false":
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(1)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(1)
-            random.seed(1)
-
+    def _create_mat(self):
         mat = torch.randn(8, 8)
         mat = mat @ mat.transpose(-1, -2)
-        vec = torch.randn(8)
-        vecs = torch.randn(8, 4)
-        self.mat = mat.detach().clone().requires_grad_(True)
-        self.mat_copy = mat.detach().clone().requires_grad_(True)
-        self.vec = vec.detach().clone().requires_grad_(True)
-        self.vec_copy = vec.detach().clone().requires_grad_(True)
-        self.vecs = vecs.detach().clone().requires_grad_(True)
-        self.vecs_copy = vecs.detach().clone().requires_grad_(True)
+        return mat
 
     def test_inv_matmul_vec(self):
+        mat = self._create_mat().detach().requires_grad_(True)
+        if mat.dim() > 2:  # This isn't a feature for batch mode
+            return
+        mat_copy = mat.detach().clone().requires_grad_(True)
+        mat_copy.register_hook(_ensure_symmetric_grad)
+        vec = torch.randn(mat.size(-1)).detach().requires_grad_(True)
+        vec_copy = vec.detach().clone().requires_grad_(True)
+
         # Forward
         with settings.terminate_cg_by_size(False):
-            res = NonLazyTensor(self.mat).inv_matmul(self.vec)
-            actual = self.mat_copy.inverse().matmul(self.vec_copy)
-            self.assertLess(torch.max((res - actual).abs() / actual.abs()).item(), 1e-3)
+            res = NonLazyTensor(mat).inv_matmul(vec)
+            actual = mat_copy.inverse().matmul(vec_copy)
+            self.assertAllClose(res, actual)
 
             # Backward
-            grad_output = torch.randn(8)
+            grad_output = torch.randn_like(vec)
             res.backward(gradient=grad_output)
             actual.backward(gradient=grad_output)
-            self.assertLess(torch.max((self.mat_copy.grad - self.mat.grad).abs()).item(), 1e-3)
-            self.assertLess(torch.max((self.vec_copy.grad - self.vec.grad).abs()).item(), 1e-3)
+            self.assertAllClose(mat.grad, mat_copy.grad)
+            self.assertAllClose(vec.grad, vec_copy.grad)
 
     def test_inv_matmul_multiple_vecs(self):
+        mat = self._create_mat().detach().requires_grad_(True)
+        mat_copy = mat.detach().clone().requires_grad_(True)
+        mat_copy.register_hook(_ensure_symmetric_grad)
+        vecs = torch.randn(*mat.shape[:-2], mat.size(-1), 4).detach().requires_grad_(True)
+        vecs_copy = vecs.detach().clone().requires_grad_(True)
+
         # Forward
         with settings.terminate_cg_by_size(False):
-            res = NonLazyTensor(self.mat).inv_matmul(self.vecs)
-            actual = self.mat_copy.inverse().matmul(self.vecs_copy)
-            self.assertLess(torch.max((res - actual).abs() / actual.abs()).item(), 1e-3)
+            res = NonLazyTensor(mat).inv_matmul(vecs)
+            actual = mat_copy.inverse().matmul(vecs_copy)
+            self.assertAllClose(res, actual)
 
             # Backward
-            grad_output = torch.randn(8, 4)
+            grad_output = torch.randn_like(vecs)
             res.backward(gradient=grad_output)
             actual.backward(gradient=grad_output)
-            self.assertLess(torch.max((self.mat_copy.grad - self.mat.grad).abs()).item(), 1e-3)
-            self.assertLess(torch.max((self.vecs_copy.grad - self.vecs.grad).abs()).item(), 1e-3)
+            self.assertAllClose(mat.grad, mat_copy.grad)
+            self.assertAllClose(vecs.grad, vecs_copy.grad)
 
 
-class TestInvMatmulBatch(unittest.TestCase):
-    def tearDown(self):
-        if hasattr(self, "rng_state"):
-            torch.set_rng_state(self.rng_state)
+class TestInvMatmulBatch(TestInvMatmulNonBatch):
+    seed = 0
 
-    def setUp(self):
-        if os.getenv("unlock_seed") is None or os.getenv("unlock_seed").lower() == "false":
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(0)
-            random.seed(0)
-
+    def _create_mat(self):
         mats = torch.randn(2, 8, 8)
         mats = mats @ mats.transpose(-1, -2)
-        vecs = torch.randn(2, 8, 4)
-        self.mats = mats.detach().clone().requires_grad_(True)
-        self.mats_copy = mats.detach().clone().requires_grad_(True)
-        self.vecs = vecs.detach().clone().requires_grad_(True)
-        self.vecs_copy = vecs.detach().clone().requires_grad_(True)
-
-    def test_inv_matmul_multiple_vecs(self):
-        # Forward
-        with settings.terminate_cg_by_size(False):
-            res = NonLazyTensor(self.mats).inv_matmul(self.vecs)
-            actual = torch.cat(
-                [self.mats_copy[0].inverse().unsqueeze(0), self.mats_copy[1].inverse().unsqueeze(0)]
-            ).matmul(self.vecs_copy)
-            self.assertLess(torch.max((res - actual).abs()).item(), 1e-3)
-
-            # Backward
-            grad_output = torch.randn(2, 8, 4)
-            res.backward(gradient=grad_output)
-            actual.backward(gradient=grad_output)
-            self.assertLess(torch.max((self.mats_copy.grad - self.mats.grad).abs()).item(), 1e-3)
-            self.assertLess(torch.max((self.vecs_copy.grad - self.vecs.grad).abs()).item(), 1e-3)
-
-
-class TestInvMatmulMultiBatch(unittest.TestCase):
-    def tearDown(self):
-        if hasattr(self, "rng_state"):
-            torch.set_rng_state(self.rng_state)
-
-    def setUp(self):
-        if os.getenv("unlock_seed") is None or os.getenv("unlock_seed").lower() == "false":
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(0)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(0)
-            random.seed(0)
-
-        mats = torch.randn(3, 4, 8, 8)
-        mats = mats @ mats.transpose(-1, -2)
-        mats.add_(torch.eye(8).mul_(1e-1).view(1, 1, 8, 8))
-        vecs = torch.randn(3, 4, 8, 2)
-        self.mats = mats.detach().clone().requires_grad_(True)
-        self.mats_copy = mats.detach().clone().requires_grad_(True)
-        self.vecs = vecs.detach().clone().requires_grad_(True)
-        self.vecs_copy = vecs.detach().clone().requires_grad_(True)
-
-    def test_inv_matmul_multiple_vecs(self):
-        # Forward
-        with settings.terminate_cg_by_size(False):
-            res = NonLazyTensor(self.mats).inv_matmul(self.vecs)
-            flattened_mats_copy = self.mats_copy.view(-1, *self.mats.shape[-2:])
-            flatened_mats_inverse = torch.cat([mat.inverse().unsqueeze(0) for mat in flattened_mats_copy])
-            mats_inverse = flatened_mats_inverse.view_as(self.mats)
-            actual = mats_inverse.matmul(self.vecs_copy)
-            self.assertLess(torch.max((res - actual).abs()).item(), 1e-3)
-
-            # Backward
-            grad_output = torch.randn(3, 4, 8, 2)
-            res.backward(gradient=grad_output)
-            actual.backward(gradient=grad_output)
-            self.assertLess(torch.max((self.mats_copy.grad - self.mats.grad).abs()).item(), 1e-3)
-            self.assertLess(torch.max((self.vecs_copy.grad - self.vecs.grad).abs()).item(), 1e-3)
+        return mats
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import gpytorch
 import torch
+from gpytorch.utils.gradients import _ensure_symmetric_grad
 from test._base_test_case import BaseTestCase
 
 
@@ -248,6 +249,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        evaluated.register_hook(_ensure_symmetric_grad)
 
         # Create a test right hand side and left hand side
         rhs.requires_grad_(True)
