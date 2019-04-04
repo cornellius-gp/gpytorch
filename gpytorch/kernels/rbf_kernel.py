@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-import torch
 from ..functions import RBFCovariance
 
 
-@torch.jit.script
 def postprocess_rbf(dist_mat):
     return dist_mat.div_(-2).exp_()
 
