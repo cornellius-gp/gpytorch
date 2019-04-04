@@ -6,6 +6,7 @@ import gpytorch
 import unittest
 import warnings
 from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor
+from gpytorch.utils.gradients import _ensure_symmetric_grad
 from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 from unittest.mock import MagicMock, patch
 
@@ -47,6 +48,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
         lazy_tensor = self.create_lazy_tensor(with_solves=True).requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        evaluated.register_hook(_ensure_symmetric_grad)
 
         # Rather than the supplied rhs and lhs,
         # we'll replace them with ones that we've precomputed solves for

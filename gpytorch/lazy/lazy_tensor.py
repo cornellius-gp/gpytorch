@@ -17,6 +17,7 @@ from ..functions._root_decomposition import RootDecomposition
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky, cholesky_solve
 from ..utils.deprecation import _deprecate_renamed_methods
+from ..utils.gradients import _ensure_symmetric_grad
 from ..utils.getitem import _noop_index, _convert_indices_to_tensors, _compute_getitem_size
 from ..utils.memoize import add_to_cache, cached
 from ..utils.qr import batch_qr
@@ -392,7 +393,14 @@ class LazyTensor(ABC):
             (LazyTensor) Cholesky factor
         """
         from .non_lazy_tensor import NonLazyTensor
-        cholesky = psd_safe_cholesky(self.evaluate().double()).to(self.dtype)
+        evaluated_mat = self.evaluate()
+
+        # NOTE: this hack is in place so that the gradient of the Cholesky factorization is symmetric
+        # We can remove this hack once https://github.com/pytorch/pytorch/issues/18825 is merged in
+        if evaluated_mat.requires_grad:
+            evaluated_mat.register_hook(_ensure_symmetric_grad)
+
+        cholesky = psd_safe_cholesky(evaluated_mat.double()).to(self.dtype)
         return NonLazyTensor(cholesky)
 
     def _cholesky_solve(self, rhs):
@@ -697,6 +705,21 @@ class LazyTensor(ABC):
         """
         return self.shape[:-2]
 
+    def cholesky(self, upper=False):
+        """
+        Cholesky-factorizes the LazyTensor
+
+        Parameters:
+            upper (bool) - upper triangular or lower triangular factor (default: False)
+
+        Returns:
+            (LazyTensor) Cholesky factor (lower triangular)
+        """
+        res = self._cholesky()
+        if upper:
+            res = res.transpose(-1, -2)
+        return res
+
     def clone(self):
         """
         Clones the LazyTensor (creates clones of all underlying tensors)
@@ -966,7 +989,7 @@ class LazyTensor(ABC):
         if settings.fast_computations.log_prob.off() or (self.size(-1) <= settings.max_cholesky_size.value()):
             from .chol_lazy_tensor import CholLazyTensor
 
-            cholesky = CholLazyTensor(self._cholesky())
+            cholesky = CholLazyTensor(self.cholesky())
             return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
 
         # Default: use modified batch conjugate gradients to compute these terms
@@ -1281,7 +1304,7 @@ class LazyTensor(ABC):
             or settings.fast_computations.covar_root_decomposition.off()
         ):
             try:
-                res = self._cholesky()
+                res = self.cholesky()
                 return CholLazyTensor(res)
 
             except RuntimeError as e:
@@ -1299,19 +1322,15 @@ class LazyTensor(ABC):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
         from .non_lazy_tensor import lazify
-
-        if self.shape[-2:].numel() == 1:
-            return RootLazyTensor(1 / self.evaluate().sqrt())
 
         if (
             self.size(-1) <= settings.max_cholesky_size.value()
             or settings.fast_computations.covar_root_decomposition.off()
         ):
             try:
-                res = self._cholesky()
+                res = self.cholesky()
                 res = lazify(delazify(res).double().inverse().transpose(-2, -1).to(self.dtype))
                 return RootLazyTensor(res)
             except RuntimeError as e:

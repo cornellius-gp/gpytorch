@@ -134,7 +134,7 @@ class VariationalStrategy(Module):
             # If we're less than a certain size, we'll compute the Cholesky decomposition of induc_induc_covar
             cholesky = False
             if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
-                induc_induc_covar = CholLazyTensor(induc_induc_covar._cholesky())
+                induc_induc_covar = CholLazyTensor(induc_induc_covar.cholesky())
                 cholesky = True
 
             # Cache the CG results
