@@ -67,17 +67,33 @@ class AddedDiagLazyTensor(SumLazyTensor):
             if self._piv_chol_self.dim() == 2:  # TODO: Whenever PyTorch supports batch mode
                 *batch_shape, n, k = self._piv_chol_self.shape
                 self._noise = self._diag_tensor.diag().unsqueeze(-1)
+
+                constant_diag = torch.equal(self._noise, self._noise[0] * torch.ones_like(self._noise))
+
                 eye = torch.eye(k, dtype=self._piv_chol_self.dtype, device=self._piv_chol_self.device)
-                self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), eye)))
-                self._q_cache = self._q_cache[:n, :] / self._noise.sqrt()
 
-                # Use the matrix determinant lemma for the logdet
-                logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2) - \
-                    (1.0 / self._noise).log().sum([-1, -2])
-                self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
+                if constant_diag:
+                    noise_constant = self._noise[0].squeeze()
+                    self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self, noise_constant.sqrt() * eye)))
+                    self._q_cache = self._q_cache[:n, :]
 
-                def precondition_closure(rhs: torch.tensor):
-                    return (rhs / self._noise) - self._q_cache.matmul(self._q_cache.t().matmul(rhs))
+                    logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2)
+                    logdet = logdet + (n - k) * noise_constant.log()
+                    self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
+
+                    def precondition_closure(rhs: torch.Tensor):
+                        return (1 / noise_constant) * (rhs - self._q_cache.matmul(self._q_cache.t().matmul(rhs)))
+                else:
+                    self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), eye)))
+                    self._q_cache = self._q_cache[:n, :] / self._noise.sqrt()
+
+                    # Use the matrix determinant lemma for the logdet
+                    logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2) - \
+                        (1.0 / self._noise).log().sum([-1, -2])
+                    self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
+
+                    def precondition_closure(rhs: torch.Tensor):
+                        return (rhs / self._noise) - self._q_cache.matmul(self._q_cache.t().matmul(rhs))
             else:
                 self._woodbury_cache, self._inv_scale, self._precond_logdet_cache = woodbury.woodbury_factor(
                     self._piv_chol_self, self._piv_chol_self, self._diag_tensor.diag(), logdet=True
