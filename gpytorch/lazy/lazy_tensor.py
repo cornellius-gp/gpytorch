@@ -1325,6 +1325,9 @@ class LazyTensor(ABC):
         from .root_lazy_tensor import RootLazyTensor
         from .non_lazy_tensor import lazify
 
+        if self.shape[-2:].numel() == 1:
+            return RootLazyTensor(1 / self.evaluate().sqrt())
+
         if (
             self.size(-1) <= settings.max_cholesky_size.value()
             or settings.fast_computations.covar_root_decomposition.off()
