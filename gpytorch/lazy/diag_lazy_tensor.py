@@ -98,6 +98,8 @@ class DiagLazyTensor(LazyTensor):
 
     @cached
     def evaluate(self):
+        if self._diag.dim() == 0:
+            return self._diag
         return self._diag.unsqueeze(-1) * torch.eye(self._diag.shape[-1], dtype=self.dtype, device=self.device)
 
     def exp(self):
