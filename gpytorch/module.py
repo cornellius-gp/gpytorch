@@ -77,12 +77,28 @@ class Module(nn.Module):
             elif name not in self._parameters:
                 setattr(self, name, val)
             elif torch.is_tensor(val):
+                constraint = self.constraint_for_parameter_name(name)
+                if constraint is not None and not constraint.check_raw(val):
+                    raise RuntimeError(
+                        "Attempting to manually set a parameter value that is out of bounds of "
+                        f"its current constraints, {constraint}. "
+                        "Most likely, you want to do the following:\n likelihood = GaussianLikelihood"
+                        "(noise_constraint=gpytorch.constraints.GreaterThan(better_lower_bound))"
+                    )
                 try:
                     self.__getattr__(name).data.copy_(val.expand_as(self.__getattr__(name)))
                 except RuntimeError:
                     self.__getattr__(name).data.copy_(val.view_as(self.__getattr__(name)))
 
             elif isinstance(val, float):
+                constraint = self.constraint_for_parameter_name(name)
+                if constraint is not None and not constraint.check_raw(val):
+                    raise RuntimeError(
+                        "Attempting to manually set a parameter value that is out of bounds of "
+                        f"its current constraints, {constraint}. "
+                        "Most likely, you want to do the following:\n likelihood = GaussianLikelihood"
+                        "(noise_constraint=gpytorch.constraints.GreaterThan(better_lower_bound))"
+                    )
                 self.__getattr__(name).data.fill_(val)
             else:
                 raise AttributeError("Type {t} not valid for initializing parameter {p}".format(t=type(val), p=name))

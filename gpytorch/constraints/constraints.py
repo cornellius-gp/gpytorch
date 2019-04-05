@@ -44,7 +44,13 @@ class Interval(Module):
         return self._transform is not None
 
     def check(self, tensor):
-        return torch.all(tensor <= self.upper_bound) and torch.all(tensor >= self.lower_bound)
+        return bool(torch.all(tensor <= self.upper_bound) and torch.all(tensor >= self.lower_bound))
+
+    def check_raw(self, tensor):
+        return bool(
+            torch.all((self.transform(tensor) <= self.upper_bound))
+            and torch.all(self.transform(tensor) >= self.lower_bound)
+        )
 
     def intersect(self, other):
         """
