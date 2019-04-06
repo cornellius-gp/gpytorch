@@ -294,23 +294,25 @@ class Kernel(Module):
 
     @abstractmethod
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
-        """
+        r"""
         Computes the covariance between x1 and x2.
         This method should be imlemented by all Kernel subclasses.
 
         Args:
-            - :attr:`x1` (Tensor `n x d` or `b x n x d`)
-            - :attr:`x2` (Tensor `m x d` or `b x m x d`)
-            - :attr:`diag` (bool):
+            :attr:`x1` (Tensor `n x d` or `b x n x d`):
+                First set of data
+            :attr:`x2` (Tensor `m x d` or `b x m x d`):
+                Second set of data
+            :attr:`diag` (bool):
                 Should the Kernel compute the whole kernel, or just the diag?
-            - :attr:`batch_dims` (tuple, optional):
+            :attr:`batch_dims` (tuple, optional):
                 If this option is passed in, it will tell the tensor which of the
                 three dimensions are batch dimensions.
                 Currently accepts: standard mode (either None or (0,))
                 or (0, 2) for use with Additive/Multiplicative kernels
 
         Returns:
-            - :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
+            :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
                 The exact size depends on the kernel's evaluation mode:
 
                 * `full_covar`: `n x m` or `b x n x m`
@@ -318,6 +320,7 @@ class Kernel(Module):
                 * `diag`: `n` or `b x n`
                 * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
         """
+
         raise NotImplementedError()
 
     def __getstate__(self):
@@ -339,29 +342,32 @@ class Kernel(Module):
         postprocess=True,
         **params
     ):
-        """
+        r"""
         This is a helper method for computing the Euclidean distance between
         all pairs of points in x1 and x2.
-        The dimensionality of the output depends on the
+
         Args:
-            - :attr:`x1` (Tensor `n x d` or `b x n x d`)
-            - :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
-            - :attr:`diag` (bool):
-                Should we return the whole distance matrix, or just the diagonal?
-            - :attr:`batch_dims` (tuple, optional):
+            :attr:`x1` (Tensor `n x d` or `b1 x ... x bk x n x d`):
+                First set of data.
+            :attr:`x2` (Tensor `m x d` or `b1 x ... x bk x m x d`):
+                Second set of data.
+            :attr:`diag` (bool):
+                Should we return the whole distance matrix, or just the diagonal? If True, we must have `x1 == x2`.
+            :attr:`batch_dims` (tuple, optional):
                 If this option is passed in, it will tell the tensor which of the
                 three dimensions are batch dimensions.
                 Currently accepts: standard mode (either None or (0,))
                 or (0, 2) for use with Additive/Multiplicative kernels
-            - :attr:`square_dist` (bool):
+            :attr:`square_dist` (bool):
                 Should we square the distance matrix before returning?
+
         Returns:
             (:class:`Tensor`, :class:`Tensor) corresponding to the distance matrix between `x1` and `x2`.
             The shape depends on the kernel's mode
             * `diag=False` and `batch_dims=None`: (`b x n x n`)
-            * `diag=False` and `batch_dims=(0, 2)`: (`bd x n x n`)
+            * `diag=False` and `batch_dims=(0, 2)`: (`d x b x n x n`)
             * `diag=True` and `batch_dims=None`: (`b x n`)
-            * `diag=True` and `batch_dims=(0, 2)`: (`bd x n`)
+            * `diag=True` and `batch_dims=(0, 2)`: (`d x b x n`)
         """
         if batch_dims == (0, 2):
             x1 = x1.unsqueeze(0).transpose(0, -1)
