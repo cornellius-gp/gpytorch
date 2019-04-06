@@ -8,7 +8,7 @@ from torch.nn import Parameter
 
 from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor
+from ..lazy import DiagLazyTensor, ZeroLazyTensor
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 
@@ -125,7 +125,20 @@ class FixedGaussianNoise(Module):
         super().__init__()
         self.register_buffer("noise", noise)
 
-    def forward(self, *params: Any, observation_noise: Optional[Tensor] = None, **kwargs: Any) -> DiagLazyTensor:
+    def forward(
+        self,
+        *params: Any,
+        shape: Optional[torch.Size] = None,
+        observation_noise: Optional[Tensor] = None,
+        **kwargs: Any
+    ) -> DiagLazyTensor:
+        if shape is None:
+            p = params[0] if torch.is_tensor(params[0]) else params[0][0]
+            shape = p.shape if len(p.shape) == 1 else p.shape[:-1]
+
         if observation_noise is not None:
             return DiagLazyTensor(observation_noise)
-        return DiagLazyTensor(self.noise)
+        elif shape[-1] == self.noise.shape[-1]:
+            return DiagLazyTensor(self.noise)
+        else:
+            return ZeroLazyTensor()
