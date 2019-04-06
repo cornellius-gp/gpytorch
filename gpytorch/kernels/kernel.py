@@ -328,7 +328,7 @@ class Kernel(Module):
     def __setstate__(self, d):
         self.__dict__ = d
 
-    def _covar_dist(
+    def covar_dist(
         self,
         x1,
         x2,
