@@ -263,8 +263,10 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         """
         # Process the index
         index = index if isinstance(index, tuple) else (index,)
-        if index[0] is Ellipsis and all([isinstance(idx, slice) for idx in index[1:]]):
-            *batch_indices, row_index, col_index = index
+        # Special case for the most common case: [..., slice, slice]
+        if len(index) == 3 and index[0] is Ellipsis and isinstance(index[1], slice) and isinstance(index[2], slice):
+            _, row_index, col_index = index
+            batch_indices = [slice(None, None, None)] * (self.dim() - 2)
             return self._getitem(row_index, col_index, *batch_indices)
         else:
             return super().__getitem__(index)
