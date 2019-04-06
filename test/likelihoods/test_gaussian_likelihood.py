@@ -13,7 +13,7 @@ class TestFixedNoiseGaussianLikelihood(unittest.TestCase):
     def test_fixed_noise_gaussian_likelihood(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         for dtype in (torch.float, torch.double):
-            noise = 0.1 + torch.rand(5, device=device, dtype=dtype)
+            noise = 0.1 + torch.rand(4, device=device, dtype=dtype)
             lkhd = FixedNoiseGaussianLikelihood(noise=noise)
             # test basics
             self.assertIsInstance(lkhd.noise_covar, FixedGaussianNoise)
@@ -31,7 +31,7 @@ class TestFixedNoiseGaussianLikelihood(unittest.TestCase):
             mean = torch.zeros(5, device=device, dtype=dtype)
             covar = DiagLazyTensor(torch.ones(5, device=device, dtype=dtype))
             mvn = MultivariateNormal(mean, covar)
-            with self.assertRaises(RuntimeError):
+            with self.assertWarns(UserWarning):
                 lkhd(mvn)
             # test __call__ w/ observation noise
             obs_noise = 0.1 + torch.rand(5, device=device, dtype=dtype)
