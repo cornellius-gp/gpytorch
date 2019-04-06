@@ -310,6 +310,16 @@ class lazily_evaluate_kernels(_feature_flag):
     _state = True
 
 
+class max_eager_kernel_size(_value_context):
+    """
+    If the joint train/test covariance matrix is less than this size, then we will avoid as
+    much lazy evaluation of the kernel as possible.
+    Default: 512
+    """
+
+    _global_value = 512
+
+
 class max_cg_iterations(_value_context):
     """
     The maximum number of conjugate gradient iterations to perform (when computing

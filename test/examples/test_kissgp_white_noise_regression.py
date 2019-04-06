@@ -9,8 +9,8 @@ from test._utils import least_used_cuda_device
 import gpytorch
 import torch
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.kernels import GridInterpolationKernel, RBFKernel, ScaleKernel, WhiteNoiseKernel
-from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.kernels import GridInterpolationKernel, RBFKernel, ScaleKernel
+from gpytorch.likelihoods import GaussianLikelihood, FixedNoiseGaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from torch import optim
@@ -37,8 +37,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
         self.base_covar_module = ScaleKernel(RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1)))
         self.grid_covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=50, num_dims=1)
-        self.noise_covar_module = WhiteNoiseKernel(variances=torch.ones(100) * 0.001)
-        self.covar_module = self.grid_covar_module + self.noise_covar_module
+        self.covar_module = self.grid_covar_module
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -61,7 +60,7 @@ class TestKISSGPWhiteNoiseRegression(unittest.TestCase):
 
     def test_kissgp_gp_mean_abs_error(self):
         train_x, train_y, test_x, test_y = make_data()
-        likelihood = GaussianLikelihood()
+        likelihood = FixedNoiseGaussianLikelihood(torch.ones(100) * 0.001)
         gp_model = GPRegressionModel(train_x, train_y, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
@@ -99,7 +98,7 @@ class TestKISSGPWhiteNoiseRegression(unittest.TestCase):
     def test_kissgp_gp_fast_pred_var(self):
         with gpytorch.settings.fast_pred_var(), gpytorch.settings.debug(False):
             train_x, train_y, test_x, test_y = make_data()
-            likelihood = GaussianLikelihood()
+            likelihood = FixedNoiseGaussianLikelihood(torch.ones(100) * 0.001)
             gp_model = GPRegressionModel(train_x, train_y, likelihood)
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
@@ -132,7 +131,7 @@ class TestKISSGPWhiteNoiseRegression(unittest.TestCase):
 
             # Now bump up the likelihood to something huge
             # This will make it easy to calculate the variance
-            likelihood.raw_noise.data.fill_(3)
+            likelihood.initialize(noise=3.)
             test_function_predictions = likelihood(gp_model(train_x))
 
             noise = likelihood.noise
@@ -144,7 +143,7 @@ class TestKISSGPWhiteNoiseRegression(unittest.TestCase):
             return
         with least_used_cuda_device():
             train_x, train_y, test_x, test_y = make_data(cuda=True)
-            likelihood = GaussianLikelihood().cuda()
+            likelihood = FixedNoiseGaussianLikelihood(torch.ones(100) * 0.001)().cuda()
             gp_model = GPRegressionModel(train_x, train_y, likelihood).cuda()
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 

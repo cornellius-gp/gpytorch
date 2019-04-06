@@ -67,7 +67,7 @@ class RBFKernelGrad(RBFKernel):
             outer = torch.transpose(outer, -1, -2).contiguous()
 
             # 1) Kernel block
-            diff = self._covar_dist(x1_, x2_, square_dist=True, **params)
+            diff = self.covar_dist(x1_, x2_, square_dist=True, **params)
             K_11 = diff.div_(-2).exp_()
             K[..., :n1, :n2] = K_11
 

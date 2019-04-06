@@ -5,7 +5,8 @@ import torch
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import (
-    InterpolatedLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, ZeroLazyTensor
+    InterpolatedLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, ZeroLazyTensor,
+    lazify, delazify
 )
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached
@@ -119,7 +120,7 @@ class DefaultPredictionStrategy(object):
         mvn = self.likelihood(MultivariateNormal(fant_mean, fant_fant_covar), inputs)
         fant_fant_covar = mvn.covariance_matrix
 
-        fant_train_covar = full_covar[..., num_train:, :num_train].evaluate()
+        fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
 
         self.fantasy_inputs = inputs
         self.fantasy_targets = targets
@@ -178,7 +179,7 @@ class DefaultPredictionStrategy(object):
         batch_shape = fant_train_covar.shape[:-2]
 
         L_inverse = self.covar_cache
-        L = self.lik_train_train_covar.root_decomposition().root.evaluate()
+        L = delazify(self.lik_train_train_covar.root_decomposition().root)
         m, n = L.shape[-2:]
 
         lower_left = fant_train_covar.matmul(L_inverse)
@@ -262,9 +263,9 @@ class DefaultPredictionStrategy(object):
         train_train_covar = self.lik_train_train_covar
 
         if self.non_batch_train and train_train_covar.dim() == 3:
-            train_train_covar_inv_root = train_train_covar[0].root_inv_decomposition().root.evaluate()
+            train_train_covar_inv_root = delazify(train_train_covar[0].root_inv_decomposition().root)
         else:
-            train_train_covar_inv_root = train_train_covar.root_inv_decomposition().root.evaluate()
+            train_train_covar_inv_root = delazify(train_train_covar.root_inv_decomposition().root)
 
         return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
 
@@ -306,8 +307,6 @@ class DefaultPredictionStrategy(object):
             :obj:`gpytorch.lazy.LazyTensor`: A LazyTensor representing the predictive posterior covariance of the
                                                test points
         """
-        from ..distributions import MultivariateNormal
-
         if settings.fast_pred_var.on():
             self._last_test_train_covar = test_train_covar
 
@@ -324,15 +323,25 @@ class DefaultPredictionStrategy(object):
                     MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
                 ).lazy_covariance_matrix
 
-            test_train_covar = test_train_covar.evaluate()
+            test_train_covar = delazify(test_train_covar)
             train_test_covar = test_train_covar.transpose(-1, -2)
             covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
-            return test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs)
+            if torch.is_tensor(test_test_covar):
+                return lazify(test_test_covar + test_train_covar @ covar_correction_rhs)
+            else:
+                return test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs)
 
         precomputed_cache = self.covar_cache
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
                                                                                    test_train_covar)
-        return test_test_covar + RootLazyTensor(covar_inv_quad_form_root).mul(-1)
+        if torch.is_tensor(test_test_covar):
+            return lazify(
+                torch.add(test_test_covar, -1, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2))
+            )
+        else:
+            return test_test_covar + MatmulLazyTensor(
+                covar_inv_quad_form_root, covar_inv_quad_form_root.transpose(-1, -2).mul(-1)
+            )
 
 
 @register_prediction_strategy(InterpolatedLazyTensor)

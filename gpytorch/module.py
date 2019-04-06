@@ -74,7 +74,7 @@ class Module(nn.Module):
                 module.initialize(**{name: val})
             elif not hasattr(self, name):
                 raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
-            elif name not in self._parameters:
+            elif name not in self._parameters and name not in self._buffers:
                 setattr(self, name, val)
             elif torch.is_tensor(val):
                 constraint = self.constraint_for_parameter_name(name)

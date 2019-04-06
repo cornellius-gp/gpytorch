@@ -7,8 +7,7 @@ import gpytorch
 
 def sq_dist_func(x1, x2):
     dist_module = gpytorch.kernels.kernel.Distance()
-    return dist_module._jit_sq_dist(x1, x2, torch.tensor(torch.equal(x1, x2)),
-                                    postprocess=torch.tensor(False))
+    return dist_module._jit_sq_dist_x1_neq_x2(x1, x2, postprocess=torch.tensor(False))
 
 
 class TestRBFCovariance(unittest.TestCase):

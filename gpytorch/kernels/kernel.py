@@ -22,30 +22,80 @@ class Distance(torch.jit.ScriptModule):
         self._postprocess = postprocess_script
 
     @torch.jit.script_method
-    def _jit_sq_dist(self, x1, x2, x1_eq_x2, postprocess):
+    def _jit_sq_dist_x1_neq_x2(self, x1, x2, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        if bool(x1_eq_x2):
-            x2_norm = x1_norm
-        else:
-            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
 
-        res = x1.matmul(x2.transpose(-2, -1))
-        res = res.mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
-
-        if bool(x1_eq_x2):
-            # Ensure zero diagonal
-            res.diagonal(dim1=-2, dim2=-1).fill_(0)
+        res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
 
         # Zero out negative values
         res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
 
     @torch.jit.script_method
-    def _jit_dist(self, x1, x2, x1_eq_x2, postprocess, false_tensor):
+    def _jit_sq_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+
+        res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_sq_dist_x1_eq_x2(self, x1, postprocess):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
+        res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_sq_dist_x1_eq_x2_nobatch(self, x1, postprocess):
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        res = torch.addmm(x1_norm.transpose(-2, -1), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
+        res.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+        # Zero out negative values
+        res.clamp_min_(0)
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_dist_x1_neq_x2(self, x1, x2, postprocess, false_tensor):
         # Need to do a hack to get a False tensor because pytorch stable doesn't
         # support creating of tensors in torch scripts
-        res = self._jit_sq_dist(x1, x2, x1_eq_x2, postprocess=false_tensor)
+        res = self._jit_sq_dist_x1_neq_x2(x1, x2, postprocess=false_tensor)
+        res = res.clamp_min_(1e-30).sqrt_()
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess, false_tensor):
+        # Need to do a hack to get a False tensor because pytorch stable doesn't
+        # support creating of tensors in torch scripts
+        res = self._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess=false_tensor)
+        res = res.clamp_min_(1e-30).sqrt_()
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_dist_x1_eq_x2(self, x1, postprocess, false_tensor):
+        # Need to do a hack to get a False tensor because pytorch stable doesn't
+        # support creating of tensors in torch scripts
+        res = self._jit_sq_dist_x1_eq_x2(x1, postprocess=false_tensor)
+        res = res.clamp_min_(1e-30).sqrt_()
+        return self._postprocess(res) if bool(postprocess) else res
+
+    @torch.jit.script_method
+    def _jit_dist_x1_eq_x2_nobatch(self, x1, postprocess, false_tensor):
+        # Need to do a hack to get a False tensor because pytorch stable doesn't
+        # support creating of tensors in torch scripts
+        res = self._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess=false_tensor)
         res = res.clamp_min_(1e-30).sqrt_()
         return self._postprocess(res) if bool(postprocess) else res
 
@@ -244,23 +294,25 @@ class Kernel(Module):
 
     @abstractmethod
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):
-        """
+        r"""
         Computes the covariance between x1 and x2.
         This method should be imlemented by all Kernel subclasses.
 
         Args:
-            - :attr:`x1` (Tensor `n x d` or `b x n x d`)
-            - :attr:`x2` (Tensor `m x d` or `b x m x d`)
-            - :attr:`diag` (bool):
+            :attr:`x1` (Tensor `n x d` or `b x n x d`):
+                First set of data
+            :attr:`x2` (Tensor `m x d` or `b x m x d`):
+                Second set of data
+            :attr:`diag` (bool):
                 Should the Kernel compute the whole kernel, or just the diag?
-            - :attr:`batch_dims` (tuple, optional):
+            :attr:`batch_dims` (tuple, optional):
                 If this option is passed in, it will tell the tensor which of the
                 three dimensions are batch dimensions.
                 Currently accepts: standard mode (either None or (0,))
                 or (0, 2) for use with Additive/Multiplicative kernels
 
         Returns:
-            - :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
+            :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
                 The exact size depends on the kernel's evaluation mode:
 
                 * `full_covar`: `n x m` or `b x n x m`
@@ -268,6 +320,7 @@ class Kernel(Module):
                 * `diag`: `n` or `b x n`
                 * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
         """
+
         raise NotImplementedError()
 
     def __getstate__(self):
@@ -278,7 +331,7 @@ class Kernel(Module):
     def __setstate__(self, d):
         self.__dict__ = d
 
-    def _covar_dist(
+    def covar_dist(
         self,
         x1,
         x2,
@@ -289,35 +342,39 @@ class Kernel(Module):
         postprocess=True,
         **params
     ):
-        """
+        r"""
         This is a helper method for computing the Euclidean distance between
         all pairs of points in x1 and x2.
-        The dimensionality of the output depends on the
+
         Args:
-            - :attr:`x1` (Tensor `n x d` or `b x n x d`)
-            - :attr:`x2` (Tensor `m x d` or `b x m x d`) - for diag mode, these must be the same inputs
-            - :attr:`diag` (bool):
-                Should we return the whole distance matrix, or just the diagonal?
-            - :attr:`batch_dims` (tuple, optional):
+            :attr:`x1` (Tensor `n x d` or `b1 x ... x bk x n x d`):
+                First set of data.
+            :attr:`x2` (Tensor `m x d` or `b1 x ... x bk x m x d`):
+                Second set of data.
+            :attr:`diag` (bool):
+                Should we return the whole distance matrix, or just the diagonal? If True, we must have `x1 == x2`.
+            :attr:`batch_dims` (tuple, optional):
                 If this option is passed in, it will tell the tensor which of the
                 three dimensions are batch dimensions.
                 Currently accepts: standard mode (either None or (0,))
                 or (0, 2) for use with Additive/Multiplicative kernels
-            - :attr:`square_dist` (bool):
+            :attr:`square_dist` (bool):
                 Should we square the distance matrix before returning?
+
         Returns:
             (:class:`Tensor`, :class:`Tensor) corresponding to the distance matrix between `x1` and `x2`.
             The shape depends on the kernel's mode
             * `diag=False` and `batch_dims=None`: (`b x n x n`)
-            * `diag=False` and `batch_dims=(0, 2)`: (`bd x n x n`)
+            * `diag=False` and `batch_dims=(0, 2)`: (`d x b x n x n`)
             * `diag=True` and `batch_dims=None`: (`b x n`)
-            * `diag=True` and `batch_dims=(0, 2)`: (`bd x n`)
+            * `diag=True` and `batch_dims=(0, 2)`: (`d x b x n`)
         """
         if batch_dims == (0, 2):
             x1 = x1.unsqueeze(0).transpose(0, -1)
             x2 = x2.unsqueeze(0).transpose(0, -1)
 
         x1_eq_x2 = torch.equal(x1, x2)
+
         # torch scripts expect tensors
         postprocess = torch.tensor(postprocess)
 
@@ -343,9 +400,27 @@ class Kernel(Module):
             return res
 
         elif square_dist:
-            res = self.distance_module._jit_sq_dist(x1, x2, torch.tensor(x1_eq_x2), postprocess)
+            if x1_eq_x2:
+                if x1.dim() == 2:
+                    res = self.distance_module._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess)
+                else:
+                    res = self.distance_module._jit_sq_dist_x1_eq_x2(x1, postprocess)
+            else:
+                if x1.dim() == 2:
+                    res = self.distance_module._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess)
+                else:
+                    res = self.distance_module._jit_sq_dist_x1_neq_x2(x1, x2, postprocess)
         else:
-            res = self.distance_module._jit_dist(x1, x2, torch.tensor(x1_eq_x2), postprocess, torch.tensor(False))
+            if x1_eq_x2:
+                if x1.dim() == 2:
+                    res = self.distance_module._jit_dist_x1_eq_x2_nobatch(x1, postprocess, torch.tensor(False))
+                else:
+                    res = self.distance_module._jit_dist_x1_eq_x2(x1, postprocess, torch.tensor(False))
+            else:
+                if x1.dim() == 2:
+                    res = self.distance_module._jit_dist_x1_neq_x2_nobatch(x1, x2, postprocess, torch.tensor(False))
+                else:
+                    res = self.distance_module._jit_dist_x1_neq_x2(x1, x2, postprocess, torch.tensor(False))
 
         return res
 

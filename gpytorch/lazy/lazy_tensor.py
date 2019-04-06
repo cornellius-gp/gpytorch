@@ -1715,14 +1715,6 @@ class LazyTensor(ABC):
         """
         return self.mul(other)
 
-    def __setattr__(self, name, val):
-        if torch.is_tensor(val) or isinstance(val, LazyTensor):
-            if not hasattr(self, "_args"):
-                raise RuntimeError(
-                    "Cannot assign {name} to LazyTensor before calling LazyTensor.__init__()".format(name=name)
-                )
-        object.__setattr__(self, name, val)
-
 
 def _import_dotted_name(name):
     components = name.split(".")

@@ -225,6 +225,10 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 
+    def ndimension(self):
+        # TODO: fix this with the remove_batch_dim PR
+        return max(self.x2.dim(), self.x2.dim())
+
     def repeat(self, *repeats):
         if len(repeats) == 1 and hasattr(repeats[0], "__iter__"):
             repeats = repeats[0]
@@ -251,3 +255,18 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         # representation
         else:
             return self.evaluate_kernel().representation_tree()
+
+    def __getitem__(self, index):
+        """
+        Supports subindexing of the matrix this LazyTensor represents. This may return either another
+        :obj:`gpytorch.lazy.LazyTensor` or a :obj:`torch.tensor` depending on the exact implementation.
+        """
+        # Process the index
+        index = index if isinstance(index, tuple) else (index,)
+        # Special case for the most common case: [..., slice, slice]
+        if len(index) == 3 and index[0] is Ellipsis and isinstance(index[1], slice) and isinstance(index[2], slice):
+            _, row_index, col_index = index
+            batch_indices = [slice(None, None, None)] * (self.dim() - 2)
+            return self._getitem(row_index, col_index, *batch_indices)
+        else:
+            return super().__getitem__(index)
