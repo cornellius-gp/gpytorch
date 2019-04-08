@@ -38,7 +38,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
         observation_noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
-        return base_distributions.Normal(function_samples, observation_noise)
+        return base_distributions.Normal(function_samples, observation_noise.sqrt())
 
     def marginal(self, function_dist: MultivariateNormal, *params: Any, **kwargs: Any) -> MultivariateNormal:
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
@@ -79,12 +79,8 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         mean, variance = input.mean, input.variance
         noise = self.noise_covar.noise
 
-        if mean.dim() > target.dim():
-            target = target.unsqueeze(-1)
-
-        res = -0.5 * ((target - mean) ** 2 + variance) / noise
-        res += -0.5 * noise.log() - 0.5 * math.log(2 * math.pi)
-        return res.sum(-1)
+        res = ((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)
+        return res.mul(-0.5).sum(-1)
 
 
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):

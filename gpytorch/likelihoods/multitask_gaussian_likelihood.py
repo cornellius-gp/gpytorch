@@ -2,8 +2,11 @@
 
 import torch
 import warnings
+from typing import Any
+from torch import Tensor
 
 from ..constraints import GreaterThan
+from ..distributions import base_distributions
 from ..functions import add_diag
 from ..lazy import (
     lazify,
@@ -85,9 +88,6 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         else:
             *batch_shape, n = base_shape
 
-        if len(batch_shape) > 1:
-            raise NotImplementedError("Batch shapes with dim > 1 not yet supported for MulitTask Likelihoods")
-
         # compute the noise covariance
         if len(params) > 0:
             shape = None
@@ -99,8 +99,8 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             # if rank > 0, compute the task correlation matrix
             # TODO: This is inefficient, change repeat so it can repeat LazyTensors w/ multiple batch dimensions
             task_corr = self._eval_corr_matrix()
-            exp_shape = batch_shape + torch.Size([n]) + task_corr.shape[-2:]
-            task_corr_exp = lazify(task_corr.expand(exp_shape))
+            exp_shape = torch.Size([*batch_shape, n]) + task_corr.shape[-2:]
+            task_corr_exp = lazify(task_corr.unsqueeze(-3).expand(exp_shape))
             noise_sem = noise_covar.sqrt()
             task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(noise_sem, task_corr_exp), noise_sem)
         else:
@@ -116,6 +116,11 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
         return task_covar
 
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
+        observation_noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        observation_noise = observation_noise.view(*observation_noise.shape[:-1], *function_samples.shape[-2:])
+        return base_distributions.Normal(function_samples, observation_noise.sqrt())
+
 
 class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     """
@@ -125,9 +130,6 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     allows for a different `log_noise` parameter for each task.). This likelihood assumes homoskedastic noise.
 
     Like the Gaussian likelihood, this object can be used with exact inference.
-
-    Note: This currently does not yet support batched training and evaluation. If you need support for this,
-    use MultitaskGaussianLikelihoodKronecker for the time being.
     """
 
     def __init__(
