@@ -18,12 +18,12 @@ class Noise(Module):
 
 
 class _HomoskedasticNoiseBase(Noise):
-    def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1, num_tasks=1):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size([]), num_tasks=1):
         super().__init__()
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
 
-        self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(batch_size, num_tasks)))
+        self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(*batch_shape, num_tasks)))
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
 
@@ -63,35 +63,33 @@ class _HomoskedasticNoiseBase(Noise):
             p = params[0] if torch.is_tensor(params[0]) else params[0][0]
             shape = p.shape if len(p.shape) == 1 else p.shape[:-1]
         noise = self.noise
-        batch_shape, n = shape[:-1], shape[-1]
-        noise_batch_shape = noise.shape[:-1] if noise.shape[-2] > 1 else torch.Size()
+        *batch_shape, n = shape
+        noise_batch_shape = noise.shape[:-1] if noise.dim() > 1 else torch.Size()
         num_tasks = noise.shape[-1]
         batch_shape = _mul_broadcast_shape(noise_batch_shape, batch_shape)
         noise = noise.unsqueeze(-2)
-        if len(batch_shape) == 0:
-            noise = noise.squeeze(0)
-        noise_diag = noise.expand(batch_shape + torch.Size([n, num_tasks])).contiguous()
+        noise_diag = noise.expand(*batch_shape, n, num_tasks).contiguous()
         if num_tasks == 1:
             noise_diag = noise_diag.view(*batch_shape, n)
         return DiagLazyTensor(noise_diag)
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size([])):
         super().__init__(
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
-            batch_size=batch_size,
+            batch_shape=batch_shape,
             num_tasks=1,
         )
 
 
 class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(self, num_tasks, noise_prior=None, noise_constraint=None, batch_size=1):
+    def __init__(self, num_tasks, noise_prior=None, noise_constraint=None, batch_shape=torch.Size([])):
         super().__init__(
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
-            batch_size=batch_size,
+            batch_shape=batch_shape,
             num_tasks=num_tasks,
         )
 
