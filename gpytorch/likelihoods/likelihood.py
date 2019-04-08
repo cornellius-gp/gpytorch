@@ -5,11 +5,12 @@ import torch
 import warnings
 from ..module import Module
 from ..distributions import MultivariateNormal
+from ..utils.deprecation import _ClassWithDeprecatedBatchSize
 from ..utils.quadrature import GaussHermiteQuadrature1D
 from .. import settings
 
 
-class _Likelihood(Module):
+class _Likelihood(Module, _ClassWithDeprecatedBatchSize):
     """
     A Likelihood in GPyTorch specifies the mapping from latent function values
     f to observed labels y.
@@ -41,6 +42,7 @@ class _Likelihood(Module):
     """
     def __init__(self):
         super().__init__()
+        self._register_load_state_dict_pre_hook(self._batch_shape_state_dict_hook)
         self.quadrature = GaussHermiteQuadrature1D()
 
     def forward(self, function_samples, *params, **kwargs):

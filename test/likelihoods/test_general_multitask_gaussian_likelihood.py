@@ -88,7 +88,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             task_noise_covar_factor.transpose(-1, -2)
         ) + noise * torch.eye(num_tasks)
 
-        self.assertGreater(task_noise_covar[0, 0, 1].item(), 0.05)
+        self.assertGreater(task_noise_covar[0, 1].item(), 0.05)
 
 
 if __name__ == "__main__":

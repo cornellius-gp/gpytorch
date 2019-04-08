@@ -7,7 +7,7 @@ from torch.nn import ModuleList
 from ..lazy import lazify, delazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
 from .. import settings
-from ..utils.deprecation import _deprecate_kwarg_with_transform
+from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
 from ..utils import broadcasting
 from ..constraints import Positive
 
@@ -109,7 +109,7 @@ class Distance(torch.nn.Module):
         return self._postprocess(res) if bool(postprocess) else res
 
 
-class Kernel(Module):
+class Kernel(Module, _ClassWithDeprecatedBatchSize):
     """
     Kernels in GPyTorch are implemented as a :class:`gpytorch.Module` that, when called on two :obj:`torch.tensor`
     objects `x1` and `x2` returns either a :obj:`torch.tensor` or a :obj:`gpytorch.lazy.LazyTensor` that represents
@@ -181,24 +181,6 @@ class Kernel(Module):
         >>> lazy_covar_matrix = covar_module(x1) # Returns a RootLazyTensor
         >>> tensor_covar_matrix = lazy_covar_matrix.evaluate() # Gets the actual tensor for this kernel matrix
     """
-
-    def _batch_shape_state_dict_hook(
-        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-    ):
-        if not len(self.batch_shape):
-            try:
-                current_state_dict = self.state_dict()
-                for name, param in current_state_dict.items():
-                    load_param = state_dict[prefix + name]
-                    if load_param.dim() == param.dim() + 1:
-                        warnings.warn(
-                            f"The supplied state_dict contains a parameter ({prefix + name}) with an extra batch "
-                            f"dimension ({load_param.shape} vs {param.shape}).\nDefault batch shapes are now "
-                            "deprecated in GPyTorch. You may wish to re-save your model.", DeprecationWarning
-                        )
-                        load_param.squeeze_(0)
-            except Exception:
-                pass
 
     def __init__(
         self,
