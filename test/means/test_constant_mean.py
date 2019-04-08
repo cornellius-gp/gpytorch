@@ -2,22 +2,24 @@
 
 import torch
 import unittest
+from test.means._base_mean_test_case import BaseMeanTestCase
 from gpytorch.means import ConstantMean
 
 
-class TestConstantMean(unittest.TestCase):
-    def setUp(self):
-        self.mean = ConstantMean()
-        self.mean.constant.data.fill_(5)
+class TestConstantMean(BaseMeanTestCase, unittest.TestCase):
+    def create_mean(self):
+        return ConstantMean()
 
-    def test_forward(self):
-        a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
-        res = self.mean(a)
-        self.assertEqual(tuple(res.size()), (2,))
-        self.assertTrue(res.eq(5).all())
 
-    def test_forward_batch(self):
-        a = torch.tensor([[[1, 2], [1, 2], [2, 4]], [[2, 3], [2, 3], [1, 3]]], dtype=torch.float)
-        res = self.mean(a)
-        self.assertEqual(tuple(res.size()), (2, 3))
-        self.assertTrue(res.eq(5).all())
+class TestConstantMeanBatch(BaseMeanTestCase, unittest.TestCase):
+    batch_shape = torch.Size([3])
+
+    def create_mean(self):
+        return ConstantMean(batch_shape=self.__class__.batch_shape)
+
+
+class TestConstantMeanMultiBatch(BaseMeanTestCase, unittest.TestCase):
+    batch_shape = torch.Size([2, 3])
+
+    def create_mean(self):
+        return ConstantMean(batch_shape=self.__class__.batch_shape)

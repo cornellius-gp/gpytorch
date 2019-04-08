@@ -19,6 +19,6 @@ class ConstantMeanGrad(Mean):
 
     def forward(self, input):
         batch_shape = _mul_broadcast_shape(self.batch_shape, input.shape[:-2])
-        mean = self.constant.squeeze().repeat(*batch_shape, input.size(-2), input.size(-1) + 1)
-        mean[..., :, 1:] = 0
+        mean = self.constant.unsqueeze(-1).expand(*batch_shape, input.size(-2), input.size(-1) + 1).contiguous()
+        mean[..., 1:] = 0
         return mean
