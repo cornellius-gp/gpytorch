@@ -59,10 +59,12 @@ class GaussHermiteQuadrature1D(Module):
         variances = gaussian_dists.variance
 
         locations = _pad_with_singletons(self.locations, num_singletons_before=0, num_singletons_after=means.dim())
-        weights = _pad_with_singletons(self.weights, num_singletons_before=0, num_singletons_after=means.dim())
 
         shifted_locs = torch.sqrt(2.0 * variances) * locations + means
-        res = (1 / math.sqrt(math.pi)) * (func(shifted_locs) * weights)
+        log_probs = func(shifted_locs)
+        weights = _pad_with_singletons(self.weights, num_singletons_before=0, num_singletons_after=log_probs.dim() - 1)
+
+        res = (1 / math.sqrt(math.pi)) * (log_probs * weights)
         res = res.sum(tuple(range(self.locations.dim())))
 
         return res

@@ -1,15 +1,49 @@
 #!/usr/bin/env python3
 
 import unittest
-
 import torch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
-from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
+from gpytorch.likelihoods import GaussianLikelihood, FixedNoiseGaussianLikelihood
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
+from test.likelihoods._base_likelihood_test_case import BaseLikelihoodTestCase
 
 
-class TestFixedNoiseGaussianLikelihood(unittest.TestCase):
+class TestGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
+    seed = 0
+
+    def create_likelihood(self):
+        return GaussianLikelihood()
+
+
+class TestGaussianLikelihoodBatch(TestGaussianLikelihood):
+    seed = 0
+
+    def create_likelihood(self):
+        return GaussianLikelihood(batch_shape=torch.Size([3]))
+
+    def test_nonbatch(self):
+        pass
+
+
+class TestGaussianLikelihoodMultiBatch(TestGaussianLikelihood):
+    seed = 0
+
+    def create_likelihood(self):
+        return GaussianLikelihood(batch_shape=torch.Size([2, 3]))
+
+    def test_nonbatch(self):
+        pass
+
+    def test_batch(self):
+        pass
+
+
+class TestFixedNoiseGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
+    def create_likelihood(self):
+        noise = 0.1 + torch.rand(5)
+        return FixedNoiseGaussianLikelihood(noise=noise)
+
     def test_fixed_noise_gaussian_likelihood(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")
         for dtype in (torch.float, torch.double):
@@ -37,6 +71,27 @@ class TestFixedNoiseGaussianLikelihood(unittest.TestCase):
             obs_noise = 0.1 + torch.rand(5, device=device, dtype=dtype)
             out = lkhd(mvn, observation_noise=obs_noise)
             self.assertTrue(torch.allclose(out.variance, 1 + obs_noise))
+
+
+class TestFixedNoiseGaussianLikelihoodBatch(BaseLikelihoodTestCase, unittest.TestCase):
+    def create_likelihood(self):
+        noise = 0.1 + torch.rand(3, 5)
+        return FixedNoiseGaussianLikelihood(noise=noise)
+
+    def test_nonbatch(self):
+        pass
+
+
+class TestFixedNoiseGaussianLikelihoodMultiBatch(BaseLikelihoodTestCase, unittest.TestCase):
+    def create_likelihood(self):
+        noise = 0.1 + torch.rand(2, 3, 5)
+        return FixedNoiseGaussianLikelihood(noise=noise)
+
+    def test_nonbatch(self):
+        pass
+
+    def test_batch(self):
+        pass
 
 
 if __name__ == "__main__":

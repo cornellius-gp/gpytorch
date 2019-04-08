@@ -26,7 +26,7 @@ class SoftmaxLikelihood(Likelihood):
         if num_features != self.num_features:
             raise RuntimeError("There should be %d features" % self.num_features)
 
-        mixed_fs = self.mixing_weights.matmul(function_samples)  # num_classes x num_data
+        mixed_fs = self.mixing_weights @ function_samples  # num_classes x num_data
         mixed_fs = mixed_fs.transpose(-1, -2)  # num_data x num_classes
-        softmax = torch.nn.functional.softmax(mixed_fs, -1)
-        return base_distributions.Categorical(probs=softmax)
+        res = base_distributions.Categorical(logits=mixed_fs)
+        return res

@@ -78,7 +78,7 @@ class _Likelihood(Module, _ClassWithDeprecatedBatchSize):
         """
         log_prob_lambda = lambda function_samples: self.forward(function_samples).log_prob(observations)
         log_prob = self.quadrature(log_prob_lambda, function_dist)
-        return log_prob.sum(tuple(range(len(function_dist.event_shape))))
+        return log_prob.sum(tuple(range(-1, -len(function_dist.event_shape) - 1, -1)))
 
     def marginal(self, function_dist, *params, **kwargs):
         """
@@ -98,7 +98,7 @@ class _Likelihood(Module, _ClassWithDeprecatedBatchSize):
         Returns
             Distribution object (the marginal distribution, or samples from it)
         """
-        sample_shape = torch.Size((settings.num_likelihood_samples,))
+        sample_shape = torch.Size((settings.num_likelihood_samples.value(),))
         function_samples = function_dist.rsample(sample_shape)
         return self.forward(function_samples)
 
@@ -188,7 +188,7 @@ try:
             num_samples = settings.num_likelihood_samples.value()
             with pyro.plate(name_prefix + ".num_particles_vectorized", num_samples, dim=(-self.max_plate_nesting - 1)):
                 function_samples_shape = torch.Size(
-                    [num_samples] + [1] * (self.max_plate_nesting - len(function_dist.batch_shape))
+                    [num_samples] + [1] * (self.max_plate_nesting - len(function_dist.batch_shape) - 1)
                 )
                 function_samples = function_dist(function_samples_shape)
                 if self.training:
