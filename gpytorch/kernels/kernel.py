@@ -16,12 +16,12 @@ def default_postprocess_script(x):
     return x
 
 
-class Distance(torch.jit.ScriptModule):
+class Distance(torch.nn.Module):
     def __init__(self, postprocess_script=default_postprocess_script):
         super().__init__()
         self._postprocess = postprocess_script
 
-    @torch.jit.script_method
+    # @torch.jit.script_method
     def _jit_sq_dist_x1_neq_x2(self, x1, x2, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
@@ -33,7 +33,7 @@ class Distance(torch.jit.ScriptModule):
         res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
 
-    @torch.jit.script_method
+    # @torch.jit.script_method
     def _jit_sq_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
@@ -45,7 +45,7 @@ class Distance(torch.jit.ScriptModule):
         res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
 
-    @torch.jit.script_method
+    # @torch.jit.script_method
     def _jit_sq_dist_x1_eq_x2(self, x1, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
@@ -56,7 +56,7 @@ class Distance(torch.jit.ScriptModule):
         res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
 
-    @torch.jit.script_method
+    # @torch.jit.script_method
     def _jit_sq_dist_x1_eq_x2_nobatch(self, x1, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
@@ -67,7 +67,7 @@ class Distance(torch.jit.ScriptModule):
         res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
 
-    @torch.jit.script_method
+    # @torch.jit.script_method
     def _jit_dist_x1_neq_x2(self, x1, x2, postprocess, false_tensor):
         # Need to do a hack to get a False tensor because pytorch stable doesn't
         # support creating of tensors in torch scripts
@@ -75,7 +75,7 @@ class Distance(torch.jit.ScriptModule):
         res = res.clamp_min_(1e-30).sqrt_()
         return self._postprocess(res) if bool(postprocess) else res
 
-    @torch.jit.script_method
+    # @torch.jit.script_method
     def _jit_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess, false_tensor):
         # Need to do a hack to get a False tensor because pytorch stable doesn't
         # support creating of tensors in torch scripts
@@ -83,7 +83,7 @@ class Distance(torch.jit.ScriptModule):
         res = res.clamp_min_(1e-30).sqrt_()
         return self._postprocess(res) if bool(postprocess) else res
 
-    @torch.jit.script_method
+    # @torch.jit.script_method
     def _jit_dist_x1_eq_x2(self, x1, postprocess, false_tensor):
         # Need to do a hack to get a False tensor because pytorch stable doesn't
         # support creating of tensors in torch scripts
@@ -91,7 +91,7 @@ class Distance(torch.jit.ScriptModule):
         res = res.clamp_min_(1e-30).sqrt_()
         return self._postprocess(res) if bool(postprocess) else res
 
-    @torch.jit.script_method
+    # @torch.jit.script_method
     def _jit_dist_x1_eq_x2_nobatch(self, x1, postprocess, false_tensor):
         # Need to do a hack to get a False tensor because pytorch stable doesn't
         # support creating of tensors in torch scripts
