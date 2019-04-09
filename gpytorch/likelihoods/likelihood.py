@@ -96,7 +96,7 @@ class _Likelihood(Module):
         Returns
             Distribution object (the marginal distribution, or samples from it)
         """
-        sample_shape = torch.Size((settings.num_likelihood_samples,))
+        sample_shape = torch.Size((settings.num_likelihood_samples.value(),))
         function_samples = function_dist.rsample(sample_shape)
         return self.forward(function_samples)
 
