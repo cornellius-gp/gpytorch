@@ -183,7 +183,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
 
     def _set_noise(self, value):
         if not torch.is_tensor(value):
-            value = torch.tensor(value)
+            value = torch.as_tensor(value).to(self.raw_noise)
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
     def _shaped_noise_covar(self, base_shape, *params):

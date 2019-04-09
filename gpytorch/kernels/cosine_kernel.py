@@ -82,7 +82,7 @@ class CosineKernel(Kernel):
 
     def _set_period_length(self, value):
         if not torch.is_tensor(value):
-            value = torch.tensor(value)
+            value = torch.as_tensor(value).to(self.raw_period_length)
 
         self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
 

@@ -39,7 +39,7 @@ class _HomoskedasticNoiseBase(Noise):
 
     def _set_noise(self, value: Tensor) -> None:
         if not torch.is_tensor(value):
-            value = torch.tensor(value)
+            value = torch.as_tensor(value).to(self.raw_noise)
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
     def forward(self, *params: Any, shape: Optional[torch.Size] = None) -> DiagLazyTensor:

@@ -91,7 +91,7 @@ class LinearKernel(Kernel):
 
     def _set_variance(self, value):
         if not torch.is_tensor(value):
-            value = torch.tensor(value)
+            value = torch.as_tensor(value).to(self.raw_variance)
         self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):

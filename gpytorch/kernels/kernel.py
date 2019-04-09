@@ -272,7 +272,7 @@ class Kernel(Module):
             raise RuntimeError("Kernel has no lengthscale.")
 
         if not torch.is_tensor(value):
-            value = torch.tensor(value)
+            value = torch.as_tensor(value).to(self.raw_lengthscale)
 
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
 
