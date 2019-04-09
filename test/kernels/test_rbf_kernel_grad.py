@@ -3,9 +3,16 @@
 import torch
 import unittest
 from gpytorch.kernels import RBFKernelGrad
+from test.kernels._base_kernel_test_case import BaseKernelTestCase
 
 
-class TestRBFKernelGrad(unittest.TestCase):
+class TestRBFKernelGrad(unittest.TestCase, BaseKernelTestCase):
+    def create_kernel_no_ard(self, **kwargs):
+        return RBFKernelGrad(**kwargs)
+
+    def create_kernel_ard(self, num_dims, **kwargs):
+        return RBFKernelGrad(ard_num_dims=num_dims, **kwargs)
+
     def test_kernel(self, cuda=False):
         a = torch.tensor([[[1, 2], [2, 4]]], dtype=torch.float)
         b = torch.tensor([[[1, 3], [0, 4]]], dtype=torch.float)
