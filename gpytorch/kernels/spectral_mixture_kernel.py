@@ -115,7 +115,7 @@ class SpectralMixtureKernel(Kernel):
 
     def _set_mixture_scales(self, value):
         if not torch.is_tensor(value):
-            value = torch.tensor(value)
+            value = torch.as_tensor(value).to(self.raw_mixture_scales)
         self.initialize(raw_mixture_scales=self.raw_mixture_scales_constraint.inverse_transform(value))
 
     @property
@@ -128,7 +128,7 @@ class SpectralMixtureKernel(Kernel):
 
     def _set_mixture_means(self, value):
         if not torch.is_tensor(value):
-            value = torch.tensor(value)
+            value = torch.as_tensor(value).to(self.raw_mixture_means)
         self.initialize(raw_mixture_means=self.raw_mixture_means_constraint.inverse_transform(value))
 
     @property
@@ -141,7 +141,7 @@ class SpectralMixtureKernel(Kernel):
 
     def _set_mixture_weights(self, value):
         if not torch.is_tensor(value):
-            value = torch.tensor(value)
+            value = torch.as_tensor(value).to(self.raw_mixture_weights)
         self.initialize(raw_mixture_weights=self.raw_mixture_weights_constraint.inverse_transform(value))
 
     def initialize_from_data(self, train_x, train_y, **kwargs):
