@@ -57,7 +57,7 @@ class TestPivotedCholesky(unittest.TestCase):
 
         noise = torch.DoubleTensor(size,).uniform_(math.log(1e-3), math.log(1e-1)).exp_().to(dtype=dtype)
         lazy_tsr = RBFKernel().to(dtype=dtype)(X).evaluate_kernel().add_diag(noise)
-        precondition_qr, logdet_qr = lazy_tsr._preconditioner()
+        precondition_qr, _, logdet_qr = lazy_tsr._preconditioner()
 
         F = lazy_tsr._piv_chol_self
         M = noise.diag() + F.matmul(F.t())
@@ -77,7 +77,7 @@ class TestPivotedCholesky(unittest.TestCase):
 
         noise = 1e-2 * torch.ones(size, dtype=dtype)
         lazy_tsr = RBFKernel().to(dtype=dtype)(X).evaluate_kernel().add_diag(noise)
-        precondition_qr, logdet_qr = lazy_tsr._preconditioner()
+        precondition_qr, _, logdet_qr = lazy_tsr._preconditioner()
 
         F = lazy_tsr._piv_chol_self
         M = noise.diag() + F.matmul(F.t())
