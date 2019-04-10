@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
-from .._base_test_case import BaseTestCase
+from test._base_test_case import BaseTestCase
 
 import torch
 from gpytorch.lazy import NonLazyTensor

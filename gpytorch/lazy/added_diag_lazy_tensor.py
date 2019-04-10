@@ -4,6 +4,9 @@ import torch
 import warnings
 from .sum_lazy_tensor import SumLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
+from .psd_sum_lazy_tensor import PsdSumLazyTensor
+from .root_lazy_tensor import RootLazyTensor
+
 from ..utils import broadcasting, pivoted_cholesky, woodbury
 from .. import settings
 
@@ -115,6 +118,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     )
                     return res
 
+            self.preconditioner_lt = PsdSumLazyTensor(RootLazyTensor(self._piv_chol_self), self._diag_tensor)
+
             self.precondition_closure = precondition_closure
 
-        return self.precondition_closure, self._precond_logdet_cache
+        return self.precondition_closure, self.preconditioner_lt, self._precond_logdet_cache

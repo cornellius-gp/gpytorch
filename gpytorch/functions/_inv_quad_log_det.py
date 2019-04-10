@@ -49,22 +49,6 @@ class InvQuadLogDet(Function):
         ctx.inv_quad = inv_quad
         ctx.logdet = logdet
 
-        if (probe_vectors is None or probe_vector_norms is None) and logdet:
-            num_random_probes = settings.num_trace_samples.value()
-            probe_vectors = torch.empty(matrix_shape[-1], num_random_probes, dtype=dtype, device=device)
-            probe_vectors.bernoulli_().mul_(2).add_(-1)
-            probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
-            if batch_shape is not None:
-                probe_vectors = probe_vectors.expand(*batch_shape, matrix_shape[-1], num_random_probes)
-                probe_vector_norms = probe_vector_norms.expand(*batch_shape, 1, num_random_probes)
-            probe_vectors = probe_vectors.div(probe_vector_norms)
-
-        ctx.probe_vectors = probe_vectors
-        ctx.probe_vector_norms = probe_vector_norms
-
-        if ctx.logdet and not ctx.probe_vectors.numel():
-            raise RuntimeError("Probe vectors were not supplied for logdet computation")
-
         matrix_args = None
         inv_quad_rhs = None
         if ctx.inv_quad:
@@ -76,7 +60,30 @@ class InvQuadLogDet(Function):
         # Get closure for matmul
         lazy_tsr = ctx.representation_tree(*matrix_args)
         with torch.no_grad():
-            preconditioner, logdet_correction = lazy_tsr.detach()._preconditioner()
+            preconditioner, precond_lt, logdet_correction = lazy_tsr.detach()._preconditioner()
+
+        ctx.preconditioner = preconditioner
+
+        if (probe_vectors is None or probe_vector_norms is None) and logdet:
+            num_random_probes = settings.num_trace_samples.value()
+            if preconditioner is None:
+                probe_vectors = torch.empty(matrix_shape[-1], num_random_probes, dtype=dtype, device=device)
+                probe_vectors.bernoulli_().mul_(2).add_(-1)
+                probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
+                if batch_shape is not None:
+                    probe_vectors = probe_vectors.expand(*batch_shape, matrix_shape[-1], num_random_probes)
+                    probe_vector_norms = probe_vector_norms.expand(*batch_shape, 1, num_random_probes)
+            else:
+                probe_vectors = precond_lt.zero_mean_mvn_samples(num_random_probes)
+                probe_vectors = probe_vectors.unsqueeze(-2).transpose(0, -2).squeeze(0).transpose(-2, -1)
+                probe_vector_norms = torch.norm(probe_vectors, p=2, dim=-2, keepdim=True)
+            probe_vectors = probe_vectors.div(probe_vector_norms)
+
+        ctx.probe_vectors = probe_vectors
+        ctx.probe_vector_norms = probe_vector_norms
+
+        if ctx.logdet and not ctx.probe_vectors.numel():
+            raise RuntimeError("Probe vectors were not supplied for logdet computation")
 
         # Collect terms for LinearCG
         # We use LinearCG for both matrix solves and for stochastically estimating the log det
@@ -188,6 +195,8 @@ class InvQuadLogDet(Function):
 
             if compute_logdet_grad:
                 left_factors_list.append(probe_vector_solves)
+                if ctx.preconditioner is not None:
+                    probe_vectors = ctx.preconditioner(probe_vectors)
                 right_factors_list.append(probe_vectors)
 
             if compute_inv_quad_grad:

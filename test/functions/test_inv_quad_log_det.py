@@ -13,7 +13,7 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
     seed = 0
     matrix_shape = torch.Size((4, 4))
 
-    def _test_inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, improper_logdet=False):
+    def _test_inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, improper_logdet=False, add_diag=False):
         # Set up
         mat = torch.randn(*self.__class__.matrix_shape).requires_grad_(True)
         mat_clone = mat.detach().clone().requires_grad_(True)
@@ -24,6 +24,10 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
 
         # Compute actual values
         actual_tensor = mat_clone @ mat_clone.transpose(-1, -2)
+
+        if add_diag:
+            actual_tensor.diagonal(dim1=-2, dim2=-1).add_(1.)
+
         if inv_quad_rhs is not None:
             actual_inv_quad = actual_tensor.inverse().matmul(inv_quad_rhs_clone).mul(inv_quad_rhs_clone)
             actual_inv_quad = actual_inv_quad.sum([-1, -2]) if inv_quad_rhs.dim() >= 2 else actual_inv_quad.sum()
@@ -43,6 +47,10 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
                 gpytorch.settings.skip_logdet_forward(improper_logdet), \
                 patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
             lazy_tensor = RootLazyTensor(mat)
+
+            if add_diag:
+                lazy_tensor = lazy_tensor.add_jitter(1.)
+
             res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet)
 
         # Compare forward pass
@@ -73,21 +81,41 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
         rhs = torch.randn(self.matrix_shape[-1])
         self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=True)
 
+    def test_precond_inv_quad_logdet_vector(self):
+        rhs = torch.randn(self.matrix_shape[-1])
+        self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=True, add_diag=True)
+
     def test_inv_quad_only_vector(self):
         rhs = torch.randn(self.matrix_shape[-1])
         self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=False)
+
+    def test_precond_inv_quad_only_vector(self):
+        rhs = torch.randn(self.matrix_shape[-1])
+        self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=False, add_diag=True)
 
     def test_inv_quad_logdet_many_vectors(self):
         rhs = torch.randn(*self.matrix_shape[:-1], 5)
         self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=True)
 
+    def test_precond_inv_quad_logdet_many_vectors(self):
+        rhs = torch.randn(*self.matrix_shape[:-1], 5)
+        self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=True, add_diag=True)
+
     def test_inv_quad_logdet_many_vectors_improper(self):
         rhs = torch.randn(*self.matrix_shape[:-1], 5)
         self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=True, improper_logdet=True)
 
+    def test_precond_inv_quad_logdet_many_vectors_improper(self):
+        rhs = torch.randn(*self.matrix_shape[:-1], 5)
+        self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=True, improper_logdet=True, add_diag=True)
+
     def test_inv_quad_only_many_vectors(self):
         rhs = torch.randn(*self.matrix_shape[:-1], 5)
         self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=False)
+
+    def test_precond_inv_quad_only_many_vectors(self):
+        rhs = torch.randn(*self.matrix_shape[:-1], 5)
+        self._test_inv_quad_logdet(inv_quad_rhs=rhs, logdet=False, add_diag=True)
 
 
 class TestInvQuadLogDetBatch(TestInvQuadLogDetNonBatch):
@@ -97,7 +125,13 @@ class TestInvQuadLogDetBatch(TestInvQuadLogDetNonBatch):
     def test_inv_quad_logdet_vector(self):
         pass
 
+    def test_precond_inv_quad_logdet_vector(self):
+        pass
+
     def test_inv_quad_only_vector(self):
+        pass
+
+    def test_precond_inv_quad_only_vector(self):
         pass
 
 
