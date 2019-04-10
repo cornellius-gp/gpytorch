@@ -40,13 +40,21 @@ class TestVariationalGP(VariationalModelTestCase, unittest.TestCase):
         labels = torch.randn(50) + 2
         return likelihood, labels
 
-    def create_batch_test_data(self, batch_size=3):
-        return torch.randn(batch_size, 50, 1)
+    def create_batch_test_data(self, batch_shape=torch.Size([3])):
+        return torch.randn(*batch_shape, 50, 1)
 
-    def create_batch_likelihood_and_labels(self, batch_size=3):
-        likelihood = gpytorch.likelihoods.GaussianLikelihood(batch_size=batch_size)
-        labels = torch.randn(batch_size, 50) + 2
+    def create_batch_likelihood_and_labels(self, batch_shape=torch.Size([3])):
+        likelihood = gpytorch.likelihoods.GaussianLikelihood(batch_shape=batch_shape)
+        labels = torch.randn(*batch_shape, 50) + 2
         return likelihood, labels
+
+    def test_multi_batch_forward_train(self):
+        # TODO: temp
+        pass
+
+    def test_multi_batch_forward_eval(self):
+        # TODO: temp
+        pass
 
 
 if __name__ == "__main__":

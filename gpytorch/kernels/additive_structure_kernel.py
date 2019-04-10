@@ -55,5 +55,8 @@ class AdditiveStructureKernel(Kernel):
             res = res.evaluate()
         return res
 
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        return self.base_kernel.prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood)
+
     def size(self, x1, x2):
         return self.base_kernel.size(x1, x2)

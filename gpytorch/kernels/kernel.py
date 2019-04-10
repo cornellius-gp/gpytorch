@@ -6,6 +6,7 @@ import warnings
 from torch.nn import ModuleList
 from ..lazy import lazify, delazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
+from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumPredictionStrategy
 from .. import settings
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
 from ..utils import broadcasting
@@ -257,6 +258,9 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             value = torch.as_tensor(value).to(self.raw_lengthscale)
 
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        return DefaultPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
 
     def size(self, x1, x2):
         expected_size = broadcasting._matmul_broadcast_shape(
@@ -531,6 +535,9 @@ class AdditiveKernel(Kernel):
             next_term = kern(x1, x2, **params)
             res = res + lazify(next_term)
         return res
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        return SumPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
 
     def size(self, x1, x2):
         return self.kernels[0].size(x1, x2)
