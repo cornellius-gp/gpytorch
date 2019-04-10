@@ -107,6 +107,9 @@ class _Likelihood(Module):
         )
         return self.expected_log_prob(observations, function_dist)
 
+    def fantasize(self, **kwargs):
+        pass
+
     def __call__(self, input, *params, **kwargs):
         # Conditional
         if torch.is_tensor(input):

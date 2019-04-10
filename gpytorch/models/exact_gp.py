@@ -113,7 +113,7 @@ class ExactGP(GP):
         if not isinstance(inputs, list):
             inputs = [inputs]
 
-        inputs = list(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs)
+        inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs]
 
         # If input is n x d but targets is b x n x d, expand input to b x n x d
         for i, input in enumerate(inputs):
@@ -132,6 +132,11 @@ class ExactGP(GP):
         full_inputs = [torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)]
         full_targets = torch.cat([train_targets, targets], dim=-1)
 
+        try:
+            fantasy_kwargs = {"noise": kwargs.pop("noise")}
+        except KeyError:
+            fantasy_kwargs = {}
+
         full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
 
         # Copy model without copying training data or prediction strategy (since we'll overwrite those)
@@ -148,12 +153,14 @@ class ExactGP(GP):
 
         new_model.train_inputs = full_inputs
         new_model.train_targets = full_targets
+        new_model.likelihood.fantasize(**fantasy_kwargs)
         new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
             inputs,
             targets,
             full_inputs,
             full_targets,
-            full_output
+            full_output,
+            **fantasy_kwargs,
         )
 
         return new_model
@@ -178,7 +185,7 @@ class ExactGP(GP):
 
     def __call__(self, *args, **kwargs):
         train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
-        inputs = list(i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args)
+        inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args]
 
         # Training mode: optimizing
         if self.training:

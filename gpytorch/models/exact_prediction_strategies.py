@@ -89,7 +89,7 @@ class DefaultPredictionStrategy(object):
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
 
-    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
         """
         Returns a new PredictionStrategy that incorporates the specified inputs and targets as new training data.
 
@@ -117,9 +117,14 @@ class DefaultPredictionStrategy(object):
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
         fant_mean = full_mean[..., num_train:]
-        mvn = self.likelihood(MultivariateNormal(fant_mean, fant_fant_covar), inputs)
-        fant_fant_covar = mvn.covariance_matrix
+        mvn = MultivariateNormal(fant_mean, fant_fant_covar)
+        self.likelihood.fantasize(**kwargs)
+        if "noise" in kwargs:
+            mvn_obs = self.likelihood(mvn, inputs, observation_noise=kwargs.get("noise"))
+        else:
+            mvn_obs = self.likelihood(mvn, inputs)
 
+        fant_fant_covar = mvn_obs.covariance_matrix
         fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
 
         self.fantasy_inputs = inputs
@@ -364,7 +369,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
 
-    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
         raise NotImplementedError(
             "Fantasy observation updates not yet supported for models using InterpolatedLazyTensors"
         )
