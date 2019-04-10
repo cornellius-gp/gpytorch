@@ -3,6 +3,7 @@
 import torch
 from .grid_kernel import GridKernel
 from ..lazy import InterpolatedLazyTensor
+from ..models.exact_prediction_strategies import InterpolatedPredictionStrategy
 from ..utils.interpolation import Interpolation
 
 
@@ -133,9 +134,9 @@ class GridInterpolationKernel(GridKernel):
         # See if we need to update the grid or not
         if self.grid_is_dynamic:  # This is true if a grid_bounds wasn't passed in
             if torch.equal(x1, x2):
-                x = x1.view(-1, self.num_dims)
+                x = x1.contiguous().view(-1, self.num_dims)
             else:
-                x = torch.cat([x1.view(-1, self.num_dims), x2.view(-1, self.num_dims)])
+                x = torch.cat([x1.contiguous().view(-1, self.num_dims), x2.contiguous().view(-1, self.num_dims)])
             x_maxs = x.max(0)[0].tolist()
             x_mins = x.min(0)[0].tolist()
 
@@ -182,6 +183,9 @@ class GridInterpolationKernel(GridKernel):
             return res.diag()
         else:
             return res
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        return InterpolatedPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
 
     def size(self, x1, x2):
         return self.base_kernel.size(x1, x2)

@@ -3,50 +3,41 @@
 import torch
 
 from .. import settings
-from ..distributions import MultivariateNormal
 from ..lazy import (
-    InterpolatedLazyTensor, LazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, ZeroLazyTensor,
-    lazify, delazify
+    InterpolatedLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, ZeroLazyTensor,
+    lazify, delazify, LazyEvaluatedKernelTensor
 )
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached
 from ..utils.cholesky import cholesky_solve
 
 
-_PREDICTION_STRATEGY_REGISTRY = {}
-
-
-def register_prediction_strategy(lazy_tsr_type):
-    if not isinstance(lazy_tsr_type, type) and issubclass(lazy_tsr_type, LazyTensor):
-        raise TypeError("register_prediction_strategy expects a LazyTensor subtype but got {}".format(lazy_tsr_type))
-
-    def decorator(cls):
-        _PREDICTION_STRATEGY_REGISTRY[lazy_tsr_type] = cls
-        return cls
-
-    return decorator
-
-
 def prediction_strategy(
-    num_train, train_inputs, train_mean, train_train_covar, train_labels, likelihood, non_batch_train=False
+    train_inputs, train_prior_dist, train_labels, likelihood
 ):
-    cls = _PREDICTION_STRATEGY_REGISTRY.get(type(train_train_covar), DefaultPredictionStrategy)
-    return cls(num_train, train_inputs, train_mean, train_train_covar, train_labels, likelihood, non_batch_train)
+    train_train_covar = train_prior_dist.lazy_covariance_matrix
+    if isinstance(train_train_covar, LazyEvaluatedKernelTensor):
+        cls = train_train_covar.kernel.prediction_strategy
+    else:
+        cls = DefaultPredictionStrategy
+    return cls(train_inputs, train_prior_dist, train_labels, likelihood)
 
 
 class DefaultPredictionStrategy(object):
-    def __init__(
-        self, num_train, train_inputs, train_mean, train_train_covar, train_labels, likelihood, non_batch_train
-    ):
-        self.num_train = num_train
+    def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        # Flatten the training labels
+        train_shape = train_prior_dist.event_shape
+        train_labels = train_labels.view(
+            *train_labels.shape[:-len(train_shape)],
+            train_shape.numel()
+        )
+
         self.train_inputs = train_inputs
-        self.train_train_covar = train_train_covar
-        self.train_mean = train_mean
+        self.train_prior_dist = train_prior_dist
         self.train_labels = train_labels
         self.likelihood = likelihood
-        self.non_batch_train = non_batch_train
         self._last_test_train_covar = None
-        mvn = self.likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
+        mvn = self.likelihood(train_prior_dist, train_inputs)
         self.lik_train_train_covar = mvn.lazy_covariance_matrix
 
     def __deepcopy__(self, memo):
@@ -117,7 +108,7 @@ class DefaultPredictionStrategy(object):
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
         fant_mean = full_mean[..., num_train:]
-        mvn = self.likelihood(MultivariateNormal(fant_mean, fant_fant_covar), inputs)
+        mvn = self.likelihood(self.train_prior_dist.__class__(fant_mean, fant_fant_covar), inputs)
         fant_fant_covar = mvn.covariance_matrix
 
         fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
@@ -207,50 +198,31 @@ class DefaultPredictionStrategy(object):
             new_covar_cache = new_covar_cache.transpose(-2, -1)
 
         # Create new DefaultPredictionStrategy object
-        new_num_train = full_inputs[0].size(len(batch_shape))
         fant_strat = self.__class__(
-            num_train=new_num_train,
             train_inputs=full_inputs,
-            train_mean=full_mean,
-            train_train_covar=full_covar,
+            train_prior_dist=self.train_prior_dist.__class__(full_mean, full_covar),
             train_labels=full_targets,
             likelihood=self.likelihood,
-            non_batch_train=(len(batch_shape) == 0),
         )
         setattr(fant_strat, "_memoize_cache", {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
 
         return fant_strat
 
     @property
+    @cached(name="covar_cache")
+    def covar_cache(self):
+        train_train_covar = self.lik_train_train_covar
+        train_train_covar_inv_root = delazify(train_train_covar.root_inv_decomposition().root)
+        return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
+
+    @property
     @cached(name="mean_cache")
     def mean_cache(self):
-        train_mean = self.train_mean
-        train_labels = self.train_labels
-        train_inputs = self.train_inputs
+        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+        train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
-        if self.non_batch_train and self.train_train_covar.dim() == 3:
-            train_train_covar = self.train_train_covar[0]
-        else:
-            train_train_covar = self.train_train_covar
-
-        if self.non_batch_train and train_mean.dim() == 2:
-            train_mean = train_mean[0]
-            train_labels = train_labels[0]
-            train_inputs = tuple(ti[0] for ti in train_inputs)
-
-        mvn = self.likelihood(MultivariateNormal(train_mean, train_train_covar), train_inputs)
-
-        train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
-
-        train_labels_offset = train_labels - train_mean
-
-        if self.train_train_covar.dim() == 3:
-            # Batch mode
-            train_labels_offset = train_labels_offset.unsqueeze(-1)
-            mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
-        else:
-            # Standard mode
-            mean_cache = train_train_covar.inv_matmul(train_labels_offset)
+        train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
+        mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
 
         if settings.detach_test_caches.on():
             return mean_cache.detach()
@@ -258,16 +230,29 @@ class DefaultPredictionStrategy(object):
             return mean_cache
 
     @property
-    @cached(name="covar_cache")
-    def covar_cache(self):
-        train_train_covar = self.lik_train_train_covar
+    def num_train(self):
+        return self.train_prior_dist.event_shape.numel()
 
-        if self.non_batch_train and train_train_covar.dim() == 3:
-            train_train_covar_inv_root = delazify(train_train_covar[0].root_inv_decomposition().root)
+    @property
+    def train_shape(self):
+        return self.train_prior_dist.event_shape
+
+    def exact_prediction(self, joint_mean, joint_covar):
+        # Find the components of the distribution that contain test data
+        test_mean = joint_mean[..., self.num_train:]
+        # For efficiency - we can make things more efficient
+        if joint_covar.size(-1) <= settings.max_eager_kernel_size.value():
+            test_covar = joint_covar[..., self.num_train:, :].evaluate()
+            test_test_covar = test_covar[..., self.num_train:]
+            test_train_covar = test_covar[..., :self.num_train]
         else:
-            train_train_covar_inv_root = delazify(train_train_covar.root_inv_decomposition().root)
+            test_test_covar = joint_covar[..., self.num_train:, self.num_train:]
+            test_train_covar = joint_covar[..., self.num_train:, :self.num_train]
 
-        return self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
+        return (
+            self.exact_predictive_mean(test_mean, test_train_covar),
+            self.exact_predictive_covar(test_test_covar, test_train_covar),
+        )
 
     def exact_predictive_mean(self, test_mean, test_train_covar):
         """
@@ -280,19 +265,13 @@ class DefaultPredictionStrategy(object):
         Returns:
             :obj:`torch.tensor`: The predictive posterior mean of the test points
         """
-        precomputed_cache = self.mean_cache
-
-        if self.train_train_covar.dim() == 3:
-            res = test_train_covar.matmul(
-                precomputed_cache.expand(*test_train_covar.shape[:-2], test_train_covar.shape[-1]).unsqueeze(-1)
-            ).squeeze(-1)
+        # For efficiency - we can use addmv in the 2d case
+        if test_train_covar.dim() == 2:
+            res = torch.addmv(test_mean, delazify(test_train_covar), self.mean_cache)
+        # In other cases - we'll use the standard infrastructure
         else:
-            if self.non_batch_train and precomputed_cache.dim() == 2:
-                precomputed_cache = precomputed_cache[0]
-            res = test_train_covar.matmul(precomputed_cache)
-
-        res = res + test_mean
-
+            res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
+            res = res + test_mean
         return res
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
@@ -314,22 +293,28 @@ class DefaultPredictionStrategy(object):
             return ZeroLazyTensor(*test_test_covar.size())
 
         if settings.fast_pred_var.off():
+            dist = self.train_prior_dist.__class__(
+                torch.zeros_like(self.train_prior_dist.mean),
+                self.train_prior_dist.lazy_covariance_matrix,
+            )
             if settings.detach_test_caches.on():
-                train_train_covar = self.likelihood(
-                    MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
-                ).lazy_covariance_matrix.detach()
+                train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix.detach()
             else:
-                train_train_covar = self.likelihood(
-                    MultivariateNormal(torch.zeros(1), self.train_train_covar), self.train_inputs
-                ).lazy_covariance_matrix
+                train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
 
             test_train_covar = delazify(test_train_covar)
             train_test_covar = test_train_covar.transpose(-1, -2)
-            covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar).mul(-1)
+            covar_correction_rhs = train_train_covar.inv_matmul(train_test_covar)
+            # For efficiency
             if torch.is_tensor(test_test_covar):
-                return lazify(test_test_covar + test_train_covar @ covar_correction_rhs)
+                # We can use addmm in the 2d case
+                if test_test_covar.dim() == 2:
+                    return lazify(torch.addmm(1, test_test_covar, -1, test_train_covar, covar_correction_rhs))
+                else:
+                    return lazify(test_test_covar + test_train_covar @ covar_correction_rhs.mul(-1))
+            # In other cases - we'll use the standard infrastructure
             else:
-                return test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs)
+                return test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs.mul(-1))
 
         precomputed_cache = self.covar_cache
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
@@ -344,8 +329,14 @@ class DefaultPredictionStrategy(object):
             )
 
 
-@register_prediction_strategy(InterpolatedLazyTensor)
 class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
+    def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
+        self.train_prior_dist = self.train_prior_dist.__class__(
+            self.train_prior_dist.mean,
+            self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
+        )
+
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         train_interp_indices = test_train_covar.right_interp_indices
         train_interp_values = test_train_covar.right_interp_values
@@ -372,17 +363,19 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     @property
     @cached(name="mean_cache")
     def mean_cache(self):
-        train_interp_indices = self.train_train_covar.left_interp_indices
-        train_interp_values = self.train_train_covar.left_interp_values
+        train_train_covar = self.train_prior_dist.lazy_covariance_matrix
+        train_interp_indices = train_train_covar.left_interp_indices
+        train_interp_values = train_train_covar.left_interp_values
 
-        mvn = self.likelihood(MultivariateNormal(self.train_mean, self.train_train_covar), self.train_inputs)
-        train_mean, train_train_covar = mvn.mean, mvn.lazy_covariance_matrix
+        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+        train_mean, train_train_covar_with_noise = mvn.mean, mvn.lazy_covariance_matrix
 
-        train_train_covar_inv_labels = train_train_covar.inv_matmul((self.train_labels - train_mean).unsqueeze(-1))
+        mean_diff = (self.train_labels - train_mean).unsqueeze(-1)
+        train_train_covar_inv_labels = train_train_covar_with_noise.inv_matmul(mean_diff)
 
         # New root factor
-        base_size = self.train_train_covar.base_lazy_tensor.size(-1)
-        mean_cache = self.train_train_covar.base_lazy_tensor.matmul(
+        base_size = train_train_covar.base_lazy_tensor.size(-1)
+        mean_cache = train_train_covar.base_lazy_tensor.matmul(
             left_t_interp(train_interp_indices, train_interp_values, train_train_covar_inv_labels, base_size)
         )
 
@@ -396,48 +389,50 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     @cached(name="covar_cache")
     def covar_cache(self):
         # Get inverse root
-        grv = MultivariateNormal(torch.zeros(1), self.train_train_covar)
-        train_train_covar = self.likelihood(grv, self.train_inputs).lazy_covariance_matrix
-
-        train_interp_indices = self.train_train_covar.left_interp_indices
-        train_interp_values = self.train_train_covar.left_interp_values
+        train_train_covar = self.train_prior_dist.lazy_covariance_matrix
+        train_interp_indices = train_train_covar.left_interp_indices
+        train_interp_values = train_train_covar.left_interp_values
 
         # Get probe vectors for inverse root
         num_probe_vectors = settings.fast_pred_var.num_probe_vectors()
-        batch_size = train_interp_indices.size(0)
-        n_inducing = self.train_train_covar.base_lazy_tensor.size(-1)
-        vector_indices = torch.randperm(n_inducing).type_as(train_interp_indices)
+        num_inducing = train_train_covar.base_lazy_tensor.size(-1)
+        vector_indices = torch.randperm(num_inducing).type_as(train_interp_indices)
         probe_vector_indices = vector_indices[:num_probe_vectors]
         test_vector_indices = vector_indices[num_probe_vectors : 2 * num_probe_vectors]
 
         probe_interp_indices = probe_vector_indices.unsqueeze(1)
         probe_test_interp_indices = test_vector_indices.unsqueeze(1)
-        dtype = self.train_train_covar.dtype
-        device = self.train_train_covar.device
+        dtype = train_train_covar.dtype
+        device = train_train_covar.device
         probe_interp_values = torch.ones(num_probe_vectors, 1, dtype=dtype, device=device)
-        if train_interp_indices.ndimension() == 3:
-            probe_interp_indices = probe_interp_indices.unsqueeze(0).expand(batch_size, num_probe_vectors, 1)
-            probe_test_interp_indices = probe_test_interp_indices.unsqueeze(0)
-            probe_test_interp_indices = probe_test_interp_indices.expand(batch_size, num_probe_vectors, 1)
-            probe_interp_values = probe_interp_values.unsqueeze(0).expand(batch_size, num_probe_vectors, 1)
 
+        batch_shape = train_train_covar.base_lazy_tensor.batch_shape
         probe_vectors = InterpolatedLazyTensor(
-            self.train_train_covar.base_lazy_tensor,
-            train_interp_indices,
-            train_interp_values,
-            probe_interp_indices,
-            probe_interp_values,
+            train_train_covar.base_lazy_tensor,
+            train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
+            train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
+            probe_interp_indices.expand(*batch_shape, *probe_interp_indices.shape[-2:]),
+            probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
         ).evaluate()
         test_vectors = InterpolatedLazyTensor(
-            self.train_train_covar.base_lazy_tensor,
-            train_interp_indices,
-            train_interp_values,
-            probe_test_interp_indices,
-            probe_interp_values,
+            train_train_covar.base_lazy_tensor,
+            train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
+            train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
+            probe_test_interp_indices.expand(*batch_shape, *probe_test_interp_indices.shape[-2:]),
+            probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
         ).evaluate()
 
+        # Put data through the likelihood
+        dist = self.train_prior_dist.__class__(
+            torch.zeros_like(self.train_prior_dist.mean),
+            self.train_prior_dist.lazy_covariance_matrix
+        )
+        train_train_covar_plus_noise = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
+
         # Get inverse root
-        train_train_covar_inv_root = train_train_covar.root_inv_decomposition(probe_vectors, test_vectors).root
+        train_train_covar_inv_root = train_train_covar_plus_noise.root_inv_decomposition(
+            probe_vectors, test_vectors
+        ).root
         train_train_covar_inv_root = train_train_covar_inv_root.evaluate()
 
         # New root factor
@@ -445,7 +440,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         # Precomputed factor
         if settings.fast_pred_samples.on():
-            inside = self.train_train_covar.base_lazy_tensor + RootLazyTensor(root).mul(-1)
+            inside = train_train_covar.base_lazy_tensor + RootLazyTensor(root).mul(-1)
             inside_root = inside.root_decomposition().root.evaluate()
             # Prevent backprop through this variable
             if settings.detach_test_caches.on():
@@ -459,9 +454,19 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         return covar_cache
 
+    def exact_prediction(self, joint_mean, joint_covar):
+        # Find the components of the distribution that contain test data
+        test_mean = joint_mean[..., self.num_train:]
+        test_test_covar = joint_covar[..., self.num_train:, self.num_train:].evaluate_kernel()
+        test_train_covar = joint_covar[..., self.num_train:, :self.num_train].evaluate_kernel()
+
+        return (
+            self.exact_predictive_mean(test_mean, test_train_covar),
+            self.exact_predictive_covar(test_test_covar, test_train_covar),
+        )
+
     def exact_predictive_mean(self, test_mean, test_train_covar):
         precomputed_cache = self.mean_cache
-
         test_interp_indices = test_train_covar.left_interp_indices
         test_interp_values = test_train_covar.left_interp_values
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache).squeeze(-1) + test_mean
@@ -492,20 +497,16 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return res
 
 
-@register_prediction_strategy(SumLazyTensor)
 class SumPredictionStrategy(DefaultPredictionStrategy):
     @property
     def _sub_strategies(self):
         sub_strategies = []
-        for lazy_tensor in self.train_train_covar.lazy_tensors:
+        for lazy_tensor in self.train_prior_dist.lazy_covariance_matrix.lazy_tensors:
             pred_strat = prediction_strategy(
-                self.num_train,
                 self.train_inputs,
-                self.train_mean,
-                lazy_tensor,
+                self.train_prior_dist.__class__(self.train_prior_dist.mean, lazy_tensor),
                 self.train_labels,
                 self.likelihood,
-                self.non_batch_train,
             )
             sub_strategies.append(pred_strat)
 
