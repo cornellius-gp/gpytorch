@@ -161,8 +161,11 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     def fantasize(self, **kwargs):
         if "noise" not in kwargs:
             raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `noise` kwarg")
-        full_noise = torch.cat([self.noise_covar.noise, kwargs.get("noise")], -1)
-        self.noise_covar = FixedGaussianNoise(noise=full_noise)
+        old_noise = self.noise_covar.noise
+        new_noise = kwargs.get("noise")
+        if old_noise.dim() != new_noise.dim():
+            old_noise = old_noise.expand(*new_noise.shape[:-1], old_noise.shape[-1])
+        self.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
 
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
         if len(params) > 0:
