@@ -173,7 +173,7 @@ class SpectralMixtureKernel(Kernel):
             self.raw_mixture_weights.data
         )
 
-    def _create_input_grid(self, x1, x2, diag=False, batch_dims=None, **params):
+    def _create_input_grid(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         """
         This is a helper method for creating a grid of the kernel's inputs.
         Use this helper rather than maually creating a meshgrid.
@@ -189,24 +189,24 @@ class SpectralMixtureKernel(Kernel):
             The shape depends on the kernel's mode
 
             * `full_covar`: (`b x n x 1 x d` and `b x 1 x m x d`)
-            * `full_covar` with `batch_dims=(0, 2)`: (`b x k x n x 1 x 1` and `b x k x 1 x m x 1`)
+            * `full_covar` with `last_dim_is_batch=True`: (`b x k x n x 1 x 1` and `b x k x 1 x m x 1`)
             * `diag`: (`b x n x d` and `b x n x d`)
-            * `diag` with `batch_dims=(0, 2)`: (`b x k x n x 1` and `b x k x n x 1`)
+            * `diag` with `last_dim_is_batch=True`: (`b x k x n x 1` and `b x k x n x 1`)
         """
         x1_, x2_ = x1, x2
-        if batch_dims == (0, 2):
-            x1_ = x1_.unsqueeze(0).transpose(0, -1)
+        if last_dim_is_batch:
+            x1_ = x1_.transpose(-1, -2).unsqueeze(-1)
             if torch.equal(x1, x2):
                 x2_ = x1_
             else:
-                x2_ = x2_.unsqueeze(0).transpose(0, -1)
+                x2_ = x2_.transpose(-1, -2).unsqueeze(-1)
 
         if diag:
             return x1_, x2_
         else:
             return x1_.unsqueeze(-2), x2_.unsqueeze(-3)
 
-    def forward(self, x1, x2, batch_dims=None, **params):
+    def forward(self, x1, x2, last_dim_is_batch=False, **params):
         batch_shape = x1.shape[:-2]
         n, num_dims = x1.shape[-2:]
 
@@ -233,8 +233,8 @@ class SpectralMixtureKernel(Kernel):
         x2_cos = x2_ * self.mixture_means
 
         # Create grids
-        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, batch_dims=batch_dims, **params)
-        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, batch_dims=batch_dims, **params)
+        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, last_dim_is_batch=last_dim_is_batch, **params)
+        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, last_dim_is_batch=last_dim_is_batch, **params)
 
         # Compute the exponential and cosine terms
         exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi ** 2)
@@ -242,7 +242,7 @@ class SpectralMixtureKernel(Kernel):
         res = exp_term.exp_() * cos_term.cos_()
 
         # Product over dimensions
-        if batch_dims == (0, 2):
+        if last_dim_is_batch:
             res = res.squeeze(-1)
         else:
             res = res.prod(-1)
@@ -250,14 +250,10 @@ class SpectralMixtureKernel(Kernel):
         # Sum over mixtures
         mixture_weights = self.mixture_weights
 
-        if batch_dims == (0, 2):
-            while mixture_weights.dim() < res.dim() - 1:
-                mixture_weights = mixture_weights.unsqueeze(-1)
-            mixture_weights = mixture_weights.unsqueeze(0)
-            res = (res * mixture_weights).sum(len(batch_shape) + 1)
-        else:
-            while mixture_weights.dim() < res.dim():
-                mixture_weights = mixture_weights.unsqueeze(-1)
+        if last_dim_is_batch:
+            mixture_weights = mixture_weights.unsqueeze(-1)
+        while mixture_weights.dim() < res.dim():
+            mixture_weights = mixture_weights.unsqueeze(-1)
 
-            res = (res * mixture_weights).sum(len(batch_shape))
+        res = (res * mixture_weights).sum(len(batch_shape))
         return res

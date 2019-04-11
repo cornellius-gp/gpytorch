@@ -57,7 +57,7 @@ class GridKernel(Kernel):
             del self._cached_kernel_mat
         return self
 
-    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         grid = self.grid
 
         if not self.interpolation_mode:
@@ -74,15 +74,15 @@ class GridKernel(Kernel):
 
             if settings.use_toeplitz.on():
                 first_item = grid[0:1]
-                covar_columns = self.base_kernel(first_item, grid, diag=False, batch_dims=(0, 2), **params)
+                covar_columns = self.base_kernel(first_item, grid, diag=False, last_dim_is_batch=True, **params)
                 covar_columns = delazify(covar_columns).squeeze(-2)
-                if batch_dims == (0, 2):
+                if last_dim_is_batch:
                     covars = [ToeplitzLazyTensor(covar_columns.squeeze(-2))]
                 else:
                     covars = [ToeplitzLazyTensor(covar_columns[i : i + 1].squeeze(-2)) for i in range(n_dim)]
             else:
-                full_covar = self.base_kernel(grid, grid, batch_dims=(0, 2), **params)
-                if batch_dims == (0, 2):
+                full_covar = self.base_kernel(grid, grid, last_dim_is_batch=True, **params)
+                if last_dim_is_batch:
                     covars = [full_covar]
                 else:
                     covars = [full_covar[i : i + 1].squeeze(0) for i in range(n_dim)]
@@ -97,7 +97,7 @@ class GridKernel(Kernel):
 
             return covar
         else:
-            return self.base_kernel.forward(x1, x2, diag=diag, batch_dims=batch_dims, **params)
+            return self.base_kernel.forward(x1, x2, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
 
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)

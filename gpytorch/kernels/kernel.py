@@ -235,7 +235,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         self.__pdist_supports_batch = True
 
     @abstractmethod
-    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         r"""
         Computes the covariance between x1 and x2.
         This method should be imlemented by all Kernel subclasses.
@@ -247,20 +247,18 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
                 Second set of data
             :attr:`diag` (bool):
                 Should the Kernel compute the whole kernel, or just the diag?
-            :attr:`batch_dims` (tuple, optional):
-                If this option is passed in, it will tell the tensor which of the
-                three dimensions are batch dimensions.
-                Currently accepts: standard mode (either None or (0,))
-                or (0, 2) for use with Additive/Multiplicative kernels
+            :attr:`last_dim_is_batch` (tuple, optional):
+                If this is true, it treats the last dimension of the data as another batch dimension.
+                (Useful for additive structure over the dimensions). Default: False
 
         Returns:
             :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
                 The exact size depends on the kernel's evaluation mode:
 
                 * `full_covar`: `n x m` or `b x n x m`
-                * `full_covar` with `batch_dims=(0, 2)`: `k x n x m` or `b x k x n x m`
+                * `full_covar` with `last_dim_is_batch=True`: `k x n x m` or `b x k x n x m`
                 * `diag`: `n` or `b x n`
-                * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
+                * `diag` with `last_dim_is_batch=True`: `k x n` or `b x k x n`
         """
 
         raise NotImplementedError()
@@ -303,7 +301,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         x1,
         x2,
         diag=False,
-        batch_dims=None,
+        last_dim_is_batch=False,
         square_dist=False,
         dist_postprocess_func=default_postprocess_script,
         postprocess=True,
@@ -320,23 +318,20 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
                 Second set of data.
             :attr:`diag` (bool):
                 Should we return the whole distance matrix, or just the diagonal? If True, we must have `x1 == x2`.
-            :attr:`batch_dims` (tuple, optional):
-                If this option is passed in, it will tell the tensor which of the
-                three dimensions are batch dimensions.
-                Currently accepts: standard mode (either None or (0,))
-                or (0, 2) for use with Additive/Multiplicative kernels
+            :attr:`last_dim_is_batch` (tuple, optional):
+                Is the last dimension of the data a batch dimension or not?
             :attr:`square_dist` (bool):
                 Should we square the distance matrix before returning?
 
         Returns:
             (:class:`Tensor`, :class:`Tensor) corresponding to the distance matrix between `x1` and `x2`.
             The shape depends on the kernel's mode
-            * `diag=False` and `batch_dims=None`: (`b x n x n`)
-            * `diag=False` and `batch_dims=(0, 2)`: (`b x d x n x n`)
-            * `diag=True` and `batch_dims=None`: (`b x n`)
-            * `diag=True` and `batch_dims=(0, 2)`: (`b x d x n`)
+            * `diag=False`
+            * `diag=False` and `last_dim_is_batch=True`: (`b x d x n x n`)
+            * `diag=True`
+            * `diag=True` and `last_dim_is_batch=True`: (`b x d x n`)
         """
-        if batch_dims == (0, 2):
+        if last_dim_is_batch:
             x1 = x1.transpose(-1, -2).unsqueeze(-1)
             x2 = x2.transpose(-1, -2).unsqueeze(-1)
 
@@ -406,7 +401,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
     def __add__(self, other):
         return AdditiveKernel(self, other)
 
-    def __call__(self, x1, x2=None, diag=False, batch_dims=None, **params):
+    def __call__(self, x1, x2=None, diag=False, last_dim_is_batch=False, **params):
         x1_, x2_ = x1, x2
 
         # Select the active dimensions
@@ -427,15 +422,8 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         if x2_ is None:
             x2_ = x1_
 
-        # Check batch_dims args
         # Check that ard_num_dims matches the supplied number of dimensions
         if settings.debug.on():
-            if batch_dims is not None:
-                if not isinstance(batch_dims, tuple) or (batch_dims != (0,) and batch_dims != (0, 2)):
-                    raise RuntimeError(
-                        "batch_dims currently accepts either None, (0,), or (0, 2). Got {}.".format(batch_dims)
-                    )
-
             if self.ard_num_dims is not None and self.ard_num_dims != x1_.size(-1):
                 raise RuntimeError(
                     "Expected the input to have {} dimensionality "
@@ -443,7 +431,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
                 )
 
         if diag:
-            res = super(Kernel, self).__call__(x1_, x2_, diag=True, batch_dims=batch_dims, **params)
+            res = super(Kernel, self).__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params)
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
@@ -453,9 +441,9 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
         else:
             if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, batch_dims=batch_dims, **params)
+                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
             else:
-                res = super(Kernel, self).__call__(x1_, x2_, batch_dims=batch_dims, **params)
+                res = super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
             return res
 
     def __getstate__(self):

@@ -37,11 +37,11 @@ class AdditiveStructureKernel(Kernel):
         self.base_kernel = base_kernel
         self.num_dims = num_dims
 
-    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
-        if batch_dims == (0, 2):
-            raise RuntimeError("AdditiveStructureKernel does not accept the batch_dims argument.")
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
+        if last_dim_is_batch:
+            raise RuntimeError("AdditiveStructureKernel does not accept the last_dim_is_batch argument.")
 
-        res = self.base_kernel(x1, x2, diag=diag, batch_dims=(0, 2), **params)
+        res = self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params)
         res = res.sum(-2 if diag else -3)
         return res
 

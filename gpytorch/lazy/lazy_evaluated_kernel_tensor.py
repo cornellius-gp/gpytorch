@@ -13,20 +13,20 @@ from .non_lazy_tensor import lazify
 class LazyEvaluatedKernelTensor(LazyTensor):
     _check_size = False
 
-    def _check_args(self, x1, x2, kernel, batch_dims=None, **params):
+    def _check_args(self, x1, x2, kernel, last_dim_is_batch=False, **params):
         if not torch.is_tensor(x1):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
         if not torch.is_tensor(x2):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
 
-    def __init__(self, x1, x2, kernel, batch_dims=None, **params):
+    def __init__(self, x1, x2, kernel, last_dim_is_batch=False, **params):
         super(LazyEvaluatedKernelTensor, self).__init__(
-            x1, x2, kernel=kernel, batch_dims=batch_dims, **params
+            x1, x2, kernel=kernel, last_dim_is_batch=last_dim_is_batch, **params
         )
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2
-        self.batch_dims = batch_dims
+        self.last_dim_is_batch = last_dim_is_batch
         self.params = params
 
     @property
@@ -73,7 +73,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         # Define the index we're using for the last index
         # If the last index corresponds to a batch, then we'll use the appropriate batch_index
         # Otherwise, we'll use the _noop_index
-        if self.batch_dims is not None and 2 in self.batch_dims:
+        if self.last_dim_is_batch:
             *batch_indices, dim_index = batch_indices
         else:
             dim_index = _noop_index
@@ -114,7 +114,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 x2 = x2[(*batch_indices, row_index, dim_index)]
 
         # Now construct a kernel with those indices
-        return self.__class__(x1, x2, kernel=self.kernel, batch_dims=self.batch_dims, **self.params)
+        return self.__class__(x1, x2, kernel=self.kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params)
 
     def _matmul(self, rhs):
         # This _matmul is defined computes the kernel in chunks
@@ -135,7 +135,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             res = []
             for sub_x1 in sub_x1s:
                 sub_kernel_matrix = lazify(
-                    self.kernel(sub_x1, x2, diag=False, batch_dims=self.batch_dims, **self.params)
+                    self.kernel(sub_x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params)
                 )
                 res.append(sub_kernel_matrix._matmul(rhs))
 
@@ -163,7 +163,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         for sub_x1, sub_left_vecs in zip(sub_x1s, sub_left_vecss):
             with torch.enable_grad(), settings.lazily_evaluate_kernels(False):
                 sub_kernel_matrix = lazify(
-                    self.kernel(sub_x1, x2, diag=False, batch_dims=self.batch_dims, **self.params)
+                    self.kernel(sub_x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params)
                 )
             sub_grad_outputs = tuple(sub_kernel_matrix._quad_form_derivative(sub_left_vecs, right_vecs))
             sub_kernel_outputs = tuple(sub_kernel_matrix.representation())
@@ -201,13 +201,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             ) + expected_size[-2:]
 
         # Handle when the last dim is batch
-        if self.batch_dims is not None and 2 in self.batch_dims:
+        if self.last_dim_is_batch:
             expected_size = expected_size[:-2] + torch.Size([x1.size(-1)]) + expected_size[-2:]
         return expected_size
 
     def _transpose_nonbatch(self):
         return self.__class__(
-            self.x2, self.x1, kernel=self.kernel, batch_dims=self.batch_dims, **self.params
+            self.x2, self.x1, kernel=self.kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params
         )
 
     def add_jitter(self, jitter_val=1e-3):
@@ -229,11 +229,12 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         x1 = self.x1
         x2 = self.x2
 
-        res = super(Kernel, self.kernel).__call__(x1, x2, diag=True, batch_dims=self.batch_dims, **self.params)
+        res = super(Kernel, self.kernel).__call__(
+            x1, x2, diag=True, last_dim_is_batch=self.last_dim_is_batch, **self.params
+        )
 
         # Now we'll make sure that the shape we're getting from diag makes sense
         if settings.debug.on():
-            # If we used batch_dims...
             expected_shape = self.shape[:-1]
             if res.shape != expected_shape:
                 raise RuntimeError(
@@ -258,7 +259,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             temp_active_dims = self.kernel.active_dims
             self.kernel.active_dims = None
             res = self.kernel(
-                x1, x2, diag=False, batch_dims=self.batch_dims, **self.params
+                x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params
             )
             self.kernel.active_dims = temp_active_dims
 
@@ -287,7 +288,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         x1 = self.x1.repeat(*batch_repeat, row_repeat, 1)
         x2 = self.x2.repeat(*batch_repeat, col_repeat, 1)
-        return self.__class__(x1, x2, kernel=self.kernel, batch_dims=self.batch_dims, **self.params)
+        return self.__class__(x1, x2, kernel=self.kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params)
 
     def representation(self):
         # If we're checkpointing the kernel, we'll use chunked _matmuls defined in LazyEvaluatedKernelTensor
