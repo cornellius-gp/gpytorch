@@ -27,7 +27,9 @@ train_y = train_y.float()
 
 class GPClassificationModel(AbstractVariationalGP):
     def __init__(self, grid_size=16, grid_bounds=([-1, 1],)):
-        variational_distribution = CholeskyVariationalDistribution(num_inducing_points=16, batch_size=2)
+        variational_distribution = CholeskyVariationalDistribution(
+            num_inducing_points=16, batch_shape=torch.Size([2])
+        )
         variational_strategy = AdditiveGridInterpolationVariationalStrategy(
             self,
             grid_size=grid_size,

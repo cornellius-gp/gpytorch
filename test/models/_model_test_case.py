@@ -116,9 +116,9 @@ class VariationalModelTestCase(_ModelTestCase):
             self.assertGreater(param.grad.norm().item(), 0)
         optimizer.step()
 
-    def test_batch_backward_train(self):
-        data = self.create_batch_test_data()
-        likelihood, labels = self.create_batch_likelihood_and_labels()
+    def test_batch_backward_train(self, batch_shape=torch.Size([3])):
+        data = self.create_batch_test_data(batch_shape)
+        likelihood, labels = self.create_batch_likelihood_and_labels(batch_shape)
         model = self.create_model(data, labels, likelihood)
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=labels.size(-1))
         model.train()
@@ -143,3 +143,6 @@ class VariationalModelTestCase(_ModelTestCase):
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
         optimizer.step()
+
+    def test_multi_batch_backward_train(self, batch_shape=torch.Size([2, 3])):
+        return self.test_batch_backward_train(batch_shape=batch_shape)
