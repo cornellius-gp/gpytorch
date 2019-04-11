@@ -99,5 +99,5 @@ class GridKernel(Kernel):
         else:
             return self.base_kernel.forward(x1, x2, diag=diag, batch_dims=batch_dims, **params)
 
-    def size(self, x1, x2):
-        return self.base_kernel.size(x1, x2)
+    def num_outputs_per_input(self, x1, x2):
+        return self.base_kernel.num_outputs_per_input(x1, x2)

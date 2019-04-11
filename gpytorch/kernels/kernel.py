@@ -9,7 +9,6 @@ from ..module import Module
 from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumPredictionStrategy
 from .. import settings
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
-from ..utils import broadcasting
 from ..constraints import Positive
 
 
@@ -226,6 +225,37 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         # TODO: Remove this on next official PyTorch release.
         self.__pdist_supports_batch = True
 
+    @abstractmethod
+    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
+        r"""
+        Computes the covariance between x1 and x2.
+        This method should be imlemented by all Kernel subclasses.
+
+        Args:
+            :attr:`x1` (Tensor `n x d` or `b x n x d`):
+                First set of data
+            :attr:`x2` (Tensor `m x d` or `b x m x d`):
+                Second set of data
+            :attr:`diag` (bool):
+                Should the Kernel compute the whole kernel, or just the diag?
+            :attr:`batch_dims` (tuple, optional):
+                If this option is passed in, it will tell the tensor which of the
+                three dimensions are batch dimensions.
+                Currently accepts: standard mode (either None or (0,))
+                or (0, 2) for use with Additive/Multiplicative kernels
+
+        Returns:
+            :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
+                The exact size depends on the kernel's evaluation mode:
+
+                * `full_covar`: `n x m` or `b x n x m`
+                * `full_covar` with `batch_dims=(0, 2)`: `k x n x m` or `b x k x n x m`
+                * `diag`: `n` or `b x n`
+                * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
+        """
+
+        raise NotImplementedError()
+
     @property
     def dtype(self):
         if self.has_lengthscale:
@@ -258,64 +288,6 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             value = torch.as_tensor(value).to(self.raw_lengthscale)
 
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
-
-    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        return DefaultPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
-
-    def size(self, x1, x2):
-        expected_size = broadcasting._matmul_broadcast_shape(
-            torch.Size([*x1.shape[:-2], x1.size(-2), x1.size(-1)]),
-            torch.Size([*x2.shape[:-2], x2.size(-1), x2.size(-2)]),
-            error_msg="x1 and x2 were not broadcastable to a proper kernel shape."
-            "Got x1.shape = {} and x2.shape = {}".format(str(x1.shape), str(x2.shape))
-        )
-        expected_size = broadcasting._mul_broadcast_shape(
-            expected_size[:-2], self.batch_shape,
-            error_msg=(
-                f"x1 and x2 were not broadcastable with kernel of batch_shape {self.batch_shape}."
-                f"Got x1.shape = {x1.shape} and x2.shape = {x2.shape}"
-            )
-        ) + expected_size[-2:]
-        return expected_size
-
-    @abstractmethod
-    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
-        r"""
-        Computes the covariance between x1 and x2.
-        This method should be imlemented by all Kernel subclasses.
-
-        Args:
-            :attr:`x1` (Tensor `n x d` or `b x n x d`):
-                First set of data
-            :attr:`x2` (Tensor `m x d` or `b x m x d`):
-                Second set of data
-            :attr:`diag` (bool):
-                Should the Kernel compute the whole kernel, or just the diag?
-            :attr:`batch_dims` (tuple, optional):
-                If this option is passed in, it will tell the tensor which of the
-                three dimensions are batch dimensions.
-                Currently accepts: standard mode (either None or (0,))
-                or (0, 2) for use with Additive/Multiplicative kernels
-
-        Returns:
-            :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
-                The exact size depends on the kernel's evaluation mode:
-
-                * `full_covar`: `n x m` or `b x n x m`
-                * `full_covar` with `batch_dims=(0, 2)`: `k x n x m` or `b x k x n x m`
-                * `diag`: `n` or `b x n`
-                * `diag` with `batch_dims=(0, 2)`: `k x n` or `b x k x n`
-        """
-
-        raise NotImplementedError()
-
-    def __getstate__(self):
-        # JIT ScriptModules cannot be pickled
-        self.distance_module = None
-        return self.__dict__
-
-    def __setstate__(self, d):
-        self.__dict__ = d
 
     def covar_dist(
         self,
@@ -351,13 +323,13 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             (:class:`Tensor`, :class:`Tensor) corresponding to the distance matrix between `x1` and `x2`.
             The shape depends on the kernel's mode
             * `diag=False` and `batch_dims=None`: (`b x n x n`)
-            * `diag=False` and `batch_dims=(0, 2)`: (`d x b x n x n`)
+            * `diag=False` and `batch_dims=(0, 2)`: (`b x d x n x n`)
             * `diag=True` and `batch_dims=None`: (`b x n`)
-            * `diag=True` and `batch_dims=(0, 2)`: (`d x b x n`)
+            * `diag=True` and `batch_dims=(0, 2)`: (`b x d x n`)
         """
         if batch_dims == (0, 2):
-            x1 = x1.unsqueeze(0).transpose(0, -1)
-            x2 = x2.unsqueeze(0).transpose(0, -1)
+            x1 = x1.transpose(-1, -2).unsqueeze(-1)
+            x2 = x2.transpose(-1, -2).unsqueeze(-1)
 
         x1_eq_x2 = torch.equal(x1, x2)
 
@@ -410,6 +382,21 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
         return res
 
+    def num_outputs_per_input(self, x1, x2):
+        """
+        How many outputs are produced per input (default 1)
+        if x1 is size `n x d` and x2 is size `m x d`, then the size of the kernel
+        will be `(n * num_outputs_per_input) x (m * num_outputs_per_input)`
+        Default: 1
+        """
+        return 1
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        return DefaultPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
+
+    def __add__(self, other):
+        return AdditiveKernel(self, other)
+
     def __call__(self, x1, x2=None, diag=False, batch_dims=None, **params):
         x1_, x2_ = x1, x2
 
@@ -448,35 +435,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
         if diag:
             res = super(Kernel, self).__call__(x1_, x2_, diag=True, batch_dims=batch_dims, **params)
-
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
                 if res.dim() == x1_.dim() and res.shape[-2:] == torch.Size((x1_.size(-2), x2_.size(-2))):
                     res = res.diag()
-
-            # Now we'll make sure that the shape we're getting from diag makes sense
-            if settings.debug.on():
-                # If we used batch_dims...
-                shape = self.size(x1_, x2_)
-                if batch_dims == (0, 2):
-                    expected_shape = torch.Size((x1.size(-1),) + shape[:-1])
-                    if res.shape != expected_shape:
-                        raise RuntimeError(
-                            "The kernel {} is not equipped to handle batch_dims=(0, 2) "
-                            "and diag. Expected size {}. Got size {}.".format(
-                                self.__class__.__name__, expected_shape, res.shape
-                            )
-                        )
-
-                # If we didn't use batch_dims...
-                else:
-                    expected_shape = shape[:-1]
-                    if res.shape != expected_shape:
-                        raise RuntimeError(
-                            "The kernel {} is not equipped to handle and diag. Expected size {}. "
-                            "Got size {}".format(self.__class__.__name__, expected_shape, res.shape)
-                        )
             return res
 
         else:
@@ -484,35 +447,18 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
                 res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, batch_dims=batch_dims, **params)
             else:
                 res = super(Kernel, self).__call__(x1_, x2_, batch_dims=batch_dims, **params)
-
-            # Now we'll make sure that the shape we're getting makes sense
-            if settings.debug.on():
-                # If we used batch_dims...
-                shape = self.size(x1_, x2_)
-                if batch_dims == (0, 2):
-                    expected_shape = torch.Size((x1_.size(-1),) + shape)
-                    if res.shape != expected_shape:
-                        raise RuntimeError(
-                            "The kernel {} is not equipped to handle batch_dims=(0, 2). Expected size {}. "
-                            "Got size {}".format(self.__class__.__name__, expected_shape, res.shape)
-                        )
-
-                # If we didn't use batch_dims...
-                else:
-                    expected_shape = shape
-                    if res.shape != expected_shape:
-                        raise RuntimeError(
-                            "Error with {}.forward. Expected size {}. Got size {}.".format(
-                                self.__class__.__name__, expected_shape, res.shape
-                            )
-                        )
             return res
 
-    def __add__(self, other):
-        return AdditiveKernel(self, other)
+    def __getstate__(self):
+        # JIT ScriptModules cannot be pickled
+        self.distance_module = None
+        return self.__dict__
 
     def __mul__(self, other):
         return ProductKernel(self, other)
+
+    def __setstate__(self, d):
+        self.__dict__ = d
 
 
 class AdditiveKernel(Kernel):
@@ -539,8 +485,8 @@ class AdditiveKernel(Kernel):
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
         return SumPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
 
-    def size(self, x1, x2):
-        return self.kernels[0].size(x1, x2)
+    def num_outputs_per_input(self, x1, x2):
+        return self.kernels[0].num_outputs_per_input(x1, x2)
 
 
 class ProductKernel(Kernel):
@@ -575,5 +521,5 @@ class ProductKernel(Kernel):
                 res = res * lazify(next_term)
         return res
 
-    def size(self, x1, x2):
-        return self.kernels[0].size(x1, x2)
+    def num_outputs_per_input(self, x1, x2):
+        return self.kernels[0].num_outputs_per_input(x1, x2)

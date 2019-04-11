@@ -81,7 +81,7 @@ class ScaleKernel(Kernel):
     def forward(self, x1, x2, batch_dims=None, diag=False, **params):
         outputscales = self.outputscale
         if batch_dims == (0, 2):
-            outputscales = outputscales.unsqueeze(0).repeat(x1.size(-1), *([1] * outputscales.dim()))
+            outputscales = outputscales.unsqueeze(-1).repeat(*([1] * outputscales.dim()), x1.size(-1))
 
         orig_output = self.base_kernel.forward(x1, x2, diag=diag, batch_dims=batch_dims, **params)
         outputscales = outputscales.view(*outputscales.shape, *([1] * (orig_output.dim() - outputscales.dim())))
@@ -90,5 +90,5 @@ class ScaleKernel(Kernel):
             return delazify(orig_output) * outputscales
         return orig_output.mul(outputscales)
 
-    def size(self, x1, x2):
-        return self.base_kernel.size(x1, x2)
+    def num_outputs_per_input(self, x1, x2):
+        return self.base_kernel.num_outputs_per_input(x1, x2)

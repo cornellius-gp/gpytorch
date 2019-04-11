@@ -6,22 +6,20 @@ import gpytorch
 from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
 
 
-kern = gpytorch.kernels.RBFKernel()
-
-
 class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 0
 
     def create_lazy_tensor(self):
+        kern = gpytorch.kernels.RBFKernel()
         mat = torch.randn(2, 5, 6)
         return kern(mat)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
-        return gpytorch.Module.__call__(
+        return gpytorch.lazy.delazify(gpytorch.Module.__call__(
             lazy_tensor.kernel,
             lazy_tensor.x1,
             lazy_tensor.x2
-        )
+        ))
 
     def test_inv_matmul_matrix_with_checkpointing(self):
         # Add one checkpointing test
@@ -51,4 +49,36 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
         pass
 
     def test_quad_form_derivative(self):
+        pass
+
+
+class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorBatch):
+    seed = 0
+
+    def create_lazy_tensor(self):
+        kern = gpytorch.kernels.MultitaskKernel(gpytorch.kernels.RBFKernel(), num_tasks=3, rank=2)
+        mat = torch.randn(2, 5, 6)
+        return kern(mat)
+
+    def test_inv_matmul_matrix_with_checkpointing(self):
+        pass
+
+
+class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
+    seed = 0
+
+    def create_lazy_tensor(self):
+        kern = gpytorch.kernels.AdditiveStructureKernel(gpytorch.kernels.RBFKernel(), num_dims=6)
+        mat = torch.randn(5, 6)
+        return kern(mat)
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        res = gpytorch.lazy.delazify(gpytorch.Module.__call__(
+            lazy_tensor.kernel.base_kernel,
+            lazy_tensor.x1.transpose(-1, -2).unsqueeze(-1),
+            lazy_tensor.x2.transpose(-1, -2).unsqueeze(-1)
+        )).sum(0)
+        return res
+
+    def test_inv_matmul_matrix_with_checkpointing(self):
         pass
