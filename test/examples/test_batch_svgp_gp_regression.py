@@ -30,7 +30,9 @@ def train_data(cuda=False):
 
 class SVGPRegressionModel(AbstractVariationalGP):
     def __init__(self, inducing_points):
-        variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-2), batch_size=2)
+        variational_distribution = CholeskyVariationalDistribution(
+            inducing_points.size(-2), batch_shape=torch.Size([2])
+        )
         variational_strategy = VariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True
         )

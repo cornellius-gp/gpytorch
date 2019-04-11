@@ -53,18 +53,16 @@ class WhitenedVariationalStrategy(VariationalStrategy):
         return kl_divergence
 
     def initialize_variational_dist(self):
-        if not self.variational_params_initialized.item():
-            prior_dist = self.prior_distribution
-            inv_prior_dist = torch.distributions.MultivariateNormal(
-                prior_dist.mean,
-                prior_dist.lazy_covariance_matrix.add_jitter()
-                .evaluate()
-                .double()
-                .inverse()
-                .type_as(prior_dist.covariance_matrix),
-            )
-            self.variational_distribution.initialize_variational_distribution(inv_prior_dist)
-            self.variational_params_initialized.fill_(1)
+        prior_dist = self.prior_distribution
+        inv_prior_dist = torch.distributions.MultivariateNormal(
+            prior_dist.mean,
+            prior_dist.lazy_covariance_matrix.add_jitter()
+            .evaluate()
+            .double()
+            .inverse()
+            .type_as(prior_dist.covariance_matrix),
+        )
+        self.variational_distribution.initialize_variational_distribution(inv_prior_dist)
 
     def forward(self, x):
         """
@@ -82,6 +80,7 @@ class WhitenedVariationalStrategy(VariationalStrategy):
         inducing_points = self.inducing_points
         if inducing_points.dim() < x.dim():
             inducing_points = inducing_points.expand(*x.shape[:-2], *inducing_points.shape[-2:])
+        if len(variational_dist.batch_shape) < x.dim() - 2:
             variational_dist = variational_dist.expand(x.shape[:-2])
 
         # If our points equal the inducing points, we're done
