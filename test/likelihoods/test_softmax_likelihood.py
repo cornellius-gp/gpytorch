@@ -24,7 +24,7 @@ class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
         ).sample(torch.Size([*batch_shape, 5]))
 
     def create_likelihood(self):
-        return SoftmaxLikelihood(num_features=6, n_classes=4)
+        return SoftmaxLikelihood(num_features=6, num_classes=4)
 
     def _test_conditional(self, batch_shape):
         likelihood = self.create_likelihood()
@@ -50,3 +50,10 @@ class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
 
         self.assertTrue(isinstance(output, Distribution))
         self.assertEqual(output.sample().shape[-len(batch_shape) - 1:], torch.Size([*batch_shape, 5]))
+
+
+class TestSoftmaxLikelihoodNoMixing(TestSoftmaxLikelihood):
+    seed = 0
+
+    def create_likelihood(self):
+        return SoftmaxLikelihood(num_features=6, num_classes=6, mixing_weights=False)
