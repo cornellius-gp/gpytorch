@@ -39,14 +39,6 @@ class checkpoint_kernel(_value_context):
     _global_value = 0
 
 
-class diagonal_correction(_feature_flag):
-    """
-    Add a diagonal correction to scalable inducing point methods
-    """
-
-    _state = True
-
-
 class default_preconditioner(_feature_flag):
     """
     Add a diagonal correction to scalable inducing point methods
@@ -55,4 +47,4 @@ class default_preconditioner(_feature_flag):
     pass
 
 
-__all__ = ["checkpoint_kernel", "diagonal_correction", "default_preconditioner"]
+__all__ = ["checkpoint_kernel", "default_preconditioner"]
