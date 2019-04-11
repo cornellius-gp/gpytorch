@@ -173,6 +173,10 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
     @cached(name="size")
     def _size(self):
+        if settings.debug.on():
+            if hasattr(self.kernel, "size"):
+                raise RuntimeError("Kernels must define `num_outputs_per_input` and should not define `size`")
+
         x1 = self.x1
         x2 = self.x2
         num_outputs_per_input = self.kernel.num_outputs_per_input(x1, x2)
