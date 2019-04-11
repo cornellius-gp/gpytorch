@@ -33,11 +33,11 @@ class TestScaleKernel(unittest.TestCase):
         actual = scaled_a.transpose(-1, -2).unsqueeze(-1) - scaled_b.transpose(-1, -2).unsqueeze(-2)
         actual = actual.pow(2).mul_(-0.5).exp().view(2, 2, 2)
         actual.mul_(3)
-        res = kernel(a, b, batch_dims=(0, 2)).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims and diag
-        res = kernel(a, b, batch_dims=(0, 2)).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diag()
         actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -70,11 +70,11 @@ class TestScaleKernel(unittest.TestCase):
         actual = double_batch_a.unsqueeze(-1) - double_batch_b.unsqueeze(-2)
         actual = actual.pow(2).mul_(-0.5).exp()
         actual[1, :, :, :].mul_(2)
-        res = kernel(a, b, batch_dims=(0, 2)).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims and diag
-        res = kernel(a, b, batch_dims=(0, 2)).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diag()
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 
