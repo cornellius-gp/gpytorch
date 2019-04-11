@@ -46,9 +46,9 @@ class TestScaleKernel(unittest.TestCase):
         b = torch.tensor([[[1, 3, 1]], [[2, -1, 0]]], dtype=torch.float).repeat(1, 2, 1)
         lengthscales = torch.tensor([[[1, 2, 1]]], dtype=torch.float)
 
-        base_kernel = RBFKernel(batch_size=2, ard_num_dims=3)
+        base_kernel = RBFKernel(batch_shape=torch.Size([2]), ard_num_dims=3)
         base_kernel.initialize(lengthscale=lengthscales)
-        kernel = ScaleKernel(base_kernel, batch_size=2)
+        kernel = ScaleKernel(base_kernel, batch_shape=torch.Size([2]))
         kernel.initialize(outputscale=torch.tensor([1, 2], dtype=torch.float))
         kernel.eval()
 
@@ -65,11 +65,11 @@ class TestScaleKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims
-        double_batch_a = scaled_a.unsqueeze(0).transpose(0, -1)
-        double_batch_b = scaled_b.unsqueeze(0).transpose(0, -1)
-        actual = double_batch_a.transpose(-1, -2).unsqueeze(-1) - double_batch_b.transpose(-1, -2).unsqueeze(-2)
-        actual = actual.pow(2).mul_(-0.5).exp().view(3, 2, 2, 2)
-        actual[:, 1, :, :].mul_(2)
+        double_batch_a = scaled_a.transpose(-1, -2)
+        double_batch_b = scaled_b.transpose(-1, -2)
+        actual = double_batch_a.unsqueeze(-1) - double_batch_b.unsqueeze(-2)
+        actual = actual.pow(2).mul_(-0.5).exp()
+        actual[1, :, :, :].mul_(2)
         res = kernel(a, b, batch_dims=(0, 2)).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -85,7 +85,7 @@ class TestScaleKernel(unittest.TestCase):
         self.assertLess(torch.norm(kernel.outputscale - actual_value), 1e-5)
 
     def test_initialize_outputscale_batch(self):
-        kernel = ScaleKernel(RBFKernel(), batch_size=2)
+        kernel = ScaleKernel(RBFKernel(), batch_shape=torch.Size([2]))
         ls_init = torch.tensor([3.14, 4.13])
         kernel.initialize(outputscale=ls_init)
         actual_value = ls_init.view_as(kernel.outputscale)

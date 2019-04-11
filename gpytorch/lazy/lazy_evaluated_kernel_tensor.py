@@ -3,8 +3,9 @@
 import torch
 
 from .. import settings, beta_features
-from ..utils.memoize import cached
+from ..utils import broadcasting
 from ..utils.getitem import _noop_index
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 
@@ -41,51 +42,79 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
     def _getitem(self, row_index, col_index, *batch_indices):
         x1 = self.x1
-        if self.batch_dims == (0, 2):
-            x1 = x1.permute(0, 2, 1).contiguous()
-            x1 = x1.view(-1, x1.size(-1), 1)
-        try:
-            x1 = x1[(*batch_indices, row_index, _noop_index)]
-        # We're going to handle multi-batch indexing with a try-catch loop
-        # This way - in the default case, we can avoid doing expansions of x1 which can be timely
-        except IndexError:
-            if isinstance(batch_indices, slice):
-                x1 = x1.expand(1, *self.x1.shape[-2:])[(*batch_indices, row_index, _noop_index)]
-            elif isinstance(batch_indices, tuple):
-                if any([not isinstance(bi, slice) for bi in batch_indices]):
-                    raise RuntimeError(
-                        f"Attempting to tensor index a non-batch matrix's batch dimensions. "
-                        "Got batch index {batch_indices} but my shape was {self.shape}"
-                    )
-                x1 = x1.expand(
-                    *([1] * len(batch_indices)),
-                    *self.x1.shape[-2:]
-                )[(*batch_indices, row_index, _noop_index)]
         x2 = self.x2
-        if self.batch_dims == (0, 2):
-            x2 = x2.permute(0, 2, 1).contiguous()
-            x2 = x2.view(-1, x2.size(-1), 1)
+        num_outs_per_in = self.kernel.num_outputs_per_input(x1, x2)
+
+        # The row index and col index should exactly correspond to which entries of x1 and x2 we need
+        # So we'll basically call x1[*batch_indices, row_index, :], x2[*batch_indices, col_index, :]
+
+        # However - if we have multiple outputs per input, then the indices won't directly
+        # correspond to the entries of row/col. We'll have to do a little pre-processing
+        if num_outs_per_in != 1:
+            if not isinstance(x1, slice) or not isinstance(x2, slice):
+                # It's too complicated to deal with tensor indices in this case - we'll use the super method
+                return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
+
+            # Now we know that x1 and x2 are slices
+            # Let's make sure that the slice dimensions perfectly correspond with the number of
+            # outputs per input that we have
+            row_start, row_end, row_step = row_index.start, row_index.stop, row_index.step
+            col_start, col_end, col_step = col_index.start, col_index.stop, col_index.step
+            if row_step is not None or col_step is not None:
+                return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
+            if (row_start % num_outs_per_in) or (col_start % num_outs_per_in) or \
+                    (row_end % num_outs_per_in) or (col_end % num_outs_per_in):
+                return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
+
+            # Otherwise - let's divide the slices by the number of outputs per input
+            row_index = slice(row_start // num_outs_per_in, row_end // num_outs_per_in, None)
+            col_index = slice(col_start // num_outs_per_in, col_end // num_outs_per_in, None)
+
+        # Define the index we're using for the last index
+        # If the last index corresponds to a batch, then we'll use the appropriate batch_index
+        # Otherwise, we'll use the _noop_index
+        if self.batch_dims is not None and 2 in self.batch_dims:
+            *batch_indices, dim_index = batch_indices
+        else:
+            dim_index = _noop_index
+
+        # Get the indices of x1 and x2 that matter for the kernel
+        # Call x1[*batch_indices, row_index, :]
         try:
-            x2 = x2[(*batch_indices, col_index, _noop_index)]
+            x1 = x1[(*batch_indices, row_index, dim_index)]
         # We're going to handle multi-batch indexing with a try-catch loop
         # This way - in the default case, we can avoid doing expansions of x1 which can be timely
         except IndexError:
             if isinstance(batch_indices, slice):
-                x2 = x2.expand(1, *self.x2.shape[-2:])[(*batch_indices, row_index, _noop_index)]
+                x1 = x1.expand(1, *self.x1.shape[-2:])[(*batch_indices, row_index, dim_index)]
             elif isinstance(batch_indices, tuple):
                 if any([not isinstance(bi, slice) for bi in batch_indices]):
                     raise RuntimeError(
                         f"Attempting to tensor index a non-batch matrix's batch dimensions. "
                         "Got batch index {batch_indices} but my shape was {self.shape}"
                     )
-                x2 = x2.expand(
-                    *([1] * len(batch_indices)),
-                    *self.x2.shape[-2:]
-                )[(*batch_indices, row_index, _noop_index)]
+                x1 = x1.expand(*([1] * len(batch_indices)), *self.x1.shape[-2:])
+                x1 = x1[(*batch_indices, row_index, dim_index)]
 
-        return self.__class__(
-            x1, x2, kernel=self.kernel, **self.params
-        )
+        # Call x2[*batch_indices, row_index, :]
+        try:
+            x2 = x2[(*batch_indices, col_index, dim_index)]
+        # We're going to handle multi-batch indexing with a try-catch loop
+        # This way - in the default case, we can avoid doing expansions of x1 which can be timely
+        except IndexError:
+            if isinstance(batch_indices, slice):
+                x2 = x2.expand(1, *self.x2.shape[-2:])[(*batch_indices, row_index, dim_index)]
+            elif isinstance(batch_indices, tuple):
+                if any([not isinstance(bi, slice) for bi in batch_indices]):
+                    raise RuntimeError(
+                        f"Attempting to tensor index a non-batch matrix's batch dimensions. "
+                        "Got batch index {batch_indices} but my shape was {self.shape}"
+                    )
+                x2 = x2.expand(*([1] * len(batch_indices)), *self.x2.shape[-2:])
+                x2 = x2[(*batch_indices, row_index, dim_index)]
+
+        # Now construct a kernel with those indices
+        return self.__class__(x1, x2, kernel=self.kernel, batch_dims=self.batch_dims, **self.params)
 
     def _matmul(self, rhs):
         # This _matmul is defined computes the kernel in chunks
@@ -144,10 +173,37 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
     @cached(name="size")
     def _size(self):
-        size = self.kernel.size(self.x1, self.x2)
-        if self.batch_dims == (0, 2):
-            return torch.Size((self.x1.size(-1), ) + size)
-        return size
+        x1 = self.x1
+        x2 = self.x2
+        num_outputs_per_input = self.kernel.num_outputs_per_input(x1, x2)
+        num_rows = x1.size(-2) * num_outputs_per_input
+        num_cols = x2.size(-2) * num_outputs_per_input
+
+        # Default case - when we're not using broadcasting
+        # We write this case special for efficiency
+        if x1.shape[:-2] == x2.shape[:-2] and x1.shape[:-2] == self.kernel.batch_shape:
+            expected_size = self.kernel.batch_shape + torch.Size((num_rows, num_cols))
+
+        # When we're using broadcasting
+        else:
+            expected_size = broadcasting._matmul_broadcast_shape(
+                torch.Size([*x1.shape[:-2], num_rows, x1.size(-1)]),
+                torch.Size([*x2.shape[:-2], x2.size(-1), num_cols]),
+                error_msg="x1 and x2 were not broadcastable to a proper kernel shape."
+                "Got x1.shape = {} and x2.shape = {}".format(str(x1.shape), str(x2.shape))
+            )
+            expected_size = broadcasting._mul_broadcast_shape(
+                expected_size[:-2], self.kernel.batch_shape,
+                error_msg=(
+                    f"x1 and x2 were not broadcastable with kernel of batch_shape {self.kernel.batch_shape}."
+                    f"Got x1.shape = {x1.shape} and x2.shape = {x2.shape}"
+                )
+            ) + expected_size[-2:]
+
+        # Handle when the last dim is batch
+        if self.batch_dims is not None and 2 in self.batch_dims:
+            expected_size = expected_size[:-2] + torch.Size([x1.size(-1)]) + expected_size[-2:]
+        return expected_size
 
     def _transpose_nonbatch(self):
         return self.__class__(
@@ -178,25 +234,12 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         # Now we'll make sure that the shape we're getting from diag makes sense
         if settings.debug.on():
             # If we used batch_dims...
-            shape = self.kernel.size(x1, x2)
-            if self.batch_dims == (0, 2):
-                expected_shape = torch.Size((x1.size(-1),) + shape[:-1])
-                if res.shape != expected_shape:
-                    raise RuntimeError(
-                        "The kernel {} is not equipped to handle batch_dims=(0, 2) "
-                        "and diag. Expected size {}. Got size {}.".format(
-                            self.__class__.__name__, expected_shape, res.shape
-                        )
-                    )
-
-            # If we didn't use batch_dims...
-            else:
-                expected_shape = shape[:-1]
-                if res.shape != expected_shape:
-                    raise RuntimeError(
-                        "The kernel {} is not equipped to handle and diag. Expected size {}. "
-                        "Got size {}".format(self.__class__.__name__, expected_shape, res.shape)
-                    )
+            expected_shape = self.shape[:-1]
+            if res.shape != expected_shape:
+                raise RuntimeError(
+                    "The kernel {} is not equipped to handle and diag. Expected size {}. "
+                    "Got size {}".format(self.__class__.__name__, expected_shape, res.shape)
+                )
 
         if isinstance(res, LazyTensor):
             res = res.evaluate()
@@ -219,6 +262,14 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             )
             self.kernel.active_dims = temp_active_dims
 
+        # Check the size of the output
+        if settings.debug.on():
+            if res.shape != self.shape:
+                raise RuntimeError(
+                    f"The expected shape of the kernel was {self.shape}, but got {res.shape}. "
+                    "This is likely a bug in GPyTorch."
+                )
+
         return lazify(res)
 
     @cached
@@ -236,7 +287,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         x1 = self.x1.repeat(*batch_repeat, row_repeat, 1)
         x2 = self.x2.repeat(*batch_repeat, col_repeat, 1)
-        return LazyEvaluatedKernelTensor(self.kernel, x1, x2, **self.params)
+        return self.__class__(x1, x2, kernel=self.kernel, batch_dims=self.batch_dims, **self.params)
 
     def representation(self):
         # If we're checkpointing the kernel, we'll use chunked _matmuls defined in LazyEvaluatedKernelTensor

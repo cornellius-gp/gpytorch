@@ -61,7 +61,7 @@ class TestCosineKernel(unittest.TestCase):
         a = torch.tensor([[[4, 1], [2, 2], [8, 0]], [[2, 5], [6, 1], [0, 1]]], dtype=torch.float)
         b = torch.tensor([[[0, 0], [2, 1], [1, 0]], [[1, 1], [2, 3], [1, 0]]], dtype=torch.float)
         period = torch.tensor([1, 2], dtype=torch.float).view(2, 1, 1)
-        kernel = CosineKernel(batch_size=2).initialize(period_length=period)
+        kernel = CosineKernel(batch_shape=torch.Size([2])).initialize(period_length=period)
         kernel.eval()
 
         actual = torch.zeros(2, 3, 3)
@@ -84,7 +84,7 @@ class TestCosineKernel(unittest.TestCase):
             for i in range(3):
                 for j in range(3):
                     for l in range(2):
-                        actual[l, k, i, j] = torch.cos(math.pi * ((a[k, i, l] - b[k, j, l]) / period[k]))
+                        actual[k, l, i, j] = torch.cos(math.pi * ((a[k, i, l] - b[k, j, l]) / period[k]))
         res = kernel(a, b, batch_dims=(0, 2)).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 

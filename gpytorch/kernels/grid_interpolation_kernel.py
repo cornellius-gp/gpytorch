@@ -187,5 +187,5 @@ class GridInterpolationKernel(GridKernel):
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
         return InterpolatedPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
 
-    def size(self, x1, x2):
-        return self.base_kernel.size(x1, x2)
+    def num_outputs_per_input(self, x1, x2):
+        return self.base_kernel.num_outputs_per_input(x1, x2)

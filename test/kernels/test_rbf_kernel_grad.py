@@ -65,7 +65,7 @@ class TestRBFKernelGrad(unittest.TestCase, BaseKernelTestCase):
         self.assertLess(torch.norm(kernel.lengthscale - actual_value), 1e-5)
 
     def test_initialize_lengthscale_batch(self):
-        kernel = RBFKernelGrad(batch_size=2)
+        kernel = RBFKernelGrad(batch_shape=torch.Size([2]))
         ls_init = torch.tensor([3.14, 4.13])
         kernel.initialize(lengthscale=ls_init)
         actual_value = ls_init.view_as(kernel.lengthscale)

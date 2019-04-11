@@ -249,8 +249,6 @@ class ExactGP(GP):
             joint_shape = full_output.event_shape
             tasks_shape = joint_shape[1:]  # For multitask learning
             test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
-            if tasks_shape.numel() > 1:
-                full_covar = full_covar.evaluate_kernel()
 
             # Make the prediction
             with settings._use_eval_tolerance():

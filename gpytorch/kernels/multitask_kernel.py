@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import torch
 from .kernel import Kernel
 from .index_kernel import IndexKernel
 from ..lazy import lazify, KroneckerProductLazyTensor
@@ -49,13 +48,9 @@ class MultitaskKernel(Kernel):
         res = KroneckerProductLazyTensor(covar_x, covar_i)
         return res.diag() if diag else res
 
-    def size(self, x1, x2):
+    def num_outputs_per_input(self, x1, x2):
         """
         Given `n` data points `x1` and `m` datapoints `x2`, this multitask
         kernel returns an `(n*num_tasks) x (m*num_tasks)` covariancn matrix.
         """
-        non_batch_size = (self.num_tasks * x1.size(-2), self.num_tasks * x2.size(-2))
-        if x1.ndimension() == 3:
-            return torch.Size(x1.shape[:-2] + non_batch_size)
-        else:
-            return torch.Size(non_batch_size)
+        return self.num_tasks
