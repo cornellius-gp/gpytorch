@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
+
 import math
 import warnings
 from typing import Any, Optional
@@ -155,14 +157,20 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
             )
         self.second_noise_covar.initialize(noise=value)
 
-    def fantasize(self, **kwargs):
+    def get_fantasy_likelihood(self, **kwargs):
         if "noise" not in kwargs:
             raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `noise` kwarg")
-        old_noise = self.noise_covar.noise
+        old_noise_covar = self.noise_covar
+        self.noise_covar = None
+        fantasy_liklihood = deepcopy(self)
+        self.noise_covar = old_noise_covar
+
+        old_noise = old_noise_covar.noise
         new_noise = kwargs.get("noise")
         if old_noise.dim() != new_noise.dim():
             old_noise = old_noise.expand(*new_noise.shape[:-1], old_noise.shape[-1])
-        self.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
+        fantasy_liklihood.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
+        return fantasy_liklihood
 
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
         if len(params) > 0:

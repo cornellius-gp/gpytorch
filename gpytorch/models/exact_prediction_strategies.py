@@ -108,9 +108,8 @@ class DefaultPredictionStrategy(object):
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
         fant_mean = full_mean[..., num_train:]
-
         mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
-        self.likelihood.fantasize(**kwargs)
+        self.likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
         if "noise" in kwargs:
             mvn_obs = self.likelihood(mvn, inputs, observation_noise=kwargs.get("noise"))
         else:
@@ -140,10 +139,11 @@ class DefaultPredictionStrategy(object):
         # Solve for "b", the lower portion of the *new* \\alpha corresponding to the fantasy points.
         schur_complement = fant_fant_covar - fant_train_covar.matmul(fant_solve)
         small_system_rhs = targets - fant_mean - fant_train_covar.matmul(self.mean_cache)
+        small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
         if small_system_rhs.requires_grad or schur_complement.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
-            fant_cache_lower = torch.gesv(small_system_rhs.unsqueeze(-1), schur_complement)[0]
+            fant_cache_lower = torch.gesv(small_system_rhs, schur_complement)[0]
         else:
             fant_cache_lower = cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
 

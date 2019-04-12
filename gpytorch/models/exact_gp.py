@@ -144,17 +144,20 @@ class ExactGP(GP):
         old_pred_strat = self.prediction_strategy
         old_train_inputs = self.train_inputs
         old_train_targets = self.train_targets
+        old_likelihood = self.likelihood
         self.prediction_strategy = None
         self.train_inputs = None
         self.train_targets = None
+        self.likelihood = None
         new_model = deepcopy(self)
         self.prediction_strategy = old_pred_strat
         self.train_inputs = old_train_inputs
         self.train_targets = old_train_targets
+        self.likelihood = old_likelihood
 
         new_model.train_inputs = full_inputs
         new_model.train_targets = full_targets
-        new_model.likelihood.fantasize(**fantasy_kwargs)
+        new_model.likelihood = old_likelihood.get_fantasy_likelihood(**fantasy_kwargs)
         new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
             inputs,
             targets,
