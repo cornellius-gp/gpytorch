@@ -143,7 +143,7 @@ class TestKISSGPWhiteNoiseRegression(unittest.TestCase):
             return
         with least_used_cuda_device():
             train_x, train_y, test_x, test_y = make_data(cuda=True)
-            likelihood = FixedNoiseGaussianLikelihood(torch.ones(100) * 0.001)().cuda()
+            likelihood = FixedNoiseGaussianLikelihood(torch.ones(100) * 0.001).cuda()
             gp_model = GPRegressionModel(train_x, train_y, likelihood).cuda()
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
