@@ -35,14 +35,17 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_sq_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess):
-        # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+        if hasattr(torch, 'cdist'):  # TODO: Remove lower branch when PyTorch 1.1.0 releases.
+            res = torch.cdist(x1, x2).pow(2)
+        else:
+            # Compute squared distance matrix using quadratic expansion
+            x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
 
-        res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
+            res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
 
-        # Zero out negative values
-        res.clamp_min_(0)
+            # Zero out negative values
+            res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
 
     # @torch.jit.script_method
@@ -58,13 +61,16 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_sq_dist_x1_eq_x2_nobatch(self, x1, postprocess):
-        # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        res = torch.addmm(x1_norm.transpose(-2, -1), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
-        res.diagonal(dim1=-2, dim2=-1).fill_(0)
+        if hasattr(torch, 'cdist'):  # TODO: Remove lower branch when PyTorch 1.1.0 releases.
+            res = torch.cdist(x1, x1).pow(2)
+        else:
+            # Compute squared distance matrix using quadratic expansion
+            x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+            res = torch.addmm(x1_norm.transpose(-2, -1), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
+            res.diagonal(dim1=-2, dim2=-1).fill_(0)
 
-        # Zero out negative values
-        res.clamp_min_(0)
+            # Zero out negative values
+            res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
 
     # @torch.jit.script_method
@@ -77,10 +83,11 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess, false_tensor):
-        # Need to do a hack to get a False tensor because pytorch stable doesn't
-        # support creating of tensors in torch scripts
-        res = self._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess=false_tensor)
-        res = res.clamp_min_(1e-30).sqrt_()
+        if hasattr(torch, 'cdist'):
+            res = torch.cdist(x1, x2)
+        else:
+            res = self._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess=false_tensor)
+            res = res.clamp_min_(1e-30).sqrt_()
         return self._postprocess(res) if bool(postprocess) else res
 
     # @torch.jit.script_method
@@ -93,10 +100,12 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_dist_x1_eq_x2_nobatch(self, x1, postprocess, false_tensor):
-        # Need to do a hack to get a False tensor because pytorch stable doesn't
-        # support creating of tensors in torch scripts
-        res = self._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess=false_tensor)
-        res = res.clamp_min_(1e-30).sqrt_()
+        if hasattr(torch, 'cdist'):
+            res = torch.cdist(x1, x1)
+        else:
+            res = self._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess=false_tensor)
+            res = res.clamp_min_(1e-30).sqrt_()
+
         return self._postprocess(res) if bool(postprocess) else res
 
 
