@@ -118,10 +118,5 @@ class RBFKernelGrad(RBFKernel):
             pi = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
             return k_diag[..., pi]
 
-    def size(self, x1, x2):
-        """
-        Given `x_1` with `n_1` data points and `x_2` with `n_2` data points, both in
-        `d` dimensions, RBFKernelGrad returns an `n_1(d+1) x n_2(d+1)` kernel matrix.
-        """
-        non_batch_size = ((x1.size(-1) + 1) * x1.size(-2), (x2.size(-1) + 1) * x2.size(-2))
-        return torch.Size((*x1.shape[:-2], *non_batch_size))
+    def num_outputs_per_input(self, x1, x2):
+        return x1.size(-1) + 1

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-from ..lazy import LazyTensor, NonLazyTensor
 
 
 class AdditiveStructureKernel(Kernel):
@@ -38,22 +37,16 @@ class AdditiveStructureKernel(Kernel):
         self.base_kernel = base_kernel
         self.num_dims = num_dims
 
-    def forward(self, x1, x2, batch_dims=None, **params):
-        if batch_dims == (0, 2):
-            raise RuntimeError("AdditiveStructureKernel does not accept the batch_dims argument.")
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
+        if last_dim_is_batch:
+            raise RuntimeError("AdditiveStructureKernel does not accept the last_dim_is_batch argument.")
 
-        res = self.base_kernel(x1, x2, batch_dims=(0, 2), **params)
-
-        evaluate = False
-        if not isinstance(res, LazyTensor):
-            evaluate = True
-            res = NonLazyTensor(res)
-
-        res = res.sum(0)
-
-        if evaluate:
-            res = res.evaluate()
+        res = self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params)
+        res = res.sum(-2 if diag else -3)
         return res
 
-    def size(self, x1, x2):
-        return self.base_kernel.size(x1, x2)
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        return self.base_kernel.prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood)
+
+    def num_outputs_per_input(self, x1, x2):
+        return self.base_kernel.num_outputs_per_input(x1, x2)

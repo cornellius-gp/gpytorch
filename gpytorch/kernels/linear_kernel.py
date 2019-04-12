@@ -94,10 +94,10 @@ class LinearKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_variance)
         self.initialize(raw_variance=self.raw_variance_constraint.inverse_transform(value))
 
-    def forward(self, x1, x2, diag=False, batch_dims=None, **params):
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         x1_ = x1 * self.variance.sqrt()
-        if batch_dims == (0, 2):
-            x1_ = x1_.unsqueeze(0).transpose(0, -1)
+        if last_dim_is_batch:
+            x1_ = x1_.transpose(-1, -2).unsqueeze(-1)
 
         if x1.size() == x2.size() and torch.equal(x1, x2):
             # Use RootLazyTensor when x1 == x2 for efficiency when composing
@@ -106,8 +106,8 @@ class LinearKernel(Kernel):
 
         else:
             x2_ = x2 * self.variance.sqrt()
-            if batch_dims == (0, 2):
-                x2_ = x2_.unsqueeze(0).transpose(0, -1)
+            if last_dim_is_batch:
+                x2_ = x2_.transpose(-1, -2).unsqueeze(-1)
 
             prod = MatmulLazyTensor(x1_, x2_.transpose(-2, -1))
 

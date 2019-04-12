@@ -44,4 +44,4 @@ class BernoulliLikelihood(Likelihood):
         # This is going to be less prone to overflow errors
         log_prob_lambda = lambda function_samples: log_normal_cdf(function_samples.mul(observations))
         log_prob = self.quadrature(log_prob_lambda, function_dist)
-        return log_prob.sum(tuple(range(len(function_dist.event_shape))))
+        return log_prob.sum(-1)

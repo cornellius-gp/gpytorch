@@ -43,11 +43,11 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
         dim_group_a = a
         dim_group_a = dim_group_a.permute(1, 0).contiguous().view(-1, 3)
         actual = 3.14 * torch.mul(dim_group_a.unsqueeze(-1), dim_group_a.unsqueeze(-2))
-        res = kernel(a, a, batch_dims=(0, 2)).evaluate()
+        res = kernel(a, a, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # batch_dims + diag
-        res = kernel(a, a, batch_dims=(0, 2)).diag()
+        res = kernel(a, a, last_dim_is_batch=True).diag()
         actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-4)
 
@@ -67,13 +67,13 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
 
         # batch_dims
         dim_group_a = a
-        dim_group_a = dim_group_a.unsqueeze(0).transpose(0, -1)
+        dim_group_a = dim_group_a.transpose(-1, -2).unsqueeze(-1)
         actual = dim_group_a.matmul(dim_group_a.transpose(-2, -1))
-        res = kernel(a, a, batch_dims=(0, 2)).evaluate()
+        res = kernel(a, a, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-4)
 
         # batch_dims + diag
-        res = kernel(a, a, batch_dims=(0, 2)).diag()
+        res = kernel(a, a, last_dim_is_batch=True).diag()
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-4)
 

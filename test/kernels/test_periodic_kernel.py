@@ -47,7 +47,7 @@ class TestPeriodicKernel(unittest.TestCase):
         b = torch.tensor([[0, 2], [-1, 2]], dtype=torch.float).view(2, 2, 1)
         period = torch.tensor([1, 2], dtype=torch.float).view(2, 1, 1)
         lengthscale = torch.tensor([2, 1], dtype=torch.float).view(2, 1, 1)
-        kernel = PeriodicKernel(batch_size=2).initialize(lengthscale=lengthscale, period_length=period)
+        kernel = PeriodicKernel(batch_shape=torch.Size([2])).initialize(lengthscale=lengthscale, period_length=period)
         kernel.eval()
 
         actual = torch.zeros(2, 3, 2)

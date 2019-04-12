@@ -35,29 +35,19 @@ test_x12 = torch.cat((test_x1.unsqueeze(0), test_x2.unsqueeze(0)), dim=0).contig
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
-    def __init__(self, train_inputs, train_targets, likelihood, batch_size=1):
+    def __init__(self, train_inputs, train_targets, likelihood, batch_shape=torch.Size([])):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
-        self.mean_module = ConstantMean(batch_size=batch_size, prior=gpytorch.priors.SmoothedBoxPrior(-1, 1))
-        if batch_size > 1:
-            self.covar_module = ScaleKernel(
-                RBFKernel(
-                    batch_size=batch_size,
-                    lengthscale_prior=gpytorch.priors.NormalPrior(
-                        loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1)
-                    ),
+        self.mean_module = ConstantMean(batch_shape=batch_shape, prior=gpytorch.priors.SmoothedBoxPrior(-1, 1))
+        self.covar_module = ScaleKernel(
+            RBFKernel(
+                batch_shape=batch_shape,
+                lengthscale_prior=gpytorch.priors.NormalPrior(
+                    loc=torch.zeros(*batch_shape, 1, 1), scale=torch.ones(*batch_shape, 1, 1)
                 ),
-                batch_size=batch_size,
-                outputscale_prior=gpytorch.priors.SmoothedBoxPrior(-2, 2),
-            )
-        else:
-            self.covar_module = ScaleKernel(
-                RBFKernel(
-                    lengthscale_prior=gpytorch.priors.NormalPrior(
-                        loc=torch.zeros(batch_size, 1, 1), scale=torch.ones(batch_size, 1, 1)
-                    ),
-                ),
-                outputscale_prior=gpytorch.priors.SmoothedBoxPrior(-2, 2),
-            )
+            ),
+            batch_shape=batch_shape,
+            outputscale_prior=gpytorch.priors.SmoothedBoxPrior(-2, 2),
+        )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -137,9 +127,10 @@ class TestBatchGPRegression(unittest.TestCase):
     def test_train_on_batch_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(
-            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)), batch_size=2
+            noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
+            batch_shape=torch.Size([2])
         )
-        gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_size=2)
+        gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_shape=torch.Size([2]))
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
 
         # Find optimal model hyperparameters

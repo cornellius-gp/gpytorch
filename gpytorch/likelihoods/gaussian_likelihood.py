@@ -7,10 +7,10 @@ from typing import Any, Optional
 import torch
 from torch import Tensor
 
-from .. import settings
 from ..distributions import MultivariateNormal, base_distributions
 from ..likelihoods import Likelihood
 from ..lazy import ZeroLazyTensor
+from ..utils.deprecation import _deprecate_kwarg_with_transform
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 
 
@@ -38,7 +38,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
         observation_noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
-        return base_distributions.Normal(function_samples, observation_noise)
+        return base_distributions.Normal(function_samples, observation_noise.sqrt())
 
     def marginal(self, function_dist: MultivariateNormal, *params: Any, **kwargs: Any) -> MultivariateNormal:
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
@@ -48,11 +48,14 @@ class _GaussianLikelihoodBase(Likelihood):
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
-    def __init__(self, noise_prior=None, noise_constraint=None, batch_size=1, **kwargs):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size([]), **kwargs):
+        batch_shape = _deprecate_kwarg_with_transform(
+            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
+        )
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
-            batch_size=batch_size,
+            batch_shape=batch_shape,
         )
         super().__init__(noise_covar=noise_covar)
 
@@ -76,17 +79,8 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         mean, variance = input.mean, input.variance
         noise = self.noise_covar.noise
 
-        if mean.dim() > target.dim():
-            target = target.unsqueeze(-1)
-
-        if variance.ndimension() == 1:
-            if settings.debug.on() and noise.size(0) > 1:
-                raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
-            noise = noise.squeeze(0)
-
-        res = -0.5 * ((target - mean) ** 2 + variance) / noise
-        res += -0.5 * noise.log() - 0.5 * math.log(2 * math.pi)
-        return res.sum(-1)
+        res = ((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)
+        return res.mul(-0.5).sum(-1)
 
 
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
@@ -118,18 +112,21 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         self,
         noise: Tensor,
         learn_additional_noise: Optional[bool] = False,
+        batch_shape: Optional[torch.Size] = torch.Size([]),
         **kwargs: Any
     ) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
 
+        batch_shape = _deprecate_kwarg_with_transform(
+            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
+        )
         if learn_additional_noise:
             noise_prior = kwargs.get("noise_prior", None)
             noise_constraint = kwargs.get("noise_constraint", None)
-            batch_size = kwargs.get("batch_size", 1)
             self.second_noise_covar = HomoskedasticNoise(
                 noise_prior=noise_prior,
                 noise_constraint=noise_constraint,
-                batch_size=batch_size,
+                batch_shape=batch_shape,
             )
         else:
             self.second_noise_covar = None

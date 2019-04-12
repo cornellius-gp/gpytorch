@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
-from ..lazy import LazyTensor, NonLazyTensor
+from ..lazy import lazify
 
 
 class ProductStructureKernel(Kernel):
@@ -43,24 +43,18 @@ class ProductStructureKernel(Kernel):
         self.base_kernel = base_kernel
         self.num_dims = num_dims
 
-    def forward(self, x1, x2, batch_dims=None, **params):
-        if batch_dims == (0, 2):
-            raise RuntimeError("ProductStructureKernel does not accept the batch_dims argument.")
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
+        if last_dim_is_batch:
+            raise RuntimeError("ProductStructureKernel does not accept the last_dim_is_batch argument.")
 
-        res = self.base_kernel(x1, x2, batch_dims=(0, 2), **params)
-
-        evaluate = False
-        if not isinstance(res, LazyTensor):
-            evaluate = True
-            res = NonLazyTensor(res)
-
-        res = res.prod(0)
-
-        if evaluate:
-            res = res.evaluate()
+        res = self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params)
+        res = res.prod(-2 if diag else -3)
         return res
 
-    def __call__(self, x1_, x2_=None, diag=False, batch_dims=None, **params):
+    def num_outputs_per_input(self, x1, x2):
+        return self.base_kernel.num_outputs_per_input(x1, x2)
+
+    def __call__(self, x1_, x2_=None, diag=False, last_dim_is_batch=False, **params):
         """
         We cannot lazily evaluate actual kernel calls when using SKIP, because we
         cannot root decompose rectangular matrices.
@@ -72,11 +66,7 @@ class ProductStructureKernel(Kernel):
         *requires* that we work with the full (train + test) x (train + test)
         kernel matrix.
         """
-        return (
-            super(ProductStructureKernel, self)
-            .__call__(x1_, x2_, diag=diag, batch_dims=batch_dims, **params)
-            .evaluate_kernel()
-        )
+        res = super().__call__(x1_, x2_, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
+        res = lazify(res).evaluate_kernel()
 
-    def size(self, x1, x2):
-        return self.base_kernel.size(x1, x2)
+        return res

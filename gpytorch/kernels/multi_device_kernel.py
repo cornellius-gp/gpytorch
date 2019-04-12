@@ -36,6 +36,10 @@ class MultiDeviceKernel(DataParallel, Kernel):
         self.__cached_x1 = torch.empty(1)
         self.__cached_x2 = torch.empty(1)
 
+    @property
+    def base_kernel(self):
+        return self.module
+
     def forward(self, x1, x2, diag=False, **kwargs):
         if diag:
             return self.module.forward(x1, x2, diag=True, **kwargs).to(self.output_device)
@@ -78,5 +82,5 @@ class MultiDeviceKernel(DataParallel, Kernel):
     def gather(self, outputs, output_device):
         return CatLazyTensor(*[lazify(o) for o in outputs], dim=self.dim, output_device=self.output_device)
 
-    def size(self, x1, x2):
-        return self.module.size(x1, x2)
+    def num_outputs_per_input(self, x1, x2):
+        return self.base_kernel.num_outputs_per_input(x1, x2)
