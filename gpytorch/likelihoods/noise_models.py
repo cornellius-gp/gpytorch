@@ -18,7 +18,7 @@ class Noise(Module):
 
 
 class _HomoskedasticNoiseBase(Noise):
-    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size([]), num_tasks=1):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), num_tasks=1):
         super().__init__()
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
@@ -75,7 +75,7 @@ class _HomoskedasticNoiseBase(Noise):
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size([])):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size()):
         super().__init__(
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
@@ -85,7 +85,7 @@ class HomoskedasticNoise(_HomoskedasticNoiseBase):
 
 
 class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(self, num_tasks, noise_prior=None, noise_constraint=None, batch_shape=torch.Size([])):
+    def __init__(self, num_tasks, noise_prior=None, noise_constraint=None, batch_shape=torch.Size()):
         super().__init__(
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,

@@ -10,7 +10,7 @@ class TestConstantMeanGrad(BaseMeanTestCase, unittest.TestCase):
     batch_shape = None
 
     def create_mean(self):
-        return ConstantMeanGrad(batch_shape=self.__class__.batch_shape or torch.Size([]))
+        return ConstantMeanGrad(batch_shape=self.__class__.batch_shape or torch.Size())
 
     def test_forward_vec(self):
         test_x = torch.randn(4)

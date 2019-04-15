@@ -68,5 +68,4 @@ class ProductStructureKernel(Kernel):
         """
         res = super().__call__(x1_, x2_, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
         res = lazify(res).evaluate_kernel()
-
         return res

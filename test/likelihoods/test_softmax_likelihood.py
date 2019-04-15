@@ -31,7 +31,7 @@ class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
         input = self._create_conditional_input(batch_shape)
         output = likelihood(input)
 
-        self.assertTrue(isinstance(output, Distribution))
+        self.assertIsInstance(output, Distribution)
         self.assertEqual(output.sample().shape, torch.Size([*batch_shape, 5]))
 
     def _test_log_prob(self, batch_shape):

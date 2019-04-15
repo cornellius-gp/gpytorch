@@ -191,7 +191,7 @@ class ExactGP(GP):
             if settings.debug.on():
                 if not all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
                     raise RuntimeError("You must train on the training inputs!")
-            res = super(ExactGP, self).__call__(*inputs, **kwargs)
+            res = super().__call__(*inputs, **kwargs)
             return res
 
         # Prior mode
@@ -213,7 +213,7 @@ class ExactGP(GP):
 
             # Get the terms that only depend on training data
             if self.prediction_strategy is None:
-                train_output = super(ExactGP, self).__call__(*train_inputs, **kwargs)
+                train_output = super().__call__(*train_inputs, **kwargs)
 
                 # Create the prediction strategy for
                 self.prediction_strategy = prediction_strategy(

@@ -48,7 +48,7 @@ class _GaussianLikelihoodBase(Likelihood):
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
-    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size([]), **kwargs):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), **kwargs):
         batch_shape = _deprecate_kwarg_with_transform(
             kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
         )
@@ -112,7 +112,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         self,
         noise: Tensor,
         learn_additional_noise: Optional[bool] = False,
-        batch_shape: Optional[torch.Size] = torch.Size([]),
+        batch_shape: Optional[torch.Size] = torch.Size(),
         **kwargs: Any
     ) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))

@@ -7,7 +7,7 @@ from ..utils.deprecation import _deprecate_kwarg_with_transform
 
 
 class ConstantMeanGrad(Mean):
-    def __init__(self, prior=None, batch_shape=torch.Size([]), **kwargs):
+    def __init__(self, prior=None, batch_shape=torch.Size(), **kwargs):
         batch_shape = _deprecate_kwarg_with_transform(
             kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
         )
