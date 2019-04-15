@@ -110,10 +110,7 @@ class DefaultPredictionStrategy(object):
         fant_mean = full_mean[..., num_train:]
         mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
         self.likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
-        if "noise" in kwargs:
-            mvn_obs = self.likelihood(mvn, inputs, noise=kwargs.get("noise"))
-        else:
-            mvn_obs = self.likelihood(mvn, inputs)
+        mvn_obs = self.likelihood(mvn, inputs, **kwargs)
 
         fant_fant_covar = mvn_obs.covariance_matrix
         fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
