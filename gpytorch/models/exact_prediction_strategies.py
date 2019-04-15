@@ -41,7 +41,7 @@ class DefaultPredictionStrategy(object):
         self.lik_train_train_covar = mvn.lazy_covariance_matrix
 
     def __deepcopy__(self, memo):
-        # deepcopying prediciton strategies of a model evaluated on inputs that require gradients fails
+        # deepcopying prediction strategies of a model evaluated on inputs that require gradients fails
         # with RuntimeError (Only Tensors created explicitly by the user (graph leaves) support the deepcopy
         # protocol at the moment). Overwriting this method make sure that the prediction strategies of a
         # model are set to None upon deepcopying.
@@ -80,7 +80,7 @@ class DefaultPredictionStrategy(object):
         # where S S^T = (K_XX + sigma^2 I)^-1
         return test_train_covar.matmul(precomputed_cache)
 
-    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
         """
         Returns a new PredictionStrategy that incorporates the specified inputs and targets as new training data.
 
@@ -108,9 +108,11 @@ class DefaultPredictionStrategy(object):
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
         fant_mean = full_mean[..., num_train:]
-        mvn = self.likelihood(self.train_prior_dist.__class__(fant_mean, fant_fant_covar), inputs)
-        fant_fant_covar = mvn.covariance_matrix
+        mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
+        self.likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
+        mvn_obs = self.likelihood(mvn, inputs, **kwargs)
 
+        fant_fant_covar = mvn_obs.covariance_matrix
         fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
 
         self.fantasy_inputs = inputs
@@ -134,10 +136,11 @@ class DefaultPredictionStrategy(object):
         # Solve for "b", the lower portion of the *new* \\alpha corresponding to the fantasy points.
         schur_complement = fant_fant_covar - fant_train_covar.matmul(fant_solve)
         small_system_rhs = targets - fant_mean - fant_train_covar.matmul(self.mean_cache)
+        small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
         if small_system_rhs.requires_grad or schur_complement.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
-            fant_cache_lower = torch.gesv(small_system_rhs.unsqueeze(-1), schur_complement)[0]
+            fant_cache_lower = torch.gesv(small_system_rhs, schur_complement)[0]
         else:
             fant_cache_lower = cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
 
@@ -355,7 +358,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache)
         return res
 
-    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output):
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
         raise NotImplementedError(
             "Fantasy observation updates not yet supported for models using InterpolatedLazyTensors"
         )

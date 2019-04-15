@@ -117,9 +117,9 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         return task_covar
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
-        observation_noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
-        observation_noise = observation_noise.view(*observation_noise.shape[:-1], *function_samples.shape[-2:])
-        return base_distributions.Normal(function_samples, observation_noise.sqrt())
+        noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        noise = noise.view(*noise.shape[:-1], *function_samples.shape[-2:])
+        return base_distributions.Normal(function_samples, noise.sqrt())
 
 
 class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):

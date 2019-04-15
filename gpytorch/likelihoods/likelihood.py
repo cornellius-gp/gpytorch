@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
+
 import functools
 import torch
 import warnings
@@ -108,6 +110,9 @@ class _Likelihood(Module, _ClassWithDeprecatedBatchSize):
             DeprecationWarning
         )
         return self.expected_log_prob(observations, function_dist)
+
+    def get_fantasy_likelihood(self, **kwargs):
+        return deepcopy(self)
 
     def __call__(self, input, *params, **kwargs):
         # Conditional
