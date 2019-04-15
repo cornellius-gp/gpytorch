@@ -35,7 +35,7 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_sq_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess):
-        if hasattr(torch, 'cdist'):  # TODO: Remove lower branch when PyTorch 1.1.0 releases.
+        if hasattr(torch, 'cdist') and x1.size(-2) <= 512 and x2.size(-2) <= 512:
             res = torch.cdist(x1, x2).pow(2)
         else:
             # Compute squared distance matrix using quadratic expansion
@@ -61,7 +61,7 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_sq_dist_x1_eq_x2_nobatch(self, x1, postprocess):
-        if hasattr(torch, 'cdist'):  # TODO: Remove lower branch when PyTorch 1.1.0 releases.
+        if hasattr(torch, 'cdist') and x1.size(-2) <= 512:  # TODO: Remove lower branch when PyTorch 1.1.0 releases.
             res = torch.cdist(x1, x1).pow(2)
         else:
             # Compute squared distance matrix using quadratic expansion
@@ -83,7 +83,7 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess, false_tensor):
-        if hasattr(torch, 'cdist'):
+        if hasattr(torch, 'cdist') and x1.size(-2) <= 512 and x2.size(-2) <= 512:
             res = torch.cdist(x1, x2)
         else:
             res = self._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess=false_tensor)
@@ -100,7 +100,7 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_dist_x1_eq_x2_nobatch(self, x1, postprocess, false_tensor):
-        if hasattr(torch, 'cdist'):
+        if hasattr(torch, 'cdist') and x1.size(-2) <= 512:
             res = torch.cdist(x1, x1)
         else:
             res = self._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess=false_tensor)
