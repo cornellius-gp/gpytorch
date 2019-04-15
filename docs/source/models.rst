@@ -21,20 +21,8 @@ Models for Exact GP Inference
 Models for Variational GP Inference
 -----------------------------------
 
-:hidden:`VariationalGP`
-~~~~~~~~~~~~~~~~~~~~~~~
+:hidden:`AbstractVariationalGP`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: VariationalGP
-   :members:
-
-:hidden:`GridInducingVariationalGP`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: GridInducingVariationalGP
-   :members:
-
-:hidden:`AdditiveGridInducingVariationalGP`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: AdditiveGridInducingVariationalGP
+.. autoclass:: AbstractVariationalGP
    :members:
