@@ -17,17 +17,17 @@ class SoftmaxLikelihood(Likelihood):
         num_classes = _deprecate_kwarg_with_transform(
             kwargs, "n_classes", "num_classes", num_classes, lambda n: n
         )
-        super(SoftmaxLikelihood, self).__init__()
+        super().__init__()
         if num_classes is None:
             raise ValueError("num_classes is required")
         self.num_classes = num_classes
         if mixing_weights:
             self.num_features = num_features
             if num_features is None:
-                raise ValueError("num_features is required with mixing wiehgts")
+                raise ValueError("num_features is required with mixing weights")
             self.register_parameter(
                 name="mixing_weights",
-                parameter=torch.nn.Parameter(torch.ones(num_classes, num_features).fill_(1.0 / num_features)),
+                parameter=torch.nn.Parameter(torch.randn(num_classes, num_features).div_(num_features)),
             )
             if mixing_weights_prior is not None:
                 self.register_prior("mixing_weights_prior", mixing_weights_prior, "mixing_weights")

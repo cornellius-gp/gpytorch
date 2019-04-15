@@ -62,6 +62,11 @@ class TestInterval(unittest.TestCase, BaseTestCase):
 
         self.assertAllClose(v, value)
 
+    def test_initial_value(self):
+        constraint = gpytorch.constraints.Interval(1., 5., transform=None, initial_value=3.)
+        lkhd = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=constraint)
+        self.assertEqual(lkhd.noise.item(), 3.)
+
 
 class TestGreaterThan(unittest.TestCase, BaseTestCase):
     def test_transform_float_greater_than(self):
@@ -207,7 +212,7 @@ class TestConstraintNaming(unittest.TestCase, BaseTestCase):
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
         model = ExactGPModel(None, None, likelihood)
 
-        for name, param, constraint in model.named_parameters_and_constraints():
+        for name, _param, constraint in model.named_parameters_and_constraints():
             if name == "likelihood.noise_covar.raw_noise":
                 self.assertIsInstance(constraint, gpytorch.constraints.GreaterThan)
             elif name == "mean_module.constant":

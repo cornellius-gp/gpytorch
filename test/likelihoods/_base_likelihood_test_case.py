@@ -14,14 +14,14 @@ class BaseLikelihoodTestCase(BaseTestCase):
     def create_likelihood(self, **kwargs):
         raise NotImplementedError()
 
-    def _create_conditional_input(self, batch_shape=torch.Size([])):
+    def _create_conditional_input(self, batch_shape=torch.Size()):
         return torch.randn(*batch_shape, 5)
 
-    def _create_marginal_input(self, batch_shape=torch.Size([])):
+    def _create_marginal_input(self, batch_shape=torch.Size()):
         mat = torch.randn(*batch_shape, 5, 5)
         return MultivariateNormal(torch.randn(*batch_shape, 5), mat @ mat.transpose(-1, -2))
 
-    def _create_targets(self, batch_shape=torch.Size([])):
+    def _create_targets(self, batch_shape=torch.Size()):
         return torch.randn(*batch_shape, 5)
 
     def _test_conditional(self, batch_shape):

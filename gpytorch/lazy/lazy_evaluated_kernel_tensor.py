@@ -62,8 +62,12 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             col_start, col_end, col_step = col_index.start, col_index.stop, col_index.step
             if row_step is not None or col_step is not None:
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
-            if (row_start % num_outs_per_in) or (col_start % num_outs_per_in) or \
-                    (row_end % num_outs_per_in) or (col_end % num_outs_per_in):
+            if (
+                (row_start % num_outs_per_in)
+                or (col_start % num_outs_per_in)
+                or (row_end % num_outs_per_in)
+                or (col_end % num_outs_per_in)
+            ):
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
 
             # Otherwise - let's divide the slices by the number of outputs per input
@@ -88,7 +92,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             if isinstance(batch_indices, slice):
                 x1 = x1.expand(1, *self.x1.shape[-2:])[(*batch_indices, row_index, dim_index)]
             elif isinstance(batch_indices, tuple):
-                if any([not isinstance(bi, slice) for bi in batch_indices]):
+                if any(not isinstance(bi, slice) for bi in batch_indices):
                     raise RuntimeError(
                         f"Attempting to tensor index a non-batch matrix's batch dimensions. "
                         "Got batch index {batch_indices} but my shape was {self.shape}"
@@ -193,20 +197,20 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             expected_size = broadcasting._matmul_broadcast_shape(
                 torch.Size([*x1.shape[:-2], num_rows, x1.size(-1)]),
                 torch.Size([*x2.shape[:-2], x2.size(-1), num_cols]),
-                error_msg="x1 and x2 were not broadcastable to a proper kernel shape."
+                error_msg="x1 and x2 were not broadcastable to a proper kernel shape. "
                 "Got x1.shape = {} and x2.shape = {}".format(str(x1.shape), str(x2.shape))
             )
             expected_size = broadcasting._mul_broadcast_shape(
                 expected_size[:-2], self.kernel.batch_shape,
                 error_msg=(
-                    f"x1 and x2 were not broadcastable with kernel of batch_shape {self.kernel.batch_shape}."
+                    f"x1 and x2 were not broadcastable with kernel of batch_shape {self.kernel.batch_shape}. "
                     f"Got x1.shape = {x1.shape} and x2.shape = {x2.shape}"
                 )
             ) + expected_size[-2:]
 
         # Handle when the last dim is batch
         if self.last_dim_is_batch:
-            expected_size = expected_size[:-2] + torch.Size([x1.size(-1)]) + expected_size[-2:]
+            expected_size = expected_size[:-2] + x1.shape[-1:] + expected_size[-2:]
         return expected_size
 
     def _transpose_nonbatch(self):

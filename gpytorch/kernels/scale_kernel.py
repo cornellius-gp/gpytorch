@@ -79,16 +79,16 @@ class ScaleKernel(Kernel):
         self.initialize(raw_outputscale=self.raw_outputscale_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, last_dim_is_batch=False, diag=False, **params):
+        orig_output = self.base_kernel.forward(x1, x2, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
         outputscales = self.outputscale
         if last_dim_is_batch:
-            outputscales = outputscales.unsqueeze(-1).repeat(*([1] * outputscales.dim()), x1.size(-1))
-
-        orig_output = self.base_kernel.forward(x1, x2, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
-        outputscales = outputscales.view(*outputscales.shape, *([1] * (orig_output.dim() - outputscales.dim())))
-
+            outputscales = outputscales.unsqueeze(-1)
         if diag:
+            outputscales = outputscales.unsqueeze(-1)
             return delazify(orig_output) * outputscales
-        return orig_output.mul(outputscales)
+        else:
+            outputscales = outputscales.view(*outputscales.shape, 1, 1)
+            return orig_output.mul(outputscales)
 
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)

@@ -30,7 +30,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         noise_covar,
         rank=0,
         task_correlation_prior=None,
-        batch_shape=torch.Size([]),
+        batch_shape=torch.Size(),
         **kwargs,
     ):
         """
@@ -137,7 +137,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         num_tasks,
         rank=0,
         task_correlation_prior=None,
-        batch_shape=torch.Size([]),
+        batch_shape=torch.Size(),
         noise_prior=None,
         noise_constraint=None,
         **kwargs
@@ -216,7 +216,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         num_tasks,
         rank=0,
         task_prior=None,
-        batch_shape=torch.Size([]),
+        batch_shape=torch.Size(),
         noise_prior=None,
         noise_constraint=None,
         **kwargs

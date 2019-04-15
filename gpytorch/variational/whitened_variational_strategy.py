@@ -2,11 +2,11 @@
 
 import math
 import torch
-from .. import settings, beta_features
+from .. import settings
 from .variational_strategy import VariationalStrategy
 from ..utils.memoize import cached
 from ..lazy import RootLazyTensor, MatmulLazyTensor, CholLazyTensor, \
-    CachedCGLazyTensor, DiagLazyTensor, BatchRepeatLazyTensor
+    CachedCGLazyTensor, DiagLazyTensor, BatchRepeatLazyTensor, PsdSumLazyTensor
 from ..distributions import MultivariateNormal
 
 
@@ -160,8 +160,6 @@ class WhitenedVariationalStrategy(VariationalStrategy):
                 )
                 interp_data_data_var = interp_data_data_var_plus_mean_diff_inv_quad[..., :-1]
                 mean_diff_inv_quad = interp_data_data_var_plus_mean_diff_inv_quad[..., -1]
-            elif beta_features.diagonal_correction.on():
-                interp_data_data_var = induc_induc_covar.inv_quad(induc_data_covar, reduce_inv_quad=False)
 
             # Compute predictive mean
             predictive_mean = torch.add(
@@ -188,9 +186,14 @@ class WhitenedVariationalStrategy(VariationalStrategy):
                     induc_data_covar.transpose(-1, -2), predictive_covar @ induc_data_covar
                 )
 
-            if beta_features.diagonal_correction.on():
-                diag_correction = (data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf)
-                predictive_covar = DiagLazyTensor(predictive_covar.diag() + diag_correction)
+            if self.training:
+                data_covariance = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
+            else:
+                neg_induc_data_data_covar = induc_induc_covar.inv_matmul(
+                    induc_data_covar, left_tensor=induc_data_covar.transpose(-1, -2).mul(-1)
+                )
+                data_covariance = data_data_covar + neg_induc_data_data_covar
+            predictive_covar = PsdSumLazyTensor(predictive_covar, data_covariance)
 
             # Save the logdet, mean_diff_inv_quad, prior distribution for the ELBO
             if self.training:

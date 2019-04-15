@@ -181,7 +181,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
         if self.islazy:
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
             diag = self.lazy_covariance_matrix.diag()
-            diag = diag.view(*diag.shape[:-1], *self._event_shape)
+            diag = diag.view(diag.shape[:-1] + self._event_shape)
             return diag.expand(self._batch_shape + self._event_shape)
         else:
             return super().variance

@@ -100,7 +100,7 @@ class _Likelihood(Module, _ClassWithDeprecatedBatchSize):
         Returns
             Distribution object (the marginal distribution, or samples from it)
         """
-        sample_shape = torch.Size((settings.num_likelihood_samples.value(),))
+        sample_shape = torch.Size([settings.num_likelihood_samples.value()])
         function_samples = function_dist.rsample(sample_shape)
         return self.forward(function_samples)
 

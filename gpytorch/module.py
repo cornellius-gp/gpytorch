@@ -238,6 +238,10 @@ class Module(nn.Module):
         self.add_module(constraint_name, new_constraint)
         self._constraints[constraint_name] = new_constraint
 
+        # re-initialize the parameter if the constraint specifies an initial value
+        if new_constraint.initial_value is not None:
+            self.initialize(**{param_name: new_constraint.initial_value})
+
     def constraint_for_parameter_name(self, param_name):
         base_module = self
         base_name = param_name

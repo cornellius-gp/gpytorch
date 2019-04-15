@@ -9,13 +9,14 @@ from .. import settings
 
 
 class Interval(Module):
-    def __init__(self, lower_bound, upper_bound, transform=sigmoid, inv_transform=inv_sigmoid):
+    def __init__(self, lower_bound, upper_bound, transform=sigmoid, inv_transform=inv_sigmoid, initial_value=None):
         """
         Defines an interval constraint for GP model parameters, specified by a lower bound and upper bound. For usage
         details, see the documentation for :meth:`~gpytorch.module.Module.register_constraint`.
 
         Args:
-            lower_bound (float or torch.Tensor):
+            lower_bound (float or torch.Tensor): The lower bound on the parameter.
+            upper_bound (float or torch.Tensor): The upper bound on the parameter.
         """
         lower_bound = torch.as_tensor(lower_bound)
         upper_bound = torch.as_tensor(upper_bound)
@@ -30,6 +31,7 @@ class Interval(Module):
 
         self._transform = transform
         self._inv_transform = inv_transform
+        self._initial_value = initial_value
 
         if transform is not None and inv_transform is None:
             self._inv_transform = _get_inv_param_transform(transform)
@@ -117,6 +119,13 @@ class Interval(Module):
 
         return tensor
 
+    @property
+    def initial_value(self):
+        """
+        The initial parameter value (if specified, None otherwise)
+        """
+        return self._initial_value
+
     def __repr__(self):
         if self.lower_bound.numel() == 1 and self.upper_bound.numel() == 1:
             return self._get_name() + f"({self.lower_bound:.3E}, {self.upper_bound:.3E})"
@@ -129,9 +138,13 @@ class Interval(Module):
 
 
 class GreaterThan(Interval):
-    def __init__(self, lower_bound, transform=softplus, inv_transform=inv_softplus):
+    def __init__(self, lower_bound, transform=softplus, inv_transform=inv_softplus, initial_value=None):
         super().__init__(
-            lower_bound=lower_bound, upper_bound=math.inf, transform=transform, inv_transform=inv_transform
+            lower_bound=lower_bound,
+            upper_bound=math.inf,
+            transform=transform,
+            inv_transform=inv_transform,
+            initial_value=initial_value,
         )
 
     def __repr__(self):
@@ -150,8 +163,8 @@ class GreaterThan(Interval):
 
 
 class Positive(GreaterThan):
-    def __init__(self, transform=softplus, inv_transform=inv_softplus):
-        super().__init__(lower_bound=0.0, transform=transform, inv_transform=inv_transform)
+    def __init__(self, transform=softplus, inv_transform=inv_softplus, initial_value=None):
+        super().__init__(lower_bound=0.0, transform=transform, inv_transform=inv_transform, initial_value=initial_value)
 
     def __repr__(self):
         return self._get_name() + "()"

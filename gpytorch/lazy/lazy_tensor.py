@@ -1108,6 +1108,7 @@ class LazyTensor(ABC):
             another matrix, this will likely be a :obj:`gpytorch.lazy.MulLazyTensor`.
         """
         from .zero_lazy_tensor import ZeroLazyTensor
+        from .non_lazy_tensor import lazify
 
         if isinstance(other, ZeroLazyTensor):
             return other
@@ -1128,7 +1129,7 @@ class LazyTensor(ABC):
             elif other.shape[-2:] == torch.Size((1, 1)):
                 return self._mul_constant(other.view(*other.shape[:-2]))
 
-        return self._mul_matrix(other)
+        return self._mul_matrix(lazify(other))
 
     def ndimension(self):
         """
@@ -1709,10 +1710,12 @@ class LazyTensor(ABC):
         return self.matmul(other)
 
     def __mul__(self, other):
-        """
-        Convenience alias of :meth:`~gpytorch.lazy.LazyTensor.mul` that allows the standard product operator to be
-        used.
-        """
+        return self.mul(other)
+
+    def __radd__(self, other):
+        return self.mul(other)
+
+    def __rmul__(self, other):
         return self.mul(other)
 
 

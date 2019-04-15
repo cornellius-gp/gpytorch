@@ -2,7 +2,7 @@
 
 import math
 import torch
-from .. import beta_features, settings
+from .. import settings
 from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
@@ -171,12 +171,17 @@ class VariationalStrategy(Module):
             inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))
             predictive_mean = torch.add(test_mean, inv_products[..., 0, :])
             predictive_covar = RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2))
-            if beta_features.diagonal_correction.on():
+            if self.training:
                 interp_data_data_var, _ = induc_induc_covar.inv_quad_logdet(
                     induc_data_covar, logdet=False, reduce_inv_quad=False
                 )
-                diag_correction = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
-                predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
+                data_covariance = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
+            else:
+                neg_induc_data_data_covar = induc_induc_covar.inv_matmul(
+                    induc_data_covar, left_tensor=induc_data_covar.transpose(-1, -2).mul(-1)
+                )
+                data_covariance = data_data_covar + neg_induc_data_data_covar
+            predictive_covar = PsdSumLazyTensor(predictive_covar, data_covariance)
 
             return MultivariateNormal(predictive_mean, predictive_covar)
 

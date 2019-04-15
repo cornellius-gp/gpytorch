@@ -48,7 +48,7 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
         if x.ndimension() == 1:
             x = x.unsqueeze(-1)
         elif x.ndimension() != 2:
-            raise RuntimeError("AdditiveGridInducingVariationalGP expects a 2d tensor.")
+            raise RuntimeError("AdditiveGridInterpolationVariationalStrategy expects a 2d tensor.")
 
         num_data, num_dim = x.size()
         if num_dim != self.num_dim:
