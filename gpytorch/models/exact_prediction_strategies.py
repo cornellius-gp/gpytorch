@@ -108,6 +108,7 @@ class DefaultPredictionStrategy(object):
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
         fant_mean = full_mean[..., num_train:]
+
         mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
         self.likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
         if "noise" in kwargs:
