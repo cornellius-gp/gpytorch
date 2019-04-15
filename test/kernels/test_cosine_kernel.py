@@ -33,11 +33,11 @@ class TestCosineKernel(unittest.TestCase):
             for j in range(3):
                 for l in range(2):
                     actual[l, i, j] = torch.cos(math.pi * ((a[i, l] - b[j, l]) / period))
-        res = kernel(a, b, batch_dims=(0, 2)).evaluate()
+        res = kernel(a, b, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
-        res = kernel(a, b, batch_dims=(0, 2)).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diag()
         actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -61,7 +61,7 @@ class TestCosineKernel(unittest.TestCase):
         a = torch.tensor([[[4, 1], [2, 2], [8, 0]], [[2, 5], [6, 1], [0, 1]]], dtype=torch.float)
         b = torch.tensor([[[0, 0], [2, 1], [1, 0]], [[1, 1], [2, 3], [1, 0]]], dtype=torch.float)
         period = torch.tensor([1, 2], dtype=torch.float).view(2, 1, 1)
-        kernel = CosineKernel(batch_size=2).initialize(period_length=period)
+        kernel = CosineKernel(batch_shape=torch.Size([2])).initialize(period_length=period)
         kernel.eval()
 
         actual = torch.zeros(2, 3, 3)
@@ -84,12 +84,12 @@ class TestCosineKernel(unittest.TestCase):
             for i in range(3):
                 for j in range(3):
                     for l in range(2):
-                        actual[l, k, i, j] = torch.cos(math.pi * ((a[k, i, l] - b[k, j, l]) / period[k]))
-        res = kernel(a, b, batch_dims=(0, 2)).evaluate()
+                        actual[k, l, i, j] = torch.cos(math.pi * ((a[k, i, l] - b[k, j, l]) / period[k]))
+        res = kernel(a, b, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
-        res = kernel(a, b, batch_dims=(0, 2)).diag()
+        res = kernel(a, b, last_dim_is_batch=True).diag()
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
 

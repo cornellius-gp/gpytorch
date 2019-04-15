@@ -180,10 +180,9 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     def variance(self):
         if self.islazy:
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
-            if len(self._batch_shape) == 2:
-                return self.lazy_covariance_matrix.diag().unsqueeze(-1).expand(self._batch_shape + self._event_shape)
-            else:
-                return self.lazy_covariance_matrix.diag().expand(self._batch_shape + self._event_shape)
+            diag = self.lazy_covariance_matrix.diag()
+            diag = diag.view(diag.shape[:-1] + self._event_shape)
+            return diag.expand(self._batch_shape + self._event_shape)
         else:
             return super().variance
 

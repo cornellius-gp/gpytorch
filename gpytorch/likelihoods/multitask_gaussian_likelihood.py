@@ -2,9 +2,11 @@
 
 import torch
 import warnings
+from typing import Any
+from torch import Tensor
 
-from .. import settings
 from ..constraints import GreaterThan
+from ..distributions import base_distributions
 from ..functions import add_diag
 from ..lazy import (
     lazify,
@@ -15,6 +17,7 @@ from ..lazy import (
     RootLazyTensor,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
+from ..utils.deprecation import _deprecate_kwarg_with_transform
 from .noise_models import MultitaskHomoskedasticNoise
 
 
@@ -27,7 +30,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         noise_covar,
         rank=0,
         task_correlation_prior=None,
-        batch_size=1,
+        batch_shape=torch.Size(),
         **kwargs,
     ):
         """
@@ -42,21 +45,24 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
                 matrix is fit.
             task_correlation_prior (:obj:`gpytorch.priors.Prior`):
                 Prior to use over the task noise correlation matrix. Only used when `rank` > 0.
-            batch_size (int):
+            batch_shape (torch.Size):
                 Number of batches.
         """
         param_transform = kwargs.get("param_transform")
         if param_transform is not None:
             warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
                           "transformaton, specify a different 'lengthscale_constraint' instead.")
+        batch_shape = _deprecate_kwarg_with_transform(
+            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
+        )
 
         super().__init__(noise_covar=noise_covar)
         if rank != 0:
             self.register_parameter(
-                name="task_noise_corr_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
+                name="task_noise_corr_factor", parameter=torch.nn.Parameter(torch.randn(*batch_shape, num_tasks, rank))
             )
             self.register_parameter(
-                name="task_noise_corr_diag", parameter=torch.nn.Parameter(torch.ones(batch_size, num_tasks))
+                name="task_noise_corr_diag", parameter=torch.nn.Parameter(torch.ones(*batch_shape, num_tasks))
             )
             if task_correlation_prior is not None:
                 self.register_prior(
@@ -82,9 +88,6 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         else:
             *batch_shape, n = base_shape
 
-        if len(batch_shape) > 1:
-            raise NotImplementedError("Batch shapes with dim > 1 not yet supported for MulitTask Likelihoods")
-
         # compute the noise covariance
         if len(params) > 0:
             shape = None
@@ -96,10 +99,8 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             # if rank > 0, compute the task correlation matrix
             # TODO: This is inefficient, change repeat so it can repeat LazyTensors w/ multiple batch dimensions
             task_corr = self._eval_corr_matrix()
-            exp_shape = batch_shape + torch.Size([n]) + task_corr.shape[-2:]
-            if len(batch_shape) == 1:
-                task_corr = task_corr.unsqueeze(-3)
-            task_corr_exp = lazify(task_corr.expand(exp_shape))
+            exp_shape = torch.Size([*batch_shape, n]) + task_corr.shape[-2:]
+            task_corr_exp = lazify(task_corr.unsqueeze(-3).expand(exp_shape))
             noise_sem = noise_covar.sqrt()
             task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(noise_sem, task_corr_exp), noise_sem)
         else:
@@ -115,6 +116,11 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
         return task_covar
 
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
+        observation_noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        observation_noise = observation_noise.view(*observation_noise.shape[:-1], *function_samples.shape[-2:])
+        return base_distributions.Normal(function_samples, observation_noise.sqrt())
+
 
 class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     """
@@ -124,9 +130,6 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     allows for a different `log_noise` parameter for each task.). This likelihood assumes homoskedastic noise.
 
     Like the Gaussian likelihood, this object can be used with exact inference.
-
-    Note: This currently does not yet support batched training and evaluation. If you need support for this,
-    use MultitaskGaussianLikelihoodKronecker for the time being.
     """
 
     def __init__(
@@ -134,7 +137,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         num_tasks,
         rank=0,
         task_correlation_prior=None,
-        batch_size=1,
+        batch_shape=torch.Size(),
         noise_prior=None,
         noise_constraint=None,
         **kwargs
@@ -154,11 +157,14 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
 
+        batch_shape = _deprecate_kwarg_with_transform(
+            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
+        )
         noise_covar = MultitaskHomoskedasticNoise(
             num_tasks=num_tasks,
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
-            batch_size=batch_size,
+            batch_shape=batch_shape,
         )
         super().__init__(
             num_tasks=num_tasks,
@@ -166,11 +172,11 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             noise_constraint=noise_constraint,
             rank=rank,
             task_correlation_prior=task_correlation_prior,
-            batch_size=batch_size,
+            batch_shape=batch_shape,
             **kwargs,
         )
 
-        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
+        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
         self.register_constraint("raw_noise", noise_constraint)
 
     @property
@@ -189,10 +195,6 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
     def _shaped_noise_covar(self, base_shape, *params):
         noise_covar = super()._shaped_noise_covar(base_shape, *params)
         noise = self.noise
-        if noise_covar.ndimension() == 2:
-            if settings.debug.on() and noise.size(0) > 1:
-                raise RuntimeError("With batch_size > 1, expected a batched MultitaskMultivariateNormal distribution.")
-            noise = noise.squeeze(0)
         return noise_covar.add_diag(noise)
 
 
@@ -214,7 +216,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         num_tasks,
         rank=0,
         task_prior=None,
-        batch_size=1,
+        batch_shape=torch.Size(),
         noise_prior=None,
         noise_constraint=None,
         **kwargs
@@ -230,19 +232,22 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
         """
+        batch_shape = _deprecate_kwarg_with_transform(
+            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
+        )
         super(Likelihood, self).__init__()
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
-        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1)))
+        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
         if rank == 0:
             self.register_parameter(
-                name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(batch_size, num_tasks))
+                name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, num_tasks))
             )
             if task_prior is not None:
                 raise RuntimeError("Cannot set a `task_prior` if rank=0")
         else:
             self.register_parameter(
-                name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn(batch_size, num_tasks, rank))
+                name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn(*batch_shape, num_tasks, rank))
             )
             if task_prior is not None:
                 self.register_prior("MultitaskErrorCovariancePrior", task_prior, self._eval_covar_matrix)
@@ -295,43 +300,21 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
 
         if self.rank == 0:
             task_noises = self.raw_noise_constraint.transform(self.raw_task_noises)
-            if covar.ndimension() == 2:
-                if settings.debug.on() and task_noises.size(0) > 1:
-                    raise RuntimeError(
-                        "With batch_size > 1, expected a batched MultitaskMultivariateNormal distribution."
-                    )
-                task_noises = task_noises.squeeze(0)
             task_var_lt = DiagLazyTensor(task_noises)
             dtype, device = task_noises.dtype, task_noises.device
         else:
             task_noise_covar_factor = self.task_noise_covar_factor
-            if covar.ndimension() == 2:
-                if settings.debug.on() and task_noise_covar_factor.size(0) > 1:
-                    raise RuntimeError(
-                        "With batch_size > 1, expected a batched MultitaskMultivariateNormal distribution."
-                    )
-                task_noise_covar_factor = task_noise_covar_factor.squeeze(0)
             task_var_lt = RootLazyTensor(task_noise_covar_factor)
             dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
 
-        if covar.ndimension() == 2:
-            eye_lt = DiagLazyTensor(torch.ones(covar.size(-1) // self.num_tasks, dtype=dtype, device=device))
-        else:
-            eye_lt = DiagLazyTensor(
-                torch.ones(covar.size(0), covar.size(-1) // self.num_tasks, dtype=dtype, device=device)
-            )
-            # Make sure the batch sizes are going to match
-            if task_var_lt.size(0) == 1:
-                task_var_lt = task_var_lt.repeat(eye_lt.size(0), 1, 1)
+        eye_lt = DiagLazyTensor(
+            torch.ones(*covar.batch_shape, covar.size(-1) // self.num_tasks, dtype=dtype, device=device)
+        )
+        task_var_lt = task_var_lt.expand(*covar.batch_shape, *task_var_lt.matrix_shape)
 
         covar_kron_lt = KroneckerProductLazyTensor(eye_lt, task_var_lt)
         covar = covar + covar_kron_lt
 
         noise = self.noise
-        if covar.ndimension() == 2:
-            if settings.debug.on() and noise.size(0) > 1:
-                raise RuntimeError("With batch_size > 1, expected a batched MultitaskMultivariateNormal distribution.")
-            noise = noise.squeeze(0)
-
         covar = add_diag(covar, noise)
         return function_dist.__class__(mean, covar)

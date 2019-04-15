@@ -54,11 +54,11 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         actual[1].mul_(weights[1])
         actual = actual.sum(0)
         actual = actual.permute(2, 0, 1)
-        res = kernel(a, a, batch_dims=(0, 2)).evaluate()
+        res = kernel(a, a, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
 
         # batch_dims + diag
-        res = kernel(a, a, batch_dims=(0, 2)).diag()
+        res = kernel(a, a, last_dim_is_batch=True).diag()
         actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
         self.assertLess(torch.norm(res - actual), 1e-5)
 
@@ -68,7 +68,7 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         means = torch.tensor([[1, 2], [2, 3]], dtype=torch.float).view(2, 2, 1, 1)
         scales = torch.tensor([[0.5, 0.25], [0.25, 1]], dtype=torch.float).view(2, 2, 1, 1)
         weights = torch.tensor([[4, 2], [1, 2]], dtype=torch.float).view(2, 2)
-        kernel = SpectralMixtureKernel(batch_size=2, num_mixtures=2)
+        kernel = SpectralMixtureKernel(batch_shape=torch.Size([2]), num_mixtures=2)
         kernel.initialize(mixture_weights=weights, mixture_means=means, mixture_scales=scales)
         kernel.eval()
 

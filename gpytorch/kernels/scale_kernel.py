@@ -78,17 +78,17 @@ class ScaleKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_outputscale)
         self.initialize(raw_outputscale=self.raw_outputscale_constraint.inverse_transform(value))
 
-    def forward(self, x1, x2, batch_dims=None, diag=False, **params):
+    def forward(self, x1, x2, last_dim_is_batch=False, diag=False, **params):
+        orig_output = self.base_kernel.forward(x1, x2, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
         outputscales = self.outputscale
-        if batch_dims == (0, 2):
-            outputscales = outputscales.unsqueeze(0).repeat(x1.size(-1), *([1] * outputscales.dim()))
-
-        orig_output = self.base_kernel.forward(x1, x2, diag=diag, batch_dims=batch_dims, **params)
-        outputscales = outputscales.view(*outputscales.shape, *([1] * (orig_output.dim() - outputscales.dim())))
-
+        if last_dim_is_batch:
+            outputscales = outputscales.unsqueeze(-1)
         if diag:
+            outputscales = outputscales.unsqueeze(-1)
             return delazify(orig_output) * outputscales
-        return orig_output.mul(outputscales)
+        else:
+            outputscales = outputscales.view(*outputscales.shape, 1, 1)
+            return orig_output.mul(outputscales)
 
-    def size(self, x1, x2):
-        return self.base_kernel.size(x1, x2)
+    def num_outputs_per_input(self, x1, x2):
+        return self.base_kernel.num_outputs_per_input(x1, x2)

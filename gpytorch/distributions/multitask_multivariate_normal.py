@@ -60,6 +60,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         # TODO: To do the following efficiently, we don't want to evaluate the
         # covariance matrices. Instead, we want to use the lazies directly in the
         # BlockDiagLazyTensor. This will require implementing a new BatchLazyTensor:
+
         # https://github.com/cornellius-gp/gpytorch/issues/468
         covar_blocks_lazy = CatLazyTensor(
             *[mvn.lazy_covariance_matrix.unsqueeze(0) for mvn in mvns],

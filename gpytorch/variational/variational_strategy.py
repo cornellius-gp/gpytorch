@@ -6,8 +6,9 @@ from .. import beta_features, settings
 from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLazyTensor, RootLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
-from ..utils.memoize import cached
+from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
+from ..utils.memoize import cached
 
 
 class VariationalStrategy(Module):
@@ -82,14 +83,12 @@ class VariationalStrategy(Module):
         a different parameterization of the variational distribution, it may need to modify what the prior is
         with respect to that reparameterization.
         """
-        if not self.variational_params_initialized.item():
-            prior_dist = self.prior_distribution
-            eval_prior_dist = torch.distributions.MultivariateNormal(
-                loc=prior_dist.mean,
-                scale_tril=psd_safe_cholesky(prior_dist.covariance_matrix),
-            )
-            self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
-            self.variational_params_initialized.fill_(1)
+        prior_dist = self.prior_distribution
+        eval_prior_dist = torch.distributions.MultivariateNormal(
+            loc=prior_dist.mean,
+            scale_tril=psd_safe_cholesky(prior_dist.covariance_matrix),
+        )
+        self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
 
     def forward(self, x):
         """
@@ -105,9 +104,11 @@ class VariationalStrategy(Module):
         """
         variational_dist = self.variational_distribution.variational_distribution
         inducing_points = self.inducing_points
-        if inducing_points.dim() < x.dim():
-            inducing_points = inducing_points.expand(*x.shape[:-2], *inducing_points.shape[-2:])
-            variational_dist = variational_dist.expand(x.shape[:-2])
+        if inducing_points.shape[:-2] < x.shape[:-2]:
+            batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
+            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
+            x = x.expand(*batch_shape, *x.shape[-2:])
+            variational_dist = variational_dist.expand(batch_shape)
 
         # If our points equal the inducing points, we're done
         if torch.equal(x, inducing_points):
@@ -180,7 +181,9 @@ class VariationalStrategy(Module):
             return MultivariateNormal(predictive_mean, predictive_covar)
 
     def __call__(self, x):
-        self.initialize_variational_dist()
+        if not self.variational_params_initialized.item():
+            self.initialize_variational_dist()
+            self.variational_params_initialized.fill_(1)
         if self.training:
             if hasattr(self, "_memoize_cache"):
                 delattr(self, "_memoize_cache")
