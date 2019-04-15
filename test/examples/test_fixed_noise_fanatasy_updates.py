@@ -85,7 +85,7 @@ class TestFixedNoiseFantasies(BaseTestCase, unittest.TestCase):
             # Test the model
             gp_model.eval()
             likelihood.eval()
-            test_function_predictions = likelihood(gp_model(test_x), observation_noise=test_noise)
+            test_function_predictions = likelihood(gp_model(test_x), noise=test_noise)
             test_function_predictions.mean.sum().backward()
 
             real_fant_x_grad = train_x.grad[5:].clone()
@@ -96,12 +96,12 @@ class TestFixedNoiseFantasies(BaseTestCase, unittest.TestCase):
             # Cut data down, and then add back via the fantasy interface
             gp_model.set_train_data(train_x[:5], train_y[:5], strict=False)
             gp_model.likelihood.noise_covar = FixedGaussianNoise(noise=noise[:5])
-            likelihood(gp_model(test_x), observation_noise=test_noise)
+            likelihood(gp_model(test_x), noise=test_noise)
 
             fantasy_x = train_x[5:].clone().detach().requires_grad_(True)
             fant_model = gp_model.get_fantasy_model(fantasy_x, train_y[5:], noise=noise[5:])
 
-            fant_function_predictions = likelihood(fant_model(test_x), observation_noise=test_noise)
+            fant_function_predictions = likelihood(fant_model(test_x), noise=test_noise)
 
             self.assertAllClose(test_function_predictions.mean, fant_function_predictions.mean, atol=1e-4)
 
@@ -152,17 +152,17 @@ class TestFixedNoiseFantasies(BaseTestCase, unittest.TestCase):
             # Test the model
             gp_model.eval()
             likelihood.eval()
-            test_function_predictions = likelihood(gp_model(test_x), observation_noise=test_noise)
+            test_function_predictions = likelihood(gp_model(test_x), noise=test_noise)
 
             # Cut data down, and then add back via the fantasy interface
             gp_model.set_train_data(train_x[:5], train_y[:5], strict=False)
             gp_model.likelihood.noise_covar = FixedGaussianNoise(noise=noise[:5])
-            likelihood(gp_model(test_x), observation_noise=test_noise)
+            likelihood(gp_model(test_x), noise=test_noise)
 
             fantasy_x = train_x[5:].clone().unsqueeze(0).unsqueeze(-1).repeat(3, 1, 1).requires_grad_(True)
             fantasy_y = train_y[5:].unsqueeze(0).repeat(3, 1)
             fant_model = gp_model.get_fantasy_model(fantasy_x, fantasy_y, noise=noise[5:].unsqueeze(0).repeat(3, 1))
-            fant_function_predictions = likelihood(fant_model(test_x), observation_noise=test_noise)
+            fant_function_predictions = likelihood(fant_model(test_x), noise=test_noise)
 
             self.assertAllClose(test_function_predictions.mean, fant_function_predictions.mean[0], atol=1e-4)
 

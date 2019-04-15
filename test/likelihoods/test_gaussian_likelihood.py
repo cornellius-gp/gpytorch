@@ -69,7 +69,7 @@ class TestFixedNoiseGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase
                 lkhd(mvn)
             # test __call__ w/ observation noise
             obs_noise = 0.1 + torch.rand(5, device=device, dtype=dtype)
-            out = lkhd(mvn, observation_noise=obs_noise)
+            out = lkhd(mvn, noise=obs_noise)
             self.assertTrue(torch.allclose(out.variance, 1 + obs_noise))
 
 

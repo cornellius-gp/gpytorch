@@ -41,7 +41,7 @@ class DefaultPredictionStrategy(object):
         self.lik_train_train_covar = mvn.lazy_covariance_matrix
 
     def __deepcopy__(self, memo):
-        # deepcopying prediciton strategies of a model evaluated on inputs that require gradients fails
+        # deepcopying prediction strategies of a model evaluated on inputs that require gradients fails
         # with RuntimeError (Only Tensors created explicitly by the user (graph leaves) support the deepcopy
         # protocol at the moment). Overwriting this method make sure that the prediction strategies of a
         # model are set to None upon deepcopying.
@@ -108,11 +108,10 @@ class DefaultPredictionStrategy(object):
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
         fant_mean = full_mean[..., num_train:]
-
         mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
         self.likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
         if "noise" in kwargs:
-            mvn_obs = self.likelihood(mvn, inputs, observation_noise=kwargs.get("noise"))
+            mvn_obs = self.likelihood(mvn, inputs, noise=kwargs.get("noise"))
         else:
             mvn_obs = self.likelihood(mvn, inputs)
 
