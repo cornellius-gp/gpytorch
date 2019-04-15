@@ -37,9 +37,6 @@ from .lazy import lazify, delazify
 
 __version__ = "0.2.1"
 
-# Old deprecated stuff
-fast_pred_var = beta_features._moved_beta_feature(settings.fast_pred_var, "gpytorch.settings.fast_pred_var")
-
 __all__ = [
     # Submodules
     "distributions",
@@ -77,7 +74,6 @@ __all__ = [
     # Other
     "__version__",
     # Deprecated
-    "fast_pred_var",
     "inv_quad_log_det",
     "log_det",
 ]
