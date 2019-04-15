@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
+
 import math
 import warnings
 from typing import Any, Optional
@@ -37,8 +39,8 @@ class _GaussianLikelihoodBase(Likelihood):
         return self.noise_covar(*params, shape=shape, **kwargs)
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
-        observation_noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
-        return base_distributions.Normal(function_samples, observation_noise.sqrt())
+        noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        return base_distributions.Normal(function_samples, noise.sqrt())
 
     def marginal(self, function_dist: MultivariateNormal, *params: Any, **kwargs: Any) -> MultivariateNormal:
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
@@ -94,9 +96,8 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         :attr:`learn_additional_noise` (bool, optional):
             Set to true if you additionally want to learn added diagonal noise, similar to GaussianLikelihood.
 
-    Note that this likelihood takes an additional argument when you call it, `observation_noise`, that adds
-    a specified amount of noise to the passed MultivariateNormal. This allows for adding known observational noise
-    to test data.
+    Note that this likelihood takes an additional argument when you call it, `noise`, that adds a specified amount
+    of noise to the passed MultivariateNormal. This allows for adding known observational noise to test data.
 
     Example:
         >>> train_x = torch.randn(55, 2)
@@ -106,7 +107,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         >>>
         >>> test_x = torch.randn(21, 2)
         >>> test_noises = torch.ones(21) * 0.02
-        >>> pred_y = likelihood(gp_model(test_x), observation_noise=test_noises)
+        >>> pred_y = likelihood(gp_model(test_x), noise=test_noises)
     """
     def __init__(
         self,
@@ -155,6 +156,21 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
             )
         self.second_noise_covar.initialize(noise=value)
 
+    def get_fantasy_likelihood(self, **kwargs):
+        if "noise" not in kwargs:
+            raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `noise` kwarg")
+        old_noise_covar = self.noise_covar
+        self.noise_covar = None
+        fantasy_liklihood = deepcopy(self)
+        self.noise_covar = old_noise_covar
+
+        old_noise = old_noise_covar.noise
+        new_noise = kwargs.get("noise")
+        if old_noise.dim() != new_noise.dim():
+            old_noise = old_noise.expand(*new_noise.shape[:-1], old_noise.shape[-1])
+        fantasy_liklihood.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
+        return fantasy_liklihood
+
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
         if len(params) > 0:
             # we can infer the shape from the params
@@ -170,7 +186,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         elif isinstance(res, ZeroLazyTensor):
             warnings.warn(
                 "You have passed data through a FixedNoiseGaussianLikelihood that did not match the size "
-                "of the fixed noise, *and* you did not specify observation_noise. This is treated as a no-op."
+                "of the fixed noise, *and* you did not specify noise. This is treated as a no-op."
             )
 
         return res
