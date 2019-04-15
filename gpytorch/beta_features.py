@@ -2,8 +2,6 @@
 
 import warnings
 from .settings import _feature_flag, _value_context
-from .settings import fast_pred_var as _fast_pred_var
-from .settings import fast_pred_samples as _fast_pred_samples
 
 
 class _moved_beta_feature(object):
@@ -20,10 +18,6 @@ class _moved_beta_feature(object):
 
     def __getattr__(self, name):
         return getattr(self.new_cls, name)
-
-
-fast_pred_var = _moved_beta_feature(_fast_pred_var)
-fast_pred_samples = _moved_beta_feature(_fast_pred_samples)
 
 
 class checkpoint_kernel(_value_context):
@@ -61,4 +55,4 @@ class default_preconditioner(_feature_flag):
     pass
 
 
-__all__ = ["fast_pred_var", "fast_pred_samples", "diagonal_correction", "default_preconditioner"]
+__all__ = ["checkpoint_kernel", "diagonal_correction", "default_preconditioner"]
