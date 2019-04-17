@@ -1,6 +1,7 @@
 import torch
 import gpytorch
 from torch.optim import Optimizer
+from torch.quasirandom import SobolEngine
 from LBFGS import FullBatchLBFGS
 from sklearn.preprocessing import StandardScaler
 
@@ -53,13 +54,15 @@ class BayesOptDerivativeOptimizer(Optimizer):
         self.train_x = None  # n x num_params
         self.train_y = None  # Should always be n x (num_params + 1)
 
-        first_param = next(iter(params))
-        self.cand_set = torch.rand(500, self.num_params)
+        self.cand_set = SobolEngine(self.num_params).draw(1500)
 
         self.optim_lbs = torch.tensor(optim_lbs)
         self.optim_ubs = torch.tensor(optim_ubs)
 
         super().__init__(params, {})
+
+    def best_param_value(self):
+        return self.train_x[torch.argmin(self.train_y[:, 0])]
 
     def step(self, closure):
         # Step 1: Fit GP model to current training data
@@ -101,7 +104,7 @@ class BayesOptDerivativeOptimizer(Optimizer):
         # Step 3: Thompson sampling
         with gpytorch.settings.fast_computations(log_prob=False, solves=False):
             self.gp_model.eval()
-            predictions = self.gp_model(self.cand_set)
+            predictions = self.gp_model.cuda()(self.cand_set.cuda())
             fsample = predictions.sample(torch.Size([1]))
             best_cand = fsample[:, :, 0].min(dim=-1).indices.item()
             unscaled_next_pt = self.cand_set[best_cand]
@@ -109,7 +112,7 @@ class BayesOptDerivativeOptimizer(Optimizer):
 
         # Step 4: Evaluate function
         print(next_pt)
-        loss = closure(next_pt).view(1, 1).cpu()  # Assume closure calls backward
+        loss = closure(next_pt.detach()).view(1, 1).cpu()  # Assume closure calls backward
 
         # Update training data
         grads = [p.grad for p in self.param_groups[0]['params']]
