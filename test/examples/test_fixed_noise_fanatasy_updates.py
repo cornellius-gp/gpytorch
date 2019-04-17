@@ -45,7 +45,7 @@ class TestFixedNoiseFantasies(BaseTestCase, unittest.TestCase):
     def test_fixed_noise_fantasy_updates_cuda(self):
         if torch.cuda.is_available():
             with least_used_cuda_device():
-                self.test_fantasy_updates(cuda=True)
+                self.test_fixed_noise_fantasy_updates(cuda=True)
 
     def test_fixed_noise_fantasy_updates(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
@@ -114,7 +114,7 @@ class TestFixedNoiseFantasies(BaseTestCase, unittest.TestCase):
     def test_fixed_noise_fantasy_updates_batch_cuda(self):
         if torch.cuda.is_available():
             with least_used_cuda_device():
-                self.test_fantasy_updates_batch(cuda=True)
+                self.test_fixed_noise_fantasy_updates_batch(cuda=True)
 
     def test_fixed_noise_fantasy_updates_batch(self, cuda=False):
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
