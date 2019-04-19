@@ -153,7 +153,7 @@ class HeteroskedasticNoise(Noise):
 class FixedGaussianNoise(Module):
     def __init__(self, noise: Tensor) -> None:
         super().__init__()
-        self.register_buffer("noise", noise)
+        self.noise = noise
 
     def forward(
         self,
@@ -172,3 +172,7 @@ class FixedGaussianNoise(Module):
             return DiagLazyTensor(self.noise)
         else:
             return ZeroLazyTensor()
+
+    def _apply(self, fn):
+        self.noise = fn(self.noise)
+        return super(FixedGaussianNoise, self)._apply(fn)
