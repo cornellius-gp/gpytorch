@@ -131,7 +131,7 @@ class TestKISSGPWhiteNoiseRegression(unittest.TestCase):
 
             # Now bump up the likelihood to something huge
             # This will make it easy to calculate the variance
-            likelihood.initialize(noise=3.)
+            likelihood.noise = torch.ones(100) * 3.0
             test_function_predictions = likelihood(gp_model(train_x))
 
             noise = likelihood.noise
