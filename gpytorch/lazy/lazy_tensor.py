@@ -1143,6 +1143,12 @@ class LazyTensor(ABC):
         """
         return self.shape.numel()
 
+    def numpy(self):
+        """
+        Return self as an evaluated numpy array
+        """
+        return self.evaluate().detach().cpu().numpy()
+
     def permute(self, *dims):
         num_dims = self.dim()
         orig_dims = dims
