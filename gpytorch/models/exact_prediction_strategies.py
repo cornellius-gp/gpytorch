@@ -8,7 +8,7 @@ from ..lazy import (
     lazify, delazify, LazyEvaluatedKernelTensor
 )
 from ..utils.interpolation import left_interp, left_t_interp
-from ..utils.memoize import cached
+from ..utils.memoize import cached, add_to_cache
 from ..utils.cholesky import cholesky_solve
 
 
@@ -24,7 +24,7 @@ def prediction_strategy(
 
 
 class DefaultPredictionStrategy(object):
-    def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
+    def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, root=None, inv_root=None):
         # Flatten the training labels
         train_shape = train_prior_dist.event_shape
         train_labels = train_labels.view(
@@ -39,6 +39,12 @@ class DefaultPredictionStrategy(object):
         self._last_test_train_covar = None
         mvn = self.likelihood(train_prior_dist, train_inputs)
         self.lik_train_train_covar = mvn.lazy_covariance_matrix
+
+        if root is not None:
+            add_to_cache(self.lik_train_train_covar, "root_decomposition", RootLazyTensor(root))
+
+        if inv_root is not None:
+            add_to_cache(self.lik_train_train_covar, "root_inv_decomposition", RootLazyTensor(inv_root))
 
     def __deepcopy__(self, memo):
         # deepcopying prediction strategies of a model evaluated on inputs that require gradients fails
@@ -206,6 +212,8 @@ class DefaultPredictionStrategy(object):
             train_prior_dist=self.train_prior_dist.__class__(full_mean, full_covar),
             train_labels=full_targets,
             likelihood=self.likelihood,
+            root=new_root,
+            inv_root=new_covar_cache,
         )
         setattr(fant_strat, "_memoize_cache", {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
 
