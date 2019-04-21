@@ -19,7 +19,8 @@ class BaseLikelihoodTestCase(BaseTestCase):
 
     def _create_marginal_input(self, batch_shape=torch.Size()):
         mat = torch.randn(*batch_shape, 5, 5)
-        return MultivariateNormal(torch.randn(*batch_shape, 5), mat @ mat.transpose(-1, -2))
+        eye = torch.diag_embed(torch.ones(*batch_shape, 5))
+        return MultivariateNormal(torch.randn(*batch_shape, 5), mat @ mat.transpose(-1, -2) + eye)
 
     def _create_targets(self, batch_shape=torch.Size()):
         return torch.randn(*batch_shape, 5)
