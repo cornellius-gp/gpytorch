@@ -16,7 +16,7 @@ class HadamardMultitaskMean(MultitaskMean):
             if len(means[task]) > 0:
                 mean = means[task]
 
-                if res.dim() == means[0].dim() + 1:
+                if res[i == task].dim() == means[0].dim() + 1:
                     mean = mean.unsqueeze(dim=-1)
 
                 res[i == task] = mean
