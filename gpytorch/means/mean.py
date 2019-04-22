@@ -15,11 +15,11 @@ class Mean(Module, _ClassWithDeprecatedBatchSize):
     def forward(self, x):
         raise NotImplementedError()
 
-    def __call__(self, x):
+    def __call__(self, x, *args):
         # Add a last dimension
         if x.ndimension() == 1:
             x = x.unsqueeze(1)
 
-        res = super(Mean, self).__call__(x)
+        res = super(Mean, self).__call__(x, *args)
 
         return res
