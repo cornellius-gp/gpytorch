@@ -11,8 +11,17 @@ class HadamardMultitaskMean(MultitaskMean):
         """
         means = [self.base_means[task](x[i == task]) for task in range(self.num_tasks)]
 
-        res = torch.zeros_like(torch.cat(means))
+        res = torch.zeros_like(x)
         for task in range(self.num_tasks):
-            res[(i == task).flatten()] = means[task]
+            if len(means[task]) > 0:
+                mean = means[task]
+
+                if res.dim() == means[0].dim() + 1:
+                    mean = mean.unsqueeze(dim=-1)
+
+                res[i == task] = mean
+
+        if res.dim() == means[0].dim() + 1:
+            res = res.squeeze(dim=-1)
 
         return res

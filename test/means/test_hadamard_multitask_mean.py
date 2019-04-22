@@ -28,16 +28,20 @@ class TestHadamardMultitaskMean(BaseMeanTestCase, unittest.TestCase):
 
     def test_forward_mat_batch(self):
         test_x = torch.randn(3, 4, 3)
-        test_i = torch.bernoulli(torch.rand(4))
+        test_i = torch.bernoulli(torch.rand(3, 3))
+        test_i = torch.stack([test_i] * 4, dim=1)
         mean = self.create_mean()
         self.assertEqual(mean(test_x, test_i).shape, torch.Size([3, 4, 3]))
         self.assertEqual(mean(test_x, test_i)[..., 1:].norm().item(), 0)
 
-    # def test_forward_mat_multi_batch(self):
-    #     test_x = torch.randn(2, 3, 4, 3)
-    #     mean = self.create_mean()
-    #     self.assertEqual(mean(test_x).shape, torch.Size([2, 3, 4, 3]))
-    #     self.assertEqual(mean(test_x)[..., 1:].norm().item(), 0)
+    def test_forward_mat_multi_batch(self):
+        test_x = torch.randn(2, 3, 4, 3)
+        test_i = torch.bernoulli(torch.rand(2, 3))
+        test_i = torch.stack([test_i] * 4, dim=1)
+        test_i = torch.stack([test_i] * 3, dim=1)
+        mean = self.create_mean()
+        self.assertEqual(mean(test_x, test_i).shape, torch.Size([2, 3, 4, 3]))
+        self.assertEqual(mean(test_x, test_i)[..., 1:].norm().item(), 0)
 
 
 # class TestHadamardMultitaskMeanBatch(TestHadamardMultitaskMean):
@@ -47,10 +51,14 @@ class TestHadamardMultitaskMean(BaseMeanTestCase, unittest.TestCase):
 #         ], num_tasks=3)
 
 #     def test_forward_vec(self):
-#         pass
+#         test_x = torch.randn(4)
+#         test_i = torch.bernoulli(torch.rand(4))
+#         mean = self.create_mean()
+#         self.assertEqual(mean(test_x, test_i).shape, torch.Size([4]))
+#         self.assertEqual(mean(test_x, test_i)[..., 1:].norm().item(), 0)
 
 #     def test_forward_mat(self):
-#         pass
+#         super(TestHadamardMultitaskMeanBatch, self).test_forward_mat()
 
 
 # class TestHadamardMultitaskMeanMultiBatch(TestHadamardMultitaskMean):
