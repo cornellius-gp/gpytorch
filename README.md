@@ -91,8 +91,9 @@ GPyTorch is primarily maintained by:
 - [Max Balandat](https://research.fb.com/people/balandat-max/) (Facebook)
 
 <img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
+<img width="300" src=https://raw.githubusercontent.com/cornellius-gp/cornellius-gp.github.io/master/static/media/facebook_logo.2835357a.png alt="Facebook Logo" />
 <img width="300" src=https://gpytorch.ai/static/media/uber_ai_horizontal.fe9ab653.png alt="Uber AI Logo" />
 We would like to thank our other contributors including (but not limited to)  David Arbour, Eytan Bakshy, Jared Frank, Sam Stanton, Bram Wallace, Ke Alexander Wang, Ruihan Wu.
 
 ## Acknowledgements
-Development of GPyTorch is supported by funding from [Facebook](https://research.fb.com/), the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/), the [National Science Foundation](https://www.nsf.gov/), and [SAP](https://www.sap.com/index.html).
+Development of GPyTorch is supported by funding from the [Bill and Melinda Gates Foundation](https://www.gatesfoundation.org/), the [National Science Foundation](https://www.nsf.gov/), and [SAP](https://www.sap.com/index.html).
