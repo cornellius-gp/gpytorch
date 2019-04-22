@@ -39,6 +39,75 @@ class TestAdditiveKernel(unittest.TestCase):
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
+    def test_computes_sum_of_radial_basis_function_diag(self):
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
+
+        actual = torch.tensor([0.2702, 2.000, 0.0222])
+
+        lengthscale = 2.
+
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = kernel_1 + kernel_2
+        kernel.eval()
+
+        kernel.eval()
+        res = kernel(a, b, diag=True)
+        self.assertLess(torch.norm(res - actual), 1e-3)
+
+    def test_computes_sum_of_three_radial_basis_function_diag(self):
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
+
+        actual = torch.tensor([0.4060, 3.000, 0.0333])
+
+        lengthscale = 2.
+
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = kernel_1 + kernel_2 + kernel_3
+        kernel.eval()
+
+        res = kernel(a, b, diag=True)
+        self.assertLess(torch.norm(res - actual), 1e-3)
+
+    def test_computes_product_of_radial_basis_function_diag(self):
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
+
+        actual = torch.tensor([2.4788e-03, 1.000, 1.3710e-06])
+
+        lengthscale = 2.
+
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = kernel_1 * kernel_2 * kernel_3
+        kernel.eval()
+
+        kernel.eval()
+        res = kernel(a, b, diag=True)
+        self.assertLess(torch.norm(res - actual), 1e-3)
+
+    def test_computes_product_of_three_radial_basis_function_diag(self):
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2, 2], dtype=torch.float).view(3, 1)
+
+        actual = torch.tensor([1.8316e-02, 1.000, 1.2341e-04])
+
+        lengthscale = 2.
+
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = kernel_1 * kernel_2
+        kernel.eval()
+
+        kernel.eval()
+        res = kernel(a, b, diag=True)
+        self.assertLess(torch.norm(res - actual), 1e-3)
+
     def test_computes_product_of_three_radial_basis_function(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)

@@ -472,11 +472,15 @@ class AdditiveKernel(Kernel):
         super(AdditiveKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1, x2, **params):
-        res = ZeroLazyTensor()
+    def forward(self, x1, x2, diag=False, **params):
+        res = ZeroLazyTensor() if not diag else 0
         for kern in self.kernels:
-            next_term = kern(x1, x2, **params)
-            res = res + lazify(next_term)
+            next_term = kern(x1, x2, diag=diag, **params)
+            if not diag:
+                res = res + lazify(next_term)
+            else:
+                res = res + next_term
+
         return res
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
@@ -500,22 +504,29 @@ class ProductKernel(Kernel):
         super(ProductKernel, self).__init__()
         self.kernels = ModuleList(kernels)
 
-    def forward(self, x1, x2, **params):
+    def forward(self, x1, x2, diag=False, **params):
         x1_eq_x2 = torch.equal(x1, x2)
 
         if not x1_eq_x2:
             # If x1 != x2, then we can't make a MulLazyTensor because the kernel won't necessarily be square/symmetric
-            res = delazify(self.kernels[0](x1, x2, **params))
+            res = delazify(self.kernels[0](x1, x2, diag=diag, **params))
         else:
-            res = lazify(self.kernels[0](x1, x2, **params))
+            res = self.kernels[0](x1, x2, diag=diag, **params)
+
+            if not diag:
+                res = lazify(res)
 
         for kern in self.kernels[1:]:
-            next_term = kern(x1, x2, **params)
+            next_term = kern(x1, x2, diag=diag, **params)
             if not x1_eq_x2:
                 # Again delazify if x1 != x2
                 res = res * delazify(next_term)
             else:
-                res = res * lazify(next_term)
+                if not diag:
+                    res = res * lazify(next_term)
+                else:
+                    res = res * next_term
+
         return res
 
     def num_outputs_per_input(self, x1, x2):
