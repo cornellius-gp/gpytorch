@@ -295,7 +295,7 @@ class lazily_evaluate_kernels(_feature_flag):
     training and test data.
     """
 
-    _state = True
+    _state = False
 
 
 class max_eager_kernel_size(_value_context):

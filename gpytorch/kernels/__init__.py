@@ -8,6 +8,7 @@ from .grid_kernel import GridKernel
 from .index_kernel import IndexKernel
 from .inducing_point_kernel import InducingPointKernel
 from .kernel import AdditiveKernel, Kernel, ProductKernel
+from .hadamard_lmc_kernel import HadamardLMCKernel
 from .lcm_kernel import LCMKernel
 from .linear_kernel import LinearKernel
 from .matern_kernel import MaternKernel
@@ -31,6 +32,7 @@ __all__ = [
     "GridInterpolationKernel",
     "IndexKernel",
     "InducingPointKernel",
+    "HadamardLMCKernel",
     "LCMKernel",
     "LinearKernel",
     "MaternKernel",
