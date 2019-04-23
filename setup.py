@@ -27,23 +27,6 @@ def find_version(*file_paths):
 readme = open("README.md").read()
 version = find_version("gpytorch", "__init__.py")
 
-# See if we have the development version of pytorch installed
-# We will skip installing the stable version of PyTOrch if this is true
-try:
-    import torch
-    has_dev_pytorch = "dev" in torch.__version__
-except ImportError:
-    has_dev_pytorch = False
-
-# Base equirements
-install_requires = [
-    "torch>=1.0.0",
-]
-if has_dev_pytorch:  # Remove the PyTorch requirement
-    install_requires = [
-        install_require for install_require in install_requires
-        if "torch" != re.split(r"(=|<|>)", install_require)[0]
-    ]
 
 # Run the setup
 setup(
@@ -62,7 +45,7 @@ setup(
     classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
     packages=find_packages(),
     python_requires=">=3.6",
-    install_requires=install_requires,
+    install_requires=["torch>=1.0.1"],
     extras_require={
         "dev": [
             "black",
