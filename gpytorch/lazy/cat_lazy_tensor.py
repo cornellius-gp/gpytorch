@@ -2,7 +2,8 @@
 
 import torch
 from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import lazify
+from .non_lazy_tensor import lazify, NonLazyTensor
+from . import delazify
 from ..utils.broadcasting import _mul_broadcast_shape, _matmul_broadcast_shape
 from ..utils.getitem import _noop_index
 
@@ -12,6 +13,10 @@ def cat(inputs, dim=0, output_device=None):
         return torch.cat(inputs, dim=dim)
 
     inputs = [lazify(i) for i in inputs]
+
+    if all(isinstance(i, NonLazyTensor) for i in inputs):
+        # Dont form a CatLazyTensor if all tensors are NonLazyTensor
+        return lazify(torch.cat([delazify(i) for i in inputs]))
 
     if output_device is None and all(i.device == inputs[0].device for i in inputs):
         output_device = inputs[0].device
