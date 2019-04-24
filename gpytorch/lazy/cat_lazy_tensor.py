@@ -2,8 +2,17 @@
 
 import torch
 from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import lazify
 from ..utils.broadcasting import _mul_broadcast_shape, _matmul_broadcast_shape
 from ..utils.getitem import _noop_index
+
+
+def cat(inputs, dim=0):
+    if all(torch.is_tensor(i) for i in inputs):
+        return torch.cat(inputs, dim=dim)
+
+    inputs = [lazify(i) for i in inputs]
+    return CatLazyTensor(*inputs, dim=dim)
 
 
 class CatLazyTensor(LazyTensor):
