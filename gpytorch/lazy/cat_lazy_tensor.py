@@ -7,12 +7,18 @@ from ..utils.broadcasting import _mul_broadcast_shape, _matmul_broadcast_shape
 from ..utils.getitem import _noop_index
 
 
-def cat(inputs, dim=0):
+def cat(inputs, dim=0, output_device=None):
     if all(torch.is_tensor(i) for i in inputs):
         return torch.cat(inputs, dim=dim)
 
     inputs = [lazify(i) for i in inputs]
-    return CatLazyTensor(*inputs, dim=dim)
+
+    if output_device is None and all(i.device == inputs[0].device for i in inputs):
+        output_device = inputs[0].device
+    elif output_device is None:
+        raise RuntimeError("Trying to concat lazy tensors on different devices without specifying an output device.")
+
+    return CatLazyTensor(*inputs, dim=dim, output_device=output_device)
 
 
 class CatLazyTensor(LazyTensor):
