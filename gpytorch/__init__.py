@@ -32,7 +32,7 @@ from .functions import (
     log_det,
 )
 from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
-from .lazy import lazify, delazify
+from .lazy import lazify, delazify, cat
 
 
 __version__ = "0.3.1"
@@ -56,6 +56,7 @@ __all__ = [
     # Functions
     "add_diag",
     "add_jitter",
+    "cat",
     "delazify",
     "dsmm",
     "inv_matmul",
