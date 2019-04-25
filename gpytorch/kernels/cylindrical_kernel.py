@@ -2,8 +2,7 @@
 
 import torch
 from .kernel import Kernel
-from ..utils.transforms import _get_inv_param_transform
-from torch.nn.functional import softplus
+from ..constraints import Positive
 from .. import settings
 
 
@@ -39,25 +38,37 @@ class CylindricalKernel(Kernel):
         self,
         num_angular_weights,
         radial_base_kernel,
-        batch_size=1,
         eps=1e-6,
         angular_weights_prior=None,
+        angular_weights_constraint=None,
         alpha_prior=None,
+        alpha_constraint=None,
         beta_prior=None,
-        param_transform=softplus,
-        inv_param_transform=None,
+        beta_constraint=None,
         **kwargs
     ):
-        super().__init__(has_lengthscale=False, batch_size=batch_size)
+        if angular_weights_constraint is None:
+            angular_weights_constraint = Positive()
+
+        if alpha_constraint is None:
+            alpha_constraint = Positive()
+
+        if beta_constraint is None:
+            beta_constraint = Positive()
+
+        super().__init__(has_lengthscale=False)
         self.num_angular_weights = num_angular_weights
         self.radial_base_kernel = radial_base_kernel
         self.eps = eps
-        self._param_transform = param_transform
-        self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
+
         self.register_parameter(name="raw_angular_weights",
-                                parameter=torch.nn.Parameter(torch.zeros(batch_size, num_angular_weights)))
-        self.register_parameter(name="raw_alpha", parameter=torch.nn.Parameter(torch.zeros(batch_size)))
-        self.register_parameter(name="raw_beta", parameter=torch.nn.Parameter(torch.zeros(batch_size)))
+                                parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, num_angular_weights)))
+        self.register_constraint("raw_angular_weights", angular_weights_constraint)
+        self.register_parameter(name="raw_alpha", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1)))
+        self.register_constraint("raw_alpha", alpha_constraint)
+        self.register_parameter(name="raw_beta", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1)))
+        self.register_constraint("raw_beta", beta_constraint)
+
         if angular_weights_prior is not None:
             self.register_prior(
                 "angular_weights_prior", angular_weights_prior,
@@ -74,38 +85,46 @@ class CylindricalKernel(Kernel):
 
     @property
     def angular_weights(self):
-        return self._param_transform(self.raw_angular_weights)
+        return self.raw_angular_weights_constraint.transform(self.raw_angular_weights)
 
     @angular_weights.setter
     def angular_weights(self, value):
-        self._set_param(value, 'angular_weights')
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+
+        self.initialize(raw_angular_weights=self.raw_angular_weights_constraint.inverse_transform(value))
 
     @property
     def alpha(self):
-        return self._param_transform(self.raw_alpha)
+        return self.raw_alpha_constraint.transform(self.raw_alpha)
 
     @alpha.setter
     def alpha(self, value):
-        self._set_param(value, 'alpha')
+        if not torch.is_tensor(value):
+            value = torch.tensor(value)
+
+        self.initialize(raw_alpha=self.raw_alpha_constraint.inverse_transform(value))
 
     @property
     def beta(self):
-        return self._param_transform(self.raw_beta)
+        return self.raw_beta_constraint.transform(self.raw_beta)
 
     @beta.setter
     def beta(self, value):
-        self._set_param(value, 'beta')
-
-    def _set_param(self, value, param_name):
         if not torch.is_tensor(value):
             value = torch.tensor(value)
-        self.initialize(**{'raw_{}'.format(param_name): self._inv_param_transform(value)})
+
+        self.initialize(raw_beta=self.raw_beta_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, **params):
         x1_, x2_ = x1.clone(), x2.clone()
         # Jitter datapoints that are exactly 0
         x1_[x1_ == 0], x2_[x2_ == 0] = x1_[x1_ == 0] + self.eps, x2_[x2_ == 0] + self.eps
         r1, r2 = x1_.norm(dim=-1, keepdim=True), x2_.norm(dim=-1, keepdim=True)
+
+        if torch.any(r1 > 1.) or torch.any(r2 > 1.):
+            raise RuntimeError("Cylindrical kernel not defined for data points with radius > 1. Scale your data!")
+
         a1, a2 = x1.div(r1), x2.div(r2)
         if not diag:
             gram_mat = a1.matmul(a2.transpose(-2, -1))
@@ -132,5 +151,5 @@ class CylindricalKernel(Kernel):
         res = 1 - (1 - x.pow(self.alpha) + self.eps).pow(self.beta)
         return res
 
-    def size(self, x1, x2):
-        return self.radial_base_kernel.size(x1, x2)
+    def num_outputs_per_input(self, x1, x2):
+        return self.radial_base_kernel.num_outputs_per_input(x1, x2)
