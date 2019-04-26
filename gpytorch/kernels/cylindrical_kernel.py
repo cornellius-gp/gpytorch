@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
+from typing import Optional
 from .kernel import Kernel
-from ..constraints import Positive
+from ..constraints import Positive, Interval
+from ..priors import Prior
 from .. import settings
 
 
@@ -36,15 +38,15 @@ class CylindricalKernel(Kernel):
     """
     def __init__(
         self,
-        num_angular_weights,
-        radial_base_kernel,
-        eps=1e-6,
-        angular_weights_prior=None,
-        angular_weights_constraint=None,
-        alpha_prior=None,
-        alpha_constraint=None,
-        beta_prior=None,
-        beta_constraint=None,
+        num_angular_weights: int,
+        radial_base_kernel: Kernel,
+        eps: Optional[int] = 1e-6,
+        angular_weights_prior: Optional[Prior] = None,
+        angular_weights_constraint: Optional[Interval] = None,
+        alpha_prior: Optional[Prior] = None,
+        alpha_constraint: Optional[Interval] = None,
+        beta_prior: Optional[Prior] = None,
+        beta_constraint: Optional[Interval] = None,
         **kwargs
     ):
         if angular_weights_constraint is None:
@@ -84,39 +86,46 @@ class CylindricalKernel(Kernel):
             )
 
     @property
-    def angular_weights(self):
+    def angular_weights(self) -> torch.Tensor:
         return self.raw_angular_weights_constraint.transform(self.raw_angular_weights)
 
     @angular_weights.setter
-    def angular_weights(self, value):
+    def angular_weights(self, value: torch.Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.tensor(value)
 
         self.initialize(raw_angular_weights=self.raw_angular_weights_constraint.inverse_transform(value))
 
     @property
-    def alpha(self):
+    def alpha(self) -> torch.Tensor:
         return self.raw_alpha_constraint.transform(self.raw_alpha)
 
     @alpha.setter
-    def alpha(self, value):
+    def alpha(self, value: torch.Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.tensor(value)
 
         self.initialize(raw_alpha=self.raw_alpha_constraint.inverse_transform(value))
 
     @property
-    def beta(self):
+    def beta(self) -> torch.Tensor:
         return self.raw_beta_constraint.transform(self.raw_beta)
 
     @beta.setter
-    def beta(self, value):
+    def beta(self, value: torch.Tensor) -> None:
         if not torch.is_tensor(value):
             value = torch.tensor(value)
 
         self.initialize(raw_beta=self.raw_beta_constraint.inverse_transform(value))
 
-    def forward(self, x1, x2, diag=False, **params):
+    def forward(
+        self,
+        x1: torch.Tensor,
+        x2: torch.Tensor,
+        diag: Optional[bool] = False,
+        **params
+    ) -> torch.Tensor:
+
         x1_, x2_ = x1.clone(), x2.clone()
         # Jitter datapoints that are exactly 0
         x1_[x1_ == 0], x2_[x2_ == 0] = x1_[x1_ == 0] + self.eps, x2_[x2_ == 0] + self.eps
@@ -150,10 +159,12 @@ class CylindricalKernel(Kernel):
             )
         return radial_kernel.mul(angular_kernel)
 
-    def kuma(self, x):
-        # Add numerical stability to gradient computation
-        res = 1 - (1 - x.pow(self.alpha) + self.eps).pow(self.beta)
+    def kuma(self, x: torch.Tensor) -> torch.Tensor:
+        alpha = self.alpha.view(*self.batch_shape, 1, 1)
+        beta = self.beta.view(*self.batch_shape, 1, 1)
+
+        res = 1 - (1 - x.pow(alpha) + self.eps).pow(beta)
         return res
 
-    def num_outputs_per_input(self, x1, x2):
+    def num_outputs_per_input(self, x1: torch.Tensor, x2: torch.Tensor) -> int:
         return self.radial_base_kernel.num_outputs_per_input(x1, x2)
