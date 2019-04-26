@@ -45,6 +45,12 @@ Standard Kernels
 .. autoclass:: PeriodicKernel
    :members:
 
+:hidden:`PolynomialKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: PolynomialKernel
+   :members:
+
 :hidden:`RBFKernel`
 ~~~~~~~~~~~~~~~~~~~
 
