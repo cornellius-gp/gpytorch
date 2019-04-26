@@ -56,7 +56,7 @@ class CylindricalKernel(Kernel):
         if beta_constraint is None:
             beta_constraint = Positive()
 
-        super().__init__(has_lengthscale=False)
+        super().__init__(has_lengthscale=False, **kwargs)
         self.num_angular_weights = num_angular_weights
         self.radial_base_kernel = radial_base_kernel
         self.eps = eps
@@ -128,7 +128,6 @@ class CylindricalKernel(Kernel):
         a1, a2 = x1.div(r1), x2.div(r2)
         if not diag:
             gram_mat = a1.matmul(a2.transpose(-2, -1))
-            # Note: This can be made more efficient with a custom backard and
             for p in range(self.num_angular_weights):
                 if p == 0:
                     angular_kernel = self.angular_weights[..., 0, None, None]
@@ -143,7 +142,12 @@ class CylindricalKernel(Kernel):
                     angular_kernel = angular_kernel + self.angular_weights[..., p, None].mul(gram_mat.pow(p))
 
         with settings.lazily_evaluate_kernels(False):
-            radial_kernel = self.radial_base_kernel(self.kuma(r1), self.kuma(r2), diag=diag, **params)
+            radial_kernel = self.radial_base_kernel(
+                self.kuma(r1),
+                self.kuma(r2),
+                diag=diag,
+                **params
+            )
         return radial_kernel.mul(angular_kernel)
 
     def kuma(self, x):

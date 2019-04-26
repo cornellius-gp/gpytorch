@@ -27,6 +27,14 @@ Standard Kernels
 .. autoclass:: CosineKernel
    :members:
 
+
+:hidden:`CylindricalKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: CylindricalKernel
+   :members:
+
+
 :hidden:`LinearKernel`
 ~~~~~~~~~~~~~~~~~~~~~~
 
