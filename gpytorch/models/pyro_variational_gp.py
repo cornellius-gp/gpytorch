@@ -26,13 +26,14 @@ class PyroVariationalGP(AbstractVariationalGP):
         self.name_prefix = name_prefix
         self.likelihood = likelihood
         self.num_data = num_data
-        self.iaf1 = dist.InverseAutoregressiveFlowStable(AutoRegressiveNN(2048, [2048]))
+        self.num_inducing = variational_strategy.inducing_points.size(-2)
+        self.iaf1 = dist.InverseAutoregressiveFlowStable(AutoRegressiveNN(self.num_inducing, [self.num_inducing]))
 
     @property
     def variational_distribution(self):
         pyro.module("my_iaf1", self.iaf1)  # doctest: +SKIP
         import pyro.distributions as dist
-        base_dist = dist.Normal(torch.zeros(2048).cuda(), torch.ones(2048).cuda())
+        base_dist = dist.Normal(torch.zeros(self.num_inducing).cuda(), torch.ones(self.num_inducing).cuda())
         return dist.TransformedDistribution(base_dist, [self.iaf1])
 
     def guide(self, input, output, *params, **kwargs):
