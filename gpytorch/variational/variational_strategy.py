@@ -73,7 +73,8 @@ class VariationalStrategy(Module):
         variational_dist_u = self.variational_distribution.variational_distribution
         prior_dist = self.prior_distribution
 
-        kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
+        with settings.max_preconditioner_size(0):
+            kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
         return kl_divergence
 
     def initialize_variational_dist(self):
