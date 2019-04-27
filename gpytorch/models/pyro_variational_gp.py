@@ -5,37 +5,135 @@ import pyro
 from .abstract_variational_gp import AbstractVariationalGP
 
 
+class QuadratureDist(pyro.distributions.Distribution):
+    def __init__(self, likelihood, function_dist):
+        self.likelihood = likelihood
+        self.function_dist = function_dist
+
+    def log_prob(self, target):
+        return self.likelihood.expected_log_prob(target, self.function_dist)
+
+    def sample(self, sample_shape=torch.Size()):
+        pass
+
+
+
 class PyroVariationalGP(AbstractVariationalGP):
     def __init__(self, variational_strategy, likelihood, num_data, name_prefix=""):
         super(PyroVariationalGP, self).__init__(variational_strategy)
+        from pyro.nn import AutoRegressiveNN
+        import pyro.distributions as dist
         self.name_prefix = name_prefix
         self.likelihood = likelihood
         self.num_data = num_data
+        self.iaf1 = dist.InverseAutoregressiveFlowStable(AutoRegressiveNN(2048, [2048]))
+
+    @property
+    def variational_distribution(self):
+        pyro.module("my_iaf1", self.iaf1)  # doctest: +SKIP
+        import pyro.distributions as dist
+        base_dist = dist.Normal(torch.zeros(2048).cuda(), torch.ones(2048).cuda())
+        return dist.TransformedDistribution(base_dist, [self.iaf1])
 
     def guide(self, input, output, *params, **kwargs):
-        inducing_dist = self.variational_strategy.variational_distribution.variational_distribution
         # Draw samples from q(u) for KL divergence computation
-        self.sample_inducing_values(inducing_dist)
+        self.sample_inducing_values(self.variational_distribution)
         self.likelihood.guide(*params, **kwargs)
+
+    def __call__(self, input):
+        inducing_points = self.variational_strategy.inducing_points
+        num_induc = inducing_points.size(-2)
+        full_inputs = torch.cat([inducing_points, input], dim=-2)
+        full_output = self.forward(full_inputs)
+        full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
+
+        # Mean terms
+        induc_mean = full_mean[..., :num_induc]
+        test_mean = full_mean[..., num_induc:]
+
+        # Covariance terms
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
+        from ..lazy import CholLazyTensor, DiagLazyTensor
+        induc_induc_covar = CholLazyTensor(induc_induc_covar.cholesky())
+        induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
+        data_data_covar = full_covar[..., num_induc:, num_induc:]
+
+        # Prior distribution + samples
+        inducing_values_samples = self.sample_inducing_values(self.variational_distribution)
+
+        if inducing_values_samples.dim() == 1:
+            means = induc_induc_covar.inv_matmul(
+                induc_data_covar,
+                inducing_values_samples.unsqueeze(-2)
+            ).squeeze(-2)
+        elif inducing_values_samples.dim() == 3:
+            means = induc_induc_covar.inv_matmul(
+                induc_data_covar,
+                inducing_values_samples.squeeze(-2)
+            )
+        else:
+            means = induc_induc_covar.inv_matmul(
+                induc_data_covar,
+                inducing_values_samples
+            )
+        f_samples = full_output.__class__(
+            means,
+            DiagLazyTensor((
+                data_data_covar.diag() - induc_induc_covar.inv_quad(induc_data_covar, reduce_inv_quad=False)
+            ).clamp_min(0))
+        )
+        return f_samples
 
     def model(self, input, output, *params, **kwargs):
         pyro.module(self.name_prefix + ".gp_prior", self)
 
-        # Get the variational distribution for the function
-        function_dist = self(input)
+        inducing_points = self.variational_strategy.inducing_points
+        num_induc = inducing_points.size(-2)
+        full_inputs = torch.cat([inducing_points, input], dim=-2)
+        full_output = self.forward(full_inputs)
+        full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
 
-        # Draw samples from p(u) for KL divergence computation
-        prior_dist = self.variational_strategy.prior_distribution
-        inducing_values_samples = self.sample_inducing_values(prior_dist)
-        sample_shape = inducing_values_samples.shape[:-len(prior_dist.shape())] + \
-            torch.Size([1] * len(prior_dist.batch_shape))
+        # Mean terms
+        induc_mean = full_mean[..., :num_induc]
+        test_mean = full_mean[..., num_induc:]
 
-        # Go from function -> output
-        num_minibatch = function_dist.batch_shape[-1]
-        with pyro.poutine.scale(scale=float(self.num_data / num_minibatch)):
-            return self.likelihood.pyro_sample_output(
-                output, function_dist, *params, **kwargs, sample_shape=sample_shape
+        # Covariance terms
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
+        from ..lazy import CholLazyTensor
+        induc_induc_covar = CholLazyTensor(induc_induc_covar.cholesky())
+        induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
+        data_data_covar = full_covar[..., num_induc:, num_induc:]
+
+        # Prior distribution + samples
+        prior_distribution = full_output.__class__(induc_mean, induc_induc_covar)
+        inducing_values_samples = self.sample_inducing_values(prior_distribution)
+
+        if inducing_values_samples.dim() == 1:
+            means = induc_induc_covar.inv_matmul(
+                induc_data_covar,
+                inducing_values_samples.unsqueeze(-2)
+            ).squeeze(-2)
+        elif inducing_values_samples.dim() == 3:
+            means = induc_induc_covar.inv_matmul(
+                induc_data_covar,
+                inducing_values_samples.squeeze(-2)
             )
+        else:
+            means = induc_induc_covar.inv_matmul(
+                induc_data_covar,
+                inducing_values_samples
+            )
+        f_samples = pyro.distributions.Normal(
+            means,
+            torch.sqrt((
+                data_data_covar.diag() - induc_induc_covar.inv_quad(induc_data_covar, reduce_inv_quad=False)
+            ).clamp_min(0))
+        )
+
+        with pyro.plate(self.name_prefix + ".data_plate", f_samples.batch_shape[-1], dim=-1):
+            with pyro.poutine.scale(scale=float(self.num_data / input.size(-2))):
+                out_dist = QuadratureDist(self.likelihood, f_samples)
+                return pyro.sample(self.name_prefix + ".output_value", out_dist, obs=output)
 
     def sample_inducing_values(self, inducing_values_dist):
         """
@@ -67,10 +165,3 @@ class PyroVariationalGP(AbstractVariationalGP):
             return pyro.distributions.Normal(function_dist.mean, function_dist.variance)
         else:
             return function_dist
-
-    def __call__(self, input, *args, **kwargs):
-        function_dist = super().__call__(input, *args, **kwargs)
-        # Now make the variational distribution Normal - for conditional indepdence
-        function_dist = self.transform_function_dist(function_dist)
-        res = function_dist
-        return res
