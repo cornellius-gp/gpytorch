@@ -13,9 +13,18 @@ class BaseKernelTestCase(object):
     def create_kernel_ard(self, num_dims, **kwargs):
         raise NotImplementedError()
 
+    def create_data_no_batch(self):
+        return torch.randn(50, 10)
+
+    def create_data_single_batch(self):
+        return torch.randn(2, 50, 2)
+
+    def create_data_double_batch(self):
+        return torch.randn(3, 2, 50, 2)
+
     def test_active_dims_list(self):
         kernel = self.create_kernel_no_ard(active_dims=[0, 2, 4, 6])
-        x = torch.randn(50, 10)
+        x = self.create_data_no_batch()
         covar_mat = kernel(x).evaluate_kernel().evaluate()
         kernel_basic = self.create_kernel_no_ard()
         covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().evaluate()
@@ -25,7 +34,7 @@ class BaseKernelTestCase(object):
     def test_active_dims_range(self):
         active_dims = list(range(3, 9))
         kernel = self.create_kernel_no_ard(active_dims=active_dims)
-        x = torch.randn(50, 10)
+        x = self.create_data_no_batch()
         covar_mat = kernel(x).evaluate_kernel().evaluate()
         kernel_basic = self.create_kernel_no_ard()
         covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().evaluate()
@@ -34,7 +43,7 @@ class BaseKernelTestCase(object):
 
     def test_no_batch_kernel_single_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard()
-        x = torch.randn(2, 50, 2)
+        x = self.create_data_single_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
 
         actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
@@ -45,7 +54,7 @@ class BaseKernelTestCase(object):
 
     def test_single_batch_kernel_single_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
-        x = torch.randn(2, 50, 2)
+        x = self.create_data_single_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
 
         actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
@@ -56,7 +65,7 @@ class BaseKernelTestCase(object):
 
     def test_no_batch_kernel_double_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
-        x = torch.randn(3, 2, 50, 2)
+        x = self.create_data_double_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
 
         ij_actual_covars = []
@@ -76,7 +85,7 @@ class BaseKernelTestCase(object):
         except NotImplementedError:
             return
 
-        x = torch.randn(3, 2, 50, 2)
+        x = self.create_data_double_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
 
         ij_actual_covars = []
@@ -92,7 +101,7 @@ class BaseKernelTestCase(object):
 
     def test_smoke_double_batch_kernel_double_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([3, 2]))
-        x = torch.randn(3, 2, 50, 2)
+        x = self.create_data_double_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
         return batch_covar_mat
 
@@ -102,6 +111,6 @@ class BaseKernelTestCase(object):
         except NotImplementedError:
             return
 
-        x = torch.randn(3, 2, 50, 2)
+        x = self.create_data_double_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
         return batch_covar_mat
