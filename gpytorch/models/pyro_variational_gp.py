@@ -27,7 +27,8 @@ class PyroVariationalGP(AbstractVariationalGP):
         self.likelihood = likelihood
         self.num_data = num_data
         self.num_inducing = variational_strategy.inducing_points.size(-2)
-        self.iaf1 = dist.InverseAutoregressiveFlowStable(AutoRegressiveNN(self.num_inducing, [self.num_inducing]))
+        print(self.num_inducing)
+        self.iaf1 = dist.InverseAutoregressiveFlow(AutoRegressiveNN(self.num_inducing, [self.num_inducing]))
 
     @property
     def variational_distribution(self):
