@@ -73,7 +73,8 @@ class VariationalStrategy(Module):
         variational_dist_u = self.variational_distribution.variational_distribution
         prior_dist = self.prior_distribution
 
-        kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
+        with settings.max_preconditioner_size(0):
+            kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
         return kl_divergence
 
     def initialize_variational_dist(self):
@@ -166,6 +167,9 @@ class VariationalStrategy(Module):
                     probe_vector_norms=probe_vec_norms, probe_vector_solves=probe_vec_solves,
                     probe_vector_tmats=tmats,
                 )
+
+            if self.training:
+                self._memoize_cache["prior_distribution_memo"] = MultivariateNormal(induc_mean, induc_induc_covar)
 
             # Compute predictive mean/covariance
             inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))

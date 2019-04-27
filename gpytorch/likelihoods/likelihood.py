@@ -170,7 +170,7 @@ try:
 
             # Get the correct sample shape
             # The default sample shape includes all the batch dimensions that can be smapled from
-            sample_shape = kwargs.get("sample_shape", torch.Size([1] * len(function_dist.batch_shape)))
+            sample_shape = kwargs.pop("sample_shape", torch.Size([1] * len(function_dist.batch_shape)))
             sample_shape = sample_shape[:-len(function_dist.batch_shape)]
             function_samples = function_dist(sample_shape)
             output_dist = self(function_samples, *params, **kwargs)
