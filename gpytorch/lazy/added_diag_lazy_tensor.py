@@ -52,7 +52,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
     def _preconditioner(self):
         if settings.max_preconditioner_size.value() == 0:
-            return None, None
+            return None, None, None
 
         if not (hasattr(self, "_woodbury_cache") or hasattr(self, "self._q_cache")):
             max_iter = settings.max_preconditioner_size.value()
@@ -61,7 +61,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 warnings.warn(
                     "NaNs encountered in preconditioner computation. Attempting to continue without preconditioning."
                 )
-                return None, None
+                return None, None, None
 
             if self._piv_chol_self.dim() == 2:  # TODO: Whenever PyTorch supports batch mode
                 *batch_shape, n, k = self._piv_chol_self.shape
