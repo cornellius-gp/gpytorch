@@ -20,15 +20,15 @@ class PyroVariationalGP(AbstractVariationalGP):
 
     def model(self, input, output, *params, **kwargs):
         pyro.module(self.name_prefix + ".gp_prior", self)
-        prior_dist = self.variational_strategy.prior_distribution
-
-        # Draw samples from p(u) for KL divergence computation
-        inducing_values_samples = self.sample_inducing_values(prior_dist)
-        sample_shape = inducing_values_samples.shape[:-len(prior_dist.shape())] + \
-            torch.Size([1] * len(prior_dist.batch_shape))
 
         # Get the variational distribution for the function
         function_dist = self(input)
+
+        # Draw samples from p(u) for KL divergence computation
+        prior_dist = self.variational_strategy.prior_distribution
+        inducing_values_samples = self.sample_inducing_values(prior_dist)
+        sample_shape = inducing_values_samples.shape[:-len(prior_dist.shape())] + \
+            torch.Size([1] * len(prior_dist.batch_shape))
 
         # Go from function -> output
         num_minibatch = function_dist.batch_shape[-1]

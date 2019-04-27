@@ -167,6 +167,9 @@ class VariationalStrategy(Module):
                     probe_vector_tmats=tmats,
                 )
 
+            if self.training:
+                self._memoize_cache["prior_distribution_memo"] = MultivariateNormal(induc_mean, induc_induc_covar)
+
             # Compute predictive mean/covariance
             inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))
             predictive_mean = torch.add(test_mean, inv_products[..., 0, :])
