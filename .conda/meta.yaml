@@ -1,15 +1,15 @@
-{% set data = load_setup_py_data(setup_file="setup.py", from_recipe_dir=True) %}
+{% set data = load_setup_py_data(setup_file="../setup.py", from_recipe_dir=True) %}
 
 package:
   name: {{ data.get("name")|lower }}
   version: {{ data.get("version") }}
 
 source:
-  path: ./
+  path: ../
 
 build:
   noarch: python
-  script: "$PYTHON setup.py install --single-version-externally-managed --record=record.txt"
+  script: "$PYTHON ./setup.py install --single-version-externally-managed --record=record.txt"
 
 requirements:
   host:
