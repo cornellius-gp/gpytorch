@@ -28,14 +28,21 @@ class PyroVariationalGP(AbstractVariationalGP):
         self.num_data = num_data
         self.num_inducing = variational_strategy.inducing_points.size(-2)
         print(self.num_inducing)
-        self.iaf1 = dist.InverseAutoregressiveFlow(AutoRegressiveNN(self.num_inducing, [self.num_inducing]))
+        self.dsf = [
+            dist.DeepSigmoidalFlow(
+                AutoRegressiveNN(self.num_inducing, [self.num_inducing], param_dims=(8, 8, 8)),
+                hidden_units=8
+            ).cuda()
+            for _ in range(3)
+        ]
 
     @property
     def variational_distribution(self):
-        pyro.module("my_iaf1", self.iaf1)  # doctest: +SKIP
+        for i, dsf in enumerate(self.dsf):
+            pyro.module(f"dsf{i}", dsf)
         import pyro.distributions as dist
         base_dist = dist.Normal(torch.zeros(self.num_inducing).cuda(), torch.ones(self.num_inducing).cuda())
-        return dist.TransformedDistribution(base_dist, [self.iaf1])
+        return dist.TransformedDistribution(base_dist, self.dsf)
 
     def guide(self, input, output, *params, **kwargs):
         # Draw samples from q(u) for KL divergence computation
