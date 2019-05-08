@@ -286,7 +286,7 @@ class ExactGP(GP):
             )
 
         train_mean = self.prediction_strategy.train_prior_dist.mean
-        train_train_covar = self.prediction_strategy.lik_train_train_covar
+        train_train_covar = self.prediction_strategy.train_prior_dist.lazy_covariance_matrix
 
         # this is going to be annoying for MT models...
         test_mean = torch.cat([train_mean, self.mean_module(*new_inputs)], dim=-1)
