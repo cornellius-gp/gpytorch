@@ -4,6 +4,7 @@ import warnings
 import torch
 from copy import deepcopy
 from ..distributions import MultivariateNormal
+from ..lazy import CatLazyTensor
 from ..likelihoods import _GaussianLikelihoodBase
 from ..utils.broadcasting import _mul_broadcast_shape
 from .. import settings
@@ -267,3 +268,45 @@ class ExactGP(GP):
             # Reshape predictive mean to match the appropriate event shape
             predictive_mean = predictive_mean.view(*batch_shape, *test_shape).contiguous()
             return full_output.__class__(predictive_mean, predictive_covar)
+
+    def predict_train_and_test(self, *args, **kwargs):
+        train_inputs = list(self.train_inputs) if self.train_inputs is not None else []
+        new_inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in args]
+
+        # Get the terms that only depend on training data
+        if self.prediction_strategy is None:
+            train_output = super().__call__(*train_inputs, **kwargs)
+
+            # Create the prediction strategy for
+            self.prediction_strategy = prediction_strategy(
+                train_inputs=train_inputs,
+                train_prior_dist=train_output,
+                train_labels=self.train_targets,
+                likelihood=self.likelihood,
+            )
+
+        train_mean = self.prediction_strategy.train_prior_dist.mean
+        train_train_covar = self.prediction_strategy.lik_train_train_covar
+
+        # this is going to be annoying for MT models...
+        test_mean = torch.cat([train_mean, self.mean_module(*new_inputs)], dim=-1)
+        newtest_train_covar = self.covar_module(*new_inputs, *train_inputs)
+        newtest_newtest_covar = self.covar_module(*new_inputs)
+        test_train_covar = CatLazyTensor(train_train_covar, newtest_train_covar, dim=-2)
+        test_test_covar = CatLazyTensor(
+            CatLazyTensor(train_train_covar, newtest_train_covar.transpose(-1, -2), dim=-1),
+            CatLazyTensor(newtest_train_covar, newtest_newtest_covar, dim=-1),
+            dim=-2,
+        )
+        with settings._use_eval_tolerance():
+            predictive_mean = self.prediction_strategy.exact_predictive_mean(test_mean, test_train_covar)
+            predictive_covar = self.prediction_strategy.exact_predictive_covar(test_test_covar, test_train_covar)
+
+        # let's ignore multi-task models etc. for now
+        batch_shape = train_inputs[0].shape[:-2]
+        test_shape = test_mean.shape
+
+        # Reshape predictive mean to match the appropriate event shape
+        predictive_mean = predictive_mean.view(*batch_shape, *test_shape).contiguous()
+        cls = self.prediction_strategy.train_prior_dist.__class__
+        return cls(predictive_mean, predictive_covar)
