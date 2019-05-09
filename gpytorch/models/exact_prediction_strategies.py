@@ -120,7 +120,6 @@ class DefaultPredictionStrategy(object):
         mvn_obs = self.likelihood(mvn, inputs, **kwargs)
 
         fant_fant_covar = mvn_obs.covariance_matrix
-        # TODO: Don't have this be explicit across batches
         fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
 
         self.fantasy_inputs = inputs
@@ -208,7 +207,7 @@ class DefaultPredictionStrategy(object):
             new_covar_cache = cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
             new_covar_cache = new_covar_cache.transpose(-2, -1)
 
-        # TODO: Expand inputs accordingly if necessary
+        # Expand inputs accordingly if necessary
         if full_inputs[0].dim() <= full_targets.dim():
             batch_shape = full_targets.shape[:-1]
             full_inputs = [fi.expand(batch_shape + fi.shape) for fi in full_inputs]
