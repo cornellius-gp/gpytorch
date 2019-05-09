@@ -284,7 +284,7 @@ def linear_cg(
             prev_beta.copy_(beta_tridiag)
 
     # Un-normalize
-    result.mul_(rhs_norm)
+    result = result.mul(rhs_norm)
 
     if not tolerance_reached and n_iter > 0:
         warnings.warn(
