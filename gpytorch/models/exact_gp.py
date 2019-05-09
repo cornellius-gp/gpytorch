@@ -91,10 +91,13 @@ class ExactGP(GP):
 
         .. note::
             If `targets` is a batch (e.g. `b x m`), then the GP returned from this method will be a batch mode GP.
+            If `inputs` is of the same (or lesser) dimension as `targets`, then it is assumed that the fantasy points
+            are the same for each target batch.
 
         Args:
             - :attr:`inputs` (Tensor `m x d` or `b x m x d`): Locations of fantasy observations.
             - :attr:`targets` (Tensor `m` or `b x m`): Labels of fantasy observations.
+
         Returns:
             - :class:`ExactGP`
                 An `ExactGP` model with `n + m` training examples, where the `m` fantasy examples have been added
@@ -116,18 +119,26 @@ class ExactGP(GP):
 
         inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs]
 
-        # If input is n x d but targets is b x n x d, expand input to b x n x d
-        for i, input in enumerate(inputs):
-            if input.dim() == targets.dim():
-                inputs[i] = input.unsqueeze(0).repeat(*targets.shape[:-1], 1, 1)
-                batch_shape = inputs[i].shape[:-2]
-            elif input.dim() == targets.dim() + 1:
+        same_inputs = False
+        # If input is m x d but targets is b x m we can save memory and computation
+        # by not computing the covariance for each element of the batch
+        for _, input in enumerate(inputs):
+            if input.dim() == targets.dim() + 1:
                 batch_shape = input.shape[:-2]
+            elif input.dim() == targets.dim():
+                same_inputs = True
+                batch_shape = targets.shape[:-1]
             elif input.dim() < targets.dim():
                 batch_shape = targets.shape[:-2]
-                inputs[i] = input.expand(*batch_shape, *input.shape[-2:])
+                same_inputs = True
+            else:
+                raise Exception("Usupported dimensions")
 
-        train_inputs = [tin.expand(*batch_shape, *tin.shape[-2:]) for tin in list(self.train_inputs)]
+        if not same_inputs:
+            train_inputs = [tin.expand(*batch_shape, *tin.shape[-2:]) for tin in list(self.train_inputs)]
+        else:
+            train_inputs = self.train_inputs
+
         train_targets = self.train_targets.expand(*batch_shape, *self.train_targets.shape[-2:])
 
         full_inputs = [torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)]
@@ -155,7 +166,10 @@ class ExactGP(GP):
         self.train_targets = old_train_targets
         self.likelihood = old_likelihood
 
-        new_model.train_inputs = full_inputs
+        if same_inputs:
+            new_model.train_inputs = [fi.expand(batch_shape + fi.shape) for fi in full_inputs]
+        else:
+            new_model.train_inputs = full_inputs
         new_model.train_targets = full_targets
         new_model.likelihood = old_likelihood.get_fantasy_likelihood(**fantasy_kwargs)
         new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
@@ -236,7 +250,7 @@ class ExactGP(GP):
             # Concatenate the input to the training input
             full_inputs = []
             batch_shape = train_inputs[0].shape[:-2]
-            for i, (train_input, input) in enumerate(zip(train_inputs, inputs)):
+            for train_input, input in zip(train_inputs, inputs):
                 # Make sure the batch shapes agree for training/test data
                 if batch_shape != train_input.shape[:-2]:
                     batch_shape = _mul_broadcast_shape(batch_shape, train_input.shape[:-2])
