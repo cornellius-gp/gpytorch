@@ -5,7 +5,7 @@ import torch
 from .. import settings
 from ..lazy import (
     InterpolatedLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, ZeroLazyTensor,
-    lazify, delazify, LazyEvaluatedKernelTensor
+    lazify, delazify, LazyEvaluatedKernelTensor, NonLazyTensor, BatchRepeatLazyTensor
 )
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached, add_to_cache
@@ -99,6 +99,7 @@ class DefaultPredictionStrategy(object):
             - :attr:`full_inputs` (Tensor `n+m x d` or `b x n+m x d`): Training data concatenated with fantasy inputs
             - :attr:`full_targets` (Tensor `n+m` or `b x n+m`): Training labels concatenated with fantasy labels.
             - :attr:`full_output` (:class:`gpytorch.distributions.MultivariateNormal`): Prior called on full_inputs
+
         Returns:
             - :class:`DefaultPredictionStrategy`
                 A `DefaultPredictionStrategy` model with `n + m` training examples, where the `m` fantasy examples have
@@ -206,6 +207,15 @@ class DefaultPredictionStrategy(object):
             new_covar_cache = cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
             new_covar_cache = new_covar_cache.transpose(-2, -1)
 
+        # Expand inputs accordingly if necessary
+        if full_inputs[0].dim() <= full_targets.dim():
+            batch_shape = full_targets.shape[:-1]
+            full_inputs = [fi.expand(batch_shape + fi.shape) for fi in full_inputs]
+            full_mean = full_mean.expand(batch_shape + full_mean.shape)
+            full_covar = BatchRepeatLazyTensor(full_covar, batch_shape)
+            new_root = BatchRepeatLazyTensor(NonLazyTensor(new_root), batch_shape)
+            new_covar_cache = BatchRepeatLazyTensor(NonLazyTensor(new_covar_cache), batch_shape)
+
         # Create new DefaultPredictionStrategy object
         fant_strat = self.__class__(
             train_inputs=full_inputs,
@@ -215,7 +225,7 @@ class DefaultPredictionStrategy(object):
             root=new_root,
             inv_root=new_covar_cache,
         )
-        setattr(fant_strat, "_memoize_cache", {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache})
+        fant_strat._memoize_cache = {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache}
 
         return fant_strat
 
