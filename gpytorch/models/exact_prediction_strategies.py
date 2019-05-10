@@ -84,6 +84,9 @@ class DefaultPredictionStrategy(object):
         """
         # Here the precomputed cache represents S,
         # where S S^T = (K_XX + sigma^2 I)^-1
+        if not torch.is_tensor(precomputed_cache):
+            # can't call tensor matmul on a lazy, so we'll flip things around
+            return precomputed_cache.transpose(-1, -2).matmul(test_train_covar.transpose(-1, -2)).transpose(-1, -2)
         return test_train_covar.matmul(precomputed_cache)
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
