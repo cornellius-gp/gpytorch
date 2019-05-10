@@ -207,14 +207,16 @@ class DefaultPredictionStrategy(object):
             new_covar_cache = cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
             new_covar_cache = new_covar_cache.transpose(-2, -1)
 
-        # Expand inputs accordingly if necessary
+        # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
-            batch_shape = full_targets.shape[:-1]
-            full_inputs = [fi.expand(batch_shape + fi.shape) for fi in full_inputs]
-            full_mean = full_mean.expand(batch_shape + full_mean.shape)
-            full_covar = BatchRepeatLazyTensor(full_covar, batch_shape)
-            new_root = BatchRepeatLazyTensor(NonLazyTensor(new_root), batch_shape)
-            new_covar_cache = BatchRepeatLazyTensor(NonLazyTensor(new_covar_cache), batch_shape)
+            fant_batch_shape = full_targets.shape[:1]
+            n_batch = len(full_mean.shape[:-1])
+            repeat_shape = fant_batch_shape + torch.Size([1] * n_batch)
+            full_inputs = [fi.expand(fant_batch_shape + fi.shape) for fi in full_inputs]
+            full_mean = full_mean.expand(fant_batch_shape + full_mean.shape)
+            full_covar = BatchRepeatLazyTensor(full_covar, repeat_shape)
+            new_root = BatchRepeatLazyTensor(NonLazyTensor(new_root), repeat_shape)
+            # no need to repeat the covar cache, broadcasting will do the right thing
 
         # Create new DefaultPredictionStrategy object
         fant_strat = self.__class__(

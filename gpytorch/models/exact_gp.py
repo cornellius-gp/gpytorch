@@ -95,8 +95,9 @@ class ExactGP(GP):
             are the same for each target batch.
 
         Args:
-            - :attr:`inputs` (Tensor `m x d` or `b x m x d`): Locations of fantasy observations.
-            - :attr:`targets` (Tensor `m` or `b x m`): Labels of fantasy observations.
+            - :attr:`inputs` (Tensor `b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`): Locations of fantasy
+                observations.
+            - :attr:`targets` (Tensor `b1 x ... x bk x m` or `f x b1 x ... x bk x m`): Labels of fantasy observations.
 
         Returns:
             - :class:`ExactGP`
@@ -104,12 +105,15 @@ class ExactGP(GP):
                 and all test-time caches have been updated.
         """
         if self.prediction_strategy is None:
-            raise RuntimeError("Fantasy observations can only be added after making predictions with a model so that "
-                               "all test independent caches exist. Call the model on some data first!")
+            raise RuntimeError(
+                "Fantasy observations can only be added after making predictions with a model so that "
+                "all test independent caches exist. Call the model on some data first!"
+            )
 
         if self.train_inputs[0].dim() > 2:
-            raise RuntimeError("Adding fantasy observations to a GP that is already batch mode will not be supported "
-                               "until GPyTorch supports multiple batch dimensions.")
+            raise RuntimeError(
+                "Adding fantasy observations to a GP that is already batch mode is currently unsupported."
+            )
 
         if self.train_targets.dim() > 1:
             raise RuntimeError("Cannot yet add fantasy observations to multitask GPs, but this is coming soon!")
@@ -119,27 +123,21 @@ class ExactGP(GP):
 
         inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs]
 
-        same_inputs = False
-        # If input is m x d but targets is b x m we can save memory and computation
-        # by not computing the covariance for each element of the batch
-        for _, input in enumerate(inputs):
-            if input.dim() == targets.dim() + 1:
-                batch_shape = input.shape[:-2]
-            elif input.dim() == targets.dim():
-                same_inputs = True
-                batch_shape = targets.shape[:-1]
-            elif input.dim() < targets.dim():
-                batch_shape = targets.shape[:-2]
-                same_inputs = True
-            else:
-                raise Exception("Usupported dimensions")
+        target_batch_shape = targets.shape[:-1]
+        input_batch_shape = inputs[0].shape[:-2]
+        tbdim, ibdim = len(target_batch_shape), len(input_batch_shape)
 
-        if not same_inputs:
-            train_inputs = [tin.expand(*batch_shape, *tin.shape[-2:]) for tin in list(self.train_inputs)]
-        else:
-            train_inputs = self.train_inputs
+        if not (tbdim == ibdim + 1 or tbdim == ibdim):
+            raise Exception(
+                f"Unsupported batch shapes: The target batch shape ({target_batch_shape}) must have either the "
+                f"same dimension as or one more dimension than the input batch shape ({input_batch_shape})"
+            )
 
-        train_targets = self.train_targets.expand(*batch_shape, *self.train_targets.shape[-2:])
+        # If input has no fantasy batch dimension but target does, we can save memory and computation by not
+        # computing the covariance for each element of the batch. Therefore we don't expand the inputs to the
+        # size of the fantasy model here - this is done below, after the evaluation and fast fantasy update
+        train_inputs = [tin.expand(input_batch_shape + tin.shape[-2:]) for tin in self.train_inputs]
+        train_targets = self.train_targets.expand(target_batch_shape + self.train_targets.shape[-1:])
 
         full_inputs = [torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)]
         full_targets = torch.cat([train_targets, targets], dim=-1)
@@ -166,11 +164,6 @@ class ExactGP(GP):
         self.train_targets = old_train_targets
         self.likelihood = old_likelihood
 
-        if same_inputs:
-            new_model.train_inputs = [fi.expand(batch_shape + fi.shape) for fi in full_inputs]
-        else:
-            new_model.train_inputs = full_inputs
-        new_model.train_targets = full_targets
         new_model.likelihood = old_likelihood.get_fantasy_likelihood(**fantasy_kwargs)
         new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
             inputs,
@@ -180,6 +173,13 @@ class ExactGP(GP):
             full_output,
             **fantasy_kwargs,
         )
+
+        # if the fantasies are at the same points, we need to expand the inputs for the new model
+        if tbdim == ibdim + 1:
+            new_model.train_inputs = [fi.expand(target_batch_shape + fi.shape[-2:]) for fi in full_inputs]
+        else:
+            new_model.train_inputs = full_inputs
+        new_model.train_targets = full_targets
 
         return new_model
 
