@@ -114,6 +114,15 @@ class Module(nn.Module):
 
         return self
 
+    def _load_raw_parameters(self, **kwargs):
+        for name, val in kwargs.items():
+            if '.' in name:
+                module, name = self._get_module_and_name(name)
+                module._load_raw_parameters(**{name: val})
+            else:
+                delattr(self, name)
+                setattr(self, name, val)
+
     def named_added_loss_terms(self):
         """Returns an iterator over module variational strategies, yielding both
         the name of the variational strategy as well as the strategy itself.
