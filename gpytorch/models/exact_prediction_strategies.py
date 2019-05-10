@@ -84,9 +84,6 @@ class DefaultPredictionStrategy(object):
         """
         # Here the precomputed cache represents S,
         # where S S^T = (K_XX + sigma^2 I)^-1
-        if not torch.is_tensor(precomputed_cache):
-            # can't call tensor matmul on a lazy, so we'll flip things around
-            return precomputed_cache.transpose(-1, -2).matmul(test_train_covar.transpose(-1, -2)).transpose(-1, -2)
         return test_train_covar.matmul(precomputed_cache)
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
@@ -219,7 +216,7 @@ class DefaultPredictionStrategy(object):
             full_mean = full_mean.expand(fant_batch_shape + full_mean.shape)
             full_covar = BatchRepeatLazyTensor(full_covar, repeat_shape)
             new_root = BatchRepeatLazyTensor(NonLazyTensor(new_root), repeat_shape)
-            new_covar_cache = BatchRepeatLazyTensor(NonLazyTensor(new_covar_cache), repeat_shape)
+            # no need to repeat the covar cache, broadcasting will do the right thing
 
         # Create new DefaultPredictionStrategy object
         fant_strat = self.__class__(
