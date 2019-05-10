@@ -18,7 +18,7 @@ class SpectralMixtureKernel(Kernel):
     .. note::
 
         Unlike other kernels,
-        * :attr:`ard_num_dums` **must equal** the number of dimensions of the data
+        * :attr:`ard_num_dims` **must equal** the number of dimensions of the data
         * :attr:`batch_shape` **must equal** the batch size of the data (torch.Size([1]) if the data is not batched)
         * :attr:`batch_shape` **cannot** contain more than one batch dimension.
         * This kernel should not be combined with a :class:`gpytorch.kernels.ScaleKernel`.
@@ -50,12 +50,12 @@ class SpectralMixtureKernel(Kernel):
     Example:
         >>> # Non-batch
         >>> x = torch.randn(10, 5)
-        >>> covar_module = gpytorch.kernels.SpectralMixtureKernel(num_mixtures=4, ard_dum_dims=5)
+        >>> covar_module = gpytorch.kernels.SpectralMixtureKernel(num_mixtures=4, ard_num_dims=5)
         >>> covar = covar_module(x)  # Output: LazyVariable of size (10 x 10)
         >>>
         >>> # Batch
         >>> batch_x = torch.randn(2, 10, 5)
-        >>> covar_module = gpytorch.kernels.SpectralMixtureKernel(num_mixtures=4, batch_size=2, ard_dum_dims=5)
+        >>> covar_module = gpytorch.kernels.SpectralMixtureKernel(num_mixtures=4, batch_size=2, ard_num_dims=5)
         >>> covar = covar_module(x)  # Output: LazyVariable of size (10 x 10)
 
 
