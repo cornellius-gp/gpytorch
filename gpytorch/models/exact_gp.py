@@ -110,12 +110,9 @@ class ExactGP(GP):
                 "all test independent caches exist. Call the model on some data first!"
             )
 
-        if self.train_inputs[0].dim() > 2:
-            raise RuntimeError(
-                "Adding fantasy observations to a GP that is already batch mode is currently unsupported."
-            )
+        model_batch_shape = self.train_inputs[0].shape[:-2]
 
-        if self.train_targets.dim() > 1:
+        if self.train_targets.dim() > len(model_batch_shape) + 1:
             raise RuntimeError("Cannot yet add fantasy observations to multitask GPs, but this is coming soon!")
 
         if not isinstance(inputs, list):
@@ -128,10 +125,22 @@ class ExactGP(GP):
         tbdim, ibdim = len(target_batch_shape), len(input_batch_shape)
 
         if not (tbdim == ibdim + 1 or tbdim == ibdim):
-            raise Exception(
+            raise RuntimeError(
                 f"Unsupported batch shapes: The target batch shape ({target_batch_shape}) must have either the "
                 f"same dimension as or one more dimension than the input batch shape ({input_batch_shape})"
             )
+
+        # Check whether we can properly broadcast batch dimensions
+        err_msg = (
+            f"Model batch shape ({model_batch_shape}) and target batch shape "
+            f"({target_batch_shape}) are not broadcastable."
+        )
+        _mul_broadcast_shape(model_batch_shape, target_batch_shape, error_msg=err_msg)
+
+        if len(model_batch_shape) > len(input_batch_shape):
+            input_batch_shape = model_batch_shape
+        if len(model_batch_shape) > len(target_batch_shape):
+            target_batch_shape = model_batch_shape
 
         # If input has no fantasy batch dimension but target does, we can save memory and computation by not
         # computing the covariance for each element of the batch. Therefore we don't expand the inputs to the
@@ -139,8 +148,11 @@ class ExactGP(GP):
         train_inputs = [tin.expand(input_batch_shape + tin.shape[-2:]) for tin in self.train_inputs]
         train_targets = self.train_targets.expand(target_batch_shape + self.train_targets.shape[-1:])
 
-        full_inputs = [torch.cat([train_input, input], dim=-2) for train_input, input in zip(train_inputs, inputs)]
-        full_targets = torch.cat([train_targets, targets], dim=-1)
+        full_inputs = [
+            torch.cat([train_input, input.expand(input_batch_shape + input.shape[-2:])], dim=-2)
+            for train_input, input in zip(train_inputs, inputs)
+        ]
+        full_targets = torch.cat([train_targets, targets.expand(target_batch_shape + targets.shape[-1:])], dim=-1)
 
         try:
             fantasy_kwargs = {"noise": kwargs.pop("noise")}

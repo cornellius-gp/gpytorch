@@ -94,10 +94,13 @@ class DefaultPredictionStrategy(object):
         GP model, use the :meth:`~gpytorch.models.ExactGP.get_fantasy_model` method.
 
         Args:
-            - :attr:`inputs` (Tensor `m x d` or `b x m x d`): Locations of fantasy observations.
-            - :attr:`targets` (Tensor `m` or `b x m`): Labels of fantasy observations.
-            - :attr:`full_inputs` (Tensor `n+m x d` or `b x n+m x d`): Training data concatenated with fantasy inputs
-            - :attr:`full_targets` (Tensor `n+m` or `b x n+m`): Training labels concatenated with fantasy labels.
+            - :attr:`inputs` (Tensor `b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`): Locations of fantasy
+                observations.
+            - :attr:`targets` (Tensor `b1 x ... x bk x m` or `f x b1 x ... x bk x m`): Labels of fantasy observations.
+            - :attr:`full_inputs` (Tensor `b1 x ... x bk x n+m x d` or `f x b1 x ... x bk x n+m x d`): Training data
+                concatenated with fantasy inputs
+            - :attr:`full_targets` (Tensor `b1 x ... x bk x n+m` or `f x b1 x ... x bk x n+m`): Training labels
+                concatenated with fantasy labels.
             - :attr:`full_output` (:class:`gpytorch.distributions.MultivariateNormal`): Prior called on full_inputs
 
         Returns:
@@ -142,12 +145,18 @@ class DefaultPredictionStrategy(object):
 
         # Solve for "b", the lower portion of the *new* \\alpha corresponding to the fantasy points.
         schur_complement = fant_fant_covar - fant_train_covar.matmul(fant_solve)
-        small_system_rhs = targets - fant_mean - fant_train_covar.matmul(self.mean_cache)
+        if self.mean_cache.dim() == 1:
+            ftcm = fant_train_covar.matmul(self.mean_cache)
+        elif full_inputs[0].dim() <= full_targets.dim():
+            ftcm = torch.einsum("...ij,...j->...i", [fant_train_covar, self.mean_cache])
+        else:
+            ftcm = torch.einsum("f...ij,...j->f...i", [fant_train_covar, self.mean_cache])
+        small_system_rhs = targets - fant_mean - ftcm
         small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
         if small_system_rhs.requires_grad or schur_complement.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
-            fant_cache_lower = torch.gesv(small_system_rhs, schur_complement)[0]
+            fant_cache_lower = torch.solve(small_system_rhs, schur_complement)[0]
         else:
             fant_cache_lower = cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
 
@@ -202,7 +211,7 @@ class DefaultPredictionStrategy(object):
         cap_mat = new_root.transpose(-2, -1).matmul(new_root)
         if cap_mat.requires_grad or new_root.requires_grad:
             # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
-            new_covar_cache = torch.gesv(new_root.transpose(-2, -1), cap_mat)[0].transpose(-2, -1)
+            new_covar_cache = torch.solve(new_root.transpose(-2, -1), cap_mat)[0].transpose(-2, -1)
         else:
             new_covar_cache = cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
             new_covar_cache = new_covar_cache.transpose(-2, -1)
