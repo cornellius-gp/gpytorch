@@ -16,7 +16,7 @@ class HalfNonLazyTensor(NonLazyTensor):
         return super()._t_matmul(rhs.half()).float()
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
-        return (res.float() for res in super()._quad_form_derivative(left_vecs, right_vecs))
+        return tuple(res.float() for res in super()._quad_form_derivative(left_vecs, right_vecs))
 
     def diag(self):
         return super().diag().float()
