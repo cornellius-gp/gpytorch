@@ -5,4 +5,4 @@ from ..lazy import HalfNonLazyTensor
 class HalfRBFKernel(RBFKernel):
     def forward(self, x1, x2, diag=False, **params):
         base_out = super().forward(x1, x2, diag, **params)
-        return HalfNonLazyTensor(base_out.half())
+        return base_out if diag else HalfNonLazyTensor(base_out.half())
