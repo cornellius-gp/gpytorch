@@ -2,6 +2,7 @@
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
 #include <cublas_v2.h>
+#include <ATen/DeviceGuard.h>
 
 
 /**
@@ -14,6 +15,7 @@ torch::Tensor mm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional<
     torch::Tensor a = (a_.type().scalarType() == torch::ScalarType::Half) ? a_ : a_.to(torch::kFloat16);
     torch::Tensor b = (b_.type().scalarType() == torch::ScalarType::Half) ? b_ : b_.to(torch::kFloat16);
     torch::Tensor c;
+    at::OptionalDeviceGuard guard(a_.device());
 
     int m = b.size(1);
     int k = b.size(0);
@@ -60,6 +62,7 @@ torch::Tensor bmm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional
     torch::Tensor a = (a_.type().scalarType() == torch::ScalarType::Half) ? a_ : a_.to(torch::kFloat16);
     torch::Tensor b = (b_.type().scalarType() == torch::ScalarType::Half) ? b_ : b_.to(torch::kFloat16);
     torch::Tensor c;
+    at::OptionalDeviceGuard guard(a_.device());
 
     int batch_size = b.size(0);
     int m = b.size(2);
