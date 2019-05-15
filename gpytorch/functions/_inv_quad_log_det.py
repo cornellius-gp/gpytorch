@@ -60,7 +60,7 @@ class InvQuadLogDet(Function):
         # Get closure for matmul
         lazy_tsr = ctx.representation_tree(*matrix_args)
         with torch.no_grad():
-            preconditioner, precond_lt, logdet_correction = lazy_tsr.detach()._preconditioner()
+            preconditioner, precond_lt, logdet_correction = lazy_tsr._preconditioner()
 
         ctx.preconditioner = preconditioner
 
