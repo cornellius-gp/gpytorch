@@ -29,6 +29,27 @@ true_C = A.bmm(B)
 if torch.allclose(true_C, C.half()) and torch.allclose(true_C, C_.half()):
     print("mixed.bmm passed!")
 
+# nonbatched small fp32
+A = torch.arange(0, m * k, dtype=torch.float32, device="cuda").view(m, k)
+B = torch.arange(0, n * k, dtype=torch.float32, device="cuda").view(k, n)
+C_ = torch.empty(m, n, dtype=torch.float32, device="cuda")
+C = mixed.mm(A, B, None)
+C_ = mixed.mm(A, B, C_)
+true_C = A.mm(B)
+if torch.allclose(true_C, C) and torch.allclose(true_C, C_):
+    print("mixed.mm with casting passed!")
+
+# batched small fp32
+A = torch.arange(0, b * m * k, dtype=torch.float32, device="cuda").view(b, m, k)
+B = torch.arange(0, b * n * k, dtype=torch.float32, device="cuda").view(b, k, n)
+C_ = torch.empty(b, m, n, dtype=torch.float32, device="cuda")
+C = mixed.bmm(A, B, None)
+C_ = mixed.bmm(A, B, C_)
+true_C = A.bmm(B)
+if torch.allclose(true_C, C) and torch.allclose(true_C, C_):
+    print("mixed.bmm with casting passed!")
+
+
 
 m = 2**15
 k = 2**9

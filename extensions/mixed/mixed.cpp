@@ -3,29 +3,32 @@
 #include <ATen/cuda/CUDAContext.h>
 #include <cublas_v2.h>
 
+
 /**
     Computes matrix multiplication C = A \times B where A and B are fp16 and C is accumulated and returned in fp32
     Does not broadcast, much like torch.mm
 */
-torch::Tensor mm(const torch::Tensor& a, const torch::Tensor& b, at::optional<torch::Tensor> c_=at::nullopt){
-    AT_CHECK(a.is_cuda() && a.type().scalarType() ==  torch::ScalarType::Half, "arg0 must be a CUDA Half tensor");  
-    AT_CHECK(b.is_cuda() && b.type().scalarType() ==  torch::ScalarType::Half, "arg1 must be a CUDA Half tensor");  
-    AT_CHECK(a.device() == b.device(), "arg0 and arg1 must be on the same device");
+torch::Tensor mm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional<torch::Tensor> c_=at::nullopt){
+    AT_CHECK(a_.is_cuda() && b_.is_cuda(), "arg0 and arg1 must be CUDA Tensors");
+    AT_CHECK(a_.device() == b_.device(), "arg0 and arg1 must be on the same device");
+    torch::Tensor a = (a_.type().scalarType() == torch::ScalarType::Half) ? a_ : a_.to(torch::kFloat16);
+    torch::Tensor b = (b_.type().scalarType() == torch::ScalarType::Half) ? b_ : b_.to(torch::kFloat16);
+    torch::Tensor c;
 
     int m = b.size(1);
     int k = b.size(0);
     int n = a.size(0);
-    torch::Tensor c;
+
     if (c_.has_value()){
         c = *c_;
-        AT_CHECK(c.is_cuda() && c.type().scalarType() == torch::ScalarType::Float, "arg2 must be a CUDA Float tensor")
+        AT_CHECK(c.is_cuda() && c.type().scalarType() == torch::ScalarType::Float, "arg2 must be a CUDA Float32 tensor")
         AT_CHECK(c.device() == a.device(), "arg2 must be on the same device as arg0 and arg1")
     }
     else{
         c = torch::empty({n, m}, torch::dtype(torch::kFloat32)
-                                                     .layout(torch::kStrided)
-                                                     .device(torch::kCUDA, a.device().index())
-                                                     .requires_grad(a.requires_grad() || b.requires_grad()));
+                                       .layout(torch::kStrided)
+                                       .device(torch::kCUDA, a.device().index())
+                                       .requires_grad(a.requires_grad() || b.requires_grad()));
     }
 
     auto blasHandle = at::cuda::getCurrentCUDABlasHandle();
@@ -51,16 +54,21 @@ torch::Tensor mm(const torch::Tensor& a, const torch::Tensor& b, at::optional<to
     Computes matrix multiplication C = A \times B where A and B are fp16 and C is accumulated and returned in fp32
     with broadcasting, much like torch.bmm
 */
-torch::Tensor bmm(const torch::Tensor& a, const torch::Tensor& b, at::optional<torch::Tensor> c_=at::nullopt){
+torch::Tensor bmm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional<torch::Tensor> c_=at::nullopt){
+    AT_CHECK(a_.is_cuda() && b_.is_cuda(), "arg0 and arg1 must be CUDA Tensors");
+    AT_CHECK(a_.device() == b_.device(), "arg0 and arg1 must be on the same device");
+    torch::Tensor a = (a_.type().scalarType() == torch::ScalarType::Half) ? a_ : a_.to(torch::kFloat16);
+    torch::Tensor b = (b_.type().scalarType() == torch::ScalarType::Half) ? b_ : b_.to(torch::kFloat16);
+    torch::Tensor c;
+
     int batch_size = b.size(0);
     int m = b.size(2);
     int k = b.size(1);
     int n = a.size(1);
 
-    torch::Tensor c;
     if (c_.has_value()){
         c = *c_;
-        AT_CHECK(c.is_cuda() && c.type().scalarType() == torch::ScalarType::Float, "arg2 must be a CUDA Float tensor")
+        AT_CHECK(c.is_cuda() && c.type().scalarType() == torch::ScalarType::Float, "arg2 must be a CUDA Float32 tensor")
         AT_CHECK(c.device() == a.device(), "arg2 must be on the same device as arg0 and arg1")
     }
     else{
@@ -88,13 +96,6 @@ torch::Tensor bmm(const torch::Tensor& a, const torch::Tensor& b, at::optional<t
                               CUDA_R_32F, CUBLAS_GEMM_DFALT_TENSOR_OP);
         AT_CHECK(status == 0, "cublasGemmBatchedEx error");
     }
-    //cublasStatus_t status = cublasGemmBatchedEx(blasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
-    //                                     m, n, k, &alpha,
-    //                                     b.data<at::Half>(), CUDA_R_16F, m,
-    //                                     a.data<at::Half>(), CUDA_R_16F, k,
-    //                                     &beta,
-    //                                     c.data<float>(), CUDA_R_32F, m,
-    //                                     batch_size, CUDA_R_32F, CUBLAS_GEMM_DFALT_TENSOR_OP);
     return c;
 }
 
