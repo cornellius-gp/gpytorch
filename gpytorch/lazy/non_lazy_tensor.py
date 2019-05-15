@@ -53,7 +53,7 @@ class NonLazyTensor(LazyTensor):
         return self.__class__(self.tensor.sum(dim))
 
     def _transpose_nonbatch(self):
-        return NonLazyTensor(self.tensor.transpose(-1, -2))
+        return self.__class__(self.tensor.transpose(-1, -2))
 
     def _t_matmul(self, rhs):
         return torch.matmul(self.tensor.transpose(-1, -2), rhs)
