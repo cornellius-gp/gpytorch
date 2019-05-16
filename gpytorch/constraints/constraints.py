@@ -94,7 +94,8 @@ class Interval(Module):
                     "GreaterThan or LessThan instead."
                 )
 
-        transformed_tensor = (self._transform(tensor) * self.upper_bound) + self.lower_bound
+        scale = self.upper_bound - self.lower_bound
+        transformed_tensor = (self._transform(tensor) * scale) + self.lower_bound
 
         return transformed_tensor
 
@@ -115,7 +116,8 @@ class Interval(Module):
                     "GreaterThan or LessThan instead."
                 )
 
-        tensor = self._inv_transform((transformed_tensor - self.lower_bound) / self.upper_bound)
+        scale = self.upper_bound - self.lower_bound
+        tensor = self._inv_transform((transformed_tensor - self.lower_bound) / scale)
 
         return tensor
 
