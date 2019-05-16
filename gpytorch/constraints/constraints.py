@@ -122,6 +122,13 @@ class Interval(Module):
 
         return tensor
 
+    def log_abs_det_jacobian(self, tensor):
+        """
+        Gets log absolute determinent of jacobian of the transform.
+        """
+        transformed = sigmoid(tensor)
+        return torch.log(transformed * (1 - transformed) * (self.upper_bound - self.lower_bound))
+
     @property
     def initial_value(self):
         """
@@ -163,6 +170,12 @@ class GreaterThan(Interval):
     def inverse_transform(self, transformed_tensor):
         tensor = self._inv_transform(transformed_tensor - self.lower_bound) if self.enforced else transformed_tensor
         return tensor
+
+    def log_abs_det_jacobian(self, tensor):
+        """
+        Gets log absolute determinent of jacobian of the transform.
+        """
+        return sigmoid(tensor)
 
 
 class Positive(GreaterThan):
