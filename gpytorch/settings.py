@@ -498,6 +498,14 @@ class use_fp16_mult(_feature_flag):
     _state = False
 
 
+class use_fp32_acc(_feature_flag):
+    """
+    Whether or not to use FP32 precision for accumulating fp16 matrix multiplications.
+    """
+
+    _state = False
+
+
 class use_fp16_kernel(_feature_flag):
     """
     Whether or not to use FP16 precision for computing the covariance matrix.
