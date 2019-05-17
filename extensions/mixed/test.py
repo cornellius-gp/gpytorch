@@ -3,61 +3,35 @@ import mixed
 import time
 import numpy as np
 
-m = 3
-k = 4
-n = 5
-b = 2
-
-print("Testing small matrices...")
-# nonbatched small
-A = torch.randn(m * k, dtype=torch.float16, device="cuda").view(m, k)
-B = torch.randn(n * k, dtype=torch.float16, device="cuda").view(k, n)
-#C_ = torch.empty(m, n, dtype=torch.float32, device="cuda:1")
-C = mixed.mm(A, B, None)
-#C_ = mixed.mm(A, B, C_)
-true_C = A.mm(B)
-#if torch.allclose(true_C, C.half()) and torch.allclose(true_C, C_.half()):
-if torch.allclose(true_C, C.half()):
-    print("mixed.mm passed!")
-
-# batched small
-A = torch.randn(b * m * k, dtype=torch.float16, device="cuda").view(b, m, k)
-B = torch.randn(b * n * k, dtype=torch.float16, device="cuda").view(b, k, n)
-C_ = torch.empty(b, m, n, dtype=torch.float32, device="cuda")
-C = mixed.bmm(A, B, None)
-C_ = mixed.bmm(A, B, C_)
-true_C = A.bmm(B)
-if torch.allclose(true_C, C.half()) and torch.allclose(true_C, C_.half()):
-    print("mixed.bmm passed!")
-
-# nonbatched small fp32
-A = torch.randn(m * k, dtype=torch.float32, device="cuda").view(m, k)
-B = torch.randn(n * k, dtype=torch.float32, device="cuda").view(k, n)
-C_ = torch.empty(m, n, dtype=torch.float32, device="cuda")
-C = mixed.mm(A, B, None)
-C_ = mixed.mm(A, B, C_)
-true_C = A.mm(B)
-if torch.allclose(true_C, C) and torch.allclose(true_C, C_):
-    print("mixed.mm with casting passed!")
-
-# batched small fp32
-A = torch.randn(b * m * k, dtype=torch.float32, device="cuda").view(b, m, k)
-B = torch.randn(b * n * k, dtype=torch.float32, device="cuda").view(b, k, n)
-C_ = torch.empty(b, m, n, dtype=torch.float32, device="cuda")
-C = mixed.bmm(A, B, None)
-C_ = mixed.bmm(A, B, C_)
-true_C = A.bmm(B)
-if torch.allclose(true_C, C) and torch.allclose(true_C, C_):
-    print("mixed.bmm with casting passed!")
-
-
 
 # tensor cores need multiples of 8
 m = 8**2
 k = 8**5
 n = 8**2
+b = 8 
 
-print("Testing large matrices...")
+print("Testing accuracy...")
+# nonbatched small
+A = torch.randn((m, k), dtype=torch.float32, device="cuda")
+B = torch.randn((k, n), dtype=torch.float32, device="cuda")
+C = mixed.mm(A, B, None)
+torch_C = A.half().mm(B.half())
+true_C = A.mm(B)
+print(f"mixed.mm residual: {(true_C - C).norm()}")
+print(f"torch.mm residual: {(true_C - torch_C.float()).norm()}")
+
+
+# batched small
+A = torch.randn((b, m, k), dtype=torch.float32, device="cuda")
+B = torch.randn((b, k, n), dtype=torch.float32, device="cuda")
+C = mixed.bmm(A, B, None)
+torch_C = A.half().bmm(B.half())
+true_C = A.bmm(B)
+print(f"mixed.bmm residual: {(true_C - C).norm()}")
+print(f"torch.bmm residual: {(true_C - torch_C.float()).norm()}")
+
+
+# timing
 num_trials = 10
 # non-batched
 A = torch.randn(m, k, dtype=torch.float16, device="cuda")
@@ -135,8 +109,6 @@ A = A.half()
 B = B.half()
 
 del A; del B; del C; del C_; del true_C;
-
-b = 2**3
 
 # batched
 A = torch.randn(b, m, k, dtype=torch.float16, device="cuda")
