@@ -13,6 +13,14 @@ class HalfNonLazyTensor(NonLazyTensor):
 
     def _matmul(self, rhs):
         if settings.use_fp16_mult.on():
+            m, n = self.tensor.shape[-2:]
+            if (m * n) % 8 != 0:
+                print(f"HalfNonLazyTensor has last two dimensions size {(m, n)} "
+                       "which are not multiples of 8 to use tensor cores")
+            # pad to use tensor cores assuming self.tensor is already correctly sized
+            n_vecs = rhs.size(-1)
+            pad = (0, 8 - (n_vecs % 8))
+            rhs = torch.nn.functional.pad(rhs, pad)
             # Note we do not support broadcasting like torch.matmul yet
             if self.batch_dim > 0:
                 matrix_shape = self.matrix_shape
@@ -21,6 +29,7 @@ class HalfNonLazyTensor(NonLazyTensor):
                 res = mixed.bmm(tsr, rhs, None).view(*self.batch_shape, *matrix_shape)
             else:
                 res = mixed.mm(self.tensor, rhs, None)
+            res = res[..., :n_vecs]
         else:
             res = super()._matmul(rhs.half()).float()
         return res

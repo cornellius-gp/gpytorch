@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import warnings
-from .settings import _feature_flag, _value_context
+from .settings import _feature_flag, _value_context, use_fp16_mult
 
 
 class _moved_beta_feature(object):
@@ -37,6 +37,16 @@ class checkpoint_kernel(_value_context):
     """
 
     _global_value = 0
+
+    @classmethod
+    def _set_value(cls, value):
+        if use_fp16_mult().on():
+            new_value = value - (value % 8)
+            if value % 8 != 0:
+                print("Checkpoint size should be a multiple of 8 to use tensor cores")
+                print(f"Rounding down checkpoint size from {value} to {new_value} to use tensor cores")
+            value = new_value
+        cls._global_value = value
 
 
 class default_preconditioner(_feature_flag):
