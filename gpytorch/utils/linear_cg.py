@@ -300,7 +300,7 @@ def linear_cg(
         result = result.squeeze(-1)
 
     print(f"CG iters: {k}, residual 2-norms: {residual_norm}")
-    gpytorch.iter = k
+    gpytorch.iter = k, residual_norm.mean()
 
     if n_tridiag:
         t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
