@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import gpytorch
 import torch
 import warnings
 from .. import settings
@@ -255,7 +256,7 @@ def linear_cg(
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
-        if k >= 10 and bool(residual_norm.mean() < tolerance) and not (n_tridiag and k < n_tridiag_iter):
+        if k >= 1 and bool(residual_norm.mean() < tolerance) and not (n_tridiag and k < n_tridiag_iter):
             tolerance_reached = True
             break
 
@@ -297,6 +298,9 @@ def linear_cg(
 
     if is_vector:
         result = result.squeeze(-1)
+
+    print(f"CG iters: {k}, residual 2-norms: {residual_norm}")
+    gpytorch.iter = k
 
     if n_tridiag:
         t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
