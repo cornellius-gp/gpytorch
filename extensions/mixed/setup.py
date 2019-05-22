@@ -3,13 +3,14 @@ from torch.utils.cpp_extension import BuildExtension, CppExtension, include_path
 
 
 mixed_ext = CppExtension(
-    name='mixed',
+    name='mixed_cpp',
     sources=['mixed.cpp'],
-    include_dirs=include_paths()+['/usr/local/cuda/include'],
+    include_dirs=include_paths() + ['/usr/local/cuda/include'],
     language='cpp',
 )
 setup(
     name='mixed_cpp',
     ext_modules=[mixed_ext],
     cmdclass={'build_ext': BuildExtension},
+    py_modules=['mixed'],
 )
