@@ -10,7 +10,6 @@ from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumP
 from .. import settings
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
 from ..constraints import Positive
-import mixed
 
 
 def default_postprocess_script(x):
@@ -41,10 +40,9 @@ class Distance(torch.nn.Module):
         if settings.use_fp16_kernel.on():
             x1 = self._pad_feats(x1.half())
             x2 = self._pad_feats(x2.half())
-            if settings.use_fp32_acc.on():
-                res = mixed.matmul(x1, x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
-            else:
-                res = x1.matmul(x2.transpose(-2, -1)).float().mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+            x1_norm = x1_norm.half()
+            x2_norm = x2_norm.half()
+            res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm).float()
         else:
             res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
 
@@ -66,12 +64,9 @@ class Distance(torch.nn.Module):
             if settings.use_fp16_kernel.on():
                 x1 = self._pad_feats(x1).half()
                 x2 = self._pad_feats(x2).half()
-                if settings.use_fp32_acc.on():
-                    res = mixed.addmm(x2_norm.transpose(-2, -1).repeat(x1.size(-2), 1),
-                                      x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
-                else:
-                    res = torch.addmm(x2_norm.transpose(-2, -1).half(), x1, x2.transpose(-2, -1), alpha=-2).float().add_(x1_norm)
-
+                x1_norm = x1_norm.half()
+                x2_norm = x2_norm.half()
+                res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm).float()
             else:
                 res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
 
@@ -85,10 +80,7 @@ class Distance(torch.nn.Module):
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
         if settings.use_fp16_kernel.on():
             x1 = self._pad_feats(x1).half()
-            if settings.use_fp32_acc.on():
-                res = mixed.matmul(x1, x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
-            else:
-                res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).float().add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
+            res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).float().add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
         else:
             res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
         res.diagonal(dim1=-2, dim2=-1).fill_(0)
@@ -105,16 +97,18 @@ class Distance(torch.nn.Module):
             res = torch.cdist(x1, x1).pow(2)
         else:
             # Compute squared distance matrix using quadratic expansion
-            x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
             if settings.use_fp16_kernel.on():
                 x1 = self._pad_feats(x1).half()
-                if settings.use_fp32_acc.on():
-                    res = mixed.addmm(x1_norm.transpose(-2, -1).repeat(x1.size(-2), 1),
-                                      x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
-                else:
-                    res = torch.addmm(x1_norm.transpose(-2, -1).half(), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm).float()
-            else:
-                res = torch.addmm(x1_norm.transpose(-2, -1), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
+            x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+            if settings.use_fp16_kernel.on():
+                x1_norm = x1_norm.half()
+            x1_L = torch.cat((-2. * x1, x1_norm, torch.ones_like(x1_norm)), dim=1)
+            x1_R = torch.cat((x1, torch.ones_like(x1_norm), x1_norm), dim=1).transpose(-2, -1)
+            res = torch.mm(x1_L, x1_R)
+            if settings.use_fp16_kernel.on():
+                import pdb; pdb.set_trace()
+                res = res.float()
+
             res.diagonal(dim1=-2, dim2=-1).fill_(0)
 
             # Zero out negative values
