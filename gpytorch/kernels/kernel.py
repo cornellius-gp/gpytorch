@@ -10,6 +10,7 @@ from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumP
 from .. import settings
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
 from ..constraints import Positive
+import mixed
 
 
 def default_postprocess_script(x):
@@ -21,13 +22,31 @@ class Distance(torch.nn.Module):
         super().__init__()
         self._postprocess = postprocess_script
 
+    def _pad_feats(self, x):
+        n_feats = x.size(-1)
+        if n_feats % 8 == 0:
+            return x
+        no_pad = (0, 0) * (x.dim() - 2)
+        pad = (0, 8 - (n_feats % 8))
+        pad = no_pad + pad
+        return torch.nn.functional.pad(x, pad)
+
+
     # @torch.jit.script_method
     def _jit_sq_dist_x1_neq_x2(self, x1, x2, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
         x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
 
-        res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+        if settings.use_fp16_kernel.on():
+            x1 = self._pad_feats(x1.half())
+            x2 = self._pad_feats(x2.half())
+            if settings.use_fp32_acc.on():
+                res = mixed.matmul(x1, x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+            else:
+                res = x1.matmul(x2.transpose(-2, -1)).float().mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+        else:
+            res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
 
         # Zero out negative values
         res.clamp_min_(0)
@@ -35,14 +54,26 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_sq_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess):
-        if hasattr(torch, 'cdist') and x1.size(-2) <= 512 and x2.size(-2) <= 512:
+        if (hasattr(torch, 'cdist') and x1.size(-2) <= 512 and x2.size(-2) <= 512
+            and settings.use_fp16_kernel.off()
+        ):
             res = torch.cdist(x1, x2).pow(2)
         else:
             # Compute squared distance matrix using quadratic expansion
             x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
             x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
 
-            res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
+            if settings.use_fp16_kernel.on():
+                x1 = self._pad_feats(x1).half()
+                x2 = self._pad_feats(x2).half()
+                if settings.use_fp32_acc.on():
+                    res = mixed.addmm(x2_norm.transpose(-2, -1).repeat(x1.size(-2), 1),
+                                      x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
+                else:
+                    res = torch.addmm(x2_norm.transpose(-2, -1).half(), x1, x2.transpose(-2, -1), alpha=-2).float().add_(x1_norm)
+
+            else:
+                res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
 
             # Zero out negative values
             res.clamp_min_(0)
@@ -52,7 +83,14 @@ class Distance(torch.nn.Module):
     def _jit_sq_dist_x1_eq_x2(self, x1, postprocess):
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
+        if settings.use_fp16_kernel.on():
+            x1 = self._pad_feats(x1).half()
+            if settings.use_fp32_acc.on():
+                res = mixed.matmul(x1, x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
+            else:
+                res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).float().add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
+        else:
+            res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
         res.diagonal(dim1=-2, dim2=-1).fill_(0)
 
         # Zero out negative values
@@ -61,12 +99,22 @@ class Distance(torch.nn.Module):
 
     # @torch.jit.script_method
     def _jit_sq_dist_x1_eq_x2_nobatch(self, x1, postprocess):
-        if hasattr(torch, 'cdist') and x1.size(-2) <= 512:  # TODO: Remove lower branch when PyTorch 1.1.0 releases.
+        if (hasattr(torch, 'cdist') and x1.size(-2) <= 512
+            and settings.use_fp16_kernel.off()
+        ):  # TODO: Remove lower branch when PyTorch 1.1.0 releases.
             res = torch.cdist(x1, x1).pow(2)
         else:
             # Compute squared distance matrix using quadratic expansion
             x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-            res = torch.addmm(x1_norm.transpose(-2, -1), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
+            if settings.use_fp16_kernel.on():
+                x1 = self._pad_feats(x1).half()
+                if settings.use_fp32_acc.on():
+                    res = mixed.addmm(x1_norm.transpose(-2, -1).repeat(x1.size(-2), 1),
+                                      x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
+                else:
+                    res = torch.addmm(x1_norm.transpose(-2, -1).half(), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm).float()
+            else:
+                res = torch.addmm(x1_norm.transpose(-2, -1), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
             res.diagonal(dim1=-2, dim2=-1).fill_(0)
 
             # Zero out negative values

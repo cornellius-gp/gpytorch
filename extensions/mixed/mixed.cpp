@@ -1,15 +1,11 @@
 #include <torch/extension.h>
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
-#include <cublas_v2.h>
 #include <ATen/DeviceGuard.h>
+#include <cublas_v2.h>
 
 
-/**
-    Computes matrix multiplication C = A \times B where A and B are fp16 and C is accumulated and returned in fp32
-    Does not broadcast, much like torch.mm
-*/
-torch::Tensor mm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional<torch::Tensor> c_=at::nullopt){
+torch::Tensor addmm(float alpha, const torch::Tensor& a_, const torch::Tensor& b_, float beta, at::optional<torch::Tensor> c_=at::nullopt){
     AT_CHECK(a_.is_cuda() && b_.is_cuda(), "arg0 and arg1 must be CUDA Tensors");
     AT_CHECK(a_.device() == b_.device(), "arg0 and arg1 must be on the same device");
     torch::Tensor a = (a_.type().scalarType() == torch::ScalarType::Half) ? a_ : a_.to(torch::kFloat16);
@@ -20,6 +16,8 @@ torch::Tensor mm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional<
     int m = b.size(1);
     int k = b.size(0);
     int n = a.size(0);
+
+    AT_CHECK(beta == 0.f || c_.has_value());
 
     if (c_.has_value()){
         c = *c_;
@@ -36,9 +34,6 @@ torch::Tensor mm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional<
     auto blasHandle = at::cuda::getCurrentCUDABlasHandle();
     cublasSetMathMode(blasHandle, CUBLAS_TENSOR_OP_MATH);
 
-    // cublasGemmEX computes C = \alpha CUBLAS_OP(A) CUBLAS_OP(B) + \beta C
-    float alpha = 1.f;
-    float beta = 0.f;
     // cublas assumes column major so we need to do C' = B'A'
     cublasStatus_t status = cublasGemmEx(blasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
                                          m, n, k, &alpha,
@@ -51,12 +46,7 @@ torch::Tensor mm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional<
     return c;
 }
 
-
-/**
-    Computes matrix multiplication C = A \times B where A and B are fp16 and C is accumulated and returned in fp32
-    with broadcasting, much like torch.bmm
-*/
-torch::Tensor bmm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional<torch::Tensor> c_=at::nullopt){
+torch::Tensor baddbmm(float alpha, const torch::Tensor& a_, const torch::Tensor& b_, float beta, at::optional<torch::Tensor> c_=at::nullopt){
     AT_CHECK(a_.is_cuda() && b_.is_cuda(), "arg0 and arg1 must be CUDA Tensors");
     AT_CHECK(a_.device() == b_.device(), "arg0 and arg1 must be on the same device");
     torch::Tensor a = (a_.type().scalarType() == torch::ScalarType::Half) ? a_ : a_.to(torch::kFloat16);
@@ -68,6 +58,8 @@ torch::Tensor bmm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional
     int m = b.size(2);
     int k = b.size(1);
     int n = a.size(1);
+
+    AT_CHECK(beta == 0.f || c_.has_value());
 
     if (c_.has_value()){
         c = *c_;
@@ -84,9 +76,6 @@ torch::Tensor bmm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional
     auto blasHandle = at::cuda::getCurrentCUDABlasHandle();
     cublasSetMathMode(blasHandle, CUBLAS_TENSOR_OP_MATH);
 
-    // cublasGemmEX computes C = \alpha CUBLAS_OP(A) CUBLAS_OP(B) + \beta C
-    float alpha = 1.f;
-    float beta = 0.f;
     // cublas assumes column major so we need to do C' = B'A'
     cublasStatus_t status;
     for (int i = 0; i < batch_size; i++){
@@ -103,6 +92,6 @@ torch::Tensor bmm(const torch::Tensor& a_, const torch::Tensor& b_, at::optional
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m){
-  m.def("mm", &mm);
-  m.def("bmm", &bmm);
+  m.def("addmm", &addmm);
+  m.def("baddbmm", &baddbmm);
 }
