@@ -106,7 +106,6 @@ class Distance(torch.nn.Module):
             x1_R = torch.cat((x1, torch.ones_like(x1_norm), x1_norm), dim=1).transpose(-2, -1)
             res = torch.mm(x1_L, x1_R)
             if settings.use_fp16_kernel.on():
-                import pdb; pdb.set_trace()
                 res = res.float()
 
             res.diagonal(dim1=-2, dim2=-1).fill_(0)
