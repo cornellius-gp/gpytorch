@@ -34,17 +34,19 @@ class Distance(torch.nn.Module):
     # @torch.jit.script_method
     def _jit_sq_dist_x1_neq_x2(self, x1, x2, postprocess):
         # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
-
         if settings.use_fp16_kernel.on():
             x1 = self._pad_feats(x1.half())
             x2 = self._pad_feats(x2.half())
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+        if settings.use_fp16_kernel.on():
             x1_norm = x1_norm.half()
             x2_norm = x2_norm.half()
-            res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm).float()
-        else:
-            res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
+        x1_L = torch.cat((-2. * x1, x1_norm, torch.ones_like(x1_norm)), dim=-1)
+        x2_R = torch.cat((x2, torch.ones_like(x2_norm), x2_norm), dim=-1).transpose(-2, -1)
+        res = torch.matmul(x1_L, x2_R)
+        if settings.use_fp16_kernel.on():
+            res = res.float()
 
         # Zero out negative values
         res.clamp_min_(0)
@@ -58,17 +60,19 @@ class Distance(torch.nn.Module):
             res = torch.cdist(x1, x2).pow(2)
         else:
             # Compute squared distance matrix using quadratic expansion
-            x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
-
             if settings.use_fp16_kernel.on():
                 x1 = self._pad_feats(x1).half()
                 x2 = self._pad_feats(x2).half()
+            x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+            if settings.use_fp16_kernel.on():
                 x1_norm = x1_norm.half()
                 x2_norm = x2_norm.half()
-                res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm).float()
-            else:
-                res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
+            x1_L = torch.cat((-2. * x1, x1_norm, torch.ones_like(x1_norm)), dim=-1)
+            x2_R = torch.cat((x2, torch.ones_like(x2_norm), x2_norm), dim=-1).transpose(-2, -1)
+            res = torch.mm(x1_L, x2_R)
+            if settings.use_fp16_kernel.on():
+                res = res.float()
 
             # Zero out negative values
             res.clamp_min_(0)
@@ -77,14 +81,17 @@ class Distance(torch.nn.Module):
     # @torch.jit.script_method
     def _jit_sq_dist_x1_eq_x2(self, x1, postprocess):
         # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
         if settings.use_fp16_kernel.on():
             x1 = self._pad_feats(x1).half()
-            res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).float().add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
-        else:
-            res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        if settings.use_fp16_kernel.on():
+            x1_norm = x1_norm.half()
+        x1_L = torch.cat((-2. * x1, x1_norm, torch.ones_like(x1_norm)), dim=-1)
+        x1_R = torch.cat((x1, torch.ones_like(x1_norm), x1_norm), dim=-1).transpose(-2, -1)
+        res = torch.matmul(x1_L, x1_R)
+        if settings.use_fp16_kernel.on():
+            res = res.float()
         res.diagonal(dim1=-2, dim2=-1).fill_(0)
-
         # Zero out negative values
         res.clamp_min_(0)
         return self._postprocess(res) if bool(postprocess) else res
@@ -102,8 +109,8 @@ class Distance(torch.nn.Module):
             x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
             if settings.use_fp16_kernel.on():
                 x1_norm = x1_norm.half()
-            x1_L = torch.cat((-2. * x1, x1_norm, torch.ones_like(x1_norm)), dim=1)
-            x1_R = torch.cat((x1, torch.ones_like(x1_norm), x1_norm), dim=1).transpose(-2, -1)
+            x1_L = torch.cat((-2. * x1, x1_norm, torch.ones_like(x1_norm)), dim=-1)
+            x1_R = torch.cat((x1, torch.ones_like(x1_norm), x1_norm), dim=-1).transpose(-2, -1)
             res = torch.mm(x1_L, x1_R)
             if settings.use_fp16_kernel.on():
                 res = res.float()
