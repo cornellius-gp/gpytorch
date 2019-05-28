@@ -69,3 +69,8 @@ class MartinVariationalDistribution(VariationalDistribution):
         chol_variational_covar = chol_variational_covar.mul(lower_mask)
 
         return MartinDistribution(self.variational_mean, chol_variational_covar, self.nu)
+
+        # Now construct the actual matrix
+        variational_covar = CholLazyTensor(chol_variational_covar)
+
+        return MartinDistribution(self.variational_mean, variational_covar, self.nu)
