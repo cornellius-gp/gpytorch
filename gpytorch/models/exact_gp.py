@@ -231,7 +231,7 @@ class ExactGP(GP):
             return res
 
         # Prior mode
-        elif self.train_inputs is None or self.train_targets is None:
+        elif settings.prior_mode.on() or self.train_inputs is None or self.train_targets is None:
             full_inputs = args
             full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
             if settings.debug().on():

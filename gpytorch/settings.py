@@ -435,6 +435,15 @@ class num_trace_samples(_value_context):
     _global_value = 10
 
 
+class prior_mode(_feature_flag):
+    """
+    If set to true, GP models will be evaluated in prior mode.
+    This allows evaluating any Exact GP model in prior mode, even it if has training data / targets.
+    """
+
+    _state = False
+
+
 class skip_logdet_forward(_feature_flag):
     """
     .. warning:
