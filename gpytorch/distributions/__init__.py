@@ -2,6 +2,7 @@
 
 from .distribution import Distribution
 from .multivariate_normal import MultivariateNormal
+from .martin_distribution import MartinDistribution
 from .multitask_multivariate_normal import MultitaskMultivariateNormal
 
 # Get the set of distributions from either PyTorch or Pyro
