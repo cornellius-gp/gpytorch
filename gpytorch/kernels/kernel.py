@@ -21,92 +21,40 @@ class Distance(torch.nn.Module):
         super().__init__()
         self._postprocess = postprocess_script
 
-    # @torch.jit.script_method
-    def _jit_sq_dist_x1_neq_x2(self, x1, x2, postprocess):
-        # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
-
-        res = x1.matmul(x2.transpose(-2, -1)).mul_(-2).add_(x2_norm.transpose(-2, -1)).add_(x1_norm)
-
-        # Zero out negative values
-        res.clamp_min_(0)
-        return self._postprocess(res) if bool(postprocess) else res
-
-    # @torch.jit.script_method
-    def _jit_sq_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess):
-        if hasattr(torch, 'cdist') and x1.size(-2) <= 512 and x2.size(-2) <= 512:
+    def _sq_dist(self, x1, x2, postprocess, x1_eq_x2=False):
+        if hasattr(torch, 'cdist') and x1.dim() < 3 and x1.size(-2) <= 512 and x2.size(-2) <= 512:
+            # torch cdist doesn't support batch, also only available after pytorch 1.1
+            # cdist is a bit faster on small tensors. Check again after pytorch PR #20605
             res = torch.cdist(x1, x2).pow(2)
         else:
             # Compute squared distance matrix using quadratic expansion
             x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+            x1_pad = torch.ones_like(x1_norm)
+            if x1_eq_x2:
+                x2_norm, x2_pad = x1_norm, x1_pad
+            else:
+                x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+                x2_pad = torch.ones_like(x2_norm)
+            x1_ = torch.cat([-2. * x1, x1_norm, x1_pad], dim=-1)
+            x2_ = torch.cat([x2, x2_pad, x2_norm], dim=-1)
+            res = x1_.matmul(x2_.transpose(-2, -1))
 
-            res = torch.addmm(x2_norm.transpose(-2, -1), x1, x2.transpose(-2, -1), alpha=-2).add_(x1_norm)
-
-            # Zero out negative values
-            res.clamp_min_(0)
-        return self._postprocess(res) if bool(postprocess) else res
-
-    # @torch.jit.script_method
-    def _jit_sq_dist_x1_eq_x2(self, x1, postprocess):
-        # Compute squared distance matrix using quadratic expansion
-        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-        res = x1.matmul(x1.transpose(-2, -1)).mul_(-2).add_(x1_norm.transpose(-2, -1)).add_(x1_norm)
-        res.diagonal(dim1=-2, dim2=-1).fill_(0)
-
-        # Zero out negative values
-        res.clamp_min_(0)
-        return self._postprocess(res) if bool(postprocess) else res
-
-    # @torch.jit.script_method
-    def _jit_sq_dist_x1_eq_x2_nobatch(self, x1, postprocess):
-        if hasattr(torch, 'cdist') and x1.size(-2) <= 512:  # TODO: Remove lower branch when PyTorch 1.1.0 releases.
-            res = torch.cdist(x1, x1).pow(2)
-        else:
-            # Compute squared distance matrix using quadratic expansion
-            x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-            res = torch.addmm(x1_norm.transpose(-2, -1), x1, x1.transpose(-2, -1), alpha=-2).add_(x1_norm)
-            res.diagonal(dim1=-2, dim2=-1).fill_(0)
+            if x1_eq_x2:
+                res.diagonal(dim1=-2, dim2=-1).fill_(0)
 
             # Zero out negative values
             res.clamp_min_(0)
-        return self._postprocess(res) if bool(postprocess) else res
+        return self._postprocess(res) if postprocess else res
 
-    # @torch.jit.script_method
-    def _jit_dist_x1_neq_x2(self, x1, x2, postprocess, false_tensor):
-        # Need to do a hack to get a False tensor because pytorch stable doesn't
-        # support creating of tensors in torch scripts
-        res = self._jit_sq_dist_x1_neq_x2(x1, x2, postprocess=false_tensor)
-        res = res.clamp_min_(1e-30).sqrt_()
-        return self._postprocess(res) if bool(postprocess) else res
-
-    # @torch.jit.script_method
-    def _jit_dist_x1_neq_x2_nobatch(self, x1, x2, postprocess, false_tensor):
-        if hasattr(torch, 'cdist') and x1.size(-2) <= 512 and x2.size(-2) <= 512:
+    def _dist(self, x1, x2, postprocess, x1_eq_x2=False):
+        if hasattr(torch, 'cdist') and x1.dim() < 3 and x1.size(-2) <= 512 and x2.size(-2) <= 512:
+            # torch cdist doesn't support batch, also only available after pytorch 1.1
+            # cdist is a bit faster on small tensors. Check again after pytorch PR #20605
             res = torch.cdist(x1, x2)
         else:
-            res = self._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess=false_tensor)
+            res = self._sq_dist(x1, x2, postprocess=False, x1_eq_x2=x1_eq_x2)
             res = res.clamp_min_(1e-30).sqrt_()
-        return self._postprocess(res) if bool(postprocess) else res
-
-    # @torch.jit.script_method
-    def _jit_dist_x1_eq_x2(self, x1, postprocess, false_tensor):
-        # Need to do a hack to get a False tensor because pytorch stable doesn't
-        # support creating of tensors in torch scripts
-        res = self._jit_sq_dist_x1_eq_x2(x1, postprocess=false_tensor)
-        res = res.clamp_min_(1e-30).sqrt_()
-        return self._postprocess(res) if bool(postprocess) else res
-
-    # @torch.jit.script_method
-    def _jit_dist_x1_eq_x2_nobatch(self, x1, postprocess, false_tensor):
-        if hasattr(torch, 'cdist') and x1.size(-2) <= 512:
-            res = torch.cdist(x1, x1)
-        else:
-            res = self._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess=false_tensor)
-            res = res.clamp_min_(1e-30).sqrt_()
-
-        return self._postprocess(res) if bool(postprocess) else res
+        return self._postprocess(res) if postprocess else res
 
 
 class Kernel(Module, _ClassWithDeprecatedBatchSize):
@@ -362,27 +310,9 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             return res
 
         elif square_dist:
-            if x1_eq_x2:
-                if x1.dim() == 2:
-                    res = self.distance_module._jit_sq_dist_x1_eq_x2_nobatch(x1, postprocess)
-                else:
-                    res = self.distance_module._jit_sq_dist_x1_eq_x2(x1, postprocess)
-            else:
-                if x1.dim() == 2:
-                    res = self.distance_module._jit_sq_dist_x1_neq_x2_nobatch(x1, x2, postprocess)
-                else:
-                    res = self.distance_module._jit_sq_dist_x1_neq_x2(x1, x2, postprocess)
+            res = self.distance_module._sq_dist(x1, x2, postprocess, x1_eq_x2)
         else:
-            if x1_eq_x2:
-                if x1.dim() == 2:
-                    res = self.distance_module._jit_dist_x1_eq_x2_nobatch(x1, postprocess, torch.tensor(False))
-                else:
-                    res = self.distance_module._jit_dist_x1_eq_x2(x1, postprocess, torch.tensor(False))
-            else:
-                if x1.dim() == 2:
-                    res = self.distance_module._jit_dist_x1_neq_x2_nobatch(x1, x2, postprocess, torch.tensor(False))
-                else:
-                    res = self.distance_module._jit_dist_x1_neq_x2(x1, x2, postprocess, torch.tensor(False))
+            res = self.distance_module._dist(x1, x2, postprocess, x1_eq_x2)
 
         return res
 
