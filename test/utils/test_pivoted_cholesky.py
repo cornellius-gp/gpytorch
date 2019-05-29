@@ -62,7 +62,7 @@ class TestPivotedCholesky(unittest.TestCase):
         F = lazy_tsr._piv_chol_self
         M = noise.diag() + F.matmul(F.t())
 
-        x_exact = torch.gesv(y, M)[0]
+        x_exact = torch.solve(y, M)[0]
         x_qr = precondition_qr(y)
 
         self.assertTrue(approx_equal(x_exact, x_qr, tol))
@@ -82,7 +82,7 @@ class TestPivotedCholesky(unittest.TestCase):
         F = lazy_tsr._piv_chol_self
         M = noise.diag() + F.matmul(F.t())
 
-        x_exact = torch.gesv(y, M)[0]
+        x_exact = torch.solve(y, M)[0]
         x_qr = precondition_qr(y)
 
         self.assertTrue(approx_equal(x_exact, x_qr, tol))
