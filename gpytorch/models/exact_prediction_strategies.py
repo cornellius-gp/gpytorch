@@ -119,8 +119,8 @@ class DefaultPredictionStrategy(object):
         fant_fant_covar = full_covar[..., num_train:, num_train:]
         fant_mean = full_mean[..., num_train:]
         mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
-        self.likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
-        mvn_obs = self.likelihood(mvn, inputs, **kwargs)
+        fant_likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
+        mvn_obs = fant_likelihood(mvn, inputs, **kwargs)
 
         fant_fant_covar = mvn_obs.covariance_matrix
         fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
@@ -232,7 +232,7 @@ class DefaultPredictionStrategy(object):
             train_inputs=full_inputs,
             train_prior_dist=self.train_prior_dist.__class__(full_mean, full_covar),
             train_labels=full_targets,
-            likelihood=self.likelihood,
+            likelihood=fant_likelihood,
             root=new_root,
             inv_root=new_covar_cache,
         )
