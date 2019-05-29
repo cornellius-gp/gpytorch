@@ -140,6 +140,21 @@ class TestExactGP(_ModelTestCase, unittest.TestCase):
         self.assertTrue(output.lazy_covariance_matrix.size(-1) == batch_data.size(-2))
         self.assertTrue(output.lazy_covariance_matrix.size(-2) == batch_data.size(-2))
 
+    def test_prior_mode(self):
+        train_data = self.create_test_data()
+        likelihood, labels = self.create_likelihood_and_labels()
+        prior_model = self.create_model(None, None, likelihood)
+        model = self.create_model(train_data, labels, likelihood)
+        prior_model.eval()
+        model.eval()
+
+        test_data = self.create_test_data()
+        prior_out = prior_model(test_data)
+        with gpytorch.settings.prior_mode(True):
+            prior_out_cm = model(test_data)
+        self.assertTrue(torch.allclose(prior_out.mean, prior_out_cm.mean))
+        self.assertTrue(torch.allclose(prior_out.covariance_matrix, prior_out_cm.covariance_matrix))
+
 
 class TestInterpolatedExactGP(TestExactGP):
     def create_model(self, train_x, train_y, likelihood):
