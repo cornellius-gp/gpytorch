@@ -3,7 +3,8 @@
 from .mean import Mean
 from .constant_mean import ConstantMean
 from .constant_mean_grad import ConstantMeanGrad
+from .linear_mean import LinearMean
 from .multitask_mean import MultitaskMean
 from .zero_mean import ZeroMean
 
-__all__ = ["Mean", "ConstantMean", "ConstantMeanGrad", "MultitaskMean", "ZeroMean"]
+__all__ = ["Mean", "ConstantMean", "ConstantMeanGrad", "LinearMean", "MultitaskMean", "ZeroMean"]
