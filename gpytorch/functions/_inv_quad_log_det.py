@@ -218,6 +218,6 @@ class InvQuadLogDet(Function):
         if ctx.inv_quad:
             res = [inv_quad_rhs_grad] + list(matrix_arg_grads)
         else:
-            res = matrix_arg_grads
+            res = list(matrix_arg_grads)
 
         return tuple([None] * 9 + res)
