@@ -47,6 +47,35 @@ class IndependentModelList(AbstractModelList):
     def forward(self, *args, **kwargs):
         [model.forward(*args_, **kwargs) for model, args_ in zip(self.models, _get_tensor_args(*args))]
 
+    def get_fantasy_model(self, inputs, targets, **kwargs):
+        """
+        Returns a new GP model that incorporates the specified inputs and targets as new training data.
+
+        This is a simple wrapper that creates fantasy models for each of the models in the model list,
+        and returns the same class of fantasy models.
+
+        Args:
+            - :attr:`inputs`: List of locations of fantasy observations, one for each model.
+            - :attr:`targets` List of labels of fantasy observations, one for each model.
+
+        Returns:
+            - :class:`IndependentModelList`
+                An `IndependentModelList` model, where each sub-model is the fantasy model of the respective
+                sub-model in the original model at the corresponding input locations / labels.
+        """
+
+        if "noise" in kwargs:
+            noise = kwargs.pop("noise")
+            kwargs = [{**kwargs, "noise": noise_} if noise_ is not None else kwargs for noise_ in noise]
+        else:
+            kwargs = [kwargs] * len(inputs)
+
+        fantasy_models = [
+            model.get_fantasy_model(*inputs_, *targets_, **kwargs_) for model, inputs_, targets_, kwargs_
+            in zip(self.models, _get_tensor_args(*inputs), _get_tensor_args(*targets), kwargs)
+        ]
+        return self.__class__(*fantasy_models)
+
     def __call__(self, *args, **kwargs):
         return [model.__call__(*args_, **kwargs) for model, args_ in zip(self.models, _get_tensor_args(*args))]
 
