@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
-import gpytorch
 import unittest
 from gpytorch.models import IndependentModelList
-from test.models.test_exact_gp import TestExactGP, ExactGPModel
+from test.models.test_exact_gp import TestExactGP
 
 
 class TestModelListGP(unittest.TestCase):
@@ -18,13 +17,13 @@ class TestModelListGP(unittest.TestCase):
         models = [self.create_model() for _ in range(2)]
         model = IndependentModelList(*models)
         model.eval()
-        output = model(torch.rand(3))
+        model(torch.rand(3))
 
     def test_get_fantasy_model(self):
         models = [self.create_model() for _ in range(2)]
         model = IndependentModelList(*models)
         model.eval()
-        output = model(torch.rand(3), torch.rand(3))
+        model(torch.rand(3), torch.rand(3))
         fant_x = [torch.randn(2), torch.randn(3)]
         fant_y = [torch.randn(2), torch.randn(3)]
         fmodel = model.get_fantasy_model(fant_x, fant_y)
