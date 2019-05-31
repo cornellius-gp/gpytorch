@@ -14,9 +14,6 @@ from ..utils.memoize import cached, add_to_cache
 from ..utils.cholesky import cholesky_solve
 
 
-LOWERCASE = string.ascii_lowercase
-
-
 def prediction_strategy(
     train_inputs, train_prior_dist, train_labels, likelihood
 ):
@@ -154,7 +151,7 @@ class DefaultPredictionStrategy(object):
         # we'd like to use a less hacky approach for the following, but einsum can be much faster than
         # than unsqueezing/squeezing here (esp. in backward passes), unfortunately it currenlty has some
         # issues with broadcasting: https://github.com/pytorch/pytorch/issues/15671
-        prefix = LOWERCASE[:max(fant_train_covar.dim() - self.mean_cache.dim() - 1, 0)]
+        prefix = string.ascii_lowercase[:max(fant_train_covar.dim() - self.mean_cache.dim() - 1, 0)]
         ftcm = torch.einsum(prefix + "...yz,...z->" + prefix + "...y", [fant_train_covar, self.mean_cache])
 
         small_system_rhs = targets - fant_mean - ftcm
