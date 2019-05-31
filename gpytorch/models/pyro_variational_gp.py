@@ -38,11 +38,7 @@ class PyroVariationalGP(AbstractVariationalGP):
 
     @property
     def variational_distribution(self):
-        for i, dsf in enumerate(self.dsf):
-            pyro.module(f"dsf{i}", dsf)
-        import pyro.distributions as dist
-        base_dist = dist.Normal(torch.zeros(self.num_inducing).cuda(), torch.ones(self.num_inducing).cuda())
-        return dist.TransformedDistribution(base_dist, self.dsf)
+        return self.variational_strategy.variational_distribution.variational_distribution
 
     def guide(self, input, output, *params, **kwargs):
         # Draw samples from q(u) for KL divergence computation
@@ -70,21 +66,9 @@ class PyroVariationalGP(AbstractVariationalGP):
         # Prior distribution + samples
         inducing_values_samples = self.sample_inducing_values(self.variational_distribution)
 
-        if inducing_values_samples.dim() == 1:
-            means = induc_induc_covar.inv_matmul(
-                induc_data_covar,
-                inducing_values_samples.unsqueeze(-2)
-            ).squeeze(-2)
-        elif inducing_values_samples.dim() == 3:
-            means = induc_induc_covar.inv_matmul(
-                induc_data_covar,
-                inducing_values_samples.squeeze(-2)
-            )
-        else:
-            means = induc_induc_covar.inv_matmul(
-                induc_data_covar,
-                inducing_values_samples
-            )
+        # TODO: Replace with single inv_matmul call
+        means = induc_data_covar.transpose(-2, -1).matmul(induc_induc_covar.inv_matmul(inducing_values_samples.unsqueeze(-1))).squeeze(-1)
+
         f_samples = full_output.__class__(
             means,
             DiagLazyTensor((
