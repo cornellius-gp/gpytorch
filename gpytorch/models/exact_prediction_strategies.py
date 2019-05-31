@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import string
+
 import torch
 
 from .. import settings
@@ -145,12 +147,13 @@ class DefaultPredictionStrategy(object):
 
         # Solve for "b", the lower portion of the *new* \\alpha corresponding to the fantasy points.
         schur_complement = fant_fant_covar - fant_train_covar.matmul(fant_solve)
-        if self.mean_cache.dim() == 1:
-            ftcm = fant_train_covar.matmul(self.mean_cache)
-        elif full_inputs[0].dim() <= full_targets.dim():
-            ftcm = torch.einsum("...ij,...j->...i", [fant_train_covar, self.mean_cache])
-        else:
-            ftcm = torch.einsum("f...ij,...j->f...i", [fant_train_covar, self.mean_cache])
+
+        # we'd like to use a less hacky approach for the following, but einsum can be much faster than
+        # than unsqueezing/squeezing here (esp. in backward passes), unfortunately it currenlty has some
+        # issues with broadcasting: https://github.com/pytorch/pytorch/issues/15671
+        prefix = string.ascii_lowercase[:max(fant_train_covar.dim() - self.mean_cache.dim() - 1, 0)]
+        ftcm = torch.einsum(prefix + "...yz,...z->" + prefix + "...y", [fant_train_covar, self.mean_cache])
+
         small_system_rhs = targets - fant_mean - ftcm
         small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
