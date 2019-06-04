@@ -189,7 +189,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     def __add__(self, other):
         if isinstance(other, _MultivariateNormalBase):
             return self.__class__(
-                mean=self._mean + other.mean,
+                mean=self.mean + other.mean,
                 covariance_matrix=(self.lazy_covariance_matrix + other.lazy_covariance_matrix),
             )
         elif isinstance(other, int) or isinstance(other, float):
