@@ -28,7 +28,7 @@ readme = open("README.md").read()
 version = find_version("gpytorch", "__init__.py")
 
 
-torch_min = "1.0.1"
+torch_min = "1.1"
 install_requires = [">=".join(["torch", torch_min])]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
