@@ -44,7 +44,7 @@ class InducingPointKernel(Kernel):
         else:
             chol = psd_safe_cholesky(self._inducing_mat, upper=True)
             eye = torch.eye(chol.size(-1), device=chol.device)
-            inv_root = torch.trtrs(eye, chol)[0]
+            inv_root = torch.triangular_solve(eye, chol)[0]
 
             res = inv_root
             if not self.training:
