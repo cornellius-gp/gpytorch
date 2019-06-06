@@ -30,7 +30,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         # Add terms for SGPR / when inducing points are learned
         added_loss = torch.zeros_like(res)
         for added_loss_term in self.model.added_loss_terms():
-            added_loss.add(added_loss_term.loss())
+            added_loss = added_loss.add(added_loss_term.loss())
 
         res = res.add(0.5, added_loss)
 
