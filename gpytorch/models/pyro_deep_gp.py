@@ -21,6 +21,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         self.input_dims = input_dims
         self.output_dims = output_dims
         self.output_dim_plate = pyro.plate(name_prefix + ".n_output_plate", self.output_dims)
+        self.name_prefix = name_prefix
 
     @property
     def variational_distribution(self):
@@ -28,10 +29,11 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
     def guide(self):
         with self.output_dim_plate:
-            q_u_samples = pyro.sample(name_prefix + ".inducing_values", self.variational_distribution)
+            q_u_samples = pyro.sample(self.name_prefix + ".inducing_values", self.variational_distribution)
         return q_u_samples
 
     def model(self, inputs, return_samples=True):
+        pyro.module(self.name_prefix + ".gp_layer", self)
         # Note: assumes inducing_points are not shared (e.g., are O_i x m x O_{i-1})
         # If shared, we need to expand and repeat m x d -> O_i x m x O_{i-1}
         inducing_points = self.variational_strategy.inducing_points
@@ -44,7 +46,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
             # Assume new input entirely
             inputs = inputs.unsqueeze(0)
             inputs = inputs.expand(self.output_dims, inputs.size(-2), self.input_dims)
-        elif inputs.dim() == 3: # p x n x O_{i-1} -> O_{i} x p x n x O_{i-1}
+        elif inputs.dim() == 3:  # p x n x O_{i-1} -> O_{i} x p x n x O_{i-1}
             # Assume batch dim is samples, not output_dim
             inputs = inputs.unsqueeze(0)
             inputs = inputs.expand(self.output_dims, inputs.size(1), inputs.size(-2), self.input_dims)
@@ -52,9 +54,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         if inputs.dim() == 4:  # Convert O_{i} x p x n x O_{i-1} -> O_{i} x p*n x O_{i-1}
             num_samples = inputs.size(-3)
             inputs = inputs.view(self.output_dims, inputs.size(-2) * inputs.size(-3), self.input_dims)
-            reshape_output = True
         else:
-            reshape_output = False
             num_samples = None
 
         # Goal: return a p x n x O_{i} tensor.
@@ -67,7 +67,9 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
         # Mean terms
         induc_mean = full_mean[..., :num_induc]  # O_{i} x m
-        test_mean = full_mean[..., num_induc:]  # O_{i} x (p*n)
+
+        # Why are we not using the prior mean for f?
+        # test_mean = full_mean[..., num_induc:]  # O_{i} x (p*n)
 
         # Covariance terms
         induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
@@ -76,7 +78,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
         # induc_induc_covar is K_mm and is O_{i} x m x m
 
-        induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate() # O_{i} x m x p*n
+        induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()  # O_{i} x m x p*n
         data_data_covar = full_covar[..., num_induc:, num_induc:]  # O_{i} x p*n x p*n
 
         # prior_distribution is p(u)
@@ -94,7 +96,6 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         # K_ux^{T} is either O_{i} x m x n if this is the first layer in the deep GP
         # or it is O_{i} x m x p*n if it is any later layer.
 
-
         if num_samples is not None:  # This means we are in a later layer, and K_ux^{T} is O_{i} x m x p*n
             # We need to reshape O_{i} x m x p*n to p x O_{i} x n x m
 
@@ -105,7 +106,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
                 num_samples,
                 minibatch_size,
             )  # induc_data_covar is now O_{i} x m x p x n
-            induc_data_covar = induc_data_covar.permute(2, 0, 3, 1)
+            induc_data_covar = induc_data_covar.permute(2, 0, 1, 3)
             # induc_data_covar is now p x O_{i} x n x m
 
             # K_xx is also a problem, because it is O_{i} x pn x pn
@@ -125,12 +126,19 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         # Mean is K_xuK_uu^{-1}u
         # solve_result is already K_uu^{-1}u
         # so multiply induc_data_covar (K_ux^{T})
-        means = induc_data_covar.transpose(-2,-1).matmul(solve_result.unsqueeze(-1)).squeeze(-1)
+        # TODO: use inv_matmul to compute means
+        means = induc_data_covar.transpose(-2, -1).matmul(solve_result.unsqueeze(-1)).squeeze(-1)
         # means is now p x O_{i} x n
 
         # induc_induc_covar is O_{i} x m x m
         # induc_data_covar is p x O_{i} x n x m
-        diag_correction = induc_induc_covar.inv_quad(induc_data_covar, reduce_inv_quad=False)
+        if num_samples is not None:
+            # induc_data_covar has 4 dimensions in interior layers, so we need to unsqueeze induc_induc_covar
+            # TODO: use inv_quad to compute diag corrections
+            diag_correction = (induc_induc_covar.unsqueeze(0).inv_matmul(induc_data_covar) * induc_data_covar).sum(-2)
+        else:
+            # First layer of deep GP, no need to unsqueeze b/c data only had 2 dims (so induc_data_covar has 3).
+            diag_correction = (induc_induc_covar.unsqueeze(0).inv_matmul(induc_data_covar) * induc_data_covar).sum(-2)
 
         # Computes diag(K_xx) - diag(K_xuK_uu^{-1}K_ux)
         variances = DiagLazyTensor(
@@ -141,15 +149,17 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         p_f_dist = full_output.__class__(means, variances)
 
         if return_samples:
-            if num_samples is not None:
-                samples = p_f_dist.rsample(torch.Size())
-                # samples are p x O_{i} x n
-                # The next layer expects p x n x O_{i}, so transpose
-                samples = samples.transpose(-2, -1)
-            else:
-                samples = p_f_dist.rsample(torch.Size([p_u_samples.size(-3)]))
-                # samples are p x O_{i} x n
-                samples = samples.transpose(-2, -1)
+            samples = p_f_dist.rsample(torch.Size())
+            samples = samples.transpose(-2, -1)
+            # if num_samples is not None:
+            #     samples = p_f_dist.rsample(torch.Size())
+            #     # samples are p x O_{i} x n
+            #     # The next layer expects p x n x O_{i}, so transpose
+            #     samples = samples.transpose(-2, -1)
+            # else:
+            #     samples = p_f_dist.rsample(torch.Size([p_u_samples.size(-3)]))
+            #     # samples are p x O_{i} x n
+            #     samples = samples.transpose(-2, -1)
 
             return samples
         else:
@@ -160,6 +170,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         Some pyro replay nonsense I don't understand goes here.
         """
 
+
 class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
     def __init__(
         self,
@@ -167,8 +178,9 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
         input_dims,
         output_dims,
         total_num_data,
-        name_prefix="",
         hidden_gp_layers,
+        likelihood,
+        name_prefix="",
     ):
         super().__init__(
             variational_strategy,
@@ -179,6 +191,7 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
 
         self.hidden_gp_layers = hidden_gp_layers  # A list of AbstractPyroHiddenGPLayers
         self.total_num_data = total_num_data
+        self.likelihood = likelihood
 
     def guide(self, inputs, outputs):
         for hidden_gp_layer in self.hidden_gp_layers:
@@ -187,6 +200,7 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
         super().guide()
 
     def model(self, inputs, outputs):
+        pyro.module(self.name_prefix + ".gp_layer", self)
         # First call hidden GP layers
         for hidden_gp_layer in self.hidden_gp_layers:
             inputs = hidden_gp_layer.model(inputs)
@@ -196,5 +210,5 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
 
         with pyro.plate(self.name_prefix + ".data_plate", minibatch_size, dim=-1):
             with pyro.poutine.scale(scale=float(self.total_num_data / minibatch_size)):
-                out_dist = QuadratureDist(self.likelihood, f_samples)
-                return pyro.sample(self.name_prefix + ".output_value", out_dist, obs=output)
+                out_dist = QuadratureDist(self.likelihood, p_f_dist)
+                return pyro.sample(self.name_prefix + ".output_value", out_dist, obs=outputs)
