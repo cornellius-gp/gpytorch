@@ -29,7 +29,7 @@ class CholeskyVariationalDistribution(VariationalDistribution):
             kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
         )
         super(VariationalDistribution, self).__init__()
-        mean_init = torch.zeros(num_inducing_points)
+        mean_init = 0.01 * torch.randn(num_inducing_points)
         covar_init = torch.eye(num_inducing_points, num_inducing_points)
         mean_init = mean_init.repeat(*batch_shape, 1)
         covar_init = covar_init.repeat(*batch_shape, 1, 1)
