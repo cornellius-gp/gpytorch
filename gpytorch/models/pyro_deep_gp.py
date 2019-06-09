@@ -23,7 +23,9 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         self.output_dim_plate = pyro.plate(name_prefix + ".n_output_plate", self.output_dims, dim=-1)
         self.name_prefix = name_prefix
 
-        self.EXACT = False
+        self.EXACT = True
+        #self.EXACT = False
+
 
     @property
     def variational_distribution(self):
@@ -33,6 +35,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         with pyro.poutine.scale(scale=1.):
             with self.output_dim_plate:
                 q_u_samples = pyro.sample(self.name_prefix + ".inducing_values", self.variational_distribution)
+                print("pyro guide sample <%s> " % (self.name_prefix + ".inducing_values"), q_u_samples.shape)
             return q_u_samples
 
     def model(self, inputs, return_samples=True):
@@ -89,6 +92,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
             prior_distribution = full_output.__class__(induc_mean, induc_induc_covar)
             with self.output_dim_plate:
                 p_u_samples = pyro.sample(self.name_prefix + ".inducing_values", prior_distribution)
+                print("pyro model sample <%s> " % (self.name_prefix + ".inducing_values"), p_u_samples.shape)
             # p_u_samples is p x O_{i} x m
 
             solve_result = induc_induc_covar.inv_matmul((p_u_samples - induc_mean).unsqueeze(-1)).squeeze(-1)
@@ -153,11 +157,15 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
                 p_f_dist = self.variational_strategy(inputs)
                 means = p_f_dist.mean
                 variances = p_f_dist.variance
+                print("EXACT MODE: means, variances", means.shape, variances.shape)
+            else:
+                print("SAMP MODE: means, variances", means.shape, variances.shape)
 
             if return_samples:
                 # variances is a diagonal matrix that is p x O_{i} x n x n
                 p_f_dist = pyro.distributions.Normal(means, variances.sqrt())
                 samples = p_f_dist.rsample(torch.Size())
+                print("[rsample %s]" % self.name_prefix, samples.shape)
                 samples = samples.transpose(-2, -1)
                 # if num_samples is not None:
                 #     samples = p_f_dist.rsample(torch.Size())
@@ -220,6 +228,8 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
             #     self.debug_inputs = inputs
 
             p_f_dist = super().model(inputs, return_samples=False).to_event(1)
+            print("obs dist", p_f_dist.shape(), "obs", outputs.unsqueeze(-1).shape, "lp", p_f_dist.log_prob(outputs.unsqueeze(-1)).shape)
+            print('\n\n')
             minibatch_size = inputs.size(-2)
             outputs = outputs.unsqueeze(-1)
             # print(type(p_f_dist), p_f_dist.batch_shape, p_f_dist.event_shape, outputs.shape, self.total_num_data, minibatch_size)
