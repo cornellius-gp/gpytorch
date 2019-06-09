@@ -150,7 +150,7 @@ train_loader = DataLoader(train_dataset, batch_size=80, shuffle=True)
 
 optimizer = optim.Adam({"lr": 0.03, "betas": (0.90, 0.999)})
 
-elbo = Trace_ELBO(num_particles=32, vectorize_particles=True, max_plate_nesting=1)
+elbo = TraceMeanField_ELBO(num_particles=32, vectorize_particles=True, max_plate_nesting=1)
 svi = SVI(deep_gp.model, deep_gp.guide, optimizer, elbo)
 
 n_epochs = 360
@@ -167,9 +167,10 @@ def ll_rmse(x, y, num_samples=50):
 
 for epoch_i in range(n_epochs):
     epoch_loss = 0
-    if epoch_i == 180:
+    if epoch_i == 150:
         deep_gp.annealing = 1.0
         hidden_gp.annealing = 1.0
+        print("Turning off KL annealing...")
 
     for minibatch_i, (x_batch, y_batch) in enumerate(train_loader):
         loss = svi.step(x_batch, y_batch)
