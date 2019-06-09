@@ -3,17 +3,6 @@ import pyro
 from .abstract_variational_gp import AbstractVariationalGP
 
 
-class QuadratureDist(pyro.distributions.Distribution):
-    def __init__(self, likelihood, function_dist):
-        self.likelihood = likelihood
-        self.function_dist = function_dist
-
-    def log_prob(self, target):
-        return self.likelihood.expected_log_prob(target, self.function_dist)
-
-    def sample(self, sample_shape=torch.Size()):
-        pass
-
 
 class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
     def __init__(self, variational_strategy, input_dims, output_dims, name_prefix=""):
@@ -25,6 +14,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
         self.EXACT = True
         self.EXACT = False
+        self.annealing = 1.0
 
 
     @property
@@ -32,14 +22,13 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         return self.variational_strategy.variational_distribution.variational_distribution
 
     def guide(self):
-        with pyro.poutine.scale(scale=1.):
+        with pyro.poutine.scale(scale=self.annealing):
             with self.output_dim_plate:
                 q_u_samples = pyro.sample(self.name_prefix + ".inducing_values", self.variational_distribution)
-                #print("pyro guide sample <%s> " % (self.name_prefix + ".inducing_values"), q_u_samples.shape)
             return q_u_samples
 
     def model(self, inputs, return_samples=True):
-        with pyro.poutine.scale(scale=1.):
+        with pyro.poutine.scale(scale=self.annealing):
             pyro.module(self.name_prefix + ".gp_layer", self)
             # Note: assumes inducing_points are not shared (e.g., are O_i x m x O_{i-1})
             # If shared, we need to expand and repeat m x d -> O_i x m x O_{i-1}
@@ -157,15 +146,11 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
                 p_f_dist = self.variational_strategy(inputs)
                 means = p_f_dist.mean
                 variances = p_f_dist.variance
-                #print("EXACT MODE: means, variances", means.shape, variances.shape)
-            #else:
-                #print("SAMP MODE: means, variances", means.shape, variances.shape)
 
             if return_samples:
                 # variances is a diagonal matrix that is p x O_{i} x n x n
                 p_f_dist = pyro.distributions.Normal(means, variances.sqrt())
                 samples = p_f_dist.rsample(torch.Size())
-                #print("[rsample %s]" % self.name_prefix, samples.shape)
                 samples = samples.transpose(-2, -1)
                 # if num_samples is not None:
                 #     samples = p_f_dist.rsample(torch.Size())
@@ -180,13 +165,11 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
                 return samples
             else:
                 return pyro.distributions.Normal(means.transpose(-2, -1), variances.transpose(-2, -1).sqrt())
-                # return pyro.distributions.Normal(means, variances)
 
     def __call__(self, inputs):
-        """
-        Some pyro replay nonsense I don't understand goes here.
-        """
         raise NotImplementedError
+
+
 
 class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
     def __init__(
@@ -209,6 +192,7 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
         self.hidden_gp_layers = hidden_gp_layers  # A list of AbstractPyroHiddenGPLayers
         self.total_num_data = total_num_data
         self.likelihood = likelihood
+        self.log_beta = torch.nn.Parameter(torch.tensor([3.0]))
 
     def guide(self, inputs, outputs):
         with pyro.poutine.scale(scale=float(1. / self.total_num_data)):
@@ -218,36 +202,32 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
             super().guide()
 
     def model(self, inputs, outputs):
+        pyro.param("log_beta", self.log_beta)
+        #pyro.module(self.name_prefix + ".likelihood", self.likelihood)
         with pyro.poutine.scale(scale=float(1. / self.total_num_data)):
             pyro.module(self.name_prefix + ".gp_layer", self)
             # First call hidden GP layers
             for hidden_gp_layer in self.hidden_gp_layers:
                 inputs = hidden_gp_layer.model(inputs)
 
-            # if not hasattr(self, 'debug_inputs'):
-            #     self.debug_inputs = inputs
+            f_samples = super().model(inputs, return_samples=True) #.to_event(1)
 
-            p_f_dist = super().model(inputs, return_samples=False).to_event(1)
-            #print("obs dist", p_f_dist.shape(), "obs", outputs.unsqueeze(-1).shape, "lp", p_f_dist.log_prob(outputs.unsqueeze(-1)).shape)
-           # print('\n\n')
             minibatch_size = inputs.size(-2)
             if outputs is not None:
                 outputs = outputs.unsqueeze(-1)
-            # print(type(p_f_dist), p_f_dist.batch_shape, p_f_dist.event_shape, outputs.shape, self.total_num_data, minibatch_size)
 
             with pyro.plate(self.name_prefix + ".data_plate", minibatch_size, dim=-1):
                 with pyro.poutine.scale(scale=float(self.total_num_data / minibatch_size)):
-                # with pyro.poutine.scale(scale=1e-10):
-                    # out_dist = QuadratureDist(self.likelihood, p_f_dist)
-                    pyro.sample(self.name_prefix + ".output_value", p_f_dist, obs=outputs)
+                    #out_dist = QuadratureDist(self.likelihood, p_f_dist)
+                    sigma = (-0.5 * self.log_beta).exp()
+                    pyro.sample(self.name_prefix + ".output_value",
+                                pyro.distributions.Normal(f_samples, sigma).to_event(1), obs=outputs)
 
-            # with pyro.poutine.block():
-            #     return super().model(self.debug_inputs, return_samples=True)
-            return p_f_dist.mean
+            return f_samples
 
     def __call__(self, inputs, num_samples=10):
         """
-        Some pyro replay nonsense I don't understand goes here.
+        do elegant pyro replay magic
         """
         from pyro.infer.importance import vectorized_importance_weights
 
@@ -258,6 +238,5 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
                                                                         max_plate_nesting=2,
                                                                         normalized=False)
         return(model_trace.nodes['_RETURN']['value'])
-        #return(model_trace.nodes[self.name_prefix + ".output_value"])
 
 
