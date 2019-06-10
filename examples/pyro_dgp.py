@@ -25,13 +25,12 @@ from torch.utils.data import TensorDataset, DataLoader
 import bayesian_benchmarks
 from bayesian_benchmarks.data import get_regression_data
 
-NUM_INDUCING = 50
 
 
 class ToyHiddenGPLayer(AbstractPyroHiddenGPLayer):
-    def __init__(self, input_dims, output_dims, name="", inducing_points=None):
-        if inducing_points is None:
-            inducing_points = torch.randn(output_dims, NUM_INDUCING, input_dims)
+    def __init__(self, input_dims, output_dims, name="", inducing_points=50):
+        if type(inducing_points) == int:
+            inducing_points = torch.randn(output_dims, inducing_points, input_dims)
 
         variational_distribution = CholeskyVariationalDistribution(
             num_inducing_points=inducing_points.size(-2),
@@ -63,8 +62,8 @@ class ToyHiddenGPLayer(AbstractPyroHiddenGPLayer):
 
 #TODO: Double inheritance
 class ToyDeepGP(AbstractPyroDeepGP):
-    def __init__(self, input_dims, output_dims, total_num_data, hidden_gp_layers, likelihood, name=""):
-        inducing_points = torch.randn(output_dims, NUM_INDUCING, input_dims)
+    def __init__(self, input_dims, output_dims, total_num_data, hidden_gp_layers, likelihood, name="", inducing_points=50):
+        inducing_points = torch.randn(output_dims, inducing_points, input_dims)
 
         variational_distribution = CholeskyVariationalDistribution(
             num_inducing_points=inducing_points.size(-2),
@@ -108,26 +107,16 @@ dataset = get_regression_data(dataset)
 N_train = dataset.X_train.shape[0]
 N_test = dataset.X_test.shape[0]
 D_X = dataset.D + 1
-X_train, Y_train = dataset.X_train, dataset.Y_train[:, 0]
-X_test, Y_test = dataset.X_test, dataset.Y_test[:, 0]
-
-X = np.concatenate([X_train, X_test])
-X = np.concatenate([X, np.ones(X.shape[0]).reshape((X.shape[0], 1))], axis=1)
-Y = np.concatenate([Y_train, Y_test])
-N_test = N_train + N_test - 400
-N_train = 400
-X_train, Y_train = X[0:N_train, :], Y[0:N_train]
-X_test, Y_test = X[N_train:, :], Y[N_train:]
+train_x, train_y = torch.tensor(dataset.X_train).float(), torch.tensor(dataset.Y_train[:, 0]).float()
+test_x, test_y = torch.tensor(dataset.X_test).float(), torch.tensor(dataset.Y_test[:, 0]).float()
 print("N_train = %d   N_test = %d" % (N_train, N_test))
-
-train_x, train_y = torch.tensor(X_train).float(), torch.tensor(Y_train).float()
-test_x, test_y = torch.tensor(X_test).float(), torch.tensor(Y_test).float()
 
 pyro.set_rng_seed(0)
 torch.manual_seed(0)
 
 hidden_layer_width = 2
-inducing_points = (train_x[torch.randperm(N_train)[0:NUM_INDUCING], :])
+num_inducing = 50
+inducing_points = (train_x[torch.randperm(N_train)[0:num_inducing], :])
 inducing_points = inducing_points.clone().data.cpu().numpy()
 inducing_points = torch.tensor(kmeans2(train_x.data.cpu().numpy(),
 			       inducing_points, minit='matrix')[0])
@@ -138,7 +127,8 @@ inducing_points = inducing_points.unsqueeze(0).expand((hidden_layer_width,) + in
 likelihood = GaussianLikelihood()
 
 hidden_gp = ToyHiddenGPLayer(train_x.size(-1), hidden_layer_width, name="layer1", inducing_points=inducing_points)
-deep_gp = ToyDeepGP(hidden_layer_width, 1, train_x.size(-2), [hidden_gp], likelihood, name="output_layer")
+deep_gp = ToyDeepGP(hidden_layer_width, 1, train_x.size(-2), [hidden_gp], likelihood, name="output_layer",
+                    inducing_points=num_inducing)
 
 hidden_gp.variational_strategy.variational_distribution.variational_mean.data = \
     0.2 * torch.randn(hidden_gp.variational_strategy.variational_distribution.variational_mean.shape)
@@ -154,10 +144,10 @@ deep_gp.annealing = 0.1
 hidden_gp.annealing = 0.1
 
 # different settings for u/f sampling versus f sampling (u marginalized out)
-deep_gp.EXACT = True
+deep_gp.EXACT = hidden_gp.EXACT = False
 num_particles = 4 if deep_gp.EXACT else 32
-annealing_epoch = 0 if deep_gp.EXACT else 150
-n_epochs = 400 if deep_gp.EXACT else 500
+annealing_epoch = 0 if deep_gp.EXACT else 100
+n_epochs = 300 if deep_gp.EXACT else 400
 
 elbo = TraceMeanField_ELBO(num_particles=num_particles, vectorize_particles=True, max_plate_nesting=1)
 svi = SVI(deep_gp.model, deep_gp.guide, optimizer, elbo)

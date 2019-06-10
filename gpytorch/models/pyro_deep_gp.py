@@ -1,6 +1,7 @@
 import torch
 import pyro
 from .abstract_variational_gp import AbstractVariationalGP
+from ..lazy import CholLazyTensor, DiagLazyTensor
 
 
 
@@ -14,7 +15,6 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
         self.EXACT = True
         self.annealing = 1.0
-
 
     @property
     def variational_distribution(self):
@@ -66,7 +66,6 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
             # Covariance terms
             induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
-            from ..lazy import CholLazyTensor, DiagLazyTensor
             induc_induc_covar = CholLazyTensor(induc_induc_covar.cholesky())
 
             # induc_induc_covar is K_mm and is O_{i} x m x m
@@ -80,7 +79,6 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
             prior_distribution = full_output.__class__(induc_mean, induc_induc_covar)
             with self.output_dim_plate:
                 p_u_samples = pyro.sample(self.name_prefix + ".inducing_values", prior_distribution)
-                #print("pyro model sample <%s> " % (self.name_prefix + ".inducing_values"), p_u_samples.shape)
             # p_u_samples is p x O_{i} x m
 
             solve_result = induc_induc_covar.inv_matmul((p_u_samples - induc_mean).unsqueeze(-1)).squeeze(-1)
@@ -120,25 +118,26 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
                 # And the diagonal of K_xx is just K_xx.diag() (e.g., no p to pull out).
                 data_data_diag = data_data_covar.diag()
 
-            # Mean is K_xuK_uu^{-1}u
-            # solve_result is already K_uu^{-1}u
-            # so multiply induc_data_covar (K_ux^{T})
-            # TODO: use inv_matmul to compute means
-            means = induc_data_covar.transpose(-2, -1).matmul(solve_result.unsqueeze(-1)).squeeze(-1) + test_mean
-            # means is now p x O_{i} x n
+            if not self.EXACT:
+                # Mean is K_xuK_uu^{-1}u
+                # solve_result is already K_uu^{-1}u
+                # so multiply induc_data_covar (K_ux^{T})
+                # TODO: use inv_matmul to compute means
+                means = induc_data_covar.transpose(-2, -1).matmul(solve_result.unsqueeze(-1)).squeeze(-1) + test_mean
+                # means is now p x O_{i} x n
 
-            # induc_induc_covar is O_{i} x m x m
-            # induc_data_covar is p x O_{i} x n x m
-            if num_samples is not None:
-                # induc_data_covar has 4 dimensions in interior layers, so we need to unsqueeze induc_induc_covar
-                # TODO: use inv_quad to compute diag corrections
-                diag_correction = (induc_induc_covar.unsqueeze(0).inv_matmul(induc_data_covar) * induc_data_covar).sum(-2)
-            else:
-                # First layer of deep GP, no need to unsqueeze b/c data only had 2 dims (so induc_data_covar has 3).
-                diag_correction = (induc_induc_covar.unsqueeze(0).inv_matmul(induc_data_covar) * induc_data_covar).sum(-2)
+                # induc_induc_covar is O_{i} x m x m
+                # induc_data_covar is p x O_{i} x n x m
+                if num_samples is not None:
+                    # induc_data_covar has 4 dimensions in interior layers, so we need to unsqueeze induc_induc_covar
+                    # TODO: use inv_quad to compute diag corrections
+                    diag_correction = (induc_induc_covar.unsqueeze(0).inv_matmul(induc_data_covar) * induc_data_covar).sum(-2)
+                else:
+                    # First layer of deep GP, no need to unsqueeze b/c data only had 2 dims (so induc_data_covar has 3).
+                    diag_correction = (induc_induc_covar.unsqueeze(0).inv_matmul(induc_data_covar) * induc_data_covar).sum(-2)
 
-            # Computes diag(K_xx) - diag(K_xuK_uu^{-1}K_ux)
-            variances = (data_data_diag - diag_correction).clamp_min(0)
+                # Computes diag(K_xx) - diag(K_xuK_uu^{-1}K_ux)
+                variances = (data_data_diag - diag_correction).clamp_min(0)
 
             # q(f) = \int p(f|u)q(u)du
             if self.EXACT:
@@ -162,15 +161,6 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
                 p_f_dist = pyro.distributions.Normal(means, variances.sqrt())
                 samples = p_f_dist.rsample()
                 samples = samples.transpose(-2, -1)
-                # if num_samples is not None:
-                #     samples = p_f_dist.rsample(torch.Size())
-                #     # samples are p x O_{i} x n
-                #     # The next layer expects p x n x O_{i}, so transpose
-                #     samples = samples.transpose(-2, -1)
-                # else:
-                #     samples = p_f_dist.rsample(torch.Size([p_u_samples.size(-3)]))
-                #     # samples are p x O_{i} x n
-                #     samples = samples.transpose(-2, -1)
 
                 return samples
             elif not self.EXACT and not return_samples:
