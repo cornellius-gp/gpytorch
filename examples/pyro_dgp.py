@@ -150,13 +150,17 @@ train_loader = DataLoader(train_dataset, batch_size=80, shuffle=True)
 
 optimizer = optim.Adam({"lr": 0.03, "betas": (0.90, 0.999)})
 
-elbo = TraceMeanField_ELBO(num_particles=32, vectorize_particles=True, max_plate_nesting=1)
-svi = SVI(deep_gp.model, deep_gp.guide, optimizer, elbo)
-
-n_epochs = 360
 deep_gp.annealing = 0.1
 hidden_gp.annealing = 0.1
 
+# different settings for u/f sampling versus f sampling (u marginalized out)
+deep_gp.EXACT = True
+num_particles = 4 if deep_gp.EXACT else 32
+annealing_epoch = 0 if deep_gp.EXACT else 150
+n_epochs = 400 if deep_gp.EXACT else 500
+
+elbo = TraceMeanField_ELBO(num_particles=num_particles, vectorize_particles=True, max_plate_nesting=1)
+svi = SVI(deep_gp.model, deep_gp.guide, optimizer, elbo)
 
 def ll_rmse(x, y, num_samples=50):
     pred = deep_gp(x, num_samples=num_samples)[:, :, 0]
@@ -165,12 +169,15 @@ def ll_rmse(x, y, num_samples=50):
     rmse = (pred.mean(0) - y).pow(2.0).mean().sqrt().item()
     return log_prob, rmse
 
+print("Beginning training in EXACT=%s mode with %d particles" % (deep_gp.EXACT, num_particles))
+
 for epoch_i in range(n_epochs):
     epoch_loss = 0
-    if epoch_i == 150:
+    if epoch_i == annealing_epoch:
         deep_gp.annealing = 1.0
         hidden_gp.annealing = 1.0
-        print("Turning off KL annealing...")
+        if epoch_i > 0:
+            print("Turning off KL annealing...")
 
     for minibatch_i, (x_batch, y_batch) in enumerate(train_loader):
         loss = svi.step(x_batch, y_batch)

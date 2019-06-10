@@ -13,7 +13,6 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
         self.name_prefix = name_prefix
 
         self.EXACT = True
-        self.EXACT = False
         self.annealing = 1.0
 
 
@@ -147,10 +146,21 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
                 means = p_f_dist.mean
                 variances = p_f_dist.variance
 
-            if return_samples:
+                if return_samples:
+                    p_f_dist = pyro.distributions.Normal(means, variances.sqrt())
+                    sample_shape = (p_u_samples.size(0),) if self.name_prefix=='layer1' else ()
+                    samples = p_f_dist.rsample(sample_shape=sample_shape)
+                    samples = samples.transpose(-2, -1)
+                    if self.name_prefix=='output_layer':
+                        samples = samples.view(p_u_samples.size(0), -1, self.output_dims)
+                    return samples
+                else:
+                    raise NotImplementedError
+
+            if not self.EXACT and return_samples:
                 # variances is a diagonal matrix that is p x O_{i} x n x n
                 p_f_dist = pyro.distributions.Normal(means, variances.sqrt())
-                samples = p_f_dist.rsample(torch.Size())
+                samples = p_f_dist.rsample()
                 samples = samples.transpose(-2, -1)
                 # if num_samples is not None:
                 #     samples = p_f_dist.rsample(torch.Size())
@@ -163,7 +173,7 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
                 #     samples = samples.transpose(-2, -1)
 
                 return samples
-            else:
+            elif not self.EXACT and not return_samples:
                 return pyro.distributions.Normal(means.transpose(-2, -1), variances.transpose(-2, -1).sqrt())
 
     def __call__(self, inputs):
