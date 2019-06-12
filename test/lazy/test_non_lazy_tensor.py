@@ -4,7 +4,7 @@ import torch
 import unittest
 import gpytorch
 from gpytorch.lazy import NonLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestNonLazyTensor(LazyTensorTestCase, unittest.TestCase):

@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import KroneckerProductLazyTensor, NonLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase, RectangularLazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase, RectangularLazyTensorTestCase
 
 
 def kron(a, b):

@@ -2,15 +2,14 @@
 
 import torch
 import unittest
-from test.means._base_mean_test_case import BaseMeanTestCase
+
 from gpytorch.means import MultitaskMean, ConstantMean, ZeroMean
+from gpytorch.test.base_mean_test_case import BaseMeanTestCase
 
 
 class TestMultitaskMean(BaseMeanTestCase, unittest.TestCase):
     def create_mean(self):
-        return MultitaskMean([
-            ConstantMean(), ZeroMean(), ZeroMean()
-        ], num_tasks=3)
+        return MultitaskMean([ConstantMean(), ZeroMean(), ZeroMean()], num_tasks=3)
 
     def test_forward_vec(self):
         test_x = torch.randn(4)
@@ -39,9 +38,7 @@ class TestMultitaskMean(BaseMeanTestCase, unittest.TestCase):
 
 class TestMultitaskMeanBatch(TestMultitaskMean):
     def create_mean(self):
-        return MultitaskMean([
-            ConstantMean(batch_shape=torch.Size([3])), ZeroMean(), ZeroMean()
-        ], num_tasks=3)
+        return MultitaskMean([ConstantMean(batch_shape=torch.Size([3])), ZeroMean(), ZeroMean()], num_tasks=3)
 
     def test_forward_vec(self):
         pass
@@ -52,9 +49,7 @@ class TestMultitaskMeanBatch(TestMultitaskMean):
 
 class TestMultitaskMeanMultiBatch(TestMultitaskMean):
     def create_mean(self):
-        return MultitaskMean([
-            ConstantMean(batch_shape=torch.Size([2, 3])), ZeroMean(), ZeroMean()
-        ], num_tasks=3)
+        return MultitaskMean([ConstantMean(batch_shape=torch.Size([2, 3])), ZeroMean(), ZeroMean()], num_tasks=3)
 
     def test_forward_vec(self):
         pass

@@ -15,11 +15,7 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         means = means.unsqueeze(1)
         weights = torch.tensor([4, 2], dtype=torch.float)
         kernel = SpectralMixtureKernel(num_mixtures=2, ard_num_dims=2)
-        kernel.initialize(
-            mixture_weights=weights,
-            mixture_means=means,
-            mixture_scales=scales,
-        )
+        kernel.initialize(mixture_weights=weights, mixture_means=means, mixture_scales=scales)
         kernel.eval()
 
         actual = torch.zeros(2, 3, 3, 2)

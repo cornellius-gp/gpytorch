@@ -5,7 +5,7 @@ import unittest
 import gpytorch
 
 from torch.nn.functional import softplus, sigmoid
-from test._base_test_case import BaseTestCase
+from gpytorch.test.base_test_case import BaseTestCase
 
 
 # Basic exact GP model for testing parameter + constraint name resolution
@@ -23,87 +23,87 @@ class ExactGPModel(gpytorch.models.ExactGP):
 
 class TestInterval(unittest.TestCase, BaseTestCase):
     def test_transform_float_bounds(self):
-        constraint = gpytorch.constraints.Interval(1., 5.)
+        constraint = gpytorch.constraints.Interval(1.0, 5.0)
 
-        v = torch.tensor(-3.)
+        v = torch.tensor(-3.0)
 
         value = constraint.transform(v)
-        actual_value = (5. * sigmoid(v)) + 1.
+        actual_value = (5.0 * sigmoid(v)) + 1.0
 
         self.assertAllClose(value, actual_value)
 
     def test_inverse_transform_float_bounds(self):
-        constraint = gpytorch.constraints.Interval(1., 5.)
+        constraint = gpytorch.constraints.Interval(1.0, 5.0)
 
-        v = torch.tensor(-3.)
+        v = torch.tensor(-3.0)
 
         value = constraint.inverse_transform(constraint.transform(v))
 
         self.assertAllClose(v, value)
 
     def test_transform_tensor_bounds(self):
-        constraint = gpytorch.constraints.Interval(torch.tensor([1., 2.]), torch.tensor([3., 4.]))
+        constraint = gpytorch.constraints.Interval(torch.tensor([1.0, 2.0]), torch.tensor([3.0, 4.0]))
 
-        v = torch.tensor([-3., -2.])
+        v = torch.tensor([-3.0, -2.0])
 
         value = constraint.transform(v)
         actual_value = v.clone()
-        actual_value[0] = 3. * sigmoid(v[0]) + 1.
-        actual_value[1] = 4. * sigmoid(v[1]) + 2.
+        actual_value[0] = 3.0 * sigmoid(v[0]) + 1.0
+        actual_value[1] = 4.0 * sigmoid(v[1]) + 2.0
 
         self.assertAllClose(value, actual_value)
 
     def test_inverse_transform_tensor_bounds(self):
-        constraint = gpytorch.constraints.Interval(torch.tensor([1., 2.]), torch.tensor([3., 4.]))
+        constraint = gpytorch.constraints.Interval(torch.tensor([1.0, 2.0]), torch.tensor([3.0, 4.0]))
 
-        v = torch.tensor([-3., -2.])
+        v = torch.tensor([-3.0, -2.0])
 
         value = constraint.inverse_transform(constraint.transform(v))
 
         self.assertAllClose(v, value)
 
     def test_initial_value(self):
-        constraint = gpytorch.constraints.Interval(1., 5., transform=None, initial_value=3.)
+        constraint = gpytorch.constraints.Interval(1.0, 5.0, transform=None, initial_value=3.0)
         lkhd = gpytorch.likelihoods.GaussianLikelihood(noise_constraint=constraint)
-        self.assertEqual(lkhd.noise.item(), 3.)
+        self.assertEqual(lkhd.noise.item(), 3.0)
 
 
 class TestGreaterThan(unittest.TestCase, BaseTestCase):
     def test_transform_float_greater_than(self):
-        constraint = gpytorch.constraints.GreaterThan(1.)
+        constraint = gpytorch.constraints.GreaterThan(1.0)
 
-        v = torch.tensor(-3.)
+        v = torch.tensor(-3.0)
 
         value = constraint.transform(v)
-        actual_value = softplus(v) + 1.
+        actual_value = softplus(v) + 1.0
 
         self.assertAllClose(value, actual_value)
 
     def test_transform_tensor_greater_than(self):
-        constraint = gpytorch.constraints.GreaterThan([1., 2.])
+        constraint = gpytorch.constraints.GreaterThan([1.0, 2.0])
 
-        v = torch.tensor([-3., -2.])
+        v = torch.tensor([-3.0, -2.0])
 
         value = constraint.transform(v)
         actual_value = v.clone()
-        actual_value[0] = softplus(v[0]) + 1.
-        actual_value[1] = softplus(v[1]) + 2.
+        actual_value[0] = softplus(v[0]) + 1.0
+        actual_value[1] = softplus(v[1]) + 2.0
 
         self.assertAllClose(value, actual_value)
 
     def test_inverse_transform_float_greater_than(self):
-        constraint = gpytorch.constraints.GreaterThan(1.)
+        constraint = gpytorch.constraints.GreaterThan(1.0)
 
-        v = torch.tensor(-3.)
+        v = torch.tensor(-3.0)
 
         value = constraint.inverse_transform(constraint.transform(v))
 
         self.assertAllClose(value, v)
 
     def test_inverse_transform_tensor_greater_than(self):
-        constraint = gpytorch.constraints.GreaterThan([1., 2.])
+        constraint = gpytorch.constraints.GreaterThan([1.0, 2.0])
 
-        v = torch.tensor([-3., -2.])
+        v = torch.tensor([-3.0, -2.0])
 
         value = constraint.inverse_transform(constraint.transform(v))
 
@@ -112,40 +112,40 @@ class TestGreaterThan(unittest.TestCase, BaseTestCase):
 
 class TestLessThan(unittest.TestCase, BaseTestCase):
     def test_transform_float_less_than(self):
-        constraint = gpytorch.constraints.LessThan(1.)
+        constraint = gpytorch.constraints.LessThan(1.0)
 
-        v = torch.tensor(-3.)
+        v = torch.tensor(-3.0)
 
         value = constraint.transform(v)
-        actual_value = -softplus(-v) + 1.
+        actual_value = -softplus(-v) + 1.0
 
         self.assertAllClose(value, actual_value)
 
     def test_transform_tensor_less_than(self):
-        constraint = gpytorch.constraints.LessThan([1., 2.])
+        constraint = gpytorch.constraints.LessThan([1.0, 2.0])
 
-        v = torch.tensor([-3., -2.])
+        v = torch.tensor([-3.0, -2.0])
 
         value = constraint.transform(v)
         actual_value = v.clone()
-        actual_value[0] = -softplus(-v[0]) + 1.
-        actual_value[1] = -softplus(-v[1]) + 2.
+        actual_value[0] = -softplus(-v[0]) + 1.0
+        actual_value[1] = -softplus(-v[1]) + 2.0
 
         self.assertAllClose(value, actual_value)
 
     def test_inverse_transform_float_less_than(self):
-        constraint = gpytorch.constraints.LessThan(1.)
+        constraint = gpytorch.constraints.LessThan(1.0)
 
-        v = torch.tensor(-3.)
+        v = torch.tensor(-3.0)
 
         value = constraint.inverse_transform(constraint.transform(v))
 
         self.assertAllClose(value, v)
 
     def test_inverse_transform_tensor_less_than(self):
-        constraint = gpytorch.constraints.LessThan([1., 2.])
+        constraint = gpytorch.constraints.LessThan([1.0, 2.0])
 
-        v = torch.tensor([-3., -2.])
+        v = torch.tensor([-3.0, -2.0])
 
         value = constraint.inverse_transform(constraint.transform(v))
 
@@ -156,7 +156,7 @@ class TestPositive(unittest.TestCase, BaseTestCase):
     def test_transform_float_positive(self):
         constraint = gpytorch.constraints.Positive()
 
-        v = torch.tensor(-3.)
+        v = torch.tensor(-3.0)
 
         value = constraint.transform(v)
         actual_value = softplus(v)
@@ -166,7 +166,7 @@ class TestPositive(unittest.TestCase, BaseTestCase):
     def test_transform_tensor_positive(self):
         constraint = gpytorch.constraints.Positive()
 
-        v = torch.tensor([-3., -2.])
+        v = torch.tensor([-3.0, -2.0])
 
         value = constraint.transform(v)
         actual_value = v.clone()
@@ -178,7 +178,7 @@ class TestPositive(unittest.TestCase, BaseTestCase):
     def test_inverse_transform_float_positive(self):
         constraint = gpytorch.constraints.Positive()
 
-        v = torch.tensor(-3.)
+        v = torch.tensor(-3.0)
 
         value = constraint.inverse_transform(constraint.transform(v))
 
@@ -187,7 +187,7 @@ class TestPositive(unittest.TestCase, BaseTestCase):
     def test_inverse_transform_tensor_positive(self):
         constraint = gpytorch.constraints.Positive()
 
-        v = torch.tensor([-3., -2.])
+        v = torch.tensor([-3.0, -2.0])
 
         value = constraint.inverse_transform(constraint.transform(v))
 

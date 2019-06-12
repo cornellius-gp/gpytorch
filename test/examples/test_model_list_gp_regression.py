@@ -2,7 +2,6 @@
 
 import math
 import unittest
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -13,6 +12,7 @@ from gpytorch.means import ConstantMean
 from gpytorch.mlls import SumMarginalLogLikelihood
 from gpytorch.models import IndependentModelList
 from gpytorch.priors import SmoothedBoxPrior
+from gpytorch.test.utils import least_used_cuda_device
 
 
 class ExactGPModel(gpytorch.models.ExactGP):

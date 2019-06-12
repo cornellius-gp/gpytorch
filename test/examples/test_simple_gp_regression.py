@@ -2,7 +2,6 @@
 
 import unittest
 from math import exp, pi
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -12,8 +11,9 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.constraints import Positive
+from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.test.utils import least_used_cuda_device
 from torch import optim
-from test._base_test_case import BaseTestCase
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
@@ -72,8 +72,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
 
         self.assertAllClose(function_predictions.mean, torch.full_like(function_predictions.mean, fill_value=1.5))
         self.assertAllClose(
-            function_predictions.variance,
-            correct_variance.squeeze().expand_as(function_predictions.variance)
+            function_predictions.variance, correct_variance.squeeze().expand_as(function_predictions.variance)
         )
 
     def test_prior_cuda(self):
@@ -130,7 +129,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
         self.assertAllClose(test_function_predictions.mean, torch.zeros_like(test_function_predictions.mean))
         self.assertAllClose(
             test_function_predictions.variance,
-            gp_model.covar_module.outputscale.expand_as(test_function_predictions.variance)
+            gp_model.covar_module.outputscale.expand_as(test_function_predictions.variance),
         )
 
     def test_posterior_latent_gp_and_likelihood_without_optimization_cuda(self):
@@ -214,7 +213,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False, checkpoint=0):
         train_x, test_x, train_y, test_y = self._get_data(
-            cuda=cuda, num_data=(1000 if checkpoint else 11), add_noise=bool(checkpoint),
+            cuda=cuda, num_data=(1000 if checkpoint else 11), add_noise=bool(checkpoint)
         )
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))

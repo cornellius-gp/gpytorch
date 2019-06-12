@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 from math import exp, pi
+from collections import OrderedDict
 
 import os
 import random
 import torch
 import unittest
+
 import gpytorch
 from torch import optim
 from gpytorch.kernels import SpectralMixtureKernel
@@ -13,7 +15,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
-from collections import OrderedDict
+
 
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 15)

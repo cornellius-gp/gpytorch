@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import NonLazyTensor, DiagLazyTensor, AddedDiagLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestAddedDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -49,9 +49,13 @@ class TestAddedDiagLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
     def create_lazy_tensor(self):
         tensor = torch.randn(4, 3, 5, 5)
         tensor = tensor.transpose(-1, -2).matmul(tensor).detach()
-        diag = torch.tensor(
-            [[1.0, 2.0, 4.0, 2.0, 3.0], [2.0, 1.0, 2.0, 1.0, 4.0], [1.0, 2.0, 2.0, 3.0, 4.0]], requires_grad=True
-        ).repeat(4, 1, 1).detach()
+        diag = (
+            torch.tensor(
+                [[1.0, 2.0, 4.0, 2.0, 3.0], [2.0, 1.0, 2.0, 1.0, 4.0], [1.0, 2.0, 2.0, 3.0, 4.0]], requires_grad=True
+            )
+            .repeat(4, 1, 1)
+            .detach()
+        )
         return AddedDiagLazyTensor(NonLazyTensor(tensor), DiagLazyTensor(diag))
 
     def evaluate_lazy_tensor(self, lazy_tensor):

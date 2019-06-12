@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import gpytorch
 import torch
 from gpytorch.utils.gradients import _ensure_symmetric_grad
-from test._base_test_case import BaseTestCase
+from .base_test_case import BaseTestCase
 
 
 class RectangularLazyTensorTestCase(BaseTestCase):

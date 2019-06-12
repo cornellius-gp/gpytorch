@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
-from test._utils import least_used_cuda_device
 
 import torch
 from gpytorch.priors import GammaPrior
+from gpytorch.test.utils import least_used_cuda_device
 from torch.distributions import Gamma
 
 

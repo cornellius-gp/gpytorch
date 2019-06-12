@@ -3,6 +3,7 @@
 import math
 import torch
 import unittest
+
 import gpytorch
 from gpytorch.kernels import RBFKernel, MultitaskKernel, LCMKernel
 from gpytorch.means import ConstantMean, MultitaskMean

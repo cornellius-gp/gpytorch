@@ -3,7 +3,7 @@
 import torch
 import unittest
 import gpytorch
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
@@ -15,11 +15,7 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
         return kern(mat)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
-        return gpytorch.lazy.delazify(gpytorch.Module.__call__(
-            lazy_tensor.kernel,
-            lazy_tensor.x1,
-            lazy_tensor.x2
-        ))
+        return gpytorch.lazy.delazify(gpytorch.Module.__call__(lazy_tensor.kernel, lazy_tensor.x1, lazy_tensor.x2))
 
     def test_inv_matmul_matrix_with_checkpointing(self):
         # Add one checkpointing test
@@ -73,11 +69,13 @@ class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
         return kern(mat)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
-        res = gpytorch.lazy.delazify(gpytorch.Module.__call__(
-            lazy_tensor.kernel.base_kernel,
-            lazy_tensor.x1.transpose(-1, -2).unsqueeze(-1),
-            lazy_tensor.x2.transpose(-1, -2).unsqueeze(-1)
-        )).sum(0)
+        res = gpytorch.lazy.delazify(
+            gpytorch.Module.__call__(
+                lazy_tensor.kernel.base_kernel,
+                lazy_tensor.x1.transpose(-1, -2).unsqueeze(-1),
+                lazy_tensor.x2.transpose(-1, -2).unsqueeze(-1),
+            )
+        ).sum(0)
         return res
 
     def test_inv_matmul_matrix_with_checkpointing(self):

@@ -3,7 +3,7 @@
 import unittest
 import torch
 from gpytorch.lazy import NonLazyTensor, InterpolatedLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestInterpolatedLazyTensor(LazyTensorTestCase, unittest.TestCase):

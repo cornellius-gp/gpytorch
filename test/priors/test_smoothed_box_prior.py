@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
-from test._utils import approx_equal, least_used_cuda_device
 
 import torch
 from gpytorch.priors import SmoothedBoxPrior
+from gpytorch.test.utils import approx_equal, least_used_cuda_device
 
 
 class TestSmoothedBoxPrior(unittest.TestCase):

@@ -4,7 +4,7 @@ import math
 import torch
 import unittest
 from gpytorch.kernels import MaternKernel
-from test.kernels._base_kernel_test_case import BaseKernelTestCase
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
 class TestMatern25BaseKernel(unittest.TestCase, BaseKernelTestCase):

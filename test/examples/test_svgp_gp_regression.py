@@ -4,15 +4,15 @@ import math
 import warnings
 import unittest
 from unittest.mock import MagicMock, patch
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
+from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
 from torch import optim
-from test._base_test_case import BaseTestCase
 
 
 def train_data(cuda=False):
@@ -62,10 +62,11 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), \
-                gpytorch.settings.skip_logdet_forward(skip_logdet_forward), \
-                warnings.catch_warnings(record=True) as w, \
-                patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+        with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.skip_logdet_forward(
+            skip_logdet_forward
+        ), warnings.catch_warnings(record=True) as w, patch(
+            "gpytorch.utils.linear_cg", new=_wrapped_cg
+        ) as linear_cg_mock:
             for _ in range(150):
                 optimizer.zero_grad()
                 output = model(train_x)

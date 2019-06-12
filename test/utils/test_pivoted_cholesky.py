@@ -3,12 +3,12 @@
 import os
 import random
 import unittest
-from gpytorch.utils import pivoted_cholesky, woodbury
-from test._utils import approx_equal
 import math
 
 import torch
 from gpytorch.kernels import RBFKernel
+from gpytorch.test.utils import approx_equal
+from gpytorch.utils import pivoted_cholesky, woodbury
 
 
 class TestPivotedCholesky(unittest.TestCase):
@@ -55,7 +55,7 @@ class TestPivotedCholesky(unittest.TestCase):
         X = torch.rand((size, 2)).to(dtype=dtype)
         y = torch.sin(torch.sum(X, 1)).unsqueeze(-1).to(dtype=dtype)
 
-        noise = torch.DoubleTensor(size,).uniform_(math.log(1e-3), math.log(1e-1)).exp_().to(dtype=dtype)
+        noise = torch.DoubleTensor(size).uniform_(math.log(1e-3), math.log(1e-1)).exp_().to(dtype=dtype)
         lazy_tsr = RBFKernel().to(dtype=dtype)(X).evaluate_kernel().add_diag(noise)
         precondition_qr, _, logdet_qr = lazy_tsr._preconditioner()
 
@@ -131,9 +131,9 @@ class TestPivotedCholeskyBatch(unittest.TestCase):
         woodbury_factor, inv_scale, logdet = woodbury.woodbury_factor(
             piv_chol, piv_chol, torch.ones(2, 100), logdet=True
         )
-        actual_logdet = torch.stack([
-            mat.logdet() for mat in (piv_chol @ piv_chol.transpose(-1, -2) + torch.eye(100)).view(-1, 100, 100)
-        ], 0).view(2)
+        actual_logdet = torch.stack(
+            [mat.logdet() for mat in (piv_chol @ piv_chol.transpose(-1, -2) + torch.eye(100)).view(-1, 100, 100)], 0
+        ).view(2)
         self.assertTrue(approx_equal(logdet, actual_logdet, 2e-4))
 
         rhs_vector = torch.randn(2, 100, 5)
@@ -215,9 +215,9 @@ class TestPivotedCholeskyMultiBatch(unittest.TestCase):
         woodbury_factor, inv_scale, logdet = woodbury.woodbury_factor(
             piv_chol, piv_chol, torch.ones(2, 2, 3, 100), logdet=True
         )
-        actual_logdet = torch.stack([
-            mat.logdet() for mat in (piv_chol @ piv_chol.transpose(-1, -2) + torch.eye(100)).view(-1, 100, 100)
-        ], 0).view(2, 2, 3)
+        actual_logdet = torch.stack(
+            [mat.logdet() for mat in (piv_chol @ piv_chol.transpose(-1, -2) + torch.eye(100)).view(-1, 100, 100)], 0
+        ).view(2, 2, 3)
         self.assertTrue(approx_equal(logdet, actual_logdet, 2e-4))
 
         rhs_vector = torch.randn(2, 2, 3, 100, 5)

@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import ToeplitzLazyTensor, BatchRepeatLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestBatchRepeatLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -40,14 +40,10 @@ class TestBatchRepeatLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase)
 
     def create_lazy_tensor(self):
         toeplitz_column = torch.tensor(
-            [
-                [[4, 0, 0, 1], [3, 0, -0.5, -1]],
-                [[2, 0.1, 0.01, 0.], [3, 0, -0.1, -2]],
-            ],
-            dtype=torch.float
+            [[[4, 0, 0, 1], [3, 0, -0.5, -1]], [[2, 0.1, 0.01, 0.0], [3, 0, -0.1, -2]]], dtype=torch.float
         )
         toeplitz_column.detach_()
-        return BatchRepeatLazyTensor(ToeplitzLazyTensor(toeplitz_column), torch.Size((2, 3, 1, 4,)))
+        return BatchRepeatLazyTensor(ToeplitzLazyTensor(toeplitz_column), torch.Size((2, 3, 1, 4)))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         evaluated = lazy_tensor.base_lazy_tensor.evaluate()

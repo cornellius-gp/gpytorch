@@ -4,12 +4,12 @@ import os
 import random
 import unittest
 from math import pi
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
+from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, WhitenedVariationalStrategy
 from torch import optim
 
@@ -31,7 +31,7 @@ def train_data(cuda=False):
 class SVGPRegressionModel(AbstractVariationalGP):
     def __init__(self, inducing_points):
         variational_distribution = CholeskyVariationalDistribution(
-            inducing_points.size(-2), batch_shape=torch.Size([2]),
+            inducing_points.size(-2), batch_shape=torch.Size([2])
         )
         variational_strategy = WhitenedVariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True

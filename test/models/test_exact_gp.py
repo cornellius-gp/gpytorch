@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import torch
-import gpytorch
 import unittest
+
+import gpytorch
+import torch
 from gpytorch.models import ExactGP
-from test.models._model_test_case import _ModelTestCase
+from gpytorch.test.model_test_case import BaseModelTestCase
 
 
 class ExactGPModel(ExactGP):
@@ -24,9 +25,7 @@ class InterpolatedExactGPModel(ExactGP):
         super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.GridInterpolationKernel(
-            gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel()),
-            grid_size=128,
-            num_dims=1,
+            gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel()), grid_size=128, num_dims=1
         )
 
     def forward(self, x):
@@ -49,7 +48,7 @@ class SumExactGPModel(ExactGP):
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
 
-class TestExactGP(_ModelTestCase, unittest.TestCase):
+class TestExactGP(BaseModelTestCase, unittest.TestCase):
     def create_model(self, train_x, train_y, likelihood):
         model = ExactGPModel(train_x, train_y, likelihood)
         return model

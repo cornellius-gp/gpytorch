@@ -5,6 +5,7 @@ import random
 import math
 import torch
 import unittest
+
 import gpytorch
 from torch import optim
 from gpytorch.kernels import RBFKernel, MultitaskKernel
@@ -40,7 +41,7 @@ class ExactGPModel(gpytorch.models.ExactGP):
         self.covar_module = MultitaskKernel(
             RBFKernel(
                 batch_shape=batch_shape,
-                lengthscale_prior=gpytorch.priors.NormalPrior(loc=torch.tensor(0.), scale=torch.tensor(1.)),
+                lengthscale_prior=gpytorch.priors.NormalPrior(loc=torch.tensor(0.0), scale=torch.tensor(1.0)),
             ),
             num_tasks=2,
             rank=1,
@@ -112,7 +113,8 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihoodKronecker(
             noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
-            batch_shape=torch.Size([2]), num_tasks=2
+            batch_shape=torch.Size([2]),
+            num_tasks=2,
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_shape=torch.Size([2]))
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
@@ -152,7 +154,8 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihoodKronecker(
             noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
-            batch_shape=torch.Size(), num_tasks=2
+            batch_shape=torch.Size(),
+            num_tasks=2,
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_shape=torch.Size())
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)

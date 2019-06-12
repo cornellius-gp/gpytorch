@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import RootLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 def make_random_mat(size, rank, batch_shape=torch.Size(())):
@@ -23,8 +23,7 @@ class TestMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()
         res = torch.mul(
-            lazy_tensor._lazy_tensor.left_lazy_tensor.evaluate(),
-            lazy_tensor._lazy_tensor.right_lazy_tensor.evaluate()
+            lazy_tensor._lazy_tensor.left_lazy_tensor.evaluate(), lazy_tensor._lazy_tensor.right_lazy_tensor.evaluate()
         )
         res = res + diag_tensor
         return res
@@ -42,8 +41,7 @@ class TestMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()
         res = torch.mul(
-            lazy_tensor._lazy_tensor.left_lazy_tensor.evaluate(),
-            lazy_tensor._lazy_tensor.right_lazy_tensor.evaluate()
+            lazy_tensor._lazy_tensor.left_lazy_tensor.evaluate(), lazy_tensor._lazy_tensor.right_lazy_tensor.evaluate()
         )
         res = res + diag_tensor
         return res
@@ -54,16 +52,15 @@ class TestMulLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
     skip_slq_tests = True
 
     def create_lazy_tensor(self):
-        mat1 = make_random_mat(6, rank=6, batch_shape=torch.Size((2, 3,)))
-        mat2 = make_random_mat(6, rank=6, batch_shape=torch.Size((2, 3,)))
+        mat1 = make_random_mat(6, rank=6, batch_shape=torch.Size((2, 3)))
+        mat2 = make_random_mat(6, rank=6, batch_shape=torch.Size((2, 3)))
         res = RootLazyTensor(mat1) * RootLazyTensor(mat2)
         return res.add_diag(torch.tensor(0.5))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         diag_tensor = lazy_tensor._diag_tensor.evaluate()
         res = torch.mul(
-            lazy_tensor._lazy_tensor.left_lazy_tensor.evaluate(),
-            lazy_tensor._lazy_tensor.right_lazy_tensor.evaluate()
+            lazy_tensor._lazy_tensor.left_lazy_tensor.evaluate(), lazy_tensor._lazy_tensor.right_lazy_tensor.evaluate()
         )
         res = res + diag_tensor
         return res

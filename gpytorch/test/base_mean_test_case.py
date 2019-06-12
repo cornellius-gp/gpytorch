@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 from abc import abstractmethod
-from .._base_test_case import BaseTestCase
+
+from .base_test_case import BaseTestCase
+
 import torch
 
 

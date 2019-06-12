@@ -4,10 +4,10 @@ import math
 import os
 import random
 import unittest
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
+from gpytorch.test.utils import least_used_cuda_device
 from torch import optim
 
 

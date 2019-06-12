@@ -45,7 +45,7 @@ class TestAdditiveKernel(unittest.TestCase):
 
         actual = torch.tensor([0.2702, 2.000, 0.0222])
 
-        lengthscale = 2.
+        lengthscale = 2.0
 
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
@@ -62,7 +62,7 @@ class TestAdditiveKernel(unittest.TestCase):
 
         actual = torch.tensor([0.4060, 3.000, 0.0333])
 
-        lengthscale = 2.
+        lengthscale = 2.0
 
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
@@ -79,7 +79,7 @@ class TestAdditiveKernel(unittest.TestCase):
 
         actual = torch.tensor([2.4788e-03, 1.000, 1.3710e-06])
 
-        lengthscale = 2.
+        lengthscale = 2.0
 
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
@@ -97,7 +97,7 @@ class TestAdditiveKernel(unittest.TestCase):
 
         actual = torch.tensor([1.8316e-02, 1.000, 1.2341e-04])
 
-        lengthscale = 2.
+        lengthscale = 2.0
 
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)

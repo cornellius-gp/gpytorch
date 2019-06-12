@@ -7,7 +7,7 @@ import unittest
 import warnings
 from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor
 from gpytorch.utils.gradients import _ensure_symmetric_grad
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 from unittest.mock import MagicMock, patch
 
 
@@ -85,8 +85,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
-            with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), \
-                    gpytorch.settings.cg_tolerance(1e-4):
+            with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.cg_tolerance(1e-4):
                 with warnings.catch_warnings(record=True) as w:
                     # Perform the inv_matmul
                     if lhs is not None:
@@ -222,9 +221,7 @@ class TestCachedCGLazyTensorNoLogdetBatch(TestCachedCGLazyTensorNoLogdet):
             probe_vec_solves = torch.tensor([], dtype=mat.dtype, device=mat.device)
             tmats = torch.tensor([], dtype=mat.dtype, device=mat.device)
 
-        return CachedCGLazyTensor(
-            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
-        )
+        return CachedCGLazyTensor(lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats)
 
 
 class TestCachedCGLazyTensorBatch(TestCachedCGLazyTensor):
@@ -252,9 +249,7 @@ class TestCachedCGLazyTensorBatch(TestCachedCGLazyTensor):
             probe_vec_solves = torch.tensor([], dtype=mat.dtype, device=mat.device)
             tmats = torch.tensor([], dtype=mat.dtype, device=mat.device)
 
-        return CachedCGLazyTensor(
-            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
-        )
+        return CachedCGLazyTensor(lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats)
 
 
 class TestCachedCGLazyTensorMultiBatch(TestCachedCGLazyTensor):
@@ -285,6 +280,4 @@ class TestCachedCGLazyTensorMultiBatch(TestCachedCGLazyTensor):
             probe_vec_solves = torch.tensor([], dtype=mat.dtype, device=mat.device)
             tmats = torch.tensor([], dtype=mat.dtype, device=mat.device)
 
-        return CachedCGLazyTensor(
-            lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats
-        )
+        return CachedCGLazyTensor(lazy_tensor, eager_rhss, solves, probe_vecs, probe_vec_norms, probe_vec_solves, tmats)

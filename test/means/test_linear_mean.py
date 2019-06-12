@@ -2,12 +2,12 @@
 
 import torch
 import unittest
-from test.means._base_mean_test_case import BaseMeanTestCase
+
 from gpytorch.means import LinearMean
+from gpytorch.test.base_mean_test_case import BaseMeanTestCase
 
 
 class TestLinearMean(BaseMeanTestCase, unittest.TestCase):
-
     def create_mean(self, input_size=1, batch_shape=torch.Size(), bias=True, **kwargs):
         return LinearMean(input_size=input_size, batch_shape=batch_shape, bias=bias)
 

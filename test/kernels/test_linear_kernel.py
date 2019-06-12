@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.kernels import LinearKernel
-from test.kernels._base_kernel_test_case import BaseKernelTestCase
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
 class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):

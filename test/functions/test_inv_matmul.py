@@ -5,7 +5,7 @@ import unittest
 from gpytorch import settings
 from gpytorch.lazy import NonLazyTensor
 from gpytorch.utils.gradients import _ensure_symmetric_grad
-from test._base_test_case import BaseTestCase
+from gpytorch.test.base_test_case import BaseTestCase
 
 
 class TestInvMatmulNonBatch(BaseTestCase, unittest.TestCase):
