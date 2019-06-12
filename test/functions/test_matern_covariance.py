@@ -31,8 +31,7 @@ class TestMaternCovariance(unittest.TestCase):
         batch_size = (3, 2, 4)
         x1 = torch.randn(*batch_size, 7, 9, dtype=torch.float64)
         x2 = torch.randn(*batch_size, 6, 9, dtype=torch.float64)
-        lengthscale = torch.randn(
-            *batch_size, dtype=torch.float64, requires_grad=True).view(*batch_size, 1, 1) ** 2
+        lengthscale = torch.randn(*batch_size, dtype=torch.float64, requires_grad=True).view(*batch_size, 1, 1) ** 2
         f = lambda x1, x2, l: gpytorch.functions.MaternCovariance().apply(x1, x2, l, nu, dist_func)
         try:
             torch.autograd.gradcheck(f, (x1, x2, lengthscale))
@@ -58,8 +57,7 @@ class TestMaternCovariance(unittest.TestCase):
         batch_size = (3, 2, 4)
         x1 = torch.randn(*batch_size, 7, 9, dtype=torch.float64)
         x2 = torch.randn(*batch_size, 6, 9, dtype=torch.float64)
-        lengthscale = torch.randn(
-            *batch_size, dtype=torch.float64, requires_grad=True).view(*batch_size, 1, 1) ** 2
+        lengthscale = torch.randn(*batch_size, dtype=torch.float64, requires_grad=True).view(*batch_size, 1, 1) ** 2
         f = lambda x1, x2, l: gpytorch.functions.MaternCovariance().apply(x1, x2, l, nu, dist_func)
         try:
             torch.autograd.gradcheck(f, (x1, x2, lengthscale))
@@ -85,8 +83,7 @@ class TestMaternCovariance(unittest.TestCase):
         batch_size = (3, 2, 4)
         x1 = torch.randn(*batch_size, 7, 9, dtype=torch.float64)
         x2 = torch.randn(*batch_size, 6, 9, dtype=torch.float64)
-        lengthscale = torch.randn(
-            *batch_size, dtype=torch.float64, requires_grad=True).view(*batch_size, 1, 1) ** 2
+        lengthscale = torch.randn(*batch_size, dtype=torch.float64, requires_grad=True).view(*batch_size, 1, 1) ** 2
         f = lambda x1, x2, l: gpytorch.functions.MaternCovariance().apply(x1, x2, l, nu, dist_func)
         try:
             torch.autograd.gradcheck(f, (x1, x2, lengthscale))

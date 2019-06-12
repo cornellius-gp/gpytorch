@@ -26,7 +26,7 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
         actual_tensor = mat_clone @ mat_clone.transpose(-1, -2)
 
         if add_diag:
-            actual_tensor.diagonal(dim1=-2, dim2=-1).add_(1.)
+            actual_tensor.diagonal(dim1=-2, dim2=-1).add_(1.0)
 
         if inv_quad_rhs is not None:
             actual_inv_quad = actual_tensor.inverse().matmul(inv_quad_rhs_clone).mul(inv_quad_rhs_clone)
@@ -41,15 +41,15 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
 
         # Compute values with LazyTensor
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        with gpytorch.settings.num_trace_samples(2000), \
-                gpytorch.settings.max_cholesky_size(0), \
-                gpytorch.settings.cg_tolerance(1e-5), \
-                gpytorch.settings.skip_logdet_forward(improper_logdet), \
-                patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+        with gpytorch.settings.num_trace_samples(2000), gpytorch.settings.max_cholesky_size(
+            0
+        ), gpytorch.settings.cg_tolerance(1e-5), gpytorch.settings.skip_logdet_forward(improper_logdet), patch(
+            "gpytorch.utils.linear_cg", new=_wrapped_cg
+        ) as linear_cg_mock:
             lazy_tensor = RootLazyTensor(mat)
 
             if add_diag:
-                lazy_tensor = lazy_tensor.add_jitter(1.)
+                lazy_tensor = lazy_tensor.add_jitter(1.0)
 
             res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet)
 

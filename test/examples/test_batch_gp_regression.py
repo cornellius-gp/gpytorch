@@ -128,7 +128,7 @@ class TestBatchGPRegression(unittest.TestCase):
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = GaussianLikelihood(
             noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
-            batch_shape=torch.Size([2])
+            batch_shape=torch.Size([2]),
         )
         gp_model = ExactGPModel(train_x12, train_y12, likelihood, batch_shape=torch.Size([2]))
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)

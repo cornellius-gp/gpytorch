@@ -25,9 +25,7 @@ class InterpolatedExactGPModel(ExactGP):
         super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.GridInterpolationKernel(
-            gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel()),
-            grid_size=128,
-            num_dims=1,
+            gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel()), grid_size=128, num_dims=1
         )
 
     def forward(self, x):

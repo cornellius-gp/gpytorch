@@ -19,9 +19,9 @@ class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
         return MultivariateNormal(torch.randn(*batch_shape, 6, 5), mat @ mat.transpose(-1, -2))
 
     def _create_targets(self, batch_shape=torch.Size([])):
-        return torch.distributions.Categorical(
-            probs=torch.tensor([0.25, 0.25, 0.25, 0.25])
-        ).sample(torch.Size([*batch_shape, 5]))
+        return torch.distributions.Categorical(probs=torch.tensor([0.25, 0.25, 0.25, 0.25])).sample(
+            torch.Size([*batch_shape, 5])
+        )
 
     def create_likelihood(self):
         return SoftmaxLikelihood(num_features=6, num_classes=4)
@@ -49,7 +49,7 @@ class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
         output = likelihood(input)
 
         self.assertTrue(isinstance(output, Distribution))
-        self.assertEqual(output.sample().shape[-len(batch_shape) - 1:], torch.Size([*batch_shape, 5]))
+        self.assertEqual(output.sample().shape[-len(batch_shape) - 1 :], torch.Size([*batch_shape, 5]))
 
 
 class TestSoftmaxLikelihoodNoMixing(TestSoftmaxLikelihood):

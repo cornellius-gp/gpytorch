@@ -9,7 +9,6 @@ from .test_exact_gp import TestExactGP
 
 
 class TestModelListGP(unittest.TestCase):
-
     def create_model(self, fixed_noise=False):
         data = TestExactGP.create_test_data(self)
         likelihood, labels = TestExactGP.create_likelihood_and_labels(self)

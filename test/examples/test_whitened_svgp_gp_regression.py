@@ -63,10 +63,11 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), \
-                gpytorch.settings.skip_logdet_forward(skip_logdet_forward), \
-                warnings.catch_warnings(record=True) as w, \
-                patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
+        with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.skip_logdet_forward(
+            skip_logdet_forward
+        ), warnings.catch_warnings(record=True) as w, patch(
+            "gpytorch.utils.linear_cg", new=_wrapped_cg
+        ) as linear_cg_mock:
             for _ in range(200):
                 optimizer.zero_grad()
                 output = model(train_x)
