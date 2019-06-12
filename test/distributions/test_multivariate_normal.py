@@ -2,12 +2,12 @@
 
 import math
 import unittest
-from test._utils import least_used_cuda_device
-from test._base_test_case import BaseTestCase
 
 import torch
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor, LazyTensor, NonLazyTensor
+from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.test.utils import least_used_cuda_device
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 
 

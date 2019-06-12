@@ -6,6 +6,7 @@ import os
 import random
 import torch
 import unittest
+
 import gpytorch
 from torch import optim, nn
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel, ScaleKernel

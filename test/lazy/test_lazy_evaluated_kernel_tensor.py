@@ -3,7 +3,7 @@
 import torch
 import unittest
 import gpytorch
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):

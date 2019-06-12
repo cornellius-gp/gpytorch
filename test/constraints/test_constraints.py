@@ -5,7 +5,7 @@ import unittest
 import gpytorch
 
 from torch.nn.functional import softplus, sigmoid
-from test._base_test_case import BaseTestCase
+from gpytorch.test.base_test_case import BaseTestCase
 
 
 # Basic exact GP model for testing parameter + constraint name resolution

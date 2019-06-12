@@ -4,7 +4,7 @@ import torch
 import unittest
 import gpytorch.utils.toeplitz as toeplitz
 from gpytorch.lazy import ToeplitzLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestToeplitzLazyTensor(LazyTensorTestCase, unittest.TestCase):

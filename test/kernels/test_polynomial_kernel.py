@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.kernels import PolynomialKernel
-from test.kernels._base_kernel_test_case import BaseKernelTestCase
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
 class TestPolynomialKernel(unittest.TestCase, BaseKernelTestCase):

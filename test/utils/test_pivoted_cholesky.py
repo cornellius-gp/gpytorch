@@ -3,12 +3,12 @@
 import os
 import random
 import unittest
-from gpytorch.utils import pivoted_cholesky, woodbury
-from test._utils import approx_equal
 import math
 
 import torch
 from gpytorch.kernels import RBFKernel
+from gpytorch.test.utils import approx_equal
+from gpytorch.utils import pivoted_cholesky, woodbury
 
 
 class TestPivotedCholesky(unittest.TestCase):

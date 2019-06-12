@@ -6,7 +6,7 @@ from gpytorch.distributions import MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
 from gpytorch.likelihoods import GaussianLikelihood, FixedNoiseGaussianLikelihood
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
-from test.likelihoods._base_likelihood_test_case import BaseLikelihoodTestCase
+from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
 class TestGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase):

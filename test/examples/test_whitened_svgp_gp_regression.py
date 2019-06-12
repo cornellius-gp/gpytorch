@@ -5,13 +5,13 @@ import unittest
 import warnings
 import unittest
 from unittest.mock import MagicMock, patch
-from test._utils import least_used_cuda_device
-from test._base_test_case import BaseTestCase
 
 import gpytorch
 import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
+from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, WhitenedVariationalStrategy
 from torch import optim
 

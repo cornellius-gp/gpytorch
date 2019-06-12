@@ -2,8 +2,9 @@
 
 import torch
 import unittest
-from test.means._base_mean_test_case import BaseMeanTestCase
+
 from gpytorch.means import LinearMean
+from gpytorch.test.base_mean_test_case import BaseMeanTestCase
 
 
 class TestLinearMean(BaseMeanTestCase, unittest.TestCase):

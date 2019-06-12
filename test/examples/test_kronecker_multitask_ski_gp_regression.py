@@ -4,7 +4,6 @@ import os
 import random
 import unittest
 from math import pi
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -12,6 +11,7 @@ from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.kernels import GridInterpolationKernel, MultitaskKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, MultitaskMean
+from gpytorch.test.utils import least_used_cuda_device
 
 
 class MultitaskGPModel(gpytorch.models.ExactGP):

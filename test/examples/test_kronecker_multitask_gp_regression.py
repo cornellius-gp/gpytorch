@@ -6,6 +6,7 @@ import os
 import random
 import torch
 import unittest
+
 import gpytorch
 from gpytorch.kernels import RBFKernel, MultitaskKernel
 from gpytorch.means import ConstantMean, MultitaskMean

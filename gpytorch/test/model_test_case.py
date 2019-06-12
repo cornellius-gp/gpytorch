@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 from abc import abstractmethod
+
 import torch
 import gpytorch
 
 
-class _ModelTestCase(object):
+class BaseModelTestCase(object):
     @abstractmethod
     def create_model(self, train_x, train_y, likelihood):
         raise NotImplementedError()
@@ -87,7 +88,7 @@ class _ModelTestCase(object):
         self.assertTrue(output.lazy_covariance_matrix.size(-2) == batch_data.size(-2))
 
 
-class VariationalModelTestCase(_ModelTestCase):
+class VariationalModelTestCase(BaseModelTestCase):
     def test_backward_train(self):
         data = self.create_test_data()
         likelihood, labels = self.create_likelihood_and_labels()

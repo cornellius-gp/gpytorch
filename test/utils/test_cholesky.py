@@ -2,10 +2,10 @@
 
 import unittest
 import warnings
-from test._utils import least_used_cuda_device
 
 import torch
 from gpytorch.utils.cholesky import psd_safe_cholesky
+from gpytorch.test.utils import least_used_cuda_device
 
 
 class TestPSDSafeCholesky(unittest.TestCase):

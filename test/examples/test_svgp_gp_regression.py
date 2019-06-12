@@ -4,15 +4,15 @@ import math
 import warnings
 import unittest
 from unittest.mock import MagicMock, patch
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
+from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
 from torch import optim
-from test._base_test_case import BaseTestCase
 
 
 def train_data(cuda=False):

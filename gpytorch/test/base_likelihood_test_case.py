@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 from abc import abstractmethod
-from .._base_test_case import BaseTestCase
-from torch.distributions import Distribution
+
+from .base_test_case import BaseTestCase
+
 import torch
 import gpytorch
 from gpytorch.likelihoods import Likelihood
 from gpytorch.distributions import MultivariateNormal
+from torch.distributions import Distribution
 
 
 class BaseLikelihoodTestCase(BaseTestCase):

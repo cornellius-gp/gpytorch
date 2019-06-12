@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-import torch
-import gpytorch
 import unittest
+
+import gpytorch
+import torch
 from gpytorch.models import AbstractVariationalGP
 from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy, WhitenedVariationalStrategy
-from test.models._model_test_case import VariationalModelTestCase
+from gpytorch.test.model_test_case import VariationalModelTestCase
 
 
 class GPClassificationModel(AbstractVariationalGP):

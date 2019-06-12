@@ -4,12 +4,12 @@ import os
 import random
 import unittest
 from math import pi
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import AbstractVariationalGP
+from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, WhitenedVariationalStrategy
 from torch import optim
 

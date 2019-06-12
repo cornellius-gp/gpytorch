@@ -5,7 +5,7 @@ import torch
 from gpytorch.lazy import KroneckerProductLazyTensor, RootLazyTensor
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.distributions import MultitaskMultivariateNormal
-from test.likelihoods._base_likelihood_test_case import BaseLikelihoodTestCase
+from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
 class TestMultitaskGaussianLikelihood(BaseLikelihoodTestCase, unittest.TestCase):

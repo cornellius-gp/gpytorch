@@ -5,7 +5,7 @@ import torch
 from gpytorch.likelihoods import SoftmaxLikelihood
 from torch.distributions import Distribution
 from gpytorch.distributions import MultivariateNormal
-from test.likelihoods._base_likelihood_test_case import BaseLikelihoodTestCase
+from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
 class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):

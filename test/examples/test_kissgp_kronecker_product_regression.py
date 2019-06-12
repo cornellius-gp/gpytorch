@@ -6,14 +6,14 @@ import os
 import random
 import torch
 import unittest
-import gpytorch
-from torch import optim
 
+import gpytorch
 from gpytorch.kernels import RBFKernel, GridInterpolationKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
+from torch import optim
 
 # Simple training data: let's try to learn a sine function,
 # but with KISS-GP let's use 100 training examples.

@@ -7,7 +7,7 @@ import unittest
 import warnings
 from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor
 from gpytorch.utils.gradients import _ensure_symmetric_grad
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 from unittest.mock import MagicMock, patch
 
 

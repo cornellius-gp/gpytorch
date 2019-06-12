@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
-from test._utils import approx_equal
 
 import torch
 from gpytorch.utils.lanczos import lanczos_tridiag
+from gpytorch.test.utils import approx_equal
 
 
 class TestLanczos(unittest.TestCase):

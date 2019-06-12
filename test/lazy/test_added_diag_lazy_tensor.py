@@ -3,7 +3,7 @@
 import torch
 import unittest
 from gpytorch.lazy import NonLazyTensor, DiagLazyTensor, AddedDiagLazyTensor
-from test.lazy._lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestAddedDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):

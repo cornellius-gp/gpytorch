@@ -5,6 +5,7 @@ import random
 import math
 import torch
 import unittest
+
 import gpytorch
 from torch import optim
 from gpytorch.kernels import RBFKernel, MultitaskKernel

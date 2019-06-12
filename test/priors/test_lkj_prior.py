@@ -2,10 +2,10 @@
 
 import unittest
 from math import exp
-from test._utils import approx_equal, least_used_cuda_device
 
 import torch
 from gpytorch.priors import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior, SmoothedBoxPrior
+from gpytorch.test.utils import approx_equal, least_used_cuda_device
 
 
 class TestLKJPrior(unittest.TestCase):

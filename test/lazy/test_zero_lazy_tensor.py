@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
-from test._utils import approx_equal
 
 import torch
 from gpytorch.lazy import ZeroLazyTensor
+from gpytorch.test.utils import approx_equal
 
 
 class TestZeroLazyTensor(unittest.TestCase):

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
-from test._base_test_case import BaseTestCase
 
 import torch
 from gpytorch.lazy import NonLazyTensor
+from gpytorch.test.base_test_case import BaseTestCase
 
 
 class TestRootDecomposition(BaseTestCase, unittest.TestCase):

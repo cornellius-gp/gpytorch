@@ -4,7 +4,7 @@ import math
 import torch
 import unittest
 from gpytorch.kernels import RBFKernel
-from test.kernels._base_kernel_test_case import BaseKernelTestCase
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
 class TestRBFKernel(unittest.TestCase, BaseKernelTestCase):

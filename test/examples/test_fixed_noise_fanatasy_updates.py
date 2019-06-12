@@ -2,7 +2,6 @@
 
 import unittest
 from math import exp, pi
-from test._utils import least_used_cuda_device
 
 import gpytorch
 import torch
@@ -12,8 +11,9 @@ from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
+from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.test.utils import least_used_cuda_device
 from torch import optim
-from test._base_test_case import BaseTestCase
 
 
 class ExactGPModel(gpytorch.models.ExactGP):

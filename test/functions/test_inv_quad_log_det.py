@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import gpytorch
 from gpytorch.lazy import RootLazyTensor
-from test._base_test_case import BaseTestCase
+from gpytorch.test.base_test_case import BaseTestCase
 
 
 class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
