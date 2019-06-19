@@ -144,8 +144,11 @@ class VariationalStrategy(Module):
                 if not hasattr(self, "_mean_cache"):
                     self._mean_cache = induc_induc_covar.inv_matmul(mean_diff).detach()
 
-                mean_cache = self._mean_cache
-                predictive_mean = torch.add(test_mean, induc_data_covar.transpose(-2, -1).matmul(mean_cache))
+                predictive_mean = torch.add(
+                    test_mean,
+                    induc_data_covar.transpose(-2, -1).matmul(self._mean_cache).squeeze(-1)
+                )
+
                 predictive_covar = ZeroLazyTensor(test_mean.size(-1), test_mean.size(-1))
 
                 return MultivariateNormal(predictive_mean, predictive_covar)
