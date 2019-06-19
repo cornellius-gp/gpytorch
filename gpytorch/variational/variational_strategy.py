@@ -3,7 +3,7 @@
 import math
 import torch
 from .. import settings
-from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLazyTensor, RootLazyTensor, ZeroLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
 from ..utils.broadcasting import _mul_broadcast_shape
@@ -138,6 +138,17 @@ class VariationalStrategy(Module):
             if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
                 induc_induc_covar = CholLazyTensor(induc_induc_covar.cholesky())
                 cholesky = True
+
+            # If we are making predictions and don't need variances, we can do things very quickly.
+            if not self.training and settings.skip_posterior_variances.on():
+                if not hasattr(self, "_mean_cache"):
+                    self._mean_cache = induc_induc_covar.inv_matmul(mean_diff)
+
+                mean_cache = self._mean_cache
+                predictive_mean = torch.add(test_mean, induc_data_covar.transpose(-2, -1).matmul(mean_cache))
+                predictive_covar = ZeroLazyTensor(test_mean.size(-1), test_mean.size(-1))
+
+                return MultivariateNormal(predictive_mean, predictive_covar)
 
             # Cache the CG results
             # For now: run variational inference without a preconditioner
