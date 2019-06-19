@@ -142,7 +142,7 @@ class VariationalStrategy(Module):
             # If we are making predictions and don't need variances, we can do things very quickly.
             if not self.training and settings.skip_posterior_variances.on():
                 if not hasattr(self, "_mean_cache"):
-                    self._mean_cache = induc_induc_covar.inv_matmul(mean_diff)
+                    self._mean_cache = induc_induc_covar.inv_matmul(mean_diff).detach()
 
                 mean_cache = self._mean_cache
                 predictive_mean = torch.add(test_mean, induc_data_covar.transpose(-2, -1).matmul(mean_cache))
