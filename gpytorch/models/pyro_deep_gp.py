@@ -1,5 +1,6 @@
 import torch
 import pyro
+from gpytorch.constraints import Positive
 from .abstract_variational_gp import AbstractVariationalGP
 from ..lazy import CholLazyTensor, DiagLazyTensor
 
@@ -7,18 +8,54 @@ from ..lazy import CholLazyTensor, DiagLazyTensor
 
 class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
     def __init__(self, variational_strategy, input_dims, output_dims, name_prefix=""):
+        from pyro.nn import AutoRegressiveNN
+        import pyro.distributions as dist
         super().__init__(variational_strategy)
         self.input_dims = input_dims
         self.output_dims = output_dims
         self.output_dim_plate = pyro.plate(name_prefix + ".n_output_plate", self.output_dims, dim=-1)
         self.name_prefix = name_prefix
 
+        self.num_inducing = self.variational_strategy.inducing_points.size(-2)
+
         self.EXACT = True
         self.annealing = 1.0
+        self.dsf = [
+            dist.DeepSigmoidalFlow(
+                AutoRegressiveNN(self.num_inducing, [self.num_inducing], param_dims=(7, 7, 7)),
+                hidden_units=7
+            ).to(device=torch.device('cuda:0'),
+                 dtype=torch.float32)
+            for _ in range(1)
+        ]
+
+        self.means = torch.nn.Parameter(torch.randn(self.num_inducing) * 0.01)
+        self.raw_vars = torch.nn.Parameter(torch.zeros(self.num_inducing))
+
+        self.register_constraint("raw_vars", Positive())
+
+        self.use_nf = False
 
     @property
     def variational_distribution(self):
-        return self.variational_strategy.variational_distribution.variational_distribution
+        for i, dsf in enumerate(self.dsf):
+            # if dsf.device != self.variational_strategy.inducing_points.device:
+            #     self.dsf[i] = dsf.to(
+            #         device=self.variational_strategy.inducing_points.device,
+            #         dtype=self.variational_strategy.inducing_points.dtype
+            #     )
+            pyro.module(f"dsf{i}", dsf)
+        import pyro.distributions as dist
+
+        base_dist = dist.Normal(self.means, self.raw_vars_constraint.transform(self.raw_vars))
+        # print(self.means, self.raw_vars)
+        # base_dist = self.variational_strategy.variational_distribution.variational_distribution
+        if self.use_nf:
+            return dist.TransformedDistribution(base_dist, self.dsf)
+        else:
+            return self.variational_strategy.variational_distribution.variational_distribution
+
+        # return self.variational_strategy.variational_distribution.variational_distribution
 
     def guide(self):
         with pyro.poutine.scale(scale=self.annealing):
