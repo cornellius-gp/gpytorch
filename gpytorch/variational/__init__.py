@@ -5,7 +5,7 @@ from .whitened_variational_strategy import WhitenedVariationalStrategy
 from .additive_grid_interpolation_variational_strategy import AdditiveGridInterpolationVariationalStrategy
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 from .variational_distribution import VariationalDistribution
-from .pyro_variational_strategy import PyroExactVariationalStrategy, PyroSamplingVariationalStrategy
+from .pyro_variational_strategy import PyroVariationalStrategy, PyroExactVariationalStrategy, PyroSamplingVariationalStrategy
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 
 __all__ = [
@@ -16,6 +16,7 @@ __all__ = [
     "NewVariationalStrategy",
     "VariationalDistribution",
     "CholeskyVariationalDistribution",
+    "PyroVariationalStrategy",
     "PyroExactVariationalStrategy",
     "PyroSamplingVariationalStrategy",
 ]
