@@ -15,7 +15,7 @@ from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
-from ..utils.cholesky import psd_safe_cholesky, cholesky_solve
+from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.gradients import _ensure_symmetric_grad
 from ..utils.getitem import _noop_index, _convert_indices_to_tensors, _compute_getitem_size
@@ -413,7 +413,7 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor
         """
-        return cholesky_solve(rhs.double(), self.evaluate().double()).to(self.dtype)
+        return torch.cholesky_solve(rhs.double(), self.evaluate().double()).to(self.dtype)
 
     def _inv_matmul_preconditioner(self):
         """

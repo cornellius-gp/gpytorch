@@ -11,7 +11,6 @@ from ..lazy import (
 )
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached, add_to_cache
-from ..utils.cholesky import cholesky_solve
 
 
 def prediction_strategy(
@@ -161,7 +160,7 @@ class DefaultPredictionStrategy(object):
             # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
             fant_cache_lower = torch.solve(small_system_rhs, schur_complement)[0]
         else:
-            fant_cache_lower = cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
+            fant_cache_lower = torch.cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
 
         # Get "a", the new upper portion of the cache corresponding to the old training points.
         fant_cache_upper = self.mean_cache.unsqueeze(-1) - fant_solve.matmul(fant_cache_lower)
@@ -216,7 +215,7 @@ class DefaultPredictionStrategy(object):
             # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
             new_covar_cache = torch.solve(new_root.transpose(-2, -1), cap_mat)[0].transpose(-2, -1)
         else:
-            new_covar_cache = cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
+            new_covar_cache = torch.cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
             new_covar_cache = new_covar_cache.transpose(-2, -1)
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
