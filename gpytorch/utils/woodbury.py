@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import torch
-from .cholesky import cholesky_solve
 from .. import settings
 
 
@@ -68,7 +67,7 @@ def woodbury_factor(umat, vmat, diag, logdet=False):
     chol = torch.cholesky(inner_mat)
 
     # Compute s (I_k + V^T D^-1 U)^-1 V^T
-    R = cholesky_solve(vmat.transpose(-1, -2), chol).view(*batch_shape, k, n)
+    R = torch.cholesky_solve(vmat.transpose(-1, -2), chol).view(*batch_shape, k, n)
 
     # Maybe compute the log determinant
     if logdet:

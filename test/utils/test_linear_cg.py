@@ -5,7 +5,6 @@ import random
 import unittest
 
 import torch
-from gpytorch.utils.cholesky import cholesky_solve
 from gpytorch.utils.linear_cg import linear_cg
 
 
@@ -34,7 +33,7 @@ class TestLinearCG(unittest.TestCase):
 
         # Check cg
         matrix_chol = matrix.cholesky()
-        actual = cholesky_solve(rhs, matrix_chol)
+        actual = torch.cholesky_solve(rhs, matrix_chol)
         self.assertTrue(torch.allclose(solves, actual, atol=1e-3, rtol=1e-4))
 
     def test_cg_with_tridiag(self):
@@ -51,7 +50,7 @@ class TestLinearCG(unittest.TestCase):
 
         # Check cg
         matrix_chol = matrix.cholesky()
-        actual = cholesky_solve(rhs, matrix_chol)
+        actual = torch.cholesky_solve(rhs, matrix_chol)
         self.assertTrue(torch.allclose(solves, actual, atol=1e-3, rtol=1e-4))
 
         # Check tridiag
@@ -73,7 +72,7 @@ class TestLinearCG(unittest.TestCase):
 
         # Check cg
         matrix_chol = torch.cholesky(matrix)
-        actual = cholesky_solve(rhs, matrix_chol)
+        actual = torch.cholesky_solve(rhs, matrix_chol)
         self.assertTrue(torch.allclose(solves, actual, atol=1e-3, rtol=1e-4))
 
     def test_batch_cg_with_tridiag(self):
@@ -91,7 +90,7 @@ class TestLinearCG(unittest.TestCase):
 
         # Check cg
         matrix_chol = torch.cholesky(matrix)
-        actual = cholesky_solve(rhs, matrix_chol)
+        actual = torch.cholesky_solve(rhs, matrix_chol)
         self.assertTrue(torch.allclose(solves, actual, atol=1e-3, rtol=1e-4))
 
         # Check tridiag
