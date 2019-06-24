@@ -28,7 +28,7 @@ class TestInterval(unittest.TestCase, BaseTestCase):
         v = torch.tensor(-3.0)
 
         value = constraint.transform(v)
-        actual_value = (5.0 * sigmoid(v)) + 1.0
+        actual_value = ((5.0 - 1.0) * sigmoid(v)) + 1.0
 
         self.assertAllClose(value, actual_value)
 
@@ -48,8 +48,8 @@ class TestInterval(unittest.TestCase, BaseTestCase):
 
         value = constraint.transform(v)
         actual_value = v.clone()
-        actual_value[0] = 3.0 * sigmoid(v[0]) + 1.0
-        actual_value[1] = 4.0 * sigmoid(v[1]) + 2.0
+        actual_value[0] = (3.0 - 1.0) * sigmoid(v[0]) + 1.0
+        actual_value[1] = (4.0 - 2.0) * sigmoid(v[1]) + 2.0
 
         self.assertAllClose(value, actual_value)
 
