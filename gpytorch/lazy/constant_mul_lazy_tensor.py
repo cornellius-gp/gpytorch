@@ -119,7 +119,7 @@ class ConstantMulLazyTensor(LazyTensor):
         left_vecs = left_vecs * self.expanded_constant
         res = self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
 
-        return res + (constant_deriv,)
+        return tuple(res) + (constant_deriv,)
 
     def _size(self):
         return self.base_lazy_tensor.size()
