@@ -6,6 +6,27 @@ from ..lazy import CholLazyTensor, DiagLazyTensor
 from ..variational import PyroVariationalStrategy, PyroExactVariationalStrategy
 
 
+class ListDist(pyro.distributions.TorchDistribution):
+    def __init__(self, dist_list):
+        super().__init__(batch_shape=torch.Size([len(dist_list)]), event_shape=dist_list[0].event_shape)
+        self.dist_list = dist_list
+
+    @property
+    def arg_constraints(self):
+        return {}
+
+    def rsample(self, size):
+        samples = [dist.rsample(size).unsqueeze(-2) for dist in self.dist_list]
+        return torch.cat(samples, dim=-2)
+
+    def expand(self, size):
+        return self  # HACKS
+
+    def log_prob(self, value):
+        lps = [dist.log_prob(value).unsqueeze(-1) for dist in self.dist_list]
+        return torch.cat(lps, dim=0)
+
+
 class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
     def __init__(self, variational_strategy, input_dims, output_dims, first_layer, name_prefix=""):
         from pyro.nn import AutoRegressiveNN
@@ -25,17 +46,19 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
         self.EXACT = True
         self.annealing = 1.0
-        self.dsf = [
-            dist.DeepSigmoidalFlow(
-                AutoRegressiveNN(self.num_inducing, [self.num_inducing], param_dims=(7, 7, 7)),
-                hidden_units=7
-            ).to(device=torch.device('cuda:0'),
-                 dtype=torch.float32)
-            for _ in range(1)
+        self.dsfs = [
+            [
+                dist.DeepSigmoidalFlow(
+                    AutoRegressiveNN(self.num_inducing, [self.num_inducing], param_dims=(7, 7, 7)),
+                    hidden_units=7
+                ).to(device=torch.device('cuda:0'),
+                     dtype=torch.float32)
+                for _ in range(1)
+            ] for _ in range(self.output_dims)
         ]
 
-        self.means = torch.nn.Parameter(torch.randn(self.num_inducing) * 0.01)
-        self.raw_vars = torch.nn.Parameter(torch.zeros(self.num_inducing))
+        self.means = torch.nn.Parameter(torch.randn(self.output_dims, self.num_inducing) * 0.01)
+        self.raw_vars = torch.nn.Parameter(torch.zeros(self.output_dims, self.num_inducing))
 
         self.register_constraint("raw_vars", Positive())
 
@@ -43,17 +66,19 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
     @property
     def variational_distribution(self):
-        for i, dsf in enumerate(self.dsf):
-            pyro.module(f"dsf{i}", dsf)
+        for j, gp_dsf in enumerate(self.dsfs):
+            for i, dsf in enumerate(gp_dsf):
+                pyro.module(f"dsf-{j}-{i}", dsf)
         import pyro.distributions as dist
 
-        base_dist = dist.Normal(self.means, self.raw_vars_constraint.transform(self.raw_vars))
-        if self.use_nf:
-            return dist.TransformedDistribution(base_dist, self.dsf)
-        else:
-            return base_dist
+        dists = []
+        for j, gp_dsf in enumerate(self.dsfs):
+            # Get base distribution for jth GP in layer
+            base_dist = dist.Normal(self.means[j], self.raw_vars_constraint.transform(self.raw_vars[j]))
+            dists.append(dist.TransformedDistribution(base_dist, gp_dsf))
 
-        # return self.variational_strategy.variational_distribution.variational_distribution
+        output_dist = ListDist(dists)
+        return output_dist
 
     def guide(self):
         with pyro.poutine.scale(scale=self.annealing):
