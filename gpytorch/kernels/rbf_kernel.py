@@ -17,7 +17,7 @@ class RBFKernel(Kernel):
 
        \begin{equation*}
           k_{\text{RBF}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left( -\frac{1}{2}
-          (\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-1} (\mathbf{x_1} - \mathbf{x_2}) \right)
+          (\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-2} (\mathbf{x_1} - \mathbf{x_2}) \right)
        \end{equation*}
 
     where :math:`\Theta` is a :attr:`lengthscale` parameter.
