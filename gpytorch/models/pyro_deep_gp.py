@@ -125,7 +125,7 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
             _, model_trace, guide_trace = vectorized_importance_weights(self.model, self.guide,
                                                                         inputs, None,
                                                                         num_samples=num_samples,
-                                                                        max_plate_nesting=2,
+                                                                        max_plate_nesting=1,
                                                                         normalized=False)
         return(model_trace.nodes['_RETURN']['value'])
 
