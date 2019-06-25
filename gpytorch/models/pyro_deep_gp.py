@@ -20,7 +20,6 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
         self.num_inducing = self.variational_strategy.inducing_points.size(-2)
 
-        self.EXACT = True
         self.annealing = 1.0
 
     @property
