@@ -44,7 +44,7 @@ class PyroExactVariationalStrategy(PyroVariationalStrategy):
         with self.model.output_dim_plate:
             p_u_samples = pyro.sample(self.model.name_prefix + ".inducing_values", prior_distribution)
 
-        p_f_dist = super().__call__(inputs)
+        p_f_dist = super().forward(inputs)
         means = p_f_dist.mean
         variances = p_f_dist.variance
         p_f_dist = pyro.distributions.Normal(means, variances.sqrt())
