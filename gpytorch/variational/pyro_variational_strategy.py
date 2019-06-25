@@ -41,8 +41,8 @@ class PyroExactVariationalStrategy(PyroVariationalStrategy):
         # induc_mean is O_{i} x m
         # induc_induc_covar is O_{i} x m x m
         prior_distribution = self.prior_distribution
-        with self.output_dim_plate:
-            p_u_samples = pyro.sample(self.name_prefix + ".inducing_values", prior_distribution)
+        with self.model.output_dim_plate:
+            p_u_samples = pyro.sample(self.model.name_prefix + ".inducing_values", prior_distribution)
 
         p_f_dist = super().__call__(inputs)
         means = p_f_dist.mean
@@ -50,17 +50,6 @@ class PyroExactVariationalStrategy(PyroVariationalStrategy):
         p_f_dist = pyro.distributions.Normal(means, variances.sqrt())
 
         return p_f_dist, p_u_samples
-
-    def __call__(self, x):
-        if not self.variational_params_initialized.item():
-            self.initialize_variational_dist()
-            self.variational_params_initialized.fill_(1)
-        if self.training:
-            if hasattr(self, "_memoize_cache"):
-                delattr(self, "_memoize_cache")
-                self._memoize_cache = dict()
-
-        return super(VariationalStrategy, self).__call__(x)
 
 
 class PyroSamplingVariationalStrategy(PyroVariationalStrategy):
