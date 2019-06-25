@@ -45,6 +45,7 @@ setup(
     version=version,
     description="An implementation of Gaussian Processes in Pytorch",
     long_description=readme,
+    long_description_content_type="text/markdown",
     author="Jake Gardner, Geoff Pleiss",
     url="https://gpytorch.ai",
     author_email="jrg365@cornell.edu, gpleiss@gmail.com",
