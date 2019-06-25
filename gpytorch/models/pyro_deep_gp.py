@@ -8,9 +8,6 @@ from ..variational import PyroVariationalStrategy, PyroExactVariationalStrategy
 
 class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
     def __init__(self, variational_strategy, input_dims, output_dims, first_layer, name_prefix=""):
-        from pyro.nn import AutoRegressiveNN
-        import pyro.distributions as dist
-
         if not isinstance(variational_strategy, PyroVariationalStrategy):
             raise RuntimeError("Pyro GP Layers must have PyroVariationalStrategies!")
 
@@ -25,35 +22,10 @@ class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
 
         self.EXACT = True
         self.annealing = 1.0
-        self.dsf = [
-            dist.DeepSigmoidalFlow(
-                AutoRegressiveNN(self.num_inducing, [self.num_inducing], param_dims=(7, 7, 7)),
-                hidden_units=7
-            ).to(device=torch.device('cuda:0'),
-                 dtype=torch.float32)
-            for _ in range(1)
-        ]
-
-        self.means = torch.nn.Parameter(torch.randn(self.num_inducing) * 0.01)
-        self.raw_vars = torch.nn.Parameter(torch.zeros(self.num_inducing))
-
-        self.register_constraint("raw_vars", Positive())
-
-        self.use_nf = False
 
     @property
     def variational_distribution(self):
-        for i, dsf in enumerate(self.dsf):
-            pyro.module(f"dsf{i}", dsf)
-        import pyro.distributions as dist
-
-        base_dist = dist.Normal(self.means, self.raw_vars_constraint.transform(self.raw_vars))
-        if self.use_nf:
-            return dist.TransformedDistribution(base_dist, self.dsf)
-        else:
-            return base_dist
-
-        # return self.variational_strategy.variational_distribution.variational_distribution
+        return self.variational_strategy.variational_distribution.variational_distribution
 
     def guide(self):
         with pyro.poutine.scale(scale=self.annealing):
