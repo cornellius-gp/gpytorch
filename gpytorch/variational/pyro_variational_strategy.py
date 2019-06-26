@@ -7,10 +7,6 @@ from .variational_strategy import VariationalStrategy
 
 
 class PyroVariationalStrategy(VariationalStrategy):
-    pass
-
-
-class PyroExactVariationalStrategy(PyroVariationalStrategy):
     def _transform_inputs(self, inputs):
         # Note: assumes inducing_points are not shared (e.g., are O_i x m x O_{i-1})
         # If shared, we need to expand and repeat m x d -> O_i x m x O_{i-1}
@@ -33,6 +29,8 @@ class PyroExactVariationalStrategy(PyroVariationalStrategy):
 
         return inputs, num_samples
 
+
+class PyroExactVariationalStrategy(PyroVariationalStrategy):
     def forward(self, inputs):
         # Goal: return a p x n x O_{i} tensor.
         inputs, num_samples = self._transform_inputs(inputs)
@@ -53,28 +51,6 @@ class PyroExactVariationalStrategy(PyroVariationalStrategy):
 
 
 class PyroSamplingVariationalStrategy(PyroVariationalStrategy):
-    def _transform_inputs(self, inputs):
-        # Note: assumes inducing_points are not shared (e.g., are O_i x m x O_{i-1})
-        # If shared, we need to expand and repeat m x d -> O_i x m x O_{i-1}
-        # inputs (x) are either n x O_{0} or p x n x O_{i-1}
-        inputs = inputs.contiguous()
-        if inputs.dim() == 2:  # n x O_{0}, make O_{i} x n x O_{0}
-            # Assume new input entirely
-            inputs = inputs.unsqueeze(0)
-            inputs = inputs.expand(self.model.output_dims, inputs.size(-2), self.model.input_dims)
-        elif inputs.dim() == 3:  # p x n x O_{i-1} -> O_{i} x p x n x O_{i-1}
-            # Assume batch dim is samples, not output_dim
-            inputs = inputs.unsqueeze(0)
-            inputs = inputs.expand(self.model.output_dims, inputs.size(1), inputs.size(-2), self.model.input_dims)
-
-        if inputs.dim() == 4:  # Convert O_{i} x p x n x O_{i-1} -> O_{i} x p*n x O_{i-1}
-            num_samples = inputs.size(-3)
-            inputs = inputs.view(self.model.output_dims, inputs.size(-2) * inputs.size(-3), self.model.input_dims)
-        else:
-            num_samples = None
-
-        return inputs, num_samples
-
     def forward(self, inputs):
         # Goal: return a p x n x O_{i} tensor.
         inducing_points = self.inducing_points
