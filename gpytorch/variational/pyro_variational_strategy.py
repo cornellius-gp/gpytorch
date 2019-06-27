@@ -59,6 +59,10 @@ class PyroSamplingVariationalStrategy(PyroVariationalStrategy):
 
         inputs, num_samples = self._transform_inputs(inputs)
 
+        if inducing_points.dim() == 2:
+            batch_size = self.variational_distribution.variational_mean.size(-2)
+            inducing_points = inducing_points.unsqueeze(0).expand((batch_size,) + inducing_points.shape)
+
         full_inputs = torch.cat([inducing_points, inputs], dim=-2)
         full_output = self.model.forward(full_inputs)
         full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
