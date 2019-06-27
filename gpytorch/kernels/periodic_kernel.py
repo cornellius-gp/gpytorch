@@ -102,11 +102,11 @@ class PeriodicKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_period_length)
         self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
 
-    def forward(self, x1, x2, **params):
+    def forward(self, x1, x2, diag=False, **params):
         x1_ = x1.div(self.period_length)
         x2_ = x2.div(self.period_length)
-        diff = self.covar_dist(x1_, x2_, **params)
+        diff = self.covar_dist(x1_, x2_, diag=diag, **params)
         res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
-        if diff.ndimension() == 2:
+        if diff.ndimension() == 2 or diag:
             res = res.squeeze(0)
         return res
