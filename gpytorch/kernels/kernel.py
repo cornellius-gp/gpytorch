@@ -28,7 +28,7 @@ class Distance(torch.nn.Module):
             and x1.size(-2) <= 512
             and x2.size(-2) <= 512
             # TODO: remove when https://github.com/pytorch/pytorch/issues/22353 is fixed
-            and not (x1.is_cuda or x2.is_cuda) 
+            and not (x1.is_cuda or x2.is_cuda)
         ):
             # torch cdist doesn't support batch, also only available after pytorch 1.1
             # cdist is a bit faster on small tensors. Check again after pytorch PR #20605
