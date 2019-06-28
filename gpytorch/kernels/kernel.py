@@ -22,7 +22,14 @@ class Distance(torch.nn.Module):
         self._postprocess = postprocess_script
 
     def _sq_dist(self, x1, x2, postprocess, x1_eq_x2=False):
-        if hasattr(torch, 'cdist') and x1.dim() < 3 and x1.size(-2) <= 512 and x2.size(-2) <= 512:
+        if (
+            hasattr(torch, 'cdist')
+            and x1.dim() < 3
+            and x1.size(-2) <= 512
+            and x2.size(-2) <= 512
+            # TODO: remove when https://github.com/pytorch/pytorch/issues/22353 is fixed
+            and not (x1.is_cuda or x2.is_cuda)
+        ):
             # torch cdist doesn't support batch, also only available after pytorch 1.1
             # cdist is a bit faster on small tensors. Check again after pytorch PR #20605
             res = torch.cdist(x1, x2).pow(2)
@@ -47,7 +54,14 @@ class Distance(torch.nn.Module):
         return self._postprocess(res) if postprocess else res
 
     def _dist(self, x1, x2, postprocess, x1_eq_x2=False):
-        if hasattr(torch, 'cdist') and x1.dim() < 3 and x1.size(-2) <= 512 and x2.size(-2) <= 512:
+        if (
+            hasattr(torch, 'cdist')
+            and x1.dim() < 3
+            and x1.size(-2) <= 512
+            and x2.size(-2) <= 512
+            # TODO: remove when https://github.com/pytorch/pytorch/issues/22353 is fixed
+            and not (x1.is_cuda or x2.is_cuda)
+        ):
             # torch cdist doesn't support batch, also only available after pytorch 1.1
             # cdist is a bit faster on small tensors. Check again after pytorch PR #20605
             res = torch.cdist(x1, x2)
