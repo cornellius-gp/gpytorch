@@ -240,6 +240,19 @@ def kl_mvn_mvn(p_dist, q_dist):
 
     p_mean = p_dist.loc
     p_covar = p_dist.lazy_covariance_matrix
+
+    assert p_mean.dim() == 3
+    assert q_mean.dim() == 3
+    assert p_covar.dim() == 4
+    assert q_covar.dim() == 4
+
+    # DO A SUPERHACK TO NOT COMPUTE NUM_PARTICLES MANY KL DIVERGENCES
+
+    q_mean = q_mean[0, ...]
+    p_mean = p_mean[0, ...]
+    q_covar = q_covar[0, ...]
+    p_covar = p_covar[0, ...]
+
     root_p_covar = p_covar.root_decomposition().root.evaluate()
 
     mean_diffs = p_mean - q_mean
@@ -253,4 +266,6 @@ def kl_mvn_mvn(p_dist, q_dist):
 
     # Compute the KL Divergence.
     res = 0.5 * sum([logdet_q_covar, logdet_p_covar.mul(-1), trace_plus_inv_quad_form, -float(mean_diffs.size(-1))])
+    res = res.unsqueeze(0).expand(q_dist.loc.shape[0:1] + res.shape)
+
     return res
