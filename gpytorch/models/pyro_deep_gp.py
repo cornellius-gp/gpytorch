@@ -1,9 +1,33 @@
 import torch
+import math
 import pyro
 from gpytorch.constraints import Positive
 from .abstract_variational_gp import AbstractVariationalGP
 from ..lazy import CholLazyTensor, DiagLazyTensor
 from ..variational import PyroVariationalStrategy, PyroExactVariationalStrategy
+
+
+class VariationalGaussianLikelihoodDist(pyro.distributions.torch_distribution.TorchDistribution):
+    def __init__(self, log_beta, mean_function, covar_function):
+        self.log_beta = log_beta
+        self.mean_function = mean_function
+        self.covar_function = covar_function
+        super(VariationalGaussianLikelihoodDist, self).__init__(batch_shape=mean_function.shape[:-1],
+                                                                event_shape=mean_function.shape[-1:])
+
+    def log_prob(self, target):
+        beta = self.log_beta.exp()
+        full_covar = (target - self.mean_function).pow(2.0) + self.covar_function
+        ELL1 = -0.5 * (beta * full_covar).sum(-1)
+        ELL2 = 0.5 * (self.log_beta - math.log(2.0 * math.pi)) * target.size(-1)
+        return ELL1 + ELL2
+
+    def expand(self, batch_size):
+        return self
+
+    def sample(self, sample_shape=torch.Size()):
+        return self.mean_function + torch.randn(self.mean_function.shape).type_as(self.mean_function) * self.covar_function.sqrt()
+
 
 
 class AbstractPyroHiddenGPLayer(AbstractVariationalGP):
@@ -68,7 +92,6 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
         output_dims,
         total_num_data,
         hidden_gp_layers,
-        likelihood,
         name_prefix="",
     ):
         super().__init__(
@@ -81,7 +104,6 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
 
         self.hidden_gp_layers = hidden_gp_layers  # A list of AbstractPyroHiddenGPLayers
         self.total_num_data = total_num_data
-        self.likelihood = likelihood
         self.log_beta = torch.nn.Parameter(torch.tensor([3.0]))
 
     def guide(self, inputs, outputs):
@@ -93,14 +115,21 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
 
     def model(self, inputs, outputs):
         pyro.param("log_beta", self.log_beta)
-        #pyro.module(self.name_prefix + ".likelihood", self.likelihood)
         with pyro.poutine.scale(scale=float(1. / self.total_num_data)):
             pyro.module(self.name_prefix + ".gp_layer", self)
             # First call hidden GP layers
+            # dead skip connection code
+            #    inputs = _inputs.unsqueeze(0).expand(inputs.shape[0:1] + _inputs.shape)
+            #    inputs = torch.cat([_inputs, inputs], dim=-1)
             for hidden_gp_layer in self.hidden_gp_layers:
                 inputs = hidden_gp_layer.model(inputs)
 
-            f_samples = super().model(inputs, return_samples=True) #.to_event(1)
+            #f_samples = super().model(inputs, return_samples=True) #.to_event(1)
+            p_f_dist = super().model(inputs, return_samples=False)
+            f_mean, f_covar = p_f_dist.mean, p_f_dist.variance
+            f_mean = f_mean.reshape(inputs.size(0), -1, 1)
+            f_covar = f_covar.reshape(inputs.size(0), -1, 1)
+            f_dist = VariationalGaussianLikelihoodDist(self.log_beta, f_mean, f_covar)
 
             minibatch_size = inputs.size(-2)
             if outputs is not None:
@@ -108,12 +137,10 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
 
             with pyro.plate(self.name_prefix + ".data_plate", minibatch_size, dim=-1):
                 with pyro.poutine.scale(scale=float(self.total_num_data / minibatch_size)):
-                    #out_dist = QuadratureDist(self.likelihood, p_f_dist)
-                    sigma = (-0.5 * self.log_beta).exp()
-                    pyro.sample(self.name_prefix + ".output_value",
-                                pyro.distributions.Normal(f_samples, sigma).to_event(1), obs=outputs)
+                    pyro.sample(self.name_prefix + ".output_value", f_dist, obs=outputs)
 
-            return f_samples
+            return f_dist.sample()
+
 
     def __call__(self, inputs, num_samples=10):
         """
@@ -128,5 +155,3 @@ class AbstractPyroDeepGP(AbstractPyroHiddenGPLayer):
                                                                         max_plate_nesting=1,
                                                                         normalized=False)
         return(model_trace.nodes['_RETURN']['value'])
-
-
