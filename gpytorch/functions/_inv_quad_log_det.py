@@ -143,8 +143,8 @@ class InvQuadLogDet(Function):
         inv_quad_rhs_grad = None
 
         # Which backward passes should we compute?
-        compute_inv_quad_grad = inv_quad_grad_output.abs().sum() and self.inv_quad
-        compute_logdet_grad = logdet_grad_output.abs().sum() and self.logdet
+        compute_inv_quad_grad = self.inv_quad
+        compute_logdet_grad = self.logdet
 
         # Get input arguments, and get gradients in the proper form
         matrix_args = self.saved_tensors[:-1]
