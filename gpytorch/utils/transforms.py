@@ -4,11 +4,11 @@ import torch
 
 
 def inv_softplus(x):
-    return torch.log(torch.exp(x) - 1)
+    return x + torch.log(-torch.expm1(-x))
 
 
 def inv_sigmoid(x):
-    return torch.log(x / (1 - x))
+    return torch.log(x) - torch.log(1 - x)
 
 
 def _get_inv_param_transform(param_transform, inv_param_transform=None):
