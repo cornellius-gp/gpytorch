@@ -53,12 +53,16 @@ class ConstrainedRBFKernel(Kernel):
 
     def __init__(self, **kwargs):
         super(ConstrainedRBFKernel, self).__init__(has_lengthscale=True, **kwargs)
-        self.constant = kwargs.pop('factor', 1.0)
+        self.factor = kwargs.pop('factor', 1.0)
 
     def forward(self, x1, x2, diag=False, **params):
-        sigma_squared = torch.pow(self.factor * self.lengthscale, 2.0)
+        harmonic_length = self.lengthscale.log().mean(-1, keepdim=True).exp()
+        sigma_squared = (self.factor * harmonic_length).pow(2.0)
+        if diag:
+            sigma_squared = sigma_squared.squeeze(-2)
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
         return sigma_squared * self.covar_dist(x1_, x2_, square_dist=True, diag=diag,
                                                dist_postprocess_func=postprocess_rbf,
                                                postprocess=True, **params)
+
