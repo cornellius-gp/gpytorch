@@ -17,6 +17,7 @@ from .periodic_kernel import PeriodicKernel
 from .polynomial_kernel import PolynomialKernel
 from .product_structure_kernel import ProductStructureKernel
 from .constrained_rbf_kernel import ConstrainedRBFKernel
+from .weird_rbf_kernel import WeirdRBFKernel
 from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
 from .scale_kernel import ScaleKernel
@@ -44,6 +45,7 @@ __all__ = [
     "ProductKernel",
     "ProductStructureKernel",
     "ConstrainedRBFKernel",
+    "WeirdRBFKernel",
     "RBFKernel",
     "RBFKernelGrad",
     "ScaleKernel",
