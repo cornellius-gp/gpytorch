@@ -77,8 +77,4 @@ class SumLazyTensor(LazyTensor):
             raise AttributeError("other must be a LazyTensor")
 
     def diag(self):
-        diags = [lazy_tensor.diag().contiguous() for lazy_tensor in self.lazy_tensors]
-        size = diags[0].size()
-        res = sum(diag.view(-1) for diag in diags)
-        res = res.view(size)
-        return res
+        return sum(lazy_tensor.diag().contiguous() for lazy_tensor in self.lazy_tensors)
