@@ -18,7 +18,8 @@ class NegativeKLDivergence(AddedLossTerm):
 
 
 class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_samples):
+    def __init__(self, variational_strategy, input_dims, output_dims, num_samples,
+                 append_inputs=False):
         """
         Represents a layer in a deep GP where inference is performed via the doubly stochastic method of
         Salimbeni et al., 2017. Upon calling, instead of returning a variational distribution q(f), returns samples
@@ -40,6 +41,7 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
         self.output_dims = output_dims
         self.num_samples = num_samples
         self.register_added_loss_term("hidden_kl_divergence")
+        self.append_inputs = append_inputs
 
     def forward(self, x):
         raise NotImplementedError
@@ -97,6 +99,14 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
 
         loss_term = NegativeKLDivergence(self.variational_strategy)
         self.update_added_loss_term("hidden_kl_divergence", loss_term)
+
+        #print("PRE inputs samples", inputs.shape, samples.shape)
+        if self.append_inputs:
+            #print("view", samples.shape[0:2] + (inputs.size(-1),), "Inputs0", inputs[0].shape, "cating",
+            #    inputs[0].reshape(samples.shape[0:2] + (inputs.size(-1),)).shape, "+",
+            #    samples.shape)
+            samples = torch.cat([inputs[0].reshape(samples.shape[0:2] + (inputs.size(-1),)), samples], dim=-1)
+        #print("inputs samples", inputs.shape, samples.shape)
 
         return samples
 
