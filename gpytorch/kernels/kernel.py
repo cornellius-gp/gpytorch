@@ -34,6 +34,10 @@ class Distance(torch.nn.Module):
             # cdist is a bit faster on small tensors. Check again after pytorch PR #20605
             res = torch.cdist(x1, x2).pow(2)
         else:
+            adjustment = x1.mean(-2, keepdim=True)
+            x1 = x1 - adjustment
+            x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
+
             # Compute squared distance matrix using quadratic expansion
             x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
             x1_pad = torch.ones_like(x1_norm)
