@@ -4,6 +4,7 @@ import torch
 from .kernel import Kernel
 from ..lazy import delazify
 from ..constraints import Positive
+from copy import deepcopy
 
 
 class ScaleKernel(Kernel):
@@ -92,3 +93,13 @@ class ScaleKernel(Kernel):
 
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)
+
+    def __getitem__(self, index):
+        new_kernel = deepcopy(self)
+
+        index = index if isinstance(index, tuple) else (index,)
+        new_kernel.raw_outputscale.data = new_kernel.raw_outputscale.__getitem__(index)
+        new_kernel.base_kernel = new_kernel.base_kernel.__getitem__(index)
+        new_kernel.batch_shape = new_kernel.raw_outputscale.shape[:-2]
+
+        return new_kernel
