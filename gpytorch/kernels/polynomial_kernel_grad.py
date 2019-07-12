@@ -36,25 +36,25 @@ class PolynomialKernelGrad(PolynomialKernel):
 
             ones_ = torch.ones(*batch_shape, d, 1, n2, dtype=K12.dtype, device=K12.device)
             K12_outer_prods = torch.matmul(x1.transpose(-2, -1).unsqueeze(-1), ones_)
-            K12 = (K12_base * K12_outer_prods).transpose(-3, -2).contiguous().view(*batch_shape, n1, d * n2)
+            K12 = (K12_base.unsqueeze(-3) * K12_outer_prods).transpose(-3, -2).contiguous().view(*batch_shape, n1, d * n2)
 
             ones_ = torch.ones(*batch_shape, d, n1, 1, dtype=K12.dtype, device=K12.device)
             K21_outer_prods = torch.matmul(ones_, x2.transpose(-2, -1).unsqueeze(-2))
-            K21 = (K12_base * K21_outer_prods).view(*batch_shape, 2 * n1, n2)
+            K21 = (K12_base.unsqueeze(-3) * K21_outer_prods).view(*batch_shape, d * n1, n2)
 
             K22_base = self.power * (self.power - 1) * base_inner_prod.pow(self.power - 2)
             K22 = torch.zeros(*batch_shape, n1 * d, n2 * d)
             all_outers = x1.unsqueeze(-2).unsqueeze(-2).transpose(-2, -1).matmul(x2.unsqueeze(-3).unsqueeze(-2))
             all_outers = all_outers.transpose(-4, -2).transpose(-3, -1)
-            K22 = K22_base * all_outers  # d x d x n1 x n2
+            K22 = K22_base.unsqueeze(-3).unsqueeze(-3) * all_outers  # d x d x n1 x n2
 
             # Can't avoid this for loop without unnecessary memory duplication, which is worse.
             for i in range(d):
-                K22[i, i] = K22[i, i] + K12_base
+                K22[..., i, i, :, :] = K22[..., i, i, :, :] + K12_base
 
             K22 = K22.transpose(-4, -3).transpose(-3, -2).contiguous().view(*batch_shape, n1 * d, n2 * d)
 
-            K = torch.cat([torch.cat([K11, K12], dim=-1), torch.cat([K21, K22], dim=-1)])
+            K = torch.cat([torch.cat([K11, K12], dim=-1), torch.cat([K21, K22], dim=-1)], dim=-2)
 
             # Apply perfect shuffle
             pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().contiguous().view((n1 * (d + 1)))
