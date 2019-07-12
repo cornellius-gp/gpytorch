@@ -32,19 +32,27 @@ class PolynomialKernelGrad(PolynomialKernel):
             K11 = base_inner_prod.pow(self.power)
 
             K12_base = self.power * base_inner_prod.pow(self.power - 1)
-            K12 = torch.zeros((*batch_shape, n1, n2 * d))
-            for i in range(d):
-                K12[:, n2*i:n2*(i+1)] =  K12_base * torch.ger(x1[:, i], torch.ones(n2,))
+            K12 = torch.zeros(*batch_shape, n1, n2 * d)
 
-            K21 = torch.zeros((*batch_shape, n1 * d, n2))
-            for i in range(d):
-                K21[n1*i:n1*(i+1), :] = torch.ger(torch.ones(n1,), x2[:, i]) * K12_base
+            ones_ = torch.ones(*batch_shape, d, 1, n2, dtype=K12.dtype, device=K12.device)
+            K12_outer_prods = torch.matmul(x1.transpose(-2, -1).unsqueeze(-1), ones_)
+            K12 = (K12_base * K12_outer_prods).transpose(-3, -2).contiguous().view(*batch_shape, n1, d * n2)
+
+            ones_ = torch.ones(*batch_shape, d, n1, 1, dtype=K12.dtype, device=K12.device)
+            K21_outer_prods = torch.matmul(ones_, x2.transpose(-2, -1).unsqueeze(-2))
+            K21 = (K12_base * K21_outer_prods).view(*batch_shape, 2 * n1, n2)
 
             K22_base = self.power * (self.power - 1) * base_inner_prod.pow(self.power - 2)
-            K22 = torch.zeros(n1*d, n2*d)
+            K22 = torch.zeros(*batch_shape, n1 * d, n2 * d)
+            all_outers = x1.unsqueeze(-2).unsqueeze(-2).transpose(-2, -1).matmul(x2.unsqueeze(-3).unsqueeze(-2))
+            all_outers = all_outers.transpose(-4, -2).transpose(-3, -1)
+            K22 = K22_base * all_outers  # d x d x n1 x n2
+
+            # Can't avoid this for loop without unnecessary memory duplication, which is worse.
             for i in range(d):
-                for j in range(d):
-                    K22[n1*i:n1*(i+1), n2*j:n2*(j+1)] = K22_base * torch.ger(x1[:, j], x2[:, i]) + (i == j) * K12_base
+                K22[i, i] = K22[i, i] + K12_base
+
+            K22 = K22.transpose(-4, -3).transpose(-3, -2).contiguous().view(*batch_shape, n1 * d, n2 * d)
 
             K = torch.cat([torch.cat([K11, K12], dim=-1), torch.cat([K21, K22], dim=-1)])
 
