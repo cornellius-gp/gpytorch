@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
-from .kernel import Kernel
-from ..lazy import KroneckerProductLazyTensor
 from .polynomial_kernel import PolynomialKernel
 from typing import Optional
-from ..priors import Prior
-from ..constraints import Positive, Interval
 
 
 class PolynomialKernelGrad(PolynomialKernel):
@@ -25,7 +21,7 @@ class PolynomialKernelGrad(PolynomialKernel):
         n2 = x2.shape[-2]
 
         if diag:
-            base_diag = ((x1 * x2).sum(dim=-1) + self.offset)
+            base_diag = (x1 * x2).sum(dim=-1) + self.offset
             K11_diag = base_diag.pow(self.power)
 
             all_outers_diag = (x1 * x2).transpose(-2, -1).contiguous().view(*batch_shape, -1)
@@ -44,7 +40,9 @@ class PolynomialKernelGrad(PolynomialKernel):
 
             ones_ = torch.ones(*batch_shape, d, 1, n2, dtype=K12.dtype, device=K12.device)
             K12_outer_prods = torch.matmul(x1.transpose(-2, -1).unsqueeze(-1), ones_)
-            K12 = (K12_base.unsqueeze(-3) * K12_outer_prods).transpose(-3, -2).contiguous().view(*batch_shape, n1, d * n2)
+            K12 = (
+                (K12_base.unsqueeze(-3) * K12_outer_prods).transpose(-3, -2).contiguous().view(*batch_shape, n1, d * n2)
+            )
 
             ones_ = torch.ones(*batch_shape, d, n1, 1, dtype=K12.dtype, device=K12.device)
             K21_outer_prods = torch.matmul(ones_, x2.transpose(-2, -1).unsqueeze(-2))
