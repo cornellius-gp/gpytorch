@@ -46,6 +46,20 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
     def forward(self, x):
         raise NotImplementedError
 
+    def _reshape_input(self, inputs):
+        inputs = inputs.contiguous()
+        # Forward samples through the VariationalStrategy and return *samples* from q(f)
+        if inputs.dim() == 2:
+            # Assume new input entirely
+            inputs = inputs.unsqueeze(0)
+            inputs = inputs.expand(self.output_dims, inputs.size(-2), -1)
+        elif inputs.dim() == 3:
+            # Assume batch dim is samples, not output_dim
+            inputs = inputs.unsqueeze(0)
+            inputs = inputs.expand(self.output_dims, inputs.size(1), inputs.size(-2), -1)
+
+        return inputs
+
     def __call__(self, inputs):
         """
         Forward data through this hidden GP layer.
@@ -67,20 +81,16 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
         will just work, and return a tensor of size `s x n x h2`, where `h2` is the output dimensionality of
         hidden_gp2. In this way, hidden GP layers are easily composable.
         """
-        inputs = inputs.contiguous()
-        # Forward samples through the VariationalStrategy and return *samples* from q(f)
-        if inputs.dim() == 2:
-            # Assume new input entirely
-            inputs = inputs.unsqueeze(0)
-            inputs = inputs.expand(self.output_dims, inputs.size(-2), self.input_dims)
-        elif inputs.dim() == 3:
-            # Assume batch dim is samples, not output_dim
-            inputs = inputs.unsqueeze(0)
-            inputs = inputs.expand(self.output_dims, inputs.size(1), inputs.size(-2), self.input_dims)
+        if inputs.size(-1) != self.input_dims:
+            raise RuntimeError(
+                f"Input shape did not match self.input_dims. Got total feature dims [{x.size(-1)}],"
+                f" expected [{self.input_dims}]"
+            )
 
+        inputs = self._reshape_input(inputs)
         if inputs.dim() == 4:
             num_samples = inputs.size(-3)
-            inputs = inputs.view(self.output_dims, inputs.size(-2) * inputs.size(-3), self.input_dims)
+            inputs = inputs.view(self.output_dims, inputs.size(-2) * inputs.size(-3), -1)
             reshape_output = True
         else:
             reshape_output = False
@@ -111,18 +121,16 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
         return samples
 
 
-class AbstractDeepGP(AbstractDeepGPHiddenLayer):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_samples, hidden_gp_net):
-        super(AbstractDeepGP, self).__init__(variational_strategy, input_dims, output_dims, num_samples)
 
-        self.hidden_gp_net = hidden_gp_net
+class AbstractDeepGP(AbstractDeepGPHiddenLayer):
+    def __init__(self, variational_strategy, input_dims, output_dims, num_samples):
+        super(AbstractDeepGP, self).__init__(variational_strategy, input_dims, output_dims, num_samples)
 
     def forward(self, x):
         raise NotImplementedError
 
     def __call__(self, inputs):
         # Forward samples through the VariationalStrategy and return q(f)
-        inputs = self.hidden_gp_net(inputs)
         last_layer_inputs = inputs.contiguous().view(-1, self.input_dims)
         last_layer_inputs = last_layer_inputs.unsqueeze(0)
         last_layer_inputs = last_layer_inputs.expand(
