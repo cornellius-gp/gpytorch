@@ -15,6 +15,7 @@ from .matern_kernel import MaternKernel
 from .multitask_kernel import MultitaskKernel
 from .periodic_kernel import PeriodicKernel
 from .polynomial_kernel import PolynomialKernel
+from .polynomial_kernel_grad import PolynomialKernelGrad
 from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
@@ -40,6 +41,7 @@ __all__ = [
     "MultitaskKernel",
     "PeriodicKernel",
     "PolynomialKernel",
+    "PolynomialKernelGrad",
     "ProductKernel",
     "ProductStructureKernel",
     "RBFKernel",

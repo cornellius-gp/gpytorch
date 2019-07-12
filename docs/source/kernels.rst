@@ -59,6 +59,12 @@ Standard Kernels
 .. autoclass:: PolynomialKernel
    :members:
 
+:hidden:`PolynomialKernelGrad`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: PolynomialKernelGrad
+   :members:
+
 :hidden:`RBFKernel`
 ~~~~~~~~~~~~~~~~~~~
 
