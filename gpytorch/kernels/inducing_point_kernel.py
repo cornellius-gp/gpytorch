@@ -105,25 +105,21 @@ class InducingPointKernel(Kernel):
         if hasattr(self, "_cached_kernel_inv_root"):
             replace_inv_root = True
             kernel_inv_root = self._cached_kernel_inv_root
-            self._cached_kernel_inv_root = None
         if hasattr(self, "_cached_kernel_mat"):
             replace_kernel_mat = True
             kernel_mat = self._cached_kernel_mat
-            self._cached_kernel_mat = None
 
-        deepcopy_method = self.__deepcopy__
-        self.__deepcopy__ = None
-        cp = copy.deepcopy(self, memo)
-
-        self.__deepcopy__ = deepcopy_method
-        cp.__deepcopy__ = deepcopy_method
+        cp = self.__class__(
+            base_kernel=copy.deepcopy(self.base_kernel),
+            inducing_points=copy.deepcopy(self.inducing_points),
+            likelihood=self.likelihood,
+            active_dims=self.active_dims
+        )
 
         if replace_inv_root:
-            self._cached_kernel_inv_root = kernel_inv_root
             cp._cached_kernel_inv_root = kernel_inv_root
 
         if replace_kernel_mat:
-            self._cached_kernel_mat = kernel_mat
             cp._cached_kernel_mat = kernel_mat
 
         return cp
