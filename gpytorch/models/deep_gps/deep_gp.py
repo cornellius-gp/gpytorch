@@ -110,6 +110,9 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
         loss_term = NegativeKLDivergence(self.variational_strategy)
         self.update_added_loss_term("hidden_kl_divergence", loss_term)
 
+        if hasattr(self, 'householder'):
+            samples = self.householder(samples)
+
         return samples
 
 
