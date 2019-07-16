@@ -155,7 +155,7 @@ class DeepGaussianLikelihood(GaussianLikelihood):
 
     def expected_log_prob(self, target, input, **kwargs):
         mean, variance = input.mean, input.variance
-        noise = self.noise_covar.noise
+        noise = self.noise_covar.noise.unsqueeze(-1)
         num_outputs = mean.size(0)
         mean = mean.view(num_outputs, self.num_samples, -1)
         variance = variance.view(num_outputs, self.num_samples, -1)
