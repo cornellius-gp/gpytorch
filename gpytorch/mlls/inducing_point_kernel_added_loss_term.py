@@ -12,4 +12,4 @@ class InducingPointKernelAddedLossTerm(AddedLossTerm):
     def loss(self):
         prior_covar = self.prior_dist.lazy_covariance_matrix
         variational_covar = self.variational_dist.lazy_covariance_matrix
-        return (prior_covar.diag() - variational_covar.diag()).sum() / self.likelihood.noise
+        return (prior_covar.diag() - variational_covar.diag()).sum() / self.likelihood.noise / 2
