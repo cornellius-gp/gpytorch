@@ -159,7 +159,7 @@ class DeepGaussianLikelihood(GaussianLikelihood):
 
     def variational_log_probability(self, input, target, **kwargs):
         mean, variance = input.mean, input.variance
-        noise = self.noise_covar.noise
+        noise = self.noise.unsqueeze(-1)
         num_outputs = mean.size(0)
         mean = mean.view(num_outputs, self.num_samples, -1)
         variance = variance.view(num_outputs, self.num_samples, -1)
