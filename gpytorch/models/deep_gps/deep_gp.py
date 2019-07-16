@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import torch
 import math
-from gpytorch.models import AbstractVariationalGP
+from gpytorch.models import AbstractVariationalGP, GP
 from gpytorch.mlls import AddedLossTerm
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch import settings
@@ -17,8 +17,8 @@ class NegativeKLDivergence(AddedLossTerm):
         return -1 * self.variational_strategy.kl_divergence().sum()
 
 
-class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_samples):
+class AbstractDeepGPLayer(AbstractVariationalGP):
+    def __init__(self, variational_strategy, input_dims, output_dims, num_samples, last_layer=False):
         """
         Represents a layer in a deep GP where inference is performed via the doubly stochastic method of
         Salimbeni et al., 2017. Upon calling, instead of returning a variational distribution q(f), returns samples
@@ -35,10 +35,11 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
             - last_layer (bool): True if this is to be the last layer in the deep GP, false otherwise.
             - num_samples (int): Number of samples to draw from q(f) for returning
         """
-        super(AbstractDeepGPHiddenLayer, self).__init__(variational_strategy)
+        super(AbstractDeepGPLayer, self).__init__(variational_strategy)
         self.input_dims = input_dims
         self.output_dims = output_dims
         self.num_samples = num_samples
+        self.last_layer = last_layer
         self.register_added_loss_term("hidden_kl_divergence")
 
     def forward(self, x):
@@ -85,51 +86,50 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
                 f" expected [{self.input_dims}]"
             )
 
-        inputs = self._reshape_input(inputs)
-        if inputs.dim() == 4:
-            num_samples = inputs.size(-3)
-            inputs = inputs.view(self.output_dims, inputs.size(-2) * inputs.size(-3), -1)
-            reshape_output = True
+        if self.last_layer:
+            # Forward samples through the VariationalStrategy and return q(f)
+            last_layer_inputs = inputs.contiguous().view(-1, self.input_dims)
+            last_layer_inputs = last_layer_inputs.unsqueeze(0)
+            last_layer_inputs = last_layer_inputs.expand(
+                self.output_dims,
+                self.num_samples * inputs.size(-2),
+                self.input_dims
+            )
+
+            return AbstractVariationalGP.__call__(self, last_layer_inputs)
         else:
-            reshape_output = False
-            num_samples = self.num_samples
+            inputs = self._reshape_input(inputs)
+            if inputs.dim() == 4:
+                num_samples = inputs.size(-3)
+                inputs = inputs.view(self.output_dims, inputs.size(-2) * inputs.size(-3), -1)
+                reshape_output = True
+            else:
+                reshape_output = False
+                num_samples = self.num_samples
 
-        variational_dist_f = super(AbstractDeepGPHiddenLayer, self).__call__(inputs)
-        mean_qf = variational_dist_f.mean
-        std_qf = variational_dist_f.variance.sqrt()
+            variational_dist_f = super(AbstractDeepGPLayer, self).__call__(inputs)
+            mean_qf = variational_dist_f.mean
+            std_qf = variational_dist_f.variance.sqrt()
 
-        if reshape_output:
-            samples = torch.distributions.Normal(mean_qf, std_qf).rsample()
-            samples = samples.view(self.output_dims, num_samples, -1).permute(1, 2, 0)
-        else:
-            samples = torch.distributions.Normal(mean_qf, std_qf).rsample(torch.Size([num_samples]))
-            samples = samples.transpose(-2, -1)
+            if reshape_output:
+                samples = torch.distributions.Normal(mean_qf, std_qf).rsample()
+                samples = samples.view(self.output_dims, num_samples, -1).permute(1, 2, 0)
+            else:
+                samples = torch.distributions.Normal(mean_qf, std_qf).rsample(torch.Size([num_samples]))
+                samples = samples.transpose(-2, -1)
 
-        loss_term = NegativeKLDivergence(self.variational_strategy)
-        self.update_added_loss_term("hidden_kl_divergence", loss_term)
+            loss_term = NegativeKLDivergence(self.variational_strategy)
+            self.update_added_loss_term("hidden_kl_divergence", loss_term)
 
-        return samples
+            return samples
 
-
-
-class AbstractDeepGP(AbstractDeepGPHiddenLayer):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_samples):
-        super(AbstractDeepGP, self).__init__(variational_strategy, input_dims, output_dims, num_samples)
+class AbstractDeepGP(GP):
+    def __init__(self, last_layer):
+        super().__init__()
+        self.variational_strategy = last_layer.variational_strategy
 
     def forward(self, x):
         raise NotImplementedError
-
-    def __call__(self, inputs):
-        # Forward samples through the VariationalStrategy and return q(f)
-        last_layer_inputs = inputs.contiguous().view(-1, self.input_dims)
-        last_layer_inputs = last_layer_inputs.unsqueeze(0)
-        last_layer_inputs = last_layer_inputs.expand(
-            self.output_dims,
-            self.num_samples * inputs.size(-2),
-            self.input_dims
-        )
-
-        return AbstractVariationalGP.__call__(self, last_layer_inputs)
 
 
 class DeepGaussianLikelihood(GaussianLikelihood):
