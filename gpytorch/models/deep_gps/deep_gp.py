@@ -82,7 +82,7 @@ class AbstractDeepGPLayer(AbstractVariationalGP):
         """
         if inputs.size(-1) != self.input_dims:
             raise RuntimeError(
-                f"Input shape did not match self.input_dims. Got total feature dims [{x.size(-1)}],"
+                f"Input shape did not match self.input_dims. Got total feature dims [{inputs.size(-1)}],"
                 f" expected [{self.input_dims}]"
             )
 
@@ -122,6 +122,7 @@ class AbstractDeepGPLayer(AbstractVariationalGP):
             self.update_added_loss_term("hidden_kl_divergence", loss_term)
 
             return samples
+
 
 class AbstractDeepGP(GP):
     def __init__(self, last_layer):
