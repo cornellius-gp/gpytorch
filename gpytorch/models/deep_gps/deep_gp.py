@@ -146,7 +146,7 @@ class DeepGaussianLikelihood(GaussianLikelihood):
         # batch dimensions.
         super(DeepGaussianLikelihood, self).__init__(
             noise_prior=None,
-            batch_size=1,
+            batch_size=batch_size,
             param_transform=softplus,
             inv_param_transform=None,
             **kwargs)
