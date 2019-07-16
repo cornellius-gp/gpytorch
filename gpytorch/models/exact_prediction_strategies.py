@@ -6,16 +6,22 @@ import torch
 
 from .. import settings
 from ..lazy import (
-    InterpolatedLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, ZeroLazyTensor,
-    lazify, delazify, LazyEvaluatedKernelTensor, NonLazyTensor, BatchRepeatLazyTensor
+    InterpolatedLazyTensor,
+    MatmulLazyTensor,
+    RootLazyTensor,
+    SumLazyTensor,
+    ZeroLazyTensor,
+    lazify,
+    delazify,
+    LazyEvaluatedKernelTensor,
+    NonLazyTensor,
+    BatchRepeatLazyTensor,
 )
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached, add_to_cache
 
 
-def prediction_strategy(
-    train_inputs, train_prior_dist, train_labels, likelihood
-):
+def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
     train_train_covar = train_prior_dist.lazy_covariance_matrix
     if isinstance(train_train_covar, LazyEvaluatedKernelTensor):
         cls = train_train_covar.kernel.prediction_strategy
@@ -28,10 +34,7 @@ class DefaultPredictionStrategy(object):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, root=None, inv_root=None):
         # Flatten the training labels
         train_shape = train_prior_dist.event_shape
-        train_labels = train_labels.view(
-            *train_labels.shape[:-len(train_shape)],
-            train_shape.numel()
-        )
+        train_labels = train_labels.view(*train_labels.shape[: -len(train_shape)], train_shape.numel())
 
         self.train_inputs = train_inputs
         self.train_prior_dist = train_prior_dist
@@ -150,7 +153,7 @@ class DefaultPredictionStrategy(object):
         # we'd like to use a less hacky approach for the following, but einsum can be much faster than
         # than unsqueezing/squeezing here (esp. in backward passes), unfortunately it currenlty has some
         # issues with broadcasting: https://github.com/pytorch/pytorch/issues/15671
-        prefix = string.ascii_lowercase[:max(fant_train_covar.dim() - self.mean_cache.dim() - 1, 0)]
+        prefix = string.ascii_lowercase[: max(fant_train_covar.dim() - self.mean_cache.dim() - 1, 0)]
         ftcm = torch.einsum(prefix + "...yz,...z->" + prefix + "...y", [fant_train_covar, self.mean_cache])
 
         small_system_rhs = targets - fant_mean - ftcm
@@ -196,27 +199,34 @@ class DefaultPredictionStrategy(object):
 
         lower_left = fant_train_covar.matmul(L_inverse)
         schur_root = torch.cholesky(fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1)))
-        upper_right = torch.zeros(m, schur_root.size(-1), device=L.device, dtype=L.dtype)
 
         # Form new root Z = [L 0; lower_left schur_root]
         num_fant = schur_root.size(-2)
         m, n = L.shape[-2:]
         new_root = torch.zeros(*batch_shape, m + num_fant, n + num_fant, device=L.device, dtype=L.dtype)
         new_root[..., :m, :n] = L
-        new_root[..., :m, n:] = upper_right
         new_root[..., m:, :n] = lower_left
         new_root[..., m:, n:] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
-        # TODO: Replace pseudo-inverse calculation with something more stable than normal equations once
-        # one of torch.svd, torch.qr, or torch.pinverse works in batch mode.
-        cap_mat = new_root.transpose(-2, -1).matmul(new_root)
-        if cap_mat.requires_grad or new_root.requires_grad:
-            # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
-            new_covar_cache = torch.solve(new_root.transpose(-2, -1), cap_mat)[0].transpose(-2, -1)
-        else:
-            new_covar_cache = torch.cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
-            new_covar_cache = new_covar_cache.transpose(-2, -1)
+        try:
+            Q, R = torch.qr(new_root)
+            Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
+            # if R is almost singular, add jitter (Rdiag is a view, so this works)
+            zeroish = Rdiag.abs() < 1e-6
+            if torch.any(zeroish):
+                Rdiag[zeroish] = 1e-6
+            new_covar_cache = torch.triangular_solve(Q.transpose(-2, -1), R)[0]
+        except RuntimeError as e:
+            # TODO: Deprecate once batch QR supported in latest torch stable
+            if "invalid argument 1: A should be 2 dimensional" not in e.args[0]:
+                raise e
+            cap_mat = new_root.transpose(-2, -1).matmul(new_root)
+            if cap_mat.requires_grad or new_root.requires_grad:
+                new_covar_cache = torch.solve(new_root.transpose(-2, -1), cap_mat)[0]
+            else:
+                new_covar_cache = torch.cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
+        new_covar_cache = new_covar_cache.transpose(-2, -1)
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
@@ -273,15 +283,15 @@ class DefaultPredictionStrategy(object):
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data
-        test_mean = joint_mean[..., self.num_train:]
+        test_mean = joint_mean[..., self.num_train :]
         # For efficiency - we can make things more efficient
         if joint_covar.size(-1) <= settings.max_eager_kernel_size.value():
-            test_covar = joint_covar[..., self.num_train:, :].evaluate()
-            test_test_covar = test_covar[..., self.num_train:]
-            test_train_covar = test_covar[..., :self.num_train]
+            test_covar = joint_covar[..., self.num_train :, :].evaluate()
+            test_test_covar = test_covar[..., self.num_train :]
+            test_train_covar = test_covar[..., : self.num_train]
         else:
-            test_test_covar = joint_covar[..., self.num_train:, self.num_train:]
-            test_train_covar = joint_covar[..., self.num_train:, :self.num_train]
+            test_test_covar = joint_covar[..., self.num_train :, self.num_train :]
+            test_train_covar = joint_covar[..., self.num_train :, : self.num_train]
 
         return (
             self.exact_predictive_mean(test_mean, test_train_covar),
@@ -328,8 +338,7 @@ class DefaultPredictionStrategy(object):
 
         if settings.fast_pred_var.off():
             dist = self.train_prior_dist.__class__(
-                torch.zeros_like(self.train_prior_dist.mean),
-                self.train_prior_dist.lazy_covariance_matrix,
+                torch.zeros_like(self.train_prior_dist.mean), self.train_prior_dist.lazy_covariance_matrix
             )
             if settings.detach_test_caches.on():
                 train_train_covar = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix.detach()
@@ -351,8 +360,7 @@ class DefaultPredictionStrategy(object):
                 return test_test_covar + MatmulLazyTensor(test_train_covar, covar_correction_rhs.mul(-1))
 
         precomputed_cache = self.covar_cache
-        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache,
-                                                                                   test_train_covar)
+        covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         if torch.is_tensor(test_test_covar):
             return lazify(
                 torch.add(test_test_covar, -1, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2))
@@ -367,8 +375,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
         super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
         self.train_prior_dist = self.train_prior_dist.__class__(
-            self.train_prior_dist.mean,
-            self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
+            self.train_prior_dist.mean, self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
         )
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
@@ -458,8 +465,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         # Put data through the likelihood
         dist = self.train_prior_dist.__class__(
-            torch.zeros_like(self.train_prior_dist.mean),
-            self.train_prior_dist.lazy_covariance_matrix
+            torch.zeros_like(self.train_prior_dist.mean), self.train_prior_dist.lazy_covariance_matrix
         )
         train_train_covar_plus_noise = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
 
@@ -490,9 +496,9 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data
-        test_mean = joint_mean[..., self.num_train:]
-        test_test_covar = joint_covar[..., self.num_train:, self.num_train:].evaluate_kernel()
-        test_train_covar = joint_covar[..., self.num_train:, :self.num_train].evaluate_kernel()
+        test_mean = joint_mean[..., self.num_train :]
+        test_test_covar = joint_covar[..., self.num_train :, self.num_train :].evaluate_kernel()
+        test_train_covar = joint_covar[..., self.num_train :, : self.num_train].evaluate_kernel()
 
         return (
             self.exact_predictive_mean(test_mean, test_train_covar),
