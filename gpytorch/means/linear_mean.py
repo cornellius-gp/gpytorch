@@ -13,7 +13,7 @@ class LinearMean(Mean):
             self.register_parameter(name='bias', parameter=torch.nn.Parameter(torch.randn(*batch_shape, 1)))
 
     def forward(self, x):
-        res = x.matmul(self.weights).squeeze(-1)
+        res = x.t().matmul(self.weights).squeeze(-1)
         if self.bias is not None:
             res = res + self.bias
         return res
