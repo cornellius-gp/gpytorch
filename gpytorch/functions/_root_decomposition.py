@@ -7,29 +7,20 @@ from .. import settings
 
 
 class RootDecomposition(Function):
-    def __init__(
-        self,
+    @staticmethod
+    def forward(
+        ctx,
         representation_tree,
         max_iter,
         dtype,
         device,
-        matrix_shape,
         batch_shape,
-        root=True,
-        inverse=False,
-        initial_vectors=None,
+        matrix_shape,
+        root,
+        inverse,
+        initial_vectors,
+        *matrix_args
     ):
-        self.representation_tree = representation_tree
-        self.device = device
-        self.dtype = dtype
-        self.matrix_shape = matrix_shape
-        self.max_iter = max_iter
-        self.batch_shape = batch_shape
-        self.root = root
-        self.inverse = inverse
-        self.initial_vectors = initial_vectors
-
-    def forward(self, *matrix_args):
         """
         *matrix_args - The arguments representing the symmetric matrix A (or batch of PSD matrices A)
 
@@ -39,21 +30,31 @@ class RootDecomposition(Function):
         """
         from ..lazy import lazify
 
+        ctx.representation_tree = representation_tree
+        ctx.device = device
+        ctx.dtype = dtype
+        ctx.matrix_shape = matrix_shape
+        ctx.max_iter = max_iter
+        ctx.batch_shape = batch_shape
+        ctx.root = root
+        ctx.inverse = inverse
+        ctx.initial_vectors = initial_vectors
+
         # Get closure for matmul
-        lazy_tsr = self.representation_tree(*matrix_args)
+        lazy_tsr = ctx.representation_tree(*matrix_args)
         matmul_closure = lazy_tsr._matmul
         # Do lanczos
         q_mat, t_mat = lanczos.lanczos_tridiag(
             matmul_closure,
-            self.max_iter,
-            dtype=self.dtype,
-            device=self.device,
-            matrix_shape=self.matrix_shape,
-            batch_shape=self.batch_shape,
-            init_vecs=self.initial_vectors,
+            ctx.max_iter,
+            dtype=ctx.dtype,
+            device=ctx.device,
+            matrix_shape=ctx.matrix_shape,
+            batch_shape=ctx.batch_shape,
+            init_vecs=ctx.initial_vectors,
         )
 
-        if self.batch_shape is None:
+        if ctx.batch_shape is None:
             q_mat = q_mat.unsqueeze(-3)
             t_mat = t_mat.unsqueeze(-3)
         if t_mat.ndimension() == 3:  # If we only used one probe vector
@@ -75,15 +76,15 @@ class RootDecomposition(Function):
         # Decide if we're computing the inverse, or the regular root
         root = torch.empty(0, dtype=q_mat.dtype, device=q_mat.device)
         inverse = torch.empty(0, dtype=q_mat.dtype, device=q_mat.device)
-        if self.inverse:
+        if ctx.inverse:
             inverse = q_mat / root_evals.unsqueeze(-2)
-        if self.root:
+        if ctx.root:
             root = q_mat * root_evals.unsqueeze(-2)
 
         if settings.memory_efficient.off():
-            self._lazy_tsr = lazy_tsr
+            ctx._lazy_tsr = lazy_tsr
 
-        if self.batch_shape is None:
+        if ctx.batch_shape is None:
             root = root.squeeze(1) if root.numel() else root
             q_mat = q_mat.squeeze(1)
             t_mat = t_mat.squeeze(1)
@@ -97,12 +98,13 @@ class RootDecomposition(Function):
             inverse = inverse.squeeze(0) if inverse.numel() else inverse
 
         to_save = list(matrix_args) + [q_mat, root_evals, inverse]
-        self.save_for_backward(*to_save)
+        ctx.save_for_backward(*to_save)
         return root, inverse
 
-    def backward(self, root_grad_output, inverse_grad_output):
+    @staticmethod
+    def backward(ctx, root_grad_output, inverse_grad_output):
         # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
-        if any(self.needs_input_grad):
+        if any(ctx.needs_input_grad):
             def is_empty(tensor):
                 return tensor.numel() == 0 or (tensor.numel() == 1 and tensor[0] == 0)
 
@@ -113,10 +115,10 @@ class RootDecomposition(Function):
                 inverse_grad_output = None
 
             # Get saved tensors
-            matrix_args = self.saved_tensors[:-3]
-            q_mat = self.saved_tensors[-3]
-            root_evals = self.saved_tensors[-2]
-            inverse = self.saved_tensors[-1]
+            matrix_args = ctx.saved_tensors[:-3]
+            q_mat = ctx.saved_tensors[-3]
+            root_evals = ctx.saved_tensors[-2]
+            inverse = ctx.saved_tensors[-1]
             is_batch = False
 
             if root_grad_output is not None:
@@ -135,13 +137,13 @@ class RootDecomposition(Function):
                     is_batch = True
 
             # Get closure for matmul
-            if hasattr(self, "_lazy_tsr"):
-                lazy_tsr = self._lazy_tsr
+            if hasattr(ctx, "_lazy_tsr"):
+                lazy_tsr = ctx._lazy_tsr
             else:
-                lazy_tsr = self.representation_tree(*matrix_args)
+                lazy_tsr = ctx.representation_tree(*matrix_args)
 
             # Get root inverse
-            if not self.inverse:
+            if not ctx.inverse:
                 inverse = q_mat / root_evals.unsqueeze(-2)
             # Left factor:
             left_factor = torch.zeros_like(inverse)
@@ -165,6 +167,6 @@ class RootDecomposition(Function):
                 right_factor = right_factor.contiguous()
             res = lazy_tsr._quad_form_derivative(left_factor, right_factor)
 
-            return tuple(res)
+            return tuple([None] * 9 + list(res))
         else:
             pass
