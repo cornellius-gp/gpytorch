@@ -2,7 +2,8 @@
 
 import math
 import torch
-from torch.nn.functional import softplus, sigmoid
+from torch.nn.functional import softplus
+from torch import sigmoid
 from ..utils.transforms import _get_inv_param_transform, inv_sigmoid, inv_softplus
 from torch.nn import Module
 from .. import settings

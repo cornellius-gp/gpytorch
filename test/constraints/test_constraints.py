@@ -4,7 +4,8 @@ import torch
 import unittest
 import gpytorch
 
-from torch.nn.functional import softplus, sigmoid
+from torch.nn.functional import softplus
+from torch import sigmoid
 from gpytorch.test.base_test_case import BaseTestCase
 
 
