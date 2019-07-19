@@ -30,8 +30,6 @@ Functions
 
 .. autofunction:: log_normal_cdf
 
-.. autofunction:: normal_cdf
-
 .. autofunction:: root_decomposition
 
 .. autofunction:: root_inv_decomposition

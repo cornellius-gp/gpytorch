@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import math
-from . import NormalCDF
 from torch.autograd import Function
 import torch
+from torch.distributions import Normal
 
 
 class LogNormalCDF(Function):
@@ -91,7 +91,7 @@ class LogNormalCDF(Function):
             self.denominator = denominator
             self.numerator = numerator
 
-        log_phi_z.masked_scatter_(z_is_ordinary, torch.log(NormalCDF().forward(z.masked_select(z_is_ordinary))))
+        log_phi_z.masked_scatter_(z_is_ordinary, torch.log(Normal(0., 1.).cdf(z.masked_select(z_is_ordinary))))
 
         self.save_for_backward(z, log_phi_z)
         return log_phi_z

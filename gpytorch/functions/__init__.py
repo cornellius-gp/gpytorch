@@ -3,7 +3,6 @@
 import torch
 
 from ._dsmm import DSMM
-from ._normal_cdf import NormalCDF
 from ._log_normal_cdf import LogNormalCDF
 from ..utils.deprecation import _deprecated_function_for
 from .rbf_covariance import RBFCovariance
@@ -164,13 +163,6 @@ def logdet(mat):
     """
     _, res = inv_quad_logdet(mat, inv_quad_rhs=None, logdet=True)
     return res
-
-
-def normal_cdf(x):
-    """
-    Computes the element-wise standard normal CDF of an input tensor x.
-    """
-    return NormalCDF()(x)
 
 
 def root_decomposition(mat):
