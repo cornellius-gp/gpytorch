@@ -25,5 +25,5 @@ def _get_inv_param_transform(param_transform, inv_param_transform=None):
 TRANSFORM_REGISTRY = {
     torch.exp: torch.log,
     torch.nn.functional.softplus: inv_softplus,
-    torch.nn.functional.sigmoid: inv_sigmoid,
+    torch.sigmoid: inv_sigmoid,
 }
