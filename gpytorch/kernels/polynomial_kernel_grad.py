@@ -36,20 +36,20 @@ class PolynomialKernelGrad(PolynomialKernel):
             K11 = base_inner_prod.pow(self.power)
 
             K12_base = self.power * base_inner_prod.pow(self.power - 1)
-            K12 = torch.zeros(*batch_shape, n1, n2 * d)
+            K12 = torch.zeros(*batch_shape, n1, n2 * d, dtype=x1.dtype, device=x1.device)
 
-            ones_ = torch.ones(*batch_shape, d, 1, n2, dtype=K12.dtype, device=K12.device)
+            ones_ = torch.ones(*batch_shape, d, 1, n2, dtype=x1.dtype, device=x1.device)
             K12_outer_prods = torch.matmul(x1.transpose(-2, -1).unsqueeze(-1), ones_)
             K12 = (
                 (K12_base.unsqueeze(-3) * K12_outer_prods).transpose(-3, -2).contiguous().view(*batch_shape, n1, d * n2)
             )
 
-            ones_ = torch.ones(*batch_shape, d, n1, 1, dtype=K12.dtype, device=K12.device)
+            ones_ = torch.ones(*batch_shape, d, n1, 1, dtype=x1.dtype, device=x1.device)
             K21_outer_prods = torch.matmul(ones_, x2.transpose(-2, -1).unsqueeze(-2))
             K21 = (K12_base.unsqueeze(-3) * K21_outer_prods).view(*batch_shape, d * n1, n2)
 
             K22_base = self.power * (self.power - 1) * base_inner_prod.pow(self.power - 2)
-            K22 = torch.zeros(*batch_shape, n1 * d, n2 * d)
+            K22 = torch.zeros(*batch_shape, n1 * d, n2 * d, dtype=x1.dtype, device=x1.device)
             all_outers = x1.unsqueeze(-2).unsqueeze(-2).transpose(-2, -1).matmul(x2.unsqueeze(-3).unsqueeze(-2))
             all_outers = all_outers.transpose(-4, -2).transpose(-3, -1)
             K22 = K22_base.unsqueeze(-3).unsqueeze(-3) * all_outers  # d x d x n1 x n2
