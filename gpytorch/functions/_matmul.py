@@ -5,10 +5,9 @@ from .. import settings
 
 
 class Matmul(Function):
-    def __init__(self, representation_tree):
-        self.representation_tree = representation_tree
-
-    def forward(self, rhs, *matrix_args):
+    @staticmethod
+    def forward(ctx, representation_tree, rhs, *matrix_args):
+        ctx.representation_tree = representation_tree
         orig_rhs = rhs
 
         if rhs.ndimension() == 1:
@@ -17,39 +16,40 @@ class Matmul(Function):
         else:
             is_vector = False
 
-        lazy_tsr = self.representation_tree(*matrix_args)
+        lazy_tsr = ctx.representation_tree(*matrix_args)
         res = lazy_tsr._matmul(rhs)
 
         to_save = [orig_rhs] + list(matrix_args)
-        self.save_for_backward(*to_save)
+        ctx.save_for_backward(*to_save)
         if settings.memory_efficient.off():
-            self._lazy_tsr = lazy_tsr
+            ctx._lazy_tsr = lazy_tsr
 
         # Squeeze if necessary
         if is_vector:
             res = res.squeeze(-1)
         return res
 
-    def backward(self, grad_output):
-        rhs = self.saved_tensors[0]
-        matrix_args = self.saved_tensors[1:]
+    @staticmethod
+    def backward(ctx, grad_output):
+        rhs = ctx.saved_tensors[0]
+        matrix_args = ctx.saved_tensors[1:]
         rhs_shape = rhs.shape
 
         rhs_grad = None
         arg_grads = [None] * len(matrix_args)
 
         # input_1 gradient
-        if any(self.needs_input_grad[1:]):
+        if any(ctx.needs_input_grad[2:]):
             rhs = rhs.unsqueeze(-1) if (rhs.ndimension() == 1) else rhs
             grad_output_matrix = grad_output.unsqueeze(-1) if grad_output.ndimension() == 1 else grad_output
-            arg_grads = self.representation_tree(*matrix_args)._quad_form_derivative(grad_output_matrix, rhs)
+            arg_grads = ctx.representation_tree(*matrix_args)._quad_form_derivative(grad_output_matrix, rhs)
 
         # input_2 gradient
-        if self.needs_input_grad[0]:
-            if hasattr(self, "_lazy_tsr"):
-                lazy_tsr = self._lazy_tsr
+        if ctx.needs_input_grad[1]:
+            if hasattr(ctx, "_lazy_tsr"):
+                lazy_tsr = ctx._lazy_tsr
             else:
-                lazy_tsr = self.representation_tree(*matrix_args)
+                lazy_tsr = ctx.representation_tree(*matrix_args)
 
             if grad_output.dim() == 1:
                 # Confusing Cublas_Sgemv bug when grad_output is single dimensional on GPU.
@@ -61,4 +61,4 @@ class Matmul(Function):
             if rhs_grad.dim() > len(rhs_shape):
                 rhs_grad = rhs_grad.contiguous().view(-1, *rhs_shape).sum(0)
 
-        return tuple([rhs_grad] + list(arg_grads))
+        return tuple([None] + [rhs_grad] + list(arg_grads))

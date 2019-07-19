@@ -1083,8 +1083,8 @@ class LazyTensor(ABC):
 
             return MatmulLazyTensor(self, other)
 
-        func = Matmul(self.representation_tree())
-        return func(other, *self.representation())
+        func = Matmul()
+        return func.apply(self.representation_tree(), other, *self.representation())
 
     @property
     def matrix_shape(self):
