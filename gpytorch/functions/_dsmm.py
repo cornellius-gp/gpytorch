@@ -5,11 +5,11 @@ from ..utils.sparse import bdsmm
 
 
 class DSMM(Function):
-    def __init__(self, sparse):
-        self.sparse = sparse
+    @staticmethod
+    def forward(ctx, sparse, dense):
+        ctx.sparse = sparse
+        return bdsmm(ctx.sparse, dense)
 
-    def forward(self, dense):
-        return bdsmm(self.sparse, dense)
-
-    def backward(self, grad_output):
-        return bdsmm(self.sparse.transpose(-1, -2), grad_output)
+    @staticmethod
+    def backward(ctx, grad_output):
+        return None, bdsmm(ctx.sparse.transpose(-1, -2), grad_output)

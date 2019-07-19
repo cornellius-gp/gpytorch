@@ -569,14 +569,20 @@ class LazyTensor(ABC):
         Returns:
             (Tensor or LazyTensor): The root of the root decomposition
         """
-        res, _ = RootDecomposition(
+        func = RootDecomposition()
+        res, _ = func.apply(
             self.representation_tree(),
-            max_iter=self._root_decomposition_size(),
-            dtype=self.dtype,
-            device=self.device,
-            batch_shape=self.batch_shape,
-            matrix_shape=self.matrix_shape,
-        )(*self.representation())
+            self._root_decomposition_size(),
+            self.dtype,
+            self.device,
+            self.batch_shape,
+            self.matrix_shape,
+            True,
+            False,
+            None,
+            *self.representation()
+        )
+
         return res
 
     def _root_decomposition_size(self):
@@ -601,17 +607,19 @@ class LazyTensor(ABC):
         """
         from .root_lazy_tensor import RootLazyTensor
 
-        roots, inv_roots = RootDecomposition(
+        func = RootDecomposition()
+        roots, inv_roots = func.apply(
             self.representation_tree(),
-            max_iter=self._root_decomposition_size(),
-            dtype=self.dtype,
-            device=self.device,
-            batch_shape=self.batch_shape,
-            matrix_shape=self.matrix_shape,
-            root=True,
-            inverse=True,
-            initial_vectors=initial_vectors,
-        )(*self.representation())
+            self._root_decomposition_size(),
+            self.dtype,
+            self.device,
+            self.batch_shape,
+            self.matrix_shape,
+            True,
+            True,
+            initial_vectors,
+            *self.representation()
+        )
 
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
             add_to_cache(self, "root_decomposition", RootLazyTensor(roots[0]))
@@ -1083,8 +1091,8 @@ class LazyTensor(ABC):
 
             return MatmulLazyTensor(self, other)
 
-        func = Matmul(self.representation_tree())
-        return func(other, *self.representation())
+        func = Matmul()
+        return func.apply(self.representation_tree(), other, *self.representation())
 
     @property
     def matrix_shape(self):
