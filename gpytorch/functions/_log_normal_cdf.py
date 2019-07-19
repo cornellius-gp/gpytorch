@@ -7,6 +7,7 @@ import torch
 
 
 class LogNormalCDF(Function):
+    @staticmethod
     def forward(self, z):
         c = torch.tensor(
             [
@@ -95,6 +96,7 @@ class LogNormalCDF(Function):
         self.save_for_backward(z, log_phi_z)
         return log_phi_z
 
+    @staticmethod
     def backward(self, grad_output):
         z, log_phi_z = self.saved_tensors
         log_phi_z_grad = torch.zeros_like(z)

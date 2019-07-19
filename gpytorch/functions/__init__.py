@@ -69,7 +69,7 @@ def log_normal_cdf(x):
     This function should always be preferred over calling normal_cdf and taking the log
     manually, as it is more numerically stable.
     """
-    return LogNormalCDF()(x)
+    return LogNormalCDF().apply(x)
 
 
 def matmul(mat, rhs):
