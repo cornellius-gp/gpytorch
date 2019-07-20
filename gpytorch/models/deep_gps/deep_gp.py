@@ -97,6 +97,8 @@ class AbstractDeepGPHiddenLayer(AbstractVariationalGP):
         variational_dist_f = super(AbstractDeepGPHiddenLayer, self).__call__(inputs)
         #mean_qf = variational_dist_f.mean
         #std_qf = variational_dist_f.variance.sqrt()
+        if hasattr(self, 'warping_layer') and self.warping_layer:
+            return variational_dist_f
 
         if reshape_output:
             samples = variational_dist_f.rsample()
