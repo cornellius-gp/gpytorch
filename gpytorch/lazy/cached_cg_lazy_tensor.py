@@ -3,6 +3,7 @@
 import torch
 import warnings
 from .lazy_tensor import LazyTensor
+from .chol_lazy_tensor import CholLazyTensor
 from .. import settings
 
 
@@ -113,7 +114,29 @@ class CachedCGLazyTensor(LazyTensor):
         self.base_lazy_tensor.requires_grad = val
 
     def _cholesky(self):
-        return self.base_lazy_tensor._cholesky()
+        res = self.__class__(
+            self.base_lazy_tensor._cholesky(),
+            eager_rhss=self.eager_rhss,
+            solves=self.solves,
+            probe_vectors=self.probe_vectors,
+            probe_vector_norms=self.probe_vector_norms,
+            probe_vector_solves=self.probe_vector_solves,
+            probe_vector_tmats=self.probe_vector_tmats,
+        )
+        return res
+
+    def _cholesky_solve(self, rhs):
+        # Here we check to see what solves we've already performed
+        for eager_rhs, solve in zip(self.eager_rhss, self.solves):
+            if torch.equal(rhs, eager_rhs):
+                return solve
+
+        if settings.debug.on():
+            warnings.warn(
+                "CachedCGLazyTensor had to run CG on a tensor of size {}. For best performance, this "
+                "LazyTensor should pre-register all vectors to run CG against.".format(rhs.shape)
+            )
+        return super(CachedCGLazyTensor, self)._cholesky_solve(rhs)
 
     def _expand_batch(self, batch_shape):
         return self.base_lazy_tensor._expand_batch(batch_shape)
@@ -174,3 +197,51 @@ class CachedCGLazyTensor(LazyTensor):
     def detach_(self):
         self.base_lazy_tensor.detach_()
         return self
+
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        if not isinstance(self.base_lazy_tensor, CholLazyTensor):
+            return super().inv_matmul(right_tensor, left_tensor=left_tensor)
+
+        with settings.fast_computations(solves=False):
+            return super().inv_matmul(right_tensor, left_tensor=left_tensor)
+
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
+        if not isinstance(self.base_lazy_tensor, CholLazyTensor):
+            return super().inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
+
+        if not self.is_square:
+            raise RuntimeError(
+                "inv_quad_logdet only operates on (batches of) square (positive semi-definite) LazyTensors. "
+                "Got a {} of size {}.".format(self.__class__.__name__, self.size())
+            )
+
+        if inv_quad_rhs is not None:
+            if self.dim() == 2 and inv_quad_rhs.dim() == 1:
+                if self.shape[-1] != inv_quad_rhs.numel():
+                    raise RuntimeError(
+                        "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                            self.shape, inv_quad_rhs.shape
+                        )
+                    )
+            elif self.dim() != inv_quad_rhs.dim():
+                raise RuntimeError(
+                    "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
+                    "of dimensions.".format(self.shape, inv_quad_rhs.shape)
+                )
+            elif self.shape[-1] != inv_quad_rhs.shape[-2]:
+                raise RuntimeError(
+                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                        self.shape, inv_quad_rhs.shape
+                    )
+                )
+
+        inv_quad_term = None
+        logdet_term = None
+
+        if inv_quad_rhs is not None:
+            inv_quad_term = self.inv_quad(inv_quad_rhs, reduce_inv_quad=reduce_inv_quad)
+
+        if logdet:
+            logdet_term = self.base_lazy_tensor._chol_diag.pow(2).log().sum(-1)
+
+        return inv_quad_term, logdet_term

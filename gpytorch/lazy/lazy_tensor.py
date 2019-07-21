@@ -957,7 +957,7 @@ class LazyTensor(ABC):
                 "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
                 "of dimensions.".format(self.shape, tensor.shape)
             )
-        elif self.batch_shape != tensor.shape[:-2] or self.shape[-1] != tensor.shape[-2]:
+        elif self.shape[-1] != tensor.shape[-2]:
             raise RuntimeError(
                 "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
                     self.shape, tensor.shape
