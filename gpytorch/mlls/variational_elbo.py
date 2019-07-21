@@ -22,12 +22,6 @@ class VariationalELBO(MarginalLogLikelihood):
     def forward(self, variational_dist_f, target, **kwargs):
         num_batch = variational_dist_f.event_shape.numel()
 
-        variational_dist_u = self.model.variational_strategy.variational_distribution.variational_distribution
-        prior_dist = self.model.variational_strategy.prior_distribution
-
-        if len(variational_dist_u.batch_shape) < len(prior_dist.batch_shape):
-            variational_dist_u = variational_dist_u.expand(prior_dist.batch_shape)
-
         log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs).div(
             num_batch
         )

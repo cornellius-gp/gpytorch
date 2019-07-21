@@ -1,24 +1,30 @@
-from __future__ import absolute_import, division, print_function
-
 import torch
-import math
+from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.models import AbstractVariationalGP, GP
-from gpytorch.mlls import AddedLossTerm
-from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.lazy import BlockDiagLazyTensor
+from gpytorch.likelihoods import Likelihood
 from gpytorch import settings
-from torch.nn.functional import softplus
 
 
-class NegativeKLDivergence(AddedLossTerm):
-    def __init__(self, variational_strategy):
-        self.variational_strategy = variational_strategy
+class _DeepGPVariationalStrategy(object):
+    def __init__(self, model):
+        self.model = model
 
-    def loss(self):
-        return -1 * self.variational_strategy.kl_divergence().sum()
+    @property
+    def sub_variational_strategies(self):
+        if not hasattr(self, "_sub_variational_strategies_memo"):
+            self._sub_variational_strategies_memo = [
+                module.variational_strategy for module in self.model.modules()
+                if isinstance(module, AbstractVariationalGP)
+            ]
+        return self._sub_variational_strategies_memo
+
+    def kl_divergence(self):
+        return sum(strategy.kl_divergence().sum() for strategy in self.sub_variational_strategies)
 
 
 class AbstractDeepGPLayer(AbstractVariationalGP):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_samples, last_layer=False):
+    def __init__(self, variational_strategy, input_dims, output_dims):
         """
         Represents a layer in a deep GP where inference is performed via the doubly stochastic method of
         Salimbeni et al., 2017. Upon calling, instead of returning a variational distribution q(f), returns samples
@@ -31,48 +37,28 @@ class AbstractDeepGPLayer(AbstractVariationalGP):
         Args:
             - variational_strategy (VariationalStrategy): Strategy for changing q(u) -> q(f) (see other VI docs)
             - input_dims (int): Dimensionality of input data expected by each GP
-            - output_dims (int): Number of GPs in this layer, equivalent to output dimensionality.
-            - last_layer (bool): True if this is to be the last layer in the deep GP, false otherwise.
-            - num_samples (int): Number of samples to draw from q(f) for returning
+            - output_dims (int or None): Number of GPs in this layer, equivalent to output dimensionality.
         """
         super(AbstractDeepGPLayer, self).__init__(variational_strategy)
         self.input_dims = input_dims
         self.output_dims = output_dims
-        self.num_samples = num_samples
-        self.last_layer = last_layer
-        self.register_added_loss_term("hidden_kl_divergence")
 
     def forward(self, x):
         raise NotImplementedError
 
-    def _reshape_input(self, inputs):
-        inputs = inputs.contiguous()
-        # Forward samples through the VariationalStrategy and return *samples* from q(f)
-        if inputs.dim() == 2:
-            # Assume new input entirely
-            inputs = inputs.unsqueeze(0)
-            inputs = inputs.expand(self.output_dims, inputs.size(-2), -1)
-        elif inputs.dim() == 3:
-            # Assume batch dim is samples, not output_dim
-            inputs = inputs.unsqueeze(0)
-            inputs = inputs.expand(self.output_dims, inputs.size(1), inputs.size(-2), -1)
-
-        return inputs
-
-    def __call__(self, inputs):
+    def __call__(self, inputs, are_samples=False, **kwargs):
         """
-        Forward data through this hidden GP layer.
+        Forward data through this hidden GP layer. The output is a MultitaskMultivariateNormal distribution
+        (or MultivariateNormal distribution is output_dims=None).
 
-        If the input is 2 dimensional, we pass the input through each hidden GP, resulting in a `h x n` batch
-        Gaussian distribution. We then draw `s` samples from these Gaussians and reshape the result to be
-        `s x n x h` (e.g., h becomes the dimensionality of the output).
+        If the input is >=2 dimensional Tensor (e.g. `n x d`), we pass the input through each hidden GP,
+        resulting in a `n x h` multitask Gaussian distribution (where all of the `h` tasks represent an
+        output dimension and are independent from one another).  We then draw `s` samples from these Gaussians,
+        resulting in a `s x n x h` MultitaskMultivariateNormal distribution.
 
-        If the input is 3 dimensional, we assume that the input is `s x n x d`, e.g. the batch dimension
-        corresponds to the number of samples. We use this as the number of samples to draw, and just propagate
-        each sample through the hidden layer. The output will be `s x n x h`.
-
-        If the input is 4 dimensional, we assume that for some reason the user has already reshaped things to be
-        `h x s x n x d`. We reshape this internally to be `h x sn x d`, and the output will be `s x n x h`.
+        If the input is a >=3 dimensional Tensor, and the `are_samples=True` kwarg is set, then we assume that
+        the outermost batch dimension is a samples dimension. The output will have the same number of samples.
+        For example, a `s x b x n x d` input will result in a `s x b x n x h` MultitaskMultivariateNormal distribution.
 
         The goal of these last two points is that if you have a tensor `x` that is `n x d`, then:
             >>> hidden_gp2(hidden_gp(x))
@@ -80,94 +66,66 @@ class AbstractDeepGPLayer(AbstractVariationalGP):
         will just work, and return a tensor of size `s x n x h2`, where `h2` is the output dimensionality of
         hidden_gp2. In this way, hidden GP layers are easily composable.
         """
-        if inputs.size(-1) != self.input_dims:
-            raise RuntimeError(
-                f"Input shape did not match self.input_dims. Got total feature dims [{inputs.size(-1)}],"
-                f" expected [{self.input_dims}]"
-            )
+        deterministic_inputs = not are_samples
+        if isinstance(inputs, MultitaskMultivariateNormal):
+            inputs = torch.distributions.Normal(loc=inputs.mean, scale=inputs.variance.sqrt()).rsample()
+            deterministic_inputs = False
 
-        if self.last_layer:
-            # Forward samples through the VariationalStrategy and return q(f)
-            last_layer_inputs = inputs.contiguous().view(-1, self.input_dims)
-            last_layer_inputs = last_layer_inputs.unsqueeze(0)
-            last_layer_inputs = last_layer_inputs.expand(
-                self.output_dims,
-                self.num_samples * inputs.size(-2),
-                self.input_dims
-            )
+        if settings.debug.on():
+            if not torch.is_tensor(inputs):
+                raise ValueError(
+                    "`inputs` should either be a MultitaskMultivariateNormal or a Tensor, got "
+                    f"{inputs.__class__.__Name__}"
+                )
 
-            return AbstractVariationalGP.__call__(self, last_layer_inputs)
-        else:
-            inputs = self._reshape_input(inputs)
-            if inputs.dim() == 4:
-                num_samples = inputs.size(-3)
-                inputs = inputs.view(self.output_dims, inputs.size(-2) * inputs.size(-3), -1)
-                reshape_output = True
-            else:
-                reshape_output = False
-                num_samples = self.num_samples
+            if inputs.size(-1) != self.input_dims:
+                raise RuntimeError(
+                    f"Input shape did not match self.input_dims. Got total feature dims [{inputs.size(-1)}],"
+                    f" expected [{self.input_dims}]"
+                )
 
-            variational_dist_f = super(AbstractDeepGPLayer, self).__call__(inputs)
-            mean_qf = variational_dist_f.mean
-            std_qf = variational_dist_f.variance.sqrt()
+        # Repeat the input for all possible outputs
+        if self.output_dims is not None:
+            inputs = inputs.unsqueeze(-3)
+            inputs = inputs.expand(*inputs.shape[:-3], self.output_dims, *inputs.shape[-2:])
 
-            if reshape_output:
-                samples = torch.distributions.Normal(mean_qf, std_qf).rsample()
-                samples = samples.view(self.output_dims, num_samples, -1).permute(1, 2, 0)
-            else:
-                samples = torch.distributions.Normal(mean_qf, std_qf).rsample(torch.Size([num_samples]))
-                samples = samples.transpose(-2, -1)
+        # Now run samples through the GP
+        output = AbstractVariationalGP.__call__(self, inputs)
+        if self.output_dims is not None:
+            mean = output.loc.transpose(-1, -2)
+            covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
+            output = MultitaskMultivariateNormal(mean, covar, interleaved=False)
 
-            loss_term = NegativeKLDivergence(self.variational_strategy)
-            self.update_added_loss_term("hidden_kl_divergence", loss_term)
+        # Maybe expand inputs?
+        if deterministic_inputs:
+            output = output.expand(torch.Size([settings.num_likelihood_samples.value()]) + output.batch_shape)
 
-            return samples
+        return output
 
 
 class AbstractDeepGP(GP):
     def __init__(self, last_layer):
+        """
+        A container module to build a DeepGP.
+        This module should contain `AbstractDeepGPLayer` modules, and can also contain other modules as well.
+        """
         super().__init__()
-        self.variational_strategy = last_layer.variational_strategy
+        self.variational_strategy = _DeepGPVariationalStrategy(self)
 
     def forward(self, x):
         raise NotImplementedError
 
 
-class DeepGaussianLikelihood(GaussianLikelihood):
-    def __init__(
-        self,
-        num_samples,
-        noise_prior=None,
-        batch_size=1,
-        param_transform=softplus,
-        inv_param_transform=None,
-        **kwargs
-    ):
-        # TODO: Rewrite to be a general DeepLikelihood wrapper once the remainder of GPyTorch supports multiple
-        # batch dimensions.
-        super(DeepGaussianLikelihood, self).__init__(
-            noise_prior=None,
-            batch_size=batch_size,
-            param_transform=softplus,
-            inv_param_transform=None,
-            **kwargs)
-        self.num_samples = num_samples
+class DeepLikelihood(Likelihood):
+    def __init__(self, base_likelihood):
+        """
+        A wrapper to make a GPyTorch likelihood compatible with Deep GPs
 
-    def expected_log_prob(self, target, input, **kwargs):
-        mean, variance = input.mean, input.variance
-        noise = self.noise_covar.noise.unsqueeze(-1)
-        num_outputs = mean.size(0)
-        mean = mean.view(num_outputs, self.num_samples, -1)
-        variance = variance.view(num_outputs, self.num_samples, -1)
+        Example:
+            >>> deep_gaussian_likelihood = gpytorch.likelihoods.DeepLikelihood(gpytorch.likelihood.GaussianLikelihood)
+        """
+        super().__init__()
+        self.base_likelihood = base_likelihood
 
-        if mean.dim() > target.dim():
-            target = target.unsqueeze(-1)
-
-        if variance.ndimension() == 1:
-            if settings.debug.on() and noise.size(0) > 1:
-                raise RuntimeError("With batch_size > 1, expected a batched MultivariateNormal distribution.")
-            noise = noise.squeeze(0)
-
-        res = -0.5 * ((target - mean) ** 2 + variance) / noise
-        res += -0.5 * noise.log() - 0.5 * math.log(2 * math.pi)
-        return res.sum(-1).mean(-1)
+    def expected_log_prob(self, observations, function_dist, *params, **kwargs):
+        return self.base_likelihood.expected_log_prob(observations, function_dist, *params, **kwargs).mean(dim=0)
