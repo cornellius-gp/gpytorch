@@ -12,9 +12,11 @@ class CholLazyTensor(RootLazyTensor):
     def __init__(self, chol):
         # Check that we have a lower triangular matrix
         if settings.debug.on():
-            chol = delazify(chol) if not isinstance(chol, BatchRepeatLazyTensor) else delazify(chol.base_lazy_tensor)
-            mask = torch.ones(chol.shape[-2:], dtype=chol.dtype, device=chol.device).triu_(1)
-            if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
+            delazy_chol = (
+                delazify(chol) if not isinstance(chol, BatchRepeatLazyTensor) else delazify(chol.base_lazy_tensor)
+            )
+            mask = torch.ones(delazy_chol.shape[-2:], dtype=delazy_chol.dtype, device=delazy_chol.device).triu_(1)
+            if torch.max(delazy_chol.mul(mask)).item() > 1e-3 and torch.equal(delazy_chol, delazy_chol):
                 raise RuntimeError("CholLazyVaraiable should take a lower-triangular matrix in the constructor.")
 
         # Run super constructor
