@@ -37,7 +37,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         # TODO: Instead of transpose / view operations, use a PermutationLazyTensor (see #539) to handle interleaving
         self._interleaved = interleaved
         if self._interleaved:
-            mean_mvn = mean.view(*mean.shape[:-2], -1)
+            mean_mvn = mean.contiguous().view(*mean.shape[:-2], -1)
         else:
             mean_mvn = mean.transpose(-1, -2).reshape(*mean.shape[:-2], -1)
         super().__init__(mean=mean_mvn, covariance_matrix=covariance_matrix, validate_args=validate_args)
@@ -69,6 +69,12 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         )
         covar_lazy = BlockDiagLazyTensor(covar_blocks_lazy, block_dim=0)
         return cls(mean=mean, covariance_matrix=covar_lazy, interleaved=False)
+
+    def expand(self, batch_size):
+        new_mean = self.mean.expand(torch.Size(batch_size) + self.mean.shape[-2:])
+        new_covar = self._covar.expand(torch.Size(batch_size) + self._covar.shape[-2:])
+        res = self.__class__(new_mean, new_covar, interleaved=self._interleaved)
+        return res
 
     def get_base_samples(self, sample_shape=torch.Size()):
         """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
