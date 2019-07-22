@@ -17,6 +17,7 @@ from ..lazy import (
     NonLazyTensor,
     BatchRepeatLazyTensor,
 )
+from ..distributions import MultitaskMultivariateNormal
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached, add_to_cache
 
@@ -113,21 +114,31 @@ class DefaultPredictionStrategy(object):
                 been added and all test-time caches have been updated.
         """
         full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
-
         batch_shape = full_inputs[0].shape[:-2]
 
-        full_mean = full_mean.view(*batch_shape, -1)
         num_train = self.num_train
 
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
         fant_fant_covar = full_covar[..., num_train:, num_train:]
-        fant_mean = full_mean[..., num_train:]
+
+        if isinstance(full_output, MultitaskMultivariateNormal):
+            num_tasks = full_output.event_shape[-1]
+            full_mean = full_mean.view(*batch_shape, -1, num_tasks)
+            fant_mean = full_mean[..., (num_train // num_tasks):, :]
+        else:
+            full_mean = full_mean.view(*batch_shape, -1)
+            fant_mean = full_mean[..., num_train:]
+
         mvn = self.train_prior_dist.__class__(fant_mean, fant_fant_covar)
         fant_likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
         mvn_obs = fant_likelihood(mvn, inputs, **kwargs)
 
         fant_fant_covar = mvn_obs.covariance_matrix
         fant_train_covar = delazify(full_covar[..., num_train:, :num_train])
+
+        if isinstance(full_output, MultitaskMultivariateNormal):
+            full_mean = full_mean.view(*batch_shape, -1)
+            fant_mean = fant_mean.view(*batch_shape, -1)
 
         self.fantasy_inputs = inputs
         self.fantasy_targets = targets
@@ -228,6 +239,8 @@ class DefaultPredictionStrategy(object):
                 new_covar_cache = torch.cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
         new_covar_cache = new_covar_cache.transpose(-2, -1)
 
+        full_targets = full_targets.view(*batch_shape, -1)
+
         # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
             fant_batch_shape = full_targets.shape[:1]
@@ -238,6 +251,9 @@ class DefaultPredictionStrategy(object):
             full_covar = BatchRepeatLazyTensor(full_covar, repeat_shape)
             new_root = BatchRepeatLazyTensor(NonLazyTensor(new_root), repeat_shape)
             # no need to repeat the covar cache, broadcasting will do the right thing
+
+        if isinstance(full_output, MultitaskMultivariateNormal):
+            full_mean = full_mean.view(*batch_shape, -1, num_tasks).contiguous()
 
         # Create new DefaultPredictionStrategy object
         fant_strat = self.__class__(

@@ -37,7 +37,7 @@ class ExactGP(GP):
 
     @train_targets.setter
     def train_targets(self, value):
-        object.__setattr__(self, '_train_targets', value)
+        object.__setattr__(self, "_train_targets", value)
 
     def _apply(self, fn):
         if self.train_inputs is not None:
@@ -112,15 +112,13 @@ class ExactGP(GP):
 
         model_batch_shape = self.train_inputs[0].shape[:-2]
 
-        if self.train_targets.dim() > len(model_batch_shape) + 1:
-            raise RuntimeError("Cannot yet add fantasy observations to multitask GPs, but this is coming soon!")
-
         if not isinstance(inputs, list):
             inputs = [inputs]
 
         inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs]
 
-        target_batch_shape = targets.shape[:-1]
+        data_dim_start = -1 if targets.dim() <= inputs[0].dim() - 1 else -2
+        target_batch_shape = targets.shape[:data_dim_start]
         input_batch_shape = inputs[0].shape[:-2]
         tbdim, ibdim = len(target_batch_shape), len(input_batch_shape)
 
@@ -146,13 +144,15 @@ class ExactGP(GP):
         # computing the covariance for each element of the batch. Therefore we don't expand the inputs to the
         # size of the fantasy model here - this is done below, after the evaluation and fast fantasy update
         train_inputs = [tin.expand(input_batch_shape + tin.shape[-2:]) for tin in self.train_inputs]
-        train_targets = self.train_targets.expand(target_batch_shape + self.train_targets.shape[-1:])
+        train_targets = self.train_targets.expand(target_batch_shape + self.train_targets.shape[data_dim_start:])
 
         full_inputs = [
             torch.cat([train_input, input.expand(input_batch_shape + input.shape[-2:])], dim=-2)
             for train_input, input in zip(train_inputs, inputs)
         ]
-        full_targets = torch.cat([train_targets, targets.expand(target_batch_shape + targets.shape[-1:])], dim=-1)
+        full_targets = torch.cat(
+            [train_targets, targets.expand(target_batch_shape + targets.shape[data_dim_start:])], dim=data_dim_start
+        )
 
         try:
             fantasy_kwargs = {"noise": kwargs.pop("noise")}
@@ -178,12 +178,7 @@ class ExactGP(GP):
 
         new_model.likelihood = old_likelihood.get_fantasy_likelihood(**fantasy_kwargs)
         new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
-            inputs,
-            targets,
-            full_inputs,
-            full_targets,
-            full_output,
-            **fantasy_kwargs,
+            inputs, targets, full_inputs, full_targets, full_output, **fantasy_kwargs
         )
 
         # if the fantasies are at the same points, we need to expand the inputs for the new model
@@ -200,17 +195,12 @@ class ExactGP(GP):
             self.prediction_strategy = None
         return super(ExactGP, self).train(mode)
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
         self.prediction_strategy = None
         super()._load_from_state_dict(
-            state_dict,
-            prefix,
-            local_metadata,
-            strict,
-            missing_keys,
-            unexpected_keys,
-            error_msgs
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
         )
 
     def __call__(self, *args, **kwargs):
