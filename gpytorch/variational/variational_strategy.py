@@ -3,7 +3,10 @@
 import math
 import torch
 from .. import settings
-from ..lazy import DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLazyTensor, RootLazyTensor, ZeroLazyTensor
+from ..lazy import (
+    BatchRepeatLazyTensor, DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLazyTensor,
+    RootLazyTensor, ZeroLazyTensor
+)
 from ..module import Module
 from ..distributions import MultivariateNormal
 from ..utils.broadcasting import _mul_broadcast_shape
@@ -105,7 +108,8 @@ class VariationalStrategy(Module):
         """
         variational_dist = self.variational_distribution.variational_distribution
         inducing_points = self.inducing_points
-        if inducing_points.shape[:-2] < x.shape[:-2]:
+        inducing_batch_shape = inducing_points.shape[:-2]
+        if inducing_batch_shape < x.shape[:-2]:
             batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
             inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
             x = x.expand(*batch_shape, *x.shape[-2:])
@@ -132,6 +136,16 @@ class VariationalStrategy(Module):
             induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
             data_data_covar = full_covar[..., num_induc:, num_induc:]
             root_variational_covar = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate()
+
+            # If we had to expand the inducing points, shrink the inducing mean and induc_induc_covar dimension
+            # This makes everything more computationally efficient
+            if len(inducing_batch_shape) < len(induc_induc_covar.batch_shape):
+                index = tuple(0 for _ in range(len(induc_induc_covar.batch_shape) - len(inducing_batch_shape)))
+                repeat_size = torch.Size((
+                    tuple(induc_induc_covar.batch_shape[:len(index)])
+                    + tuple(1 for _ in induc_induc_covar.batch_shape[len(index):])
+                ))
+                induc_induc_covar = BatchRepeatLazyTensor(induc_induc_covar.__getitem__(index), repeat_size)
 
             # If we're less than a certain size, we'll compute the Cholesky decomposition of induc_induc_covar
             cholesky = False
@@ -195,8 +209,9 @@ class VariationalStrategy(Module):
                 )
                 data_covariance = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
             else:
-                neg_induc_data_data_covar = induc_induc_covar.inv_matmul(
-                    induc_data_covar, left_tensor=induc_data_covar.transpose(-1, -2).mul(-1)
+                neg_induc_data_data_covar = torch.matmul(
+                    induc_data_covar.transpose(-1, -2).mul(-1),
+                    induc_induc_covar.inv_matmul(induc_data_covar)
                 )
                 data_covariance = data_data_covar + neg_induc_data_data_covar
             predictive_covar = PsdSumLazyTensor(predictive_covar, data_covariance)

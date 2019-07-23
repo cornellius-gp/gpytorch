@@ -2,20 +2,21 @@
 
 import torch
 
-from .lazy_tensor import LazyTensor
+from .lazy_tensor import delazify
+from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from .. import settings
 
 
 class CholLazyTensor(RootLazyTensor):
     def __init__(self, chol):
-        if isinstance(chol, LazyTensor):  # Probably is an instance of NonLazyTensor
-            chol = chol.evaluate()
-
         # Check that we have a lower triangular matrix
         if settings.debug.on():
-            mask = torch.ones(chol.shape[-2:], dtype=chol.dtype, device=chol.device).triu_(1)
-            if torch.max(chol.mul(mask)).item() > 1e-3 and torch.equal(chol, chol):
+            delazy_chol = (
+                delazify(chol) if not isinstance(chol, BatchRepeatLazyTensor) else delazify(chol.base_lazy_tensor)
+            )
+            mask = torch.ones(delazy_chol.shape[-2:], dtype=delazy_chol.dtype, device=delazy_chol.device).triu_(1)
+            if torch.max(delazy_chol.mul(mask)).item() > 1e-3 and torch.equal(delazy_chol, delazy_chol):
                 raise RuntimeError("CholLazyVaraiable should take a lower-triangular matrix in the constructor.")
 
         # Run super constructor
@@ -66,7 +67,7 @@ class CholLazyTensor(RootLazyTensor):
                     "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
                     "of dimensions.".format(self.shape, inv_quad_rhs.shape)
                 )
-            elif self.batch_shape != inv_quad_rhs.shape[:-2] or self.shape[-1] != inv_quad_rhs.shape[-2]:
+            elif self.shape[-1] != inv_quad_rhs.shape[-2]:
                 raise RuntimeError(
                     "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
                         self.shape, inv_quad_rhs.shape
