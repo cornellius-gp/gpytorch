@@ -541,7 +541,7 @@ class SumPredictionStrategy(DefaultPredictionStrategy):
     @property
     def _sub_strategies(self):
         sub_strategies = []
-        for lazy_tensor in self.train_prior_dist.lazy_covariance_matrix.lazy_tensors:
+        for lazy_tensor in self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel().lazy_tensors:
             pred_strat = prediction_strategy(
                 self.train_inputs,
                 self.train_prior_dist.__class__(self.train_prior_dist.mean, lazy_tensor),
@@ -553,6 +553,7 @@ class SumPredictionStrategy(DefaultPredictionStrategy):
         return sub_strategies
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
+        test_train_covar = test_train_covar.evaluate_kernel()
         if not isinstance(test_train_covar, SumLazyTensor):
             return super(SumPredictionStrategy, self)._exact_predictive_covar_inv_quad_form_cache(
                 train_train_covar_inv_root, test_train_covar
