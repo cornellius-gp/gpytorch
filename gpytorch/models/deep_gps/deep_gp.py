@@ -104,7 +104,7 @@ class AbstractDeepGPLayer(AbstractVariationalGP):
 
 
 class AbstractDeepGP(GP):
-    def __init__(self, last_layer):
+    def __init__(self):
         """
         A container module to build a DeepGP.
         This module should contain `AbstractDeepGPLayer` modules, and can also contain other modules as well.
