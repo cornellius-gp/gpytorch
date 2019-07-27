@@ -251,9 +251,11 @@ class CatLazyTensor(LazyTensor):
                 index[-2] = slice(curr_idx, curr_idx + size, None)
                 res_list.append(t._matmul(rhs[index]))
                 curr_idx += size
-            # copy result back to output device
+            # copy result back to output device and sum
             res_list = [x.to(output_device) for x in res_list]
-            res = torch.sum(torch.stack(res_list), dim=0)
+            res = 0.
+            for x in res_list:
+                res = res + x
         else:
             output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
             rhs = rhs.expand(*output_shape[:-2], *rhs.shape[-2:])
