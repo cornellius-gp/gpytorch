@@ -6,6 +6,7 @@ from .non_lazy_tensor import lazify, NonLazyTensor
 from . import delazify
 from ..utils.broadcasting import _mul_broadcast_shape, _matmul_broadcast_shape
 from ..utils.getitem import _noop_index
+from .. import settings
 
 
 def cat(inputs, dim=0, output_device=None):
@@ -301,6 +302,35 @@ class CatLazyTensor(LazyTensor):
         res = self.__class__(
             *lazy_tensors, dim=(cat_dim + 1 if dim <= cat_dim else cat_dim), output_device=self.output_device
         )
+        return res
+
+    def diag(self):
+        if settings.debug.on():
+            if not self.is_square:
+                raise RuntimeError("Diag works on square matrices (or batches)")
+
+        if self.cat_dim == -2:
+            res = []
+            curr_col = 0
+            for t in self.lazy_tensors:
+                n_rows, n_cols = t.shape[-2:]
+                rows = torch.arange(0, n_rows, dtype=torch.long, device=t.device)
+                cols = torch.arange(curr_col, curr_col + n_rows, dtype=torch.long, device=t.device)
+                res.append(t[..., rows, cols].to(self.device))
+                curr_col += n_rows
+            res = torch.cat(res, dim=-1)
+        elif self.cat_dim == -1:
+            res = []
+            curr_row = 0
+            for t in self.lazy_tensors:
+                n_rows, n_cols = t.shape[-2:]
+                rows = torch.arange(curr_row, curr_row + n_cols, dtype=torch.long, device=t.device)
+                cols = torch.arange(0, n_cols, dtype=torch.long, device=t.device)
+                curr_row += n_cols
+                res.append(t[..., rows, cols].to(self.device))
+            res = torch.cat(res, dim=-1)
+        else:
+            res = torch.cat([t.diag().to(self.device) for t in self.lazy_tensors], dim=self.cat_dim + 1)
         return res
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
