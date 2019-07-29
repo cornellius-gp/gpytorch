@@ -8,6 +8,13 @@ try:
     from pykeops.torch import LazyTensor as KEOLazyTensor
 
     class RBFKernel(KeOpsKernel):
+        """
+        Implements the RBF kernel using KeOps as a driver for kernel matrix multiplies.
+
+        This class can be used as a drop in replacement for gpytorch.kernels.RBFKernel in most cases, and supports
+        the same arguments. There are currently a few limitations, for example a lack of batch mode support. However,
+        most other features like ARD will work.
+        """
         def __init__(self, **kwargs):
             super(RBFKernel, self).__init__(has_lengthscale=True, **kwargs)
 

@@ -8,6 +8,13 @@ try:
     from pykeops.torch import LazyTensor as KEOLazyTensor
 
     class MaternKernel(KeOpsKernel):
+        """
+        Implements the Matern kernel using KeOps as a driver for kernel matrix multiplies.
+
+        This class can be used as a drop in replacement for gpytorch.kernels.MaternKernel in most cases, and supports
+        the same arguments. There are currently a few limitations, for example a lack of batch mode support. However,
+        most other features like ARD will work.
+        """
         def __init__(self, nu=2.5, **kwargs):
             if nu not in {0.5, 1.5, 2.5}:
                 raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
