@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+from . import keops
 from .additive_structure_kernel import AdditiveStructureKernel
 from .cylindrical_kernel import CylindricalKernel
 from .cosine_kernel import CosineKernel
@@ -25,6 +25,7 @@ from .white_noise_kernel import WhiteNoiseKernel
 
 
 __all__ = [
+    "keops",
     "Kernel",
     "AdditiveKernel",
     "AdditiveStructureKernel",
