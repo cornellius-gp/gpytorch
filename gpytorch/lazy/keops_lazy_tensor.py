@@ -2,7 +2,6 @@ import torch
 from .lazy_tensor import LazyTensor
 from ..utils.memoize import cached
 from ..utils.getitem import _noop_index
-from .. import settings
 
 
 class KeOpsLazyTensor(LazyTensor):
