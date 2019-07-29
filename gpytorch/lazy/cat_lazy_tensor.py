@@ -16,7 +16,7 @@ def cat(inputs, dim=0, output_device=None):
 
     if all(isinstance(i, NonLazyTensor) for i in inputs):
         # Dont form a CatLazyTensor if all tensors are NonLazyTensor
-        return lazify(torch.cat([delazify(i) for i in inputs]))
+        return lazify(torch.cat([delazify(i) for i in inputs], dim=dim))
 
     if output_device is None and all(i.device == inputs[0].device for i in inputs):
         output_device = inputs[0].device
