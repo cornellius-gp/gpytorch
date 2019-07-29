@@ -107,7 +107,7 @@ def linear_cg(
 
     # Some default arguments
     if max_iter is None:
-        max_iter = settings.max_cg_iterations.value()
+        max_iter = min(settings.max_cg_iterations.value(), rhs.size(-2))
     if max_tridiag_iter is None:
         max_tridiag_iter = settings.max_lanczos_quadrature_iterations.value()
     if initial_guess is None:
