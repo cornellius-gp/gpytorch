@@ -38,9 +38,9 @@ class KeOpsLazyTensor(LazyTensor):
         return KeOpsLazyTensor(self.x2, self.x1, self.covar_func)
 
     def _get_indices(self, row_index, col_index, *batch_indices):
-        x1_ = self.x1[row_index]
-        x2_ = self.x2[col_index]
-        return self.covar_func(x1_, x2_, **self.params)
+        x1_ = self.x1[(*batch_indices, row_index)]
+        x2_ = self.x2[(*batch_indices, col_index)]
+        return self.covar_func(x1_, x2_, diag=True, **self.params)
 
     def _getitem(self, row_index, col_index, *batch_indices):
         x1 = self.x1
