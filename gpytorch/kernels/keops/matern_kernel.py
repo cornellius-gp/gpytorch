@@ -38,8 +38,8 @@ try:
                 return constant_component * exp_component
             else:
                 with torch.autograd.enable_grad():
-                    x1_ = KEOLazyTensor(x1[:, None, :])
-                    x2_ = KEOLazyTensor(x2[None, :, :])
+                    x1_ = KEOLazyTensor(x1[..., :, None, :])
+                    x2_ = KEOLazyTensor(x2[..., None, :, :])
 
                     distance = ((x1_ - x2_) ** 2).sum(-1).sqrt()
                     exp_component = (-math.sqrt(self.nu * 2) * distance).exp()
