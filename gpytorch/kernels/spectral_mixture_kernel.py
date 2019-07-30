@@ -155,7 +155,7 @@ class SpectralMixtureKernel(Kernel):
         train_x_sort = train_x.sort(1)[0]
         max_dist = train_x_sort[:, -1, :] - train_x_sort[:, 0, :]
         min_dist_sort = (train_x_sort[:, 1:, :] - train_x_sort[:, :-1, :]).squeeze(0)
-        min_dist = torch.zeros(1, self.ard_num_dims)
+        min_dist = torch.zeros(1, self.ard_num_dims, dtype=train_x.dtype, device=train_x.device)
         for ind in range(self.ard_num_dims):
             min_dist[:, ind] = min_dist_sort[(torch.nonzero(min_dist_sort[:, ind]))[0], ind]
 
