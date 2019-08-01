@@ -23,7 +23,7 @@ def batch_symeig(mat):
         evals, evecs = mat[i].symeig(eigenvectors=True)
         mask = evals.ge(0)
         eigenvectors[i] = evecs * mask.type_as(evecs).unsqueeze(0)
-        eigenvalues[i] = evals.masked_fill_(1 - mask, 1)
+        eigenvalues[i] = evals.masked_fill_(~mask, 1)
 
     eigenvalues = eigenvalues.to(**dtkwargs).view(*batch_shape, -1)
     eigenvectors = eigenvectors.to(**dtkwargs).view_as(mat_orig)

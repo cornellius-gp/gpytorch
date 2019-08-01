@@ -154,8 +154,10 @@ def sparse_getitem(sparse, idxs):
         if isinstance(idx, int):
             del size[i]
             mask = indices[i].eq(idx)
-            if sum(mask):
-                new_indices = torch.zeros(indices.size(0) - 1, sum(mask), dtype=indices.dtype, device=indices.device)
+            if torch.any(mask):
+                new_indices = torch.zeros(
+                    indices.size(0) - 1, torch.sum(mask), dtype=indices.dtype, device=indices.device
+                )
                 for j in range(indices.size(0)):
                     if i > j:
                         new_indices[j].copy_(indices[j][mask])
@@ -175,9 +177,9 @@ def sparse_getitem(sparse, idxs):
             size = list(size[:i]) + [stop - start] + list(size[i + 1 :])
             if step != 1:
                 raise RuntimeError("Slicing with step is not supported")
-            mask = indices[i].lt(stop) * indices[i].ge(start)
-            if sum(mask):
-                new_indices = torch.zeros(indices.size(0), sum(mask), dtype=indices.dtype, device=indices.device)
+            mask = indices[i].lt(stop) & indices[i].ge(start)
+            if torch.any(mask):
+                new_indices = torch.zeros(indices.size(0), torch.sum(mask), dtype=indices.dtype, device=indices.device)
                 for j in range(indices.size(0)):
                     new_indices[j].copy_(indices[j][mask])
                 new_indices[i].sub_(start)

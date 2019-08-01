@@ -137,6 +137,7 @@ class CatLazyTensor(LazyTensor):
 
         # Find out for which indices we switch to different tensors
         target_tensors = self.idx_to_tensor_idx[cat_dim_indices]
+        # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
         does_switch_tensor = torch.ones(target_tensors.numel() + 1, dtype=torch.uint8, device=self.device)
         torch.ne(target_tensors[:-1], target_tensors[1:], out=does_switch_tensor[1:-1])
 
@@ -189,6 +190,7 @@ class CatLazyTensor(LazyTensor):
         elif torch.is_tensor(cat_dim_indices):
             # Find out for which indices we switch to different tensors
             target_tensors = self.idx_to_tensor_idx[cat_dim_indices]
+            # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
             does_switch_tensor = torch.ones(target_tensors.numel() + 1, dtype=torch.uint8, device=self.device)
             torch.ne(target_tensors[:-1], target_tensors[1:], out=does_switch_tensor[1:-1])
 
