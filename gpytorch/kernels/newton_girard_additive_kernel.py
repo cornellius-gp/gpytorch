@@ -1,7 +1,9 @@
-import gpytorch
 import torch
+from .kernel import Kernel
+from ..constraints import Positive
 
-class NewtonGirardAdditiveKernel(gpytorch.kernels.Kernel):
+
+class NewtonGirardAdditiveKernel(Kernel):
     def __init__(self, base_kernel, num_dims, max_degree=None, active_dims=None, **kwargs):
         """Create an Additive Kernel a la https://arxiv.org/abs/1112.4394 using Newton-Girard Formulae
 
@@ -28,7 +30,7 @@ class NewtonGirardAdditiveKernel(gpytorch.kernels.Kernel):
             name='raw_outputscale',
             parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.max_degree))
         )
-        outputscale_constraint = gpytorch.constraints.Positive()
+        outputscale_constraint = Positive()
         self.register_constraint('raw_outputscale', outputscale_constraint)
         self.outputscale_constraint = outputscale_constraint
         self.outputscale = [1 / self.max_degree for _ in range(self.max_degree)]
