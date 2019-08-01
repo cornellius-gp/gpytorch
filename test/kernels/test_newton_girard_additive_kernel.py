@@ -10,6 +10,7 @@ from gpytorch.distributions import MultivariateNormal
 import torch
 import numpy as np
 
+
 class TestNewtonGirardAdditiveKernel(TestCase):
     def test_degree1(self):
         AddK = NewtonGirardAdditiveKernel(RBFKernel(ard_num_dims=3), 3, 1)
@@ -20,8 +21,8 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         add_k_val = AddK(testvals, testvals).evaluate()
 
         manual_k = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=0),
-                                                               RBFKernel(active_dims=1),
-                                                               RBFKernel(active_dims=2)))
+                                              RBFKernel(active_dims=1),
+                                              RBFKernel(active_dims=2)))
         manual_k.initialize(outputscale=1.)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
 
@@ -37,13 +38,13 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         add_k_val = AddK(testvals, testvals).evaluate()
 
         manual_k1 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=0),
-                                                               RBFKernel(active_dims=1),
-                                                               RBFKernel(active_dims=2)))
-        manual_k1.initialize(outputscale=1/2)
-        manual_k2 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=[0,1]),
-                                                                RBFKernel(active_dims=[1,2]),
-                                                                RBFKernel(active_dims=[0,2])))
-        manual_k2.initialize(outputscale=1/2)
+                                               RBFKernel(active_dims=1),
+                                               RBFKernel(active_dims=2)))
+        manual_k1.initialize(outputscale=1 / 2)
+        manual_k2 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=[0, 1]),
+                                               RBFKernel(active_dims=[1, 2]),
+                                               RBFKernel(active_dims=[0, 2])))
+        manual_k2.initialize(outputscale=1 / 2)
         manual_k = AdditiveKernel(manual_k1, manual_k2)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
 
@@ -60,12 +61,12 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         add_k_val = AddK(testvals, testvals).evaluate()
 
         manual_k1 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=0),
-                                                                RBFKernel(active_dims=1),
-                                                                RBFKernel(active_dims=2)))
+                                               RBFKernel(active_dims=1),
+                                               RBFKernel(active_dims=2)))
         manual_k1.initialize(outputscale=1 / 3)
         manual_k2 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=[0, 1]),
-                                                                RBFKernel(active_dims=[1, 2]),
-                                                                RBFKernel(active_dims=[0, 2])))
+                                               RBFKernel(active_dims=[1, 2]),
+                                               RBFKernel(active_dims=[0, 2])))
         manual_k2.initialize(outputscale=1 / 3)
 
         manual_k3 = ScaleKernel(AdditiveKernel(RBFKernel()))
@@ -92,9 +93,10 @@ class TestNewtonGirardAdditiveKernel(TestCase):
                 mean_x = self.mean_module(x)
                 covar_x = self.covar_module(x)
                 return MultivariateNormal(mean_x, covar_x)
+
         model = TestGPModel(data, target, GaussianLikelihood(), ScaleKernel(AddK))
         optim = torch.optim.Adam(model.parameters(), lr=0.1)
-        mll = ExactMarginalLogLikelihood(model.likelihood,model)
+        mll = ExactMarginalLogLikelihood(model.likelihood, model)
         model.train()
         for i in range(10):
             optim.zero_grad()
@@ -114,7 +116,7 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         ks = []
         for i in range(3):
             k = RBFKernel(active_dims=i)
-            k.initialize(lengthscale=i+1)
+            k.initialize(lengthscale=i + 1)
             ks.append(k)
         manual_k = ScaleKernel(AdditiveKernel(*ks))
         manual_k.initialize(outputscale=1.)
@@ -131,12 +133,12 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         add_k_val = AddK(testvals, testvals).diag()
 
         manual_k1 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=0),
-                                                                RBFKernel(active_dims=1),
-                                                                RBFKernel(active_dims=2)))
+                                               RBFKernel(active_dims=1),
+                                               RBFKernel(active_dims=2)))
         manual_k1.initialize(outputscale=1 / 2)
         manual_k2 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=[0, 1]),
-                                                                RBFKernel(active_dims=[1, 2]),
-                                                                RBFKernel(active_dims=[0, 2])))
+                                               RBFKernel(active_dims=[1, 2]),
+                                               RBFKernel(active_dims=[0, 2])))
         manual_k2.initialize(outputscale=1 / 2)
         manual_k = AdditiveKernel(manual_k1, manual_k2)
         manual_add_k_val = manual_k(testvals, testvals).diag()
