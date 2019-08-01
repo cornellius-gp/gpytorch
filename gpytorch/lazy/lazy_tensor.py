@@ -76,7 +76,7 @@ class LazyTensor(ABC):
 
     .. note::
         LazyTensors are designed by default to optionally represent batches of matrices. Thus, the size of a
-        LazyTensor may be (for example) :math:`b \times n \times n`. Many of the methods are designed to efficiently
+        LazyTensor may be (for example) :math:`b \\times n \\times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
     """
     def _check_args(self, *args, **kwargs):
