@@ -3,7 +3,7 @@
 import warnings
 import torch
 from copy import deepcopy
-from ..distributions import MultivariateNormal
+from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from ..utils.broadcasting import _mul_broadcast_shape
 from .. import settings
@@ -117,7 +117,11 @@ class ExactGP(GP):
 
         inputs = [i.unsqueeze(-1) if i.ndimension() == 1 else i for i in inputs]
 
-        data_dim_start = -1 if targets.dim() <= inputs[0].dim() - 1 else -2
+        if not isinstance(self.prediction_strategy.train_prior_dist, MultitaskMultivariateNormal):
+            data_dim_start = -1
+        else:
+            data_dim_start = -2
+
         target_batch_shape = targets.shape[:data_dim_start]
         input_batch_shape = inputs[0].shape[:-2]
         tbdim, ibdim = len(target_batch_shape), len(input_batch_shape)
