@@ -35,6 +35,8 @@ class KeOpsLazyTensor(LazyTensor):
             # Equivalent to dim=-3, but KeOps LT doesn't support relative index in sum.
             return (self.covar_mat * rhs[..., None, :, :].contiguous()).sum(dim=len(batch_shape) + 1)
         else:
+            if not rhs.is_contiguous():
+                rhs = rhs.contiguous()
             return self.covar_mat @ rhs
 
     def _size(self):
@@ -90,3 +92,17 @@ class KeOpsLazyTensor(LazyTensor):
 
         # Now construct a kernel with those indices
         return self.__class__(x1, x2, covar_func=self.covar_func, **self.params)
+
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        """
+        Use default behavior, but KeOps does not automatically make args contiguous like torch.matmul.
+
+        This is necessary for variational GP models.
+        """
+        if not left_vecs.is_contiguous():
+            left_vecs = left_vecs.contiguous()
+
+        if not right_vecs.is_contiguous():
+            right_vecs = right_vecs.contiguous()
+
+        return super()._quad_form_derivative(left_vecs, right_vecs)
