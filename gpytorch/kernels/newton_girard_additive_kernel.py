@@ -35,7 +35,6 @@ class NewtonGirardAdditiveKernel(Kernel):
         self.outputscale_constraint = outputscale_constraint
         self.outputscale = [1 / self.max_degree for _ in range(self.max_degree)]
 
-
     @property
     def outputscale(self):
         return self.raw_outputscale_constraint.transform(self.raw_outputscale)
@@ -64,8 +63,7 @@ class NewtonGirardAdditiveKernel(Kernel):
         # e_n = torch.ones(self.max_degree+1, *kern_values.shape[1:], device=kern_values.device)  # includes 0
         # e_n: elementary symmetric polynomial of degree n (e.g. z1 z2 + z1 z3 + z2 z3)
         # e_n is R x n x n, and the array is properly 0 indexed.
-
-        e_n = torch.empty(self.max_degree+1, *kern_values.shape[1:], device=kern_values.device)
+        e_n = torch.empty(self.max_degree + 1, *kern_values.shape[1:], device=kern_values.device)
         e_n[0, ...] = 1.0
 
         # power sums s_k (e.g. sum_i^num_dims z_i^k
@@ -76,13 +74,16 @@ class NewtonGirardAdditiveKernel(Kernel):
         m1 = torch.tensor([-1], dtype=torch.float, device=kern_values.device)
 
         shape = [-1, 1, 1] if not diag else [-1, 1]
-        for deg in range(1, self.max_degree+1):  # deg goes from 1 to R (it's 1-indexed!)
+        for deg in range(1, self.max_degree + 1):  # deg goes from 1 to R (it's 1-indexed!)
             # we avg over k [1, ..., deg] (-1)^(k-1)e_{deg-k} s_{k}
 
-            ks = torch.arange(1, deg+1, device=kern_values.device, dtype=torch.float).reshape(*shape)  # use for pow
+            ks = torch.arange(1, deg + 1, device=kern_values.device, dtype=torch.float).reshape(*shape)  # use for pow
             kslong = torch.arange(1, deg + 1, device=kern_values.device, dtype=torch.long)  # use for indexing
 
             # note that s_k is 0-indexed, so we must subtract 1 from kslong
-            e_n[deg] = (m1.pow(ks-1) * e_n.index_select(0, deg-kslong) * s_k.index_select(0, kslong-1)).sum(dim=0) / deg
+            e_n[deg] = (m1.pow(ks - 1)
+                        * e_n.index_select(0, deg - kslong)
+                        * s_k.index_select(0, kslong - 1)
+                        ).sum(dim=0) / deg
 
         return (self.outputscale.reshape(*shape) * e_n[1:]).sum(dim=0)
