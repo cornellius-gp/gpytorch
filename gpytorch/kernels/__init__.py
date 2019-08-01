@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from .additive_structure_kernel import AdditiveStructureKernel
-from .cylindrical_kernel import CylindricalKernel
 from .cosine_kernel import CosineKernel
 from .multi_device_kernel import MultiDeviceKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
@@ -13,9 +12,8 @@ from .lcm_kernel import LCMKernel
 from .linear_kernel import LinearKernel
 from .matern_kernel import MaternKernel
 from .multitask_kernel import MultitaskKernel
+from .newton_girard_additive_kernel import NewtonGirardAdditiveKernel
 from .periodic_kernel import PeriodicKernel
-from .polynomial_kernel import PolynomialKernel
-from .polynomial_kernel_grad import PolynomialKernelGrad
 from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
@@ -28,7 +26,6 @@ __all__ = [
     "Kernel",
     "AdditiveKernel",
     "AdditiveStructureKernel",
-    "CylindricalKernel",
     "MultiDeviceKernel",
     "CosineKernel",
     "GridKernel",
@@ -39,9 +36,8 @@ __all__ = [
     "LinearKernel",
     "MaternKernel",
     "MultitaskKernel",
+    "NewtonGirardAdditiveKernel",
     "PeriodicKernel",
-    "PolynomialKernel",
-    "PolynomialKernelGrad",
     "ProductKernel",
     "ProductStructureKernel",
     "RBFKernel",
