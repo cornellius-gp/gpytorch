@@ -63,8 +63,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 )
                 return None, None, None
 
-            # TODO: Hotfix removing use of QR due to drastic speed regression in PyTorch
-            if False and self._piv_chol_self.dim() == 2:  # TODO: Whenever PyTorch supports batch mode
+            if self._piv_chol_self.dim() == 2:  # TODO: Whenever PyTorch supports batch mode
                 *batch_shape, n, k = self._piv_chol_self.shape
                 self._noise = self._diag_tensor.diag().unsqueeze(-1)
 
