@@ -31,9 +31,11 @@ class KeOpsLazyTensor(LazyTensor):
     def _matmul(self, rhs):
         # TODO: replace with `self.covar_mat @ rhs` on next PyKeOps release.
         batch_shape = self.batch_shape
-
-        # Equivalent to dim=-3, but KeOps LT doesn't support relative index in sum.
-        return (self.covar_mat * rhs[..., None, :, :]).sum(dim=len(batch_shape) + 1)
+        if len(batch_shape):
+            # Equivalent to dim=-3, but KeOps LT doesn't support relative index in sum.
+            return (self.covar_mat * rhs[..., None, :, :].contiguous()).sum(dim=len(batch_shape) + 1)
+        else:
+            return self.covar_mat @ rhs
 
     def _size(self):
         return torch.Size(self.covar_mat.shape)
