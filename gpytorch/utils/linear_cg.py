@@ -179,6 +179,7 @@ def linear_cg(
         mul_storage = torch.empty_like(residual)
         alpha = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=residual.dtype, device=residual.device)
         beta = torch.empty_like(alpha)
+        # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
         is_zero = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=torch.uint8, device=residual.device)
 
     # Define tridiagonal matrices, if applicable
@@ -186,6 +187,7 @@ def linear_cg(
         t_mat = torch.zeros(
             n_tridiag_iter, n_tridiag_iter, *batch_shape, n_tridiag, dtype=alpha.dtype, device=alpha.device
         )
+        # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
         alpha_tridiag_is_zero = torch.empty(*batch_shape, n_tridiag, dtype=torch.uint8, device=t_mat.device)
         alpha_reciprocal = torch.empty(*batch_shape, n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
         prev_alpha_reciprocal = torch.empty_like(alpha_reciprocal)
