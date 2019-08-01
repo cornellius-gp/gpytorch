@@ -8,7 +8,6 @@ from gpytorch.models import ExactGP
 from gpytorch.means import ConstantMean
 from gpytorch.distributions import MultivariateNormal
 import torch
-import numpy as np
 
 
 class TestNewtonGirardAdditiveKernel(TestCase):
