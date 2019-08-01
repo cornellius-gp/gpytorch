@@ -26,8 +26,8 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         manual_k.initialize(outputscale=1.)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
 
-        np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
-        # self.assertTrue(torch.allclose(add_k_val, manual_add_k_val))
+        # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
+        self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
 
     def test_degree2(self):
         AddK = NewtonGirardAdditiveKernel(RBFKernel(ard_num_dims=3), 3, 2)
@@ -48,8 +48,8 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         manual_k = AdditiveKernel(manual_k1, manual_k2)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
 
-        np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
-        # self.assertTrue(torch.allclose(add_k_val, manual_add_k_val))
+        # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
+        self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
 
     def test_degree3(self):
         # just make sure it doesn't break here.
@@ -73,9 +73,11 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         manual_k3.initialize(outputscale=1 / 3)
         manual_k = AdditiveKernel(manual_k1, manual_k2, manual_k3)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
-        np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
+        # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
+        self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
 
     def test_optimizing(self):
+        # This tests should pass so long as nothing breaks.
         torch.random.manual_seed(1)
         data = torch.randn(40, 4)
         target = torch.sin(data).sum(dim=-1)
@@ -122,7 +124,8 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         manual_k.initialize(outputscale=1.)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
 
-        np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
+        # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
+        self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
 
     def test_diag(self):
         AddK = NewtonGirardAdditiveKernel(RBFKernel(ard_num_dims=3), 3, 2)
@@ -143,4 +146,5 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         manual_k = AdditiveKernel(manual_k1, manual_k2)
         manual_add_k_val = manual_k(testvals, testvals).diag()
 
-        np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
+        # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
+        self.assertTrue(torch.allclose(add_k_val, manual_add_k_val, atol=1e-5))
