@@ -2,6 +2,15 @@
 
 import warnings
 import functools
+import torch
+from unittest.mock import MagicMock
+
+
+# TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
+if isinstance(torch, MagicMock):
+    bool_compat = torch.uint8
+else:
+    bool_compat = (torch.ones(1) > 0).dtype
 
 
 class DeprecationError(Exception):

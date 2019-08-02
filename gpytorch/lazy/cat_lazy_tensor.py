@@ -7,6 +7,7 @@ from . import delazify
 from ..utils.broadcasting import _mul_broadcast_shape, _matmul_broadcast_shape
 from ..utils.getitem import _noop_index
 from .. import settings
+from ..utils.deprecation import bool_compat
 
 
 def cat(inputs, dim=0, output_device=None):
@@ -137,8 +138,7 @@ class CatLazyTensor(LazyTensor):
 
         # Find out for which indices we switch to different tensors
         target_tensors = self.idx_to_tensor_idx[cat_dim_indices]
-        # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
-        does_switch_tensor = torch.ones(target_tensors.numel() + 1, dtype=torch.uint8, device=self.device)
+        does_switch_tensor = torch.ones(target_tensors.numel() + 1, dtype=bool_compat, device=self.device)
         torch.ne(target_tensors[:-1], target_tensors[1:], out=does_switch_tensor[1:-1])
 
         # Get the LazyTensors that will comprise the new LazyTensor
@@ -190,8 +190,7 @@ class CatLazyTensor(LazyTensor):
         elif torch.is_tensor(cat_dim_indices):
             # Find out for which indices we switch to different tensors
             target_tensors = self.idx_to_tensor_idx[cat_dim_indices]
-            # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
-            does_switch_tensor = torch.ones(target_tensors.numel() + 1, dtype=torch.uint8, device=self.device)
+            does_switch_tensor = torch.ones(target_tensors.numel() + 1, dtype=bool_compat, device=self.device)
             torch.ne(target_tensors[:-1], target_tensors[1:], out=does_switch_tensor[1:-1])
 
             # Get the LazyTensors that will comprise the new LazyTensor

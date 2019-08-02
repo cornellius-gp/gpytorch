@@ -3,6 +3,7 @@
 import torch
 import warnings
 from .. import settings
+from .deprecation import bool_compat
 
 
 def _default_preconditioner(x):
@@ -16,7 +17,7 @@ def _jit_linear_cg_updates(
 ):
     # # Update result
     # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
-    torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
+    result = torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
 
     # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
     beta.resize_as_(residual_inner_prod).copy_(residual_inner_prod)
@@ -150,11 +151,11 @@ def linear_cg(
     # Let's normalize. We'll un-normalize afterwards
     rhs = rhs.div(rhs_norm)
 
-    # result <- x_{0}
-    result = initial_guess
-
     # residual: residual_{0} = b_vec - lhs x_{0}
-    residual = rhs - matmul_closure(result)
+    residual = rhs - matmul_closure(initial_guess)
+
+    # result <- x_{0}
+    result = initial_guess.expand_as(residual).contiguous()
 
     # Check for NaNs
     if not torch.equal(residual, residual):
@@ -179,16 +180,14 @@ def linear_cg(
         mul_storage = torch.empty_like(residual)
         alpha = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=residual.dtype, device=residual.device)
         beta = torch.empty_like(alpha)
-        # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
-        is_zero = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=torch.uint8, device=residual.device)
+        is_zero = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=bool_compat, device=residual.device)
 
     # Define tridiagonal matrices, if applicable
     if n_tridiag:
         t_mat = torch.zeros(
             n_tridiag_iter, n_tridiag_iter, *batch_shape, n_tridiag, dtype=alpha.dtype, device=alpha.device
         )
-        # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
-        alpha_tridiag_is_zero = torch.empty(*batch_shape, n_tridiag, dtype=torch.uint8, device=t_mat.device)
+        alpha_tridiag_is_zero = torch.empty(*batch_shape, n_tridiag, dtype=bool_compat, device=t_mat.device)
         alpha_reciprocal = torch.empty(*batch_shape, n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
         prev_alpha_reciprocal = torch.empty_like(alpha_reciprocal)
         prev_beta = torch.empty_like(alpha_reciprocal)
@@ -219,7 +218,7 @@ def linear_cg(
 
             # Update residual
             # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
-            torch.addcmul(residual, -1, alpha, mvms, out=residual)
+            residual = torch.addcmul(residual, -1, alpha, mvms, out=residual)
 
             # Update precond_residual
             # precon_residual{k} = M^-1 residual_{k}
