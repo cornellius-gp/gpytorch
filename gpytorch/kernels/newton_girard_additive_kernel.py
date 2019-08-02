@@ -28,7 +28,7 @@ class NewtonGirardAdditiveKernel(Kernel):
 
         self.register_parameter(
             name='raw_outputscale',
-            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.max_degree))
+            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, self.max_degree))
         )
         outputscale_constraint = Positive()
         self.register_constraint('raw_outputscale', outputscale_constraint)
@@ -51,29 +51,42 @@ class NewtonGirardAdditiveKernel(Kernel):
 
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         """Forward proceeds by Newton-Girard formulae"""
+        if last_dim_is_batch:
+            raise RuntimeError("NewtonGirardAdditiveKernel does not accept the last_dim_is_batch argument.")
 
+        # NOTE: comments about shape are only correct for the single-batch cases.
         # kern_values is just the order-1 terms
         # kern_values = D x n x n unless diag=True
         kern_values = self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params)
         # last dim is batch, which gets moved up to pos. 1
-        shape = [-1, 1, 1, 1] if not diag else [-1, 1, 1]
+
+        kernel_dim = -3 if not diag else -2
+
+        shape = [1 for _ in range(len(kern_values.shape)+1)]
+        shape[kernel_dim-1] = -1
         kvals = torch.range(1, self.max_degree, device=kern_values.device).reshape(*shape)
         # kvals = R x 1 x 1 x 1 (these are indexes only)
 
         # e_n = torch.ones(self.max_degree+1, *kern_values.shape[1:], device=kern_values.device)  # includes 0
         # e_n: elementary symmetric polynomial of degree n (e.g. z1 z2 + z1 z3 + z2 z3)
         # e_n is R x n x n, and the array is properly 0 indexed.
-        e_n = torch.empty(self.max_degree + 1, *kern_values.shape[1:], device=kern_values.device)
-        e_n[0, ...] = 1.0
+        shape = [d_ for d_ in kern_values.shape]
+        shape[kernel_dim] = self.max_degree+1
+        e_n = torch.empty(*shape, device=kern_values.device)
+        if kernel_dim == -3:
+            e_n[..., 0, :, :] = 1.0
+        else:
+            e_n[..., 0, :] = 1.0
 
         # power sums s_k (e.g. sum_i^num_dims z_i^k
         # s_k is R x n x n
-        s_k = kern_values.pow(kvals).sum(dim=1)
+        s_k = kern_values.unsqueeze(kernel_dim-1).pow(kvals).sum(dim=kernel_dim)  # This operation is potentially very memory hungry.
 
         # just the constant -1
         m1 = torch.tensor([-1], dtype=torch.float, device=kern_values.device)
 
-        shape = [-1, 1, 1] if not diag else [-1, 1]
+        shape = [1 for _ in range(len(kern_values.shape))]
+        shape[kernel_dim] = -1
         for deg in range(1, self.max_degree + 1):  # deg goes from 1 to R (it's 1-indexed!)
             # we avg over k [1, ..., deg] (-1)^(k-1)e_{deg-k} s_{k}
 
@@ -81,9 +94,16 @@ class NewtonGirardAdditiveKernel(Kernel):
             kslong = torch.arange(1, deg + 1, device=kern_values.device, dtype=torch.long)  # use for indexing
 
             # note that s_k is 0-indexed, so we must subtract 1 from kslong
-            e_n[deg] = (m1.pow(ks - 1)
-                        * e_n.index_select(0, deg - kslong)
-                        * s_k.index_select(0, kslong - 1)
-                        ).sum(dim=0) / deg
+            sum_ = (m1.pow(ks - 1)
+                        * e_n.index_select(kernel_dim, deg - kslong)
+                        * s_k.index_select(kernel_dim, kslong - 1)
+                        ).sum(dim=kernel_dim) / deg
+            if kernel_dim == -3:
+                e_n[..., deg, :, :] = sum_
+            else:
+                e_n[..., deg, :] = sum_
 
-        return (self.outputscale.reshape(*shape) * e_n[1:]).sum(dim=0)
+        if kernel_dim == -3:
+            return (self.outputscale.unsqueeze(-1).unsqueeze(-1)* e_n.narrow(kernel_dim, 1, self.max_degree)).sum(dim=kernel_dim)
+        else:
+            return (self.outputscale.unsqueeze(-1) * e_n.narrow(kernel_dim, 1, self.max_degree)).sum(dim=kernel_dim)

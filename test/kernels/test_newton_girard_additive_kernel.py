@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from unittest import TestCase
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 from gpytorch.kernels import RBFKernel, ScaleKernel, AdditiveKernel, NewtonGirardAdditiveKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
@@ -10,7 +11,13 @@ from gpytorch.distributions import MultivariateNormal
 import torch
 
 
-class TestNewtonGirardAdditiveKernel(TestCase):
+class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
+    def create_kernel_no_ard(self, **kwargs):
+        return NewtonGirardAdditiveKernel(RBFKernel(), 4, 2, **kwargs)
+
+    def create_kernel_ard(self, num_dims, **kwargs):
+        return NewtonGirardAdditiveKernel(RBFKernel(ard_num_dims=num_dims), num_dims, 2, **kwargs)
+
     def test_degree1(self):
         AddK = NewtonGirardAdditiveKernel(RBFKernel(ard_num_dims=3), 3, 1)
         self.assertEqual(AddK.base_kernel.lengthscale.numel(), 3)
@@ -99,7 +106,7 @@ class TestNewtonGirardAdditiveKernel(TestCase):
         optim = torch.optim.Adam(model.parameters(), lr=0.1)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
         model.train()
-        for i in range(10):
+        for i in range(2):
             optim.zero_grad()
             out = model(data)
             loss = -mll(out, target)
