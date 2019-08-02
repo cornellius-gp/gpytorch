@@ -16,10 +16,7 @@ class KeOpsLazyTensor(LazyTensor):
     @cached(name="kernel_diag")
     def diag(self):
         """
-        Getting the diagonal of a kernel can be handled more efficiently by
-        transposing the batch and data dimension before calling the kernel.
-        Implementing it this way allows us to compute predictions more efficiently
-        in cases where only the variances are required.
+        Explicitly compute kernel diag via covar_func when it is needed rather than relying on lazy tensor ops.
         """
         return self.covar_func(self.x1, self.x2, diag=True)
 
@@ -35,9 +32,7 @@ class KeOpsLazyTensor(LazyTensor):
             # Equivalent to dim=-3, but KeOps LT doesn't support relative index in sum.
             return (self.covar_mat * rhs[..., None, :, :].contiguous()).sum(dim=len(batch_shape) + 1)
         else:
-            if not rhs.is_contiguous():
-                rhs = rhs.contiguous()
-            return self.covar_mat @ rhs
+            return self.covar_mat @ rhs.contiguous()
 
     def _size(self):
         return torch.Size(self.covar_mat.shape)
@@ -99,10 +94,4 @@ class KeOpsLazyTensor(LazyTensor):
 
         This is necessary for variational GP models.
         """
-        if not left_vecs.is_contiguous():
-            left_vecs = left_vecs.contiguous()
-
-        if not right_vecs.is_contiguous():
-            right_vecs = right_vecs.contiguous()
-
-        return super()._quad_form_derivative(left_vecs, right_vecs)
+        return super()._quad_form_derivative(left_vecs.contiguous(), right_vecs.contiguous())
