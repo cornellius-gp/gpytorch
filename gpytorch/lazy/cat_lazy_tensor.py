@@ -7,10 +7,7 @@ from . import delazify
 from ..utils.broadcasting import _mul_broadcast_shape, _matmul_broadcast_shape
 from ..utils.getitem import _noop_index
 from .. import settings
-
-
-# TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
-bool_compat = (torch.ones(1) > 0).dtype
+from ..utils.deprecation import bool_compat
 
 
 def cat(inputs, dim=0, output_device=None):

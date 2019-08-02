@@ -3,10 +3,7 @@
 import torch
 import warnings
 from .. import settings
-
-
-# TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
-bool_compat = (torch.ones(1) > 0).dtype
+from .deprecation import bool_compat
 
 
 def _default_preconditioner(x):
