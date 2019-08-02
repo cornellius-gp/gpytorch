@@ -20,8 +20,7 @@ def _jit_linear_cg_updates(
 ):
     # # Update result
     # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
-    result_ = torch.addcmul(result, alpha, curr_conjugate_vec)
-    result.set_(result_)
+    result = torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
 
     # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
     beta.resize_as_(residual_inner_prod).copy_(residual_inner_prod)
@@ -155,11 +154,11 @@ def linear_cg(
     # Let's normalize. We'll un-normalize afterwards
     rhs = rhs.div(rhs_norm)
 
-    # result <- x_{0}
-    result = initial_guess
-
     # residual: residual_{0} = b_vec - lhs x_{0}
-    residual = rhs - matmul_closure(result)
+    residual = rhs - matmul_closure(initial_guess)
+
+    # result <- x_{0}
+    result = initial_guess.expand_as(residual).contiguous()
 
     # Check for NaNs
     if not torch.equal(residual, residual):
@@ -222,8 +221,7 @@ def linear_cg(
 
             # Update residual
             # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
-            residual_ = torch.addcmul(residual, -1, alpha, mvms)
-            residual.set_(residual_)
+            residual = torch.addcmul(residual, -1, alpha, mvms, out=residual)
 
             # Update precond_residual
             # precon_residual{k} = M^-1 residual_{k}
