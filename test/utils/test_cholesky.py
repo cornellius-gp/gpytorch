@@ -66,9 +66,8 @@ class TestPSDSafeCholesky(unittest.TestCase):
                 L_exp = torch.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as w:
                     L_safe = psd_safe_cholesky(A)
-                    self.assertEqual(len(w), 1)
-                    self.assertTrue(issubclass(w[-1].category, RuntimeWarning))
-                    self.assertTrue("A not p.d., added jitter" in str(w[-1].message))
+                    self.assertTrue(any(issubclass(w_.category, RuntimeWarning) for w_ in w))
+                    self.assertTrue(any("A not p.d., added jitter" in str(w_.message) for w_ in w))
                 self.assertTrue(torch.allclose(L_exp, L_safe))
                 # user-defined value
                 Aprime = A.clone()
@@ -76,9 +75,8 @@ class TestPSDSafeCholesky(unittest.TestCase):
                 L_exp = torch.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as w:
                     L_safe = psd_safe_cholesky(A, jitter=1e-2)
-                    self.assertEqual(len(w), 1)
-                    self.assertTrue(issubclass(w[-1].category, RuntimeWarning))
-                    self.assertTrue("A not p.d., added jitter" in str(w[-1].message))
+                    self.assertTrue(any(issubclass(w_.category, RuntimeWarning) for w_ in w))
+                    self.assertTrue(any("A not p.d., added jitter" in str(w_.message) for w_ in w))
                 self.assertTrue(torch.allclose(L_exp, L_safe))
 
     def test_psd_safe_cholesky_psd_cuda(self, cuda=False):
