@@ -5,7 +5,7 @@ import torch
 import gpytorch
 import unittest
 import warnings
-from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor
+from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor, ExtraComputationWarning
 from gpytorch.utils.gradients import _ensure_symmetric_grad
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 from unittest.mock import MagicMock, patch
@@ -86,7 +86,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
             with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.cg_tolerance(1e-4):
-                with warnings.catch_warnings(record=True) as w:
+                with warnings.catch_warnings(record=True) as ws:
                     # Perform the inv_matmul
                     if lhs is not None:
                         res = lazy_tensor.inv_matmul(rhs, lhs)
@@ -95,9 +95,9 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
                         res = lazy_tensor.inv_matmul(rhs)
                         actual = evaluated.inverse().matmul(rhs_copy)
                     self.assertAllClose(res, actual, rtol=0.02, atol=1e-5)
-                    # self.assertEqual(len(w), 0)  # TODO: Make less brittle (#824)
+                    self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
-                with warnings.catch_warnings(record=True) as w:  # noqa: F841
+                with warnings.catch_warnings(record=True) as ws:
                     # Perform backward pass
                     grad = torch.randn_like(res)
                     res.backward(gradient=grad)
@@ -112,11 +112,11 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
                     # Determine if we've called CG or not
                     # We shouldn't if we supplied a lhs
                     if lhs is None:
-                        # self.assertEqual(len(w), 1)  # TODO: Make less brittle (#824)
+                        self.assertEqual(len([w for w in ws if issubclass(w.category, ExtraComputationWarning)]), 1)
                         if not cholesky and self.__class__.should_call_cg:
                             self.assertTrue(linear_cg_mock.called)
                     else:
-                        # self.assertEqual(len(w), 0)  # TODO: Make less brittle (#824)
+                        self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
                         self.assertFalse(linear_cg_mock.called)
 
     def test_inv_matmul_vector(self):
@@ -156,9 +156,9 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
         vecs = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
         vecs_copy = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(128), warnings.catch_warnings(record=True) as w:  # noqa: F841
+        with gpytorch.settings.num_trace_samples(128), warnings.catch_warnings(record=True) as ws:
             res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(inv_quad_rhs=vecs, logdet=True)
-            # self.assertEqual(len(w), 0)  # TODO: Make less brittle (#824)
+            self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
         res = res_inv_quad + res_logdet
 
         actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)
@@ -179,11 +179,11 @@ class TestCachedCGLazyTensor(TestCachedCGLazyTensorNoLogdet):
         vecs = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
         vecs_copy = lazy_tensor.eager_rhss[0].clone().detach().requires_grad_(True)
 
-        with gpytorch.settings.num_trace_samples(128), warnings.catch_warnings(record=True) as w:  # noqa: F841
+        with gpytorch.settings.num_trace_samples(128), warnings.catch_warnings(record=True) as ws:
             res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
                 inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=False
             )
-            # self.assertEqual(len(w), 0)  # TODO: Make less brittle (#824)
+            self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
         res = res_inv_quad.sum(-1) + res_logdet
 
         actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2).sum(-1)

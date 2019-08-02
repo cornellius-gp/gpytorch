@@ -5,7 +5,7 @@ from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
 from .block_lazy_tensor import BlockLazyTensor
 from .block_diag_lazy_tensor import BlockDiagLazyTensor
-from .cached_cg_lazy_tensor import CachedCGLazyTensor
+from .cached_cg_lazy_tensor import CachedCGLazyTensor, ExtraComputationWarning
 from .cat_lazy_tensor import cat, CatLazyTensor
 from .chol_lazy_tensor import CholLazyTensor
 from .constant_mul_lazy_tensor import ConstantMulLazyTensor
@@ -39,6 +39,7 @@ __all__ = [
     "CholLazyTensor",
     "ConstantMulLazyTensor",
     "DiagLazyTensor",
+    "ExtraComputationWarning",
     "InterpolatedLazyTensor",
     "KroneckerProductLazyTensor",
     "MatmulLazyTensor",

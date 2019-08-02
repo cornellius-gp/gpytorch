@@ -189,8 +189,9 @@ class WhitenedVariationalStrategy(VariationalStrategy):
             if self.training:
                 data_covariance = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
             else:
-                neg_induc_data_data_covar = induc_induc_covar.inv_matmul(
-                    induc_data_covar, left_tensor=induc_data_covar.transpose(-1, -2).mul(-1)
+                neg_induc_data_data_covar = torch.matmul(
+                    induc_data_covar.transpose(-1, -2).mul(-1),
+                    induc_induc_covar.inv_matmul(induc_data_covar)
                 )
                 data_covariance = data_data_covar + neg_induc_data_data_covar
             predictive_covar = PsdSumLazyTensor(predictive_covar, data_covariance)
