@@ -13,6 +13,7 @@ from .lcm_kernel import LCMKernel
 from .linear_kernel import LinearKernel
 from .matern_kernel import MaternKernel
 from .multitask_kernel import MultitaskKernel
+from .newton_girard_additive_kernel import NewtonGirardAdditiveKernel
 from .periodic_kernel import PeriodicKernel
 from .polynomial_kernel import PolynomialKernel
 from .polynomial_kernel_grad import PolynomialKernelGrad
@@ -39,6 +40,7 @@ __all__ = [
     "LinearKernel",
     "MaternKernel",
     "MultitaskKernel",
+    "NewtonGirardAdditiveKernel",
     "PeriodicKernel",
     "PolynomialKernel",
     "PolynomialKernelGrad",
