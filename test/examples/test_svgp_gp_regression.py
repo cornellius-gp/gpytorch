@@ -12,6 +12,7 @@ from gpytorch.models import AbstractVariationalGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
+from gpytorch.lazy import ExtraComputationWarning
 from torch import optim
 
 
@@ -64,7 +65,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.skip_logdet_forward(
             skip_logdet_forward
-        ), warnings.catch_warnings(record=True) as w, patch(
+        ), warnings.catch_warnings(record=True) as ws, patch(
             "gpytorch.utils.linear_cg", new=_wrapped_cg
         ) as linear_cg_mock:
             for _ in range(150):
@@ -74,26 +75,27 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
                 loss.backward()
                 optimizer.step()
 
+
+            for param in model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+
+            # Set back to eval mode
+            model.eval()
+            likelihood.eval()
+            test_preds = likelihood(model(train_x)).mean.squeeze()
+            mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+            self.assertLess(mean_abs_error.item(), 1e-1)
+
             # Make sure CG was called (or not), and no warnings were thrown
-            self.assertEqual(len(w), 0)
             if cholesky:
                 self.assertFalse(linear_cg_mock.called)
             else:
                 self.assertTrue(linear_cg_mock.called)
-
-        for param in model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-
-        # Set back to eval mode
-        model.eval()
-        likelihood.eval()
-        test_preds = likelihood(model(train_x)).mean.squeeze()
-        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        self.assertLess(mean_abs_error.item(), 1e-1)
+            self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
     def test_regression_error_skip_logdet_forward(self):
         return self.test_regression_error(skip_logdet_forward=True)

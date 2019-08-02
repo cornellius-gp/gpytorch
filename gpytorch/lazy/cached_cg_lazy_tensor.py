@@ -7,6 +7,10 @@ from .chol_lazy_tensor import CholLazyTensor
 from .. import settings
 
 
+class ExtraComputationWarning(UserWarning):
+    pass
+
+
 class CachedCGLazyTensor(LazyTensor):
     """
     A LazyTensor wrapper that eagerly computes many CG calls in batch.
@@ -134,7 +138,8 @@ class CachedCGLazyTensor(LazyTensor):
         if settings.debug.on():
             warnings.warn(
                 "CachedCGLazyTensor had to run CG on a tensor of size {}. For best performance, this "
-                "LazyTensor should pre-register all vectors to run CG against.".format(rhs.shape)
+                "LazyTensor should pre-register all vectors to run CG against.".format(rhs.shape),
+                ExtraComputationWarning
             )
         return super(CachedCGLazyTensor, self)._cholesky_solve(rhs)
 
@@ -165,7 +170,8 @@ class CachedCGLazyTensor(LazyTensor):
             else:
                 if settings.debug.on():
                     warnings.warn(
-                        "CachedCGLazyTensor did not recognize the supplied probe vectors for tridiagonalization."
+                        "CachedCGLazyTensor did not recognize the supplied probe vectors for tridiagonalization.",
+                        ExtraComputationWarning
                     )
                 return super(CachedCGLazyTensor, self)._solve(rhs, preconditioner, num_tridiag=num_tridiag)
 
@@ -181,7 +187,8 @@ class CachedCGLazyTensor(LazyTensor):
         if settings.debug.on():
             warnings.warn(
                 "CachedCGLazyTensor had to run CG on a tensor of size {}. For best performance, this "
-                "LazyTensor should pre-register all vectors to run CG against.".format(rhs.shape)
+                "LazyTensor should pre-register all vectors to run CG against.".format(rhs.shape),
+                ExtraComputationWarning
             )
         return super(CachedCGLazyTensor, self)._solve(rhs, preconditioner, num_tridiag=num_tridiag)
 
@@ -245,3 +252,9 @@ class CachedCGLazyTensor(LazyTensor):
             logdet_term = self.base_lazy_tensor._chol_diag.pow(2).log().sum(-1)
 
         return inv_quad_term, logdet_term
+
+
+__all__ = [
+    "ExtraComputationWarning",
+    "CachedCGLazyTensor",
+]
