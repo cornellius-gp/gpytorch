@@ -81,6 +81,9 @@ setup(
         "pyro": [
             "pyro-ppl>=0.3.0",
         ],
+        "keops": [
+            "pykeops>=1.1.1",
+        ],
         "test": [
             "flake8",
             "flake8-print",
