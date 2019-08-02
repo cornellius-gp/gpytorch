@@ -25,7 +25,7 @@ Some advanced techniques that you can apply to soup up these simple models:
 ## Specialty Models and Tasks
 
 - **Multitask GP Regression** - check out the examples in the [multitask GP folder](03_Multitask_GP_Regression)
-- **Bayesian Optimization** - example coming soon!
+- **Bayesian Optimization** - check out the [BoTorch tutorials](https://botorch.org/tutorials/) or the [Ax tutorials](https://ax.dev/tutorials/), both of which use GPyTorch for BayesOpt.
 
 
 ## Scalable GP Regression Models
