@@ -62,8 +62,8 @@ class NewtonGirardAdditiveKernel(Kernel):
 
         kernel_dim = -3 if not diag else -2
 
-        shape = [1 for _ in range(len(kern_values.shape)+1)]
-        shape[kernel_dim-1] = -1
+        shape = [1 for _ in range(len(kern_values.shape) + 1)]
+        shape[kernel_dim - 1] = -1
         kvals = torch.range(1, self.max_degree, device=kern_values.device).reshape(*shape)
         # kvals = R x 1 x 1 x 1 (these are indexes only)
 
@@ -71,7 +71,7 @@ class NewtonGirardAdditiveKernel(Kernel):
         # e_n: elementary symmetric polynomial of degree n (e.g. z1 z2 + z1 z3 + z2 z3)
         # e_n is R x n x n, and the array is properly 0 indexed.
         shape = [d_ for d_ in kern_values.shape]
-        shape[kernel_dim] = self.max_degree+1
+        shape[kernel_dim] = self.max_degree + 1
         e_n = torch.empty(*shape, device=kern_values.device)
         if kernel_dim == -3:
             e_n[..., 0, :, :] = 1.0
@@ -80,7 +80,7 @@ class NewtonGirardAdditiveKernel(Kernel):
 
         # power sums s_k (e.g. sum_i^num_dims z_i^k
         # s_k is R x n x n
-        s_k = kern_values.unsqueeze(kernel_dim-1).pow(kvals).sum(dim=kernel_dim)  # This operation is potentially very memory hungry.
+        s_k = kern_values.unsqueeze(kernel_dim - 1).pow(kvals).sum(dim=kernel_dim)
 
         # just the constant -1
         m1 = torch.tensor([-1], dtype=torch.float, device=kern_values.device)
@@ -95,15 +95,16 @@ class NewtonGirardAdditiveKernel(Kernel):
 
             # note that s_k is 0-indexed, so we must subtract 1 from kslong
             sum_ = (m1.pow(ks - 1)
-                        * e_n.index_select(kernel_dim, deg - kslong)
-                        * s_k.index_select(kernel_dim, kslong - 1)
-                        ).sum(dim=kernel_dim) / deg
+                    * e_n.index_select(kernel_dim, deg - kslong)
+                    * s_k.index_select(kernel_dim, kslong - 1)
+                    ).sum(dim=kernel_dim) / deg
             if kernel_dim == -3:
                 e_n[..., deg, :, :] = sum_
             else:
                 e_n[..., deg, :] = sum_
 
         if kernel_dim == -3:
-            return (self.outputscale.unsqueeze(-1).unsqueeze(-1)* e_n.narrow(kernel_dim, 1, self.max_degree)).sum(dim=kernel_dim)
+            return (self.outputscale.unsqueeze(-1).unsqueeze(-1)
+                    * e_n.narrow(kernel_dim, 1, self.max_degree)).sum(dim=kernel_dim)
         else:
             return (self.outputscale.unsqueeze(-1) * e_n.narrow(kernel_dim, 1, self.max_degree)).sum(dim=kernel_dim)
