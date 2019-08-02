@@ -348,7 +348,7 @@ class LazyTensor(ABC):
             else:
                 grads.append(None)
 
-        return grads
+        return tuple(grads)
 
     ####
     # Class definitions
