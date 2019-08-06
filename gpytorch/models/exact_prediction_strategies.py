@@ -309,13 +309,11 @@ class DefaultPredictionStrategy(object):
         Returns:
             :obj:`torch.tensor`: The predictive posterior mean of the test points
         """
-        # For efficiency - we can use addmv in the 2d case
-        if test_train_covar.dim() == 2:
-            res = torch.addmv(test_mean, delazify(test_train_covar), self.mean_cache)
-        # In other cases - we'll use the standard infrastructure
-        else:
-            res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
-            res = res + test_mean
+        # NOTE TO FUTURE SELF:
+        # You **cannot* use addmv here, because test_train_covar may not actually be a non lazy tensor even for an exact
+        # GP, and using addmv requires you to delazify test_train_covar, which is obviously a huge no-no!
+        res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
+        res = res + test_mean
         return res
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
