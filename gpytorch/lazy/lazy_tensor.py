@@ -22,6 +22,7 @@ from ..utils.getitem import _noop_index, _convert_indices_to_tensors, _compute_g
 from ..utils.memoize import add_to_cache, cached
 from ..utils.qr import batch_qr
 from ..utils.svd import batch_svd
+from ..utils.contour_integral_quad import sqrt_matmul
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
@@ -380,6 +381,9 @@ class LazyTensor(ABC):
             tensor: - the diagonal (or batch of diagonals)
         """
         return self.diag()
+
+    def _sqrt_matmul(self, rhs):
+        return sqrt_matmul(self, rhs)
 
     @cached(name="cholesky")
     def _cholesky(self):
