@@ -26,13 +26,13 @@ def minres(matmul_closure, rhs, shifts=None, max_num_iter=100):
     shifts = shifts.view(*shifts.shape, *[1 for _ in prod.shape])
 
     # Variasbles for Lanczos terms
-    alpha_curr = None
-    alpha_shifted_curr = None
+    alpha_curr = torch.empty(*prod.shape[:-2], 1, prod.size(-1), dtype=rhs.dtype, device=rhs.device)
+    alpha_shifted_curr = torch.empty(*solution.shape[:-2], 1, prod.size(-1), dtype=rhs.dtype, device=rhs.device)
     beta_prev = initial_norm.expand(*prod.shape[:-2], 1, prod.size(-1)).contiguous()
-    beta_curr = None
+    beta_curr = torch.empty_like(beta_prev)
     qvec_prev2 = torch.zeros_like(prod)
     qvec_prev1 = rhs.expand_as(prod).contiguous()
-    qvec_curr = None
+    qvec_curr = torch.empty_like(qvec_prev2)
 
     # Variables for the QR rotation
     # 1) Components of the Givens rotations
@@ -40,26 +40,26 @@ def minres(matmul_closure, rhs, shifts=None, max_num_iter=100):
     sin_prev2 = torch.zeros(*solution.shape[:-2], 1, rhs.size(-1), dtype=rhs.dtype, device=rhs.device)
     cos_prev1 = torch.ones_like(cos_prev2)
     sin_prev1 = torch.zeros_like(sin_prev2)
-    radius_curr = None
-    cos_curr = None
-    sin_curr = None
+    radius_curr = torch.empty_like(cos_prev1)
+    cos_curr = torch.empty_like(cos_prev1)
+    sin_curr = torch.empty_like(cos_prev1)
     # 2) Terms QR decomposition of T
-    subsub_diag_term = None
-    sub_diag_term = None
-    diag_term = None
+    subsub_diag_term = torch.empty_like(alpha_shifted_curr)
+    sub_diag_term = torch.empty_like(alpha_shifted_curr)
+    diag_term = torch.empty_like(alpha_shifted_curr)
 
     # Variables for the solution updates
     # 1) The "search" vectors of the solution
     # Equivalent to the vectors of Q R^{-1}, where Q is the matrix of Lanczos vectors and
     # R is the QR factor of the tridiagonal Lanczos matrix.
-    search_prev2 = torch.zeros_like(prod)
-    search_prev1 = torch.zeros_like(prod)
-    search_curr = None
+    search_prev2 = torch.zeros_like(solution)
+    search_prev1 = torch.zeros_like(solution)
+    search_curr = torch.empty_like(search_prev1)
     # 2) The "scaling" terms of the search vectors
     # Equivalent to the terms of V^T Q^T rhs, where Q is the matrix of Lanczos vectors and
     # V is the QR orthonormal of the tridiagonal Lanczos matrix.
-    scale_prev = beta_prev.clone()
-    scale_curr = None
+    scale_prev = beta_prev.repeat(*shifts.shape)
+    scale_curr = torch.empty_like(scale_prev)
 
     # Perform iterations
     num_iter = min(rhs.size(-2), max_num_iter)
@@ -68,57 +68,62 @@ def minres(matmul_closure, rhs, shifts=None, max_num_iter=100):
         prod = matmul_closure(qvec_prev1)
 
         # Get next Lanczos terms
-        # alpha_curr, beta_curr, qvec_curr
-        alpha_curr = torch.mul(qvec_prev1, prod).sum(-2, keepdim=True)
-        qvec_curr = prod.addcmul_(-1, alpha_curr, qvec_prev1).addcmul_(-1, beta_prev, qvec_prev2)
-        beta_curr = qvec_curr.norm(dim=-2, keepdim=True)
+        # --> alpha_curr, beta_curr, qvec_curr
+        qvec_curr.copy_(prod)
+        torch.sum(prod.mul_(qvec_prev1), -2, keepdim=True, out=alpha_curr)
+        qvec_curr.addcmul_(-1, alpha_curr, qvec_prev1).addcmul_(-1, beta_prev, qvec_prev2)
+        torch.norm(qvec_curr, dim=-2, keepdim=True, out=beta_curr)
         qvec_curr.div_(beta_curr)
 
         # Get shifted alpha
-        alpha_shifted_curr = torch.add(alpha_curr, shifts)
+        # --> alpha_shifted_curr
+        torch.add(alpha_curr, shifts, out=alpha_shifted_curr)
 
         # Perfom next step of the QR factorization
+        # (next column of R, next Givens rotation)
+        # --> subsub_diag_term, sub_diag_term, diag_term, cos_curr, sin_surr
         # 1) Apply second previous Givens rotation
-        subsub_diag_term = sin_prev2 * beta_prev
-        sub_diag_term = cos_prev2 * beta_prev
+        torch.mul(sin_prev2, beta_prev, out=subsub_diag_term)
+        torch.mul(cos_prev2, beta_prev, out=sub_diag_term)
         # 2) Apply previous Givens rotation
-        diag_term = torch.mul(alpha_shifted_curr, cos_prev1).addcmul_(-1, sin_prev1, sub_diag_term)
+        torch.mul(alpha_shifted_curr, cos_prev1, out=diag_term).addcmul_(-1, sin_prev1, sub_diag_term)
         sub_diag_term.mul_(cos_prev1).addcmul_(sin_prev1, alpha_shifted_curr)
         # 3) Compute next Givens terms
-        radius_curr = torch.add(diag_term.pow(2), beta_curr.pow(2)).sqrt_()
-        cos_curr = diag_term / radius_curr
-        sin_curr = beta_curr / radius_curr
+        torch.mul(diag_term, diag_term, out=radius_curr).addcmul_(beta_curr, beta_curr).sqrt_()
+        torch.div(diag_term, radius_curr, out=cos_curr)
+        torch.div(beta_curr, radius_curr, out=sin_curr)
         # 4) Apply current Givens rotation
         diag_term.mul_(cos_curr).addcmul_(sin_curr, beta_curr)
 
         # Update the solution
-        # 1) Apply the V matrix of QR to the Lanczos-rhs (= Q^T rhs)
+        # --> search_curr, scale_curr solution
+        # 1) Apply the latest Givens rotation to the Lanczos-rhs ( ||rhs|| e_1 )
         # This is getting the scale terms for the "search" vectors
-        scale_curr = scale_prev.mul(sin_curr).mul_(-1)
-        scale_prev = scale_prev.mul(cos_curr)
+        torch.mul(scale_prev, sin_curr, out=scale_curr).mul_(-1)
+        scale_prev.mul_(cos_curr)
         # 2) Get the new search vector
-        search_curr = (
-            qvec_prev1.addcmul(-1, sub_diag_term, search_prev1).
-            addcmul_(-1, subsub_diag_term, search_prev2).div_(diag_term)
-        )
+        torch.addcmul(qvec_prev1, -1, sub_diag_term, search_prev1, out=search_curr)
+        search_curr.addcmul_(-1, subsub_diag_term, search_prev2)
+        search_curr.div_(diag_term)
         # 3) Update the solution
         solution.addcmul_(scale_prev, search_curr)
 
         # Update terms for next iteration
         # Lanczos terms
-        beta_prev = beta_curr
-        qvec_prev2 = qvec_prev1
-        qvec_prev1 = qvec_curr
+        beta_prev.copy_(beta_curr)
+        qvec_prev2.copy_(qvec_prev1)
+        qvec_prev1.copy_(qvec_curr)
         # Givens rotations terms
-        cos_prev2 = cos_prev1
-        sin_prev2 = sin_prev1
-        cos_prev1 = cos_curr
-        sin_prev1 = sin_curr
-        # Search vector terms
-        scale_prev = scale_curr
-        search_prev2 = search_prev1
-        search_prev1 = search_curr
+        cos_prev2.copy_(cos_prev1)
+        sin_prev2.copy_(sin_prev1)
+        cos_prev1.copy_(cos_curr)
+        sin_prev1.copy_(sin_curr)
+        # Search vector terms)
+        scale_prev.copy_(scale_curr)
+        search_prev2.copy_(search_prev1)
+        search_prev1.copy_(search_curr)
 
     if squeeze:
         solution = solution.squeeze(-1)
+
     return solution
