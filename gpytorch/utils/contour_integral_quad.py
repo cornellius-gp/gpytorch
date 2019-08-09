@@ -50,7 +50,7 @@ def solve_shifted_systems(lanczos_basis, lanczos_mat, rhs, shifts):
     return real_solves
 
 
-def sqrt_matmul(lazy_tensor, rhs, max_lanczos_iter=50, num_quad_samples=15):
+def sqrt_matmul(lazy_tensor, rhs, inverse=False, max_lanczos_iter=50, num_quad_samples=15):
     """
     Performs A^{1/2} rhs using contour integral quadrature.
 
@@ -104,7 +104,10 @@ def sqrt_matmul(lazy_tensor, rhs, max_lanczos_iter=50, num_quad_samples=15):
     dzdt_th = dzdt_th.view(dzdt_th.numel(), *([1] * (solves.dim() - 1)))
     weighted_solves = dzdt_th * solves
     summed_solves = weighted_solves.sum(0)
-    res = lazy_tensor._matmul(summed_solves)
+
+    if not inverse:
+        res = lazy_tensor._matmul(summed_solves)
+
     constant = -2 * Kp * np.sqrt(min_eig.item()) / (math.pi * N)
     res = constant * res
     return res.squeeze(-1)

@@ -382,9 +382,6 @@ class LazyTensor(ABC):
         """
         return self.diag()
 
-    def _sqrt_matmul(self, rhs):
-        return sqrt_matmul(self, rhs)
-
     @cached(name="cholesky")
     def _cholesky(self):
         """
@@ -1441,6 +1438,12 @@ class LazyTensor(ABC):
     @property
     def shape(self):
         return self.size()
+
+    def sqrt_matmul(self, rhs):
+        return sqrt_matmul(self, rhs)
+
+    def sqrt_inv_matmul(self, rhs):
+        return sqrt_matmul(self, rhs, inverse=True)
 
     def sum(self, dim=None):
         """
