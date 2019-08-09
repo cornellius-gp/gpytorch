@@ -82,7 +82,8 @@ def sqrt_matmul(lazy_tensor, rhs, max_lanczos_iter=50, num_quad_samples=15):
     max_eig = approx_eigs.max()
 
     k2 = min_eig / max_eig
-    Kp = ellipk(1 - k2)  # Elliptical integral of the first kind
+
+    Kp = ellipk(1 - k2.detach().cpu().numpy())  # Elliptical integral of the first kind
     N = 15
     t = 1j * (np.arange(1, N + 1) - 0.5) * Kp / N
     sn, cn, dn, _ = ellipj(np.imag(t), 1 - k2.item())  # Jacobi elliptic functions
@@ -104,6 +105,6 @@ def sqrt_matmul(lazy_tensor, rhs, max_lanczos_iter=50, num_quad_samples=15):
     weighted_solves = dzdt_th * solves
     summed_solves = weighted_solves.sum(0)
     res = lazy_tensor._matmul(summed_solves)
-    constant = -2 * Kp * np.sqrt(min_eig) / (math.pi * N)
+    constant = -2 * Kp * np.sqrt(min_eig.item()) / (math.pi * N)
     res = constant * res
     return res.squeeze(-1)
