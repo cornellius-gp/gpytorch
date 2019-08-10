@@ -119,15 +119,18 @@ class HalfWhitenedVariationalStrategy(Module):
         prior_dist = self.prior_distribution
         induc_induc_covar = prior_dist.covariance_matrix
         chol_induc = induc_induc_covar.cholesky()
+        inv_chol_induc = chol_induc.double().inverse().to(induc_induc_covar.dtype)
 
-        init_mu, _ = torch.triangular_solve(prior_dist.mean.unsqueeze(-1), chol_induc)
-        init_mu = init_mu.squeeze(-1)
-        init_covar, _ = torch.triangular_solve(induc_induc_covar, chol_induc)
-        init_covar, _ = torch.triangular_solve(init_covar.transpose(-2, -1), chol_induc)
+        init_mu = inv_chol_induc.matmul(prior_dist.mean.unsqueeze(-1)).squeeze(-1)
+        init_covar = inv_chol_induc.matmul(induc_induc_covar.matmul(inv_chol_induc.transpose(-2, -1)))
         eval_prior_dist = torch.distributions.MultivariateNormal(
             loc=prior_dist.mean,
             scale_tril=psd_safe_cholesky(prior_dist.covariance_matrix),
         )
+
+        print(torch.norm(prior_dist.mean - chol_induc.matmul(init_mu)))
+        print(torch.norm(induc_induc_covar - chol_induc.matmul(init_covar.matmul(chol_induc.transpose(-2, -1)))))
+
         self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
 
     def forward(self, x):
