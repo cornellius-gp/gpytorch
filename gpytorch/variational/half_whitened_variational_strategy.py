@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import torch
+from .. import settings
 from ..lazy import DiagLazyTensor, MatmulLazyTensor
 from ..module import Module
 from ..distributions import MultivariateNormal
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
+from ..utils.lanczos import lanczos_tridiag
 
 
 class HalfWhitenedVariationalStrategy(Module):
@@ -62,6 +64,9 @@ class HalfWhitenedVariationalStrategy(Module):
         variational_dist_u = self.variational_distribution.variational_distribution
 
         induc_induc_covar = prior_dist.lazy_covariance_matrix
+
+        L = induc_induc_covar.evaluate().cholesky()
+
         device = induc_induc_covar.device
         dtype = induc_induc_covar.dtype
         mat_len = induc_induc_covar.matrix_shape[0]
@@ -71,16 +76,17 @@ class HalfWhitenedVariationalStrategy(Module):
 
         inner_mat = (eye + variational_dist_u.lazy_covariance_matrix.mul(-1)).evaluate()
 
-        right_rinv = (induc_induc_covar.transpose(-2, -1).sqrt_inv_matmul(inner_mat)).transpose(-2, -1)
+        right_rinv, _ = torch.triangular_solve(inner_mat, L)
+        right_rinv = right_rinv.transpose(-2, -1)
 
         var_mean = variational_dist_u.mean - prior_dist.mean
 
         right_hand_sides = torch.cat((var_mean.unsqueeze(-1), right_rinv), dim=-1)
 
-        full_rinv = induc_induc_covar.sqrt_inv_matmul(right_hand_sides)
+        full_rinv, _ = torch.triangular_solve(right_hand_sides, L)
 
-        mean_cache = full_rinv[..., :, 0]
-        covar_cache = full_rinv[..., :, 1:]
+        mean_cache = full_rinv[..., :, 0].contiguous()
+        covar_cache = full_rinv[..., :, 1:].contiguous()
 
         return [mean_cache, covar_cache]
 
@@ -111,8 +117,15 @@ class HalfWhitenedVariationalStrategy(Module):
         TODO for half whitening
         """
         prior_dist = self.prior_distribution
+        induc_induc_covar = prior_dist.covariance_matrix
+        chol_induc = induc_induc_covar.cholesky()
+
+        init_mu, _ = torch.triangular_solve(prior_dist.mean.unsqueeze(-1), chol_induc)
+        init_mu = init_mu.squeeze(-1)
+        init_covar, _ = torch.triangular_solve(induc_induc_covar, chol_induc)
+        init_covar, _ = torch.triangular_solve(init_covar.transpose(-2, -1), chol_induc)
         eval_prior_dist = torch.distributions.MultivariateNormal(
-            loc=torch.randn_like(prior_dist.mean),
+            loc=prior_dist.mean,
             scale_tril=psd_safe_cholesky(prior_dist.covariance_matrix),
         )
         self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
