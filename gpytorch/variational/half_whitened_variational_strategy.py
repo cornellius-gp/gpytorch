@@ -35,6 +35,8 @@ class HalfWhitenedVariationalStrategy(Module):
     @cached(name="mean_diff_inv_quad_memo")
     def mean_diff_inv_quad(self):
         prior_mean = self.prior_distribution.mean
+        if prior_mean.dim() == 1:
+            return torch.dot(prior_mean, prior_mean)
         return prior_mean.transpose(-2, -1).matmul(prior_mean)
 
     @property
@@ -67,7 +69,7 @@ class HalfWhitenedVariationalStrategy(Module):
 
         eye = DiagLazyTensor(torch.ones(*batch_shape, mat_len, dtype=dtype, device=device))
 
-        inner_mat = (eye - variational_dist_u.lazy_covariance_matrix).evaluate()
+        inner_mat = (eye + variational_dist_u.lazy_covariance_matrix.mul(-1)).evaluate()
 
         right_rinv = (induc_induc_covar.transpose(-2, -1).sqrt_inv_matmul(inner_mat)).transpose(-2, -1)
 
@@ -110,7 +112,7 @@ class HalfWhitenedVariationalStrategy(Module):
         """
         prior_dist = self.prior_distribution
         eval_prior_dist = torch.distributions.MultivariateNormal(
-            loc=prior_dist.mean,
+            loc=torch.randn_like(prior_dist.mean),
             scale_tril=psd_safe_cholesky(prior_dist.covariance_matrix),
         )
         self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
@@ -157,7 +159,7 @@ class HalfWhitenedVariationalStrategy(Module):
 
             left_part = induc_data_covar.transpose(-2, -1).matmul(covar_cache)
             full_part = MatmulLazyTensor(left_part, induc_data_covar)
-            predictive_covar = data_data_covar - full_part
+            predictive_covar = data_data_covar + full_part.mul(-1)
 
             if self.training:
                 predictive_covar = DiagLazyTensor(predictive_covar.diag())

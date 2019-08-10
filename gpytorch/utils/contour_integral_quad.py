@@ -39,7 +39,7 @@ def solve_shifted_systems(lanczos_basis, lanczos_mat, rhs, shifts):
     e_1 = torch.zeros(lanczos_mat.size(-1), 1, device=lanczos_mat.device, dtype=lanczos_mat.dtype)
     e_1[0] = 1
 
-    krylov_solves = torch.gesv(e_1, shifted_mats)[0]
+    krylov_solves = torch.solve(e_1, shifted_mats)[0]
 
     norms = rhs.norm(dim=-2)
     if norms.numel() == 1:
@@ -107,6 +107,8 @@ def sqrt_matmul(lazy_tensor, rhs, inverse=False, max_lanczos_iter=50, num_quad_s
 
     if not inverse:
         res = lazy_tensor._matmul(summed_solves)
+    else:
+        res = summed_solves
 
     constant = -2 * Kp * np.sqrt(min_eig.item()) / (math.pi * N)
     res = constant * res

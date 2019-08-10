@@ -1440,10 +1440,10 @@ class LazyTensor(ABC):
         return self.size()
 
     def sqrt_matmul(self, rhs):
-        return sqrt_matmul(self, rhs)
+        return sqrt_matmul(self, rhs).transpose(-2, -1)
 
     def sqrt_inv_matmul(self, rhs):
-        return sqrt_matmul(self, rhs, inverse=True)
+        return sqrt_matmul(self, rhs, inverse=True).transpose(-2, -1)
 
     def sum(self, dim=None):
         """
