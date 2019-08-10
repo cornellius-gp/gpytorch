@@ -34,7 +34,7 @@ from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
 from .lazy import lazify, delazify, cat
 
 
-__version__ = "0.3.4a"
+__version__ = "0.3.5"
 
 __all__ = [
     # Submodules
