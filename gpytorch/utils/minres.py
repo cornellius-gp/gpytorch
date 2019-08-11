@@ -3,7 +3,7 @@
 import torch
 
 
-def minres(matmul_closure, rhs, shifts=None, max_num_iter=100):
+def minres(matmul_closure, rhs, value=None, shifts=None, max_num_iter=100):
     # Default values
     if torch.is_tensor(matmul_closure):
         matmul_closure = matmul_closure.matmul
@@ -20,6 +20,8 @@ def minres(matmul_closure, rhs, shifts=None, max_num_iter=100):
 
     # Create space for matmul product, solution
     prod = matmul_closure(rhs)
+    if value is not None:
+        prod.mul_(value)
     solution = torch.zeros(*shifts.shape, *prod.shape, dtype=rhs.dtype, device=rhs.device)
 
     # Reisze shifts
@@ -66,6 +68,8 @@ def minres(matmul_closure, rhs, shifts=None, max_num_iter=100):
     for i in range(num_iter):
         # Perform matmul
         prod = matmul_closure(qvec_prev1)
+        if value is not None:
+            prod.mul_(value)
 
         # Get next Lanczos terms
         # --> alpha_curr, beta_curr, qvec_curr
