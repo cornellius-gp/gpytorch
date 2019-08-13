@@ -76,14 +76,13 @@ class HalfWhitenedVariationalStrategy(Module):
 
         inner_mat = (eye + variational_dist_u.lazy_covariance_matrix.mul(-1)).evaluate()
 
-        right_rinv, _ = torch.triangular_solve(inner_mat, L)
-        right_rinv = right_rinv.transpose(-2, -1)
+        right_rinv = torch.triangular_solve(inner_mat, L.transpose(-2, -1), upper=True)[0].transpose(-2, -1)
 
         var_mean = variational_dist_u.mean - prior_dist.mean
 
         right_hand_sides = torch.cat((var_mean.unsqueeze(-1), right_rinv), dim=-1)
 
-        full_rinv, _ = torch.triangular_solve(right_hand_sides, L)
+        full_rinv, _ = torch.triangular_solve(right_hand_sides, L.transpose(-2, -1), upper=True)
 
         mean_cache = full_rinv[..., :, 0].contiguous()
         covar_cache = full_rinv[..., :, 1:].contiguous()
@@ -124,8 +123,8 @@ class HalfWhitenedVariationalStrategy(Module):
         init_mu = inv_chol_induc.matmul(prior_dist.mean.unsqueeze(-1)).squeeze(-1)
         init_covar = inv_chol_induc.matmul(induc_induc_covar.matmul(inv_chol_induc.transpose(-2, -1)))
         eval_prior_dist = torch.distributions.MultivariateNormal(
-            loc=prior_dist.mean,
-            scale_tril=psd_safe_cholesky(prior_dist.covariance_matrix),
+            loc=init_mu + 1e-1 * torch.randn_like(init_mu),
+            scale_tril=init_covar,
         )
 
         print(torch.norm(prior_dist.mean - chol_induc.matmul(init_mu)))
@@ -164,6 +163,7 @@ class HalfWhitenedVariationalStrategy(Module):
             full_inputs = torch.cat([inducing_points, x], dim=-2)
             full_output = self.model.forward(full_inputs)
             full_covar = full_output.lazy_covariance_matrix
+            test_mean = full_output.mean[..., num_induc:]
 
             # Covariance terms
             induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
@@ -171,10 +171,12 @@ class HalfWhitenedVariationalStrategy(Module):
 
             mean_cache, covar_cache = self.mean_covar_cache()
 
-            predictive_mean = induc_data_covar.transpose(-2, -1).matmul(mean_cache)
+            predictive_mean = test_mean + induc_data_covar.transpose(-2, -1).matmul(mean_cache)
 
             left_part = induc_data_covar.transpose(-2, -1).matmul(covar_cache)
             full_part = MatmulLazyTensor(left_part, induc_data_covar)
+            from IPython.core.debugger import set_trace
+            set_trace()
             predictive_covar = data_data_covar + full_part.mul(-1)
 
             if self.training:
