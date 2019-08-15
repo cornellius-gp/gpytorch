@@ -175,8 +175,6 @@ class HalfWhitenedVariationalStrategy(Module):
 
             left_part = induc_data_covar.transpose(-2, -1).matmul(covar_cache)
             full_part = MatmulLazyTensor(left_part, induc_data_covar)
-            from IPython.core.debugger import set_trace
-            set_trace()
             predictive_covar = data_data_covar + full_part.mul(-1)
 
             if self.training:
