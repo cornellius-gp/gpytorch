@@ -2,11 +2,15 @@
 
 import torch
 
-
-def minres(matmul_closure, rhs, value=None, shifts=None, max_num_iter=100):
+@torch.jit.script
+def minres(matmul_closure, rhs, shifts, value=torch.tensor(-1.), max_num_iter=torch.tensor(100)):
     # Default values
-    if torch.is_tensor(matmul_closure):
-        matmul_closure = matmul_closure.matmul
+    max_num_iter = max_num_iter.item()
+    ### CHANGE 1: always assume matmul_closure is a tensor
+    # if torch.is_tensor(matmul_closure):
+    #     matmul_closure = matmul_closure.matmul
+    mm_ = matmul_closure.matmul
+
     if shifts is None:
         shifts = torch.tensor(0., dtype=rhs.dtype, device=rhs.device)
 
@@ -15,22 +19,25 @@ def minres(matmul_closure, rhs, value=None, shifts=None, max_num_iter=100):
     if rhs.dim() == 1:
         rhs = rhs.unsqueeze(-1)
         squeeze = True
-    initial_norm = rhs.norm(dim=-2, keepdim=True)
+
+    initial_norm = rhs.norm(p=2, dim=-2, keepdim=True)
     rhs = rhs.div(initial_norm)
 
     # Create space for matmul product, solution
-    prod = matmul_closure(rhs)
+    prod = mm_(rhs)
     if value is not None:
         prod.mul_(value)
-    solution = torch.zeros(*shifts.shape, *prod.shape, dtype=rhs.dtype, device=rhs.device)
+
+    solution = torch.zeros(shifts.shape + prod.shape, dtype=rhs.dtype, device=rhs.device)
 
     # Reisze shifts
-    shifts = shifts.view(*shifts.shape, *[1 for _ in prod.shape])
+
+    shifts = shifts.view(shifts.shape + torch.Size([1 for _ in prod.shape]))
 
     # Variasbles for Lanczos terms
-    alpha_curr = torch.empty(*prod.shape[:-2], 1, prod.size(-1), dtype=rhs.dtype, device=rhs.device)
-    alpha_shifted_curr = torch.empty(*solution.shape[:-2], 1, prod.size(-1), dtype=rhs.dtype, device=rhs.device)
-    beta_prev = initial_norm.expand(*prod.shape[:-2], 1, prod.size(-1)).contiguous()
+    alpha_curr = torch.empty(prod.shape[:-2] + (1, prod.size(-1)), dtype=rhs.dtype, device=rhs.device)
+    alpha_shifted_curr = torch.empty(solution.shape[:-2] + (1, prod.size(-1)), dtype=rhs.dtype, device=rhs.device)
+    beta_prev = initial_norm.expand((prod.shape[:-2] + (1, prod.size(-1)))).contiguous()
     beta_curr = torch.empty_like(beta_prev)
     qvec_prev2 = torch.zeros_like(prod)
     qvec_prev1 = rhs.expand_as(prod).contiguous()
@@ -38,8 +45,8 @@ def minres(matmul_closure, rhs, value=None, shifts=None, max_num_iter=100):
 
     # Variables for the QR rotation
     # 1) Components of the Givens rotations
-    cos_prev2 = torch.ones(*solution.shape[:-2], 1, rhs.size(-1), dtype=rhs.dtype, device=rhs.device)
-    sin_prev2 = torch.zeros(*solution.shape[:-2], 1, rhs.size(-1), dtype=rhs.dtype, device=rhs.device)
+    cos_prev2 = torch.ones(solution.shape[:-2] + (1, rhs.size(-1)), dtype=rhs.dtype, device=rhs.device)
+    sin_prev2 = torch.zeros(solution.shape[:-2] + (1, rhs.size(-1)), dtype=rhs.dtype, device=rhs.device)
     cos_prev1 = torch.ones_like(cos_prev2)
     sin_prev1 = torch.zeros_like(sin_prev2)
     radius_curr = torch.empty_like(cos_prev1)
@@ -60,14 +67,14 @@ def minres(matmul_closure, rhs, value=None, shifts=None, max_num_iter=100):
     # 2) The "scaling" terms of the search vectors
     # Equivalent to the terms of V^T Q^T rhs, where Q is the matrix of Lanczos vectors and
     # V is the QR orthonormal of the tridiagonal Lanczos matrix.
-    scale_prev = beta_prev.repeat(*shifts.shape)
+    scale_prev = beta_prev.repeat(shifts.shape)
     scale_curr = torch.empty_like(scale_prev)
 
     # Perform iterations
-    num_iter = min(rhs.size(-2), max_num_iter)
+    num_iter = max_num_iter
     for i in range(num_iter):
         # Perform matmul
-        prod = matmul_closure(qvec_prev1)
+        prod = mm_(qvec_prev1)
         if value is not None:
             prod.mul_(value)
 
@@ -75,8 +82,10 @@ def minres(matmul_closure, rhs, value=None, shifts=None, max_num_iter=100):
         # --> alpha_curr, beta_curr, qvec_curr
         qvec_curr.copy_(prod)
         torch.sum(prod.mul_(qvec_prev1), -2, keepdim=True, out=alpha_curr)
-        qvec_curr.addcmul_(-1, alpha_curr, qvec_prev1).addcmul_(-1, beta_prev, qvec_prev2)
-        torch.norm(qvec_curr, dim=-2, keepdim=True, out=beta_curr)
+
+        qvec_curr.addcmul_(alpha_curr, qvec_prev1, value=-1).addcmul_(beta_prev, qvec_prev2, value=-1)
+        torch.norm(qvec_curr, p=2, dim=-2, keepdim=True, out=beta_curr)
+
         qvec_curr.div_(beta_curr)
 
         # Get shifted alpha
@@ -90,7 +99,7 @@ def minres(matmul_closure, rhs, value=None, shifts=None, max_num_iter=100):
         torch.mul(sin_prev2, beta_prev, out=subsub_diag_term)
         torch.mul(cos_prev2, beta_prev, out=sub_diag_term)
         # 2) Apply previous Givens rotation
-        torch.mul(alpha_shifted_curr, cos_prev1, out=diag_term).addcmul_(-1, sin_prev1, sub_diag_term)
+        torch.mul(alpha_shifted_curr, cos_prev1, out=diag_term).addcmul_(sin_prev1, sub_diag_term, value=-1)
         sub_diag_term.mul_(cos_prev1).addcmul_(sin_prev1, alpha_shifted_curr)
         # 3) Compute next Givens terms
         torch.mul(diag_term, diag_term, out=radius_curr).addcmul_(beta_curr, beta_curr).sqrt_()
@@ -106,8 +115,8 @@ def minres(matmul_closure, rhs, value=None, shifts=None, max_num_iter=100):
         torch.mul(scale_prev, sin_curr, out=scale_curr).mul_(-1)
         scale_prev.mul_(cos_curr)
         # 2) Get the new search vector
-        torch.addcmul(qvec_prev1, -1, sub_diag_term, search_prev1, out=search_curr)
-        search_curr.addcmul_(-1, subsub_diag_term, search_prev2)
+        torch.addcmul(qvec_prev1, sub_diag_term, search_prev1, value=-1, out=search_curr)
+        search_curr.addcmul_(subsub_diag_term, search_prev2, value=-1)
         search_curr.div_(diag_term)
         # 3) Update the solution
         solution.addcmul_(scale_prev, search_curr)
