@@ -1,14 +1,18 @@
+#!/usr/bin/env python3
+
+#TODO: this needs to be cleaned up to gpytorch standards.
+# it probably won't load as is
+
 import math
 import torch
-import gpytorch
 import copy
 
-from gpytorch.kernels.kernel import Kernel
+from . import Kernel
 #from botorch import fit_gpytorch_model
 from torch.nn import ModuleList
 
 from ..means import LogRBFMean
-from ..utils import spectral_init
+#from ..utils import spectral_init
 from ..models import ExactGPModel
 from ..priors import GaussianProcessPrior
 from ..trainer import trainer

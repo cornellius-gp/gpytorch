@@ -23,7 +23,8 @@ from .rbf_kernel_grad import RBFKernelGrad
 from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 from .white_noise_kernel import WhiteNoiseKernel
-
+from .spectral_gp_kernel import SpectralGPKernel
+from .wrapped_spectral_gp_kernel import WrappedSpectralGPKernel
 
 __all__ = [
     "keops",
@@ -51,5 +52,7 @@ __all__ = [
     "RBFKernelGrad",
     "ScaleKernel",
     "SpectralMixtureKernel",
+    "SpectralGPKernel",
     "WhiteNoiseKernel",
+    "WrappedSpectralGPKernel"
 ]
