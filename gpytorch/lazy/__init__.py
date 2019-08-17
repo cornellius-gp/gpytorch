@@ -23,7 +23,8 @@ from .sum_lazy_tensor import SumLazyTensor
 from .sum_batch_lazy_tensor import SumBatchLazyTensor
 from .toeplitz_lazy_tensor import ToeplitzLazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
-
+from .diag_kron_prod_lazy_tensor import DiagKronProdLazyTensor
+from .kron_lazylogdet_lazy_tensor import KroneckerProductLazyLogDet
 
 __all__ = [
     "delazify",
@@ -53,4 +54,5 @@ __all__ = [
     "SumBatchLazyTensor",
     "ToeplitzLazyTensor",
     "ZeroLazyTensor",
+    "DiagKronProdLazyTensor"
 ]
