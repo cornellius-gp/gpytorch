@@ -1,56 +1,12 @@
 from scipy.special import ellipk, ellipj
 from .lanczos import lanczos_tridiag
+from .minres import minres
 import torch
 import numpy as np
 import math
 
 
-def solve_shifted_systems(lanczos_basis, lanczos_mat, rhs, shifts):
-    """
-    Solves several systems of the form:
-
-        (s_j I - A)x = rhs
-
-    with shifts s_1,...,s_K, and where A is at least symmetric.
-
-    To do this efficiently, we exploit the fact that any matrix (s_j I - A) has the same
-    Krylov subspace as A. Therefore, we run Lanczos on A to get Q and T,
-    and observe that s_j I_k - T is (s_j I - A) projected in to the Krylov subspace.
-
-    Therefore, the jth solve is given by:
-
-        x*_j = ||rhs||_{2}^{2} * Q(s_j I_k - T)^{-1}e_1
-
-    Args:
-        - Q (torch.Tensor): Q matrix from running Lanczos on (A, rhs)
-        - T (torch.Tensor): T matrix from running Lanczos on (A, rhs)
-        - rhs (torch.Tensor): rhs in system (s_j I - A)x = rhs
-        - shifts (torch.Tensor): 1D tensor of shifts s_1, ..., s_K
-    """
-    shifts_batch = shifts.view(shifts.numel(), *([1] * (lanczos_mat.dim())))
-    I_mats = shifts_batch * torch.eye(
-        *lanczos_mat.shape[-2:],
-        device=lanczos_mat.device,
-        dtype=lanczos_mat.dtype
-    ).repeat(*lanczos_mat.shape[:-2], 1, 1)
-
-    shifted_mats = I_mats - lanczos_mat.unsqueeze(0)
-
-    e_1 = torch.zeros(lanczos_mat.size(-1), 1, device=lanczos_mat.device, dtype=lanczos_mat.dtype)
-    e_1[0] = 1
-
-    krylov_solves = torch.solve(e_1, shifted_mats)[0]
-
-    norms = rhs.norm(dim=-2)
-    if norms.numel() == 1:
-        real_solves = norms.item() * lanczos_basis.matmul(krylov_solves)
-    else:
-        norms = norms.view(1, norms.numel(), 1, 1)
-        real_solves = norms * lanczos_basis.matmul(krylov_solves)
-    return real_solves
-
-
-def sqrt_matmul(lazy_tensor, rhs, inverse=False, max_lanczos_iter=50, num_quad_samples=15):
+def sqrt_matmul(lazy_tensor, rhs, inverse=False, max_lanczos_iter=10, num_quad_samples=15):
     """
     Performs A^{1/2} rhs using contour integral quadrature.
 
@@ -68,7 +24,7 @@ def sqrt_matmul(lazy_tensor, rhs, inverse=False, max_lanczos_iter=50, num_quad_s
         dtype=rhs.dtype,
         device=rhs.device,
         matrix_shape=lazy_tensor.shape,
-        max_iter=max_lanczos_iter,
+        max_iter=5,
     )
 
     # We need to run Lanczos anyways
@@ -93,11 +49,11 @@ def sqrt_matmul(lazy_tensor, rhs, inverse=False, max_lanczos_iter=50, num_quad_s
     w = np.sqrt(min_eig.item()) * sn
     dzdt = cn * dn
     w_pow2 = np.real(np.power(w, 2))
-    solves = solve_shifted_systems(
-        lanczos_basis,
-        lanczos_mat,
+    solves = minres(
+        lambda v: lazy_tensor._matmul(v),
         rhs,
-        torch.from_numpy(w_pow2.astype(float)).type_as(rhs).to(rhs.device),
+        value=-1,
+        shifts=torch.from_numpy(w_pow2.astype(float)).type_as(rhs).to(rhs.device),
     )
 
     dzdt_th = torch.from_numpy(dzdt).type_as(solves)

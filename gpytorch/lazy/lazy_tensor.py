@@ -14,6 +14,7 @@ from ..functions._inv_quad import InvQuad
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
+from ..functions._sqrt_inv_matmul import SqrtInvMatmul
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
@@ -1443,7 +1444,17 @@ class LazyTensor(ABC):
         return sqrt_matmul(self, rhs).transpose(-2, -1)
 
     def sqrt_inv_matmul(self, rhs):
-        return sqrt_matmul(self, rhs, inverse=True).transpose(-2, -1)
+        squeeze = False
+        if rhs.dim() == 1:
+            rhs = rhs.unsqueeze(-1)
+            squeeze = True
+
+        func = SqrtInvMatmul()
+        res = func.apply(self.representation_tree(), rhs, *self.representation())
+
+        if squeeze:
+            res = res.squeeze(-1)
+        return res
 
     def sum(self, dim=None):
         """
