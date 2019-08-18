@@ -395,6 +395,10 @@ class LazyTensor(ABC):
         from .non_lazy_tensor import NonLazyTensor
         evaluated_mat = self.evaluate()
 
+        # if the tensor is a scalar, we can just take the square root
+        if evaluated_mat.size(-1) == 1:
+            return NonLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
+
         # NOTE: this hack is in place so that the gradient of the Cholesky factorization is symmetric
         # We can remove this hack once https://github.com/pytorch/pytorch/issues/18825 is merged in
         if evaluated_mat.requires_grad:
