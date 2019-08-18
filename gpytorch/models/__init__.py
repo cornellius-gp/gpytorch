@@ -12,11 +12,19 @@ from . import deep_gps
 
 try:
     from .pyro_variational_gp import PyroVariationalGP
-except ImportError:
+    from .stein_variational_gp import SteinVariationalGP
+
+except ImportError as e:
+    print(e)
 
     class PyroVariationalGP(object):
         def __init__(self, *args, **kwargs):
             raise RuntimeError("Cannot use a PyroVariationalGP because you dont have Pyro installed.")
+
+
+    class SteinVariationalGP(object):
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("Cannot use a SteinVariationalGP because you dont have Pyro installed.")
 
 
 __all__ = [
@@ -28,6 +36,7 @@ __all__ = [
     "GridInducingVariationalGP",
     "IndependentModelList",
     "PyroVariationalGP",
+    "SteinVariationalGP",
     "VariationalGP",
     "deep_gps",
 ]
