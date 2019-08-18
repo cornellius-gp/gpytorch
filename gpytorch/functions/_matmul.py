@@ -59,6 +59,6 @@ class Matmul(Function):
 
             # For broadcasting
             if rhs_grad.dim() > len(rhs_shape):
-                rhs_grad = rhs_grad.contiguous().view(-1, *rhs_shape).sum(0)
+                rhs_grad = rhs_grad.reshape(-1, *rhs_shape).sum(0)
 
         return tuple([None] + [rhs_grad] + list(arg_grads))

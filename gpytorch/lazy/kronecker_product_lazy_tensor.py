@@ -23,7 +23,7 @@ def _matmul(lazy_tensors, kp_shape, rhs):
         res = res.view(*output_batch_shape, lazy_tensor.size(-1), -1)
         factor = lazy_tensor._matmul(res)
         factor = factor.view(*output_batch_shape, lazy_tensor.size(-2), -1, num_cols).transpose(-3, -2)
-        res = factor.contiguous().view(*output_batch_shape, -1, num_cols)
+        res = factor.reshape(*output_batch_shape, -1, num_cols)
     return res
 
 
@@ -38,7 +38,7 @@ def _t_matmul(lazy_tensors, kp_shape, rhs):
         res = res.view(*output_batch_shape, lazy_tensor.size(-2), -1)
         factor = lazy_tensor._t_matmul(res)
         factor = factor.view(*output_batch_shape, lazy_tensor.size(-1), -1, num_cols).transpose(-3, -2)
-        res = factor.contiguous().view(*output_batch_shape, -1, num_cols)
+        res = factor.reshape(*output_batch_shape, -1, num_cols)
     return res
 
 

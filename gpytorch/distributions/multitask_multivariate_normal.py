@@ -37,7 +37,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         # TODO: Instead of transpose / view operations, use a PermutationLazyTensor (see #539) to handle interleaving
         self._interleaved = interleaved
         if self._interleaved:
-            mean_mvn = mean.contiguous().view(*mean.shape[:-2], -1)
+            mean_mvn = mean.reshape(*mean.shape[:-2], -1)
         else:
             mean_mvn = mean.transpose(-1, -2).reshape(*mean.shape[:-2], -1)
         super().__init__(mean=mean_mvn, covariance_matrix=covariance_matrix, validate_args=validate_args)
