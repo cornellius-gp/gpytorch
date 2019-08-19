@@ -58,9 +58,8 @@ class SteinVariationalGP(Module):
 
         test_mean = full_output.mean[..., num_induc:]
         L = full_covar[..., :num_induc, :num_induc].add_jitter().cholesky().evaluate()
-        Linv = torch.triangular_solve(torch.eye(L.size(-1), dtype=L.dtype, device=L.device), L, upper=False)[0]
         cross_covar = full_covar[..., :num_induc, num_induc:].evaluate()
-        scaled_cross_covar = Linv @ cross_covar
+        scaled_cross_covar = torch.triangular_solve(cross_covar, L, upper=False)[0]
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
         function_dist = MultivariateNormal(
