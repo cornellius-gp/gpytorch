@@ -20,8 +20,6 @@ from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.gradients import _ensure_symmetric_grad
 from ..utils.getitem import _noop_index, _convert_indices_to_tensors, _compute_getitem_size
 from ..utils.memoize import add_to_cache, cached
-from ..utils.qr import batch_qr
-from ..utils.svd import batch_svd
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
@@ -404,7 +402,8 @@ class LazyTensor(ABC):
         if evaluated_mat.requires_grad:
             evaluated_mat.register_hook(_ensure_symmetric_grad)
 
-        cholesky = psd_safe_cholesky(evaluated_mat.double()).to(self.dtype)
+        # contiguous call is necessary here
+        cholesky = psd_safe_cholesky(evaluated_mat).contiguous()
         return NonLazyTensor(cholesky)
 
     def _cholesky_solve(self, rhs):
@@ -417,7 +416,7 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor
         """
-        return torch.cholesky_solve(rhs.double(), self.evaluate().double()).to(self.dtype)
+        return torch.cholesky_solve(rhs, self.evaluate())
 
     def _inv_matmul_preconditioner(self):
         """
@@ -442,9 +441,9 @@ class LazyTensor(ABC):
                     dtype=self.dtype,
                 )
                 projected_mat = self._matmul(random_basis)
-                proj_q = batch_qr(projected_mat)
+                proj_q = torch.qr(projected_mat)
                 orthog_projected_mat = self._matmul(proj_q).transpose(-2, -1)
-                U, S, V = batch_svd(orthog_projected_mat)
+                U, S, V = torch.svd(orthog_projected_mat)
                 U = proj_q.matmul(U)
 
                 self._default_preconditioner_cache = (U, S, V)
@@ -1352,8 +1351,12 @@ class LazyTensor(ABC):
             or settings.fast_computations.covar_root_decomposition.off()
         ):
             try:
-                res = self.cholesky()
-                res = lazify(delazify(res).double().inverse().transpose(-2, -1).to(self.dtype))
+                L = delazify(self.cholesky())
+                # we know L is triangular, so inverting is a simple triangular solve agaist the identity
+                # we don't need the batch shape here, thanks to broadcasting
+                Eye = torch.eye(L.shape[-2], device=L.device, dtype=L.dtype)
+                Linv = torch.triangular_solve(Eye, L, upper=False)[0]
+                res = lazify(Linv.transpose(-1, -2))
                 return RootLazyTensor(res)
             except RuntimeError as e:
                 warnings.warn(
