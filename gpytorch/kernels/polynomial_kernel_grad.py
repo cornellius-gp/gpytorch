@@ -24,7 +24,7 @@ class PolynomialKernelGrad(PolynomialKernel):
             base_diag = (x1 * x2).sum(dim=-1) + self.offset
             K11_diag = base_diag.pow(self.power)
 
-            all_outers_diag = (x1 * x2).transpose(-2, -1).contiguous().view(*batch_shape, -1)
+            all_outers_diag = (x1 * x2).transpose(-2, -1).reshape(*batch_shape, -1)
             K22_base_diag = self.power * (self.power - 1) * base_diag.pow(self.power - 2)
             K12_base_diag = self.power * base_diag.pow(self.power - 1)
 
@@ -41,7 +41,7 @@ class PolynomialKernelGrad(PolynomialKernel):
             ones_ = torch.ones(*batch_shape, d, 1, n2, dtype=x1.dtype, device=x1.device)
             K12_outer_prods = torch.matmul(x1.transpose(-2, -1).unsqueeze(-1), ones_)
             K12 = (
-                (K12_base.unsqueeze(-3) * K12_outer_prods).transpose(-3, -2).contiguous().view(*batch_shape, n1, d * n2)
+                (K12_base.unsqueeze(-3) * K12_outer_prods).transpose(-3, -2).reshape(*batch_shape, n1, d * n2)
             )
 
             ones_ = torch.ones(*batch_shape, d, n1, 1, dtype=x1.dtype, device=x1.device)
@@ -58,13 +58,13 @@ class PolynomialKernelGrad(PolynomialKernel):
             for i in range(d):
                 K22[..., i, i, :, :] = K22[..., i, i, :, :] + K12_base
 
-            K22 = K22.transpose(-4, -3).transpose(-3, -2).contiguous().view(*batch_shape, n1 * d, n2 * d)
+            K22 = K22.transpose(-4, -3).transpose(-3, -2).reshape(*batch_shape, n1 * d, n2 * d)
 
             K = torch.cat([torch.cat([K11, K12], dim=-1), torch.cat([K21, K22], dim=-1)], dim=-2)
 
             # Apply perfect shuffle
-            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().contiguous().view((n1 * (d + 1)))
-            pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().contiguous().view((n2 * (d + 1)))
+            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape((n1 * (d + 1)))
+            pi2 = torch.arange(n2 * (d + 1)).view(d + 1, n2).t().reshape((n2 * (d + 1)))
             K = K[..., pi1, :][..., :, pi2]
 
             return K
