@@ -26,14 +26,15 @@ class SteinVariationalGP(Module):
         pyro.module(self.name_prefix + ".gp_prior", self)
 
         function_dist = self(input, *params, **kwargs)
-        function_dist = pyro.distributions.Normal(function_dist.mean, function_dist.variance.sqrt())
 
         # Go from function -> output
-        num_minibatch = function_dist.batch_shape[-1]
+        num_minibatch = function_dist.event_shape[0]
         with pyro.poutine.scale(scale=float(self.num_data / num_minibatch)):
-            return self.likelihood.pyro_sample_output(
-                output, function_dist, *params, **kwargs
+            likelihood_dist = pyro.distributions.Normal(
+                function_dist.mean,
+                (function_dist.variance + self.likelihood.noise).sqrt() 
             )
+            return pyro.sample(self.name_prefix + ".output_values", likelihood_dist, obs=output)
 
     def sample_inducing_values(self):
         """
