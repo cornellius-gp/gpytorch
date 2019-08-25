@@ -3,9 +3,7 @@ import matplotlib.pyplot as plt
 import math
 import numpy as np
 
-from gpytorch.kernels import RBFKernel
-
-from spectralgp.kernels import SpectralGPKernel
+from gpytorch.kernels import RBFKernel, SpectralGPKernel
 
 import unittest
 

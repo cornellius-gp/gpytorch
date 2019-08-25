@@ -1,14 +1,13 @@
 import torch
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import math
 import numpy as np
 import gpytorch
-from gpytorch.kernels import RBFKernel
-from spectralgp.kernels import SpectralGPKernel, WrappedFKL
+from gpytorch.kernels import RBFKernel, SpectralGPKernel, WrappedSpectralGPKernel
 
 import unittest
 
-class WrappedFKLTest(unittest.TestCase):
+class WrappedSpectralGPKernelTest(unittest.TestCase):
     def test_forward(self):
         print("test fwd")
 
@@ -29,7 +28,7 @@ class WrappedFKLTest(unittest.TestCase):
         dist2 = torch.distributions.Normal(2., 0.2)
 
         ## wrapped FKL and set latents ##
-        wrapped_fkl = WrappedFKL(train_x, train_y, shared=False)
+        wrapped_fkl = WrappedSpectralGPKernel(train_x, train_y, shared=False)
 
         omg1 = wrapped_fkl.get_omega(0)
         dens1 = dist1.log_prob(omg1)
@@ -51,13 +50,9 @@ class WrappedFKLTest(unittest.TestCase):
         kern2.set_latent_params(dens2)
 
         cov1 = kern1(train_x[:, 0], train_x[:, 0])
-        # print("cov1", cov1.evaluate())
         cov2 = kern2(train_x[:, 1], train_x[:, 1])
-        # print("cov2", cov2.evaluate())
 
         test_cov = cov1 * cov2
-        # print("test_cov", test_cov.evaluate().norm())
-        # print("wrapped fkl", wrapped_fkl_cov.evaluate().norm())
 
         self.assertLess((cov1.evaluate() - wrapped_cov1.evaluate()).norm().abs(), 1e-6)
         self.assertLess((cov2.evaluate() - wrapped_cov2.evaluate()).norm().abs(), 1e-6)
@@ -84,7 +79,7 @@ class WrappedFKLTest(unittest.TestCase):
     #     dist2 = torch.distributions.Normal(2., 0.2)
     #
     #     ## wrapped FKL and set latents ##
-    #     wrapped_fkl = WrappedFKL(train_x, train_y, shared=True)
+    #     wrapped_fkl = WrappedSpectralGPKernel(train_x, train_y, shared=True)
     #
     #     omg1 = wrapped_fkl.get_omega(0)
     #     dens1 = dist1.log_prob(omg1)

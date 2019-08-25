@@ -5,14 +5,13 @@ import torch
 from . import KroneckerProductLazyTensor, DiagLazyTensor, NonLazyTensor
 
 class KroneckerProductLazyLogDet(KroneckerProductLazyTensor):
-    def __init__(self, *lazy_tensors):
+    def __init__(self, *lazy_tensors, jitter = 0):
         super(KroneckerProductLazyLogDet, self).__init__(*lazy_tensors)
-        # on initialization take the svd of all of the lazy tensors
-        #self.svd_cache = [lt.evaluate().svd() for lt in self.lazy_tensors]
+        # on initialization take the eigenvectors & eigenvalues of all of the lazy tensors
         self.eig_cache = [torch.eig(lt.evaluate(), eigenvectors = True) for lt in self.lazy_tensors]
 
     def inv_matmul(self, rhs):
-        Vinv = KroneckerProductLazyTensor(*[DiagLazyTensor(1 / (s[0][:,0].abs()+1e-6) ) for s in self.eig_cache])
+        Vinv = KroneckerProductLazyTensor(*[DiagLazyTensor(1 / (s[0][:,0].abs()+jitter) ) for s in self.eig_cache])
         Q = KroneckerProductLazyTensor(*[NonLazyTensor(s[1]) for s in self.eig_cache])
 
         # first compute Q^T y

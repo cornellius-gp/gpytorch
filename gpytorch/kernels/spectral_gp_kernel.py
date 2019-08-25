@@ -7,15 +7,77 @@ import math
 import torch
 import copy
 
-from . import Kernel
-#from botorch import fit_gpytorch_model
+from scipy.signal import periodogram, welch
+from scipy.interpolate import interp1d
+
 from torch.nn import ModuleList
 
-from ..means import LogRBFMean
+from . import Kernel, ScaleKernel, MaternKernel, GridKernel
+from ..likelihoods import GaussianLikelihood
+from ..priors import SmoothedBoxPrior, NormalPrior
+from ..models import ExactGP
+from ..distributions import MultivariateNormal
+from ..means import LogRBFMean, ZeroMean
 #from ..utils import spectral_init
-from ..models import ExactGPModel
-from ..priors import GaussianProcessPrior
-from ..trainer import trainer
+
+
+class ExactGPModel(ExactGP):
+    def __init__(self, train_x, train_y, likelihood, mean=ZeroMean, grid = True):
+        super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
+        self.mean_module = mean()
+
+        self.covar_module = ScaleKernel(
+                MaternKernel(nu=1.5,
+                    lengthscale_prior = NormalPrior(torch.zeros(1), torch.ones(1),
+                                            transform=torch.exp)
+                    ),
+                    outputscale_prior = NormalPrior(torch.zeros(1), torch.ones(1),
+                                            transform=torch.exp)
+                )
+
+        self.grid = grid
+        if self.grid:
+            self.grid_module = GridKernel(self.covar_module, grid = train_x.unsqueeze(1))
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        if self.grid:
+            covar_x = self.grid_module(x)
+        else:
+            covar_x = self.covar_module(x)
+
+        return MultivariateNormal(mean_x, covar_x)
+
+def spectral_init(x, y, spacing, num_freq=500, omega_lim=None,
+                    rtn_oneside=True):
+    if spacing == 'even':
+        f, den = periodogram(y.cpu().numpy(), fs=1/(x[1] - x[0]).item(),
+                            return_onesided=rtn_oneside)
+    elif spacing == 'random':
+        interp_x = torch.linspace(x.min(), x.max()-1e-6, num_freq)
+        interp_y = interp1d(x.cpu().numpy(), y.cpu().numpy())(interp_x.cpu().numpy())
+
+        cand = 0.0
+        idx = 0
+        while cand < 1.e-23:
+            cand = (interp_x[idx+1] - interp_x[idx])
+            idx += 1
+        f, den = periodogram(interp_y, fs=1/(cand).item(), return_onesided=rtn_oneside)
+
+    ## get omegas ##
+    print(omega_lim)
+    if omega_lim is not None:
+        lw_bd = max(min(f), omega_lim[0])
+        up_bd = min(max(f), omega_lim[1])
+        omega = torch.linspace(lw_bd + 1e-7, up_bd - 1e-7, num_freq)
+    else:
+        omega = torch.linspace(min(f)+1e-6, 0.5 * (max(f)-1e-6), num_freq)
+
+    interp_den = interp1d(f, den)(omega.cpu().numpy())
+    interp_den += 1e-10
+    log_periodogram = torch.Tensor(interp_den).log()
+
+    return omega, log_periodogram
 
 class SpectralGPKernel(Kernel):
     def __init__(self, integration='U', omega = None, num_locs = 50, omega_max = 0.2,
@@ -37,7 +99,7 @@ class SpectralGPKernel(Kernel):
         self.symmetrize = symmetrize
 
         if omega is None:
-            if integration == 'U' and omega_max != None:
+            if integration == 'U' and omega_max is not None:
                 omega = torch.linspace(0., omega_max, num_locs)
             else:
                 omega = torch.randn(num_locs) * math.pi
@@ -81,7 +143,11 @@ class SpectralGPKernel(Kernel):
         return integral
 
     def initialize_from_data(self, train_x, train_y, num_locs=100, omega_max=None, spacing='random',
-            latent_lh = None, latent_mod = None, pretrain = True, nonstat = False, **kwargs):
+            latent_lh = None, latent_mod = None, pretrain = False, nonstat = False, **kwargs):
+        #from ..models import ExactGPModel
+        from ..priors import GaussianProcessPrior
+        #from ..trainer import trainer
+
         # get omega and periodogram
         if omega_max is not None:
             omega_lim = (1.e-10, omega_max)
@@ -101,7 +167,7 @@ class SpectralGPKernel(Kernel):
 
         # if latent model is passed in, use that
         if latent_lh is None:
-            self.latent_lh = gpytorch.likelihoods.GaussianLikelihood(noise_prior=gpytorch.priors.SmoothedBoxPrior(1e-8, 1e-3))
+            self.latent_lh = GaussianLikelihood(noise_prior=SmoothedBoxPrior(1e-8, 1e-3))
         else:
             self.latent_lh = latent_lh
 

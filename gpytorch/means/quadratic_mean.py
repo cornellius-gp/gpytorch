@@ -44,7 +44,7 @@ class LogRBFMean(QuadraticMean):
         self.register_prior('bias_prior', prior=NormalPrior(torch.zeros(1), 100.*torch.ones(1), transform=None), 
             param_or_closure = 'bias')
         
-        self.register_constraint('quadratic_name', Positive())
+        self.register_constraint('quadratic_weights', Positive())
         self.register_prior('quadratic_weight_prior', param_or_closure='quadratic_weights', 
             prior=NormalPrior(torch.zeros(1), 100.*torch.ones(1), transform=torch.nn.functional.softplus))
 
