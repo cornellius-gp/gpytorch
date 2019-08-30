@@ -49,12 +49,23 @@ def sqrt_matmul(lazy_tensor, rhs, inverse=False, max_lanczos_iter=10, num_quad_s
     w = np.sqrt(min_eig.item()) * sn
     dzdt = cn * dn
     w_pow2 = np.real(np.power(w, 2))
-    solves = minres(
-        lambda v: lazy_tensor._matmul(v),
-        rhs,
-        value=-1,
-        shifts=torch.from_numpy(w_pow2.astype(float)).type_as(rhs).to(rhs.device),
-    )
+
+    shifts = torch.from_numpy(w_pow2.astype(float)).type_as(rhs).to(rhs.device)
+    K = lazy_tensor.evaluate()
+    Kr = K.repeat(len(shifts), 1, 1)
+    bshifts = shifts.unsqueeze(-1)
+    iKr = Kr.mul(-1)
+    iKr.diagonal(dim1=-2, dim2=-1).add_(bshifts)
+    solves = torch.solve(rhs, iKr).solution
+
+    # from IPython.core.debugger import set_trace
+    # set_trace()
+    # solves = minres(
+    #     lambda v: lazy_tensor._matmul(v),
+    #     rhs,
+    #     value=-1,
+    #     shifts=shifts,
+    # )
 
     dzdt_th = torch.from_numpy(dzdt).type_as(solves)
     dzdt_th = dzdt_th.view(dzdt_th.numel(), *([1] * (solves.dim() - 1)))
@@ -62,7 +73,7 @@ def sqrt_matmul(lazy_tensor, rhs, inverse=False, max_lanczos_iter=10, num_quad_s
     summed_solves = weighted_solves.sum(0)
 
     if not inverse:
-        res = lazy_tensor._matmul(summed_solves)
+        res = lazy_tensor.matmul(summed_solves)
     else:
         res = summed_solves
 
