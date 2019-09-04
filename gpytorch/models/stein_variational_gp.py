@@ -3,8 +3,11 @@
 import torch
 import pyro
 from .. import Module
-from ..lazy import RootLazyTensor, DiagLazyTensor
-from ..distributions import MultivariateNormal
+from ..lazy import RootLazyTensor, DiagLazyTensor, BlockDiagLazyTensor
+from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
+from ..utils.broadcasting import _mul_broadcast_shape
+from . import GP
+from .. import settings
 
 
 class SteinVariationalGP(Module):
@@ -32,8 +35,8 @@ class SteinVariationalGP(Module):
         with pyro.poutine.scale(scale=float(self.num_data / num_minibatch)):
             likelihood_dist = pyro.distributions.Normal(
                 function_dist.mean,
-                (function_dist.variance + self.likelihood.noise).sqrt() 
-            )
+                (function_dist.variance + self.likelihood.noise).sqrt()
+            ).to_event(1)
             return pyro.sample(self.name_prefix + ".output_values", likelihood_dist, obs=output)
 
     def sample_inducing_values(self):
@@ -48,12 +51,18 @@ class SteinVariationalGP(Module):
         return samples
 
     def __call__(self, input, *args, **kwargs):
+        inducing_points = self.inducing_points
+        inducing_batch_shape = inducing_points.shape[:-2]
+        if inducing_batch_shape < input.shape[:-2]:
+            batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], input.shape[:-2])
+            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
+            input = input.expand(*batch_shape, *input.shape[-2:])
         # Draw samples from p(u) for KL divergence computation
         inducing_values_samples = self.sample_inducing_values()
 
         # Get function dist
-        num_induc = self.inducing_points.size(-2)
-        full_inputs = torch.cat([self.inducing_points, input], dim=-2)
+        num_induc = inducing_points.size(-2)
+        full_inputs = torch.cat([inducing_points, input], dim=-2)
         full_output = self.forward(full_inputs)
         full_covar = full_output.lazy_covariance_matrix
 
@@ -64,7 +73,92 @@ class SteinVariationalGP(Module):
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
         function_dist = MultivariateNormal(
-            torch.squeeze(scaled_cross_covar.transpose(-1, -2) @ inducing_values_samples.unsqueeze(-1)),
+            (scaled_cross_covar.transpose(-1, -2) @ inducing_values_samples.unsqueeze(-1)).squeeze(-1),
             data_data_covar + RootLazyTensor(scaled_cross_covar.transpose(-1, -2)).mul(-1)
         )
         return function_dist
+
+class SteinVariationalDeepGPLayer(SteinVariationalGP):
+    def __init__(self, input_dims, output_dims, inducing_points, likelihood, num_data, name_prefix=""):
+        if inducing_points.size(-1) != input_dims:
+            raise RuntimeError(
+                "Inducing point dimensionality must match specified input_dim."
+            )
+
+        if output_dims is not None and inducing_points.size(-3) != output_dims:
+            raise RuntimeError(
+                "Inducing point batch size must match specified output_dims."
+            )
+        super().__init__(inducing_points, likelihood, num_data, name_prefix)
+        self.input_dims = input_dims
+        self.output_dims = output_dims
+
+    def __call__(self, inputs, are_samples=False, *args, **kwargs):
+        deterministic_input = not are_samples
+        if isinstance(inputs, MultitaskMultivariateNormal):
+            inputs = torch.distributions.Normal(inputs.mean, inputs.variance.sqrt()).rsample()
+            deterministic_input = False
+
+        if settings.debug.on():
+            if not torch.is_tensor(inputs):
+                raise ValueError(
+                    "`inputs` should either be a MultitaskMultivariateNormal or a Tensor, got "
+                    f"{inputs.__class__.__Name__}"
+                )
+
+            if inputs.size(-1) != self.input_dims:
+                raise RuntimeError(
+                    f"Input shape did not match self.input_dims. Got total feature dims [{inputs.size(-1)}],"
+                    f" expected [{self.input_dims}]"
+                )
+
+        if self.output_dims is not None:
+            inputs = inputs.unsqueeze(-3)
+            inputs = inputs.expand(*inputs.shape[:-3], self.output_dims, *inputs.shape[-2:])
+
+        output = super().__call__(inputs)
+
+        if self.output_dims is not None:
+            mean = output.loc.transpose(-2, -1)
+            covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
+            output = MultitaskMultivariateNormal(mean, covar, interleaved=False)
+
+        if deterministic_input:
+            mean = mean.expand(torch.Size([settings.num_likelihood_samples.value()]) + mean.shape)
+            if len(output.batch_shape) > 0:
+                mean = mean.transpose(0, 1)
+            output = MultitaskMultivariateNormal(mean, covar, interleaved=False)
+
+        return output
+
+class SteinVariationalDeepGP(GP):
+    def __init__(self, num_data, likelihood, name_prefix=""):
+        super().__init__()
+        self.name_prefix = name_prefix
+        self.num_data = num_data
+        self.likelihood = likelihood
+
+    def forward(self, input):
+        """
+        Assume forward passes through all hidden GP layers.
+        """
+        raise NotImplementedError
+
+    def model(self, input, output, *params, **kwargs):
+        pyro.module(self.name_prefix + ".gp_prior", self)
+
+        # Function dist will be e.g. gp2(gp1(x)), and be f_samples x minibatch_size MVN
+        # pyro sample calls on p(u) will have happened in all layers already.
+        function_dist = self(input, *params, **kwargs)
+
+        # Go from function -> output
+        num_minibatch = function_dist.event_shape[0]
+        num_samples = settings.num_likelihood_samples.value()
+        scale_factor = self.num_data / (num_samples * num_minibatch)
+        with pyro.poutine.scale(scale=float(scale_factor)):
+            likelihood_dist = pyro.distributions.Normal(
+                function_dist.mean,
+                (function_dist.variance + self.likelihood.noise).sqrt()
+            ).to_event(1)
+            print(likelihood_dist.shape)
+            return pyro.sample(self.name_prefix + ".output_values", likelihood_dist, obs=output)

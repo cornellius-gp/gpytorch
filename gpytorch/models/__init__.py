@@ -12,7 +12,7 @@ from . import deep_gps
 
 try:
     from .pyro_variational_gp import PyroVariationalGP
-    from .stein_variational_gp import SteinVariationalGP
+    from .stein_variational_gp import SteinVariationalGP, SteinVariationalDeepGPLayer, SteinVariationalDeepGP
 
 except ImportError as e:
     print(e)
@@ -37,6 +37,8 @@ __all__ = [
     "IndependentModelList",
     "PyroVariationalGP",
     "SteinVariationalGP",
+    "SteinVariationalDeepGPLayer",
+    "SteinVariationalDeepGP",
     "VariationalGP",
     "deep_gps",
 ]
