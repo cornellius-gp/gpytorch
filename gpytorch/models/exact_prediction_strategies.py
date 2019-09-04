@@ -209,24 +209,16 @@ class DefaultPredictionStrategy(object):
         new_root[..., m:, n:] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
-        try:
-            Q, R = torch.qr(new_root)
-            Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
-            # if R is almost singular, add jitter (Rdiag is a view, so this works)
-            zeroish = Rdiag.abs() < 1e-6
-            if torch.any(zeroish):
-                Rdiag[zeroish] = 1e-6
-            new_covar_cache = torch.triangular_solve(Q.transpose(-2, -1), R)[0]
-        except RuntimeError as e:
-            # TODO: Deprecate once batch QR supported in latest torch stable
-            if "invalid argument 1: A should be 2 dimensional" not in e.args[0]:
-                raise e
-            cap_mat = new_root.transpose(-2, -1).matmul(new_root)
-            if cap_mat.requires_grad or new_root.requires_grad:
-                new_covar_cache = torch.solve(new_root.transpose(-2, -1), cap_mat)[0]
-            else:
-                new_covar_cache = torch.cholesky_solve(new_root.transpose(-2, -1), torch.cholesky(cap_mat))
-        new_covar_cache = new_covar_cache.transpose(-2, -1)
+        Q, R = torch.qr(new_root)
+        Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
+        # if R is almost singular, add jitter (Rdiag is a view, so this works)
+        zeroish = Rdiag.abs() < 1e-6
+        if torch.any(zeroish):
+            # can't use in-place operation here b/c it would mess up backward pass
+            # haven't found a more elegant way to add a jitter diagonal yet...
+            jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
+            R = R + jitter_diag.unsqueeze(-1) * torch.eye(R.size(-1), device=R.device, dtype=R.dtype)
+        new_covar_cache = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
