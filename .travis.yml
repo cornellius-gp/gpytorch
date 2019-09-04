@@ -12,10 +12,11 @@ env:
 
 install:
   - if [[ $PYTORCH_VERSION = "master" ]]; then
-      pip install torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
+      pip install numpy;
+      pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
       python setup.py build develop;
     else
-      pip3 install https://download.pytorch.org/whl/cpu/torch-1.1.0-cp36-cp36m-linux_x86_64.whl;
+      pip install torch==1.2.0+cpu -f https://download.pytorch.org/whl/torch_stable.html;
     fi
 
 script:
