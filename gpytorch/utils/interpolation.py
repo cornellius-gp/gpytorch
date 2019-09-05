@@ -2,6 +2,8 @@
 
 import torch
 from .broadcasting import _matmul_broadcast_shape
+from functools import reduce
+from operator import mul
 
 
 class Interpolation(object):
@@ -37,11 +39,14 @@ class Interpolation(object):
         return res
 
     def interpolate(self, x_grid, x_target, interp_points=range(-2, 2)):
-        # Do some boundary checking
-        grid_mins = x_grid.min(0)[0]
-        grid_maxs = x_grid.max(0)[0]
-        x_target_min = x_target.min(0)[0]
+        num_dims = len(x_grid)
+        grid_sizes = [len(x_grid[i]) for i in range(num_dims)]
+        # Do some boundary checking, # min/max along each dimension
         x_target_max = x_target.min(0)[0]
+        x_target_min = x_target.min(0)[0]
+        grid_mins = torch.stack([x_grid[i].min()[0] for i in range(num_dims)], dim=0).to(x_target_min)
+        grid_maxs = torch.stack([x_grid[i].max()[0] for i in range(num_dims)], dim=0).to(x_target_max)
+
         lt_min_mask = (x_target_min - grid_mins).lt(-1e-7)
         gt_max_mask = (x_target_max - grid_maxs).gt(1e-7)
         if lt_min_mask.sum().item():
@@ -75,9 +80,9 @@ class Interpolation(object):
 
         # Now do interpolation
         interp_points = torch.tensor(interp_points, dtype=x_grid.dtype, device=x_grid.device)
-        interp_points_flip = interp_points.flip(0)
+        interp_points_flip = interp_points.flip(0) # [1, 0, -1, -2]
 
-        num_grid_points = x_grid.size(0)
+
         num_target_points = x_target.size(0)
         num_dim = x_target.size(-1)
         num_coefficients = len(interp_points)
@@ -90,9 +95,10 @@ class Interpolation(object):
         )
 
         for i in range(num_dim):
-            grid_delta = x_grid[1, i] - x_grid[0, i]
-            lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[0, i]) / grid_delta).squeeze()
-            lower_pt_rel_dists = (x_target[:, i] - x_grid[0, i]) / grid_delta - lower_grid_pt_idxs
+            num_grid_points = x_grid[i].size(0)
+            grid_delta = x_grid[i][1] - x_grid[i][0]
+            lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i]) / grid_delta).squeeze()
+            lower_pt_rel_dists = (x_target[:, i] - x_grid[i]) / grid_delta - lower_grid_pt_idxs
             lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points.max()
             lower_grid_pt_idxs.detach_()
 
@@ -109,7 +115,7 @@ class Interpolation(object):
 
             if num_left > 0:
                 left_boundary_pts.squeeze_(1)
-                x_grid_first = x_grid[:num_coefficients, i].unsqueeze(1).t().expand(num_left, num_coefficients)
+                x_grid_first = x_grid[i][:num_coefficients].unsqueeze(1).t().expand(num_left, num_coefficients)
 
                 grid_targets = x_target.select(1, i)[left_boundary_pts].unsqueeze(1).expand(num_left, num_coefficients)
                 dists = torch.abs(x_grid_first - grid_targets)
@@ -125,7 +131,7 @@ class Interpolation(object):
 
             if num_right > 0:
                 right_boundary_pts.squeeze_(1)
-                x_grid_last = x_grid[-num_coefficients:, i].unsqueeze(1).t().expand(num_right, num_coefficients)
+                x_grid_last = x_grid[i][-num_coefficients:].unsqueeze(1).t().expand(num_right, num_coefficients)
 
                 grid_targets = x_target.select(1, i)[right_boundary_pts].unsqueeze(1)
                 grid_targets = grid_targets.expand(num_right, num_coefficients)
@@ -142,7 +148,8 @@ class Interpolation(object):
 
             n_inner_repeat = num_coefficients ** i
             n_outer_repeat = num_coefficients ** (num_dim - i - 1)
-            index_coeff = num_grid_points ** (num_dim - i - 1)
+            # index_coeff = num_grid_points ** (num_dim - i - 1)  # TODO: needs to change. But to what?
+            index_coeff = reduce(mul, grid_sizes[i+1:])  # Think this is right...
             dim_interp_indices = dim_interp_indices.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
             dim_interp_values = dim_interp_values.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
             interp_indices = interp_indices.add(dim_interp_indices.view(num_target_points, -1).mul(index_coeff))

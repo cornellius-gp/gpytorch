@@ -34,9 +34,9 @@ class GridKernel(Kernel):
         super(GridKernel, self).__init__(active_dims=active_dims)
         self.interpolation_mode = interpolation_mode
         self.base_kernel = base_kernel
-        self.register_buffer("grid", grid)
+        self.register_buffer("grid", grid)  # TODO: update. Should it be a list of tensors/a list of buffers ??:(
         if not self.interpolation_mode:
-            self.register_buffer("full_grid", create_data_from_grid(grid))
+            self.register_buffer("full_grid", create_data_from_grid(grid))  # TODO: check if this needs to update too.
 
     def train(self, mode=True):
         if hasattr(self, "_cached_kernel_mat"):
@@ -47,6 +47,7 @@ class GridKernel(Kernel):
         """
         Supply a new `grid` if it ever changes.
         """
+        # todo: update
         self.grid.detach().resize_(grid.size()).copy_(grid)
 
         if not self.interpolation_mode:
@@ -73,7 +74,8 @@ class GridKernel(Kernel):
             n_dim = x1.size(-1)
 
             if settings.use_toeplitz.on():
-                first_item = grid[0:1]
+                first_item = torch.stack([self.grid[i][0:1] for i in range(len(self.grid))], dim=0)
+                # Instead of using last_dim_is_batch, use iterations... b/c "last dim" varies for each input dimension.
                 covar_columns = self.base_kernel(first_item, grid, diag=False, last_dim_is_batch=True, **params)
                 covar_columns = delazify(covar_columns).squeeze(-2)
                 if last_dim_is_batch:
