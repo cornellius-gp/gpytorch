@@ -42,7 +42,7 @@ class Interpolation(object):
         num_dims = len(x_grid)
         grid_sizes = [len(x_grid[i]) for i in range(num_dims)]
         # Do some boundary checking, # min/max along each dimension
-        x_target_max = x_target.min(0)[0]
+        x_target_max = x_target.max(0)[0]
         x_target_min = x_target.min(0)[0]
         grid_mins = torch.stack([x_grid[i].min() for i in range(num_dims)], dim=0).to(x_target_min)
         grid_maxs = torch.stack([x_grid[i].max() for i in range(num_dims)], dim=0).to(x_target_max)
