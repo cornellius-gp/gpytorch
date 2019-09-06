@@ -138,7 +138,6 @@ class GridInterpolationKernel(GridKernel):
         return interp_indices, interp_values
 
     def _inducing_forward(self, last_dim_is_batch, **params):
-        # TODO: fix ...  doesn't work due to different grid representation
         return super().forward(self.grid, self.grid, last_dim_is_batch=last_dim_is_batch, **params)
 
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
@@ -161,8 +160,7 @@ class GridInterpolationKernel(GridKernel):
 
             # Update the grid if needed
             if update_grid:
-                # TODO: fix when grid sizes are different.
-                grid_spacings = tuple((x_max - x_min) / (self.grid_size - 4.02) for x_min, x_max in zip(x_mins, x_maxs))
+                grid_spacings = tuple((x_max - x_min) / (gs - 4.02) for gs, x_min, x_max in zip(self.grid_sizes, x_mins, x_maxs))
                 self.grid_bounds = tuple(
                     (x_min - 2.01 * spacing, x_max + 2.01 * spacing)
                     for x_min, x_max, spacing in zip(x_mins, x_maxs, grid_spacings)

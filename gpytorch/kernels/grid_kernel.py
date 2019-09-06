@@ -54,7 +54,11 @@ class GridKernel(Kernel):
         Supply a new `grid` if it ever changes.
         """
         # todo: update
-        self.grid.detach().resize_(grid.size()).copy_(grid)
+        if not isinstance(grid, list):
+            raise RuntimeError("As of 9-6-19, update_grid requires that grid is a list of "
+                               "tensors of grid points along each axis.")
+        for dim in range(len(self.grid)):
+            self.grid[dim].detach().resize_(grid[dim].size()).copy_(grid[dim])
 
         if not self.interpolation_mode:
             full_grid = create_data_from_grid(self.grid)
@@ -67,7 +71,7 @@ class GridKernel(Kernel):
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         grid = self.grid
 
-        if not self.interpolation_mode:
+        if not self.interpolation_mode:  # TODO: Update based on possible jagged grid shapes
             if len(x1.shape[:-2]):
                 full_grid = self.full_grid.expand(*x1.shape[:-2], *self.full_grid.shape[-2:])
             else:
@@ -77,7 +81,11 @@ class GridKernel(Kernel):
             if not self.training and hasattr(self, "_cached_kernel_mat"):
                 return self._cached_kernel_mat
 
-            n_dim = x1.size(-1)
+            if isinstance(x1, list):
+                # we assume it is provided as a 'jagged tensor' representing a grid.
+                n_dim = len(x1)
+            else:
+                n_dim = x1.size(-1)
 
             if settings.use_toeplitz.on():
                 first_item = [self.grid[i][0:1] for i in range(len(self.grid))]

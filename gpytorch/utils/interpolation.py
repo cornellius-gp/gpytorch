@@ -44,8 +44,8 @@ class Interpolation(object):
         # Do some boundary checking, # min/max along each dimension
         x_target_max = x_target.min(0)[0]
         x_target_min = x_target.min(0)[0]
-        grid_mins = torch.stack([x_grid[i].min()[0] for i in range(num_dims)], dim=0).to(x_target_min)
-        grid_maxs = torch.stack([x_grid[i].max()[0] for i in range(num_dims)], dim=0).to(x_target_max)
+        grid_mins = torch.stack([x_grid[i].min() for i in range(num_dims)], dim=0).to(x_target_min)
+        grid_maxs = torch.stack([x_grid[i].max() for i in range(num_dims)], dim=0).to(x_target_max)
 
         lt_min_mask = (x_target_min - grid_mins).lt(-1e-7)
         gt_max_mask = (x_target_max - grid_maxs).gt(1e-7)
@@ -79,26 +79,25 @@ class Interpolation(object):
             )
 
         # Now do interpolation
-        interp_points = torch.tensor(interp_points, dtype=x_grid.dtype, device=x_grid.device)
+        interp_points = torch.tensor(interp_points, dtype=x_grid[0].dtype, device=x_grid[0].device)
         interp_points_flip = interp_points.flip(0) # [1, 0, -1, -2]
-
 
         num_target_points = x_target.size(0)
         num_dim = x_target.size(-1)
         num_coefficients = len(interp_points)
 
         interp_values = torch.ones(
-            num_target_points, num_coefficients ** num_dim, dtype=x_grid.dtype, device=x_grid.device
+            num_target_points, num_coefficients ** num_dim, dtype=x_grid[0].dtype, device=x_grid[0].device
         )
         interp_indices = torch.zeros(
-            num_target_points, num_coefficients ** num_dim, dtype=torch.long, device=x_grid.device
+            num_target_points, num_coefficients ** num_dim, dtype=torch.long, device=x_grid[0].device
         )
 
         for i in range(num_dim):
             num_grid_points = x_grid[i].size(0)
             grid_delta = x_grid[i][1] - x_grid[i][0]
-            lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i]) / grid_delta).squeeze()
-            lower_pt_rel_dists = (x_target[:, i] - x_grid[i]) / grid_delta - lower_grid_pt_idxs
+            lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i][0]) / grid_delta).squeeze()
+            lower_pt_rel_dists = (x_target[:, i] - x_grid[i][0]) / grid_delta - lower_grid_pt_idxs
             lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points.max()
             lower_grid_pt_idxs.detach_()
 
@@ -148,8 +147,8 @@ class Interpolation(object):
 
             n_inner_repeat = num_coefficients ** i
             n_outer_repeat = num_coefficients ** (num_dim - i - 1)
-            # index_coeff = num_grid_points ** (num_dim - i - 1)  # TODO: needs to change. But to what?
-            index_coeff = reduce(mul, grid_sizes[i+1:])  # Think this is right...
+            # index_coeff = num_grid_points ** (num_dim - i - 1)  # TODO: double check
+            index_coeff = reduce(mul, grid_sizes[i+1:], 1)  # Think this is right...
             dim_interp_indices = dim_interp_indices.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
             dim_interp_values = dim_interp_values.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
             interp_indices = interp_indices.add(dim_interp_indices.view(num_target_points, -1).mul(index_coeff))

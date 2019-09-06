@@ -84,10 +84,33 @@ class TestCreateGridFromData(unittest.TestCase):
 
 
 class TestGridInterpolationKernel(unittest.TestCase):
-    def test_grid_interpolation(self):
-        test_pts1 = torch.rand(4, 2, dtype=torch.float)
-        test_pts2 = torch.rand(3, 2, dtype=torch.float)
-        cv2(test_pts1, test_pts2).evaluate()  # for now, just make sure it doesn't break
+    def setUp(self):
+        self.test_pts1 = torch.tensor([[.9651, .6965],
+                                  [.5340, .4923],
+                                  [.5934, .8918],
+                                  [.4249, .1549]], dtype=torch.float)
+        self.test_pts2 = torch.tensor([[.5882, .6965],
+                                    [.3451, .2818],
+                                  [.9133, .9649],
+                                       [.3561, .6711]], dtype=torch.float)
+
+    def test_interpolation_gets_close(self):
+        ski_kernel = GridInterpolationKernel(RBFKernel(), [100, 110], grid_bounds=[[0, 1], [0, 1]])
+        # ski_kernel = GridInterpolationKernel(RBFKernel(), [1000, 1010], num_dims=2) # seems to be off due to boundaries?
+        ski_eval = ski_kernel(self.test_pts1, self.test_pts2).evaluate()
+
+        rbf_eval = RBFKernel()(self.test_pts1, self.test_pts2).evaluate()  # will be somewhat off due to interpolation
+
+        self.assertLess(torch.norm(ski_eval - rbf_eval), 1e-3)
+
+    def test_last_dim_is_batch(self):
+        ski_kernel = GridInterpolationKernel(RBFKernel(), [100, 110], grid_bounds=[[0, 1], [0, 1]])
+        comb_points = torch.stack([self.test_pts1, self.test_pts2], dim=2)
+        ski_eval = ski_kernel(comb_points, last_dim_is_batch=True).evaluate()
+
+        rbf_eval = RBFKernel()(comb_points, last_dim_is_batch=True).evaluate()
+        self.assertLess(torch.norm(ski_eval - rbf_eval), 1e-3)
+
 
 
 
