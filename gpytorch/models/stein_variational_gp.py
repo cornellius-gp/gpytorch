@@ -160,5 +160,5 @@ class SteinVariationalDeepGP(GP):
                 function_dist.mean,
                 (function_dist.variance + self.likelihood.noise).sqrt()
             ).to_event(1)
-            print(likelihood_dist.shape)
+            print(likelihood_dist.shape())
             return pyro.sample(self.name_prefix + ".output_values", likelihood_dist, obs=output)
