@@ -85,7 +85,7 @@ class GridInterpolationKernel(GridKernel):
                     "grid_bounds ({})".format(num_dims, len(grid_bounds))
                 )
         if isinstance(grid_size, int):
-            grid_sizes = (grid_size for _ in range(num_dims))
+            grid_sizes = [grid_size for _ in range(num_dims)]
         elif isinstance(grid_size, Iterable):
             grid_sizes = list(grid_size)
             if len(grid_sizes) != num_dims:
@@ -107,7 +107,7 @@ class GridInterpolationKernel(GridKernel):
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.bool))
 
     def _create_grid(self):
-        grid = [torch.zeros(len(s)) for s in self.grid_sizes]  # ID: now a jagged array of zeros
+        grid = [torch.zeros(s) for s in self.grid_sizes]  # ID: now a jagged array of zeros
         for i in range(len(self.grid_bounds)):
             grid_diff = float(self.grid_bounds[i][1] - self.grid_bounds[i][0]) / (self.grid_sizes[i] - 2)
             grid[i] = torch.linspace(
@@ -138,7 +138,7 @@ class GridInterpolationKernel(GridKernel):
         return interp_indices, interp_values
 
     def _inducing_forward(self, last_dim_is_batch, **params):
-        # TODO: fix when grid sizes are different.
+        # TODO: fix ...  doesn't work due to different grid representation
         return super().forward(self.grid, self.grid, last_dim_is_batch=last_dim_is_batch, **params)
 
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
