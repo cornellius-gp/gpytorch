@@ -34,15 +34,20 @@ class GridKernel(Kernel):
         super(GridKernel, self).__init__(active_dims=active_dims)
         self.interpolation_mode = interpolation_mode
         self.base_kernel = base_kernel
+        self.num_dims = len(grid)
         self.register_buffer_list('grid', grid)
         if not self.interpolation_mode:
             self.register_buffer("full_grid", create_data_from_grid(grid))
 
     def register_buffer_list(self, base_name, tensors):
         """Helper to register several buffers at once under a single base name"""
-        self.__setattr__(base_name, tensors)
         for i, tensor in enumerate(tensors):
             self.register_buffer(base_name + '_' + str(i), tensor)
+
+    @property
+    def grid(self):
+        return [getattr(self, 'grid' + '_' + str(i)) for i in range(self.num_dims)]
+
 
     def train(self, mode=True):
         if hasattr(self, "_cached_kernel_mat"):
@@ -87,18 +92,18 @@ class GridKernel(Kernel):
                 n_dim = x1.size(-1)
 
             if settings.use_toeplitz.on():
-                first_item = [self.grid[i][0:1] for i in range(len(self.grid))]
+                first_item = [self.grid[i][0:1] for i in range(len(self.grid))] # n_dim x 1
                 # Instead of using last_dim_is_batch, use iterations... b/c "last dim" varies for each input dimension.
                 # covar_columns = self.base_kernel(first_item, grid, diag=False, last_dim_is_batch=True, **params)
                 # Also, like, how do I get this to work when last_dim_is_batch=True???
                 covar_columns = [self.base_kernel(first_item[i], grid[i], last_dim_is_batch=False, **params) for i in
-                                 range(n_dim)]
+                                 range(n_dim)] # n_dim x 1 x grid_size[i]
                 # covar_columns = delazify(covar_columns).squeeze(-2)
-                covar_columns = [delazify(c).squeeze(-1) for c in covar_columns]
+                covar_columns = [delazify(c).squeeze(-2) for c in covar_columns]
                 if last_dim_is_batch:
                     covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in covar_columns]
                 else:
-                    covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in
+                    covars = [ToeplitzLazyTensor(c) for c in
                               covar_columns]  # TODO at least one of these two is not right, likely batch.
             else:
                 full_covar = [self.base_kernel(grid[i], grid[i], **params) for i in range(n_dim)]
