@@ -96,7 +96,6 @@ class GridInterpolationKernel(GridKernel):
         # Initialize values and the grid
         self.grid_is_dynamic = grid_is_dynamic
         self.num_dims = num_dims
-        self.grid_size = grid_size
         self.grid_sizes = grid_sizes
         self.grid_bounds = grid_bounds
         grid = self._create_grid()
@@ -107,12 +106,12 @@ class GridInterpolationKernel(GridKernel):
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.bool))
 
     def _create_grid(self):
-        grid = [torch.zeros(s) for s in self.grid_sizes]  # ID: now a jagged array of zeros
+        grid = []  # ID: now a jagged array of zeros
         for i in range(len(self.grid_bounds)):
             grid_diff = float(self.grid_bounds[i][1] - self.grid_bounds[i][0]) / (self.grid_sizes[i] - 2)
-            grid[i] = torch.linspace(
+            grid.append(torch.linspace(
                 self.grid_bounds[i][0] - grid_diff, self.grid_bounds[i][1] + grid_diff, self.grid_sizes[i]
-            )
+            ))
 
         return grid
 
