@@ -36,7 +36,7 @@ class GridKernel(Kernel):
         self.base_kernel = base_kernel
         self.register_buffer_list('grid', grid)
         if not self.interpolation_mode:
-            self.register_buffer("full_grid", create_data_from_grid(grid))  # TODO: check if this needs to update too.
+            self.register_buffer("full_grid", create_data_from_grid(grid))
 
     def register_buffer_list(self, base_name, tensors):
         """Helper to register several buffers at once under a single base name"""
@@ -53,9 +53,8 @@ class GridKernel(Kernel):
         """
         Supply a new `grid` if it ever changes.
         """
-        # todo: update
         if not isinstance(grid, list):
-            raise RuntimeError("As of 9-6-19, update_grid requires that grid is a list of "
+            raise RuntimeError("Update_grid requires that grid is a list of "
                                "tensors of grid points along each axis.")
         for dim in range(len(self.grid)):
             self.grid[dim].detach().resize_(grid[dim].size()).copy_(grid[dim])
@@ -71,7 +70,7 @@ class GridKernel(Kernel):
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         grid = self.grid
 
-        if not self.interpolation_mode:  # TODO: Update based on possible jagged grid shapes
+        if not self.interpolation_mode:  # TODO: Update based on possible jagged grid shapes?
             if len(x1.shape[:-2]):
                 full_grid = self.full_grid.expand(*x1.shape[:-2], *self.full_grid.shape[-2:])
             else:
@@ -100,13 +99,13 @@ class GridKernel(Kernel):
                     covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in covar_columns]
                 else:
                     covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in
-                              covar_columns]  # TODO at least one of these two is fucked up.
+                              covar_columns]  # TODO at least one of these two is not right, likely batch.
             else:
                 full_covar = [self.base_kernel(grid[i], grid[i], **params) for i in range(n_dim)]
                 if last_dim_is_batch:
                     covars = [full_covar]
                 else:
-                    covars = full_covar  # again, really not sure about this, TODO!!
+                    covars = full_covar  # TODO: same message as above.
 
             if len(covars) > 1:
                 covar = KroneckerProductLazyTensor(*covars[::-1])

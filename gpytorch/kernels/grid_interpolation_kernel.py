@@ -48,7 +48,7 @@ class GridInterpolationKernel(GridKernel):
     Args:
         - :attr:`base_kernel` (Kernel):
             The kernel to approximate with KISS-GP
-        - :attr:`grid_size` (int):
+        - :attr:`grid_size` (int, list of ints):
             The size of the grid (in each dimension)
         - :attr:`num_dims` (int):
             The dimension of the input data. Required if `grid_bounds=None`
@@ -63,7 +63,6 @@ class GridInterpolationKernel(GridKernel):
         http://proceedings.mlr.press/v37/wilson15.pdf
     """
 
-    # TODO: update documentation
     def __init__(self, base_kernel, grid_size, num_dims=None, grid_bounds=None, active_dims=None):
         has_initialized_grid = 0
         grid_is_dynamic = True
