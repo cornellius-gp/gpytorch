@@ -96,14 +96,17 @@ class Interpolation(object):
         for i in range(num_dim):
             num_grid_points = x_grid[i].size(0)
             grid_delta = x_grid[i][1] - x_grid[i][0]
+            # left-bounding grid point in index space
             lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i][0]) / grid_delta).squeeze()
+            # distance from that left-bounding grid point, again in index space
             lower_pt_rel_dists = (x_target[:, i] - x_grid[i][0]) / grid_delta - lower_grid_pt_idxs
-            lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points.max()
+            lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points.max()  # ends up being the left-most (relevant) pt
             lower_grid_pt_idxs.detach_()
 
             if len(lower_grid_pt_idxs.shape) == 0:
                 lower_grid_pt_idxs = lower_grid_pt_idxs.unsqueeze(0)
 
+            # get the interp. coeff. based on distances to interpolating points
             scaled_dist = lower_pt_rel_dists.unsqueeze(-1) + interp_points_flip.unsqueeze(-2)
             dim_interp_values = self._cubic_interpolation_kernel(scaled_dist)
 
@@ -143,7 +146,7 @@ class Interpolation(object):
                     lower_grid_pt_idxs[right_boundary_pts[j]] = num_grid_points - num_coefficients
 
             offset = (interp_points - interp_points.min()).long().unsqueeze(-2)
-            dim_interp_indices = lower_grid_pt_idxs.long().unsqueeze(-1) + offset
+            dim_interp_indices = lower_grid_pt_idxs.long().unsqueeze(-1) + offset  # indices of corresponding ind. pts.
 
             n_inner_repeat = num_coefficients ** i
             n_outer_repeat = num_coefficients ** (num_dim - i - 1)
@@ -151,6 +154,7 @@ class Interpolation(object):
             index_coeff = reduce(mul, grid_sizes[i+1:], 1)  # Think this is right...
             dim_interp_indices = dim_interp_indices.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
             dim_interp_values = dim_interp_values.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
+            # compute the lexicographical position of the indices in the d-dimensional grid points
             interp_indices = interp_indices.add(dim_interp_indices.view(num_target_points, -1).mul(index_coeff))
             interp_values = interp_values.mul(dim_interp_values.view(num_target_points, -1))
 
