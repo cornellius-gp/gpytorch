@@ -6,6 +6,7 @@ from typing import List
 from functools import reduce
 from operator import mul
 
+
 def scale_to_bounds(x, lower_bound, upper_bound):
     """
     Scale the input data so that it lies in between the lower and upper bounds.

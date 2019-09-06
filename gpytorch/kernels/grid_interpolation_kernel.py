@@ -62,6 +62,7 @@ class GridInterpolationKernel(GridKernel):
     .. _Kernel Interpolation for Scalable Structured Gaussian Processes:
         http://proceedings.mlr.press/v37/wilson15.pdf
     """
+
     # TODO: update documentation
     def __init__(self, base_kernel, grid_size, num_dims=None, grid_bounds=None, active_dims=None):
         has_initialized_grid = 0
@@ -160,7 +161,8 @@ class GridInterpolationKernel(GridKernel):
 
             # Update the grid if needed
             if update_grid:
-                grid_spacings = tuple((x_max - x_min) / (gs - 4.02) for gs, x_min, x_max in zip(self.grid_sizes, x_mins, x_maxs))
+                grid_spacings = tuple(
+                    (x_max - x_min) / (gs - 4.02) for gs, x_min, x_max in zip(self.grid_sizes, x_mins, x_maxs))
                 self.grid_bounds = tuple(
                     (x_min - 2.01 * spacing, x_max + 2.01 * spacing)
                     for x_min, x_max, spacing in zip(x_mins, x_maxs, grid_spacings)

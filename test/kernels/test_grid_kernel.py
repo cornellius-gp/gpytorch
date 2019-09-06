@@ -15,11 +15,10 @@ grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim)
 prev_points = None
 for i in range(grid_dim):
     for j in range(grid_size):
-        grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[i][j])
+        grid_data[j * grid_size ** i: (j + 1) * grid_size ** i, i].fill_(grid[i][j])
         if prev_points is not None:
-            grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
+            grid_data[j * grid_size ** i: (j + 1) * grid_size ** i, :i].copy_(prev_points)
     prev_points = grid_data[: grid_size ** (i + 1), : (i + 1)]
-
 
 cv2 = GridInterpolationKernel(RBFKernel(), grid_size=[8, 12], grid_bounds=[(0, 1), (0, 2)])
 grid2 = cv2.grid
@@ -74,7 +73,7 @@ class TestCreateGridFromData(unittest.TestCase):
         grid_data = grid_data[order, :]
 
         # brute force creation here to make sure the efficient code is correct
-        actual = torch.zeros(2*3*2, 3, dtype=torch.float)
+        actual = torch.zeros(2 * 3 * 2, 3, dtype=torch.float)
         for r, (i, j, k) in enumerate(product(*small_grid)):
             actual[r, :] = torch.tensor([i, j, k], dtype=torch.float)
         order = torch.argsort(actual.sum(dim=1))
@@ -86,17 +85,17 @@ class TestCreateGridFromData(unittest.TestCase):
 class TestGridInterpolationKernel(unittest.TestCase):
     def setUp(self):
         self.test_pts1 = torch.tensor([[.9651, .6965],
-                                  [.5340, .4923],
-                                  [.5934, .8918],
-                                  [.4249, .1549]], dtype=torch.float)
+                                       [.5340, .4923],
+                                       [.5934, .8918],
+                                       [.4249, .1549]], dtype=torch.float)
         self.test_pts2 = torch.tensor([[.5882, .6965],
-                                    [.3451, .2818],
-                                  [.9133, .9649],
+                                       [.3451, .2818],
+                                       [.9133, .9649],
                                        [.3561, .6711]], dtype=torch.float)
 
     def test_interpolation_gets_close(self):
-        ski_kernel = GridInterpolationKernel(RBFKernel(), [100, 110], grid_bounds=[[0, 1], [0, 1]])
-        # ski_kernel = GridInterpolationKernel(RBFKernel(), [1000, 1010], num_dims=2) # seems to be off due to boundaries?
+        ski_kernel = GridInterpolationKernel(RBFKernel(), [100, 101], grid_bounds=[[0, 1], [0, 1]])
+        # ski_kernel = GridInterpolationKernel(RBFKernel(), [1000, 1010], num_dims=2) seems to be off due to boundaries?
         ski_eval = ski_kernel(self.test_pts1, self.test_pts2).evaluate()
 
         rbf_eval = RBFKernel()(self.test_pts1, self.test_pts2).evaluate()  # will be somewhat off due to interpolation
@@ -110,8 +109,6 @@ class TestGridInterpolationKernel(unittest.TestCase):
 
         rbf_eval = RBFKernel()(comb_points, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(ski_eval - rbf_eval), 1e-3)
-
-
 
 
 if __name__ == "__main__":

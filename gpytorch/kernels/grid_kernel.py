@@ -42,7 +42,7 @@ class GridKernel(Kernel):
         """Helper to register several buffers at once under a single base name"""
         self.__setattr__(base_name, tensors)
         for i, tensor in enumerate(tensors):
-            self.register_buffer(base_name+'_' + str(i), tensor)
+            self.register_buffer(base_name + '_' + str(i), tensor)
 
     def train(self, mode=True):
         if hasattr(self, "_cached_kernel_mat"):
@@ -92,13 +92,15 @@ class GridKernel(Kernel):
                 # Instead of using last_dim_is_batch, use iterations... b/c "last dim" varies for each input dimension.
                 # covar_columns = self.base_kernel(first_item, grid, diag=False, last_dim_is_batch=True, **params)
                 # Also, like, how do I get this to work when last_dim_is_batch=True???
-                covar_columns = [self.base_kernel(first_item[i], grid[i], last_dim_is_batch=False, **params) for i in range(n_dim)]
+                covar_columns = [self.base_kernel(first_item[i], grid[i], last_dim_is_batch=False, **params) for i in
+                                 range(n_dim)]
                 # covar_columns = delazify(covar_columns).squeeze(-2)
                 covar_columns = [delazify(c).squeeze(-1) for c in covar_columns]
                 if last_dim_is_batch:
                     covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in covar_columns]
                 else:
-                    covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in covar_columns]  # TODO at least one of these two is fucked up.
+                    covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in
+                              covar_columns]  # TODO at least one of these two is fucked up.
             else:
                 full_covar = [self.base_kernel(grid[i], grid[i], **params) for i in range(n_dim)]
                 if last_dim_is_batch:

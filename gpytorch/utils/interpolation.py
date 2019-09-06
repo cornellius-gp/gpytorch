@@ -80,7 +80,7 @@ class Interpolation(object):
 
         # Now do interpolation
         interp_points = torch.tensor(interp_points, dtype=x_grid[0].dtype, device=x_grid[0].device)
-        interp_points_flip = interp_points.flip(0) # [1, 0, -1, -2]
+        interp_points_flip = interp_points.flip(0)  # [1, 0, -1, -2]
 
         num_target_points = x_target.size(0)
         num_dim = x_target.size(-1)
@@ -151,7 +151,7 @@ class Interpolation(object):
             n_inner_repeat = num_coefficients ** i
             n_outer_repeat = num_coefficients ** (num_dim - i - 1)
             # index_coeff = num_grid_points ** (num_dim - i - 1)  # TODO: double check
-            index_coeff = reduce(mul, grid_sizes[i+1:], 1)  # Think this is right...
+            index_coeff = reduce(mul, grid_sizes[i + 1:], 1)  # Think this is right...
             dim_interp_indices = dim_interp_indices.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
             dim_interp_values = dim_interp_values.unsqueeze(-1).repeat(1, n_inner_repeat, n_outer_repeat)
             # compute the lexicographical position of the indices in the d-dimensional grid points
