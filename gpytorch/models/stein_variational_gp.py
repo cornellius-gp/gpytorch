@@ -57,10 +57,10 @@ class SteinVariationalGP(Module):
         the `inducing_values_dist` distribution. (By default, all batch dimensions
         are not marked as conditionally indendent.)
         """
-        if self.beta > 0.0:
-            prior_dist = MultivariateNormal(self.prior_mean, DiagLazyTensor(self.prior_var))
-            with pyro.poutine.scale(scale=self.beta / self.num_data):
-                return pyro.sample(self.name_prefix + ".inducing_values", prior_dist)
+        beta = self.beta if self.beta > 0.0 else 1.0e-10
+        prior_dist = MultivariateNormal(self.prior_mean, DiagLazyTensor(self.prior_var))
+        with pyro.poutine.scale(scale=beta / self.num_data):
+            return pyro.sample(self.name_prefix + ".inducing_values", prior_dist)
 
     def __call__(self, input, *args, **kwargs):
         inducing_points = self.inducing_points
