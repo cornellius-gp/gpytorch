@@ -45,7 +45,7 @@ class SteinVariationalGP(Module):
         else:
             obs_dist = torch.distributions.Normal(function_dist.mean, self.likelihood.noise.sqrt())
             factor1 = obs_dist.log_prob(output).sum(-1)
-            factor2 = 0.5 * function_dist.variance.sum(1) / self.likelihood.noise
+            factor2 = 0.5 * function_dist.variance.sum(-1) / self.likelihood.noise
             factor = scale_factor * (factor1 - factor2)
             pyro.factor(self.name_prefix + ".output_values", factor)
 
