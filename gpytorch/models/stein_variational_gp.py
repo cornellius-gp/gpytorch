@@ -87,38 +87,6 @@ class SteinVariationalGP(Module):
         # Get function dist
         num_induc = inducing_points.size(-2)
         full_inputs = torch.cat([inducing_points, input], dim=-2)
-        else:
-            obs_dist = torch.distributions.Normal(function_dist.mean, self.likelihood.noise.sqrt())
-            factor1 = obs_dist.log_prob(output).sum(-1)
-            factor2 = 0.5 * function_dist.variance.sum(-1) / self.likelihood.noise
-            factor = scale_factor * (factor1 - factor2)
-            pyro.factor(self.name_prefix + ".output_values", factor)
-
-    def sample_inducing_values(self):
-        """
-        Sample values from the inducing point distribution `p(u)` or `q(u)`.
-        This should only be re-defined to note any conditional independences in
-        the `inducing_values_dist` distribution. (By default, all batch dimensions
-        are not marked as conditionally indendent.)
-        """
-        beta = self.beta if self.beta > 0.0 else 1.0e-10
-        prior_dist = MultivariateNormal(self.prior_mean, DiagLazyTensor(self.prior_var))
-        with pyro.poutine.scale(scale=beta / self.num_data):
-            return pyro.sample(self.name_prefix + ".inducing_values", prior_dist)
-
-    def __call__(self, input, *args, **kwargs):
-        inducing_points = self.inducing_points
-        inducing_batch_shape = inducing_points.shape[:-2]
-        if inducing_batch_shape < input.shape[:-2]:
-            batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], input.shape[:-2])
-            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
-            input = input.expand(*batch_shape, *input.shape[-2:])
-        # Draw samples from p(u) for KL divergence computation
-        inducing_values_samples = self.sample_inducing_values()
-
-        # Get function dist
-        num_induc = inducing_points.size(-2)
-        full_inputs = torch.cat([inducing_points, input], dim=-2)
         full_output = self.forward(full_inputs)
         full_covar = full_output.lazy_covariance_matrix
 
