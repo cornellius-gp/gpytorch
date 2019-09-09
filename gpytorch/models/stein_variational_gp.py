@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import math
 import torch
 import pyro
 from .. import Module
