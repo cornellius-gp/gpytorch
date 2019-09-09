@@ -53,11 +53,11 @@ class SteinVariationalGP(Module):
             factor = scale_factor * (factor1 - factor2)
             pyro.factor(self.name_prefix + ".output_values", factor)
         elif self.mode == 'betadiv':
-            obs_dist = torch.distributions.Normal(function_dist.mean,
-                (function_dist.variance + self.likelihood.noise).sqrt())
+            pred_variance = function_dist.variance + self.likelihood.noise
+            obs_dist = torch.distributions.Normal(function_dist.mean, pred_variance.sqrt())
             term1 = (self.divbeta * obs_dist.log_prob(output)).exp().sum(-1) / self.divbeta
             term2num = -math.pow(math.sqrt(1.0 + self.divbeta), self.divbeta - 1.0)
-            term2den = torch.pow(2.0 * math.pi * function_dist.variance, 0.5 * self.divbeta)
+            term2den = torch.pow(2.0 * math.pi * pred_variance, 0.5 * self.divbeta)
             term2 = (term2num / term2den).sum(-1)
             factor = scale_factor * (term1 + term2)
             pyro.factor(self.name_prefix + ".output_values", factor)
