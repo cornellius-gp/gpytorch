@@ -10,7 +10,7 @@ from . import GP
 from .. import settings
 
 
-class SteinVariationalGP(Module):
+class GenericVariationalParticleGP(Module):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
                  mode="jensen", beta=1.0, divbeta=0.1):
         assert mode in ['jensen', 'predictive', 'betadiv', 'gammadiv']

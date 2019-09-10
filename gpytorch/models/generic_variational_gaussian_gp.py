@@ -9,10 +9,10 @@ from ..utils.broadcasting import _mul_broadcast_shape
 from . import GP
 from .. import settings
 from ..variational import CholeskyVariationalDistribution
-from .stein_variational_gp import SteinVariationalGP
+from .generic_variational_particle_gp import GenericVariationalParticleGP
 
 
-class GaussianPredictiveGP(SteinVariationalGP):
+class GenericVariationalGaussianGP(GenericVariationalParticleGP):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="", beta=1.0, divbeta=0.1):
         super().__init__(
             inducing_points,
