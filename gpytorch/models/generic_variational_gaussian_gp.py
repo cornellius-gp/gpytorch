@@ -27,6 +27,11 @@ class GenericVariationalGaussianGP(GenericVariationalParticleGP):
 
         self.variational_distribution = CholeskyVariationalDistribution(num_inducing_points=inducing_points.size(-2))
 
+    def guide(self):
+        beta = self.beta if self.beta > 0.0 else 1.0e-20
+        with pyro.poutine.scale(scale=beta / self.num_data):
+            return pyro.sample(self.name_prefix + ".inducing_values", self.variational_distribution)
+
     def __call__(self, input, *args, **kwargs):
         inducing_points = self.inducing_points
         inducing_batch_shape = inducing_points.shape[:-2]

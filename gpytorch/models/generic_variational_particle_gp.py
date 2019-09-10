@@ -76,7 +76,7 @@ class GenericVariationalParticleGP(Module):
         the `inducing_values_dist` distribution. (By default, all batch dimensions
         are not marked as conditionally indendent.)
         """
-        beta = self.beta if self.beta > 0.0 else 1.0e-10
+        beta = self.beta if self.beta > 0.0 else 1.0e-20
         prior_dist = MultivariateNormal(self.prior_mean, DiagLazyTensor(self.prior_var))
         with pyro.poutine.scale(scale=beta / self.num_data):
             return pyro.sample(self.name_prefix + ".inducing_values", prior_dist)
@@ -88,7 +88,8 @@ class GenericVariationalParticleGP(Module):
             batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], input.shape[:-2])
             inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
             input = input.expand(*batch_shape, *input.shape[-2:])
-        # Draw samples from p(u) for KL divergence computation
+
+        # in practice this will return MAP/SVGD particle(s)
         inducing_values_samples = self.sample_inducing_values()
 
         # Get function dist
