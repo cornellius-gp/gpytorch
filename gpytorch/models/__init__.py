@@ -13,6 +13,7 @@ from . import deep_gps
 try:
     from .pyro_variational_gp import PyroVariationalGP
     from .stein_variational_gp import SteinVariationalGP
+    from .gaussian_pred_variational_gp import GaussianPredictiveGP
 
 except ImportError as e:
     print(e)
@@ -32,6 +33,7 @@ __all__ = [
     "AbstractVariationalGP",
     "AdditiveGridInducingVariationalGP",
     "ExactGP",
+    "GaussianPredictiveGP",
     "GP",
     "GridInducingVariationalGP",
     "IndependentModelList",
