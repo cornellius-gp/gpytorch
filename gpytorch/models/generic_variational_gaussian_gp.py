@@ -13,13 +13,14 @@ from .generic_variational_particle_gp import GenericVariationalParticleGP
 
 
 class GenericVariationalGaussianGP(GenericVariationalParticleGP):
-    def __init__(self, inducing_points, likelihood, num_data, name_prefix="", beta=1.0, divbeta=0.1):
+    def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
+                 mode="predictive",beta=1.0, divbeta=0.1):
         super().__init__(
             inducing_points,
             likelihood,
             num_data,
             name_prefix=name_prefix,
-            mode="predictive",
+            mode=mode,
             beta=beta,
             divbeta=divbeta,
         )
