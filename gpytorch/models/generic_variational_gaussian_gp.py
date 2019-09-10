@@ -30,7 +30,8 @@ class GenericVariationalGaussianGP(GenericVariationalParticleGP):
     def guide(self, input, output, *params, **kwargs):
         beta = self.beta if self.beta > 0.0 else 1.0e-20
         with pyro.poutine.scale(scale=beta / self.num_data):
-            return pyro.sample(self.name_prefix + ".inducing_values", self.variational_distribution)
+            return pyro.sample(self.name_prefix + ".inducing_values",
+                               self.variational_distribution.variational_distribution)
 
     def __call__(self, input, *args, **kwargs):
         inducing_points = self.inducing_points
