@@ -13,7 +13,7 @@ from .. import settings
 class SteinVariationalGP(Module):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
                  mode="jensen", beta=1.0, divbeta=0.1):
-        assert mode in ['jensen', 'predictive', 'betadiv']
+        assert mode in ['jensen', 'predictive', 'betadiv', 'gammadiv']
 
         if inducing_points.dim() == 1:
             inducing_points = inducing_points.unsqueeze(-1)
@@ -59,6 +59,13 @@ class SteinVariationalGP(Module):
             term2num = -math.pow(math.sqrt(1.0 + self.divbeta), self.divbeta - 1.0)
             term2den = torch.pow(2.0 * math.pi * pred_variance, 0.5 * self.divbeta)
             term2 = (term2num / term2den).sum(-1)
+            factor = scale_factor * (term1 + term2)
+            pyro.factor(self.name_prefix + ".output_values", factor)
+        elif self.mode == 'gammadiv':
+            pred_variance = function_dist.variance + self.likelihood.noise
+            obs_dist = torch.distributions.Normal(function_dist.mean, pred_variance.sqrt())
+            term1 = obs_dist.log_prob(output).sum(-1)
+            term2 = (0.5 * math.pow(self.divbeta, 3.0) / (1.0 + self.divbeta)) * pred_variance.log().sum(-1)
             factor = scale_factor * (term1 + term2)
             pyro.factor(self.name_prefix + ".output_values", factor)
 
