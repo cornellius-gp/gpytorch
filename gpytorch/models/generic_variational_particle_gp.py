@@ -13,7 +13,7 @@ from .. import settings
 class GenericVariationalParticleGP(Module):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
                  mode="jensen", beta=1.0, divbeta=0.1):
-        assert mode in ['jensen', 'predictive', 'betadiv', 'gammadiv']
+        assert mode in ['jensen', 'predictive', 'tpredictive', 'betadiv', 'gammadiv']
 
         if inducing_points.dim() == 1:
             inducing_points = inducing_points.unsqueeze(-1)
@@ -32,6 +32,9 @@ class GenericVariationalParticleGP(Module):
         self.register_buffer("prior_mean", torch.zeros(inducing_points.shape[:-1]))
         self.register_buffer("prior_var", torch.ones(inducing_points.shape[:-1]))
 
+        if self.mode == 'tpredictive':
+            self.raw_nu = torch.nn.Parameter(torch.tensor(1.0))
+
     def model(self, input, output, *params, **kwargs):
         pyro.module(self.name_prefix + ".gp_prior", self)
 
@@ -43,6 +46,12 @@ class GenericVariationalParticleGP(Module):
 
         if self.mode == 'predictive':
             obs_dist = pyro.distributions.Normal(function_dist.mean,
+                (function_dist.variance + self.likelihood.noise).sqrt()).to_event(1)
+            with pyro.poutine.scale(scale=scale_factor):
+                return pyro.sample(self.name_prefix + ".output_values", obs_dist, obs=output)
+        elif self.mode == 'tpredictive':
+            nu = 2.0 + torch.functional.F.softplus(pyro.param("raw_nu", self.raw_nu))
+            obs_dist = pyro.distributions.StudentT(nu, function_dist.mean,
                 (function_dist.variance + self.likelihood.noise).sqrt()).to_event(1)
             with pyro.poutine.scale(scale=scale_factor):
                 return pyro.sample(self.name_prefix + ".output_values", obs_dist, obs=output)
