@@ -74,7 +74,7 @@ class GenericVariationalParticleGP(Module):
                    - 0.5 * muf.pow(2.0) / varf \
                    + 0.5 * mut.pow(2.0) / sigmat
             E = logE.exp()
-            I = torch.pow(0.5 * invnoise / math.pi) / math.sqrt(gamma)
+            I = torch.pow(0.5 * invnoise / math.pi, 0.5 * gamma) / math.sqrt(gamma)
             I = torch.pow(I, gamma / (gamma - 1.0))
             factor = -E * scale_factor * gamma / I
             pyro.factor(self.name_prefix + ".output_values", factor)
