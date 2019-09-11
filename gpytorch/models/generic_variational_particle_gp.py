@@ -13,7 +13,7 @@ from .. import settings
 class GenericVariationalParticleGP(Module):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
                  mode="jensen", beta=1.0, divbeta=0.1):
-        assert mode in ['jensen', 'predictive', 'tpredictive', 'betadiv', 'gammadiv']
+        assert mode in ['jensen', 'predictive', 'tpredictive', 'betadiv', 'gammadiv', 'robust']
 
         if inducing_points.dim() == 1:
             inducing_points = inducing_points.unsqueeze(-1)
@@ -60,6 +60,23 @@ class GenericVariationalParticleGP(Module):
             factor1 = obs_dist.log_prob(output).sum(-1)
             factor2 = 0.5 * function_dist.variance.sum(-1) / self.likelihood.noise
             factor = scale_factor * (factor1 - factor2)
+            pyro.factor(self.name_prefix + ".output_values", factor)
+        elif self.mode == 'robust':
+            gamma = self.divbeta
+            invnoise = 1.0 / self.likelihood.noise
+            muf, varf = function_dist.mean, function_dist.variance
+            mut = gamma * invnoise * output + muf / varf
+            sigmat = 1.0 / (gamma * invnoise + 1.0 / varf)
+            logE = -math.log(gamma) \
+                   + 0.5 * gamma * torch.log(0.5 * invnoise / math.pi) \
+                   - 0.5 * torch.log1p(gamma * invnoise * varf) \
+                   - 0.5 * (gamma * invnoise * output.pow(2.0)) \
+                   - 0.5 * muf.pow(2.0) / varf \
+                   + 0.5 * mut.pow(2.0) / sigmat
+            E = logE.exp()
+            I = torch.pow(0.5 * invnoise / math.pi) / math.sqrt(gamma)
+            I = torch.pow(I, gamma / (gamma - 1.0))
+            factor = -E * scale_factor * gamma / I
             pyro.factor(self.name_prefix + ".output_values", factor)
         elif self.mode == 'betadiv':
             pred_variance = function_dist.variance + self.likelihood.noise
