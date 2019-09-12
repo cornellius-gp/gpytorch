@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import math
 import torch
+import numpy as np
 import pyro
 from .. import Module
 from ..lazy import RootLazyTensor, DiagLazyTensor, BlockDiagLazyTensor
@@ -62,22 +63,22 @@ class GenericVariationalParticleGP(Module):
             factor = scale_factor * (factor1 - factor2)
             pyro.factor(self.name_prefix + ".output_values", factor)
         elif self.mode == 'robust':
-            gamma = self.divbeta
-            invnoise = 1.0 / self.likelihood.noise
+            # adapted from https://github.com/JeremiasKnoblauch/GVIPublic/
+            gamma, noise = self.divbeta, self.likelihood.noise
             muf, varf = function_dist.mean, function_dist.variance
-            mut = gamma * invnoise * output + muf / varf
-            sigmat = 1.0 / (gamma * invnoise + 1.0 / varf)
-            logE = -math.log(gamma) \
-                   + 0.5 * gamma * torch.log(0.5 * invnoise / math.pi) \
-                   - 0.5 * torch.log1p(gamma * invnoise * varf) \
-                   - 0.5 * (gamma * invnoise * output.pow(2.0)) \
-                   - 0.5 * muf.pow(2.0) / varf \
-                   + 0.5 * mut.pow(2.0) / sigmat
-            E = logE.exp()
-            I = torch.pow(0.5 * invnoise / math.pi, 0.5 * gamma) / math.sqrt(gamma)
-            I = torch.pow(I, gamma / (gamma - 1.0))
-            factor = -E * scale_factor * gamma / I
-            pyro.factor(self.name_prefix + ".output_values", factor)
+            mut = gamma * output / noise + muf / varf
+            sigmat = 1.0 / (gamma / noise + 1.0 / varf)
+
+            log_integral = -0.5 * gamma * torch.log(2.0 * math.pi * noise) - 0.5 * np.log1p(gamma)
+            log_tempered = -math.log(gamma) \
+                           - 0.5 * gamma * torch.log(2.0 * math.pi * noise) \
+                           - 0.5 * torch.log1p(gamma * varf / noise) \
+                           - 0.5 * (gamma * output.pow(2.0) / noise) \
+                           - 0.5 * muf.pow(2.0) / varf \
+                           + 0.5 * mut.pow(2.0) * sigmat
+
+            factor = log_tempered + gamma / (1.0 + gamma) * log_integral + (1.0 + gamma)
+            pyro.factor(self.name_prefix + ".output_values", scale_factor * factor.exp().sum(-1))
         elif self.mode == 'betadiv':
             pred_variance = function_dist.variance + self.likelihood.noise
             obs_dist = torch.distributions.Normal(function_dist.mean, pred_variance.sqrt())
