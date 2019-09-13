@@ -8,13 +8,13 @@ from ..distributions import MultivariateNormal, MultitaskMultivariateNormal
 from ..utils.broadcasting import _mul_broadcast_shape
 from . import GP
 from .. import settings
-from ..variational import CholeskyVariationalDistribution
+from ..variational import CholeskyVariationalDistribution, MeanFieldVariationalDistribution
 from .generic_variational_particle_gp import GenericVariationalParticleGP
 
 
 class GenericVariationalGaussianGP(GenericVariationalParticleGP):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
-                 mode="predictive",beta=1.0, divbeta=0.1):
+                 mode="predictive",beta=1.0, divbeta=0.1, vardistmode="cholesky"):
         super().__init__(
             inducing_points,
             likelihood,
@@ -25,7 +25,17 @@ class GenericVariationalGaussianGP(GenericVariationalParticleGP):
             divbeta=divbeta,
         )
 
-        self.variational_distribution = CholeskyVariationalDistribution(num_inducing_points=inducing_points.size(-2))
+        if vardistmode == "cholesky":
+            self.variational_distribution = CholeskyVariationalDistribution(
+                num_inducing_points=inducing_points.size(-2)
+            )
+        elif vardistmode == "meanfield":
+            self.variational_distribution = MeanFieldVariationalDistribution(
+                num_inducing_points=inducing_points.size(-2)
+            )
+        else:
+            raise RuntimeError("Invalid variational distribution mode specified: ", vardistmode)
+
 
     def guide(self, input, output, *params, **kwargs):
         beta = self.beta if self.beta > 0.0 else 1.0e-20
