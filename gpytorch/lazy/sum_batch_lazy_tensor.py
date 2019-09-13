@@ -54,3 +54,6 @@ class SumBatchLazyTensor(BlockLazyTensor):
     def diag(self):
         diag = self.base_lazy_tensor.diag().sum(-2)
         return diag
+
+    def evaluate(self):
+        return self.base_lazy_tensor.evaluate().sum(dim=-3)  # BlockLazyTensors always use dim3 for the block_dim
