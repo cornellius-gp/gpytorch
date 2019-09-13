@@ -11,6 +11,7 @@ from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, ZeroLazyTensor
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
+from .. import settings
 
 
 class Noise(Module):
@@ -132,10 +133,14 @@ class HeteroskedasticNoise(Noise):
         batch_shape: Optional[torch.Size] = None,
         shape: Optional[torch.Size] = None
     ) -> DiagLazyTensor:
-        if len(params) == 1 and not torch.is_tensor(params[0]):
-            output = self.noise_model(*params[0])
-        else:
-            output = self.noise_model(*params)
+        training = self.noise_model.training  # keep track of mode
+        self.noise_model.eval()  # we want the posterior prediction of the noise model
+        with settings.detach_test_caches(False):
+            if len(params) == 1 and not torch.is_tensor(params[0]):
+                output = self.noise_model(*params[0])
+            else:
+                output = self.noise_model(*params)
+        self.noise_model.train(training)
         if not isinstance(output, MultivariateNormal):
             raise NotImplementedError(
                 "Currently only noise models that return a MultivariateNormal are supported"
