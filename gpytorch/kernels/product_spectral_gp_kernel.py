@@ -35,7 +35,6 @@ class ProductSpectralGPKernel(ProductKernel):
                 self.kernels[d].omega = self.kernels[max_omega_idk].omega
 
     def get_latent_mod(self, idx=None):
-        # print(hex(id(self.kernels[idx].latent_mod)))
         return self.kernels[idx].latent_mod
 
     def get_latent_lh(self, idx=None):

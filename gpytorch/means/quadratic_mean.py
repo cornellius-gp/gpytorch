@@ -4,7 +4,7 @@ import torch
 
 from .mean import Mean
 from ..priors import NormalPrior
-from ..constraints import Positive
+from ..constraints import LessThan
 
 class QuadraticMean(Mean):
     def __init__(self, input_size, batch_shape=torch.Size(), bias=True, weights=True):
@@ -17,8 +17,13 @@ class QuadraticMean(Mean):
         if weights:
             self.register_parameter(name='weights',
                                     parameter=torch.nn.Parameter(torch.randn(*batch_shape, input_size, 1)))
+        else:
+            self.weights = None
+
         if bias:
             self.register_parameter(name='bias', parameter=torch.nn.Parameter(torch.randn(*batch_shape, 1)))
+        else:
+            self.bias = None
 
     def forward(self, x):
         res = x.pow(2.0).matmul(self.quadratic_weights).squeeze(-1)
@@ -44,7 +49,7 @@ class LogRBFMean(QuadraticMean):
         self.register_prior('bias_prior', prior=NormalPrior(torch.zeros(1), 100.*torch.ones(1), transform=None), 
             param_or_closure = 'bias')
         
-        self.register_constraint('quadratic_weights', Positive())
+        self.register_constraint('quadratic_weights', LessThan(upper_bound=0.0))
         self.register_prior('quadratic_weight_prior', param_or_closure='quadratic_weights', 
             prior=NormalPrior(torch.zeros(1), 100.*torch.ones(1), transform=torch.nn.functional.softplus))
 

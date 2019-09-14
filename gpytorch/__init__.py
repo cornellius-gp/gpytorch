@@ -13,6 +13,7 @@ from . import (
     settings,
     utils,
     variational,
+    samplers,
 )
 from .functions import (
     add_diag,
