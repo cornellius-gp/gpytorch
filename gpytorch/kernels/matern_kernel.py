@@ -88,7 +88,7 @@ class MaternKernel(Kernel):
             or (self.ard_num_dims is not None and self.ard_num_dims > 1)
             or diag
         ):
-            mean = x1.contiguous().view(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
+            mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
 
             x1_ = (x1 - mean).div(self.lengthscale)
             x2_ = (x2 - mean).div(self.lengthscale)

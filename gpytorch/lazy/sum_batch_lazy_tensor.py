@@ -25,7 +25,7 @@ class SumBatchLazyTensor(BlockLazyTensor):
         expand_shape = list(other.shape)
         shape.insert(-2, 1)
         expand_shape.insert(-2, self.base_lazy_tensor.size(-3))
-        other = other.contiguous().view(*shape).expand(*expand_shape)
+        other = other.reshape(*shape).expand(*expand_shape)
         return other
 
     def _get_indices(self, row_index, col_index, *batch_indices):
@@ -54,3 +54,6 @@ class SumBatchLazyTensor(BlockLazyTensor):
     def diag(self):
         diag = self.base_lazy_tensor.diag().sum(-2)
         return diag
+
+    def evaluate(self):
+        return self.base_lazy_tensor.evaluate().sum(dim=-3)  # BlockLazyTensors always use dim3 for the block_dim

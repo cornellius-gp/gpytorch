@@ -108,9 +108,9 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
 
     if tensor.ndimension() == 1:
         tensor = tensor.unsqueeze(-1)
-    toeplitz_column = toeplitz_column.expand(*broadcasted_t_shape).contiguous().view(-1, toeplitz_column.size(-1))
-    toeplitz_row = toeplitz_row.expand(*broadcasted_t_shape).contiguous().view(-1, toeplitz_row.size(-1))
-    tensor = tensor.expand(*output_shape).contiguous().view(-1, *tensor.shape[-2:])
+    toeplitz_column = toeplitz_column.expand(*broadcasted_t_shape).reshape(-1, toeplitz_column.size(-1))
+    toeplitz_row = toeplitz_row.expand(*broadcasted_t_shape).reshape(-1, toeplitz_row.size(-1))
+    tensor = tensor.expand(*output_shape).reshape(-1, *tensor.shape[-2:])
 
     if not torch.equal(toeplitz_column[:, 0], toeplitz_row[:, 0]):
         raise RuntimeError(
@@ -199,7 +199,7 @@ def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
     columns[..., 0] = rows[..., 0]
     res += toeplitz_matmul(columns, rows, torch.flip(right_vectors, dims=(-1,)).unsqueeze(-1))
 
-    res = res.contiguous().view(*batch_shape, num_vectors, toeplitz_size).sum(-2)
+    res = res.reshape(*batch_shape, num_vectors, toeplitz_size).sum(-2)
     res[..., 0] -= (left_vectors * right_vectors).view(*batch_shape, -1).sum(-1)
 
     return res

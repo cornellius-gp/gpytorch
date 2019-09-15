@@ -38,10 +38,10 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, num_rows)
 
     row_tensor = torch.arange(0, n_target_points, dtype=torch.long, device=interp_values.device)
     row_tensor = row_tensor.unsqueeze_(1).repeat(batch_shape.numel(), n_coefficients).view(-1)
-    index_tensor = torch.stack([*batch_tensors, interp_indices.contiguous().view(-1), row_tensor], 0)
+    index_tensor = torch.stack([*batch_tensors, interp_indices.reshape(-1), row_tensor], 0)
 
     # Value tensor
-    value_tensor = interp_values.contiguous().view(-1)
+    value_tensor = interp_values.reshape(-1)
     nonzero_indices = value_tensor.nonzero()
     if nonzero_indices.storage():
         nonzero_indices.squeeze_()
@@ -106,7 +106,7 @@ def bdsmm(sparse, dense):
             device=sparse._values().device,
         )
 
-        dense_2d = dense.contiguous().view(batch_size * num_cols, -1)
+        dense_2d = dense.reshape(batch_size * num_cols, -1)
         res = torch.dsmm(sparse_2d, dense_2d)
         res = res.view(*batch_shape, num_rows, -1)
         return res
@@ -115,9 +115,9 @@ def bdsmm(sparse, dense):
         *batch_shape, num_rows, num_cols = dense.size()
         batch_size = torch.Size(batch_shape).numel()
         dense = dense.view(batch_size, num_rows, num_cols)
-        res = torch.dsmm(sparse, dense.transpose(0, 1).contiguous().view(-1, batch_size * num_cols))
+        res = torch.dsmm(sparse, dense.transpose(0, 1).reshape(-1, batch_size * num_cols))
         res = res.view(-1, batch_size, num_cols)
-        res = res.transpose(0, 1).contiguous().view(*batch_shape, -1, num_cols)
+        res = res.transpose(0, 1).reshape(*batch_shape, -1, num_cols)
         return res
 
     else:

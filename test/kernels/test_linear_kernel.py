@@ -41,7 +41,7 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
 
         # batch_dims
         dim_group_a = a
-        dim_group_a = dim_group_a.permute(1, 0).contiguous().view(-1, 3)
+        dim_group_a = dim_group_a.permute(1, 0).reshape(-1, 3)
         actual = 3.14 * torch.mul(dim_group_a.unsqueeze(-1), dim_group_a.unsqueeze(-2))
         res = kernel(a, a, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-4)

@@ -22,56 +22,34 @@ class Distance(torch.nn.Module):
         self._postprocess = postprocess_script
 
     def _sq_dist(self, x1, x2, postprocess, x1_eq_x2=False):
-        if (
-            hasattr(torch, 'cdist')
-            and x1.dim() < 3
-            and x1.size(-2) <= 512
-            and x2.size(-2) <= 512
-            # TODO: remove when https://github.com/pytorch/pytorch/issues/22353 is fixed
-            and not (x1.is_cuda or x2.is_cuda)
-        ):
-            # torch cdist doesn't support batch, also only available after pytorch 1.1
-            # cdist is a bit faster on small tensors. Check again after pytorch PR #20605
-            res = torch.cdist(x1, x2).pow(2)
+        # TODO: use torch squared cdist once implemented: https://github.com/pytorch/pytorch/pull/25799
+        adjustment = x1.mean(-2, keepdim=True)
+        x1 = x1 - adjustment
+        x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
+
+        # Compute squared distance matrix using quadratic expansion
+        x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
+        x1_pad = torch.ones_like(x1_norm)
+        if x1_eq_x2:
+            x2_norm, x2_pad = x1_norm, x1_pad
         else:
-            adjustment = x1.mean(-2, keepdim=True)
-            x1 = x1 - adjustment
-            x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
+            x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
+            x2_pad = torch.ones_like(x2_norm)
+        x1_ = torch.cat([-2. * x1, x1_norm, x1_pad], dim=-1)
+        x2_ = torch.cat([x2, x2_pad, x2_norm], dim=-1)
+        res = x1_.matmul(x2_.transpose(-2, -1))
 
-            # Compute squared distance matrix using quadratic expansion
-            x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
-            x1_pad = torch.ones_like(x1_norm)
-            if x1_eq_x2:
-                x2_norm, x2_pad = x1_norm, x1_pad
-            else:
-                x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
-                x2_pad = torch.ones_like(x2_norm)
-            x1_ = torch.cat([-2. * x1, x1_norm, x1_pad], dim=-1)
-            x2_ = torch.cat([x2, x2_pad, x2_norm], dim=-1)
-            res = x1_.matmul(x2_.transpose(-2, -1))
+        if x1_eq_x2:
+            res.diagonal(dim1=-2, dim2=-1).fill_(0)
 
-            if x1_eq_x2:
-                res.diagonal(dim1=-2, dim2=-1).fill_(0)
-
-            # Zero out negative values
-            res.clamp_min_(0)
+        # Zero out negative values
+        res.clamp_min_(0)
         return self._postprocess(res) if postprocess else res
 
     def _dist(self, x1, x2, postprocess, x1_eq_x2=False):
-        if (
-            hasattr(torch, 'cdist')
-            and x1.dim() < 3
-            and x1.size(-2) <= 512
-            and x2.size(-2) <= 512
-            # TODO: remove when https://github.com/pytorch/pytorch/issues/22353 is fixed
-            and not (x1.is_cuda or x2.is_cuda)
-        ):
-            # torch cdist doesn't support batch, also only available after pytorch 1.1
-            # cdist is a bit faster on small tensors. Check again after pytorch PR #20605
-            res = torch.cdist(x1, x2)
-        else:
-            res = self._sq_dist(x1, x2, postprocess=False, x1_eq_x2=x1_eq_x2)
-            res = res.clamp_min_(1e-30).sqrt_()
+        # TODO: use torch cdist once implementation is improved: https://github.com/pytorch/pytorch/pull/25799
+        res = self._sq_dist(x1, x2, postprocess=False, x1_eq_x2=x1_eq_x2)
+        res = res.clamp_min_(1e-30).sqrt_()
         return self._postprocess(res) if postprocess else res
 
 

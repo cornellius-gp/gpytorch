@@ -35,7 +35,7 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
 
     def _compute_grid(self, inputs):
         num_data, num_dim = inputs.size()
-        inputs = inputs.transpose(0, 1).contiguous().view(-1, 1)
+        inputs = inputs.transpose(0, 1).reshape(-1, 1)
         interp_indices, interp_values = super(AdditiveGridInterpolationVariationalStrategy, self)._compute_grid(inputs)
         interp_indices = interp_indices.view(num_dim, num_data, -1)
         interp_values = interp_values.view(num_dim, num_data, -1)
