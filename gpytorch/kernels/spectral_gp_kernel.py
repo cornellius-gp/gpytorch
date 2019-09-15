@@ -82,6 +82,7 @@ def spectral_init(x, y, spacing, num_freq=500, omega_lim=None,
 class SpectralGPKernel(Kernel):
     def __init__(self, integration='U', omega = None, num_locs = 50, omega_max = 0.2,
                     normalize = False, transform = torch.exp, symmetrize = False,
+                    register_latent_params = True,
                     **kwargs):
         r"""
         integration: {U, MC} U is trapezoidal rule, MC is Mone Carlo w/ w \sim U(-pi, pi)
@@ -108,8 +109,10 @@ class SpectralGPKernel(Kernel):
         self.num_locs = len(omega)
         self.omega.requires_grad = False
         
-
-        self.register_parameter('latent_params', torch.nn.Parameter(torch.zeros(self.num_locs)))
+        if register_latent_params:
+            self.register_parameter('latent_params', torch.nn.Parameter(torch.zeros(self.num_locs)))
+        else:
+            self.latent_params = None
 
     def compute_kernel_values(self, tau, density, integration='U', normalize=True):
 
