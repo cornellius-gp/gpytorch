@@ -24,7 +24,7 @@ from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 from .white_noise_kernel import WhiteNoiseKernel
 from .spectral_gp_kernel import SpectralGPKernel
-from .wrapped_spectral_gp_kernel import WrappedSpectralGPKernel
+#from .wrapped_spectral_gp_kernel import WrappedSpectralGPKernel
 from .product_spectral_gp_kernel import ProductSpectralGPKernel
 
 __all__ = [
@@ -55,6 +55,6 @@ __all__ = [
     "SpectralMixtureKernel",
     "SpectralGPKernel",
     "WhiteNoiseKernel",
-    "WrappedSpectralGPKernel",
+    #"WrappedSpectralGPKernel",
     "ProductSpectralGPKernel"
 ]
