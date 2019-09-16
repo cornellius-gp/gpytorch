@@ -127,9 +127,6 @@ class HalfWhitenedVariationalStrategy(Module):
             scale_tril=init_covar,
         )
 
-        print(torch.norm(prior_dist.mean - chol_induc.matmul(init_mu)))
-        print(torch.norm(induc_induc_covar - chol_induc.matmul(init_covar.matmul(chol_induc.transpose(-2, -1)))))
-
         self.variational_distribution.initialize_variational_distribution(eval_prior_dist)
 
     def forward(self, x):
