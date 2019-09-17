@@ -73,8 +73,14 @@ class GenericVariationalGaussianGP(GenericVariationalParticleGP):
         # K_xuL^{-1}SL^{-1}K_ux <=> K_{xu}K_{uu}^{-1}\hat{S}K_{uu}^{-1}K_{ux}
         covar_term = scaled_cross_covar.transpose(-2, -1) @ var_covar.matmul(scaled_cross_covar)
 
-        function_dist = MultivariateNormal(
-            (scaled_cross_covar.transpose(-1, -2) @ var_mean),  # K_{xu}L^{-1}m  <=> K_{xu}K_{uu}^{-1}\hat{m},
-            data_data_covar + covar_term + RootLazyTensor(scaled_cross_covar.transpose(-1, -2)).mul(-1),
-        )
+        if var_mean.dim() < scaled_cross_covar.dim():
+            function_dist = MultivariateNormal(
+                (scaled_cross_covar.transpose(-1, -2) @ var_mean.unsqueeze(-1)).squeeze(-1),  # K_{xu}L^{-1}m  <=> K_{xu}K_{uu}^{-1}\hat{m},
+                data_data_covar + covar_term + RootLazyTensor(scaled_cross_covar.transpose(-1, -2)).mul(-1),
+            )
+        else:
+            function_dist = MultivariateNormal(
+                (scaled_cross_covar.transpose(-1, -2) @ var_mean),  # K_{xu}L^{-1}m  <=> K_{xu}K_{uu}^{-1}\hat{m},
+                data_data_covar + covar_term + RootLazyTensor(scaled_cross_covar.transpose(-1, -2)).mul(-1),
+            )
         return function_dist
