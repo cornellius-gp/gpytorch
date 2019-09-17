@@ -14,7 +14,7 @@ from .generic_variational_particle_gp import GenericVariationalParticleGP
 
 class GenericVariationalGaussianGP(GenericVariationalParticleGP):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
-                 mode="predictive",beta=1.0, divbeta=0.1, vardistmode="cholesky"):
+                 mode="predictive",beta=1.0, divbeta=0.1, vardistmode="cholesky", batch_shape=torch.Size([])):
         super().__init__(
             inducing_points,
             likelihood,
@@ -27,11 +27,11 @@ class GenericVariationalGaussianGP(GenericVariationalParticleGP):
 
         if vardistmode == "cholesky":
             self.variational_distribution = CholeskyVariationalDistribution(
-                num_inducing_points=inducing_points.size(-2)
+                num_inducing_points=inducing_points.size(-2), batch_shape=batch_shape
             )
         elif vardistmode == "meanfield":
             self.variational_distribution = MeanFieldVariationalDistribution(
-                num_inducing_points=inducing_points.size(-2)
+                num_inducing_points=inducing_points.size(-2), batch_shape=batch_shape
             )
         else:
             raise RuntimeError("Invalid variational distribution mode specified: ", vardistmode)
