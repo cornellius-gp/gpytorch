@@ -30,4 +30,17 @@ class LikelihoodList(Likelihood):
         ]
 
     def __call__(self, *args, **kwargs):
-        return [likelihood(*args_, **kwargs) for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))]
+        if "noise" in kwargs:
+            noise = kwargs.pop("noise")
+            # if noise kwarg is passed, assume it's an iterable of noise tensors
+            return [
+                likelihood(*args_, {**kwargs, "noise": noise_})
+                for likelihood, args_, noise_ in zip(
+                    self.likelihoods, _get_tuple_args_(*args), noise
+                )
+            ]
+        else:
+            return [
+                likelihood(*args_, **kwargs)
+                for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
+            ]
