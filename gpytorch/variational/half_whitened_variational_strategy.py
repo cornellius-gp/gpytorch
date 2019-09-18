@@ -65,7 +65,9 @@ class HalfWhitenedVariationalStrategy(Module):
 
         induc_induc_covar = prior_dist.lazy_covariance_matrix
 
-        L = induc_induc_covar.evaluate().cholesky()
+        # flip order of operations for numerical stability; TODO investigate more
+        # L = induc_induc_covar.evaluate().cholesky()
+        L = induc_induc_covar.cholesky().evaluate()
 
         device = induc_induc_covar.device
         dtype = induc_induc_covar.dtype
