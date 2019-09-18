@@ -78,16 +78,19 @@ class HalfWhitenedVariationalStrategy(Module):
 
         inner_mat = (eye + variational_dist_u.lazy_covariance_matrix.mul(-1)).evaluate()
 
+        inner_mat = inner_mat.double()
+        L = L.double()
+
         right_rinv = torch.triangular_solve(inner_mat, L.transpose(-2, -1), upper=True)[0].transpose(-2, -1)
 
         var_mean = variational_dist_u.mean - prior_dist.mean
 
-        right_hand_sides = torch.cat((var_mean.unsqueeze(-1), right_rinv), dim=-1)
+        right_hand_sides = torch.cat((var_mean.unsqueeze(-1).double(), right_rinv), dim=-1)
 
         full_rinv, _ = torch.triangular_solve(right_hand_sides, L.transpose(-2, -1), upper=True)
 
-        mean_cache = full_rinv[..., :, 0].contiguous()
-        covar_cache = full_rinv[..., :, 1:].contiguous()
+        mean_cache = full_rinv[..., :, 0].contiguous().float()
+        covar_cache = full_rinv[..., :, 1:].contiguous().float()
 
         return [mean_cache, covar_cache]
 
