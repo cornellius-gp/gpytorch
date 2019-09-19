@@ -11,6 +11,8 @@ from . import GP
 from .. import settings
 from .quad_prob import quad_prob
 
+from numpy.polynomial.hermite import hermgauss
+
 
 class GenericVariationalParticleGP(Module):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
@@ -38,6 +40,12 @@ class GenericVariationalParticleGP(Module):
         if self.mode == 'tpredictive':
             self.raw_nu = torch.nn.Parameter(torch.tensor(1.0))
 
+        if self.mode == 'pred_class':
+            NQ = 15
+            quad_X, quad_WX = hermgauss(NQ)
+            self.register_buffer("quad_X", torch.tensor(quad_X))
+            self.register_buffer("quad_WX", torch.tensor(quad_WX))
+
     def model(self, input, output, *params, **kwargs):
         pyro.module(self.name_prefix + ".gp_prior", self)
 
@@ -59,7 +67,7 @@ class GenericVariationalParticleGP(Module):
                 pyro.sample(self.name_prefix + ".output_values", output_dist, obs=output)
         elif self.mode == 'pred_class':
             muf, varf = function_dist.mean.t(), function_dist.variance.t()
-            log_prob = quad_prob(muf, varf, output, K=3, NQ=15).clamp(min=1.0e-10).log()
+            log_prob = quad_prob(muf, varf, output, K=3, X=self.quad_X, WX=self.quad_WX).clamp(min=1.0e-8).log()
             pyro.factor(self.name_prefix + ".output_values", scale_factor * log_prob)
         elif self.mode == 'class_gamma':
             function_samples = function_dist()

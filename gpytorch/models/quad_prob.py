@@ -1,4 +1,3 @@
-from numpy.polynomial.hermite import hermgauss
 import torch
 import math
 
@@ -6,18 +5,18 @@ import math
 root_two = math.sqrt(2.0)
 
 
-def quad_prob(mu, var, labels, K=2, NQ=10):
+def quad_prob(mu, var, labels, K=2, X=None, WX=None):
     """
     mu and var of shape B x N_classes.
     labels is of shape B.
-    NQ is the number of quadrature points along each dimension.
     K is the number of dimensions to do quadrature along at cost NQ per dimension.
+    (X, WX) define a quadrature rule with NQ weights.
     """
-    X, WX = hermgauss(NQ)
-    X, WX = torch.tensor(X).type_as(mu), torch.tensor(WX).type_as(mu)
+    prototype = mu
+    sigma = var.sqrt().double()
+    mu = mu.double()
 
     N_classes = mu.size(-1)
-    sigma = var.sqrt()
 
     mu = mu - torch.max(mu, dim=-1, keepdim=True)[0]
     ucb = mu + sigma
@@ -52,4 +51,4 @@ def quad_prob(mu, var, labels, K=2, NQ=10):
 
     prob = ratio / math.pow(math.pi, 0.5 * K)
 
-    return prob
+    return prob.type_as(prototype)
