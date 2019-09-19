@@ -14,7 +14,7 @@ def quad_prob(mu, var, labels, K=2, NQ=10):
     K is the number of dimensions to do quadrature along at cost NQ per dimension.
     """
     X, WX = hermgauss(NQ)
-    X, WX = torch.tensor(X).float(), torch.tensor(WX).float()
+    X, WX = torch.tensor(X).type_as(mu), torch.tensor(WX).type_as(mu)
 
     N_classes = mu.size(-1)
     sigma = var.sqrt()
