@@ -59,7 +59,7 @@ class GenericVariationalParticleGP(Module):
                 pyro.sample(self.name_prefix + ".output_values", output_dist, obs=output)
         elif self.mode == 'pred_class':
             muf, varf = function_dist.mean.t(), function_dist.variance.t()
-            log_prob = quad_prob(muf, varf, output, K=3, NQ=10).clamp(min=1.0e-10).log()
+            log_prob = quad_prob(muf, varf, output, K=3, NQ=15).clamp(min=1.0e-10).log()
             pyro.factor(self.name_prefix + ".output_values", scale_factor * log_prob)
         elif self.mode == 'class_gamma':
             function_samples = function_dist()
