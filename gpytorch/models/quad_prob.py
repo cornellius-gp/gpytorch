@@ -19,6 +19,7 @@ def quad_prob(mu, var, labels, K=2, NQ=10):
     N_classes = mu.size(-1)
     sigma = var.sqrt()
 
+    mu = mu - torch.max(x, dim=-1, keepdim=true)[0]
     ucb = mu + sigma
     ucb[torch.arange(mu.size(0)), labels] += 99999.9
 
