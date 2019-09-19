@@ -13,8 +13,9 @@ from .. import settings
 
 class GenericVariationalParticleGP(Module):
     def __init__(self, inducing_points, likelihood, num_data, name_prefix="",
-                 mode="jensen", beta=1.0, divbeta=0.1):
-        assert mode in ['predictive_classification', 'jensen', 'predictive', 'tpredictive', 'betadiv', 'gammadiv', 'robust']
+                 mode="jensen", beta=1.0, divbeta=0.05):
+        assert mode in ['predictive_classification', 'jensen', 'predictive', 'tpredictive',
+                        'betadiv', 'gammadiv', 'robust', 'pred_class_gamma']
 
         if inducing_points.dim() == 1:
             inducing_points = inducing_points.unsqueeze(-1)
@@ -56,7 +57,15 @@ class GenericVariationalParticleGP(Module):
                 output_dist = self.likelihood(function_samples, *params, **kwargs)
                 samples = pyro.sample(self.name_prefix + ".output_values", output_dist, obs=output)
                 return samples
-
+        elif self.mode == 'pred_class_gamma':
+            function_samples = function_dist()
+            probs = self.likelihood(function_samples, *params, **kwargs).probs
+            gamma = self.divbeta
+            probs_log = probs.log()
+            log_num = gamma * probs_log[torch.arange(output.size(0)), output]
+            log_den = (gamma / (1.0 + gamma)) * torch.logsumexp((1.0 + gamma) * probs_log, -1)
+            factor = scale_factor * ((1.0 + gamma) / gamma) * (log_num - log_den).exp()
+            pyro.factor(self.name_prefix + ".output_values", factor)
         elif self.mode == 'tpredictive':
             nu = 2.0 + torch.functional.F.softplus(pyro.param("raw_nu", self.raw_nu))
             obs_dist = pyro.distributions.StudentT(nu, function_dist.mean,
