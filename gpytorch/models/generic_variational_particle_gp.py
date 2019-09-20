@@ -61,7 +61,7 @@ class GenericVariationalParticleGP(Module):
             with pyro.poutine.scale(scale=scale_factor):
                 return pyro.sample(self.name_prefix + ".output_values", obs_dist, obs=output)
         elif self.mode == 'class_svi':
-            with pyro.poutine.scale(scale=scale_factor), gpytorch.settings.fast_computations(covar_root_decomposition=False):
+            with pyro.poutine.scale(scale=scale_factor), settings.fast_computations(covar_root_decomposition=False):
                 function_samples = function_dist()
                 output_dist = self.likelihood(function_samples, *params, **kwargs)
                 pyro.sample(self.name_prefix + ".output_values", output_dist, obs=output)
@@ -70,7 +70,7 @@ class GenericVariationalParticleGP(Module):
             log_prob = quad_prob(muf, varf, output, K=3, X=self.quad_X, WX=self.quad_WX).clamp(min=1.0e-8).log()
             pyro.factor(self.name_prefix + ".output_values", scale_factor * log_prob)
         elif self.mode == 'class_gamma':
-            with gpytorch.settings.fast_computations(covar_root_decomposition=False):
+            with settings.fast_computations(covar_root_decomposition=False):
                 function_samples = function_dist()
             probs = self.likelihood(function_samples, *params, **kwargs).probs
             gamma = self.divbeta
