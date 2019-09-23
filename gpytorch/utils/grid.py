@@ -2,6 +2,9 @@
 
 import math
 import torch
+from typing import List
+from functools import reduce
+from operator import mul
 
 
 def scale_to_bounds(x, lower_bound, upper_bound):
@@ -50,16 +53,20 @@ def choose_grid_size(train_inputs, ratio=1.0, kronecker_structure=True):
         return (ratio * num_data)
 
 
-def create_data_from_grid(grid):
-    grid_size = grid.size(-2)
-    grid_dim = grid.size(-1)
-    grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim, device=grid.device)
+def create_data_from_grid(grid: List[torch.Tensor]):
+    # grid_size = grid.size(-2)
+    grid_dim = len(grid)
+    grid_sizes = [grid[i].size(0) for i in range(grid_dim)]
+    grid_data = torch.zeros(reduce(mul, grid_sizes), grid_dim, device=grid[0].device)
     prev_points = None
-    for i in range(grid_dim):
+    num_pts_i = 1
+    for i in range(grid_dim):  # fill the values of dimension i
+        grid_size = grid_sizes[i]
         for j in range(grid_size):
-            grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[j, i])
+            grid_data[j * num_pts_i: (j + 1) * num_pts_i, i].fill_(grid[i][j])
             if prev_points is not None:
-                grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
-        prev_points = grid_data[: grid_size ** (i + 1), : (i + 1)]
+                grid_data[j * num_pts_i: (j + 1) * num_pts_i, :i].copy_(prev_points)
+        num_pts_i *= grid_size
+        prev_points = grid_data[: num_pts_i, : (i + 1)]
 
     return grid_data

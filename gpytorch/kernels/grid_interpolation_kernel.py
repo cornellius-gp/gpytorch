@@ -5,6 +5,7 @@ from .grid_kernel import GridKernel
 from ..lazy import InterpolatedLazyTensor
 from ..models.exact_prediction_strategies import InterpolatedPredictionStrategy
 from ..utils.interpolation import Interpolation
+from collections.abc import Iterable
 
 
 class GridInterpolationKernel(GridKernel):
@@ -47,7 +48,7 @@ class GridInterpolationKernel(GridKernel):
     Args:
         - :attr:`base_kernel` (Kernel):
             The kernel to approximate with KISS-GP
-        - :attr:`grid_size` (int):
+        - :attr:`grid_size` (int, list of ints):
             The size of the grid (in each dimension)
         - :attr:`num_dims` (int):
             The dimension of the input data. Required if `grid_bounds=None`
@@ -83,11 +84,19 @@ class GridInterpolationKernel(GridKernel):
                     "num_dims ({}) disagrees with the number of supplied "
                     "grid_bounds ({})".format(num_dims, len(grid_bounds))
                 )
+        if isinstance(grid_size, int):
+            grid_sizes = [grid_size for _ in range(num_dims)]
+        elif isinstance(grid_size, Iterable):
+            grid_sizes = list(grid_size)
+            if len(grid_sizes) != num_dims:
+                raise RuntimeError("The number of grid sizes provided through grid_size do not match num_dims.")
+        else:
+            raise TypeError("grid_size is neither an integer nor an iterable.")
 
         # Initialize values and the grid
         self.grid_is_dynamic = grid_is_dynamic
         self.num_dims = num_dims
-        self.grid_size = grid_size
+        self.grid_sizes = grid_sizes
         self.grid_bounds = grid_bounds
         grid = self._create_grid()
 
@@ -97,18 +106,18 @@ class GridInterpolationKernel(GridKernel):
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.bool))
 
     def _create_grid(self):
-        grid = torch.zeros(self.grid_size, len(self.grid_bounds))
+        grid = []  # ID: now a jagged array of zeros
         for i in range(len(self.grid_bounds)):
-            grid_diff = float(self.grid_bounds[i][1] - self.grid_bounds[i][0]) / (self.grid_size - 2)
-            grid[:, i] = torch.linspace(
-                self.grid_bounds[i][0] - grid_diff, self.grid_bounds[i][1] + grid_diff, self.grid_size
-            )
+            grid_diff = float(self.grid_bounds[i][1] - self.grid_bounds[i][0]) / (self.grid_sizes[i] - 2)
+            grid.append(torch.linspace(
+                self.grid_bounds[i][0] - grid_diff, self.grid_bounds[i][1] + grid_diff, self.grid_sizes[i]
+            ))
 
         return grid
 
     @property
     def _tight_grid_bounds(self):
-        grid_spacings = tuple((bound[1] - bound[0]) / self.grid_size for bound in self.grid_bounds)
+        grid_spacings = tuple((bound[1] - bound[0]) / self.grid_sizes[i] for i, bound in enumerate(self.grid_bounds))
         return tuple(
             (bound[0] + 2.01 * spacing, bound[1] - 2.01 * spacing)
             for bound, spacing in zip(self.grid_bounds, grid_spacings)
@@ -150,7 +159,8 @@ class GridInterpolationKernel(GridKernel):
 
             # Update the grid if needed
             if update_grid:
-                grid_spacings = tuple((x_max - x_min) / (self.grid_size - 4.02) for x_min, x_max in zip(x_mins, x_maxs))
+                grid_spacings = tuple(
+                    (x_max - x_min) / (gs - 4.02) for gs, x_min, x_max in zip(self.grid_sizes, x_mins, x_maxs))
                 self.grid_bounds = tuple(
                     (x_min - 2.01 * spacing, x_max + 2.01 * spacing)
                     for x_min, x_max, spacing in zip(x_mins, x_maxs, grid_spacings)
