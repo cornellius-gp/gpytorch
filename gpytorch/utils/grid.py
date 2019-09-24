@@ -3,8 +3,6 @@
 import math
 import torch
 from typing import List
-from functools import reduce
-from operator import mul
 
 
 def scale_to_bounds(x, lower_bound, upper_bound):
@@ -50,23 +48,28 @@ def choose_grid_size(train_inputs, ratio=1.0, kronecker_structure=True):
     if kronecker_structure:
         return int(ratio * math.pow(num_data, 1.0 / num_dim))
     else:
-        return (ratio * num_data)
+        return ratio * num_data
 
 
-def create_data_from_grid(grid: List[torch.Tensor]):
-    # grid_size = grid.size(-2)
-    grid_dim = len(grid)
-    grid_sizes = [grid[i].size(0) for i in range(grid_dim)]
-    grid_data = torch.zeros(reduce(mul, grid_sizes), grid_dim, device=grid[0].device)
-    prev_points = None
-    num_pts_i = 1
-    for i in range(grid_dim):  # fill the values of dimension i
-        grid_size = grid_sizes[i]
-        for j in range(grid_size):
-            grid_data[j * num_pts_i: (j + 1) * num_pts_i, i].fill_(grid[i][j])
-            if prev_points is not None:
-                grid_data[j * num_pts_i: (j + 1) * num_pts_i, :i].copy_(prev_points)
-        num_pts_i *= grid_size
-        prev_points = grid_data[: num_pts_i, : (i + 1)]
-
+def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
+    """
+    Args:
+        :attr:`grid` (List[Tensor])
+            Each Tensor is a 1D set of increments for the grid in that dimension
+    Returns:
+        `grid_data` (Tensor)
+            Returns the set of points on the grid going by column-major order
+            (due to legacy reasons).
+    """
+    ndims = len(grid)
+    assert all(axis.dim() == 1 for axis in grid)
+    projections = torch.meshgrid(*grid)
+    grid_tensor = torch.stack(projections, axis=-1)
+    # Note that if we did
+    #     grid_data = grid_tensor.reshape(-1, ndims)
+    # instead, we would be iterating through the points of our grid from the
+    # last data dimension to the first data dimension. However, due to legacy
+    # reasons, we need to iterate from the first data dimension to the last data
+    # dimension when creating grid_data
+    grid_data = grid_tensor.permute(*(reversed(range(ndims + 1)))).reshape(ndims, -1).transpose(0, 1)
     return grid_data
