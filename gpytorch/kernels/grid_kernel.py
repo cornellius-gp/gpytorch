@@ -75,7 +75,7 @@ class GridKernel(Kernel):
 
         if not self.interpolation_mode:
             full_grid = create_data_from_grid(self.grid)
-            self.full_grid.detach().resize_(full_grid).copy_(full_grid)
+            self.full_grid.detach_().resize_(full_grid).copy_(full_grid)
 
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
