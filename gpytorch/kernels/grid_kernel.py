@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
+from typing import List
+from torch import Tensor
 from .kernel import Kernel
 from ..lazy import delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor
 from .. import settings
@@ -23,6 +25,10 @@ class GridKernel(Kernel):
     Args:
         :attr:`base_kernel` (Kernel):
             The kernel to speed up with grid methods.
+        :attr:`grid` (List[Tensor]):
+            Each element of the list contains the increments of the grid in that dimension
+        :attr:`interpolation_mode`:
+            Where we plan to do interpolation like in GridInterpolationKernel
         :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel`.
 
@@ -30,39 +36,42 @@ class GridKernel(Kernel):
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
     """
 
-    def __init__(self, base_kernel, grid, interpolation_mode=False, active_dims=None):
-        super(GridKernel, self).__init__(active_dims=active_dims)
+    def __init__(
+        self, base_kernel: Kernel, grid: List[Tensor], interpolation_mode: bool = False, active_dims: bool = None
+    ):
+        super().__init__(active_dims=active_dims)
         self.interpolation_mode = interpolation_mode
         self.base_kernel = base_kernel
         self.num_dims = len(grid)
-        self.register_buffer_list('grid', grid)
+        self.register_buffer_list("grid", grid)
         if not self.interpolation_mode:
             self.register_buffer("full_grid", create_data_from_grid(grid))
 
     def register_buffer_list(self, base_name, tensors):
         """Helper to register several buffers at once under a single base name"""
         for i, tensor in enumerate(tensors):
-            self.register_buffer(base_name + '_' + str(i), tensor)
+            self.register_buffer(base_name + "_" + str(i), tensor)
 
     @property
     def grid(self):
-        return [getattr(self, 'grid' + '_' + str(i)) for i in range(self.num_dims)]
-
+        return [getattr(self, "grid" + "_" + str(i)) for i in range(self.num_dims)]
 
     def train(self, mode=True):
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
-        return super(GridKernel, self).train(mode)
+        return super().train(mode)
 
-    def update_grid(self, grid):
+    def update_grid(self, grid: List[Tensor]):
         """
         Supply a new `grid` if it ever changes.
         """
         if not isinstance(grid, list):
-            raise RuntimeError("Update_grid requires that grid is a list of "
-                               "tensors of grid points along each axis.")
-        for dim in range(len(self.grid)):
-            self.grid[dim].detach().resize_(grid[dim].size()).copy_(grid[dim])
+            raise RuntimeError("Update_grid requires that grid is a list of tensors of grid points along each axis.")
+        if len(grid) != self.num_dims:
+            raise RuntimeError("New grid should have the same number of dimensions as before.")
+
+        for dim in range(self.num_dims):
+            self.grid[dim].detach_().resize_(grid[dim].size()).copy_(grid[dim])
 
         if not self.interpolation_mode:
             full_grid = create_data_from_grid(self.grid)
@@ -72,7 +81,7 @@ class GridKernel(Kernel):
             del self._cached_kernel_mat
         return self
 
-    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
+    def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **params):
         grid = self.grid
 
         if not self.interpolation_mode:  # TODO: Update based on possible jagged grid shapes?
