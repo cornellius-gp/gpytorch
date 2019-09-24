@@ -94,11 +94,7 @@ class GridKernel(Kernel):
             if not self.training and hasattr(self, "_cached_kernel_mat"):
                 return self._cached_kernel_mat
 
-            if isinstance(x1, list):
-                # we assume it is provided as a 'jagged tensor' representing a grid.
-                n_dim = len(x1)
-            else:
-                n_dim = x1.size(-1)
+            n_dim = self.num_dims
 
             if settings.use_toeplitz.on():
                 first_item = [self.grid[i][0:1] for i in range(len(self.grid))] # n_dim x 1
@@ -115,14 +111,14 @@ class GridKernel(Kernel):
                     covars = [ToeplitzLazyTensor(c) for c in
                               covar_columns]  # TODO at least one of these two is not right, likely batch.
             else:
-                full_covar = [self.base_kernel(grid[i], grid[i], **params) for i in range(n_dim)]
+                full_covar = [self.base_kernel(proj, proj, last_dim_is_batch=False, **params) for proj in grid]
                 if last_dim_is_batch:
                     covars = [full_covar]
                 else:
                     covars = full_covar  # TODO: same message as above.
 
             if len(covars) > 1:
-                covar = KroneckerProductLazyTensor(*covars[::-1])
+                covar = KroneckerProductLazyTensor(*covars)
             else:
                 covar = covars[0]
 
