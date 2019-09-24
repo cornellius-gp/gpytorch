@@ -18,7 +18,7 @@ class AbstractModelList(GP, ABC):
         """Forward restricted to the i-th output only"""
         raise NotImplementedError
 
-    def likelihood_i(self, i, *args):
+    def likelihood_i(self, i, *args, **kwargs):
         """Evaluate likelihood of the i-th output only"""
         raise NotImplementedError
 
@@ -41,8 +41,8 @@ class IndependentModelList(AbstractModelList):
     def forward_i(self, i, *args, **kwargs):
         return self.models[i].forward(*args, **kwargs)
 
-    def likelihood_i(self, i, *args):
-        return self.likelihood.likelihoods[i](*args)
+    def likelihood_i(self, i, *args, **kwargs):
+        return self.likelihood.likelihoods[i](*args, **kwargs)
 
     def forward(self, *args, **kwargs):
         [model.forward(*args_, **kwargs) for model, args_ in zip(self.models, _get_tensor_args(*args))]

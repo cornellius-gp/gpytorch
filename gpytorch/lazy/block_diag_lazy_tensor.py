@@ -60,7 +60,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         shape = list(other.shape)
         del shape[-3]
         shape[-2] *= self.num_blocks
-        other = other.contiguous().view(*shape)
+        other = other.reshape(*shape)
         return other
 
     def _root_decomposition(self):

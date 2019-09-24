@@ -121,7 +121,7 @@ class GridInterpolationKernel(GridKernel):
             n_dimensions = 1
         batch_shape = inputs.shape[:-2]
 
-        inputs = inputs.contiguous().view(-1, n_dimensions)
+        inputs = inputs.reshape(-1, n_dimensions)
         interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
         interp_indices = interp_indices.view(*batch_shape, n_data, -1)
         interp_values = interp_values.view(*batch_shape, n_data, -1)
@@ -134,9 +134,9 @@ class GridInterpolationKernel(GridKernel):
         # See if we need to update the grid or not
         if self.grid_is_dynamic:  # This is true if a grid_bounds wasn't passed in
             if torch.equal(x1, x2):
-                x = x1.contiguous().view(-1, self.num_dims)
+                x = x1.reshape(-1, self.num_dims)
             else:
-                x = torch.cat([x1.contiguous().view(-1, self.num_dims), x2.contiguous().view(-1, self.num_dims)])
+                x = torch.cat([x1.reshape(-1, self.num_dims), x2.reshape(-1, self.num_dims)])
             x_maxs = x.max(0)[0].tolist()
             x_mins = x.min(0)[0].tolist()
 
