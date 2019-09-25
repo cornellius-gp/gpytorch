@@ -4,7 +4,7 @@ import torch
 from typing import List
 from torch import Tensor
 from .kernel import Kernel
-from ..lazy import delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor
+from ..lazy import ToeplitzLazyTensor, KroneckerProductLazyTensor
 from .. import settings
 from gpytorch.utils.grid import create_data_from_grid
 
@@ -85,45 +85,40 @@ class GridKernel(Kernel):
         grid = self.grid
 
         if not self.interpolation_mode:  # TODO: Update based on possible jagged grid shapes?
-            if len(x1.shape[:-2]):
-                full_grid = self.full_grid.expand(*x1.shape[:-2], *self.full_grid.shape[-2:])
-            else:
-                full_grid = self.full_grid
+            # Use the same grid for all batches
+            full_grid = self.full_grid.expand(*x1.shape[:-2], *self.full_grid.shape[-2:])
 
         if self.interpolation_mode or (torch.equal(x1, full_grid) and torch.equal(x2, full_grid)):
             if not self.training and hasattr(self, "_cached_kernel_mat"):
                 return self._cached_kernel_mat
-
-            n_dim = self.num_dims
-
             if settings.use_toeplitz.on():
-                first_item = [self.grid[i][0:1] for i in range(len(self.grid))]  # n_dim x 1
-                # Instead of using last_dim_is_batch, use iterations... b/c "last dim" varies for each input dimension.
-                # covar_columns = self.base_kernel(first_item, grid, diag=False, last_dim_is_batch=True, **params)
-                # Also, like, how do I get this to work when last_dim_is_batch=True???
+                first_item = [proj[0:1] for proj in grid]  # Each entry is torch.Size([1])
                 covar_columns = [
-                    self.base_kernel(first_item[i], grid[i], last_dim_is_batch=False, **params) for i in range(n_dim)
-                ]  # n_dim x 1 x grid_size[i]
-                # covar_columns = delazify(covar_columns).squeeze(-2)
-                covar_columns = [delazify(c).squeeze(-2) for c in covar_columns]
+                    self.base_kernel(first, proj, last_dim_is_batch=False, **params)
+                    for first, proj in zip(first_item, grid)
+                ]  # Now each entry i is of size 1 x grid_size[i]
+
                 if last_dim_is_batch:
-                    covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in covar_columns]
+                    # For b x n x d input, we want a b x d x n x n Toeplitz matrix
+                    # Toeplitz expects batches of columns so we first squeeze out the row dimension
+                    # Then we stack them together
+                    # TODO:
+                    covar = [ToeplitzLazyTensor(c.squeeze(-2)) for c in covar_columns]
                 else:
-                    covars = [
-                        ToeplitzLazyTensor(c) for c in covar_columns
-                    ]  # TODO at least one of these two is not right, likely batch.
+                    # Toeplitz expects batches of columns so we first squeeze out the row dimension
+                    covar = [ToeplitzLazyTensor(c.squeeze(-2)) for c in covar_columns]
             else:
                 full_covar = [self.base_kernel(proj, proj, last_dim_is_batch=False, **params) for proj in grid]
                 if last_dim_is_batch:
-                    covars = [full_covar]
+                    # TODO:
+                    covar = full_covar
                 else:
-                    covars = full_covar  # TODO: same message as above.
-
-            if len(covars) > 1:
+                    covar = full_covar
+            if len(covar) > 1:
                 # Need to reverse covars to make KroneckerProductLazyTensor matmul properly
-                covar = KroneckerProductLazyTensor(*covars[::-1])
+                covar = KroneckerProductLazyTensor(*covar[::-1])
             else:
-                covar = covars[0]
+                covar = covar[0]
 
             if not self.training:
                 self._cached_kernel_mat = covar
