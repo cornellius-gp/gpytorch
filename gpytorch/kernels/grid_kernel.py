@@ -55,11 +55,11 @@ class GridKernel(Kernel):
         """
         Supply a new `grid` if it ever changes.
         """
-        self.grid.detach().resize_(grid.size()).copy_(grid)
+        self.grid.detach().resize_as_(grid).copy_(grid)
 
         if not self.interpolation_mode:
             full_grid = create_data_from_grid(self.grid)
-            self.full_grid.detach().resize_(full_grid).copy_(full_grid)
+            self.full_grid.detach().resize_as_(full_grid).copy_(full_grid)
 
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
