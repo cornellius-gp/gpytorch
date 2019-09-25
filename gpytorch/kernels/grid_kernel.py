@@ -97,19 +97,21 @@ class GridKernel(Kernel):
             n_dim = self.num_dims
 
             if settings.use_toeplitz.on():
-                first_item = [self.grid[i][0:1] for i in range(len(self.grid))] # n_dim x 1
+                first_item = [self.grid[i][0:1] for i in range(len(self.grid))]  # n_dim x 1
                 # Instead of using last_dim_is_batch, use iterations... b/c "last dim" varies for each input dimension.
                 # covar_columns = self.base_kernel(first_item, grid, diag=False, last_dim_is_batch=True, **params)
                 # Also, like, how do I get this to work when last_dim_is_batch=True???
-                covar_columns = [self.base_kernel(first_item[i], grid[i], last_dim_is_batch=False, **params) for i in
-                                 range(n_dim)] # n_dim x 1 x grid_size[i]
+                covar_columns = [
+                    self.base_kernel(first_item[i], grid[i], last_dim_is_batch=False, **params) for i in range(n_dim)
+                ]  # n_dim x 1 x grid_size[i]
                 # covar_columns = delazify(covar_columns).squeeze(-2)
                 covar_columns = [delazify(c).squeeze(-2) for c in covar_columns]
                 if last_dim_is_batch:
                     covars = [ToeplitzLazyTensor(c.squeeze(dim=-2)) for c in covar_columns]
                 else:
-                    covars = [ToeplitzLazyTensor(c) for c in
-                              covar_columns]  # TODO at least one of these two is not right, likely batch.
+                    covars = [
+                        ToeplitzLazyTensor(c) for c in covar_columns
+                    ]  # TODO at least one of these two is not right, likely batch.
             else:
                 full_covar = [self.base_kernel(proj, proj, last_dim_is_batch=False, **params) for proj in grid]
                 if last_dim_is_batch:
@@ -118,7 +120,8 @@ class GridKernel(Kernel):
                     covars = full_covar  # TODO: same message as above.
 
             if len(covars) > 1:
-                covar = KroneckerProductLazyTensor(*covars)
+                # Need to reverse covars to make KroneckerProductLazyTensor matmul properly
+                covar = KroneckerProductLazyTensor(*covars[::-1])
             else:
                 covar = covars[0]
 
