@@ -23,8 +23,16 @@ class GridKernel(Kernel):
     Args:
         :attr:`base_kernel` (Kernel):
             The kernel to speed up with grid methods.
+        :attr:`grid` (Tensor):
+            A g x d tensor where column i consists of the projections of the
+            grid in dimension i.
         :attr:`active_dims` (tuple of ints, optional):
             Passed down to the `base_kernel`.
+        :attr:`interpolation_mode` (bool):
+            Used for GridInterpolationKernel where we want the covariance
+            between points in the projections of the grid of each dimension.
+            We do this by treating `grid` as d batches of g x 1 tensors by
+            calling k(grid, grid) with last_dim_is_batch.
 
     .. _Fast kernel learning for multidimensional pattern extrapolation:
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
