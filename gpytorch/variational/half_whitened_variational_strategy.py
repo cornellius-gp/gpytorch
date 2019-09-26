@@ -105,7 +105,7 @@ class HalfWhitenedVariationalStrategy(Module):
                 self.mean_diff_inv_quad(),
             ]
         )
-        kl_divergence = kl_divergence - prior_dist.event_shape.numel()
+        kl_divergence = kl_divergence - 0.5 * prior_dist.event_shape.numel()
 
         return kl_divergence
 
