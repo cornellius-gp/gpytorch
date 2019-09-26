@@ -37,9 +37,7 @@ class HalfWhitenedVariationalStrategy(Module):
     @cached(name="mean_diff_inv_quad_memo")
     def mean_diff_inv_quad(self):
         prior_mean = self.prior_distribution.mean
-        if prior_mean.dim() == 1:
-            return torch.dot(prior_mean, prior_mean)
-        return prior_mean.transpose(-2, -1).matmul(prior_mean)
+        return (prior_mean * prior_mean).sum(-1)
 
     @property
     @cached(name="prior_distribution_memo")
@@ -105,9 +103,9 @@ class HalfWhitenedVariationalStrategy(Module):
                 -variational_dist_u.lazy_covariance_matrix.logdet(),
                 self.covar_trace(),
                 self.mean_diff_inv_quad(),
-                -prior_dist.event_shape.numel(),
             ]
         )
+        kl_divergence = kl_divergence - prior_dist.event_shape.numel()
 
         return kl_divergence
 
@@ -149,7 +147,8 @@ class HalfWhitenedVariationalStrategy(Module):
         variational_dist = self.variational_distribution.variational_distribution
         inducing_points = self.inducing_points
         inducing_batch_shape = inducing_points.shape[:-2]
-        if inducing_batch_shape < x.shape[:-2]:
+
+        if inducing_batch_shape != x.shape[:-2]:
             batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
             inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
             x = x.expand(*batch_shape, *x.shape[-2:])
@@ -173,7 +172,11 @@ class HalfWhitenedVariationalStrategy(Module):
 
             mean_cache, covar_cache = self.mean_covar_cache()
 
-            predictive_mean = test_mean + induc_data_covar.transpose(-2, -1).matmul(mean_cache)
+            if induc_data_covar.dim() > 2:
+                predictive_mean = induc_data_covar.transpose(-2, -1).matmul(mean_cache.unsqueeze(-1)).squeeze(-1)
+                predictive_mean =  test_mean + predictive_mean
+            else:
+                predictive_mean = test_mean + induc_data_covar.transpose(-2, -1).matmul(mean_cache)
 
             left_part = induc_data_covar.transpose(-2, -1).matmul(covar_cache)
             full_part = MatmulLazyTensor(left_part, induc_data_covar)
