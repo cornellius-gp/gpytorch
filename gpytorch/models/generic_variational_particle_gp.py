@@ -20,6 +20,8 @@ class GenericVariationalParticleGP(Module):
         assert mode in ['pred_class', 'jensen', 'predictive', 'tpredictive',
                         'betadiv', 'gammadiv', 'robust', 'class_gamma', 'class_svi']
 
+        inducing_points = inducing_points.clone()
+
         if inducing_points.dim() == 1:
             inducing_points = inducing_points.unsqueeze(-1)
 
