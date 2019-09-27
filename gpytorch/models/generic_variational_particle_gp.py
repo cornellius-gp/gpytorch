@@ -57,7 +57,7 @@ class GenericVariationalParticleGP(Module):
 
         if self.mode == 'predictive':
             obs_dist = pyro.distributions.Normal(function_dist.mean,
-                (function_dist.variance + self.likelihood.noise).sqrt()).to_event(1)
+                (function_dist.variance + self.likelihood.noise).sqrt()).to_event(function_dist.mean.dim())
             with pyro.poutine.scale(scale=scale_factor):
                 return pyro.sample(self.name_prefix + ".output_values", obs_dist, obs=output)
         elif self.mode == 'class_svi':
