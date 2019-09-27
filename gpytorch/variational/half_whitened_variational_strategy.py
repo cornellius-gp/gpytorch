@@ -105,7 +105,7 @@ class HalfWhitenedVariationalStrategy(Module):
                 self.mean_diff_inv_quad(),
             ]
         )
-        kl_divergence = kl_divergence - prior_dist.event_shape.numel()
+        kl_divergence = kl_divergence - 0.5 * prior_dist.event_shape.numel()
 
         return kl_divergence
 
@@ -121,7 +121,7 @@ class HalfWhitenedVariationalStrategy(Module):
         prior_dist = self.prior_distribution
         induc_induc_covar = prior_dist.covariance_matrix
         chol_induc = induc_induc_covar.cholesky()
-        inv_chol_induc = chol_induc.double().inverse().to(induc_induc_covar.dtype)
+        inv_chol_induc = chol_induc.inverse().to(induc_induc_covar.dtype)
 
         init_mu = inv_chol_induc.matmul(prior_dist.mean.unsqueeze(-1)).squeeze(-1)
         init_covar = inv_chol_induc.matmul(induc_induc_covar.matmul(inv_chol_induc.transpose(-2, -1)))

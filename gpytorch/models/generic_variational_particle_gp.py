@@ -59,7 +59,7 @@ class GenericVariationalParticleGP(Module):
 
         if self.mode == 'predictive':
             obs_dist = pyro.distributions.Normal(function_dist.mean,
-                (function_dist.variance + self.likelihood.noise).sqrt()).to_event(1)
+                (function_dist.variance + self.likelihood.noise).sqrt()).to_event(function_dist.mean.dim())
             with pyro.poutine.scale(scale=scale_factor):
                 return pyro.sample(self.name_prefix + ".output_values", obs_dist, obs=output)
         elif self.mode == 'class_svi':
@@ -109,7 +109,10 @@ class GenericVariationalParticleGP(Module):
                            + 0.5 * mut.pow(2.0) * sigmat
 
             factor = log_tempered + gamma / (1.0 + gamma) * log_integral + (1.0 + gamma)
-            pyro.factor(self.name_prefix + ".output_values", scale_factor * factor.exp().sum(-1))
+            if muf.dim() == 2:
+                pyro.factor(self.name_prefix + ".output_values", scale_factor * factor.sum(0).exp().sum(-1))
+            else:
+                pyro.factor(self.name_prefix + ".output_values", scale_factor * factor.exp().sum(-1))
         elif self.mode == 'betadiv':
             pred_variance = function_dist.variance + self.likelihood.noise
             obs_dist = torch.distributions.Normal(function_dist.mean, pred_variance.sqrt())
