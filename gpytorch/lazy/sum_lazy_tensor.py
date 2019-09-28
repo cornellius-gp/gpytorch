@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+from torch import Tensor
 
 from ..utils.memoize import cached
-from .non_lazy_tensor import lazify
+from ..utils.broadcasting import _mul_broadcast_shape
+from .non_lazy_tensor import lazify, NonLazyTensor
 from .lazy_tensor import LazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
-
+from .broadcasted_lazy_tensor import BroadcastedLazyTensor
 
 class SumLazyTensor(LazyTensor):
     def __init__(self, *lazy_tensors):
@@ -73,6 +75,20 @@ class SumLazyTensor(LazyTensor):
             return SumLazyTensor(*(list(self.lazy_tensors) + list(other.lazy_tensors)))
         elif isinstance(other, LazyTensor):
             return SumLazyTensor(*(list(self.lazy_tensors) + [other]))
+        elif isinstance(other, Tensor):
+            # get broadcast shape, assuming mul broadcasting the same as add broadcasting
+            broadcasted_shape = _mul_broadcast_shape(self.shape, other.shape)
+
+            # lazify + broadcast other
+            broadcasted_other = lazify(other.expand(broadcasted_shape))
+
+            # update the lazy tensors' shape as well
+            if broadcasted_shape != self.shape:
+                broadcasted_lts = [lt.expand(*broadcasted_shape, 1).squeeze(-1).transpose(-1,-2) for lt in self.lazy_tensors]
+            else:
+                broadcasted_lts = list(self.lazy_tensors)
+
+            return SumLazyTensor(*(broadcasted_lts + [broadcasted_other]))
         else:
             raise AttributeError("other must be a LazyTensor")
 

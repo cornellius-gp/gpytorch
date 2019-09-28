@@ -1734,6 +1734,7 @@ class LazyTensor(ABC):
         return self.mul(other)
 
     def __radd__(self, other):
+        #TODO: see if this should be self.add
         return self.mul(other)
 
     def __rmul__(self, other):
