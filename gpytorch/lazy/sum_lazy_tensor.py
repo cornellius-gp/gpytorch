@@ -6,7 +6,9 @@ from ..utils.broadcasting import _mul_broadcast_shape
 from .non_lazy_tensor import lazify, NonLazyTensor
 from .lazy_tensor import LazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
-from .broadcasted_lazy_tensor import BroadcastedLazyTensor
+
+# from .broadcasted_lazy_tensor import BroadcastedLazyTensor
+
 
 class SumLazyTensor(LazyTensor):
     def __init__(self, *lazy_tensors):
@@ -25,17 +27,11 @@ class SumLazyTensor(LazyTensor):
         return self.__class__(*expanded_tensors)
 
     def _get_indices(self, row_index, col_index, *batch_indices):
-        results = [
-            lazy_tensor._get_indices(row_index, col_index, *batch_indices)
-            for lazy_tensor in self.lazy_tensors
-        ]
+        results = [lazy_tensor._get_indices(row_index, col_index, *batch_indices) for lazy_tensor in self.lazy_tensors]
         return sum(results)
 
     def _getitem(self, row_index, col_index, *batch_indices):
-        results = [
-            lazy_tensor._getitem(row_index, col_index, *batch_indices)
-            for lazy_tensor in self.lazy_tensors
-        ]
+        results = [lazy_tensor._getitem(row_index, col_index, *batch_indices) for lazy_tensor in self.lazy_tensors]
         return SumLazyTensor(*results)
 
     def _matmul(self, rhs):
@@ -84,7 +80,9 @@ class SumLazyTensor(LazyTensor):
 
             # update the lazy tensors' shape as well
             if broadcasted_shape != self.shape:
-                broadcasted_lts = [lt.expand(*broadcasted_shape, 1).squeeze(-1).transpose(-1,-2) for lt in self.lazy_tensors]
+                broadcasted_lts = [
+                    lt.expand(*broadcasted_shape, 1).squeeze(-1).transpose(-1, -2) for lt in self.lazy_tensors
+                ]
             else:
                 broadcasted_lts = list(self.lazy_tensors)
 
