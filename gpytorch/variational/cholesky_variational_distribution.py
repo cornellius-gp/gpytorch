@@ -56,7 +56,10 @@ class CholeskyVariationalDistribution(VariationalDistribution):
 
         # First make the cholesky factor is upper triangular
         lower_mask = torch.ones(self.chol_variational_covar.shape[-2:], dtype=dtype, device=device).tril(0)
-        chol_variational_covar = chol_variational_covar.mul(lower_mask)
+        chol_jitter = 1.0e-4 * torch.eye(chol_variational_covar.size(-1)).type_as(chol_variational_covar)
+        if chol_variational_covar.dim() == 3:
+            chol_jitter = chol_jitter.unsqueeze(0)
+        chol_variational_covar = chol_variational_covar.mul(lower_mask) + chol_jitter
 
         # Now construct the actual matrix
         variational_covar = CholLazyTensor(chol_variational_covar)
