@@ -32,7 +32,8 @@ class GridKernel(Kernel):
             Used for GridInterpolationKernel where we want the covariance
             between points in the projections of the grid of each dimension.
             We do this by treating `grid` as d batches of g x 1 tensors by
-            calling k(grid, grid) with last_dim_is_batch.
+            calling base_kernel(grid, grid) with last_dim_is_batch to get a d x g x g Tensor
+            which we Kronecker product to get a g x g KroneckerProductLazyTensor.
 
     .. _Fast kernel learning for multidimensional pattern extrapolation:
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
