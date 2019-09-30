@@ -107,16 +107,16 @@ class GridKernel(Kernel):
         if self.interpolation_mode or (torch.equal(x1, full_grid) and torch.equal(x2, full_grid)):
             if not self.training and hasattr(self, "_cached_kernel_mat"):
                 return self._cached_kernel_mat
-            first_grid_point = [proj[0].unsqueeze(0) for proj in grid]
-            covars = [
-                self.base_kernel(first, proj, last_dim_is_batch=False, **params)
-                for first, proj in zip(first_grid_point, grid)
-            ]  # Each entry i contains a 1 x grid_size[i] covariance matrix
-
             # Can exploit Toeplitz structure if grid points in each dimension are equally
             # spaced and using a translation-invariant kernel
             if settings.use_toeplitz.on():
+                first_grid_point = [proj[0].unsqueeze(0) for proj in grid]
+                covars = [
+                    self.base_kernel(first, proj, last_dim_is_batch=False, **params)
+                    for first, proj in zip(first_grid_point, grid)
+                ]  # Each entry i contains a 1 x grid_size[i] covariance matrix
                 covars = [delazify(c) for c in covars]
+
                 if last_dim_is_batch:
                     # Toeplitz expects batches of columns so we concatenate the
                     # 1 x grid_size[i] tensors together
@@ -128,9 +128,12 @@ class GridKernel(Kernel):
                     # Due to legacy reasons, KroneckerProductLazyTensor(A, B, C) is actually (C Kron B Kron A)
                     covar = KroneckerProductLazyTensor(*covars[::-1])
             else:
+                covars = [
+                    self.base_kernel(proj, proj, last_dim_is_batch=False, **params) for proj in grid
+                ]  # Each entry i contains a grid_size[i] x grid_size[i] covariance matrix
                 if last_dim_is_batch:
                     # Note that this requires all the dimensions to have the same number of grid points
-                    covar = gpytorch.cat(covars, dim=-2)
+                    covar = gpytorch.cat([c.unsqueeze(-3) for c in covars], dim=-3)
                 else:
                     covar = KroneckerProductLazyTensor(*covars[::-1])
 
