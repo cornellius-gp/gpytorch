@@ -40,13 +40,16 @@ class Interpolation(object):
     def interpolate(self, x_grid: List[torch.Tensor], x_target: torch.Tensor, interp_points=range(-2, 2)):
         if torch.is_tensor(x_grid):
             x_grid = convert_legacy_grid(x_grid)
-        num_dims = len(x_grid)
-        grid_sizes = [len(x_grid[i]) for i in range(num_dims)]
+        num_target_points = x_target.size(0)
+        num_dim = x_target.size(-1)
+        assert num_dim == len(x_grid)
+
+        grid_sizes = [len(x_grid[i]) for i in range(num_dim)]
         # Do some boundary checking, # min/max along each dimension
         x_target_max = x_target.max(0)[0]
         x_target_min = x_target.min(0)[0]
-        grid_mins = torch.stack([x_grid[i].min() for i in range(num_dims)], dim=0).to(x_target_min)
-        grid_maxs = torch.stack([x_grid[i].max() for i in range(num_dims)], dim=0).to(x_target_max)
+        grid_mins = torch.stack([x_grid[i].min() for i in range(num_dim)], dim=0).to(x_target_min)
+        grid_maxs = torch.stack([x_grid[i].max() for i in range(num_dim)], dim=0).to(x_target_max)
 
         lt_min_mask = (x_target_min - grid_mins).lt(-1e-7)
         gt_max_mask = (x_target_max - grid_maxs).gt(1e-7)
@@ -83,8 +86,6 @@ class Interpolation(object):
         interp_points = torch.tensor(interp_points, dtype=x_grid[0].dtype, device=x_grid[0].device)
         interp_points_flip = interp_points.flip(0)  # [1, 0, -1, -2]
 
-        num_target_points = x_target.size(0)
-        num_dim = x_target.size(-1)
         num_coefficients = len(interp_points)
 
         interp_values = torch.ones(
@@ -98,7 +99,7 @@ class Interpolation(object):
             num_grid_points = x_grid[i].size(0)
             grid_delta = x_grid[i][1] - x_grid[i][0]
             # left-bounding grid point in index space
-            lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i][0]) / grid_delta).squeeze()
+            lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i][0]) / grid_delta)
             # distance from that left-bounding grid point, again in index space
             lower_pt_rel_dists = (x_target[:, i] - x_grid[i][0]) / grid_delta - lower_grid_pt_idxs
             lower_grid_pt_idxs = lower_grid_pt_idxs - interp_points.max()  # ends up being the left-most (relevant) pt
