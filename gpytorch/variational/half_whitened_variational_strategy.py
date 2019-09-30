@@ -65,7 +65,7 @@ class HalfWhitenedVariationalStrategy(Module):
 
         # flip order of operations for numerical stability; TODO investigate more
         # L = induc_induc_covar.evaluate().cholesky()
-        L = induc_induc_covar.cholesky().evaluate()
+        L = psd_safe_cholesky(induc_induc_covar.add_jitter().evaluate().double())
 
         device = induc_induc_covar.device
         dtype = induc_induc_covar.dtype
