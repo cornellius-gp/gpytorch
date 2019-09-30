@@ -2,7 +2,7 @@
 
 import math
 import torch
-from typing import List
+from typing import List, Tuple
 
 
 def scale_to_bounds(x, lower_bound, upper_bound):
@@ -79,3 +79,24 @@ def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
     # dimension when creating grid_data
     grid_data = grid_tensor.permute(*(reversed(range(ndims + 1)))).reshape(ndims, -1).transpose(0, 1)
     return grid_data
+
+
+def create_grid(
+    grid_sizes: List[int], grid_bounds: List[Tuple[float, float]], extend: bool = True
+) -> List[torch.Tensor]:
+    """
+    Creates a grid represented by a list of 1D Tensors representing the
+    projections of the grid into each dimension
+
+    If `extend`, we extend the grid by two points past the specified boundary
+    which can be important for getting good grid interpolations
+    """
+    grid = []
+    for i in range(len(grid_bounds)):
+        grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_sizes[i] - 2)
+        if extend:
+            proj = torch.linspace(grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_sizes[i])
+        else:
+            proj = torch.linspace(grid_bounds[i][0], grid_bounds[i][1], grid_sizes[i])
+        grid.append(proj)
+    return grid
