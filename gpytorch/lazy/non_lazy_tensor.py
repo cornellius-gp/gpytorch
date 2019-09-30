@@ -71,6 +71,8 @@ class NonLazyTensor(LazyTensor):
     def __add__(self, other):
         if isinstance(other, NonLazyTensor):
             return NonLazyTensor(self.tensor + other.tensor)
+        elif isinstance(other, torch.Tensor):
+            return NonLazyTensor(self.tensor + other)
         else:
             return super(NonLazyTensor, self).__add__(other)
 
