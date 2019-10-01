@@ -109,7 +109,8 @@ class VariationalStrategy(Module):
         variational_dist = self.variational_distribution.variational_distribution
         inducing_points = self.inducing_points
         inducing_batch_shape = inducing_points.shape[:-2]
-        if inducing_batch_shape < x.shape[:-2]:
+
+        if inducing_batch_shape != x.shape[:-2]:
             batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
             inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
             x = x.expand(*batch_shape, *x.shape[-2:])
