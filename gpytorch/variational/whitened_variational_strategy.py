@@ -78,7 +78,9 @@ class WhitenedVariationalStrategy(VariationalStrategy):
         """
         variational_dist = self.variational_distribution.variational_distribution
         inducing_points = self.inducing_points
-        if inducing_points.dim() < x.dim():
+
+        if inducing_points.shape[:-2] != x.shape[:-2]:
+        #if inducing_points.dim() < x.dim():
             inducing_points = inducing_points.expand(*x.shape[:-2], *inducing_points.shape[-2:])
         if len(variational_dist.batch_shape) < x.dim() - 2:
             variational_dist = variational_dist.expand(x.shape[:-2])
