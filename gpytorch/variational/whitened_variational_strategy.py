@@ -8,6 +8,7 @@ from ..utils.memoize import cached
 from ..lazy import RootLazyTensor, MatmulLazyTensor, CholLazyTensor, \
     CachedCGLazyTensor, DiagLazyTensor, BatchRepeatLazyTensor, PsdSumLazyTensor
 from ..distributions import MultivariateNormal
+from ..utils.broadcasting import _mul_broadcast_shape
 
 
 class WhitenedVariationalStrategy(VariationalStrategy):
