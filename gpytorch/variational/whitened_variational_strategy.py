@@ -79,11 +79,13 @@ class WhitenedVariationalStrategy(VariationalStrategy):
         variational_dist = self.variational_distribution.variational_distribution
         inducing_points = self.inducing_points
 
-        if inducing_points.shape[:-2] != x.shape[:-2]:
-        #if inducing_points.dim() < x.dim():
-            inducing_points = inducing_points.expand(*x.shape[:-2], *inducing_points.shape[-2:])
-        if len(variational_dist.batch_shape) < x.dim() - 2:
-            variational_dist = variational_dist.expand(x.shape[:-2])
+        inducing_batch_shape = inducing_points.shape[:-2]
+
+        if inducing_batch_shape != x.shape[:-2]:
+            batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
+            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
+            x = x.expand(*batch_shape, *x.shape[-2:])
+            variational_dist = variational_dist.expand(batch_shape)
 
         # If our points equal the inducing points, we're done
         if torch.equal(x, inducing_points):
