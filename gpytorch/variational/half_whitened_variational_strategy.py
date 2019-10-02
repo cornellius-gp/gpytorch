@@ -170,21 +170,25 @@ class HalfWhitenedVariationalStrategy(Module):
             induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
             data_data_covar = full_covar[..., num_induc:, num_induc:]
 
-            mean_cache, covar_cache = self.mean_covar_cache()
+            # Dists
+            variational_dist_u = self.variational_distribution.variational_distribution
 
-            if induc_data_covar.dim() > 2:
-                predictive_mean = induc_data_covar.transpose(-2, -1).matmul(mean_cache.unsqueeze(-1)).squeeze(-1)
-                predictive_mean =  test_mean + predictive_mean
-            else:
-                predictive_mean = test_mean + induc_data_covar.transpose(-2, -1).matmul(mean_cache)
+            # mean_cache, covar_cache = self.mean_covar_cache()
+            L = full_covar[..., :num_induc, :num_induc].add_jitter(1e-4).evaluate().double().cholesky()
+            scaled_factor = torch.triangular_solve(
+                induc_data_covar.double(), L, upper=False
+            )[0].to(full_inputs.dtype)
 
-            left_part = induc_data_covar.transpose(-2, -1).matmul(covar_cache)
-            full_part = MatmulLazyTensor(left_part, induc_data_covar)
-            predictive_covar = data_data_covar + full_part.mul(-1)
+            predictive_mean = (scaled_factor.transpose(-1, -2) @ variational_dist_u.mean.unsqueeze(-1)).squeeze(-1)
+            predictive_mean = test_mean + predictive_mean
+
+            eye = torch.eye(num_induc, dtype=full_inputs.dtype, device=full_inputs.device)
+            middle_term = (variational_dist_u.lazy_covariance_matrix.evaluate() - eye)
+            full_part = scaled_factor.transpose(-1, -2) @ middle_term @ scaled_factor
+            predictive_covar = data_data_covar.add_jitter(1e-4) + full_part
 
             if self.training:
                 predictive_covar = DiagLazyTensor(predictive_covar.diag())
-
             return MultivariateNormal(predictive_mean, predictive_covar)
 
     def __call__(self, x):
