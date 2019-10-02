@@ -110,7 +110,8 @@ class GenericVariationalParticleGP(Module):
 
             factor = log_tempered + gamma / (1.0 + gamma) * log_integral + (1.0 + gamma)
             if muf.dim() == 2:
-                pyro.factor(self.name_prefix + ".output_values", scale_factor * factor.sum(0).exp().sum(-1))
+                pyro.factor(self.name_prefix + ".output_values", scale_factor * factor.exp().sum())
+                #pyro.factor(self.name_prefix + ".output_values", scale_factor * factor.sum(0).exp().sum(-1))
             else:
                 pyro.factor(self.name_prefix + ".output_values", scale_factor * factor.exp().sum(-1))
         elif self.mode == 'betadiv':
