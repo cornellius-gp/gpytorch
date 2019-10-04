@@ -65,7 +65,7 @@ class HalfWhitenedVariationalStrategy(Module):
 
         # flip order of operations for numerical stability; TODO investigate more
         # L = induc_induc_covar.evaluate().cholesky()
-        L = psd_safe_cholesky(induc_induc_covar.add_jitter().evaluate().double())
+        L = psd_safe_cholesky(induc_induc_covar.add_jitter().evaluate())
 
         device = induc_induc_covar.device
         dtype = induc_induc_covar.dtype
@@ -76,19 +76,19 @@ class HalfWhitenedVariationalStrategy(Module):
 
         inner_mat = (eye + variational_dist_u.lazy_covariance_matrix.mul(-1)).evaluate()
 
-        inner_mat = inner_mat.double()
-        L = L.double()
+        inner_mat = inner_mat
+        L = L
 
         right_rinv = torch.triangular_solve(inner_mat, L.transpose(-2, -1), upper=True)[0].transpose(-2, -1)
 
         var_mean = variational_dist_u.mean - prior_dist.mean
 
-        right_hand_sides = torch.cat((var_mean.unsqueeze(-1).double(), right_rinv), dim=-1)
+        right_hand_sides = torch.cat((var_mean.unsqueeze(-1), right_rinv), dim=-1)
 
         full_rinv, _ = torch.triangular_solve(right_hand_sides, L.transpose(-2, -1), upper=True)
 
-        mean_cache = full_rinv[..., :, 0].contiguous().float()
-        covar_cache = full_rinv[..., :, 1:].contiguous().float()
+        mean_cache = full_rinv[..., :, 0].contiguous()
+        covar_cache = full_rinv[..., :, 1:].contiguous()
 
         return [mean_cache, covar_cache]
 
@@ -174,9 +174,9 @@ class HalfWhitenedVariationalStrategy(Module):
             variational_dist_u = self.variational_distribution.variational_distribution
 
             # mean_cache, covar_cache = self.mean_covar_cache()
-            L = full_covar[..., :num_induc, :num_induc].add_jitter(1e-4).evaluate().double().cholesky()
+            L = full_covar[..., :num_induc, :num_induc].add_jitter(1e-4).evaluate().cholesky()
             scaled_factor = torch.triangular_solve(
-                induc_data_covar.double(), L, upper=False
+                induc_data_covar, L, upper=False
             )[0].to(full_inputs.dtype)
 
             predictive_mean = (scaled_factor.transpose(-1, -2) @ variational_dist_u.mean.unsqueeze(-1)).squeeze(-1)
@@ -190,6 +190,12 @@ class HalfWhitenedVariationalStrategy(Module):
             if self.training:
                 predictive_covar = DiagLazyTensor(predictive_covar.diag())
             return MultivariateNormal(predictive_mean, predictive_covar)
+
+            # Better, but seems to be less stable
+            # K_{XX} + K_{XU} [K_{UU}^{-1/2}(S - I)K_{UU}^{-1/2}] K_{UX}
+
+            # Worse (solves with X), but seems to be stable
+            # K_{XX} + [K_{XU}(K_{UU}^{-1/2}] (S - I) [K_{UU}^{-1/2}K_{UX}]
 
     def __call__(self, x):
         if not self.variational_params_initialized.item():
