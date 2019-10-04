@@ -32,7 +32,7 @@ Consider the following simple GP:
 >>>         self.num_outputs = num_outputs
 >>>
 >>>     def forward(self, x):
->>>         x = x.expand(self.num_outputs, x.shape)
+>>>         x = x.expand(self.num_outputs, *x.shape)
 >>>
 >>>         mean_x = self.mean_module(x)
 >>>         covar_x = self.covar_module(x)
