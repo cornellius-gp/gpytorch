@@ -7,13 +7,14 @@ from .marginal_log_likelihood import MarginalLogLikelihood
 from .sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from .variational_elbo import VariationalELBO, VariationalELBOEmpirical
 from .variational_marginal_log_likelihood import VariationalMarginalLogLikelihood
-
+from .noise_model_added_loss_term import NoiseModelAddedLossTerm
 
 __all__ = [
     "AddedLossTerm",
     "ExactMarginalLogLikelihood",
     "InducingPointKernelAddedLossTerm",
     "MarginalLogLikelihood",
+    "NoiseModelAddedLossTerm",
     "SumMarginalLogLikelihood",
     "VariationalELBO",
     "VariationalELBOEmpirical",
