@@ -104,7 +104,7 @@ class Interpolation(object):
 
             # Find points who's closest lower grid point is the first grid point
             # This corresponds to a boundary condition that we must fix manually.
-            left_boundary_pts = torch.nonzero(lower_grid_pt_idxs < 1)
+            left_boundary_pts = torch.nonzero(lower_grid_pt_idxs < 0)
             num_left = len(left_boundary_pts)
 
             if num_left > 0:
