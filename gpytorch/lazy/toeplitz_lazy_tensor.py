@@ -7,6 +7,14 @@ from ..utils.toeplitz import sym_toeplitz_matmul, sym_toeplitz_derivative_quadra
 
 class ToeplitzLazyTensor(LazyTensor):
     def __init__(self, column):
+        """
+        Args:
+            :attr: `column` (Tensor)
+                If `column` is a 1D Tensor of length `n`, this represents a
+                Toeplitz matrix with `column` as its first column.
+                If `column` is `b_1 x b_2 x ... x b_k x n`, then this represents a batch
+                `b_1 x b_2 x ... x b_k` of Toeplitz matrices.
+        """
         super(ToeplitzLazyTensor, self).__init__(column)
         self.column = column
 
@@ -35,7 +43,7 @@ class ToeplitzLazyTensor(LazyTensor):
         if res.dim() > self.column.dim():
             res = res.view(-1, *self.column.shape).sum(0)
 
-        return res,
+        return (res,)
 
     def _size(self):
         return torch.Size((*self.column.shape, self.column.size(-1)))
