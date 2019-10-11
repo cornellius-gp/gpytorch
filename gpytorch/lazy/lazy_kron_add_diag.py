@@ -9,9 +9,11 @@ from gpytorch.lazy.root_lazy_tensor import RootLazyTensor
 from gpytorch.utils import broadcasting, pivoted_cholesky, woodbury
 from gpytorch import settings
 
-from spectralgp.lazy.diag_kron import DiagKron
+from .diag_kronecker_prod_lazy_tensor import DiagKroneckerProdLazyTensor
 
 #TODO: @greg, does this work????
+#TODO: check the speed of the linear algebra - svd vs eig etc.
+
 
 class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
@@ -63,7 +65,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def inv_quad(self, rhs):
         svd_list = self.KronSVD()
         noise = self._diag_tensor[0,0]
-        V = DiagKron(DiagLazyTensor(svd_list[0].S),
+        V = DiagKroneckerProdLazyTensor(DiagLazyTensor(svd_list[0].S),
                      DiagLazyTensor(svd_list[1].S))
         Q = KroneckerProductLazyTensor(lazify(svd_list[0].U),
                                        lazify(svd_list[1].U))

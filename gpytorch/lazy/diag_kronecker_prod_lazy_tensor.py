@@ -3,7 +3,7 @@ import torch
 
 from . import lazify, KroneckerProductLazyTensor
 
-class DiagKronProdLazyTensor(KroneckerProductLazyTensor):
+class DiagKroneckerProdLazyTensor(KroneckerProductLazyTensor):
     def __init__(self, *lazy_tensors):
         try:
             lazy_tensors = tuple(lazify(lazy_tensor) for lazy_tensor in lazy_tensors)
@@ -16,7 +16,7 @@ class DiagKronProdLazyTensor(KroneckerProductLazyTensor):
                     "DiagKronProductLazyTensor expects lazy tensors with the "
                     "same batch shapes. Got {}.".format([lv.batch_shape for lv in lazy_tensors])
                 )
-        super(DiagKronProdLazyTensor, self).__init__(*lazy_tensors)
+        super(DiagKroneckerProdLazyTensor, self).__init__(*lazy_tensors)
         self.lazy_tensors = lazy_tensors
 
     def get_diag(self):

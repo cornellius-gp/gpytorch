@@ -40,9 +40,7 @@ class LogRBFMean(QuadraticMean):
         implements the logarithm of a RBF spectral density with required constraints
         output = c - t^2 / 2l
         """
-        #TODO: check that the below constraints and priors are correct
-        #TODO: do these induce the proper parameterizations
-        #TODO: will the priors be device independent somehow?
+        #TODO: see how unclean it would be to make this device independent
         
         super(LogRBFMean, self).__init__(input_size, bias=True, weights=False)
         

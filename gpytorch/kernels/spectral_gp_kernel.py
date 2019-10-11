@@ -125,8 +125,6 @@ class SpectralGPKernel(Kernel):
         expanded_tau = expanded_tau.repeat(*dims)#.float()
 
         # numerically compute integral in expanded space
-        #print(density.device, self.omega.device, expanded_tau.device, expanded_tau.size())
-        #print(expanded_tau)
         integrand = density * torch.cos(2.0 * math.pi * self.omega * expanded_tau)
 
         if integration == 'MC':
@@ -162,8 +160,6 @@ class SpectralGPKernel(Kernel):
         if nonstat:
             self.omega.data = torch.linspace(1.e-10, omega_max, num_locs)
             log_periodogram = torch.ones_like(self.omega)
-            # print("Nonstat")
-            # print(1.e-10, omega_max, num_locs)
 
 
         self.num_locs = len(self.omega)
