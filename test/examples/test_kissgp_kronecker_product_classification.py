@@ -28,7 +28,7 @@ train_y = train_y.add(1).div(2)
 
 
 class GPClassificationModel(gpytorch.models.AbstractVariationalGP):
-    def __init__(self, grid_size=8, grid_bounds=[(0, 3), (0, 3)]):
+    def __init__(self, grid_size=6, grid_bounds=[(-0.33, 1.33), (-0.33, 1.33)]):
         variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
             num_inducing_points=int(pow(grid_size, len(grid_bounds)))
         )

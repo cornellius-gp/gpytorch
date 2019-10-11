@@ -11,6 +11,8 @@ class LinearMean(Mean):
                                 parameter=torch.nn.Parameter(torch.randn(*batch_shape, input_size, 1)))
         if bias:
             self.register_parameter(name='bias', parameter=torch.nn.Parameter(torch.randn(*batch_shape, 1)))
+        else:
+            self.bias = None
 
     def forward(self, x):
         res = x.matmul(self.weights).squeeze(-1)
