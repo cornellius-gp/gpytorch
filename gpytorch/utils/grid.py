@@ -2,6 +2,7 @@
 
 import math
 import torch
+from typing import List, Tuple
 
 
 def scale_to_bounds(x, lower_bound, upper_bound):
@@ -47,19 +48,55 @@ def choose_grid_size(train_inputs, ratio=1.0, kronecker_structure=True):
     if kronecker_structure:
         return int(ratio * math.pow(num_data, 1.0 / num_dim))
     else:
-        return (ratio * num_data)
+        return ratio * num_data
 
 
-def create_data_from_grid(grid):
-    grid_size = grid.size(-2)
-    grid_dim = grid.size(-1)
-    grid_data = torch.zeros(int(pow(grid_size, grid_dim)), grid_dim, device=grid.device)
-    prev_points = None
-    for i in range(grid_dim):
-        for j in range(grid_size):
-            grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, i].fill_(grid[j, i])
-            if prev_points is not None:
-                grid_data[j * grid_size ** i : (j + 1) * grid_size ** i, :i].copy_(prev_points)
-        prev_points = grid_data[: grid_size ** (i + 1), : (i + 1)]
+def convert_legacy_grid(grid: torch.Tensor) -> List[torch.Tensor]:
+    return [grid[:, i] for i in range(grid.size(-1))]
 
+
+def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
+    """
+    Args:
+        :attr:`grid` (List[Tensor])
+            Each Tensor is a 1D set of increments for the grid in that dimension
+    Returns:
+        `grid_data` (Tensor)
+            Returns the set of points on the grid going by column-major order
+            (due to legacy reasons).
+    """
+    if torch.is_tensor(grid):
+        grid = convert_legacy_grid(grid)
+    ndims = len(grid)
+    assert all(axis.dim() == 1 for axis in grid)
+    projections = torch.meshgrid(*grid)
+    grid_tensor = torch.stack(projections, axis=-1)
+    # Note that if we did
+    #     grid_data = grid_tensor.reshape(-1, ndims)
+    # instead, we would be iterating through the points of our grid from the
+    # last data dimension to the first data dimension. However, due to legacy
+    # reasons, we need to iterate from the first data dimension to the last data
+    # dimension when creating grid_data
+    grid_data = grid_tensor.permute(*(reversed(range(ndims + 1)))).reshape(ndims, -1).transpose(0, 1)
     return grid_data
+
+
+def create_grid(
+    grid_sizes: List[int], grid_bounds: List[Tuple[float, float]], extend: bool = True
+) -> List[torch.Tensor]:
+    """
+    Creates a grid represented by a list of 1D Tensors representing the
+    projections of the grid into each dimension
+
+    If `extend`, we extend the grid by two points past the specified boundary
+    which can be important for getting good grid interpolations
+    """
+    grid = []
+    for i in range(len(grid_bounds)):
+        grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_sizes[i] - 2)
+        if extend:
+            proj = torch.linspace(grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_sizes[i])
+        else:
+            proj = torch.linspace(grid_bounds[i][0], grid_bounds[i][1], grid_sizes[i])
+        grid.append(proj)
+    return grid

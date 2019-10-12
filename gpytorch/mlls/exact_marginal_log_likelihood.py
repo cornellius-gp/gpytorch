@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
 from ..likelihoods import _GaussianLikelihoodBase
 from ..distributions import MultivariateNormal
@@ -27,12 +26,9 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         output = self.likelihood(output, *params)
         res = output.log_prob(target)
 
-        # Add terms for SGPR / when inducing points are learned
-        if self.model.added_loss_terms():
-            added_loss = torch.zeros_like(res)
-            for added_loss_term in self.model.added_loss_terms():
-                added_loss = added_loss.add(added_loss_term.loss(*params))
-            res = res.add(added_loss)
+        # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)
+        for added_loss_term in self.model.added_loss_terms():
+            res = res.add(added_loss_term.loss(*params))
 
         # Add log probs of priors on the (functions of) parameters
         for _, prior, closure, _ in self.named_priors():

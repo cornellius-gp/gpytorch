@@ -6,6 +6,7 @@ import torch
 from torch import Tensor
 from torch.nn import Parameter
 
+from .. import settings
 from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, ZeroLazyTensor
@@ -129,6 +130,8 @@ class HeteroskedasticNoise(Noise):
         self.noise_model = noise_model
         self._noise_constraint = noise_constraint
         self._noise_indices = noise_indices
+        # make sure to clear test caches after backpropagating through them
+        self.register_backward_hook(clear_cache_hook)
 
     def forward(
         self,
@@ -139,10 +142,14 @@ class HeteroskedasticNoise(Noise):
     ) -> DiagLazyTensor:
         if noise is not None:
             return DiagLazyTensor(noise)
-        if len(params) == 1 and not torch.is_tensor(params[0]):
-            output = self.noise_model(*params[0])
-        else:
-            output = self.noise_model(*params)
+        training = self.noise_model.training  # keep track of mode
+        self.noise_model.eval()  # we want the posterior prediction of the noise model
+        with settings.detach_test_caches(False), settings.debug(False):
+            if len(params) == 1 and not torch.is_tensor(params[0]):
+                output = self.noise_model(*params[0])
+            else:
+                output = self.noise_model(*params)
+        self.noise_model.train(training)
         if not isinstance(output, MultivariateNormal):
             raise NotImplementedError(
                 "Currently only noise models that return a MultivariateNormal are supported"
@@ -183,3 +190,10 @@ class FixedGaussianNoise(Module):
     def _apply(self, fn):
         self.noise = fn(self.noise)
         return super(FixedGaussianNoise, self)._apply(fn)
+
+
+def clear_cache_hook(module, grad_input, grad_output) -> None:
+    try:
+        module.noise_model.prediction_strategy = None
+    except AttributeError:
+        pass
