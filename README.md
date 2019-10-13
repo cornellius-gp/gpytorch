@@ -5,7 +5,7 @@
 [![forthebadge](https://forthebadge.com/images/badges/ages-12.svg)](https://forthebadge.com)
 
 **News!**
- - The Beta release is currently out! Note that it **requires PyTorch >= 1.1**
+ - The Beta release is currently out! Note that it **requires PyTorch >= 1.3**
  - If you need to install the alpha release (we recommend you use the latest version though!), check out [the alpha release](https://github.com/cornellius-gp/gpytorch/tree/alpha).
 
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease.
@@ -22,11 +22,16 @@ See our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gp
 
 **Requirements**:
 - Python >= 3.6
-- PyTorch >= 1.1
+- PyTorch >= 1.3
 
 **N.B.** GPyTorch will not run on PyTorch 0.4.1 or earlier versions.
 
-First make sure that you have PyTorch (`>= 1.1`) installed using the appropriate command from [here](https://pytorch.org/get-started/locally/).
+First make sure that you have PyTorch (`>= 1.3
+
+
+
+
+`) installed using the appropriate command from [here](https://pytorch.org/get-started/locally/).
 
 Then install GPyTorch using pip or conda:
 
