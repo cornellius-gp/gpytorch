@@ -88,5 +88,5 @@ setup(
             "flake8",
             "flake8-print",
         ]
- None   },
+    },
 )
