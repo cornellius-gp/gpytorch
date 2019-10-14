@@ -50,3 +50,10 @@ class LCMKernel(Kernel):
         returns an `(n*num_tasks) x (m*num_tasks)` covariance matrix.
         """
         return self.covar_module_list[0].num_outputs_per_input(x1, x2)
+
+    def __getitem__(self, index):
+        new_kernel = deepcopy(self)
+        new_kernel.covar_module_list = ModuleList(
+            [base_kernel.__getitem__(index) for base_kernel in self.covar_module_list]
+        )
+        return new_kernel

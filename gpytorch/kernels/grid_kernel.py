@@ -146,3 +146,9 @@ class GridKernel(Kernel):
 
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)
+
+    def __getitem__(self, index):
+        new_kernel = deepcopy(self)
+        new_kernel.base_kernel = self.base_kernel.__getitem__(index)
+
+        return new_kernel

@@ -69,3 +69,9 @@ class ProductStructureKernel(Kernel):
         res = super().__call__(x1_, x2_, diag=diag, last_dim_is_batch=last_dim_is_batch, **params)
         res = lazify(res).evaluate_kernel()
         return res
+
+    def __getitem__(self, index):
+        new_kernel = deepcopy(self)
+        new_kernel.base_kernel = self.base_kernel.__getitem__(index)
+
+        return new_kernel

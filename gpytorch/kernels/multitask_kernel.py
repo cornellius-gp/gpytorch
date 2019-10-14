@@ -54,3 +54,10 @@ class MultitaskKernel(Kernel):
         kernel returns an `(n*num_tasks) x (m*num_tasks)` covariancn matrix.
         """
         return self.num_tasks
+
+    def __getitem__(self, index):
+        new_kernel = deepcopy(self)
+        new_kernel.task_covar_module = self.task_covar_module.__getitem__(index)
+        new_kernel.data_covar_module = self.data_covar_module.__getitem__(index)
+
+        return new_kernel
