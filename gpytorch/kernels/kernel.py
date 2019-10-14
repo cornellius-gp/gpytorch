@@ -448,6 +448,7 @@ class AdditiveKernel(Kernel):
 
         return new_kernel
 
+
 class ProductKernel(Kernel):
     """
     A Kernel that supports elementwise multiplying multiple component kernels together.
