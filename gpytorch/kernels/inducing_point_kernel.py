@@ -8,6 +8,7 @@ from ..lazy import delazify, DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, P
 from ..distributions import MultivariateNormal
 from ..mlls import InducingPointKernelAddedLossTerm
 from ..utils.cholesky import psd_safe_cholesky
+from copy import deepcopy
 
 
 class InducingPointKernel(Kernel):

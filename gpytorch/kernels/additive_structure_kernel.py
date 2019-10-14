@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .kernel import Kernel
+from copy import deepcopy
 
 
 class AdditiveStructureKernel(Kernel):

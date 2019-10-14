@@ -2,6 +2,7 @@
 
 from .kernel import Kernel
 from ..lazy import lazify
+from copy import deepcopy
 
 
 class ProductStructureKernel(Kernel):

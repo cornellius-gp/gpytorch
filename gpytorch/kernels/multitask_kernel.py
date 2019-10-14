@@ -3,6 +3,7 @@
 from .kernel import Kernel
 from .index_kernel import IndexKernel
 from ..lazy import lazify, KroneckerProductLazyTensor
+from copy import deepcopy
 
 
 class MultitaskKernel(Kernel):

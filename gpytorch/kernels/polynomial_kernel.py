@@ -45,7 +45,7 @@ class PolynomialKernel(Kernel):
 
         self.register_parameter(
             name="raw_offset",
-            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1))
+            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1))
         )
 
         # We want the power to be a float so we dont have to worry about its device / dtype.
@@ -95,7 +95,7 @@ class PolynomialKernel(Kernel):
             x2 = x2.transpose(-1, -2).unsqueeze(-1)
 
         if diag:
-            return ((x1 * x2).sum(dim=-1) + self.offset).pow(self.power)
+            return ((x1 * x2).sum(dim=-1) + self.offset).pow(self.power).squeeze(-2)
 
         if x1.dim() == 2 and x2.dim() == 2:
             return torch.addmm(offset, x1, x2.transpose(-2, -1)).pow(self.power)

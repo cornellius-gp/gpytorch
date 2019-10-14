@@ -8,6 +8,7 @@ from .. import settings
 import gpytorch
 from gpytorch.utils.grid import create_data_from_grid, convert_legacy_grid
 from typing import List
+from copy import deepcopy
 
 
 class GridKernel(Kernel):
