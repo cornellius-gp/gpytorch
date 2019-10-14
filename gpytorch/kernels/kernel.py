@@ -392,21 +392,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         # Process the index
         index = index if isinstance(index, tuple) else (index,)
 
-        if len(self._parameters):
-            first_param = next(iter(self._parameters.values()))
-
-            if len(index) < first_param.ndimension():
-                # Pad index with full slices
-                index = index + (slice(None, None, None),) * (first_param.ndimension() - len(index))
-
-            if len(index) < 3 or not (index[-2] == slice(None, None, None) and index[-1] == slice(None, None, None)):
-                raise RuntimeError("Can only index in to a kernel with a call of the form kernel[*batch_index, :, :]")
-
-            batch_index = index[:-2]
-
-            for param_name, param in self._parameters.items():
-                new_kernel._parameters[param_name].data = param.__getitem__(batch_index)
-                new_kernel.batch_shape = new_kernel._parameters[param_name].shape[:-2]
+        for param_name, param in self._parameters.items():
+            new_kernel._parameters[param_name].data = param.__getitem__(index)
+            ndim_removed = len(param.shape) - len(new_kernel._parameters[param_name].shape)
+            new_batch_shape_len = len(self.batch_shape) - ndim_removed
+            new_kernel.batch_shape = new_kernel._parameters[param_name].shape[:new_batch_shape_len]
 
         return new_kernel
 
