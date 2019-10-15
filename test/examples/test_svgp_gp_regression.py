@@ -47,7 +47,7 @@ class SVGPRegressionModel(AbstractVariationalGP):
 class TestSVGPRegression(BaseTestCase, unittest.TestCase):
     seed = 0
 
-    def test_regression_error(self, cuda=False, skip_logdet_forward=False, cholesky=False):
+    def test_regression_error(self, cuda=False):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
         model = SVGPRegressionModel(torch.linspace(0, 1, 25))
@@ -63,18 +63,14 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.skip_logdet_forward(
-            skip_logdet_forward
-        ), warnings.catch_warnings(record=True) as ws, patch(
-            "gpytorch.utils.linear_cg", new=_wrapped_cg
-        ) as linear_cg_mock:
+        _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
+        with warnings.catch_warnings(record=True) as ws, _cg_mock as cg_mock:
             for _ in range(150):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
                 loss.backward()
                 optimizer.step()
-
 
             for param in model.parameters():
                 self.assertTrue(param.grad is not None)
@@ -91,17 +87,8 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             self.assertLess(mean_abs_error.item(), 1e-1)
 
             # Make sure CG was called (or not), and no warnings were thrown
-            if cholesky:
-                self.assertFalse(linear_cg_mock.called)
-            else:
-                self.assertTrue(linear_cg_mock.called)
+            self.assertFalse(cg_mock.called)
             self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
-
-    def test_regression_error_skip_logdet_forward(self):
-        return self.test_regression_error(skip_logdet_forward=True)
-
-    def test_regression_error_cholesky(self):
-        return self.test_regression_error(cholesky=True)
 
     def test_regression_error_cuda(self):
         if not torch.cuda.is_available():
