@@ -52,7 +52,7 @@ class _VariationalStrategy(Module, ABC):
             self.register_buffer("inducing_points", inducing_points)
 
         # Variational distribution
-        self.variational_distribution = variational_distribution
+        self._variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
 
     @abstractproperty
@@ -67,6 +67,11 @@ class _VariationalStrategy(Module, ABC):
             :obj:`gpytorch.distributions.MultivariateNormal`: The distribution p(u)
         """
         raise NotImplementedError
+
+    @property
+    @cached(name="variational_distribution_memo")
+    def variational_distribution(self):
+        return self._variational_distribution()
 
     @abstractmethod
     def forward(self, x):
@@ -99,6 +104,6 @@ class _VariationalStrategy(Module, ABC):
         # (Maybe) initialize variational distribution
         if not self.variational_params_initialized.item():
             prior_dist = self.prior_distribution
-            self.variational_distribution.initialize_variational_distribution(prior_dist)
+            self._variational_distribution.initialize_variational_distribution(prior_dist)
             self.variational_params_initialized.fill_(1)
         return super().__call__(x)

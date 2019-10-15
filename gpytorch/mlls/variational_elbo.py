@@ -27,7 +27,7 @@ class VariationalELBO(MarginalLogLikelihood):
         # KL term
         with settings.max_preconditioner_size(0):
             prior_dist = self.model.variational_strategy.prior_distribution
-            variational_dist_u = self.model.variational_strategy.variational_distribution()
+            variational_dist_u = self.model.variational_strategy.variational_distribution
             kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
         kl_divergence = kl_divergence.div(self.num_data)
 
@@ -73,7 +73,7 @@ class VariationalELBOEmpirical(VariationalELBO):
 
     def forward(self, variational_dist_f, target, **kwargs):
         num_batch = variational_dist_f.event_shape[0]
-        variational_dist_u = self.model.variational_strategy.variational_distribution.variational_distribution
+        variational_dist_u = self.model.variational_strategy.variational_distribution
         prior_dist = self.model.variational_strategy.prior_distribution
 
         log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs)

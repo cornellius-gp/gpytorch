@@ -73,7 +73,7 @@ class VariationalStrategy(_VariationalStrategy):
             scaled_induc_mean = induc_mean  # Because both terms are equal to zero
 
         # Get q(u)
-        variational_dist_u = self.variational_distribution()
+        variational_dist_u = self.variational_distribution
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import warnings
 import torch
 from ..module import Module
 from abc import ABC, abstractmethod
@@ -21,17 +22,6 @@ class _VariationalDistribution(Module, ABC):
     def __init__(self, num_inducing_points, batch_shape=torch.Size([])):
         super().__init__()
 
-    @property
-    def variational_distribution(self):
-        """
-        Constructs and returns the variational distribution
-
-        Returns:
-            :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(u)
-        """
-        return self()
-
-    @abstractmethod
     def forward(self):
         """
         Constructs and returns the variational distribution
@@ -53,4 +43,25 @@ class _VariationalDistribution(Module, ABC):
         raise NotImplementedError
 
     def __call__(self):
-        return self.forward()
+        try:
+            return self.forward()
+        # Deprecation added for 0.4 release
+        except NotImplementedError:
+            warnings.warn(
+                "_VariationalDistribution.variational_distribution is deprecated. "
+                "Please implement a `forward` method instead.",
+                DeprecationWarning
+            )
+            return self.variational_distribution
+
+    # Deprecation added for 0.4 release
+    def __getattr__(self, attr):
+        if attr == "variational_distribution":
+            warnings.warn(
+                "_VariationalDistribution.variational_distribution is deprecated. "
+                "To get q(u), call the _VariationalDistribution object instead.",
+                DeprecationWarning
+            )
+            return self.forward()
+        else:
+            return super().__getattr__(attr)

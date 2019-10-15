@@ -48,7 +48,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         return res
 
     def forward(self, x):
-        variational_distribution = self.variational_distribution.variational_distribution
+        variational_distribution = self.variational_distribution
 
         # Get interpolations
         interp_indices, interp_values = self._compute_grid(x)

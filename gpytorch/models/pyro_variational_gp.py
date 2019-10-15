@@ -13,7 +13,7 @@ class PyroVariationalGP(AbstractVariationalGP):
         self.num_data = num_data
 
     def guide(self, input, output, *params, **kwargs):
-        inducing_dist = self.variational_strategy.variational_distribution.variational_distribution
+        inducing_dist = self.variational_strategy.variational_distribution
         # Draw samples from q(u) for KL divergence computation
         self.sample_inducing_values(inducing_dist)
         self.likelihood.guide(*params, **kwargs)
