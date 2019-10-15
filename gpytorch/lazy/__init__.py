@@ -13,7 +13,6 @@ from .diag_lazy_tensor import DiagLazyTensor
 from .interpolated_lazy_tensor import InterpolatedLazyTensor
 from .keops_lazy_tensor import KeOpsLazyTensor
 from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
-from .kronecker_product_added_diag_lazy_tensor import KroneckerProductPlusDiagLazyTensor
 from .lazy_evaluated_kernel_tensor import LazyEvaluatedKernelTensor
 from .matmul_lazy_tensor import MatmulLazyTensor
 from .mul_lazy_tensor import MulLazyTensor
@@ -44,7 +43,6 @@ __all__ = [
     "InterpolatedLazyTensor",
     "KeOpsLazyTensor",
     "KroneckerProductLazyTensor",
-    "KroneckerProductPlusDiagLazyTensor",
     "MatmulLazyTensor",
     "MulLazyTensor",
     "NonLazyTensor",
