@@ -12,10 +12,11 @@ class _VariationalDistribution(Module, ABC):
     Calling it returns the variational distribution
 
     Args:
-        num_inducing_points (int): Size of the variational distribution. This implies that the variational mean
+        :attr:`num_inducing_points` (int):
+            Size of the variational distribution. This implies that the variational mean
             should be this size, and the variational covariance matrix should have this many rows and columns.
-        batch_shape (torch.Size, optional): Specifies an optional batch
-            size for the variational parameters. This is useful for example
+        :attr:`batch_shape` (torch.Size, optional):
+            Specifies an optional batch size for the variational parameters. This is useful for example
             when doing additive variational inference.
     """
 
