@@ -5,12 +5,24 @@ from ..models import GP
 
 
 class MarginalLogLikelihood(Module):
-    """
-    A module to compute marginal log likelihoods of data
+    r"""
+    These are modules to compute (or approximate/bound) the marginal log likelihood
+    (MLL) of the GP model when applied to data.  I.e., given a GP :math:`f \sim
+    \mathcal{GP}(\mu, K)`, and data :math:`\mathbf X, \mathbf y`, these modules
+    compute/approximate
 
-    Args:
-    - likelihood: (Likelihood) - the likelihood for the model
-    - model: (Module) - the GP model
+    .. math::
+
+       \begin{equation*}
+          \mathcal{L} = p_f(\mathbf y \! \mid \! \mathbf X)
+          = \int p \left( \mathbf y \! \mid \! f(\mathbf X) \right) \: p(f(\mathbf X) \! \mid \! \mathbf X) \: d f
+       \end{equation*}
+
+    This is computed exactly when the GP inference is computed exactly (e.g. regression w/ a Gaussian likelihood).
+    It is approximated/bounded for GP models that use approximate inference.
+
+    These models are typically used as the "loss" functions for GP models (though note that the output of
+    these functions must be negated for optimization).
     """
 
     def __init__(self, likelihood, model):
@@ -24,10 +36,17 @@ class MarginalLogLikelihood(Module):
         self.likelihood = likelihood
         self.model = model
 
-    def forward(self, output, target):
+    def forward(self, output, target, **kwargs):
         """
+        Computes the MLL given :math:`p(\mathbf f)` and `\mathbf y`
+
         Args:
-        - output: (MultivariateNormal) - the outputs of the latent function
-        - target: (Variable) - the target values
+            :attr:`output` (:obj:`gpytorch.distributions.MultivariateNormal`):
+                :math:`p(\mathbf f)` (or approximation)
+                the outputs of the latent function (the :obj:`gpytorch.models.GP`)
+            :attr:`target` (`torch.Tensor`):
+                :math:`\mathbf y` The target values
+            :attr:`**kwargs`:
+                Additional arguments to pass to the likelihood's :attr:`forward` function.
         """
         raise NotImplementedError
