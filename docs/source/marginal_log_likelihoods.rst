@@ -4,15 +4,26 @@
 gpytorch.mlls
 ===================================
 
+These are modules to compute (or approximate/bound) the marginal log likelihood
+(MLL) of the GP model when applied to data.  I.e., given a GP :math:`f \sim
+\mathcal{GP}(\mu, K)`, and data :math:`\mathbf X, \mathbf y`, these modules
+compute/approximate
+
+.. math::
+
+   \begin{equation*}
+      \mathcal{L} = p_f(\mathbf y \! \mid \! \mathbf X)
+      = \int p \left( \mathbf y \! \mid \! f(\mathbf X) \right) \: p(f(\mathbf X) \! \mid \! \mathbf X) \: d f
+   \end{equation*}
+
+This is computed exactly when the GP inference is computed exactly (e.g. regression w/ a Gaussian likelihood).
+It is approximated/bounded for GP models that use approximate inference.
+
+These models are typically used as the "loss" functions for GP models (though note that the output of
+these functions must be negated for optimization).
+
 .. automodule:: gpytorch.mlls
 .. currentmodule:: gpytorch.mlls
-
-
-Marginal Log Likelihood
--------------------------
-
-.. autoclass:: MarginalLogLikelihood
-   :members:
 
 
 Exact GP Inference
@@ -25,11 +36,11 @@ Exact GP Inference
    :members:
 
 
-Variational GP Inference
+Approximate GP Inference
 -----------------------------------
 
-:hidden:`VariationalMarginalLogLikelihood`
+:hidden:`VariationalELBO`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: VariationalMarginalLogLikelihood
+.. autoclass:: VariationalELBO
    :members:
