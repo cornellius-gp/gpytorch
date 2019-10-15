@@ -55,6 +55,4 @@ __all__ = [
     "SpectralMixtureKernel",
     "SpectralGPKernel",
     "WhiteNoiseKernel",
-    #"WrappedSpectralGPKernel",
-    "ProductSpectralGPKernel"
 ]

@@ -2,8 +2,8 @@ import torch
 import warnings
 
 from gpytorch.lazy import KroneckerProductLazyTensor, AddedDiagLazyTensor
-from gpytorch.lazy import lazify, LazyTensor
-from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
+from gpytorch.lazy import LazyTensor
+from gpytorch.lazy.non_lazy_tensor import NonLazyTensor, lazify
 from gpytorch.lazy.sum_lazy_tensor import SumLazyTensor
 from gpytorch.lazy.diag_lazy_tensor import DiagLazyTensor
 from gpytorch.lazy.psd_sum_lazy_tensor import PsdSumLazyTensor
@@ -42,12 +42,12 @@ class _DiagKroneckerProdLazyTensor(KroneckerProductLazyTensor):
 
 
 class _KroneckerProductLazyLogDet(KroneckerProductLazyTensor):
-    def __init__(self, *lazy_tensors, jitter=settings.tridiagonal_jitter()):
+    def __init__(self, *lazy_tensors, jitter=settings.tridiagonal_jitter.value()):
         super(_KroneckerProductLazyLogDet, self).__init__(*lazy_tensors)
         # on initialization take the eigenvectors & eigenvalues of all of the lazy tensors
         self.eig_cache = [torch.symeig(lt.evaluate(), eigenvectors = True) for lt in self.lazy_tensors]
 
-    def inv_matmul(self, rhs, jitter=settings.tridiagonal_jitter()):
+    def inv_matmul(self, rhs, jitter=settings.tridiagonal_jitter.value()):
         Vinv = KroneckerProductLazyTensor(*[DiagLazyTensor(1 / (s[0][:,0].abs()+jitter) ) for s in self.eig_cache])
         Q = KroneckerProductLazyTensor(*[NonLazyTensor(s[1]) for s in self.eig_cache])
 
