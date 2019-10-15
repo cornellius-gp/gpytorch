@@ -6,15 +6,15 @@ import gpytorch
 import torch
 from gpytorch.models import AbstractVariationalGP
 from gpytorch.variational import CholeskyVariationalDistribution
-from gpytorch.variational import VariationalStrategy, WhitenedVariationalStrategy
+from gpytorch.variational import VariationalStrategy
 from gpytorch.test.model_test_case import VariationalModelTestCase
 
 
 class GPClassificationModel(AbstractVariationalGP):
-    def __init__(self, train_x, use_inducing=False, whitened=False):
+    def __init__(self, train_x, use_inducing=False):
         variational_distribution = CholeskyVariationalDistribution(train_x.size(-2), batch_shape=train_x.shape[:-2])
         inducing_points = torch.randn(50, train_x.size(-1)) if use_inducing else train_x
-        strategy_cls = WhitenedVariationalStrategy if whitened else VariationalStrategy
+        strategy_cls = VariationalStrategy
         variational_strategy = strategy_cls(
             self, inducing_points, variational_distribution, learn_inducing_locations=use_inducing
         )
@@ -67,12 +67,6 @@ class TestSVGPVariationalGP(TestVariationalGP):
     def test_multi_batch_backward_train_nochol(self):
         with gpytorch.settings.max_cholesky_size(0):
             self.test_multi_batch_backward_train()
-
-
-class TestSVGPWhitenedVariationalGP(TestSVGPVariationalGP):
-    def create_model(self, train_x, train_y, likelihood):
-        model = GPClassificationModel(train_x, use_inducing=True, whitened=True)
-        return model
 
 
 if __name__ == "__main__":
