@@ -159,11 +159,7 @@ class DefaultPredictionStrategy(object):
         small_system_rhs = targets - fant_mean - ftcm
         small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
-        if small_system_rhs.requires_grad or schur_complement.requires_grad:
-            # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
-            fant_cache_lower = torch.solve(small_system_rhs, schur_complement)[0]
-        else:
-            fant_cache_lower = torch.cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
+        fant_cache_lower = torch.cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
 
         # Get "a", the new upper portion of the cache corresponding to the old training points.
         fant_cache_upper = self.mean_cache.unsqueeze(-1) - fant_solve.matmul(fant_cache_lower)

@@ -40,9 +40,9 @@ class WishartPrior(Prior):
         batch_shape = nu.shape
         event_shape = torch.Size([n, n])
         # normalization constant
-        logdetK = torch.logdet(K) if K.dim() == 2 else torch.stack([torch.logdet(k) for k in K])
+        logdetK = torch.logdet(K)
         C = -(nu / 2) * (logdetK + n * math.log(2)) - torch.mvlgamma(nu / 2, n)
-        K_inv = torch.inverse(K) if K.dim() == 2 else torch.stack([torch.inverse(k) for k in K])
+        K_inv = torch.inverse(K)
         # need to assign values before registering as buffers to make argument validation work
         self.nu = nu
         self.K_inv = K_inv
@@ -56,7 +56,7 @@ class WishartPrior(Prior):
 
     def log_prob(self, X):
         # I'm sure this could be done more elegantly
-        logdetp = torch.logdet(X) if X.dim() == 2 else torch.stack([torch.logdet(p) for p in X])
+        logdetp = torch.logdet(X)
         Kinvp = torch.matmul(self.K_inv, X)
         trKinvp = torch.diagonal(Kinvp, dim1=-2, dim2=-1).sum(-1)
         return self.C + 0.5 * (self.nu - self.n - 1) * logdetp - trKinvp
@@ -91,7 +91,7 @@ class InverseWishartPrior(Prior):
         event_shape = torch.Size([n, n])
         # normalization constant
         c = (nu + n - 1) / 2
-        logdetK = torch.logdet(K) if K.dim() == 2 else torch.stack([torch.logdet(k) for k in K])
+        logdetK = torch.logdet(K)
         C = c * (logdetK - n * math.log(2)) - torch.mvlgamma(c, n)
         # need to assign values before registering as buffers to make argument validation work
         self.nu = nu
@@ -105,7 +105,7 @@ class InverseWishartPrior(Prior):
         self.register_buffer("C", C)
 
     def log_prob(self, X):
-        logdetp = torch.logdet(X) if X.dim() == 2 else torch.stack([torch.logdet(p) for p in X])
+        logdetp = torch.logdet(X)
         pinvK = torch.solve(self.K, X)[0]
         trpinvK = torch.diagonal(pinvK, dim1=-2, dim2=-1).sum(-1)  # trace in batch mode
         return self.C - 0.5 * ((self.nu + 2 * self.n) * logdetp + trpinvK)
