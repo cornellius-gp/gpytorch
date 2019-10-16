@@ -138,6 +138,7 @@ class TestInterpolatedLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase
         actual = left_matrix.matmul(base_tensor).matmul(right_matrix.transpose(-1, -2))
         return actual
 
+
 def empty_method(self):
     pass
 
@@ -167,7 +168,6 @@ class TestInterpolatedLazyTensorRectangular(LazyTensorTestCase, unittest.TestCas
     test_root_decomposition = empty_method
     test_root_decomposition_cholesky = empty_method
     test_root_inv_decomposition = empty_method
-
 
 
 if __name__ == "__main__":
