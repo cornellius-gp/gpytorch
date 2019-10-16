@@ -34,5 +34,11 @@ class TestVariationalGP(VariationalTestCase, unittest.TestCase):
         self.assertEqual(cholesky_mock.call_count, 1)  # One to compute cache, that's it!
 
 
+class TestPredictiveGP(TestVariationalGP):
+    @property
+    def mll_cls(self):
+        return gpytorch.mlls.PredictiveCrossEntropy
+
+
 if __name__ == "__main__":
     unittest.main()

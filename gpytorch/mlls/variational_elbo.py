@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import torch
-from .marginal_log_likelihood import MarginalLogLikelihood
+from ._approximate_mll import _ApproximateMarginalLogLikelihood
 from .. import settings
 
 
-class VariationalELBO(MarginalLogLikelihood):
+class VariationalELBO(_ApproximateMarginalLogLikelihood):
     r"""
     The variational evidence lower bound (ELBO). This is used to optimize
     variational Gaussian processes (with or without stochastic optimization).
@@ -63,11 +63,9 @@ class VariationalELBO(MarginalLogLikelihood):
     .. _the beta-VAE paper:
         https://openreview.net/pdf?id=Sy2fzU9gl
     """
-    def __init__(self, likelihood, model, num_data, beta=1., combine_terms=True):
-        super(VariationalELBO, self).__init__(likelihood, model)
-        self.combine_terms = combine_terms
-        self.num_data = num_data
-        self.beta = beta
+
+    def _log_likelihood_term(self, variational_dist_f, target, **kwargs):
+        return self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs)
 
     def forward(self, variational_dist_f, target, **kwargs):
         r"""
@@ -82,42 +80,7 @@ class VariationalELBO(MarginalLogLikelihood):
             :attr:`**kwargs`:
                 Additional arguments passed to the likelihood's `expected_log_prob` function.
         """
-        # Likelihood term
-        num_batch = variational_dist_f.event_shape.numel()
-        log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs).div(num_batch)
-
-        # KL term
-        with settings.max_preconditioner_size(0):
-            prior_dist = self.model.variational_strategy.prior_distribution
-            variational_dist_u = self.model.variational_strategy.variational_distribution
-            kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
-        kl_divergence = kl_divergence.div(self.num_data / self.beta)
-
-        # Make sure LL and KL terms are the same size
-        if log_likelihood.numel() == 1:
-            kl_divergence = kl_divergence.sum()
-        elif kl_divergence.dim() > log_likelihood.dim():
-            kl_divergence = kl_divergence.sum(-1)
-
-        # Add any additional registered loss terms
-        added_loss = torch.zeros_like(log_likelihood)
-        had_added_losses = False
-        for added_loss_term in self.model.added_loss_terms():
-            added_loss.add_(added_loss_term.loss())
-            had_added_losses = True
-
-        # Log prior term
-        log_prior = torch.zeros_like(log_likelihood)
-        for _, prior, closure, _ in self.named_priors():
-            log_prior.add_(prior.log_prob(closure()).sum().div(self.num_data))
-
-        if self.combine_terms:
-            return log_likelihood - kl_divergence + log_prior - added_loss
-        else:
-            if had_added_losses:
-                return log_likelihood, kl_divergence, log_prior.div(self.num_data), added_loss
-            else:
-                return log_likelihood, kl_divergence, log_prior.div(self.num_data)
+        return super().forward(variational_dist_f, target, **kwargs)
 
 
 class VariationalELBOEmpirical(VariationalELBO):

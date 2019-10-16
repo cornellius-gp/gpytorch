@@ -47,11 +47,11 @@ class SVGPRegressionModel(AbstractVariationalGP):
 class TestSVGPRegression(BaseTestCase, unittest.TestCase):
     seed = 0
 
-    def test_regression_error(self, cuda=False):
+    def test_regression_error(self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
         model = SVGPRegressionModel(torch.linspace(0, 1, 25))
-        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
+        mll = mll_cls(likelihood, model, num_data=len(train_y))
         if cuda:
             likelihood = likelihood.cuda()
             model = model.cuda()
@@ -89,6 +89,9 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             # Make sure CG was called (or not), and no warnings were thrown
             self.assertFalse(cg_mock.called)
             self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
+
+    def test_predictive_ce_regression_error(self):
+        return self.test_regression_error(mll_cls=gpytorch.mlls.PredictiveCrossEntropy)
 
     def test_regression_error_cuda(self):
         if not torch.cuda.is_available():
