@@ -139,5 +139,15 @@ class TestInterpolatedLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase
         return actual
 
 
+class TestInterpolatedLazyTensorRectangular(LazyTensorTestCase, unittest.TestCase):
+    def create_lazy_tensor(self):
+        itplzt = InterpolatedLazyTensor(NonLazyTensor(torch.rand(2, 3)))
+        return itplzt
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.base_lazy_tensor.tensor
+
+
+
 if __name__ == "__main__":
     unittest.main()
