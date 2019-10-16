@@ -139,5 +139,36 @@ class TestInterpolatedLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase
         return actual
 
 
+def empty_method(self):
+    pass
+
+
+class TestInterpolatedLazyTensorRectangular(LazyTensorTestCase, unittest.TestCase):
+    def create_lazy_tensor(self):
+        itplzt = InterpolatedLazyTensor(NonLazyTensor(torch.rand(3, 4)))
+        return itplzt
+
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        return lazy_tensor.base_lazy_tensor.tensor
+
+    # Disable tests meant for square matrices
+    test_add_diag = empty_method
+    test_diag = empty_method
+    test_inv_matmul_matrix = empty_method
+    test_inv_matmul_matrix_broadcast = empty_method
+    test_inv_matmul_matrix_cholesky = empty_method
+    test_inv_matmul_matrix_with_left = empty_method
+    test_inv_matmul_vector = empty_method
+    test_inv_matmul_vector_with_left = empty_method
+    test_inv_matmul_vector_with_left_cholesky = empty_method
+    test_inv_quad_logdet = empty_method
+    test_inv_quad_logdet_no_reduce = empty_method
+    test_inv_quad_logdet_no_reduce_cholesky = empty_method
+    test_quad_form_derivative = empty_method
+    test_root_decomposition = empty_method
+    test_root_decomposition_cholesky = empty_method
+    test_root_inv_decomposition = empty_method
+
+
 if __name__ == "__main__":
     unittest.main()
