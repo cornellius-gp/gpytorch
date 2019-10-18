@@ -44,11 +44,7 @@ class SpectralGPKernel(Kernel):
             self.latent_params = None
 
         # begin initialization by choosing omega
-        omega = self._choose_frequencies(train_inputs, period_factor)
-
-        # TODO: check if omega actually needs to be a parameter
-        self.register_parameter("omega", torch.nn.Parameter(omega))
-        self.omega.requires_grad = False
+        self.omega = self._choose_frequencies(train_inputs, period_factor)
 
         if use_latent_model:
             # now initialize from data if we want to store a latent model
@@ -59,8 +55,7 @@ class SpectralGPKernel(Kernel):
 
         max_tau = x1.max() - x1.min()
         max_tau = period_factor * max_tau
-        omega = math.pi * 2.0 * torch.arange(self.num_locs, dtype=x1.dtype).div(max_tau)
-
+        omega = math.pi * 2.0 * torch.arange(self.num_locs, dtype=x1.dtype, device=x1.device).div(max_tau)
         return omega
 
     def _initialize_from_data(
@@ -165,9 +160,6 @@ class SpectralGPKernel(Kernel):
         if not latent_params_grad:
             self.latent_params.requires_grad = False
 
-        # clear cache and reset training data
-        #self.latent_model.set_train_data(inputs=self.omega, targets=self.latent_params.data, strict=False)
-
         # register prior for latent_params as latent mod
         latent_prior = GaussianProcessPrior(self.latent_model, self.latent_lh)
         self.register_prior("latent_prior", latent_prior, lambda: self.latent_params)
@@ -188,6 +180,7 @@ class SpectralGPKernel(Kernel):
         integrand = density * torch.cos(2.0 * math.pi * self.omega * expanded_tau)
 
         # compute trapezoidal rule for now
+        # TODO: use torch.trapz and/or KeOps instead
         diff = self.omega[1:] - self.omega[:-1]
         integral = (diff * (integrand[..., 1:] + integrand[..., :-1]) / 2.0).sum(-1, keepdim=False)
 
@@ -220,7 +213,7 @@ class SpectralGPKernel(Kernel):
         return output
 
     def set_latent_params(self, new_latent_params):
-        # updates latent parameters and sets prediction strategy to be none
-
+        # updates latent parameters 
+        # warning: requires a .train(), .eval() call to empty the cache
         self.latent_params = new_latent_params
-        self.prediction_strategy = None
+
