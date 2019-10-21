@@ -24,6 +24,7 @@ from .sum_batch_lazy_tensor import SumBatchLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 from .toeplitz_lazy_tensor import ToeplitzLazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
+from .kronecker_product_added_diag_lazy_tensor import KroneckerProductPlusDiagLazyTensor
 
 __all__ = [
     "delazify",
@@ -44,6 +45,7 @@ __all__ = [
     "InterpolatedLazyTensor",
     "KeOpsLazyTensor",
     "KroneckerProductLazyTensor",
+    "KroneckerProductPlusDiagLazyTensor",
     "MatmulLazyTensor",
     "MulLazyTensor",
     "NonLazyTensor",
