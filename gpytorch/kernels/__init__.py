@@ -22,6 +22,7 @@ from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
 from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
+from .wendland_kernel import WendlandKernel
 from .white_noise_kernel import WhiteNoiseKernel
 
 
@@ -51,5 +52,6 @@ __all__ = [
     "RBFKernelGrad",
     "ScaleKernel",
     "SpectralMixtureKernel",
+    "WendlandKernel",
     "WhiteNoiseKernel",
 ]
