@@ -37,7 +37,7 @@ class TestVariationalGP(VariationalTestCase, unittest.TestCase):
 class TestPredictiveGP(TestVariationalGP):
     @property
     def mll_cls(self):
-        return gpytorch.mlls.PredictiveCrossEntropy
+        return gpytorch.mlls.PredictiveLogLikelihood
 
 
 if __name__ == "__main__":

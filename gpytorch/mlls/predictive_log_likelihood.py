@@ -5,7 +5,7 @@ from ._approximate_mll import _ApproximateMarginalLogLikelihood
 from ..distributions import MultivariateNormal
 
 
-class PredictiveCrossEntropy(_ApproximateMarginalLogLikelihood):
+class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
     r"""
     An alternative objective function for approximate GPs, proposed in `Jankowiak et al., 2019`_.
     It typically produces predictive variances than the :obj:`gpytorch.mlls.VariationalELBO` objective.
@@ -54,7 +54,7 @@ class PredictiveCrossEntropy(_ApproximateMarginalLogLikelihood):
     Example:
         >>> # model is a gpytorch.models.VariationalGP
         >>> # likelihood is a gpytorch.likelihoods.Likelihood
-        >>> mll = gpytorch.mlls.PredictiveCrossEntropy(likelihood, model, num_data=100, beta=0.5)
+        >>> mll = gpytorch.mlls.PredictiveLogLikelihood(likelihood, model, num_data=100, beta=0.5)
         >>>
         >>> output = model(train_x)
         >>> loss = -mll(output, train_y)
