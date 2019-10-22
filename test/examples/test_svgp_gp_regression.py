@@ -91,7 +91,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
     def test_predictive_ce_regression_error(self):
-        return self.test_regression_error(mll_cls=gpytorch.mlls.PredictiveCrossEntropy)
+        return self.test_regression_error(mll_cls=gpytorch.mlls.PredictiveLogLikelihood)
 
     def test_regression_error_cuda(self):
         if not torch.cuda.is_available():

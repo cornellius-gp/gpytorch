@@ -45,8 +45,8 @@ Approximate GP Inference
 .. autoclass:: VariationalELBO
    :members:
 
-:hidden:`PredictiveCrossEntropy`
+:hidden:`PredictiveLogLikelihood`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: PredictiveCrossEntropy
+.. autoclass:: PredictiveLogLikelihood
    :members:
