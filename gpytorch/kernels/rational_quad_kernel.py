@@ -5,10 +5,10 @@ from __future__ import unicode_literals
 
 import torch
 from .kernel import Kernel
+from ..constraints import Positive
 
 
 class RQKernel(Kernel):
-
     r"""
     Computes a covariance matrix based on the rational quadratic kernel
     between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`:
@@ -16,77 +16,73 @@ class RQKernel(Kernel):
     .. math::
 
        \begin{equation*}
-          k_{\text{RQ}}(\mathbf{x_1}, \mathbf{x_2}) =  \left( 1 + \frac{||x_1 - x_2||^2}{2 \alpha \ell^2}
-          \right)^{-\alpha}
+          k_{\text{RQ}}(\mathbf{x_1}, \mathbf{x_2}) =  \left(1 + \frac{1}{2\alpha}
+          (\mathbf{x_1} - \mathbf{x_2})^\top \Theta^{-2} (\mathbf{x_1} - \mathbf{x_2}) \right)^{-\alpha}
        \end{equation*}
 
-    where :math:`\ell` is a :attr:`lengthscale` parameter, and :math:`\alpha` is a parameter of
-    a gamma prior on :math:`\ell^{-2}`.
+    where :math:`\Theta` is a :attr:`lengthscale` parameter, and :math:`\alpha` is the
+    rational quadratic relative weighting parameter.
     See :class:`gpytorch.kernels.Kernel` for descriptions of the lengthscale options.
 
     .. note::
 
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
-        This kernel does not support an :attr:`ard_num_dims` argument.
 
     Args:
-        :attr:`batch_size` (int, optional):
+        :attr:`ard_num_dims` (int, optional):
             Set this if you want a separate lengthscale for each
-            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `1`
+            input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
+        :attr:`batch_shape` (torch.Size, optional):
+            Set this if you want a separate lengthscale for each
+            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`.
         :attr:`active_dims` (tuple of ints, optional):
-            Set this if you want to
-            compute the covariance of only a few input dimensions. The ints
+            Set this if you want to compute the covariance of only a few input dimensions. The ints
             corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`log_lengthscale_prior` (Prior, optional):
-            Set this if you want
-            to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`log_alpha_prior` (Prior, optional):
-            Set this if you want
-            to apply a prior to the alpha parameter.  Default: `None`
+        :attr:`lengthscale_prior` (Prior, optional):
+            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
+        :attr:`lengthscale_constraint` (Constraint, optional):
+            Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
+        :attr:`alpha_constraint` (Constraint, optional):
+            Set this if you want to apply a constraint to the alpha parameter. Default: `Positive`.
         :attr:`eps` (float):
-            The minimum value that the lengthscale can take
-            (prevents divide by zero errors). Default: `1e-6`.
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
 
     Attributes:
         :attr:`lengthscale` (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`batch_size` argument.
-        :attr:`log_alpha` (Tensor):
-            The inverse lengthscale prior parameter. Size/shape of parameter depends on the :attr:`batch_size`
-            argument.
-
-    Example:
-        >>> x = torch.randn(10, 5)
-        >>> # Non-batch:
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RQKernel())
-        >>>
-        >>> batch_x = torch.randn(2, 10, 5)
-        >>> # Batch:
-        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RQKernel(batch_size=2))
+            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
+        :attr:`alpha` (Tensor):
+            The rational quadratic relative weighting parameter. Size/shape of parameter depends
+            on the :attr:`batch_shape` argument
     """
 
-    def __init__(self, log_lengthscale_prior=None, log_alpha_prior=None,
-                 eps=1e-6, active_dims=None, batch_size=1):
-        super(RQKernel, self).__init__(
-            has_lengthscale=True,
-            batch_size=batch_size,
-            active_dims=active_dims,
-            log_lengthscale_prior=log_lengthscale_prior,
-            eps=eps
-        )
+    def __init__(self, alpha_constraint=None, **kwargs):
+        super(RQKernel, self).__init__(has_lengthscale=True, **kwargs)
+        batch_shape = kwargs.get("batch_shape")
         self.register_parameter(
-            name="log_alpha",
-            parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, 1)),
-            prior=log_alpha_prior
+            name="raw_alpha",
+            parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1, 1)),
         )
+        if alpha_constraint is None:
+            alpha_constraint = Positive()
 
-    def forward(self, x1, x2, **params):
+        self.register_constraint("raw_alpha", alpha_constraint)
+
+    def forward(self, x1, x2, diag=False, **params):
+        def postprocess_rq(dist):
+            if diag:
+                alpha = self.alpha.squeeze(-1)
+            else:
+                alpha = self.alpha
+            return (1 + dist.div(2 * alpha)).pow(-alpha)
+
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        x1_, x2_ = self._create_input_grid(x1_, x2_, **params)
-        alpha = self.log_alpha.exp()
+        return self.covar_dist(x1_, x2_, square_dist=True, diag=diag,
+                               dist_postprocess_func=postprocess_rq,
+                               postprocess=True, **params)
 
-        diff = (x1_ - x2_).norm(2, dim=-1)
-        res = (1 + diff.pow(2).div(2 * alpha)).pow(-alpha)
-        return res
+    @property
+    def alpha(self):
+        return self.raw_alpha_constraint.transform(self.raw_alpha)
