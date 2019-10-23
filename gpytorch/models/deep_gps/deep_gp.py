@@ -129,3 +129,6 @@ class DeepLikelihood(Likelihood):
 
     def expected_log_prob(self, observations, function_dist, *params, **kwargs):
         return self.base_likelihood.expected_log_prob(observations, function_dist, *params, **kwargs).mean(dim=0)
+
+    def log_marginal(self, observations, function_dist, *params, **kwargs):
+        return self.base_likelihood.log_marginal(observations, function_dist, *params, **kwargs).mean(dim=0)

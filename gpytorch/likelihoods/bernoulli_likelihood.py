@@ -3,11 +3,11 @@
 import torch
 from ..distributions import base_distributions
 from ..functions import log_normal_cdf
-from .likelihood import Likelihood
+from .likelihood import _OneDimensionalLikelihood
 import warnings
 
 
-class BernoulliLikelihood(Likelihood):
+class BernoulliLikelihood(_OneDimensionalLikelihood):
     r"""
     Implements the Bernoulli likelihood used for GP classification, using
     Probit regression (i.e., the latent function is warped to be in [0,1]
@@ -23,6 +23,10 @@ class BernoulliLikelihood(Likelihood):
     def forward(self, function_samples, **kwargs):
         output_probs = base_distributions.Normal(0, 1).cdf(function_samples)
         return base_distributions.Bernoulli(probs=output_probs)
+
+    def log_marginal(self, observations, function_dist, *args, **kwargs):
+        marginal = self.marginal(function_dist, *args, **kwargs)
+        return marginal.log_prob(observations)
 
     def marginal(self, function_dist, **kwargs):
         mean = function_dist.mean
@@ -44,4 +48,4 @@ class BernoulliLikelihood(Likelihood):
         # This is going to be less prone to overflow errors
         log_prob_lambda = lambda function_samples: log_normal_cdf(function_samples.mul(observations))
         log_prob = self.quadrature(log_prob_lambda, function_dist)
-        return log_prob.sum(-1)
+        return log_prob

@@ -41,7 +41,7 @@ class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
         output = likelihood.expected_log_prob(target, input)
 
         self.assertTrue(torch.is_tensor(output))
-        self.assertEqual(output.shape, batch_shape)
+        self.assertEqual(output.shape, batch_shape + torch.Size([5]))
 
     def _test_marginal(self, batch_shape):
         likelihood = self.create_likelihood()

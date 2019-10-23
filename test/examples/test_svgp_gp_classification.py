@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import gpytorch
 import torch
-from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.models import AbstractVariationalGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
@@ -18,7 +18,7 @@ from torch import optim
 
 def train_data(cuda=False):
     train_x = torch.linspace(0, 1, 260)
-    train_y = torch.cos(train_x * (2 * math.pi))
+    train_y = torch.cos(train_x * (2 * math.pi)).gt(0).float()
     if cuda:
         return train_x.cuda(), train_y.cuda()
     else:
@@ -47,9 +47,9 @@ class SVGPRegressionModel(AbstractVariationalGP):
 class TestSVGPRegression(BaseTestCase, unittest.TestCase):
     seed = 0
 
-    def test_regression_error(self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO):
+    def test_classification_error(self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO):
         train_x, train_y = train_data(cuda=cuda)
-        likelihood = GaussianLikelihood()
+        likelihood = BernoulliLikelihood()
         model = SVGPRegressionModel(torch.linspace(0, 1, 25))
         mll = mll_cls(likelihood, model, num_data=len(train_y))
         if cuda:
@@ -60,12 +60,12 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
-        optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
+        optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.1)
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
         with warnings.catch_warnings(record=True) as ws, _cg_mock as cg_mock:
-            for _ in range(150):
+            for _ in range(200):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
@@ -82,22 +82,16 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             # Set back to eval mode
             model.eval()
             likelihood.eval()
-            test_preds = likelihood(model(train_x)).mean.squeeze()
-            mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+            test_preds = likelihood(model(train_x)).mean.squeeze().round().float()
+            mean_abs_error = torch.mean(torch.ne(train_y, test_preds).float())
             self.assertLess(mean_abs_error.item(), 1e-1)
 
             # Make sure CG was called (or not), and no warnings were thrown
             self.assertFalse(cg_mock.called)
             self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
-    def test_predictive_ll_regression_error(self):
-        return self.test_regression_error(mll_cls=gpytorch.mlls.PredictiveLogLikelihood)
-
-    def test_regression_error_cuda(self):
-        if not torch.cuda.is_available():
-            return
-        with least_used_cuda_device():
-            return self.test_regression_error(cuda=True)
+    def test_predictive_ll_classification_error(self):
+        return self.test_classification_error(mll_cls=gpytorch.mlls.PredictiveLogLikelihood)
 
 
 if __name__ == "__main__":

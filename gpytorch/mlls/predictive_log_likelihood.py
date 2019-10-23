@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-import torch
 from ._approximate_mll import _ApproximateMarginalLogLikelihood
-from ..distributions import MultivariateNormal
 
 
 class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
@@ -36,9 +34,9 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
         This difference results in very different predictive performance (see `Jankowiak et al., 2019`_).
 
     Args:
-        :attr:`likelihood` (:obj:`gpytorch.likelihoods.Likelihood`):
+        :attr:`likelihood` (:obj:`~gpytorch.likelihoods.Likelihood`):
             The likelihood for the model
-        :attr:`model` (:obj:`gpytorch.models.ApproximateGP`):
+        :attr:`model` (:obj:`~gpytorch.models.ApproximateGP`):
             The approximate GP model
         :attr:`num_data` (int):
             The total number of training data points (necessary for SGD)
@@ -65,23 +63,7 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
     """
 
     def _log_likelihood_term(self, approximate_dist_f, target, **kwargs):
-        # Compute predictive distribution
-        target_dist = self.likelihood(approximate_dist_f, **kwargs)
-        num_sample_dims = len(target_dist.batch_shape) - len(approximate_dist_f.batch_shape)
-
-        # Make sure that predictive distribution factorizes over inputs (if we have a MultivariateNormal)
-        if isinstance(target_dist, MultivariateNormal):
-            target_dist = torch.distributions.Normal(target_dist.mean, target_dist.variance.sqrt())
-
-        # Compute log p(y | x)
-        res = target_dist.log_prob(target).sum(-1)
-
-        # Sum over sample dimensions
-        if num_sample_dims:
-            res = res.sum(dim=list(range(num_sample_dims)))
-
-        # We're done!
-        return res
+        return self.likelihood.log_marginal(target, approximate_dist_f, **kwargs).sum(-1)
 
     def forward(self, approximate_dist_f, target, **kwargs):
         r"""

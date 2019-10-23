@@ -38,9 +38,36 @@ class _GaussianLikelihoodBase(Likelihood):
             shape = base_shape
         return self.noise_covar(*params, shape=shape, **kwargs)
 
+    def expected_log_prob(self, target: Tensor, input: MultivariateNormal, *params: Any, **kwargs: Any) -> Tensor:
+        mean, variance = input.mean, input.variance
+        num_event_dim = len(input.event_shape)
+
+        noise = self._shaped_noise_covar(mean.shape, *params, **kwargs).diag()
+        # Potentially reshape the noise to deal with the multitask case
+        noise = noise.view(*noise.shape[:-1], *input.event_shape)
+
+        res = (((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)) * -0.5
+        if num_event_dim > 1:  # Do appropriate summation for multitask Gaussian likelihoods
+            res = res.sum(list(range(-1, -num_event_dim, -1)))
+        return res
+
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
         return base_distributions.Normal(function_samples, noise.sqrt())
+
+    def log_marginal(
+        self, observations: Tensor, function_dist: MultivariateNormal, *params: Any, **kwargs: Any
+    ) -> Tensor:
+        marginal = self.marginal(function_dist, *params, **kwargs)
+        # We're making everything conditionally independent
+        indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.sqrt())
+        res = indep_dist.log_prob(observations)
+
+        # Do appropriate summation for multitask Gaussian likelihoods
+        num_event_dim = len(function_dist.event_shape)
+        if num_event_dim > 1:
+            res = res.sum(list(range(-1, -num_event_dim, -1)))
+        return res
 
     def marginal(self, function_dist: MultivariateNormal, *params: Any, **kwargs: Any) -> MultivariateNormal:
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
@@ -76,13 +103,6 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
     @raw_noise.setter
     def raw_noise(self, value: Tensor) -> None:
         self.noise_covar.initialize(raw_noise=value)
-
-    def expected_log_prob(self, target: Tensor, input: MultivariateNormal, *params: Any, **kwargs: Any) -> Tensor:
-        mean, variance = input.mean, input.variance
-        noise = self.noise_covar.noise
-
-        res = ((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)
-        return res.mul(-0.5).sum(-1)
 
 
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
