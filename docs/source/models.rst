@@ -26,3 +26,13 @@ Models for Variational GP Inference
 
 .. autoclass:: AbstractVariationalGP
    :members:
+
+
+Models for integrating with Pyro
+-----------------------------------
+
+:hidden:`PyroVariationalGP`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: PyroVariationalGP
+   :members:

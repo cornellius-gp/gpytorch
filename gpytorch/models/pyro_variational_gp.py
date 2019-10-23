@@ -1,76 +1,114 @@
 #!/usr/bin/env python3
 
-import torch
 import pyro
 from .abstract_variational_gp import AbstractVariationalGP
 
 
 class PyroVariationalGP(AbstractVariationalGP):
-    def __init__(self, variational_strategy, likelihood, num_data, name_prefix=""):
-        super(PyroVariationalGP, self).__init__(variational_strategy)
+    """
+    A :obj:`~gpytorch.models.AbstractVariationalGP` designed to work with Pyro.
+
+    This module makes it possible to include GP models with more complex probablistic models,
+    or to use likelihood functions with additional variational/approximate distributions.
+
+    The parameters of these models are learned using Pyro's inference tools, unlike other models
+    that optimize models with respect to a :obj:`~gpytorch.mlls.MarginalLogLikelihood`.
+    See `the Pyro examples <examples/09_Pyro_Integration/index.html>`_ for detailed examples.
+
+    Args:
+        :attr:`variational_strategy` (:obj:`~gpytorch.variational.VariationalStrategy`):
+            The variational strategy that defines the variational distribution and
+            the marginalization strategy.
+        :attr:`likelihood` (:obj:`~gpytorch.likelihoods.Likelihood`):
+            The likelihood for the model
+        :attr:`num_data` (int):
+            The total number of training data points (necessary for SGD)
+        :attr:`name_prefix` (str, optional):
+            A prefix to put in front of pyro sample/plate sites
+        :attr:`beta` (float - default 1.):
+            A multiplicative factor for the KL divergence term.
+            Setting it to 1 (default) recovers true variational inference
+            (as derived in `Scalable Variational Gaussian Process Classification`_).
+            Setting it to anything less than 1 reduces the regularization effect of the model
+            (similarly to what was proposed in `the beta-VAE paper`_).
+
+    Example:
+        >>> class MyVariationalGP(gpytorch.models.PyroVariationalGP):
+        >>>     # implementation
+        >>>
+        >>> # variational_strategy = ...
+        >>> likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        >>> model = MyVariationalGP(variational_strategy, likelihood, train_y.size())
+        >>>
+        >>> optimizer = pyro.optim.Adam({"lr": 0.01})
+        >>> elbo = pyro.infer.Trace_ELBO(num_particles=64, vectorize_particles=True)
+        >>> svi = pyro.infer.SVI(model.model, model.guide, optimizer, elbo)
+        >>>
+        >>> # Optimize variational parameters
+        >>> for _ in range(n_iter):
+        >>>    loss = svi.step(train_x, train_y)
+
+    .. _Scalable Variational Gaussian Process Classification:
+        http://proceedings.mlr.press/v38/hensman15.pdf
+    .. _the beta-VAE paper:
+        https://openreview.net/pdf?id=Sy2fzU9gl
+    """
+    def __init__(self, variational_strategy, likelihood, num_data, name_prefix="", beta=1.0):
+        super().__init__(variational_strategy)
         self.name_prefix = name_prefix
         self.likelihood = likelihood
         self.num_data = num_data
+        self.beta = beta
 
-    def guide(self, input, output, *params, **kwargs):
-        inducing_dist = self.variational_strategy.variational_distribution
+    def guide(self, input, target, *args, **kwargs):
+        """
+        Gude function for Pyro inference.
+        Includes the guide for the GP's likelihood function as well.
+
+        Args:
+            :attr:`input` (`torch.Tensor`):
+                :math:`\mathbf X` The input values values
+            :attr:`target` (`torch.Tensor`):
+                :math:`\mathbf y` The target values
+            :attr:`*args`, :attr:`**kwargs`:
+                Additional arguments passed to the likelihood's `forward` function.
+        """
+        # Hack for getting correct sampling shape
+        pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1)).shape
+
         # Draw samples from q(u) for KL divergence computation
-        self.sample_inducing_values(inducing_dist)
-        self.likelihood.guide(*params, **kwargs)
+        with pyro.poutine.scale(scale=self.beta):
+            inducing_dist = self.variational_strategy.variational_distribution
+            pyro.sample(self.name_prefix + ".u", inducing_dist)
 
-    def model(self, input, output, *params, **kwargs):
+        self.likelihood.guide(*args, **kwargs)
+
+    def model(self, input, target, *args, **kwargs):
+        """
+        Model function for Pyro inference.
+        Includes the model for the GP's likelihood function as well.
+
+        Args:
+            :attr:`input` (`torch.Tensor`):
+                :math:`\mathbf X` The input values values
+            :attr:`target` (`torch.Tensor`):
+                :math:`\mathbf y` The target values
+            :attr:`*args`, :attr:`**kwargs`:
+                Additional arguments passed to the likelihood's `forward` function.
+        """
         pyro.module(self.name_prefix + ".gp_prior", self)
 
         # Get the variational distribution for the function
         function_dist = self(input)
 
         # Draw samples from p(u) for KL divergence computation
-        prior_dist = self.variational_strategy.prior_distribution
-        inducing_values_samples = self.sample_inducing_values(prior_dist)
-        sample_shape = inducing_values_samples.shape[:-len(prior_dist.shape())] + \
-            torch.Size([1] * len(prior_dist.batch_shape))
+        with pyro.poutine.scale(scale=self.beta):
+            inducing_dist = self.variational_strategy.variational_distribution
+            pyro.sample(self.name_prefix + ".u", inducing_dist)
 
-        # Go from function -> output
-        num_minibatch = function_dist.batch_shape[-1]
-        with pyro.poutine.scale(scale=float(self.num_data / num_minibatch)):
-            return self.likelihood.pyro_sample_output(
-                output, function_dist, *params, **kwargs, sample_shape=sample_shape
-            )
-
-    def sample_inducing_values(self, inducing_values_dist):
-        """
-        Sample values from the inducing point distribution `p(u)` or `q(u)`.
-        This should only be re-defined to note any conditional independences in
-        the `inducing_values_dist` distribution. (By default, all batch dimensions
-        are not marked as conditionally indendent.)
-        """
-        reinterpreted_batch_ndims = len(inducing_values_dist.batch_shape)
-        samples = pyro.sample(
-            self.name_prefix + ".inducing_values",
-            inducing_values_dist.to_event(reinterpreted_batch_ndims)
+        # Draw samples from the likelihood
+        num_minibatch = function_dist.event_shape[0]
+        scale = self.num_data / num_minibatch
+        return self.likelihood.pyro_sample_output(
+            target, function_dist, scale, *args, name_prefix=self.name_prefix, **kwargs
         )
-        return samples
-
-    def transform_function_dist(self, function_dist):
-        """
-        Transform the function_dist from `gpytorch.distributions.MultivariateNormal` into
-        some other variant of a Normal distribution.
-
-        This is useful for marking conditional independencies (useful for inference),
-        marking that the distribution contains multiple outputs, etc.
-
-        By default, this funciton transforms a multivariate normal into a set of conditionally
-        independent normals when performing inference, and keeps the distribution multivariate
-        normal for predictions.
-        """
-        if self.training:
-            return pyro.distributions.Normal(function_dist.mean, function_dist.variance)
-        else:
-            return function_dist
-
-    def __call__(self, input, *args, **kwargs):
-        function_dist = super().__call__(input, *args, **kwargs)
-        # Now make the variational distribution Normal - for conditional indepdence
-        function_dist = self.transform_function_dist(function_dist)
-        res = function_dist
-        return res

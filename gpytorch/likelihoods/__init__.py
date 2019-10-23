@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .likelihood import Likelihood
+from .likelihood import Likelihood, _OneDimensionalLikelihood
 from .bernoulli_likelihood import BernoulliLikelihood
 from .gaussian_likelihood import FixedNoiseGaussianLikelihood, GaussianLikelihood, _GaussianLikelihoodBase
 from .likelihood_list import LikelihoodList
@@ -15,6 +15,7 @@ from .softmax_likelihood import SoftmaxLikelihood
 
 __all__ = [
     "_GaussianLikelihoodBase",
+    "_OneDimensionalLikelihood",
     "_MultitaskGaussianLikelihoodBase",
     "BernoulliLikelihood",
     "FixedNoiseGaussianLikelihood",
