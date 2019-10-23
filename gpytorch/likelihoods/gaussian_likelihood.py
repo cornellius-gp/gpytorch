@@ -1,32 +1,31 @@
 #!/usr/bin/env python3
 
-from copy import deepcopy
-
 import math
 import warnings
+from copy import deepcopy
 from typing import Any, Optional
 
 import torch
 from torch import Tensor
 
 from ..distributions import MultivariateNormal, base_distributions
-from ..likelihoods import Likelihood
 from ..lazy import ZeroLazyTensor
+from ..likelihoods import Likelihood
 from ..utils.deprecation import _deprecate_kwarg_with_transform
-from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
+from .noise_models import (
+    FixedGaussianNoise,
+    HomoskedasticNoise,
+    MultitaskFixedGaussianNoise,
+    MultitaskHomoskedasticNoise,
+    Noise,
+)
 
 
 class _GaussianLikelihoodBase(Likelihood):
     """Base class for Gaussian Likelihoods, supporting general heteroskedastic noise models."""
 
-    def __init__(self, noise_covar: Noise, **kwargs: Any) -> None:
-
+    def __init__(self, noise_covar: Noise) -> None:
         super().__init__()
-        param_transform = kwargs.get("param_transform")
-        if param_transform is not None:
-            warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
-                          "transformaton, specify a different 'noise_constraint' instead.")
-
         self.noise_covar = noise_covar
 
     def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any):
@@ -50,14 +49,9 @@ class _GaussianLikelihoodBase(Likelihood):
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
-    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), **kwargs):
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size()):
         noise_covar = HomoskedasticNoise(
-            noise_prior=noise_prior,
-            noise_constraint=noise_constraint,
-            batch_shape=batch_shape,
+            noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
         )
         super().__init__(noise_covar=noise_covar)
 
@@ -109,6 +103,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         >>> test_noises = torch.ones(21) * 0.02
         >>> pred_y = likelihood(gp_model(test_x), noise=test_noises)
     """
+
     def __init__(
         self,
         noise: Tensor,
@@ -117,17 +112,11 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         **kwargs: Any
     ) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
-
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
         if learn_additional_noise:
             noise_prior = kwargs.get("noise_prior", None)
             noise_constraint = kwargs.get("noise_constraint", None)
             self.second_noise_covar = HomoskedasticNoise(
-                noise_prior=noise_prior,
-                noise_constraint=noise_constraint,
-                batch_shape=batch_shape,
+                noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
             )
         else:
             self.second_noise_covar = None
@@ -190,3 +179,54 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
             )
 
         return res
+
+
+class FixedNoiseMultiTaskGaussianLikelihood(FixedNoiseGaussianLikelihood):
+    """
+    A Multitask Likelihood that assumes fixed heteroscedastic noise. This is useful when you have fixed,
+    known observation noise for each training example of each task
+
+    Args:
+        :attr:`noise` (Tensor):
+            `n x num_tasks` observation noise (variance) for each training example for each task.
+        :attr:`learn_additional_noise` (bool, optional):
+            Set to true if you additionally want to learn added diagonal noise for each task,
+            similar to GaussianLikelihood.
+    """
+
+    def __init__(
+        self,
+        noise: Tensor,
+        learn_additional_noise: Optional[bool] = False,
+        batch_shape: Optional[torch.Size] = torch.Size(),
+        **kwargs: Any
+    ) -> None:
+        if noise.ndim < 2:
+            raise ValueError("noise must be at least two-dimensional for FixedNoiseMultiTaskGaussianLikelihood")
+        super().__init__(noise_covar=MultitaskFixedGaussianNoise(noise=noise))
+        if learn_additional_noise:
+            noise_prior = kwargs.get("noise_prior", None)
+            noise_constraint = kwargs.get("noise_constraint", None)
+            self.second_noise_covar = MultitaskHomoskedasticNoise(
+                num_tasks=noise.size(-1),
+                noise_prior=noise_prior,
+                noise_constraint=noise_constraint,
+                batch_shape=batch_shape,
+            )
+        else:
+            self.second_noise_covar = None
+
+    def get_fantasy_likelihood(self, **kwargs):
+        if "noise" not in kwargs:
+            raise RuntimeError("FixedNoiseMultiTaskGaussianLikelihood.fantasize requires a `noise` kwarg")
+        old_noise_covar = self.noise_covar
+        self.noise_covar = None
+        fantasy_liklihood = deepcopy(self)
+        self.noise_covar = old_noise_covar
+
+        old_noise = old_noise_covar.noise
+        new_noise = kwargs.get("noise")
+        if old_noise.dim() != new_noise.dim():
+            old_noise = old_noise.expand(*new_noise.shape[:-2] + old_noise.shape[-2:])
+        fantasy_liklihood.noise_covar = MultitaskHomoskedasticNoise(noise=torch.cat([old_noise, new_noise], -2))
+        return fantasy_liklihood

@@ -1,37 +1,38 @@
 #!/usr/bin/env python3
 
-import torch
 import warnings
-from typing import Any
+from typing import Any, Optional
+
+import torch
 from torch import Tensor
 
-from ..constraints import GreaterThan
+from ..constraints import GreaterThan, Interval
 from ..distributions import base_distributions
 from ..functions import add_diag
 from ..lazy import (
-    lazify,
     BlockDiagLazyTensor,
     DiagLazyTensor,
     KroneckerProductLazyTensor,
     MatmulLazyTensor,
     RootLazyTensor,
+    lazify,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
+from ..priors import Prior
 from ..utils.deprecation import _deprecate_kwarg_with_transform
-from .noise_models import MultitaskHomoskedasticNoise
+from .noise_models import MultitaskHomoskedasticNoise, Noise
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
-    """Base class for multi-task Gaussian Likelihoods, supporting general heteroskedastic noise models. """
+    """Base class for multi-task Gaussian Likelihoods, supporting general heteroskedastic noise models."""
 
     def __init__(
         self,
-        num_tasks,
-        noise_covar,
-        rank=0,
-        task_correlation_prior=None,
-        batch_shape=torch.Size(),
-        **kwargs,
+        num_tasks: int,
+        noise_covar: Noise,
+        rank: int = 0,
+        task_correlation_prior: Optional[Prior] = None,
+        batch_shape: torch.Size = torch.Size(),
     ):
         """
         Args:
@@ -46,16 +47,8 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             task_correlation_prior (:obj:`gpytorch.priors.Prior`):
                 Prior to use over the task noise correlation matrix. Only used when `rank` > 0.
             batch_shape (torch.Size):
-                Number of batches.
+                The batch shape of the likelihood.
         """
-        param_transform = kwargs.get("param_transform")
-        if param_transform is not None:
-            warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
-                          "transformaton, specify a different 'lengthscale_constraint' instead.")
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
-
         super().__init__(noise_covar=noise_covar)
         if rank != 0:
             self.register_parameter(
@@ -82,7 +75,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         sem_inv = 1 / torch.diagonal(M, dim1=-2, dim2=-1).sqrt().unsqueeze(-1)
         return M * sem_inv.matmul(sem_inv.transpose(-1, -2))
 
-    def _shaped_noise_covar(self, base_shape, *params):
+    def _shaped_noise_covar(self, base_shape: torch.Size, *params):
         if len(base_shape) >= 2:
             *batch_shape, n, _ = base_shape
         else:
@@ -134,13 +127,12 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
 
     def __init__(
         self,
-        num_tasks,
-        rank=0,
-        task_correlation_prior=None,
-        batch_shape=torch.Size(),
-        noise_prior=None,
-        noise_constraint=None,
-        **kwargs
+        num_tasks: int,
+        rank: int = 0,
+        task_correlation_prior: Optional[Prior] = None,
+        batch_shape: torch.Size = torch.Size(),
+        noise_prior: Optional[Prior] = None,
+        noise_constraint: Optional[Interval] = None,
     ):
         """
         Args:
@@ -153,19 +145,57 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             Only used when `rank` > 0.
 
         """
-
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
 
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
         noise_covar = MultitaskHomoskedasticNoise(
+            num_tasks=num_tasks, noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
+        )
+        super().__init__(
             num_tasks=num_tasks,
-            noise_prior=noise_prior,
-            noise_constraint=noise_constraint,
+            noise_covar=noise_covar,
+            rank=rank,
+            task_correlation_prior=task_correlation_prior,
             batch_shape=batch_shape,
         )
+        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
+        self.register_constraint("raw_noise", noise_constraint)
+
+    @property
+    def noise(self):
+        return self.raw_noise_constraint.transform(self.raw_noise)
+
+    @noise.setter
+    def noise(self, value):
+        self._set_noise(value)
+
+    def _set_noise(self, value):
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_noise)
+        self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
+
+    def _shaped_noise_covar(self, base_shape, *params):
+        noise_covar = super()._shaped_noise_covar(base_shape, *params)
+        noise = self.noise
+        return noise_covar.add_diag(noise)
+
+
+class MultitaskFixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
+    def __init__(self, noise: Tensor, rank: int = 0, task_correlation_prior: Optional[Prior] = None):
+        """
+        Args:
+            :attr:`noise` (Tensor):
+                `n x t`-dim tensor of observation noise, where `t` is the number of tasks.
+
+            :attr:`rank` (int):
+                The rank of the task noise covariance matrix to fit. If 0 (default),
+                then a diagonal covariance matrix is fit.
+
+            task_correlation_prior (:obj:`gpytorch.priors.Prior`): Prior to use over the task noise correlaton matrix.
+                Only used when `rank` > 0.
+        """
+        num_tasks = noise.size(-1)
+        noise_covar = MultitaskFixedGaussianNoise(noise=noise)
         super().__init__(
             num_tasks=num_tasks,
             noise_covar=noise_covar,
@@ -173,9 +203,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             rank=rank,
             task_correlation_prior=task_correlation_prior,
             batch_shape=batch_shape,
-            **kwargs,
         )
-
         self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
         self.register_constraint("raw_noise", noise_constraint)
 
@@ -212,14 +240,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
     """
 
     def __init__(
-        self,
-        num_tasks,
-        rank=0,
-        task_prior=None,
-        batch_shape=torch.Size(),
-        noise_prior=None,
-        noise_constraint=None,
-        **kwargs
+        self, num_tasks, rank=0, task_prior=None, batch_shape=torch.Size(), noise_prior=None, noise_constraint=None
     ):
         """
         Args:
@@ -232,9 +253,6 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
         """
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
         super(Likelihood, self).__init__()
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
@@ -305,7 +323,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         else:
             task_noise_covar_factor = self.task_noise_covar_factor
             task_var_lt = RootLazyTensor(task_noise_covar_factor)
-            dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
+            dtype, device = (task_noise_covar_factor.dtype, task_noise_covar_factor.device)
 
         eye_lt = DiagLazyTensor(
             torch.ones(*covar.batch_shape, covar.size(-1) // self.num_tasks, dtype=dtype, device=device)

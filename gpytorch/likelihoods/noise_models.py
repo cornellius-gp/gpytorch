@@ -19,27 +19,14 @@ class Noise(Module):
 
 
 class _HomoskedasticNoiseBase(Noise):
-    def __init__(
-        self,
-        noise_prior=None,
-        noise_constraint=None,
-        batch_shape=torch.Size(),
-        num_tasks=1,
-    ):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), num_tasks=1):
         super().__init__()
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
 
-        self.register_parameter(
-            name="raw_noise", parameter=Parameter(torch.zeros(*batch_shape, num_tasks))
-        )
+        self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(*batch_shape, num_tasks)))
         if noise_prior is not None:
-            self.register_prior(
-                "noise_prior",
-                noise_prior,
-                lambda: self.noise,
-                lambda v: self._set_noise(v),
-            )
+            self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
 
         self.register_constraint("raw_noise", noise_constraint)
 
@@ -56,9 +43,7 @@ class _HomoskedasticNoiseBase(Noise):
             value = torch.as_tensor(value).to(self.raw_noise)
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
-    def forward(
-        self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any,
-    ) -> DiagLazyTensor:
+    def forward(self, *params: Any, shape: Optional[torch.Size] = None, **kwargs: Any) -> DiagLazyTensor:
         """In the homoskedastic case, the parameters are only used to infer the required shape.
         Here are the possible scenarios:
         - non-batched noise, non-batched input, non-MT -> noise_diag shape is `n`
@@ -95,30 +80,16 @@ class _HomoskedasticNoiseBase(Noise):
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(
-        self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size()
-    ):
+    def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size()):
         super().__init__(
-            noise_prior=noise_prior,
-            noise_constraint=noise_constraint,
-            batch_shape=batch_shape,
-            num_tasks=1,
+            noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape, num_tasks=1
         )
 
 
 class MultitaskHomoskedasticNoise(_HomoskedasticNoiseBase):
-    def __init__(
-        self,
-        num_tasks,
-        noise_prior=None,
-        noise_constraint=None,
-        batch_shape=torch.Size(),
-    ):
+    def __init__(self, num_tasks, noise_prior=None, noise_constraint=None, batch_shape=torch.Size()):
         super().__init__(
-            noise_prior=noise_prior,
-            noise_constraint=noise_constraint,
-            batch_shape=batch_shape,
-            num_tasks=num_tasks,
+            noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape, num_tasks=num_tasks
         )
 
 
@@ -151,30 +122,27 @@ class HeteroskedasticNoise(Noise):
                 output = self.noise_model(*params)
         self.noise_model.train(training)
         if not isinstance(output, MultivariateNormal):
-            raise NotImplementedError(
-                "Currently only noise models that return a MultivariateNormal are supported"
-            )
+            raise NotImplementedError("Currently only noise models that return a MultivariateNormal are supported")
         # note: this also works with MultitaskMultivariateNormal, where this
         # will return a batched DiagLazyTensors of size n x num_tasks x num_tasks
-        noise_diag = (
-            output.mean
-            if self._noise_indices is None
-            else output.mean[..., self._noise_indices]
-        )
+        noise_diag = output.mean if self._noise_indices is None else output.mean[..., self._noise_indices]
         return DiagLazyTensor(self._noise_constraint.transform(noise_diag))
 
 
 class FixedGaussianNoise(Module):
+    """Fixed Gaussian observation noise. To be used with FixedNoiseGaussianLikelihood.
+
+    Args:
+        :attr:`noise` (Tensor):
+            `n`-dim tensor of observation noise.
+    """
+
     def __init__(self, noise: Tensor) -> None:
         super().__init__()
-        self.noise = noise
+        self.register_buffer("noise", noise)
 
     def forward(
-        self,
-        *params: Any,
-        shape: Optional[torch.Size] = None,
-        noise: Optional[Tensor] = None,
-        **kwargs: Any
+        self, *params: Any, shape: Optional[torch.Size] = None, noise: Optional[Tensor] = None, **kwargs: Any
     ) -> DiagLazyTensor:
         if shape is None:
             p = params[0] if torch.is_tensor(params[0]) else params[0][0]
@@ -190,6 +158,36 @@ class FixedGaussianNoise(Module):
     def _apply(self, fn):
         self.noise = fn(self.noise)
         return super(FixedGaussianNoise, self)._apply(fn)
+
+
+class MultitaskFixedGaussianNoise(FixedGaussianNoise):
+    """Fixed Gaussian observation noise for multi-task models.
+
+    To be used with FixedNoiseGaussianLikelihood.
+
+    Args:
+        :attr:`noise` (Tensor):
+            `n x t`-dim tensor of observation noise, where `t` is the number of tasks.
+    """
+
+    def __init__(self, noise: Tensor) -> None:
+        if not noise.ndim > 1:
+            raise ValueError("noise must be at least two-dimensional for MultitaskFixedGaussianNoise")
+        super().__init__(noise=noise)
+
+    def forward(
+        self, *params: Any, shape: Optional[torch.Size] = None, noise: Optional[Tensor] = None, **kwargs: Any
+    ) -> DiagLazyTensor:
+        if shape is None:
+            p = params[0] if torch.is_tensor(params[0]) else params[0][0]
+            shape = p.shape if len(p.shape) == 1 else p.shape[:-1]
+
+        if noise is not None:
+            return DiagLazyTensor(noise)
+        elif shape[-2] == self.noise.shape[-2]:
+            return DiagLazyTensor(self.noise)
+        else:
+            return ZeroLazyTensor()
 
 
 def clear_cache_hook(module, grad_input, grad_output) -> None:
