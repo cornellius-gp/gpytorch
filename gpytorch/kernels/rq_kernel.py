@@ -59,11 +59,7 @@ class RQKernel(Kernel):
 
     def __init__(self, alpha_constraint=None, **kwargs):
         super(RQKernel, self).__init__(has_lengthscale=True, **kwargs)
-        batch_shape = kwargs.get("batch_shape")
-        self.register_parameter(
-            name="raw_alpha",
-            parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1, 1)),
-        )
+        self.register_parameter(name="raw_alpha", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1)))
         if alpha_constraint is None:
             alpha_constraint = Positive()
 
@@ -71,18 +67,23 @@ class RQKernel(Kernel):
 
     def forward(self, x1, x2, diag=False, **params):
         def postprocess_rq(dist):
-            if diag:
-                alpha = self.alpha.squeeze(-1)
-            else:
-                alpha = self.alpha
+            alpha = self.alpha
+            for _ in range(1, len(dist.shape) - len(self.batch_shape)):
+                alpha = alpha.unsqueeze(-1)
             return (1 + dist.div(2 * alpha)).pow(-alpha)
 
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
-        return self.covar_dist(x1_, x2_, square_dist=True, diag=diag,
-                               dist_postprocess_func=postprocess_rq,
-                               postprocess=True, **params)
+        return self.covar_dist(
+            x1_, x2_, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rq, postprocess=True, **params
+        )
 
     @property
     def alpha(self):
         return self.raw_alpha_constraint.transform(self.raw_alpha)
+
+    @alpha.setter
+    def alpha(self, value):
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_lengthscale)
+        self.initialize(raw_alpha=self.raw_alpha_constraint.inverse_transform(value))
