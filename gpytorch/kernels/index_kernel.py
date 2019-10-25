@@ -73,11 +73,9 @@ class IndexKernel(Kernel):
 
     @property
     def covar_matrix(self):
-        with torch.autograd.set_detect_anomaly(True):
-            var = self.var
-            # res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
-            res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
-            return res
+        var = self.var
+        res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
+        return res
 
     def forward(self, i1, i2, **params):
         covar_matrix = self._eval_covar_matrix()
