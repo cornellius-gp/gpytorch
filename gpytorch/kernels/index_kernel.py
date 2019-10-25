@@ -47,9 +47,9 @@ class IndexKernel(Kernel):
         if var_constraint is None:
             var_constraint = Positive()
 
-        self.register_parameter(
-            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks, rank))
-        )
+        self.tidcs = torch.tril_indices(num_tasks, num_tasks)
+        self.register_parameter("covar_factor", torch.nn.Parameter(torch.randn(*self.batch_shape, self.tidcs.size(-1))))
+        self.register_buffer("_C", torch.zeros(*self.batch_shape, num_tasks, num_tasks))
         self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks)))
         if prior is not None:
             self.register_prior("IndexKernelPrior", prior, self._eval_covar_matrix)
@@ -68,14 +68,8 @@ class IndexKernel(Kernel):
         self.initialize(raw_var=self.raw_var_constraint.inverse_transform(value))
 
     def _eval_covar_matrix(self):
-        var = self.var
-        eye = torch.eye(var.shape[-1], dtype=var.dtype, device=var.device)
-        if len(self.batch_shape) > 0:
-            eye = eye.view((1, var.shape[-1], var.shape[-1])).repeat(*self.batch_shape, 1, 1)
-            D = var.repeat(1, var.shape[-1]).view(*self.batch_shape, var.shape[-1], var.shape[-1]) * eye
-        else:
-            D = var * eye
-        return self.covar_factor.matmul(self.covar_factor.transpose(-1, -2)) + D
+        self._C[..., self.tidcs[0], self.tidcs[1]] = self.covar_factor
+        return self._C @ self._C.transpose(-1, -2) + torch.diag_embed(self.var)
 
     @property
     def covar_matrix(self):
@@ -87,7 +81,7 @@ class IndexKernel(Kernel):
         covar_matrix = self._eval_covar_matrix()
         res = InterpolatedLazyTensor(
             base_lazy_tensor=covar_matrix,
-            left_interp_indices=i1.repeat(*self.batch_shape, 1, 1),
-            right_interp_indices=i2.repeat(*self.batch_shape, 1, 1),
+            left_interp_indices=i1.expand(self.batch_shape + i1.shape),
+            right_interp_indices=i2.expand(self.batch_shape + i2.shape),
         )
         return res
