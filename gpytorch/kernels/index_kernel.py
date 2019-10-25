@@ -47,9 +47,9 @@ class IndexKernel(Kernel):
         if var_constraint is None:
             var_constraint = Positive()
 
-        self.tidcs = torch.tril_indices(num_tasks, num_tasks)
-        self.register_parameter("covar_factor", torch.nn.Parameter(torch.randn(*self.batch_shape, self.tidcs.size(-1))))
-        self.register_buffer("_C", torch.zeros(*self.batch_shape, num_tasks, num_tasks))
+        self.register_parameter(
+            name="covar_factor", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks, rank))
+        )
         self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks)))
         if prior is not None:
             self.register_prior("IndexKernelPrior", prior, self._eval_covar_matrix)
@@ -68,14 +68,16 @@ class IndexKernel(Kernel):
         self.initialize(raw_var=self.raw_var_constraint.inverse_transform(value))
 
     def _eval_covar_matrix(self):
-        self._C[..., self.tidcs[0], self.tidcs[1]] = self.covar_factor
-        return self._C @ self._C.transpose(-1, -2) + torch.diag_embed(self.var)
+        cf = self.covar_factor
+        return cf @ cf.transpose(-1, -2) + torch.diag_embed(self.var)
 
     @property
     def covar_matrix(self):
-        var = self.var
-        res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
-        return res
+        with torch.autograd.set_detect_anomaly(True):
+            var = self.var
+            # res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
+            res = PsdSumLazyTensor(RootLazyTensor(self.covar_factor), DiagLazyTensor(var))
+            return res
 
     def forward(self, i1, i2, **params):
         covar_matrix = self._eval_covar_matrix()
