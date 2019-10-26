@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import pyro
-from .abstract_variational_gp import AbstractVariationalGP
+from .approximate_gp import ApproximateGP
 
 
-class PyroVariationalGP(AbstractVariationalGP):
+class PyroGP(ApproximateGP):
     """
-    A :obj:`~gpytorch.models.AbstractVariationalGP` designed to work with Pyro.
+    A :obj:`~gpytorch.models.ApproximateGP` designed to work with Pyro.
 
     This module makes it possible to include GP models with more complex probablistic models,
     or to use likelihood functions with additional variational/approximate distributions.
@@ -33,7 +33,7 @@ class PyroVariationalGP(AbstractVariationalGP):
             (similarly to what was proposed in `the beta-VAE paper`_).
 
     Example:
-        >>> class MyVariationalGP(gpytorch.models.PyroVariationalGP):
+        >>> class MyVariationalGP(gpytorch.models.PyroGP):
         >>>     # implementation
         >>>
         >>> # variational_strategy = ...

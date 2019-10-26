@@ -21,18 +21,18 @@ Models for Exact GP Inference
 Models for Variational GP Inference
 -----------------------------------
 
-:hidden:`AbstractVariationalGP`
+:hidden:`ApproximateGP`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: AbstractVariationalGP
+.. autoclass:: ApproximateGP
    :members:
 
 
 Models for integrating with Pyro
 -----------------------------------
 
-:hidden:`PyroVariationalGP`
+:hidden:`PyroGP`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: PyroVariationalGP
+.. autoclass:: PyroGP
    :members:

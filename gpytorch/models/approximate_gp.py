@@ -3,9 +3,9 @@
 from .gp import GP
 
 
-class AbstractVariationalGP(GP):
+class ApproximateGP(GP):
     def __init__(self, variational_strategy):
-        super(AbstractVariationalGP, self).__init__()
+        super().__init__()
         self.variational_strategy = variational_strategy
 
     def forward(self, x):

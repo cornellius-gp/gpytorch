@@ -30,7 +30,7 @@ from .functions import (
     inv_quad_log_det,
     log_det,
 )
-from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
+from .mlls import ExactMarginalLogLikelihood
 from .lazy import lazify, delazify, cat
 
 
@@ -51,7 +51,6 @@ __all__ = [
     # Classes
     "Module",
     "ExactMarginalLogLikelihood",
-    "VariationalMarginalLogLikelihood",
     # Functions
     "add_diag",
     "add_jitter",
