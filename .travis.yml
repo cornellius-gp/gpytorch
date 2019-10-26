@@ -9,6 +9,7 @@ python:
 env:
   - PYTORCH_VERSION=master
   - PYTORCH_VERSION=stable
+  - PYTORCH_VERSION=stable WITH_PYRO=true
 
 install:
   - if [[ $PYTORCH_VERSION = "master" ]]; then
@@ -17,6 +18,9 @@ install:
       python setup.py build develop;
     else
       pip install torch==1.3.0+cpu -f https://download.pytorch.org/whl/torch_stable.html;
+    fi
+  - if [[ $WITH_PYRO == true ]]; then
+      pip install pyro-ppl;
     fi
 
 script:

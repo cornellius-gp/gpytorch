@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import pyro
-from .approximate_gp import ApproximateGP
+from ..approximate_gp import ApproximateGP
 
 
 class PyroGP(ApproximateGP):
