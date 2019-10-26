@@ -265,7 +265,7 @@ try:
 
             # Make sure that the function dist is factored to be independent
             function_dist = pyro.distributions.Normal(
-                loc=function_dist.loc,
+                loc=function_dist.mean,
                 scale=function_dist.variance.sqrt()
             ).to_event(len(function_dist.event_shape) - 1)
 
@@ -274,7 +274,7 @@ try:
             output_dist = self(function_samples, *args, **kwargs)
 
             # Condition on these samples
-            with pyro.plate(name_prefix + ".output_values_plate", function_dist.batch_shape[-1], dim=-1):
+            with pyro.plate(name_prefix + ".output_values_plate", output_dist.batch_shape[-1], dim=-1):
                 with pyro.poutine.scale(scale=scale):
                     samples = pyro.sample(name_prefix + ".output_values", output_dist, obs=observations)
                     return samples
