@@ -25,13 +25,13 @@ def train_data(cuda=False):
         return train_x, train_y
 
 
-class SVGPRegressionModel(AbstractVariationalGP):
+class SVGPClassificationModel(AbstractVariationalGP):
     def __init__(self, inducing_points):
         variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-1))
         variational_strategy = VariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True
         )
-        super(SVGPRegressionModel, self).__init__(variational_strategy)
+        super(SVGPClassificationModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(
             gpytorch.kernels.RBFKernel(lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1))
@@ -44,13 +44,13 @@ class SVGPRegressionModel(AbstractVariationalGP):
         return latent_pred
 
 
-class TestSVGPRegression(BaseTestCase, unittest.TestCase):
-    seed = 0
+class TestSVGPClassification(BaseTestCase, unittest.TestCase):
+    seed = 1
 
     def test_classification_error(self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = BernoulliLikelihood()
-        model = SVGPRegressionModel(torch.linspace(0, 1, 25))
+        model = SVGPClassificationModel(torch.linspace(0, 1, 25))
         mll = mll_cls(likelihood, model, num_data=len(train_y))
         if cuda:
             likelihood = likelihood.cuda()
@@ -65,7 +65,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
         with warnings.catch_warnings(record=True) as ws, _cg_mock as cg_mock:
-            for _ in range(200):
+            for _ in range(400):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
@@ -84,7 +84,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             likelihood.eval()
             test_preds = likelihood(model(train_x)).mean.squeeze().round().float()
             mean_abs_error = torch.mean(torch.ne(train_y, test_preds).float())
-            self.assertLess(mean_abs_error.item(), 1e-1)
+            self.assertLess(mean_abs_error.item(), 2e-1)
 
             # Make sure CG was called (or not), and no warnings were thrown
             self.assertFalse(cg_mock.called)
