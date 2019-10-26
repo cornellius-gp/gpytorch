@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import gpytorch
 import torch
 from gpytorch.likelihoods import BernoulliLikelihood
-from gpytorch.models import AbstractVariationalGP
+from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
@@ -25,7 +25,7 @@ def train_data(cuda=False):
         return train_x, train_y
 
 
-class SVGPClassificationModel(AbstractVariationalGP):
+class SVGPClassificationModel(ApproximateGP):
     def __init__(self, inducing_points):
         variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-1))
         variational_strategy = VariationalStrategy(

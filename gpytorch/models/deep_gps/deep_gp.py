@@ -1,6 +1,6 @@
 import torch
 from gpytorch.distributions import MultitaskMultivariateNormal
-from gpytorch.models import AbstractVariationalGP, GP
+from gpytorch.models import ApproximateGP, GP
 from gpytorch.lazy import BlockDiagLazyTensor
 from gpytorch.likelihoods import Likelihood
 from gpytorch import settings
@@ -15,7 +15,7 @@ class _DeepGPVariationalStrategy(object):
         if not hasattr(self, "_sub_variational_strategies_memo"):
             self._sub_variational_strategies_memo = [
                 module.variational_strategy for module in self.model.modules()
-                if isinstance(module, AbstractVariationalGP)
+                if isinstance(module, ApproximateGP)
             ]
         return self._sub_variational_strategies_memo
 
@@ -23,7 +23,7 @@ class _DeepGPVariationalStrategy(object):
         return sum(strategy.kl_divergence().sum() for strategy in self.sub_variational_strategies)
 
 
-class AbstractDeepGPLayer(AbstractVariationalGP):
+class AbstractDeepGPLayer(ApproximateGP):
     def __init__(self, variational_strategy, input_dims, output_dims):
         """
         Represents a layer in a deep GP where inference is performed via the doubly stochastic method of
@@ -90,7 +90,7 @@ class AbstractDeepGPLayer(AbstractVariationalGP):
             inputs = inputs.expand(*inputs.shape[:-3], self.output_dims, *inputs.shape[-2:])
 
         # Now run samples through the GP
-        output = AbstractVariationalGP.__call__(self, inputs)
+        output = ApproximateGP.__call__(self, inputs)
         if self.output_dims is not None:
             mean = output.loc.transpose(-1, -2)
             covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)

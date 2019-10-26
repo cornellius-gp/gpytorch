@@ -4,13 +4,13 @@ import unittest
 
 import gpytorch
 import torch
-from gpytorch.models import AbstractVariationalGP
+from gpytorch.models import ApproximateGP
 from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy
 from gpytorch.test.model_test_case import VariationalModelTestCase
 
 
-class GPClassificationModel(AbstractVariationalGP):
+class GPClassificationModel(ApproximateGP):
     def __init__(self, train_x, use_inducing=False):
         variational_distribution = CholeskyVariationalDistribution(train_x.size(-2), batch_shape=train_x.shape[:-2])
         inducing_points = torch.randn(50, train_x.size(-1)) if use_inducing else train_x

@@ -18,7 +18,7 @@ class VariationalTestCase(BaseTestCase):
         distribution_cls=gpytorch.variational.CholeskyVariationalDistribution,
         constant_mean=True,
     ):
-        class _SVGPRegressionModel(gpytorch.models.AbstractVariationalGP):
+        class _SVGPRegressionModel(gpytorch.models.ApproximateGP):
             def __init__(self, inducing_points):
                 variational_distribution = distribution_cls(num_inducing, batch_shape=batch_shape)
                 variational_strategy = strategy_cls(

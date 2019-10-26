@@ -8,7 +8,7 @@ from math import pi
 import gpytorch
 import torch
 from gpytorch.likelihoods import BernoulliLikelihood
-from gpytorch.models import AbstractVariationalGP
+from gpytorch.models import ApproximateGP
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
 from torch import optim
@@ -23,7 +23,7 @@ def train_data(cuda=False):
         return train_x, train_y
 
 
-class GPClassificationModel(AbstractVariationalGP):
+class GPClassificationModel(ApproximateGP):
     def __init__(self, train_x):
         variational_distribution = CholeskyVariationalDistribution(train_x.size(0))
         variational_strategy = VariationalStrategy(self, train_x, variational_distribution, learn_inducing_locations=False)
@@ -91,7 +91,7 @@ class TestSimpleGPClassification(unittest.TestCase):
             train_x, train_y = train_data(cuda=True)
             likelihood = BernoulliLikelihood().cuda()
             model = GPClassificationModel(train_x).cuda()
-            mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
+            mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
             # Find optimal model hyperparameters
             model.train()
