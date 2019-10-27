@@ -35,16 +35,3 @@ class TestMultitaskGaussianLikelihoodBatch(TestMultitaskGaussianLikelihood):
 
     def test_nonbatch(self):
         pass
-
-
-class TestMultitaskGaussianLikelihoodMultiBatch(TestMultitaskGaussianLikelihood):
-    seed = 3
-
-    def create_likelihood(self):
-        return MultitaskGaussianLikelihood(num_tasks=4, rank=2, batch_shape=torch.Size([2, 3]))
-
-    def test_nonbatch(self):
-        pass
-
-    def test_batch(self):
-        pass
