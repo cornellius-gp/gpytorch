@@ -79,6 +79,8 @@ class PyroGP(ApproximateGP):
         # Draw samples from q(u) for KL divergence computation
         with pyro.poutine.scale(scale=self.beta):
             inducing_dist = self.variational_strategy.variational_distribution
+            # Ensure that no batch dimensions interfere with any plating
+            inducing_dist = inducing_dist.to_event(len(inducing_dist.batch_shape))
             pyro.sample(self.name_prefix + ".u", inducing_dist)
 
         self.likelihood.guide(*args, **kwargs)
@@ -103,7 +105,9 @@ class PyroGP(ApproximateGP):
 
         # Draw samples from p(u) for KL divergence computation
         with pyro.poutine.scale(scale=self.beta):
-            inducing_dist = self.variational_strategy.variational_distribution
+            inducing_dist = self.variational_strategy.prior_distribution
+            # Ensure that no batch dimensions interfere with any plating
+            inducing_dist = inducing_dist.to_event(len(inducing_dist.batch_shape))
             pyro.sample(self.name_prefix + ".u", inducing_dist)
 
         # Draw samples from the likelihood
