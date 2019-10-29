@@ -398,6 +398,10 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             new_batch_shape_len = len(self.batch_shape) - ndim_removed
             new_kernel.batch_shape = new_kernel._parameters[param_name].shape[:new_batch_shape_len]
 
+        for sub_module_name, sub_module in self._modules.items():
+            if isinstance(sub_module, Kernel):
+                self._modules[sub_module_name] = sub_module.__getitem__(index)
+
         return new_kernel
 
 

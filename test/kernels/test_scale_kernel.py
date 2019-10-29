@@ -3,9 +3,20 @@
 import torch
 import unittest
 from gpytorch.kernels import RBFKernel, ScaleKernel
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
-class TestScaleKernel(unittest.TestCase):
+class TestScaleKernel(BaseKernelTestCase, unittest.TestCase):
+    def create_kernel_no_ard(self, **kwargs):
+        base_kernel = RBFKernel()
+        kernel = ScaleKernel(base_kernel, **kwargs)
+        return kernel
+
+    def create_kernel_ard(self, num_dims, **kwargs):
+        base_kernel = RBFKernel(ard_num_dims=num_dims)
+        kernel = ScaleKernel(base_kernel, **kwargs)
+        return kernel
+
     def test_ard(self):
         a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
         b = torch.tensor([[1, 3], [0, 4]], dtype=torch.float)
