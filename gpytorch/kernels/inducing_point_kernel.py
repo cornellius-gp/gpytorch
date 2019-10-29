@@ -8,7 +8,6 @@ from ..lazy import delazify, DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, P
 from ..distributions import MultivariateNormal
 from ..mlls import InducingPointKernelAddedLossTerm
 from ..utils.cholesky import psd_safe_cholesky
-from copy import deepcopy
 
 
 class InducingPointKernel(Kernel):
@@ -124,9 +123,3 @@ class InducingPointKernel(Kernel):
             cp._cached_kernel_mat = kernel_mat
 
         return cp
-
-    def __getitem__(self, index):
-        new_kernel = deepcopy(self)
-        new_kernel.base_kernel = self.base_kernel.__getitem__(index)
-
-        return new_kernel
