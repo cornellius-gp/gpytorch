@@ -19,6 +19,7 @@ from ..lazy import (
 )
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import cached, add_to_cache
+import functools
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
@@ -69,10 +70,19 @@ class DefaultPredictionStrategy(object):
         Returns
             - A precomputed cache
         """
+        res = train_train_covar_inv_root
         if settings.detach_test_caches.on():
-            return train_train_covar_inv_root.detach()
-        else:
-            return train_train_covar_inv_root
+            res = res.detach()
+
+        def clear_cache_hook(module, *args, **kwargs):
+            module._memoize_cache = {}
+
+        if res.grad_fn is not None:
+            wrapper = functools.partial(clear_cache_hook, self)
+            functools.update_wrapper(wrapper, clear_cache_hook)
+            res.grad_fn.register_hook(wrapper)
+
+        return res
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         """
@@ -257,9 +267,17 @@ class DefaultPredictionStrategy(object):
         mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
 
         if settings.detach_test_caches.on():
-            return mean_cache.detach()
-        else:
-            return mean_cache
+            mean_cache = mean_cache.detach()
+
+        def clear_cache_hook(module, *args, **kwargs):
+            module._memoize_cache = {}
+
+        if mean_cache.grad_fn is not None:
+            wrapper = functools.partial(clear_cache_hook, self)
+            functools.update_wrapper(wrapper, clear_cache_hook)
+            mean_cache.grad_fn.register_hook(wrapper)
+
+        return mean_cache
 
     @property
     def num_train(self):
@@ -302,6 +320,7 @@ class DefaultPredictionStrategy(object):
         # GP, and using addmv requires you to delazify test_train_covar, which is obviously a huge no-no!
         res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
+
         return res
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
