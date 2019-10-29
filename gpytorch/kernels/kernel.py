@@ -10,6 +10,7 @@ from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumP
 from .. import settings
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
 from ..constraints import Positive
+from copy import deepcopy
 
 
 def default_postprocess_script(x):
@@ -383,6 +384,26 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
     def __setstate__(self, d):
         self.__dict__ = d
 
+    def __getitem__(self, index):
+        if len(self.batch_shape) == 0:
+            return self
+
+        new_kernel = deepcopy(self)
+        # Process the index
+        index = index if isinstance(index, tuple) else (index,)
+
+        for param_name, param in self._parameters.items():
+            new_kernel._parameters[param_name].data = param.__getitem__(index)
+            ndim_removed = len(param.shape) - len(new_kernel._parameters[param_name].shape)
+            new_batch_shape_len = len(self.batch_shape) - ndim_removed
+            new_kernel.batch_shape = new_kernel._parameters[param_name].shape[:new_batch_shape_len]
+
+        for sub_module_name, sub_module in self._modules.items():
+            if isinstance(sub_module, Kernel):
+                self._modules[sub_module_name] = sub_module.__getitem__(index)
+
+        return new_kernel
+
 
 class AdditiveKernel(Kernel):
     """
@@ -414,6 +435,13 @@ class AdditiveKernel(Kernel):
 
     def num_outputs_per_input(self, x1, x2):
         return self.kernels[0].num_outputs_per_input(x1, x2)
+
+    def __getitem__(self, index):
+        new_kernel = deepcopy(self)
+        for i, kernel in enumerate(self.kernels):
+            new_kernel.kernels[i] = self.kernels[i].__getitem__(index)
+
+        return new_kernel
 
 
 class ProductKernel(Kernel):
@@ -457,3 +485,10 @@ class ProductKernel(Kernel):
 
     def num_outputs_per_input(self, x1, x2):
         return self.kernels[0].num_outputs_per_input(x1, x2)
+
+    def __getitem__(self, index):
+        new_kernel = deepcopy(self)
+        for i, kernel in enumerate(self.kernels):
+            new_kernel.kernels[i] = self.kernels[i].__getitem__(index)
+
+        return new_kernel

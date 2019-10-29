@@ -117,8 +117,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 x2 = x2.expand(*([1] * len(batch_indices)), *self.x2.shape[-2:])
                 x2 = x2[(*batch_indices, row_index, dim_index)]
 
+        if len(batch_indices) == 0 or all(ind == slice(None, None, None) for ind in batch_indices):
+            new_kernel = self.kernel  # Avoid unnecessary copying when we aren't explicitly indexing batch dims
+        else:
+            new_kernel = self.kernel.__getitem__(batch_indices)
+
         # Now construct a kernel with those indices
-        return self.__class__(x1, x2, kernel=self.kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params)
+        return self.__class__(x1, x2, kernel=new_kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params)
 
     def _matmul(self, rhs):
         # This _matmul is defined computes the kernel in chunks
