@@ -76,13 +76,7 @@ class PyroGP(ApproximateGP):
         # Hack for getting correct sampling shape
         pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1)).shape
 
-        # Draw samples from q(u) for KL divergence computation
-        with pyro.poutine.scale(scale=self.beta):
-            inducing_dist = self.variational_strategy.variational_distribution
-            # Ensure that no batch dimensions interfere with any plating
-            inducing_dist = inducing_dist.to_event(len(inducing_dist.batch_shape))
-            pyro.sample(self.name_prefix + ".u", inducing_dist)
-
+        # Draw samples from variational distributions that appear in the likelihood
         self.likelihood.guide(*args, **kwargs)
 
     def model(self, input, target, *args, **kwargs):
@@ -105,10 +99,7 @@ class PyroGP(ApproximateGP):
 
         # Draw samples from p(u) for KL divergence computation
         with pyro.poutine.scale(scale=self.beta):
-            inducing_dist = self.variational_strategy.prior_distribution
-            # Ensure that no batch dimensions interfere with any plating
-            inducing_dist = inducing_dist.to_event(len(inducing_dist.batch_shape))
-            pyro.sample(self.name_prefix + ".u", inducing_dist)
+            pyro.factor(self.name_prefix + ".kl_divergence_u", -self.variational_strategy.kl_divergence())
 
         # Draw samples from the likelihood
         num_minibatch = function_dist.event_shape[0]
