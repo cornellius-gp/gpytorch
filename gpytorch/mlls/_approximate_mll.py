@@ -3,7 +3,6 @@
 import torch
 from .marginal_log_likelihood import MarginalLogLikelihood
 from abc import ABC, abstractmethod
-from .. import settings
 
 
 class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
@@ -37,13 +36,6 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
     def _log_likelihood_term(self, approximate_dist_f, target, **kwargs):
         raise NotImplementedError
 
-    def _kl_divergence(self):
-        with settings.max_preconditioner_size(0):
-            prior_dist = self.model.variational_strategy.prior_distribution
-            variational_dist_u = self.model.variational_strategy.variational_distribution
-            kl_divergence = torch.distributions.kl.kl_divergence(variational_dist_u, prior_dist)
-        return kl_divergence
-
     def forward(self, approximate_dist_f, target, **kwargs):
         r"""
         Computes the Variational ELBO given :math:`q(\mathbf f)` and `\mathbf y`.
@@ -60,13 +52,7 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
         # Get likelihood term and KL term
         num_batch = approximate_dist_f.event_shape.numel()
         log_likelihood = self._log_likelihood_term(approximate_dist_f, target, **kwargs).div(num_batch)
-        kl_divergence = self._kl_divergence().div(self.num_data / self.beta)
-
-        # Make sure LL and KL terms are the same size
-        if log_likelihood.numel() == 1:
-            kl_divergence = kl_divergence.sum()
-        elif kl_divergence.dim() > log_likelihood.dim():
-            kl_divergence = kl_divergence.sum(-1)
+        kl_divergence = self.model.variational_strategy.kl_divergence().div(self.num_data / self.beta)
 
         # Add any additional registered loss terms
         added_loss = torch.zeros_like(log_likelihood)

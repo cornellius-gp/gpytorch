@@ -4,7 +4,7 @@ import torch
 
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify, NonLazyTensor
-from ..utils.broadcasting import _pad_with_singletons
+from ..utils.broadcasting import _pad_with_singletons, _matmul_broadcast_shape
 from ..utils.getitem import _noop_index
 from ..utils.memoize import cached
 
@@ -77,9 +77,7 @@ class MatmulLazyTensor(LazyTensor):
         return left_grad + right_grad
 
     def _size(self):
-        return torch.Size(
-            (*self.left_lazy_tensor.batch_shape, self.left_lazy_tensor.size(-2), self.right_lazy_tensor.size(-1))
-        )
+        return _matmul_broadcast_shape(self.left_lazy_tensor.shape, self.right_lazy_tensor.shape)
 
     def _transpose_nonbatch(self, *args):
         return self.__class__(self.right_lazy_tensor._transpose_nonbatch(), self.left_lazy_tensor._transpose_nonbatch())

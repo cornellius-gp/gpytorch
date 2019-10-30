@@ -49,17 +49,6 @@ try:
             return res
 
 
-    class MultitaskVariationalStrategy(gpytorch.variational.VariationalStrategy):
-        def forward(self, inputs):
-            function_dist = super().forward(inputs)
-            function_dist = gpytorch.distributions.MultitaskMultivariateNormal(
-                mean=function_dist.mean.transpose(-1, -2),
-                covariance_matrix=gpytorch.lazy.BlockDiagLazyTensor(function_dist.lazy_covariance_matrix),
-                interleaved=True,
-            )
-            return function_dist
-
-
     class ClusterMultitaskGPModel(gpytorch.models.pyro.PyroGP):
         def __init__(self, train_x, train_y, num_functions=2):
             num_data = train_y.size(-2)
@@ -70,7 +59,9 @@ try:
                 num_inducing_points=inducing_points.size(-2),
                 batch_shape=torch.Size([num_functions])
             )
-            variational_strategy = MultitaskVariationalStrategy(self, inducing_points, variational_distribution)
+            variational_strategy = gpytorch.variational.MultitaskVariationalStrategy(
+                gpytorch.variational.VariationalStrategy(self, inducing_points, variational_distribution)
+            )
 
             # Standard initializtation
             likelihood = ClusterGaussianLikelihood(train_y.size(-1), num_functions, name_prefix="likelihood")

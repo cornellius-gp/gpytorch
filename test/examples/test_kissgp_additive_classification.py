@@ -80,7 +80,7 @@ class TestKISSGPAdditiveClassification(unittest.TestCase):
                 # Get predictive output
                 output = model(train_x)
                 # Calc loss and backprop gradients
-                loss = -mll(output, train_y)
+                loss = -mll(output, train_y).sum()
                 loss.backward()
                 optimizer.n_iter += 1
                 optimizer.step()

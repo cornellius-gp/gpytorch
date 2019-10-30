@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+from .. import settings
 from ..module import Module
 from ..utils.memoize import cached
 from abc import ABC, abstractproperty, abstractmethod
@@ -87,6 +88,18 @@ class _VariationalStrategy(Module, ABC):
             :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
         """
         raise NotImplementedError
+
+    def kl_divergence(self):
+        """
+        Compute the KL divergence between the variational inducing distribution :math:`q(\mathbf u)`
+        and the prior inducing distribution :math:`p(\mathbf u)`.
+        """
+        with settings.max_preconditioner_size(0):
+            kl_divergence = torch.distributions.kl.kl_divergence(
+                self.variational_distribution,
+                self.prior_distribution
+            )
+        return kl_divergence
 
     def train(self, mode=True):
         # Make sure we are clearing the cache if we change modes
