@@ -56,10 +56,10 @@ class InterpolatedLazyTensor(LazyTensor):
             )
 
         if right_interp_indices is None:
-            num_rows = base_lazy_tensor.size(-2)
-            right_interp_indices = torch.arange(0, num_rows, dtype=torch.long, device=base_lazy_tensor.device)
+            num_cols = base_lazy_tensor.size(-1)
+            right_interp_indices = torch.arange(0, num_cols, dtype=torch.long, device=base_lazy_tensor.device)
             right_interp_indices.unsqueeze_(-1)
-            right_interp_indices = right_interp_indices.expand(*base_lazy_tensor.batch_shape, num_rows, 1)
+            right_interp_indices = right_interp_indices.expand(*base_lazy_tensor.batch_shape, num_cols, 1)
 
         if right_interp_values is None:
             right_interp_values = torch.ones(
@@ -308,7 +308,7 @@ class InterpolatedLazyTensor(LazyTensor):
                 return self._sparse_left_interp_t_memo
 
         left_interp_t = sparse.make_sparse_from_indices_and_values(
-            left_interp_indices_tensor, left_interp_values_tensor, self.base_lazy_tensor.size()[-1]
+            left_interp_indices_tensor, left_interp_values_tensor, self.base_lazy_tensor.size()[-2]
         )
         self._left_interp_indices_memo = left_interp_indices_tensor
         self._left_interp_values_memo = left_interp_values_tensor
