@@ -39,14 +39,16 @@ class VariationalTestCase(BaseTestCase):
                 return latent_pred
 
         inducing_points = torch.randn(num_inducing, 10).repeat(*inducing_batch_shape, 1, 1)
-        return _SVGPRegressionModel(inducing_points), gpytorch.likelihoods.GaussianLikelihood()
+        return _SVGPRegressionModel(inducing_points), self.likelihood_cls()
 
     def _training_iter(
         self, model, likelihood, batch_shape=torch.Size([]),
         mll_cls=gpytorch.mlls.VariationalELBO, cuda=False
     ):
         train_x = torch.randn(*batch_shape, 32, 10)
-        train_y = torch.linspace(-1, 1, 32)
+        train_y = torch.linspace(-1, 1, self.event_shape[0])
+        train_y = train_y.view(self.event_shape[0], *([1] * (len(self.event_shape) - 1)))
+        train_y = train_y.expand(*self.event_shape)
         mll = mll_cls(likelihood, model, num_data=train_x.size(-2))
         if cuda:
             train_x = train_x.cuda()
@@ -97,6 +99,14 @@ class VariationalTestCase(BaseTestCase):
     def distribution_cls(self):
         raise NotImplementedError
 
+    @property
+    def event_shape(self):
+        return torch.Size([32])
+
+    @property
+    def likelihood_cls(self):
+        return gpytorch.likelihoods.GaussianLikelihood
+
     @abstractproperty
     def mll_cls(self):
         raise NotImplementedError
@@ -114,11 +124,11 @@ class VariationalTestCase(BaseTestCase):
         eval_data_batch_shape=None, expected_batch_shape=None,
     ):
         # Batch shapes
-        model_batch_shape = model_batch_shape or self.batch_shape
-        data_batch_shape = data_batch_shape or self.batch_shape
-        inducing_batch_shape = inducing_batch_shape or self.batch_shape
-        expected_batch_shape = expected_batch_shape or self.batch_shape
-        eval_data_batch_shape = eval_data_batch_shape or self.batch_shape
+        model_batch_shape = model_batch_shape if model_batch_shape is not None else self.batch_shape
+        data_batch_shape = data_batch_shape if data_batch_shape is not None else self.batch_shape
+        inducing_batch_shape = inducing_batch_shape if inducing_batch_shape is not None else self.batch_shape
+        expected_batch_shape = expected_batch_shape if expected_batch_shape is not None else self.batch_shape
+        eval_data_batch_shape = eval_data_batch_shape if eval_data_batch_shape is not None else self.batch_shape
 
         # Mocks
         _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
@@ -144,7 +154,7 @@ class VariationalTestCase(BaseTestCase):
             _ = self._eval_iter(model, eval_data_batch_shape, cuda=self.cuda)
             output = self._eval_iter(model, eval_data_batch_shape, cuda=self.cuda)
             self.assertEqual(output.batch_shape, expected_batch_shape)
-            self.assertEqual(output.event_shape, torch.Size([32]))
+            self.assertEqual(output.event_shape, self.event_shape)
             return cg_mock, cholesky_mock
 
     def test_eval_smaller_pred_batch(self):
@@ -170,10 +180,10 @@ class VariationalTestCase(BaseTestCase):
         expected_batch_shape=None, constant_mean=True
     ):
         # Batch shapes
-        model_batch_shape = model_batch_shape or self.batch_shape
-        data_batch_shape = data_batch_shape or self.batch_shape
-        inducing_batch_shape = inducing_batch_shape or self.batch_shape
-        expected_batch_shape = expected_batch_shape or self.batch_shape
+        model_batch_shape = model_batch_shape if model_batch_shape is not None else self.batch_shape
+        data_batch_shape = data_batch_shape if data_batch_shape is not None else self.batch_shape
+        inducing_batch_shape = inducing_batch_shape if inducing_batch_shape is not None else self.batch_shape
+        expected_batch_shape = expected_batch_shape if expected_batch_shape is not None else self.batch_shape
 
         # Mocks
         _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
@@ -203,7 +213,7 @@ class VariationalTestCase(BaseTestCase):
                 mll_cls=self.mll_cls, cuda=self.cuda
             )
             self.assertEqual(output.batch_shape, expected_batch_shape)
-            self.assertEqual(output.event_shape, torch.Size([32]))
+            self.assertEqual(output.event_shape, self.event_shape)
             self.assertEqual(loss.shape, expected_batch_shape)
             return cg_mock, cholesky_mock
 
