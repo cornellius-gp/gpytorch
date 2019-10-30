@@ -22,6 +22,10 @@ from ..utils.memoize import cached, add_to_cache
 import functools
 
 
+def clear_cache_hook(module, *args, **kwargs):
+    module._memoize_cache = {}
+
+
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
     train_train_covar = train_prior_dist.lazy_covariance_matrix
     if isinstance(train_train_covar, LazyEvaluatedKernelTensor):
@@ -73,9 +77,6 @@ class DefaultPredictionStrategy(object):
         res = train_train_covar_inv_root
         if settings.detach_test_caches.on():
             res = res.detach()
-
-        def clear_cache_hook(module, *args, **kwargs):
-            module._memoize_cache = {}
 
         if res.grad_fn is not None:
             wrapper = functools.partial(clear_cache_hook, self)
@@ -268,9 +269,6 @@ class DefaultPredictionStrategy(object):
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
-
-        def clear_cache_hook(module, *args, **kwargs):
-            module._memoize_cache = {}
 
         if mean_cache.grad_fn is not None:
             wrapper = functools.partial(clear_cache_hook, self)
