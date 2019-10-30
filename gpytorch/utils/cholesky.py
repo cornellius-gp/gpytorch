@@ -19,10 +19,6 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
     """
     try:
         L = torch.cholesky(A, upper=upper, out=out)
-        # TODO: Remove once fixed in pytorch (#16780)
-        if A.dim() > 2 and A.is_cuda:
-            if torch.isnan(L if out is None else out).any():
-                raise RuntimeError("cholesky_cuda: singular U.")
         return L
     except RuntimeError as e:
         if jitter is None:
@@ -35,10 +31,6 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
             jitter_prev = jitter_new
             try:
                 L = torch.cholesky(Aprime, upper=upper, out=out)
-                # TODO: Remove once fixed in pytorch (#16780)
-                if A.dim() > 2 and A.is_cuda:
-                    if torch.isnan(L if out is None else out).any():
-                        raise RuntimeError("cholesky_cuda: singular U.")
                 warnings.warn(f"A not p.d., added jitter of {jitter_new} to the diagonal", RuntimeWarning)
                 return L
             except RuntimeError:
