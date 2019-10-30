@@ -130,8 +130,8 @@ class HeteroskedasticNoise(Noise):
         self.noise_model = noise_model
         self._noise_constraint = noise_constraint
         self._noise_indices = noise_indices
-        # make sure to clear test caches after backpropagating through them
-        self.register_backward_hook(clear_cache_hook)
+        # # make sure to clear test caches after backpropagating through them
+        # self.register_backward_hook(clear_cache_hook)
 
     def forward(
         self,
@@ -192,8 +192,8 @@ class FixedGaussianNoise(Module):
         return super(FixedGaussianNoise, self)._apply(fn)
 
 
-def clear_cache_hook(module, grad_input, grad_output) -> None:
-    try:
-        module.noise_model.prediction_strategy = None
-    except AttributeError:
-        pass
+# def clear_cache_hook(module, grad_input, grad_output) -> None:
+#     try:
+#         module.noise_model.prediction_strategy = None
+#     except AttributeError:
+#         pass
