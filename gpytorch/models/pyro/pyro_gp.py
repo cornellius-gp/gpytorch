@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import pyro
-from ..approximate_gp import ApproximateGP
+from ..gp import GP
+from ._pyro_mixin import _PyroMixin
 
 
-class PyroGP(ApproximateGP):
+class PyroGP(GP, _PyroMixin):
     """
     A :obj:`~gpytorch.models.ApproximateGP` designed to work with Pyro.
 
@@ -54,11 +55,16 @@ class PyroGP(ApproximateGP):
         https://openreview.net/pdf?id=Sy2fzU9gl
     """
     def __init__(self, variational_strategy, likelihood, num_data, name_prefix="", beta=1.0):
-        super().__init__(variational_strategy)
+        super().__init__()
+        self.variational_strategy = variational_strategy
         self.name_prefix = name_prefix
         self.likelihood = likelihood
         self.num_data = num_data
         self.beta = beta
+
+        # Set values for the likelihood
+        self.likelihood.num_data = num_data
+        self.likelihood.name_prefix = name_prefix
 
     def guide(self, input, target, *args, **kwargs):
         """
@@ -73,8 +79,8 @@ class PyroGP(ApproximateGP):
             :attr:`*args`, :attr:`**kwargs`:
                 Additional arguments passed to the likelihood's `forward` function.
         """
-        # Hack for getting correct sampling shape
-        pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1)).shape
+        # HACK - this is a way to get the sample shape
+        pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1))
 
         # Draw samples from variational distributions that appear in the likelihood
         self.likelihood.guide(*args, **kwargs)
@@ -92,18 +98,24 @@ class PyroGP(ApproximateGP):
             :attr:`*args`, :attr:`**kwargs`:
                 Additional arguments passed to the likelihood's `forward` function.
         """
-        pyro.module(self.name_prefix + ".gp_prior", self)
+        # Include module
+        pyro.module(self.name_prefix + ".gp", self)
+
+        # Include KL[ q(u) || p(u) ], GPyTorch priors, etc.
+        self.pyro_factors(beta=self.beta, name_prefix=self.name_prefix)
 
         # Get the variational distribution for the function
         function_dist = self(input)
 
-        # Draw samples from p(u) for KL divergence computation
-        with pyro.poutine.scale(scale=self.beta):
-            pyro.factor(self.name_prefix + ".kl_divergence_u", -self.variational_strategy.kl_divergence())
+        # HACK - this is a way to get the sample shape
+        sample_shape = pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1)).shape
 
         # Draw samples from the likelihood
-        num_minibatch = function_dist.event_shape[0]
-        scale = self.num_data / num_minibatch
         return self.likelihood.pyro_sample_output(
-            target, function_dist, scale, *args, name_prefix=self.name_prefix, **kwargs
+            target, function_dist, *args, sample_shape=sample_shape, **kwargs
         )
+
+    def __call__(self, inputs, **kwargs):
+        if inputs.dim() == 1:
+            inputs = inputs.unsqueeze(-1)
+        return self.variational_strategy(inputs)

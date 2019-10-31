@@ -5,6 +5,7 @@ from copy import deepcopy
 import math
 import functools
 import torch
+import warnings
 from ..module import Module
 from ..distributions import base_distributions, MultivariateNormal
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize
@@ -113,6 +114,33 @@ try:
                 (For Pyro integration only). How many batch dimensions are in the function.
                 This should be modified if thew likelihood uses plated random variables.
         """
+        @property
+        def num_data(self):
+            if hasattr(self, "_num_data"):
+                return self._num_data
+            else:
+                warnings.warn(
+                    "likelihood.num_data isn't set. This might result in incorrect ELBO scaling.",
+                    RuntimeWarning
+                )
+                return ""
+
+        @num_data.setter
+        def num_data(self, val):
+            self._num_data = val
+
+        @property
+        def name_prefix(self):
+            if hasattr(self, "_name_prefix"):
+                return self._name_prefix
+            else:
+                warnings.warn("likelihood.name_prefix isn't set. Defaulting to \"\"", RuntimeWarning)
+                return ""
+
+        @name_prefix.setter
+        def name_prefix(self, val):
+            self._name_prefix = val
+
         def _draw_likelihood_samples(self, function_dist, *args, **kwargs):
             # Hack to get the current plating structure
             sample_shape = pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1)).shape
@@ -226,8 +254,7 @@ try:
             Returns:
                 Distribution object (the marginal distribution, or samples from it)
             """
-            name_prefix = kwargs.get("name_prefix", "")
-            plate_name = name_prefix + ".num_particles_vectorized"
+            plate_name = self.name_prefix + ".num_particles_vectorized"
             num_samples = settings.num_likelihood_samples.value()
             with pyro.plate(plate_name, size=num_samples, dim=(-self.max_plate_nesting - 1)):
                 guide_trace = pyro.poutine.trace(self.guide).get_trace(*args, **kwargs)
@@ -235,7 +262,7 @@ try:
                 res = pyro.poutine.replay(marginal_fn, trace=guide_trace)(*args, **kwargs)
                 return res
 
-        def pyro_sample_output(self, observations, function_dist, scale, *args, **kwargs):
+        def pyro_sample_output(self, observations, function_dist, *args, **kwargs):
             r"""
             Returns observed pyro samples :math:`p(y)` from the likelihood distribution,
             given the function distribution :math:`f`.
@@ -248,20 +275,13 @@ try:
                     Values of :math:`y`.
                 :attr:`function_dist` (:class:`pyro.distributions`):
                     Distribution for :math:`f(x)`.
-                :attr:`scale` (float):
-                    Scale factor to multiply likelihood probabilities by to properly scale stochastic inference.
-                    Should be equal to `total_num_data`/`num_minibatch`.
                 :attr:`args`, :attr:`kwargs`
                     Passed to the `forward` function
 
             Returns:
                 `pyro.sample`
             """
-            name_prefix = kwargs.get("name_prefix", "")
-
-            # Hack to the correct sample shape
-            # The default sample shape includes all the batch dimensions that can be smapled from
-            sample_shape = pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1)).shape
+            sample_shape = kwargs.pop("sample_shape", torch.Size([]))
 
             # Make sure that the function dist is factored to be independent
             function_dist = pyro.distributions.Normal(
@@ -274,9 +294,10 @@ try:
             output_dist = self(function_samples, *args, **kwargs)
 
             # Condition on these samples
-            with pyro.plate(name_prefix + ".output_values_plate", output_dist.batch_shape[-1], dim=-1):
+            with pyro.plate(self.name_prefix + ".output_values_plate", output_dist.batch_shape[-1], dim=-1):
+                scale = (self.num_data or function_dist.batch_shape[-1]) / function_dist.batch_shape[-1]
                 with pyro.poutine.scale(scale=scale):
-                    samples = pyro.sample(name_prefix + ".output_values", output_dist, obs=observations)
+                    samples = pyro.sample(self.name_prefix + ".output_values", output_dist, obs=observations)
                     return samples
 
         def __call__(self, input, *args, **kwargs):
@@ -302,7 +323,23 @@ try:
 
 except ImportError:
     class Likelihood(_Likelihood):
-        pass
+        @property
+        def num_data(self):
+            warnings.warn("num_data is only used for likehoods that are integrated with Pyro.", RuntimeWarning)
+            return 0
+
+        @num_data.setter
+        def num_data(self, val):
+            warnings.warn("num_data is only used for likehoods that are integrated with Pyro.", RuntimeWarning)
+
+        @property
+        def name_prefix(self):
+            warnings.warn("name_prefix is only used for likehoods that are integrated with Pyro.", RuntimeWarning)
+            return ""
+
+        @name_prefix.setter
+        def name_prefix(self, val):
+            warnings.warn("name_prefix is only used for likehoods that are integrated with Pyro.", RuntimeWarning)
 
 
 class _OneDimensionalLikelihood(Likelihood, ABC):
