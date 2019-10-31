@@ -270,6 +270,9 @@ class Module(nn.Module):
             raise RuntimeError("Must provide inverse transform to be able to sample from prior.")
         setting_closure(prior.sample())
 
+    def pyro_sample_from_prior(self):
+        return _pyro_sample_from_prior(module=self, memo=None, prefix="")
+
     def update_added_loss_term(self, name, added_loss_term):
         from .mlls import AddedLossTerm
 
@@ -312,6 +315,22 @@ def _validate_module_outputs(outputs):
         raise RuntimeError(
             "Output must be a Distribution, torch.Tensor, or LazyTensor. Got {}".format(outputs.__class__.__name__)
         )
+
+
+def _pyro_sample_from_prior(module, memo=None, prefix=""):
+    import pyro
+    if memo is None:
+        memo = set()
+    if hasattr(module, "_priors"):
+        for prior_name, (prior, _, setting_closure) in module._priors.items():
+            if prior is not None and prior not in memo:
+                memo.add(prior)
+                value = pyro.sample(prefix + ("." if prefix else "") + prior_name, prior)
+                setting_closure(value)
+
+    for mname, module_ in module.named_children():
+        submodule_prefix = prefix + ("." if prefix else "") + mname
+        _pyro_sample_from_prior(module=module_, memo=memo, prefix=submodule_prefix)
 
 
 def _extract_named_added_loss_terms(module, memo=None, prefix=""):
