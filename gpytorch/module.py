@@ -207,7 +207,7 @@ class Module(nn.Module):
                 )
 
             def closure():
-                return self._parameters[param_or_closure]
+                return getattr(self, param_or_closure)
 
             if setting_closure is not None:
                 raise RuntimeError("Must specify a closure instead of a parameter name when providing setting_closure")
