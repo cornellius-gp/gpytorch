@@ -2,7 +2,7 @@
 
 from abc import ABC
 
-from torch.distributions import Distribution
+from ..distributions import Distribution
 from torch.nn import Module
 
 

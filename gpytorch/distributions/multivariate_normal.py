@@ -13,7 +13,7 @@ from .distribution import Distribution
 from ..utils.broadcasting import _mul_broadcast_shape
 
 
-class _MultivariateNormalBase(TMultivariateNormal, Distribution):
+class MultivariateNormal(TMultivariateNormal, Distribution):
     """
     Constructs a multivariate normal random variable, based on mean and covariance.
     Can be multivariate, or a batch of multivariate normals
@@ -185,7 +185,7 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
             return super().variance
 
     def __add__(self, other):
-        if isinstance(other, _MultivariateNormalBase):
+        if isinstance(other, MultivariateNormal):
             return self.__class__(
                 mean=self.mean + other.mean,
                 covariance_matrix=(self.lazy_covariance_matrix + other.lazy_covariance_matrix),
@@ -209,52 +209,6 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
 
     def __truediv__(self, other):
         return self.__mul__(1.0 / other)
-
-
-try:
-    # If pyro is installed, add the TorchDistributionMixin
-    from pyro.distributions.torch_distribution import TorchDistributionMixin
-
-    class MultivariateNormal(_MultivariateNormalBase, TorchDistributionMixin):
-        """
-        Constructs a multivariate normal random variable, based on mean and covariance.
-        Can be multivariate, or a batch of multivariate normals
-
-        Passing a vector mean corresponds to a multivariate normal.
-        Passing a matrix mean corresponds to a batch of multivariate normals.
-
-        :param torch.tensor mean: Vector n or matrix b x n mean of mvn distribution.
-        :param ~gpytorch.lazy.LazyTensor covar: Matrix n x n or batch matrix b x n x n covariance of
-            mvn distribution.
-        """
-        def confidence_region(self):
-            """
-            Returns 2 standard deviations above and below the mean.
-
-            :rtype: (torch.Tensor, torch.Tensor)
-            :return: pair of tensors of size (b x d) or (d), where b is the
-              batch size and d is the dimensionality of the random
-              variable. The first (second) Tensor is the lower (upper) end of
-              the confidence region.
-            """
-            return super().confidence_region()
-
-        def get_base_samples(self, sample_shape=torch.Size()):
-            """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
-            return super().get_base_samples(sample_shape=sample_shape)
-
-        @lazy_property
-        def lazy_covariance_matrix(self):
-            """
-            The covariance_matrix, represented as a LazyTensor
-            """
-            return super().lazy_covariance_matrix
-
-
-except ImportError:
-
-    class MultivariateNormal(_MultivariateNormalBase):
-        pass
 
 
 @register_kl(MultivariateNormal, MultivariateNormal)
