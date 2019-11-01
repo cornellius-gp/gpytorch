@@ -73,7 +73,7 @@ class RBFKernel(Kernel):
         if (
             x1.requires_grad
             or x2.requires_grad
-            or (self.ard_num_dims is not None and self.ard_num_dims > 1)
+            or self.lengthscale.numel() > 1
             or diag
         ):
             x1_ = x1.div(self.lengthscale)

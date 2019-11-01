@@ -60,3 +60,9 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         # Scale by the amount of data we have
         num_data = target.size(-1)
         return res.div_(num_data)
+
+    def pyro_factor(self, output, target, *params):
+        import pyro
+        loss = self(output, target, *params)
+        pyro.factor("gp_mll", loss)
+        return loss
