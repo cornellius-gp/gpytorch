@@ -18,6 +18,8 @@ class Module(nn.Module):
         self._priors = OrderedDict()
         self._constraints = OrderedDict()
 
+        self._strict_init = True
+
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
         if isinstance(outputs, list):
@@ -33,6 +35,9 @@ class Module(nn.Module):
             raise AttributeError(
                 "Invalid parameter name {}. {} has no module {}".format(parameter_name, type(self).__name__, module)
             )
+
+    def _strict(self, value):
+        _set_strict(self, value)
 
     def added_loss_terms(self):
         for _, strategy in self.named_added_loss_terms():
@@ -88,7 +93,10 @@ class Module(nn.Module):
                 try:
                     self.__getattr__(name).data.copy_(val.expand_as(self.__getattr__(name)))
                 except RuntimeError:
-                    self.__getattr__(name).data.copy_(val.view_as(self.__getattr__(name)))
+                    if not self._strict_init:
+                        self.__getattr__(name).data = val
+                    else:
+                        self.__getattr__(name).data.copy_(val.view_as(self.__getattr__(name)))
 
             elif isinstance(val, float):
                 constraint = self.constraint_for_parameter_name(name)
@@ -203,7 +211,7 @@ class Module(nn.Module):
                     "Unknown parameter {name} for {module}".format(
                         name=param_or_closure, module=self.__class__.__name__
                     )
-                    + "Make sure the parameter is registered before registering a prior."
+                    + " Make sure the parameter is registered before registering a prior."
                 )
 
             def closure():
@@ -273,6 +281,17 @@ class Module(nn.Module):
     def pyro_sample_from_prior(self):
         return _pyro_sample_from_prior(module=self, memo=None, prefix="")
 
+    def local_load_samples(self, samples_dict, memo, prefix):
+        self._strict(False)
+        for name, (prior, closure, setting_closure) in self._priors.items():
+            if prior is not None and prior not in memo:
+                memo.add(prior)
+                setting_closure(samples_dict[prefix + ("." if prefix else "") + name])
+        self._strict(True)
+
+    def pyro_load_from_samples(self, samples_dict):
+        return _pyro_load_from_samples(module=self, samples_dict=samples_dict, memo=None, prefix="")
+
     def update_added_loss_term(self, name, added_loss_term):
         from .mlls import AddedLossTerm
 
@@ -317,12 +336,23 @@ def _validate_module_outputs(outputs):
         )
 
 
+def _set_strict(module, value, memo=None):
+    if memo is None:
+        memo = set()
+
+    if hasattr(module, "_strict_init"):
+        module._strict_init = value
+
+    for mname, module_ in module.named_children():
+        _set_strict(module_, value)
+
+
 def _pyro_sample_from_prior(module, memo=None, prefix=""):
     import pyro
     if memo is None:
         memo = set()
     if hasattr(module, "_priors"):
-        for prior_name, (prior, _, setting_closure) in module._priors.items():
+        for prior_name, (prior, closure, setting_closure) in module._priors.items():
             if prior is not None and prior not in memo:
                 if setting_closure is None:
                     raise RuntimeError(
@@ -330,12 +360,24 @@ def _pyro_sample_from_prior(module, memo=None, prefix=""):
                         f" but the following prior had none: {prior_name}, {prior}."
                     )
                 memo.add(prior)
+                prior = prior.expand(closure().shape)
                 value = pyro.sample(prefix + ("." if prefix else "") + prior_name, prior)
                 setting_closure(value)
 
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
         _pyro_sample_from_prior(module=module_, memo=memo, prefix=submodule_prefix)
+
+
+def _pyro_load_from_samples(module, samples_dict, memo=None, prefix=""):
+    if memo is None:
+        memo = set()
+    if hasattr(module, "_priors"):
+        module.local_load_samples(samples_dict, memo, prefix)
+
+    for mname, module_ in module.named_children():
+        submodule_prefix = prefix + ("." if prefix else "") + mname
+        _pyro_load_from_samples(module_, samples_dict, memo=memo, prefix=submodule_prefix)
 
 
 def _extract_named_added_loss_terms(module, memo=None, prefix=""):

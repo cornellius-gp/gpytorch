@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from torch.distributions import Gamma, MultivariateNormal, Normal, LogNormal
+from torch.distributions import Gamma, MultivariateNormal, Normal, LogNormal, Uniform
 
 from .prior import Prior
 from .utils import _bufferize_attributes, _del_attributes
@@ -24,6 +24,10 @@ class NormalPrior(Prior, Normal):
         _bufferize_attributes(self, ("loc", "scale"))
         self._transform = transform
 
+    def expand(self, batch_shape):
+        return Normal.expand(self, batch_shape, _instance=self)
+
+
 class LogNormalPrior(Prior, LogNormal):
     """
     Log Normal prior.
@@ -32,6 +36,23 @@ class LogNormalPrior(Prior, LogNormal):
         TModule.__init__(self)
         LogNormal.__init__(self, loc=loc, scale=scale, validate_args=validate_args)
         self._transform = transform
+
+    def expand(self, batch_shape):
+        return LogNormal.expand(self, batch_shape, _instance=self)
+
+
+class UniformPrior(Prior, Uniform):
+    """
+    Log Normal prior.
+    """
+    def __init__(self, a, b, validate_args=None, transform=None):
+        TModule.__init__(self)
+        Uniform.__init__(self, a, b, validate_args=validate_args)
+        self._transform = transform
+
+    def expand(self, batch_shape):
+        return Uniform.expand(self, batch_shape, _instance=self)
+
 
 class GammaPrior(Prior, Gamma):
     """Gamma Prior parameterized by concentration and rate
@@ -46,6 +67,9 @@ class GammaPrior(Prior, Gamma):
         Gamma.__init__(self, concentration=concentration, rate=rate, validate_args=validate_args)
         _bufferize_attributes(self, ("concentration", "rate"))
         self._transform = transform
+
+    def expand(self, batch_shape):
+        return Gamma.expand(self, batch_shape, _instance=self)
 
 
 class MultivariateNormalPrior(Prior, MultivariateNormal):
@@ -82,3 +106,6 @@ class MultivariateNormalPrior(Prior, MultivariateNormal):
         module = self._apply(lambda t: t.cpu())
         _del_attributes(module, MVN_LAZY_PROPERTIES)
         return module
+
+    def expand(self, batch_shape):
+        return MultivariateNormal.expand(self, batch_shape, _instance=self)

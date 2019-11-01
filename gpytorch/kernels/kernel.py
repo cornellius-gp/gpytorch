@@ -170,7 +170,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             )
             if lengthscale_prior is not None:
                 self.register_prior(
-                    "lengthscale_prior", lengthscale_prior, "lengthscale", lambda v: self._set_lengthscale(v)
+                    "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
                 )
 
             self.register_constraint("raw_lengthscale", lengthscale_constraint)
@@ -240,6 +240,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             value = torch.as_tensor(value).to(self.raw_lengthscale)
 
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
+
+    def local_load_samples(self, samples_dict, memo, prefix):
+        num_samples = next(iter(samples_dict.values())).size(0)
+        self.batch_shape = torch.Size([num_samples]) + self.batch_shape
+        super().local_load_samples(samples_dict, memo, prefix)
 
     def covar_dist(
         self,
