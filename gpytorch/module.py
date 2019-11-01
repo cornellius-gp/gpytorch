@@ -198,7 +198,7 @@ class Module(nn.Module):
 
         """
         if isinstance(param_or_closure, str):
-            if param_or_closure not in self._parameters:
+            if param_or_closure not in self._parameters and not hasattr(self, param_or_closure):
                 raise AttributeError(
                     "Unknown parameter {name} for {module}".format(
                         name=param_or_closure, module=self.__class__.__name__
@@ -324,6 +324,11 @@ def _pyro_sample_from_prior(module, memo=None, prefix=""):
     if hasattr(module, "_priors"):
         for prior_name, (prior, _, setting_closure) in module._priors.items():
             if prior is not None and prior not in memo:
+                if setting_closure is None:
+                    raise RuntimeError(
+                        "Cannot use Pyro for sampling without a setting_closure for each prior,"
+                        f" but the following prior had none: {prior_name}, {prior}."
+                    )
                 memo.add(prior)
                 value = pyro.sample(prefix + ("." if prefix else "") + prior_name, prior)
                 setting_closure(value)
