@@ -74,7 +74,7 @@ class Mock(MagicMock):
             return ModuleMock
         elif "Distribution" in name:
             return _Distribution
-        elif "Normal" in name or "Gamma" in name or "Wishart" in name:
+        elif "Normal" in name or "Gamma" in name or "Wishart" in name or "Uniform" in name:
             return _SubDistribution
         elif "Kernel" in name or "Parallel" in name:
             return _Kernel

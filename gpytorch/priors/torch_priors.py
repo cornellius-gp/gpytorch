@@ -43,7 +43,7 @@ class LogNormalPrior(Prior, LogNormal):
 
 class UniformPrior(Prior, Uniform):
     """
-    Log Normal prior.
+    Uniform prior.
     """
     def __init__(self, a, b, validate_args=None, transform=None):
         TModule.__init__(self)

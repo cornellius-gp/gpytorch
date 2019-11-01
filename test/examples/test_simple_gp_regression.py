@@ -9,7 +9,7 @@ from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
-from gpytorch.priors import SmoothedBoxPrior
+from gpytorch.priors import SmoothedBoxPrior, LogNormalPrior, NormalPrior, UniformPrior
 from gpytorch.constraints import Positive
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
@@ -19,8 +19,8 @@ from torch import optim
 class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
-        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
-        self.covar_module = ScaleKernel(RBFKernel(lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1)))
+        self.mean_module = ConstantMean()
+        self.covar_module = ScaleKernel(RBFKernel())
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -452,6 +452,47 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
             var_diff = (test_function_predictions.variance - noise).abs()
 
             self.assertLess(torch.max(var_diff / noise), 0.05)
+
+    def test_pyro_sampling(self):
+        try:
+            import pyro
+            from pyro.infer.mcmc import NUTS, MCMC
+        except:
+            return
+        train_x, test_x, train_y, test_y = self._get_data(cuda=False)
+        likelihood = GaussianLikelihood(noise_constraint=gpytorch.constraints.Positive())
+        gp_model = ExactGPModel(train_x, train_y, likelihood)
+
+        # Register normal GPyTorch priors
+        gp_model.mean_module.register_prior("mean_prior", UniformPrior(-1, 1), "constant")
+        gp_model.covar_module.base_kernel.register_prior("lengthscale_prior", UniformPrior(0.01, 0.2), "lengthscale")
+        gp_model.covar_module.register_prior("outputscale_prior", UniformPrior(1, 2), "outputscale")
+        likelihood.register_prior("noise_prior", LogNormalPrior(-1.5, 0.1), "noise")
+
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
+
+        def pyro_model(x, y):
+            gp_model.pyro_sample_from_prior()
+            output = gp_model(x)
+            loss = mll.pyro_factor(output, y)
+            return y
+
+        nuts_kernel = NUTS(pyro_model, adapt_step_size=True)
+        mcmc_run = MCMC(nuts_kernel, num_samples=3, warmup_steps=20)
+        mcmc_run.run(train_x, train_y)
+
+        gp_model.pyro_load_from_samples(mcmc_run.get_samples())
+
+        gp_model.eval()
+        expanded_test_x = test_x.unsqueeze(-1).repeat(3, 1, 1)
+        output = gp_model(expanded_test_x)
+
+        self.assertEqual(output.mean.size(0), 3)
+
+        # All 3 samples should do reasonably well on a noiseless dataset.
+        self.assertLess(torch.norm(output.mean[0] - test_y) / test_y.norm(), 0.2)
+        self.assertLess(torch.norm(output.mean[1] - test_y) / test_y.norm(), 0.2)
+        self.assertLess(torch.norm(output.mean[2] - test_y) / test_y.norm(), 0.2)
 
     def test_posterior_latent_gp_and_likelihood_fast_pred_var_cuda(self):
         if torch.cuda.is_available():
