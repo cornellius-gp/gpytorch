@@ -170,7 +170,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             )
             if lengthscale_prior is not None:
                 self.register_prior(
-                    "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
+                    "lengthscale_prior", lengthscale_prior, "lengthscale", lambda v: self._set_lengthscale(v)
                 )
 
             self.register_constraint("raw_lengthscale", lengthscale_constraint)
