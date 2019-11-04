@@ -23,7 +23,6 @@ from .rbf_kernel_grad import RBFKernelGrad
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
-from .white_noise_kernel import WhiteNoiseKernel
 
 
 __all__ = [
@@ -53,5 +52,4 @@ __all__ = [
     "RQKernel",
     "ScaleKernel",
     "SpectralMixtureKernel",
-    "WhiteNoiseKernel",
 ]
