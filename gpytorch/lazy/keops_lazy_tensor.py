@@ -1,4 +1,5 @@
 import torch
+import warnings
 from .lazy_tensor import LazyTensor
 from ..utils.memoize import cached
 from ..utils.getitem import _noop_index
@@ -19,6 +20,14 @@ class KeOpsLazyTensor(LazyTensor):
         Explicitly compute kernel diag via covar_func when it is needed rather than relying on lazy tensor ops.
         """
         return self.covar_func(self.x1, self.x2, diag=True)
+
+    def evaluate(self):
+        warnings.warn(
+            "You have managed to call evaluate on a KeOpsLazyTensor. Unless you did this manually, this is most likely"
+            " because you are using a KeOps kernel, but are also using Cholesky based training / inference."
+            " This is **NOT** a good idea! Stop using Cholesky via `with gpytorch.settings.max_cholesky_size(0)`."
+        )
+        return super().evaluate()
 
     @property
     @cached(name="covar_mat")
