@@ -67,7 +67,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         The :func:`~gpytorch.kernels.Kernel.__call__` does some additional internal work. In particular,
         all kernels are lazily evaluated so that, in some cases, we can index in to the kernel matrix before actually
         computing it. Furthermore, many built in kernel modules return LazyTensors that allow for more efficient
-        inference than if we explicitly computed the kernel matrix itselfself.
+        inference than if we explicitly computed the kernel matrix itself.
 
         As a result, if you want to use a :obj:`gpytorch.kernels.Kernel` object just to get an actual
         :obj:`torch.tensor` representing the covariance matrix, you may need to call the
