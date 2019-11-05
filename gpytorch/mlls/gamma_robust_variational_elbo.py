@@ -57,6 +57,8 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
 
     .. _Knoblauch, 2019:
         https://arxiv.org/pdf/1904.02303.pdf
+    .. _Knoblauch, Jewson, Damoulas 2019:
+        https://arxiv.org/pdf/1904.02063.pdf
     """
     def __init__(self, likelihood, model, gamma=1.0, *args, **kwargs):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
