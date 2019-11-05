@@ -43,9 +43,11 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
 
     def forward(self, inputs):
         function_dist = self.base_variational_strategy(inputs)
+        num_dim = function_dist.mean.dim()
+        block_dim = (num_dim + self.task_dim) if self.task_dim < 0 else self.task_dim
         function_dist = MultitaskMultivariateNormal(
-            mean=function_dist.mean.transpose(-1, self.task_dim),
-            covariance_matrix=BlockDiagLazyTensor(function_dist.lazy_covariance_matrix, block_dim=(self.task_dim - 1)),
+            mean=function_dist.mean.permute(*range(0, block_dim), *range(block_dim + 1, num_dim), block_dim),
+            covariance_matrix=BlockDiagLazyTensor(function_dist.lazy_covariance_matrix, block_dim=block_dim),
             interleaved=True,
         )
         return function_dist
