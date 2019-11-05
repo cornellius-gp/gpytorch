@@ -11,7 +11,6 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
-from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
 from gpytorch.lazy import ExtraComputationWarning
 from torch import optim
 
@@ -26,9 +25,9 @@ def train_data(cuda=False):
 
 
 class SVGPRegressionModel(ApproximateGP):
-    def __init__(self, inducing_points):
-        variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-1))
-        variational_strategy = VariationalStrategy(
+    def __init__(self, inducing_points, distribution_cls):
+        variational_distribution = distribution_cls(inducing_points.size(-1))
+        variational_strategy = gpytorch.variational.VariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True
         )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
@@ -47,10 +46,13 @@ class SVGPRegressionModel(ApproximateGP):
 class TestSVGPRegression(BaseTestCase, unittest.TestCase):
     seed = 0
 
-    def test_regression_error(self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO):
+    def test_regression_error(
+        self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO,
+        distribution_cls=gpytorch.variational.CholeskyVariationalDistribution
+    ):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
-        model = SVGPRegressionModel(torch.linspace(0, 1, 25))
+        model = SVGPRegressionModel(torch.linspace(0, 1, 25), distribution_cls)
         mll = mll_cls(likelihood, model, num_data=len(train_y))
         if cuda:
             likelihood = likelihood.cuda()
@@ -91,7 +93,10 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
     def test_predictive_ll_regression_error(self):
-        return self.test_regression_error(mll_cls=gpytorch.mlls.PredictiveLogLikelihood)
+        return self.test_regression_error(
+            mll_cls=gpytorch.mlls.PredictiveLogLikelihood,
+            distribution_cls=gpytorch.variational.MeanFieldVariationalDistribution,
+        )
 
     def test_robust_regression_error(self):
         return self.test_regression_error(mll_cls=gpytorch.mlls.GammaRobustVariationalELBO)

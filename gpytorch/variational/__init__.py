@@ -7,6 +7,7 @@ from .multitask_variational_strategy import MultitaskVariationalStrategy
 from .variational_strategy import VariationalStrategy
 from ._variational_distribution import _VariationalDistribution
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
+from .mean_field_variational_distribution import MeanFieldVariationalDistribution
 
 __all__ = [
     "_VariationalStrategy",
@@ -16,4 +17,5 @@ __all__ = [
     "VariationalStrategy",
     "_VariationalDistribution",
     "CholeskyVariationalDistribution",
+    "MeanFieldVariationalDistribution",
 ]

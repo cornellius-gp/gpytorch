@@ -74,5 +74,23 @@ class TestMultitaskRobustVGP(TestMultitaskVariationalGP):
         return gpytorch.mlls.GammaRobustVariationalELBO
 
 
+class TestMeanFieldMultitaskVariationalGP(TestMultitaskVariationalGP):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.MeanFieldVariationalDistribution
+
+
+class TestMeanFieldMultitaskPredictiveGP(TestMultitaskPredictiveGP):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.MeanFieldVariationalDistribution
+
+
+class TestMeanFieldMultitaskRobustVGP(TestMultitaskRobustVGP):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.MeanFieldVariationalDistribution
+
+
 if __name__ == "__main__":
     unittest.main()
