@@ -50,3 +50,9 @@ Approximate GP Inference
 
 .. autoclass:: PredictiveLogLikelihood
    :members:
+
+:hidden:`GammaRobustVariationalELBO`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: GammaRobustVariationalELBO
+   :members:

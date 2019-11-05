@@ -93,6 +93,9 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
     def test_predictive_ll_regression_error(self):
         return self.test_regression_error(mll_cls=gpytorch.mlls.PredictiveLogLikelihood)
 
+    def test_robust_regression_error(self):
+        return self.test_regression_error(mll_cls=gpytorch.mlls.GammaRobustVariationalELBO)
+
     def test_regression_error_cuda(self):
         if not torch.cuda.is_available():
             return

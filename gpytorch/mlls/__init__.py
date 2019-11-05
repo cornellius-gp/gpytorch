@@ -6,6 +6,7 @@ from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from .inducing_point_kernel_added_loss_term import InducingPointKernelAddedLossTerm
 from .marginal_log_likelihood import MarginalLogLikelihood
 from .predictive_log_likelihood import PredictiveLogLikelihood
+from .gamma_robust_variational_elbo import GammaRobustVariationalELBO
 from .sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from .variational_elbo import VariationalELBO, VariationalELBOEmpirical
 from .noise_model_added_loss_term import NoiseModelAddedLossTerm
@@ -28,6 +29,7 @@ __all__ = [
     "MarginalLogLikelihood",
     "NoiseModelAddedLossTerm",
     "PredictiveLogLikelihood",
+    "GammaRobustVariationalELBO",
     "SumMarginalLogLikelihood",
     "VariationalELBO",
     "VariationalELBOEmpirical",

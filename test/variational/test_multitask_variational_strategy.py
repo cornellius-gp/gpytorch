@@ -68,5 +68,11 @@ class TestMultitaskPredictiveGP(TestMultitaskVariationalGP):
         return gpytorch.mlls.PredictiveLogLikelihood
 
 
+class TestMultitaskRobustVGP(TestMultitaskVariationalGP):
+    @property
+    def mll_cls(self):
+        return gpytorch.mlls.GammaRobustVariationalELBO
+
+
 if __name__ == "__main__":
     unittest.main()
