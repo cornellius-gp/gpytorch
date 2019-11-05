@@ -46,3 +46,14 @@ class BaseTestCase(ABC):
             f"tensor1 ({tensor1.shape}) and tensor2 ({tensor2.shape}) are not close enough. \n"
             f"max rtol: {rtol_max:0.8f}\t\tmax atol: {atol_max:0.8f}"
         )
+
+    def assertEqual(self, item1, item2):
+        if item1 == item2:
+            return True
+
+        if type(item1) != type(item2):
+            raise AssertionError(f"item1 ({type(item1)}) and item2 ({type(item2)}) are not the same type.")
+        if item1.is_tensor:
+            raise AssertionError(f"{item1} does not equal {item2}.")
+        else:
+            raise AssertionError(f"tensor1 ({item1.shape}) does not equal tensor2 ({item2.shape}).")

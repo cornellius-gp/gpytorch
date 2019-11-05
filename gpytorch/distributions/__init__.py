@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .distribution import Distribution
+from .delta import Delta
 from .multivariate_normal import MultivariateNormal
 from .multitask_multivariate_normal import MultitaskMultivariateNormal
 
@@ -13,4 +14,4 @@ except ImportError:
     import torch.distributions as base_distributions
 
 
-__all__ = ["Distribution", "MultivariateNormal", "MultitaskMultivariateNormal", "base_distributions"]
+__all__ = ["Delta", "Distribution", "MultivariateNormal", "MultitaskMultivariateNormal", "base_distributions"]
