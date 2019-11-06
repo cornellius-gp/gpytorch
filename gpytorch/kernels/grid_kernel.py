@@ -48,9 +48,9 @@ class GridKernel(Kernel):
     def __init__(
         self, base_kernel: Kernel, grid: List[Tensor], interpolation_mode: bool = False, active_dims: bool = None
     ):
-        if not isinstance(base_kernel, Kernel) and not base_kernel.is_stationary:
+        if not base_kernel.is_stationary:
             raise RuntimeError("The base_kernel for GridKernel must be stationary.")
-        
+
         super(GridKernel, self).__init__(active_dims=active_dims)
         if torch.is_tensor(grid):
             grid = convert_legacy_grid(grid)
