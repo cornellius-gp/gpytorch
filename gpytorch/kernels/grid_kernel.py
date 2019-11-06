@@ -7,8 +7,8 @@ from torch import Tensor
 
 from .kernel import Kernel
 from .. import settings
+from ..lazy import cat, delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor
 from ..utils.grid import create_data_from_grid, convert_legacy_grid
-from ..lazy import delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor, cat as gpytorch_cat
 
 
 class GridKernel(Kernel):
@@ -43,9 +43,14 @@ class GridKernel(Kernel):
         http://www.cs.cmu.edu/~andrewgw/manet.pdf
     """
 
+    is_stationary = True
+
     def __init__(
         self, base_kernel: Kernel, grid: List[Tensor], interpolation_mode: bool = False, active_dims: bool = None
     ):
+        if not isinstance(base_kernel, Kernel) and not base_kernel.is_stationary:
+            raise RuntimeError("The base_kernel for GridKernel must be stationary.")
+        
         super(GridKernel, self).__init__(active_dims=active_dims)
         if torch.is_tensor(grid):
             grid = convert_legacy_grid(grid)
@@ -134,7 +139,7 @@ class GridKernel(Kernel):
                 ]  # Each entry i contains a grid_size[i] x grid_size[i] covariance matrix
                 if last_dim_is_batch:
                     # Note that this requires all the dimensions to have the same number of grid points
-                    covar = gpytorch_cat([c.unsqueeze(-3) for c in covars], dim=-3)
+                    covar = cat([c.unsqueeze(-3) for c in covars], dim=-3)
                 else:
                     covar = KroneckerProductLazyTensor(*covars[::-1])
 

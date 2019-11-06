@@ -212,7 +212,6 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
                 * `diag`: `n` or `b x n`
                 * `diag` with `last_dim_is_batch=True`: `k x n` or `b x k x n`
         """
-
         raise NotImplementedError()
 
     @property
@@ -328,9 +327,6 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
         return DefaultPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
 
-    def __add__(self, other):
-        return AdditiveKernel(self, other)
-
     def __call__(self, x1, x2=None, diag=False, last_dim_is_batch=False, **params):
         x1_, x2_ = x1, x2
 
@@ -380,6 +376,9 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         # JIT ScriptModules cannot be pickled
         self.distance_module = None
         return self.__dict__
+
+    def __add__(self, other):
+        return AdditiveKernel(self, other)
 
     def __mul__(self, other):
         return ProductKernel(self, other)
