@@ -37,7 +37,7 @@ class CylindricalKernel(Kernel):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
     """
-    
+
     def __init__(
         self,
         num_angular_weights: int,

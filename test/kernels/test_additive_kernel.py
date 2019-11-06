@@ -197,10 +197,6 @@ class TestAdditiveKernel(unittest.TestCase):
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
 
     def test_is_stationary(self):
-        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
-        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
-        lengthscale = 2
-
         kernel_1 = RBFKernel().initialize(lengthscale=1)
         kernel_2 = RBFKernel().initialize(lengthscale=2)
         kernel_3 = LinearKernel().initialize()
