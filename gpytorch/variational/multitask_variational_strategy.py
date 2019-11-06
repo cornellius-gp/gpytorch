@@ -3,8 +3,6 @@
 from ._variational_strategy import _VariationalStrategy
 from ..module import Module
 from ..utils.memoize import cached
-from ..distributions import MultitaskMultivariateNormal
-from ..lazy import BlockDiagLazyTensor
 
 
 class MultitaskVariationalStrategy(_VariationalStrategy):
@@ -22,7 +20,7 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
         :attr:`task_dim` (int, default=-2):
             Which batch dimension is the task dimension
     """
-    def __init__(self, base_variational_strategy, task_dim=-2):
+    def __init__(self, base_variational_strategy, task_dim=-1):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
         self.task_dim = task_dim
@@ -43,13 +41,7 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
 
     def forward(self, inputs):
         function_dist = self.base_variational_strategy(inputs)
-        num_dim = function_dist.mean.dim()
-        block_dim = (num_dim + self.task_dim) if self.task_dim < 0 else self.task_dim
-        function_dist = MultitaskMultivariateNormal(
-            mean=function_dist.mean.permute(*range(0, block_dim), *range(block_dim + 1, num_dim), block_dim),
-            covariance_matrix=BlockDiagLazyTensor(function_dist.lazy_covariance_matrix, block_dim=block_dim),
-            interleaved=True,
-        )
+        function_dist = function_dist.to_multitask_from_batch(task_dim=self.task_dim)
         return function_dist
 
     def kl_divergence(self):

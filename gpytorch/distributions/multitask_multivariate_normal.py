@@ -125,6 +125,12 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             return samples.view(new_shape).transpose(-1, -2).contiguous()
         return samples.view(sample_shape + self._output_shape)
 
+    def to_multitask(self, num_tasks):
+        raise RuntimeError("to_multitask is not defined for MultitaskMultivariateNormal distributions")
+
+    def to_multitask_from_batch(self, task_dim=-1):
+        raise RuntimeError("to_multitask_from_batch is not defined for MultitaskMultivariateNormal distributions")
+
     @property
     def variance(self):
         var = super().variance

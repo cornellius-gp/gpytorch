@@ -8,7 +8,7 @@ from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
-from ..lazy import LazyTensor, lazify, delazify
+from ..lazy import LazyTensor, BlockInterleavedLazyTensor, lazify, delazify
 from .distribution import Distribution
 from ..utils.broadcasting import _mul_broadcast_shape
 
@@ -175,6 +175,68 @@ class _MultivariateNormalBase(TMultivariateNormal, Distribution):
     def sample(self, sample_shape=torch.Size(), base_samples=None):
         with torch.no_grad():
             return self.rsample(sample_shape=sample_shape, base_samples=base_samples)
+
+    def to_multitask(self, num_tasks):
+        """
+        Convert the MVN into a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal` from this MVN,
+        where each task shares the same mean and covariance.
+
+        :param int num_tasks: How many tasks to create.
+        :returns: the independent multitask distribution
+        :rtype: gpytorch.distributions.MultitaskMultivariateNormal
+
+        Example:
+            >>> # model is a gpytorch.models.VariationalGP
+            >>> # likelihood is a gpytorch.likelihoods.Likelihood
+            >>> mean = torch.randn(4, 3)
+            >>> covar_factor = torch.randn(4, 3, 3)
+            >>> covar = covar_factor @ covar_factor.transpose(-1, -2)
+            >>> mvn = gpytorch.distributions.MultivariateNormal(mean, covar)
+            >>> print(mvn.event_shape, mvn.batch_shape)
+            >>> # torch.Size([3]), torch.Size([4])
+            >>>
+            >>> mmvn = mvn.to_multitask(num_tasks=2)
+            >>> print(mmvn.event_shape, mmvn.batch_shape)
+            >>> # torch.Size([3, 2]), torch.Size([4])
+        """
+        return self.expand(torch.Size([num_tasks]) + self.batch_shape).to_multitask_from_batch(task_dim=0)
+
+    def to_multitask_from_batch(self, task_dim=-1):
+        """
+        Reinterprate a batch of multivariate normal distributions as an (independent) multitask multivariate normal
+        distribution.
+
+        :param int task_dim: Which batch dimension should be interpreted as the dimension for the independent tasks.
+        :returns: the independent multitask distribution
+        :rtype: gpytorch.distributions.MultitaskMultivariateNormal
+
+        Example:
+            >>> # model is a gpytorch.models.VariationalGP
+            >>> # likelihood is a gpytorch.likelihoods.Likelihood
+            >>> mean = torch.randn(4, 2, 3)
+            >>> covar_factor = torch.randn(4, 2, 3, 3)
+            >>> covar = covar_factor @ covar_factor.transpose(-1, -2)
+            >>> mvn = gpytorch.distributions.MultivariateNormal(mean, covar)
+            >>> print(mvn.event_shape, mvn.batch_shape)
+            >>> # torch.Size([3]), torch.Size([4, 2])
+            >>>
+            >>> mmvn = mvn.to_multitask_from_batch(task_dim=-1)
+            >>> print(mmvn.event_shape, mmvn.batch_shape)
+            >>> # torch.Size([3, 2]), torch.Size([4])
+        """
+        from .multitask_multivariate_normal import MultitaskMultivariateNormal
+
+        orig_task_dim = task_dim
+        task_dim = task_dim if task_dim >= 0 else (len(self.batch_shape) + task_dim)
+        if task_dim < 0 or task_dim > len(self.batch_shape):
+            raise ValueError(f"task_dim of {orig_task_dim} is incompatible with MVN batch shape of {self.batch_shape}")
+
+        num_dim = self.mean.dim()
+        res = MultitaskMultivariateNormal(
+            mean=self.mean.permute(*range(0, task_dim), *range(task_dim + 1, num_dim), task_dim),
+            covariance_matrix=BlockInterleavedLazyTensor(self.lazy_covariance_matrix, block_dim=task_dim),
+        )
+        return res
 
     @property
     def variance(self):

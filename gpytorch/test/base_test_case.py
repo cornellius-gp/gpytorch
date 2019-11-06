@@ -48,12 +48,16 @@ class BaseTestCase(ABC):
         )
 
     def assertEqual(self, item1, item2):
-        if item1 == item2:
-            return True
-
-        if type(item1) != type(item2):
+        if torch.is_tensor(item1) and torch.is_tensor(item2):
+            if torch.equal(item1, item2):
+                return True
+            else:
+                raise AssertionError(f"{item1} does not equal {item2}.")
+        elif torch.is_tensor(item1) or torch.is_tensor(item2):
             raise AssertionError(f"item1 ({type(item1)}) and item2 ({type(item2)}) are not the same type.")
-        if item1.is_tensor:
-            raise AssertionError(f"{item1} does not equal {item2}.")
+        elif item1 == item2:
+            return True
+        elif type(item1) != type(item2):
+            raise AssertionError(f"item1 ({type(item1)}) and item2 ({type(item2)}) are not the same type.")
         else:
-            raise AssertionError(f"tensor1 ({item1.shape}) does not equal tensor2 ({item2.shape}).")
+            raise AssertionError(f"tensor1 ({item1}) does not equal tensor2 ({item2}).")

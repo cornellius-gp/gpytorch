@@ -7,9 +7,13 @@ from abc import ABC, abstractmethod
 
 
 class _VariationalDistribution(Module, ABC):
-    """
-    _VariationalDistribution objects represent the variational distribution q(u) over a set of inducing points for GPs.
-    Calling it returns the variational distribution
+    r"""
+    _VariationalDistribution objects represent the variational distribution
+    :math:`q(\mathbf u)` over a set of inducing points for GPs.  Typically the
+    distributions are some sort of parameterization of a multivariate normal
+    distributions.
+
+    Calling a variational distribution object returns the distribution :math:`q(\mathbf u)`.
 
     Args:
         :attr:`num_inducing_points` (int):
