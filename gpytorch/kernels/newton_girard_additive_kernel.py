@@ -4,6 +4,7 @@ from ..constraints import Positive
 
 
 class NewtonGirardAdditiveKernel(Kernel):
+
     def __init__(self, base_kernel, num_dims, max_degree=None, active_dims=None, **kwargs):
         """Create an Additive Kernel a la https://arxiv.org/abs/1112.4394 using Newton-Girard Formulae
 
@@ -12,10 +13,7 @@ class NewtonGirardAdditiveKernel(Kernel):
         :param active_dims:
         :param kwargs:
         """
-        super(NewtonGirardAdditiveKernel, self).__init__(has_lengthscale=False,
-                                                         active_dims=active_dims,
-                                                         **kwargs
-                                                         )
+        super(NewtonGirardAdditiveKernel, self).__init__(active_dims=active_dims, **kwargs)
 
         self.base_kernel = base_kernel
         self.num_dims = num_dims

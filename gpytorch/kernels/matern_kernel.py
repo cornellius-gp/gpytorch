@@ -75,10 +75,12 @@ class MaternKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
+    has_lengthscale = True
+
     def __init__(self, nu=2.5, **kwargs):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
-        super(MaternKernel, self).__init__(has_lengthscale=True, **kwargs)
+        super(MaternKernel, self).__init__(**kwargs)
         self.nu = nu
 
     def forward(self, x1, x2, diag=False, **params):

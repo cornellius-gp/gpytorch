@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
 from abc import abstractmethod
-import torch
+from copy import deepcopy
 import warnings
+
+import torch
 from torch.nn import ModuleList
+
+from .. import settings
+from ..constraints import Positive
 from ..lazy import lazify, delazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
 from ..module import Module
 from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumPredictionStrategy
-from .. import settings
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
-from ..constraints import Positive
-from copy import deepcopy
 
 
 def default_postprocess_script(x):
@@ -55,7 +57,7 @@ class Distance(torch.nn.Module):
 
 
 class Kernel(Module, _ClassWithDeprecatedBatchSize):
-    """
+    r"""
     Kernels in GPyTorch are implemented as a :class:`gpytorch.Module` that, when called on two :obj:`torch.tensor`
     objects `x1` and `x2` returns either a :obj:`torch.tensor` or a :obj:`gpytorch.lazy.LazyTensor` that represents
     the covariance matrix between `x1` and `x2`.
@@ -81,11 +83,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
     * Single lengthscale: One lengthscale can be applied to all input dimensions/batches
       (i.e. :math:`\Theta` is a constant diagonal matrix).
-      This is controlled by setting `has_lengthscale=True`.
+      This is controlled by setting the attribute `has_lengthscale=True`.
 
     * ARD: Each input dimension gets its own separate lengthscale
       (i.e. :math:`\Theta` is a non-constant diagonal matrix).
-      This is controlled by the `ard_num_dims` keyword argument (as well has `has_lengthscale=True`).
+      This is controlled by the `ard_num_dims` keyword argument (as well as `has_lengthscale=True`).
 
     In batch-mode (i.e. when :math:`x_1` and :math:`x_2` are batches of input matrices), each
     batch of data can have its own lengthscale parameter by setting the `batch_shape`
@@ -97,8 +99,6 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         You can set a prior on this parameter using the :attr:`lengthscale_prior` argument.
 
     Base Args:
-        :attr:`has_lengthscale` (bool):
-            Set this if the kernel has a lengthscale. Default: `False`.
         :attr:`ard_num_dims` (int, optional):
             Set this if you want a separate lengthscale for each input
             dimension. It should be `d` if :attr:`x1` is a `n x d` matrix.  Default: `None`
@@ -127,9 +127,17 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         >>> tensor_covar_matrix = lazy_covar_matrix.evaluate() # Gets the actual tensor for this kernel matrix
     """
 
+    has_lengthscale = False
+
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Property to indicate whether kernel is stationary or not.
+        """
+        return self.has_lengthscale
+
     def __init__(
         self,
-        has_lengthscale=False,
         ard_num_dims=None,
         batch_shape=torch.Size([]),
         active_dims=None,
@@ -150,7 +158,6 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
         )
 
-        self.__has_lengthscale = has_lengthscale
         self.eps = eps
 
         param_transform = kwargs.get("param_transform")
@@ -162,7 +169,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
                           "transformation, specify a different 'lengthscale_constraint' instead.")
 
-        if has_lengthscale:
+        if self.has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
                 name="raw_lengthscale",
@@ -216,10 +223,6 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             for param in self.parameters():
                 return param.dtype
             return torch.get_default_dtype()
-
-    @property
-    def has_lengthscale(self):
-        return self.__has_lengthscale
 
     @property
     def lengthscale(self):
@@ -415,6 +418,13 @@ class AdditiveKernel(Kernel):
         >>> additive_kernel_matrix = covar_module(x1)
     """
 
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if all components are stationary.
+        """
+        return all(k.is_stationary for k in self.kernels)
+
     def __init__(self, *kernels):
         super(AdditiveKernel, self).__init__()
         self.kernels = ModuleList(kernels)
@@ -453,6 +463,13 @@ class ProductKernel(Kernel):
         >>> x1 = torch.randn(50, 2)
         >>> kernel_matrix = covar_module(x1) # The RBF Kernel already decomposes multiplicatively, so this is foolish!
     """
+
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if all components are stationary.
+        """
+        return all(k.is_stationary for k in self.kernels)
 
     def __init__(self, *kernels):
         super(ProductKernel, self).__init__()

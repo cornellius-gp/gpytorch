@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-import math
-import torch
 import copy
+import math
+
+import torch
+
 from .kernel import Kernel
-from ..lazy import delazify, DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, PsdSumLazyTensor
 from ..distributions import MultivariateNormal
+from ..lazy import delazify, DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, PsdSumLazyTensor
 from ..mlls import InducingPointKernelAddedLossTerm
 from ..utils.cholesky import psd_safe_cholesky
 

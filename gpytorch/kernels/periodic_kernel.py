@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import math
+
 import torch
+
 from .kernel import Kernel
 from ..constraints import Positive
 
@@ -70,8 +72,10 @@ class PeriodicKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
+    has_lengthscale = True
+
     def __init__(self, period_length_prior=None, period_length_constraint=None, **kwargs):
-        super(PeriodicKernel, self).__init__(has_lengthscale=True, **kwargs)
+        super(PeriodicKernel, self).__init__(**kwargs)
         if period_length_constraint is None:
             period_length_constraint = Positive()
 

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
+from typing import List
+
 import torch
 from torch import Tensor
+
 from .kernel import Kernel
-from ..lazy import delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor
 from .. import settings
-import gpytorch
-from gpytorch.utils.grid import create_data_from_grid, convert_legacy_grid
-from typing import List
+from ..utils.grid import create_data_from_grid, convert_legacy_grid
+from ..lazy import delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor, cat as gpytorch_cat
 
 
 class GridKernel(Kernel):
@@ -133,7 +134,7 @@ class GridKernel(Kernel):
                 ]  # Each entry i contains a grid_size[i] x grid_size[i] covariance matrix
                 if last_dim_is_batch:
                     # Note that this requires all the dimensions to have the same number of grid points
-                    covar = gpytorch.cat([c.unsqueeze(-3) for c in covars], dim=-3)
+                    covar = gpytorch_cat([c.unsqueeze(-3) for c in covars], dim=-3)
                 else:
                     covar = KroneckerProductLazyTensor(*covars[::-1])
 

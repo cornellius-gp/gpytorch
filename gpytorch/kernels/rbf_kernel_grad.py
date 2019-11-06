@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-from .rbf_kernel import RBFKernel, postprocess_rbf
+
 import torch
+
+from .rbf_kernel import RBFKernel, postprocess_rbf
 from ..lazy.kronecker_product_lazy_tensor import KroneckerProductLazyTensor
 
 

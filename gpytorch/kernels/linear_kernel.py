@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import torch
 import warnings
+
+import torch
+
 from .kernel import Kernel
-from ..lazy import MatmulLazyTensor, RootLazyTensor
 from ..constraints import Positive
+from ..lazy import MatmulLazyTensor, RootLazyTensor
 
 
 class LinearKernel(Kernel):

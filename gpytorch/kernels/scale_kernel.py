@@ -50,8 +50,15 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
 
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if base kernel is stationary.
+        """
+        return self.base_kernel.is_stationary
+
     def __init__(self, base_kernel, outputscale_prior=None, outputscale_constraint=None, **kwargs):
-        super(ScaleKernel, self).__init__(has_lengthscale=False, **kwargs)
+        super(ScaleKernel, self).__init__(**kwargs)
         if outputscale_constraint is None:
             outputscale_constraint = Positive()
 

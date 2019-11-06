@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-import torch
-from .polynomial_kernel import PolynomialKernel
 from typing import Optional
+
+import torch
+
+from .polynomial_kernel import PolynomialKernel
 
 
 class PolynomialKernelGrad(PolynomialKernel):

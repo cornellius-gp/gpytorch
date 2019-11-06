@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-import torch
 from typing import Optional
+
+import torch
+
 from .kernel import Kernel
 from ..constraints import Positive, Interval
 from ..priors import Prior
@@ -34,8 +36,8 @@ class CylindricalKernel(Kernel):
         :attr:`inv_param_transform` (function, optional):
             Set this to allow setting parameters directly in transformed space and sampling from priors.
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
-
     """
+    
     def __init__(
         self,
         num_angular_weights: int,
@@ -58,7 +60,7 @@ class CylindricalKernel(Kernel):
         if beta_constraint is None:
             beta_constraint = Positive()
 
-        super().__init__(has_lengthscale=False, **kwargs)
+        super().__init__(**kwargs)
         self.num_angular_weights = num_angular_weights
         self.radial_base_kernel = radial_base_kernel
         self.eps = eps

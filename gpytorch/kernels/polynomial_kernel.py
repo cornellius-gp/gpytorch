@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import torch
-from .kernel import Kernel
 from typing import Optional
-from ..priors import Prior
+
+import torch
+
+from .kernel import Kernel
 from ..constraints import Positive, Interval
+from ..priors import Prior
 
 
 class PolynomialKernel(Kernel):
