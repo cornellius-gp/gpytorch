@@ -79,11 +79,9 @@ class PyroGP(GP, _PyroMixin):
             :attr:`*args`, :attr:`**kwargs`:
                 Additional arguments passed to the likelihood's `forward` function.
         """
-        # HACK - this is a way to get the sample shape
-        pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1))
-
-        # Draw samples from variational distributions that appear in the likelihood
-        self.likelihood.guide(*args, **kwargs)
+        # Get q(f)
+        function_dist = self.pyro_guide(input, beta=self.beta, name_prefix=self.name_prefix)
+        return self.likelihood.pyro_guide(function_dist, target, *args, **kwargs)
 
     def model(self, input, target, *args, **kwargs):
         """
@@ -101,19 +99,9 @@ class PyroGP(GP, _PyroMixin):
         # Include module
         pyro.module(self.name_prefix + ".gp", self)
 
-        # Include KL[ q(u) || p(u) ], GPyTorch priors, etc.
-        self.pyro_factors(beta=self.beta, name_prefix=self.name_prefix)
-
-        # Get the variational distribution for the function
-        function_dist = self(input)
-
-        # HACK - this is a way to get the sample shape
-        sample_shape = pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1)).shape
-
-        # Draw samples from the likelihood
-        return self.likelihood.pyro_sample_output(
-            target, function_dist, *args, sample_shape=sample_shape, **kwargs
-        )
+        # Get p(f)
+        function_dist = self.pyro_model(input, beta=self.beta, name_prefix=self.name_prefix)
+        return self.likelihood.pyro_model(function_dist, target, *args, **kwargs)
 
     def __call__(self, inputs, **kwargs):
         if inputs.dim() == 1:

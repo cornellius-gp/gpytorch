@@ -14,7 +14,7 @@ def strategy_cls(model, inducing_points, variational_distribution, learn_inducin
     return gpytorch.variational.MultitaskVariationalStrategy(
         gpytorch.variational.VariationalStrategy(
             model, inducing_points, variational_distribution, learn_inducing_locations
-        )
+        ), num_tasks=2
     )
 
 

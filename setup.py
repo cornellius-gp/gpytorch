@@ -79,7 +79,7 @@ setup(
             "torchvision",
         ],
         "pyro": [
-            "pyro-ppl>=0.5.0",
+            "pyro-ppl>=1.0.0",
         ],
         "keops": [
             "pykeops>=1.1.1",

@@ -18,6 +18,7 @@ class SoftmaxLikelihood(Likelihood):
             kwargs, "n_classes", "num_classes", num_classes, lambda n: n
         )
         super().__init__()
+        self.max_plate_nesting = 2
         if num_classes is None:
             raise ValueError("num_classes is required")
         self.num_classes = num_classes

@@ -3,7 +3,6 @@
 from copy import deepcopy
 
 import math
-import functools
 import torch
 import warnings
 from ..module import Module
@@ -141,12 +140,27 @@ try:
         def name_prefix(self, val):
             self._name_prefix = val
 
-        def _draw_likelihood_samples(self, function_dist, *args, **kwargs):
-            # Hack to get the current plating structure
-            sample_shape = pyro.sample("__throwaway__", pyro.distributions.Normal(0, 1)).shape
-            if not len(sample_shape):
-                sample_shape = None
-            return super()._draw_likelihood_samples(function_dist, *args, **kwargs, sample_shape=sample_shape)
+        def _draw_likelihood_samples(self, function_dist, *args, sample_shape=None, **kwargs):
+            if self.training:
+                num_event_dims = len(function_dist.event_shape)
+                function_dist = base_distributions.Normal(function_dist.mean, function_dist.variance.sqrt())
+                function_dist = base_distributions.Independent(function_dist, num_event_dims - 1)
+
+            plate_name = self.name_prefix + ".num_particles_vectorized"
+            num_samples = settings.num_likelihood_samples.value()
+            max_plate_nesting = max(self.max_plate_nesting, len(function_dist.batch_shape))
+            with pyro.plate(plate_name, size=num_samples, dim=(-max_plate_nesting - 1)):
+                if sample_shape is None:
+                    function_samples = pyro.sample(self.name_prefix, function_dist.mask(False))
+                    # Deal with the fact that we're not assuming conditional indendence over data points here
+                    function_samples = function_samples.squeeze(-len(function_dist.event_shape) - 1)
+                else:
+                    sample_shape = sample_shape[:-len(function_dist.batch_shape)]
+                    function_samples = function_dist(sample_shape)
+
+                if not self.training:
+                    function_samples = function_samples.squeeze(-len(function_dist.event_shape) - 1)
+                return self.forward(function_samples, *args, **kwargs)
 
         def expected_log_prob(self, observations, function_dist, *args, **kwargs):
             r"""
@@ -172,18 +186,21 @@ try:
             return super().expected_log_prob(observations, function_dist, *args, **kwargs)
 
         @abstractmethod
-        def forward(self, function_samples, *args, **kwargs):
-            """
-            Computes the conditional distribution p(y|f) that defines the likelihood.
+        def forward(self, function_samples, *args, data={}, **kwargs):
+            r"""
+            Computes the conditional distribution :math:`p(\mathbf y \mid
+            \mathbf f, \ldots)` that defines the likelihood.
 
-            Args:
-                :attr:`function_samples` (:obj:`torch.Tensor`)
-                    Samples from the function `f`
-                :attr:`args`, :attr:`kwargs`
-                    Any additional arguments and keyword arguments
-
+            :param torch.Tensor function_samples: Samples from the function (:math:`\mathbf f`)
+            :param dict data: (Optional, Pyro integration only) Additional
+                variables (:math:`\ldots`) that the likelihood needs to condition
+                on. The keys of the dictionary will correspond to Pyro sample sites
+                in the likelihood's model/guide.
+            :param args: Additional args
+            :param kwargs: Additional kwargs
+            :return: Distribution object (with same shape as :attr:`function_samples`)
+            :rtype: :obj:`Distribution`
             Returns:
-                Distribution object (with same shape as :attr:`function_samples`)
             """
             raise NotImplementedError
 
@@ -191,21 +208,6 @@ try:
             """
             """
             return super().get_fantasy_likelihood(**kwargs)
-
-        def guide(self, *args, **kwargs):
-            """
-            (For Pyro integration only).
-
-            Guide function for the likelihood
-            This should be defined if the likelihood contains any random variables that need to be infered.
-            In other words, if `forward` call to the likelihood function should contains any `pyro.sample` calls,
-            then the `guide` call should contain the same sample calls.
-
-            Args:
-                :attr:`args`, :attr:`kwargs`
-                    Passed to the `forward` function
-            """
-            pass
 
         def log_marginal(self, observations, function_dist, *args, **kwargs):
             r"""
@@ -254,51 +256,47 @@ try:
             Returns:
                 Distribution object (the marginal distribution, or samples from it)
             """
-            plate_name = self.name_prefix + ".num_particles_vectorized"
-            num_samples = settings.num_likelihood_samples.value()
-            with pyro.plate(plate_name, size=num_samples, dim=(-self.max_plate_nesting - 1)):
-                guide_trace = pyro.poutine.trace(self.guide).get_trace(*args, **kwargs)
-                marginal_fn = functools.partial(super().marginal, function_dist)
-                res = pyro.poutine.replay(marginal_fn, trace=guide_trace)(*args, **kwargs)
-                return res
+            return super().marginal(function_dist, *args, **kwargs)
 
-        def pyro_sample_output(self, observations, function_dist, *args, **kwargs):
+        def pyro_guide(self, function_dist, target, *args, **kwargs):
             r"""
-            Returns observed pyro samples :math:`p(y)` from the likelihood distribution,
-            given the function distribution :math:`f`.
+            (For Pyro integration only).
 
-            .. math::
-                \mathbb{E}_{f(x)} \left[ \log p \left( y \mid f(x) \right) \right]
+            Part of the guide function for the likelihood.
+            This should be re-defined if the likelihood contains any latent variables that need to be infered.
 
-            Args:
-                :attr:`observations` (:class:`torch.Tensor`):
-                    Values of :math:`y`.
-                :attr:`function_dist` (:class:`pyro.distributions`):
-                    Distribution for :math:`f(x)`.
-                :attr:`args`, :attr:`kwargs`
-                    Passed to the `forward` function
-
-            Returns:
-                `pyro.sample`
+            :param ~gpytorch.distributions.MultivariateNormal function_dist: Distribution of latent function
+                :math:`q(\mathbf f)`.
+            :param torch.Tensor target: Observed :math:`\mathbf y`.
+            :param args: Additional args (for :meth:`~forward`).
+            :param kwargs: Additional kwargs (for :meth:`~forward`).
             """
-            sample_shape = kwargs.pop("sample_shape", torch.Size([]))
+            with pyro.plate(self.name_prefix + ".data_plate", dim=-1):
+                pyro.sample(self.name_prefix + ".f", function_dist)
 
-            # Make sure that the function dist is factored to be independent
-            function_dist = pyro.distributions.Normal(
-                loc=function_dist.mean,
-                scale=function_dist.variance.sqrt()
-            ).to_event(len(function_dist.event_shape) - 1)
+        def pyro_model(self, function_dist, target, *args, **kwargs):
+            r"""
+            (For Pyro integration only).
 
-            # Draw samples from the likelihood dist, which comes from samples of the function dist
-            function_samples = function_dist(sample_shape[:-len(function_dist.batch_shape)])
-            output_dist = self(function_samples, *args, **kwargs)
+            Part of the model function for the likelihood.
+            It should return the
+            This should be re-defined if the likelihood contains any latent variables that need to be infered.
 
-            # Condition on these samples
-            with pyro.plate(self.name_prefix + ".output_values_plate", output_dist.batch_shape[-1], dim=-1):
-                scale = (self.num_data or function_dist.batch_shape[-1]) / function_dist.batch_shape[-1]
-                with pyro.poutine.scale(scale=scale):
-                    samples = pyro.sample(self.name_prefix + ".output_values", output_dist, obs=observations)
-                    return samples
+            :param ~gpytorch.distributions.MultivariateNormal function_dist: Distribution of latent function
+                :math:`p(\mathbf f)`.
+            :param torch.Tensor target: Observed :math:`\mathbf y`.
+            :param args: Additional args (for :meth:`~forward`).
+            :param kwargs: Additional kwargs (for :meth:`~forward`).
+            """
+            with pyro.plate(self.name_prefix + ".data_plate", dim=-1):
+                function_samples = pyro.sample(self.name_prefix + ".f", function_dist)
+                output_dist = self(function_samples, *args, **kwargs)
+                return self.sample_target(output_dist, target)
+
+        def sample_target(self, output_dist, target):
+            scale = (self.num_data or output_dist.batch_shape[-1]) / output_dist.batch_shape[-1]
+            with pyro.poutine.scale(scale=scale):
+                return pyro.sample(self.name_prefix + ".y", output_dist, obs=target)
 
         def __call__(self, input, *args, **kwargs):
             # Conditional

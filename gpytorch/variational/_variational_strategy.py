@@ -101,6 +101,9 @@ class _VariationalStrategy(Module, ABC):
             )
         return kl_divergence
 
+    def prior(self, inputs):
+        return self.model.forward(inputs)
+
     def train(self, mode=True):
         # Make sure we are clearing the cache if we change modes
         if (self.training and not mode) or mode:
