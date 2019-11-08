@@ -97,14 +97,18 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     )
 
                     eye = torch.eye(
-                        k, dtype=self._piv_chol_self.dtype, device=self._piv_chol_self.device
+                        k,
+                        dtype=self._piv_chol_self.dtype,
+                        device=self._piv_chol_self.device,
                     )
 
                     if self.constant_diag:
                         # We can factor out the noise for for both QR and solves.
                         self.noise_constant = self._noise[0].squeeze()
                         self._q_cache, self._r_cache = torch.qr(
-                            torch.cat((self._piv_chol_self, self.noise_constant.sqrt() * eye))
+                            torch.cat(
+                                (self._piv_chol_self, self.noise_constant.sqrt() * eye)
+                            )
                         )
                         self._q_cache = self._q_cache[:n, :]
 
@@ -164,7 +168,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 if hasattr(self, "_q_cache"):
                     if self.constant_diag:
                         return (1 / self.noise_constant) * (
-                            tensor - self._q_cache.matmul(self._q_cache.t().matmul(tensor))
+                            tensor
+                            - self._q_cache.matmul(self._q_cache.t().matmul(tensor))
                         )
 
                     else:
@@ -182,4 +187,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
                     )
                     return res
 
-            return precondition_closure, self.preconditioner_lt, self._precond_logdet_cache
+            return (
+                precondition_closure,
+                self.preconditioner_lt,
+                self._precond_logdet_cache,
+            )
