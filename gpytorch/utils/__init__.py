@@ -5,7 +5,6 @@ from .linear_cg import linear_cg
 from .stochastic_lq import StochasticLQ
 from . import broadcasting
 from . import cholesky
-from . import eig
 from . import fft
 from . import grid
 from . import interpolation
@@ -33,7 +32,6 @@ __all__ = [
     "linear_cg",
     "StochasticLQ",
     "cholesky",
-    "eig",
     "fft",
     "grid",
     "interpolation",
