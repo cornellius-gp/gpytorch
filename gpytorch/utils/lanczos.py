@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import torch
-from .eig import batch_symeig
 from .. import settings
 
 
@@ -160,4 +159,9 @@ def lanczos_tridiag_to_diag(t_mat):
 
     TODO: make the eigenvalue computations done in batch mode.
     """
-    return batch_symeig(t_mat)
+    if t_mat.size(-1) < 64:
+        orig_device = t_mat.device
+        retr = torch.symeig(t_mat.cpu(), eigenvectors=True)
+        return (r.to(orig_device) for r in retr)
+    else:
+        return torch.symeig(t_mat, eigenvectors=True)
