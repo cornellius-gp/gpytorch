@@ -159,9 +159,15 @@ def lanczos_tridiag_to_diag(t_mat):
 
     TODO: make the eigenvalue computations done in batch mode.
     """
-    if t_mat.size(-1) < 64:
-        orig_device = t_mat.device
+    orig_device = t_mat.device
+    if t_mat.size(-1) < 32:
         retr = torch.symeig(t_mat.cpu(), eigenvectors=True)
-        return (r.to(orig_device) for r in retr)
     else:
-        return torch.symeig(t_mat, eigenvectors=True)
+        retr = torch.symeig(t_mat, eigenvectors=True)
+
+    evals, evecs = retr
+    mask = evals.ge(0)
+    evecs = evecs * mask.type_as(evecs).unsqueeze(-2)
+    evals = evals.masked_fill_(~mask, 1)
+
+    return evals.to(orig_device), evecs.to(orig_device)

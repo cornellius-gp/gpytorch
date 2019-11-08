@@ -80,7 +80,6 @@ class TestKISSGPMultiplicativeRegression(unittest.TestCase):
         for _ in range(15):
             optimizer.zero_grad()
             output = gp_model(train_x)
-            print(output.covariance_matrix, list(gp_model.named_parameters()))
             loss = -mll(output, train_y)
             loss.backward()
             optimizer.n_iter += 1
