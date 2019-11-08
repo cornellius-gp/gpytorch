@@ -138,6 +138,22 @@ class detach_test_caches(_feature_flag):
     _state = True
 
 
+class deterministic_probes(_feature_flag):
+    """
+    Whether or not to resample probe vectors every iteration of training. If True, we use the same set of probe vectors
+    for computing log determinants each iteration. This introduces small amounts of bias in to the MLL, but allows us
+    to compute a deterministic estimate of it which makes optimizers like L-BFGS more viable choices.
+    """
+
+    _state = False
+    probe_vectors = None
+
+    @classmethod
+    def _set_state(cls, state):
+        cls._state = state
+        cls.probe_vectors = None
+
+
 class debug(_feature_flag):
     """
     Whether or not to perform "safety" checks on the supplied data.
