@@ -159,7 +159,7 @@ def linear_cg(
 
     # Check for NaNs
     if not torch.equal(residual, residual):
-        raise RuntimeError("NaNs encounterd when trying to perform matrix-vector multiplication")
+        raise RuntimeError("NaNs encountered when trying to perform matrix-vector multiplication")
 
     # Sometime we're lucky and the preconditioner solves the system right away
     # Check for convergence

@@ -75,15 +75,15 @@ class TestKISSGPMultiplicativeRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        with settings.min_preconditioning_size(0):
-            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
-            optimizer.n_iter = 0
-            for _ in range(15):
-                optimizer.zero_grad()
-                output = gp_model(train_x)
-                loss = -mll(output, train_y)
-                loss.backward()
-                optimizer.n_iter += 1
+        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
+        optimizer.n_iter = 0
+        for _ in range(15):
+            optimizer.zero_grad()
+            output = gp_model(train_x)
+            print(output.covariance_matrix, list(gp_model.named_parameters()))
+            loss = -mll(output, train_y)
+            loss.backward()
+            optimizer.n_iter += 1
 
             for param in gp_model.parameters():
                 self.assertTrue(param.grad is not None)
@@ -93,12 +93,12 @@ class TestKISSGPMultiplicativeRegression(unittest.TestCase):
                 self.assertGreater(param.grad.norm().item(), 0)
             optimizer.step()
 
-            # Test the model
-            gp_model.eval()
-            likelihood.eval()
+        # Test the model
+        gp_model.eval()
+        likelihood.eval()
 
-            with gpytorch.settings.fast_pred_var():
-                test_preds = likelihood(gp_model(test_x)).mean
+        with gpytorch.settings.fast_pred_var():
+            test_preds = likelihood(gp_model(test_x)).mean
         mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
         self.assertLess(mean_abs_error.squeeze().item(), 0.15)
 
