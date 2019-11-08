@@ -404,6 +404,17 @@ class memory_efficient(_feature_flag):
     _state = False
 
 
+class min_preconditioning_size(_value_context):
+    """
+    If the size of of a LazyTensor is less than `min_preconditioning_size`,
+    then we won't use pivoted Cholesky based preconditioning.
+
+    Default: 2000
+    """
+
+    _global_value = 2000
+
+
 class num_likelihood_samples(_value_context):
     """
     The number of samples to draw from a latent GP when computing a likelihood

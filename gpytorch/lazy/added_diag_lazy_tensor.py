@@ -51,7 +51,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return AddedDiagLazyTensor(self._lazy_tensor + other, self._diag_tensor)
 
     def _preconditioner(self):
-        if settings.max_preconditioner_size.value() == 0 or self.size(-1) < 2000:
+        if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
             return None, None, None
 
         if not (hasattr(self, "_woodbury_cache") or hasattr(self, "self._q_cache")):

@@ -14,6 +14,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
+from gpytorch import settings
 
 # Simple training data: let's try to learn a sine function,
 # but with KISS-GP let's use 100 training examples.
@@ -74,29 +75,30 @@ class TestKISSGPMultiplicativeRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
-        optimizer.n_iter = 0
-        for _ in range(15):
-            optimizer.zero_grad()
-            output = gp_model(train_x)
-            loss = -mll(output, train_y)
-            loss.backward()
-            optimizer.n_iter += 1
+        with settings.min_preconditioning_size(0):
+            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
+            optimizer.n_iter = 0
+            for _ in range(15):
+                optimizer.zero_grad()
+                output = gp_model(train_x)
+                loss = -mll(output, train_y)
+                loss.backward()
+                optimizer.n_iter += 1
 
-        for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        optimizer.step()
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            optimizer.step()
 
-        # Test the model
-        gp_model.eval()
-        likelihood.eval()
+            # Test the model
+            gp_model.eval()
+            likelihood.eval()
 
-        with gpytorch.settings.fast_pred_var():
-            test_preds = likelihood(gp_model(test_x)).mean
+            with gpytorch.settings.fast_pred_var():
+                test_preds = likelihood(gp_model(test_x)).mean
         mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
         self.assertLess(mean_abs_error.squeeze().item(), 0.15)
 
