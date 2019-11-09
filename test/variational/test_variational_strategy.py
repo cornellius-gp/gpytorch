@@ -64,5 +64,23 @@ class TestMeanFieldRobustVGP(TestRobustVGP):
         return gpytorch.variational.MeanFieldVariationalDistribution
 
 
+class TestDeltaVariationalGP(TestVariationalGP):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.DeltaVariationalDistribution
+
+
+class TestDeltaPredictiveGP(TestPredictiveGP):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.DeltaVariationalDistribution
+
+
+class TestDeltaRobustVGP(TestRobustVGP):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.DeltaVariationalDistribution
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ from .variational_strategy import VariationalStrategy
 from ._variational_distribution import _VariationalDistribution
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
+from .delta_variational_distribution import DeltaVariationalDistribution
 
 __all__ = [
     "_VariationalStrategy",
@@ -18,4 +19,5 @@ __all__ = [
     "_VariationalDistribution",
     "CholeskyVariationalDistribution",
     "MeanFieldVariationalDistribution",
+    "DeltaVariationalDistribution",
 ]

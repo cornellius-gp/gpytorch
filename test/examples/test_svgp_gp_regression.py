@@ -98,6 +98,12 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             distribution_cls=gpytorch.variational.MeanFieldVariationalDistribution,
         )
 
+    def test_predictive_ll_regression_error_delta(self):
+        return self.test_regression_error(
+            mll_cls=gpytorch.mlls.PredictiveLogLikelihood,
+            distribution_cls=gpytorch.variational.DeltaVariationalDistribution,
+        )
+
     def test_robust_regression_error(self):
         return self.test_regression_error(mll_cls=gpytorch.mlls.GammaRobustVariationalELBO)
 
