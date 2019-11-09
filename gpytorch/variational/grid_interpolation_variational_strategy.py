@@ -3,7 +3,7 @@
 import torch
 from ..utils.interpolation import Interpolation, left_interp
 from ..lazy import InterpolatedLazyTensor
-from ..distributions import MultivariateNormal
+from ..distributions import Delta, MultivariateNormal
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
@@ -47,7 +47,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         )
         return res
 
-    def forward(self, x):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
         variational_distribution = self.variational_distribution
 
         # Get interpolations
@@ -55,17 +55,20 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
 
         # Compute test mean
         # Left multiply samples by interpolation matrix
-        predictive_mean = left_interp(interp_indices, interp_values, variational_distribution.mean.unsqueeze(-1))
+        predictive_mean = left_interp(interp_indices, interp_values, inducing_values.unsqueeze(-1))
         predictive_mean = predictive_mean.squeeze(-1)
 
         # Compute test covar
-        predictive_covar = InterpolatedLazyTensor(
-            variational_distribution.lazy_covariance_matrix,
-            interp_indices,
-            interp_values,
-            interp_indices,
-            interp_values,
-        )
+        if variational_inducing_covar is not None:
+            predictive_covar = InterpolatedLazyTensor(
+                variational_distribution.lazy_covariance_matrix,
+                interp_indices,
+                interp_values,
+                interp_indices,
+                interp_values,
+            )
+            output = MultivariateNormal(predictive_mean, predictive_covar)
+            return output
 
-        output = MultivariateNormal(predictive_mean, predictive_covar)
-        return output
+        else:
+            return Delta(predictive_mean)

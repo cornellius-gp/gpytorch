@@ -2,9 +2,11 @@
 
 import torch
 from .. import settings
+from ..distributions import Delta, MultivariateNormal
 from ..module import Module
+from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
-from abc import ABC, abstractproperty, abstractmethod
+from abc import ABC, abstractproperty
 
 
 class _VariationalStrategy(Module, ABC):
@@ -74,8 +76,7 @@ class _VariationalStrategy(Module, ABC):
     def variational_distribution(self):
         return self._variational_distribution()
 
-    @abstractmethod
-    def forward(self, x):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
         """
         The :func:`~gpytorch.variational.VariationalStrategy.forward` method determines how to marginalize out the
         inducing point function values. Specifically, forward defines how to transform a variational distribution
@@ -101,9 +102,6 @@ class _VariationalStrategy(Module, ABC):
             )
         return kl_divergence
 
-    def prior(self, inputs):
-        return self.model.forward(inputs)
-
     def train(self, mode=True):
         # Make sure we are clearing the cache if we change modes
         if (self.training and not mode) or mode:
@@ -111,7 +109,11 @@ class _VariationalStrategy(Module, ABC):
                 delattr(self, "_memoize_cache")
         return super().train(mode=mode)
 
-    def __call__(self, x):
+    def __call__(self, x, prior=False):
+        # If we're in prior mode, then we're done!
+        if prior:
+            return self.model.forward(x)
+
         # Delete previously cached items from the training distribution
         if self.training:
             if hasattr(self, "_memoize_cache"):
@@ -122,4 +124,32 @@ class _VariationalStrategy(Module, ABC):
             prior_dist = self.prior_distribution
             self._variational_distribution.initialize_variational_distribution(prior_dist)
             self.variational_params_initialized.fill_(1)
-        return super().__call__(x)
+
+        # Ensure inducing_points and x are the same size
+        inducing_points = self.inducing_points
+        if inducing_points.shape[:-2] != x.shape[:-2]:
+            batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
+            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
+            x = x.expand(*batch_shape, *x.shape[-2:])
+
+        # Get p(u)/q(u)
+        variational_dist_u = self.variational_distribution
+
+        # Get q(f)
+        if isinstance(variational_dist_u, MultivariateNormal):
+            return super().__call__(
+                x, inducing_points,
+                inducing_values=variational_dist_u.mean,
+                variational_inducing_covar=variational_dist_u.lazy_covariance_matrix,
+            )
+        elif isinstance(variational_dist_u, Delta):
+            return super().__call__(
+                x, inducing_points,
+                inducing_values=variational_dist_u.mean,
+                variational_inducing_covar=None,
+            )
+        else:
+            raise RuntimeError(
+                f"Invalid variational distribuition ({type(variational_dist_u)}). "
+                "Expected a multivariate normal or a delta distribution."
+            )

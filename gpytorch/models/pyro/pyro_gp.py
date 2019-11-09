@@ -103,7 +103,7 @@ class PyroGP(GP, _PyroMixin):
         function_dist = self.pyro_model(input, beta=self.beta, name_prefix=self.name_prefix)
         return self.likelihood.pyro_model(function_dist, target, *args, **kwargs)
 
-    def __call__(self, inputs, **kwargs):
+    def __call__(self, inputs, prior=False):
         if inputs.dim() == 1:
             inputs = inputs.unsqueeze(-1)
-        return self.variational_strategy(inputs)
+        return self.variational_strategy(inputs, prior=prior)

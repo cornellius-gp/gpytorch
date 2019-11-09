@@ -11,7 +11,7 @@ class _PyroMixin(object):
             pyro.sample(name_prefix + ".u", self.variational_strategy.variational_distribution)
 
         # Draw samples from q(f)
-        function_dist = self(input)
+        function_dist = self(input, prior=False)
         function_dist = pyro.distributions.Normal(
             loc=function_dist.mean,
             scale=function_dist.stddev,
@@ -36,7 +36,7 @@ class _PyroMixin(object):
         pyro.factor(name_prefix + ".added_loss", added_loss)
 
         # Draw samples from p(f)
-        function_dist = self.variational_strategy.prior(input)
+        function_dist = self(input, prior=True)
         function_dist = pyro.distributions.Normal(
             loc=function_dist.mean,
             scale=function_dist.stddev,

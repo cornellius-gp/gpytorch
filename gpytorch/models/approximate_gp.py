@@ -50,7 +50,7 @@ class ApproximateGP(GP, _PyroMixin):
         """
         return super().pyro_model(input, beta=beta, name_prefix=name_prefix)
 
-    def __call__(self, inputs, **kwargs):
+    def __call__(self, inputs, prior=False, **kwargs):
         if inputs.dim() == 1:
             inputs = inputs.unsqueeze(-1)
-        return self.variational_strategy(inputs)
+        return self.variational_strategy(inputs, prior=prior)

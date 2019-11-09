@@ -40,17 +40,11 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
     def variational_params_initialized(self):
         return self.base_variational_strategy.variational_params_initialized
 
-    def forward(self, inputs):
-        function_dist = self.base_variational_strategy(inputs)
-        function_dist = function_dist.to_multitask_from_batch(task_dim=self.task_dim)
-        assert function_dist.event_shape[-1] == self.num_tasks
-        return function_dist
-
     def kl_divergence(self):
         return super().kl_divergence().sum(dim=-1)
 
-    def prior(self, inputs):
-        function_dist = self.base_variational_strategy.prior(inputs)
+    def __call__(self, x, prior=False):
+        function_dist = self.base_variational_strategy(x, prior=prior)
         if (
             self.task_dim > 0 and self.task_dim > len(function_dist.batch_shape)
             or self.task_dim < 0 and self.task_dim + len(function_dist.batch_shape) < 0
@@ -60,11 +54,3 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
             function_dist = function_dist.to_multitask_from_batch(task_dim=self.task_dim)
             assert function_dist.event_shape[-1] == self.num_tasks
             return function_dist
-
-    def __call__(self, x):
-        # Delete previously cached items from the training distribution
-        if self.training:
-            if hasattr(self, "_memoize_cache"):
-                delattr(self, "_memoize_cache")
-                self._memoize_cache = dict()
-        return Module.__call__(self, x)
