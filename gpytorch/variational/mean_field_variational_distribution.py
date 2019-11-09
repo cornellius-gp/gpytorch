@@ -12,15 +12,11 @@ class MeanFieldVariationalDistribution(_VariationalDistribution):
     with a diagonal covariance matrix. This will not be as flexible/expressive as a
     :obj:`~gpytorch.variational.CholeskyVariationalDistribution`.
 
-    Args:
-        :attr:`num_inducing_points` (int):
-            Size of the variational distribution. This implies that the variational mean
-            should be this size, and the variational covariance matrix should have this many rows and columns.
-        :attr:`batch_shape` (torch.Size, optional):
-            Specifies an optional batch size for the variational parameters. This is useful for example
-            when doing additive variational inference.
-        :attr:`mean_init_std` (float, default=1e-3):
-            Standard deviation of gaussian noise to add to the mean initialization
+    :param int num_inducing_points: Size of the variational distribution. This implies that the variational mean
+        should be this size, and the variational covariance matrix should have this many rows and columns.
+    :param torch.Size batch_shape: (Optional.) Specifies an optional batch size
+        for the variational parameters. This is useful for example when doing additive variational inference.
+    :param float mean_init_std: (default=1e-3) Standard deviation of gaussian noise to add to the mean initialization.
     """
     def __init__(self, num_inducing_points, batch_shape=torch.Size([]), mean_init_std=1e-3, **kwargs):
         super().__init__(num_inducing_points=num_inducing_points, batch_shape=batch_shape)

@@ -200,7 +200,6 @@ try:
             :param kwargs: Additional kwargs
             :return: Distribution object (with same shape as :attr:`function_samples`)
             :rtype: :obj:`Distribution`
-            Returns:
             """
             raise NotImplementedError
 
