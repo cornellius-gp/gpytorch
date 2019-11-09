@@ -8,20 +8,7 @@ from abc import ABC, abstractmethod
 
 class _VariationalDistribution(Module, ABC):
     r"""
-    _VariationalDistribution objects represent the variational distribution
-    :math:`q(\mathbf u)` over a set of inducing points for GPs.  Typically the
-    distributions are some sort of parameterization of a multivariate normal
-    distributions.
-
-    Calling a variational distribution object returns the distribution :math:`q(\mathbf u)`.
-
-    Args:
-        :attr:`num_inducing_points` (int):
-            Size of the variational distribution. This implies that the variational mean
-            should be this size, and the variational covariance matrix should have this many rows and columns.
-        :attr:`batch_shape` (torch.Size, optional):
-            Specifies an optional batch size for the variational parameters. This is useful for example
-            when doing additive variational inference.
+    Abstract base class for all Variational Distributions.
     """
 
     def __init__(self, num_inducing_points, batch_shape=torch.Size([])):
@@ -30,22 +17,20 @@ class _VariationalDistribution(Module, ABC):
         self.batch_shape = batch_shape
 
     def forward(self):
-        """
+        r"""
         Constructs and returns the variational distribution
 
-        Returns:
-            :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(u)
+        :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
+        :return: The distribution :math:q(\mathbf u)"
         """
         raise NotImplementedError
 
     @abstractmethod
     def initialize_variational_distribution(self, prior_dist):
-        """
+        r"""
         Method for initializing the variational distribution, based on the prior distribution.
 
-        Args:
-            :attr:`prior_dist` (gpytorch.distribution.Distribution):
-                The prior distribution p(u)
+        :param ~gpytorch.distribution.Distribution prior_dist: The prior distribution :math:`p(\mathbf u)`.
         """
         raise NotImplementedError
 

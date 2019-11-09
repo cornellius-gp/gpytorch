@@ -42,6 +42,7 @@ GPyTorch's documentation
    constraints
    distributions
    priors
+   variational
 
 .. toctree::
    :maxdepth: 1

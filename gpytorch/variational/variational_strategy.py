@@ -9,7 +9,35 @@ from ._variational_strategy import _VariationalStrategy
 
 
 class VariationalStrategy(_VariationalStrategy):
-    """
+    r"""
+    The standard variational strategy, as defined by `Hensman et al. (2015)`_.
+    This strategy takes a set of :math:`m \ll n` inducing points :math:`\mathbf Z`
+    and applies an approximate distribution :math:`q( \mathbf u)` over their function values.
+    (Here, we use the common notation :math:`\mathbf u = f(\mathbf Z)`.
+    The approximate function distribution for any abitrary input :math:`\mathbf X` is given by:
+
+    .. math::
+
+        q( f(\mathbf X) ) = \int p( f(\mathbf X) \mid \mathbf u) q(\mathbf u) \: d\mathbf u
+
+    This variational strategy uses "whitening" to accelerate the optimization of the variational
+    parameters. See `Matthews (2017)`_ for more info.
+
+    :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
+        Typically passed in when the VariationalStrategy is created in the
+        __init__ method of the user defined model.
+    :param torch.Tensor inducing_points: Tensor containing a set of inducing
+        points to use for variational inference.
+    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+        VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
+    :param bool learn_inducing_points: (optional, default True): Whether or not
+        the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
+        parameters of the model).
+
+    .. _Hensman et al. (2015):
+        http://proceedings.mlr.press/v38/hensman15.pdf
+    .. _Matthews (2017):
+        https://www.repository.cam.ac.uk/handle/1810/278022
     """
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
@@ -25,17 +53,6 @@ class VariationalStrategy(_VariationalStrategy):
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
-        """
-        The :func:`~gpytorch.variational.VariationalStrategy.forward` method determines how to marginalize out the
-        inducing point function values. Specifically, forward defines how to transform a variational distribution
-        over the inducing point values, :math:`q(u)`, in to a variational distribution over the function values at
-        specified locations x, :math:`q(f|x)`, by integrating :math:`\int p(f|x, u)q(u)du`
-
-        Args:
-            x (torch.tensor): Locations x to get the variational posterior of the function values at.
-        Returns:
-            :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
-        """
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
         full_output = self.model.forward(full_inputs)

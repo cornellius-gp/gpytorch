@@ -14,11 +14,8 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
     The base variational strategy is assumed to operate on a batch of GPs. One of the batch
     dimensions corresponds to the multiple tasks.
 
-    Args:
-        :attr:`base_variational_strategy` (:obj:`~gpytorch.variational.VariationalStrategy`):
-            Base variational strategy
-        :attr:`task_dim` (int, default=-2):
-            Which batch dimension is the task dimension
+    :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
+    :param int task_dim: (default=-1) Which batch dimension is the task dimension
     """
     def __init__(self, base_variational_strategy, num_tasks, task_dim=-1):
         Module.__init__(self)

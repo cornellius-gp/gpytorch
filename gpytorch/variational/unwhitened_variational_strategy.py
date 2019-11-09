@@ -15,22 +15,27 @@ from ._variational_strategy import _VariationalStrategy
 
 
 class UnwhitenedVariationalStrategy(_VariationalStrategy):
-    """
-    VariationalStrategy objects control how certain aspects of variational inference should be performed. In particular,
-    they define two methods that get used during variational inference:
+    r"""
+    Similar to :obj:`~gpytorch.variational.VariationalStrategy`, but does not perform the
+    whitening operation. In almost all cases :obj:`~gpytorch.variational.VariationalStrategy`
+    is preferable, with a few exceptions:
 
-    #. The :func:`~gpytorch.variational.VariationalStrategy.prior_distribution` method determines how to compute the
-       GP prior distribution of the inducing points, e.g. :math:`p(u) \sim N(\mu(X_u), K(X_u, X_u))`. Most commonly,
-       this is done simply by calling the user defined GP prior on the inducing point data directly.
-    # The :func:`~gpytorch.variational.VariationalStrategy.forward` method determines how to marginalize out the
-      inducing point function values. Specifically, forward defines how to transform a variational distribution
-      over the inducing point values, :math:`q(u)`, in to a variational distribution over the function values at
-      specified locations x, :math:`q(f|x)`, by integrating :math:`\int p(f|x, u)q(u)du`
+    - When the inducing points are exactly equal to the training points (i.e. :math:`\mathbf Z = \mathbf X`).
+      Unwhitened models are faster in this case.
 
-    In GPyTorch, we currently support two example instances of this latter functionality. In scenarios where the
-    inducing points are learned or at least not constrained to a grid, we apply the derivation in Hensman et al., 2015
-    to exactly marginalize out the variational distribution. When the inducing points are constrained to a grid, we
-    apply the derivation in Wilson et al., 2016 and exploit a deterministic relationship between f and u.
+    - When the number of inducing points is very large (e.g. >2000). Unwhitened models can use CG for faster
+      computation.
+
+    :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
+        Typically passed in when the VariationalStrategy is created in the
+        __init__ method of the user defined model.
+    :param torch.Tensor inducing_points: Tensor containing a set of inducing
+        points to use for variational inference.
+    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+        VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
+    :param bool learn_inducing_points: (optional, default True): Whether or not
+        the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
+        parameters of the model).
     """
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):

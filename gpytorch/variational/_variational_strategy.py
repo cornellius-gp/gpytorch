@@ -11,33 +11,7 @@ from abc import ABC, abstractproperty
 
 class _VariationalStrategy(Module, ABC):
     """
-    _VariationalStrategy objects control how certain aspects of variational inference should be performed.
-    In particular, they define two methods that get used during variational inference:
-
-    # The :func:`~gpytorch.variational._VariationalStrategy.prior_distribution` method determines how to compute the
-      GP prior distribution of the inducing points, e.g. :math:`p(u) \sim N(\mu(X_u), K(X_u, X_u))`. Most commonly,
-      this is done simply by calling the user defined GP prior on the inducing point data directly.
-    # The :func:`~gpytorch.variational._VariationalStrategy.forward` method determines how to marginalize out the
-      inducing point function values. Specifically, forward defines how to transform a variational distribution
-      over the inducing point values, :math:`q(u)`, in to a variational distribution over the function values at
-      specified locations x, :math:`q(f|x)`, by integrating :math:`\int p(f|x, u)q(u)du`
-
-    In GPyTorch, we currently support two categories of this latter functionality. In scenarios where the
-    inducing points are learned (or set to be exactly the training data), we apply the derivation in
-    Hensman et al., 2015 to exactly marginalize out the variational distribution. When the inducing points
-    are constrained to a grid, we apply the derivation in Wilson et al., 2016 and exploit a
-    deterministic relationship between f and u.
-
-    Args:
-        :attr:`model` (:obj:`gpytorch.model.VariationalGP`):
-            Model this strategy is applied to. Typically passed in when the VariationalStrategy is created
-            in the __init__ method of the user defined model.
-        :attr:`inducing_points` (:obj:`torch.Tensor`):
-            Tensor containing a set of inducing points to use for variational inference.
-        :attr:`variational_distribution` (:obj:`gpytorch.variational.VariationalDistribution`):
-            A VariationalDistribution object that represents the form of the variational distribution :math:`q(u)`
-        :attr:`learn_inducing_locations` (bool - default True):
-            Whether or not the inducing point locations should be learned (e.g. SVGP).
+    Abstract base class for all Variational Strategies.
     """
     def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
         super().__init__()
@@ -66,8 +40,8 @@ class _VariationalStrategy(Module, ABC):
         GP prior distribution of the inducing points, e.g. :math:`p(u) \sim N(\mu(X_u), K(X_u, X_u))`. Most commonly,
         this is done simply by calling the user defined GP prior on the inducing point data directly.
 
-        Returns:
-            :obj:`gpytorch.distributions.MultivariateNormal`: The distribution p(u)
+        :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
+        :return: The distribution :math:`p( \mathbf u)`
         """
         raise NotImplementedError
 
@@ -83,10 +57,17 @@ class _VariationalStrategy(Module, ABC):
         over the inducing point values, :math:`q(u)`, in to a variational distribution over the function values at
         specified locations x, :math:`q(f|x)`, by integrating :math:`\int p(f|x, u)q(u)du`
 
-        Args:
-            x (torch.tensor): Locations x to get the variational posterior of the function values at.
-        Returns:
-            :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
+        :param torch.Tensor x: Locations :math:`\mathbf X` to get the
+            variational posterior of the function values at.
+        :param torch.Tensor inducing_points: Locations :math:`\mathbf Z` of the inducing points
+        :param torch.Tensor inducing_values: Samples of the inducing function values :math:`\mathbf u`
+            (or the mean of the distribution :math:`q(\mathbf u)` if q is a Gaussian.
+        :param ~gpytorch.lazy.LazyTensor variational_inducing_covar: If the distribuiton :math:`q(\mathbf u)`
+            is Gaussian, then this variable is the covariance matrix of that Gaussian. Otherwise, it will be
+            :attr:`None`.
+
+        :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
+        :return: The distribution :math:`q( \mathbf f(\mathbf X))`
         """
         raise NotImplementedError
 
@@ -94,6 +75,8 @@ class _VariationalStrategy(Module, ABC):
         """
         Compute the KL divergence between the variational inducing distribution :math:`q(\mathbf u)`
         and the prior inducing distribution :math:`p(\mathbf u)`.
+
+        :rtype: torch.Tensor
         """
         with settings.max_preconditioner_size(0):
             kl_divergence = torch.distributions.kl.kl_divergence(

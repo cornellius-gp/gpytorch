@@ -10,6 +10,26 @@ from ._variational_strategy import _VariationalStrategy
 
 
 class GridInterpolationVariationalStrategy(_VariationalStrategy):
+    """
+    This strategy constrains the inducing points to a grid and applies a deterministic
+    relationship between :math:`\mathbf f` and :math:`\mathbf u`.
+    It was introduced by `Wilson et al. (2016)`_.
+
+    Here, the inducing points are not learned. Instead, the strategy
+    automatically creates inducing points based on a set of grid sizes and grid
+    bounds.
+
+    .. _Wilson et al. (2016):
+        https://arxiv.org/abs/1611.00336
+
+    :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
+        Typically passed in when the VariationalStrategy is created in the
+        __init__ method of the user defined model.
+    :param int grid_size: Size of the grid
+    :param list grid_bounds: Bounds of each dimension of the grid (should be a list of (float, float) tuples)
+    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+        VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
+    """
     def __init__(self, model, grid_size, grid_bounds, variational_distribution):
         grid = torch.zeros(grid_size, len(grid_bounds))
         for i in range(len(grid_bounds)):
