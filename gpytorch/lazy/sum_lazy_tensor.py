@@ -7,14 +7,14 @@ from .zero_lazy_tensor import ZeroLazyTensor
 
 
 class SumLazyTensor(LazyTensor):
-    def __init__(self, *lazy_tensors):
+    def __init__(self, *lazy_tensors, **kwargs):
         lazy_tensors = list(lazy_tensors)
         for i, lazy_tensor in enumerate(lazy_tensors):
             try:
                 lazy_tensors[i] = lazify(lazy_tensor)
             except TypeError:
                 raise TypeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
-        super(SumLazyTensor, self).__init__(*lazy_tensors)
+        super(SumLazyTensor, self).__init__(*lazy_tensors, **kwargs)
 
         self.lazy_tensors = lazy_tensors
 
