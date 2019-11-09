@@ -11,7 +11,7 @@ class DeltaVariationalDistribution(_VariationalDistribution):
     with a single particle. It is equivalent to doing MAP inference.
 
     :param int num_inducing_points: Size of the variational distribution. This implies that the variational mean
-        should be this size, and the variational covariance matrix should have this many rows and columns.
+        should be this size.
     :param torch.Size batch_shape: (Optional.) Specifies an optional batch size
         for the variational parameters. This is useful for example when doing additive variational inference.
     :param float mean_init_std: (default=1e-3) Standard deviation of gaussian noise to add to the mean initialization.
