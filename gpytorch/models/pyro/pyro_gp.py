@@ -68,7 +68,7 @@ class PyroGP(GP, _PyroMixin):
 
     def guide(self, input, target, *args, **kwargs):
         """
-        Gude function for Pyro inference.
+        Guide function for Pyro inference.
         Includes the guide for the GP's likelihood function as well.
 
         Args:

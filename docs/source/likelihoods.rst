@@ -23,7 +23,7 @@ Likelihoods for GPs that are distributions of scalar functions.
 
 One-dimensional likelihoods should extend :obj:`gpytoch.likelihoods._OneDimensionalLikelihood` to 
 reduce the variance when computing approximate GP objective functions.
-(Variance reduction is accomplished by by using 1D Gauss-Hermite quadrature rather than MC-integration).
+(Variance reduction is accomplished by using 1D Gauss-Hermite quadrature rather than MC-integration).
 
 
 :hidden:`GaussianLikelihood`

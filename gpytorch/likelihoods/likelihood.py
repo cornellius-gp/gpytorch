@@ -111,7 +111,7 @@ try:
         Args:
             :attr:`max_plate_nesting` (int, default=1)
                 (For Pyro integration only). How many batch dimensions are in the function.
-                This should be modified if thew likelihood uses plated random variables.
+                This should be modified if the likelihood uses plated random variables.
         """
         @property
         def num_data(self):

@@ -23,7 +23,7 @@ class VariationalELBO(_ApproximateMarginalLogLikelihood):
           \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
        \end{align*}
 
-    where :math:`N` is the amount of data, :math:`q(\mathbf u)` is the variational distribution for
+    where :math:`N` is the number of datapoints, :math:`q(\mathbf u)` is the variational distribution for
     the inducing function values, and `p(\mathbf u)` is the prior distribution for the inducing function
     values.
 

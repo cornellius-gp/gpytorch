@@ -6,7 +6,7 @@ from ._approximate_mll import _ApproximateMarginalLogLikelihood
 class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
     r"""
     An alternative objective function for approximate GPs, proposed in `Jankowiak et al., 2019`_.
-    It typically produces predictive variances than the :obj:`gpytorch.mlls.VariationalELBO` objective.
+    It typically produces better predictive variances than the :obj:`gpytorch.mlls.VariationalELBO` objective.
 
     .. math::
 
@@ -21,12 +21,13 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
           \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
        \end{align*}
 
-    where :math:`N` is the amount of data, :math:`q(\mathbf u)` is the variational distribution for
+    where :math:`N` is the total number of datapoints, :math:`q(\mathbf u)` is the variational distribution for
     the inducing function values, and `p(\mathbf u)` is the prior distribution for the inducing function
     values.
 
     :math:`\beta` is a scaling constant that reduces the regularization effect of the KL
-    divergence. Setting :math:`\beta=1` (default) results in the true variational ELBO.
+    divergence. Setting :math:`\beta=1` (default) results in an objective that can be motivated by a connection
+    to Stochastic Expectation Propagation (see `Jankowiak et al., 2019`_ for details).
 
     .. note::
         This objective is very similar to the variational ELBO.
