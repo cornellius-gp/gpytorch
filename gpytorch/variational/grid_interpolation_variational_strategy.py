@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
+from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.interpolation import Interpolation, left_interp
 from ..lazy import InterpolatedLazyTensor
-from ..distributions import Delta, MultivariateNormal
+from ..distributions import MultivariateNormal
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
@@ -32,10 +33,18 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         self.register_buffer("grid", grid)
 
     def _compute_grid(self, inputs):
-        if inputs.ndimension() == 1:
-            inputs = inputs.unsqueeze(1)
+        n_data, n_dimensions = inputs.size(-2), inputs.size(-1)
+        batch_shape = inputs.shape[:-2]
 
+        inputs = inputs.reshape(-1, n_dimensions)
         interp_indices, interp_values = Interpolation().interpolate(self.grid, inputs)
+        interp_indices = interp_indices.view(*batch_shape, n_data, -1)
+        interp_values = interp_values.view(*batch_shape, n_data, -1)
+
+        if (interp_indices.dim() - 2) != len(self._variational_distribution.batch_shape):
+            batch_shape = _mul_broadcast_shape(interp_indices.shape[:-2], self._variational_distribution.batch_shape)
+            interp_indices = interp_indices.expand(*batch_shape, *interp_indices.shape[-2:])
+            interp_values = interp_values.expand(*batch_shape, *interp_values.shape[-2:])
         return interp_indices, interp_values
 
     @property
@@ -48,6 +57,12 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+        if variational_inducing_covar is None:
+            raise RuntimeError(
+                "GridInterpolationVariationalStrategy is only compatible with Gaussian variational "
+                f"distributions. Got ({self.variational_distribution.__class__.__name__}."
+            )
+
         variational_distribution = self.variational_distribution
 
         # Get interpolations
@@ -59,16 +74,12 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
         predictive_mean = predictive_mean.squeeze(-1)
 
         # Compute test covar
-        if variational_inducing_covar is not None:
-            predictive_covar = InterpolatedLazyTensor(
-                variational_distribution.lazy_covariance_matrix,
-                interp_indices,
-                interp_values,
-                interp_indices,
-                interp_values,
-            )
-            output = MultivariateNormal(predictive_mean, predictive_covar)
-            return output
-
-        else:
-            return Delta(predictive_mean)
+        predictive_covar = InterpolatedLazyTensor(
+            variational_distribution.lazy_covariance_matrix,
+            interp_indices,
+            interp_values,
+            interp_indices,
+            interp_values,
+        )
+        output = MultivariateNormal(predictive_mean, predictive_covar)
+        return output

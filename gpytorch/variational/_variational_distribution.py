@@ -26,6 +26,8 @@ class _VariationalDistribution(Module, ABC):
 
     def __init__(self, num_inducing_points, batch_shape=torch.Size([])):
         super().__init__()
+        self.num_inducing_points = num_inducing_points
+        self.batch_shape = batch_shape
 
     def forward(self):
         """

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import torch
-from ..lazy import DiagLazyTensor
 from ..distributions import Delta
 from ._variational_distribution import _VariationalDistribution
 

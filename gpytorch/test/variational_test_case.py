@@ -38,14 +38,14 @@ class VariationalTestCase(BaseTestCase):
                 latent_pred = gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
                 return latent_pred
 
-        inducing_points = torch.randn(num_inducing, 10).repeat(*inducing_batch_shape, 1, 1)
+        inducing_points = torch.randn(num_inducing, 2).repeat(*inducing_batch_shape, 1, 1)
         return _SVGPRegressionModel(inducing_points), self.likelihood_cls()
 
     def _training_iter(
         self, model, likelihood, batch_shape=torch.Size([]),
         mll_cls=gpytorch.mlls.VariationalELBO, cuda=False
     ):
-        train_x = torch.randn(*batch_shape, 32, 10)
+        train_x = torch.randn(*batch_shape, 32, 2).clamp(-2.5, 2.5)
         train_y = torch.linspace(-1, 1, self.event_shape[0])
         train_y = train_y.view(self.event_shape[0], *([1] * (len(self.event_shape) - 1)))
         train_y = train_y.expand(*self.event_shape)
@@ -77,7 +77,7 @@ class VariationalTestCase(BaseTestCase):
         return output, loss
 
     def _eval_iter(self, model, batch_shape=torch.Size([]), cuda=False):
-        test_x = torch.randn(*batch_shape, 32, 10)
+        test_x = torch.randn(*batch_shape, 32, 2).clamp(-2.5, 2.5)
         if cuda:
             test_x = test_x.cuda()
             model = model.cuda()
