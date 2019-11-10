@@ -3,6 +3,7 @@
 from ._variational_strategy import _VariationalStrategy
 from ..module import Module
 from ..utils.memoize import cached
+from ..distributions import MultitaskMultivariateNormal
 
 
 class MultitaskVariationalStrategy(_VariationalStrategy):
@@ -46,8 +47,8 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
             self.task_dim > 0 and self.task_dim > len(function_dist.batch_shape)
             or self.task_dim < 0 and self.task_dim + len(function_dist.batch_shape) < 0
         ):
-            return function_dist.to_multitask(num_tasks=self.num_tasks)
+            return MultitaskMultivariateNormal.from_repeated_mvn(function_dist, num_tasks=self.num_tasks)
         else:
-            function_dist = function_dist.to_multitask_from_batch(task_dim=self.task_dim)
+            return MultitaskMultivariateNormal.from_batch_mvn(function_dist, task_dim=self.task_dim)
             assert function_dist.event_shape[-1] == self.num_tasks
             return function_dist
