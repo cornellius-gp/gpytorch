@@ -26,7 +26,11 @@ class MeanFieldVariationalDistribution(_VariationalDistribution):
         covar_init = covar_init.repeat(*batch_shape, 1)
 
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(mean_init))
-        self.register_parameter(name="variational_stddev", parameter=torch.nn.Parameter(covar_init))
+        self.register_parameter(name="_variational_stddev", parameter=torch.nn.Parameter(covar_init))
+
+    @property
+    def variational_stddev(self):
+        return self._variational_stddev.abs().clamp_min(1e-8)
 
     def forward(self):
         variational_var = self.variational_stddev.pow(2)
