@@ -8,7 +8,7 @@ from .marginal_log_likelihood import MarginalLogLikelihood
 from .predictive_log_likelihood import PredictiveLogLikelihood
 from .gamma_robust_variational_elbo import GammaRobustVariationalELBO
 from .sum_marginal_log_likelihood import SumMarginalLogLikelihood
-from .variational_elbo import VariationalELBO, VariationalELBOEmpirical
+from .variational_elbo import VariationalELBO
 from .noise_model_added_loss_term import NoiseModelAddedLossTerm
 
 
@@ -17,6 +17,15 @@ class VariationalMarginalLogLikelihood(VariationalELBO):
     def __init__(self, *args, **kwargs):
         warnings.warn(
             "VariationalMarginalLogLikelihood is deprecated. Please use VariationalELBO instead.",
+            DeprecationWarning
+        )
+        super().__init__(*args, **kwargs)
+
+
+class VariationalELBOEmpirical(VariationalELBO):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "VariationalELBOEmpirical is deprecated. Please use VariationalELBO instead.",
             DeprecationWarning
         )
         super().__init__(*args, **kwargs)
@@ -32,5 +41,4 @@ __all__ = [
     "GammaRobustVariationalELBO",
     "SumMarginalLogLikelihood",
     "VariationalELBO",
-    "VariationalELBOEmpirical",
 ]
