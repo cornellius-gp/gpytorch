@@ -46,7 +46,8 @@ class _GaussianLikelihoodBase(Likelihood):
         # Potentially reshape the noise to deal with the multitask case
         noise = noise.view(*noise.shape[:-1], *input.event_shape)
 
-        res = (((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)) * -0.5
+        res = (((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi))
+        res = res.mul(-0.5)
         if num_event_dim > 1:  # Do appropriate summation for multitask Gaussian likelihoods
             res = res.sum(list(range(-1, -num_event_dim, -1)))
         return res
@@ -60,7 +61,7 @@ class _GaussianLikelihoodBase(Likelihood):
     ) -> Tensor:
         marginal = self.marginal(function_dist, *params, **kwargs)
         # We're making everything conditionally independent
-        indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.sqrt())
+        indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
         res = indep_dist.log_prob(observations)
 
         # Do appropriate summation for multitask Gaussian likelihoods
