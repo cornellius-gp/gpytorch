@@ -13,7 +13,7 @@ most GP approximations:
 
 - :obj:`VariationalDistribution`, which define the form of the approximate inducing value
   posterior :math:`q(\mathbf u)`.
-- :obj:`VarationalStrategies`, which define how to compute :math:`q(\mathbf f(\mathbf X)` from
+- :obj:`VarationalStrategies`, which define how to compute :math:`q(\mathbf f(\mathbf X))` from
   :math:`q(\mathbf u)`.
 - :obj:`~gpytorch.mlls._ApproximateMarginalLogLikelihood`, which defines the objective function
   to learn the approximate posterior (e.g. variational ELBO).
