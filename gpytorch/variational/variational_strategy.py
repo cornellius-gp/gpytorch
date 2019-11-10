@@ -1,11 +1,31 @@
 #!/usr/bin/env python3
 
 import torch
-from ..lazy import DiagLazyTensor, MatmulLazyTensor, SumLazyTensor, delazify
+import warnings
+from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, delazify
 from ..distributions import MultivariateNormal
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
+
+
+class OldVersionWarning(RuntimeWarning):
+    pass
+
+
+def _ensure_updated_strategy_flag_set(
+    state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+):
+    device = state_dict[list(state_dict.keys())[0]].device
+    if prefix + "updated_strategy" not in state_dict:
+        state_dict[prefix + "updated_strategy"] = torch.tensor(False, device=device)
+        warnings.warn(
+            "You have loaded a variational GP model (using `VariationalStrategy`) from a previous version of "
+            "GPyTorch. We have updated the parameters of your model to work with the new version of "
+            "`VariationalStrategy` that uses whitened parameters.\nYour model will work as expected, but we "
+            "recommend that you re-save your model.",
+            OldVersionWarning
+        )
 
 
 class VariationalStrategy(_VariationalStrategy):
@@ -39,6 +59,11 @@ class VariationalStrategy(_VariationalStrategy):
     .. _Matthews (2017):
         https://www.repository.cam.ac.uk/handle/1810/278022
     """
+    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
+        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
+        self.register_buffer("updated_strategy", torch.tensor(True))
+        self._register_load_state_dict_pre_hook(_ensure_updated_strategy_flag_set)
+
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
         L = psd_safe_cholesky(delazify(induc_induc_covar).double())
@@ -61,7 +86,7 @@ class VariationalStrategy(_VariationalStrategy):
         # Covariance terms
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
-        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter(1e-4)
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
         induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
@@ -90,3 +115,41 @@ class VariationalStrategy(_VariationalStrategy):
 
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
+
+    def __call__(self, x, prior=False):
+        if not self.updated_strategy.item() and not prior:
+            with torch.no_grad():
+                # Get unwhitened p(u)
+                prior_function_dist = self(self.inducing_points, prior=True)
+                prior_mean = prior_function_dist.loc
+                L = self._cholesky_factor(prior_function_dist.lazy_covariance_matrix.add_jitter())
+
+                # Temporarily turn off noise that's added to the mean
+                orig_mean_init_std = self._variational_distribution.mean_init_std
+                self._variational_distribution.mean_init_std = 0.
+
+                # Change the variational parameters to be whitened
+                variational_dist = self.variational_distribution
+                whitened_mean = torch.triangular_solve(
+                    (variational_dist.loc - prior_mean).unsqueeze(-1).double(),
+                    L, upper=False
+                )[0].squeeze(-1).to(variational_dist.loc.dtype)
+                whitened_covar = RootLazyTensor(torch.triangular_solve(
+                    variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate().double(),
+                    L, upper=False
+                )[0].to(variational_dist.loc.dtype))
+                whitened_variational_distribution = variational_dist.__class__(whitened_mean, whitened_covar)
+                self._variational_distribution.initialize_variational_distribution(whitened_variational_distribution)
+
+                # Reset the random noise parameter of the model
+                self._variational_distribution.mean_init_std = orig_mean_init_std
+
+                # Reset the cache
+                if hasattr(self, "_memoize_cache"):
+                    delattr(self, "_memoize_cache")
+                    self._memoize_cache = dict()
+
+                # Mark that we have updated the variational strategy
+                self.updated_strategy.fill_(True)
+
+        return super().__call__(x, prior=prior)

@@ -17,10 +17,9 @@ class DeltaVariationalDistribution(_VariationalDistribution):
     :param float mean_init_std: (default=1e-3) Standard deviation of gaussian noise to add to the mean initialization.
     """
     def __init__(self, num_inducing_points, batch_shape=torch.Size([]), mean_init_std=1e-3, **kwargs):
-        super().__init__(num_inducing_points=num_inducing_points, batch_shape=batch_shape)
+        super().__init__(num_inducing_points=num_inducing_points, batch_shape=batch_shape, mean_init_std=mean_init_std)
         mean_init = torch.zeros(num_inducing_points)
         mean_init = mean_init.repeat(*batch_shape, 1)
-        self.mean_init_std = mean_init_std
         self.register_parameter(name="variational_mean", parameter=torch.nn.Parameter(mean_init))
 
     def forward(self):

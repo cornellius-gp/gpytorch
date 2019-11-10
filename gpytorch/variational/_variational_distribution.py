@@ -11,10 +11,11 @@ class _VariationalDistribution(Module, ABC):
     Abstract base class for all Variational Distributions.
     """
 
-    def __init__(self, num_inducing_points, batch_shape=torch.Size([])):
+    def __init__(self, num_inducing_points, batch_shape=torch.Size([]), mean_init_std=1e-3):
         super().__init__()
         self.num_inducing_points = num_inducing_points
         self.batch_shape = batch_shape
+        self.mean_init_std = mean_init_std
 
     def forward(self):
         r"""

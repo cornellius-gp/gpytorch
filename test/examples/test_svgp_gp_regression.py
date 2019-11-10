@@ -12,6 +12,7 @@ from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.lazy import ExtraComputationWarning
+from gpytorch.variational.variational_strategy import OldVersionWarning
 from torch import optim
 
 
@@ -32,9 +33,7 @@ class SVGPRegressionModel(ApproximateGP):
         )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
-        self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1))
-        )
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -45,6 +44,25 @@ class SVGPRegressionModel(ApproximateGP):
 
 class TestSVGPRegression(BaseTestCase, unittest.TestCase):
     seed = 0
+
+    def test_loading_old_model(self):
+        train_x, train_y = train_data(cuda=False)
+        likelihood = GaussianLikelihood()
+        model = SVGPRegressionModel(torch.linspace(0, 1, 25), gpytorch.variational.CholeskyVariationalDistribution)
+        state_dicts = torch.load("test/examples/old_variational_strategy_model.pth")
+        likelihood.load_state_dict(state_dicts["likelihood"], strict=False)
+
+        # Ensure we get a warning
+        with warnings.catch_warnings(record=True) as ws:
+            model.load_state_dict(state_dicts["model"])
+            self.assertTrue(any(issubclass(w.category, OldVersionWarning) for w in ws))
+
+        with torch.no_grad():
+            model.eval()
+            likelihood.eval()
+            test_preds = likelihood(model(train_x)).mean.squeeze()
+            mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+            self.assertLess(mean_abs_error.item(), 1e-1)
 
     def test_regression_error(
         self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO,
