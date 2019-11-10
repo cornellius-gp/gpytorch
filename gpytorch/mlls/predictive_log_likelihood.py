@@ -34,24 +34,17 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
         The only difference is that the :math:`log` occurs *outside* the expectation :math:`\mathbb E_{q(\mathbf u}`.
         This difference results in very different predictive performance (see `Jankowiak et al., 2019`_).
 
-    Args:
-        :attr:`likelihood` (:obj:`~gpytorch.likelihoods.Likelihood`):
-            The likelihood for the model
-        :attr:`model` (:obj:`~gpytorch.models.ApproximateGP`):
-            The approximate GP model
-        :attr:`num_data` (int):
-            The total number of training data points (necessary for SGD)
-        :attr:`beta` (float - default 1.):
-            A multiplicative factor for the KL divergence term.
-            Setting it to 1 (default) recovers true variational inference
-            (as derived in `Scalable Variational Gaussian Process Classification`_).
-            Setting it to anything less than 1 reduces the regularization effect of the model
-            (similarly to what was proposed in `the beta-VAE paper`_).
-        :attr:`combine_terms` (bool):
-            Whether or not to sum the expected NLL with the KL terms (default True)
+    :param ~gpytorch.likelihoods.Likelihood likelihood: The likelihood for the model
+    :param ~gpytorch.models.ApproximateGP model: The approximate GP model
+    :param int num_data: The total number of training data points (necessary for SGD)
+    :param float beta: (optional, default=1.) A multiplicative factor for the KL divergence term.
+        Setting it to anything less than 1 reduces the regularization effect of the model
+        (similarly to what was proposed in `the beta-VAE paper`_).
+    :param bool combine_terms: (default=True): Whether or not to sum the
+        expected NLL with the KL terms (default True)
 
     Example:
-        >>> # model is a gpytorch.models.VariationalGP
+        >>> # model is a gpytorch.models.ApproximateGP
         >>> # likelihood is a gpytorch.likelihoods.Likelihood
         >>> mll = gpytorch.mlls.PredictiveLogLikelihood(likelihood, model, num_data=100, beta=0.5)
         >>>
@@ -60,7 +53,7 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
         >>> loss.backward()
 
     .. _Jankowiak et al., 2019:
-        http://bit.ly/predictive_gp
+        https://arxiv.org/abs/1910.07123
     """
 
     def _log_likelihood_term(self, approximate_dist_f, target, **kwargs):
@@ -69,14 +62,15 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
     def forward(self, approximate_dist_f, target, **kwargs):
         r"""
         Computes the predictive cross entropy given :math:`q(\mathbf f)` and `\mathbf y`.
-        Calling this function will call the likelihood's `forward` function.
+        Calling this function will call the likelihood's
+        :meth:`~gpytorch.likelihoods.Likelihood.forward` function.
 
-        Args:
-            :attr:`approximate_dist_f` (:obj:`gpytorch.distributions.MultivariateNormal`):
-                :math:`q(\mathbf f)` the outputs of the latent function (the :obj:`gpytorch.models.ApproximateGP`)
-            :attr:`target` (`torch.Tensor`):
-                :math:`\mathbf y` The target values
-            :attr:`**kwargs`:
-                Additional arguments passed to the likelihood's `forward` function.
+        :param ~gpytorch.distributions.MultivariateNormal variational_dist_f: :math:`q(\mathbf f)`
+            the outputs of the latent function (the :obj:`gpytorch.models.ApproximateGP`)
+        :param torch.Tensor target: :math:`\mathbf y` The target values
+        :param kwargs: Additional arguments passed to the
+            likelihood's :meth:`~gpytorch.likelihoods.Likelihood.forward` function.
+        :rtype: torch.Tensor
+        :return: Predictive log likelihood. Output shape corresponds to batch shape of the model/input data.
         """
         return super().forward(approximate_dist_f, target, **kwargs)

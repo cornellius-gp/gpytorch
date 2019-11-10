@@ -32,24 +32,22 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
 
     :math:`\beta` is a scaling constant for the KL divergence.
 
-    Args:
-        :attr:`likelihood` (:obj:`gpytorch.likelihoods.Likelihood`):
-            The likelihood for the model
-        :attr:`model` (:obj:`gpytorch.models.ApproximateGP`):
-            The approximate GP model
-        :attr:`num_data` (int):
-            The total number of training data points (necessary for SGD)
-        :attr:`beta` (float - default 1.):
-            A multiplicative factor for the KL divergence term.
-        :attr:`gamma` (float - default 1.):
-            Controls the :math:`\gamma` term in the robust ELBO.
-        :attr:`combine_terms` (bool):
-            Whether or not to sum the expected NLL with the KL terms (default True)
+    .. note::
+        This module will only work with :obj:`~gpytorch.likelihoods.GaussianLikelihood`.
+
+    :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The likelihood for the model
+    :param ~gpytorch.models.ApproximateGP model: The approximate GP model
+    :param int num_data: The total number of training data points (necessary for SGD)
+    :param float beta: (optional, default=1.) A multiplicative factor for the KL divergence term.
+        Setting it to anything less than 1 reduces the regularization effect of the model
+        (similarly to what was proposed in `the beta-VAE paper`_).
+    :param bool combine_terms: (default=True): Whether or not to sum the
+        expected NLL with the KL terms (default True)
 
     Example:
-        >>> # model is a gpytorch.models.VariationalGP
+        >>> # model is a gpytorch.models.ApproximateGP
         >>> # likelihood is a gpytorch.likelihoods.Likelihood
-        >>> mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=100, beta=0.5)
+        >>> mll = gpytorch.mlls.GammaRobustVariationalELBO(likelihood, model, num_data=100, beta=0.5, gamma=1.03)
         >>>
         >>> output = model(train_x)
         >>> loss = -mll(output, train_y)

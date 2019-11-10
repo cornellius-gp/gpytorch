@@ -43,7 +43,7 @@ class VariationalELBO(_ApproximateMarginalLogLikelihood):
         expected NLL with the KL terms (default True)
 
     Example:
-        >>> # model is a gpytorch.models.VariationalGP
+        >>> # model is a gpytorch.models.ApproximateGP
         >>> # likelihood is a gpytorch.likelihoods.Likelihood
         >>> mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=100, beta=0.5)
         >>>
@@ -71,5 +71,7 @@ class VariationalELBO(_ApproximateMarginalLogLikelihood):
         :param torch.Tensor target: :math:`\mathbf y` The target values
         :param kwargs: Additional arguments passed to the
             likelihood's :meth:`~gpytorch.likelihoods.Likelihood.expected_log_prob` function.
+        :rtype: torch.Tensor
+        :return: Variational ELBO. Output shape corresponds to batch shape of the model/input data.
         """
         return super().forward(variational_dist_f, target, **kwargs)
