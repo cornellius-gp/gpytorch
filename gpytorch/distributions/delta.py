@@ -9,6 +9,7 @@ from torch.distributions.kl import register_kl
 
 try:
     from pyro.distributions import Delta
+
 except ImportError:
     # Mostly copied from https://github.com/pyro-ppl/pyro/blob/dev/pyro/distributions/delta.py
     class Delta(Distribution):

@@ -237,18 +237,18 @@ try:
               variable. The first (second) Tensor is the lower (upper) end of
               the confidence region.
             """
-            super().confidence_region()
+            return super().confidence_region()
 
         def get_base_samples(self, sample_shape=torch.Size()):
             """Get i.i.d. standard Normal samples (to be used with rsample(base_samples=base_samples))"""
-            super().get_base_samples(sample_shape=sample_shape)
+            return super().get_base_samples(sample_shape=sample_shape)
 
         @lazy_property
         def lazy_covariance_matrix(self):
             """
             The covariance_matrix, represented as a LazyTensor
             """
-            super().lazy_covariance_matrix
+            return super().lazy_covariance_matrix
 
 
 except ImportError:
