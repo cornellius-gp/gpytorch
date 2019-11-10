@@ -22,11 +22,33 @@ class Distance(torch.nn.Module):
         super().__init__()
         self._postprocess = postprocess_script
 
+    def _tc_pad(self, x):
+        # Pad features of x to be multiples of 8 (we get 2 dimensions
+        # from the norm and ones padding later) to use tensor cores
+        n_feats = x.size(-1) + 2
+        if n_feats % 8 == 0:
+            return x
+        pad = (0, 8 - (n_feats % 8))
+        x = torch.nn.functional.pad(x, pad)
+        return x
+
     def _sq_dist(self, x1, x2, postprocess, x1_eq_x2=False):
         # TODO: use torch squared cdist once implemented: https://github.com/pytorch/pytorch/pull/25799
         adjustment = x1.mean(-2, keepdim=True)
         x1 = x1 - adjustment
         x2 = x2 - adjustment  # x1 and x2 should be identical in all dims except -2 at this point
+
+        if settings.use_fp16_dist.on():
+            prev_dtype = x1.dtype
+            if (x1.size(-2)) % 8 != 0:
+                print(f"x1 contains {x1.size(-2)} datapoints which is not a multiple of 8 to use tensor cores")
+            x1 = self._tc_pad(x1.half())
+            if x1_eq_x2:
+                x2 = x1
+            else:
+                if (x2.size(-2)) % 8 != 0:
+                    print(f"x2 contains {x2.size(-2)} datapoints which is not a multiple of 8 to use tensor cores")
+                x2 = self._tc_pad(x2.half())
 
         # Compute squared distance matrix using quadratic expansion
         x1_norm = x1.pow(2).sum(dim=-1, keepdim=True)
@@ -39,6 +61,9 @@ class Distance(torch.nn.Module):
         x1_ = torch.cat([-2. * x1, x1_norm, x1_pad], dim=-1)
         x2_ = torch.cat([x2, x2_pad, x2_norm], dim=-1)
         res = x1_.matmul(x2_.transpose(-2, -1))
+
+        if settings.use_fp16_dist.on():
+            res = res.to(prev_dtype)
 
         if x1_eq_x2:
             res.diagonal(dim1=-2, dim2=-1).fill_(0)

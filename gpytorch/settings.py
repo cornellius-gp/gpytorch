@@ -508,3 +508,12 @@ class use_toeplitz(_feature_flag):
     """
 
     _state = True
+
+
+class use_fp16_dist(_feature_flag):
+    """
+    Whether or not to use FP16 precision for computing the covariance matrix to
+    take advantage of tensor cores.
+    """
+
+    _state = False
