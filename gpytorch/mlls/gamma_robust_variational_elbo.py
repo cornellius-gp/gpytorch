@@ -2,6 +2,7 @@
 
 import math
 import torch
+import numpy as np
 from ._approximate_mll import _ApproximateMarginalLogLikelihood
 from ..likelihoods import _GaussianLikelihoodBase
 
@@ -16,7 +17,7 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
        \begin{align*}
           \mathcal{L}_{\gamma} &=
           \sum_{i=1}^N \mathbb{E}_{q( \mathbf u)} \left[
-            -\frac{\gamma}{1 - \gamma}
+            -\frac{\gamma}{\gamma - 1}
             \frac{
                 p( y_i \! \mid \! \mathbf u)^{\gamma - 1}
             }{
@@ -41,6 +42,7 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
     :param float beta: (optional, default=1.) A multiplicative factor for the KL divergence term.
         Setting it to anything less than 1 reduces the regularization effect of the model
         (similarly to what was proposed in `the beta-VAE paper`_).
+    :param float gamma: (optional, default=1.03) The :math:`\gamma`-divergence hyperparameter.
     :param bool combine_terms: (default=True): Whether or not to sum the
         expected NLL with the KL terms (default True)
 
@@ -58,13 +60,17 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
     .. _Knoblauch, Jewson, Damoulas 2019:
         https://arxiv.org/pdf/1904.02063.pdf
     """
-    def __init__(self, likelihood, model, gamma=1.0, *args, **kwargs):
+    def __init__(self, likelihood, model, gamma=1.03, *args, **kwargs):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super().__init__(likelihood, model, *args, **kwargs)
-        self.register_buffer("gamma", torch.tensor(gamma))
+        if gamma <= 1.0:
+            raise ValueError("gamma should be > 1.0")
+        self.gamma = gamma
 
     def _log_likelihood_term(self, variational_dist_f, target, *args, **kwargs):
+        shifted_gamma = self.gamma - 1
+
         muf, varf = variational_dist_f.mean, variational_dist_f.variance
 
         # Get noise from likelihood
@@ -73,19 +79,19 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
         noise = noise.view(*noise.shape[:-1], *variational_dist_f.event_shape)
 
         # adapted from https://github.com/JeremiasKnoblauch/GVIPublic/
-        mut = self.gamma * target / noise + muf / varf
-        sigmat = 1.0 / (self.gamma / noise + 1.0 / varf)
-        log_integral = -0.5 * self.gamma * torch.log(2.0 * math.pi * noise) - 0.5 * torch.log1p(self.gamma)
+        mut = shifted_gamma * target / noise + muf / varf
+        sigmat = 1.0 / (shifted_gamma / noise + 1.0 / varf)
+        log_integral = -0.5 * shifted_gamma * torch.log(2.0 * math.pi * noise) - 0.5 * np.log1p(shifted_gamma)
         log_tempered = (
-            -math.log(self.gamma)
-            - 0.5 * self.gamma * torch.log(2.0 * math.pi * noise)
-            - 0.5 * torch.log1p(self.gamma * varf / noise)
-            - 0.5 * (self.gamma * target.pow(2.0) / noise)
+            -math.log(shifted_gamma)
+            - 0.5 * shifted_gamma * torch.log(2.0 * math.pi * noise)
+            - 0.5 * torch.log1p(shifted_gamma * varf / noise)
+            - 0.5 * (shifted_gamma * target.pow(2.0) / noise)
             - 0.5 * muf.pow(2.0) / varf
             + 0.5 * mut.pow(2.0) * sigmat
         )
 
-        factor = log_tempered + self.gamma / (1.0 + self.gamma) * log_integral + (1.0 + self.gamma)
+        factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + (1.0 + shifted_gamma)
 
         # Do appropriate summation for multitask Gaussian likelihoods
         num_event_dim = len(variational_dist_f.event_shape)
