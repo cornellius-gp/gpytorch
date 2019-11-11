@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
-from ..utils import fft, broadcasting
+
+from ..utils import broadcasting, fft
 
 
 def toeplitz(toeplitz_column, toeplitz_row):

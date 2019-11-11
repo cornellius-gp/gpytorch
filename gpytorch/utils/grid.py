@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import math
-import torch
 from typing import List, Tuple
+
+import torch
 
 
 def scale_to_bounds(x, lower_bound, upper_bound):

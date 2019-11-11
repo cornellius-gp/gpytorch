@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
-import torch
 import operator
-from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import lazify
+from functools import reduce
+
+import torch
+
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
-from functools import reduce
+from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import lazify
 
 
 def _prod(iterable):
@@ -71,7 +73,7 @@ class KroneckerProductLazyTensor(LazyTensor):
             sub_res = lazy_tensor._get_indices(
                 row_index.div(row_factor).fmod(sub_row_size),
                 col_index.div(col_factor).fmod(sub_col_size),
-                *batch_indices
+                *batch_indices,
             )
             res = sub_res if res is None else (sub_res * res)
 

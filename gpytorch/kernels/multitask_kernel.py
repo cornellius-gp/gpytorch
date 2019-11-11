@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from .kernel import Kernel
+from ..lazy import KroneckerProductLazyTensor, lazify
 from .index_kernel import IndexKernel
-from ..lazy import lazify, KroneckerProductLazyTensor
+from .kernel import Kernel
 
 
 class MultitaskKernel(Kernel):

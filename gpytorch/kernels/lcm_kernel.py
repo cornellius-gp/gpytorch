@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
+
 from torch.nn import ModuleList
+
 from .kernel import Kernel
 from .multitask_kernel import MultitaskKernel
-from copy import deepcopy
 
 
 class LCMKernel(Kernel):

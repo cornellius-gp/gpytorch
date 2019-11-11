@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
-from gpytorch.lazy import ToeplitzLazyTensor, BatchRepeatLazyTensor
+
+import torch
+
+from gpytorch.lazy import BatchRepeatLazyTensor, ToeplitzLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 

@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
+from typing import List
+
 import torch
 from torch import Tensor
-from .kernel import Kernel
-from ..lazy import delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor
-from .. import settings
+
 import gpytorch
-from gpytorch.utils.grid import create_data_from_grid, convert_legacy_grid
-from typing import List
+from gpytorch.utils.grid import convert_legacy_grid, create_data_from_grid
+
+from .. import settings
+from ..lazy import KroneckerProductLazyTensor, ToeplitzLazyTensor, delazify
+from .kernel import Kernel
 
 
 class GridKernel(Kernel):

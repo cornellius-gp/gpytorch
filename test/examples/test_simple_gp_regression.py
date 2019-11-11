@@ -9,7 +9,7 @@ from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
-from gpytorch.priors import SmoothedBoxPrior, LogNormalPrior, NormalPrior, UniformPrior
+from gpytorch.priors import SmoothedBoxPrior, LogNormalPrior, UniformPrior
 from gpytorch.constraints import Positive
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
@@ -455,9 +455,9 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
 
     def test_pyro_sampling(self):
         try:
-            import pyro
+            import pyro  # noqa
             from pyro.infer.mcmc import NUTS, MCMC
-        except:
+        except ImportError:
             return
         train_x, test_x, train_y, test_y = self._get_data(cuda=False)
         likelihood = GaussianLikelihood(noise_constraint=gpytorch.constraints.Positive())
@@ -474,7 +474,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
         def pyro_model(x, y):
             gp_model.pyro_sample_from_prior()
             output = gp_model(x)
-            loss = mll.pyro_factor(output, y)
+            mll.pyro_factor(output, y)
             return y
 
         nuts_kernel = NUTS(pyro_model, adapt_step_size=True)

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
-from gpytorch.kernels import RBFKernel, GridKernel
+
+import torch
+
+from gpytorch.kernels import GridKernel, RBFKernel
 from gpytorch.lazy import KroneckerProductLazyTensor
 from gpytorch.utils.grid import create_data_from_grid
-
 
 grid = [torch.linspace(0, 1, 5), torch.linspace(0, 2, 3)]
 d = len(grid)

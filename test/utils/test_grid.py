@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-import torch
-import gpytorch
 import unittest
+
+import torch
+
+import gpytorch
 
 
 class TestGrid(unittest.TestCase):

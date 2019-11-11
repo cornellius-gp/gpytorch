@@ -57,7 +57,7 @@ setup(
     python_requires=">=3.6",
     install_requires=install_requires,
     extras_require={
-        "dev": ["black", "twine"],
+        "dev": ["black", "twine", "pre-commit"],
         "docs": ["ipython", "ipykernel", "sphinx", "sphinx_rtd_theme", "nbsphinx", "m2r"],
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision"],
         "pyro": ["pyro-ppl>=1.0.0"],

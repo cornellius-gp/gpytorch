@@ -10,8 +10,8 @@ from torch import Tensor
 
 from ..distributions import MultivariateNormal, base_distributions
 from ..lazy import ZeroLazyTensor
-from ..likelihoods import Likelihood
 from ..utils.deprecation import _deprecate_kwarg_with_transform
+from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 
 

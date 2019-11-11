@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
+from typing import List, Optional, Tuple, Union
+
 import torch
-from .kernel import Kernel
-from .grid_kernel import GridKernel
+
+from gpytorch.utils.grid import create_grid
+
 from ..lazy import InterpolatedLazyTensor
 from ..models.exact_prediction_strategies import InterpolatedPredictionStrategy
 from ..utils.interpolation import Interpolation
-from typing import Union, List, Optional, Tuple
-from gpytorch.utils.grid import create_grid
+from .grid_kernel import GridKernel
+from .kernel import Kernel
 
 
 class GridInterpolationKernel(GridKernel):

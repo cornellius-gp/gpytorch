@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import warnings
+
 import torch
+
 from ..distributions import base_distributions
 from ..functions import log_normal_cdf
 from .likelihood import _OneDimensionalLikelihood
-import warnings
 
 
 class BernoulliLikelihood(_OneDimensionalLikelihood):

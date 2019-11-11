@@ -2,12 +2,12 @@
 
 import torch
 
-from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import lazify, NonLazyTensor
-from .matmul_lazy_tensor import MatmulLazyTensor
 from ..utils.broadcasting import _pad_with_singletons
-from ..utils.getitem import _noop_index, _equal_indices
+from ..utils.getitem import _equal_indices, _noop_index
 from ..utils.memoize import cached
+from .lazy_tensor import LazyTensor
+from .matmul_lazy_tensor import MatmulLazyTensor
+from .non_lazy_tensor import NonLazyTensor, lazify
 
 
 class RootLazyTensor(LazyTensor):

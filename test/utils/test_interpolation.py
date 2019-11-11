@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
 
-from gpytorch.utils.interpolation import Interpolation, left_interp, left_t_interp
+import torch
+
 from gpytorch.test.utils import approx_equal
+from gpytorch.utils.interpolation import Interpolation, left_interp, left_t_interp
 
 
 class TestCubicInterpolation(unittest.TestCase):

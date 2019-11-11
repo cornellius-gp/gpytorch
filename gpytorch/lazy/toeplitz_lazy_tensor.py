@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils.toeplitz import sym_toeplitz_derivative_quadratic_form, sym_toeplitz_matmul
 from .lazy_tensor import LazyTensor
-from ..utils.toeplitz import sym_toeplitz_matmul, sym_toeplitz_derivative_quadratic_form
 
 
 class ToeplitzLazyTensor(LazyTensor):

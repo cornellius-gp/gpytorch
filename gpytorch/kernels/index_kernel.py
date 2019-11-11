@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
-from .kernel import Kernel
-from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
+
 from ..constraints import Positive
+from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from .kernel import Kernel
 
 
 class IndexKernel(Kernel):

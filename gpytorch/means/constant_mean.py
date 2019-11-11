@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
-from .mean import Mean
+
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.deprecation import _deprecate_kwarg_with_transform
+from .mean import Mean
 
 
 class ConstantMean(Mean):

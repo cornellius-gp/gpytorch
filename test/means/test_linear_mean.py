@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
+import torch
 
 from gpytorch.means import LinearMean
 from gpytorch.test.base_mean_test_case import BaseMeanTestCase

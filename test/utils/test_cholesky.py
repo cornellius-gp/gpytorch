@@ -4,8 +4,9 @@ import unittest
 import warnings
 
 import torch
-from gpytorch.utils.cholesky import psd_safe_cholesky
+
 from gpytorch.test.utils import least_used_cuda_device
+from gpytorch.utils.cholesky import psd_safe_cholesky
 
 
 class TestPSDSafeCholesky(unittest.TestCase):

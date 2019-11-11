@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import unittest
+
 import torch
-from gpytorch.likelihoods import SoftmaxLikelihood
 from torch.distributions import Distribution
+
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.likelihoods import SoftmaxLikelihood
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 

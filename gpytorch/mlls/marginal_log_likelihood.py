@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from ..module import Module
 from ..models import GP
+from ..module import Module
 
 
 class MarginalLogLikelihood(Module):
