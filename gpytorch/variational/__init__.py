@@ -6,6 +6,7 @@ from .grid_interpolation_variational_strategy import GridInterpolationVariationa
 from .multitask_variational_strategy import MultitaskVariationalStrategy
 from .variational_strategy import VariationalStrategy
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
+from .whitened_variational_strategy import WhitenedVariationalStrategy
 from ._variational_distribution import _VariationalDistribution
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
@@ -18,6 +19,7 @@ __all__ = [
     "MultitaskVariationalStrategy",
     "VariationalStrategy",
     "UnwhitenedVariationalStrategy",
+    "WhitenedVariationalStrategy",
     "_VariationalDistribution",
     "CholeskyVariationalDistribution",
     "MeanFieldVariationalDistribution",
