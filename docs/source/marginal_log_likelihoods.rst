@@ -42,7 +42,7 @@ Approximate GP Inference
 -----------------------------------
 
 These are MLLs for use with :obj:`~gpytorch.models.ApproximateGP` modules. They are designed for
-when exact inference is intractible (either when the likelihood is non-Gaussian likelihood, or when
+when exact inference is intractable (either when the likelihood is non-Gaussian likelihood, or when
 there is too much data for an ExactGP model).
 
 :hidden:`VariationalELBO`

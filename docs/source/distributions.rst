@@ -9,7 +9,7 @@ For the most part, GpyTorch relies on torch's distribution library.
 However, we offer two custom distributions.
 
 We implement a custom :obj:`~gpytorch.distributions.MultivariateNormal` that accepts
-:obj:`~gpytorch.lazy.LazyTensor` objects for covariance matrices. This allows us to custom
+:obj:`~gpytorch.lazy.LazyTensor` objects for covariance matrices. This allows us to use custom
 linear algebra operations, which makes this more efficient than PyTorch's MVN implementation.
 
 In addition, we implement a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal` which
@@ -17,7 +17,7 @@ can be used with multi-output Gaussian process models.
 
 .. note::
 
-  If Pyro is available, all GPyTorch distribution objects inheret Pyro's distribution methods
+  If Pyro is available, all GPyTorch distribution objects inherit Pyro's distribution methods
   as well.
 
 .. automodule:: gpytorch.distributions

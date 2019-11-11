@@ -167,10 +167,9 @@ try:
             return res
 
         def guide(self, x, y):
-            name_prefix = "llcmgp"
-            function_dist = self.pyro_guide(x, name_prefix=name_prefix)
+            function_dist = self.pyro_guide(x, name_prefix=self.name_prefix)
             pyro.sample(
-                name_prefix + ".cluster_logits",
+                self.name_prefix + ".cluster_logits",
                 pyro.distributions.OneHotCategorical(logits=self.variational_logits).to_event(1)
             )
             with pyro.plate(self.name_prefix + ".output_values_plate", function_dist.batch_shape[-1], dim=-1):
