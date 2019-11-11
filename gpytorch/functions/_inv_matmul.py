@@ -2,6 +2,7 @@
 
 import torch
 from torch.autograd import Function
+
 from .. import settings
 
 
@@ -40,7 +41,7 @@ class InvMatmul(Function):
         if ctx.has_left:
             rhs = torch.cat([left_tensor.transpose(-1, -2), right_tensor], -1)
             solves = _solve(lazy_tsr, rhs)
-            res = solves[..., left_tensor.size(-2):]
+            res = solves[..., left_tensor.size(-2) :]
             res = left_tensor @ res
         else:
             solves = _solve(lazy_tsr, right_tensor)
@@ -64,8 +65,8 @@ class InvMatmul(Function):
         # Extract items that were saved
         if ctx.has_left:
             solves, left_tensor, right_tensor, *matrix_args = ctx.saved_tensors
-            left_solves = solves[..., :left_tensor.size(-2)]
-            right_solves = solves[..., left_tensor.size(-2):]
+            left_solves = solves[..., : left_tensor.size(-2)]
+            right_solves = solves[..., left_tensor.size(-2) :]
         else:
             right_solves, right_tensor, *matrix_args = ctx.saved_tensors
 
@@ -94,8 +95,7 @@ class InvMatmul(Function):
                     # To ensure that this term is symmetric, we concatenate the left and right solves together,
                     # and divide the result by 1/2
                     arg_grads = lazy_tsr._quad_form_derivative(
-                        torch.cat([left_solves, right_solves], -1),
-                        torch.cat([right_solves, left_solves], -1).mul(-0.5)
+                        torch.cat([left_solves, right_solves], -1), torch.cat([right_solves, left_solves], -1).mul(-0.5)
                     )
                 if ctx.needs_input_grad[2]:
                     right_grad = left_solves
@@ -112,8 +112,7 @@ class InvMatmul(Function):
                 if any(ctx.needs_input_grad[4:]):
                     # We do this concatenation to ensure that the gradient of lazy_tsr is symmetric
                     arg_grads = lazy_tsr._quad_form_derivative(
-                        torch.cat([left_solves, right_solves], -1),
-                        torch.cat([right_solves, left_solves], -1).mul(-0.5)
+                        torch.cat([left_solves, right_solves], -1), torch.cat([right_solves, left_solves], -1).mul(-0.5)
                     )
                 if ctx.needs_input_grad[2]:
                     right_grad = left_solves

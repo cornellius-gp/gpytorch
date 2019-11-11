@@ -2,11 +2,11 @@
 
 import torch
 
-from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import lazify, NonLazyTensor
-from ..utils.broadcasting import _pad_with_singletons, _matmul_broadcast_shape
+from ..utils.broadcasting import _matmul_broadcast_shape, _pad_with_singletons
 from ..utils.getitem import _noop_index
 from ..utils.memoize import cached
+from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import NonLazyTensor, lazify
 
 
 def _inner_repeat(tensor, amt):
@@ -28,8 +28,7 @@ class MatmulLazyTensor(LazyTensor):
 
     def _expand_batch(self, batch_shape):
         return self.__class__(
-            self.left_lazy_tensor._expand_batch(batch_shape),
-            self.right_lazy_tensor._expand_batch(batch_shape),
+            self.left_lazy_tensor._expand_batch(batch_shape), self.right_lazy_tensor._expand_batch(batch_shape)
         )
 
     def _get_indices(self, row_index, col_index, *batch_indices):

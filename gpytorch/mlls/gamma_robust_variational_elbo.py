@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import math
-import torch
+
 import numpy as np
-from ._approximate_mll import _ApproximateMarginalLogLikelihood
+import torch
+
 from ..likelihoods import _GaussianLikelihoodBase
+from ._approximate_mll import _ApproximateMarginalLogLikelihood
 
 
 class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
@@ -60,6 +62,7 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
     .. _Knoblauch, Jewson, Damoulas 2019:
         https://arxiv.org/pdf/1904.02063.pdf
     """
+
     def __init__(self, likelihood, model, gamma=1.03, *args, **kwargs):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")

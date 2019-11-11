@@ -8,9 +8,9 @@ from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
-from ..lazy import LazyTensor, lazify, delazify
-from .distribution import Distribution
+from ..lazy import LazyTensor, delazify, lazify
 from ..utils.broadcasting import _mul_broadcast_shape
+from .distribution import Distribution
 
 
 class MultivariateNormal(TMultivariateNormal, Distribution):
@@ -120,7 +120,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
                 padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - covar.dim())), *covar.batch_shape)
                 covar = covar.repeat(
                     *(diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-1], padded_batch_shape)),
-                    1, 1
+                    1,
+                    1,
                 )
 
         # Get log determininat and first part of quadratic form

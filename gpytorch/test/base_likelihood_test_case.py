@@ -2,13 +2,14 @@
 
 from abc import abstractmethod
 
-from .base_test_case import BaseTestCase
-
 import torch
-import gpytorch
-from gpytorch.likelihoods import Likelihood
-from gpytorch.distributions import MultivariateNormal
 from torch.distributions import Distribution
+
+import gpytorch
+from gpytorch.distributions import MultivariateNormal
+from gpytorch.likelihoods import Likelihood
+
+from .base_test_case import BaseTestCase
 
 
 class BaseLikelihoodTestCase(BaseTestCase):
@@ -71,7 +72,7 @@ class BaseLikelihoodTestCase(BaseTestCase):
         output = likelihood(input)
 
         self.assertTrue(isinstance(output, Distribution))
-        self.assertEqual(output.sample().shape[-len(input.sample().shape):], input.sample().shape)
+        self.assertEqual(output.sample().shape[-len(input.sample().shape) :], input.sample().shape)
 
         # Compare against default implementation
         with gpytorch.settings.num_likelihood_samples(30000):

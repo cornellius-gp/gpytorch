@@ -65,8 +65,10 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             self.assertLess(mean_abs_error.item(), 1e-1)
 
     def test_regression_error(
-        self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO,
-        distribution_cls=gpytorch.variational.CholeskyVariationalDistribution
+        self,
+        cuda=False,
+        mll_cls=gpytorch.mlls.VariationalELBO,
+        distribution_cls=gpytorch.variational.CholeskyVariationalDistribution,
     ):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
@@ -121,9 +123,6 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             mll_cls=gpytorch.mlls.PredictiveLogLikelihood,
             distribution_cls=gpytorch.variational.DeltaVariationalDistribution,
         )
-
-    def test_robust_regression_error(self):
-        return self.test_regression_error(mll_cls=gpytorch.mlls.GammaRobustVariationalELBO)
 
     def test_robust_regression_error(self):
         return self.test_regression_error(mll_cls=gpytorch.mlls.GammaRobustVariationalELBO)

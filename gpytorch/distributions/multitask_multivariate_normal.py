@@ -22,6 +22,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         inter-task covariances for each observation. If False, it is interpreted as block-diagonal
         w.r.t. inter-observation covariance for each task.
     """
+
     def __init__(self, mean, covariance_matrix, validate_args=False, interleaved=True):
         if not torch.is_tensor(mean) and not isinstance(mean, LazyTensor):
             raise RuntimeError("The mean of a MultitaskMultivariateNormal must be a Tensor or LazyTensor")
@@ -127,9 +128,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
         # https://github.com/cornellius-gp/gpytorch/issues/468
         covar_blocks_lazy = CatLazyTensor(
-            *[mvn.lazy_covariance_matrix.unsqueeze(0) for mvn in mvns],
-            dim=0,
-            output_device=mean.device
+            *[mvn.lazy_covariance_matrix.unsqueeze(0) for mvn in mvns], dim=0, output_device=mean.device
         )
         covar_lazy = BlockDiagLazyTensor(covar_blocks_lazy, block_dim=0)
         return cls(mean=mean, covariance_matrix=covar_lazy, interleaved=False)

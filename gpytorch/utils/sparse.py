@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+
 from .broadcasting import _matmul_broadcast_shape
 
 
@@ -30,10 +31,11 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, num_rows)
     batch_tensors = []
     for i, batch_size in enumerate(batch_shape):
         batch_tensor = torch.arange(0, batch_size, dtype=torch.long, device=interp_values.device)
-        batch_tensor = batch_tensor.unsqueeze_(1).repeat(
-            batch_shape[:i].numel(),
-            batch_shape[i + 1:].numel() * n_target_points * n_coefficients
-        ).view(-1)
+        batch_tensor = (
+            batch_tensor.unsqueeze_(1)
+            .repeat(batch_shape[:i].numel(), batch_shape[i + 1 :].numel() * n_target_points * n_coefficients)
+            .view(-1)
+        )
         batch_tensors.append(batch_tensor)
 
     row_tensor = torch.arange(0, n_target_points, dtype=torch.long, device=interp_values.device)
@@ -86,8 +88,9 @@ def bdsmm(sparse, dense):
         *batch_shape, num_rows, num_cols = sparse.shape
         batch_size = torch.Size(batch_shape).numel()
         batch_multiplication_factor = torch.tensor(
-            [torch.Size(batch_shape[i + 1:]).numel() for i in range(len(batch_shape))],
-            dtype=torch.long, device=sparse.device
+            [torch.Size(batch_shape[i + 1 :]).numel() for i in range(len(batch_shape))],
+            dtype=torch.long,
+            device=sparse.device,
         )
         if batch_multiplication_factor.is_cuda:
             batch_assignment = (sparse._indices()[:-2].float().t() @ batch_multiplication_factor.float()).long()
@@ -204,27 +207,34 @@ def sparse_repeat(sparse, *repeat_sizes):
     if len(repeat_sizes) > len(sparse.shape):
         num_new_dims = len(repeat_sizes) - len(sparse.shape)
         new_indices = sparse._indices()
-        new_indices = torch.cat([
-            torch.zeros(num_new_dims, new_indices.size(1), dtype=new_indices.dtype, device=new_indices.device),
-            new_indices
-        ], 0)
+        new_indices = torch.cat(
+            [
+                torch.zeros(num_new_dims, new_indices.size(1), dtype=new_indices.dtype, device=new_indices.device),
+                new_indices,
+            ],
+            0,
+        )
         sparse = torch.sparse_coo_tensor(
-            new_indices, sparse._values(),
+            new_indices,
+            sparse._values(),
             torch.Size((*[1 for _ in range(num_new_dims)], *sparse.shape)),
-            dtype=sparse.dtype, device=sparse.device
+            dtype=sparse.dtype,
+            device=sparse.device,
         )
 
     for i, repeat_size in enumerate(repeat_sizes):
         if repeat_size > 1:
             new_indices = sparse._indices().repeat(1, repeat_size)
-            adding_factor = torch.arange(
-                0, repeat_size, dtype=new_indices.dtype, device=new_indices.device
-            ).unsqueeze_(1)
+            adding_factor = torch.arange(0, repeat_size, dtype=new_indices.dtype, device=new_indices.device).unsqueeze_(
+                1
+            )
             new_indices[i].view(repeat_size, -1).add_(adding_factor)
             sparse = torch.sparse_coo_tensor(
-                new_indices, sparse._values().repeat(repeat_size),
-                torch.Size((*sparse.shape[:i], repeat_size * sparse.size(i), *sparse.shape[i + 1:])),
-                dtype=sparse.dtype, device=sparse.device
+                new_indices,
+                sparse._values().repeat(repeat_size),
+                torch.Size((*sparse.shape[:i], repeat_size * sparse.size(i), *sparse.shape[i + 1 :])),
+                dtype=sparse.dtype,
+                device=sparse.device,
             )
 
     return sparse

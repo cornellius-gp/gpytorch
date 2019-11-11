@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 
+from abc import ABC, abstractproperty
+
 import torch
+
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
-from abc import ABC, abstractproperty
 
 
 class _VariationalStrategy(Module, ABC):
     """
     Abstract base class for all Variational Strategies.
     """
+
     def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
         super().__init__()
 
@@ -79,10 +82,7 @@ class _VariationalStrategy(Module, ABC):
         :rtype: torch.Tensor
         """
         with settings.max_preconditioner_size(0):
-            kl_divergence = torch.distributions.kl.kl_divergence(
-                self.variational_distribution,
-                self.prior_distribution
-            )
+            kl_divergence = torch.distributions.kl.kl_divergence(self.variational_distribution, self.prior_distribution)
         return kl_divergence
 
     def train(self, mode=True):
@@ -121,15 +121,14 @@ class _VariationalStrategy(Module, ABC):
         # Get q(f)
         if isinstance(variational_dist_u, MultivariateNormal):
             return super().__call__(
-                x, inducing_points,
+                x,
+                inducing_points,
                 inducing_values=variational_dist_u.mean,
                 variational_inducing_covar=variational_dist_u.lazy_covariance_matrix,
             )
         elif isinstance(variational_dist_u, Delta):
             return super().__call__(
-                x, inducing_points,
-                inducing_values=variational_dist_u.mean,
-                variational_inducing_covar=None,
+                x, inducing_points, inducing_values=variational_dist_u.mean, variational_inducing_covar=None
             )
         else:
             raise RuntimeError(

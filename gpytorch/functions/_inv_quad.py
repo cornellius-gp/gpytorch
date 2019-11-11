@@ -2,6 +2,7 @@
 
 import torch
 from torch.autograd import Function
+
 from .. import settings
 
 
@@ -23,6 +24,7 @@ class InvQuad(Function):
     Given a PSD matrix A (or a batch of PSD matrices A), this function computes b A^{-1} b
     where b is a vector or batch of vectors
     """
+
     @staticmethod
     def forward(ctx, representation_tree, *args):
         """

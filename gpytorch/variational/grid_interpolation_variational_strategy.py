@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..distributions import MultivariateNormal
+from ..lazy import InterpolatedLazyTensor
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.interpolation import Interpolation, left_interp
-from ..lazy import InterpolatedLazyTensor
-from ..distributions import MultivariateNormal
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
@@ -30,6 +31,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
     :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
     """
+
     def __init__(self, model, grid_size, grid_bounds, variational_distribution):
         grid = torch.zeros(grid_size, len(grid_bounds))
         for i in range(len(grid_bounds)):
@@ -71,9 +73,7 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
         out = self.model.forward(self.inducing_points)
-        res = MultivariateNormal(
-            out.mean, out.lazy_covariance_matrix.add_jitter()
-        )
+        res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter())
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):

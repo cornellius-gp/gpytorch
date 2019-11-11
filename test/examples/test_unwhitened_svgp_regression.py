@@ -9,7 +9,6 @@ import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
-from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.lazy import ExtraComputationWarning
 from torch import optim
 
@@ -44,8 +43,10 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
     seed = 0
 
     def test_regression_error(
-        self, cuda=False, mll_cls=gpytorch.mlls.VariationalELBO,
-        distribution_cls=gpytorch.variational.CholeskyVariationalDistribution
+        self,
+        cuda=False,
+        mll_cls=gpytorch.mlls.VariationalELBO,
+        distribution_cls=gpytorch.variational.CholeskyVariationalDistribution,
     ):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()

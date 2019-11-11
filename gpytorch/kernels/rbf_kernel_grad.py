@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-from .rbf_kernel import RBFKernel, postprocess_rbf
 import torch
+
 from ..lazy.kronecker_product_lazy_tensor import KroneckerProductLazyTensor
+from .rbf_kernel import RBFKernel, postprocess_rbf
 
 
 class RBFKernelGrad(RBFKernel):
@@ -49,6 +50,7 @@ class RBFKernelGrad(RBFKernel):
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernelGrad(batch_shape=torch.Size([2])))
         >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 60 x 60)
     """
+
     def forward(self, x1, x2, diag=False, **params):
         batch_shape = x1.shape[:-2]
         n_batch_dims = len(batch_shape)
@@ -68,13 +70,7 @@ class RBFKernelGrad(RBFKernel):
             outer = torch.transpose(outer, -1, -2).contiguous()
 
             # 1) Kernel block
-            diff = self.covar_dist(
-                x1_,
-                x2_,
-                square_dist=True,
-                dist_postprocess_func=postprocess_rbf,
-                **params
-            )
+            diff = self.covar_dist(x1_, x2_, square_dist=True, dist_postprocess_func=postprocess_rbf, **params)
             K_11 = diff
             K[..., :n1, :n2] = K_11
 
@@ -91,7 +87,7 @@ class RBFKernelGrad(RBFKernel):
             outer3 = outer1.repeat([*([1] * n_batch_dims), d, 1]) * outer2.repeat([*([1] * (n_batch_dims + 1)), d])
             kp = KroneckerProductLazyTensor(
                 torch.eye(d, d, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1) / self.lengthscale.pow(2),
-                torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1)
+                torch.ones(n1, n2, device=x1.device, dtype=x1.dtype).repeat(*batch_shape, 1, 1),
             )
             chain_rule = kp.evaluate() - outer3
             K[..., n1:, n2:] = chain_rule * K_11.repeat([*([1] * n_batch_dims), d, d])

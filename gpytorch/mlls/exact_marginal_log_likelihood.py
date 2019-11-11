@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from .marginal_log_likelihood import MarginalLogLikelihood
-from ..likelihoods import _GaussianLikelihoodBase
 from ..distributions import MultivariateNormal
+from ..likelihoods import _GaussianLikelihoodBase
+from .marginal_log_likelihood import MarginalLogLikelihood
 
 
 class ExactMarginalLogLikelihood(MarginalLogLikelihood):
@@ -27,6 +27,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         >>> loss = -mll(output, train_y)
         >>> loss.backward()
     """
+
     def __init__(self, likelihood, model):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
@@ -63,6 +64,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
 
     def pyro_factor(self, output, target, *params):
         import pyro
+
         mll = self(output, target, *params)
         pyro.factor("gp_mll", mll)
         return mll

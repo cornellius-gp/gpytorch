@@ -6,9 +6,9 @@ import torch
 from torch import nn
 from torch.distributions import Distribution
 
+from .constraints import Interval
 from .lazy import LazyTensor
 from .utils.deprecation import DeprecationError
-from .constraints import Interval
 
 
 class Module(nn.Module):
@@ -74,7 +74,7 @@ class Module(nn.Module):
         for name, val in kwargs.items():
             if isinstance(val, int):
                 val = float(val)
-            if '.' in name:
+            if "." in name:
                 module, name = self._get_module_and_name(name)
                 module.initialize(**{name: val})
             elif not hasattr(self, name):

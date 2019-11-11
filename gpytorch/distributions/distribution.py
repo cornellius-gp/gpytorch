@@ -8,6 +8,7 @@ class _DistributionBase(TDistribution):
     The base class of Distributions. (Same as torch.distribution.Distribution
     or pyro.distribution.Distribution).
     """
+
     @property
     def islazy(self):
         return self._islazy

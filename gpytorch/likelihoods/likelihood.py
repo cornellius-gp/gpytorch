@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
+import math
+import warnings
+from abc import ABC, abstractmethod
 from copy import deepcopy
 
-import math
 import torch
-import warnings
+
+from .. import settings
+from ..distributions import MultivariateNormal, base_distributions
 from ..module import Module
-from ..distributions import base_distributions, MultivariateNormal
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize
 from ..utils.quadrature import GaussHermiteQuadrature1D
-from .. import settings
-from abc import ABC, abstractmethod
 
 
 class _Likelihood(Module, ABC, _ClassWithDeprecatedBatchSize):
@@ -26,7 +27,7 @@ class _Likelihood(Module, ABC, _ClassWithDeprecatedBatchSize):
                 + [1] * (self.max_plate_nesting - len(function_dist.batch_shape) - 1)
             )
         else:
-            sample_shape = sample_shape[:-len(function_dist.batch_shape) - 1]
+            sample_shape = sample_shape[: -len(function_dist.batch_shape) - 1]
         if self.training:
             num_event_dims = len(function_dist.event_shape)
             function_dist = base_distributions.Normal(function_dist.mean, function_dist.variance.sqrt())
@@ -113,14 +114,14 @@ try:
                 (For Pyro integration only). How many batch dimensions are in the function.
                 This should be modified if the likelihood uses plated random variables.
         """
+
         @property
         def num_data(self):
             if hasattr(self, "_num_data"):
                 return self._num_data
             else:
                 warnings.warn(
-                    "likelihood.num_data isn't set. This might result in incorrect ELBO scaling.",
-                    RuntimeWarning
+                    "likelihood.num_data isn't set. This might result in incorrect ELBO scaling.", RuntimeWarning
                 )
                 return ""
 
@@ -133,7 +134,7 @@ try:
             if hasattr(self, "_name_prefix"):
                 return self._name_prefix
             else:
-                warnings.warn("likelihood.name_prefix isn't set. Defaulting to \"\"", RuntimeWarning)
+                warnings.warn('likelihood.name_prefix isn\'t set. Defaulting to ""', RuntimeWarning)
                 return ""
 
         @name_prefix.setter
@@ -155,7 +156,7 @@ try:
                     # Deal with the fact that we're not assuming conditional indendence over data points here
                     function_samples = function_samples.squeeze(-len(function_dist.event_shape) - 1)
                 else:
-                    sample_shape = sample_shape[:-len(function_dist.batch_shape)]
+                    sample_shape = sample_shape[: -len(function_dist.batch_shape)]
                     function_samples = function_dist(sample_shape)
 
                 if not self.training:
@@ -302,14 +303,16 @@ try:
             if torch.is_tensor(input):
                 return super().__call__(input, *args, **kwargs)
             # Marginal
-            elif any([
-                isinstance(input, MultivariateNormal),
-                isinstance(input, pyro.distributions.Normal),
-                (
-                    isinstance(input, pyro.distributions.Independent)
-                    and isinstance(input.base_dist, pyro.distributions.Normal)
-                ),
-            ]):
+            elif any(
+                [
+                    isinstance(input, MultivariateNormal),
+                    isinstance(input, pyro.distributions.Normal),
+                    (
+                        isinstance(input, pyro.distributions.Independent)
+                        and isinstance(input.base_dist, pyro.distributions.Normal)
+                    ),
+                ]
+            ):
                 return self.marginal(input, *args, **kwargs)
             # Error
             else:
@@ -318,7 +321,9 @@ try:
                     "torch.Tensor for conditional predictions. Got a {}".format(input.__class__.__name__)
                 )
 
+
 except ImportError:
+
     class Likelihood(_Likelihood):
         @property
         def num_data(self):
@@ -347,6 +352,7 @@ class _OneDimensionalLikelihood(Likelihood, ABC):
     Inheriting from this likelihood reduces the variance when computing approximate GP objective functions
     by using 1D Gauss-Hermite quadrature.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.quadrature = GaussHermiteQuadrature1D()

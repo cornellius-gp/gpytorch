@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import warnings
-import torch
-from ..module import Module
 from abc import ABC, abstractmethod
+
+import torch
+
+from ..module import Module
 
 
 class _VariationalDistribution(Module, ABC):
@@ -43,7 +45,7 @@ class _VariationalDistribution(Module, ABC):
             warnings.warn(
                 "_VariationalDistribution.variational_distribution is deprecated. "
                 "Please implement a `forward` method instead.",
-                DeprecationWarning
+                DeprecationWarning,
             )
             return self.variational_distribution
 
@@ -53,7 +55,7 @@ class _VariationalDistribution(Module, ABC):
             warnings.warn(
                 "_VariationalDistribution.variational_distribution is deprecated. "
                 "To get q(u), call the _VariationalDistribution object instead.",
-                DeprecationWarning
+                DeprecationWarning,
             )
             return self.forward()
         else:

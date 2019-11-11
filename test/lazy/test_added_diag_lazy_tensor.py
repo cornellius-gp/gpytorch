@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
-from gpytorch.lazy import (
-    NonLazyTensor,
-    DiagLazyTensor,
-    AddedDiagLazyTensor,
-    RootLazyTensor,
-)
+
+import torch
+
+from gpytorch.lazy import AddedDiagLazyTensor, DiagLazyTensor, NonLazyTensor, RootLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
@@ -35,12 +32,7 @@ class TestAddedDiagLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
         tensor = torch.randn(3, 5, 5)
         tensor = tensor.transpose(-1, -2).matmul(tensor).detach()
         diag = torch.tensor(
-            [
-                [1.0, 2.0, 4.0, 2.0, 3.0],
-                [2.0, 1.0, 2.0, 1.0, 4.0],
-                [1.0, 2.0, 2.0, 3.0, 4.0],
-            ],
-            requires_grad=True,
+            [[1.0, 2.0, 4.0, 2.0, 3.0], [2.0, 1.0, 2.0, 1.0, 4.0], [1.0, 2.0, 2.0, 3.0, 4.0]], requires_grad=True
         )
         return AddedDiagLazyTensor(NonLazyTensor(tensor), DiagLazyTensor(diag))
 
@@ -61,12 +53,7 @@ class TestAddedDiagLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
         tensor = tensor.transpose(-1, -2).matmul(tensor).detach()
         diag = (
             torch.tensor(
-                [
-                    [1.0, 2.0, 4.0, 2.0, 3.0],
-                    [2.0, 1.0, 2.0, 1.0, 4.0],
-                    [1.0, 2.0, 2.0, 3.0, 4.0],
-                ],
-                requires_grad=True,
+                [[1.0, 2.0, 4.0, 2.0, 3.0], [2.0, 1.0, 2.0, 1.0, 4.0], [1.0, 2.0, 2.0, 3.0, 4.0]], requires_grad=True
             )
             .repeat(4, 1, 1)
             .detach()
@@ -105,9 +92,7 @@ class TestAddedDiagLazyTensorPrecondOverride(unittest.TestCase):
             return precond_closure, precond_lt, logdet
 
         overrode_lt = AddedDiagLazyTensor(
-            RootLazyTensor(tensor),
-            DiagLazyTensor(diag),
-            preconditioner_override=nonstandard_preconditioner,
+            RootLazyTensor(tensor), DiagLazyTensor(diag), preconditioner_override=nonstandard_preconditioner
         )
 
         # compute a solve - mostly to make sure that we can actually perform the solve
@@ -117,9 +102,7 @@ class TestAddedDiagLazyTensorPrecondOverride(unittest.TestCase):
 
         # gut checking that our preconditioner is not breaking anything
         self.assertEqual(standard_solve.shape, overrode_solve.shape)
-        self.assertLess(
-            torch.norm(standard_solve - overrode_solve) / standard_solve.norm(), 1.0
-        )
+        self.assertLess(torch.norm(standard_solve - overrode_solve) / standard_solve.norm(), 1.0)
 
 
 if __name__ == "__main__":

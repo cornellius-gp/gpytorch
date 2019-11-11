@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-import torch
 import math
-from .keops_kernel import KeOpsKernel
+
+import torch
+
 from gpytorch.lazy import KeOpsLazyTensor
+
+from .keops_kernel import KeOpsKernel
 
 try:
     from pykeops.torch import LazyTensor as KEOLazyTensor
@@ -15,6 +18,7 @@ try:
         the same arguments. There are currently a few limitations, for example a lack of batch mode support. However,
         most other features like ARD will work.
         """
+
         def __init__(self, nu=2.5, **kwargs):
             if nu not in {0.5, 1.5, 2.5}:
                 raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
@@ -65,7 +69,9 @@ try:
             covar_func = lambda x1, x2, diag=False: self.covar_func(x1, x2, diag)
             return KeOpsLazyTensor(x1_, x2_, covar_func)
 
+
 except ImportError:
+
     class MaternKernel(KeOpsKernel):
         def __init__(self, *args, **kwargs):
             super().__init__()

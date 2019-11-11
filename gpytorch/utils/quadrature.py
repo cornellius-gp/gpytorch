@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import math
+
 import numpy as np
 import torch
 from torch.nn import Module
+
 from .. import settings
 from .broadcasting import _pad_with_singletons
 
@@ -17,9 +19,10 @@ class GaussHermiteQuadrature1D(Module):
     This is implemented as a Module because Gauss-Hermite quadrature has a set of locations and weights that it
     should initialize one time, but that should obey parent calls to .cuda(), .double() etc.
     """
+
     def __init__(self, num_locs=settings.num_gauss_hermite_locs.value()):
         super().__init__()
-        self .num_locs = num_locs
+        self.num_locs = num_locs
 
         locations, weights = self._locs_and_weights(num_locs)
 

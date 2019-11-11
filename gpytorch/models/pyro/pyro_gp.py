@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pyro
+
 from ..gp import GP
 from ._pyro_mixin import _PyroMixin
 
@@ -54,6 +55,7 @@ class PyroGP(GP, _PyroMixin):
     .. _the beta-VAE paper:
         https://openreview.net/pdf?id=Sy2fzU9gl
     """
+
     def __init__(self, variational_strategy, likelihood, num_data, name_prefix="", beta=1.0):
         super().__init__()
         self.variational_strategy = variational_strategy

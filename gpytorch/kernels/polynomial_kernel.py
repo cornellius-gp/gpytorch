@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import torch
-from .kernel import Kernel
 from typing import Optional
+
+import torch
+
+from ..constraints import Interval, Positive
 from ..priors import Prior
-from ..constraints import Positive, Interval
+from .kernel import Kernel
 
 
 class PolynomialKernel(Kernel):
@@ -33,20 +35,13 @@ class PolynomialKernel(Kernel):
     """
 
     def __init__(
-        self,
-        power: int,
-        offset_prior: Optional[Prior] = None,
-        offset_constraint: Optional[Interval] = None,
-        **kwargs
+        self, power: int, offset_prior: Optional[Prior] = None, offset_constraint: Optional[Interval] = None, **kwargs
     ):
         super().__init__(**kwargs)
         if offset_constraint is None:
             offset_constraint = Positive()
 
-        self.register_parameter(
-            name="raw_offset",
-            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1))
-        )
+        self.register_parameter(name="raw_offset", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1)))
 
         # We want the power to be a float so we dont have to worry about its device / dtype.
         if torch.is_tensor(power):
@@ -58,12 +53,7 @@ class PolynomialKernel(Kernel):
         self.power = power
 
         if offset_prior is not None:
-            self.register_prior(
-                "offset_prior",
-                offset_prior,
-                lambda: self.offset,
-                lambda v: self._set_offset(v)
-            )
+            self.register_prior("offset_prior", offset_prior, lambda: self.offset, lambda v: self._set_offset(v))
 
         self.register_constraint("raw_offset", offset_constraint)
 
@@ -86,7 +76,7 @@ class PolynomialKernel(Kernel):
         x2: torch.Tensor,
         diag: Optional[bool] = False,
         last_dim_is_batch: Optional[bool] = False,
-        **params
+        **params,
     ) -> torch.Tensor:
         offset = self.offset.view(*self.batch_shape, 1, 1)
 

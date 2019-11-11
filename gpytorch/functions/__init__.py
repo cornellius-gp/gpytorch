@@ -2,11 +2,11 @@
 
 import torch
 
+from ..utils.deprecation import _deprecated_function_for
 from ._dsmm import DSMM
 from ._log_normal_cdf import LogNormalCDF
-from ..utils.deprecation import _deprecated_function_for
-from .rbf_covariance import RBFCovariance
 from .matern_covariance import MaternCovariance
+from .rbf_covariance import RBFCovariance
 
 
 def add_diag(input, diag):
@@ -23,6 +23,7 @@ def add_diag(input, diag):
         :obj:`Tensor` (bxnxn or nxn)
     """
     from ..lazy import lazify
+
     return lazify(input).add_diag(diag)
 
 
@@ -119,6 +120,7 @@ def inv_matmul(mat, right_tensor, left_tensor=None):
         - :obj:`torch.tensor` - :math:`A^{-1}R` or :math:`LA^{-1}R`.
     """
     from ..lazy import lazify
+
     return lazify(mat).inv_matmul(right_tensor, left_tensor)
 
 
@@ -151,6 +153,7 @@ def inv_quad_logdet(mat, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         - scalar - log determinant
     """
     from ..lazy import lazify
+
     return lazify(mat).inv_quad_logdet(inv_quad_rhs, logdet, reduce_inv_quad=reduce_inv_quad)
 
 
@@ -172,6 +175,7 @@ def root_decomposition(mat):
     low-rank version of a matrix
     """
     from ..lazy import lazify
+
     return lazify(mat).root_decomposition()
 
 
@@ -182,6 +186,7 @@ def root_inv_decomposition(mat, initial_vectors=None, test_vectors=None):
     low-rank version of a matrix
     """
     from ..lazy import lazify
+
     return lazify(mat).root_inv_decomposition(initial_vectors, test_vectors)
 
 
@@ -204,6 +209,5 @@ __all__ = [
     "root_decomposition",
     "root_inv_decomposition",
     # Deprecated
-    "log_det"
-    "inv_quad_log_det"
+    "log_det" "inv_quad_log_det",
 ]

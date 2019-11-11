@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 
 import unittest
-import gpytorch
+
 import torch
+
+import gpytorch
 from gpytorch.test.variational_test_case import VariationalTestCase
 
 
 class TestGridVariationalGP(VariationalTestCase, unittest.TestCase):
     def _make_model_and_likelihood(
-        self, num_inducing=8,
-        batch_shape=torch.Size([]), inducing_batch_shape=torch.Size([]),
+        self,
+        num_inducing=8,
+        batch_shape=torch.Size([]),
+        inducing_batch_shape=torch.Size([]),
         strategy_cls=gpytorch.variational.VariationalStrategy,
         distribution_cls=gpytorch.variational.CholeskyVariationalDistribution,
         constant_mean=True,
@@ -21,7 +25,7 @@ class TestGridVariationalGP(VariationalTestCase, unittest.TestCase):
                 super().__init__(variational_strategy)
                 if constant_mean:
                     self.mean_module = gpytorch.means.ConstantMean()
-                    self.mean_module.initialize(constant=1.)
+                    self.mean_module.initialize(constant=1.0)
                 else:
                     self.mean_module = gpytorch.means.ZeroMean()
                 self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())

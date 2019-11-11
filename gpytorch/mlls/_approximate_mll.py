@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-import torch
-from .marginal_log_likelihood import MarginalLogLikelihood
 from abc import ABC, abstractmethod
+
+import torch
+
+from .marginal_log_likelihood import MarginalLogLikelihood
 
 
 class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
@@ -26,7 +28,8 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
         :attr:`combine_terms` (bool):
             Whether or not to sum the expected NLL with the KL terms (default True)
     """
-    def __init__(self, likelihood, model, num_data, beta=1., combine_terms=True):
+
+    def __init__(self, likelihood, model, num_data, beta=1.0, combine_terms=True):
         super().__init__(likelihood, model)
         self.combine_terms = combine_terms
         self.num_data = num_data
