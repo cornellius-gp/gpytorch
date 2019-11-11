@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
 
 import math
-import torch
 import warnings
-from ..module import Module
+
+import torch
+
 from .. import settings
-from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
-from ..utils.memoize import cached
-from ..lazy import RootLazyTensor, MatmulLazyTensor, CholLazyTensor, \
-    CachedCGLazyTensor, DiagLazyTensor, BatchRepeatLazyTensor, PsdSumLazyTensor
 from ..distributions import MultivariateNormal
+from ..lazy import (
+    BatchRepeatLazyTensor,
+    CachedCGLazyTensor,
+    CholLazyTensor,
+    DiagLazyTensor,
+    MatmulLazyTensor,
+    PsdSumLazyTensor,
+    RootLazyTensor,
+)
+from ..module import Module
+from ..utils.memoize import cached
+from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 
 
 # Deprecated on 0.4 release
 class WhitenedVariationalStrategy(UnwhitenedVariationalStrategy):
     def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
         warnings.warn(
-            "WhitenedVariationalStrategy is deprecated. Please use VariationalStrategy instead.",
-            DeprecationWarning
+            "WhitenedVariationalStrategy is deprecated. Please use VariationalStrategy instead.", DeprecationWarning
         )
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
 
@@ -200,8 +208,7 @@ class WhitenedVariationalStrategy(UnwhitenedVariationalStrategy):
                 data_covariance = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
             else:
                 neg_induc_data_data_covar = torch.matmul(
-                    induc_data_covar.transpose(-1, -2).mul(-1),
-                    induc_induc_covar.inv_matmul(induc_data_covar)
+                    induc_data_covar.transpose(-1, -2).mul(-1), induc_induc_covar.inv_matmul(induc_data_covar)
                 )
                 data_covariance = data_data_covar + neg_induc_data_data_covar
             predictive_covar = PsdSumLazyTensor(predictive_covar, data_covariance)

@@ -2,8 +2,9 @@
 
 import torch
 from torch.autograd import Function
-from ..utils import lanczos
+
 from .. import settings
+from ..utils import lanczos
 
 
 class RootDecomposition(Function):
@@ -19,7 +20,7 @@ class RootDecomposition(Function):
         root,
         inverse,
         initial_vectors,
-        *matrix_args
+        *matrix_args,
     ):
         """
         *matrix_args - The arguments representing the symmetric matrix A (or batch of PSD matrices A)
@@ -105,6 +106,7 @@ class RootDecomposition(Function):
     def backward(ctx, root_grad_output, inverse_grad_output):
         # Taken from http://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf
         if any(ctx.needs_input_grad):
+
             def is_empty(tensor):
                 return tensor.numel() == 0 or (tensor.numel() == 1 and tensor[0] == 0)
 

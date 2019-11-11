@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 
-from gpytorch.likelihoods import Likelihood
 from torch.nn import ModuleList
+
+from gpytorch.likelihoods import Likelihood
 
 
 def _get_tuple_args_(*args):
@@ -29,9 +30,7 @@ class LikelihoodList(Likelihood):
             # if noise kwarg is passed, assume it's an iterable of noise tensors
             return [
                 likelihood.forward(*args_, {**kwargs, "noise": noise_})
-                for likelihood, args_, noise_ in zip(
-                    self.likelihoods, _get_tuple_args_(*args), noise
-                )
+                for likelihood, args_, noise_ in zip(self.likelihoods, _get_tuple_args_(*args), noise)
             ]
         else:
             return [
@@ -51,12 +50,9 @@ class LikelihoodList(Likelihood):
             # if noise kwarg is passed, assume it's an iterable of noise tensors
             return [
                 likelihood(*args_, {**kwargs, "noise": noise_})
-                for likelihood, args_, noise_ in zip(
-                    self.likelihoods, _get_tuple_args_(*args), noise
-                )
+                for likelihood, args_, noise_ in zip(self.likelihoods, _get_tuple_args_(*args), noise)
             ]
         else:
             return [
-                likelihood(*args_, **kwargs)
-                for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
+                likelihood(*args_, **kwargs) for likelihood, args_ in zip(self.likelihoods, _get_tuple_args_(*args))
             ]

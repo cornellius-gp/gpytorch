@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from .kernel import Kernel
 from ..functions import RBFCovariance
+from .kernel import Kernel
 
 
 def postprocess_rbf(dist_mat):
@@ -70,21 +70,17 @@ class RBFKernel(Kernel):
         super(RBFKernel, self).__init__(has_lengthscale=True, **kwargs)
 
     def forward(self, x1, x2, diag=False, **params):
-        if (
-            x1.requires_grad
-            or x2.requires_grad
-            or (self.ard_num_dims is not None and self.ard_num_dims > 1)
-            or diag
-        ):
+        if x1.requires_grad or x2.requires_grad or (self.ard_num_dims is not None and self.ard_num_dims > 1) or diag:
             x1_ = x1.div(self.lengthscale)
             x2_ = x2.div(self.lengthscale)
-            return self.covar_dist(x1_, x2_, square_dist=True, diag=diag,
-                                   dist_postprocess_func=postprocess_rbf,
-                                   postprocess=True, **params)
-        return RBFCovariance().apply(x1, x2, self.lengthscale,
-                                     lambda x1, x2: self.covar_dist(x1, x2,
-                                                                    square_dist=True,
-                                                                    diag=False,
-                                                                    dist_postprocess_func=postprocess_rbf,
-                                                                    postprocess=False,
-                                                                    **params))
+            return self.covar_dist(
+                x1_, x2_, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rbf, postprocess=True, **params
+            )
+        return RBFCovariance().apply(
+            x1,
+            x2,
+            self.lengthscale,
+            lambda x1, x2: self.covar_dist(
+                x1, x2, square_dist=True, diag=False, dist_postprocess_func=postprocess_rbf, postprocess=False, **params
+            ),
+        )

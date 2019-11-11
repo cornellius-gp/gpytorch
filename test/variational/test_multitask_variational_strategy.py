@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
-import gpytorch
+
 import torch
+
+import gpytorch
 from gpytorch.test.variational_test_case import VariationalTestCase
 
 
@@ -14,7 +16,8 @@ def strategy_cls(model, inducing_points, variational_distribution, learn_inducin
     return gpytorch.variational.MultitaskVariationalStrategy(
         gpytorch.variational.VariationalStrategy(
             model, inducing_points, variational_distribution, learn_inducing_locations
-        ), num_tasks=2
+        ),
+        num_tasks=2,
     )
 
 
@@ -55,9 +58,7 @@ class TestMultitaskVariationalGP(VariationalTestCase, unittest.TestCase):
     def test_eval_iteration(self, *args, expected_batch_shape=None, **kwargs):
         expected_batch_shape = expected_batch_shape or self.batch_shape
         expected_batch_shape = expected_batch_shape[:-1]
-        cg_mock, cholesky_mock = super().test_eval_iteration(
-            *args, expected_batch_shape=expected_batch_shape, **kwargs
-        )
+        cg_mock, cholesky_mock = super().test_eval_iteration(*args, expected_batch_shape=expected_batch_shape, **kwargs)
         self.assertFalse(cg_mock.called)
         self.assertEqual(cholesky_mock.call_count, 1)  # One to compute cache, that's it!
 

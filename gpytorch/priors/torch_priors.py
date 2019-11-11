@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from torch.distributions import Gamma, MultivariateNormal, Normal, LogNormal, Uniform
+from torch.distributions import Gamma, LogNormal, MultivariateNormal, Normal, Uniform
+from torch.nn import Module as TModule
 
 from .prior import Prior
 from .utils import _bufferize_attributes, _del_attributes
-from torch.nn import Module as TModule
 
 MVN_LAZY_PROPERTIES = ("covariance_matrix", "scale_tril", "precision_matrix")
 
@@ -32,6 +32,7 @@ class LogNormalPrior(Prior, LogNormal):
     """
     Log Normal prior.
     """
+
     def __init__(self, loc, scale, validate_args=None, transform=None):
         TModule.__init__(self)
         LogNormal.__init__(self, loc=loc, scale=scale, validate_args=validate_args)
@@ -45,6 +46,7 @@ class UniformPrior(Prior, Uniform):
     """
     Uniform prior.
     """
+
     def __init__(self, a, b, validate_args=None, transform=None):
         TModule.__init__(self)
         Uniform.__init__(self, a, b, validate_args=validate_args)

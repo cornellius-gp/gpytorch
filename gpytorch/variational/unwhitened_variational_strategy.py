@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 
 import math
+
 import torch
+
 from .. import settings
-from ..lazy import (
-    DiagLazyTensor, CachedCGLazyTensor, CholLazyTensor, PsdSumLazyTensor,
-    RootLazyTensor, ZeroLazyTensor, delazify
-)
 from ..distributions import MultivariateNormal
+from ..lazy import (
+    CachedCGLazyTensor,
+    CholLazyTensor,
+    DiagLazyTensor,
+    PsdSumLazyTensor,
+    RootLazyTensor,
+    ZeroLazyTensor,
+    delazify,
+)
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
@@ -37,6 +44,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
         parameters of the model).
     """
+
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
         # Maybe used - if we're not using CG
@@ -47,9 +55,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
         out = self.model.forward(self.inducing_points)
-        res = MultivariateNormal(
-            out.mean, out.lazy_covariance_matrix.add_jitter()
-        )
+        res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter())
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
@@ -90,8 +96,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
                 with settings.max_preconditioner_size(0):
                     self._mean_cache = induc_induc_covar.inv_matmul(mean_diff).detach()
             predictive_mean = torch.add(
-                test_mean,
-                induc_data_covar.transpose(-2, -1).matmul(self._mean_cache).squeeze(-1)
+                test_mean, induc_data_covar.transpose(-2, -1).matmul(self._mean_cache).squeeze(-1)
             )
             predictive_covar = ZeroLazyTensor(test_mean.size(-1), test_mean.size(-1))
             return MultivariateNormal(predictive_mean, predictive_covar)
@@ -121,23 +126,31 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             with torch.no_grad():
                 eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
                 solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                    induc_induc_covar, eager_rhs.detach(), logdet_terms=(not cholesky),
-                    include_tmats=(not settings.skip_logdet_forward.on() and not cholesky)
+                    induc_induc_covar,
+                    eager_rhs.detach(),
+                    logdet_terms=(not cholesky),
+                    include_tmats=(not settings.skip_logdet_forward.on() and not cholesky),
                 )
                 eager_rhss = [
-                    eager_rhs.detach(), eager_rhs[..., left_tensors.size(-1):].detach(),
-                    eager_rhs[..., :left_tensors.size(-1)].detach()
+                    eager_rhs.detach(),
+                    eager_rhs[..., left_tensors.size(-1) :].detach(),
+                    eager_rhs[..., : left_tensors.size(-1)].detach(),
                 ]
                 solves = [
-                    solve.detach(), solve[..., left_tensors.size(-1):].detach(),
-                    solve[..., :left_tensors.size(-1)].detach()
+                    solve.detach(),
+                    solve[..., left_tensors.size(-1) :].detach(),
+                    solve[..., : left_tensors.size(-1)].detach(),
                 ]
                 if settings.skip_logdet_forward.on():
                     eager_rhss.append(torch.cat([probe_vecs, left_tensors], -1))
-                    solves.append(torch.cat([probe_vec_solves, solve[..., :left_tensors.size(-1)]], -1))
+                    solves.append(torch.cat([probe_vec_solves, solve[..., : left_tensors.size(-1)]], -1))
             induc_induc_covar = CachedCGLazyTensor(
-                induc_induc_covar, eager_rhss=eager_rhss, solves=solves, probe_vectors=probe_vecs,
-                probe_vector_norms=probe_vec_norms, probe_vector_solves=probe_vec_solves,
+                induc_induc_covar,
+                eager_rhss=eager_rhss,
+                solves=solves,
+                probe_vectors=probe_vecs,
+                probe_vector_norms=probe_vec_norms,
+                probe_vector_solves=probe_vec_solves,
                 probe_vector_tmats=tmats,
             )
 
@@ -157,8 +170,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             data_covariance = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
         else:
             neg_induc_data_data_covar = torch.matmul(
-                induc_data_covar.transpose(-1, -2).mul(-1),
-                induc_induc_covar.inv_matmul(induc_data_covar)
+                induc_data_covar.transpose(-1, -2).mul(-1), induc_induc_covar.inv_matmul(induc_data_covar)
             )
             data_covariance = data_data_covar + neg_induc_data_data_covar
         predictive_covar = PsdSumLazyTensor(RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2)), data_covariance)

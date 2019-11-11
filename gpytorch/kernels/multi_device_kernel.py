@@ -2,9 +2,10 @@
 
 import torch
 from torch.nn.parallel import DataParallel
-from .kernel import Kernel
-from ..lazy import CatLazyTensor, lazify
+
 from .. import settings
+from ..lazy import CatLazyTensor, lazify
+from .kernel import Kernel
 
 
 class MultiDeviceKernel(DataParallel, Kernel):
@@ -17,19 +18,14 @@ class MultiDeviceKernel(DataParallel, Kernel):
         - :attr:`output_device`: Device where outputs will be placed
     """
 
-    def __init__(self, base_kernel, device_ids, output_device=None,
-                 create_cuda_context=True, **kwargs):
+    def __init__(self, base_kernel, device_ids, output_device=None, create_cuda_context=True, **kwargs):
         # Need to warm up each GPU otherwise scattering in forward will be
         # EXTREMELY slow. This memory will be available as soon as we leave __init__
         if create_cuda_context:
             for d in device_ids:
                 _ = torch.tensor([], device=d)
 
-        DataParallel.__init__(self,
-                              module=base_kernel,
-                              device_ids=device_ids,
-                              output_device=output_device,
-                              dim=-2)
+        DataParallel.__init__(self, module=base_kernel, device_ids=device_ids, output_device=output_device, dim=-2)
 
         self.output_device = output_device if output_device else device_ids[0]
 
@@ -67,11 +63,12 @@ class MultiDeviceKernel(DataParallel, Kernel):
         # But reinitializing the distance_module every forward pass
         # is slow and should be removed once JIT modules can be pickled
         def set_distance_module_to_none(module):
-            if hasattr(module, 'distance_module'):
+            if hasattr(module, "distance_module"):
                 module.distance_module = None
+
         self.module.apply(set_distance_module_to_none)
         # Can't cache the replication because the base kernel module can change every time (e.g. param updates)
-        replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
+        replicas = self.replicate(self.module, self.device_ids[: len(inputs)])
 
         # TODO: parallel_apply might be too heavyweight in some cases?
         with settings.lazily_evaluate_kernels(False):

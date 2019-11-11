@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import math
+
 import torch
-from .kernel import Kernel
+
 from ..constraints import Positive
+from .kernel import Kernel
 
 
 class PeriodicKernel(Kernel):
@@ -76,8 +78,8 @@ class PeriodicKernel(Kernel):
             period_length_constraint = Positive()
 
         self.register_parameter(
-            name="raw_period_length",
-            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1)))
+            name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1))
+        )
 
         if period_length_prior is not None:
             self.register_prior(

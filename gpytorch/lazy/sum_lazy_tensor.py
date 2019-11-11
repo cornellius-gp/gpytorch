@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from ..utils.memoize import cached
 from ..utils.broadcasting import _mul_broadcast_shape
-from .non_lazy_tensor import lazify
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import lazify
 from .zero_lazy_tensor import ZeroLazyTensor
 
 
@@ -24,17 +24,11 @@ class SumLazyTensor(LazyTensor):
         return self.__class__(*expanded_tensors)
 
     def _get_indices(self, row_index, col_index, *batch_indices):
-        results = [
-            lazy_tensor._get_indices(row_index, col_index, *batch_indices)
-            for lazy_tensor in self.lazy_tensors
-        ]
+        results = [lazy_tensor._get_indices(row_index, col_index, *batch_indices) for lazy_tensor in self.lazy_tensors]
         return sum(results)
 
     def _getitem(self, row_index, col_index, *batch_indices):
-        results = [
-            lazy_tensor._getitem(row_index, col_index, *batch_indices)
-            for lazy_tensor in self.lazy_tensors
-        ]
+        results = [lazy_tensor._getitem(row_index, col_index, *batch_indices) for lazy_tensor in self.lazy_tensors]
         return SumLazyTensor(*results)
 
     def _matmul(self, rhs):

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
-from .block_lazy_tensor import BlockLazyTensor
+
 from ..utils.broadcasting import _pad_with_singletons
 from ..utils.getitem import _noop_index
+from .block_lazy_tensor import BlockLazyTensor
 
 
 class SumBatchLazyTensor(BlockLazyTensor):
@@ -20,6 +21,7 @@ class SumBatchLazyTensor(BlockLazyTensor):
         :attr:`block_dim` (int):
             The dimension that specifies the blocks.
     """
+
     def _add_batch_dim(self, other):
         shape = list(other.shape)
         expand_shape = list(other.shape)

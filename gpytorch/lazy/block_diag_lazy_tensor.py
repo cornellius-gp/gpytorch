@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
-from .block_lazy_tensor import BlockLazyTensor
+
 from ..utils.memoize import cached
+from .block_lazy_tensor import BlockLazyTensor
 
 
 class BlockDiagLazyTensor(BlockLazyTensor):
@@ -19,6 +20,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         :attr:`block_dim` (int):
             The dimension that specifies the blocks.
     """
+
     @property
     def num_blocks(self):
         return self.base_lazy_tensor.size(-3)

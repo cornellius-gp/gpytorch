@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
+
 from ..distributions import base_distributions
-from .likelihood import Likelihood
 from ..utils.deprecation import _deprecate_kwarg_with_transform
+from .likelihood import Likelihood
 
 
 class SoftmaxLikelihood(Likelihood):
@@ -11,12 +12,8 @@ class SoftmaxLikelihood(Likelihood):
     Implements the Softmax (multiclass) likelihood used for GP classification.
     """
 
-    def __init__(
-        self, num_features=None, num_classes=None, mixing_weights=True, mixing_weights_prior=None, **kwargs
-    ):
-        num_classes = _deprecate_kwarg_with_transform(
-            kwargs, "n_classes", "num_classes", num_classes, lambda n: n
-        )
+    def __init__(self, num_features=None, num_classes=None, mixing_weights=True, mixing_weights_prior=None, **kwargs):
+        num_classes = _deprecate_kwarg_with_transform(kwargs, "n_classes", "num_classes", num_classes, lambda n: n)
         super().__init__()
         if num_classes is None:
             raise ValueError("num_classes is required")

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-import torch
 from typing import Optional
-from .kernel import Kernel
-from ..constraints import Positive, Interval
-from ..priors import Prior
+
+import torch
+
 from .. import settings
+from ..constraints import Interval, Positive
+from ..priors import Prior
+from .kernel import Kernel
 
 
 class CylindricalKernel(Kernel):
@@ -36,6 +38,7 @@ class CylindricalKernel(Kernel):
             Automatically inferred for common transformations such as torch.exp or torch.nn.functional.softplus.
 
     """
+
     def __init__(
         self,
         num_angular_weights: int,
@@ -47,7 +50,7 @@ class CylindricalKernel(Kernel):
         alpha_constraint: Optional[Interval] = None,
         beta_prior: Optional[Prior] = None,
         beta_constraint: Optional[Interval] = None,
-        **kwargs
+        **kwargs,
     ):
         if angular_weights_constraint is None:
             angular_weights_constraint = Positive()
@@ -63,8 +66,10 @@ class CylindricalKernel(Kernel):
         self.radial_base_kernel = radial_base_kernel
         self.eps = eps
 
-        self.register_parameter(name="raw_angular_weights",
-                                parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, num_angular_weights)))
+        self.register_parameter(
+            name="raw_angular_weights",
+            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, num_angular_weights)),
+        )
         self.register_constraint("raw_angular_weights", angular_weights_constraint)
         self.register_parameter(name="raw_alpha", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1)))
         self.register_constraint("raw_alpha", alpha_constraint)
@@ -73,17 +78,15 @@ class CylindricalKernel(Kernel):
 
         if angular_weights_prior is not None:
             self.register_prior(
-                "angular_weights_prior", angular_weights_prior,
-                lambda: self.angular_weights, lambda v: self._set_angular_weights(v)
+                "angular_weights_prior",
+                angular_weights_prior,
+                lambda: self.angular_weights,
+                lambda v: self._set_angular_weights(v),
             )
         if alpha_prior is not None:
-            self.register_prior(
-                "alpha_prior", alpha_prior, lambda: self.alpha, lambda v: self._set_alpha(v)
-            )
+            self.register_prior("alpha_prior", alpha_prior, lambda: self.alpha, lambda v: self._set_alpha(v))
         if beta_prior is not None:
-            self.register_prior(
-                "beta_prior", beta_prior, lambda: self.beta, lambda v: self._set_beta(v)
-            )
+            self.register_prior("beta_prior", beta_prior, lambda: self.beta, lambda v: self._set_beta(v))
 
     @property
     def angular_weights(self) -> torch.Tensor:
@@ -118,20 +121,14 @@ class CylindricalKernel(Kernel):
 
         self.initialize(raw_beta=self.raw_beta_constraint.inverse_transform(value))
 
-    def forward(
-        self,
-        x1: torch.Tensor,
-        x2: torch.Tensor,
-        diag: Optional[bool] = False,
-        **params
-    ) -> torch.Tensor:
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor, diag: Optional[bool] = False, **params) -> torch.Tensor:
 
         x1_, x2_ = x1.clone(), x2.clone()
         # Jitter datapoints that are exactly 0
         x1_[x1_ == 0], x2_[x2_ == 0] = x1_[x1_ == 0] + self.eps, x2_[x2_ == 0] + self.eps
         r1, r2 = x1_.norm(dim=-1, keepdim=True), x2_.norm(dim=-1, keepdim=True)
 
-        if torch.any(r1 > 1.) or torch.any(r2 > 1.):
+        if torch.any(r1 > 1.0) or torch.any(r2 > 1.0):
             raise RuntimeError("Cylindrical kernel not defined for data points with radius > 1. Scale your data!")
 
         a1, a2 = x1.div(r1), x2.div(r2)
@@ -151,12 +148,7 @@ class CylindricalKernel(Kernel):
                     angular_kernel = angular_kernel + self.angular_weights[..., p, None].mul(gram_mat.pow(p))
 
         with settings.lazily_evaluate_kernels(False):
-            radial_kernel = self.radial_base_kernel(
-                self.kuma(r1),
-                self.kuma(r2),
-                diag=diag,
-                **params
-            )
+            radial_kernel = self.radial_base_kernel(self.kuma(r1), self.kuma(r2), diag=diag, **params)
         return radial_kernel.mul(angular_kernel)
 
     def kuma(self, x: torch.Tensor) -> torch.Tensor:

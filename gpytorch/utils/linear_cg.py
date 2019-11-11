@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-import torch
 import warnings
+
+import torch
+
 from .. import settings
 from .deprecation import bool_compat
 
@@ -12,8 +14,7 @@ def _default_preconditioner(x):
 
 @torch.jit.script
 def _jit_linear_cg_updates(
-    result, alpha, residual_inner_prod, eps, beta, residual, precond_residual,
-    mul_storage, is_zero, curr_conjugate_vec
+    result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, is_zero, curr_conjugate_vec
 ):
     # # Update result
     # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
@@ -37,8 +38,18 @@ def _jit_linear_cg_updates(
 
 @torch.jit.script
 def _jit_linear_cg_updates_no_precond(
-    mvms, result, has_converged, alpha, residual_inner_prod, eps, beta, residual, precond_residual,
-    mul_storage, is_zero, curr_conjugate_vec
+    mvms,
+    result,
+    has_converged,
+    alpha,
+    residual_inner_prod,
+    eps,
+    beta,
+    residual,
+    precond_residual,
+    mul_storage,
+    is_zero,
+    curr_conjugate_vec,
 ):
     torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
     torch.sum(mul_storage, dim=-2, keepdim=True, out=alpha)
@@ -61,8 +72,16 @@ def _jit_linear_cg_updates_no_precond(
     precond_residual = residual.clone()
 
     _jit_linear_cg_updates(
-        result, alpha, residual_inner_prod, eps, beta, residual, precond_residual,
-        mul_storage, is_zero, curr_conjugate_vec
+        result,
+        alpha,
+        residual_inner_prod,
+        eps,
+        beta,
+        residual,
+        precond_residual,
+        mul_storage,
+        is_zero,
+        curr_conjugate_vec,
     )
 
 

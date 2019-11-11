@@ -2,7 +2,7 @@
 
 import torch
 
-from .. import settings, beta_features
+from .. import beta_features, settings
 from ..utils import broadcasting
 from ..utils.getitem import _noop_index
 from ..utils.memoize import cached
@@ -203,15 +203,19 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 torch.Size([*x1.shape[:-2], num_rows, x1.size(-1)]),
                 torch.Size([*x2.shape[:-2], x2.size(-1), num_cols]),
                 error_msg="x1 and x2 were not broadcastable to a proper kernel shape. "
-                "Got x1.shape = {} and x2.shape = {}".format(str(x1.shape), str(x2.shape))
+                "Got x1.shape = {} and x2.shape = {}".format(str(x1.shape), str(x2.shape)),
             )
-            expected_size = broadcasting._mul_broadcast_shape(
-                expected_size[:-2], self.kernel.batch_shape,
-                error_msg=(
-                    f"x1 and x2 were not broadcastable with kernel of batch_shape {self.kernel.batch_shape}. "
-                    f"Got x1.shape = {x1.shape} and x2.shape = {x2.shape}"
+            expected_size = (
+                broadcasting._mul_broadcast_shape(
+                    expected_size[:-2],
+                    self.kernel.batch_shape,
+                    error_msg=(
+                        f"x1 and x2 were not broadcastable with kernel of batch_shape {self.kernel.batch_shape}. "
+                        f"Got x1.shape = {x1.shape} and x2.shape = {x2.shape}"
+                    ),
                 )
-            ) + expected_size[-2:]
+                + expected_size[-2:]
+            )
 
         # Handle when the last dim is batch
         if self.last_dim_is_batch:
@@ -271,9 +275,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         with settings.lazily_evaluate_kernels(False):
             temp_active_dims = self.kernel.active_dims
             self.kernel.active_dims = None
-            res = self.kernel(
-                x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params
-            )
+            res = self.kernel(x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params)
             self.kernel.active_dims = temp_active_dims
 
         # Check the size of the output

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
-from .kernel import Kernel
-from ..lazy import delazify
+
 from ..constraints import Positive
+from ..lazy import delazify
+from .kernel import Kernel
 
 
 class ScaleKernel(Kernel):
@@ -56,7 +57,7 @@ class ScaleKernel(Kernel):
             outputscale_constraint = Positive()
 
         self.base_kernel = base_kernel
-        outputscale = torch.zeros(*self.batch_shape) if len(self.batch_shape) else torch.tensor(0.)
+        outputscale = torch.zeros(*self.batch_shape) if len(self.batch_shape) else torch.tensor(0.0)
         self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(outputscale))
         if outputscale_prior is not None:
             self.register_prior(

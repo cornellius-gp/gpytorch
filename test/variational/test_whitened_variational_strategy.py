@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import warnings
 import unittest
-import gpytorch
-import torch
+import warnings
 from unittest.mock import MagicMock, patch
+
+import torch
+
+import gpytorch
 from gpytorch.lazy import ExtraComputationWarning
 from gpytorch.test.base_test_case import BaseTestCase
 
@@ -27,8 +29,10 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
         return gpytorch.variational.WhitenedVariationalStrategy
 
     def _make_model_and_likelihood(
-        self, num_inducing=16,
-        batch_shape=torch.Size([]), inducing_batch_shape=torch.Size([]),
+        self,
+        num_inducing=16,
+        batch_shape=torch.Size([]),
+        inducing_batch_shape=torch.Size([]),
         strategy_cls=gpytorch.variational.VariationalStrategy,
         distribution_cls=gpytorch.variational.CholeskyVariationalDistribution,
         constant_mean=True,
@@ -37,12 +41,12 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
             def __init__(self, inducing_points):
                 variational_distribution = distribution_cls(num_inducing, batch_shape=batch_shape)
                 variational_strategy = strategy_cls(
-                    self, inducing_points, variational_distribution, learn_inducing_locations=True,
+                    self, inducing_points, variational_distribution, learn_inducing_locations=True
                 )
                 super().__init__(variational_strategy)
                 if constant_mean:
                     self.mean_module = gpytorch.means.ConstantMean()
-                    self.mean_module.initialize(constant=1.)
+                    self.mean_module.initialize(constant=1.0)
                 else:
                     self.mean_module = gpytorch.means.ZeroMean()
                 self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
@@ -57,10 +61,7 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
         with warnings.catch_warnings(record=True):
             return _SVGPRegressionModel(inducing_points), self.likelihood_cls()
 
-    def _training_iter(
-        self, model, likelihood, batch_shape=torch.Size([]),
-        mll_cls=gpytorch.mlls.VariationalELBO,
-    ):
+    def _training_iter(self, model, likelihood, batch_shape=torch.Size([]), mll_cls=gpytorch.mlls.VariationalELBO):
         train_x = torch.randn(*batch_shape, 32, 2).clamp(-2.5, 2.5)
         train_y = torch.linspace(-1, 1, self.event_shape[0])
         train_y = train_y.view(self.event_shape[0], *([1] * (len(self.event_shape) - 1)))
@@ -108,8 +109,12 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
         return gpytorch.likelihoods.GaussianLikelihood
 
     def test_eval_iteration(
-        self, data_batch_shape=None, inducing_batch_shape=None, model_batch_shape=None,
-        eval_data_batch_shape=None, expected_batch_shape=None,
+        self,
+        data_batch_shape=None,
+        inducing_batch_shape=None,
+        model_batch_shape=None,
+        eval_data_batch_shape=None,
+        expected_batch_shape=None,
     ):
         # Batch shapes
         model_batch_shape = model_batch_shape if model_batch_shape is not None else self.batch_shape
@@ -126,15 +131,14 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
 
         # Make model and likelihood
         model, likelihood = self._make_model_and_likelihood(
-            batch_shape=model_batch_shape, inducing_batch_shape=inducing_batch_shape,
-            distribution_cls=self.distribution_cls, strategy_cls=self.strategy_cls,
+            batch_shape=model_batch_shape,
+            inducing_batch_shape=inducing_batch_shape,
+            distribution_cls=self.distribution_cls,
+            strategy_cls=self.strategy_cls,
         )
 
         # Do one forward pass
-        self._training_iter(
-            model, likelihood, data_batch_shape,
-            mll_cls=self.mll_cls,
-        )
+        self._training_iter(model, likelihood, data_batch_shape, mll_cls=self.mll_cls)
 
         # Now do evaluatioj
         with _cholesky_mock as cholesky_mock, _cg_mock as cg_mock:
@@ -146,8 +150,12 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
             return cg_mock, cholesky_mock
 
     def test_training_iteration(
-        self, data_batch_shape=None, inducing_batch_shape=None, model_batch_shape=None,
-        expected_batch_shape=None, constant_mean=True
+        self,
+        data_batch_shape=None,
+        inducing_batch_shape=None,
+        model_batch_shape=None,
+        expected_batch_shape=None,
+        constant_mean=True,
     ):
         # Batch shapes
         model_batch_shape = model_batch_shape if model_batch_shape is not None else self.batch_shape
@@ -163,8 +171,10 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
 
         # Make model and likelihood
         model, likelihood = self._make_model_and_likelihood(
-            batch_shape=model_batch_shape, inducing_batch_shape=inducing_batch_shape,
-            distribution_cls=self.distribution_cls, strategy_cls=self.strategy_cls,
+            batch_shape=model_batch_shape,
+            inducing_batch_shape=inducing_batch_shape,
+            distribution_cls=self.distribution_cls,
+            strategy_cls=self.strategy_cls,
             constant_mean=constant_mean,
         )
 
@@ -172,16 +182,10 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
         with _cholesky_mock as cholesky_mock, _cg_mock as cg_mock:
             # Iter 1
             self.assertEqual(model.variational_strategy.variational_params_initialized.item(), 0)
-            self._training_iter(
-                model, likelihood, data_batch_shape,
-                mll_cls=self.mll_cls
-            )
+            self._training_iter(model, likelihood, data_batch_shape, mll_cls=self.mll_cls)
             self.assertEqual(model.variational_strategy.variational_params_initialized.item(), 1)
             # Iter 2
-            output, loss = self._training_iter(
-                model, likelihood, data_batch_shape,
-                mll_cls=self.mll_cls
-            )
+            output, loss = self._training_iter(model, likelihood, data_batch_shape, mll_cls=self.mll_cls)
             self.assertEqual(output.batch_shape, expected_batch_shape)
             self.assertEqual(output.event_shape, self.event_shape)
             self.assertEqual(loss.shape, expected_batch_shape)

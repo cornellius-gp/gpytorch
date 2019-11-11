@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
 import warnings
-from .gp import GP
+
+from . import deep_gps, pyro
 from .approximate_gp import ApproximateGP
 from .exact_gp import ExactGP
+from .gp import GP
 from .model_list import AbstractModelList, IndependentModelList
 from .pyro import PyroGP
-from . import deep_gps
-from . import pyro
-
 
 # Alternative name for ApproximateGP
 VariationalGP = ApproximateGP
@@ -17,20 +16,14 @@ VariationalGP = ApproximateGP
 # Deprecated for 0.4 release
 class AbstractVariationalGP(ApproximateGP):
     def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "AbstractVariationalGP has been renamed to ApproximateGP.",
-            DeprecationWarning
-        )
+        warnings.warn("AbstractVariationalGP has been renamed to ApproximateGP.", DeprecationWarning)
         super().__init__(*args, **kwargs)
 
 
 # Deprecated for 0.4 release
 class PyroVariationalGP(ApproximateGP):
     def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "PyroVariationalGP has been renamed to PyroGP.",
-            DeprecationWarning
-        )
+        warnings.warn("PyroVariationalGP has been renamed to PyroGP.", DeprecationWarning)
         super().__init__(*args, **kwargs)
 
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
-import torch
 import warnings
-from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, delazify
+
+import torch
+
 from ..distributions import MultivariateNormal
+from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, delazify
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
@@ -24,7 +26,7 @@ def _ensure_updated_strategy_flag_set(
             "GPyTorch. We have updated the parameters of your model to work with the new version of "
             "`VariationalStrategy` that uses whitened parameters.\nYour model will work as expected, but we "
             "recommend that you re-save your model.",
-            OldVersionWarning
+            OldVersionWarning,
         )
 
 
@@ -59,6 +61,7 @@ class VariationalStrategy(_VariationalStrategy):
     .. _Matthews (2017):
         https://www.repository.cam.ac.uk/handle/1810/278022
     """
+
     def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
         self.register_buffer("updated_strategy", torch.tensor(True))
@@ -98,10 +101,12 @@ class VariationalStrategy(_VariationalStrategy):
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
-        predictive_mean = torch.matmul(
-            interp_term.transpose(-1, -2),
-            (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
-        ).squeeze(-1) + test_mean
+        predictive_mean = (
+            torch.matmul(
+                interp_term.transpose(-1, -2), (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
+            ).squeeze(-1)
+            + test_mean
+        )
 
         # Compute the covariance of q(f)
         # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
@@ -109,8 +114,7 @@ class VariationalStrategy(_VariationalStrategy):
         if variational_inducing_covar is not None:
             middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
         predictive_covar = SumLazyTensor(
-            data_data_covar.add_jitter(1e-4),
-            MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term)
+            data_data_covar.add_jitter(1e-4), MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term)
         )
 
         # Return the distribution
@@ -126,18 +130,24 @@ class VariationalStrategy(_VariationalStrategy):
 
                 # Temporarily turn off noise that's added to the mean
                 orig_mean_init_std = self._variational_distribution.mean_init_std
-                self._variational_distribution.mean_init_std = 0.
+                self._variational_distribution.mean_init_std = 0.0
 
                 # Change the variational parameters to be whitened
                 variational_dist = self.variational_distribution
-                whitened_mean = torch.triangular_solve(
-                    (variational_dist.loc - prior_mean).unsqueeze(-1).double(),
-                    L, upper=False
-                )[0].squeeze(-1).to(variational_dist.loc.dtype)
-                whitened_covar = RootLazyTensor(torch.triangular_solve(
-                    variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate().double(),
-                    L, upper=False
-                )[0].to(variational_dist.loc.dtype))
+                whitened_mean = (
+                    torch.triangular_solve((variational_dist.loc - prior_mean).unsqueeze(-1).double(), L, upper=False)[
+                        0
+                    ]
+                    .squeeze(-1)
+                    .to(variational_dist.loc.dtype)
+                )
+                whitened_covar = RootLazyTensor(
+                    torch.triangular_solve(
+                        variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate().double(),
+                        L,
+                        upper=False,
+                    )[0].to(variational_dist.loc.dtype)
+                )
                 whitened_variational_distribution = variational_dist.__class__(whitened_mean, whitened_covar)
                 self._variational_distribution.initialize_variational_distribution(whitened_variational_distribution)
 

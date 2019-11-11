@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 from math import pi
-import os
-import random
 import torch
 import time
 import unittest
@@ -17,11 +15,13 @@ try:
         def __init__(self, num_tasks, num_clusters, name_prefix=str(time.time()), reparam=False):
             super().__init__()
             self.register_buffer("prior_cluster_logits", torch.zeros(num_tasks, num_clusters))
-            self.register_parameter("variational_cluster_logits", torch.nn.Parameter(torch.randn(num_tasks, num_clusters)))
-            self.register_parameter("raw_noise", torch.nn.Parameter(torch.tensor(0.)))
+            self.register_parameter(
+                "variational_cluster_logits", torch.nn.Parameter(torch.randn(num_tasks, num_clusters))
+            )
+            self.register_parameter("raw_noise", torch.nn.Parameter(torch.tensor(0.0)))
             self.reparam = reparam
             if self.reparam:
-                self.register_buffer("temp", torch.tensor(1.))
+                self.register_buffer("temp", torch.tensor(1.0))
             self.num_tasks = num_tasks
             self.num_clusters = num_clusters
             self.name_prefix = name_prefix
@@ -39,45 +39,37 @@ try:
             return dist
 
         def pyro_guide(self, function_dist, target):
-            pyro.sample(
-                self.name_prefix + ".cluster_logits",
-                self._cluster_dist(self.variational_cluster_logits)
-            )
+            pyro.sample(self.name_prefix + ".cluster_logits", self._cluster_dist(self.variational_cluster_logits))
             return super().pyro_guide(function_dist, target)
 
         def pyro_model(self, function_dist, target):
             cluster_assignment_samples = pyro.sample(
-                self.name_prefix + ".cluster_logits",
-                self._cluster_dist(self.prior_cluster_logits)
+                self.name_prefix + ".cluster_logits", self._cluster_dist(self.prior_cluster_logits)
             )
             return super().pyro_model(function_dist, target, cluster_assignment_samples=cluster_assignment_samples)
 
         def forward(self, function_samples, cluster_assignment_samples=None):
             if cluster_assignment_samples is None:
                 cluster_assignment_samples = pyro.sample(
-                    self.name_prefix + ".cluster_logits",
-                    self._cluster_dist(self.variational_cluster_logits)
+                    self.name_prefix + ".cluster_logits", self._cluster_dist(self.variational_cluster_logits)
                 )
             res = pyro.distributions.Normal(
-                loc=(function_samples.unsqueeze(-2) * cluster_assignment_samples).sum(-1),
-                scale=self.noise.sqrt(),
+                loc=(function_samples.unsqueeze(-2) * cluster_assignment_samples).sum(-1), scale=self.noise.sqrt()
             ).to_event(1)
             return res
-
 
     class ClusterMultitaskGPModel(gpytorch.models.pyro.PyroGP):
         def __init__(self, train_x, train_y, num_functions=2, reparam=False):
             num_data = train_y.size(-2)
-            
+
             # Define all the variational stuff
             inducing_points = torch.linspace(0, 1, 64).unsqueeze(-1)
             variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
-                num_inducing_points=inducing_points.size(-2),
-                batch_shape=torch.Size([num_functions])
+                num_inducing_points=inducing_points.size(-2), batch_shape=torch.Size([num_functions])
             )
             variational_strategy = gpytorch.variational.MultitaskVariationalStrategy(
                 gpytorch.variational.VariationalStrategy(self, inducing_points, variational_distribution),
-                num_tasks=num_functions
+                num_tasks=num_functions,
             )
 
             # Standard initializtation
@@ -98,11 +90,10 @@ try:
             res = gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
             return res
 
-
     class SVGPModel(gpytorch.models.pyro.PyroGP):
         def __init__(self, train_x, train_y):
             num_data = train_y.size(-1)
-            
+
             # Define all the variational stuff
             inducing_points = torch.linspace(0, 1, 64).unsqueeze(-1)
             variational_distribution = gpytorch.variational.MeanFieldVariationalDistribution(inducing_points.size(-2))
@@ -125,18 +116,16 @@ try:
             res = gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
             return res
 
-
     class LowLevelInterfaceClusterMultitaskGPModel(gpytorch.models.ApproximateGP):
         def __init__(self, train_x, train_y, num_functions=2):
             # Define all the variational stuff
             inducing_points = torch.linspace(0, 1, 64).unsqueeze(-1)
             variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
-                num_inducing_points=inducing_points.size(-2),
-                batch_shape=torch.Size([num_functions])
+                num_inducing_points=inducing_points.size(-2), batch_shape=torch.Size([num_functions])
             )
             variational_strategy = gpytorch.variational.MultitaskVariationalStrategy(
                 gpytorch.variational.VariationalStrategy(self, inducing_points, variational_distribution),
-                num_tasks=num_functions
+                num_tasks=num_functions,
             )
             super().__init__(variational_strategy)
 
@@ -151,10 +140,9 @@ try:
 
             # Define likelihood stuff
             self.register_parameter(
-                "variational_logits",
-                torch.nn.Parameter(torch.randn(self.num_tasks, self.num_functions))
+                "variational_logits", torch.nn.Parameter(torch.randn(self.num_tasks, self.num_functions))
             )
-            self.register_parameter("raw_noise", torch.nn.Parameter(torch.tensor(0.)))
+            self.register_parameter("raw_noise", torch.nn.Parameter(torch.tensor(0.0)))
 
         @property
         def noise(self):
@@ -170,7 +158,7 @@ try:
             function_dist = self.pyro_guide(x, name_prefix=self.name_prefix)
             pyro.sample(
                 self.name_prefix + ".cluster_logits",
-                pyro.distributions.OneHotCategorical(logits=self.variational_logits).to_event(1)
+                pyro.distributions.OneHotCategorical(logits=self.variational_logits).to_event(1),
             )
             with pyro.plate(self.name_prefix + ".output_values_plate", function_dist.batch_shape[-1], dim=-1):
                 pyro.sample(self.name_prefix + ".f", function_dist)
@@ -184,21 +172,19 @@ try:
             # Draw samples of cluster assignments
             cluster_assignment_samples = pyro.sample(
                 self.name_prefix + ".cluster_logits",
-                pyro.distributions.OneHotCategorical(
-                    logits=torch.zeros(self.num_tasks, self.num_functions)
-                ).to_event(1)
+                pyro.distributions.OneHotCategorical(logits=torch.zeros(self.num_tasks, self.num_functions)).to_event(
+                    1
+                ),
             )
 
             # Sample from observation distribution
             with pyro.plate(self.name_prefix + ".output_values_plate", function_dist.batch_shape[-1], dim=-1):
                 function_samples = pyro.sample(self.name_prefix + ".f", function_dist)
                 obs_dist = pyro.distributions.Normal(
-                    loc=(function_samples.unsqueeze(-2) * cluster_assignment_samples).sum(-1),
-                    scale=self.noise.sqrt(),
+                    loc=(function_samples.unsqueeze(-2) * cluster_assignment_samples).sum(-1), scale=self.noise.sqrt()
                 ).to_event(1)
                 with pyro.poutine.scale(scale=(self.num_data / y.size(-2))):
                     return pyro.sample(self.name_prefix + ".y", obs_dist, obs=y)
-
 
     class TestPyroIntegration(BaseTestCase, unittest.TestCase):
         seed = 1
@@ -219,7 +205,7 @@ try:
 
             n_iter = 250
             for _ in range(n_iter):
-                loss = svi.step(train_x, train_y)
+                svi.step(train_x, train_y)
 
             # Test the model
             with torch.no_grad(), gpytorch.settings.num_likelihood_samples(128):
@@ -257,7 +243,7 @@ try:
 
             n_iter = 200
             for _ in range(n_iter):
-                loss = svi.step(train_x, train_y)
+                svi.step(train_x, train_y)
 
             # Test the model
             with torch.no_grad(), gpytorch.settings.num_likelihood_samples(128):
@@ -304,7 +290,7 @@ try:
 
             n_iter = 200
             for _ in range(n_iter):
-                loss = svi.step(train_x, train_y)
+                svi.step(train_x, train_y)
 
             # Test the model inference
             cluster_1_idx = model.variational_logits[0].max(dim=-1)[1].item()
@@ -314,6 +300,7 @@ try:
             self.assertGreater(cluster_probs[1, cluster_2_idx].squeeze().item(), 0.9)
             self.assertGreater(cluster_probs[2, cluster_2_idx].squeeze().item(), 0.9)
             self.assertGreater(cluster_probs[3, cluster_1_idx].squeeze().item(), 0.9)
+
 
 except ImportError:
     pass

@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
 from unittest import TestCase
-from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
-from gpytorch.kernels import RBFKernel, ScaleKernel, AdditiveKernel, NewtonGirardAdditiveKernel
+
+import torch
+
+from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import AdditiveKernel, NewtonGirardAdditiveKernel, RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.models import ExactGP
-from gpytorch.means import ConstantMean
-from gpytorch.distributions import MultivariateNormal
-import torch
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
 class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
@@ -26,10 +28,10 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
         add_k_val = AddK(testvals, testvals).evaluate()
 
-        manual_k = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=0),
-                                              RBFKernel(active_dims=1),
-                                              RBFKernel(active_dims=2)))
-        manual_k.initialize(outputscale=1.)
+        manual_k = ScaleKernel(
+            AdditiveKernel(RBFKernel(active_dims=0), RBFKernel(active_dims=1), RBFKernel(active_dims=2))
+        )
+        manual_k.initialize(outputscale=1.0)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
 
         # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
@@ -43,13 +45,13 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
         add_k_val = AddK(testvals, testvals).evaluate()
 
-        manual_k1 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=0),
-                                               RBFKernel(active_dims=1),
-                                               RBFKernel(active_dims=2)))
+        manual_k1 = ScaleKernel(
+            AdditiveKernel(RBFKernel(active_dims=0), RBFKernel(active_dims=1), RBFKernel(active_dims=2))
+        )
         manual_k1.initialize(outputscale=1 / 2)
-        manual_k2 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=[0, 1]),
-                                               RBFKernel(active_dims=[1, 2]),
-                                               RBFKernel(active_dims=[0, 2])))
+        manual_k2 = ScaleKernel(
+            AdditiveKernel(RBFKernel(active_dims=[0, 1]), RBFKernel(active_dims=[1, 2]), RBFKernel(active_dims=[0, 2]))
+        )
         manual_k2.initialize(outputscale=1 / 2)
         manual_k = AdditiveKernel(manual_k1, manual_k2)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
@@ -66,13 +68,13 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
         add_k_val = AddK(testvals, testvals).evaluate()
 
-        manual_k1 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=0),
-                                               RBFKernel(active_dims=1),
-                                               RBFKernel(active_dims=2)))
+        manual_k1 = ScaleKernel(
+            AdditiveKernel(RBFKernel(active_dims=0), RBFKernel(active_dims=1), RBFKernel(active_dims=2))
+        )
         manual_k1.initialize(outputscale=1 / 3)
-        manual_k2 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=[0, 1]),
-                                               RBFKernel(active_dims=[1, 2]),
-                                               RBFKernel(active_dims=[0, 2])))
+        manual_k2 = ScaleKernel(
+            AdditiveKernel(RBFKernel(active_dims=[0, 1]), RBFKernel(active_dims=[1, 2]), RBFKernel(active_dims=[0, 2]))
+        )
         manual_k2.initialize(outputscale=1 / 3)
 
         manual_k3 = ScaleKernel(AdditiveKernel(RBFKernel()))
@@ -115,7 +117,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
 
     def test_ard(self):
         base_k = RBFKernel(ard_num_dims=3)
-        base_k.initialize(lengthscale=[1., 2., 3.])
+        base_k.initialize(lengthscale=[1.0, 2.0, 3.0])
         AddK = NewtonGirardAdditiveKernel(base_k, 3, max_degree=1)
 
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
@@ -127,7 +129,7 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
             k.initialize(lengthscale=i + 1)
             ks.append(k)
         manual_k = ScaleKernel(AdditiveKernel(*ks))
-        manual_k.initialize(outputscale=1.)
+        manual_k.initialize(outputscale=1.0)
         manual_add_k_val = manual_k(testvals, testvals).evaluate()
 
         # np.testing.assert_allclose(add_k_val.detach().numpy(), manual_add_k_val.detach().numpy(), atol=1e-5)
@@ -141,13 +143,13 @@ class TestNewtonGirardAdditiveKernel(TestCase, BaseKernelTestCase):
         testvals = torch.tensor([[1, 2, 3], [7, 5, 2]], dtype=torch.float)
         add_k_val = AddK(testvals, testvals).diag()
 
-        manual_k1 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=0),
-                                               RBFKernel(active_dims=1),
-                                               RBFKernel(active_dims=2)))
+        manual_k1 = ScaleKernel(
+            AdditiveKernel(RBFKernel(active_dims=0), RBFKernel(active_dims=1), RBFKernel(active_dims=2))
+        )
         manual_k1.initialize(outputscale=1 / 2)
-        manual_k2 = ScaleKernel(AdditiveKernel(RBFKernel(active_dims=[0, 1]),
-                                               RBFKernel(active_dims=[1, 2]),
-                                               RBFKernel(active_dims=[0, 2])))
+        manual_k2 = ScaleKernel(
+            AdditiveKernel(RBFKernel(active_dims=[0, 1]), RBFKernel(active_dims=[1, 2]), RBFKernel(active_dims=[0, 2]))
+        )
         manual_k2.initialize(outputscale=1 / 2)
         manual_k = AdditiveKernel(manual_k1, manual_k2)
         manual_add_k_val = manual_k(testvals, testvals).diag()

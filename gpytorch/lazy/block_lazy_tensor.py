@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+from abc import abstractmethod
+
 import torch
+
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
-from abc import abstractmethod
 
 
 class BlockLazyTensor(LazyTensor):
@@ -41,8 +43,9 @@ class BlockLazyTensor(LazyTensor):
         if block_dim != -3:
             positive_block_dim = base_lazy_tensor.dim() + block_dim
             base_lazy_tensor = base_lazy_tensor._permute_batch(
-                *range(positive_block_dim), *range(positive_block_dim + 1, base_lazy_tensor.dim() - 2),
-                positive_block_dim
+                *range(positive_block_dim),
+                *range(positive_block_dim + 1, base_lazy_tensor.dim() - 2),
+                positive_block_dim,
             )
 
         super(BlockLazyTensor, self).__init__(lazify(base_lazy_tensor))
@@ -103,6 +106,7 @@ class BlockLazyTensor(LazyTensor):
         # We're using a custom method here - the constant mul is applied to the base_lazy tensor
         # This preserves the block structure
         from .constant_mul_lazy_tensor import ConstantMulLazyTensor
+
         return self.__class__(ConstantMulLazyTensor(self.base_lazy_tensor, other))
 
     def _transpose_nonbatch(self):

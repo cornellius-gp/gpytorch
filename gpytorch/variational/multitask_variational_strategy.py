@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from ._variational_strategy import _VariationalStrategy
+from ..distributions import MultitaskMultivariateNormal
 from ..module import Module
 from ..utils.memoize import cached
-from ..distributions import MultitaskMultivariateNormal
+from ._variational_strategy import _VariationalStrategy
 
 
 class MultitaskVariationalStrategy(_VariationalStrategy):
@@ -18,6 +18,7 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
     :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
     :param int task_dim: (default=-1) Which batch dimension is the task dimension
     """
+
     def __init__(self, base_variational_strategy, num_tasks, task_dim=-1):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
@@ -44,8 +45,10 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
     def __call__(self, x, prior=False):
         function_dist = self.base_variational_strategy(x, prior=prior)
         if (
-            self.task_dim > 0 and self.task_dim > len(function_dist.batch_shape)
-            or self.task_dim < 0 and self.task_dim + len(function_dist.batch_shape) < 0
+            self.task_dim > 0
+            and self.task_dim > len(function_dist.batch_shape)
+            or self.task_dim < 0
+            and self.task_dim + len(function_dist.batch_shape) < 0
         ):
             return MultitaskMultivariateNormal.from_repeated_mvn(function_dist, num_tasks=self.num_tasks)
         else:

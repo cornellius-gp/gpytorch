@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import math
+
 import torch
-from .kernel import Kernel
+
 from ..functions import MaternCovariance
+from .kernel import Kernel
 
 
 class MaternKernel(Kernel):
@@ -82,12 +84,7 @@ class MaternKernel(Kernel):
         self.nu = nu
 
     def forward(self, x1, x2, diag=False, **params):
-        if (
-            x1.requires_grad
-            or x2.requires_grad
-            or (self.ard_num_dims is not None and self.ard_num_dims > 1)
-            or diag
-        ):
+        if x1.requires_grad or x2.requires_grad or (self.ard_num_dims is not None and self.ard_num_dims > 1) or diag:
             mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
 
             x1_ = (x1 - mean).div(self.lengthscale)
@@ -102,5 +99,6 @@ class MaternKernel(Kernel):
             elif self.nu == 2.5:
                 constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance ** 2)
             return constant_component * exp_component
-        return MaternCovariance().apply(x1, x2, self.lengthscale, self.nu,
-                                        lambda x1, x2: self.covar_dist(x1, x2, **params))
+        return MaternCovariance().apply(
+            x1, x2, self.lengthscale, self.nu, lambda x1, x2: self.covar_dist(x1, x2, **params)
+        )
