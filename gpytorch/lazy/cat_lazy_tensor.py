@@ -6,8 +6,7 @@ from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.deprecation import bool_compat
 from ..utils.getitem import _noop_index
-from . import delazify
-from .lazy_tensor import LazyTensor
+from .lazy_tensor import LazyTensor, delazify
 from .non_lazy_tensor import NonLazyTensor, lazify
 
 

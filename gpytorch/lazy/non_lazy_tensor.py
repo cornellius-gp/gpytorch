@@ -2,7 +2,7 @@
 
 import torch
 
-from ..lazy import LazyTensor
+from .lazy_tensor import LazyTensor
 
 
 class NonLazyTensor(LazyTensor):
