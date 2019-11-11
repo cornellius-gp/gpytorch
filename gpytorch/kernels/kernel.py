@@ -241,6 +241,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
 
+    def local_load_samples(self, samples_dict, memo, prefix):
+        num_samples = next(iter(samples_dict.values())).size(0)
+        self.batch_shape = torch.Size([num_samples]) + self.batch_shape
+        super().local_load_samples(samples_dict, memo, prefix)
+
     def covar_dist(
         self,
         x1,

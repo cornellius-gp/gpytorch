@@ -50,3 +50,9 @@ class MarginalLogLikelihood(Module):
                 Additional arguments to pass to the likelihood's :attr:`forward` function.
         """
         raise NotImplementedError
+
+    def pyro_factor(self, output, target):
+        """
+        As forward, but register the MLL with pyro using the pyro.factor primitive.
+        """
+        raise NotImplementedError
