@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from ..utils.memoize import cached
+from ..utils.broadcasting import _mul_broadcast_shape
 from .non_lazy_tensor import lazify
 from .lazy_tensor import LazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
@@ -45,7 +46,7 @@ class SumLazyTensor(LazyTensor):
         )
 
     def _size(self):
-        return self.lazy_tensors[0].size()
+        return _mul_broadcast_shape(*[lt.shape for lt in self.lazy_tensors])
 
     def _sum_batch(self, dim):
         return self.__class__(*(lazy_tensor._sum_batch(dim) for lazy_tensor in self.lazy_tensors))

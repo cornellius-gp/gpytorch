@@ -1739,6 +1739,9 @@ class LazyTensor(ABC):
     def __rmul__(self, other):
         return self.mul(other)
 
+    def __sub__(self, other):
+        return self + other.mul(-1)
+
 
 def _import_dotted_name(name):
     components = name.split(".")
