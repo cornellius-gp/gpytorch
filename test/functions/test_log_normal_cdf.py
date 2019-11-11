@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import torch
-import unittest
-import gpytorch
 import math
+import unittest
+
+import torch
 from torch import nn
+
+import gpytorch
 
 
 class TestLogNormalCDF(unittest.TestCase):

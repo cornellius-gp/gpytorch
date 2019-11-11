@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-from abc import ABC
 import os
 import random
+from abc import ABC
+
 import torch
 
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from .distribution import Distribution
 from .delta import Delta
-from .multivariate_normal import MultivariateNormal
+from .distribution import Distribution
 from .multitask_multivariate_normal import MultitaskMultivariateNormal
+from .multivariate_normal import MultivariateNormal
 
 # Get the set of distributions from either PyTorch or Pyro
 try:

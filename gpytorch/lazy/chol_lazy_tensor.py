@@ -2,10 +2,10 @@
 
 import torch
 
-from .lazy_tensor import delazify
-from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
-from .root_lazy_tensor import RootLazyTensor
 from .. import settings
+from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
+from .lazy_tensor import delazify
+from .root_lazy_tensor import RootLazyTensor
 
 
 class CholLazyTensor(RootLazyTensor):

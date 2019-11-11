@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
-from ..lazy import CholLazyTensor
+
 from ..distributions import MultivariateNormal
+from ..lazy import CholLazyTensor
 from ._variational_distribution import _VariationalDistribution
 
 

@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
-import torch
 import warnings
 from typing import Any
+
+import torch
 from torch import Tensor
 
 from ..constraints import GreaterThan
 from ..distributions import base_distributions
 from ..functions import add_diag
 from ..lazy import (
-    lazify,
     BlockDiagLazyTensor,
     DiagLazyTensor,
     KroneckerProductLazyTensor,
     MatmulLazyTensor,
     RootLazyTensor,
+    lazify,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
 from .noise_models import MultitaskHomoskedasticNoise

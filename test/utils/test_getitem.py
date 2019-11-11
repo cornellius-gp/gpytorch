@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
 from itertools import product
+
+import torch
+
 from gpytorch.utils.getitem import _compute_getitem_size, _convert_indices_to_tensors
 
 

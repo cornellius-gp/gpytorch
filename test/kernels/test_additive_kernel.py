@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import math
-import torch
 import unittest
-from gpytorch.kernels import RBFKernel, AdditiveKernel, ProductKernel
+
+import torch
+
+from gpytorch.kernels import AdditiveKernel, ProductKernel, RBFKernel
 
 
 class TestAdditiveKernel(unittest.TestCase):

@@ -3,9 +3,10 @@
 import unittest
 
 import torch
+from torch.distributions import MultivariateNormal
+
 from gpytorch.priors import MultivariateNormalPrior
 from gpytorch.test.utils import least_used_cuda_device
-from torch.distributions import MultivariateNormal
 
 
 class TestMultivariateNormalPrior(unittest.TestCase):

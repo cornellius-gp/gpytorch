@@ -2,9 +2,9 @@
 
 import torch
 
-from ..utils.memoize import cached
-from ..utils.getitem import _compute_getitem_size
 from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.getitem import _compute_getitem_size
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 
 

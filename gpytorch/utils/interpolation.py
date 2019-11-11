@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-import torch
-from .broadcasting import _matmul_broadcast_shape
 from functools import reduce
 from operator import mul
-from .grid import convert_legacy_grid
 from typing import List
+
+import torch
+
+from .broadcasting import _matmul_broadcast_shape
+from .grid import convert_legacy_grid
 
 
 class Interpolation(object):

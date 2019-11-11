@@ -14,7 +14,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
-from gpytorch import settings
+
 
 # Simple training data: let's try to learn a sine function,
 # but with KISS-GP let's use 100 training examples.

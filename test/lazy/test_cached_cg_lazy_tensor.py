@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
 import math
-import torch
-import gpytorch
 import unittest
 import warnings
-from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor, ExtraComputationWarning
-from gpytorch.utils.gradients import _ensure_symmetric_grad
-from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 from unittest.mock import MagicMock, patch
+
+import torch
+
+import gpytorch
+from gpytorch.lazy import CachedCGLazyTensor, ExtraComputationWarning, NonLazyTensor
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.utils.gradients import _ensure_symmetric_grad
 
 
 class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):

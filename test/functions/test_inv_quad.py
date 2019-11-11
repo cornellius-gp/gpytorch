@@ -2,8 +2,9 @@
 
 import os
 import random
-import torch
 import unittest
+
+import torch
 
 import gpytorch
 from gpytorch.lazy import NonLazyTensor

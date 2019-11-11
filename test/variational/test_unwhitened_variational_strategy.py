@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
-import gpytorch
+
 import torch
+
+import gpytorch
 from gpytorch.test.variational_test_case import VariationalTestCase
 
 

@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
+import math
 import os
 import random
 import unittest
-import math
 
 import torch
+
+from gpytorch import settings
 from gpytorch.kernels import RBFKernel
 from gpytorch.test.utils import approx_equal
 from gpytorch.utils import pivoted_cholesky, woodbury
-from gpytorch import settings
 
 
 class TestPivotedCholesky(unittest.TestCase):

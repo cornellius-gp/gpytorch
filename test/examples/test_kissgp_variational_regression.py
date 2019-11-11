@@ -15,6 +15,7 @@ from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
 from torch.utils.data import TensorDataset, DataLoader
 
+
 # Simple training data: let's try to learn a sine function,
 # but with KISS-GP let's use 100 training examples.
 def make_data():

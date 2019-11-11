@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
-from ..utils.broadcasting import _mul_broadcast_shape
 
 
 class DiagLazyTensor(LazyTensor):

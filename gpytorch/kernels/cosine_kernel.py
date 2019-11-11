@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import math
+
 import torch
-from .kernel import Kernel
+
 from ..constraints import Positive
+from .kernel import Kernel
 
 
 class CosineKernel(Kernel):

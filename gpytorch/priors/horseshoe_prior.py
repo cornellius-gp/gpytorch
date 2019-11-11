@@ -4,10 +4,11 @@ import math
 from numbers import Number
 
 import torch
-from gpytorch.priors.prior import Prior
-from gpytorch.distributions import Distribution
-from torch.distributions import constraints, HalfCauchy, Normal
+from torch.distributions import HalfCauchy, Normal, constraints
 from torch.nn import Module as TModule
+
+from gpytorch.distributions import Distribution
+from gpytorch.priors.prior import Prior
 
 
 class HorseshoePrior(Prior):

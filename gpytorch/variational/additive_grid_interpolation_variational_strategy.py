@@ -2,6 +2,7 @@
 
 
 import torch
+
 from ..distributions import Delta, MultivariateNormal
 from ..variational.grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 
