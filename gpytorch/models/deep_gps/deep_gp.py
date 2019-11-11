@@ -4,7 +4,9 @@ from gpytorch import settings
 from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.lazy import BlockDiagLazyTensor
 from gpytorch.likelihoods import Likelihood
-from gpytorch.models import GP, ApproximateGP
+
+from ..approximate_gp import ApproximateGP
+from ..gp import GP
 
 
 class _DeepGPVariationalStrategy(object):

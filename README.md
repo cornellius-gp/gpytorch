@@ -88,6 +88,13 @@ pip install flake8  # if not already installed
 flake8
 ```
 
+If you plan on submitting a pull request, please make use of our pre-commit hooks to ensure that your commits adhere
+to the general style guidelines enforced by the repo. To do this, navigate to your local repository and run:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ## The Team
 
 GPyTorch is primarily maintained by:
