@@ -374,7 +374,10 @@ def _set_strict(module, value, memo=None):
 
 
 def _pyro_sample_from_prior(module, memo=None, prefix=""):
-    import pyro
+    try:
+        import pyro
+    except ImportError:
+        raise RuntimeError("Cannot call pyro_sample_from_prior without pyro installed!")
     if memo is None:
         memo = set()
     if hasattr(module, "_priors"):
