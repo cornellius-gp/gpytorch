@@ -65,6 +65,8 @@ class SpectralMixtureKernel(Kernel):
         https://arxiv.org/pdf/1302.4245.pdf
     """
 
+    is_stationary = True  # kernel is stationary even though it does not have a lengthscale
+
     def __init__(
         self,
         num_mixtures=None,
