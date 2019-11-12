@@ -4,7 +4,7 @@ import unittest
 
 import torch
 
-from gpytorch.kernels import GridKernel, RBFKernel
+from gpytorch.kernels import GridKernel, LinearKernel, RBFKernel
 from gpytorch.lazy import KroneckerProductLazyTensor
 from gpytorch.utils.grid import create_data_from_grid
 
@@ -38,6 +38,11 @@ class TestGridKernel(unittest.TestCase):
         grid_eval = kernel(data, data).evaluate()
         actual_eval = base_kernel(data, data).evaluate()
         self.assertLess(torch.norm(grid_eval - actual_eval), 1e-5)
+
+    def test_non_stationary_base(self):
+        base_kernel = LinearKernel()
+        with self.assertRaisesRegex(RuntimeError, "The base_kernel for GridKernel must be stationary."):
+            GridKernel(base_kernel, grid)
 
 
 if __name__ == "__main__":

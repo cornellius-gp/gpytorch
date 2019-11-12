@@ -4,10 +4,9 @@ from typing import List, Optional, Tuple, Union
 
 import torch
 
-from gpytorch.utils.grid import create_grid
-
 from ..lazy import InterpolatedLazyTensor
 from ..models.exact_prediction_strategies import InterpolatedPredictionStrategy
+from ..utils.grid import create_grid
 from ..utils.interpolation import Interpolation
 from .grid_kernel import GridKernel
 from .kernel import Kernel

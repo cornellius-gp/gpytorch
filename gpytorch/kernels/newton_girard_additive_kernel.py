@@ -13,7 +13,7 @@ class NewtonGirardAdditiveKernel(Kernel):
         :param active_dims:
         :param kwargs:
         """
-        super(NewtonGirardAdditiveKernel, self).__init__(has_lengthscale=False, active_dims=active_dims, **kwargs)
+        super(NewtonGirardAdditiveKernel, self).__init__(active_dims=active_dims, **kwargs)
 
         self.base_kernel = base_kernel
         self.num_dims = num_dims

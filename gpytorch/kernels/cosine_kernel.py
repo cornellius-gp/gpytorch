@@ -54,6 +54,8 @@ class CosineKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyVariable of size (2 x 10 x 10)
     """
 
+    is_stationary = True
+
     def __init__(self, period_length_prior=None, period_length_constraint=None, **kwargs):
         super(CosineKernel, self).__init__(**kwargs)
 

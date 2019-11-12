@@ -66,8 +66,7 @@ class RBFKernel(Kernel):
         >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
 
-    def __init__(self, **kwargs):
-        super(RBFKernel, self).__init__(has_lengthscale=True, **kwargs)
+    has_lengthscale = True
 
     def forward(self, x1, x2, diag=False, **params):
         if x1.requires_grad or x2.requires_grad or (self.ard_num_dims is not None and self.ard_num_dims > 1) or diag:

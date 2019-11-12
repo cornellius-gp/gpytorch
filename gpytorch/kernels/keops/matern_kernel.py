@@ -3,8 +3,7 @@ import math
 
 import torch
 
-from gpytorch.lazy import KeOpsLazyTensor
-
+from ...lazy import KeOpsLazyTensor
 from .keops_kernel import KeOpsKernel
 
 try:
@@ -19,10 +18,12 @@ try:
         most other features like ARD will work.
         """
 
+        has_lengthscale = True
+
         def __init__(self, nu=2.5, **kwargs):
             if nu not in {0.5, 1.5, 2.5}:
                 raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
-            super(MaternKernel, self).__init__(has_lengthscale=True, **kwargs)
+            super(MaternKernel, self).__init__(**kwargs)
             self.nu = nu
 
         def covar_func(self, x1, x2, diag=False):

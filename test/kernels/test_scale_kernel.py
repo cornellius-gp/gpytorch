@@ -4,7 +4,7 @@ import unittest
 
 import torch
 
-from gpytorch.kernels import RBFKernel, ScaleKernel
+from gpytorch.kernels import LinearKernel, RBFKernel, ScaleKernel
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
@@ -103,6 +103,14 @@ class TestScaleKernel(BaseKernelTestCase, unittest.TestCase):
         kernel.initialize(outputscale=ls_init)
         actual_value = ls_init.view_as(kernel.outputscale)
         self.assertLess(torch.norm(kernel.outputscale - actual_value), 1e-5)
+
+    def test_stationary(self):
+        kernel = ScaleKernel(RBFKernel())
+        self.assertTrue(kernel.is_stationary)
+
+    def test_non_stationary(self):
+        kernel = ScaleKernel(LinearKernel())
+        self.assertFalse(kernel.is_stationary)
 
 
 if __name__ == "__main__":

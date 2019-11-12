@@ -55,8 +55,10 @@ class RQKernel(Kernel):
             on the :attr:`batch_shape` argument
     """
 
+    has_lengthscale = True
+
     def __init__(self, alpha_constraint=None, **kwargs):
-        super(RQKernel, self).__init__(has_lengthscale=True, **kwargs)
+        super(RQKernel, self).__init__(**kwargs)
         self.register_parameter(name="raw_alpha", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1)))
         if alpha_constraint is None:
             alpha_constraint = Positive()
