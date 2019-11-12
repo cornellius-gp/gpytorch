@@ -5,10 +5,10 @@ from typing import List
 import torch
 from torch import Tensor
 
-from .kernel import Kernel
 from .. import settings
-from ..lazy import cat, delazify, ToeplitzLazyTensor, KroneckerProductLazyTensor
-from ..utils.grid import create_data_from_grid, convert_legacy_grid
+from ..lazy import KroneckerProductLazyTensor, ToeplitzLazyTensor, cat, delazify
+from ..utils.grid import convert_legacy_grid, create_data_from_grid
+from .kernel import Kernel
 
 
 class GridKernel(Kernel):

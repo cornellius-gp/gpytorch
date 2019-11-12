@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+
 from .. import settings
 from .broadcasting import _mul_broadcast_shape, _pad_with_singletons
 
@@ -70,9 +71,11 @@ def _compute_getitem_size(obj, indices):
                 try:
                     tensor_idx_shape = _mul_broadcast_shape(tensor_idx_shape, idx.shape)
                 except RuntimeError:
-                    raise IndexError("Incompatible tensor indices in index - got shapes of {} .".format(
-                        [idx.shape for idx in indices if torch.is_tensor(idx)]
-                    ))
+                    raise IndexError(
+                        "Incompatible tensor indices in index - got shapes of {} .".format(
+                            [idx.shape for idx in indices if torch.is_tensor(idx)]
+                        )
+                    )
 
                 if slice_after_tensor_idx:
                     tensor_idx = 0

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import math
-import torch
 import unittest
+
+import torch
+
 from gpytorch.kernels import SpectralMixtureKernel
 
 

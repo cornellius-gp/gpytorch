@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import itertools
+
 import torch
+
 from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
@@ -56,9 +58,7 @@ class BatchRepeatLazyTensor(LazyTensor):
         return batch_repeat
 
     def _expand_batch(self, batch_shape):
-        padding_dims = torch.Size(
-            tuple(1 for _ in range(max(len(batch_shape) + 2 - self.base_lazy_tensor.dim(), 0)))
-        )
+        padding_dims = torch.Size(tuple(1 for _ in range(max(len(batch_shape) + 2 - self.base_lazy_tensor.dim(), 0))))
         current_batch_shape = padding_dims + self.base_lazy_tensor.batch_shape
         return self.__class__(
             self.base_lazy_tensor, batch_repeat=self._compute_batch_repeat_size(current_batch_shape, batch_shape)
@@ -67,7 +67,7 @@ class BatchRepeatLazyTensor(LazyTensor):
     def _get_indices(self, row_index, col_index, *batch_indices):
         # First remove any new batch indices that were added - they aren't necessary
         num_true_batch_indices = self.base_lazy_tensor.dim() - 2
-        batch_indices = batch_indices[len(batch_indices) - num_true_batch_indices:]
+        batch_indices = batch_indices[len(batch_indices) - num_true_batch_indices :]
 
         # Now adjust the indices batch_indices that were repeated
         batch_indices = [
@@ -114,9 +114,7 @@ class BatchRepeatLazyTensor(LazyTensor):
             padded_base_batch_shape, batch_repeat = self.__batch_move_memo
             del self.__batch_move_memo
         else:
-            padding_dims = torch.Size(
-                tuple(1 for _ in range(max(len(output_shape) - self.base_lazy_tensor.dim(), 0)))
-            )
+            padding_dims = torch.Size(tuple(1 for _ in range(max(len(output_shape) - self.base_lazy_tensor.dim(), 0))))
             padded_base_batch_shape = padding_dims + self.base_lazy_tensor.batch_shape
             batch_repeat = self._compute_batch_repeat_size(padded_base_batch_shape, output_shape[:-2])
 
@@ -138,9 +136,7 @@ class BatchRepeatLazyTensor(LazyTensor):
         So that the tensor is now b x m x nr.
         This allows us to use the base_lazy_tensor routines.
         """
-        padding_dims = torch.Size(
-            tuple(1 for _ in range(max(len(output_shape) - self.base_lazy_tensor.dim(), 0)))
-        )
+        padding_dims = torch.Size(tuple(1 for _ in range(max(len(output_shape) - self.base_lazy_tensor.dim(), 0))))
         padded_base_batch_shape = padding_dims + self.base_lazy_tensor.batch_shape
         batch_repeat = self._compute_batch_repeat_size(padded_base_batch_shape, output_shape[:-2])
 
@@ -238,9 +234,7 @@ class BatchRepeatLazyTensor(LazyTensor):
             output_shape = _matmul_broadcast_shape(self.shape, inv_quad_rhs.shape)
             inv_quad_rhs = self._move_repeat_batches_to_columns(inv_quad_rhs, output_shape)
 
-        inv_quad_term, logdet_term = self.base_lazy_tensor.inv_quad_logdet(
-            inv_quad_rhs, logdet, reduce_inv_quad=False
-        )
+        inv_quad_term, logdet_term = self.base_lazy_tensor.inv_quad_logdet(inv_quad_rhs, logdet, reduce_inv_quad=False)
 
         if inv_quad_term is not None and inv_quad_term.numel():
             inv_quad_term = inv_quad_term.view(*inv_quad_term.shape[:-1], -1, 1, self.batch_repeat.numel())

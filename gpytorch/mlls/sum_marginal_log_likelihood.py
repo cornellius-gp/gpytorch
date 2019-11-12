@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 
-from gpytorch.mlls import ExactMarginalLogLikelihood, MarginalLogLikelihood
 from torch.nn import ModuleList
+
+from gpytorch.mlls import ExactMarginalLogLikelihood, MarginalLogLikelihood
 
 
 class SumMarginalLogLikelihood(MarginalLogLikelihood):

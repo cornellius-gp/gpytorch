@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from .kernel import Kernel
 from ..lazy import lazify
+from .kernel import Kernel
 
 
 class ProductStructureKernel(Kernel):

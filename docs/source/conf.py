@@ -13,6 +13,8 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
 import os
+import io
+import re
 import shutil
 import sys
 
@@ -20,6 +22,21 @@ import sys
 from unittest.mock import MagicMock  # noqa
 
 import sphinx_rtd_theme  # noqa
+
+
+def read(*names, **kwargs):
+    with io.open(
+        os.path.join(os.path.dirname(__file__), "..", "..", *names), encoding=kwargs.get("encoding", "utf8")
+    ) as fp:
+        return fp.read()
+
+
+def find_version(*file_paths):
+    version_file = read(*file_paths)
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find version string.")
 
 
 sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
@@ -55,7 +72,7 @@ class Mock(MagicMock):
             return ModuleMock
         elif "Distribution" in name:
             return _Distribution
-        elif "Normal" in name or "Gamma" in name or "Wishart" in name:
+        elif "Normal" in name or "Gamma" in name or "Wishart" in name or "Uniform" in name:
             return _SubDistribution
         elif "Kernel" in name or "Parallel" in name:
             return _Kernel
@@ -109,13 +126,13 @@ for root, dirs, files in os.walk(examples_source):
 # -- Project information -----------------------------------------------------
 
 project = "GPyTorch"
-copyright = "2018, Cornellius GP"
+copyright = "2019, Cornellius GP"
 author = "Cornellius GP"
 
 # The short X.Y version
-version = ""
+version = find_version("gpytorch", "__init__.py")
 # The full version, including alpha/beta/rc tags
-release = "0.0.1 (alpha)"
+release = version
 
 
 # -- General configuration ---------------------------------------------------

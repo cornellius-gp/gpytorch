@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
 from unittest.mock import MagicMock, patch
+
+import torch
 
 import gpytorch
 from gpytorch.lazy import RootLazyTensor

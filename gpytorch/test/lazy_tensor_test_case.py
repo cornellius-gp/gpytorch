@@ -2,12 +2,14 @@
 
 import math
 from abc import abstractmethod
-from itertools import product, combinations
+from itertools import combinations, product
 from unittest.mock import MagicMock, patch
 
-import gpytorch
 import torch
+
+import gpytorch
 from gpytorch.utils.gradients import _ensure_symmetric_grad
+
 from .base_test_case import BaseTestCase
 
 
@@ -260,8 +262,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
-            with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), \
-                    gpytorch.settings.cg_tolerance(1e-4):
+            with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.cg_tolerance(1e-4):
                 # Perform the inv_matmul
                 if lhs is not None:
                     res = lazy_tensor.inv_matmul(rhs, lhs)
@@ -300,9 +301,9 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
             _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
             with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
-                with gpytorch.settings.num_trace_samples(128), \
-                        gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), \
-                        gpytorch.settings.cg_tolerance(1e-5):
+                with gpytorch.settings.num_trace_samples(128), gpytorch.settings.max_cholesky_size(
+                    math.inf if cholesky else 0
+                ), gpytorch.settings.cg_tolerance(1e-5):
 
                     res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
                         inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=reduce_inv_quad

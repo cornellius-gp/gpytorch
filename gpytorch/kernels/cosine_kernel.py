@@ -4,8 +4,8 @@ import math
 
 import torch
 
-from .kernel import Kernel
 from ..constraints import Positive
+from .kernel import Kernel
 
 
 class CosineKernel(Kernel):

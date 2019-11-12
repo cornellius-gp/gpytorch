@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
-import torch
 import warnings
 from typing import Any
+
+import torch
 from torch import Tensor
 
 from ..constraints import GreaterThan
 from ..distributions import base_distributions
 from ..functions import add_diag
 from ..lazy import (
-    lazify,
     BlockDiagLazyTensor,
     DiagLazyTensor,
     KroneckerProductLazyTensor,
     MatmulLazyTensor,
     RootLazyTensor,
+    lazify,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
 from .noise_models import MultitaskHomoskedasticNoise
@@ -104,7 +105,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
         noise = noise.view(*noise.shape[:-1], *function_samples.shape[-2:])
-        return base_distributions.Normal(function_samples, noise.sqrt())
+        return base_distributions.Independent(base_distributions.Normal(function_samples, noise.sqrt()), 1)
 
 
 class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):

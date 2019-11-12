@@ -1,23 +1,41 @@
 #!/usr/bin/env python3
 
 import math
+import warnings
+
 import torch
+
 from .. import settings
-from .variational_strategy import VariationalStrategy
-from ..utils.memoize import cached
-from ..lazy import RootLazyTensor, MatmulLazyTensor, CholLazyTensor, \
-    CachedCGLazyTensor, DiagLazyTensor, BatchRepeatLazyTensor, PsdSumLazyTensor
 from ..distributions import MultivariateNormal
+from ..lazy import (
+    BatchRepeatLazyTensor,
+    CachedCGLazyTensor,
+    CholLazyTensor,
+    DiagLazyTensor,
+    MatmulLazyTensor,
+    PsdSumLazyTensor,
+    RootLazyTensor,
+)
+from ..module import Module
+from ..utils.memoize import cached
+from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 
 
-class WhitenedVariationalStrategy(VariationalStrategy):
+# Deprecated on 0.4 release
+class WhitenedVariationalStrategy(UnwhitenedVariationalStrategy):
+    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
+        warnings.warn(
+            "WhitenedVariationalStrategy is deprecated. Please use VariationalStrategy instead.", DeprecationWarning
+        )
+        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
+
     @cached(name="logdet_memo")
     def prior_covar_logdet(self):
         return -self.prior_distribution.lazy_covariance_matrix.logdet()
 
     @cached(name="covar_trace_memo")
     def covar_trace(self):
-        variational_covar = self.variational_distribution.variational_distribution.covariance_matrix
+        variational_covar = self.variational_distribution.covariance_matrix
         prior_covar = self.prior_distribution.covariance_matrix
         batch_shape = prior_covar.shape[:-2]
         return (variational_covar * prior_covar).view(*batch_shape, -1).sum(-1)
@@ -26,11 +44,11 @@ class WhitenedVariationalStrategy(VariationalStrategy):
     def mean_diff_inv_quad(self):
         prior_mean = self.prior_distribution.mean
         prior_covar = self.prior_distribution.lazy_covariance_matrix
-        variational_mean = self.variational_distribution.variational_distribution.mean
+        variational_mean = self.variational_distribution.mean
         return prior_covar.inv_quad(variational_mean - prior_mean)
 
     def kl_divergence(self):
-        variational_dist_u = self.variational_distribution.variational_distribution
+        variational_dist_u = self.variational_distribution
         prior_dist = self.prior_distribution
         kl_divergence = 0.5 * sum(
             [
@@ -76,7 +94,7 @@ class WhitenedVariationalStrategy(VariationalStrategy):
         Returns:
             :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
         """
-        variational_dist = self.variational_distribution.variational_distribution
+        variational_dist = self.variational_distribution
         inducing_points = self.inducing_points
         if inducing_points.dim() < x.dim():
             inducing_points = inducing_points.expand(*x.shape[:-2], *inducing_points.shape[-2:])
@@ -190,8 +208,7 @@ class WhitenedVariationalStrategy(VariationalStrategy):
                 data_covariance = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
             else:
                 neg_induc_data_data_covar = torch.matmul(
-                    induc_data_covar.transpose(-1, -2).mul(-1),
-                    induc_induc_covar.inv_matmul(induc_data_covar)
+                    induc_data_covar.transpose(-1, -2).mul(-1), induc_induc_covar.inv_matmul(induc_data_covar)
                 )
                 data_covariance = data_data_covar + neg_induc_data_data_covar
             predictive_covar = PsdSumLazyTensor(predictive_covar, data_covariance)
@@ -203,3 +220,21 @@ class WhitenedVariationalStrategy(VariationalStrategy):
                 self._memoize_cache["mean_diff_inv_quad_memo"] = mean_diff_inv_quad
 
             return MultivariateNormal(predictive_mean, predictive_covar)
+
+    def __call__(self, x, prior=False):
+        # If we're in prior mode, then we're done!
+        if prior:
+            return self.model.forward(x)
+
+        # Delete previously cached items from the training distribution
+        if self.training:
+            if hasattr(self, "_memoize_cache"):
+                delattr(self, "_memoize_cache")
+                self._memoize_cache = dict()
+        # (Maybe) initialize variational distribution
+        if not self.variational_params_initialized.item():
+            prior_dist = self.prior_distribution
+            self._variational_distribution.initialize_variational_distribution(prior_dist)
+            self.variational_params_initialized.fill_(1)
+
+        return Module.__call__(self, x)

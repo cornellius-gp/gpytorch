@@ -27,7 +27,7 @@ train_x = train_x
 train_y = train_y.add(1).div(2)
 
 
-class GPClassificationModel(gpytorch.models.AbstractVariationalGP):
+class GPClassificationModel(gpytorch.models.ApproximateGP):
     def __init__(self, grid_size=6, grid_bounds=[(-0.33, 1.33), (-0.33, 1.33)]):
         variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
             num_inducing_points=int(pow(grid_size, len(grid_bounds)))
@@ -64,7 +64,7 @@ class TestKISSGPKroneckerProductClassification(unittest.TestCase):
     def test_kissgp_classification_error(self):
         model = GPClassificationModel()
         likelihood = BernoulliLikelihood()
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
 
         # Find optimal model hyperparameters
         model.train()

@@ -9,9 +9,9 @@ from torch.nn import ModuleList
 
 from .. import settings
 from ..constraints import Positive
-from ..lazy import lazify, delazify, LazyEvaluatedKernelTensor, ZeroLazyTensor
-from ..module import Module
+from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
 from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumPredictionStrategy
+from ..module import Module
 from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
 
 
@@ -38,7 +38,7 @@ class Distance(torch.nn.Module):
         else:
             x2_norm = x2.pow(2).sum(dim=-1, keepdim=True)
             x2_pad = torch.ones_like(x2_norm)
-        x1_ = torch.cat([-2. * x1, x1_norm, x1_pad], dim=-1)
+        x1_ = torch.cat([-2.0 * x1, x1_norm, x1_pad], dim=-1)
         x2_ = torch.cat([x2, x2_pad, x2_norm], dim=-1)
         res = x1_.matmul(x2_.transpose(-2, -1))
 
@@ -144,7 +144,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         lengthscale_prior=None,
         lengthscale_constraint=None,
         eps=1e-6,
-        **kwargs
+        **kwargs,
     ):
         super(Kernel, self).__init__()
         self._register_load_state_dict_pre_hook(self._batch_shape_state_dict_hook)
@@ -166,14 +166,16 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             lengthscale_constraint = Positive()
 
         if param_transform is not None:
-            warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
-                          "transformation, specify a different 'lengthscale_constraint' instead.")
+            warnings.warn(
+                "The 'param_transform' argument is now deprecated. If you want to use a different "
+                "transformation, specify a different 'lengthscale_constraint' instead."
+            )
 
         if self.has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
                 name="raw_lengthscale",
-                parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, lengthscale_num_dims))
+                parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, lengthscale_num_dims)),
             )
             if lengthscale_prior is not None:
                 self.register_prior(
@@ -243,6 +245,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
         self.initialize(raw_lengthscale=self.raw_lengthscale_constraint.inverse_transform(value))
 
+    def local_load_samples(self, samples_dict, memo, prefix):
+        num_samples = next(iter(samples_dict.values())).size(0)
+        self.batch_shape = torch.Size([num_samples]) + self.batch_shape
+        super().local_load_samples(samples_dict, memo, prefix)
+
     def covar_dist(
         self,
         x1,
@@ -252,7 +259,7 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         square_dist=False,
         dist_postprocess_func=default_postprocess_script,
         postprocess=True,
-        **params
+        **params,
     ):
         r"""
         This is a helper method for computing the Euclidean distance between

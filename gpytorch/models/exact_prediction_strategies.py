@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 
+import functools
 import string
 
 import torch
 
 from .. import settings
 from ..lazy import (
+    BatchRepeatLazyTensor,
     InterpolatedLazyTensor,
+    LazyEvaluatedKernelTensor,
     MatmulLazyTensor,
+    NonLazyTensor,
     RootLazyTensor,
     SumLazyTensor,
     ZeroLazyTensor,
-    lazify,
     delazify,
-    LazyEvaluatedKernelTensor,
-    NonLazyTensor,
-    BatchRepeatLazyTensor,
+    lazify,
 )
 from ..utils.interpolation import left_interp, left_t_interp
-from ..utils.memoize import cached, add_to_cache
-import functools
+from ..utils.memoize import add_to_cache, cached
 
 
 def clear_cache_hook(module, *args, **kwargs):

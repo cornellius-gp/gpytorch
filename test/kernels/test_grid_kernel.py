@@ -8,7 +8,6 @@ from gpytorch.kernels import GridKernel, LinearKernel, RBFKernel
 from gpytorch.lazy import KroneckerProductLazyTensor
 from gpytorch.utils.grid import create_data_from_grid
 
-
 grid = [torch.linspace(0, 1, 5), torch.linspace(0, 2, 3)]
 d = len(grid)
 grid_data = create_data_from_grid(grid)

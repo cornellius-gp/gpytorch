@@ -3,6 +3,7 @@
 import unittest
 
 import torch
+
 from gpytorch.lazy import ZeroLazyTensor
 from gpytorch.test.utils import approx_equal
 

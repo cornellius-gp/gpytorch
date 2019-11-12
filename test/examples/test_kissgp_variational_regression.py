@@ -15,6 +15,7 @@ from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
 from torch.utils.data import TensorDataset, DataLoader
 
+
 # Simple training data: let's try to learn a sine function,
 # but with KISS-GP let's use 100 training examples.
 def make_data():
@@ -25,7 +26,7 @@ def make_data():
     return train_x, train_y, test_x, test_y
 
 
-class GPRegressionModel(gpytorch.models.AbstractVariationalGP):
+class GPRegressionModel(gpytorch.models.ApproximateGP):
     def __init__(self, grid_size=20, grid_bounds=[(-0.1, 1.1)]):
         variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
             num_inducing_points=int(pow(grid_size, len(grid_bounds)))
@@ -63,14 +64,14 @@ class TestKISSGPVariationalRegression(unittest.TestCase):
 
         model = GPRegressionModel()
         likelihood = GaussianLikelihood()
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=len(train_y))
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
         # We use SGD here, rather than Adam
         # Emperically, we find that SGD is better for variational regression
         optimizer = torch.optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
         # Our loss object
-        # We're using the VariationalMarginalLogLikelihood object
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, num_data=train_y.size(0))
+        # We're using the VariationalELBO object
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))
 
         # The training loop
         def train(n_epochs=15):

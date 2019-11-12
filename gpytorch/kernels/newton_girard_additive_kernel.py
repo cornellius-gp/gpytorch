@@ -1,6 +1,7 @@
 import torch
-from .kernel import Kernel
+
 from ..constraints import Positive
+from .kernel import Kernel
 
 
 class NewtonGirardAdditiveKernel(Kernel):
@@ -25,11 +26,10 @@ class NewtonGirardAdditiveKernel(Kernel):
             self.max_degree = max_degree
 
         self.register_parameter(
-            name='raw_outputscale',
-            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, self.max_degree))
+            name="raw_outputscale", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, self.max_degree))
         )
         outputscale_constraint = Positive()
-        self.register_constraint('raw_outputscale', outputscale_constraint)
+        self.register_constraint("raw_outputscale", outputscale_constraint)
         self.outputscale_constraint = outputscale_constraint
         self.outputscale = [1 / self.max_degree for _ in range(self.max_degree)]
 
@@ -92,17 +92,17 @@ class NewtonGirardAdditiveKernel(Kernel):
             kslong = torch.arange(1, deg + 1, device=kern_values.device, dtype=torch.long)  # use for indexing
 
             # note that s_k is 0-indexed, so we must subtract 1 from kslong
-            sum_ = (m1.pow(ks - 1)
-                    * e_n.index_select(kernel_dim, deg - kslong)
-                    * s_k.index_select(kernel_dim, kslong - 1)
-                    ).sum(dim=kernel_dim) / deg
+            sum_ = (
+                m1.pow(ks - 1) * e_n.index_select(kernel_dim, deg - kslong) * s_k.index_select(kernel_dim, kslong - 1)
+            ).sum(dim=kernel_dim) / deg
             if kernel_dim == -3:
                 e_n[..., deg, :, :] = sum_
             else:
                 e_n[..., deg, :] = sum_
 
         if kernel_dim == -3:
-            return (self.outputscale.unsqueeze(-1).unsqueeze(-1)
-                    * e_n.narrow(kernel_dim, 1, self.max_degree)).sum(dim=kernel_dim)
+            return (self.outputscale.unsqueeze(-1).unsqueeze(-1) * e_n.narrow(kernel_dim, 1, self.max_degree)).sum(
+                dim=kernel_dim
+            )
         else:
             return (self.outputscale.unsqueeze(-1) * e_n.narrow(kernel_dim, 1, self.max_degree)).sum(dim=kernel_dim)

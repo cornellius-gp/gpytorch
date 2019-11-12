@@ -4,6 +4,7 @@ import unittest
 from math import exp
 
 import torch
+
 from gpytorch.priors import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior, SmoothedBoxPrior
 from gpytorch.test.utils import approx_equal, least_used_cuda_device
 
