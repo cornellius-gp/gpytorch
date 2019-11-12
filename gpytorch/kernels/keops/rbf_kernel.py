@@ -1,7 +1,6 @@
 import torch
 
-from gpytorch.lazy import KeOpsLazyTensor
-
+from ...lazy import KeOpsLazyTensor
 from ..rbf_kernel import postprocess_rbf
 from .keops_kernel import KeOpsKernel
 
@@ -17,8 +16,7 @@ try:
         most other features like ARD will work.
         """
 
-        def __init__(self, **kwargs):
-            super(RBFKernel, self).__init__(has_lengthscale=True, **kwargs)
+        has_lengthscale = True
 
         def covar_func(self, x1, x2, diag=False):
             # TODO: x1 / x2 size checks are a work around for a very minor bug in KeOps.
