@@ -209,5 +209,6 @@ __all__ = [
     "root_decomposition",
     "root_inv_decomposition",
     # Deprecated
-    "log_det" "inv_quad_log_det",
+    "inv_quad_log_det",
+    "log_det",
 ]
