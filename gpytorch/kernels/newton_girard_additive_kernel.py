@@ -5,7 +5,6 @@ from .kernel import Kernel
 
 
 class NewtonGirardAdditiveKernel(Kernel):
-
     def __init__(self, base_kernel, num_dims, max_degree=None, active_dims=None, **kwargs):
         """Create an Additive Kernel a la https://arxiv.org/abs/1112.4394 using Newton-Girard Formulae
 
