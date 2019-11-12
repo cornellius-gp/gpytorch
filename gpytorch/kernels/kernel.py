@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
+import warnings
 from abc import abstractmethod
 from copy import deepcopy
-import warnings
 
 import torch
 from torch.nn import ModuleList
