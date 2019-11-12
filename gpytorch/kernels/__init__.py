@@ -22,6 +22,7 @@ from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
+from .spectral_autoregressive_flow_kernel import SpectralAutoregressiveFlowKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 
 __all__ = [
@@ -50,5 +51,6 @@ __all__ = [
     "RBFKernelGrad",
     "RQKernel",
     "ScaleKernel",
+    "SpectralAutoregressiveFlowKernel",
     "SpectralMixtureKernel",
 ]
