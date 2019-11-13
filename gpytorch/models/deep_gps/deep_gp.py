@@ -134,3 +134,6 @@ class DeepLikelihood(Likelihood):
 
     def log_marginal(self, observations, function_dist, *params, **kwargs):
         return self.base_likelihood.log_marginal(observations, function_dist, *params, **kwargs).mean(dim=0)
+
+    def forward(self, *args, **kwargs):
+        pass
