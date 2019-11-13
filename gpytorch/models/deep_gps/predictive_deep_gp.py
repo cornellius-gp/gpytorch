@@ -37,7 +37,7 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
         self.num_sample_sites = num_sample_sites
         xi, _ = hermgauss(self.num_sample_sites)
 
-        xi = xi / math.sqrt(2.0)
+        xi = xi * math.sqrt(2.0)
 
         # quad_grid is of size Q^T x T
         if output_dims is None:
