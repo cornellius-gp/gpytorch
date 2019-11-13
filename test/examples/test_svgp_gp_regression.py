@@ -3,6 +3,7 @@
 import math
 import warnings
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import gpytorch
@@ -49,7 +50,8 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         train_x, train_y = train_data(cuda=False)
         likelihood = GaussianLikelihood()
         model = SVGPRegressionModel(torch.linspace(0, 1, 25), gpytorch.variational.CholeskyVariationalDistribution)
-        state_dicts = torch.load("test/examples/old_variational_strategy_model.pth")
+        data_file = Path(__file__).parent.joinpath("old_variational_strategy_model.pth").resolve()
+        state_dicts = torch.load(data_file)
         likelihood.load_state_dict(state_dicts["likelihood"], strict=False)
 
         # Ensure we get a warning
