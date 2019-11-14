@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
+import torch
+
 from gpytorch import settings
 from gpytorch.lazy import NonLazyTensor
-from gpytorch.utils.gradients import _ensure_symmetric_grad
 from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.utils.gradients import _ensure_symmetric_grad
 
 
 class TestInvMatmulNonBatch(BaseTestCase, unittest.TestCase):

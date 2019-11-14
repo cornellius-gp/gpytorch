@@ -1,2 +1,1 @@
-torch>=1.1
-scipy>=1.2.1
+torch>=1.3

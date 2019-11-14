@@ -14,7 +14,7 @@ from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.models import AbstractVariationalGP
+from gpytorch.models import ApproximateGP
 from gpytorch.variational import AdditiveGridInterpolationVariationalStrategy, CholeskyVariationalDistribution
 
 n = 64
@@ -26,7 +26,7 @@ train_y = train_y * (train_x[:, 1].abs().lt(0.5)).float()
 train_y = train_y.float()
 
 
-class GPClassificationModel(AbstractVariationalGP):
+class GPClassificationModel(ApproximateGP):
     def __init__(self, grid_size=16, grid_bounds=([-1, 1],)):
         variational_distribution = CholeskyVariationalDistribution(num_inducing_points=16, batch_shape=torch.Size([2]))
         variational_strategy = AdditiveGridInterpolationVariationalStrategy(
@@ -80,7 +80,7 @@ class TestKISSGPAdditiveClassification(unittest.TestCase):
                 # Get predictive output
                 output = model(train_x)
                 # Calc loss and backprop gradients
-                loss = -mll(output, train_y)
+                loss = -mll(output, train_y).sum()
                 loss.backward()
                 optimizer.n_iter += 1
                 optimizer.step()

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
+import torch
+
 from gpytorch.utils.sparse import sparse_eye, sparse_getitem, to_sparse
 
 

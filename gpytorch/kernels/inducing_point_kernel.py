@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import math
-import torch
 import copy
-from .kernel import Kernel
-from ..lazy import delazify, DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, PsdSumLazyTensor
+import math
+
+import torch
+
 from ..distributions import MultivariateNormal
+from ..lazy import DiagLazyTensor, MatmulLazyTensor, PsdSumLazyTensor, RootLazyTensor, delazify
 from ..mlls import InducingPointKernelAddedLossTerm
 from ..utils.cholesky import psd_safe_cholesky
+from .kernel import Kernel
 
 
 class InducingPointKernel(Kernel):
@@ -113,7 +115,7 @@ class InducingPointKernel(Kernel):
             base_kernel=copy.deepcopy(self.base_kernel),
             inducing_points=copy.deepcopy(self.inducing_points),
             likelihood=self.likelihood,
-            active_dims=self.active_dims
+            active_dims=self.active_dims,
         )
 
         if replace_inv_root:

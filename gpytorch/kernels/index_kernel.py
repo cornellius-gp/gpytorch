@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
-from .kernel import Kernel
-from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
+
 from ..constraints import Positive
+from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from .kernel import Kernel
 
 
 class IndexKernel(Kernel):
@@ -39,14 +40,7 @@ class IndexKernel(Kernel):
             The element-wise log of the :math:`\mathbf v` vector.
     """
 
-    def __init__(
-        self,
-        num_tasks,
-        rank=1,
-        prior=None,
-        var_constraint=None,
-        **kwargs
-    ):
+    def __init__(self, num_tasks, rank=1, prior=None, var_constraint=None, **kwargs):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
         super().__init__(**kwargs)
@@ -75,9 +69,8 @@ class IndexKernel(Kernel):
         self.initialize(raw_var=self.raw_var_constraint.inverse_transform(value))
 
     def _eval_covar_matrix(self):
-        var = self.var
-        D = var * torch.eye(var.shape[-1], dtype=var.dtype, device=var.device)
-        return self.covar_factor.matmul(self.covar_factor.transpose(-1, -2)) + D
+        cf = self.covar_factor
+        return cf @ cf.transpose(-1, -2) + torch.diag_embed(self.var)
 
     @property
     def covar_matrix(self):
@@ -87,5 +80,9 @@ class IndexKernel(Kernel):
 
     def forward(self, i1, i2, **params):
         covar_matrix = self._eval_covar_matrix()
-        res = InterpolatedLazyTensor(base_lazy_tensor=covar_matrix, left_interp_indices=i1, right_interp_indices=i2)
+        res = InterpolatedLazyTensor(
+            base_lazy_tensor=covar_matrix,
+            left_interp_indices=i1.expand(self.batch_shape + i1.shape),
+            right_interp_indices=i2.expand(self.batch_shape + i2.shape),
+        )
         return res

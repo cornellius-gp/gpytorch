@@ -64,10 +64,7 @@ class MulLazyTensor(LazyTensor):
         return res
 
     def _mul_constant(self, other):
-        return self.__class__(
-            self.left_lazy_tensor._mul_constant(other),
-            self.right_lazy_tensor,
-        )
+        return self.__class__(self.left_lazy_tensor._mul_constant(other), self.right_lazy_tensor)
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         if left_vecs.ndimension() == 1:
@@ -110,8 +107,7 @@ class MulLazyTensor(LazyTensor):
 
     def _expand_batch(self, batch_shape):
         return self.__class__(
-            self.left_lazy_tensor._expand_batch(batch_shape),
-            self.right_lazy_tensor._expand_batch(batch_shape),
+            self.left_lazy_tensor._expand_batch(batch_shape), self.right_lazy_tensor._expand_batch(batch_shape)
         )
 
     def diag(self):

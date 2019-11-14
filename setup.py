@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 
-import re
-import os
 import io
-from setuptools import setup, find_packages
+import os
+import re
+
+from setuptools import find_packages, setup
 
 
 # Get version
 def read(*names, **kwargs):
-    with io.open(
-        os.path.join(os.path.dirname(__file__), *names),
-        encoding=kwargs.get("encoding", "utf8")
-    ) as fp:
+    with io.open(os.path.join(os.path.dirname(__file__), *names), encoding=kwargs.get("encoding", "utf8")) as fp:
         return fp.read()
 
 
 def find_version(*file_paths):
     version_file = read(*file_paths)
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                              version_file, re.M)
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
     if version_match:
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")
@@ -28,11 +25,12 @@ readme = open("README.md").read()
 version = find_version("gpytorch", "__init__.py")
 
 
-torch_min = "1.1"
+torch_min = "1.3"
 install_requires = [">=".join(["torch", torch_min])]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:
     import torch
+
     if torch.__version__ >= torch_min:
         install_requires = []
 except ImportError:
@@ -59,34 +57,11 @@ setup(
     python_requires=">=3.6",
     install_requires=install_requires,
     extras_require={
-        "dev": [
-            "black",
-            "twine",
-        ],
-        "docs": [
-            "ipython",
-            "ipykernel",
-            "sphinx",
-            "sphinx_rtd_theme",
-            "nbsphinx",
-            "m2r",
-        ],
-        "examples": [
-            "ipython",
-            "jupyter",
-            "matplotlib",
-            "scipy",
-            "torchvision",
-        ],
-        "pyro": [
-            "pyro-ppl>=0.3.0",
-        ],
-        "keops": [
-            "pykeops>=1.1.1",
-        ],
-        "test": [
-            "flake8",
-            "flake8-print",
-        ]
+        "dev": ["black", "twine", "pre-commit"],
+        "docs": ["ipython", "ipykernel", "sphinx", "sphinx_rtd_theme", "nbsphinx", "m2r"],
+        "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision"],
+        "pyro": ["pyro-ppl>=1.0.0"],
+        "keops": ["pykeops>=1.1.1"],
+        "test": ["flake8", "flake8-print"],
     },
 )

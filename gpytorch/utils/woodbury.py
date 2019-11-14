@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+
 from .. import settings
 
 
@@ -60,7 +61,7 @@ def woodbury_factor(umat, vmat, diag, logdet=False):
         torch.eye(k, dtype=scaled_inv_diag.dtype, device=scaled_inv_diag.device),
         1,
         vmat.transpose(-1, -2),
-        umat * scaled_inv_diag
+        umat * scaled_inv_diag,
     )
 
     # Compute the cholesky factor of (1/s (I_k + V^T D^-1 U))

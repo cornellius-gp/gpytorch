@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
+import torch
+
 from gpytorch.lazy import ToeplitzLazyTensor
-from gpytorch.utils.toeplitz import sym_toeplitz
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.utils.toeplitz import sym_toeplitz
 
 
 class TestConstantMulLazyTensor(LazyTensorTestCase, unittest.TestCase):

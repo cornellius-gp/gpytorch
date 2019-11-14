@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import math
-import torch
 import unittest
-from gpytorch.kernels import RBFKernel, AdditiveKernel, ProductKernel
+
+import torch
+
+from gpytorch.kernels import AdditiveKernel, LinearKernel, ProductKernel, RBFKernel
 
 
 class TestAdditiveKernel(unittest.TestCase):
@@ -193,6 +195,16 @@ class TestAdditiveKernel(unittest.TestCase):
             + kernel.kernels[2].raw_lengthscale.grad
         )
         self.assertLess(torch.norm(res - actual_param_grad), 2e-5)
+
+    def test_is_stationary(self):
+        kernel_1 = RBFKernel().initialize(lengthscale=1)
+        kernel_2 = RBFKernel().initialize(lengthscale=2)
+        kernel_3 = LinearKernel().initialize()
+
+        self.assertTrue((kernel_1 + kernel_2).is_stationary)
+        self.assertTrue((kernel_1 * kernel_2).is_stationary)
+        self.assertFalse((kernel_1 + kernel_3).is_stationary)
+        self.assertFalse((kernel_1 * kernel_3).is_stationary)
 
 
 if __name__ == "__main__":

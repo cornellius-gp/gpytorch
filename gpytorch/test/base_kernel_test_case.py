@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from abc import abstractmethod
+
 import torch
 
 
@@ -114,3 +115,25 @@ class BaseKernelTestCase(object):
         x = self.create_data_double_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
         return batch_covar_mat
+
+    def test_kernel_getitem_single_batch(self):
+        kernel = self.create_kernel_no_ard(batch_shape=torch.Size([2]))
+        x = self.create_data_single_batch()
+
+        res1 = kernel(x).evaluate()[0]  # Result of first kernel on first batch of data
+
+        new_kernel = kernel[0]
+        res2 = new_kernel(x[0]).evaluate()  # Should also be result of first kernel on first batch of data.
+
+        self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
+
+    def test_kernel_getitem_double_batch(self):
+        kernel = self.create_kernel_no_ard(batch_shape=torch.Size([3, 2]))
+        x = self.create_data_double_batch()
+
+        res1 = kernel(x).evaluate()[0, 1]  # Result of first kernel on first batch of data
+
+        new_kernel = kernel[0, 1]
+        res2 = new_kernel(x[0, 1]).evaluate()  # Should also be result of first kernel on first batch of data.
+
+        self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)

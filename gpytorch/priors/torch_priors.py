@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
-from torch.distributions import Gamma, MultivariateNormal, Normal
+from torch.distributions import Gamma, LogNormal, MultivariateNormal, Normal, Uniform
+from torch.nn import Module as TModule
 
 from .prior import Prior
 from .utils import _bufferize_attributes, _del_attributes
-from torch.nn import Module as TModule
 
 MVN_LAZY_PROPERTIES = ("covariance_matrix", "scale_tril", "precision_matrix")
 
 
 class NormalPrior(Prior, Normal):
-    """Normal (Gaussian) Prior
+    """
+    Normal (Gaussian) Prior
 
     pdf(x) = (2 * pi * sigma^2)^-0.5 * exp(-(x - mu)^2 / (2 * sigma^2))
 
@@ -22,6 +23,37 @@ class NormalPrior(Prior, Normal):
         Normal.__init__(self, loc=loc, scale=scale, validate_args=validate_args)
         _bufferize_attributes(self, ("loc", "scale"))
         self._transform = transform
+
+    def expand(self, batch_shape):
+        return Normal.expand(self, batch_shape, _instance=self)
+
+
+class LogNormalPrior(Prior, LogNormal):
+    """
+    Log Normal prior.
+    """
+
+    def __init__(self, loc, scale, validate_args=None, transform=None):
+        TModule.__init__(self)
+        LogNormal.__init__(self, loc=loc, scale=scale, validate_args=validate_args)
+        self._transform = transform
+
+    def expand(self, batch_shape):
+        return LogNormal.expand(self, batch_shape, _instance=self)
+
+
+class UniformPrior(Prior, Uniform):
+    """
+    Uniform prior.
+    """
+
+    def __init__(self, a, b, validate_args=None, transform=None):
+        TModule.__init__(self)
+        Uniform.__init__(self, a, b, validate_args=validate_args)
+        self._transform = transform
+
+    def expand(self, batch_shape):
+        return Uniform.expand(self, batch_shape, _instance=self)
 
 
 class GammaPrior(Prior, Gamma):
@@ -37,6 +69,9 @@ class GammaPrior(Prior, Gamma):
         Gamma.__init__(self, concentration=concentration, rate=rate, validate_args=validate_args)
         _bufferize_attributes(self, ("concentration", "rate"))
         self._transform = transform
+
+    def expand(self, batch_shape):
+        return Gamma.expand(self, batch_shape, _instance=self)
 
 
 class MultivariateNormalPrior(Prior, MultivariateNormal):
@@ -73,3 +108,6 @@ class MultivariateNormalPrior(Prior, MultivariateNormal):
         module = self._apply(lambda t: t.cpu())
         _del_attributes(module, MVN_LAZY_PROPERTIES)
         return module
+
+    def expand(self, batch_shape):
+        return MultivariateNormal.expand(self, batch_shape, _instance=self)

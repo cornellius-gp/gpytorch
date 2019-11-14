@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
-import gpytorch
 
-from torch.nn.functional import softplus
+import torch
 from torch import sigmoid
+from torch.nn.functional import softplus
+
+import gpytorch
 from gpytorch.test.base_test_case import BaseTestCase
 
 

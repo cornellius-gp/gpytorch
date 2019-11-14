@@ -2,9 +2,11 @@
 
 import logging
 import math
+
 import torch
-from .kernel import Kernel
+
 from ..constraints import Positive
+from .kernel import Kernel
 
 logger = logging.getLogger()
 
@@ -63,6 +65,8 @@ class SpectralMixtureKernel(Kernel):
         https://arxiv.org/pdf/1302.4245.pdf
     """
 
+    is_stationary = True  # kernel is stationary even though it does not have a lengthscale
+
     def __init__(
         self,
         num_mixtures=None,
@@ -74,7 +78,7 @@ class SpectralMixtureKernel(Kernel):
         mixture_means_constraint=None,
         mixture_weights_prior=None,
         mixture_weights_constraint=None,
-        **kwargs
+        **kwargs,
     ):
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")

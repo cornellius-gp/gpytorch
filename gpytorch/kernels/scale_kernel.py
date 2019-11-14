@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import torch
-from .kernel import Kernel
-from ..lazy import delazify
+
 from ..constraints import Positive
+from ..lazy import delazify
+from .kernel import Kernel
 
 
 class ScaleKernel(Kernel):
@@ -50,13 +51,20 @@ class ScaleKernel(Kernel):
         >>> covar = scaled_covar_module(x)  # Output: LazyTensor of size (10 x 10)
     """
 
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if base kernel is stationary.
+        """
+        return self.base_kernel.is_stationary
+
     def __init__(self, base_kernel, outputscale_prior=None, outputscale_constraint=None, **kwargs):
-        super(ScaleKernel, self).__init__(has_lengthscale=False, **kwargs)
+        super(ScaleKernel, self).__init__(**kwargs)
         if outputscale_constraint is None:
             outputscale_constraint = Positive()
 
         self.base_kernel = base_kernel
-        outputscale = torch.zeros(*self.batch_shape) if len(self.batch_shape) else torch.tensor(0.)
+        outputscale = torch.zeros(*self.batch_shape) if len(self.batch_shape) else torch.tensor(0.0)
         self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(outputscale))
         if outputscale_prior is not None:
             self.register_prior(

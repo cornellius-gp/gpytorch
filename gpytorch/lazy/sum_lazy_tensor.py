@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
+from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
-from .non_lazy_tensor import lazify
 from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import lazify
 from .zero_lazy_tensor import ZeroLazyTensor
 
 
 class SumLazyTensor(LazyTensor):
-    def __init__(self, *lazy_tensors):
+    def __init__(self, *lazy_tensors, **kwargs):
         lazy_tensors = list(lazy_tensors)
         for i, lazy_tensor in enumerate(lazy_tensors):
             try:
                 lazy_tensors[i] = lazify(lazy_tensor)
             except TypeError:
                 raise TypeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
-        super(SumLazyTensor, self).__init__(*lazy_tensors)
+        super(SumLazyTensor, self).__init__(*lazy_tensors, **kwargs)
 
         self.lazy_tensors = lazy_tensors
 
@@ -23,17 +24,11 @@ class SumLazyTensor(LazyTensor):
         return self.__class__(*expanded_tensors)
 
     def _get_indices(self, row_index, col_index, *batch_indices):
-        results = [
-            lazy_tensor._get_indices(row_index, col_index, *batch_indices)
-            for lazy_tensor in self.lazy_tensors
-        ]
+        results = [lazy_tensor._get_indices(row_index, col_index, *batch_indices) for lazy_tensor in self.lazy_tensors]
         return sum(results)
 
     def _getitem(self, row_index, col_index, *batch_indices):
-        results = [
-            lazy_tensor._getitem(row_index, col_index, *batch_indices)
-            for lazy_tensor in self.lazy_tensors
-        ]
+        results = [lazy_tensor._getitem(row_index, col_index, *batch_indices) for lazy_tensor in self.lazy_tensors]
         return SumLazyTensor(*results)
 
     def _matmul(self, rhs):
@@ -45,7 +40,7 @@ class SumLazyTensor(LazyTensor):
         )
 
     def _size(self):
-        return self.lazy_tensors[0].size()
+        return _mul_broadcast_shape(*[lt.shape for lt in self.lazy_tensors])
 
     def _sum_batch(self, dim):
         return self.__class__(*(lazy_tensor._sum_batch(dim) for lazy_tensor in self.lazy_tensors))

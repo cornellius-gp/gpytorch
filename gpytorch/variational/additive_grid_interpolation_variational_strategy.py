@@ -2,7 +2,8 @@
 
 
 import torch
-from ..distributions import MultivariateNormal
+
+from ..distributions import Delta, MultivariateNormal
 from ..variational.grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 
 
@@ -44,7 +45,7 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
             interp_values = interp_values.mul(self.mixing_params.unsqueeze(1).unsqueeze(2))
         return interp_indices, interp_values
 
-    def forward(self, x):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
         if x.ndimension() == 1:
             x = x.unsqueeze(-1)
         elif x.ndimension() != 2:
@@ -54,10 +55,13 @@ class AdditiveGridInterpolationVariationalStrategy(GridInterpolationVariationalS
         if num_dim != self.num_dim:
             raise RuntimeError("The number of dims should match the number specified.")
 
-        output = super(AdditiveGridInterpolationVariationalStrategy, self).forward(x)
+        output = super().forward(x, inducing_points, inducing_values, variational_inducing_covar)
         if self.sum_output:
-            mean = output.mean.sum(0)
-            covar = output.lazy_covariance_matrix.sum(-3)
-            return MultivariateNormal(mean, covar)
+            if variational_inducing_covar is not None:
+                mean = output.mean.sum(0)
+                covar = output.lazy_covariance_matrix.sum(-3)
+                return MultivariateNormal(mean, covar)
+            else:
+                return Delta(output.mean.sum(0))
         else:
             return output
