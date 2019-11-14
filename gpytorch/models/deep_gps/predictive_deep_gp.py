@@ -41,9 +41,16 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
 
         # quad_grid is of size Q^T x T
         if output_dims is None:
-            self.register_buffer(
-                "quad_grid", torch.stack([torch.tensor(a) for a in product(*[xi for _ in range(input_dims)])])
-            )
+            self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+
+    @property
+    def quad_grid(self):
+        xi = self.xi - self.xi.flip(dims=[0])
+        res = torch.stack([torch.cat([p.unsqueeze(-1) for p in xi]) for xi in product(*xi.t())])
+        # from IPython.core.debugger import set_trace
+        # set_trace()
+        assert res.size(-2) == math.pow(self.num_sample_sites, self.input_dims) and res.size(-1) == self.input_dims
+        return res
 
     def __call__(self, inputs, are_samples=False, **kwargs):
         if isinstance(inputs, MultitaskMultivariateNormal):
@@ -53,7 +60,7 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
             xi_mus = mus.unsqueeze(-3)  # 1 x n x t
             # unsqueeze sigmas to 1 x n x t, locations from [q] to Q^T x 1 x T.
             # Broadcasted result will be Q^T x N x T
-            qg = self.quad_grid.unsqueeze(-2) * self.fudge
+            qg = self.quad_grid.unsqueeze(-2)
             # qg = qg + torch.randn_like(qg) * 1e-2
             xi_sigmas = sigmas.unsqueeze(-3) * qg
 
