@@ -37,7 +37,7 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
         self.num_sample_sites = num_sample_sites
         xi, _ = hermgauss(self.num_sample_sites)
 
-        xi = xi * math.sqrt(2.0)
+        self.register_parameter("fudge", torch.nn.Parameter(torch.tensor(math.sqrt(2.0))))
 
         # quad_grid is of size Q^T x T
         if output_dims is None:
@@ -53,7 +53,9 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
             xi_mus = mus.unsqueeze(-3)  # 1 x n x t
             # unsqueeze sigmas to 1 x n x t, locations from [q] to Q^T x 1 x T.
             # Broadcasted result will be Q^T x N x T
-            xi_sigmas = sigmas.unsqueeze(-3) * self.quad_grid.unsqueeze(-2)
+            qg = self.quad_grid.unsqueeze(-2) * self.fudge
+            # qg = qg + torch.randn_like(qg) * 1e-2
+            xi_sigmas = sigmas.unsqueeze(-3) * qg
 
             inputs = xi_mus + xi_sigmas  # q^t x n x t
 
@@ -104,14 +106,21 @@ class DeepPredictiveGaussianLikelihood(GaussianLikelihood):
         self.num_sample_sites = num_sample_sites
         _, weights = hermgauss(self.num_sample_sites)
 
-        self.register_buffer(
-            "quad_weight_grid", torch.stack([torch.tensor(a) for a in product(*[np.log(weights) for _ in range(dims)])])
+        # Q^T x T
+        self.register_parameter(
+            "raw_quad_weight_grid",
+            torch.nn.Parameter(
+                torch.stack([torch.tensor(a) for a in product(*[np.log(weights) for _ in range(dims)])])
+            ),
         )
 
-        self.quad_weight_grid = self.quad_weight_grid.sum(dim=-1)
+        # QT
+        self.raw_quad_weight_grid.data = self.raw_quad_weight_grid.data.sum(dim=-1)
 
-        # Normalize weights
-        self.quad_weight_grid -= self.quad_weight_grid.logsumexp(dim=-1)
+    @property
+    def quad_weight_grid(self):
+        qwd = self.raw_quad_weight_grid
+        return qwd - qwd.logsumexp(dim=-1)
 
     def log_marginal(self, observations, function_dist, *params, **kwargs):
         # Q^T x N
