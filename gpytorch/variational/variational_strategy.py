@@ -69,7 +69,7 @@ class VariationalStrategy(_VariationalStrategy):
 
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
-        L = psd_safe_cholesky(delazify(induc_induc_covar))
+        L = psd_safe_cholesky(delazify(induc_induc_covar).double())
         return L
 
     @property
@@ -98,18 +98,19 @@ class VariationalStrategy(_VariationalStrategy):
 
         eye = DiagLazyTensor(torch.ones(*batch_shape, mat_len, dtype=dtype, device=device))
 
-        inner_mat = (eye + variational_covar.mul(-1)).evaluate()
+        inner_mat = (eye.mul(-1) + variational_covar).evaluate()
 
-        right_rinv = torch.triangular_solve(inner_mat, L.transpose(-2, -1), upper=True)[0].transpose(-2, -1)
+        right_rinv = torch.triangular_solve(inner_mat.double(), L.transpose(-2, -1).double(), upper=True)[0].transpose(-2, -1)
 
         var_mean = variational_mean - prior_dist.mean
 
-        right_hand_sides = torch.cat((var_mean.unsqueeze(-1), right_rinv), dim=-1)
+        right_hand_sides = torch.cat((var_mean.unsqueeze(-1).double(), right_rinv), dim=-1)
 
         full_rinv, _ = torch.triangular_solve(right_hand_sides, L.transpose(-2, -1), upper=True)
+        print(full_rinv.dtype)
 
-        mean_cache = full_rinv[..., :, 0].contiguous()
-        covar_cache = full_rinv[..., :, 1:].contiguous()
+        mean_cache = full_rinv[..., :, 0].contiguous().to(dtype=variational_mean.dtype)
+        covar_cache = full_rinv[..., :, 1:].contiguous().to(dtype=variational_mean.dtype)
 
         return mean_cache, covar_cache
 
@@ -137,7 +138,7 @@ class VariationalStrategy(_VariationalStrategy):
 
         left_part = induc_data_covar.transpose(-2, -1).matmul(covar_cache)
         full_part = MatmulLazyTensor(left_part, induc_data_covar)
-        predictive_covar = data_data_covar + full_part.mul(-1)
+        predictive_covar = data_data_covar + full_part
 
         if self.training:
             predictive_covar = DiagLazyTensor(predictive_covar.diag())
