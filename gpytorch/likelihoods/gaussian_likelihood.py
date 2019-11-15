@@ -62,8 +62,12 @@ class _GaussianLikelihoodBase(Likelihood):
     ) -> Tensor:
         marginal = self.marginal(function_dist, *params, **kwargs)
         # We're making everything conditionally independent
-        indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
-        res = indep_dist.log_prob(observations)
+        if self.training and self.fit_factor is not None:
+            indep_dist = base_distributions.Normal(self.fit_factor * marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
+            res = indep_dist.log_prob(self.fit_factor * observations)
+        else:
+            indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
+            res = indep_dist.log_prob(observations)
 
         # Do appropriate summation for multitask Gaussian likelihoods
         num_event_dim = len(function_dist.event_shape)
@@ -87,6 +91,8 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
             noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
         )
         super().__init__(noise_covar=noise_covar)
+        self.fit_factor = kwargs.pop('fit_factor', None)
+        print("Initialized GaussianLikelihood with fit_factor = ", self.fit_factor)
 
     @property
     def noise(self) -> Tensor:
