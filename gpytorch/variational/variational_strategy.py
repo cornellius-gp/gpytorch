@@ -69,7 +69,7 @@ class VariationalStrategy(_VariationalStrategy):
 
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
-        L = psd_safe_cholesky(delazify(induc_induc_covar).double())
+        L = psd_safe_cholesky(delazify(induc_induc_covar))
         return L
 
     @property
@@ -79,6 +79,39 @@ class VariationalStrategy(_VariationalStrategy):
         ones = torch.ones_like(zeros)
         res = MultivariateNormal(zeros, DiagLazyTensor(ones))
         return res
+
+    @cached(name="mean_covar_cache_memo")
+    def mean_covar_cache(self, variational_mean, variational_covar):
+        """
+        Computes K_{uu}^{-1/2}m and K_{uu}^{-1/2}(I - LL')K_{uu}^{-1/2} using contour integral quadrature.
+        """
+        prior_dist = self.prior_distribution
+
+        induc_induc_covar = prior_dist.lazy_covariance_matrix
+
+        L = self._cholesky_factor(induc_induc_covar)
+
+        device = induc_induc_covar.device
+        dtype = induc_induc_covar.dtype
+        mat_len = induc_induc_covar.matrix_shape[0]
+        batch_shape = induc_induc_covar.batch_shape
+
+        eye = DiagLazyTensor(torch.ones(*batch_shape, mat_len, dtype=dtype, device=device))
+
+        inner_mat = (eye + variational_covar.mul(-1)).evaluate()
+
+        right_rinv = torch.triangular_solve(inner_mat, L.transpose(-2, -1), upper=True)[0].transpose(-2, -1)
+
+        var_mean = variational_mean - prior_dist.mean
+
+        right_hand_sides = torch.cat((var_mean.unsqueeze(-1), right_rinv), dim=-1)
+
+        full_rinv, _ = torch.triangular_solve(right_hand_sides, L.transpose(-2, -1), upper=True)
+
+        mean_cache = full_rinv[..., :, 0].contiguous()
+        covar_cache = full_rinv[..., :, 1:].contiguous()
+
+        return mean_cache, covar_cache
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
         # Compute full prior distribution
@@ -93,29 +126,21 @@ class VariationalStrategy(_VariationalStrategy):
         induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
-        # Compute interpolation terms
-        # K_ZZ^{-1/2} K_ZX
-        # K_ZZ^{-1/2} \mu_Z
-        L = self._cholesky_factor(induc_induc_covar)
-        interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0].to(full_inputs.dtype)
+        mean_cache, covar_cache = self.mean_covar_cache(inducing_values, variational_inducing_covar)
 
-        # Compute the mean of q(f)
-        # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
         predictive_mean = (
             torch.matmul(
-                interp_term.transpose(-1, -2), (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
+                induc_data_covar.transpose(-1, -2), mean_cache.unsqueeze(-1)
             ).squeeze(-1)
             + test_mean
         )
 
-        # Compute the covariance of q(f)
-        # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
-        middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
-        if variational_inducing_covar is not None:
-            middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
-        predictive_covar = SumLazyTensor(
-            data_data_covar.add_jitter(1e-4), MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term)
-        )
+        left_part = induc_data_covar.transpose(-2, -1).matmul(covar_cache)
+        full_part = MatmulLazyTensor(left_part, induc_data_covar)
+        predictive_covar = data_data_covar + full_part.mul(-1)
+
+        if self.training:
+            predictive_covar = DiagLazyTensor(predictive_covar.diag())
 
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
