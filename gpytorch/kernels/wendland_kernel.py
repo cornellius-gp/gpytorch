@@ -39,11 +39,12 @@ class WendlandKernel(Kernel):
     .. math::
 
        \begin{equation*}
-          r = \frac{|x_1-x_2|}{\Theta}
-          k_{\text{Wendland}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)_+^5 (8r^2+5r+1)
+          r_d = \frac{|x1_d-x2_d|}{\Theta_d}
+          k_{\text{Wendland}}(\mathbf{x_1}, \mathbf{x_2}) = \prod_{d=1}^D (1-r_d)_+^5 (8r_d^2+5r_d+1)
        \end{equation*}
 
-    where :math:`\Theta` is a :attr:`lengthscale` parameter.
+    where :math:`\Theta` is a :attr:`lengthscale` parameter (:math:`\Theta_d` can either all be equal
+    or different per dimension depending on the parameter :attr:`ard_num_dims`) and D is the number of dimensions.
     See :class:`gpytorch.kernels.Kernel` for descriptions of the lengthscale options.
 
     .. note::
