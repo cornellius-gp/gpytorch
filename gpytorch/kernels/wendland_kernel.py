@@ -30,16 +30,89 @@ def wendland_kernel_function(x1, x2, k=0, lambdas=1):
 
 
 class WendlandKernel(Kernel):
-    """
+    r"""
+    Computes a covariance matrix based on the tensor product version of the one-dimensional Wendland kernel
+    between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}` (the smoothness can be chosen from
+    k=0 (C^0 continuity), k=1 (C^2 continuity) and k=2 (C^4 continuity)):
 
+    Case k=2:
+    .. math::
 
+       \begin{equation*}
+          r = \frac{|x_1-x_2|}{\Theta}
+          k_{\text{Wendland}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)_+^5 (8r^2+5r+1)
+       \end{equation*}
+
+    where :math:`\Theta` is a :attr:`lengthscale` parameter.
+    See :class:`gpytorch.kernels.Kernel` for descriptions of the lengthscale options.
+
+    .. note::
+        This kernel is useful for inducing a sparse kernel gram matrix since points that are in at least
+        one dimension d further apart than :math:`\Theta_d` are assigned 0 covariance.
+        This kernel does not have an `outputscale` parameter. To add a scaling parameter,
+        decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
+
+    Args:
+        :attr:`ard_num_dims` (int, optional):
+            Set this if you want a separate lengthscale for each
+            input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
+        :attr:`batch_shape` (torch.Size, optional):
+            Set this if you want a separate lengthscale for each
+            batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`.
+        :attr:`active_dims` (tuple of ints, optional):
+            Set this if you want to compute the covariance of only a few input dimensions. The ints
+            corresponds to the indices of the dimensions. Default: `None`.
+        :attr:`lengthscale_prior` (Prior, optional):
+            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`.
+        :attr:`lengthscale_constraint` (Constraint, optional):
+            Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
+        :attr:`eps` (float):
+            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
+
+    Attributes:
+        :attr:`lengthscale` (Tensor):
+            The lengthscale parameter. Size/shape of parameter depends on the
+            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
+
+    Example:
+        >>> x = torch.randn(10, 5)
+        >>> # Non-batch: Simple option
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.WendlandKernel())
+        >>> # Non-batch: ARD (different lengthscale for each input dimension)
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.WendlandKernel(ard_num_dims=5))
+        >>> covar = covar_module(x)  # Output: LazyTensor of size (10 x 10)
+        >>>
+        >>> batch_x = torch.randn(2, 10, 5)
+        >>> # Batch: Simple option
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.WendlandKernel())
+        >>> # Batch: different lengthscale for each batch
+        >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.WendlandKernel(batch_shape=torch.Size([2])))
+        >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
 
     def __init__(self, k=0, **kwargs):
         super().__init__(has_lengthscale=True, **kwargs)
         self.k = k
 
-    def forward(self, x1, x2, diag=False, **params):
+    def forward(self, x1, x2, diag=False, vectorized=True, **params):
+        x1_eq_x2 = torch.equal(x1, x2)
+        if diag:
+            if x1_eq_x2:
+                return torch.ones(*x1.shape[:-2], x1.shape[-2], dtype=x1.dtype, device=x1.device)
+            raise NotImplementedError
+        if vectorized:
+            x1_enlarged = x1.unsqueeze(1)
+            weighted_element_difference = torch.abs(x1_enlarged - x2).div(self.lengthscale)
+            if self.k == 0:
+                phi = phi_0(weighted_element_difference)
+            elif self.k == 1:
+                phi = phi_1(weighted_element_difference)
+            elif self.k == 2:
+                phi = phi_2(weighted_element_difference)
+            else:
+                raise NotImplementedError()
+            dm = torch.prod(phi, axis=-1)
+            return dm
         dm = torch.empty((x1.shape[0], x2.shape[0]))
         for i in torch.arange(x1.shape[0]):
             for j in torch.arange(x2.shape[0]):
