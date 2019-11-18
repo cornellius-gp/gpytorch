@@ -4,11 +4,11 @@ import math
 import warnings
 from abc import ABC, abstractmethod
 
-import gpytorch
 import torch
 
-from .. import settings
-from .. import utils
+import gpytorch
+
+from .. import settings, utils
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad import InvQuad
 from ..functions._inv_quad_log_det import InvQuadLogDet
@@ -17,8 +17,8 @@ from ..functions._root_decomposition import RootDecomposition
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
+from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _noop_index
 from ..utils.gradients import _ensure_symmetric_grad
-from ..utils.getitem import _noop_index, _convert_indices_to_tensors, _compute_getitem_size
 from ..utils.memoize import add_to_cache, cached
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -77,6 +77,7 @@ class LazyTensor(ABC):
         LazyTensor may be (for example) :math:`b \\times n \\times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
     """
+
     def _check_args(self, *args, **kwargs):
         """
         (Optional) run checks to see that input arguments and kwargs are valid
@@ -212,7 +213,7 @@ class LazyTensor(ABC):
             `LazyTensor`
         """
         # Special case: if both row and col are not indexed, then we are done
-        if (row_index is _noop_index and col_index is _noop_index):
+        if row_index is _noop_index and col_index is _noop_index:
             if len(batch_indices):
                 components = [component[batch_indices] for component in self._args]
                 res = self.__class__(*components, **self._kwargs)
@@ -224,11 +225,11 @@ class LazyTensor(ABC):
         # We will handle this through "interpolation"
         row_interp_indices = torch.arange(0, self.size(-2), dtype=torch.long, device=self.device).view(-1, 1)
         row_interp_indices = row_interp_indices.expand(*self.batch_shape, -1, 1)
-        row_interp_values = torch.tensor(1., dtype=self.dtype, device=self.device).expand_as(row_interp_indices)
+        row_interp_values = torch.tensor(1.0, dtype=self.dtype, device=self.device).expand_as(row_interp_indices)
 
         col_interp_indices = torch.arange(0, self.size(-1), dtype=torch.long, device=self.device).view(-1, 1)
         col_interp_indices = col_interp_indices.expand(*self.batch_shape, -1, 1)
-        col_interp_values = torch.tensor(1., dtype=self.dtype, device=self.device).expand_as(col_interp_indices)
+        col_interp_values = torch.tensor(1.0, dtype=self.dtype, device=self.device).expand_as(col_interp_indices)
 
         # Construct interpolated LazyTensor
         from . import InterpolatedLazyTensor
@@ -295,18 +296,23 @@ class LazyTensor(ABC):
         # Create some interoplation indices and values
         row_interp_indices = torch.arange(0, self.size(-2), dtype=torch.long, device=self.device)
         row_interp_indices = row_interp_indices[row_index].unsqueeze_(-1).unsqueeze_(-1)
-        row_interp_values = torch.tensor(1., dtype=self.dtype, device=self.device).expand_as(row_interp_indices)
+        row_interp_values = torch.tensor(1.0, dtype=self.dtype, device=self.device).expand_as(row_interp_indices)
 
         col_interp_indices = torch.arange(0, self.size(-1), dtype=torch.long, device=self.device)
         col_interp_indices = col_interp_indices[col_index].unsqueeze_(-1).unsqueeze_(-1)
-        col_interp_values = torch.tensor(1., dtype=self.dtype, device=self.device).expand_as(col_interp_indices)
+        col_interp_values = torch.tensor(1.0, dtype=self.dtype, device=self.device).expand_as(col_interp_indices)
 
         # Construct interpolated LazyTensor
         from . import InterpolatedLazyTensor
 
-        res = InterpolatedLazyTensor(
-            base_lazy_tensor, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values
-        ).evaluate().squeeze(-2).squeeze(-1)
+        res = (
+            InterpolatedLazyTensor(
+                base_lazy_tensor, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values
+            )
+            .evaluate()
+            .squeeze(-2)
+            .squeeze(-1)
+        )
         return res
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
@@ -391,6 +397,7 @@ class LazyTensor(ABC):
             (LazyTensor) Cholesky factor
         """
         from .non_lazy_tensor import NonLazyTensor
+
         evaluated_mat = self.evaluate()
 
         # if the tensor is a scalar, we can just take the square root
@@ -470,6 +477,7 @@ class LazyTensor(ABC):
             :obj:`gpytorch.lazy.LazyTensor`
         """
         from .constant_mul_lazy_tensor import ConstantMulLazyTensor
+
         return ConstantMulLazyTensor(self, other)
 
     def _mul_matrix(self, other):
@@ -583,7 +591,7 @@ class LazyTensor(ABC):
             True,
             False,
             None,
-            *self.representation()
+            *self.representation(),
         )
 
         return res
@@ -621,7 +629,7 @@ class LazyTensor(ABC):
             True,
             True,
             initial_vectors,
-            *self.representation()
+            *self.representation(),
         )
 
         if initial_vectors is not None and initial_vectors.size(-1) > 1:
@@ -653,6 +661,7 @@ class LazyTensor(ABC):
             :obj:`gpytorch.lazy.LazyTensor`
         """
         from .sum_batch_lazy_tensor import SumBatchLazyTensor
+
         return SumBatchLazyTensor(self, block_dim=dim)
 
     def _t_matmul(self, rhs):
@@ -921,20 +930,9 @@ class LazyTensor(ABC):
 
         func = InvMatmul
         if left_tensor is None:
-            return func.apply(
-                self.representation_tree(),
-                False,
-                right_tensor,
-                *self.representation(),
-            )
+            return func.apply(self.representation_tree(), False, right_tensor, *self.representation())
         else:
-            return func.apply(
-                self.representation_tree(),
-                True,
-                left_tensor,
-                right_tensor,
-                *self.representation(),
-            )
+            return func.apply(self.representation_tree(), True, left_tensor, right_tensor, *self.representation())
 
     def inv_quad(self, tensor, reduce_inv_quad=True):
         """
@@ -1544,8 +1542,11 @@ class LazyTensor(ABC):
             small_dim = dim1 if dim1 < dim2 else dim2
             large_dim = dim2 if dim1 < dim2 else dim1
             res = self._permute_batch(
-                *range(small_dim), large_dim, *range(small_dim + 1, large_dim), small_dim,
-                *range(large_dim + 1, ndimension - 2)
+                *range(small_dim),
+                large_dim,
+                *range(small_dim + 1, large_dim),
+                small_dim,
+                *range(large_dim + 1, ndimension - 2),
             )
 
         elif dim1 >= ndimension - 2 and dim2 >= ndimension - 2:
@@ -1662,11 +1663,7 @@ class LazyTensor(ABC):
         if len(ellipsis_locs) == 1:
             ellipsis_loc = ellipsis_locs[0]
             num_to_fill_in = ndimension - (len(index) - 1)
-            index = (
-                index[:ellipsis_loc]
-                + tuple(_noop_index for _ in range(num_to_fill_in))
-                + index[ellipsis_loc + 1 :]
-            )
+            index = index[:ellipsis_loc] + tuple(_noop_index for _ in range(num_to_fill_in)) + index[ellipsis_loc + 1 :]
 
         # Pad the index with empty indices
         index = index + tuple(_noop_index for _ in range(ndimension - len(index)))
@@ -1679,10 +1676,12 @@ class LazyTensor(ABC):
         row_has_tensor_index = torch.is_tensor(row_index)
         col_has_tensor_index = torch.is_tensor(col_index)
         # These are the cases where the row and/or column indices will be "absorbed" into other indices
-        row_col_are_absorbed = any((
-            batch_has_tensor_index and (row_has_tensor_index or col_has_tensor_index),
-            not batch_has_tensor_index and (row_has_tensor_index and col_has_tensor_index),
-        ))
+        row_col_are_absorbed = any(
+            (
+                batch_has_tensor_index and (row_has_tensor_index or col_has_tensor_index),
+                not batch_has_tensor_index and (row_has_tensor_index and col_has_tensor_index),
+            )
+        )
 
         # If we're indexing the LT with ints or slices
         # Replace the ints with slices, and we'll just squeeze the dimensions later
@@ -1708,7 +1707,7 @@ class LazyTensor(ABC):
 
         # If we selected a single row and/or column (or did tensor indexing), we'll be retuning a tensor
         # with the appropriate shape
-        if (squeeze_row or squeeze_col or row_col_are_absorbed):
+        if squeeze_row or squeeze_col or row_col_are_absorbed:
             res = delazify(res)
         if squeeze_row:
             res = res.squeeze(-2)
@@ -1734,11 +1733,13 @@ class LazyTensor(ABC):
         return self.mul(other)
 
     def __radd__(self, other):
-        #TODO: see if this should be self.add
-        return self.mul(other)
+        return self + other
 
     def __rmul__(self, other):
         return self.mul(other)
+
+    def __sub__(self, other):
+        return self + other.mul(-1)
 
 
 def _import_dotted_name(name):

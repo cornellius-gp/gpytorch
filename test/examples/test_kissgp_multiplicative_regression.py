@@ -15,6 +15,7 @@ from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
 
+
 # Simple training data: let's try to learn a sine function,
 # but with KISS-GP let's use 100 training examples.
 n = 30
@@ -83,13 +84,13 @@ class TestKISSGPMultiplicativeRegression(unittest.TestCase):
             loss.backward()
             optimizer.n_iter += 1
 
-        for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        optimizer.step()
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            optimizer.step()
 
         # Test the model
         gp_model.eval()

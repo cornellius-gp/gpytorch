@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 from . import keops
 from .additive_structure_kernel import AdditiveStructureKernel
-from .cylindrical_kernel import CylindricalKernel
 from .cosine_kernel import CosineKernel
-from .multi_device_kernel import MultiDeviceKernel
+from .cylindrical_kernel import CylindricalKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .grid_kernel import GridKernel
 from .index_kernel import IndexKernel
@@ -12,6 +11,7 @@ from .kernel import AdditiveKernel, Kernel, ProductKernel
 from .lcm_kernel import LCMKernel
 from .linear_kernel import LinearKernel
 from .matern_kernel import MaternKernel
+from .multi_device_kernel import MultiDeviceKernel
 from .multitask_kernel import MultitaskKernel
 from .newton_girard_additive_kernel import NewtonGirardAdditiveKernel
 from .periodic_kernel import PeriodicKernel
@@ -20,10 +20,9 @@ from .polynomial_kernel_grad import PolynomialKernelGrad
 from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
+from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
-from .white_noise_kernel import WhiteNoiseKernel
-
 
 __all__ = [
     "keops",
@@ -49,7 +48,7 @@ __all__ = [
     "ProductStructureKernel",
     "RBFKernel",
     "RBFKernelGrad",
+    "RQKernel",
     "ScaleKernel",
     "SpectralMixtureKernel",
-    "WhiteNoiseKernel",
 ]

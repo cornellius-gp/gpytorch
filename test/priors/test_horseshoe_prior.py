@@ -3,6 +3,7 @@
 import unittest
 
 import torch
+
 from gpytorch.priors import HorseshoePrior
 
 

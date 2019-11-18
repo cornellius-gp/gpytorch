@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
-from gpytorch.kernels.keops import RBFKernel
+
+import torch
+
 from gpytorch.kernels import RBFKernel as GRBFKernel
+from gpytorch.kernels.keops import RBFKernel
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 try:
@@ -59,6 +61,7 @@ try:
             res2 = kern2(x1, x1).matmul(rhs)
 
             self.assertLess(torch.norm(res1 - res2), 1e-4)
+
 
 except ImportError:
     pass

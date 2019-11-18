@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
+
 import torch
 from torch.nn import ModuleList
-from copy import deepcopy
+
 from .mean import Mean
 
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
+import torch
+
 from gpytorch.kernels import RBFKernelGrad
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 

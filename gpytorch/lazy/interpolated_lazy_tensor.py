@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import torch
-# from .block_diag_lazy_tensor import BlockDiagLazyTensor
-from .lazy_tensor import LazyTensor
-from .non_lazy_tensor import lazify, NonLazyTensor
-from .root_lazy_tensor import RootLazyTensor
+
 from ..utils import sparse
 from ..utils.broadcasting import _pad_with_singletons
 from ..utils.getitem import _noop_index
 from ..utils.interpolation import left_interp, left_t_interp
+from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import NonLazyTensor, lazify
+from .root_lazy_tensor import RootLazyTensor
 
 
 class InterpolatedLazyTensor(LazyTensor):
@@ -56,10 +56,10 @@ class InterpolatedLazyTensor(LazyTensor):
             )
 
         if right_interp_indices is None:
-            num_rows = base_lazy_tensor.size(-2)
-            right_interp_indices = torch.arange(0, num_rows, dtype=torch.long, device=base_lazy_tensor.device)
+            num_cols = base_lazy_tensor.size(-1)
+            right_interp_indices = torch.arange(0, num_cols, dtype=torch.long, device=base_lazy_tensor.device)
             right_interp_indices.unsqueeze_(-1)
-            right_interp_indices = right_interp_indices.expand(*base_lazy_tensor.batch_shape, num_rows, 1)
+            right_interp_indices = right_interp_indices.expand(*base_lazy_tensor.batch_shape, num_cols, 1)
 
         if right_interp_values is None:
             right_interp_values = torch.ones(
@@ -105,8 +105,9 @@ class InterpolatedLazyTensor(LazyTensor):
         left_interp_indices = self.left_interp_indices.__getitem__((*batch_indices, row_index)).unsqueeze(-2)
         right_interp_indices = self.right_interp_indices.__getitem__((*batch_indices, col_index)).unsqueeze(-1)
         base_vals = self.base_lazy_tensor._get_indices(
-            left_interp_indices, right_interp_indices,
-            *[batch_index.view(*batch_index.shape, 1, 1) for batch_index in batch_indices]
+            left_interp_indices,
+            right_interp_indices,
+            *[batch_index.view(*batch_index.shape, 1, 1) for batch_index in batch_indices],
         )
 
         left_interp_values = self.left_interp_values.__getitem__((*batch_indices, row_index)).unsqueeze(-2)
@@ -129,15 +130,19 @@ class InterpolatedLazyTensor(LazyTensor):
             base_lazy_tensor = base_lazy_tensor._getitem(_noop_index, _noop_index, *batch_indices)
 
         # Special case: if both row and col are not indexed, then we are done
-        if (row_index is _noop_index and col_index is _noop_index):
+        if row_index is _noop_index and col_index is _noop_index:
             left_interp_indices = left_interp_indices[batch_indices]
             left_interp_values = left_interp_values[batch_indices]
             right_interp_indices = right_interp_indices[batch_indices]
             right_interp_values = right_interp_values[batch_indices]
 
             return self.__class__(
-                base_lazy_tensor, left_interp_indices, left_interp_values,
-                right_interp_indices, right_interp_values, **self._kwargs
+                base_lazy_tensor,
+                left_interp_indices,
+                left_interp_values,
+                right_interp_indices,
+                right_interp_values,
+                **self._kwargs,
             )
 
         # Normal case: we have to do some processing on either the rows or columns
@@ -149,8 +154,12 @@ class InterpolatedLazyTensor(LazyTensor):
 
         # Construct interpolated LazyTensor
         res = self.__class__(
-            base_lazy_tensor, left_interp_indices, left_interp_values,
-            right_interp_indices, right_interp_values, **self._kwargs
+            base_lazy_tensor,
+            left_interp_indices,
+            left_interp_values,
+            right_interp_indices,
+            right_interp_values,
+            **self._kwargs,
         )
         return res
 
@@ -296,7 +305,7 @@ class InterpolatedLazyTensor(LazyTensor):
             self.right_interp_values,
             self.left_interp_indices,
             self.left_interp_values,
-            **self._kwargs
+            **self._kwargs,
         )
         return res
 
@@ -308,7 +317,7 @@ class InterpolatedLazyTensor(LazyTensor):
                 return self._sparse_left_interp_t_memo
 
         left_interp_t = sparse.make_sparse_from_indices_and_values(
-            left_interp_indices_tensor, left_interp_values_tensor, self.base_lazy_tensor.size()[-1]
+            left_interp_indices_tensor, left_interp_values_tensor, self.base_lazy_tensor.size()[-2]
         )
         self._left_interp_indices_memo = left_interp_indices_tensor
         self._left_interp_values_memo = left_interp_values_tensor
@@ -348,8 +357,8 @@ class InterpolatedLazyTensor(LazyTensor):
 
         # Rearrange the indices and values
         permute_order = (*range(0, dim), *range(dim + 1, self.dim()), dim)
-        left_shape = (*left_interp_indices.shape[:dim], *left_interp_indices.shape[dim + 1:-1], -1)
-        right_shape = (*right_interp_indices.shape[:dim], *right_interp_indices.shape[dim + 1:-1], -1)
+        left_shape = (*left_interp_indices.shape[:dim], *left_interp_indices.shape[dim + 1 : -1], -1)
+        right_shape = (*right_interp_indices.shape[:dim], *right_interp_indices.shape[dim + 1 : -1], -1)
         left_interp_indices = left_interp_indices.permute(permute_order).reshape(left_shape)
         left_interp_values = left_interp_values.permute(permute_order).reshape(left_shape)
         right_interp_indices = right_interp_indices.permute(permute_order).reshape(right_shape)

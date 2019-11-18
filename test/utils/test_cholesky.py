@@ -4,13 +4,21 @@ import unittest
 import warnings
 
 import torch
-from gpytorch.utils.cholesky import psd_safe_cholesky
+
 from gpytorch.test.utils import least_used_cuda_device
+from gpytorch.utils.cholesky import psd_safe_cholesky
+from gpytorch.utils.errors import NanError
 
 
 class TestPSDSafeCholesky(unittest.TestCase):
     def _gen_test_psd(self):
         return torch.tensor([[[0.25, -0.75], [-0.75, 2.25]], [[1.0, 1.0], [1.0, 1.0]]])
+
+    def test_psd_safe_cholesky_nan(self, cuda=False):
+        A = self._gen_test_psd().sqrt()
+        with self.assertRaises(NanError) as ctx:
+            psd_safe_cholesky(A)
+            self.assertTrue("NaN" in ctx.exception)
 
     def test_psd_safe_cholesky_pd(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")

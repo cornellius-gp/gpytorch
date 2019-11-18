@@ -8,7 +8,7 @@ from math import pi
 import gpytorch
 import torch
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.models import AbstractVariationalGP
+from gpytorch.models import ApproximateGP
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
 from torch import optim
@@ -28,7 +28,7 @@ def train_data(cuda=False):
         return train_x, train_y
 
 
-class SVGPRegressionModel(AbstractVariationalGP):
+class SVGPRegressionModel(ApproximateGP):
     def __init__(self, inducing_points):
         variational_distribution = CholeskyVariationalDistribution(
             inducing_points.size(-2), batch_shape=torch.Size([2])

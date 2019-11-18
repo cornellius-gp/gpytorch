@@ -1,11 +1,24 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
-from gpytorch.kernels import RBFKernel, ScaleKernel
+
+import torch
+
+from gpytorch.kernels import LinearKernel, RBFKernel, ScaleKernel
+from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
-class TestScaleKernel(unittest.TestCase):
+class TestScaleKernel(BaseKernelTestCase, unittest.TestCase):
+    def create_kernel_no_ard(self, **kwargs):
+        base_kernel = RBFKernel()
+        kernel = ScaleKernel(base_kernel, **kwargs)
+        return kernel
+
+    def create_kernel_ard(self, num_dims, **kwargs):
+        base_kernel = RBFKernel(ard_num_dims=num_dims)
+        kernel = ScaleKernel(base_kernel, **kwargs)
+        return kernel
+
     def test_ard(self):
         a = torch.tensor([[1, 2], [2, 4]], dtype=torch.float)
         b = torch.tensor([[1, 3], [0, 4]], dtype=torch.float)
@@ -90,6 +103,14 @@ class TestScaleKernel(unittest.TestCase):
         kernel.initialize(outputscale=ls_init)
         actual_value = ls_init.view_as(kernel.outputscale)
         self.assertLess(torch.norm(kernel.outputscale - actual_value), 1e-5)
+
+    def test_stationary(self):
+        kernel = ScaleKernel(RBFKernel())
+        self.assertTrue(kernel.is_stationary)
+
+    def test_non_stationary(self):
+        kernel = ScaleKernel(LinearKernel())
+        self.assertFalse(kernel.is_stationary)
 
 
 if __name__ == "__main__":

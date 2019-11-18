@@ -1,7 +1,7 @@
 .. role:: hidden
     :class: hidden-section
 
-gpytorch.means
+gpytorch.constraints
 ===================================
 
 .. automodule:: gpytorch.constraints

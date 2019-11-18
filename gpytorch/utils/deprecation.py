@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-import warnings
 import functools
-import torch
+import warnings
 from unittest.mock import MagicMock
 
+import torch
 
 # TODO: Use bool instead of uint8 dtype once pytorch #21113 is in stable release
 if isinstance(torch, MagicMock):
@@ -29,7 +29,8 @@ class _ClassWithDeprecatedBatchSize(object):
                     warnings.warn(
                         f"The supplied state_dict contains a parameter ({prefix + name}) with an extra batch "
                         f"dimension ({load_param.shape} vs {param.shape}).\nDefault batch shapes are now "
-                        "deprecated in GPyTorch. You may wish to re-save your model.", DeprecationWarning
+                        "deprecated in GPyTorch. You may wish to re-save your model.",
+                        DeprecationWarning,
                     )
                     load_param.squeeze_(0)
         except Exception:
@@ -41,7 +42,7 @@ def _deprecated_function_for(old_function_name, function):
     def _deprecated_function(*args, **kwargs):
         warnings.warn(
             "The `{}` function is deprecated. Use `{}` instead".format(old_function_name, function.__name__),
-            DeprecationWarning
+            DeprecationWarning,
         )
         return function(*args, **kwargs)
 
@@ -70,7 +71,7 @@ def _deprecated_renamed_method(cls, old_method_name, new_method_name):
     def _deprecated_method(self, *args, **kwargs):
         warnings.warn(
             "The `{}` method is deprecated. Use `{}` instead".format(old_method_name, new_method_name),
-            DeprecationWarning
+            DeprecationWarning,
         )
         return getattr(self, new_method_name)(*args, **kwargs)
 

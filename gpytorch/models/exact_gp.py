@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
 import warnings
-import torch
 from copy import deepcopy
+
+import torch
+
+from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from ..utils.broadcasting import _mul_broadcast_shape
-from .. import settings
-from .gp import GP
 from .exact_prediction_strategies import prediction_strategy
+from .gp import GP
 
 
 class ExactGP(GP):
@@ -37,13 +39,20 @@ class ExactGP(GP):
 
     @train_targets.setter
     def train_targets(self, value):
-        object.__setattr__(self, '_train_targets', value)
+        object.__setattr__(self, "_train_targets", value)
 
     def _apply(self, fn):
         if self.train_inputs is not None:
             self.train_inputs = tuple(fn(train_input) for train_input in self.train_inputs)
             self.train_targets = fn(self.train_targets)
         return super(ExactGP, self)._apply(fn)
+
+    def local_load_samples(self, samples_dict, memo, prefix):
+        # Pyro always puts the samples in the first batch dimension
+        num_samples = next(iter(samples_dict.values())).size(0)
+        self.train_inputs = tuple(tri.unsqueeze(0).expand(num_samples, *tri.shape) for tri in self.train_inputs)
+        self.train_targets = self.train_targets.unsqueeze(0).expand(num_samples, *self.train_targets.shape)
+        super().local_load_samples(samples_dict, memo, prefix)
 
     def set_train_data(self, inputs=None, targets=None, strict=True):
         """
@@ -178,12 +187,7 @@ class ExactGP(GP):
 
         new_model.likelihood = old_likelihood.get_fantasy_likelihood(**fantasy_kwargs)
         new_model.prediction_strategy = old_pred_strat.get_fantasy_strategy(
-            inputs,
-            targets,
-            full_inputs,
-            full_targets,
-            full_output,
-            **fantasy_kwargs,
+            inputs, targets, full_inputs, full_targets, full_output, **fantasy_kwargs
         )
 
         # if the fantasies are at the same points, we need to expand the inputs for the new model
@@ -200,17 +204,12 @@ class ExactGP(GP):
             self.prediction_strategy = None
         return super(ExactGP, self).train(mode)
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
         self.prediction_strategy = None
         super()._load_from_state_dict(
-            state_dict,
-            prefix,
-            local_metadata,
-            strict,
-            missing_keys,
-            unexpected_keys,
-            error_msgs
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
         )
 
     def __call__(self, *args, **kwargs):

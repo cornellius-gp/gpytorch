@@ -5,7 +5,7 @@
 [![forthebadge](https://forthebadge.com/images/badges/ages-12.svg)](https://forthebadge.com)
 
 **News!**
- - The Beta release is currently out! Note that it **requires PyTorch >= 1.1**
+ - The Beta release is currently out! Note that it **requires PyTorch >= 1.3**
  - If you need to install the alpha release (we recommend you use the latest version though!), check out [the alpha release](https://github.com/cornellius-gp/gpytorch/tree/alpha).
 
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease.
@@ -22,11 +22,16 @@ See our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gp
 
 **Requirements**:
 - Python >= 3.6
-- PyTorch >= 1.1
+- PyTorch >= 1.3
 
 **N.B.** GPyTorch will not run on PyTorch 0.4.1 or earlier versions.
 
-First make sure that you have PyTorch (`>= 1.1`) installed using the appropriate command from [here](https://pytorch.org/get-started/locally/).
+First make sure that you have PyTorch (`>= 1.3
+
+
+
+
+`) installed using the appropriate command from [here](https://pytorch.org/get-started/locally/).
 
 Then install GPyTorch using pip or conda:
 
@@ -82,6 +87,14 @@ Please lint the code with `flake8`.
 pip install flake8  # if not already installed
 flake8
 ```
+
+If you plan on submitting a pull request, please make use of our pre-commit hooks to ensure that your commits adhere
+to the general style guidelines enforced by the repo. To do this, navigate to your local repository and run:
+```bash
+pip install pre-commit
+pre-commit install
+```
+From then on, this will automatically run flake8, isort, black and other tools over the files you commit each time you commit to gpytorch or a fork of it.
 
 ## The Team
 

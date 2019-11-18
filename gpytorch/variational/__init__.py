@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 
+from ._variational_distribution import _VariationalDistribution
+from ._variational_strategy import _VariationalStrategy
+from .additive_grid_interpolation_variational_strategy import AdditiveGridInterpolationVariationalStrategy
+from .cholesky_variational_distribution import CholeskyVariationalDistribution
+from .delta_variational_distribution import DeltaVariationalDistribution
+from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
+from .mean_field_variational_distribution import MeanFieldVariationalDistribution
+from .multitask_variational_strategy import MultitaskVariationalStrategy
+from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 from .variational_strategy import VariationalStrategy
 from .whitened_variational_strategy import WhitenedVariationalStrategy
-from .additive_grid_interpolation_variational_strategy import AdditiveGridInterpolationVariationalStrategy
-from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
-from .variational_distribution import VariationalDistribution
-from .cholesky_variational_distribution import CholeskyVariationalDistribution
 
 __all__ = [
-    "VariationalStrategy",
-    "WhitenedVariationalStrategy",
+    "_VariationalStrategy",
     "AdditiveGridInterpolationVariationalStrategy",
     "GridInterpolationVariationalStrategy",
-    "NewVariationalStrategy",
-    "VariationalDistribution",
+    "MultitaskVariationalStrategy",
+    "VariationalStrategy",
+    "UnwhitenedVariationalStrategy",
+    "WhitenedVariationalStrategy",
+    "_VariationalDistribution",
     "CholeskyVariationalDistribution",
+    "MeanFieldVariationalDistribution",
+    "DeltaVariationalDistribution",
 ]

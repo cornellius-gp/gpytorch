@@ -1,91 +1,77 @@
 #!/usr/bin/env python3
 
-import torch
-from .marginal_log_likelihood import MarginalLogLikelihood
-from .. import settings
+from ._approximate_mll import _ApproximateMarginalLogLikelihood
 
 
-class VariationalELBO(MarginalLogLikelihood):
-    def __init__(self, likelihood, model, num_data, combine_terms=True):
-        """
-        A special MLL designed for variational inference
-        Args:
-        - likelihood: (Likelihood) - the likelihood for the model
-        - model: (Module) - the variational GP model
-        - num_data: (int) - the total number of training data points (necessary for SGD)
-        - combine_terms: (bool) - whether or not to sum the expected NLL with the KL terms (default True)
-        """
-        super(VariationalELBO, self).__init__(likelihood, model)
-        self.combine_terms = combine_terms
-        self.num_data = num_data
+class VariationalELBO(_ApproximateMarginalLogLikelihood):
+    r"""
+    The variational evidence lower bound (ELBO). This is used to optimize
+    variational Gaussian processes (with or without stochastic optimization).
 
-    def forward(self, variational_dist_f, target, **kwargs):
-        num_batch = variational_dist_f.event_shape.numel()
+    .. math::
 
-        log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs).div(
-            num_batch
-        )
-        kl_divergence = self.model.variational_strategy.kl_divergence()
+       \begin{align*}
+          \mathcal{L}_\text{ELBO} &=
+          \mathbb{E}_{p_\text{data}( y, \mathbf x )} \left[
+            \log \mathbb{E}_{q(\mathbf u)} \left[  p( y \! \mid \! \mathbf u) \right]
+          \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
+          \\
+          &\approx \sum_{i=1}^N \mathbb{E}_{q( \mathbf u)} \left[
+            \log \int p( y_i \! \mid \! f_i) p(f_i \! \mid \! \mathbf u) \: d \mathbf f_i
+          \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
+       \end{align*}
 
-        if kl_divergence.dim() > log_likelihood.dim():
-            kl_divergence = kl_divergence.sum(-1)
+    where :math:`N` is the number of datapoints, :math:`q(\mathbf u)` is the variational distribution for
+    the inducing function values, and `p(\mathbf u)` is the prior distribution for the inducing function
+    values.
 
-        if log_likelihood.numel() == 1:
-            kl_divergence = kl_divergence.sum()
+    :math:`\beta` is a scaling constant that reduces the regularization effect of the KL
+    divergence. Setting :math:`\beta=1` (default) results in the true variational ELBO.
 
-        kl_divergence = kl_divergence.div(self.num_data)
+    For more information on this derivation, see `Scalable Variational Gaussian Process Classification`_
+    (Hensman et al., 2015).
 
-        # Add any additional registered loss terms
-        added_loss = torch.zeros_like(kl_divergence)
-        had_added_losses = False
-        for added_loss_term in self.model.added_loss_terms():
-            added_loss.add_(added_loss_term.loss())
-            had_added_losses = True
+    :param ~gpytorch.likelihoods.Likelihood likelihood: The likelihood for the model
+    :param ~gpytorch.models.ApproximateGP model: The approximate GP model
+    :param int num_data: The total number of training data points (necessary for SGD)
+    :param float beta: (optional, default=1.) A multiplicative factor for the KL divergence term.
+        Setting it to 1 (default) recovers true variational inference
+        (as derived in `Scalable Variational Gaussian Process Classification`_).
+        Setting it to anything less than 1 reduces the regularization effect of the model
+        (similarly to what was proposed in `the beta-VAE paper`_).
+    :param bool combine_terms: (default=True): Whether or not to sum the
+        expected NLL with the KL terms (default True)
 
-        if self.combine_terms:
-            res = log_likelihood - kl_divergence
-            for _, prior, closure, _ in self.named_priors():
-                res.add_(prior.log_prob(closure()).sum().div(self.num_data))
-            return res + added_loss
-        else:
-            log_prior = torch.zeros_like(log_likelihood)
-            for _, prior, closure, _ in self.named_priors():
-                log_prior.add_(prior.log_prob(closure()).sum())
-            if had_added_losses:
-                return log_likelihood, kl_divergence, log_prior.div(self.num_data), added_loss
-            else:
-                return log_likelihood, kl_divergence, log_prior.div(self.num_data)
+    Example:
+        >>> # model is a gpytorch.models.ApproximateGP
+        >>> # likelihood is a gpytorch.likelihoods.Likelihood
+        >>> mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=100, beta=0.5)
+        >>>
+        >>> output = model(train_x)
+        >>> loss = -mll(output, train_y)
+        >>> loss.backward()
 
+    .. _Scalable Variational Gaussian Process Classification:
+        http://proceedings.mlr.press/v38/hensman15.pdf
+    .. _the beta-VAE paper:
+        https://openreview.net/pdf?id=Sy2fzU9gl
+    """
 
-class VariationalELBOEmpirical(VariationalELBO):
-    def __init__(self, likelihood, model, num_data):
-        """
-        A special MLL designed for variational inference.
-        This computes an empirical (rather than exact) estimate of the KL divergence
-
-        Args:
-        - likelihood: (Likelihood) - the likelihood for the model
-        - model: (Module) - the variational GP model
-        - num_data: (int) - the total number of training data points (necessary for SGD)
-        """
-        super(VariationalELBOEmpirical, self).__init__(likelihood, model, num_data, combine_terms=True)
+    def _log_likelihood_term(self, variational_dist_f, target, **kwargs):
+        return self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs).sum(-1)
 
     def forward(self, variational_dist_f, target, **kwargs):
-        num_batch = variational_dist_f.event_shape[0]
-        variational_dist_u = self.model.variational_strategy.variational_distribution.variational_distribution
-        prior_dist = self.model.variational_strategy.prior_distribution
+        r"""
+        Computes the Variational ELBO given :math:`q(\mathbf f)` and :math:`\mathbf y`.
+        Calling this function will call the likelihood's :meth:`~gpytorch.likelihoods.Likelihood.expected_log_prob`
+        function.
 
-        log_likelihood = self.likelihood.expected_log_prob(target, variational_dist_f, **kwargs)
-        log_likelihood = log_likelihood.div(num_batch)
-
-        num_samples = settings.num_likelihood_samples.value()
-        variational_samples = variational_dist_u.rsample(torch.Size([num_samples]))
-        kl_divergence = (
-            variational_dist_u.log_prob(variational_samples) - prior_dist.log_prob(variational_samples)
-        ).mean(0)
-        kl_divergence = kl_divergence.div(self.num_data)
-
-        res = log_likelihood - kl_divergence
-        for _, prior, closure, _ in self.named_priors():
-            res.add_(prior.log_prob(closure()).sum().div(self.num_data))
-        return res
+        :param ~gpytorch.distributions.MultivariateNormal variational_dist_f: :math:`q(\mathbf f)`
+            the outputs of the latent function (the :obj:`gpytorch.models.ApproximateGP`)
+        :param torch.Tensor target: :math:`\mathbf y` The target values
+        :param kwargs: Additional arguments passed to the
+            likelihood's :meth:`~gpytorch.likelihoods.Likelihood.expected_log_prob` function.
+        :rtype: torch.Tensor
+        :return: Variational ELBO. Output shape corresponds to batch shape of the model/input data.
+        """
+        return super().forward(variational_dist_f, target, **kwargs)

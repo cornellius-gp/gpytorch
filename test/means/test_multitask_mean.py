@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
 
-from gpytorch.means import MultitaskMean, ConstantMean, ZeroMean
+import torch
+
+from gpytorch.means import ConstantMean, MultitaskMean, ZeroMean
 from gpytorch.test.base_mean_test_case import BaseMeanTestCase
 
 

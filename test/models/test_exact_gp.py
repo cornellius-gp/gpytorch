@@ -2,8 +2,9 @@
 
 import unittest
 
-import gpytorch
 import torch
+
+import gpytorch
 from gpytorch.models import ExactGP
 from gpytorch.test.model_test_case import BaseModelTestCase
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from .module import Module
 from . import (
     beta_features,
     distributions,
@@ -14,27 +13,26 @@ from . import (
     utils,
     variational,
 )
-from .functions import (
+from .functions import (  # Deprecated
     add_diag,
     add_jitter,
     dsmm,
     inv_matmul,
     inv_quad,
+    inv_quad_log_det,
     inv_quad_logdet,
-    logdet,
+    log_det,
     log_normal_cdf,
+    logdet,
     matmul,
     root_decomposition,
     root_inv_decomposition,
-    # Deprecated
-    inv_quad_log_det,
-    log_det,
 )
-from .mlls import ExactMarginalLogLikelihood, VariationalMarginalLogLikelihood
-from .lazy import lazify, delazify, cat
+from .lazy import cat, delazify, lazify
+from .mlls import ExactMarginalLogLikelihood
+from .module import Module
 
-
-__version__ = "0.3.5"
+__version__ = "0.3.6"
 
 __all__ = [
     # Submodules
@@ -51,7 +49,6 @@ __all__ = [
     # Classes
     "Module",
     "ExactMarginalLogLikelihood",
-    "VariationalMarginalLogLikelihood",
     # Functions
     "add_diag",
     "add_jitter",

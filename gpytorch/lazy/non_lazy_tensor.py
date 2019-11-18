@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
-from ..lazy import LazyTensor
+
+from .lazy_tensor import LazyTensor
 
 
 class NonLazyTensor(LazyTensor):
@@ -99,7 +100,4 @@ def lazify(obj):
         raise TypeError("object of class {} cannot be made into a LazyTensor".format(obj.__class__.__name__))
 
 
-__all__ = [
-    "NonLazyTensor",
-    "lazify",
-]
+__all__ = ["NonLazyTensor", "lazify"]

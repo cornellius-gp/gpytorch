@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from .kernel import Kernel
 from ..lazy import lazify
+from .kernel import Kernel
 
 
 class ProductStructureKernel(Kernel):
@@ -37,6 +37,13 @@ class ProductStructureKernel(Kernel):
     .. _Product Kernel Interpolation for Scalable Gaussian Processes:
         https://arxiv.org/pdf/1802.08903
     """
+
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if the base kernel is stationary.
+        """
+        return self.base_kernel.is_stationary
 
     def __init__(self, base_kernel, num_dims, active_dims=None):
         super(ProductStructureKernel, self).__init__(active_dims=active_dims)

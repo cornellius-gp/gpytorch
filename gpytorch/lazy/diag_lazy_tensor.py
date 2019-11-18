@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
+
+from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 
@@ -91,7 +93,8 @@ class DiagLazyTensor(LazyTensor):
         return DiagLazyTensor(self._diag.abs())
 
     def add_diag(self, added_diag):
-        return DiagLazyTensor(self._diag + added_diag.expand_as(self._diag))
+        shape = _mul_broadcast_shape(self._diag.shape, added_diag.shape)
+        return DiagLazyTensor(self._diag.expand(shape) + added_diag.expand(shape))
 
     def diag(self):
         return self._diag

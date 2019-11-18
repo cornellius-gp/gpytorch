@@ -5,13 +5,13 @@ import random
 import unittest
 from math import pi
 
-import gpytorch
 import torch
+
+import gpytorch
+from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.kernels import MultitaskKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihoodKronecker
 from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.distributions import MultitaskMultivariateNormal
-
 
 # Simple training data: let's try to learn a sine function
 train_x = torch.linspace(0, 1, 100)

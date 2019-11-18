@@ -2,8 +2,9 @@
 
 from abc import ABC
 
-from torch.distributions import Distribution
 from torch.nn import Module
+
+from ..distributions import Distribution
 
 
 class Prior(Distribution, Module, ABC):

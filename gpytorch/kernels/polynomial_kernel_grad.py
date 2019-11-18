@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-import torch
-from .polynomial_kernel import PolynomialKernel
 from typing import Optional
+
+import torch
+
+from .polynomial_kernel import PolynomialKernel
 
 
 class PolynomialKernelGrad(PolynomialKernel):
@@ -12,7 +14,7 @@ class PolynomialKernelGrad(PolynomialKernel):
         x2: torch.Tensor,
         diag: Optional[bool] = False,
         last_dim_is_batch: Optional[bool] = False,
-        **params
+        **params,
     ) -> torch.Tensor:
         offset = self.offset.view(*self.batch_shape, 1, 1)
 
@@ -40,9 +42,7 @@ class PolynomialKernelGrad(PolynomialKernel):
 
             ones_ = torch.ones(*batch_shape, d, 1, n2, dtype=x1.dtype, device=x1.device)
             K12_outer_prods = torch.matmul(x1.transpose(-2, -1).unsqueeze(-1), ones_)
-            K12 = (
-                (K12_base.unsqueeze(-3) * K12_outer_prods).transpose(-3, -2).reshape(*batch_shape, n1, d * n2)
-            )
+            K12 = (K12_base.unsqueeze(-3) * K12_outer_prods).transpose(-3, -2).reshape(*batch_shape, n1, d * n2)
 
             ones_ = torch.ones(*batch_shape, d, n1, 1, dtype=x1.dtype, device=x1.device)
             K21_outer_prods = torch.matmul(ones_, x2.transpose(-2, -1).unsqueeze(-2))

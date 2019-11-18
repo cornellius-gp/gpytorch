@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
 
+import functools
 import string
 
 import torch
 
 from .. import settings
 from ..lazy import (
+    BatchRepeatLazyTensor,
     InterpolatedLazyTensor,
+    LazyEvaluatedKernelTensor,
     MatmulLazyTensor,
+    NonLazyTensor,
     RootLazyTensor,
     SumLazyTensor,
     ZeroLazyTensor,
-    lazify,
     delazify,
-    LazyEvaluatedKernelTensor,
-    NonLazyTensor,
-    BatchRepeatLazyTensor,
+    lazify,
 )
 from ..utils.interpolation import left_interp, left_t_interp
-from ..utils.memoize import cached, add_to_cache
+from ..utils.memoize import add_to_cache, cached
+
+
+def clear_cache_hook(module, *args, **kwargs):
+    module._memoize_cache = {}
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
@@ -69,10 +74,16 @@ class DefaultPredictionStrategy(object):
         Returns
             - A precomputed cache
         """
+        res = train_train_covar_inv_root
         if settings.detach_test_caches.on():
-            return train_train_covar_inv_root.detach()
-        else:
-            return train_train_covar_inv_root
+            res = res.detach()
+
+        if res.grad_fn is not None:
+            wrapper = functools.partial(clear_cache_hook, self)
+            functools.update_wrapper(wrapper, clear_cache_hook)
+            res.grad_fn.register_hook(wrapper)
+
+        return res
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         """
@@ -159,11 +170,7 @@ class DefaultPredictionStrategy(object):
         small_system_rhs = targets - fant_mean - ftcm
         small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
-        if small_system_rhs.requires_grad or schur_complement.requires_grad:
-            # TODO: Delete this part of the if statement when PyTorch implements cholesky_solve derivative.
-            fant_cache_lower = torch.solve(small_system_rhs, schur_complement)[0]
-        else:
-            fant_cache_lower = torch.cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
+        fant_cache_lower = torch.cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
 
         # Get "a", the new upper portion of the cache corresponding to the old training points.
         fant_cache_upper = self.mean_cache.unsqueeze(-1) - fant_solve.matmul(fant_cache_lower)
@@ -261,9 +268,14 @@ class DefaultPredictionStrategy(object):
         mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
 
         if settings.detach_test_caches.on():
-            return mean_cache.detach()
-        else:
-            return mean_cache
+            mean_cache = mean_cache.detach()
+
+        if mean_cache.grad_fn is not None:
+            wrapper = functools.partial(clear_cache_hook, self)
+            functools.update_wrapper(wrapper, clear_cache_hook)
+            mean_cache.grad_fn.register_hook(wrapper)
+
+        return mean_cache
 
     @property
     def num_train(self):
@@ -306,6 +318,7 @@ class DefaultPredictionStrategy(object):
         # GP, and using addmv requires you to delazify test_train_covar, which is obviously a huge no-no!
         res = (test_train_covar @ self.mean_cache.unsqueeze(-1)).squeeze(-1)
         res = res + test_mean
+
         return res
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):

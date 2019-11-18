@@ -32,6 +32,13 @@ class AdditiveStructureKernel(Kernel):
             Passed down to the `base_kernel`.
     """
 
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Kernel is stationary if the base kernel is stationary.
+        """
+        return self.base_kernel.is_stationary
+
     def __init__(self, base_kernel, num_dims, active_dims=None):
         super(AdditiveStructureKernel, self).__init__(active_dims=active_dims)
         self.base_kernel = base_kernel

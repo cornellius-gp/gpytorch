@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 
-from copy import deepcopy
-
 import math
 import warnings
+from copy import deepcopy
 from typing import Any, Optional
 
 import torch
 from torch import Tensor
 
 from ..distributions import MultivariateNormal, base_distributions
-from ..likelihoods import Likelihood
 from ..lazy import ZeroLazyTensor
 from ..utils.deprecation import _deprecate_kwarg_with_transform
+from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 
 
@@ -24,8 +23,10 @@ class _GaussianLikelihoodBase(Likelihood):
         super().__init__()
         param_transform = kwargs.get("param_transform")
         if param_transform is not None:
-            warnings.warn("The 'param_transform' argument is now deprecated. If you want to use a different "
-                          "transformaton, specify a different 'noise_constraint' instead.")
+            warnings.warn(
+                "The 'param_transform' argument is now deprecated. If you want to use a different "
+                "transformaton, specify a different 'noise_constraint' instead."
+            )
 
         self.noise_covar = noise_covar
 
@@ -38,9 +39,37 @@ class _GaussianLikelihoodBase(Likelihood):
             shape = base_shape
         return self.noise_covar(*params, shape=shape, **kwargs)
 
+    def expected_log_prob(self, target: Tensor, input: MultivariateNormal, *params: Any, **kwargs: Any) -> Tensor:
+        mean, variance = input.mean, input.variance
+        num_event_dim = len(input.event_shape)
+
+        noise = self._shaped_noise_covar(mean.shape, *params, **kwargs).diag()
+        # Potentially reshape the noise to deal with the multitask case
+        noise = noise.view(*noise.shape[:-1], *input.event_shape)
+
+        res = ((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)
+        res = res.mul(-0.5)
+        if num_event_dim > 1:  # Do appropriate summation for multitask Gaussian likelihoods
+            res = res.sum(list(range(-1, -num_event_dim, -1)))
+        return res
+
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
         return base_distributions.Normal(function_samples, noise.sqrt())
+
+    def log_marginal(
+        self, observations: Tensor, function_dist: MultivariateNormal, *params: Any, **kwargs: Any
+    ) -> Tensor:
+        marginal = self.marginal(function_dist, *params, **kwargs)
+        # We're making everything conditionally independent
+        indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
+        res = indep_dist.log_prob(observations)
+
+        # Do appropriate summation for multitask Gaussian likelihoods
+        num_event_dim = len(function_dist.event_shape)
+        if num_event_dim > 1:
+            res = res.sum(list(range(-1, -num_event_dim, -1)))
+        return res
 
     def marginal(self, function_dist: MultivariateNormal, *params: Any, **kwargs: Any) -> MultivariateNormal:
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
@@ -55,9 +84,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
             kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
         )
         noise_covar = HomoskedasticNoise(
-            noise_prior=noise_prior,
-            noise_constraint=noise_constraint,
-            batch_shape=batch_shape,
+            noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
         )
         super().__init__(noise_covar=noise_covar)
 
@@ -76,13 +103,6 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
     @raw_noise.setter
     def raw_noise(self, value: Tensor) -> None:
         self.noise_covar.initialize(raw_noise=value)
-
-    def expected_log_prob(self, target: Tensor, input: MultivariateNormal, *params: Any, **kwargs: Any) -> Tensor:
-        mean, variance = input.mean, input.variance
-        noise = self.noise_covar.noise
-
-        res = ((target - mean) ** 2 + variance) / noise + noise.log() + math.log(2 * math.pi)
-        return res.mul(-0.5).sum(-1)
 
 
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
@@ -109,12 +129,13 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         >>> test_noises = torch.ones(21) * 0.02
         >>> pred_y = likelihood(gp_model(test_x), noise=test_noises)
     """
+
     def __init__(
         self,
         noise: Tensor,
         learn_additional_noise: Optional[bool] = False,
         batch_shape: Optional[torch.Size] = torch.Size(),
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
 
@@ -125,9 +146,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
             noise_prior = kwargs.get("noise_prior", None)
             noise_constraint = kwargs.get("noise_constraint", None)
             self.second_noise_covar = HomoskedasticNoise(
-                noise_prior=noise_prior,
-                noise_constraint=noise_constraint,
-                batch_shape=batch_shape,
+                noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
             )
         else:
             self.second_noise_covar = None
