@@ -360,7 +360,7 @@ class max_cholesky_size(_value_context):
     Default: 128
     """
 
-    _global_value = 128
+    _global_value = 800
 
 
 class max_root_decomposition_size(_value_context):

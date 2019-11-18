@@ -4,6 +4,8 @@ import warnings
 
 import torch
 
+from .errors import NanError
+
 
 def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
     """Compute the Cholesky decomposition of A. If A is only p.s.d, add a small jitter to the diagonal.
@@ -22,6 +24,12 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
         L = torch.cholesky(A, upper=upper, out=out)
         return L
     except RuntimeError as e:
+        isnan = torch.isnan(A)
+        if isnan.any():
+            raise NanError(
+                f"cholesky_cpu: {isnan.sum().item()} of {A.numel()} elements of the {A.shape} tensor are NaN."
+            )
+
         if jitter is None:
             jitter = 1e-6 if A.dtype == torch.float32 else 1e-8
         Aprime = A.clone()
