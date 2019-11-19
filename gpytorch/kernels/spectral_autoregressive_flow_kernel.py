@@ -194,3 +194,42 @@ class NSSAFKernel2(SpectralAutoregressiveFlowKernel):
         K = diff.mul(2 * math.pi).cos().mean(0)  # n x n
 
         return K
+
+
+class NSDeltaSpectralKernel(SpectralAutoregressiveFlowKernel):
+    def __init__(self, num_dims, num_deltas=128, **kwargs):
+        Kernel.__init__(self, has_lengthscale=True, **kwargs)
+
+        self.Z = torch.nn.Parameter(torch.randn(num_deltas, 2 * num_dims))
+
+        self.num_dims = num_dims
+
+    def forward(self, x1, x2, diag=False, **params):
+        x1_ = x1.div(self.lengthscale)
+        x2_ = x2.div(self.lengthscale)
+        x1_, x2_ = self._create_input_grid(x1_, x2_, diag=diag)
+
+        Z = self.Z
+
+        Z1 = Z[:, : self.num_dims]
+        Z2 = Z[:, self.num_dims :]
+
+        Z1_ = torch.cat(([Z1, Z2, -Z1, -Z2]))
+        Z2_ = torch.cat(([Z1, Z2, -Z1, -Z2]))
+
+        Z1_ = Z1_.unsqueeze(1)
+        Z2_ = Z2_.unsqueeze(1)
+        if not diag:
+            Z1_ = Z1_.unsqueeze(1)
+            Z2_ = Z2_.unsqueeze(1)
+
+        x1z1 = x1_ * Z1_  # s x n x 1 x d
+        x2z2 = x2_ * Z2_  # s x 1 x n x d
+
+        x1z1 = x1z1.sum(-1)  # s x n x 1
+        x2z2 = x2z2.sum(-1)  # s x 1 x n
+
+        diff = x1z1 - x2z2  # s x n x n
+        K = diff.mul(2 * math.pi).cos().mean(0)  # n x n
+
+        return K
