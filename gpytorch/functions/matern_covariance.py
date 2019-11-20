@@ -1,13 +1,13 @@
-import torch
 import math
+
+import torch
 
 
 class MaternCovariance(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x1, x2, lengthscale, nu, dist_func):
         if any(ctx.needs_input_grad[:2]):
-            raise RuntimeError("MaternCovariance cannot compute gradients with "
-                               "respect to x1 and x2")
+            raise RuntimeError("MaternCovariance cannot compute gradients with " "respect to x1 and x2")
         if lengthscale.size(-1) > 1:
             raise ValueError("MaternCovariance cannot handle multiple lengthscales")
         # Subtract mean for numerical stability. Won't affect computations

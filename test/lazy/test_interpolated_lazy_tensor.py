@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import unittest
+
 import torch
-from gpytorch.lazy import NonLazyTensor, InterpolatedLazyTensor
+
+from gpytorch.lazy import InterpolatedLazyTensor, NonLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+import math
 import os
 import random
 import unittest
-import math
 
 import torch
+
+from gpytorch import settings
 from gpytorch.kernels import RBFKernel
 from gpytorch.test.utils import approx_equal
 from gpytorch.utils import pivoted_cholesky, woodbury
@@ -54,13 +56,13 @@ class TestPivotedCholesky(unittest.TestCase):
         size = 50
         X = torch.rand((size, 2)).to(dtype=dtype)
         y = torch.sin(torch.sum(X, 1)).unsqueeze(-1).to(dtype=dtype)
+        with settings.min_preconditioning_size(0):
+            noise = torch.DoubleTensor(size).uniform_(math.log(1e-3), math.log(1e-1)).exp_().to(dtype=dtype)
+            lazy_tsr = RBFKernel().to(dtype=dtype)(X).evaluate_kernel().add_diag(noise)
+            precondition_qr, _, logdet_qr = lazy_tsr._preconditioner()
 
-        noise = torch.DoubleTensor(size).uniform_(math.log(1e-3), math.log(1e-1)).exp_().to(dtype=dtype)
-        lazy_tsr = RBFKernel().to(dtype=dtype)(X).evaluate_kernel().add_diag(noise)
-        precondition_qr, _, logdet_qr = lazy_tsr._preconditioner()
-
-        F = lazy_tsr._piv_chol_self
-        M = noise.diag() + F.matmul(F.t())
+            F = lazy_tsr._piv_chol_self
+            M = noise.diag() + F.matmul(F.t())
 
         x_exact = torch.solve(y, M)[0]
         x_qr = precondition_qr(y)
@@ -75,11 +77,12 @@ class TestPivotedCholesky(unittest.TestCase):
         X = torch.rand((size, 2)).to(dtype=dtype)
         y = torch.sin(torch.sum(X, 1)).unsqueeze(-1).to(dtype=dtype)
 
-        noise = 1e-2 * torch.ones(size, dtype=dtype)
-        lazy_tsr = RBFKernel().to(dtype=dtype)(X).evaluate_kernel().add_diag(noise)
-        precondition_qr, _, logdet_qr = lazy_tsr._preconditioner()
+        with settings.min_preconditioning_size(0):
+            noise = 1e-2 * torch.ones(size, dtype=dtype)
+            lazy_tsr = RBFKernel().to(dtype=dtype)(X).evaluate_kernel().add_diag(noise)
+            precondition_qr, _, logdet_qr = lazy_tsr._preconditioner()
 
-        F = lazy_tsr._piv_chol_self
+            F = lazy_tsr._piv_chol_self
         M = noise.diag() + F.matmul(F.t())
 
         x_exact = torch.solve(y, M)[0]

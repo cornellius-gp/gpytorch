@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+
 from gpytorch.kernels import PolynomialKernelGrad
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 

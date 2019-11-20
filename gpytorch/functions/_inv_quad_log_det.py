@@ -2,9 +2,10 @@
 
 import torch
 from torch.autograd import Function
+
+from .. import settings
 from ..utils.lanczos import lanczos_tridiag_to_diag
 from ..utils.stochastic_lq import StochasticLQ
-from .. import settings
 
 
 class InvQuadLogDet(Function):
@@ -14,6 +15,7 @@ class InvQuadLogDet(Function):
     - The matrix solves A^{-1} b
     - logdet(A)
     """
+
     @staticmethod
     def forward(
         ctx,
@@ -26,7 +28,7 @@ class InvQuadLogDet(Function):
         logdet=False,
         probe_vectors=None,
         probe_vector_norms=None,
-        *args
+        *args,
     ):
         """
         *args - The arguments representing the PSD matrix A (or batch of PSD matrices A)
@@ -127,7 +129,7 @@ class InvQuadLogDet(Function):
                     t_mat = t_mat.unsqueeze(1)
                 eigenvalues, eigenvectors = lanczos_tridiag_to_diag(t_mat)
                 slq = StochasticLQ()
-                logdet_term, = slq.evaluate(ctx.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
+                (logdet_term,) = slq.evaluate(ctx.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
 
                 # Add correction
                 if logdet_correction is not None:
@@ -141,7 +143,7 @@ class InvQuadLogDet(Function):
         ctx.num_random_probes = num_random_probes
         ctx.num_inv_quad_solves = num_inv_quad_solves
 
-        to_save = list(matrix_args) + [solves, ]
+        to_save = list(matrix_args) + [solves]
         ctx.save_for_backward(*to_save)
 
         if settings.memory_efficient.off():

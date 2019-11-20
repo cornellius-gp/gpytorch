@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
 
-from .memoize import cached
+from . import broadcasting, cholesky, fft, grid, interpolation, lanczos, pivoted_cholesky, quadrature, sparse
 from .linear_cg import linear_cg
+from .memoize import cached
 from .stochastic_lq import StochasticLQ
-from . import broadcasting
-from . import cholesky
-from . import eig
-from . import fft
-from . import grid
-from . import interpolation
-from . import lanczos
-from . import pivoted_cholesky
-from . import sparse
-from . import quadrature
 
 
 def prod(items):
@@ -33,7 +24,6 @@ __all__ = [
     "linear_cg",
     "StochasticLQ",
     "cholesky",
-    "eig",
     "fft",
     "grid",
     "interpolation",

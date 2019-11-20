@@ -6,12 +6,14 @@ import random
 import unittest
 
 import torch
+
 from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
+from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 
 
-class TestMultiTaskMultivariateNormal(unittest.TestCase):
+class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
@@ -198,6 +200,42 @@ class TestMultiTaskMultivariateNormal(unittest.TestCase):
         if torch.cuda.is_available():
             with least_used_cuda_device():
                 self.test_log_prob(cuda=True)
+
+    def test_multitask_from_batch(self):
+        mean = torch.randn(2, 3)
+        variance = torch.randn(2, 3)
+        mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
+        mmvn = MultitaskMultivariateNormal.from_batch_mvn(mvn, task_dim=-1)
+        self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))
+        self.assertEqual(mmvn.batch_shape, torch.Size([]))
+        self.assertEqual(mmvn.event_shape, torch.Size([3, 2]))
+        self.assertEqual(mmvn.covariance_matrix.shape, torch.Size([6, 6]))
+        self.assertEqual(mmvn.mean, mean.transpose(-1, -2))
+        self.assertEqual(mmvn.variance, variance.transpose(-1, -2))
+
+        mean = torch.randn(2, 4, 3)
+        variance = torch.randn(2, 4, 3)
+        mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
+        mmvn = MultitaskMultivariateNormal.from_batch_mvn(mvn, task_dim=0)
+        self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))
+        self.assertEqual(mmvn.batch_shape, torch.Size([4]))
+        self.assertEqual(mmvn.event_shape, torch.Size([3, 2]))
+        self.assertEqual(mmvn.covariance_matrix.shape, torch.Size([4, 6, 6]))
+        self.assertEqual(mmvn.mean, mean.permute(1, 2, 0))
+        self.assertEqual(mmvn.variance, variance.permute(1, 2, 0))
+
+    def test_multitask_from_repeat(self):
+        mean = torch.randn(2, 3)
+        variance = torch.randn(2, 3)
+        mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
+        mmvn = MultitaskMultivariateNormal.from_repeated_mvn(mvn, num_tasks=4)
+        self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))
+        self.assertEqual(mmvn.batch_shape, torch.Size([2]))
+        self.assertEqual(mmvn.event_shape, torch.Size([3, 4]))
+        self.assertEqual(mmvn.covariance_matrix.shape, torch.Size([2, 12, 12]))
+        for i in range(4):
+            self.assertEqual(mmvn.mean[..., i], mean)
+            self.assertEqual(mmvn.variance[..., i], variance)
 
     def test_from_independent_mvns(self, cuda=False):
         device = torch.device("cuda") if cuda else torch.device("cpu")

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
+import torch
+
 import gpytorch
 
 

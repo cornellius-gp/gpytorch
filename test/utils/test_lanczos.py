@@ -3,8 +3,9 @@
 import unittest
 
 import torch
-from gpytorch.utils.lanczos import lanczos_tridiag
+
 from gpytorch.test.utils import approx_equal
+from gpytorch.utils.lanczos import lanczos_tridiag
 
 
 class TestLanczos(unittest.TestCase):

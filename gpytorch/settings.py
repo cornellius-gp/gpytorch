@@ -10,7 +10,7 @@ class _feature_flag(object):
 
     @classmethod
     def off(cls):
-        return (not cls._state)
+        return not cls._state
 
     @classmethod
     def _set_state(cls, state):
@@ -123,6 +123,7 @@ class skip_posterior_variances(_feature_flag):
     ZeroLazyTensor as its covariance matrix. This allows gpytorch to not compute
     the covariance matrix when it is not needed, speeding up computations.
     """
+
     _state = False
 
 
@@ -359,7 +360,7 @@ class max_cholesky_size(_value_context):
     Default: 128
     """
 
-    _global_value = 128
+    _global_value = 800
 
 
 class max_root_decomposition_size(_value_context):
@@ -402,6 +403,17 @@ class memory_efficient(_feature_flag):
     """
 
     _state = False
+
+
+class min_preconditioning_size(_value_context):
+    """
+    If the size of of a LazyTensor is less than `min_preconditioning_size`,
+    then we won't use pivoted Cholesky based preconditioning.
+
+    Default: 2000
+    """
+
+    _global_value = 2000
 
 
 class num_likelihood_samples(_value_context):

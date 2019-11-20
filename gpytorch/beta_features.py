@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import warnings
+
 from .settings import _feature_flag, _value_context
 
 
@@ -12,7 +13,7 @@ class _moved_beta_feature(object):
     def __call__(self, *args, **kwargs):
         warnings.warn(
             "`{}` has moved to `gpytorch.settings.{}`.".format(self.orig_name, self.new_cls.__name__),
-            DeprecationWarning
+            DeprecationWarning,
         )
         return self.new_cls(*args, **kwargs)
 

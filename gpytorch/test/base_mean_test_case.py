@@ -2,9 +2,9 @@
 
 from abc import abstractmethod
 
-from .base_test_case import BaseTestCase
-
 import torch
+
+from .base_test_case import BaseTestCase
 
 
 class BaseMeanTestCase(BaseTestCase):

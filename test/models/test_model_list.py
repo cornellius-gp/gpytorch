@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
+import torch
 
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 from gpytorch.models import IndependentModelList
+
 from .test_exact_gp import TestExactGP
 
 

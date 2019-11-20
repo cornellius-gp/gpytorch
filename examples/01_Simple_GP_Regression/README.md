@@ -8,7 +8,7 @@ All examples here use exact GP inference (and therefore assume a Gaussian noise 
 
 
 - [GP Regression Tutorial](./Simple_GP_Regression.ipynb)
-  - This is the simplist of the notebooks - a GP regression model with an RBF kernel. Start here if you are new to GPyTorch, or new to GPs in general.
+  - This is the simplest of the notebooks - a GP regression model with an RBF kernel. Start here if you are new to GPyTorch, or new to GPs in general.
 - [Spectral Mixture GP Regression](./Spectral_Mixture_GP_Regression.ipynb)
   - This notebook expands on previous eample with a more complex kernel.
     The [spectral mixture kernel](https://arxiv.org/pdf/1302.4245.pdf) is a great choice if you have a complex extrapolation problem.

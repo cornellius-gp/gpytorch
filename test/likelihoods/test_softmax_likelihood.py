@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import unittest
+
 import torch
-from gpytorch.likelihoods import SoftmaxLikelihood
 from torch.distributions import Distribution
+
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.likelihoods import SoftmaxLikelihood
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
 
@@ -41,7 +43,7 @@ class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
         output = likelihood.expected_log_prob(target, input)
 
         self.assertTrue(torch.is_tensor(output))
-        self.assertEqual(output.shape, batch_shape)
+        self.assertEqual(output.shape, batch_shape + torch.Size([5]))
 
     def _test_marginal(self, batch_shape):
         likelihood = self.create_likelihood()

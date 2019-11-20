@@ -5,6 +5,7 @@ import random
 import unittest
 
 import torch
+
 from gpytorch.utils.linear_cg import linear_cg
 
 

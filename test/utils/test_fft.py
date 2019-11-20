@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
 import numpy as np
+import torch
 
 from gpytorch.utils import fft
 

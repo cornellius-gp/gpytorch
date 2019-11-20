@@ -77,12 +77,6 @@ Standard Kernels
 .. autoclass:: SpectralMixtureKernel
    :members:
 
-:hidden:`WhiteNoiseKernel`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: WhiteNoiseKernel
-   :members:
-
 
 Composition/Decoration Kernels
 -----------------------------------

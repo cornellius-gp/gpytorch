@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
-import torch
 import warnings
-from .sum_lazy_tensor import SumLazyTensor
+
+import torch
+
+from .. import settings
+from ..utils import broadcasting, pivoted_cholesky, woodbury
 from .diag_lazy_tensor import DiagLazyTensor
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
 from .root_lazy_tensor import RootLazyTensor
-
-from ..utils import broadcasting, pivoted_cholesky, woodbury
-from .. import settings
+from .sum_lazy_tensor import SumLazyTensor
 
 
 class AddedDiagLazyTensor(SumLazyTensor):
@@ -17,9 +18,9 @@ class AddedDiagLazyTensor(SumLazyTensor):
     a DiagLazyTensor.
     """
 
-    def __init__(self, *lazy_tensors):
+    def __init__(self, *lazy_tensors, preconditioner_override=None):
         lazy_tensors = list(lazy_tensors)
-        super(AddedDiagLazyTensor, self).__init__(*lazy_tensors)
+        super(AddedDiagLazyTensor, self).__init__(*lazy_tensors, preconditioner_override=preconditioner_override)
         if len(lazy_tensors) > 2:
             raise RuntimeError("An AddedDiagLazyTensor can only have two components")
 
@@ -36,6 +37,8 @@ class AddedDiagLazyTensor(SumLazyTensor):
         else:
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
+        self.preconditioner_override = preconditioner_override
+
     def _matmul(self, rhs):
         return torch.addcmul(self._lazy_tensor._matmul(rhs), self._diag_tensor._diag.unsqueeze(-1), rhs)
 
@@ -51,7 +54,10 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return AddedDiagLazyTensor(self._lazy_tensor + other, self._diag_tensor)
 
     def _preconditioner(self):
-        if settings.max_preconditioner_size.value() == 0:
+        if self.preconditioner_override is not None:
+            return self.preconditioner_override(self)
+
+        if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
             return None, None, None
 
         if not (hasattr(self, "_woodbury_cache") or hasattr(self, "self._q_cache")):
@@ -124,4 +130,4 @@ class AddedDiagLazyTensor(SumLazyTensor):
                 )
                 return res
 
-        return precondition_closure, self.preconditioner_lt, self._precond_logdet_cache
+        return (precondition_closure, self.preconditioner_lt, self._precond_logdet_cache)

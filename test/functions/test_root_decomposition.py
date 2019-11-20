@@ -3,6 +3,7 @@
 import unittest
 
 import torch
+
 from gpytorch.lazy import NonLazyTensor
 from gpytorch.test.base_test_case import BaseTestCase
 

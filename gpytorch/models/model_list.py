@@ -3,9 +3,10 @@
 from abc import ABC, abstractproperty
 
 import torch
+from torch.nn import ModuleList
+
 from gpytorch.likelihoods import LikelihoodList
 from gpytorch.models import GP
-from torch.nn import ModuleList
 
 
 class AbstractModelList(GP, ABC):
@@ -71,8 +72,10 @@ class IndependentModelList(AbstractModelList):
             kwargs = [kwargs] * len(inputs)
 
         fantasy_models = [
-            model.get_fantasy_model(*inputs_, *targets_, **kwargs_) for model, inputs_, targets_, kwargs_
-            in zip(self.models, _get_tensor_args(*inputs), _get_tensor_args(*targets), kwargs)
+            model.get_fantasy_model(*inputs_, *targets_, **kwargs_)
+            for model, inputs_, targets_, kwargs_ in zip(
+                self.models, _get_tensor_args(*inputs), _get_tensor_args(*targets), kwargs
+            )
         ]
         return self.__class__(*fantasy_models)
 

@@ -3,16 +3,17 @@
 import math
 import warnings
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import gpytorch
 import torch
 from gpytorch.likelihoods import GaussianLikelihood
-from gpytorch.models import AbstractVariationalGP
+from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
-from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
 from gpytorch.lazy import ExtraComputationWarning
+from gpytorch.variational.variational_strategy import OldVersionWarning
 from torch import optim
 
 
@@ -25,17 +26,15 @@ def train_data(cuda=False):
         return train_x, train_y
 
 
-class SVGPRegressionModel(AbstractVariationalGP):
-    def __init__(self, inducing_points):
-        variational_distribution = CholeskyVariationalDistribution(inducing_points.size(-1))
-        variational_strategy = VariationalStrategy(
+class SVGPRegressionModel(ApproximateGP):
+    def __init__(self, inducing_points, distribution_cls):
+        variational_distribution = distribution_cls(inducing_points.size(-1))
+        variational_strategy = gpytorch.variational.VariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True
         )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean()
-        self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(0.001, 1.0, sigma=0.1))
-        )
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -47,11 +46,36 @@ class SVGPRegressionModel(AbstractVariationalGP):
 class TestSVGPRegression(BaseTestCase, unittest.TestCase):
     seed = 0
 
-    def test_regression_error(self, cuda=False, skip_logdet_forward=False, cholesky=False):
+    def test_loading_old_model(self):
+        train_x, train_y = train_data(cuda=False)
+        likelihood = GaussianLikelihood()
+        model = SVGPRegressionModel(torch.linspace(0, 1, 25), gpytorch.variational.CholeskyVariationalDistribution)
+        data_file = Path(__file__).parent.joinpath("old_variational_strategy_model.pth").resolve()
+        state_dicts = torch.load(data_file)
+        likelihood.load_state_dict(state_dicts["likelihood"], strict=False)
+
+        # Ensure we get a warning
+        with warnings.catch_warnings(record=True) as ws:
+            model.load_state_dict(state_dicts["model"])
+            self.assertTrue(any(issubclass(w.category, OldVersionWarning) for w in ws))
+
+        with torch.no_grad():
+            model.eval()
+            likelihood.eval()
+            test_preds = likelihood(model(train_x)).mean.squeeze()
+            mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+            self.assertLess(mean_abs_error.item(), 1e-1)
+
+    def test_regression_error(
+        self,
+        cuda=False,
+        mll_cls=gpytorch.mlls.VariationalELBO,
+        distribution_cls=gpytorch.variational.CholeskyVariationalDistribution,
+    ):
         train_x, train_y = train_data(cuda=cuda)
         likelihood = GaussianLikelihood()
-        model = SVGPRegressionModel(torch.linspace(0, 1, 25))
-        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=len(train_y))
+        model = SVGPRegressionModel(torch.linspace(0, 1, 25), distribution_cls)
+        mll = mll_cls(likelihood, model, num_data=len(train_y))
         if cuda:
             likelihood = likelihood.cuda()
             model = model.cuda()
@@ -63,18 +87,14 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
-        with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.skip_logdet_forward(
-            skip_logdet_forward
-        ), warnings.catch_warnings(record=True) as ws, patch(
-            "gpytorch.utils.linear_cg", new=_wrapped_cg
-        ) as linear_cg_mock:
+        _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
+        with warnings.catch_warnings(record=True) as ws, _cg_mock as cg_mock:
             for _ in range(150):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
                 loss.backward()
                 optimizer.step()
-
 
             for param in model.parameters():
                 self.assertTrue(param.grad is not None)
@@ -91,17 +111,23 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             self.assertLess(mean_abs_error.item(), 1e-1)
 
             # Make sure CG was called (or not), and no warnings were thrown
-            if cholesky:
-                self.assertFalse(linear_cg_mock.called)
-            else:
-                self.assertTrue(linear_cg_mock.called)
+            self.assertFalse(cg_mock.called)
             self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
-    def test_regression_error_skip_logdet_forward(self):
-        return self.test_regression_error(skip_logdet_forward=True)
+    def test_predictive_ll_regression_error(self):
+        return self.test_regression_error(
+            mll_cls=gpytorch.mlls.PredictiveLogLikelihood,
+            distribution_cls=gpytorch.variational.MeanFieldVariationalDistribution,
+        )
 
-    def test_regression_error_cholesky(self):
-        return self.test_regression_error(cholesky=True)
+    def test_predictive_ll_regression_error_delta(self):
+        return self.test_regression_error(
+            mll_cls=gpytorch.mlls.PredictiveLogLikelihood,
+            distribution_cls=gpytorch.variational.DeltaVariationalDistribution,
+        )
+
+    def test_robust_regression_error(self):
+        return self.test_regression_error(mll_cls=gpytorch.mlls.GammaRobustVariationalELBO)
 
     def test_regression_error_cuda(self):
         if not torch.cuda.is_available():

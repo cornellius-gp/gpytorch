@@ -1,33 +1,40 @@
 #!/usr/bin/env python3
 
-from .gp import GP
-from .abstract_variational_gp import AbstractVariationalGP
-from .additive_grid_inducing_variational_gp import AdditiveGridInducingVariationalGP
+import warnings
+
+from . import deep_gps, pyro
+from .approximate_gp import ApproximateGP
 from .exact_gp import ExactGP
-from .grid_inducing_variational_gp import GridInducingVariationalGP
+from .gp import GP
 from .model_list import AbstractModelList, IndependentModelList
-from .variational_gp import VariationalGP
-from . import deep_gps
+from .pyro import PyroGP
+
+# Alternative name for ApproximateGP
+VariationalGP = ApproximateGP
 
 
-try:
-    from .pyro_variational_gp import PyroVariationalGP
-except ImportError:
+# Deprecated for 0.4 release
+class AbstractVariationalGP(ApproximateGP):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("AbstractVariationalGP has been renamed to ApproximateGP.", DeprecationWarning)
+        super().__init__(*args, **kwargs)
 
-    class PyroVariationalGP(object):
-        def __init__(self, *args, **kwargs):
-            raise RuntimeError("Cannot use a PyroVariationalGP because you dont have Pyro installed.")
+
+# Deprecated for 0.4 release
+class PyroVariationalGP(ApproximateGP):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("PyroVariationalGP has been renamed to PyroGP.", DeprecationWarning)
+        super().__init__(*args, **kwargs)
 
 
 __all__ = [
     "AbstractModelList",
-    "AbstractVariationalGP",
-    "AdditiveGridInducingVariationalGP",
+    "ApproximateGP",
     "ExactGP",
     "GP",
-    "GridInducingVariationalGP",
     "IndependentModelList",
-    "PyroVariationalGP",
+    "PyroGP",
     "VariationalGP",
     "deep_gps",
+    "pyro",
 ]

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
 import warnings
+
 import torch
+
+from .errors import NanError
 
 
 def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
@@ -19,12 +22,14 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
     """
     try:
         L = torch.cholesky(A, upper=upper, out=out)
-        # TODO: Remove once fixed in pytorch (#16780)
-        if A.dim() > 2 and A.is_cuda:
-            if torch.isnan(L if out is None else out).any():
-                raise RuntimeError("cholesky_cuda: singular U.")
         return L
     except RuntimeError as e:
+        isnan = torch.isnan(A)
+        if isnan.any():
+            raise NanError(
+                f"cholesky_cpu: {isnan.sum().item()} of {A.numel()} elements of the {A.shape} tensor are NaN."
+            )
+
         if jitter is None:
             jitter = 1e-6 if A.dtype == torch.float32 else 1e-8
         Aprime = A.clone()
@@ -35,10 +40,6 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
             jitter_prev = jitter_new
             try:
                 L = torch.cholesky(Aprime, upper=upper, out=out)
-                # TODO: Remove once fixed in pytorch (#16780)
-                if A.dim() > 2 and A.is_cuda:
-                    if torch.isnan(L if out is None else out).any():
-                        raise RuntimeError("cholesky_cuda: singular U.")
                 warnings.warn(f"A not p.d., added jitter of {jitter_new} to the diagonal", RuntimeWarning)
                 return L
             except RuntimeError:

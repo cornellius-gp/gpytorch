@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
+
+import torch
 
 from gpytorch import utils
 from gpytorch.test.utils import approx_equal
