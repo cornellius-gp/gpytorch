@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+
 from .kernel import Kernel
 
 
@@ -26,14 +27,16 @@ def wendland_kernel_function(x1, x2, k=0, lambdas=1):
         phi = phi_2(weighted_element_difference)
     else:
         raise NotImplementedError()
-    return torch.prod(phi)
+    return torch.prod(phi, axis=-1)
 
 
 class WendlandKernel(Kernel):
     r"""
     Computes a covariance matrix based on the tensor product version of the one-dimensional Wendland kernel
     between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}` (the smoothness can be chosen from
-    k=0 (C^0 continuity), k=1 (C^2 continuity) and k=2 (C^4 continuity)):
+    k=0 (C^0 continuity), k=1 (C^2 continuity) and k=2 (C^4 continuity))
+    See Wendland, H. (2004). Scattered Data Approximation (Cambridge Monographs on Applied and Computational
+    Mathematics). Cambridge: Cambridge University Press. doi:10.1017/CBO9780511617539 p.129:
 
     Case k=2:
     .. math::
@@ -83,37 +86,41 @@ class WendlandKernel(Kernel):
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.WendlandKernel(ard_num_dims=5))
         >>> covar = covar_module(x)  # Output: LazyTensor of size (10 x 10)
         >>>
+        >>> # Batch Mode not well tested! But should work like the following:
         >>> batch_x = torch.randn(2, 10, 5)
         >>> # Batch: Simple option
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.WendlandKernel())
         >>> # Batch: different lengthscale for each batch
         >>> covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.WendlandKernel(batch_shape=torch.Size([2])))
-        >>> covar = covar_module(x)  # Output: LazyTensor of size (2 x 10 x 10)
+        >>> covar = covar_module(batch_x)  # Output: LazyTensor of size (2 x 10 x 10)
     """
+    has_lengthscale = True
 
     def __init__(self, k=0, **kwargs):
-        super().__init__(has_lengthscale=True, **kwargs)
+        super().__init__(**kwargs)
         self.k = k
 
     def forward(self, x1, x2, diag=False, vectorized=True, **params):
+        """
+        Args:
+            vectorized (bool, optional):
+                Vectorization of the computation will result in much faster computations for moderate dimensions
+                at the cost of a somewhat larger memory footprint.
+                For very high dimensions (~>1000) the non vectorized mode is usually faster and
+                saves a lot of memory.
+        """
         x1_eq_x2 = torch.equal(x1, x2)
         if diag:
             if x1_eq_x2:
                 return torch.ones(*x1.shape[:-2], x1.shape[-2], dtype=x1.dtype, device=x1.device)
             raise NotImplementedError
+        # Vector computation mode
         if vectorized:
             x1_enlarged = x1.unsqueeze(1)
-            weighted_element_difference = torch.abs(x1_enlarged - x2).div(self.lengthscale)
-            if self.k == 0:
-                phi = phi_0(weighted_element_difference)
-            elif self.k == 1:
-                phi = phi_1(weighted_element_difference)
-            elif self.k == 2:
-                phi = phi_2(weighted_element_difference)
-            else:
-                raise NotImplementedError()
-            dm = torch.prod(phi, axis=-1)
+            dm = wendland_kernel_function(x1_enlarged, x2, k=self.k, lambdas=self.lengthscale)
             return dm
+        # Entry-wise computation mode. For a moderate number of dimensions this will be much slower,
+        # however, when the number of dimensions is very high this mode can be faster and save a lot of memory.
         dm = torch.empty((x1.shape[0], x2.shape[0]))
         for i in torch.arange(x1.shape[0]):
             for j in torch.arange(x2.shape[0]):
