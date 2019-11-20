@@ -209,10 +209,12 @@ class KeOpsNSSpectralDeltaKernel(SpectralAutoregressiveFlowKernel):
             x1z1 = KEOLazyTensor(x1z1.transpose(-3, -1).contiguous())
             x2z2 = KEOLazyTensor(x2z2.transpose(-3, -1).contiguous())
 
-        diff = x1z1 - x2z2
+            diff = x1z1 - x2z2
 
-        K = ((2 * math.pi) * diff).cos().sum(-1)
-        K = (1 / Z1_.size(0)) * K
+            K = ((1 / Z1_.size(0)) * ((2 * math.pi) * diff).cos()).sum(-1)
+        else:
+            diff = x1z1 - x2z2  # s x n x n
+            K = diff.mul(2 * math.pi).cos().mean(0)  # n x n
 
         return K
 
