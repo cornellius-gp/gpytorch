@@ -397,8 +397,14 @@ class LazyTensor(ABC):
             (LazyTensor) Cholesky factor
         """
         from .non_lazy_tensor import NonLazyTensor
+        from .keops_lazy_tensor import KeOpsLazyTensor
 
-        evaluated_mat = self.evaluate()
+        evaluated_kern_mat = self.evaluate_kernel()
+
+        if any(isinstance(sub_mat, KeOpsLazyTensor) for sub_mat in evaluated_kern_mat._args):
+            raise RuntimeError("Cannot run Cholesky with KeOps: it will either be really slow or not work.")
+
+        evaluated_mat = evaluated_kern_mat.evaluate()
 
         # if the tensor is a scalar, we can just take the square root
         if evaluated_mat.size(-1) == 1:
