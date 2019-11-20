@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import warnings
+
 import torch
 from torch.autograd import Function
 
@@ -70,6 +72,10 @@ class InvQuadLogDet(Function):
             num_random_probes = settings.num_trace_samples.value()
             if preconditioner is None:
                 if settings.deterministic_probes.on():
+                    warnings.warn(
+                        "Deterministic probes will currently work only if you aren't training multiple independent"
+                        " models simultaneously."
+                    )
                     if settings.deterministic_probes.probe_vectors is None:
                         probe_vectors = torch.empty(matrix_shape[-1], num_random_probes, dtype=dtype, device=device)
                         probe_vectors.bernoulli_().mul_(2).add_(-1)
@@ -91,10 +97,15 @@ class InvQuadLogDet(Function):
                     covar_root = precond_lt.root_decomposition().root
 
                 if settings.deterministic_probes.on():
+                    warnings.warn(
+                        "Deterministic probes will currently work only if you aren't training multiple independent"
+                        " models simultaneously."
+                    )
                     base_samples = settings.deterministic_probes.probe_vectors
                     if base_samples is None or covar_root.size(-1) != base_samples.size(-2):
                         base_samples = torch.randn(
-                            *precond_lt.batch_shape, covar_root.size(-1),
+                            *precond_lt.batch_shape,
+                            covar_root.size(-1),
                             num_random_probes,
                             dtype=precond_lt.dtype,
                             device=precond_lt.device,
@@ -104,7 +115,8 @@ class InvQuadLogDet(Function):
                     probe_vectors = covar_root.matmul(base_samples).permute(-1, *range(precond_lt.dim() - 1))
                 else:
                     base_samples = torch.randn(
-                        *precond_lt.batch_shape, covar_root.size(-1),
+                        *precond_lt.batch_shape,
+                        covar_root.size(-1),
                         num_random_probes,
                         dtype=precond_lt.dtype,
                         device=precond_lt.device,
