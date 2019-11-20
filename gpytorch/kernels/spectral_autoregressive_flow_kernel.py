@@ -3,9 +3,11 @@
 import math
 
 import torch
+from pykeops.torch import LazyTensor as KEOLazyTensor
 from pyro import distributions as dist
 from pyro.distributions.transforms import BlockAutoregressive
 
+from ..lazy import KeOpsLazyTensor
 from .kernel import Kernel
 
 
@@ -80,71 +82,7 @@ class SpectralAutoregressiveFlowKernel(Kernel):
         return K
 
 
-class NonStationarySpectralAutoregressiveFlowKernel(SpectralAutoregressiveFlowKernel):
-    def __init__(self, num_dims, stack_size=1, **kwargs):
-        Kernel.__init__(self, has_lengthscale=True, **kwargs)
-        if stack_size > 1:
-            self.dsf = torch.nn.ModuleList([BlockAutoregressive(num_dims, **kwargs) for _ in range(stack_size)])
-            self.dsf2 = torch.nn.ModuleList([BlockAutoregressive(num_dims, **kwargs) for _ in range(stack_size)])
-        else:
-            self.dsf = BlockAutoregressive(num_dims, **kwargs)
-            self.dsf2 = BlockAutoregressive(num_dims, **kwargs)
-        self.num_dims = num_dims
-
-    def forward(self, x1, x2, diag=False, **params):
-        x1_ = x1.div(self.lengthscale)
-        x2_ = x2.div(self.lengthscale)
-        x1_, x2_ = self._create_input_grid(x1_, x2_, diag=diag)
-
-        base_dist = dist.Normal(
-            torch.zeros(self.num_dims, device=x1.device, dtype=x1.dtype),
-            torch.ones(self.num_dims, device=x1.device, dtype=x1.dtype),
-        )
-
-        base_dist2 = dist.Normal(
-            torch.zeros(self.num_dims, device=x1.device, dtype=x1.dtype),
-            torch.ones(self.num_dims, device=x1.device, dtype=x1.dtype),
-        )
-
-        if isinstance(self.dsf, torch.nn.ModuleList):
-            dsf = list(self.dsf)
-            dsf2 = list(self.dsf2)
-        else:
-            dsf = self.dsf
-            dsf2 = self.dsf2
-
-        dsf_dist = dist.TransformedDistribution(base_dist, dsf)
-        dsf_dist2 = dist.TransformedDistribution(base_dist2, dsf2)
-
-        if self.training:
-            Z = dsf_dist.rsample(torch.Size([2000]))
-            Z2 = dsf_dist2.rsample(torch.Size([2000]))
-        else:
-            Z = dsf_dist.rsample(torch.Size([2000]))
-            Z2 = dsf_dist2.rsample(torch.Size([2000]))
-
-        Z1_ = Z.unsqueeze(-1)
-        Z2_ = Z2.unsqueeze(-1)
-        if not diag:
-            Z1_ = Z1_.unsqueeze(-1)
-            Z2_ = Z2_.unsqueeze(-1)
-
-        first = (x1_ * Z1_).sum(-1).mul(2 * math.pi).cos()
-        second = (x2_ * Z2_).sum(-1).mul(2 * math.pi).cos()
-        third = (x1_ * Z1_).sum(-1).mul(2 * math.pi).sin()
-        fourth = (x2_ * Z2_).sum(-1).mul(2 * math.pi).sin()
-
-        kernel_mat = first * second + third * fourth
-        kernel_mat = kernel_mat.mean(0)
-
-        from IPython.core.debugger import set_trace
-
-        set_trace()
-
-        return kernel_mat
-
-
-class NSSAFKernel2(SpectralAutoregressiveFlowKernel):
+class NSSpectralAutoregressiveFlowKernel(SpectralAutoregressiveFlowKernel):
     def __init__(self, num_dims, stack_size=1, **kwargs):
         Kernel.__init__(self, has_lengthscale=True, **kwargs)
         if stack_size > 1:
@@ -196,7 +134,7 @@ class NSSAFKernel2(SpectralAutoregressiveFlowKernel):
         return K
 
 
-class NSDeltaSpectralKernel(SpectralAutoregressiveFlowKernel):
+class NSSpectralDeltaKernel(SpectralAutoregressiveFlowKernel):
     def __init__(self, num_dims, num_deltas=128, **kwargs):
         Kernel.__init__(self, has_lengthscale=True, **kwargs)
 
@@ -233,3 +171,121 @@ class NSDeltaSpectralKernel(SpectralAutoregressiveFlowKernel):
         K = diff.mul(2 * math.pi).cos().mean(0)  # n x n
 
         return K
+
+
+class KeOpsNSSpectralDeltaKernel(SpectralAutoregressiveFlowKernel):
+    def __init__(self, num_dims, num_deltas=128, **kwargs):
+        Kernel.__init__(self, has_lengthscale=True, **kwargs)
+
+        self.Z = torch.nn.Parameter(torch.randn(num_deltas, 2 * num_dims))
+
+        self.num_dims = num_dims
+
+    def covar_func(self, x1, x2, diag=False):
+        x1_, x2_ = self._create_input_grid(x1, x2, diag=diag)
+
+        Z = self.Z
+
+        Z1 = Z[:, : self.num_dims]
+        Z2 = Z[:, self.num_dims :]
+
+        Z1_ = torch.cat(([Z1, Z2, -Z1, -Z2]))
+        Z2_ = torch.cat(([Z1, Z2, -Z1, -Z2]))
+
+        Z1_ = Z1_.unsqueeze(1)
+        Z2_ = Z2_.unsqueeze(1)
+
+        if not diag:
+            Z1_ = Z1_.unsqueeze(1)
+            Z2_ = Z2_.unsqueeze(1)
+
+        x1z1 = x1_ * Z1_  # s x n x 1 x d
+        x2z2 = x2_ * Z2_  # s x 1 x n x d
+
+        x1z1 = x1z1.sum(-1)  # s x n x 1
+        x2z2 = x2z2.sum(-1)  # s x 1 x n
+
+        if not diag:
+            x1z1 = KEOLazyTensor(x1z1.transpose(-3, -1).contiguous())
+            x2z2 = KEOLazyTensor(x2z2.transpose(-3, -1).contiguous())
+
+        diff = x1z1 - x2z2
+
+        K = ((2 * math.pi) * diff).cos().sum(-1)
+        K = (1 / Z1_.size(0)) * K
+
+        return K
+
+    def forward(self, x1, x2, diag=False, **params):
+        x1_ = x1.div(self.lengthscale)
+        x2_ = x2.div(self.lengthscale)
+
+        if diag:
+            return self.covar_func(x1_, x2_, diag=True)
+
+        covar_func = lambda x1, x2, diag=False: self.covar_func(x1, x2, diag)
+        return KeOpsLazyTensor(x1_, x2_, covar_func)
+
+
+class KeOpsNSSpectralAutoregressiveFlowKernel(SpectralAutoregressiveFlowKernel):
+    def __init__(self, num_dims, stack_size=1, **kwargs):
+        Kernel.__init__(self, has_lengthscale=True, **kwargs)
+        if stack_size > 1:
+            self.dsf = torch.nn.ModuleList([BlockAutoregressive(2 * num_dims, **kwargs) for _ in range(stack_size)])
+        else:
+            self.dsf = BlockAutoregressive(2 * num_dims, **kwargs)
+
+        self.num_dims = num_dims
+
+    def covar_func(self, x1, x2, diag=False):
+        x1_, x2_ = self._create_input_grid(x1, x2, diag=diag)
+
+        base_dist = dist.Normal(
+            torch.zeros(self.num_dims * 2, device=x1.device, dtype=x1.dtype),
+            torch.ones(self.num_dims * 2, device=x1.device, dtype=x1.dtype),
+        )
+
+        if isinstance(self.dsf, torch.nn.ModuleList):
+            dsf = list(self.dsf)
+        else:
+            dsf = self.dsf
+
+        dsf_dist = dist.TransformedDistribution(base_dist, dsf)
+
+        Z = dsf_dist.rsample(torch.Size([128]))
+        Z1 = Z[:, : self.num_dims]
+        Z2 = Z[:, self.num_dims :]
+
+        Z1_ = torch.cat(([Z1, Z2, -Z1, -Z2]))
+        Z2_ = torch.cat(([Z1, Z2, -Z1, -Z2]))
+
+        Z1_ = Z1_.unsqueeze(1)
+        Z2_ = Z2_.unsqueeze(1)
+        if not diag:
+            Z1_ = Z1_.unsqueeze(1)
+            Z2_ = Z2_.unsqueeze(1)
+
+        x1z1 = x1_ * Z1_  # s x n x 1 x d
+        x2z2 = x2_ * Z2_  # s x 1 x n x d
+
+        x1z1 = x1z1.sum(-1)  # s x n x 1
+        x2z2 = x2z2.sum(-1)  # s x 1 x n
+
+        if not diag:
+            x1z1 = KEOLazyTensor(x1z1.transpose(-3, -1).contiguous())
+            x2z2 = KEOLazyTensor(x2z2.transpose(-3, -1).contiguous())
+
+        diff = x1z1 - x2z2
+
+        K = ((2 * math.pi) * diff).cos().sum(-1)
+        K = (1 / Z1_.size(0)) * K
+
+    def forward(self, x1, x2, diag=False, **params):
+        x1_ = x1.div(self.lengthscale)
+        x2_ = x2.div(self.lengthscale)
+
+        if diag:
+            return self.covar_func(x1_, x2_, diag=True)
+
+        covar_func = lambda x1, x2, diag=False: self.covar_func(x1, x2, diag)
+        return KeOpsLazyTensor(x1_, x2_, covar_func)
