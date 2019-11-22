@@ -1611,11 +1611,17 @@ class LazyTensor(ABC):
         from .zero_lazy_tensor import ZeroLazyTensor
         from .diag_lazy_tensor import DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
+        from .non_lazy_tensor import lazify
+        from torch import Tensor
 
         if isinstance(other, ZeroLazyTensor):
             return self
         elif isinstance(other, DiagLazyTensor):
             return AddedDiagLazyTensor(self, other)
+        elif isinstance(other, Tensor):
+            other = lazify(other)
+            shape = _mul_broadcast_shape(self.shape, other.shape)
+            return SumLazyTensor(self.expand(shape), other.expand(shape))
         else:
             return SumLazyTensor(self, other)
 
