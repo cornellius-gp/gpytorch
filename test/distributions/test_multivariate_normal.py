@@ -267,6 +267,35 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
             with least_used_cuda_device():
                 self.test_kl_divergence(cuda=True)
 
+    def test_getitem(self):
+        shape = (2, 4, 3, 2)
+        cov = torch.randn(*shape, shape[1])
+        cov = cov @ cov.transpose(-1, -2)
+        mean = torch.randn(*shape)
+        dist = MultivariateNormal(mean, cov)
+        dist_cov = dist.covariance_matrix
+
+        d = dist[1]
+        assert torch.equal(d.mean, dist.mean[1])
+        self.assertAllClose(d.covariance_matrix, dist_cov[1])
+
+        d = dist[..., 1]
+        assert torch.equal(d.mean, dist.mean[..., 1])
+        cov = dist_cov[..., 1, 1]
+        self.assertAllClose(d.covariance_matrix, cov.unsqueeze(-1) * torch.eye(shape[-2]))
+
+        d = dist[:, [2, 3], :, 1:]
+        assert torch.equal(d.mean, dist.mean[:, [2, 3], :, 1:])
+        self.assertAllClose(d.covariance_matrix, dist_cov[:, [2, 3], :, 1:, 1:])
+
+        d = dist[:, :, ..., [0, 1, 1, 0]]
+        assert torch.equal(d.mean, dist.mean[..., [0, 1, 1, 0]])
+        self.assertAllClose(d.covariance_matrix, dist_cov[..., [0, 1, 1, 0], :][..., [0, 1, 1, 0]])
+
+        d = dist[1, 2, 2, ...]
+        assert torch.equal(d.mean, dist.mean[1, 2, 2, :])
+        self.assertAllClose(d.covariance_matrix, dist_cov[1, 2, 2, :, :])
+
 
 if __name__ == "__main__":
     unittest.main()
