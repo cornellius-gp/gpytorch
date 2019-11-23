@@ -77,16 +77,13 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             variable. The first (second) Tensor is the lower (upper) end of
             the confidence region.
         """
-        std2 = self.stddev.mul(2)
+        std2 = self.stddev.mul_(2)
         mean = self.mean
         return mean.sub(std2), mean.add(std2)
 
     @staticmethod
     def _repr_sizes(mean, covariance_matrix):
         return f"MultivariateNormal(loc: {mean.size()}, scale: {covariance_matrix.size()})"
-
-    def __repr__(self):
-        return self._repr_sizes(self.mean, self.lazy_covariance_matrix)
 
     @lazy_property
     def covariance_matrix(self):
