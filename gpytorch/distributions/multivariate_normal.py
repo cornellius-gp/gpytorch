@@ -8,7 +8,7 @@ from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
-from ..lazy import LazyTensor, delazify, lazify
+from ..lazy import LazyTensor, delazify, lazify, DiagLazyTensor
 from ..utils.broadcasting import _mul_broadcast_shape
 from .distribution import Distribution
 
@@ -211,6 +211,29 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def __truediv__(self, other):
         return self.__mul__(1.0 / other)
 
+    def __getitem__(self, idx):
+        if not isinstance(idx, tuple):
+            idx = (idx,)
+        rest_idx = idx[:-1]
+        last_idx = idx[-1]
+        new_mean = self.mean[idx]
+
+        if len(idx) <= self.mean.dim() - 1 and (Ellipsis not in rest_idx):
+            new_cov = self.lazy_covariance_matrix[idx]
+        elif len(idx) > self.mean.dim():
+            raise IndexError(f"Index {idx} has too many dimensions")
+        else:
+            # In this case we know last_idx corresponds to the last dimension
+            # of mean and the last two dimensions of lazy_covariance_matrix
+            if isinstance(last_idx, int):
+                new_cov = DiagLazyTensor(self.lazy_covariance_matrix.diag()[(*rest_idx, last_idx)])
+            elif isinstance(last_idx, slice):
+                new_cov = self.lazy_covariance_matrix[(*rest_idx, last_idx, last_idx)]
+            elif last_idx is (...):
+                new_cov = self.lazy_covariance_matrix[rest_idx]
+            else:
+                new_cov = self.lazy_covariance_matrix[(*rest_idx, last_idx, slice(None, None, None))][..., last_idx]
+        return self.__class__(mean=new_mean, covariance_matrix=new_cov)
 
 @register_kl(MultivariateNormal, MultivariateNormal)
 def kl_mvn_mvn(p_dist, q_dist):
