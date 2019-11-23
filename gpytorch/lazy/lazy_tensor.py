@@ -1302,7 +1302,7 @@ class LazyTensor(ABC):
     @cached(name="root_decomposition")
     def root_decomposition(self):
         """
-        Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
+        Returns a (usually low-rank) root decomposition lazy tensor of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
