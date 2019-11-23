@@ -8,7 +8,7 @@ from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
-from ..lazy import LazyTensor, delazify, lazify, DiagLazyTensor
+from ..lazy import DiagLazyTensor, LazyTensor, delazify, lazify
 from ..utils.broadcasting import _mul_broadcast_shape
 from .distribution import Distribution
 
@@ -234,6 +234,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             else:
                 new_cov = self.lazy_covariance_matrix[(*rest_idx, last_idx, slice(None, None, None))][..., last_idx]
         return self.__class__(mean=new_mean, covariance_matrix=new_cov)
+
 
 @register_kl(MultivariateNormal, MultivariateNormal)
 def kl_mvn_mvn(p_dist, q_dist):
