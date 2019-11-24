@@ -76,7 +76,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
             self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_tensor, max_iter)
             if torch.any(torch.isnan(self._piv_chol_self)).item():
                 warnings.warn(
-                    "NaNs encountered in preconditioner computation. " "Attempting to continue without preconditioning."
+                    "NaNs encountered in preconditioner computation. Attempting to continue without preconditioning."
                 )
                 return None, None, None
             self._init_cache()
