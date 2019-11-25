@@ -14,6 +14,12 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         This module will not work with anything other than a :obj:`~gpytorch.likelihoods.GaussianLikelihood`
         and a :obj:`~gpytorch.models.ExactGP`. It also cannot be used in conjunction with
         stochastic optimization.
+        
+    .. note::
+        When the number of observations N is sufficiently large, a stochastic unbiased estimate for the log
+        determinant term in the marginal log likelihood is used. For more details, the NeurIPS 2018 paper 
+        (https://arxiv.org/abs/1809.11165). The computation can be forced to be deterministic by using the 
+        context manager with gpytorch.settings.max_cholesky_size(M), where M >= N.
 
     :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood for the model
     :param ~gpytorch.models.ExactGP model: The exact GP model
