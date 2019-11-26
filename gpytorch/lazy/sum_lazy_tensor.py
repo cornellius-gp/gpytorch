@@ -16,8 +16,10 @@ class SumLazyTensor(LazyTensor):
             lazy_tensors = tuple(lazify(lt) for lt in lazy_tensors)
         except TypeError:
             raise TypeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
-        # batch_shape = _mul_broadcast_shape(*[lt.shape for lt in lazy_tensors])
-        # lazy_tensors = tuple(lt.expand(batch_shape) for lt in lazy_tensors)
+        batch_shape = _mul_broadcast_shape(*[lt.batch_shape for lt in lazy_tensors])
+        lazy_tensors = tuple(
+            lt._expand_batch(batch_shape) if lt.batch_shape != batch_shape else lt for lt in lazy_tensors
+        )
         super(SumLazyTensor, self).__init__(*lazy_tensors, **kwargs)
 
         self.lazy_tensors = lazy_tensors
