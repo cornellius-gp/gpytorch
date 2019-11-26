@@ -397,8 +397,14 @@ class LazyTensor(ABC):
             (LazyTensor) Cholesky factor
         """
         from .non_lazy_tensor import NonLazyTensor
+        from .keops_lazy_tensor import KeOpsLazyTensor
 
-        evaluated_mat = self.evaluate()
+        evaluated_kern_mat = self.evaluate_kernel()
+
+        if any(isinstance(sub_mat, KeOpsLazyTensor) for sub_mat in evaluated_kern_mat._args):
+            raise RuntimeError("Cannot run Cholesky with KeOps: it will either be really slow or not work.")
+
+        evaluated_mat = evaluated_kern_mat.evaluate()
 
         # if the tensor is a scalar, we can just take the square root
         if evaluated_mat.size(-1) == 1:
@@ -1611,11 +1617,17 @@ class LazyTensor(ABC):
         from .zero_lazy_tensor import ZeroLazyTensor
         from .diag_lazy_tensor import DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
+        from .non_lazy_tensor import lazify
+        from torch import Tensor
 
         if isinstance(other, ZeroLazyTensor):
             return self
         elif isinstance(other, DiagLazyTensor):
             return AddedDiagLazyTensor(self, other)
+        elif isinstance(other, Tensor):
+            other = lazify(other)
+            shape = _mul_broadcast_shape(self.shape, other.shape)
+            return SumLazyTensor(self.expand(shape), other.expand(shape))
         else:
             return SumLazyTensor(self, other)
 

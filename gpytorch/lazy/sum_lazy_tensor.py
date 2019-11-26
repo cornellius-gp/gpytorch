@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from torch import Tensor
 
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
@@ -6,15 +7,19 @@ from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 from .zero_lazy_tensor import ZeroLazyTensor
 
+# from .broadcasted_lazy_tensor import BroadcastedLazyTensor
+
 
 class SumLazyTensor(LazyTensor):
     def __init__(self, *lazy_tensors, **kwargs):
-        lazy_tensors = list(lazy_tensors)
-        for i, lazy_tensor in enumerate(lazy_tensors):
-            try:
-                lazy_tensors[i] = lazify(lazy_tensor)
-            except TypeError:
-                raise TypeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
+        try:
+            lazy_tensors = tuple(lazify(lt) for lt in lazy_tensors)
+        except TypeError:
+            raise TypeError("All arguments of a SumLazyTensor should be LazyTensors or Tensors")
+        batch_shape = _mul_broadcast_shape(*[lt.batch_shape for lt in lazy_tensors])
+        lazy_tensors = tuple(
+            lt._expand_batch(batch_shape) if lt.batch_shape != batch_shape else lt for lt in lazy_tensors
+        )
         super(SumLazyTensor, self).__init__(*lazy_tensors, **kwargs)
 
         self.lazy_tensors = lazy_tensors
@@ -68,6 +73,22 @@ class SumLazyTensor(LazyTensor):
             return SumLazyTensor(*(list(self.lazy_tensors) + list(other.lazy_tensors)))
         elif isinstance(other, LazyTensor):
             return SumLazyTensor(*(list(self.lazy_tensors) + [other]))
+        elif isinstance(other, Tensor):
+            # get broadcast shape, assuming mul broadcasting the same as add broadcasting
+            broadcasted_shape = _mul_broadcast_shape(self.shape, other.shape)
+
+            # lazify + broadcast other
+            broadcasted_other = lazify(other.expand(broadcasted_shape))
+
+            # update the lazy tensors' shape as well
+            if broadcasted_shape != self.shape:
+                broadcasted_lts = [
+                    lt.expand(*broadcasted_shape, 1).squeeze(-1).transpose(-1, -2) for lt in self.lazy_tensors
+                ]
+            else:
+                broadcasted_lts = list(self.lazy_tensors)
+
+            return SumLazyTensor(*(broadcasted_lts + [broadcasted_other]))
         else:
             raise AttributeError("other must be a LazyTensor")
 
