@@ -19,6 +19,7 @@ from .polynomial_kernel import PolynomialKernel
 from .polynomial_kernel_grad import PolynomialKernelGrad
 from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
+from .rff_kernel import RFFKernel
 from .rbf_kernel_grad import RBFKernelGrad
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
@@ -47,6 +48,7 @@ __all__ = [
     "ProductKernel",
     "ProductStructureKernel",
     "RBFKernel",
+    "RFFKernel",
     "RBFKernelGrad",
     "RQKernel",
     "ScaleKernel",
