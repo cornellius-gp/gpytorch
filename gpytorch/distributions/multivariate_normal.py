@@ -30,8 +30,11 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         self._islazy = isinstance(mean, LazyTensor) or isinstance(covariance_matrix, LazyTensor)
         if self._islazy:
             if validate_args:
-                # TODO: add argument validation
-                raise NotImplementedError()
+                ms = mean.size(-1)
+                cs1 = covariance_matrix.size(-1)
+                cs2 = covariance_matrix.size(-2)
+                if not (ms == cs1 and ms == cs2):
+                    raise ValueError(f"Wrong shapes in {self._repr_sizes(mean, covariance_matrix)}")
             self.loc = mean
             self._covar = covariance_matrix
             self.__unbroadcasted_scale_tril = None
@@ -77,6 +80,10 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         std2 = self.stddev.mul_(2)
         mean = self.mean
         return mean.sub(std2), mean.add(std2)
+
+    @staticmethod
+    def _repr_sizes(mean, covariance_matrix):
+        return f"MultivariateNormal(loc: {mean.size()}, scale: {covariance_matrix.size()})"
 
     @lazy_property
     def covariance_matrix(self):
