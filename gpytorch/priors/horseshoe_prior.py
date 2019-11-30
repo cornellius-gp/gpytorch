@@ -7,7 +7,6 @@ import torch
 from torch.distributions import HalfCauchy, Normal, constraints
 from torch.nn import Module as TModule
 
-from gpytorch.distributions import Distribution
 from gpytorch.priors.prior import Prior
 
 
@@ -56,9 +55,5 @@ class HorseshoePrior(Prior):
         return param_sample
 
     def expand(self, expand_shape, _instance=None):
-        new = self._get_checked_instance(HorseshoePrior)
         batch_shape = torch.Size(expand_shape)
-        new.scale = self.scale.expand(batch_shape)
-        super(Distribution, new).__init__(batch_shape)
-        new._validate_args = self._validate_args
-        return new
+        return HorseshoePrior(self.scale.expand(batch_shape))
