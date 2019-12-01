@@ -44,10 +44,10 @@ To use packages globally but install GPyTorch as a user-only package, use `pip i
 
 #### Latest (unstable) version
 
-To get the latest (unstable) version, run
+To upgrade to the latest (unstable) version, run
 
 ```bash
-pip install git+https://github.com/cornellius-gp/gpytorch.git
+pip install --upgrade git+https://github.com/cornellius-gp/gpytorch.git
 ```
 
 ## Citing Us
