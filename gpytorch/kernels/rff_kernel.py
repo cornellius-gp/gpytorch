@@ -10,18 +10,20 @@ class RFFKernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, input_dim, num_samples, **kwargs):
+    def __init__(self, num_dims, num_samples, **kwargs):
         super().__init__(**kwargs)
         self.num_samples = num_samples
-        self.input_dim = input_dim
+        self.num_dims = num_dims
 
-        d = input_dim
+        d = num_dims
         D = num_samples
         randn_shape = torch.Size([d, D])
         randn_weights = torch.randn(randn_shape, dtype=self.raw_lengthscale.dtype, device=self.raw_lengthscale.device)
         self.register_buffer("randn_weights", randn_weights)
 
-    def forward(self, x1, x2, **kwargs):
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **kwargs):
+        if last_dim_is_batch:
+            raise RuntimeError("last_dim_is_batch not implemented for RFF")
         x1_eq_x2 = torch.equal(x1, x2)
         z1 = self._featurize(x1, normalize=False)
         if not x1_eq_x2:
@@ -29,6 +31,8 @@ class RFFKernel(Kernel):
         else:
             z2 = z1
         D = self.num_samples
+        if diag:
+            return (z1 * z1).sum(-1) / D
         return MatmulLazyTensor(z1 / D, z2.transpose(-1, -2))
 
     def _featurize(self, x, normalize=False):
