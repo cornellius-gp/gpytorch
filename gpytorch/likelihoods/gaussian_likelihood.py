@@ -53,6 +53,16 @@ class _GaussianLikelihoodBase(Likelihood):
             res = res.sum(list(range(-1, -num_event_dim, -1)))
         return res
 
+    def fitc_likelihood(self, target: Tensor, input: tuple, *params: Any, **kwargs: Any) -> Tensor:
+        mean, Kvariance, Svariance = input[0].mean, input[0].variance, input[1].variance
+        num_event_dim = len(input[0].event_shape)
+
+        noise = self._shaped_noise_covar(mean.shape, *params, **kwargs).diag()
+        full_noise = noise + Kvariance
+
+        res = ((target - mean) ** 2 + Svariance) / full_noise + full_noise.log() + math.log(2 * math.pi)
+        return res.mul(-0.5)
+
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
         return base_distributions.Normal(function_samples, noise.sqrt())
@@ -62,12 +72,8 @@ class _GaussianLikelihoodBase(Likelihood):
     ) -> Tensor:
         marginal = self.marginal(function_dist, *params, **kwargs)
         # We're making everything conditionally independent
-        if self.training and self.fit_factor is not None:
-            indep_dist = base_distributions.Normal(self.fit_factor * marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
-            res = indep_dist.log_prob(self.fit_factor * observations)
-        else:
-            indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
-            res = indep_dist.log_prob(observations)
+        indep_dist = base_distributions.Normal(marginal.mean, marginal.variance.clamp_min(1e-8).sqrt())
+        res = indep_dist.log_prob(observations)
 
         # Do appropriate summation for multitask Gaussian likelihoods
         num_event_dim = len(function_dist.event_shape)
@@ -91,8 +97,6 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
             noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
         )
         super().__init__(noise_covar=noise_covar)
-        self.fit_factor = kwargs.pop('fit_factor', None)
-        print("Initialized GaussianLikelihood with fit_factor = ", self.fit_factor)
 
     @property
     def noise(self) -> Tensor:

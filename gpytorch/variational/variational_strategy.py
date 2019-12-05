@@ -62,10 +62,12 @@ class VariationalStrategy(_VariationalStrategy):
         https://www.repository.cam.ac.uk/handle/1810/278022
     """
 
-    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
+    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True,
+                 return_separate_mvns=False):
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
         self.register_buffer("updated_strategy", torch.tensor(True))
         self._register_load_state_dict_pre_hook(_ensure_updated_strategy_flag_set)
+        self.return_separate_mvns = return_separate_mvns
 
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
@@ -108,17 +110,27 @@ class VariationalStrategy(_VariationalStrategy):
             + test_mean
         )
 
-        # Compute the covariance of q(f)
-        # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
-        middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
-        if variational_inducing_covar is not None:
-            middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
-        predictive_covar = SumLazyTensor(
-            data_data_covar.add_jitter(1e-4), MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term)
-        )
+        if self.model.training and self.return_separate_mvns: # VARIATIONAL FITC
+            predictive_covar1 = SumLazyTensor(data_data_covar.add_jitter(1e-4),
+                                              MatmulLazyTensor(interp_term.transpose(-1, -2),
+                                                               self.prior_distribution.lazy_covariance_matrix.mul(-1) \
+                                                               @ interp_term))
+            predictive_covar2 = MatmulLazyTensor(interp_term.transpose(-1, -2), variational_inducing_covar @ interp_term)
 
-        # Return the distribution
-        return MultivariateNormal(predictive_mean, predictive_covar)
+            return MultivariateNormal(predictive_mean, predictive_covar1), \
+                   MultivariateNormal(predictive_mean, predictive_covar2)
+        else:
+            # Compute the covariance of q(f)
+            # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
+            middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
+            if variational_inducing_covar is not None:
+                middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
+            predictive_covar = SumLazyTensor(
+                data_data_covar.add_jitter(1e-4), MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term)
+            )
+
+            # Return the distribution
+            return MultivariateNormal(predictive_mean, predictive_covar)
 
     def __call__(self, x, prior=False):
         if not self.updated_strategy.item() and not prior:

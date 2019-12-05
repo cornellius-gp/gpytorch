@@ -11,6 +11,7 @@ from .noise_model_added_loss_term import NoiseModelAddedLossTerm
 from .predictive_log_likelihood import PredictiveLogLikelihood
 from .sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from .variational_elbo import VariationalELBO
+from .variational_fitc_elbo import VariationalFITCELBO
 
 
 # Deprecated for 0.4 release
@@ -38,4 +39,5 @@ __all__ = [
     "GammaRobustVariationalELBO",
     "SumMarginalLogLikelihood",
     "VariationalELBO",
+    "VariationalFITCELBO",
 ]
