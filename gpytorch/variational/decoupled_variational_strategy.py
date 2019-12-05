@@ -16,13 +16,11 @@ class DecoupledVariationalStrategy(_VariationalStrategy):
     r"""
     """
 
-    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True,
-                 kl_strategy="default"):
+    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
         # We're going to create two set of inducing points
         # One set for computing the mean, one set for computing the variance
         inducing_points = torch.stack([inducing_points, inducing_points])  # Create two copies
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
-        self.kl_strategy = kl_strategy
 
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
@@ -85,17 +83,9 @@ class DecoupledVariationalStrategy(_VariationalStrategy):
         variational_dist = self.variational_distribution
         prior_dist = self.variational_distribution
 
-        if self.kl_strategy == "default":
-            mean_dist = Delta(variational_dist.mean)
-            covar_dist = MultivariateNormal(
-                torch.zeros_like(variational_dist.mean),
-                variational_dist.lazy_covariance_matrix
-            )
-            return kl_divergence(mean_dist, prior_dist) + kl_divergence(covar_dist, prior_dist)
-        elif self.kl_strategy == "martin":
-            mean_dist = Delta(variational_dist.mean)
-            covar_dist = MultivariateNormal(
-                torch.zeros_like(variational_dist.mean),
-                variational_dist.lazy_covariance_matrix
-            )
-            return kl_divergence(mean_dist, prior_dist) + kl_divergence(covar_dist, prior_dist)
+        mean_dist = Delta(variational_dist.mean)
+        covar_dist = MultivariateNormal(
+            torch.zeros_like(variational_dist.mean),
+            variational_dist.lazy_covariance_matrix
+        )
+        return kl_divergence(mean_dist, prior_dist) + kl_divergence(covar_dist, prior_dist)
