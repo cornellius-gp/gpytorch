@@ -15,6 +15,14 @@ from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 
 
+def phi(x, mu, sigma):
+    return torch.distributions.Normal(0.0, 1.0).log_prob((x - mu) / sigma).exp()
+
+
+def Phi(x, mu, sigma):
+    return torch.distributions.Normal(0.0, 1.0).cdf((x - mu) / sigma)
+
+
 class _GaussianLikelihoodBase(Likelihood):
     """Base class for Gaussian Likelihoods, supporting general heteroskedastic noise models."""
 
@@ -55,13 +63,19 @@ class _GaussianLikelihoodBase(Likelihood):
 
     def fitc_likelihood(self, target: Tensor, input: tuple, *params: Any, **kwargs: Any) -> Tensor:
         mean, Kvariance, Svariance = input[0].mean, input[0].variance, input[1].variance
-        num_event_dim = len(input[0].event_shape)
 
         noise = self._shaped_noise_covar(mean.shape, *params, **kwargs).diag()
         full_noise = noise + Kvariance
 
         res = ((target - mean) ** 2 + Svariance) / full_noise + full_noise.log() + math.log(2 * math.pi)
         return res.mul(-0.5)
+
+    def crps_likelihood(self, target: Tensor, input: tuple, *params: Any, **kwargs: Any) -> Tensor:
+        noise = self._shaped_noise_covar(input.mean.shape, *params, **kwargs).diag()
+        sigma = (input.variance + noise).sqrt()
+        crps = sigma * (1.0 / math.sqrt(math.pi) - 2.0 * phi(target, input.mean, sigma) - \
+               ((target - input.mean) / sigma) * (2.0 * Phi(target, input.mean, sigma) - 1.0) )
+        return crps
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
