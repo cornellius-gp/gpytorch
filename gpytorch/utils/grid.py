@@ -83,7 +83,7 @@ def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
 
 
 def create_grid(
-    grid_sizes: List[int], grid_bounds: List[Tuple[float, float]], extend: bool = True
+    grid_sizes: List[int], grid_bounds: List[Tuple[float, float]], extend: bool = True, device="cpu", dtype=torch.float,
 ) -> List[torch.Tensor]:
     """
     Creates a grid represented by a list of 1D Tensors representing the
@@ -96,8 +96,10 @@ def create_grid(
     for i in range(len(grid_bounds)):
         grid_diff = float(grid_bounds[i][1] - grid_bounds[i][0]) / (grid_sizes[i] - 2)
         if extend:
-            proj = torch.linspace(grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_sizes[i])
+            proj = torch.linspace(
+                grid_bounds[i][0] - grid_diff, grid_bounds[i][1] + grid_diff, grid_sizes[i], device=device, dtype=dtype,
+            )
         else:
-            proj = torch.linspace(grid_bounds[i][0], grid_bounds[i][1], grid_sizes[i])
+            proj = torch.linspace(grid_bounds[i][0], grid_bounds[i][1], grid_sizes[i], device=device, dtype=dtype,)
         grid.append(proj)
     return grid
