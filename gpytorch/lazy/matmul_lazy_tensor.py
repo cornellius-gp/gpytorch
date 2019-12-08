@@ -5,6 +5,7 @@ import torch
 from ..utils.broadcasting import _matmul_broadcast_shape, _pad_with_singletons
 from ..utils.getitem import _noop_index
 from ..utils.memoize import cached
+from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor, lazify
 
@@ -22,7 +23,7 @@ class MatmulLazyTensor(LazyTensor):
         left_lazy_tensor = lazify(left_lazy_tensor)
         right_lazy_tensor = lazify(right_lazy_tensor)
 
-        super(MatmulLazyTensor, self).__init__(left_lazy_tensor, right_lazy_tensor)
+        super().__init__(left_lazy_tensor, right_lazy_tensor)
         self.left_lazy_tensor = left_lazy_tensor
         self.right_lazy_tensor = right_lazy_tensor
 
@@ -84,8 +85,10 @@ class MatmulLazyTensor(LazyTensor):
     def diag(self):
         if isinstance(self.left_lazy_tensor, NonLazyTensor) and isinstance(self.right_lazy_tensor, NonLazyTensor):
             return (self.left_lazy_tensor.tensor * self.right_lazy_tensor.tensor.transpose(-1, -2)).sum(-1)
+        elif isinstance(self.left_lazy_tensor, DiagLazyTensor) or isinstance(self.right_lazy_tensor, DiagLazyTensor):
+            return self.left_lazy_tensor.diag() * self.right_lazy_tensor.diag()
         else:
-            return super(MatmulLazyTensor, self).diag()
+            return super().diag()
 
     @cached
     def evaluate(self):
