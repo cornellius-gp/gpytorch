@@ -225,7 +225,7 @@ class DefaultPredictionStrategy(object):
             # can't use in-place operation here b/c it would mess up backward pass
             # haven't found a more elegant way to add a jitter diagonal yet...
             jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
-            R = R + jitter_diag.unsqueeze(-1) * torch.eye(R.size(-1), device=R.device, dtype=R.dtype)
+            R = R + torch.diag_embed(jitter_diag)
         new_covar_cache = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
