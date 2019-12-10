@@ -292,10 +292,6 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def evaluate(self):
         return self.evaluate_kernel().evaluate()
 
-    def ndimension(self):
-        # TODO: fix this with the remove_batch_dim PR
-        return max(self.x2.dim(), self.x2.dim())
-
     def repeat(self, *repeats):
         if len(repeats) == 1 and hasattr(repeats[0], "__iter__"):
             repeats = repeats[0]

@@ -13,22 +13,14 @@ GPyTorch's documentation
    :maxdepth: 1
    :caption: Tutorials:
 
-   examples/01_Simple_GP_Regression/Simple_GP_Regression.ipynb
-   examples/02_Simple_GP_Classification/Simple_GP_Classification.ipynb
+   examples/01_Exact_GPs/Simple_GP_Regression.ipynb
 
 .. toctree::
    :glob:
    :maxdepth: 2
    :caption: Examples:
 
-   examples/README.md
    examples/**/index
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Advanced Usage
-
-   batch_gps
 
 .. toctree::
    :maxdepth: 1

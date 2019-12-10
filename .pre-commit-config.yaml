@@ -36,7 +36,7 @@ repos:
     rev: 1.11.0
     hooks:
     -   id: require-ascii
-        exclude: ^(examples/LBFGS.py)
+        exclude: ^(examples/LBFGS.py)|(examples/.*\.ipynb)
     -   id: script-must-have-extension
     -   id: forbid-binary
 -   repo: https://github.com/Lucas-C/pre-commit-hooks

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+import warnings
+
 import torch
 
-from ..distributions import base_distributions
+from ..distributions import Distribution, MultitaskMultivariateNormal, base_distributions
 from ..utils.deprecation import _deprecate_kwarg_with_transform
 from .likelihood import Likelihood
 
@@ -33,14 +35,32 @@ class SoftmaxLikelihood(Likelihood):
             self.mixing_weights = None
 
     def forward(self, function_samples, *params, **kwargs):
-        num_features, num_data = function_samples.shape[-2:]
+        num_data, num_features = function_samples.shape[-2:]
+
+        # Catch legacy mode
+        if num_data == self.num_features:
+            warnings.warn(
+                "The input to SoftmaxLikelihood should be a MultitaskMultivariateNormal (num_data x num_tasks). "
+                "Batch MultivariateNormal inputs (num_tasks x num_data) will be deprectated."
+            )
+            function_samples = function_samples.transpose(-1, -2)
+            num_data, num_features = function_samples.shape[-2:]
+
         if num_features != self.num_features:
             raise RuntimeError("There should be %d features" % self.num_features)
 
         if self.mixing_weights is not None:
-            mixed_fs = self.mixing_weights @ function_samples  # num_classes x num_data
+            mixed_fs = function_samples @ self.mixing_weights.t()  # num_classes x num_data
         else:
             mixed_fs = function_samples
-        mixed_fs = mixed_fs.transpose(-1, -2)  # num_data x num_classes
         res = base_distributions.Categorical(logits=mixed_fs)
         return res
+
+    def __call__(self, function, *params, **kwargs):
+        if isinstance(function, Distribution) and not isinstance(function, MultitaskMultivariateNormal):
+            warnings.warn(
+                "The input to SoftmaxLikelihood should be a MultitaskMultivariateNormal (num_data x num_tasks). "
+                "Batch MultivariateNormal inputs (num_tasks x num_data) will be deprectated."
+            )
+            function = MultitaskMultivariateNormal.from_batch_mvn(function)
+        return super().__call__(function, *params, **kwargs)

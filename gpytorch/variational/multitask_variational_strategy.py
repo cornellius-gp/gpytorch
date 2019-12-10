@@ -2,7 +2,6 @@
 
 from ..distributions import MultitaskMultivariateNormal
 from ..module import Module
-from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
 
@@ -26,12 +25,10 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
         self.num_tasks = num_tasks
 
     @property
-    @cached(name="prior_distribution_memo")
     def prior_distribution(self):
         return self.base_variational_strategy.prior_distribution
 
     @property
-    @cached(name="variational_distribution_memo")
     def variational_distribution(self):
         return self.base_variational_strategy.variational_distribution
 
@@ -52,6 +49,6 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
         ):
             return MultitaskMultivariateNormal.from_repeated_mvn(function_dist, num_tasks=self.num_tasks)
         else:
-            return MultitaskMultivariateNormal.from_batch_mvn(function_dist, task_dim=self.task_dim)
+            function_dist = MultitaskMultivariateNormal.from_batch_mvn(function_dist, task_dim=self.task_dim)
             assert function_dist.event_shape[-1] == self.num_tasks
             return function_dist
