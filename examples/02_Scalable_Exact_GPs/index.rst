@@ -12,7 +12,7 @@ GPyTorch relies on two key techniques to scale exact GPs to millions of data poi
 
 - `BlackBox Matrix-Matrix Inference`_ (introduced by Gardner et al., 2018) computes the GP marginal log likelihood using only matrix multiplication.
   It is stochastic, but can scale exact GPs to millions of data points.
-- `GP Regression (CUDA) with Fast Variances (LOVE)`_ demonstrates `LancZos Variance Estimates (LOVE)`_ , a technique to rapidly speed up predictive variance computations.
+- `GP Regression (CUDA) with Fast Variances (LOVE)`_ demonstrates `LanczOs Variance Estimates (LOVE)`_ , a technique to rapidly speed up predictive variance computations.
   Check out this notebook to see how to use LOVE in GPyTorch, and how it compares to standard variance computations.
 
 .. toctree::
@@ -78,7 +78,7 @@ See the `Grid Regression`_ example for more info.
   ./Simple_GP_Regression_With_LOVE_Fast_Variances_CUDA.ipynb
 
 .. _LancZos Variance Estimates (LOVE):
-  https://arxiv.org/pdf/1803.06058.pd
+  https://arxiv.org/pdf/1803.06058.pdf
 
 .. _single GPU regression example:
   ./Simple_GP_Regression_CUDA.ipynb

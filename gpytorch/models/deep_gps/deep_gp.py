@@ -137,3 +137,6 @@ class DeepLikelihood(Likelihood):
 
     def forward(self, *args, **kwargs):
         pass
+
+    def __call__(self, *args, **kwargs):
+        return self.base_likelihood.__call__(*args, **kwargs)
