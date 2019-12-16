@@ -252,7 +252,7 @@ class RFNSSpectralNFKernel(NSSpectralDeltaKernel):
 
         dsf_dist = dist.TransformedDistribution(base_dist, dsf)
 
-        return dsf_dist.rsample(torch.Size([128]))
+        return dsf_dist.rsample(torch.Size([1024]))
 
     def forward(self, x1, x2, diag=False, **params):
         x1_ = x1.div(self.lengthscale)
@@ -273,6 +273,9 @@ class RFNSSpectralNFKernel(NSSpectralDeltaKernel):
         # Z1_ and Z2_ are s x d
         x1z1 = x1_.matmul(Z1_.transpose(-2, -1))  # n x s
         x2z2 = x2_.matmul(Z2_.transpose(-2, -1))  # n x s
+
+        x1z1 = x1z1 * 2 * math.pi
+        x2z2 = x2z2 * 2 * math.pi
 
         x1z1 = torch.cat([x1z1.cos(), x1z1.sin()], dim=-1) / math.sqrt(x1z1.size(-1))
         x2z2 = torch.cat([x2z2.cos(), x2z2.sin()], dim=-1) / math.sqrt(x2z2.size(-1))
