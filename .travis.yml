@@ -10,6 +10,7 @@ env:
   - PYTORCH_VERSION=master
   - PYTORCH_VERSION=stable
   - PYTORCH_VERSION=stable WITH_PYRO=true
+  - PYTORCH_VERSION=stable WITH_PYRO=true EXAMPLES=true
 
 install:
   - if [[ $PYTORCH_VERSION = "master" ]]; then
@@ -17,15 +18,23 @@ install:
       pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
       python setup.py build develop;
     else
-      pip install torch==1.3.0+cpu -f https://download.pytorch.org/whl/torch_stable.html;
+      pip install torch==1.3.1+cpu -f https://download.pytorch.org/whl/torch_stable.html;
     fi
   - if [[ $WITH_PYRO == true ]]; then
       pip install git+https://github.com/pyro-ppl/pyro@dev;
     fi
+  - if [[ $EXAMPLES == true ]]; then
+      pip install pytest nbval jupyter tqdm matplotlib torchvision scipy;
+    fi
 
 script:
   - python -c "import torch; print('PyTorch Version:', torch.__version__)"
-  - python -m unittest discover
+  - if [[ $EXAMPLES == true ]]; then
+      python setup.py build develop;
+      grep -l smoke_test examples/**/*.ipynb | xargs grep -L 'smoke_test = False' | CI=true xargs pytest --nbval-lax --current-env;
+    else
+      python -m unittest discover;
+    fi
 
 matrix:
   include:
