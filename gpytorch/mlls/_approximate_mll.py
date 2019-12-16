@@ -53,7 +53,7 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
                 Additional arguments passed to the likelihood's `expected_log_prob` function.
         """
         # Get likelihood term and KL term
-        num_batch = approximate_dist_f.event_shape.numel()
+        num_batch = approximate_dist_f.event_shape[0]
         log_likelihood = self._log_likelihood_term(approximate_dist_f, target, **kwargs).div(num_batch)
         kl_divergence = self.model.variational_strategy.kl_divergence().div(self.num_data / self.beta)
 

@@ -1,1 +1,0 @@
-# Scalable GP Classification (Multidimensional)

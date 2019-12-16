@@ -134,7 +134,6 @@ try:
             if hasattr(self, "_name_prefix"):
                 return self._name_prefix
             else:
-                warnings.warn('likelihood.name_prefix isn\'t set. Defaulting to ""', RuntimeWarning)
                 return ""
 
         @name_prefix.setter
