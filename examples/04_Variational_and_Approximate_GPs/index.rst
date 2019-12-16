@@ -25,6 +25,7 @@ Here we provide some examples which highlight some of the common use cases:
 - **Alternative optimization objectives** for the GP's predictive distribution: see the `approximate GP objective functions notebook`_.
   This example compares and contrasts the variational ELBO with the predictive log likelihood of Jankowiak et al., 2019.
 - **Classification**: see the `non-Gaussian likelihood notebook`_.
+- **Multi-output variational GPs** (when exact methods are too memory intensive): see the `variational GPs with multiple outputs example`_.
 - **Uncertain inputs**: see the `GPs with uncertain inputs example`_.
 
 .. toctree::
@@ -34,6 +35,7 @@ Here we provide some examples which highlight some of the common use cases:
    SVGP_Regression_CUDA.ipynb
    Approximate_GP_Objective_Functions.ipynb
    Non_Gaussian_Likelihoods.ipynb
+   SVGP_Multitask_GP_Regression.ipynb
    GP_Regression_with_Uncertain_Inputs.ipynb
 
 .. _stochastic variational regression example:
@@ -44,6 +46,9 @@ Here we provide some examples which highlight some of the common use cases:
 
 .. _non-Gaussian likelihood notebook:
   ./Non_Gaussian_Likelihoods.ipynb
+
+.. _variational GPs with multiple outputs example:
+  ./SVGP_Multitask_GP_Regression.ipynb
 
 .. _GPs with uncertain inputs example:
   ./GP_Regression_with_Uncertain_Inputs.ipynb
