@@ -16,9 +16,11 @@ class DecoupledVariationalStrategy(_VariationalStrategy):
     r"""
     """
 
-    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
+    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True,
+                 return_separate_mvns=False):
         # We're going to create two set of inducing points
         # One set for computing the mean, one set for computing the variance
+        self.return_separate_mvns = return_separate_mvns
         inducing_points = torch.stack([inducing_points, inducing_points])  # Create two copies
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
 
@@ -66,18 +68,27 @@ class DecoupledVariationalStrategy(_VariationalStrategy):
             ).squeeze(-1) + test_mean[0]
         )
 
-        # Compute the covariance of q(f)
-        # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
-        middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
-        if variational_inducing_covar is not None:
-            middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
-        predictive_covar = SumLazyTensor(
-            data_data_covar.add_jitter(1e-4).evaluate()[1],
-            MatmulLazyTensor(interp_term[1].transpose(-1, -2), middle_term @ interp_term[1])
-        )
+        if self.model.training and self.return_separate_mvns: # VARIATIONAL FITC
+            predictive_covar1 = SumLazyTensor(data_data_covar.add_jitter(1e-4).evaluate()[1],
+                                              MatmulLazyTensor(interp_term[1].transpose(-1, -2),
+                                                               self.prior_distribution.lazy_covariance_matrix.mul(-1) \
+                                                               @ interp_term[1]))
+            predictive_covar2 = MatmulLazyTensor(interp_term[1].transpose(-1, -2), variational_inducing_covar @ interp_term[1])
 
-        # Return the distribution
-        return MultivariateNormal(predictive_mean, predictive_covar)
+            return MultivariateNormal(predictive_mean, predictive_covar1), \
+                   MultivariateNormal(predictive_mean, predictive_covar2)
+        else:  # not FITC
+            # Compute the covariance of q(f)
+            # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
+            middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
+            if variational_inducing_covar is not None:
+                middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
+            predictive_covar = SumLazyTensor(
+                data_data_covar.add_jitter(1e-4).evaluate()[1],
+                MatmulLazyTensor(interp_term[1].transpose(-1, -2), middle_term @ interp_term[1])
+            )
+
+            return MultivariateNormal(predictive_mean, predictive_covar)
 
     def kl_divergence(self):
         variational_dist = self.variational_distribution
