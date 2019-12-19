@@ -140,13 +140,17 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
         if base_samples is None:
-            # Create some samples
-            num_samples = sample_shape.numel() or 1
+            shape = self._extended_shape(sample_shape)
+            sample_shape = shape[: -(covar.dim() - 1)]
+            num_samples = int(torch.tensor(sample_shape).prod())
 
+            # Expand so that we have as many zero_mean_mvn_samples as
+            # broadcasting demands.
+            covar_ = covar.expand(*shape[-(covar.dim() - 1) :], shape[-1])
             # Get samples
-            res = covar.zero_mean_mvn_samples(num_samples) + self.loc.unsqueeze(0)
-            res = res.view(sample_shape + self.loc.shape)
-
+            samples = covar_.zero_mean_mvn_samples(num_samples)
+            res = samples.view(*shape) + self.loc
+            return res
         else:
             # Make sure that the base samples agree with the distribution
             dist_shape = self.batch_shape + self.event_shape
@@ -178,8 +182,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             # Permute and reshape new samples to be original size
             res = res.permute(-1, *range(len(dist_shape))).contiguous()
             res = res.view(sample_shape + dist_shape)
-
-        return res
+            return res
 
     def sample(self, sample_shape=torch.Size(), base_samples=None):
         with torch.no_grad():

@@ -294,42 +294,64 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
 
         d = dist[1, 2, 2, ...]
 
-    def test_rsample_different_batch_shape(self):
-        """Test that transforming samples works if the mean and covariance of the
-        MultivariateNormal have different (but compatible) shapes."""
-        shape = [2, 4]
-        cov = torch.randn(*shape, shape[-1])
-        # if `cov` is not an instance of LazyTensor, the mean gets extended to
-        # have the same batch shape. To prevent that, make it lazy.
-        cov = NonLazyTensor(cov @ cov.transpose(-1, -2))
-        mean = torch.randn(shape[-1])
-        dist = MultivariateNormal(mean, cov, validate_args=True)
-        assert dist.mean.size() == torch.Size([shape[-1]])
-
+    def _dist_rsample_tests(self, dist, shape):
+        if shape[-2] == 1 or shape[-2] == 8:
+            raise NotImplementedError("test has been written with these assumptions in mind")
         base_samples = torch.randn(1, 2, *shape)
         out = dist.rsample(base_samples=base_samples)
-        assert out.size() == torch.Size([1, 2, 2, 4])
+        assert out.size() == torch.Size([1, 2, *shape]), "output has incorrect shape with custom base_samples"
+
+        assert dist.rsample(torch.Size([3])).shape == torch.Size(
+            [3] + shape
+        ), "output has incorrect shape with default base_samples"
 
         # Shape broadcasts with `dist.mean` and `dist.covariance_matrix`, but
         # does not exactly match
-        base_samples = torch.randn(3, 2, 1, 4)
+        new_shape = [s for s in shape]
+        new_shape[-2] = 1
+        base_samples = torch.randn(3, 2, *new_shape)
         self.assertRaises(RuntimeError, lambda: dist.rsample(base_samples=base_samples))
 
         # Shape cannot broadcast correctly
-        base_samples = torch.randn(3, 2, 3, 4)
+        new_shape[-2] = 8
+        base_samples = torch.randn(3, 2, *new_shape)
+        self.assertRaises(RuntimeError, lambda: dist.rsample(base_samples=base_samples))
+        base_samples = torch.randn(new_shape)
         self.assertRaises(RuntimeError, lambda: dist.rsample(base_samples=base_samples))
 
-        base_samples = torch.randn(2, 3)
-        self.assertRaises(RuntimeError, lambda: dist.rsample(base_samples=base_samples))
+        sample = dist.rsample()
+        centered_sample = sample - dist.mean
+        assert not torch.allclose(centered_sample, centered_sample[0]), "samples should be different!"
 
-    def test_rsample(self):
-        shape = [2, 4]
-        cov = torch.randn(*shape, shape[-1])
-        cov = cov @ cov.transpose(-1, -2)
+    def test_rsample_batch(self):
+        """Test that transforming samples works if the mean and covariance of the
+        MultivariateNormal have different (but compatible) shapes.
+        """
+        shape = [3, 4]
+        # Mean and cov have same dimensions
         mean = torch.randn(*shape)
-        dist = MultivariateNormal(mean, cov, validate_args=True)
+        cov = torch.randn(*shape, shape[-1])
+        dist = MultivariateNormal(mean, NonLazyTensor(cov @ cov.transpose(-1, -2)), validate_args=True)
+        self._dist_rsample_tests(dist, shape)
 
-        assert dist.rsample(torch.Size([3])).shape == torch.Size([3] + shape)
+        # The mean has one more dimension than the cov
+        mean = torch.randn(shape[-1])
+        cov = torch.randn(*shape, shape[-1])
+        dist = MultivariateNormal(mean, NonLazyTensor(cov @ cov.transpose(-1, -2)), validate_args=True)
+        self._dist_rsample_tests(dist, shape)
+
+        # The cov has one more dimension than the mean
+        mean = torch.randn(*shape)
+        cov = torch.randn(shape[-1], shape[-1])
+        dist = MultivariateNormal(mean, NonLazyTensor(cov @ cov.transpose(-1, -2)), validate_args=True)
+        self._dist_rsample_tests(dist, shape)
+
+        # Mix
+        shape = [2, 5, 3, 4]
+        mean = torch.randn(2, 1, 3, 4)
+        cov = torch.randn(2, 5, 1, 4, 4)
+        dist = MultivariateNormal(mean, NonLazyTensor(cov @ cov.transpose(-1, -2)), validate_args=True)
+        self._dist_rsample_tests(dist, shape)
 
 
 if __name__ == "__main__":
