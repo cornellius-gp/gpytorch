@@ -84,10 +84,10 @@ See the `Grid Regression`_ example for more info.
   ./Simple_GP_Regression_CUDA.ipynb
 
 .. _multi GPU regression example:
-  ./Simple_MultiGPU_GP_Regression_CUDA.ipynb
+  ./Simple_MultiGPU_GP_Regression.ipynb
 
 .. _KeOPs integration notebook:
-  .KeOps_GP_Regression.ipynb
+  ./KeOps_GP_Regression.ipynb
 
 .. _Sparse Gaussian Process Regression (SGPR):
   ./SGPR_Regression_CUDA.ipynb
