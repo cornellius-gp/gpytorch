@@ -153,7 +153,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             return res
         else:
             # Make sure that the base samples agree with the distribution
-            dist_shape = self.batch_shape + self.event_shape
+            dist_shape = self._extended_shape(torch.Size())
             if dist_shape != base_samples.shape[-len(dist_shape) :]:
                 raise RuntimeError(
                     "The size of base_samples (minus sample shape dimensions) should agree with the size "
