@@ -14,6 +14,43 @@ from .gp import GP
 
 
 class ExactGP(GP):
+    r"""
+    The base class for any Gaussian process latent function to be used in conjunction
+    with exact inference.
+
+    :param torch.Tensor train_inputs: (size n x d) The training features :math:`\mathbf X`.
+    :param torch.Tensor train_targets: (size n) The training targets :math:`\mathbf y`.
+    :param ~gpytorch.likelihoods.GaussianLikelihood likelihood: The Gaussian likelihood that defines
+        the observational distribution. Since we're using exact inference, the likelihood must be Gaussian.
+
+    The :meth:`forward` function should describe how to compute the prior latent distribution
+    on a given input. Typically, this will involve a mean and kernel function.
+    The result must be a :obj:`~gpytorch.distributions.MultivariateNormal`.
+
+    Calling this model will return the posterior of the latent Gaussian process when conditioned
+    on the training data. The output will be a :obj:`~gpytorch.distributions.MultivariateNormal`.
+
+    Example:
+        >>> class MyGP(gpytorch.models.ExactGP):
+        >>>     def __init__(self, train_x, train_y, likelihood):
+        >>>         super().__init__(train_x, train_y, likelihood)
+        >>>         self.mean_module = gpytorch.means.ZeroMean()
+        >>>         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+        >>>
+        >>>     def forward(self, x):
+        >>>         mean = self.mean_module(x)
+        >>>         covar = self.covar_module(x)
+        >>>         return gpytorch.distributions.MultivariateNormal(mean, covar)
+        >>>
+        >>> # train_x = ...; train_y = ...
+        >>> likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        >>> model = MyGP(train_x, train_y, likelihood)
+        >>>
+        >>> # test_x = ...;
+        >>> model(test_x)  # Returns the GP latent function at test_x
+        >>> likelihood(model(test_x))  # Returns the (approximate) predictive posterior distribution at test_x
+    """
+
     def __init__(self, train_inputs, train_targets, likelihood):
         if train_inputs is not None and torch.is_tensor(train_inputs):
             train_inputs = (train_inputs,)
@@ -48,6 +85,9 @@ class ExactGP(GP):
         return super(ExactGP, self)._apply(fn)
 
     def local_load_samples(self, samples_dict, memo, prefix):
+        """
+        Replace the model's learned hyperparameters with samples from a posterior distribution.
+        """
         # Pyro always puts the samples in the first batch dimension
         num_samples = next(iter(samples_dict.values())).size(0)
         self.train_inputs = tuple(tri.unsqueeze(0).expand(num_samples, *tri.shape) for tri in self.train_inputs)
@@ -58,12 +98,11 @@ class ExactGP(GP):
         """
         Set training data (does not re-fit model hyper-parameters).
 
-        Args:
-            - :attr:`inputs` the new training inputs
-            - :attr:`targets` the new training targets
-            - :attr:`strict`
-                if `True`, the new inputs and targets must have the same shape, dtype, and device
-                as the current inputs and targets. Otherwise, any shape/dtype/device are allowed.
+        :param torch.Tensor inputs: The new training inputs.
+        :param torch.Tensor targets: The new training targets.
+        :param bool strict: (default True) If `True`, the new inputs and
+            targets must have the same shape, dtype, and device
+            as the current inputs and targets. Otherwise, any shape/dtype/device are allowed.
         """
         if inputs is not None:
             if torch.is_tensor(inputs):
@@ -103,15 +142,12 @@ class ExactGP(GP):
             If `inputs` is of the same (or lesser) dimension as `targets`, then it is assumed that the fantasy points
             are the same for each target batch.
 
-        Args:
-            - :attr:`inputs` (Tensor `b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`): Locations of fantasy
-                observations.
-            - :attr:`targets` (Tensor `b1 x ... x bk x m` or `f x b1 x ... x bk x m`): Labels of fantasy observations.
-
-        Returns:
-            - :class:`ExactGP`
-                An `ExactGP` model with `n + m` training examples, where the `m` fantasy examples have been added
-                and all test-time caches have been updated.
+        :param torch.Tensor inputs: (`b1 x ... x bk x m x d` or `f x b1 x ... x bk x m x d`) Locations of fantasy
+            observations.
+        :param torch.Tensor targets: (`b1 x ... x bk x m` or `f x b1 x ... x bk x m`) Labels of fantasy observations.
+        :return: An `ExactGP` model with `n + m` training examples, where the `m` fantasy examples have been added
+            and all test-time caches have been updated.
+        :rtype: ~gpytorch.models.ExactGP
         """
         if self.prediction_strategy is None:
             raise RuntimeError(

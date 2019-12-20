@@ -62,3 +62,9 @@ there is too much data for an ExactGP model).
 
 .. autoclass:: GammaRobustVariationalELBO
    :members:
+
+:hidden:`DeepApproximateMLL`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: DeepApproximateMLL
+   :members:
