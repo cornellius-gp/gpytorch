@@ -1,8 +1,14 @@
-# GPyTorch (Beta Release)
+# GPyTorch
+
+---
+__News: GPyTorch v1.0.0__
+
+GPyTorch v1.0.0 has just been released. This release marks our exit from beta status and in to what we consider stable software. This means that we do not expect you to encounter any major bugs when using stable features. Check out the [release notes](https://github.com/cornellius-gp/gpytorch/releases/tag/v1.0.0), as well as our fully revamped documentation and example notebooks.
+
+---
+
 [![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
 [![Documentation Status](https://readthedocs.org/projects/gpytorch/badge/?version=latest)](https://gpytorch.readthedocs.io/en/latest/?badge=latest)
-
-[![forthebadge](https://forthebadge.com/images/badges/ages-12.svg)](https://forthebadge.com)
 
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease.
 
