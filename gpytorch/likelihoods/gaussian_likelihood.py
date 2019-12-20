@@ -10,7 +10,6 @@ from torch import Tensor
 
 from ..distributions import MultivariateNormal, base_distributions
 from ..lazy import ZeroLazyTensor
-from ..utils.deprecation import _deprecate_kwarg_with_transform
 from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 
@@ -80,9 +79,6 @@ class _GaussianLikelihoodBase(Likelihood):
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), **kwargs):
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
         )
@@ -139,9 +135,6 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     ) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
 
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
         if learn_additional_noise:
             noise_prior = kwargs.get("noise_prior", None)
             noise_constraint = kwargs.get("noise_constraint", None)

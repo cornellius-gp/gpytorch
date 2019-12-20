@@ -21,7 +21,7 @@ from ..utils.memoize import cached
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 
 
-# Deprecated on 0.4 release
+# Remove after 1.0
 class WhitenedVariationalStrategy(UnwhitenedVariationalStrategy):
     def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
         warnings.warn(

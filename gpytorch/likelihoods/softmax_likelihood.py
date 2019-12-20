@@ -5,7 +5,6 @@ import warnings
 import torch
 
 from ..distributions import Distribution, MultitaskMultivariateNormal, base_distributions
-from ..utils.deprecation import _deprecate_kwarg_with_transform
 from .likelihood import Likelihood
 
 
@@ -15,7 +14,6 @@ class SoftmaxLikelihood(Likelihood):
     """
 
     def __init__(self, num_features=None, num_classes=None, mixing_weights=True, mixing_weights_prior=None, **kwargs):
-        num_classes = _deprecate_kwarg_with_transform(kwargs, "n_classes", "num_classes", num_classes, lambda n: n)
         super().__init__()
         if num_classes is None:
             raise ValueError("num_classes is required")

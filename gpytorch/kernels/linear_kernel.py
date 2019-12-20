@@ -50,9 +50,11 @@ class LinearKernel(Kernel):
             variance_constraint = Positive()
 
         if num_dimensions is not None:
+            # Remove after 1.0
             warnings.warn("The `num_dimensions` argument is deprecated and no longer used.", DeprecationWarning)
             self.register_parameter(name="offset", parameter=torch.nn.Parameter(torch.zeros(1, 1, num_dimensions)))
         if offset_prior is not None:
+            # Remove after 1.0
             warnings.warn("The `offset_prior` argument is deprecated and no longer used.", DeprecationWarning)
         self.register_parameter(name="raw_variance", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1)))
         if variance_prior is not None:

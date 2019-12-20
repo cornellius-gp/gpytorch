@@ -13,7 +13,6 @@ from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
 from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumPredictionStrategy
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
-from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
 
 
 def default_postprocess_script(x):
@@ -57,7 +56,7 @@ class Distance(torch.nn.Module):
         return self._postprocess(res) if postprocess else res
 
 
-class Kernel(Module, _ClassWithDeprecatedBatchSize):
+class Kernel(Module):
     r"""
     Kernels in GPyTorch are implemented as a :class:`gpytorch.Module` that, when called on two :obj:`torch.tensor`
     objects `x1` and `x2` returns either a :obj:`torch.tensor` or a :obj:`gpytorch.lazy.LazyTensor` that represents
@@ -141,16 +140,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         **kwargs,
     ):
         super(Kernel, self).__init__()
-        self._register_load_state_dict_pre_hook(self._batch_shape_state_dict_hook)
-
+        self._batch_shape = batch_shape
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.register_buffer("active_dims", active_dims)
         self.ard_num_dims = ard_num_dims
-
-        self._batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
 
         self.eps = eps
 
