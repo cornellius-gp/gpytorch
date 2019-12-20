@@ -19,9 +19,7 @@ from .functions import (  # Deprecated
     dsmm,
     inv_matmul,
     inv_quad,
-    inv_quad_log_det,
     inv_quad_logdet,
-    log_det,
     log_normal_cdf,
     logdet,
     matmul,
@@ -69,7 +67,4 @@ __all__ = [
     "settings",
     # Other
     "__version__",
-    # Deprecated
-    "inv_quad_log_det",
-    "log_det",
 ]

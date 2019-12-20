@@ -17,6 +17,7 @@ from .variational_elbo import VariationalELBO
 # Deprecated for 0.4 release
 class VariationalMarginalLogLikelihood(VariationalELBO):
     def __init__(self, *args, **kwargs):
+        # Remove after 1.0
         warnings.warn(
             "VariationalMarginalLogLikelihood is deprecated. Please use VariationalELBO instead.", DeprecationWarning
         )
@@ -25,6 +26,7 @@ class VariationalMarginalLogLikelihood(VariationalELBO):
 
 class VariationalELBOEmpirical(VariationalELBO):
     def __init__(self, *args, **kwargs):
+        # Remove after 1.0
         warnings.warn("VariationalELBOEmpirical is deprecated. Please use VariationalELBO instead.", DeprecationWarning)
         super().__init__(*args, **kwargs)
 

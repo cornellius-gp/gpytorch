@@ -28,8 +28,8 @@ test_y = torch.sin(test_x * (2 * pi))
 
 good_state_dict = OrderedDict(
     [
-        ("likelihood.log_noise", torch.tensor([[-5.0]])),
-        ("mean_module.constant", torch.tensor([[0.4615]])),
+        ("likelihood.log_noise", torch.tensor([-5.0])),
+        ("mean_module.constant", torch.tensor([0.4615])),
         ("covar_module.log_mixture_weights", torch.tensor([-0.7277, -15.1212, -0.5511, -6.3787]).unsqueeze(0)),
         (
             "covar_module.log_mixture_means",

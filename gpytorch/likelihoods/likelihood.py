@@ -10,14 +10,12 @@ import torch
 from .. import settings
 from ..distributions import MultivariateNormal, base_distributions
 from ..module import Module
-from ..utils.deprecation import _ClassWithDeprecatedBatchSize
 from ..utils.quadrature import GaussHermiteQuadrature1D
 
 
-class _Likelihood(Module, ABC, _ClassWithDeprecatedBatchSize):
+class _Likelihood(Module, ABC):
     def __init__(self, max_plate_nesting=1):
         super().__init__()
-        self._register_load_state_dict_pre_hook(self._batch_shape_state_dict_hook)
         self.max_plate_nesting = max_plate_nesting
 
     def _draw_likelihood_samples(self, function_dist, *args, sample_shape=None, **kwargs):
