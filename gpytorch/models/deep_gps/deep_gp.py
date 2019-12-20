@@ -1,3 +1,5 @@
+import warnings
+
 import torch
 
 from gpytorch import settings
@@ -25,23 +27,44 @@ class _DeepGPVariationalStrategy(object):
         return sum(strategy.kl_divergence().sum() for strategy in self.sub_variational_strategies)
 
 
-class AbstractDeepGPLayer(ApproximateGP):
+class DeepGPLayer(ApproximateGP):
+    """
+    Represents a layer in a deep GP where inference is performed via the doubly stochastic method of
+    Salimbeni et al., 2017. Upon calling, instead of returning a variational distribution q(f), returns samples
+    from the variational distribution.
+
+    See the documentation for __call__ below for more details below. Note that the behavior of __call__
+    will change to be much more elegant with multiple batch dimensions; however, the interface doesn't really
+    change.
+
+    :param ~gpytorch.variational.VariationalStrategy variational_strategy: Strategy for
+        changing q(u) -> q(f) (see other VI docs)
+    :param int input_dims`: Dimensionality of input data expected by each GP
+    :param int output_dims: (default None) Number of GPs in this layer, equivalent to
+        output dimensionality. If set to `None`, then the output dimension will be squashed.
+
+    Forward data through this hidden GP layer. The output is a MultitaskMultivariateNormal distribution
+    (or MultivariateNormal distribution is output_dims=None).
+
+    If the input is >=2 dimensional Tensor (e.g. `n x d`), we pass the input through each hidden GP,
+    resulting in a `n x h` multitask Gaussian distribution (where all of the `h` tasks represent an
+    output dimension and are independent from one another).  We then draw `s` samples from these Gaussians,
+    resulting in a `s x n x h` MultitaskMultivariateNormal distribution.
+
+    If the input is a >=3 dimensional Tensor, and the `are_samples=True` kwarg is set, then we assume that
+    the outermost batch dimension is a samples dimension. The output will have the same number of samples.
+    For example, a `s x b x n x d` input will result in a `s x b x n x h` MultitaskMultivariateNormal distribution.
+
+    The goal of these last two points is that if you have a tensor `x` that is `n x d`, then
+
+        >>> hidden_gp2(hidden_gp(x))
+
+    will just work, and return a tensor of size `s x n x h2`, where `h2` is the output dimensionality of
+    hidden_gp2. In this way, hidden GP layers are easily composable.
+    """
+
     def __init__(self, variational_strategy, input_dims, output_dims):
-        """
-        Represents a layer in a deep GP where inference is performed via the doubly stochastic method of
-        Salimbeni et al., 2017. Upon calling, instead of returning a variational distribution q(f), returns samples
-        from the variational distribution.
-
-        See the documentation for __call__ below for more details below. Note that the behavior of __call__
-        will change to be much more elegant with multiple batch dimensions; however, the interface doesn't really
-        change.
-
-        Args:
-            - variational_strategy (VariationalStrategy): Strategy for changing q(u) -> q(f) (see other VI docs)
-            - input_dims (int): Dimensionality of input data expected by each GP
-            - output_dims (int or None): Number of GPs in this layer, equivalent to output dimensionality.
-        """
-        super(AbstractDeepGPLayer, self).__init__(variational_strategy)
+        super(DeepGPLayer, self).__init__(variational_strategy)
         self.input_dims = input_dims
         self.output_dims = output_dims
 
@@ -49,25 +72,6 @@ class AbstractDeepGPLayer(ApproximateGP):
         raise NotImplementedError
 
     def __call__(self, inputs, are_samples=False, **kwargs):
-        """
-        Forward data through this hidden GP layer. The output is a MultitaskMultivariateNormal distribution
-        (or MultivariateNormal distribution is output_dims=None).
-
-        If the input is >=2 dimensional Tensor (e.g. `n x d`), we pass the input through each hidden GP,
-        resulting in a `n x h` multitask Gaussian distribution (where all of the `h` tasks represent an
-        output dimension and are independent from one another).  We then draw `s` samples from these Gaussians,
-        resulting in a `s x n x h` MultitaskMultivariateNormal distribution.
-
-        If the input is a >=3 dimensional Tensor, and the `are_samples=True` kwarg is set, then we assume that
-        the outermost batch dimension is a samples dimension. The output will have the same number of samples.
-        For example, a `s x b x n x d` input will result in a `s x b x n x h` MultitaskMultivariateNormal distribution.
-
-        The goal of these last two points is that if you have a tensor `x` that is `n x d`, then:
-            >>> hidden_gp2(hidden_gp(x))
-
-        will just work, and return a tensor of size `s x n x h2`, where `h2` is the output dimensionality of
-        hidden_gp2. In this way, hidden GP layers are easily composable.
-        """
         deterministic_inputs = not are_samples
         if isinstance(inputs, MultitaskMultivariateNormal):
             inputs = torch.distributions.Normal(loc=inputs.mean, scale=inputs.variance.sqrt()).rsample()
@@ -105,12 +109,14 @@ class AbstractDeepGPLayer(ApproximateGP):
         return output
 
 
-class AbstractDeepGP(GP):
+class DeepGP(GP):
+    """
+    A container module to build a DeepGP.
+    This module should contain :obj:`~gpytorch.models.deep.DeepGPLayer`
+    modules, and can also contain other modules as well.
+    """
+
     def __init__(self):
-        """
-        A container module to build a DeepGP.
-        This module should contain `AbstractDeepGPLayer` modules, and can also contain other modules as well.
-        """
         super().__init__()
         self.variational_strategy = _DeepGPVariationalStrategy(self)
 
@@ -119,14 +125,20 @@ class AbstractDeepGP(GP):
 
 
 class DeepLikelihood(Likelihood):
-    def __init__(self, base_likelihood):
-        """
-        A wrapper to make a GPyTorch likelihood compatible with Deep GPs
+    """
+    A wrapper to make a GPyTorch likelihood compatible with Deep GPs
 
-        Example:
-            >>> deep_gaussian_likelihood = gpytorch.likelihoods.DeepLikelihood(gpytorch.likelihood.GaussianLikelihood)
-        """
+    Example:
+        >>> deep_gaussian_likelihood = gpytorch.likelihoods.DeepLikelihood(gpytorch.likelihood.GaussianLikelihood)
+    """
+
+    def __init__(self, base_likelihood):
         super().__init__()
+        warnings.warn(
+            "DeepLikelihood is now deprecated. Use a standard likelihood in conjunction with a "
+            "gpytorch.mlls.DeepApproximateMLL. See the DeepGP example in our documentation.",
+            DeprecationWarning,
+        )
         self.base_likelihood = base_likelihood
 
     def expected_log_prob(self, observations, function_dist, *params, **kwargs):

@@ -69,34 +69,28 @@ class PyroGP(GP, _PyroMixin):
         self.likelihood.name_prefix = name_prefix
 
     def guide(self, input, target, *args, **kwargs):
-        """
+        r"""
         Guide function for Pyro inference.
         Includes the guide for the GP's likelihood function as well.
 
-        Args:
-            :attr:`input` (`torch.Tensor`):
-                :math:`\mathbf X` The input values values
-            :attr:`target` (`torch.Tensor`):
-                :math:`\mathbf y` The target values
-            :attr:`*args`, :attr:`**kwargs`:
-                Additional arguments passed to the likelihood's `forward` function.
+        :param torch.Tensor input: :math:`\mathbf X` The input values values
+        :param torch.Tensor target: :math:`\mathbf y` The target values
+        :param args: Additional arguments passed to the likelihood's forward function.
+        :param kwargs: Additional keyword arguments passed to the likelihood's forward function.
         """
         # Get q(f)
         function_dist = self.pyro_guide(input, beta=self.beta, name_prefix=self.name_prefix)
         return self.likelihood.pyro_guide(function_dist, target, *args, **kwargs)
 
     def model(self, input, target, *args, **kwargs):
-        """
+        r"""
         Model function for Pyro inference.
         Includes the model for the GP's likelihood function as well.
 
-        Args:
-            :attr:`input` (`torch.Tensor`):
-                :math:`\mathbf X` The input values values
-            :attr:`target` (`torch.Tensor`):
-                :math:`\mathbf y` The target values
-            :attr:`*args`, :attr:`**kwargs`:
-                Additional arguments passed to the likelihood's `forward` function.
+        :param torch.Tensor input: :math:`\mathbf X` The input values values
+        :param torch.Tensor target: :math:`\mathbf y` The target values
+        :param args: Additional arguments passed to the likelihood's forward function.
+        :param kwargs: Additional keyword arguments passed to the likelihood's forward function.
         """
         # Include module
         pyro.module(self.name_prefix + ".gp", self)
