@@ -4,19 +4,15 @@
 
 [![forthebadge](https://forthebadge.com/images/badges/ages-12.svg)](https://forthebadge.com)
 
-**News!**
- - The Beta release is currently out! Note that it **requires PyTorch >= 1.3**
- - If you need to install the alpha release (we recommend you use the latest version though!), check out [the alpha release](https://github.com/cornellius-gp/gpytorch/tree/alpha).
-
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease.
 
 Internally, GPyTorch differs from many existing approaches to GP inference by performing all inference operations using modern numerical linear algebra techniques like preconditioned conjugate gradients. Implementing a scalable GP method is as simple as providing a matrix multiplication routine with the kernel matrix and its derivative via our `LazyTensor` interface, or by composing many of our already existing `LazyTensors`. This allows not only for easy implementation of popular scalable GP techniques, but often also for significantly improved utilization of GPU computing compared to solvers based on the Cholesky decomposition.
 
 GPyTorch provides (1) significant GPU acceleration (through MVM based inference); (2) state-of-the-art implementations of the latest algorithmic advances for scalability and flexibility ([SKI/KISS-GP](http://proceedings.mlr.press/v37/wilson15.pdf), [stochastic Lanczos expansions](https://arxiv.org/abs/1711.03481), [LOVE](https://arxiv.org/pdf/1803.06058.pdf), [SKIP](https://arxiv.org/pdf/1802.08903.pdf), [stochastic variational](https://arxiv.org/pdf/1611.00336.pdf) [deep kernel learning](http://proceedings.mlr.press/v51/wilson16.pdf), ...); (3) easy integration with deep learning frameworks.
 
-## Examples and Tutorials
+## Examples, Tutorials, and Documentation
 
-See our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gpytorch/blob/master/examples) on how to construct all sorts of models in GPyTorch. These example notebooks and a walk through of GPyTorch are also available at our **ReadTheDocs page [here](https://gpytorch.readthedocs.io/en/latest/index.html)**.
+See our numerous [**examples and tutorials**](https://gpytorch.readthedocs.io/en/latest/) on how to construct all sorts of models in GPyTorch.
 
 ## Installation
 
@@ -24,23 +20,14 @@ See our numerous [**examples and tutorials**](http://github.com/cornellius-gp/gp
 - Python >= 3.6
 - PyTorch >= 1.3
 
-**N.B.** GPyTorch will not run on PyTorch 0.4.1 or earlier versions.
-
-First make sure that you have PyTorch (`>= 1.3
-
-
-
-
-`) installed using the appropriate command from [here](https://pytorch.org/get-started/locally/).
-
-Then install GPyTorch using pip or conda:
+Install GPyTorch using pip or conda:
 
 ```bash
 pip install gpytorch
 conda install gpytorch -c gpytorch
 ```
 
-To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.
+(To use packages globally but install GPyTorch as a user-only package, use `pip install --user` above.)
 
 #### Latest (unstable) version
 
@@ -63,12 +50,6 @@ If you use GPyTorch, please cite the following papers:
 }
 ```
 
-## Documentation
-
-- For **tutorials and examples**, check out [the examples folder](https://github.com/cornellius-gp/gpytorch/tree/master/examples).
-- For in-depth **documentation**, check out our [read the docs](http://gpytorch.readthedocs.io/).
-
-
 ## Development
 
 To run the unit tests:
@@ -80,12 +61,6 @@ By default, the random seeds are locked down for some of the tests.
 If you want to run the tests without locking down the seed, run
 ```bash
 UNLOCK_SEED=true python -m unittest
-```
-
-Please lint the code with `flake8`.
-```bash
-pip install flake8  # if not already installed
-flake8
 ```
 
 If you plan on submitting a pull request, please make use of our pre-commit hooks to ensure that your commits adhere
