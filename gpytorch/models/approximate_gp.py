@@ -11,7 +11,7 @@ class ApproximateGP(GP, _PyroMixin):
     This base class can be used to implement most inducing point methods where the
     variational parameters are learned directly.
 
-    :param ~gpytorch.variational._VariationalStrategy train_inputs: The strategy that determines
+    :param ~gpytorch.variational._VariationalStrategy variational_strategy: The strategy that determines
         how the model marginalizes over the variational distribution (over inducing points)
         to produce the approximate posterior distribution (over data)
 
