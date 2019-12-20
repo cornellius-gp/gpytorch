@@ -1,4 +1,12 @@
-# GPyTorch (Beta Release)
+# GPyTorch
+
+---
+__News: GPyTorch v1.0.0__
+
+GPyTorch v1.0.0 has just been released. This release marks our exit from beta status and in to what we consider stable software. This means that we do not expect you to encounter any major bugs when using stable features.
+
+---
+
 [![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
 [![Documentation Status](https://readthedocs.org/projects/gpytorch/badge/?version=latest)](https://gpytorch.readthedocs.io/en/latest/?badge=latest)
 
