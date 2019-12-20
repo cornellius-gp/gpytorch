@@ -112,7 +112,8 @@ class DeepGPLayer(ApproximateGP):
 class DeepGP(GP):
     """
     A container module to build a DeepGP.
-    This module should contain `DeepGPLayer` modules, and can also contain other modules as well.
+    This module should contain :obj:`~gpytorch.models.deep.DeepGPLayer`
+    modules, and can also contain other modules as well.
     """
 
     def __init__(self):
