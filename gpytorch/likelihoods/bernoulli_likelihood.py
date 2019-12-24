@@ -39,6 +39,7 @@ class BernoulliLikelihood(_OneDimensionalLikelihood):
 
     def expected_log_prob(self, observations, function_dist, *params, **kwargs):
         if torch.any(observations.eq(-1)):
+            # Remove after 1.0
             warnings.warn(
                 "BernoulliLikelihood.expected_log_prob expects observations with labels in {0, 1}. "
                 "Observations with labels in {-1, 1} are deprecated.",

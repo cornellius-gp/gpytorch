@@ -4,8 +4,9 @@ from typing import List, Optional, Tuple, Union
 
 import torch
 
-from ..lazy import InterpolatedLazyTensor
+from ..lazy import InterpolatedLazyTensor, lazify
 from ..models.exact_prediction_strategies import InterpolatedPredictionStrategy
+from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.grid import create_grid
 from ..utils.interpolation import Interpolation
 from .grid_kernel import GridKernel
@@ -113,7 +114,7 @@ class GridInterpolationKernel(GridKernel):
         grid = create_grid(self.grid_sizes, self.grid_bounds)
 
         super(GridInterpolationKernel, self).__init__(
-            base_kernel=base_kernel, grid=grid, interpolation_mode=True, active_dims=active_dims
+            base_kernel=base_kernel, grid=grid, interpolation_mode=True, active_dims=active_dims,
         )
         self.register_buffer("has_initialized_grid", torch.tensor(has_initialized_grid, dtype=torch.bool))
 
@@ -168,14 +169,14 @@ class GridInterpolationKernel(GridKernel):
                     (x_min - 2.01 * spacing, x_max + 2.01 * spacing)
                     for x_min, x_max, spacing in zip(x_mins, x_maxs, grid_spacings)
                 )
-                grid = create_grid(self.grid_sizes, self.grid_bounds)
+                grid = create_grid(
+                    self.grid_sizes, self.grid_bounds, dtype=self.grid[0].dtype, device=self.grid[0].device,
+                )
                 self.update_grid(grid)
 
-        base_lazy_tsr = self._inducing_forward(last_dim_is_batch=last_dim_is_batch, **params)
+        base_lazy_tsr = lazify(self._inducing_forward(last_dim_is_batch=last_dim_is_batch, **params))
         if last_dim_is_batch:
             base_lazy_tsr = base_lazy_tsr.repeat(*x1.shape[:-2], x1.size(-1), 1, 1)
-        if x1.dim() > 2:
-            base_lazy_tsr = base_lazy_tsr.repeat(*x1.shape[:-2], 1, 1)
 
         left_interp_indices, left_interp_values = self._compute_grid(x1, last_dim_is_batch)
         if torch.equal(x1, x2):
@@ -184,12 +185,15 @@ class GridInterpolationKernel(GridKernel):
         else:
             right_interp_indices, right_interp_values = self._compute_grid(x2, last_dim_is_batch)
 
+        batch_shape = _mul_broadcast_shape(
+            base_lazy_tsr.batch_shape, left_interp_indices.shape[:-2], right_interp_indices.shape[:-2],
+        )
         res = InterpolatedLazyTensor(
-            base_lazy_tsr,
-            left_interp_indices.detach(),
-            left_interp_values,
-            right_interp_indices.detach(),
-            right_interp_values,
+            base_lazy_tsr.expand(*batch_shape, *base_lazy_tsr.matrix_shape),
+            left_interp_indices.detach().expand(*batch_shape, *left_interp_indices.shape[-2:]),
+            left_interp_values.expand(*batch_shape, *left_interp_values.shape[-2:]),
+            right_interp_indices.detach().expand(*batch_shape, *right_interp_indices.shape[-2:]),
+            right_interp_values.expand(*batch_shape, *right_interp_values.shape[-2:]),
         )
 
         if diag:

@@ -17,26 +17,6 @@ class DeprecationError(Exception):
     pass
 
 
-class _ClassWithDeprecatedBatchSize(object):
-    def _batch_shape_state_dict_hook(
-        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-    ):
-        try:
-            current_state_dict = self.state_dict()
-            for name, param in current_state_dict.items():
-                load_param = state_dict[prefix + name]
-                if load_param.dim() == param.dim() + 1:
-                    warnings.warn(
-                        f"The supplied state_dict contains a parameter ({prefix + name}) with an extra batch "
-                        f"dimension ({load_param.shape} vs {param.shape}).\nDefault batch shapes are now "
-                        "deprecated in GPyTorch. You may wish to re-save your model.",
-                        DeprecationWarning,
-                    )
-                    load_param.squeeze_(0)
-        except Exception:
-            pass
-
-
 def _deprecated_function_for(old_function_name, function):
     @functools.wraps(function)
     def _deprecated_function(*args, **kwargs):

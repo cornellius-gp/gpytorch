@@ -10,7 +10,6 @@ from torch import Tensor
 
 from ..distributions import MultivariateNormal, base_distributions
 from ..lazy import ZeroLazyTensor
-from ..utils.deprecation import _deprecate_kwarg_with_transform
 from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 
@@ -73,8 +72,11 @@ class _GaussianLikelihoodBase(Likelihood):
     def crps_likelihood(self, target: Tensor, input: tuple, *params: Any, **kwargs: Any) -> Tensor:
         noise = self._shaped_noise_covar(input.mean.shape, *params, **kwargs).diag()
         sigma = (input.variance + noise).sqrt()
-        crps = sigma * (1.0 / math.sqrt(math.pi) - 2.0 * phi(target, input.mean, sigma) - \
-               ((target - input.mean) / sigma) * (2.0 * Phi(target, input.mean, sigma) - 1.0) )
+        crps = sigma * (
+            1.0 / math.sqrt(math.pi)
+            - 2.0 * phi(target, input.mean, sigma)
+            - ((target - input.mean) / sigma) * (2.0 * Phi(target, input.mean, sigma) - 1.0)
+        )
         return crps
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
@@ -104,9 +106,6 @@ class _GaussianLikelihoodBase(Likelihood):
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), **kwargs):
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
         )
@@ -163,9 +162,6 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     ) -> None:
         super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
 
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
         if learn_additional_noise:
             noise_prior = kwargs.get("noise_prior", None)
             noise_constraint = kwargs.get("noise_constraint", None)

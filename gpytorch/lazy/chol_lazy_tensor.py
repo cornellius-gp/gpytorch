@@ -17,7 +17,7 @@ class CholLazyTensor(RootLazyTensor):
             )
             mask = torch.ones(delazy_chol.shape[-2:], dtype=delazy_chol.dtype, device=delazy_chol.device).triu_(1)
             if torch.max(delazy_chol.mul(mask)).item() > 1e-3 and torch.equal(delazy_chol, delazy_chol):
-                raise RuntimeError("CholLazyVaraiable should take a lower-triangular matrix in the constructor.")
+                raise RuntimeError("CholLazyVariable should take a lower-triangular matrix in the constructor.")
 
         # Run super constructor
         super(CholLazyTensor, self).__init__(chol)

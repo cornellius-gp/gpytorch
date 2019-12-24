@@ -15,6 +15,7 @@ VariationalGP = ApproximateGP
 
 # Deprecated for 0.4 release
 class AbstractVariationalGP(ApproximateGP):
+    # Remove after 1.0
     def __init__(self, *args, **kwargs):
         warnings.warn("AbstractVariationalGP has been renamed to ApproximateGP.", DeprecationWarning)
         super().__init__(*args, **kwargs)
@@ -22,6 +23,7 @@ class AbstractVariationalGP(ApproximateGP):
 
 # Deprecated for 0.4 release
 class PyroVariationalGP(ApproximateGP):
+    # Remove after 1.0
     def __init__(self, *args, **kwargs):
         warnings.warn("PyroVariationalGP has been renamed to PyroGP.", DeprecationWarning)
         super().__init__(*args, **kwargs)

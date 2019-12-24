@@ -46,7 +46,7 @@ class IndependentModelList(AbstractModelList):
         return self.likelihood.likelihoods[i](*args, **kwargs)
 
     def forward(self, *args, **kwargs):
-        [model.forward(*args_, **kwargs) for model, args_ in zip(self.models, _get_tensor_args(*args))]
+        return [model.forward(*args_, **kwargs) for model, args_ in zip(self.models, _get_tensor_args(*args))]
 
     def get_fantasy_model(self, inputs, targets, **kwargs):
         """

@@ -4,6 +4,7 @@ import warnings
 
 from .added_loss_term import AddedLossTerm
 from .crps_elbo import CRPSELBO
+from .deep_approximate_mll import DeepApproximateMLL
 from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from .gamma_robust_variational_elbo import GammaRobustVariationalELBO
 from .inducing_point_kernel_added_loss_term import InducingPointKernelAddedLossTerm
@@ -18,6 +19,7 @@ from .variational_fitc_elbo import VariationalFITCELBO
 # Deprecated for 0.4 release
 class VariationalMarginalLogLikelihood(VariationalELBO):
     def __init__(self, *args, **kwargs):
+        # Remove after 1.0
         warnings.warn(
             "VariationalMarginalLogLikelihood is deprecated. Please use VariationalELBO instead.", DeprecationWarning
         )
@@ -26,6 +28,7 @@ class VariationalMarginalLogLikelihood(VariationalELBO):
 
 class VariationalELBOEmpirical(VariationalELBO):
     def __init__(self, *args, **kwargs):
+        # Remove after 1.0
         warnings.warn("VariationalELBOEmpirical is deprecated. Please use VariationalELBO instead.", DeprecationWarning)
         super().__init__(*args, **kwargs)
 
@@ -33,6 +36,7 @@ class VariationalELBOEmpirical(VariationalELBO):
 __all__ = [
     "AddedLossTerm",
     "CRPSELBO",
+    "DeepApproximateMLL",
     "ExactMarginalLogLikelihood",
     "InducingPointKernelAddedLossTerm",
     "MarginalLogLikelihood",

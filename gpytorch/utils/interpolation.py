@@ -39,7 +39,7 @@ class Interpolation(object):
         res = res + (((-0.5 * U + 2.5).mul(U) - 4).mul(U) + 2) * U_ge_1_le_2
         return res
 
-    def interpolate(self, x_grid: List[torch.Tensor], x_target: torch.Tensor, interp_points=range(-2, 2)):
+    def interpolate(self, x_grid: List[torch.Tensor], x_target: torch.Tensor, interp_points=range(-2, 2), eps=1e-10):
         if torch.is_tensor(x_grid):
             x_grid = convert_legacy_grid(x_grid)
         num_target_points = x_target.size(0)
@@ -99,7 +99,7 @@ class Interpolation(object):
 
         for i in range(num_dim):
             num_grid_points = x_grid[i].size(0)
-            grid_delta = x_grid[i][1] - x_grid[i][0]
+            grid_delta = (x_grid[i][1] - x_grid[i][0]).clamp_min_(eps)
             # left-bounding grid point in index space
             lower_grid_pt_idxs = torch.floor((x_target[:, i] - x_grid[i][0]) / grid_delta)
             # distance from that left-bounding grid point, again in index space
