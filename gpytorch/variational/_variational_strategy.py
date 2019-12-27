@@ -6,8 +6,10 @@ import torch
 
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
+from ..lazy import delazify
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 
 
@@ -34,6 +36,20 @@ class _VariationalStrategy(Module, ABC):
         # Variational distribution
         self._variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
+
+    @cached(name="cholesky_factor")
+    def _cholesky_factor(self, induc_induc_covar):
+        """
+        Computes the Cholesky factor of the prior inducing covariance matrix.
+        The result is cached for every training iteration.
+        This is used by only some variational strategies.
+
+        :param torch.Tensor induc_induc_covar: The prior inducing covariance matrix.
+        :rtype: :obj:`torch.Tensor`
+        :return: The cholesky factor.
+        """
+        L = psd_safe_cholesky(delazify(induc_induc_covar).double())
+        return L
 
     @abstractproperty
     @cached(name="prior_distribution_memo")
@@ -92,7 +108,7 @@ class _VariationalStrategy(Module, ABC):
                 delattr(self, "_memoize_cache")
         return super().train(mode=mode)
 
-    def __call__(self, x, prior=False):
+    def __call__(self, x, prior=False, return_map_dist=False):
         # If we're in prior mode, then we're done!
         if prior:
             return self.model.forward(x)
@@ -120,18 +136,24 @@ class _VariationalStrategy(Module, ABC):
 
         # Get q(f)
         if isinstance(variational_dist_u, MultivariateNormal):
-            return super().__call__(
+            pred_distribution, pred_distribution_map = super().__call__(
                 x,
                 inducing_points,
                 inducing_values=variational_dist_u.mean,
                 variational_inducing_covar=variational_dist_u.lazy_covariance_matrix,
             )
         elif isinstance(variational_dist_u, Delta):
-            return super().__call__(
+            pred_distribution = super().__call__(
                 x, inducing_points, inducing_values=variational_dist_u.mean, variational_inducing_covar=None
             )
+            pred_distribution_map = pred_distribution
         else:
             raise RuntimeError(
                 f"Invalid variational distribuition ({type(variational_dist_u)}). "
                 "Expected a multivariate normal or a delta distribution."
             )
+
+        if return_map_dist:
+            return pred_distribution, pred_distribution_map
+        else:
+            return pred_distribution

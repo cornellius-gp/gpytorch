@@ -25,6 +25,10 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
         self.num_tasks = num_tasks
 
     @property
+    def _cholesky_factor(self, induc_induc_covar):
+        return self.base_variational_strategy._cholesky_factor(induc_induc_covar)
+
+    @property
     def prior_distribution(self):
         return self.base_variational_strategy.prior_distribution
 

@@ -3,7 +3,7 @@
 import torch
 
 from ..distributions import MultivariateNormal
-from ..lazy import InterpolatedLazyTensor
+from ..lazy import InterpolatedLazyTensor, ZeroLazyTensor
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.interpolation import Interpolation, left_interp
 from ..utils.memoize import cached
@@ -101,5 +101,9 @@ class GridInterpolationVariationalStrategy(_VariationalStrategy):
             interp_indices,
             interp_values,
         )
-        output = MultivariateNormal(predictive_mean, predictive_covar)
-        return output
+        pred_distribution = MultivariateNormal(predictive_mean, predictive_covar)
+        pred_distribution_map = MultivariateNormal(
+            predictive_mean,
+            ZeroLazyTensor(*predictive_covar.shape, dtype=predictive_covar.dtype, device=predictive_covar.device),
+        )
+        return pred_distribution, pred_distribution_map
