@@ -17,6 +17,7 @@ class OrthogonalDecoupledVariationalStrategy(_VariationalStrategy):
 
     def __init__(self, model, inducing_points, variational_distribution):
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=True)
+        self.base_variational_strategy = model
 
     @property
     @cached(name="prior_distribution_memo")

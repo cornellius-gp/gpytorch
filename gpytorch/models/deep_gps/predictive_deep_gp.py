@@ -12,7 +12,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 
 from ..approximate_gp import ApproximateGP
 from ..gp import GP
-from .deep_gp import AbstractDeepGPLayer
+from .deep_gp import DeepGPLayer as AbstractDeepGPLayer
 
 
 class _DeepGPVariationalStrategy(object):
