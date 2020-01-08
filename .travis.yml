@@ -33,7 +33,11 @@ script:
       python setup.py build develop;
       grep -l smoke_test examples/**/*.ipynb | xargs grep -L 'smoke_test = False' | CI=true xargs pytest --nbval-lax --current-env;
     else
-      python -m unittest discover;
+      if [[ $PYTORCH_VERSION = "master" ]]; then
+        python -W ignore -m unittest discover;
+      else
+        python -m unittest discover;
+      fi
     fi
 
 matrix:
