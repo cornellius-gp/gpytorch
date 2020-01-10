@@ -263,7 +263,11 @@ class Module(nn.Module):
             base_name = ".".join(components[1:])
 
         constraint_name = base_name + "_constraint"
-        return base_module._constraints.get(constraint_name)
+
+        if hasattr(base_module, "_constraints"):
+            return base_module._constraints.get(constraint_name)
+        else:
+            return None
 
     def named_parameters_and_constraints(self):
         for name, param in self.named_parameters():
