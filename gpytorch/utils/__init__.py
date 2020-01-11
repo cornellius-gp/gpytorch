@@ -3,6 +3,7 @@
 from . import broadcasting, cholesky, fft, grid, interpolation, lanczos, pivoted_cholesky, quadrature, sparse
 from .linear_cg import linear_cg
 from .memoize import cached
+from .minres import minres
 from .stochastic_lq import StochasticLQ
 
 
@@ -28,6 +29,7 @@ __all__ = [
     "grid",
     "interpolation",
     "lanczos",
+    "minres",
     "pivoted_cholesky",
     "quadrature",
     "sparse",
