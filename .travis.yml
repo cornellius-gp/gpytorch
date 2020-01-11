@@ -3,6 +3,7 @@ language: python
 branches:
   only:
     - master
+    - ciq
 
 python:
   - "3.6"
