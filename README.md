@@ -44,6 +44,8 @@ pip install --upgrade git+https://github.com/cornellius-gp/gpytorch.git
 ```
 
 ### ArchLinux Package
+Note: The ArchLinux package is not tested by the GPyTorch developers.
+
 GPyTorch is also available on the [ArchLinux User Repository](https://wiki.archlinux.org/index.php/Arch_User_Repository) (AUR).
 You can install it with an [AUR helper](https://wiki.archlinux.org/index.php/AUR_helpers), like [`yay`](https://aur.archlinux.org/packages/yay/), as follows:
 
