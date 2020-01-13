@@ -6,8 +6,17 @@ import torch
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..lazy import CachedCGLazyTensor, CholLazyTensor, DiagLazyTensor, PsdSumLazyTensor, RootLazyTensor, ZeroLazyTensor
+from ..lazy import (
+    CachedCGLazyTensor,
+    CholLazyTensor,
+    DiagLazyTensor,
+    PsdSumLazyTensor,
+    RootLazyTensor,
+    ZeroLazyTensor,
+    delazify,
+)
 from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
@@ -36,6 +45,12 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         parameters of the model).
     """
 
+    @cached(name="cholesky_factor")
+    def _cholesky_factor(self, induc_induc_covar):
+        # Maybe used - if we're not using CG
+        L = psd_safe_cholesky(delazify(induc_induc_covar))
+        return L
+
     @property
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
@@ -49,17 +64,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
             if variational_inducing_covar is None:
                 raise RuntimeError
             else:
-                return (
-                    MultivariateNormal(inducing_values, variational_inducing_covar),
-                    MultivariateNormal(
-                        inducing_values,
-                        ZeroLazyTensor(
-                            *variational_inducing_covar.shape,
-                            dtype=variational_inducing_covar.dtype,
-                            device=variational_inducing_covar.device,
-                        ),
-                    ),
-                )
+                return MultivariateNormal(inducing_values, variational_inducing_covar)
 
         # Otherwise, we have to marginalize
         num_induc = inducing_points.size(-2)
@@ -80,7 +85,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         # If we're less than a certain size, we'll compute the Cholesky decomposition of induc_induc_covar
         cholesky = False
         if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
-            induc_induc_covar = CholLazyTensor(self._cholesky_factor(induc_induc_covar).to(induc_induc_covar.dtype))
+            induc_induc_covar = CholLazyTensor(self._cholesky_factor(induc_induc_covar))
             cholesky = True
 
         # If we are making predictions and don't need variances, we can do things very quickly.
@@ -94,10 +99,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
                 test_mean, induc_data_covar.transpose(-2, -1).matmul(self._mean_cache).squeeze(-1)
             )
             predictive_covar = ZeroLazyTensor(test_mean.size(-1), test_mean.size(-1))
-            return (
-                MultivariateNormal(predictive_mean, predictive_covar),
-                MultivariateNormal(predictive_mean, predictive_covar),
-            )
+            return MultivariateNormal(predictive_mean, predictive_covar)
 
         # Expand everything to the right size
         shapes = [mean_diff.shape[:-1], induc_data_covar.shape[:-1], induc_induc_covar.shape[:-1]]
@@ -171,14 +173,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
                 induc_data_covar.transpose(-1, -2).mul(-1), induc_induc_covar.inv_matmul(induc_data_covar)
             )
             data_covariance = data_data_covar + neg_induc_data_data_covar
+        predictive_covar = PsdSumLazyTensor(RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2)), data_covariance)
 
         # Done!
-        pred_distribution_map = MultivariateNormal(predictive_mean, data_covariance)
-        if variational_inducing_covar is None:
-            return pred_distribution_map
-        else:
-            pred_distribution = MultivariateNormal(
-                predictive_mean,
-                PsdSumLazyTensor(RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2)), data_covariance),
-            )
-            return pred_distribution, pred_distribution_map
+        return MultivariateNormal(predictive_mean, predictive_covar)
