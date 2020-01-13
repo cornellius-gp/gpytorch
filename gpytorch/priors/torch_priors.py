@@ -118,9 +118,6 @@ class MultivariateNormalPrior(Prior, MultivariateNormal):
         return module
 
     def expand(self, batch_shape):
-        from IPython.core.debugger import set_trace
-
-        set_trace()
         batch_shape = torch.Size(batch_shape)
         cov_shape = batch_shape + self.event_shape
         new_loc = self.loc.expand(batch_shape)
