@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import warnings
+
 import torch
 from torch.autograd import Function
 
@@ -69,15 +71,58 @@ class InvQuadLogDet(Function):
         if (probe_vectors is None or probe_vector_norms is None) and logdet:
             num_random_probes = settings.num_trace_samples.value()
             if preconditioner is None:
-                probe_vectors = torch.empty(matrix_shape[-1], num_random_probes, dtype=dtype, device=device)
-                probe_vectors.bernoulli_().mul_(2).add_(-1)
+                if settings.deterministic_probes.on():
+                    warnings.warn(
+                        "Deterministic probes will currently work only if you aren't training multiple independent"
+                        " models simultaneously."
+                    )
+                    if settings.deterministic_probes.probe_vectors is None:
+                        probe_vectors = torch.empty(matrix_shape[-1], num_random_probes, dtype=dtype, device=device)
+                        probe_vectors.bernoulli_().mul_(2).add_(-1)
+                        settings.deterministic_probes.probe_vectors = probe_vectors
+                    else:
+                        probe_vectors = settings.deterministic_probes.probe_vectors
+                else:
+                    probe_vectors = torch.empty(matrix_shape[-1], num_random_probes, dtype=dtype, device=device)
+                    probe_vectors.bernoulli_().mul_(2).add_(-1)
+
                 probe_vector_norms = torch.norm(probe_vectors, 2, dim=-2, keepdim=True)
                 if batch_shape is not None:
                     probe_vectors = probe_vectors.expand(*batch_shape, matrix_shape[-1], num_random_probes)
                     probe_vector_norms = probe_vector_norms.expand(*batch_shape, 1, num_random_probes)
-            else:
-                probe_vectors = precond_lt.zero_mean_mvn_samples(num_random_probes)
-                probe_vectors = probe_vectors.unsqueeze(-2).transpose(0, -2).squeeze(0).transpose(-2, -1)
+            else:  # When preconditioning, probe vectors must be drawn from N(0, P)
+                if precond_lt.size()[-2:] == torch.Size([1, 1]):
+                    covar_root = precond_lt.evaluate().sqrt()
+                else:
+                    covar_root = precond_lt.root_decomposition().root
+
+                if settings.deterministic_probes.on():
+                    warnings.warn(
+                        "Deterministic probes will currently work only if you aren't training multiple independent"
+                        " models simultaneously."
+                    )
+                    base_samples = settings.deterministic_probes.probe_vectors
+                    if base_samples is None or covar_root.size(-1) != base_samples.size(-2):
+                        base_samples = torch.randn(
+                            *precond_lt.batch_shape,
+                            covar_root.size(-1),
+                            num_random_probes,
+                            dtype=precond_lt.dtype,
+                            device=precond_lt.device,
+                        )
+                        settings.deterministic_probes.probe_vectors = base_samples
+
+                    probe_vectors = covar_root.matmul(base_samples).permute(-1, *range(precond_lt.dim() - 1))
+                else:
+                    base_samples = torch.randn(
+                        *precond_lt.batch_shape,
+                        covar_root.size(-1),
+                        num_random_probes,
+                        dtype=precond_lt.dtype,
+                        device=precond_lt.device,
+                    )
+                    probe_vectors = precond_lt.zero_mean_mvn_samples(num_random_probes)
+                probe_vectors = probe_vectors.unsqueeze(-2).transpose(0, -2).squeeze(0).transpose(-2, -1).contiguous()
                 probe_vector_norms = torch.norm(probe_vectors, p=2, dim=-2, keepdim=True)
             probe_vectors = probe_vectors.div(probe_vector_norms)
 

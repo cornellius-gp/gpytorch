@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 
 from ..module import Module
-from ..utils.deprecation import _ClassWithDeprecatedBatchSize
 
 
-class Mean(Module, _ClassWithDeprecatedBatchSize):
+class Mean(Module):
     """
     Mean function.
     """
 
     def __init__(self):
         super().__init__()
-        self._register_load_state_dict_pre_hook(self._batch_shape_state_dict_hook)
 
     def forward(self, x):
         raise NotImplementedError()

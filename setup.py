@@ -59,9 +59,9 @@ setup(
     extras_require={
         "dev": ["black", "twine", "pre-commit"],
         "docs": ["ipython", "ipykernel", "sphinx", "sphinx_rtd_theme", "nbsphinx", "m2r"],
-        "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision"],
+        "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
         "pyro": ["pyro-ppl>=1.0.0"],
         "keops": ["pykeops>=1.1.1"],
-        "test": ["flake8", "flake8-print"],
+        "test": ["flake8", "flake8-print", "pytest", "nbval"],
     },
 )

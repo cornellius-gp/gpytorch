@@ -2,7 +2,6 @@
 
 import torch
 
-from ..utils.deprecation import _deprecated_function_for
 from ._dsmm import DSMM
 from ._log_normal_cdf import LogNormalCDF
 from .matern_covariance import MaternCovariance
@@ -188,10 +187,6 @@ def root_inv_decomposition(mat, initial_vectors=None, test_vectors=None):
     from ..lazy import lazify
 
     return lazify(mat).root_inv_decomposition(initial_vectors, test_vectors)
-
-
-log_det = _deprecated_function_for("log_det", logdet)
-inv_quad_log_det = _deprecated_function_for("inv_quad_log_det", inv_quad_logdet)
 
 
 __all__ = [

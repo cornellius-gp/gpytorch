@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import torch
 from torch.distributions import Gamma, LogNormal, MultivariateNormal, Normal, Uniform
 from torch.nn import Module as TModule
 
@@ -25,7 +26,8 @@ class NormalPrior(Prior, Normal):
         self._transform = transform
 
     def expand(self, batch_shape):
-        return Normal.expand(self, batch_shape, _instance=self)
+        batch_shape = torch.Size(batch_shape)
+        return NormalPrior(self.loc.expand(batch_shape), self.scale.expand(batch_shape))
 
 
 class LogNormalPrior(Prior, LogNormal):
@@ -39,7 +41,8 @@ class LogNormalPrior(Prior, LogNormal):
         self._transform = transform
 
     def expand(self, batch_shape):
-        return LogNormal.expand(self, batch_shape, _instance=self)
+        batch_shape = torch.Size(batch_shape)
+        return LogNormalPrior(self.loc.expand(batch_shape), self.scale.expand(batch_shape))
 
 
 class UniformPrior(Prior, Uniform):
@@ -53,7 +56,8 @@ class UniformPrior(Prior, Uniform):
         self._transform = transform
 
     def expand(self, batch_shape):
-        return Uniform.expand(self, batch_shape, _instance=self)
+        batch_shape = torch.Size(batch_shape)
+        return UniformPrior(self.low.expand(batch_shape), self.high.expand(batch_shape))
 
 
 class GammaPrior(Prior, Gamma):
@@ -71,7 +75,11 @@ class GammaPrior(Prior, Gamma):
         self._transform = transform
 
     def expand(self, batch_shape):
-        return Gamma.expand(self, batch_shape, _instance=self)
+        batch_shape = torch.Size(batch_shape)
+        return GammaPrior(self.concentration.expand(batch_shape), self.rate.expand(batch_shape))
+
+    def __call__(self, *args, **kwargs):
+        return super(Gamma, self).__call__(*args, **kwargs)
 
 
 class MultivariateNormalPrior(Prior, MultivariateNormal):
@@ -110,4 +118,9 @@ class MultivariateNormalPrior(Prior, MultivariateNormal):
         return module
 
     def expand(self, batch_shape):
-        return MultivariateNormal.expand(self, batch_shape, _instance=self)
+        batch_shape = torch.Size(batch_shape)
+        cov_shape = batch_shape + self.event_shape
+        new_loc = self.loc.expand(batch_shape)
+        new_scale_tril = self.scale_tril.expand(cov_shape)
+
+        return MultivariateNormalPrior(loc=new_loc, scale_tril=new_scale_tril)

@@ -40,7 +40,7 @@ class _VariationalDistribution(Module, ABC):
     def __call__(self):
         try:
             return self.forward()
-        # Deprecation added for 0.4 release
+        # Remove after 1.0
         except NotImplementedError:
             warnings.warn(
                 "_VariationalDistribution.variational_distribution is deprecated. "
@@ -49,8 +49,8 @@ class _VariationalDistribution(Module, ABC):
             )
             return self.variational_distribution
 
-    # Deprecation added for 0.4 release
     def __getattr__(self, attr):
+        # Remove after 1.0
         if attr == "variational_distribution":
             warnings.warn(
                 "_VariationalDistribution.variational_distribution is deprecated. "

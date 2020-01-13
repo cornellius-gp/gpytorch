@@ -12,7 +12,7 @@ from ..constraints import Positive
 from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
 from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumPredictionStrategy
 from ..module import Module
-from ..utils.deprecation import _ClassWithDeprecatedBatchSize, _deprecate_kwarg_with_transform
+from ..utils.broadcasting import _mul_broadcast_shape
 
 
 def default_postprocess_script(x):
@@ -56,7 +56,7 @@ class Distance(torch.nn.Module):
         return self._postprocess(res) if postprocess else res
 
 
-class Kernel(Module, _ClassWithDeprecatedBatchSize):
+class Kernel(Module):
     r"""
     Kernels in GPyTorch are implemented as a :class:`gpytorch.Module` that, when called on two :obj:`torch.tensor`
     objects `x1` and `x2` returns either a :obj:`torch.tensor` or a :obj:`gpytorch.lazy.LazyTensor` that represents
@@ -129,13 +129,6 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
     has_lengthscale = False
 
-    @property
-    def is_stationary(self) -> bool:
-        """
-        Property to indicate whether kernel is stationary or not.
-        """
-        return self.has_lengthscale
-
     def __init__(
         self,
         ard_num_dims=None,
@@ -147,16 +140,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         **kwargs,
     ):
         super(Kernel, self).__init__()
-        self._register_load_state_dict_pre_hook(self._batch_shape_state_dict_hook)
-
+        self._batch_shape = batch_shape
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.register_buffer("active_dims", active_dims)
         self.ard_num_dims = ard_num_dims
-
-        self.batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
 
         self.eps = eps
 
@@ -217,6 +205,18 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
         raise NotImplementedError()
 
     @property
+    def batch_shape(self):
+        kernels = list(self.sub_kernels())
+        if len(kernels):
+            return _mul_broadcast_shape(self._batch_shape, *[k.batch_shape for k in kernels])
+        else:
+            return self._batch_shape
+
+    @batch_shape.setter
+    def batch_shape(self, val):
+        self._batch_shape = val
+
+    @property
     def dtype(self):
         if self.has_lengthscale:
             return self.lengthscale.dtype
@@ -224,6 +224,13 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             for param in self.parameters():
                 return param.dtype
             return torch.get_default_dtype()
+
+    @property
+    def is_stationary(self) -> bool:
+        """
+        Property to indicate whether kernel is stationary or not.
+        """
+        return self.has_lengthscale
 
     @property
     def lengthscale(self):
@@ -322,6 +329,11 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
         return res
 
+    def named_sub_kernels(self):
+        for name, module in self._modules.items():
+            if isinstance(module, Kernel):
+                yield name, module
+
     def num_outputs_per_input(self, x1, x2):
         """
         How many outputs are produced per input (default 1)
@@ -333,6 +345,10 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
         return DefaultPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
+
+    def sub_kernels(self):
+        for _, kernel in self.named_sub_kernels():
+            yield kernel
 
     def __call__(self, x1, x2=None, diag=False, last_dim_is_batch=False, **params):
         x1_, x2_ = x1, x2
@@ -407,9 +423,8 @@ class Kernel(Module, _ClassWithDeprecatedBatchSize):
             new_batch_shape_len = len(self.batch_shape) - ndim_removed
             new_kernel.batch_shape = new_kernel._parameters[param_name].shape[:new_batch_shape_len]
 
-        for sub_module_name, sub_module in self._modules.items():
-            if isinstance(sub_module, Kernel):
-                self._modules[sub_module_name] = sub_module.__getitem__(index)
+        for sub_module_name, sub_module in self.named_sub_kernels():
+            self._modules[sub_module_name] = sub_module.__getitem__(index)
 
         return new_kernel
 

@@ -5,6 +5,7 @@ import torch
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import NonLazyTensor
 
 
 class DiagLazyTensor(LazyTensor):
@@ -17,7 +18,7 @@ class DiagLazyTensor(LazyTensor):
                 A `b1 x ... x bk x n` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` diagonal matrices
         """
-        super(DiagLazyTensor, self).__init__(diag)
+        super().__init__(diag)
         self._diag = diag
 
     def __add__(self, other):
@@ -49,6 +50,9 @@ class DiagLazyTensor(LazyTensor):
         # multiply element-wise with the diagonal (using proper broadcasting)
         if rhs.ndimension() == 1:
             return self._diag * rhs
+        # special case if we have a NonLazyTensor
+        if isinstance(rhs, NonLazyTensor):
+            return NonLazyTensor(self._diag.unsqueeze(-1) * rhs.tensor)
         return self._diag.unsqueeze(-1) * rhs
 
     def _mul_constant(self, constant):
@@ -103,7 +107,7 @@ class DiagLazyTensor(LazyTensor):
     def evaluate(self):
         if self._diag.dim() == 0:
             return self._diag
-        return self._diag.unsqueeze(-1) * torch.eye(self._diag.shape[-1], dtype=self.dtype, device=self.device)
+        return torch.diag_embed(self._diag)
 
     def exp(self):
         return DiagLazyTensor(self._diag.exp())
@@ -149,7 +153,10 @@ class DiagLazyTensor(LazyTensor):
         # this is trivial if we multiply two DiagLazyTensors
         if isinstance(other, DiagLazyTensor):
             return DiagLazyTensor(self._diag * other._diag)
-        return super(DiagLazyTensor, self).matmul(other)
+        # special case if we have a NonLazyTensor
+        if isinstance(other, NonLazyTensor):
+            return NonLazyTensor(self._diag.unsqueeze(-1) * other.tensor)
+        return super().matmul(other)
 
     def sqrt(self):
         return DiagLazyTensor(self._diag.sqrt())

@@ -111,6 +111,6 @@ class PeriodicKernel(Kernel):
         x2_ = x2.div(self.period_length)
         diff = self.covar_dist(x1_, x2_, diag=diag, **params)
         res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
-        if diff.ndimension() == 2 or diag:
+        if diag:
             res = res.squeeze(0)
         return res

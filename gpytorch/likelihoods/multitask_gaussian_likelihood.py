@@ -288,6 +288,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
 
 def deprecate_task_noise_corr(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
     if prefix + "task_noise_corr_factor" in state_dict:
+        # Remove after 1.0
         warnings.warn(
             "Loading a deprecated parameterization of _MultitaskGaussianLikelihoodBase. Consider re-saving your model.",
             DeprecationWarning,

@@ -18,6 +18,7 @@ from ..lazy import (
     delazify,
     lazify,
 )
+from ..utils.cholesky import psd_safe_cholesky
 from ..utils.interpolation import left_interp, left_t_interp
 from ..utils.memoize import add_to_cache, cached
 
@@ -170,7 +171,7 @@ class DefaultPredictionStrategy(object):
         small_system_rhs = targets - fant_mean - ftcm
         small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
-        fant_cache_lower = torch.cholesky_solve(small_system_rhs, torch.cholesky(schur_complement))
+        fant_cache_lower = torch.cholesky_solve(small_system_rhs, psd_safe_cholesky(schur_complement))
 
         # Get "a", the new upper portion of the cache corresponding to the old training points.
         fant_cache_upper = self.mean_cache.unsqueeze(-1) - fant_solve.matmul(fant_cache_lower)
@@ -205,7 +206,7 @@ class DefaultPredictionStrategy(object):
         m, n = L.shape[-2:]
 
         lower_left = fant_train_covar.matmul(L_inverse)
-        schur_root = torch.cholesky(fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1)))
+        schur_root = psd_safe_cholesky(fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1)))
 
         # Form new root Z = [L 0; lower_left schur_root]
         num_fant = schur_root.size(-2)
@@ -224,7 +225,7 @@ class DefaultPredictionStrategy(object):
             # can't use in-place operation here b/c it would mess up backward pass
             # haven't found a more elegant way to add a jitter diagonal yet...
             jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
-            R = R + jitter_diag.unsqueeze(-1) * torch.eye(R.size(-1), device=R.device, dtype=R.dtype)
+            R = R + torch.diag_embed(jitter_diag)
         new_covar_cache = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)

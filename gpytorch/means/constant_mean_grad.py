@@ -3,15 +3,11 @@
 import torch
 
 from ..utils.broadcasting import _mul_broadcast_shape
-from ..utils.deprecation import _deprecate_kwarg_with_transform
 from .mean import Mean
 
 
 class ConstantMeanGrad(Mean):
     def __init__(self, prior=None, batch_shape=torch.Size(), **kwargs):
-        batch_shape = _deprecate_kwarg_with_transform(
-            kwargs, "batch_size", "batch_shape", batch_shape, lambda n: torch.Size([n])
-        )
         super(ConstantMeanGrad, self).__init__()
         self.batch_shape = batch_shape
         self.register_parameter(name="constant", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
