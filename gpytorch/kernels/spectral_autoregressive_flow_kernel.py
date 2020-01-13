@@ -7,6 +7,7 @@ from pyro import distributions as dist
 from pyro.distributions.transforms import BlockAutoregressive
 
 from ..lazy import MatmulLazyTensor, RootLazyTensor
+from ..settings import num_spectral_samples
 from .kernel import Kernel
 
 
@@ -173,6 +174,8 @@ class NSSpectralDeltaKernel(SpectralAutoregressiveFlowKernel):
 
 
 class RFNSSpectralDeltaKernel(NSSpectralDeltaKernel):
+    has_lengthscale = True
+
     def __init__(self, num_dims, num_deltas=128, nonstationary=False, **kwargs):
         Kernel.__init__(self, has_lengthscale=True, **kwargs)
 
@@ -222,6 +225,8 @@ class RFNSSpectralDeltaKernel(NSSpectralDeltaKernel):
 
 
 class RFNSSpectralNFKernel(NSSpectralDeltaKernel):
+    has_lengthscale = True
+
     def __init__(self, num_dims, stack_size=1, nonstationary=False, **kwargs):
         Kernel.__init__(self, has_lengthscale=True, **kwargs)
 
@@ -239,7 +244,7 @@ class RFNSSpectralNFKernel(NSSpectralDeltaKernel):
         self.ndims = ndims
         self.nonstationary = nonstationary
 
-    def Z(self, x1, x2):
+    def Z(self, x1, x2, n_samples=1024):
         base_dist = dist.Normal(
             torch.zeros(self.ndims, device=x1.device, dtype=x1.dtype),
             torch.ones(self.ndims, device=x1.device, dtype=x1.dtype),
@@ -252,13 +257,13 @@ class RFNSSpectralNFKernel(NSSpectralDeltaKernel):
 
         dsf_dist = dist.TransformedDistribution(base_dist, dsf)
 
-        return dsf_dist.rsample(torch.Size([1024]))
+        return dsf_dist.rsample(torch.Size([n_samples]))
 
     def forward(self, x1, x2, diag=False, **params):
         x1_ = x1.div(self.lengthscale)
         x2_ = x2.div(self.lengthscale)
 
-        Z = self.Z(x1, x2)
+        Z = self.Z(x1_, x2_, n_samples=num_spectral_samples.value())
 
         if self.nonstationary:
             Z1 = Z[:, : self.num_dims]

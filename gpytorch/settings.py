@@ -466,6 +466,10 @@ class num_trace_samples(_value_context):
     _global_value = 10
 
 
+class num_spectral_samples(_value_context):
+    _global_value = 2048
+
+
 class prior_mode(_feature_flag):
     """
     If set to true, GP models will be evaluated in prior mode.
