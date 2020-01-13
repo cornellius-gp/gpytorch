@@ -262,8 +262,11 @@ class Module(nn.Module):
             base_module = submodule
             base_name = ".".join(components[1:])
 
-        constraint_name = base_name + "_constraint"
-        return base_module._constraints.get(constraint_name)
+        try:
+            constraint_name = base_name + "_constraint"
+            return base_module._constraints.get(constraint_name)
+        except AttributeError:  # submodule may not always be a gpytorch module
+            return None
 
     def named_parameters_and_constraints(self):
         for name, param in self.named_parameters():
