@@ -83,7 +83,7 @@ class Module(nn.Module):
                 setattr(self, name, val)
             elif torch.is_tensor(val):
                 constraint = self.constraint_for_parameter_name(name)
-                if constraint is not None and not constraint.check_raw(val):
+                if constraint is not None and constraint.enforced and not constraint.check_raw(val):
                     raise RuntimeError(
                         "Attempting to manually set a parameter value that is out of bounds of "
                         f"its current constraints, {constraint}. "
