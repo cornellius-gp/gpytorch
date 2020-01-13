@@ -52,5 +52,5 @@ class OrthogonalDecoupledVariationalStrategy(_VariationalStrategy):
     def kl_divergence(self):
         mean = self.variational_distribution.mean
         induc_induc_covar = self.prior_distribution.lazy_covariance_matrix
-        kl = self.model.kl_divergence() + ((induc_induc_covar @ mean.unsqueeze(-1)).squeeze(-1) * mean).sum(-1)
+        kl = self.model.kl_divergence() + ((induc_induc_covar @ mean.unsqueeze(-1)).squeeze(-1) * mean).sum(-1).mul(0.5)
         return kl
