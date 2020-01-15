@@ -4,6 +4,7 @@
 # it probably won't load as is
 
 import math
+
 import torch
 
 from . import Kernel
@@ -21,7 +22,7 @@ class SpectralGPKernel(Kernel):
         transform=torch.exp,
         register_latent_params=True,
         use_latent_model=False,
-        **kwargs
+        **kwargs,
     ):
         r"""
         integration: {U, MC} U is trapezoidal rule, MC is Mone Carlo w/ w \sim U(-pi, pi)
@@ -70,8 +71,8 @@ class SpectralGPKernel(Kernel):
         period_factor: constant to multiply on period
         """
         from ..priors import GaussianProcessPrior
-        device = train_inputs.device
 
+        device = train_inputs.device
 
         log_periodogram = torch.ones_like(self.omega)
 
@@ -90,7 +91,7 @@ class SpectralGPKernel(Kernel):
             from ..means import QuadraticMean
             from ..priors import NormalPrior
             from ..constraints import LessThan
-            from ..kernels import ScaleKernel, MaternKernel, GridKernel
+            from ..kernels import ScaleKernel, MaternKernel
             from ..models import PyroVariationalGP
             from ..distributions import MultivariateNormal
             from ..variational import CholeskyVariationalDistribution, VariationalStrategy
@@ -99,12 +100,8 @@ class SpectralGPKernel(Kernel):
             class PyroGPModel(PyroVariationalGP):
                 def __init__(self, train_x, train_y, likelihood, mean_module, covar_module):
                     # Define all the variational stuff
-                    variational_distribution = CholeskyVariationalDistribution(
-                        num_inducing_points=int(train_x.numel())
-                    )
-                    variational_strategy = VariationalStrategy(
-                        self, train_x, variational_distribution
-                    )
+                    variational_distribution = CholeskyVariationalDistribution(num_inducing_points=int(train_x.numel()))
+                    variational_strategy = VariationalStrategy(self, train_x, variational_distribution)
 
                     super(PyroGPModel, self).__init__(variational_strategy, likelihood, num_data=train_x.numel())
                     self.mean_module = mean_module
@@ -120,10 +117,11 @@ class SpectralGPKernel(Kernel):
             latent_mean.register_prior(
                 "bias_prior",
                 prior=NormalPrior(torch.zeros(1, device=device), 100.0 * torch.ones(1, device=device), transform=None),
-                param_or_closure="bias"
+                param_or_closure="bias",
             )
-            latent_mean.register_constraint("quadratic_weights", constraint=LessThan(upper_bound=0.0),
-                                            )
+            latent_mean.register_constraint(
+                "quadratic_weights", constraint=LessThan(upper_bound=0.0),
+            )
             latent_mean.register_prior(
                 "quadratic_weights_prior",
                 prior=NormalPrior(
@@ -131,7 +129,7 @@ class SpectralGPKernel(Kernel):
                     100.0 * torch.ones(1, device=device),
                     transform=torch.nn.functional.softplus,
                 ),
-                param_or_closure="quadratic_weights"
+                param_or_closure="quadratic_weights",
             )
 
             latent_covar = ScaleKernel(
@@ -174,7 +172,7 @@ class SpectralGPKernel(Kernel):
             dims = [1, 1, 1, self.num_locs]
         else:
             dims = [1, 1, self.num_locs]
-        expanded_tau = expanded_tau.repeat(*dims)  # .float()
+        expanded_tau = expanded_tau.repeat(*dims)
 
         # numerically compute integral in expanded space
         integrand = density * torch.cos(2.0 * math.pi * self.omega * expanded_tau)
@@ -205,15 +203,12 @@ class SpectralGPKernel(Kernel):
         density = self.transform(self.latent_params)
 
         # TODO: more efficient diagonal
-        output = self.compute_kernel_values(
-            tau, density=density, normalize=self.normalize
-        )
+        output = self.compute_kernel_values(tau, density=density, normalize=self.normalize)
         if diag:
             output = output.diag()
         return output
 
     def set_latent_params(self, new_latent_params):
-        # updates latent parameters 
+        # updates latent parameters
         # warning: requires a .train(), .eval() call to empty the cache
         self.latent_params = new_latent_params
-
