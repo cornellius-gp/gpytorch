@@ -16,7 +16,7 @@ class _VariationalStrategy(Module, ABC):
     Abstract base class for all Variational Strategies.
     """
 
-    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
+    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True, decoupled=False):
         super().__init__()
 
         # Model
@@ -34,6 +34,7 @@ class _VariationalStrategy(Module, ABC):
         # Variational distribution
         self._variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
+        self.register_buffer("decoupled_inducing_points", torch.tensor(decoupled))
 
     @abstractproperty
     @cached(name="prior_distribution_memo")
@@ -110,10 +111,16 @@ class _VariationalStrategy(Module, ABC):
 
         # Ensure inducing_points and x are the same size
         inducing_points = self.inducing_points
-        if inducing_points.shape[:-2] != x.shape[:-2]:
-            batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
-            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
+        ind_shape_idx = -3 if self.decoupled_inducing_points else -2
+        ind_batch_shape = inducing_points.shape[:ind_shape_idx]
+
+        if ind_batch_shape != x.shape[:-2]:
+            batch_shape = _mul_broadcast_shape(ind_batch_shape, x.shape[:-2])
             x = x.expand(*batch_shape, *x.shape[-2:])
+            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[ind_shape_idx:])
+        if self.decoupled_inducing_points:
+            x = x.expand(2, *x.shape)
+            inducing_points = inducing_points.unsqueeze(0).transpose(0, -3).squeeze(-3)
 
         # Get p(u)/q(u)
         variational_dist_u = self.variational_distribution
