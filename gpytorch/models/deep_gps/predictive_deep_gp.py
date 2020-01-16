@@ -32,25 +32,36 @@ class _DeepGPVariationalStrategy(object):
 
 
 class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3):
+    def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3, grid_strategy="flipgrid"):
         super().__init__(variational_strategy, input_dims, output_dims)
-        self.num_sample_sites = num_sample_sites
-        xi, _ = hermgauss(self.num_sample_sites)
 
-        self.register_parameter("fudge", torch.nn.Parameter(torch.tensor(math.sqrt(2.0))))
+        assert grid_strategy in ['flipgrid', 'freegrid', 'freeform']
+        self.grid_strategy = grid_strategy
+
+        self.num_sample_sites = num_sample_sites
 
         # quad_grid is of size Q^T x T
         if output_dims is None:
-            self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+            if grid_strategy in ['flipgrid', 'freegrid']:
+                xi, _ = hermgauss(self.num_sample_sites)
+                self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+            elif grid_strategy == 'freeform':
+                self.xi = torch.nn.Parameter(torch.randn(num_sample_sites, input_dims))
 
     @property
     def quad_grid(self):
-        xi = self.xi - self.xi.flip(dims=[0])
-        res = torch.stack([torch.cat([p.unsqueeze(-1) for p in xi]) for xi in product(*xi.t())])
-        # from IPython.core.debugger import set_trace
-        # set_trace()
-        assert res.size(-2) == math.pow(self.num_sample_sites, self.input_dims) and res.size(-1) == self.input_dims
-        return res
+        if self.grid_strategy == 'flipgrid':
+            xi = self.xi - self.xi.flip(dims=[0])
+            res = torch.stack([torch.cat([p.unsqueeze(-1) for p in xi]) for xi in product(*xi.t())])
+            assert res.size(-2) == math.pow(self.num_sample_sites, self.input_dims) and res.size(-1) == self.input_dims
+            return res
+        elif self.grid_strategy == 'freegrid':
+            xi = self.xi
+            res = torch.stack([torch.cat([p.unsqueeze(-1) for p in xi]) for xi in product(*xi.t())])
+            assert res.size(-2) == math.pow(self.num_sample_sites, self.input_dims) and res.size(-1) == self.input_dims
+            return res
+        elif self.grid_strategy == 'freeform':
+            return self.xi
 
     def __call__(self, inputs, are_samples=False, **kwargs):
         if isinstance(inputs, MultitaskMultivariateNormal):
@@ -108,21 +119,21 @@ class AbstractDeepGP(GP):
 
 
 class DeepPredictiveGaussianLikelihood(GaussianLikelihood):
-    def __init__(self, dims, num_sample_sites=3, *args, **kwargs):
+    def __init__(self, dims, num_sample_sites=3, grid_strategy="flipgrid", *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_sample_sites = num_sample_sites
-        _, weights = hermgauss(self.num_sample_sites)
 
-        # Q^T x T
-        self.register_parameter(
-            "raw_quad_weight_grid",
-            torch.nn.Parameter(
-                torch.stack([torch.tensor(a) for a in product(*[np.log(weights) for _ in range(dims)])])
-            ),
-        )
+        if grid_strategy in ['flipgrid', 'freegrid']:
+            _, weights = hermgauss(self.num_sample_sites)
 
-        # QT
-        self.raw_quad_weight_grid.data = self.raw_quad_weight_grid.data.sum(dim=-1)
+            # Q^T x T
+            self.register_parameter("raw_quad_weight_grid", torch.nn.Parameter(
+                    torch.stack([torch.tensor(a) for a in product(*[np.log(weights) for _ in range(dims)])])),)
+
+            # QT
+            self.raw_quad_weight_grid.data = self.raw_quad_weight_grid.data.sum(dim=-1)
+        elif grid_strategy == 'freeform':
+            self.register_parameter("raw_quad_weight_grid", torch.nn.Parameter(torch.randn(self.num_sample_sites)))
 
     @property
     def quad_weight_grid(self):
