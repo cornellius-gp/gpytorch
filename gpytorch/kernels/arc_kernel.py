@@ -170,12 +170,10 @@ class ArcKernel(Kernel):
             raw_radius=self.raw_radius_constraint.inverse_transform(value))
 
     def embedding(self, x):
-        print("input", x.shape)
         x_ = x.div(self.lengthscale)
         x_s = self.radius*torch.sin(pi*self.angle*x_)
         x_c = self.radius*torch.cos(pi*self.angle*x_)
         x_ = torch.cat((x_s, x_c), dim=-1).squeeze(0)
-        print("reform", x_.shape)
         return x_
 
     def forward(self, x1, x2, diag=False, **params):
