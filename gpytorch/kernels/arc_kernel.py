@@ -25,7 +25,8 @@ class ArcKernel(Kernel):
 
           g_{i}(\mathbf{x}) = \{\begin{eqnarray}
           [0, 0]^{T} \qquad if\;\delta_{i}(\mathbf{x}) = false\\
-          \omega_{i}[\sin{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}}, \cos{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}}] \qquad otherwise
+          \omega_{i}[\sin{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}},
+          \cos{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}}] \qquad otherwise
           \end{eqnarray}
 
 
@@ -38,14 +39,16 @@ class ArcKernel(Kernel):
 
     .. math::
         \begin{equation}
-        k_{i}(\mathbf{x}, \mathbf{x^{'}}) = \sigma^{2}\exp(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}))^{2}
+        k_{i}(\mathbf{x}, \mathbf{x^{'}}) =
+        \sigma^{2}\exp(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}))^{2}
         \end{equation}
 
     and the produt between dimensions
 
     .. math::
         \begin{equation}
-        k_{i}(\mathbf{x}, \mathbf{x^{'}}) = \sigma^{2}\exp(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}))^{2}
+        k_{i}(\mathbf{x}, \mathbf{x^{'}}) =
+        \sigma^{2}\exp(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}))^{2}
         \end{equation}
     .. note::
 
@@ -106,7 +109,7 @@ class ArcKernel(Kernel):
     """
 
     def __init__(self,
-                 base_kernel=MaternKernel(nu=2.5),
+                 base_kernel,
                  angle_prior: Optional[Prior] = None,
                  radius_prior: Optional[Prior] = None,
                  **kwargs):
@@ -118,7 +121,7 @@ class ArcKernel(Kernel):
         self.register_parameter(
             name="raw_angle",
             parameter=torch.nn.Parameter(torch.zeros(self.ard_num_dims))
-            )
+        )
         if angle_prior is not None:
             self.register_prior("angle_prior", angle_prior,
                                 lambda: self.angle,
@@ -129,7 +132,7 @@ class ArcKernel(Kernel):
         self.register_parameter(
             name="raw_radius",
             parameter=torch.nn.Parameter(torch.zeros(self.ard_num_dims))
-            )
+        )
 
         if radius_prior is not None:
             self.register_prior("radius_prior", radius_prior,
@@ -171,8 +174,8 @@ class ArcKernel(Kernel):
 
     def embedding(self, x):
         x_ = x.div(self.lengthscale)
-        x_s = self.radius*torch.sin(pi*self.angle*x_)
-        x_c = self.radius*torch.cos(pi*self.angle*x_)
+        x_s = self.radius * torch.sin(pi * self.angle * x_)
+        x_c = self.radius * torch.cos(pi * self.angle * x_)
         x_ = torch.cat((x_s, x_c), dim=-1).squeeze(0)
         return x_
 
