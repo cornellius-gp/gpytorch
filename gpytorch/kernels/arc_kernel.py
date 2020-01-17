@@ -7,7 +7,7 @@ Created on Tue Jan  7 11:13:37 2020
 """
 
 from gpytorch.constraints import Positive
-from gpytorch.kernels import Kernel, MaternKernel
+from gpytorch.kernels import Kernel
 import torch
 from math import pi
 from typing import Optional
