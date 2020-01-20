@@ -6,11 +6,12 @@ Created on Tue Jan  7 11:13:37 2020
 @author: kostal
 """
 
-from gpytorch.constraints import Positive
-from gpytorch.kernels import Kernel
-import torch
 from math import pi
 from typing import Optional
+
+import torch
+from gpytorch.constraints import Positive
+from gpytorch.kernels import Kernel
 from gpytorch.priors import Prior
 
 
@@ -108,11 +109,13 @@ class ArcKernel(Kernel):
         >>> print(covar.shape)
     """
 
-    def __init__(self,
-                 base_kernel,
-                 angle_prior: Optional[Prior] = None,
-                 radius_prior: Optional[Prior] = None,
-                 **kwargs):
+    def __init__(
+        self,
+        base_kernel,
+        angle_prior: Optional[Prior] = None,
+        radius_prior: Optional[Prior] = None,
+        **kwargs
+    ):
         super().__init__(has_lengthscale=True, **kwargs)
 
         # TODO: check the errors given by interval
@@ -120,24 +123,30 @@ class ArcKernel(Kernel):
 
         self.register_parameter(
             name="raw_angle",
-            parameter=torch.nn.Parameter(torch.zeros(self.ard_num_dims))
+            parameter=torch.nn.Parameter(torch.zeros(self.ard_num_dims)),
         )
         if angle_prior is not None:
-            self.register_prior("angle_prior", angle_prior,
-                                lambda: self.angle,
-                                lambda v: self._set_angle(v))
+            self.register_prior(
+                "angle_prior",
+                angle_prior,
+                lambda: self.angle,
+                lambda v: self._set_angle(v),
+            )
 
         self.register_constraint("raw_angle", angle_constraint)
 
         self.register_parameter(
             name="raw_radius",
-            parameter=torch.nn.Parameter(torch.zeros(self.ard_num_dims))
+            parameter=torch.nn.Parameter(torch.zeros(self.ard_num_dims)),
         )
 
         if radius_prior is not None:
-            self.register_prior("radius_prior", radius_prior,
-                                lambda: self.radius,
-                                lambda v: self._set_radius(v))
+            self.register_prior(
+                "radius_prior",
+                radius_prior,
+                lambda: self.radius,
+                lambda v: self._set_radius(v),
+            )
 
         radius_constraint = Positive()
         self.register_constraint("raw_radius", radius_constraint)
@@ -155,8 +164,7 @@ class ArcKernel(Kernel):
     def _set_angle(self, value):
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_angle)
-        self.initialize(
-            raw_angle=self.raw_angle_constraint.inverse_transform(value))
+        self.initialize(raw_angle=self.raw_angle_constraint.inverse_transform(value))
 
     @property
     def radius(self):
@@ -169,8 +177,7 @@ class ArcKernel(Kernel):
     def _set_radius(self, value):
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_radius)
-        self.initialize(
-            raw_radius=self.raw_radius_constraint.inverse_transform(value))
+        self.initialize(raw_radius=self.raw_radius_constraint.inverse_transform(value))
 
     def embedding(self, x):
         x_ = x.div(self.lengthscale)
