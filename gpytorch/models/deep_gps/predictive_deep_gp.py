@@ -42,9 +42,12 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
 
         # quad_grid is of size Q^T x T
         if output_dims is None:
-            if grid_strategy in ['flipgrid', 'freegrid']:
+            if grid_strategy == 'freegrid':
                 xi, _ = hermgauss(self.num_sample_sites)
                 self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+            elif grid_strategy == 'flipgrid':
+                xi, _ = hermgauss(self.num_sample_sites)
+                self.xi = torch.nn.Parameter(0.5 * torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
             elif grid_strategy == 'freeform':
                 self.xi = torch.nn.Parameter(torch.randn(num_sample_sites, input_dims))
 
@@ -97,10 +100,14 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
 
         # Now run samples through the GP
         output = ApproximateGP.__call__(self, inputs)
-        if self.output_dims is not None:
-            mean = output.loc.transpose(-1, -2)
-            covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
-            output = MultitaskMultivariateNormal(mean, covar, interleaved=False)
+
+        if self.num_sample_sites > 0:
+            if self.output_dims is not None:
+                mean = output.loc.transpose(-1, -2)
+                covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
+                output = MultitaskMultivariateNormal(mean, covar, interleaved=False)
+        else:
+            output = output.loc.transpose(-1, -2)  # this layer provides noiseless kernel interpolation
 
         return output
 
