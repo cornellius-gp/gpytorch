@@ -22,7 +22,7 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
        \end{align*}
 
     where :math:`N` is the total number of datapoints, :math:`q(\mathbf u)` is the variational distribution for
-    the inducing function values, and `p(\mathbf u)` is the prior distribution for the inducing function
+    the inducing function values, and :math:`p(\mathbf u)` is the prior distribution for the inducing function
     values.
 
     :math:`\beta` is a scaling constant that reduces the regularization effect of the KL
