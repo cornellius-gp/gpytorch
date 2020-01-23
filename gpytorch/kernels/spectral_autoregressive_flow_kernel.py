@@ -2,10 +2,14 @@
 
 import math
 
+import numpy as np
 import torch
 from pyro import distributions as dist
 from pyro.distributions.transforms import BlockAutoregressive
+from scipy.fftpack import fft
+from scipy.integrate import cumtrapz
 
+from ..constraints import Positive
 from ..lazy import MatmulLazyTensor, RootLazyTensor
 from ..settings import num_spectral_samples
 from .kernel import Kernel
@@ -176,16 +180,58 @@ class NSSpectralDeltaKernel(SpectralAutoregressiveFlowKernel):
 class RFNSSpectralDeltaKernel(NSSpectralDeltaKernel):
     has_lengthscale = True
 
-    def __init__(self, num_dims, num_deltas=128, nonstationary=False, **kwargs):
+    def __init__(self, num_dims, num_deltas=128, init_scale=1.0, nonstationary=False, Z_constraint=None, **kwargs):
         Kernel.__init__(self, has_lengthscale=True, **kwargs)
 
         if nonstationary:
-            self.Z = torch.nn.Parameter(torch.randn(num_deltas, 2 * num_dims))
+            self.raw_Z = torch.nn.Parameter(init_scale * torch.rand(num_deltas, 2 * num_dims))
         else:
-            self.Z = torch.nn.Parameter(torch.randn(num_deltas, num_dims))
+            self.raw_Z = torch.nn.Parameter(init_scale * torch.rand(num_deltas, num_dims))
+
+        if Z_constraint:
+            self.register_constraint("raw_Z", Z_constraint)
+        else:
+            self.register_constraint("raw_Z", Positive())
 
         self.nonstationary = nonstationary
         self.num_dims = num_dims
+
+    def initialize_from_data(self, train_x, train_y):
+        N = train_x.size(-2)
+        emp_spect = np.abs(fft(train_y.cpu().detach().numpy())) ** 2 / N
+        M = math.floor(N / 2)
+
+        freq1 = np.arange(M + 1)
+        freq2 = np.arange(-M + 1, 0)
+        freq = np.hstack((freq1, freq2)) / N
+        freq = freq[: M + 1]
+        emp_spect = emp_spect[: M + 1]
+
+        total_area = np.trapz(emp_spect, freq)
+        spec_cdf = np.hstack((np.zeros(1), cumtrapz(emp_spect, freq)))
+        spec_cdf = spec_cdf / total_area
+
+        a = np.random.rand(self.raw_Z.size(-2), 1)
+        p, q = np.histogram(a, spec_cdf)
+        bins = np.digitize(a, q)
+        slopes = (spec_cdf[bins] - spec_cdf[bins - 1]) / (freq[bins] - freq[bins - 1])
+        intercepts = spec_cdf[bins - 1] - slopes * freq[bins - 1]
+        inv_spec = (a - intercepts) / slopes
+
+        self.Z = inv_spec
+
+    @property
+    def Z(self):
+        return self.raw_Z_constraint.transform(self.raw_Z)
+
+    @Z.setter
+    def Z(self, value):
+        self._set_Z(value)
+
+    def _set_Z(self, value):
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_Z)
+        self.initialize(raw_Z=self.raw_Z_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, **params):
         x1_ = x1.div(self.lengthscale)

@@ -91,7 +91,7 @@ class Interval(Module):
             max_bound = torch.max(self.upper_bound)
             min_bound = torch.min(self.lower_bound)
 
-            if max_bound == math.inf or min_bound == -math.inf:
+            if not math.isfinite(max_bound) or not math.isfinite(min_bound):
                 raise RuntimeError(
                     "Cannot make an Interval directly with non-finite bounds. Use a derived class like "
                     "GreaterThan or LessThan instead."
