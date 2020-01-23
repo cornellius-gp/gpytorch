@@ -17,7 +17,7 @@ class VariationalELBO(_ApproximateMarginalLogLikelihood):
           \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
           \\
           &\approx \sum_{i=1}^N \mathbb{E}_{q( f_i)} \left[
-            \log \int p( y_i \! \mid \! f_i) \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
+            \log p( y_i \! \mid \! f_i) \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
        \end{align*}
 
     where :math:`N` is the number of datapoints, :math:`q(\mathbf u)` is the variational distribution for
