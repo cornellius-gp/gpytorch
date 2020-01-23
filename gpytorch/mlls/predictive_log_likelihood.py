@@ -31,7 +31,7 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
 
     .. note::
         This objective is very similar to the variational ELBO.
-        The only difference is that the :math:`log` occurs *outside* the expectation :math:`\mathbb E_{q(\mathbf u}}`.
+        The only difference is that the :math:`log` occurs *outside* the expectation :math:`\mathbb{E}_{q(\mathbf u)}`.
         This difference results in very different predictive performance (see `Jankowiak et al., 2019`_).
 
     :param ~gpytorch.likelihoods.Likelihood likelihood: The likelihood for the model
