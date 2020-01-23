@@ -100,14 +100,14 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 x1 = x1.expand(*([1] * len(batch_indices)), *self.x1.shape[-2:])
                 x1 = x1[(*batch_indices, row_index, dim_index)]
 
-        # Call x2[*batch_indices, row_index, :]
+        # Call x2[*batch_indices, col_index, :]
         try:
             x2 = x2[(*batch_indices, col_index, dim_index)]
         # We're going to handle multi-batch indexing with a try-catch loop
         # This way - in the default case, we can avoid doing expansions of x1 which can be timely
         except IndexError:
             if isinstance(batch_indices, slice):
-                x2 = x2.expand(1, *self.x2.shape[-2:])[(*batch_indices, row_index, dim_index)]
+                x2 = x2.expand(1, *self.x2.shape[-2:])[(*batch_indices, col_index, dim_index)]
             elif isinstance(batch_indices, tuple):
                 if any([not isinstance(bi, slice) for bi in batch_indices]):
                     raise RuntimeError(
@@ -115,7 +115,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                         "Got batch index {batch_indices} but my shape was {self.shape}"
                     )
                 x2 = x2.expand(*([1] * len(batch_indices)), *self.x2.shape[-2:])
-                x2 = x2[(*batch_indices, row_index, dim_index)]
+                x2 = x2[(*batch_indices, col_index, dim_index)]
 
         if len(batch_indices) == 0 or all(ind == slice(None, None, None) for ind in batch_indices):
             new_kernel = self.kernel  # Avoid unnecessary copying when we aren't explicitly indexing batch dims
