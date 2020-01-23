@@ -21,16 +21,16 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
           \sum_{i=1}^N \mathbb{E}_{q( \mathbf u)} \left[
             -\frac{\gamma}{\gamma - 1}
             \frac{
-                p( y_i \! \mid \! \mathbf u)^{\gamma - 1}
+                p( y_i \! \mid \! \mathbf u, x_i)^{\gamma - 1}
             }{
-                \int p(\mathbf y \mid \mathbf u) \: d \mathbf y
+                \int p(y \mid \mathbf u, x_i)^{\gamma} \: dy
             }
           \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
        \end{align*}
 
     where :math:`N` is the number of datapoints, :math:`\gamma` is a hyperparameter,
     :math:`q(\mathbf u)` is the variational distribution for
-    the inducing function values, and `p(\mathbf u)` is the prior distribution for the inducing function
+    the inducing function values, and :math:`p(\mathbf u)` is the prior distribution for the inducing function
     values.
 
     :math:`\beta` is a scaling constant for the KL divergence.
