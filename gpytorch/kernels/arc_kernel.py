@@ -143,6 +143,9 @@ class ArcKernel(Kernel):
         self.register_constraint("raw_radius", radius_constraint)
 
         self.base_kernel = base_kernel
+        if self.base_kernel.has_lengthscale:
+            self.base_kernel.lengthscale = 1
+            self.base_kernel.raw_lengthscale.requires_grad_(False)
 
     @property
     def angle(self):
