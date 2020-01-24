@@ -42,6 +42,16 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
                     ((arg.grad - arg_copy.grad).abs() / arg_copy.grad.abs().clamp(1, 1e5)).max().item(), 3e-1
                 )
 
+    def test_batch_getitem(self):
+        """Indexing was wrong when the kernel had more batch dimensions than the
+        data"""
+        x1 = torch.randn(5, 3)
+        x2 = torch.randn(5, 3)
+        kern = gpytorch.kernels.RBFKernel(batch_shape=torch.Size([2]))
+        k = kern(x1, x2)
+        self.assertEqual(k.size(), torch.Size([2, 5, 5]))
+        self.assertEqual(k[..., :4, :3].size(), torch.Size([2, 4, 3]))
+
     def test_getitem_tensor_index(self):
         # Not supported a.t.m. with LazyEvaluatedKernelTensors
         pass
