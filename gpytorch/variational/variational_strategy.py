@@ -6,6 +6,7 @@ import torch
 
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, delazify
+from ..settings import trace_mode
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
@@ -113,9 +114,17 @@ class VariationalStrategy(_VariationalStrategy):
         middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
         if variational_inducing_covar is not None:
             middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
-        predictive_covar = SumLazyTensor(
-            data_data_covar.add_jitter(1e-4), MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term)
-        )
+
+        if trace_mode.on():
+            predictive_covar = (
+                data_data_covar.add_jitter(1e-4).evaluate()
+                + interp_term.transpose(-1, -2) @ middle_term.evaluate() @ interp_term
+            )
+        else:
+            predictive_covar = SumLazyTensor(
+                data_data_covar.add_jitter(1e-4),
+                MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term),
+            )
 
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)

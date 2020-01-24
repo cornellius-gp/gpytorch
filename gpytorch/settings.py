@@ -509,6 +509,22 @@ class terminate_cg_by_size(_feature_flag):
     _state = False
 
 
+class trace_mode(_feature_flag):
+    """
+    If set to True, we will generally try to avoid calling our built in PyTorch functions, because these cannot
+    be run through torch.jit.trace.
+
+    Note that this will sometimes involve explicitly evaluating lazy tensors and various other slowdowns and
+    inefficiencies. As a result, you really shouldn't use this feature context unless you are calling torch.jit.trace
+    on a GPyTorch model.
+
+    Our hope is that this flag will not be necessary long term, once https://github.com/pytorch/pytorch/issues/22329
+    is fixed.
+    """
+
+    _state = False
+
+
 class tridiagonal_jitter(_value_context):
     """
     The (relative) amount of noise to add to the diagonal of tridiagonal matrices before
