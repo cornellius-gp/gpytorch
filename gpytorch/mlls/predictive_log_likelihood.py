@@ -17,12 +17,12 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
           \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
           \\
           &\approx \sum_{i=1}^N \log \mathbb{E}_{q(\mathbf u)} \left[
-            \int p( y_i \! \mid \! f_i) p(f_i \! \mid \! \mathbf u) \: d f_i
+            \int p( y_i \! \mid \! f_i) p(f_i \! \mid \! \mathbf u, \mathbf x_i) \: d f_i
           \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
        \end{align*}
 
     where :math:`N` is the total number of datapoints, :math:`q(\mathbf u)` is the variational distribution for
-    the inducing function values, and `p(\mathbf u)` is the prior distribution for the inducing function
+    the inducing function values, and :math:`p(\mathbf u)` is the prior distribution for the inducing function
     values.
 
     :math:`\beta` is a scaling constant that reduces the regularization effect of the KL
@@ -31,7 +31,7 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
 
     .. note::
         This objective is very similar to the variational ELBO.
-        The only difference is that the :math:`log` occurs *outside* the expectation :math:`\mathbb E_{q(\mathbf u}`.
+        The only difference is that the :math:`log` occurs *outside* the expectation :math:`\mathbb{E}_{q(\mathbf u)}`.
         This difference results in very different predictive performance (see `Jankowiak et al., 2019`_).
 
     :param ~gpytorch.likelihoods.Likelihood likelihood: The likelihood for the model
@@ -61,7 +61,7 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
 
     def forward(self, approximate_dist_f, target, **kwargs):
         r"""
-        Computes the predictive cross entropy given :math:`q(\mathbf f)` and `\mathbf y`.
+        Computes the predictive cross entropy given :math:`q(\mathbf f)` and :math:`\mathbf y`.
         Calling this function will call the likelihood's
         :meth:`~gpytorch.likelihoods.Likelihood.forward` function.
 

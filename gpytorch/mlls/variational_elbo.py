@@ -13,17 +13,17 @@ class VariationalELBO(_ApproximateMarginalLogLikelihood):
        \begin{align*}
           \mathcal{L}_\text{ELBO} &=
           \mathbb{E}_{p_\text{data}( y, \mathbf x )} \left[
-            \log \mathbb{E}_{q(\mathbf u)} \left[  p( y \! \mid \! \mathbf u) \right]
+            \mathbb{E}_{p(f \mid \mathbf u, \mathbf x) q(\mathbf u)} \left[  \log p( y \! \mid \! f) \right]
           \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
           \\
-          &\approx \sum_{i=1}^N \mathbb{E}_{q( \mathbf u)} \left[
-            \log \int p( y_i \! \mid \! f_i) p(f_i \! \mid \! \mathbf u) \: d \mathbf f_i
-          \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
+          &\approx \sum_{i=1}^N \mathbb{E}_{q( f_i)} \left[
+            \log p( y_i \! \mid \! f_i) \right] - \beta \: \text{KL} \left[ q( \mathbf u) \Vert p( \mathbf u) \right]
        \end{align*}
 
     where :math:`N` is the number of datapoints, :math:`q(\mathbf u)` is the variational distribution for
-    the inducing function values, and `p(\mathbf u)` is the prior distribution for the inducing function
-    values.
+    the inducing function values, :math:`q(f_i)` is the marginal of
+    :math:`p(f_i \mid \mathbf u, \mathbf x_i) q(\mathbf u)`,
+    and :math:`p(\mathbf u)` is the prior distribution for the inducing function values.
 
     :math:`\beta` is a scaling constant that reduces the regularization effect of the KL
     divergence. Setting :math:`\beta=1` (default) results in the true variational ELBO.
