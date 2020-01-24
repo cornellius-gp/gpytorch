@@ -110,8 +110,10 @@ class ArcKernel(Kernel):
         >>> print(covar.shape)
     """
 
+    has_lengthscale = True
+
     def __init__(
-        self, base_kernel, angle_prior: Optional[Prior] = None, radius_prior: Optional[Prior] = None, **kwargs,
+        self, base_kernel, angle_prior: Optional[Prior] = None, radius_prior: Optional[Prior] = None, **kwargs
     ):
         super().__init__(has_lengthscale=True, **kwargs)
 
@@ -119,7 +121,7 @@ class ArcKernel(Kernel):
         angle_constraint = Positive()
 
         self.register_parameter(
-            name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(self.ard_num_dims)),
+            name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.ard_num_dims)),
         )
         if angle_prior is not None:
             self.register_prior(
@@ -129,7 +131,7 @@ class ArcKernel(Kernel):
         self.register_constraint("raw_angle", angle_constraint)
 
         self.register_parameter(
-            name="raw_radius", parameter=torch.nn.Parameter(torch.zeros(self.ard_num_dims)),
+            name="raw_radius", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.ard_num_dims)),
         )
 
         if radius_prior is not None:
