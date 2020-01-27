@@ -220,6 +220,25 @@ class RFNSSpectralDeltaKernel(NSSpectralDeltaKernel):
 
         self.Z = inv_spec
 
+    def initialize_from_data_simple(self, train_x, train_y, **kwargs):
+        if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
+            raise RuntimeError("train_x and train_y should be tensors")
+        if train_x.ndimension() == 1:
+            train_x = train_x.unsqueeze(-1)
+        if train_x.ndimension() == 2:
+            train_x = train_x.unsqueeze(0)
+
+        train_x_sort = train_x.sort(1)[0]
+        min_dist_sort = (train_x_sort[:, 1:, :] - train_x_sort[:, :-1, :]).squeeze(0)
+        ard_num_dims = 1 if self.ard_num_dims is None else self.ard_num_dims
+        min_dist = torch.zeros(1, ard_num_dims, dtype=self.Z.dtype, device=self.Z.device)
+        for ind in range(ard_num_dims):
+            min_dist[:, ind] = min_dist_sort[(torch.nonzero(min_dist_sort[:, ind]))[0], ind]
+
+        z_init = torch.rand_like(self.Z).mul_(0.5).div_(min_dist)
+
+        self.Z = z_init
+
     @property
     def Z(self):
         return self.raw_Z_constraint.transform(self.raw_Z)
