@@ -3,7 +3,10 @@
 import logging
 import math
 
+import numpy as np
 import torch
+from scipy.fftpack import fft
+from scipy.integrate import cumtrapz
 
 from ..constraints import Positive
 from .kernel import Kernel
@@ -148,6 +151,39 @@ class SpectralMixtureKernel(Kernel):
             value = torch.as_tensor(value).to(self.raw_mixture_weights)
         self.initialize(raw_mixture_weights=self.raw_mixture_weights_constraint.inverse_transform(value))
 
+    def initialize_from_data_fancy(self, train_x, train_y):
+        N = train_x.size(-2)
+        emp_spect = np.abs(fft(train_y.cpu().detach().numpy())) ** 2 / N
+        M = math.floor(N / 2)
+
+        freq1 = np.arange(M + 1)
+        freq2 = np.arange(-M + 1, 0)
+        freq = np.hstack((freq1, freq2)) / N
+        freq = freq[: M + 1]
+        emp_spect = emp_spect[: M + 1]
+
+        total_area = np.trapz(emp_spect, freq)
+        spec_cdf = np.hstack((np.zeros(1), cumtrapz(emp_spect, freq)))
+        spec_cdf = spec_cdf / total_area
+
+        a = np.random.rand(1000, 1)
+        p, q = np.histogram(a, spec_cdf)
+        bins = np.digitize(a, q)
+        slopes = (spec_cdf[bins] - spec_cdf[bins - 1]) / (freq[bins] - freq[bins - 1])
+        intercepts = spec_cdf[bins - 1] - slopes * freq[bins - 1]
+        inv_spec = (a - intercepts) / slopes
+
+        from sklearn.mixture import GaussianMixture
+
+        GMM = GaussianMixture(n_components=self.num_mixtures, covariance_type="diag").fit(inv_spec)
+        means = GMM.means_
+        varz = GMM.covariances_
+        weights = GMM.weights_
+
+        self.mixture_means = means
+        self.mixture_scales = varz
+        self.mixture_weights = weights
+
     def initialize_from_data(self, train_x, train_y, **kwargs):
         if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
             raise RuntimeError("train_x and train_y should be tensors")
@@ -219,11 +255,11 @@ class SpectralMixtureKernel(Kernel):
                 "The SpectralMixtureKernel expected the input to have {} dimensionality "
                 "(based on the ard_num_dims argument). Got {}.".format(self.ard_num_dims, num_dims)
             )
-        if not batch_shape == self.batch_shape:
-            raise RuntimeError(
-                "The SpectralMixtureKernel expected the input to have a batch_size of {} "
-                "(based on the batch_size argument). Got {}.".format(self.batch_shape, batch_shape)
-            )
+        # if not batch_shape == self.batch_shape:
+        #     raise RuntimeError(
+        #         "The SpectralMixtureKernel expected the input to have a batch_size of {} "
+        #         "(based on the batch_size argument). Got {}.".format(self.batch_shape, batch_shape)
+        #     )
 
         # Expand x1 and x2 to account for the number of mixtures
         # Should make x1/x2 (b x k x n x d) for k mixtures
@@ -256,7 +292,7 @@ class SpectralMixtureKernel(Kernel):
 
         if last_dim_is_batch:
             mixture_weights = mixture_weights.unsqueeze(-1)
-        while mixture_weights.dim() < res.dim():
+        while mixture_weights.dim() < res.dim() - len(batch_shape):
             mixture_weights = mixture_weights.unsqueeze(-1)
 
         res = (res * mixture_weights).sum(len(batch_shape))
