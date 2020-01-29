@@ -92,7 +92,7 @@ class DecoupledVariationalStrategy(_VariationalStrategy):
 
     def kl_divergence(self):
         variational_dist = self.variational_distribution
-        prior_dist = self.variational_distribution
+        prior_dist = self.prior_distribution
 
         mean_dist = Delta(variational_dist.mean)
         covar_dist = MultivariateNormal(
