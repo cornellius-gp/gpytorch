@@ -99,7 +99,7 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
             inputs = inputs.expand(*inputs.shape[:-3], self.output_dims, *inputs.shape[-2:])
 
         # Now run samples through the GP
-        output = ApproximateGP.__call__(self, inputs)
+        output = ApproximateGP.__call__(self, inputs, **kwargs)
 
         if self.num_sample_sites > 0:
             if self.output_dims is not None:
@@ -121,7 +121,7 @@ class AbstractDeepGP(GP):
         super().__init__()
         self.variational_strategy = _DeepGPVariationalStrategy(self)
 
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         raise NotImplementedError
 
 

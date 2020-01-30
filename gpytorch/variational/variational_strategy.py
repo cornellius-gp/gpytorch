@@ -82,15 +82,22 @@ class VariationalStrategy(_VariationalStrategy):
         res = MultivariateNormal(zeros, DiagLazyTensor(ones))
         return res
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, mean_input=None, **kwargs):
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
-        full_output = self.model.forward(full_inputs)
-        full_covar = full_output.lazy_covariance_matrix
+        num_induc = inducing_points.size(-2)
+
+        if mean_input is not None:
+            x_mean = mean_input
+            batch_shape = inducing_points.shape[:-2]
+            x_mean = x_mean.expand(*batch_shape, *x_mean.shape)
+            test_mean, full_covar = self.model.forward(full_inputs, mean_input=x_mean, **kwargs)
+        else:
+            full_output = self.model.forward(full_inputs, **kwargs)
+            full_covar = full_output.lazy_covariance_matrix
+            test_mean = full_output.mean[..., num_induc:]
 
         # Covariance terms
-        num_induc = inducing_points.size(-2)
-        test_mean = full_output.mean[..., num_induc:]
         induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
         induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
@@ -132,7 +139,7 @@ class VariationalStrategy(_VariationalStrategy):
             # Return the distribution
             return MultivariateNormal(predictive_mean, predictive_covar)
 
-    def __call__(self, x, prior=False):
+    def __call__(self, x, prior=False, **kwargs):
         if not self.updated_strategy.item() and not prior:
             with torch.no_grad():
                 # Get unwhitened p(u)
@@ -174,4 +181,4 @@ class VariationalStrategy(_VariationalStrategy):
                 # Mark that we have updated the variational strategy
                 self.updated_strategy.fill_(True)
 
-        return super().__call__(x, prior=prior)
+        return super().__call__(x, prior=prior, **kwargs)

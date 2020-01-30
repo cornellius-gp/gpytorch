@@ -92,7 +92,7 @@ class _VariationalStrategy(Module, ABC):
                 delattr(self, "_memoize_cache")
         return super().train(mode=mode)
 
-    def __call__(self, x, prior=False):
+    def __call__(self, x, prior=False, **kwargs):
         # If we're in prior mode, then we're done!
         if prior:
             return self.model.forward(x)
@@ -125,10 +125,11 @@ class _VariationalStrategy(Module, ABC):
                 inducing_points,
                 inducing_values=variational_dist_u.mean,
                 variational_inducing_covar=variational_dist_u.lazy_covariance_matrix,
+                **kwargs,
             )
         elif isinstance(variational_dist_u, Delta):
             return super().__call__(
-                x, inducing_points, inducing_values=variational_dist_u.mean, variational_inducing_covar=None
+                x, inducing_points, inducing_values=variational_dist_u.mean, variational_inducing_covar=None, **kwargs
             )
         else:
             raise RuntimeError(

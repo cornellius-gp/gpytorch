@@ -68,7 +68,7 @@ class DeepGPLayer(ApproximateGP):
         self.input_dims = input_dims
         self.output_dims = output_dims
 
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         raise NotImplementedError
 
     def __call__(self, inputs, are_samples=False, **kwargs):
@@ -96,7 +96,7 @@ class DeepGPLayer(ApproximateGP):
             inputs = inputs.expand(*inputs.shape[:-3], self.output_dims, *inputs.shape[-2:])
 
         # Now run samples through the GP
-        output = ApproximateGP.__call__(self, inputs)
+        output = ApproximateGP.__call__(self, inputs, **kwargs)
         if self.output_dims is not None:
             mean = output.loc.transpose(-1, -2)
             covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
@@ -120,7 +120,7 @@ class DeepGP(GP):
         super().__init__()
         self.variational_strategy = _DeepGPVariationalStrategy(self)
 
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         raise NotImplementedError
 
 
