@@ -4,7 +4,7 @@ import torch
 import math
 
 from .kernel import Kernel
-from ..lazy import MatmulLazyTensor
+from ..lazy import MatmulLazyTensor, RootLazyTensor
 
 class RFFKernel(Kernel):
 
@@ -30,10 +30,13 @@ class RFFKernel(Kernel):
             z2 = self._featurize(x2, normalize=False)
         else:
             z2 = z1
-        D = self.num_samples
+        D = float(self.num_samples)
         if diag:
-            return (z1 * z1).sum(-1) / D
-        return MatmulLazyTensor(z1 / D, z2.transpose(-1, -2))
+            return (z1 * z2).sum(-1) / D
+        if x1_eq_x2:
+            return RootLazyTensor(z1 / math.sqrt(D))
+        else:
+            return MatmulLazyTensor(z1 / D, z2.transpose(-1, -2))
 
     def _featurize(self, x, normalize=False):
         # Recompute division each time to allow backprop through lengthscale
