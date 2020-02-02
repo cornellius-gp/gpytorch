@@ -30,7 +30,7 @@ from .lazy import cat, delazify, lazify
 from .mlls import ExactMarginalLogLikelihood
 from .module import Module
 
-__version__ = "0.3.6"
+__version__ = "1.0.1"
 
 __all__ = [
     # Submodules
