@@ -39,8 +39,12 @@ class MatmulLazyTensor(LazyTensor):
         inner_index = torch.arange(0, self.left_lazy_tensor.size(-1), device=self.device)
         inner_index = _pad_with_singletons(inner_index, row_index.dim() - 1, 0)
 
-        left_tensor = self.left_lazy_tensor._get_indices(row_index, inner_index, *batch_indices)
-        right_tensor = self.right_lazy_tensor._get_indices(inner_index, col_index, *batch_indices)
+        left_tensor = self.left_lazy_tensor._get_indices(
+            row_index, inner_index, *batch_indices[-len(self.left_lazy_tensor.batch_shape) :]
+        )
+        right_tensor = self.right_lazy_tensor._get_indices(
+            inner_index, col_index, *batch_indices[-len(self.right_lazy_tensor.batch_shape) :]
+        )
         res = (left_tensor * right_tensor).sum(-1)
         return res
 
@@ -51,8 +55,12 @@ class MatmulLazyTensor(LazyTensor):
             if num_indices > self.matrix_shape.numel():
                 return lazify(self.evaluate())._getitem(row_index, col_index, *batch_indices)
 
-        left_tensor = self.left_lazy_tensor._getitem(row_index, _noop_index, *batch_indices)
-        right_tensor = self.right_lazy_tensor._getitem(_noop_index, col_index, *batch_indices)
+        left_tensor = self.left_lazy_tensor._getitem(
+            row_index, _noop_index, *batch_indices[-len(self.left_lazy_tensor.batch_shape) :]
+        )
+        right_tensor = self.right_lazy_tensor._getitem(
+            _noop_index, col_index, *batch_indices[-len(self.right_lazy_tensor.batch_shape) :]
+        )
 
         res = MatmulLazyTensor(left_tensor, right_tensor)
         return res

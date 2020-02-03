@@ -3,6 +3,7 @@
 from ._variational_distribution import _VariationalDistribution
 from ._variational_strategy import _VariationalStrategy
 from .additive_grid_interpolation_variational_strategy import AdditiveGridInterpolationVariationalStrategy
+from .batch_lcm_variational_strategy import BatchLCMVariationalStrategy
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 from .decoupled_variational_strategy import DecoupledVariationalStrategy
 from .delta_variational_distribution import DeltaVariationalDistribution
@@ -18,6 +19,7 @@ __all__ = [
     "_VariationalStrategy",
     "AdditiveGridInterpolationVariationalStrategy",
     "DecoupledVariationalStrategy",
+    "BatchLCMVariationalStrategy",
     "GridInterpolationVariationalStrategy",
     "MultitaskVariationalStrategy",
     "OrthogonalDecoupledVariationalStrategy",
