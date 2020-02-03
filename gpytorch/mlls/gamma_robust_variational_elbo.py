@@ -45,6 +45,7 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
         Setting it to anything less than 1 reduces the regularization effect of the model
         (similarly to what was proposed in `the beta-VAE paper`_).
     :param float gamma: (optional, default=1.03) The :math:`\gamma`-divergence hyperparameter.
+    :param float eps: (optional, default=10^-10) Minimum noise to add to prevent div-by-0 errors
     :param bool combine_terms: (default=True): Whether or not to sum the
         expected NLL with the KL terms (default True)
 
@@ -63,23 +64,24 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
         https://arxiv.org/pdf/1904.02063.pdf
     """
 
-    def __init__(self, likelihood, model, gamma=1.03, *args, **kwargs):
+    def __init__(self, likelihood, model, gamma=1.03, eps=1e-10, *args, **kwargs):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super().__init__(likelihood, model, *args, **kwargs)
         if gamma <= 1.0:
             raise ValueError("gamma should be > 1.0")
         self.gamma = gamma
+        self.eps = eps
 
     def _log_likelihood_term(self, variational_dist_f, target, *args, **kwargs):
         shifted_gamma = self.gamma - 1
 
-        muf, varf = variational_dist_f.mean, variational_dist_f.variance
+        muf, varf = variational_dist_f.mean, variational_dist_f.variance.clamp_min(self.eps)
 
         # Get noise from likelihood
         noise = self.likelihood._shaped_noise_covar(muf.shape, *args, **kwargs).diag()
         # Potentially reshape the noise to deal with the multitask case
-        noise = noise.view(*noise.shape[:-1], *variational_dist_f.event_shape)
+        noise = noise.view(*noise.shape[:-1], *variational_dist_f.event_shape).clamp_min(self.eps)
 
         # adapted from https://github.com/JeremiasKnoblauch/GVIPublic/
         mut = shifted_gamma * target / noise + muf / varf
