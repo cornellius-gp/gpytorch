@@ -264,7 +264,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         return res.view(self.shape[:-1]).contiguous()
 
     @cached(name="kernel_eval")
-    def evaluate_kernel(self):
+    def evaluate_kernel(self, **new_params):
         """
         NB: This is a meta LazyTensor, in the sense that evaluate can return
         a LazyTensor if the kernel being evaluated does so.
@@ -275,7 +275,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         with settings.lazily_evaluate_kernels(False):
             temp_active_dims = self.kernel.active_dims
             self.kernel.active_dims = None
-            res = self.kernel(x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params)
+            res = self.kernel(x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **new_params, **self.params)
             self.kernel.active_dims = temp_active_dims
 
         # Check the size of the output
