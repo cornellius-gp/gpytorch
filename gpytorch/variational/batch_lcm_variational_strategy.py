@@ -87,22 +87,16 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
 
         # Mean
         mean = function_dist.mean.permute(*range(0, function_dim), *range(function_dim + 1, num_dim), function_dim)
-        if mean.size(-1) > 1:
-            mean = mean.unsqueeze(0)
-            mean = mean.transpose(0, 3)
         mean = mean @ lcm_coefficients.transpose(-1, -2)
-        #mean = mean.sum(group_dim - 1)
-        mean = mean.sum(-3)
+        mean = mean.sum(group_dim - 1)
 
         # Covar
         covar = function_dist.lazy_covariance_matrix
-        if covar.size(0) == 1:
-            covar = covar.sum(function_dim)
+        covar = covar.sum(function_dim)
         lcm_factor = lcm_coefficients @ lcm_coefficients.transpose(-1, -2)
         lcm_factor = lcm_factor.expand(*covar.batch_shape, *lcm_factor.shape[-2:])
         covar = KroneckerProductLazyTensor(covar, lcm_factor)
-        covar = covar.sum(-3)  # - 1 because we summed over the function_dim
-        #covar = covar.sum(group_dim - 1)  # - 1 because we summed over the function_dim
+        covar = covar.sum(group_dim - 1)  # - 1 because we summed over the function_dim
 
         # Done!
         function_dist = MultitaskMultivariateNormal(mean, covar)
