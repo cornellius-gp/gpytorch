@@ -97,7 +97,7 @@ class DeepGPLayer(ApproximateGP):
 
         # Now run samples through the GP
         output = ApproximateGP.__call__(self, inputs, **kwargs)
-        if self.output_dims is not None:
+        if self.output_dims is not None and not isinstance(output, MultitaskMultivariateNormal):
             mean = output.loc.transpose(-1, -2)
             covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
             output = MultitaskMultivariateNormal(mean, covar, interleaved=False)
