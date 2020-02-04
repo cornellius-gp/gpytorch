@@ -30,6 +30,7 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         self.num_functions = num_functions or num_tasks
         self.num_groups = num_groups
 
+        assert function_dim < group_dim
         self.batch_shape = self.base_variational_strategy._variational_distribution.batch_shape
         self.function_dim = function_dim if function_dim < 0 else (function_dim - len(self.batch_shape))
         self.group_dim = group_dim if group_dim < 0 else (group_dim - len(self.batch_shape))
@@ -46,14 +47,12 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
                 f"expected the gruop dim {self.group_dim} to be {self.num_groups}."
             )
         self.batch_shape = list(self.batch_shape)
-        for index in sorted([self.function_dim, self.group_dim]):
-            del self.batch_shape[index]
+        del self.batch_shape[self.function_dim]
         self.batch_shape = torch.Size(self.batch_shape)
 
         # LCM coefficients
         raw_lcm_coefficients = torch.randn(
-            *self.batch_shape[: self.function_dim],
-            *self.batch_shape[self.function_dim + 1 :],
+            *self.batch_shape,
             self.num_tasks,
             self.num_functions,
         ).tril_()
@@ -88,19 +87,16 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
 
         # Mean
         mean = function_dist.mean.permute(*range(0, function_dim), *range(function_dim + 1, num_dim), function_dim)
-        if group_dim < function_dim:
-            mean = mean.sum(group_dim)
-        else:
-            mean = mean.sum(group_dim - 1)
         mean = mean @ lcm_coefficients.transpose(-1, -2)
+        mean = mean.sum(group_dim - 1)
 
         # Covar
         covar = function_dist.lazy_covariance_matrix
-        for index in sorted([function_dim, group_dim], reverse=True):
-            covar = covar.sum(index)
+        covar = covar.sum(function_dim)
         lcm_factor = lcm_coefficients @ lcm_coefficients.transpose(-1, -2)
         lcm_factor = lcm_factor.expand(*covar.batch_shape, *lcm_factor.shape[-2:])
         covar = KroneckerProductLazyTensor(covar, lcm_factor)
+        covar = covar.sum(group_dim - 1)  # - 1 because we summed over the function_dim
 
         # Done!
         function_dist = MultitaskMultivariateNormal(mean, covar)
