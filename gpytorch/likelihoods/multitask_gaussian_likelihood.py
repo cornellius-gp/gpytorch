@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 
 from ..constraints import GreaterThan
-from ..distributions import base_distributions
+from ..distributions import base_distributions, MultivariateNormal
 from ..functions import add_diag
 from ..lazy import (
     BlockDiagLazyTensor,
@@ -106,6 +106,27 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
         noise = noise.view(*noise.shape[:-1], *function_samples.shape[-2:])
         return base_distributions.Independent(base_distributions.Normal(function_samples, noise.sqrt()), 1)
+
+    def log_marginal(
+        self, observations: Tensor, function_dist: MultivariateNormal, *params: Any, **kwargs: Any
+    ) -> Tensor:
+        marginal = self.marginal(function_dist, *params, **kwargs)
+
+        # Create batch distribution where all data are independent, but the tasks are dependent
+        full_covar = marginal.covariance_matrix
+        batch_dims = list(range(full_covar.dim() - 2))
+        num_data, num_tasks = observations.shape[-2:]
+        full_covar = full_covar.reshape(*full_covar.shape[:-2], num_data, num_tasks, num_data, num_tasks)
+        task_covars = (
+            full_covar.permute(*batch_dims, -3, -1, -4, -2)
+            .diagonal(dim1=-1, dim2=-2)
+            .permute(*batch_dims, -1, -3, -2)
+            .contiguous()
+        )
+        pred_dist = MultivariateNormal(marginal.mean, task_covars)
+
+        # Return the log_prob
+        return pred_dist.log_prob(observations)
 
 
 class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
