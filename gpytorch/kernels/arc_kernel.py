@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Jan  7 11:13:37 2020
-
 @author: kostal
 """
 
@@ -21,39 +20,28 @@ class ArcKernel(Kernel):
     r""" Computes a covariance matrix based on the Arc Kernel
     (https://arxiv.org/abs/1409.4011) between inputs :math:`\mathbf{x_1}`
     and :math:`\mathbf{x_2}`. First it applies a cylindrical embedding:
-
     .. math::
-
-
           g_{i}(\mathbf{x}) = \{\begin{eqnarray}
           [0, 0]^{T} \qquad if\;\delta_{i}(\mathbf{x}) = false\\
           \omega_{i}[\sin{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}},
           \cos{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}}] \qquad otherwise
           \end{eqnarray}
-
-
     where
-
     * :math:`\rho` is the angle parameter.
     * :math:`\omega` is a radius parameter.
-
     then the kernel is built with the particular covariance function, e.g.
-
     .. math::
         \begin{equation}
         k_{i}(\mathbf{x}, \mathbf{x^{'}}) =
         \sigma^{2}\exp(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}))^{2}
         \end{equation}
-
     and the produt between dimensions
-
     .. math::
         \begin{equation}
         k_{i}(\mathbf{x}, \mathbf{x^{'}}) =
         \sigma^{2}\exp(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}))^{2}
         \end{equation}
     .. note::
-
         This kernel does not have an `outputscale` parameter. To add a scaling
         parameter, decorate this kernel with a
         :class:`gpytorch.kernels.ScaleKernel`.
@@ -61,9 +49,7 @@ class ArcKernel(Kernel):
         kernel with :class:`gpytorch.kernel.ProductStructuredKernel , setting
         the number of dims, `num_dims to d.`
     .. note::
-
         This kernel does not have an ARD lengthscale option.
-
     Args:
         :attr:`base_kernel` (gpytorch.kernels.Kernel):
             The euclidean covariance of choice. Default: `MaternKernel(nu=2.5)`
@@ -77,13 +63,11 @@ class ArcKernel(Kernel):
         :attr:`radius_prior` (Prior, optional):
             Set this if you want to apply a prior to the lengthscale parameter.
             Default: `None`.
-
     Attributes:
         :attr:`radius` (Tensor):
             The radius parameter. Size = `*batch_shape  x 1`.
         :attr:`angle` (Tensor):
             The period angle parameter. Size = `*batch_shape  x 1`.
-
     Example:
         >>> x = torch.randn(10, 5)
         >>> # Non-batch: Simple option
@@ -115,13 +99,17 @@ class ArcKernel(Kernel):
     def __init__(
         self, base_kernel, angle_prior: Optional[Prior] = None, radius_prior: Optional[Prior] = None, **kwargs
     ):
-        super().__init__(has_lengthscale=True, **kwargs)
+        super(ArcKernel, self).__init__(has_lengthscale=True, **kwargs)
 
+        if self.ard_num_dims is None:
+            last_dim = 1
+        else:
+            last_dim = self.ard_num_dims
         # TODO: check the errors given by interval
         angle_constraint = Positive()
 
         self.register_parameter(
-            name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.ard_num_dims)),
+            name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, last_dim)),
         )
         if angle_prior is not None:
             self.register_prior(
@@ -131,7 +119,7 @@ class ArcKernel(Kernel):
         self.register_constraint("raw_angle", angle_constraint)
 
         self.register_parameter(
-            name="raw_radius", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.ard_num_dims)),
+            name="raw_radius", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, last_dim)),
         )
 
         if radius_prior is not None:
