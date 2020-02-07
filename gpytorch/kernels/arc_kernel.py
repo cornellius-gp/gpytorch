@@ -170,4 +170,4 @@ class ArcKernel(Kernel):
 
     def forward(self, x1, x2, diag=False, **params):
         x1_, x2_ = self.embedding(x1), self.embedding(x2)
-        return self.base_kernel(x1_, x2_)
+        return self.base_kernel(x1_, x2_, diag=diag)
