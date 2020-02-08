@@ -10,9 +10,9 @@ from typing import Optional
 
 import torch
 
-from gpytorch.constraints import Positive
-from gpytorch.kernels import Kernel
-from gpytorch.priors import Prior
+from ..constraints import Positive
+from ..priors import Prior
+from .kernel import Kernel
 
 
 class ArcKernel(Kernel):
