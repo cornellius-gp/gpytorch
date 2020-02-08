@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from . import keops
 from .additive_structure_kernel import AdditiveStructureKernel
+from .arc_kernel import ArcKernel
 from .cosine_kernel import CosineKernel
 from .cylindrical_kernel import CylindricalKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
@@ -27,6 +28,7 @@ from .spectral_mixture_kernel import SpectralMixtureKernel
 __all__ = [
     "keops",
     "Kernel",
+    "ArcKernel",
     "AdditiveKernel",
     "AdditiveStructureKernel",
     "CylindricalKernel",
