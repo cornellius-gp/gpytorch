@@ -7,8 +7,7 @@ Created on Sat Feb  1 10:07:05 2020
 """
 import unittest
 
-from gpytorch.arc_kernel import ArcKernel
-from gpytorch.kernels import MaternKernel
+from gpytorch.kernels import ArcKernel, MaternKernel
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
