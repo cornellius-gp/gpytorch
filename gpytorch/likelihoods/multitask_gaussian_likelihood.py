@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 
 from ..constraints import GreaterThan
-from ..distributions import base_distributions, MultivariateNormal
+from ..distributions import MultivariateNormal, base_distributions
 from ..functions import add_diag
 from ..lazy import (
     BlockDiagLazyTensor,
@@ -111,22 +111,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         self, observations: Tensor, function_dist: MultivariateNormal, *params: Any, **kwargs: Any
     ) -> Tensor:
         marginal = self.marginal(function_dist, *params, **kwargs)
-
-        # Create batch distribution where all data are independent, but the tasks are dependent
-        full_covar = marginal.covariance_matrix
-        batch_dims = list(range(full_covar.dim() - 2))
-        num_data, num_tasks = observations.shape[-2:]
-        full_covar = full_covar.reshape(*full_covar.shape[:-2], num_data, num_tasks, num_data, num_tasks)
-        task_covars = (
-            full_covar.permute(*batch_dims, -3, -1, -4, -2)
-            .diagonal(dim1=-1, dim2=-2)
-            .permute(*batch_dims, -1, -3, -2)
-            .contiguous()
-        )
-        pred_dist = MultivariateNormal(marginal.mean, task_covars)
-
-        # Return the log_prob
-        return pred_dist.log_prob(observations)
+        return marginal.to_data_independent_dist().log_prob(observations)
 
 
 class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
