@@ -22,7 +22,7 @@ class DecoupledVariationalStrategy(_VariationalStrategy):
         # One set for computing the mean, one set for computing the variance
         self.return_separate_mvns = return_separate_mvns
         inducing_points = torch.stack([inducing_points, inducing_points])  # Create two copies
-        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
+        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations, decoupled=True)
 
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
