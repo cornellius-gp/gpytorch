@@ -112,6 +112,8 @@ class _VariationalStrategy(Module, ABC):
         # Ensure inducing_points and x are the same size
         inducing_points = self.inducing_points
         ind_shape_idx = -3 if self._decoupled_inducing_points else -2
+        if self._decoupled_inducing_points:
+            inducing_points = inducing_points.transpose(0, -3)  # Move 2 to innermost batch dim temporarily.
         ind_batch_shape = inducing_points.shape[:ind_shape_idx]
 
         if ind_batch_shape != x.shape[:-2]:
