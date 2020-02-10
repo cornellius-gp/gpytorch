@@ -214,6 +214,25 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             return samples.view(new_shape).transpose(-1, -2).contiguous()
         return samples.view(sample_shape + self._output_shape)
 
+    def to_data_independent_dist(self):
+        """
+        Convert a multitask MVN into a batched (non-multitask) MVNs
+        The result retains the intertask covariances, but gets rid of the inter-data covariances.
+        The resulting distribution will have :attr:`len(mvns)` tasks, and the tasks will be independent.
+
+        :returns: the bached data-independent MVN
+        :rtype: gpytorch.distributions.MultivariateNormal
+        """
+        # Create batch distribution where all data are independent, but the tasks are dependent
+        full_covar = self.lazy_covariance_matrix
+        num_data, num_tasks = self.mean.shape[-2:]
+        data_indices = torch.arange(0, num_data * num_tasks, num_tasks, device=full_covar.device).view(-1, 1, 1)
+        task_indices = torch.arange(num_tasks, device=full_covar.device)
+        task_covars = full_covar[
+            ..., data_indices + task_indices.unsqueeze(-2), data_indices + task_indices.unsqueeze(-1)
+        ]
+        return MultivariateNormal(self.mean, task_covars)
+
     @property
     def variance(self):
         var = super().variance

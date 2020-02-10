@@ -182,6 +182,22 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         with torch.no_grad():
             return self.rsample(sample_shape=sample_shape, base_samples=base_samples)
 
+    def to_data_independent_dist(self):
+        """
+        Convert a MVN into a batched Normal distribution
+
+        :returns: the bached data-independent Normal
+        :rtype: gpytorch.distributions.Normal
+        """
+        # Create batch distribution where all data are independent, but the tasks are dependent
+        try:
+            # If pyro is installed, use that set of base distributions
+            import pyro.distributions as base_distributions
+        except ImportError:
+            # Otherwise, use PyTorch
+            import torch.distributions as base_distributions
+        return base_distributions.Normal(self.mean, self.stddev)
+
     @property
     def variance(self):
         if self.islazy:
