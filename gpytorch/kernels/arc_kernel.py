@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Jan  7 11:13:37 2020
-@author: kostal
+@author: blue
 """
 
 from math import pi
