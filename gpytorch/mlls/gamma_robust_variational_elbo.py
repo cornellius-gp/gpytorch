@@ -5,6 +5,7 @@ import math
 import numpy as np
 import torch
 
+from ..lazy import CholLazyTensor, DiagLazyTensor
 from ..likelihoods import _GaussianLikelihoodBase
 from ._approximate_mll import _ApproximateMarginalLogLikelihood
 
@@ -76,34 +77,64 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
     def _log_likelihood_term(self, variational_dist_f, target, *args, **kwargs):
         shifted_gamma = self.gamma - 1
 
-        muf, varf = variational_dist_f.mean, variational_dist_f.variance.clamp_min(self.eps)
+        if len(variational_dist_f.event_shape) == 1:  # Non multi-task case
+            muf, varf = variational_dist_f.mean, variational_dist_f.variance.clamp_min(self.eps)
 
-        # Get noise from likelihood
-        noise = self.likelihood._shaped_noise_covar(muf.shape, *args, **kwargs).diag()
-        # Potentially reshape the noise to deal with the multitask case
-        noise = noise.view(*noise.shape[:-1], *variational_dist_f.event_shape).clamp_min(self.eps)
+            # Get noise from likelihood
+            noise = self.likelihood._shaped_noise_covar(muf.shape, *args, **kwargs).diag()
+            noise = noise.clamp_min(self.eps)
 
-        # adapted from https://github.com/JeremiasKnoblauch/GVIPublic/
-        mut = shifted_gamma * target / noise + muf / varf
-        sigmat = 1.0 / (shifted_gamma / noise + 1.0 / varf)
-        log_integral = -0.5 * shifted_gamma * torch.log(2.0 * math.pi * noise) - 0.5 * np.log1p(shifted_gamma)
-        log_tempered = (
-            -math.log(shifted_gamma)
-            - 0.5 * shifted_gamma * torch.log(2.0 * math.pi * noise)
-            - 0.5 * torch.log1p(shifted_gamma * varf / noise)
-            - 0.5 * (shifted_gamma * target.pow(2.0) / noise)
-            - 0.5 * muf.pow(2.0) / varf
-            + 0.5 * mut.pow(2.0) * sigmat
-        )
+            # adapted from https://github.com/JeremiasKnoblauch/GVIPublic/
+            mut = shifted_gamma * target / noise + muf / varf
+            sigmat = 1.0 / (shifted_gamma / noise + 1.0 / varf)
+            log_integral = -0.5 * shifted_gamma * torch.log(2.0 * math.pi * noise) - 0.5 * np.log1p(shifted_gamma)
+            log_tempered = (
+                -math.log(shifted_gamma)
+                - 0.5 * shifted_gamma * torch.log(2.0 * math.pi * noise)
+                - 0.5 * torch.log1p(shifted_gamma * varf / noise)
+                - 0.5 * (shifted_gamma * target.pow(2.0) / noise)
+                - 0.5 * muf.pow(2.0) / varf
+                + 0.5 * mut.pow(2.0) * sigmat
+            )
 
-        factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + (1.0 + shifted_gamma)
-        #factor = factor.exp()
-        #factor = torch.logsumexp(factor, dim=0, keepdims=True) - math.log(factor.size(0))
-        # factor = (torch.logsumexp(factor, dim=0, keepdims=True) - math.log(factor.size(0))).exp()
+            factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + (1.0 + shifted_gamma)
 
-        # Do appropriate summation for multitask Gaussian likelihoods
-        num_event_dim = len(variational_dist_f.event_shape)
-        if num_event_dim > 1:
-            factor = factor.logsumexp(list(range(-1, -num_event_dim, -1)))
+        else:  # Multitask case
+            num_data, num_tasks = variational_dist_f.event_shape
+            variational_dist_f = variational_dist_f.to_data_independent_dist()
+            muf, sigmaf = variational_dist_f.mean, variational_dist_f.lazy_covariance_matrix.add_jitter(self.eps)
+            # for speed
+            sigmaf = CholLazyTensor(sigmaf.cholesky())
+
+            # Get noise from likelihood
+            # Here we're assuming there's no inter-task noise
+            noise = self.likelihood._shaped_noise_covar(muf.shape, *args, **kwargs).diag()
+            noise = noise.clamp_min(self.eps)
+            # Now re-shape so it's n_data x n_task
+            noise = DiagLazyTensor(noise.view(*noise.shape[:-1], num_data, num_tasks))
+
+            # Constants!
+            log2pinoise = noise.mul(2.0 * math.pi).logdet()
+            eye = torch.eye(num_tasks, dtype=muf.dtype, device=muf.device)
+
+            mut = shifted_gamma * noise.inv_matmul(target.unsqueeze(-1)) + sigmaf.inv_matmul(muf.unsqueeze(-1))
+            # Here we're going to keep sigmat inverted, unlike in the single task case
+            sigmat_inv = noise.inv_matmul(eye).mul(shifted_gamma) + sigmaf.inv_matmul(eye)
+            # For efficiency
+            sigmat_inv = CholLazyTensor(sigmat_inv.cholesky())
+            log_integral = -0.5 * shifted_gamma * log2pinoise - 0.5 * np.log1p(shifted_gamma)
+            log_tempered = (
+                -math.log(shifted_gamma)
+                - 0.5 * shifted_gamma * log2pinoise
+                # This next line matches the torch.log1p line
+                # What I have here on the next line is analogous to...
+                # https://github.com/JeremiasKnoblauch/GVIPublic/blob/master/DSDGP/robustified_likelihoods.py#L98
+                + 0.5 * (-sigmat_inv.logdet() - sigmaf.logdet())
+                - 0.5 * noise.inv_quad(target.unsqueeze(-1)).mul(shifted_gamma)
+                - 0.5 * sigmaf.inv_quad(muf.unsqueeze(-1))
+                + 0.5 * sigmat_inv.inv_quad(mut)
+            ).squeeze(-1)
+
+            factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + (1.0 + shifted_gamma)
 
         return factor.logsumexp(-1).exp()
