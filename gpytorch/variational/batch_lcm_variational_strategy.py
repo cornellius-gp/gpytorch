@@ -33,16 +33,13 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         assert function_dim < group_dim
         self.batch_shape = self.base_variational_strategy._variational_distribution.batch_shape
         self.function_dim = function_dim if function_dim < 0 else (function_dim - len(self.batch_shape))
-        if num_groups is None:
-            self.group_dim = None
-        else:
-            self.group_dim = group_dim if group_dim < 0 else (group_dim - len(self.batch_shape))
+        self.group_dim = group_dim if group_dim < 0 else (group_dim - len(self.batch_shape))
 
-            if not (self.batch_shape[self.group_dim] == num_groups or self.batch_shape[self.group_dim] == 1):
-                raise RuntimeError(
-                    f"Mismatch in num_groups: got a variational distribution of batch shape {self.batch_shape}, "
-                    f"expected the gruop dim {self.group_dim} to be {self.num_groups}."
-                )
+        if not (self.batch_shape[self.group_dim] == num_groups or self.batch_shape[self.group_dim] == 1):
+            raise RuntimeError(
+                f"Mismatch in num_groups: got a variational distribution of batch shape {self.batch_shape}, "
+                f"expected the gruop dim {self.group_dim} to be {self.num_groups}."
+            )
 
         # Ensure the number of tasks/groups is equal to what we have in the variational distribution
         if not (self.batch_shape[self.function_dim] == num_functions or self.batch_shape[self.function_dim] == 1):
@@ -90,14 +87,12 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         num_batch = len(function_dist.batch_shape)
         num_dim = num_batch + len(function_dist.event_shape)
         function_dim = num_batch + self.function_dim
+        group_dim = num_batch + self.group_dim
 
         # Mean
         mean = function_dist.mean.permute(*range(0, function_dim), *range(function_dim + 1, num_dim), function_dim)
         mean = mean @ lcm_coefficients.transpose(-1, -2)
-
-        if self.group_dim is not None:
-            group_dim = num_batch + self.group_dim
-            mean = mean.sum(group_dim - 1)
+        mean = mean.sum(group_dim - 1)
 
         # Covar
         covar = function_dist.lazy_covariance_matrix
@@ -105,8 +100,7 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         lcm_factor = lcm_coefficients @ lcm_coefficients.transpose(-1, -2)
         lcm_factor = lcm_factor.expand(*covar.batch_shape, *lcm_factor.shape[-2:])
         covar = KroneckerProductLazyTensor(covar, lcm_factor)
-        if self.group_dim is not None:
-            covar = covar.sum(group_dim - 1)  # - 1 because we summed over the function_dim
+        covar = covar.sum(group_dim - 1)  # - 1 because we summed over the function_dim
 
         # Done!
         function_dist = MultitaskMultivariateNormal(mean, covar)
