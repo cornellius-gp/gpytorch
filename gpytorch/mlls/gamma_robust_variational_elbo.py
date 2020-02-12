@@ -97,7 +97,7 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
                 + 0.5 * mut.pow(2.0) * sigmat
             )
 
-            factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + (1.0 + shifted_gamma)
+            factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + math.log(1.0 + shifted_gamma)
 
         else:  # Multitask case
             num_data, num_tasks = variational_dist_f.event_shape
@@ -135,6 +135,6 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
                 + 0.5 * sigmat_inv.inv_quad(mut)
             ).squeeze(-1)
 
-            factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + (1.0 + shifted_gamma)
+            factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + math.log(1.0 + shifted_gamma)
 
         return factor.logsumexp(-1).exp()
