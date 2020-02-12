@@ -22,7 +22,7 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
     """
 
     def __init__(
-        self, base_variational_strategy, num_tasks, num_functions=0, num_groups=1, function_dim=0, group_dim=1
+        self, base_variational_strategy, num_tasks, num_functions=0, num_groups=None, function_dim=0, group_dim=1
     ):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
@@ -35,16 +35,17 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         self.function_dim = function_dim if function_dim < 0 else (function_dim - len(self.batch_shape))
         self.group_dim = group_dim if group_dim < 0 else (group_dim - len(self.batch_shape))
 
+        if not (self.batch_shape[self.group_dim] == num_groups or self.batch_shape[self.group_dim] == 1):
+            raise RuntimeError(
+                f"Mismatch in num_groups: got a variational distribution of batch shape {self.batch_shape}, "
+                f"expected the gruop dim {self.group_dim} to be {self.num_groups}."
+            )
+
         # Ensure the number of tasks/groups is equal to what we have in the variational distribution
         if not (self.batch_shape[self.function_dim] == num_functions or self.batch_shape[self.function_dim] == 1):
             raise RuntimeError(
                 f"Mismatch in num_functions: got a variational distribution of batch shape {self.batch_shape}, "
                 f"expected the function dim {self.function_dim} to be {self.num_functions}."
-            )
-        if not (self.batch_shape[self.group_dim] == num_groups or self.batch_shape[self.group_dim] == 1):
-            raise RuntimeError(
-                f"Mismatch in num_groups: got a variational distribution of batch shape {self.batch_shape}, "
-                f"expected the gruop dim {self.group_dim} to be {self.num_groups}."
             )
         self.batch_shape = list(self.batch_shape)
         del self.batch_shape[self.function_dim]
@@ -75,7 +76,10 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         return self.base_variational_strategy.variational_params_initialized
 
     def kl_divergence(self):
-        return super().kl_divergence().sum(dim=[self.function_dim, self.group_dim])
+        if self.group_dim is not None:
+            return super().kl_divergence().sum(dim=[self.function_dim, self.group_dim])
+        else:
+            return super().kl_divergence().sum(dim=[self.function_dim])
 
     def __call__(self, x, prior=False):
         function_dist = self.base_variational_strategy(x, prior=prior)
