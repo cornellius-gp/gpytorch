@@ -41,15 +41,15 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
         self.num_sample_sites = num_sample_sites
 
         # quad_grid is of size Q^T x T
-        if output_dims is None:
-            if grid_strategy == 'freegrid':
-                xi, _ = hermgauss(self.num_sample_sites)
-                self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
-            elif grid_strategy == 'flipgrid':
-                xi, _ = hermgauss(self.num_sample_sites)
-                self.xi = torch.nn.Parameter(0.5 * torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
-            elif grid_strategy == 'freeform':
-                self.xi = torch.nn.Parameter(torch.randn(num_sample_sites, input_dims))
+        #if output_dims is None: this hack was here because only the topmost layer needed these things
+        if grid_strategy == 'freegrid':
+            xi, _ = hermgauss(self.num_sample_sites)
+            self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+        elif grid_strategy == 'flipgrid':
+            xi, _ = hermgauss(self.num_sample_sites)
+            self.xi = torch.nn.Parameter(0.5 * torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+        elif grid_strategy == 'freeform':
+            self.xi = torch.nn.Parameter(torch.randn(num_sample_sites, input_dims))
 
     @property
     def quad_grid(self):
