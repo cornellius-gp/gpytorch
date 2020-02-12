@@ -34,7 +34,6 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         self.batch_shape = self.base_variational_strategy._variational_distribution.batch_shape
         self.function_dim = function_dim if function_dim < 0 else (function_dim - len(self.batch_shape))
         self.group_dim = group_dim if group_dim < 0 else (group_dim - len(self.batch_shape))
-
         # Ensure the number of tasks/groups is equal to what we have in the variational distribution
         if not (self.batch_shape[self.function_dim] == num_functions or self.batch_shape[self.function_dim] == 1):
             raise RuntimeError(
@@ -88,7 +87,7 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         # Mean
         mean = function_dist.mean.permute(*range(0, function_dim), *range(function_dim + 1, num_dim), function_dim)
         mean = mean @ lcm_coefficients.transpose(-1, -2)
-        mean = mean.sum(group_dim - 1)
+        # mean = mean.sum(group_dim - 1)
 
         # Covar
         covar = function_dist.lazy_covariance_matrix
@@ -96,7 +95,7 @@ class BatchLCMVariationalStrategy(_VariationalStrategy):
         lcm_factor = lcm_coefficients @ lcm_coefficients.transpose(-1, -2)
         lcm_factor = lcm_factor.expand(*covar.batch_shape, *lcm_factor.shape[-2:])
         covar = KroneckerProductLazyTensor(covar, lcm_factor)
-        covar = covar.sum(group_dim - 1)  # - 1 because we summed over the function_dim
+        # covar = covar.sum(group_dim - 1)  # - 1 because we summed over the function_dim
 
         # Done!
         function_dist = MultitaskMultivariateNormal(mean, covar)
