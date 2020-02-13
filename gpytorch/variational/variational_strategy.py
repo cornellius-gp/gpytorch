@@ -97,6 +97,10 @@ class VariationalStrategy(_VariationalStrategy):
         # K_ZZ^{-1/2} K_ZX
         # K_ZZ^{-1/2} \mu_Z
         L = self._cholesky_factor(induc_induc_covar)
+        if L.shape != induc_induc_covar.shape:
+            # Aggressive caching can cause nasty shape incompatibilies when evaluating with different batch shapes
+            del self._memoize_cache["cholesky_factor"]
+            L = self._cholesky_factor(induc_induc_covar)
         interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0].to(full_inputs.dtype)
 
         # Compute the mean of q(f)
