@@ -18,7 +18,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
     :param ~gpytorch.lazy.LazyTensor covar: An `nt x nt` or batch `b x nt x nt`
         covariance matrix of MVN distribution.
     :param bool validate_args: (default=False) If True, validate `mean` anad `covariance_matrix` arguments.
-    :param bool interleaved: (default=False) If True, covariance matrix is interpreted as block-diagonal w.r.t.
+    :param bool interleaved: (default=True) If True, covariance matrix is interpreted as block-diagonal w.r.t.
         inter-task covariances for each observation. If False, it is interpreted as block-diagonal
         w.r.t. inter-observation covariance for each task.
     """
