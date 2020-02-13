@@ -32,7 +32,7 @@ class _DeepGPVariationalStrategy(object):
 
 
 class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3, grid_strategy="flipgrid"):
+    def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3, grid_strategy="flipgrid", xi=None):
         super().__init__(variational_strategy, input_dims, output_dims)
 
         assert grid_strategy in ['flipgrid', 'freegrid', 'freeform']
@@ -40,16 +40,20 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
 
         self.num_sample_sites = num_sample_sites
 
-        # quad_grid is of size Q^T x T
-        #if output_dims is None: this hack was here because only the topmost layer needed these things
-        if grid_strategy == 'freegrid':
-            xi, _ = hermgauss(self.num_sample_sites)
-            self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
-        elif grid_strategy == 'flipgrid':
-            xi, _ = hermgauss(self.num_sample_sites)
-            self.xi = torch.nn.Parameter(0.5 * torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
-        elif grid_strategy == 'freeform':
-            self.xi = torch.nn.Parameter(torch.randn(num_sample_sites, input_dims))
+        # Pass in previous_layer.xi if you want to share xi across layers.
+        if xi is not None:
+            self.xi = xi
+        else:
+            # quad_grid is of size Q^T x T
+            #if output_dims is None: this hack was here because only the topmost layer needed these things
+            if grid_strategy == 'freegrid':
+                xi, _ = hermgauss(self.num_sample_sites)
+                self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+            elif grid_strategy == 'flipgrid':
+                xi, _ = hermgauss(self.num_sample_sites)
+                self.xi = torch.nn.Parameter(0.5 * torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+            elif grid_strategy == 'freeform':
+                self.xi = torch.nn.Parameter(torch.randn(num_sample_sites, input_dims))
 
     @property
     def quad_grid(self):
@@ -66,17 +70,24 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
         elif self.grid_strategy == 'freeform':
             return self.xi
 
-    def __call__(self, inputs, are_samples=False, **kwargs):
+    def __call__(self, inputs, are_samples=False, expand_for_quadgrid=True, **kwargs):
         if isinstance(inputs, MultitaskMultivariateNormal):
             # inputs is definitely in the second layer, and mean is n x t
             mus, sigmas = inputs.mean, inputs.variance.sqrt()
 
-            xi_mus = mus.unsqueeze(-3)  # 1 x n x t
+            # HACK: could also do explicit shape checking, but I think this will work for multitask too.
+            if expand_for_quadgrid:
+                xi_mus = mus.unsqueeze(-3)  # 1 x n x t
+                xi_sigmas = sigmas.unsqueeze(-3)  # 1 x n x t
+            else:
+                xi_mus = mus
+                xi_sigmas = sigmas
+
             # unsqueeze sigmas to 1 x n x t, locations from [q] to Q^T x 1 x T.
             # Broadcasted result will be Q^T x N x T
             qg = self.quad_grid.unsqueeze(-2)
             # qg = qg + torch.randn_like(qg) * 1e-2
-            xi_sigmas = sigmas.unsqueeze(-3) * qg
+            xi_sigmas = xi_sigmas * qg
 
             inputs = xi_mus + xi_sigmas  # q^t x n x t
         if settings.debug.on():
