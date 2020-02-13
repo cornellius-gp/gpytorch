@@ -98,6 +98,7 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
             )
 
             factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + math.log(1.0 + shifted_gamma)
+            return factor.logsumexp(-1).exp()
 
         else:  # Multitask case
             num_data, num_tasks = variational_dist_f.event_shape
@@ -136,5 +137,4 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
             ).squeeze(-1)
 
             factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + math.log(1.0 + shifted_gamma)
-
-        return factor.logsumexp(-1).exp()
+            return (torch.logsumexp(factor, dim=0, keepdims=True) - math.log(factor.size(0))).exp().sum(-1)
