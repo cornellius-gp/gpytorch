@@ -65,7 +65,7 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
         https://arxiv.org/pdf/1904.02063.pdf
     """
 
-    def __init__(self, likelihood, model, gamma=1.03, eps=1e-5, *args, **kwargs):
+    def __init__(self, likelihood, model, gamma=1.03, eps=1e-4, *args, **kwargs):
         if not isinstance(likelihood, _GaussianLikelihoodBase):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super().__init__(likelihood, model, *args, **kwargs)

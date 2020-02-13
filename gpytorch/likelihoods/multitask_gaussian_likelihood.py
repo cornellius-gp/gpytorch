@@ -288,7 +288,8 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         covar = covar + covar_kron_lt
 
         noise = self.noise
-        covar = add_diag(covar, noise)
+        eps = 1.0e-5
+        covar = add_diag(covar, noise.clamp_min(eps))
         return function_dist.__class__(mean, covar)
 
 
