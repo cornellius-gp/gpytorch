@@ -231,7 +231,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         task_covars = full_covar[
             ..., data_indices + task_indices.unsqueeze(-2), data_indices + task_indices.unsqueeze(-1)
         ]
-        return MultivariateNormal(self.mean, lazify(task_covars))
+        return MultivariateNormal(self.mean, lazify(task_covars).add_jitter())
 
     @property
     def variance(self):
