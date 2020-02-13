@@ -2,7 +2,7 @@
 
 import torch
 
-from ..lazy import BlockDiagLazyTensor, BlockInterleavedLazyTensor, CatLazyTensor, LazyTensor
+from ..lazy import BlockDiagLazyTensor, BlockInterleavedLazyTensor, CatLazyTensor, LazyTensor, lazify
 from .multivariate_normal import MultivariateNormal
 
 
@@ -231,7 +231,7 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         task_covars = full_covar[
             ..., data_indices + task_indices.unsqueeze(-2), data_indices + task_indices.unsqueeze(-1)
         ]
-        return MultivariateNormal(self.mean, task_covars)
+        return MultivariateNormal(self.mean, lazify(task_covars))
 
     @property
     def variance(self):
