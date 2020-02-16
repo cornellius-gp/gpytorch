@@ -32,13 +32,18 @@ class _DeepGPVariationalStrategy(object):
 
 
 class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3, grid_strategy="flipgrid", xi=None):
+    def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3, grid_strategy="flipgrid", xi=None, sample_site_dims=None):
         super().__init__(variational_strategy, input_dims, output_dims)
 
         assert grid_strategy in ['flipgrid', 'freegrid', 'freeform']
         self.grid_strategy = grid_strategy
 
         self.num_sample_sites = num_sample_sites
+
+        if sample_site_dims is None:
+            self.sample_site_dims = input_dims
+        else:
+            self.sample_site_dims = sample_site_dims
 
         # Pass in previous_layer.xi if you want to share xi across layers.
         if xi is not None:
@@ -48,29 +53,29 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
             #if output_dims is None: this hack was here because only the topmost layer needed these things
             if grid_strategy == 'freegrid':
                 xi, _ = hermgauss(self.num_sample_sites)
-                self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+                self.xi = torch.nn.Parameter(torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, self.sample_site_dims))
             elif grid_strategy == 'flipgrid':
                 xi, _ = hermgauss(self.num_sample_sites)
-                self.xi = torch.nn.Parameter(0.5 * torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, input_dims))
+                self.xi = torch.nn.Parameter(0.5 * torch.from_numpy(xi).float().unsqueeze(-1).repeat(1, self.sample_site_dims))
             elif grid_strategy == 'freeform':
-                self.xi = torch.nn.Parameter(torch.randn(num_sample_sites, input_dims))
+                self.xi = torch.nn.Parameter(torch.randn(num_sample_sites, self.sample_site_dims))
 
     @property
     def quad_grid(self):
         if self.grid_strategy == 'flipgrid':
             xi = self.xi - self.xi.flip(dims=[0])
             res = torch.stack([torch.cat([p.unsqueeze(-1) for p in xi]) for xi in product(*xi.t())])
-            assert res.size(-2) == math.pow(self.num_sample_sites, self.input_dims) and res.size(-1) == self.input_dims
+            assert res.size(-2) == math.pow(self.num_sample_sites, self.self.sample_site_dims) and res.size(-1) == self.self.sample_site_dims
             return res
         elif self.grid_strategy == 'freegrid':
             xi = self.xi
             res = torch.stack([torch.cat([p.unsqueeze(-1) for p in xi]) for xi in product(*xi.t())])
-            assert res.size(-2) == math.pow(self.num_sample_sites, self.input_dims) and res.size(-1) == self.input_dims
+            assert res.size(-2) == math.pow(self.num_sample_sites, self.self.sample_site_dims) and res.size(-1) == self.self.sample_site_dims
             return res
         elif self.grid_strategy == 'freeform':
             return self.xi
 
-    def __call__(self, inputs, are_samples=False, expand_for_quadgrid=True, **kwargs):
+    def __call__(self, inputs, *other_inputs, are_samples=False, expand_for_quadgrid=True, **kwargs):
         if isinstance(inputs, MultitaskMultivariateNormal):
             # inputs is definitely in the second layer, and mean is n x t
             mus, sigmas = inputs.mean, inputs.variance.sqrt()
@@ -90,6 +95,15 @@ class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
             xi_sigmas = xi_sigmas * qg
 
             inputs = xi_mus + xi_sigmas  # q^t x n x t
+
+        if len(other_inputs):
+            processed_inputs = [
+                inp.unsqueeze(0).expand(self.num_sample_sites, *inp.shape)
+                for inp in other_inputs
+            ]
+
+            inputs = torch.cat([inputs] + processed_inputs, dim=-1)
+
         if settings.debug.on():
             if not torch.is_tensor(inputs):
                 raise ValueError(
