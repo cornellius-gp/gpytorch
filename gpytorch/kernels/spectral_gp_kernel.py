@@ -91,12 +91,12 @@ class SpectralGPKernel(Kernel):
             from ..priors import NormalPrior
             from ..constraints import LessThan
             from ..kernels import ScaleKernel, MaternKernel, GridKernel
-            from ..models import PyroVariationalGP
+            from ..models import PyroGP
             from ..distributions import MultivariateNormal
             from ..variational import CholeskyVariationalDistribution, VariationalStrategy
 
             # we construct a Scale(Matern 3/2) kernel with a quadratic mean by default
-            class PyroGPModel(PyroVariationalGP):
+            class PyroGPModel(PyroGP):
                 def __init__(self, train_x, train_y, likelihood, mean_module, covar_module):
                     # Define all the variational stuff
                     variational_distribution = CholeskyVariationalDistribution(
