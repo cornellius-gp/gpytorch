@@ -41,7 +41,7 @@ def _matmul_broadcast_shape(shape_a, shape_b, error_msg=None):
         return shape_a[:-1]
 
     if n != shape_b[-2]:
-        if error_msg is not None:
+        if error_msg is None:
             raise RuntimeError(f"Incompatible dimensions for matmul: {shape_a} and {shape_b}")
         else:
             raise RuntimeError(error_msg)
