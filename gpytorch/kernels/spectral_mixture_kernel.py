@@ -14,7 +14,7 @@ logger = logging.getLogger()
 class SpectralMixtureKernel(Kernel):
     r"""
     Computes a covariance matrix based on the Spectral Mixture Kernel
-    between inputs :math:`mathbf{x_1}` and :math:`mathbf{x_2}`:
+    between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`:
     It was proposed in `Gaussian Process Kernels for Pattern Discovery and Extrapolation`_.
 
     .. note::
