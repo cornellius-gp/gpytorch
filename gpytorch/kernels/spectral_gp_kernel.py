@@ -193,6 +193,13 @@ class SpectralGPKernel(Kernel):
     def forward(self, x1, x2=None, diag=False, last_dim_is_batch=False, **kwargs):
         x1_ = x1
         x2_ = x1 if x2 is None else x2
+        batch_shape = x1.shape[:-2]
+        n, num_dims = x1.shape[-2:]
+
+        # Expand x1 and x2 to account for the number of mixtures
+        # Should make x1/x2 (b x k x n x d) for k mixtures
+        x1_ = x1.unsqueeze(len(batch_shape))
+        x2_ = x2.unsqueeze(len(batch_shape))
         if last_dim_is_batch:
             x1_ = x1_.transpose(-1, -2).unsqueeze(-1)
             x2_ = x2_.transpose(-1, -2).unsqueeze(-1)
