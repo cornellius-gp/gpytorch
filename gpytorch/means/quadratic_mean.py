@@ -8,7 +8,8 @@ from .mean import Mean
 class QuadraticMean(Mean):
     def __init__(self, input_size=1, batch_shape=torch.Size(), raw_weights_constraint = None,
                 raw_bias_constraint = None, raw_quadratic_weights_constraint = None, weights_prior=None, bias_prior=None,
-                quadratic_weights_prior=None, use_weights=True, use_bias=True):
+                quadratic_weights_prior=None, use_weights=True, use_bias=True,
+                quadratic_weights_setting_closure=None):
         r"""
         Implements a mean function that is quadratic_weights x^2 + weights x + bias
         """
@@ -44,7 +45,12 @@ class QuadraticMean(Mean):
         self.use_bias = use_bias
 
         if quadratic_weights_prior is not None:
-            self.register_prior('quadratic_weights_prior', quadratic_weights_prior, 'quadratic_weights')
+            if quadratic_weights_setting_closure is None:
+                self.register_prior('quadratic_weights_prior', quadratic_weights_prior, 'quadratic_weights',
+                                    setting_closure=quadratic_weights_setting_closure)
+            else:
+                self.register_prior('quadratic_weights_prior', quadratic_weights_prior, lambda: -self.quadratic_weights,
+                                    setting_closure=quadratic_weights_setting_closure)                
         if weights_prior is not None:
             self.register_prior('weights_prior', weights_prior, 'weights')
         if bias_prior is not None:
