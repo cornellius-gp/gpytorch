@@ -13,7 +13,7 @@ from .kernel import Kernel
 class CylindricalKernel(Kernel):
     r"""
     Computes a covariance matrix based on the Cylindrical Kernel between
-    inputs :math:`mathbf{x_1}` and :math:`mathbf{x_2}`.
+    inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`.
     It was proposed in `BOCK: Bayesian Optimization with Cylindrical Kernels`.
     See http://proceedings.mlr.press/v80/oh18a.html for more details
 
