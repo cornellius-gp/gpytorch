@@ -20,8 +20,7 @@ class InducingPointKernel(Kernel):
 
         if inducing_points.ndimension() == 1:
             inducing_points = inducing_points.unsqueeze(-1)
-        if inducing_points.ndimension() != 2:
-            raise RuntimeError("Inducing points should be 2 dimensional")
+
         self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points))
         self.register_added_loss_term("inducing_point_loss_term")
 
