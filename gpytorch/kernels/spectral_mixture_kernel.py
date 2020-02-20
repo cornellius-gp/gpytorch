@@ -3,10 +3,7 @@
 import logging
 import math
 
-import numpy as np
 import torch
-from scipy.fftpack import fft
-from scipy.integrate import cumtrapz
 
 from ..constraints import Positive
 from .kernel import Kernel
@@ -153,10 +150,14 @@ class SpectralMixtureKernel(Kernel):
 
     def initialize_from_data_empspect(self, train_x, train_y):
         """
-            Initialize mixture components based on the empirical spectrum of the data.
+        Initialize mixture components based on the empirical spectrum of the data.
 
-            This will often be better than the standard initialize_from_data method.
-            """
+        This will often be better than the standard initialize_from_data method.
+        """
+        import numpy as np
+        from scipy.fftpack import fft
+        from scipy.integrate import cumtrapz
+
         N = train_x.size(-2)
         emp_spect = np.abs(fft(train_y.cpu().detach().numpy())) ** 2 / N
         M = math.floor(N / 2)
