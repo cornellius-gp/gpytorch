@@ -81,7 +81,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
         # NOTE: We cannot memoize this precondition closure as it causes a memory leak
         def precondition_closure(tensor):
-            qqt = self._q_cache.matmul(self._q_cache.t().matmul(tensor))
+            qqt = self._q_cache.matmul(self._q_cache.transpose(-2, -1).matmul(tensor))
             if self._constant_diag:
                 return (1 / self._noise) * (tensor - qqt)
             return (tensor / self._noise) - qqt
@@ -103,19 +103,19 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
     def _init_cache_for_constant_diag(self, eye, batch_shape, n, k):
         # We can factor out the noise for for both QR and solves.
-        self._noise = self._noise[0].squeeze()
-        self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self, self._noise.sqrt() * eye)))
-        self._q_cache = self._q_cache[:n, :]
+        self._noise = self._noise.narrow(-2, 0, 1)
+        self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self, self._noise.sqrt() * eye), dim=-2))
+        self._q_cache = self._q_cache[..., :n, :]
 
         # Use the matrix determinant lemma for the logdet, using the fact that R'R = L_k'L_k + s*I
         logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2)
-        logdet = logdet + (n - k) * self._noise.log()
+        logdet = logdet + (n - k) * self._noise.squeeze(-2).squeeze(-1).log()
         self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
 
     def _init_cache_for_non_constant_diag(self, eye, batch_shape, n):
         # With non-constant diagonals, we cant factor out the noise as easily
         self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), eye)))
-        self._q_cache = self._q_cache[:n, :] / self._noise.sqrt()
+        self._q_cache = self._q_cache[..., :n, :] / self._noise.sqrt()
 
         logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2)
         logdet -= (1.0 / self._noise).log().sum([-1, -2])
