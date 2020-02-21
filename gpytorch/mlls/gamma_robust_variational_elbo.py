@@ -94,8 +94,8 @@ class GammaRobustVariationalELBO(_ApproximateMarginalLogLikelihood):
             + 0.5 * mut.pow(2.0) * sigmat
         )
 
-        factor = log_tempered + shifted_gamma / (1.0 + shifted_gamma) * log_integral + (1.0 + shifted_gamma)
-        factor = factor.exp()
+        factor = log_tempered + shifted_gamma / self.gamma * log_integral
+        factor = self.gamma * factor.exp()
 
         # Do appropriate summation for multitask Gaussian likelihoods
         num_event_dim = len(variational_dist_f.event_shape)
