@@ -8,12 +8,13 @@ from .torch_priors import MultivariateNormalPrior
 class GaussianProcessPrior(MultivariateNormalPrior):
     def __init__(self, gp_model, validate_args=False, transform=None):
         dist = gp_model(*gp_model.train_inputs)
+        print('initializing gp prior')
         super(GaussianProcessPrior, self).__init__(loc=dist.loc, covariance_matrix=dist.covariance_matrix,
                                                    transform=transform, validate_args=validate_args)
         self.gp_model = gp_model
         
 
-    def _log_prob(self, target):
+    def log_prob(self, target):
         self.gp_model.set_train_data(targets=target.data, strict=False)
 
         dist = self.gp_model(*self.gp_model.train_inputs)

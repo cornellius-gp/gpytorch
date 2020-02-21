@@ -207,10 +207,10 @@ class SpectralGPKernel(Kernel):
         tau = x1_ - x2_.transpose(-2, -1)
 
         # transform to enforce positivity
-        density = self.transform(self.latent_params)
+        density = self.transform(self.latent_params)#.unsqueeze(1).unsqueeze(1)
 
         # TODO: more efficient diagonal
-        output = self.compute_kernel_values(tau, density=density, normalize=self.normalize)
+        output = self.compute_kernel_values(tau, density=density, normalize=self.normalize).squeeze(0)
         if diag:
             output = output.diag()
         return output
