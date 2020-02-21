@@ -162,17 +162,23 @@ try:
 
             return self.latent_lh, self.latent_model
 
-        def covar_func(self, x1, x2, omega, density):
-            # this is trapezoid rule
-            with torch.autograd.enable_grad():
-                x1_ = KEOLazyTensor(x1[..., :, None, :])
-                x2_ = KEOLazyTensor(x2[..., None, :, :])
-                integrand = ((x1_ - x2_) * (2 * math.pi * omega)).cos() * density
+        def covar_func(self, x1, x2, omega, density, diag=False):
+            if not diag:
+                # this is trapezoid rule
+                with torch.autograd.enable_grad():
+                    x1_ = KEOLazyTensor(x1[..., :, None, :])
+                    x2_ = KEOLazyTensor(x2[..., None, :, :])
+                    integrand = ((x1_ - x2_) * (2 * math.pi * omega)).cos() * density
 
-                diff = omega[1:] - omega[:-1]
-                integral = (integrand[1:] + integrand[:(integrand.shape[-1]-1)]) / 2.0 * diff
+                    diff = omega[1:] - omega[:-1]
+                    integral = (integrand[1:] + integrand[:(integrand.shape[-1]-1)]) / 2.0 * diff
 
-                return integral.sum(-1)
+                    return integral.sum(-1)
+            else:
+                # we will do this the somewhat expensive way
+                tau = x1 - x2
+                integrand = (tau * (2 * math.pi * omega)).cos() * density
+                return torch.trapz(integrand, omega)
 
         def forward(self, x1, x2, diag=False, **params):
             x1_ = x1
@@ -183,7 +189,7 @@ try:
             if len(density.shape) > 1:
                 density = density.unsqueeze(1).unsqueeze(1)
 
-            integral = KeOpsLazyTensor(x1_, x2_, lambda x1, x2: self.covar_func(x1, x2, self.omega, density))
+            integral = KeOpsLazyTensor(x1_, x2_, lambda x1, x2, diag=False: self.covar_func(x1, x2, self.omega, density, diag=diag))
             if self.normalize:
                 norm_constant = torch.trapz(density, self.omega)
 
