@@ -45,12 +45,7 @@ class QuadraticMean(Mean):
         self.use_bias = use_bias
 
         if quadratic_weights_prior is not None:
-            if quadratic_weights_setting_closure is None:
-                self.register_prior('quadratic_weights_prior', quadratic_weights_prior, 'quadratic_weights',
-                                    setting_closure=quadratic_weights_setting_closure)
-            else:
-                self.register_prior('quadratic_weights_prior', quadratic_weights_prior, lambda: -self.quadratic_weights,
-                                    setting_closure=quadratic_weights_setting_closure)                
+            self.register_prior('quadratic_weights_prior', quadratic_weights_prior, 'quadratic_weights')             
         if weights_prior is not None:
             self.register_prior('weights_prior', weights_prior, 'weights')
         if bias_prior is not None:

@@ -14,7 +14,6 @@ class GaussianProcessPrior(MultivariateNormalPrior):
         
 
     def _log_prob(self, target):
-        print('calling log prob rn')
         self.gp_model.set_train_data(targets=target.data, strict=False)
 
         dist = self.gp_model(*self.gp_model.train_inputs)
