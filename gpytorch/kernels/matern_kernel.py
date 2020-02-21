@@ -5,6 +5,7 @@ import math
 import torch
 
 from ..functions import MaternCovariance
+from ..settings import trace_mode
 from .kernel import Kernel
 
 
@@ -86,7 +87,13 @@ class MaternKernel(Kernel):
         self.nu = nu
 
     def forward(self, x1, x2, diag=False, **params):
-        if x1.requires_grad or x2.requires_grad or (self.ard_num_dims is not None and self.ard_num_dims > 1) or diag:
+        if (
+            x1.requires_grad
+            or x2.requires_grad
+            or (self.ard_num_dims is not None and self.ard_num_dims > 1)
+            or diag
+            or trace_mode.on()
+        ):
             mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]
 
             x1_ = (x1 - mean).div(self.lengthscale)
