@@ -8,7 +8,8 @@ import math
 class FMLVariationalELBO(_ApproximateMarginalLogLikelihood):
     def _log_likelihood_term(self, variational_dist_f, target, **kwargs):
         logmarginal = self.likelihood.log_marginal(target, variational_dist_f, **kwargs)
-        marginal = torch.logsumexp(logmarginal, dim=0) - math.log(logmarginal.size(0))
+        #marginal = torch.logsumexp(logmarginal, dim=0) - math.log(logmarginal.size(0))
+        marginal = logmarginal.mean(0)
         marginal = marginal.exp()
         utensor = kwargs['utensor']
         J = utensor + (-utensor).exp() * marginal
