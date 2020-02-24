@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from ..functions import RBFCovariance
+from ..settings import trace_mode
 from .kernel import Kernel
 
 
@@ -69,7 +70,13 @@ class RBFKernel(Kernel):
     has_lengthscale = True
 
     def forward(self, x1, x2, diag=False, **params):
-        if x1.requires_grad or x2.requires_grad or (self.ard_num_dims is not None and self.ard_num_dims > 1) or diag:
+        if (
+            x1.requires_grad
+            or x2.requires_grad
+            or (self.ard_num_dims is not None and self.ard_num_dims > 1)
+            or diag
+            or trace_mode.on()
+        ):
             x1_ = x1.div(self.lengthscale)
             x2_ = x2.div(self.lengthscale)
             return self.covar_dist(

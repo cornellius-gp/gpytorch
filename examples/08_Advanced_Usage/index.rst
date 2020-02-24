@@ -57,3 +57,19 @@ See the `1D derivatives GP example`_ or the `2D derivatives GP example`_ for exa
 
 .. _2D derivatives GP example:
   Simple_Batch_Mode_GP_Regression.ipynb:
+
+
+Converting Models to TorchScript
+----------------------------------
+
+In order to deploy GPs in production code, it can be desirable to avoid using PyTorch directly for performance reasons.
+Fortunarely, PyTorch offers a mechanism caled TorchScript to aid in this. In these example notebooks, we'll demonstrate
+how to convert both an exact GP and a variational GP to a ScriptModule that can then be used for example in LibTorch.
+
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :hidden:
+
+   TorchScript_Exact_Models.ipynb
+   TorchScript_Variational_Models.ipynb
