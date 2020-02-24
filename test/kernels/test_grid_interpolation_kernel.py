@@ -10,7 +10,7 @@ from gpytorch.lazy import InterpolatedLazyTensor
 
 class TestGridInterpolationKernel(unittest.TestCase):
     def test_standard(self):
-        base_kernel = RBFKernel()
+        base_kernel = RBFKernel(ard_num_dims=2)
         kernel = GridInterpolationKernel(base_kernel, num_dims=2, grid_size=128, grid_bounds=[(-1.2, 1.2)] * 2)
 
         xs = torch.randn(5, 2).clamp(-1, 1)
@@ -28,7 +28,7 @@ class TestGridInterpolationKernel(unittest.TestCase):
         self.assertLess(torch.norm(grid_eval - actual_eval), 2e-5)
 
     def test_batch_base_kernel(self):
-        base_kernel = RBFKernel(batch_shape=torch.Size([3]))
+        base_kernel = RBFKernel(batch_shape=torch.Size([3]), ard_num_dims=2)
         kernel = GridInterpolationKernel(base_kernel, num_dims=2, grid_size=128, grid_bounds=[(-1.2, 1.2)] * 2)
 
         xs = torch.randn(5, 2).clamp(-1, 1)

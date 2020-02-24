@@ -92,6 +92,7 @@ class MaternKernel(Kernel):
             or x2.requires_grad
             or (self.ard_num_dims is not None and self.ard_num_dims > 1)
             or diag
+            or params.get("last_dim_is_batch", False)
             or trace_mode.on()
         ):
             mean = x1.reshape(-1, x1.size(-1)).mean(0)[(None,) * (x1.dim() - 1)]

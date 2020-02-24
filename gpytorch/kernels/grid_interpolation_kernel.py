@@ -175,7 +175,7 @@ class GridInterpolationKernel(GridKernel):
                 self.update_grid(grid)
 
         base_lazy_tsr = lazify(self._inducing_forward(last_dim_is_batch=last_dim_is_batch, **params))
-        if last_dim_is_batch:
+        if last_dim_is_batch and base_lazy_tsr.size(-3) == 1:
             base_lazy_tsr = base_lazy_tsr.repeat(*x1.shape[:-2], x1.size(-1), 1, 1)
 
         left_interp_indices, left_interp_values = self._compute_grid(x1, last_dim_is_batch)
