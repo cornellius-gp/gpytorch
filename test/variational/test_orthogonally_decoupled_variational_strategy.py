@@ -15,7 +15,7 @@ def likelihood_cls():
 def strategy_cls(model, inducing_points, variational_distribution, learn_inducing_locations):
     base_inducing_points = torch.randn(8, inducing_points.size(-1), device=inducing_points.device)
     base_variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(8)
-    return gpytorch.variational.OrthogonalDecoupledVariationalStrategy(
+    return gpytorch.variational.OrthogonallyDecoupledVariationalStrategy(
         gpytorch.variational.VariationalStrategy(
             model, base_inducing_points, base_variational_distribution, learn_inducing_locations
         ),
@@ -24,7 +24,7 @@ def strategy_cls(model, inducing_points, variational_distribution, learn_inducin
     )
 
 
-class TestOrthogonalDecoupledVariationalGP(VariationalTestCase, unittest.TestCase):
+class TestOrthogonallyDecoupledVariationalGP(VariationalTestCase, unittest.TestCase):
     @property
     def batch_shape(self):
         return torch.Size([])
@@ -56,13 +56,13 @@ class TestOrthogonalDecoupledVariationalGP(VariationalTestCase, unittest.TestCas
         self.assertEqual(cholesky_mock.call_count, 1)  # One to compute cache, that's it!
 
 
-class TestOrthogonalDecoupledPredictiveGP(TestOrthogonalDecoupledVariationalGP):
+class TestOrthogonallyDecoupledPredictiveGP(TestOrthogonallyDecoupledVariationalGP):
     @property
     def mll_cls(self):
         return gpytorch.mlls.PredictiveLogLikelihood
 
 
-class TestOrthogonalDecoupledRobustVGP(TestOrthogonalDecoupledVariationalGP):
+class TestOrthogonallyDecoupledRobustVGP(TestOrthogonallyDecoupledVariationalGP):
     @property
     def mll_cls(self):
         return gpytorch.mlls.GammaRobustVariationalELBO

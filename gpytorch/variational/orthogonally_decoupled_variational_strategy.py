@@ -7,7 +7,7 @@ from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
 
-class OrthogonalDecoupledVariationalStrategy(_VariationalStrategy):
+class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
     r"""
     Implements orthogonally decoupled VGPs as defined in `Salimbeni et al. (2018)`_.
     This variational strategy uses a different set of inducing points for the mean and covariance functions.
@@ -29,7 +29,7 @@ class OrthogonalDecoupledVariationalStrategy(_VariationalStrategy):
         >>>     learn_inducing_locations=True
         >>> )
         >>>
-        >>> variational_strategy = gpytorch.variational.OrthogonalDecoupledVariationalStrategy(
+        >>> variational_strategy = gpytorch.variational.OrthogonallyDecoupledVariationalStrategy(
         >>>     covar_variational_strategy, mean_inducing_points,
         >>>     gpytorch.variational.DeltaVariationalDistribution(mean_inducing_points.size(-2)),
         >>> )

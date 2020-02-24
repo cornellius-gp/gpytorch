@@ -26,7 +26,7 @@ class SVGPRegressionModel(ApproximateGP):
             base_inducing_points.size(-1)
         )
         variational_distribution = gpytorch.variational.DeltaVariationalDistribution(inducing_points.size(-1))
-        variational_strategy = gpytorch.variational.OrthogonalDecoupledVariationalStrategy(
+        variational_strategy = gpytorch.variational.OrthogonallyDecoupledVariationalStrategy(
             gpytorch.variational.VariationalStrategy(
                 self, base_inducing_points, base_variational_distribution, learn_inducing_locations=True,
             ), inducing_points, variational_distribution
