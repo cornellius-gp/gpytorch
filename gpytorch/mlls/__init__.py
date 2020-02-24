@@ -14,6 +14,7 @@ from .predictive_log_likelihood import PredictiveLogLikelihood
 from .sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from .variational_elbo import VariationalELBO
 from .fml_variational_elbo import FMLVariationalELBO
+from .biased_predictive_elbo import BiasedPredictiveELBO
 from .variational_fitc_elbo import VariationalFITCELBO
 
 
