@@ -44,7 +44,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         if rank != 0:
             if rank > num_tasks:
                 raise ValueError(f"Cannot have rank ({rank}) greater than num_tasks ({num_tasks})")
-            tidcs = torch.tril_indices(num_tasks, rank)
+            tidcs = torch.tril_indices(num_tasks, rank, dtype=torch.long)
             self.tidcs = tidcs[:, 1:]  # (1, 1) must be 1.0, no need to parameterize this
             task_noise_corr = torch.randn(*batch_shape, self.tidcs.size(-1))
             self.register_parameter("task_noise_corr", torch.nn.Parameter(task_noise_corr))
