@@ -9,7 +9,7 @@ from ._variational_strategy import _VariationalStrategy
 
 class OrthogonalDecoupledVariationalStrategy(_VariationalStrategy):
     r"""
-    As defined in `Salimbeni et al. (2018)`_.
+    Implements orthogonally decoupled VGPs as defined in `Salimbeni et al. (2018)`_.
 
     .. _Salimbeni et al. (2018):
         https://arxiv.org/abs/1809.08820
