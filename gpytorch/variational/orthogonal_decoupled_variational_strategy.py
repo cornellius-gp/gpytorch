@@ -10,6 +10,29 @@ from ._variational_strategy import _VariationalStrategy
 class OrthogonalDecoupledVariationalStrategy(_VariationalStrategy):
     r"""
     Implements orthogonally decoupled VGPs as defined in `Salimbeni et al. (2018)`_.
+    This variational strategy uses a different set of inducing points for the mean and covariance functions.
+    The idea is to use more inducing points for the (computationally efficient) mean and fewer inducing points for the
+    (computationally expensive) covaraince.
+
+    This variational strategy defines the inducing points/:obj:`~gpytorch.variational._VariationalDistribution`
+    for the mean function.
+    It then wraps a different :obj:`~gpytorch.variational._VariationalStrategy` which
+    defines the covariance inducing points.
+
+    Example:
+        >>> mean_inducing_points = torch.randn(1000, train_x.size(-1), dtype=train_x.dtype, device=train_x.device)
+        >>> covar_inducing_points = torch.randn(100, train_x.size(-1), dtype=train_x.dtype, device=train_x.device)
+        >>>
+        >>> covar_variational_strategy = gpytorch.variational.VariationalStrategy(
+        >>>     model, covar_inducing_points,
+        >>>     gpytorch.variational.CholeskyVariationalDistribution(covar_inducing_points.size(-2)),
+        >>>     learn_inducing_locations=True
+        >>> )
+        >>>
+        >>> variational_strategy = gpytorch.variational.OrthogonalDecoupledVariationalStrategy(
+        >>>     covar_variational_strategy, mean_inducing_points,
+        >>>     gpytorch.variational.DeltaVariationalDistribution(mean_inducing_points.size(-2)),
+        >>> )
 
     .. _Salimbeni et al. (2018):
         https://arxiv.org/abs/1809.08820

@@ -64,7 +64,7 @@ deterministic relationship between :math:`\mathbf f` and :math:`\mathbf u`.
 
 
 :hidden:`OrthogonalDecoupledVariationalStrategy`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: OrthogonalDecoupledVariationalStrategy
    :members:
