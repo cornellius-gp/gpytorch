@@ -5,6 +5,7 @@ import torch
 from ..distributions import MultivariateNormal
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
+from .delta_variational_distribution import DeltaVariationalDistribution
 
 
 class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
@@ -39,6 +40,11 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
     """
 
     def __init__(self, model, inducing_points, variational_distribution):
+        if not isinstance(variational_distribution, DeltaVariationalDistribution):
+            raise NotImplementedError(
+                "OrthogonallyDecoupledVariationalStrategy currently works with DeltaVariationalDistribution"
+            )
+
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=True)
         self.base_variational_strategy = model
 
@@ -51,14 +57,15 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
         if variational_inducing_covar is not None:
-            raise NotImplementedError("DecoupledVariationalStrategy currently works with DeltaVariationalDistribution")
+            raise NotImplementedError(
+                "OrthogonallyDecoupledVariationalStrategy currently works with DeltaVariationalDistribution"
+            )
 
         num_data = x.size(-2)
         full_output = self.model(torch.cat([x, inducing_points], dim=-2))
         full_mean = full_output.mean
         full_covar = full_output.lazy_covariance_matrix
 
-        # Cache the kernel matrix with the cached CG calls
         if self.training:
             induc_mean = full_mean[..., num_data:]
             induc_induc_covar = full_covar[..., num_data:, num_data:]
