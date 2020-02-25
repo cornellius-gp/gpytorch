@@ -1,10 +1,11 @@
-import torch
 import math
+
+import torch
 
 from ...lazy import KeOpsLazyTensor
 from .keops_kernel import KeOpsKernel
 
-#from . import Kernel
+# from . import Kernel
 
 try:
     from pykeops.torch import LazyTensor as KEOLazyTensor
@@ -91,7 +92,7 @@ try:
                 from ..priors import NormalPrior
                 from ..constraints import LessThan
                 from ..kernels import ScaleKernel, MaternKernel
-                from ..models import PyroVariationalGP
+                from ..models import PyroGP
                 from ..distributions import MultivariateNormal
                 from ..variational import CholeskyVariationalDistribution, VariationalStrategy
 
@@ -99,7 +100,9 @@ try:
                 class PyroGPModel(PyroGP):
                     def __init__(self, train_x, train_y, likelihood, mean_module, covar_module):
                         # Define all the variational stuff
-                        variational_distribution = CholeskyVariationalDistribution(num_inducing_points=int(train_x.numel()))
+                        variational_distribution = CholeskyVariationalDistribution(
+                            num_inducing_points=int(train_x.numel())
+                        )
                         variational_strategy = VariationalStrategy(self, train_x, variational_distribution)
 
                         super(PyroGPModel, self).__init__(variational_strategy, likelihood, num_data=train_x.numel())
@@ -115,7 +118,9 @@ try:
                 latent_mean = QuadraticMean().to(device)
                 latent_mean.register_prior(
                     "bias_prior",
-                    prior=NormalPrior(torch.zeros(1, device=device), 100.0 * torch.ones(1, device=device), transform=None),
+                    prior=NormalPrior(
+                        torch.zeros(1, device=device), 100.0 * torch.ones(1, device=device), transform=None
+                    ),
                     param_or_closure="bias",
                 )
                 latent_mean.register_constraint(
@@ -132,7 +137,9 @@ try:
                 )
 
                 latent_covar = ScaleKernel(
-                    MaternKernel(nu=1.5, lengthscale_prior=NormalPrior(torch.zeros(1), torch.ones(1), transform=torch.exp)),
+                    MaternKernel(
+                        nu=1.5, lengthscale_prior=NormalPrior(torch.zeros(1), torch.ones(1), transform=torch.exp)
+                    ),
                     outputscale_prior=NormalPrior(torch.zeros(1), torch.ones(1), transform=torch.exp),
                 )
 
@@ -168,12 +175,14 @@ try:
                 with torch.autograd.enable_grad():
                     x1_ = KEOLazyTensor(x1[..., :, None, :])
                     x2_ = KEOLazyTensor(x2[..., None, :, :])
-                    density = KEOLazyTensor(density)
+                    # print('does density require grad inside of the covar func', density.requires_grad)
+                    # density = KEOLazyTensor(density)
                     integrand = ((x1_ - x2_) * (2 * math.pi * omega)).cos() * density
 
                     diff = omega[1:] - omega[:-1]
-                    integral = (integrand[1:] + integrand[:(integrand.shape[-1]-1)]) / 2.0 * diff
-
+                    integral = (integrand[1:] + integrand[: (density.shape[0] - 1)]) / 2.0 * diff
+                    # print('inside of the covar func, does an evaluation require grad: ',
+                    # (integral.sum(-1) @ torch.eye(x1.shape[-2])).requires_grad)
                     return integral.sum(-1)
             else:
                 # we will do this the somewhat expensive way
@@ -190,12 +199,15 @@ try:
             if len(density.shape) > 1:
                 density = density.unsqueeze(1).unsqueeze(1)
 
-            integral = KeOpsLazyTensor(x1_, x2_, lambda x1, x2, diag=False: self.covar_func(x1, x2, self.omega, density, diag=diag))
+            integral = KeOpsLazyTensor(
+                x1_, x2_, lambda x1, x2, **kwargs: self.covar_func(x1, x2, **kwargs), omega=self.omega, density=density
+            )
+
             if self.normalize:
                 norm_constant = torch.trapz(density, self.omega)
 
                 integral = integral / norm_constant
-            
+
             if not diag:
                 return integral
             else:
@@ -205,7 +217,8 @@ try:
             # updates latent parameters
             # warning: requires a .train(), .eval() call to empty the cache
             self.latent_params = new_latent_params
-            
+
+
 except ImportError:
 
     class SpectralGPKernel(KeOpsKernel):
