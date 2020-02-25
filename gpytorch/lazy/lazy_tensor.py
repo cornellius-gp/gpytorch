@@ -14,6 +14,7 @@ from ..functions._inv_quad import InvQuad
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
+from ..functions._sqrt_inv_matmul import SqrtInvMatmul
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
@@ -1448,6 +1449,22 @@ class LazyTensor(ABC):
     @property
     def shape(self):
         return self.size()
+
+    def sqrt_inv_matmul(self, rhs, lhs):
+        if len(self.batch_shape):
+            raise NotImplementedError("sqrt_inv_matmul only works for non-batch matrices ATM.")
+
+        squeeze = False
+        if rhs.dim() == 1:
+            rhs = rhs.unsqueeze(-1)
+            squeeze = True
+
+        func = SqrtInvMatmul()
+        res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
+
+        if squeeze:
+            res = res.squeeze(-1)
+        return res
 
     def sum(self, dim=None):
         """

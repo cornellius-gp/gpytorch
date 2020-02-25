@@ -3,3 +3,4 @@ channels:
   - pytorch
 dependencies:
   - pytorch
+  - scipy

@@ -170,6 +170,7 @@ class TestInterpolatedLazyTensorRectangular(LazyTensorTestCase, unittest.TestCas
     test_root_decomposition = empty_method
     test_root_decomposition_cholesky = empty_method
     test_root_inv_decomposition = empty_method
+    test_sqrt_inv_matmul = empty_method
 
 
 if __name__ == "__main__":

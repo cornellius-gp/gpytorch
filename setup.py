@@ -55,7 +55,7 @@ setup(
     classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"],
     packages=find_packages(),
     python_requires=">=3.6",
-    install_requires=install_requires,
+    install_requires=install_requires + ["scipy"],
     extras_require={
         "dev": ["black", "twine", "pre-commit"],
         "docs": ["ipython", "ipykernel", "sphinx", "sphinx_rtd_theme", "nbsphinx", "m2r"],

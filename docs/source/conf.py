@@ -101,6 +101,8 @@ MOCK_MODULES = [
     "torch.distributions",
     "torch.optim.lr_scheduler",
     "numpy",
+    "scipy",
+    "scipy.special",
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
