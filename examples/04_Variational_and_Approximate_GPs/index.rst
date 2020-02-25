@@ -18,10 +18,12 @@ All approximate models consist of the following 3 composible objects:
 - :obj:`~gpytorch.mlls._ApproximateMarginalLogLikelihood`, which defines the objective function
   to learn the approximate posterior (e.g. variational ELBO).
 
+(See the `strategy/distribution comparison`_ for examples of the different classes.)
 The variational documentation has more information on how to use these objects.
 Here we provide some examples which highlight some of the common use cases:
 
 - **Large-scale regression** (when exact methods are too memory intensive): see the `stochastic variational regression example`_.
+- **Variational distribution options** for different scalability/expressiveness: see the `strategy/distribution comparison`_.
 - **Alternative optimization objectives** for the GP's predictive distribution: see the `approximate GP objective functions notebook`_.
   This example compares and contrasts the variational ELBO with the predictive log likelihood of Jankowiak et al., 2019.
 - **Classification**: see the `non-Gaussian likelihood notebook`_.
@@ -33,10 +35,14 @@ Here we provide some examples which highlight some of the common use cases:
    :hidden:
 
    SVGP_Regression_CUDA.ipynb
+   Modifying_the_variational_strategy_and_distribution.ipynb
    Approximate_GP_Objective_Functions.ipynb
    Non_Gaussian_Likelihoods.ipynb
    SVGP_Multitask_GP_Regression.ipynb
    GP_Regression_with_Uncertain_Inputs.ipynb
+
+.. _strategy/distribution comparison:
+  ./Modifying_the_variational_strategy_and_distribution.ipynb
 
 .. _stochastic variational regression example:
   ./SVGP_Regression_CUDA.ipynb
