@@ -168,6 +168,7 @@ try:
                 with torch.autograd.enable_grad():
                     x1_ = KEOLazyTensor(x1[..., :, None, :])
                     x2_ = KEOLazyTensor(x2[..., None, :, :])
+                    density = KEOLazyTensor(density)
                     integrand = ((x1_ - x2_) * (2 * math.pi * omega)).cos() * density
 
                     diff = omega[1:] - omega[:-1]
