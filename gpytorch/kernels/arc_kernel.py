@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jan  7 11:13:37 2020
-@author: blue
-"""
 
 from math import pi
 from typing import Optional

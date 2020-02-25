@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Feb  1 10:07:05 2020
 
-@author: blue
-"""
 import unittest
 
 from gpytorch.kernels import ArcKernel, MaternKernel
