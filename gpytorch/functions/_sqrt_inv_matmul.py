@@ -3,6 +3,7 @@
 import torch
 from torch.autograd import Function
 
+from .. import settings
 from ..utils.contour_integral_quad import contour_integral_quad
 
 
@@ -14,7 +15,9 @@ class SqrtInvMatmul(Function):
         ctx.lazy_tsr = ctx.representation_tree(*matrix_args)
 
         terms = torch.cat([rhs, lhs.transpose(-1, -2)], dim=-1)
-        solves, weights, no_shift_solves = contour_integral_quad(ctx.lazy_tsr, terms, inverse=True)
+        solves, weights, no_shift_solves = contour_integral_quad(
+            ctx.lazy_tsr, terms, inverse=True, num_quad_samples=settings.num_contour_quadrature.value()
+        )
         rhs_solves, lhs_solves = solves.split([rhs.size(-1), lhs.size(-2)], dim=-1)
         lhs_no_shift_solves = no_shift_solves[..., -lhs.size(-2) :]
         ctx.save_for_backward(rhs, lhs, rhs_solves, lhs_solves, weights, lhs_no_shift_solves, *matrix_args)

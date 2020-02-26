@@ -338,6 +338,15 @@ class max_cg_iterations(_value_context):
     _global_value = 1000
 
 
+class num_contour_quadrature(_value_context):
+    """
+    The number of quadrature points to compute CIQ.
+    Default: 7
+    """
+
+    _global_value = 7
+
+
 class cg_tolerance(_value_context):
     """
     Relative residual tolerance to use for terminating CG.
