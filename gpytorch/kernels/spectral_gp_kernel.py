@@ -40,7 +40,7 @@ class SpectralGPKernel(Kernel):
         self.use_latent_model = use_latent_model
 
         if register_latent_params:
-            self.register_parameter("latent_params", torch.nn.Parameter(torch.zeros(self.num_locs)))
+            self.register_parameter("latent_params", torch.nn.Parameter(torch.ones(self.num_locs)))
         else:
             self.latent_params = None
 
@@ -82,100 +82,85 @@ class SpectralGPKernel(Kernel):
         if latent_lh is None:
             from ..likelihoods import GaussianLikelihood
             from ..priors import SmoothedBoxPrior
+            from ..constraints import Positive
 
-            self.latent_lh = GaussianLikelihood(noise_prior=SmoothedBoxPrior(1e-8, 1e-3)).to(device)
+            self.latent_lh = GaussianLikelihood(
+                noise_prior=SmoothedBoxPrior(1e-8, 1e-3), noise_constraint=Positive()
+            ).to(device)
         else:
             self.latent_lh = latent_lh
 
         if latent_model is None:
+            from ..models import ExactGP
             from ..means import QuadraticMean
-            from ..priors import NormalPrior
-            from ..constraints import LessThan
             from ..kernels import ScaleKernel, MaternKernel
-            from ..models import PyroVariationalGP
+            from ..constraints import Positive, LessThan
+            from ..priors import LogNormalPrior
             from ..distributions import MultivariateNormal
-            from ..variational import CholeskyVariationalDistribution, VariationalStrategy
+            from ..likelihoods import GaussianLikelihood
 
-            # we construct a Scale(Matern 3/2) kernel with a quadratic mean by default
-            class PyroGPModel(PyroGP):
-                def __init__(self, train_x, train_y, likelihood, mean_module, covar_module):
-                    # Define all the variational stuff
-                    variational_distribution = CholeskyVariationalDistribution(num_inducing_points=int(train_x.numel()))
-                    variational_strategy = VariationalStrategy(self, train_x, variational_distribution)
+            class ExactGPModel(ExactGP):
+                def __init__(self, train_x, train_y, likelihood):
+                    super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
+                    # Mean, covar, likelihood
+                    self.mean_module = QuadraticMean(
+                        input_size=1,
+                        raw_quadratic_weights_constraint=LessThan(0.0),
+                        raw_bias_constraint=Positive(),
+                        use_weights=False,
+                        bias_prior=LogNormalPrior(0.0, 0.3),
+                    )
 
-                    super(PyroGPModel, self).__init__(variational_strategy, likelihood, num_data=train_x.numel())
-                    self.mean_module = mean_module
-                    self.covar_module = covar_module
+                    self.mean_module.register_prior(
+                        "quadratic_weights_prior",
+                        LogNormalPrior(0.0, 0.3),
+                        lambda: -self.mean_module.quadratic_weights,
+                        lambda x: self.mean_module.initialize(**{"quadratic_weights": -x}),
+                    )
+                    self.mean_module.quadratic_weights = -10.0
+                    self.mean_module.bias = 1.0
+
+                    self.covar_module = ScaleKernel(
+                        MaternKernel(nu=1.5, lengthscale_prior=LogNormalPrior(0.0, 0.3)),
+                        outputscale_prior=LogNormalPrior(0.0, 0.3),
+                    )
 
                 def forward(self, x):
-                    mean = self.mean_module(x)
-                    covar = self.covar_module(x)
-                    return MultivariateNormal(mean, covar)
+                    mean_x = self.mean_module(x)
+                    covar_x = self.covar_module(x)
+                    return MultivariateNormal(mean_x, covar_x)
 
-            # construct by default a LogRBF prior on the latent spectral GP
-            latent_mean = QuadraticMean().to(device)
-            latent_mean.register_prior(
-                "bias_prior",
-                prior=NormalPrior(torch.zeros(1, device=device), 100.0 * torch.ones(1, device=device), transform=None),
-                param_or_closure="bias",
-            )
-            latent_mean.register_constraint(
-                "quadratic_weights", constraint=LessThan(upper_bound=0.0),
-            )
-            latent_mean.register_prior(
-                "quadratic_weights_prior",
-                prior=NormalPrior(
-                    torch.zeros(1, device=device),
-                    100.0 * torch.ones(1, device=device),
-                    transform=torch.nn.functional.softplus,
-                ),
-                param_or_closure="quadratic_weights",
-            )
+            latent_lh = GaussianLikelihood(noise_constraint=Positive())
+            latent_lh.register_prior("latent_noise_prior", SmoothedBoxPrior(1e-5, 1e-4), "noise")
 
-            latent_covar = ScaleKernel(
-                MaternKernel(nu=1.5, lengthscale_prior=NormalPrior(torch.zeros(1), torch.ones(1), transform=torch.exp)),
-                outputscale_prior=NormalPrior(torch.zeros(1), torch.ones(1), transform=torch.exp),
-            )
-            # latent_covar = GridKernel(latent_covar, grid=self.omega.unsqueeze(-1))
-
-            self.latent_model = PyroGPModel(
-                self.omega, log_periodogram, self.latent_lh, mean_module=latent_mean, covar_module=latent_covar
-            )
+            latent_gp = ExactGPModel(self.omega, log_periodogram, latent_lh)
+            self.register_prior("latent_gp_prior", GaussianProcessPrior(latent_gp), "latent_params")
         else:
             self.latent_model = latent_model
             # update the training data to include this set of omega and log_periodogram
             self.latent_model.set_train_data(self.omega, log_periodogram, strict=False)
 
-        self.latent_model.train()
-        self.latent_lh.train()
+        # self.latent_model.train()
+        # self.latent_lh.train()
 
-        # set the latent g to be the demeaned periodogram
-        # and make it not require a gradient (we're using ESS for it)
-        if self.latent_params is None:
-            self.latent_params = log_periodogram
-        else:
-            self.latent_params.data = log_periodogram
-        if not latent_params_grad:
-            self.latent_params.requires_grad = False
+        # # set the latent g to be the demeaned periodogram
+        # # and make it not require a gradient (we're using ESS for it)
+        # if self.latent_params is None:
+        #     self.latent_params = log_periodogram
+        # else:
+        #     self.latent_params.data = log_periodogram
+        # if not latent_params_grad:
+        #     self.latent_params.requires_grad = False
 
         # register prior for latent_params as latent mod
-        latent_prior = GaussianProcessPrior(self.latent_model, self.latent_lh)
-        self.register_prior("latent_prior", latent_prior, lambda: self.latent_params)
+        # latent_prior = GaussianProcessPrior(self.latent_model, self.latent_lh)
+        # self.register_prior("latent_gp_prior", latent_prior, lambda: self.latent_params)
 
-        return self.latent_lh, self.latent_model
+        # return self.latent_lh, self.latent_model
 
     def compute_kernel_values(self, tau, density, normalize=False):
-
-        # expand tau \in \mathbb{R}^{batch x n x n x M}
-        expanded_tau = tau.unsqueeze(-1)
-        if len(tau.size()) == 3:
-            dims = [1, 1, 1, self.num_locs]
-        else:
-            dims = [1, 1, self.num_locs]
-        expanded_tau = expanded_tau.repeat(*dims)
-
         # numerically compute integral in expanded space
-        integrand = density * torch.cos(2.0 * math.pi * self.omega * expanded_tau)
+        integrand = density * torch.cos(2.0 * math.pi * self.omega * tau)
 
         # compute trapezoidal rule for now
         # TODO: use torch.trapz and/or KeOps instead
@@ -193,21 +178,16 @@ class SpectralGPKernel(Kernel):
     def forward(self, x1, x2=None, diag=False, last_dim_is_batch=False, **kwargs):
         x1_ = x1
         x2_ = x1 if x2 is None else x2
-        batch_shape = x1.shape[:-2]
+        # batch_shape = x1.shape[:-2]
         n, num_dims = x1.shape[-2:]
 
         # Expand x1 and x2 to account for the number of mixtures
-        # Should make x1/x2 (b x k x n x d) for k mixtures
-        x1_ = x1.unsqueeze(len(batch_shape))
-        x2_ = x2.unsqueeze(len(batch_shape))
-        if last_dim_is_batch:
-            x1_ = x1_.transpose(-1, -2).unsqueeze(-1)
-            x2_ = x2_.transpose(-1, -2).unsqueeze(-1)
-
-        tau = x1_ - x2_.transpose(-2, -1)
+        tau = x1_[..., :, None, :] - x2_[..., None, :, :]
 
         # transform to enforce positivity
-        density = self.transform(self.latent_params)#.unsqueeze(1).unsqueeze(1)
+        density = self.transform(self.latent_params)  # .unsqueeze(1).unsqueeze(1)
+        if len(density.shape) > 1:
+            density = density.unsqueeze(1).unsqueeze(1)
 
         # TODO: more efficient diagonal
         output = self.compute_kernel_values(tau, density=density, normalize=self.normalize).squeeze(0)
