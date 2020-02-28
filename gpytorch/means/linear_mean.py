@@ -6,28 +6,30 @@ from .mean import Mean
 
 
 class LinearMean(Mean):
-    def __init__(self, input_size, batch_shape=torch.Size(), bias=True, raw_weights_constraint=None, raw_bias_constraint=None):
+    def __init__(
+        self, input_size, batch_shape=torch.Size(), bias=True, raw_weights_constraint=None, raw_bias_constraint=None,
+    ):
         super().__init__()
-        self.register_parameter(name='raw_weights',
-                                parameter=torch.nn.Parameter(torch.randn(*batch_shape, input_size, 1)))
-        
+        self.register_parameter(
+            name="raw_weights", parameter=torch.nn.Parameter(torch.randn(*batch_shape, input_size, 1)),
+        )
+
         if raw_weights_constraint:
-            self.register_constraint('raw_weights', raw_weights_constraint)
+            self.register_constraint("raw_weights", raw_weights_constraint)
         else:
             self.raw_weights_constraint = None
 
         if bias:
-            self.register_parameter(name='raw_bias', parameter=torch.nn.Parameter(torch.randn(*batch_shape, 1)))
-            
+            self.register_parameter(
+                name="raw_bias", parameter=torch.nn.Parameter(torch.randn(*batch_shape, 1)),
+            )
+
             if raw_bias_constraint:
-                self.register_constraint('raw_bias', raw_bias_constraint)
+                self.register_constraint("raw_bias", raw_bias_constraint)
             else:
                 self.raw_bias_constraint = None
         else:
             self.bias = None
-
-
-
 
     def forward(self, x):
         res = x.matmul(self.weights).squeeze(-1)
@@ -45,7 +47,7 @@ class LinearMean(Mean):
     @weights.setter
     def weights(self, value):
         self._set_weights(value)
-    
+
     def _set_weights(self, value):
         if not torch.is_tensor(value):
             value = torch.as_tensor(value).to(self.raw_weights)

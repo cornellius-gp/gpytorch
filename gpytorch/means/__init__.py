@@ -5,8 +5,15 @@ from .constant_mean_grad import ConstantMeanGrad
 from .linear_mean import LinearMean
 from .mean import Mean
 from .multitask_mean import MultitaskMean
-from .zero_mean import ZeroMean
 from .quadratic_mean import QuadraticMean
+from .zero_mean import ZeroMean
 
-__all__ = ["Mean", "ConstantMean", "ConstantMeanGrad", "LinearMean", "MultitaskMean", "ZeroMean",
-            "QuadraticMean"]
+__all__ = [
+    "Mean",
+    "ConstantMean",
+    "ConstantMeanGrad",
+    "LinearMean",
+    "MultitaskMean",
+    "ZeroMean",
+    "QuadraticMean",
+]
