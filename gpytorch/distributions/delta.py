@@ -75,4 +75,4 @@ except ImportError:
 
 @register_kl(Delta, MultivariateNormal)
 def kl_mvn_mvn(p_dist, q_dist):
-    return q_dist.log_prob(p_dist.mean)
+    return -q_dist.log_prob(p_dist.mean)
