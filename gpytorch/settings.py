@@ -116,6 +116,18 @@ class _fast_solves(_feature_flag):
     _state = True
 
 
+class record_ciq_stats(_feature_flag):
+    """
+    If set to true, CIQ will store the residual in the feature flag variables
+    """
+
+    num_minres_iter = 0
+    minres_residual = 0
+    ciq_diff = 0
+
+    _state = True
+
+
 class skip_posterior_variances(_feature_flag):
     """
     Whether or not to skip the posterior covariance matrix when doing an ExactGP

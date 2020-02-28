@@ -10,6 +10,7 @@ def _jit_minres_updates(
     solution,
     prod,
     shifts,
+    eps,
     qvec_prev2,
     qvec_prev1,
     qvec_curr,
@@ -40,6 +41,7 @@ def _jit_minres_updates(
 
     qvec_curr.addcmul_(alpha_curr, qvec_prev1, value=-1).addcmul_(beta_prev, qvec_prev2, value=-1)
     torch.norm(qvec_curr, p=2, dim=-2, keepdim=True, out=beta_curr)
+    beta_curr.clamp_min_(eps)
 
     qvec_curr.div_(beta_curr)
 
@@ -92,7 +94,7 @@ def _jit_minres_updates(
     search_prev1.copy_(search_curr)
 
 
-def minres(matmul_closure, rhs, shifts=None, value=None, max_iter=None):
+def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=None):
     r"""
     Perform MINRES to find solutions to :math:`(\mathbf K + \alpha \sigma \mathbf I) \mathbf x = \mathbf b`.
     Will find solutions for multiple shifts :math:`\sigma` at the same time.
@@ -113,9 +115,6 @@ def minres(matmul_closure, rhs, shifts=None, value=None, max_iter=None):
         matmul_closure = matmul_closure.matmul
     mm_ = matmul_closure
 
-    if max_iter is None:
-        max_iter = settings.max_cg_iterations.value()
-
     if shifts is None:
         shifts = torch.tensor(0.0, dtype=rhs.dtype, device=rhs.device)
 
@@ -125,8 +124,18 @@ def minres(matmul_closure, rhs, shifts=None, value=None, max_iter=None):
         rhs = rhs.unsqueeze(-1)
         squeeze = True
 
-    initial_norm = rhs.norm(p=2, dim=-2, keepdim=True)
-    rhs = rhs.div(initial_norm)
+    rhs_norm = rhs.norm(2, dim=-2, keepdim=True)
+    rhs_is_zero = rhs_norm.lt(1e-4)
+    rhs_norm = rhs_norm.masked_fill_(rhs_is_zero, 1)
+    rhs = rhs.div(rhs_norm)
+
+    # Use the right number of iterations
+    if max_iter is None:
+        max_iter = settings.max_cg_iterations.value()
+    max_iter = min(max_iter, rhs.size(-2))
+
+    # Epsilon (to prevent nans)
+    eps = torch.tensor(eps, dtype=rhs.dtype, device=rhs.device)
 
     # Create space for matmul product, solution
     prod = mm_(rhs)
@@ -142,10 +151,10 @@ def minres(matmul_closure, rhs, shifts=None, value=None, max_iter=None):
     # Variasbles for Lanczos terms
     alpha_curr = torch.empty(prod.shape[:-2] + (1, prod.size(-1)), dtype=rhs.dtype, device=rhs.device)
     alpha_shifted_curr = torch.empty(solution.shape[:-2] + (1, prod.size(-1)), dtype=rhs.dtype, device=rhs.device)
-    beta_prev = initial_norm.expand((prod.shape[:-2] + (1, prod.size(-1)))).contiguous()
+    beta_prev = rhs_norm.clone().expand((prod.shape[:-2] + (1, prod.size(-1)))).contiguous()
     beta_curr = torch.empty_like(beta_prev)
     qvec_prev2 = torch.zeros_like(prod)
-    qvec_prev1 = rhs.expand_as(prod).contiguous()
+    qvec_prev1 = rhs.clone().expand_as(prod).contiguous()
     qvec_curr = torch.empty_like(qvec_prev2)
 
     # Variables for the QR rotation
@@ -187,6 +196,7 @@ def minres(matmul_closure, rhs, shifts=None, value=None, max_iter=None):
             solution,
             prod,
             shifts,
+            eps,
             qvec_prev2,
             qvec_prev1,
             qvec_curr,
@@ -210,6 +220,12 @@ def minres(matmul_closure, rhs, shifts=None, value=None, max_iter=None):
             scale_prev,
             scale_curr,
         )
+
+    # For rhs-s that are close to zero, set them to zero
+    solution.masked_fill_(rhs_is_zero, 0)
+
+    # Store the number of iterations taken
+    settings.record_ciq_stats.num_minres_iter = i + 1
 
     if squeeze:
         solution = solution.squeeze(-1)

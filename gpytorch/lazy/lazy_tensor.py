@@ -1460,11 +1460,11 @@ class LazyTensor(ABC):
             squeeze = True
 
         func = SqrtInvMatmul()
-        res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
+        sqrt_inv_matmul_res, inv_quad_res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
 
         if squeeze:
-            res = res.squeeze(-1)
-        return res
+            sqrt_inv_matmul_res = sqrt_inv_matmul_res.squeeze(-1)
+        return sqrt_inv_matmul_res, inv_quad_res
 
     def sum(self, dim=None):
         """

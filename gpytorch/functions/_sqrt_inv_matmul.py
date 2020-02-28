@@ -16,7 +16,7 @@ class SqrtInvMatmul(Function):
 
         terms = torch.cat([rhs, lhs.transpose(-1, -2)], dim=-1)
         solves, weights, no_shift_solves = contour_integral_quad(
-            ctx.lazy_tsr, terms, inverse=True, num_quad_samples=settings.num_contour_quadrature.value()
+            ctx.lazy_tsr, terms, inverse=True, num_contour_quadrature=settings.num_contour_quadrature.value()
         )
         rhs_solves, lhs_solves = solves.split([rhs.size(-1), lhs.size(-2)], dim=-1)
         lhs_no_shift_solves = no_shift_solves[..., -lhs.size(-2) :]
@@ -24,6 +24,18 @@ class SqrtInvMatmul(Function):
 
         sqrt_inv_matmul_res = lhs @ (rhs_solves * weights).sum(0)
         inv_quad_res = (lhs_no_shift_solves.transpose(-1, -2) * lhs).sum(dim=-1).mul_(-1)
+
+        # Record some stats on how good the solves are
+        if settings.record_ciq_stats.on():
+            with torch.no_grad():
+                settings.record_ciq_stats.ciq_diff = (
+                    ((lhs_solves * weights).sum(dim=0).pow(2).sum(dim=-2).sub_(inv_quad_res))
+                    .div_(inv_quad_res.clamp_min_(1e-5))
+                    .abs_()
+                    .mean()
+                    .item()
+                )
+
         return sqrt_inv_matmul_res, inv_quad_res
 
     @staticmethod

@@ -4,11 +4,12 @@ import numpy as np
 import torch
 from scipy.special import ellipj, ellipk
 
+from .. import settings
 from .lanczos import lanczos_tridiag
 from .minres import minres
 
 
-def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=5, num_quad_samples=7):
+def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=10, num_contour_quadrature=7):
     r"""
     Performs :math:`\mathbf K^{1/2} \mathbf b` or `\mathbf K^{-1/2} \mathbf b`
     using contour integral quadrature.
@@ -21,7 +22,7 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=5, n
     :param bool inverse: (default False) whether to compute :math:`\mathbf K^{1/2} \mathbf b` (if False)
         or `\mathbf K^{-1/2} \mathbf b` (if True)
     :param int max_lanczos_iter: (default 10) Number of Lanczos iterations to run (to estimate eigenvalues)
-    :param int num_quad_samples: (default 15) How many quadrature samples to use for approximation
+    :param int num_contour_quadrature: (default 15) How many quadrature samples to use for approximation
     :rtype: torch.Tensor
     :return: Approximation to :math:`\mathbf K^{1/2} \mathbf b` or :mathbf:`\mathbf K^{-1/2} \mathbf b`.
     """
@@ -30,7 +31,7 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=5, n
 
     lanczos_basis, lanczos_mat = lanczos_tridiag(
         lambda v: lazy_tensor._matmul(v),
-        init_vecs=rhs,
+        init_vecs=rhs[..., :1],
         dtype=rhs.dtype,
         device=rhs.device,
         matrix_shape=lazy_tensor.matrix_shape,
@@ -46,11 +47,7 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=5, n
 
     # Compute an approximate condition number
     # We'll do this with Lanczos
-    if lanczos_mat.dim() > 2:
-        ind = [0] * (lanczos_mat.dim() - 2)
-        approx_eigs = lanczos_mat.__getitem__(ind).symeig()[0]
-    else:
-        approx_eigs = lanczos_mat.symeig()[0]
+    approx_eigs = lanczos_mat.symeig()[0]
     approx_eigs = approx_eigs[approx_eigs > 0]
     min_eig = approx_eigs.min()
     max_eig = approx_eigs.max()
@@ -58,7 +55,7 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=5, n
 
     # Compute the shifts needed for the contour
     Kp = ellipk(1 - k2.detach().cpu().numpy())  # Elliptical integral of the first kind
-    N = 15
+    N = num_contour_quadrature
     t = 1j * (np.arange(1, N + 1) - 0.5) * Kp / N
     sn, cn, dn, _ = ellipj(np.imag(t), 1 - k2.item())  # Jacobi elliptic functions
     cn = 1.0 / cn
@@ -71,7 +68,7 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=5, n
     # Compute the solves at the given shifts
     # Do one more matmul if we don't want to include the inverse
     extra_shifts = torch.cat([torch.zeros(1, dtype=shifts.dtype, device=shifts.device), shifts])
-    solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=extra_shifts, max_iter=100)
+    solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=extra_shifts)
     if not inverse:
         solves = lazy_tensor._matmul(solves)
     no_shift_solves = solves[0]
@@ -84,5 +81,16 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=5, n
     dzdt_th = torch.from_numpy(dzdt).type_as(solves)
     dzdt_th = dzdt_th.view(dzdt_th.numel(), *([1] * (solves.dim() - 1)))
     dzdt_th.mul_(constant)
+
+    # Record some stats on how good the solves are
+    if settings.record_ciq_stats.on():
+        with torch.no_grad():
+            settings.record_ciq_stats.minres_residual = (
+                (lazy_tensor @ no_shift_solves + rhs)
+                .div_(rhs.norm(dim=-2, keepdim=True).clamp_min_(1e-5))
+                .norm(dim=-2)
+                .mean()
+                .item()
+            )
 
     return solves, dzdt_th, no_shift_solves
