@@ -76,7 +76,7 @@ class CIQVariationalStrategy(_VariationalStrategy):
         if trace_mode.on():
             predictive_covar = data_data_covar.evaluate() - interp_var.diag_embed(dim1=-1, dim2=-2)
         else:
-            predictive_covar = DiagLazyTensor((data_data_covar.diag() - interp_var.mul(-1)).clamp_min(1e-5))
+            predictive_covar = DiagLazyTensor((data_data_covar.diag() - interp_var).clamp_min(1e-5))
 
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
