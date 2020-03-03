@@ -179,7 +179,6 @@ class BatchRepeatLazyTensor(LazyTensor):
         return res
 
     def _quad_form_derivative(self, left_vectors, right_vectors):
-        print("qf shapes", self.shape, left_vectors.shape, right_vectors.shape)
         if self.is_square:
             left_output_shape = _matmul_broadcast_shape(self.shape, left_vectors.shape)
             if left_output_shape != left_vectors.shape:
