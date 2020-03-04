@@ -52,6 +52,8 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=10, 
     min_eig = approx_eigs.min()
     max_eig = approx_eigs.max()
     k2 = min_eig / max_eig
+    if settings.record_ciq_stats.on():
+        settings.record_ciq_stats.condition_number = 1.0 / k2
 
     # Compute the shifts needed for the contour
     Kp = ellipk(1 - k2.detach().cpu().numpy())  # Elliptical integral of the first kind

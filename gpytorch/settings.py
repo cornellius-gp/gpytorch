@@ -124,8 +124,18 @@ class record_ciq_stats(_feature_flag):
     num_minres_iter = 0
     minres_residual = 0
     ciq_diff = 0
+    condition_number = 0
+    min_var = 0
 
     _state = True
+
+
+class single_precision_cholesky(_feature_flag):
+    """
+    Use single precision when computing the Cholesky decomposition (and solves)
+    """
+
+    _state = False
 
 
 class skip_posterior_variances(_feature_flag):

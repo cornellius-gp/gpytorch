@@ -6,7 +6,7 @@ import torch
 
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, delazify
-from ..settings import trace_mode
+from ..settings import single_precision_cholesky, trace_mode
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
@@ -70,7 +70,10 @@ class VariationalStrategy(_VariationalStrategy):
 
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
-        L = psd_safe_cholesky(delazify(induc_induc_covar).double())
+        if single_precision_cholesky.on():
+            L = psd_safe_cholesky(delazify(induc_induc_covar))
+        else:
+            L = psd_safe_cholesky(delazify(induc_induc_covar).double())
         return L
 
     @property
@@ -102,7 +105,10 @@ class VariationalStrategy(_VariationalStrategy):
             # Aggressive caching can cause nasty shape incompatibilies when evaluating with different batch shapes
             del self._memoize_cache["cholesky_factor"]
             L = self._cholesky_factor(induc_induc_covar)
-        interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0].to(full_inputs.dtype)
+        if single_precision_cholesky.on():
+            interp_term = torch.triangular_solve(induc_data_covar, L, upper=False)[0]
+        else:
+            interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0].to(full_inputs.dtype)
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X

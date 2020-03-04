@@ -4,7 +4,7 @@ import torch
 
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, delazify, lazify
-from ..settings import trace_mode
+from ..settings import record_ciq_stats, trace_mode
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
@@ -76,7 +76,10 @@ class CIQVariationalStrategy(_VariationalStrategy):
         if trace_mode.on():
             predictive_covar = data_data_covar.evaluate() - interp_var.diag_embed(dim1=-1, dim2=-2)
         else:
-            predictive_covar = DiagLazyTensor((data_data_covar.diag() - interp_var).clamp_min(1e-5))
+            predictive_var = (data_data_covar.diag() - interp_var).clamp_min(1e-10)
+            if record_ciq_stats.on():
+                record_ciq_stats.min_var = predictive_var.min().item()
+            predictive_covar = DiagLazyTensor(predictive_var)
 
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
