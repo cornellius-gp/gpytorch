@@ -89,7 +89,7 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=10, 
         with torch.no_grad():
             settings.record_ciq_stats.minres_residual = (
                 (lazy_tensor @ no_shift_solves + rhs)
-                .div_(rhs.norm(dim=-2, keepdim=True).clamp_min_(1e-5))
+                .div_(rhs.norm(dim=-2, keepdim=True).clamp_min_(1e-10))
                 .norm(dim=-2)
                 .mean()
                 .item()

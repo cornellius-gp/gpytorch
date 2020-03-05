@@ -125,14 +125,14 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
         squeeze = True
 
     rhs_norm = rhs.norm(2, dim=-2, keepdim=True)
-    rhs_is_zero = rhs_norm.lt(1e-4)
+    rhs_is_zero = rhs_norm.lt(1e-10)
     rhs_norm = rhs_norm.masked_fill_(rhs_is_zero, 1)
     rhs = rhs.div(rhs_norm)
 
     # Use the right number of iterations
     if max_iter is None:
         max_iter = settings.max_cg_iterations.value()
-    max_iter = min(max_iter, rhs.size(-2))
+    max_iter = min(max_iter, rhs.size(-2) + 1)
 
     # Epsilon (to prevent nans)
     eps = torch.tensor(eps, dtype=rhs.dtype, device=rhs.device)

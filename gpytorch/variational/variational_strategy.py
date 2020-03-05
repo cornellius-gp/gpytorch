@@ -1,34 +1,12 @@
 #!/usr/bin/env python3
 
-import warnings
-
 import torch
 
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, delazify
-from ..settings import single_precision_cholesky, trace_mode
-from ..utils.cholesky import psd_safe_cholesky
+from ..lazy import DiagLazyTensor, delazify
+from ..settings import record_ciq_stats, trace_mode
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
-
-
-class OldVersionWarning(RuntimeWarning):
-    pass
-
-
-def _ensure_updated_strategy_flag_set(
-    state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-):
-    device = state_dict[list(state_dict.keys())[0]].device
-    if prefix + "updated_strategy" not in state_dict:
-        state_dict[prefix + "updated_strategy"] = torch.tensor(False, device=device)
-        warnings.warn(
-            "You have loaded a variational GP model (using `VariationalStrategy`) from a previous version of "
-            "GPyTorch. We have updated the parameters of your model to work with the new version of "
-            "`VariationalStrategy` that uses whitened parameters.\nYour model will work as expected, but we "
-            "recommend that you re-save your model.",
-            OldVersionWarning,
-        )
 
 
 class VariationalStrategy(_VariationalStrategy):
@@ -63,19 +41,6 @@ class VariationalStrategy(_VariationalStrategy):
         https://www.repository.cam.ac.uk/handle/1810/278022
     """
 
-    def __init__(self, model, inducing_points, variational_distribution, learn_inducing_locations=True):
-        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
-        self.register_buffer("updated_strategy", torch.tensor(True))
-        self._register_load_state_dict_pre_hook(_ensure_updated_strategy_flag_set)
-
-    @cached(name="cholesky_factor")
-    def _cholesky_factor(self, induc_induc_covar):
-        if single_precision_cholesky.on():
-            L = psd_safe_cholesky(delazify(induc_induc_covar))
-        else:
-            L = psd_safe_cholesky(delazify(induc_induc_covar).double())
-        return L
-
     @property
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
@@ -85,6 +50,9 @@ class VariationalStrategy(_VariationalStrategy):
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+        if variational_inducing_covar is not None:
+            raise RuntimeError("VariationalStrategy currently does not handle the variational_inducing_covar")
+
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
         full_output = self.model.forward(full_inputs)
@@ -93,92 +61,36 @@ class VariationalStrategy(_VariationalStrategy):
         # Covariance terms
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
-        induc_induc_covar = full_covar[..., :num_induc, :num_induc].add_jitter()
+        induc_induc_covar = delazify(full_covar[..., :num_induc, :num_induc].add_jitter())
         induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
-        data_data_covar = full_covar[..., num_induc:, num_induc:]
+        data_data_covar = full_covar[..., num_induc:, num_induc:].add_jitter(1e-4)
+
+        # Error out if we encounter NaNs
+        if not torch.equal(induc_induc_covar, induc_induc_covar):
+            raise RuntimeError("NaN encountered in K_ZZ matrix")
 
         # Compute interpolation terms
-        # K_ZZ^{-1/2} K_ZX
-        # K_ZZ^{-1/2} \mu_Z
-        L = self._cholesky_factor(induc_induc_covar)
-        if L.shape != induc_induc_covar.shape:
-            # Aggressive caching can cause nasty shape incompatibilies when evaluating with different batch shapes
-            del self._memoize_cache["cholesky_factor"]
-            L = self._cholesky_factor(induc_induc_covar)
-        if single_precision_cholesky.on():
-            interp_term = torch.triangular_solve(induc_data_covar, L, upper=False)[0]
-        else:
-            interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0].to(full_inputs.dtype)
+        # K_XZ K_ZZ^{-1} \mu_z
+        # K_XZ K_ZZ^{-1/2} \mu_Z
+        L = induc_induc_covar.double().cholesky()
+        interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0]
+        interp_term = interp_term.to(induc_data_covar.dtype)
+        interp_mean = torch.matmul(
+            interp_term.transpose(-1, -2), (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
+        ).squeeze(-1)
+        interp_var = interp_term.pow(2).sum(dim=-2)
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
-        predictive_mean = (
-            torch.matmul(
-                interp_term.transpose(-1, -2), (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
-            ).squeeze(-1)
-            + test_mean
-        )
-
-        # Compute the covariance of q(f)
-        # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
-        middle_term = self.prior_distribution.lazy_covariance_matrix.mul(-1)
-        if variational_inducing_covar is not None:
-            middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
+        predictive_mean = interp_mean.squeeze(-1) + test_mean
 
         if trace_mode.on():
-            predictive_covar = (
-                data_data_covar.add_jitter(1e-4).evaluate()
-                + interp_term.transpose(-1, -2) @ middle_term.evaluate() @ interp_term
-            )
+            predictive_covar = data_data_covar.evaluate() - interp_var.diag_embed(dim1=-1, dim2=-2)
         else:
-            predictive_covar = SumLazyTensor(
-                data_data_covar.add_jitter(1e-4),
-                MatmulLazyTensor(interp_term.transpose(-1, -2), middle_term @ interp_term),
-            )
+            predictive_var = (data_data_covar.diag() - interp_var).clamp_min(1e-10)
+            if record_ciq_stats.on():
+                record_ciq_stats.min_var = predictive_var.min().item()
+            predictive_covar = DiagLazyTensor(predictive_var)
 
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
-
-    def __call__(self, x, prior=False):
-        if not self.updated_strategy.item() and not prior:
-            with torch.no_grad():
-                # Get unwhitened p(u)
-                prior_function_dist = self(self.inducing_points, prior=True)
-                prior_mean = prior_function_dist.loc
-                L = self._cholesky_factor(prior_function_dist.lazy_covariance_matrix.add_jitter())
-
-                # Temporarily turn off noise that's added to the mean
-                orig_mean_init_std = self._variational_distribution.mean_init_std
-                self._variational_distribution.mean_init_std = 0.0
-
-                # Change the variational parameters to be whitened
-                variational_dist = self.variational_distribution
-                whitened_mean = (
-                    torch.triangular_solve((variational_dist.loc - prior_mean).unsqueeze(-1).double(), L, upper=False)[
-                        0
-                    ]
-                    .squeeze(-1)
-                    .to(variational_dist.loc.dtype)
-                )
-                whitened_covar = RootLazyTensor(
-                    torch.triangular_solve(
-                        variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate().double(),
-                        L,
-                        upper=False,
-                    )[0].to(variational_dist.loc.dtype)
-                )
-                whitened_variational_distribution = variational_dist.__class__(whitened_mean, whitened_covar)
-                self._variational_distribution.initialize_variational_distribution(whitened_variational_distribution)
-
-                # Reset the random noise parameter of the model
-                self._variational_distribution.mean_init_std = orig_mean_init_std
-
-                # Reset the cache
-                if hasattr(self, "_memoize_cache"):
-                    delattr(self, "_memoize_cache")
-                    self._memoize_cache = dict()
-
-                # Mark that we have updated the variational strategy
-                self.updated_strategy.fill_(True)
-
-        return super().__call__(x, prior=prior)

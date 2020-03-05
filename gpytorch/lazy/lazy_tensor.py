@@ -845,6 +845,24 @@ class LazyTensor(ABC):
         """
         return self.ndimension()
 
+    def double(self, device_id=None):
+        """
+        This method operates identically to :func:`torch.Tensor.double`.
+        """
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, "double"):
+                new_args.append(arg.double())
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, "double"):
+                new_kwargs[name] = val.double()
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
+
     @property
     def dtype(self):
         return self._args[0].dtype
