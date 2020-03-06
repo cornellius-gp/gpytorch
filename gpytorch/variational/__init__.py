@@ -6,6 +6,7 @@ from .additive_grid_interpolation_variational_strategy import AdditiveGridInterp
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 from .ciq_variational_strategy import CIQVariationalStrategy
 from .delta_variational_distribution import DeltaVariationalDistribution
+from .eig_qr_variational_strategy import EigQRVariationalStrategy
 from .eig_variational_strategy import EigVariationalStrategy
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
@@ -20,6 +21,7 @@ __all__ = [
     "AdditiveGridInterpolationVariationalStrategy",
     "CIQVariationalStrategy",
     "EigVariationalStrategy",
+    "EigQRVariationalStrategy",
     "GridInterpolationVariationalStrategy",
     "MultitaskVariationalStrategy",
     "OrthogonallyDecoupledVariationalStrategy",
