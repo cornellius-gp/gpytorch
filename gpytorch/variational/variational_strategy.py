@@ -50,9 +50,6 @@ class VariationalStrategy(_VariationalStrategy):
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
-        if variational_inducing_covar is not None:
-            raise RuntimeError("VariationalStrategy currently does not handle the variational_inducing_covar")
-
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
         full_output = self.model.forward(full_inputs)
@@ -83,6 +80,10 @@ class VariationalStrategy(_VariationalStrategy):
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
         predictive_mean = interp_mean.squeeze(-1) + test_mean
+
+        # Maybe add variational_inducing_covar
+        if variational_inducing_covar is not None:
+            interp_var = interp_var - (variational_inducing_covar @ interp_term).mul(interp_term).sum(dim=-2)
 
         if trace_mode.on():
             predictive_covar = data_data_covar.evaluate() - interp_var.diag_embed(dim1=-1, dim2=-2)
