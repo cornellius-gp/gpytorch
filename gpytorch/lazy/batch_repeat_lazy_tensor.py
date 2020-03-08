@@ -95,13 +95,23 @@ class BatchRepeatLazyTensor(LazyTensor):
 
     def _matmul(self, rhs):
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
-        if rhs.shape != output_shape:
-            rhs = rhs.expand(*output_shape)
 
-        rhs = self._move_repeat_batches_to_columns(rhs, output_shape)
-        res = self.base_lazy_tensor._matmul(rhs)
-        res = self._move_repeat_batches_back(res, output_shape)
-        return res
+        # only attempt broadcasting if the non-batch dimensions are the same
+        if self.is_square:
+            if rhs.shape != output_shape:
+                rhs = rhs.expand(*output_shape)
+
+            rhs = self._move_repeat_batches_to_columns(rhs, output_shape)
+            res = self.base_lazy_tensor._matmul(rhs)
+            res = self._move_repeat_batches_back(res, output_shape)
+            return res
+        else:
+            # otherwise, we will rely on base tensor broadcasting
+            res = self.base_lazy_tensor._matmul(rhs)
+            if res.shape != output_shape:
+                res = res.expand(*output_shape)
+
+            return res
 
     def _move_repeat_batches_back(self, batch_matrix, output_shape):
         """
@@ -169,15 +179,21 @@ class BatchRepeatLazyTensor(LazyTensor):
         return res
 
     def _quad_form_derivative(self, left_vectors, right_vectors):
-        left_output_shape = _matmul_broadcast_shape(self.shape, left_vectors.shape)
-        if left_output_shape != left_vectors.shape:
-            left_vectors = left_vectors.expand(left_output_shape)
-        right_output_shape = _matmul_broadcast_shape(self.shape, right_vectors.shape)
-        if right_output_shape != right_vectors.shape:
-            right_vectors = right_vectors.expand(right_output_shape)
-        left_vectors = self._move_repeat_batches_to_columns(left_vectors, left_output_shape)
-        right_vectors = self._move_repeat_batches_to_columns(right_vectors, right_output_shape)
-        return self.base_lazy_tensor._quad_form_derivative(left_vectors, right_vectors)
+        if self.is_square:
+            left_output_shape = _matmul_broadcast_shape(self.shape, left_vectors.shape)
+            if left_output_shape != left_vectors.shape:
+                left_vectors = left_vectors.expand(left_output_shape)
+
+            right_output_shape = _matmul_broadcast_shape(self.shape, right_vectors.shape)
+            if right_output_shape != right_vectors.shape:
+                right_vectors = right_vectors.expand(right_output_shape)
+
+            left_vectors = self._move_repeat_batches_to_columns(left_vectors, left_output_shape)
+            right_vectors = self._move_repeat_batches_to_columns(right_vectors, right_output_shape)
+
+            return self.base_lazy_tensor._quad_form_derivative(left_vectors, right_vectors)
+        else:
+            return super()._quad_form_derivative(left_vectors, right_vectors)
 
     def _root_decomposition(self):
         return self.base_lazy_tensor._root_decomposition().repeat(*self.batch_repeat, 1, 1)
