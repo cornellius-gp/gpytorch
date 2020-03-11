@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import itertools
 from collections import OrderedDict
 
 import torch
 from torch import nn
+from torch.nn import Parameter
 from torch.distributions import Distribution
 
 from .constraints import Interval
@@ -19,6 +21,9 @@ class Module(nn.Module):
         self._constraints = OrderedDict()
 
         self._strict_init = True
+        self._load_strict_shapes = True
+
+        self._register_load_state_dict_pre_hook(self._load_state_hook_ignore_shapes)
 
     def __call__(self, *inputs, **kwargs):
         outputs = self.forward(*inputs, **kwargs)
@@ -267,6 +272,31 @@ class Module(nn.Module):
             return base_module._constraints.get(constraint_name)
         except AttributeError:  # submodule may not always be a gpytorch module
             return None
+
+    def _load_state_hook_ignore_shapes(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs
+    ):
+        if not self._load_strict_shapes:
+            local_name_params = itertools.chain(self._parameters.items(), self._buffers.items())
+            local_state = {k: v for k, v in local_name_params if v is not None}
+
+            for name, param in local_state.items():
+                key = prefix + name
+                if key in state_dict:
+                    param.data = state_dict[key].data
+
+    def load_strict_shapes(self, value):
+        def apply_fn(module):
+            module._load_strict_shapes = value
+
+        self.apply(apply_fn)
 
     def named_parameters_and_constraints(self):
         for name, param in self.named_parameters():
