@@ -5,7 +5,6 @@ from collections import OrderedDict
 
 import torch
 from torch import nn
-from torch.nn import Parameter
 from torch.distributions import Distribution
 
 from .constraints import Interval
@@ -274,14 +273,7 @@ class Module(nn.Module):
             return None
 
     def _load_state_hook_ignore_shapes(
-        self,
-        state_dict,
-        prefix,
-        local_metadata,
-        strict,
-        missing_keys,
-        unexpected_keys,
-        error_msgs
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
     ):
         if not self._load_strict_shapes:
             local_name_params = itertools.chain(self._parameters.items(), self._buffers.items())
