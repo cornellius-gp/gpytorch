@@ -496,31 +496,25 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
         # Create a test right hand side and left hand side
         rhs = torch.randn(*lazy_tensor.shape[:-1], 3).requires_grad_(True)
-        lhs = torch.randn(*lazy_tensor.shape[:-2], 2, lazy_tensor.size(-1)).requires_grad_(True)
         rhs_copy = rhs.clone().detach().requires_grad_(True)
-        lhs_copy = lhs.clone().detach().requires_grad_(True)
 
         # Perform forward pass
         with gpytorch.settings.max_cg_iterations(200):
-            sqrt_inv_matmul_res, inv_quad_res = lazy_tensor.sqrt_inv_matmul(rhs, lhs)
+            sqrt_inv_matmul_res = lazy_tensor.sqrt_inv_matmul(rhs)
         evals, evecs = evaluated.symeig(eigenvectors=True)
         matrix_inv_root = evecs @ (evals.sqrt().reciprocal().unsqueeze(-1) * evecs.transpose(-1, -2))
-        sqrt_inv_matmul_actual = lhs_copy @ matrix_inv_root @ rhs_copy
-        inv_quad_actual = (lhs_copy @ matrix_inv_root).pow(2).sum(dim=-1)
+        sqrt_inv_matmul_actual = matrix_inv_root @ rhs_copy
 
         # Check forward pass
         self.assertAllClose(sqrt_inv_matmul_res, sqrt_inv_matmul_actual, rtol=1e-4, atol=1e-3)
-        self.assertAllClose(inv_quad_res, inv_quad_actual, rtol=1e-4, atol=1e-3)
 
         # Perform backward pass
         sqrt_inv_matmul_grad = torch.randn_like(sqrt_inv_matmul_res)
-        inv_quad_grad = torch.randn_like(inv_quad_res)
-        ((sqrt_inv_matmul_res * sqrt_inv_matmul_grad).sum() + (inv_quad_res * inv_quad_grad).sum()).backward()
-        ((sqrt_inv_matmul_actual * sqrt_inv_matmul_grad).sum() + (inv_quad_actual * inv_quad_grad).sum()).backward()
+        (sqrt_inv_matmul_res * sqrt_inv_matmul_grad).sum().backward()
+        (sqrt_inv_matmul_actual * sqrt_inv_matmul_grad).sum().backward()
 
         # Check grads
         self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=1e-4, atol=1e-3)
-        self.assertAllClose(lhs.grad, lhs_copy.grad, rtol=1e-4, atol=1e-3)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)

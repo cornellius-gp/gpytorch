@@ -1468,7 +1468,7 @@ class LazyTensor(ABC):
     def shape(self):
         return self.size()
 
-    def sqrt_inv_matmul(self, rhs, lhs):
+    def sqrt_inv_matmul(self, rhs):
         if len(self.batch_shape):
             raise NotImplementedError("sqrt_inv_matmul only works for non-batch matrices ATM.")
 
@@ -1478,11 +1478,11 @@ class LazyTensor(ABC):
             squeeze = True
 
         func = SqrtInvMatmul()
-        sqrt_inv_matmul_res, inv_quad_res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
+        sqrt_inv_matmul_res = func.apply(self.representation_tree(), rhs, *self.representation())
 
         if squeeze:
             sqrt_inv_matmul_res = sqrt_inv_matmul_res.squeeze(-1)
-        return sqrt_inv_matmul_res, inv_quad_res
+        return sqrt_inv_matmul_res
 
     def sum(self, dim=None):
         """
