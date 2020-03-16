@@ -11,6 +11,7 @@ from .eig_variational_strategy import EigVariationalStrategy
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
 from .multitask_variational_strategy import MultitaskVariationalStrategy
+from .natural_mean_field_variational_distribution import NaturalMeanFieldVariationalDistribution
 from .natural_variational_distribution import NaturalVariationalDistribution
 from .orthogonally_decoupled_variational_strategy import OrthogonallyDecoupledVariationalStrategy
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
@@ -34,4 +35,5 @@ __all__ = [
     "MeanFieldVariationalDistribution",
     "DeltaVariationalDistribution",
     "NaturalVariationalDistribution",
+    "NaturalMeanFieldVariationalDistribution",
 ]
