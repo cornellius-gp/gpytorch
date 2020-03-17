@@ -74,9 +74,12 @@ class BlockLazyTensor(LazyTensor):
         return res
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
-        if left_vecs.ndimension() == 1:
-            left_vecs = left_vecs.unsqueeze(1)
-            right_vecs = right_vecs.unsqueeze(1)
+        if left_vecs.ndim == 1:
+            left_vecs = left_vecs.unsqueeze(-1)
+            right_vecs = right_vecs.unsqueeze(-1)
+        # deal with left_vecs having batch dimensions
+        elif left_vecs.size(-1) != right_vecs.size(-1):
+            left_vecs = left_vecs.unsqueeze(-1)
         left_vecs = self._add_batch_dim(left_vecs)
         right_vecs = self._add_batch_dim(right_vecs)
         res = self.base_lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
