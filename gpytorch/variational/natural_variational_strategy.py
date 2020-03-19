@@ -2,10 +2,12 @@
 
 import torch
 
+from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, delazify, lazify
 from ..module import Module
 from ..settings import record_ciq_stats
+from ..utils import linear_cg
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
@@ -14,18 +16,29 @@ from ._variational_strategy import _VariationalStrategy
 
 class _InterpTermsChol(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, interp_term, natural_vec, natural_mat):
+    def forward(ctx, interp_term, natural_vec, natural_mat, mode):
         # Compute precision
         prec = natural_mat.mul(-2.0)
 
         # Compute necessary solves with the precision. We need
         # m = expec_vec = S * natural_vec
         # S K^{-1/2} k
-        prec_chol = psd_safe_cholesky(prec.double())
-        expec_vec = (
-            torch.cholesky_solve(natural_vec.unsqueeze(-1).double(), prec_chol).squeeze(-1).to(interp_term.dtype)
-        )
-        s_times_interp_term = torch.cholesky_solve(interp_term.double(), prec_chol).to(interp_term.dtype)
+        if mode == "ciq":
+            solves = linear_cg(
+                prec.matmul,
+                torch.cat([natural_vec.unsqueeze(-1), interp_term], dim=-1),
+                n_tridiag=0,
+                max_iter=settings.max_cg_iterations.value(),
+                max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+            )
+            expec_vec = solves[..., 0]
+            s_times_interp_term = solves[..., 1:]
+        else:
+            prec_chol = psd_safe_cholesky(prec.double())
+            expec_vec = (
+                torch.cholesky_solve(natural_vec.unsqueeze(-1).double(), prec_chol).squeeze(-1).to(interp_term.dtype)
+            )
+            s_times_interp_term = torch.cholesky_solve(interp_term.double(), prec_chol).to(interp_term.dtype)
 
         # Compute the interpolated mean
         # k^T K^{-1/2} m
@@ -83,7 +96,7 @@ class _InterpTermsChol(torch.autograd.Function):
         )
 
         # We're done!
-        return interp_term_grad, expec_vec_grad, expec_mat_grad
+        return interp_term_grad, expec_vec_grad, expec_mat_grad, None  # Extra "None" for the kwarg
 
 
 class VD(Module):
@@ -182,7 +195,10 @@ class NaturalVariationalStrategy(_VariationalStrategy):
 
         # Compute interpolated mean and variance terms
         interp_mean, interp_var, kl_div = _InterpTermsChol().apply(
-            interp_term, self._variational_distribution.natural_vec, self._variational_distribution.natural_mat,
+            interp_term,
+            self._variational_distribution.natural_vec,
+            self._variational_distribution.natural_mat,
+            self.mode,
         )
 
         # Memoize the logdet
