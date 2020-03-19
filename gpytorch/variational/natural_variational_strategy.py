@@ -28,7 +28,7 @@ class _InterpTermsChol(torch.autograd.Function):
                 prec.matmul,
                 torch.cat([natural_vec.unsqueeze(-1), interp_term], dim=-1),
                 n_tridiag=0,
-                max_iter=settings.max_cg_iterations.value(),
+                max_iter=1000,
                 max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
             )
             expec_vec = solves[..., 0]
