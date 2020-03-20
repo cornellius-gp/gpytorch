@@ -11,6 +11,7 @@ from .multitask_gaussian_likelihood import (
 )
 from .noise_models import HeteroskedasticNoise
 from .softmax_likelihood import SoftmaxLikelihood
+from .student_t_likelihood import StudentTLikelihood
 
 __all__ = [
     "_GaussianLikelihoodBase",
@@ -25,4 +26,5 @@ __all__ = [
     "MultitaskGaussianLikelihood",
     "MultitaskGaussianLikelihoodKronecker",
     "SoftmaxLikelihood",
+    "StudentTLikelihood",
 ]
