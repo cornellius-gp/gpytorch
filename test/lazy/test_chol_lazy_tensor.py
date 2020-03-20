@@ -9,7 +9,7 @@ from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestCholLazyTensor(LazyTensorTestCase, unittest.TestCase):
-    seed = 3
+    seed = 0
     should_test_sample = True
     should_call_cg = False
     should_call_lanczos = False

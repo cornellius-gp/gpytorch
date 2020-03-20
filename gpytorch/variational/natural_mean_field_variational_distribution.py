@@ -75,7 +75,7 @@ class NaturalMeanFieldVariationalDistribution(_VariationalDistribution):
         return MultivariateNormal(mean, CholLazyTensor(chol_covar))
 
     def initialize_variational_distribution(self, prior_dist):
-        prior_prec = prior_dist.covariance_matrix.inverse().mul(1.0e2)
+        prior_prec = prior_dist.covariance_matrix.inverse()
         prior_mean = prior_dist.mean
         noise = torch.randn_like(prior_mean).mul_(self.mean_init_std)
 
