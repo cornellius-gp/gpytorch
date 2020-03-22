@@ -140,28 +140,35 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
     def rsample(self, sample_shape=torch.Size(), base_samples=None):
         covar = self.lazy_covariance_matrix
         if base_samples is None:
-            # Create some samples
-            num_samples = sample_shape.numel() or 1
+            shape = self._extended_shape(sample_shape)
+            sample_shape = shape[: -(covar.dim() - 1)]
+            num_samples = int(torch.tensor(sample_shape).prod())
 
+            # Expand so that we have as many zero_mean_mvn_samples as
+            # broadcasting demands.
+            covar_ = covar.expand(*shape[-(covar.dim() - 1) :], shape[-1])
             # Get samples
-            res = covar.zero_mean_mvn_samples(num_samples) + self.loc.unsqueeze(0)
-            res = res.view(sample_shape + self.loc.shape)
-
+            samples = covar_.zero_mean_mvn_samples(num_samples)
+            res = samples.view(*shape) + self.loc
+            return res
         else:
             # Make sure that the base samples agree with the distribution
-            if self.loc.shape != base_samples.shape[-self.loc.dim() :]:
+            dist_shape = self._extended_shape(torch.Size())
+            if dist_shape != base_samples.shape[-len(dist_shape) :]:
                 raise RuntimeError(
                     "The size of base_samples (minus sample shape dimensions) should agree with the size "
-                    "of self.loc. Expected ...{} but got {}".format(self.loc.shape, base_samples.shape)
+                    "of self.loc and self.lazy_covariance_matrix. Expected ...{} but got {}".format(
+                        dist_shape, base_samples.shape
+                    )
                 )
 
             # Determine what the appropriate sample_shape parameter is
-            sample_shape = base_samples.shape[: base_samples.dim() - self.loc.dim()]
+            sample_shape = base_samples.shape[: base_samples.dim() - len(dist_shape)]
 
             # Reshape samples to be batch_size x num_dim x num_samples
             # or num_bim x num_samples
-            base_samples = base_samples.view(-1, *self.loc.shape)
-            base_samples = base_samples.permute(*tuple(range(1, self.loc.dim() + 1)), 0)
+            base_samples = base_samples.view(-1, *dist_shape)
+            base_samples = base_samples.permute(*range(1, len(dist_shape) + 1), 0)
 
             # Now reparameterize those base samples
             covar_root = covar.root_decomposition().root
@@ -173,10 +180,9 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
-            res = res.permute(-1, *tuple(range(self.loc.dim()))).contiguous()
-            res = res.view(sample_shape + self.loc.shape)
-
-        return res
+            res = res.permute(-1, *range(len(dist_shape))).contiguous()
+            res = res.view(sample_shape + dist_shape)
+            return res
 
     def sample(self, sample_shape=torch.Size(), base_samples=None):
         with torch.no_grad():

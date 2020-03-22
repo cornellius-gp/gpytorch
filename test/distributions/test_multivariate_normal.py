@@ -293,8 +293,65 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         self.assertAllClose(d.covariance_matrix, dist_cov[..., [0, 1, 1, 0], :][..., [0, 1, 1, 0]])
 
         d = dist[1, 2, 2, ...]
-        assert torch.equal(d.mean, dist.mean[1, 2, 2, :])
-        self.assertAllClose(d.covariance_matrix, dist_cov[1, 2, 2, :, :])
+
+    def _dist_rsample_tests(self, dist, shape):
+        if shape[-2] == 1 or shape[-2] == 8:
+            raise NotImplementedError("test has been written with these assumptions in mind")
+        base_samples = torch.randn(1, 2, *shape)
+        out = dist.rsample(base_samples=base_samples)
+        assert out.size() == torch.Size([1, 2, *shape]), "output has incorrect shape with custom base_samples"
+
+        assert dist.rsample(torch.Size([3])).shape == torch.Size(
+            [3] + shape
+        ), "output has incorrect shape with default base_samples"
+
+        # Shape broadcasts with `dist.mean` and `dist.covariance_matrix`, but
+        # does not exactly match
+        new_shape = [s for s in shape]
+        new_shape[-2] = 1
+        base_samples = torch.randn(3, 2, *new_shape)
+        self.assertRaises(RuntimeError, lambda: dist.rsample(base_samples=base_samples))
+
+        # Shape cannot broadcast correctly
+        new_shape[-2] = 8
+        base_samples = torch.randn(3, 2, *new_shape)
+        self.assertRaises(RuntimeError, lambda: dist.rsample(base_samples=base_samples))
+        base_samples = torch.randn(new_shape)
+        self.assertRaises(RuntimeError, lambda: dist.rsample(base_samples=base_samples))
+
+        sample = dist.rsample()
+        centered_sample = sample - dist.mean
+        assert not torch.allclose(centered_sample, centered_sample[0]), "samples should be different!"
+
+    def test_rsample_batch(self):
+        """Test that transforming samples works if the mean and covariance of the
+        MultivariateNormal have different (but compatible) shapes.
+        """
+        shape = [3, 4]
+        # Mean and cov have same dimensions
+        mean = torch.randn(*shape)
+        cov = torch.randn(*shape, shape[-1])
+        dist = MultivariateNormal(mean, NonLazyTensor(cov @ cov.transpose(-1, -2)), validate_args=True)
+        self._dist_rsample_tests(dist, shape)
+
+        # The mean has one more dimension than the cov
+        mean = torch.randn(shape[-1])
+        cov = torch.randn(*shape, shape[-1])
+        dist = MultivariateNormal(mean, NonLazyTensor(cov @ cov.transpose(-1, -2)), validate_args=True)
+        self._dist_rsample_tests(dist, shape)
+
+        # The cov has one more dimension than the mean
+        mean = torch.randn(*shape)
+        cov = torch.randn(shape[-1], shape[-1])
+        dist = MultivariateNormal(mean, NonLazyTensor(cov @ cov.transpose(-1, -2)), validate_args=True)
+        self._dist_rsample_tests(dist, shape)
+
+        # Mix
+        shape = [2, 5, 3, 4]
+        mean = torch.randn(2, 1, 3, 4)
+        cov = torch.randn(2, 5, 1, 4, 4)
+        dist = MultivariateNormal(mean, NonLazyTensor(cov @ cov.transpose(-1, -2)), validate_args=True)
+        self._dist_rsample_tests(dist, shape)
 
 
 if __name__ == "__main__":
