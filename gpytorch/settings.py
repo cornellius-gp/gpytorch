@@ -379,6 +379,14 @@ class cg_tolerance(_value_context):
     _global_value = 1
 
 
+class ciq_samples(_feature_flag):
+    """
+    Whether to draw samples using CIQ or not
+    """
+
+    _state = False
+
+
 class preconditioner_tolerance(_value_context):
     """
     Diagonal trace tolerance to use for checking preconditioner convergence.

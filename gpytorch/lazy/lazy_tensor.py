@@ -1623,15 +1623,31 @@ class LazyTensor(ABC):
             :obj:`torch.tensor`:
                 Samples from MVN (num_samples x batch_size x num_dim) or (num_samples x num_dim)
         """
-        if self.size()[-2:] == torch.Size([1, 1]):
-            covar_root = self.evaluate().sqrt()
-        else:
-            covar_root = self.root_decomposition().root
+        if settings.ciq_samples.on():
+            from ..utils.contour_integral_quad import contour_integral_quad
 
-        base_samples = torch.randn(
-            *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
-        )
-        samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
+            with torch.no_grad():
+                base_samples = torch.randn(
+                    num_samples, *self.batch_shape, self.size(-1), 1, dtype=self.dtype, device=self.device
+                )
+                solves, weights, _ = contour_integral_quad(
+                    self.evaluate_kernel(),
+                    base_samples,
+                    inverse=False,
+                    num_contour_quadrature=settings.num_contour_quadrature.value(),
+                )
+            return (solves * weights).sum(0).squeeze(-1)
+
+        else:
+            if self.size()[-2:] == torch.Size([1, 1]):
+                covar_root = self.evaluate().sqrt()
+            else:
+                covar_root = self.root_decomposition().root
+
+            base_samples = torch.randn(
+                *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
+            )
+            samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
 
         return samples
 

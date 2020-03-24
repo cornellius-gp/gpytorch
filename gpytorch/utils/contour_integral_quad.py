@@ -29,9 +29,10 @@ def contour_integral_quad(lazy_tensor, rhs, inverse=False, max_lanczos_iter=10, 
     if len(lazy_tensor.batch_shape):
         raise RuntimeError("CIQ/Sqrt Inv Matmul only works for non-batch matrices ATM.")
 
+    rhs_index = tuple([0] * (rhs.dim() - 2) + [slice(None, None, None), slice(None, 1, None)])
     lanczos_basis, lanczos_mat = lanczos_tridiag(
         lambda v: lazy_tensor._matmul(v),
-        init_vecs=rhs[..., :1],
+        init_vecs=rhs[rhs_index],
         dtype=rhs.dtype,
         device=rhs.device,
         matrix_shape=lazy_tensor.matrix_shape,
