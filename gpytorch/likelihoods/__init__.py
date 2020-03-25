@@ -2,6 +2,7 @@
 
 from .bernoulli_likelihood import BernoulliLikelihood
 from .gaussian_likelihood import FixedNoiseGaussianLikelihood, GaussianLikelihood, _GaussianLikelihoodBase
+from .laplace_likelihood import LaplaceLikelihood
 from .likelihood import Likelihood, _OneDimensionalLikelihood
 from .likelihood_list import LikelihoodList
 from .multitask_gaussian_likelihood import (
@@ -21,6 +22,7 @@ __all__ = [
     "FixedNoiseGaussianLikelihood",
     "GaussianLikelihood",
     "HeteroskedasticNoise",
+    "LaplaceLikelihood",
     "Likelihood",
     "LikelihoodList",
     "MultitaskGaussianLikelihood",

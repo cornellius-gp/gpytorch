@@ -7,10 +7,23 @@ from .likelihood import _OneDimensionalLikelihood
 
 
 class StudentTLikelihood(_OneDimensionalLikelihood):
-    def __init__(self, deg_free=3.0):
+    r"""
+    A Student T likelihood/noise model for GP regression.
+    It has two learnable parameters: :math:`\nu` - the degrees of freedom, and
+    :math:`\sigma^2` - the noise
+
+    :var torch.Tensor deg_free: :math:`\nu` parameter (degrees of freedom)
+    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
+    """
+
+    def __init__(self, batch_shape=torch.Size([])):
         super().__init__()
-        self.deg_free = deg_free
-        self._raw_noise = torch.nn.Parameter(torch.tensor(0.0))
+        self._deg_free = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
+        self._raw_noise = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
+
+    @property
+    def deg_free(self):
+        return torch.nn.functional.softplus(self._deg_free)
 
     @property
     def noise(self):
