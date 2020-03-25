@@ -524,3 +524,37 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
+
+    def test_sqrt_inv_matmul_no_lhs(self):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        if len(lazy_tensor.batch_shape):
+            return
+
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        evaluated.register_hook(_ensure_symmetric_grad)
+
+        # Create a test right hand side and left hand side
+        rhs = torch.randn(*lazy_tensor.shape[:-1], 3).requires_grad_(True)
+        rhs_copy = rhs.clone().detach().requires_grad_(True)
+
+        # Perform forward pass
+        with gpytorch.settings.max_cg_iterations(200):
+            sqrt_inv_matmul_res = lazy_tensor.sqrt_inv_matmul(rhs)
+        evals, evecs = evaluated.symeig(eigenvectors=True)
+        matrix_inv_root = evecs @ (evals.sqrt().reciprocal().unsqueeze(-1) * evecs.transpose(-1, -2))
+        sqrt_inv_matmul_actual = matrix_inv_root @ rhs_copy
+
+        # Check forward pass
+        self.assertAllClose(sqrt_inv_matmul_res, sqrt_inv_matmul_actual, rtol=1e-4, atol=1e-3)
+
+        # Perform backward pass
+        sqrt_inv_matmul_grad = torch.randn_like(sqrt_inv_matmul_res)
+        ((sqrt_inv_matmul_res * sqrt_inv_matmul_grad).sum()).backward()
+        ((sqrt_inv_matmul_actual * sqrt_inv_matmul_grad).sum()).backward()
+
+        # Check grads
+        self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=1e-4, atol=1e-3)
+        for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+            if arg_copy.grad is not None:
+                self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)

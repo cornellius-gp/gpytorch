@@ -43,9 +43,6 @@ class CIQVariationalStrategy(_VariationalStrategy):
         return res
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
-        if variational_inducing_covar is not None:
-            raise RuntimeError("CIQVariationalStrategy currently does not handle the variational_inducing_covar")
-
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
         full_output = self.model.forward(full_inputs)
@@ -62,12 +59,21 @@ class CIQVariationalStrategy(_VariationalStrategy):
         if not torch.equal(induc_induc_covar, induc_induc_covar):
             raise RuntimeError("NaN encountered in K_ZZ matrix")
 
-        # Compute interpolation terms
-        # K_XZ K_ZZ^{-1} \mu_z
-        # K_XZ K_ZZ^{-1/2} \mu_Z
-        interp_mean, interp_var = lazify(induc_induc_covar).sqrt_inv_matmul(
-            (inducing_values - self.prior_distribution.mean).unsqueeze(-1), induc_data_covar.transpose(-1, -2),
-        )
+        if variational_inducing_covar is None:
+            # Compute interpolation terms
+            # K_XZ K_ZZ^{-1} \mu_z
+            # K_XZ K_ZZ^{-1/2} \mu_Z
+            interp_mean, interp_var = lazify(induc_induc_covar).sqrt_inv_matmul(
+                (inducing_values - self.prior_distribution.mean).unsqueeze(-1), induc_data_covar.transpose(-1, -2),
+            )
+        else:
+            # Compute interpolation term
+            # K_ZZ^{-1} K_ZX
+            interp_term = lazify(induc_induc_covar).sqrt_inv_matmul(induc_data_covar)
+            interp_mean = interp_term.transpose(-1, -2) @ (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
+            interp_var = (
+                (variational_inducing_covar @ interp_term).mul(-1).add(interp_term).mul(interp_term).sum(dim=-2)
+            )
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
