@@ -1468,7 +1468,7 @@ class LazyTensor(ABC):
     def shape(self):
         return self.size()
 
-    def sqrt_inv_matmul(self, rhs, lhs):
+    def sqrt_inv_matmul(self, rhs, lhs=None):
         if len(self.batch_shape):
             raise NotImplementedError("sqrt_inv_matmul only works for non-batch matrices ATM.")
 
@@ -1477,12 +1477,16 @@ class LazyTensor(ABC):
             rhs = rhs.unsqueeze(-1)
             squeeze = True
 
-        func = SqrtInvMatmul()
+        func = SqrtInvMatmul(has_lhs=(lhs is not None))
         sqrt_inv_matmul_res, inv_quad_res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
 
         if squeeze:
             sqrt_inv_matmul_res = sqrt_inv_matmul_res.squeeze(-1)
-        return sqrt_inv_matmul_res, inv_quad_res
+
+        if lhs is None:
+            return sqrt_inv_matmul_res
+        else:
+            return sqrt_inv_matmul_res, inv_quad_res
 
     def sum(self, dim=None):
         """
@@ -1630,7 +1634,7 @@ class LazyTensor(ABC):
                 base_samples = torch.randn(
                     num_samples, *self.batch_shape, self.size(-1), 1, dtype=self.dtype, device=self.device
                 )
-                solves, weights, _ = contour_integral_quad(
+                solves, weights, _, _ = contour_integral_quad(
                     self.evaluate_kernel(),
                     base_samples,
                     inverse=False,
