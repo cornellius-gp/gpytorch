@@ -4,7 +4,7 @@ import torch
 
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, delazify
-from ..settings import record_ciq_stats, trace_mode
+from ..settings import record_ciq_stats
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
@@ -75,23 +75,19 @@ class VariationalStrategy(_VariationalStrategy):
         interp_mean = torch.matmul(
             interp_term.transpose(-1, -2), (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
         ).squeeze(-1)
-        interp_var = interp_term.pow(2).sum(dim=-2)
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
         predictive_mean = interp_mean.squeeze(-1) + test_mean
 
-        # Maybe add variational_inducing_covar
+        # Interp covar
+        interp_covar = interp_term.transpose(-1, -2) @ interp_term
         if variational_inducing_covar is not None:
-            interp_var = interp_var - (variational_inducing_covar @ interp_term).mul(interp_term).sum(dim=-2)
+            interp_covar = interp_covar - interp_term.transpose(-1, -2) @ (variational_inducing_covar @ interp_term)
 
-        if trace_mode.on():
-            predictive_covar = data_data_covar.evaluate() - interp_var.diag_embed(dim1=-1, dim2=-2)
-        else:
-            predictive_var = (data_data_covar.diag() - interp_var).clamp_min(1e-10)
-            if record_ciq_stats.on():
-                record_ciq_stats.min_var = predictive_var.min().item()
-            predictive_covar = DiagLazyTensor(predictive_var)
+        predictive_covar = data_data_covar.evaluate() - interp_covar
+        if record_ciq_stats.on():
+            record_ciq_stats.min_var = predictive_covar.diagonal(dim1=-1, dim2=-2).min().item()
 
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
