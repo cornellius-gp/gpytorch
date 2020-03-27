@@ -80,9 +80,10 @@ class IndexKernel(Kernel):
 
     def forward(self, i1, i2, **params):
         covar_matrix = self._eval_covar_matrix()
+
         res = InterpolatedLazyTensor(
             base_lazy_tensor=covar_matrix,
-            left_interp_indices=i1.expand(self.batch_shape + i1.shape),
-            right_interp_indices=i2.expand(self.batch_shape + i2.shape),
+            left_interp_indices=i1.expand(self.batch_shape + i1.shape[-2:]),
+            right_interp_indices=i2.expand(self.batch_shape + i2.shape[-2:]),
         )
         return res
