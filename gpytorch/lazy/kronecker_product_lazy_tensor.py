@@ -112,3 +112,7 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
+
+    @cached(name="cholesky")
+    def _cholesky(self):
+        return KroneckerProductLazyTensor(*[lt._cholesky() for lt in self.lazy_tensors])
