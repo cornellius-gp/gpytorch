@@ -135,13 +135,21 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
         scale_curr = torch.mul(scale_prev, sin_curr).mul_(-1)
         scale_prev.mul_(cos_curr)
         # 2) Get the new search vector
-        # from IPython.core.debugger import set_trace
-        # set_trace()
         search_curr = torch.addcmul(qvec_prev1, sub_diag_term, search_prev1, value=-1)
         search_curr.addcmul_(subsub_diag_term, search_prev2, value=-1)
         search_curr.div_(diag_term)
+
         # 3) Update the solution
-        solution.addcmul_(scale_prev, search_curr)
+        search_update = search_curr * scale_prev
+        conv = (search_update.norm(dim=-1) / solution.norm(dim=-1)).mean().item()
+
+        solution.add_(search_update)
+
+        # For rhs-s that are close to zero, set them to zero
+        solution.masked_fill_(rhs_is_zero, 0)
+
+        if conv < 1e-3:
+            break
 
         # Update terms for next iteration
         # Lanczos terms
