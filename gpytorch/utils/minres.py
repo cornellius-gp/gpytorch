@@ -141,14 +141,14 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
 
         # 3) Update the solution
         search_update = search_curr * scale_prev
-        conv = (search_update.norm(dim=-1) / solution.norm(dim=-1)).mean().item()
+        conv = (search_update.norm(dim=-2) / solution.norm(dim=-2)).mean().item()
 
         solution.add_(search_update)
 
         # For rhs-s that are close to zero, set them to zero
         solution.masked_fill_(rhs_is_zero, 0)
 
-        if conv < 1e-3:
+        if conv < 1e-4:
             break
 
         # Update terms for next iteration
