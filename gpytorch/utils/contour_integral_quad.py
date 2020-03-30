@@ -10,7 +10,7 @@ from .minres import minres
 
 
 def contour_integral_quad(
-    lazy_tensor, rhs, inverse=False, weights=None, shifts=None, max_lanczos_iter=10, num_contour_quadrature=7
+    lazy_tensor, rhs, inverse=False, weights=None, shifts=None, max_lanczos_iter=7, num_contour_quadrature=7
 ):
     r"""
     Performs :math:`\mathbf K^{1/2} \mathbf b` or `\mathbf K^{-1/2} \mathbf b`
@@ -51,7 +51,10 @@ def contour_integral_quad(
 
         # Compute an approximate condition number
         # We'll do this with Lanczos
-        approx_eigs = lanczos_mat.symeig()[0]
+        try:
+            approx_eigs = lanczos_mat.symeig()[0]
+        except RuntimeError:
+            approx_eigs = lazy_tensor.diag()
         approx_eigs = approx_eigs[approx_eigs > 0]
         min_eig = approx_eigs.min()
         max_eig = approx_eigs.max()
