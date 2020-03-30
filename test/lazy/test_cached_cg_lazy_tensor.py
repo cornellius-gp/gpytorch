@@ -121,6 +121,11 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
                         self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
                         self.assertFalse(linear_cg_mock.called)
 
+    def _test_inv_quad_logdet(self, reduce_inv_quad=True, cholesky=False):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ExtraComputationWarning)
+            super()._test_inv_quad_logdet(reduce_inv_quad=reduce_inv_quad, cholesky=cholesky)
+
     def test_inv_matmul_vector(self):
         # Skipping this test because it's not really necessary for CachedCGLazyTensor
         # We'll only ever be performing inv_matmul against matrices ,r owhen a left hand side is supplied
@@ -142,7 +147,9 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
         test_mat = lazy_tensor.eager_rhss[0].clone().detach()
 
         res = root_approx.matmul(test_mat)
-        actual = lazy_tensor.inv_matmul(test_mat)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ExtraComputationWarning)
+            actual = lazy_tensor.inv_matmul(test_mat)
         self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)
 
 
