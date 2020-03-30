@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .bernoulli_likelihood import BernoulliLikelihood
+from .beta_likelihood import BetaLikelihood
 from .gaussian_likelihood import FixedNoiseGaussianLikelihood, GaussianLikelihood, _GaussianLikelihoodBase
 from .laplace_likelihood import LaplaceLikelihood
 from .likelihood import Likelihood, _OneDimensionalLikelihood
@@ -19,6 +20,7 @@ __all__ = [
     "_OneDimensionalLikelihood",
     "_MultitaskGaussianLikelihoodBase",
     "BernoulliLikelihood",
+    "BetaLikelihood",
     "FixedNoiseGaussianLikelihood",
     "GaussianLikelihood",
     "HeteroskedasticNoise",

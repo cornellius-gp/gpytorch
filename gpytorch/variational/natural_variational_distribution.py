@@ -71,7 +71,7 @@ class NaturalVariationalDistribution(_VariationalDistribution):
         # m = expec_mean
         # S = expec_covar - expec_mean expec_mean^T
         mean = expec_mean
-        chol_covar = psd_safe_cholesky(expec_covar - expec_mean.unsqueeze(-1) @ expec_mean.unsqueeze(-2))
+        chol_covar = psd_safe_cholesky(expec_covar - expec_mean.unsqueeze(-1) @ expec_mean.unsqueeze(-2), max_tries=4)
         return MultivariateNormal(mean, CholLazyTensor(chol_covar))
 
     def initialize_variational_distribution(self, prior_dist):
