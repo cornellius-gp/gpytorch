@@ -66,7 +66,7 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     beta_curr = torch.empty_like(beta_prev)
     qvec_prev2 = torch.zeros_like(prod)
     qvec_prev1 = rhs.clone().expand_as(prod).contiguous()
-    qvec_curr = torch.empty_like(qvec_prev2)
+    tmpvec = torch.empty_like(qvec_prev2)
 
     # Variables for the QR rotation
     # 1) Components of the Givens rotations
@@ -89,11 +89,16 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     search_prev2 = torch.zeros_like(solution)
     search_prev1 = torch.zeros_like(solution)
     search_curr = torch.empty_like(search_prev1)
+    search_update = torch.empty_like(search_prev1)
     # 2) The "scaling" terms of the search vectors
     # Equivalent to the terms of V^T Q^T rhs, where Q is the matrix of Lanczos vectors and
     # V is the QR orthonormal of the tridiagonal Lanczos matrix.
     scale_prev = beta_prev.repeat(shifts.shape)
     scale_curr = torch.empty_like(scale_prev)
+
+    # Terms for checking for convergence
+    solution_norm = torch.zeros(*solution.shape[:-2], solution.size(-1), dtype=solution.dtype, device=solution.device)
+    search_update_norm = torch.zeros_like(solution_norm)
 
     # Perform iterations
     for i in range(max_iter):
@@ -102,73 +107,60 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
         if value is not None:
             prod.mul_(value)
 
-        # Get next Lanczos terms
-        # --> alpha_curr, beta_curr, qvec_curr
-        qvec_curr.copy_(prod)
-        torch.sum(prod.mul_(qvec_prev1), -2, keepdim=True, out=alpha_curr)
+        # Perform JIT-ted update
+        conv = _jit_minres_updates(
+            solution,
+            prod,
+            shifts,
+            eps,
+            qvec_prev2,
+            qvec_prev1,
+            tmpvec,
+            alpha_curr,
+            alpha_shifted_curr,
+            beta_prev,
+            beta_curr,
+            cos_prev2,
+            cos_prev1,
+            cos_curr,
+            sin_prev2,
+            sin_prev1,
+            sin_curr,
+            radius_curr,
+            subsub_diag_term,
+            sub_diag_term,
+            diag_term,
+            search_prev2,
+            search_prev1,
+            search_curr,
+            search_update,
+            scale_prev,
+            scale_curr,
+            search_update_norm,
+            solution_norm,
+        )
 
-        qvec_curr.addcmul_(alpha_curr, qvec_prev1, value=-1).addcmul_(beta_prev, qvec_prev2, value=-1)
-
-        torch.mul(sin_prev2, beta_prev, out=subsub_diag_term)
-        torch.mul(cos_prev2, beta_prev, out=sub_diag_term)
-
-        torch.norm(qvec_curr, p=2, dim=-2, keepdim=True, out=beta_curr)
-        beta_curr.clamp_min_(eps)
-
-        qvec_curr.div_(beta_curr)
-
-        torch.add(alpha_curr, shifts, out=alpha_shifted_curr)
-
-        torch.mul(alpha_shifted_curr, cos_prev1, out=diag_term).addcmul_(sin_prev1, sub_diag_term, value=-1)
-        sub_diag_term.mul_(cos_prev1).addcmul_(sin_prev1, alpha_shifted_curr)
-        # 3) Compute next Givens terms
-        torch.mul(diag_term, diag_term, out=radius_curr).addcmul_(beta_curr, beta_curr).sqrt_()
-        cos_curr = torch.div(diag_term, radius_curr)
-        sin_curr = torch.div(beta_curr, radius_curr)
-        # 4) Apply current Givens rotation
-        diag_term.mul_(cos_curr).addcmul_(sin_curr, beta_curr)
-
-        # Update the solution
-        # --> search_curr, scale_curr solution
-        # 1) Apply the latest Givens rotation to the Lanczos-rhs ( ||rhs|| e_1 )
-        # This is getting the scale terms for the "search" vectors
-        scale_curr = torch.mul(scale_prev, sin_curr).mul_(-1)
-        scale_prev.mul_(cos_curr)
-        # 2) Get the new search vector
-        search_curr = torch.addcmul(qvec_prev1, sub_diag_term, search_prev1, value=-1)
-        search_curr.addcmul_(subsub_diag_term, search_prev2, value=-1)
-        search_curr.div_(diag_term)
-
-        # 3) Update the solution
-        search_update = search_curr * scale_prev
-        conv = (search_update.norm(dim=-2) / solution.norm(dim=-2)).mean().item()
-
-        solution.add_(search_update)
-
-        # For rhs-s that are close to zero, set them to zero
-        solution.masked_fill_(rhs_is_zero, 0)
-
-        if conv < 1e-4:
-            break
+        # Check convergence criterion
+        if (i + 1) % 10 == 0:
+            torch.norm(search_update, dim=-2, out=search_update_norm)
+            torch.norm(solution, dim=-2, out=solution_norm)
+            conv = search_update_norm.div_(solution_norm).mean().item()
+            if conv < settings.minres_tolerance.value():
+                break
 
         # Update terms for next iteration
         # Lanczos terms
-
-        qvec_prev2.copy_(qvec_prev1)
-        qvec_prev1.copy_(qvec_curr)
+        qvec_prev2, qvec_prev1 = qvec_prev1, prod
+        beta_prev, beta_curr = beta_curr, beta_prev
         # Givens rotations terms
-        cos_prev2.copy_(cos_prev1)
-        sin_prev2.copy_(sin_prev1)
-        search_prev2.copy_(search_prev1)
-
-        beta_prev = beta_curr
-        cos_prev1 = cos_curr
-        sin_prev1 = sin_curr
+        cos_prev2, cos_prev1, cos_curr = cos_prev1, cos_curr, cos_prev2
+        sin_prev2, sin_prev1, sin_curr = sin_prev1, sin_curr, sin_prev2
         # Search vector terms)
-        scale_prev = scale_curr
-        search_prev1 = search_curr
-        # For rhs-s that are close to zero, set them to zero
-        solution.masked_fill_(rhs_is_zero, 0)
+        search_prev2, search_prev1, search_curr = search_prev1, search_curr, search_prev2
+        scale_prev, scale_curr = scale_curr, scale_prev
+
+    # For rhs-s that are close to zero, set them to zero
+    solution.masked_fill_(rhs_is_zero, 0)
 
     # Store the number of iterations taken
     settings.record_ciq_stats.num_minres_iter = i + 1
@@ -177,3 +169,79 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
         solution = solution.squeeze(-1)
 
     return solution
+
+
+def _jit_minres_updates(
+    solution,
+    prod,
+    shifts,
+    eps,
+    qvec_prev2,
+    qvec_prev1,
+    tmpvec,
+    alpha_curr,
+    alpha_shifted_curr,
+    beta_prev,
+    beta_curr,
+    cos_prev2,
+    cos_prev1,
+    cos_curr,
+    sin_prev2,
+    sin_prev1,
+    sin_curr,
+    radius_curr,
+    subsub_diag_term,
+    sub_diag_term,
+    diag_term,
+    search_prev2,
+    search_prev1,
+    search_curr,
+    search_update,
+    scale_prev,
+    scale_curr,
+    search_update_norm,
+    solution_norm,
+):
+    # Get next Lanczos terms
+    # --> alpha_curr, beta_curr, qvec_curr
+    qvec_curr = prod
+    torch.mul(qvec_curr, qvec_prev1, out=tmpvec)
+    torch.sum(tmpvec, -2, keepdim=True, out=alpha_curr)
+
+    qvec_curr.addcmul_(alpha_curr, qvec_prev1, value=-1).addcmul_(beta_prev, qvec_prev2, value=-1)
+
+    torch.mul(sin_prev2, beta_prev, out=subsub_diag_term)
+    torch.mul(cos_prev2, beta_prev, out=sub_diag_term)
+
+    torch.norm(qvec_curr, p=2, dim=-2, keepdim=True, out=beta_curr)
+    beta_curr.clamp_min_(eps)
+
+    qvec_curr.div_(beta_curr)
+
+    # Compute shifted alpha
+    torch.add(alpha_curr, shifts, out=alpha_shifted_curr)
+
+    torch.mul(alpha_shifted_curr, cos_prev1, out=diag_term).addcmul_(sin_prev1, sub_diag_term, value=-1)
+    sub_diag_term.mul_(cos_prev1).addcmul_(sin_prev1, alpha_shifted_curr)
+
+    # 3) Compute next Givens terms
+    torch.mul(diag_term, diag_term, out=radius_curr).addcmul_(beta_curr, beta_curr).sqrt_()
+    cos_curr = torch.div(diag_term, radius_curr, out=cos_curr)
+    sin_curr = torch.div(beta_curr, radius_curr, out=sin_curr)
+    # 4) Apply current Givens rotation
+    diag_term.mul_(cos_curr).addcmul_(sin_curr, beta_curr)
+
+    # Update the solution
+    # --> search_curr, scale_curr solution
+    # 1) Apply the latest Givens rotation to the Lanczos-rhs ( ||rhs|| e_1 )
+    # This is getting the scale terms for the "search" vectors
+    torch.mul(scale_prev, sin_curr, out=scale_curr).mul_(-1)
+    scale_prev.mul_(cos_curr)
+    # 2) Get the new search vector
+    torch.addcmul(qvec_prev1, sub_diag_term, search_prev1, value=-1, out=search_curr)
+    search_curr.addcmul_(subsub_diag_term, search_prev2, value=-1)
+    search_curr.div_(diag_term)
+
+    # 3) Update the solution
+    torch.mul(search_curr, scale_prev, out=search_update)
+    solution.add_(search_update)

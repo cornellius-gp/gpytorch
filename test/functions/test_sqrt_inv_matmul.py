@@ -13,7 +13,7 @@ class TestSqrtInvMatmul(BaseTestCase, unittest.TestCase):
     seed = 0
 
     def _test(self, matrix_shape, rhs_shape, lhs_shape):
-        with settings.record_ciq_stats(), settings.num_contour_quadrature(31):
+        with settings.record_ciq_stats(), settings.num_contour_quadrature(31), settings.minres_tolerance(1e-10):
             # Create test matrix, vector
             factor = torch.randn(matrix_shape)
             matrix = factor.transpose(-1, -2) @ factor
@@ -61,7 +61,7 @@ class TestSqrtInvMatmul(BaseTestCase, unittest.TestCase):
         self.assertAllClose(matrix.grad, matrix_clone.grad, rtol=1e-4, atol=1e-3)
 
     def _test_no_lhs(self, matrix_shape, rhs_shape):
-        with settings.record_ciq_stats(), settings.num_contour_quadrature(31):
+        with settings.record_ciq_stats(), settings.num_contour_quadrature(31), settings.minres_tolerance(1e-10):
             # Create test matrix, vector
             factor = torch.randn(matrix_shape)
             matrix = factor.transpose(-1, -2) @ factor
@@ -89,14 +89,14 @@ class TestSqrtInvMatmul(BaseTestCase, unittest.TestCase):
             # Check forward pass
             self.assertAllClose(sqrt_inv_matmul_res, sqrt_inv_matmul_actual, rtol=1e-5, atol=1e-4)
 
-        # Perform backward pass
-        sqrt_inv_matmul_grad = torch.randn_like(sqrt_inv_matmul_res)
-        ((sqrt_inv_matmul_res * sqrt_inv_matmul_grad).sum()).backward()
-        ((sqrt_inv_matmul_actual * sqrt_inv_matmul_grad).sum()).backward()
+            # Perform backward pass
+            sqrt_inv_matmul_grad = torch.randn_like(sqrt_inv_matmul_res)
+            ((sqrt_inv_matmul_res * sqrt_inv_matmul_grad).sum()).backward()
+            ((sqrt_inv_matmul_actual * sqrt_inv_matmul_grad).sum()).backward()
 
-        # Check grads
-        self.assertAllClose(rhs.grad, rhs_clone.grad, rtol=1e-5, atol=1e-4)
-        self.assertAllClose(matrix.grad, matrix_clone.grad, rtol=1e-4, atol=1e-3)
+            # Check grads
+            self.assertAllClose(rhs.grad, rhs_clone.grad, rtol=1e-5, atol=1e-4)
+            self.assertAllClose(matrix.grad, matrix_clone.grad, rtol=1e-4, atol=1e-3)
 
     def test_mat(self):
         return self._test((128, 128), (128, 5), (1, 128))

@@ -360,6 +360,16 @@ class max_cg_iterations(_value_context):
     _global_value = 1000
 
 
+class minres_tolerance(_value_context):
+    """
+    Relative update term tolerance to use for terminating MINRES.
+
+    Default: 1e-4
+    """
+
+    _global_value = 1e-4
+
+
 class num_contour_quadrature(_value_context):
     """
     The number of quadrature points to compute CIQ.
