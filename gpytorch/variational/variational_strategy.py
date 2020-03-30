@@ -5,6 +5,7 @@ import torch
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, delazify, lazify
 from ..settings import record_ciq_stats
+from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 from ._variational_strategy import _VariationalStrategy
 
@@ -69,7 +70,7 @@ class VariationalStrategy(_VariationalStrategy):
         # Compute interpolation terms
         # K_XZ K_ZZ^{-1} \mu_z
         # K_XZ K_ZZ^{-1/2} \mu_Z
-        L = induc_induc_covar.double().cholesky()
+        L = psd_safe_cholesky(induc_induc_covar.double())
         interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0]
         interp_term = interp_term.to(induc_data_covar.dtype)
         interp_mean = torch.matmul(
