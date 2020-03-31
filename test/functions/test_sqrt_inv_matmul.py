@@ -103,3 +103,9 @@ class TestSqrtInvMatmul(BaseTestCase, unittest.TestCase):
 
     def test_mat_no_lhs(self):
         return self._test_no_lhs((128, 128), (128, 5))
+
+    def test_mat_batch(self):
+        return self._test((2, 128, 128), (2, 128, 5), (2, 1, 128))
+
+    def test_mat_no_lhs_batch(self):
+        return self._test_no_lhs((3, 128, 128), (3, 128, 5))

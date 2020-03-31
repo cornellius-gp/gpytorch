@@ -1469,9 +1469,6 @@ class LazyTensor(ABC):
         return self.size()
 
     def sqrt_inv_matmul(self, rhs, lhs=None):
-        if len(self.batch_shape):
-            raise NotImplementedError("sqrt_inv_matmul only works for non-batch matrices ATM.")
-
         squeeze = False
         if rhs.dim() == 1:
             rhs = rhs.unsqueeze(-1)

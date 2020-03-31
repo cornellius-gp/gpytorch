@@ -3,6 +3,7 @@
 import torch
 
 from .. import settings
+from .broadcasting import _pad_with_singletons
 
 
 def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=None):
@@ -53,11 +54,9 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     if value is not None:
         prod.mul_(value)
 
-    solution = torch.zeros(shifts.shape + prod.shape, dtype=rhs.dtype, device=rhs.device)
-
     # Reisze shifts
-
-    shifts = shifts.view(shifts.shape + torch.Size([1 for _ in prod.shape]))
+    shifts = _pad_with_singletons(shifts, 0, prod.dim() - shifts.dim() + 1)
+    solution = torch.zeros(shifts.shape[:1] + prod.shape, dtype=rhs.dtype, device=rhs.device)
 
     # Variasbles for Lanczos terms
     alpha_curr = torch.empty(prod.shape[:-2] + (1, prod.size(-1)), dtype=rhs.dtype, device=rhs.device)
@@ -93,7 +92,7 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     # 2) The "scaling" terms of the search vectors
     # Equivalent to the terms of V^T Q^T rhs, where Q is the matrix of Lanczos vectors and
     # V is the QR orthonormal of the tridiagonal Lanczos matrix.
-    scale_prev = beta_prev.repeat(shifts.shape)
+    scale_prev = beta_prev.repeat(shifts.size(0), *([1] * beta_prev.dim()))
     scale_curr = torch.empty_like(scale_prev)
 
     # Terms for checking for convergence

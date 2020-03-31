@@ -28,14 +28,10 @@ def contour_integral_quad(
     :rtype: torch.Tensor
     :return: Approximation to :math:`\mathbf K^{1/2} \mathbf b` or :mathbf:`\mathbf K^{-1/2} \mathbf b`.
     """
-    if len(lazy_tensor.batch_shape):
-        raise RuntimeError("CIQ/Sqrt Inv Matmul only works for non-batch matrices ATM.")
-
     if shifts is None:
-        rhs_index = tuple([0] * (rhs.dim() - 2) + [slice(None, None, None), slice(None, 1, None)])
         lanczos_basis, lanczos_mat = lanczos_tridiag(
             lambda v: lazy_tensor._matmul(v),
-            init_vecs=rhs[rhs_index],
+            init_vecs=rhs[..., :, :1],
             dtype=rhs.dtype,
             device=rhs.device,
             matrix_shape=lazy_tensor.matrix_shape,
@@ -55,43 +51,50 @@ def contour_integral_quad(
             approx_eigs = lanczos_mat.symeig()[0]
         except RuntimeError:
             approx_eigs = lazy_tensor.diag()
-        approx_eigs = approx_eigs[approx_eigs > 0]
-        min_eig = approx_eigs.min()
-        max_eig = approx_eigs.max()
+        min_eig = approx_eigs.min(dim=-1)[0]
+        max_eig = approx_eigs.max(dim=-1)[0]
         k2 = min_eig / max_eig
         if settings.record_ciq_stats.on():
-            settings.record_ciq_stats.condition_number = 1.0 / k2
+            settings.record_ciq_stats.condition_number = 1.0 / k2.mean().item()
 
         # Compute the shifts needed for the contour
-        Kp = ellipk(1 - k2.detach().cpu().numpy())  # Elliptical integral of the first kind
-        N = num_contour_quadrature
-        t = 1j * (np.arange(1, N + 1) - 0.5) * Kp / N
-        sn, cn, dn, _ = ellipj(np.imag(t), 1 - k2.item())  # Jacobi elliptic functions
-        cn = 1.0 / cn
-        dn = dn * cn
-        sn = 1j * sn * cn
-        w = np.sqrt(min_eig.item()) * sn
-        w_pow2 = np.real(np.power(w, 2))
-        shifts = torch.from_numpy(w_pow2.astype(float)).type_as(rhs).to(rhs.device)
+        flat_shifts = torch.zeros(num_contour_quadrature + 1, k2.numel(), dtype=k2.dtype, device=k2.device)
+        flat_weights = torch.zeros(num_contour_quadrature, k2.numel(), dtype=k2.dtype, device=k2.device)
+
+        # For loop because numpy
+        for i, (sub_k2, sub_min_eig) in enumerate(zip(k2.flatten().tolist(), min_eig.flatten().tolist())):
+            # Compute shifts
+            Kp = ellipk(1 - sub_k2)  # Elliptical integral of the first kind
+            N = num_contour_quadrature
+            t = 1j * (np.arange(1, N + 1) - 0.5) * Kp / N
+            sn, cn, dn, _ = ellipj(np.imag(t), 1 - sub_k2)  # Jacobi elliptic functions
+            cn = 1.0 / cn
+            dn = dn * cn
+            sn = 1j * sn * cn
+            w = np.sqrt(sub_min_eig) * sn
+            w_pow2 = np.real(np.power(w, 2))
+            sub_shifts = torch.tensor(w_pow2, dtype=rhs.dtype, device=rhs.device)
+
+            # Compute weights
+            constant = -2 * Kp * np.sqrt(sub_min_eig) / (math.pi * N)
+            dzdt = torch.tensor(cn * dn, dtype=rhs.dtype, device=rhs.device)
+            dzdt.mul_(constant)
+            sub_weights = dzdt
+
+            # Store results
+            flat_shifts[1:, i].copy_(sub_shifts)
+            flat_weights[:, i].copy_(sub_weights)
+
+        weights = flat_weights.view(num_contour_quadrature, *k2.shape, 1, 1)
+        shifts = flat_shifts.view(num_contour_quadrature + 1, *k2.shape)
 
     # Compute the solves at the given shifts
     # Do one more matmul if we don't want to include the inverse
-    extra_shifts = torch.cat([torch.tensor([0.0], dtype=shifts.dtype, device=shifts.device), shifts])
-    solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=extra_shifts)
+    solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=shifts)
     no_shift_solves = solves[0]
     solves = solves[1:]
     if not inverse:
         solves = lazy_tensor._matmul(solves)
-
-    # Compute the weights that correspond to the different
-    # These weights include the constant 2/pi
-    if weights is None:
-        constant = -2 * Kp * np.sqrt(min_eig.item()) / (math.pi * N)
-        dzdt = cn * dn
-        dzdt_th = torch.from_numpy(dzdt).type_as(solves)
-        dzdt_th = dzdt_th.view(dzdt_th.numel(), *([1] * (solves.dim() - 1)))
-        dzdt_th.mul_(constant)
-        weights = dzdt_th
 
     # Record some stats on how good the solves are
     if settings.record_ciq_stats.on():
