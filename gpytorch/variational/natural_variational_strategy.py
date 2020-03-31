@@ -19,6 +19,7 @@ class _InterpTermsChol(torch.autograd.Function):
     def forward(ctx, interp_term, natural_vec, natural_mat, mode):
         # Compute precision
         prec = natural_mat.mul(-2.0)
+        diag = prec.diagonal(dim1=-1, dim2=-2).unsqueeze(-1)
 
         # Compute necessary solves with the precision. We need
         # m = expec_vec = S * natural_vec
@@ -30,6 +31,7 @@ class _InterpTermsChol(torch.autograd.Function):
                 n_tridiag=0,
                 max_iter=1000,
                 max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+                preconditioner=lambda x: x / diag,
             )
             expec_vec = solves[..., 0]
             s_times_interp_term = solves[..., 1:]
