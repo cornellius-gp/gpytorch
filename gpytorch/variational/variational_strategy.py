@@ -70,7 +70,7 @@ class VariationalStrategy(_VariationalStrategy):
         # Compute interpolation terms
         # K_XZ K_ZZ^{-1} \mu_z
         # K_XZ K_ZZ^{-1/2} \mu_Z
-        L = psd_safe_cholesky(induc_induc_covar.double())
+        L = psd_safe_cholesky(induc_induc_covar.double(), max_tries=5)
         interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0]
         interp_term = interp_term.to(induc_data_covar.dtype)
         interp_mean = torch.matmul(
