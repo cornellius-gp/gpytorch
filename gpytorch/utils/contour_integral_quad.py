@@ -49,10 +49,12 @@ def contour_integral_quad(
         # We'll do this with Lanczos
         try:
             approx_eigs = lanczos_mat.symeig()[0]
+            if approx_eigs.min() < 0:
+                raise RuntimeError
         except RuntimeError:
             approx_eigs = lazy_tensor.diag()
-        min_eig = approx_eigs.min(dim=-1)[0]
         max_eig = approx_eigs.max(dim=-1)[0]
+        min_eig = approx_eigs.min(dim=-1)[0]
         k2 = min_eig / max_eig
         if settings.record_ciq_stats.on():
             settings.record_ciq_stats.condition_number = 1.0 / k2.mean().item()
