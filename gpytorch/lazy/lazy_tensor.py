@@ -18,7 +18,6 @@ from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _noop_index
-from ..utils.gradients import _ensure_symmetric_grad
 from ..utils.memoize import add_to_cache, cached
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -409,11 +408,6 @@ class LazyTensor(ABC):
         # if the tensor is a scalar, we can just take the square root
         if evaluated_mat.size(-1) == 1:
             return NonLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
-
-        # NOTE: this hack is in place so that the gradient of the Cholesky factorization is symmetric
-        # We can remove this hack once https://github.com/pytorch/pytorch/issues/18825 is merged in
-        if evaluated_mat.requires_grad:
-            evaluated_mat.register_hook(_ensure_symmetric_grad)
 
         # contiguous call is necessary here
         cholesky = psd_safe_cholesky(evaluated_mat).contiguous()
