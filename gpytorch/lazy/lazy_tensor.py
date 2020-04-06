@@ -3,6 +3,7 @@
 import math
 import warnings
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import torch
 
@@ -21,6 +22,7 @@ from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.memoize import add_to_cache, cached
 from ..utils.warnings import NumericalWarning
+from ..utils.pivoted_cholesky import pivoted_cholesky
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
@@ -1317,7 +1319,7 @@ class LazyTensor(ABC):
         return self
 
     @cached(name="root_decomposition")
-    def root_decomposition(self):
+    def root_decomposition(self, method: Optional[str] = None):
         """
         Returns a (usually low-rank) root decomposition lazy tensor of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
@@ -1332,22 +1334,45 @@ class LazyTensor(ABC):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if (
-            self.size(-1) <= settings.max_cholesky_size.value()
-            or settings.fast_computations.covar_root_decomposition.off()
-        ):
+        if method is None:
+            if (
+                self.size(-1) <= settings.max_cholesky_size.value()
+                or settings.fast_computations.covar_root_decomposition.off()
+            ):
+                method = "cholesky"
+            else:
+                method = "lanczos"
+
+        if method == "cholesky":
             try:
                 res = self.cholesky()
                 return CholLazyTensor(res)
-
             except RuntimeError as e:
                 warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e),
+                    f"Runtime Error when computing Cholesky decomposition: {e}. Using RootDecomposition.".format(e),
                     NumericalWarning,
                 )
+                method = "symeig"
 
-        res = self._root_decomposition()
-        return RootLazyTensor(res)
+        if method == "pivoted_cholesky":
+            return RootLazyTensor(pivoted_cholesky(self.evaluate(), max_iter=100))
+
+        if method == "symeig":
+            evals, evecs = self.symeig(eigenvectors=True)
+            # TODO: only use non-zero evals (req. dealing w/ batches...)
+            F = evecs * evals.clamp(0.0).sqrt().unsqueeze(-2)
+            return RootLazyTensor(F)
+
+        if method == "svd":
+            U, S, _ = self.svd()
+            # TODO: only use non-zero singular values (req. dealing w/ batches...)
+            F = U * S.sqrt().unsqueeze(-2)
+            return RootLazyTensor(F)
+
+        if method == "lanczos":
+            return RootLazyTensor(self._root_decomposition())
+
+        raise RuntimeError(f"Unknown method '{method}'")
 
     @cached(name="root_inv_decomposition")
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
@@ -1527,6 +1552,38 @@ class LazyTensor(ABC):
             return self._sum_batch(dim)
         else:
             raise ValueError("Invalid dim ({}) for LazyTensor of size {}".format(orig_dim, self.shape))
+
+    @cached(name="svd")
+    def svd(self):
+        """
+        Compute the SVD of the lazy tensor `M` s.t. `M = U @ S @ V.T`.
+        This can be very slow for large tensors. Should be special-cased for tensors with particular structure.
+
+        Returns:
+            :obj:`torch.Tensor`:
+                The left singular vectors (`U`).
+            :obj:`torch.Tensor`:
+                The singular values (`S`).
+            :obj:`torch.Tensor`:
+                The right singular vectors (`V`).
+        """
+        return torch.svd(self.evaluate())
+
+    @cached(name="symeig")
+    def symeig(self, eigenvectors=False):
+        """
+        Compute the symmetric eigendecomposition of the lazy tensor. This can be very
+        slow for large tensors. Should be special-cased for tensors with particular
+        structure.
+
+        Args:
+            :attr:`eigenvectors` (bool): If True, compute the eigenvectors in addition to the eigenvalues.
+        Returns:
+            :obj:`torch.Tensor`: The eigenvalues.
+            :obj:`torch.Tensor`: The eigenvectors. If `eigenvectors=False`, it's an empty tensor.
+                Otherwise, this tensor contains the orthonormal eigenvectors of teh lazy tensor.
+        """
+        return torch.symeig(self.evaluate(), eigenvectors=eigenvectors)
 
     def to(self, device_id):
         """

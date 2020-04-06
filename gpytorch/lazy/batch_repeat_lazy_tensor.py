@@ -283,3 +283,18 @@ class BatchRepeatLazyTensor(LazyTensor):
                 for orig_repeat_size, new_repeat_size in zip(padded_batch_repeat, sizes[:-2])
             ),
         )
+
+    @cached(name="svd")
+    def svd(self):
+        U_, S_, V_ = self.base_lazy_tensor.svd()
+        U = U_.repeat(*self.batch_repeat, 1, 1)
+        S = S_.repeat(*self.batch_repeat, 1)
+        V = V_.repeat(*self.batch_repeat, 1, 1)
+        return U, S, V
+
+    @cached(name="symeig")
+    def symeig(self, eigenvectors=False):
+        evals_, evecs_ = self.base_lazy_tensor.symeig(eigenvectors=eigenvectors)
+        evals = evals_.repeat(*self.batch_repeat, 1)
+        evecs = evecs_.repeat(*self.batch_repeat, 1, 1)
+        return evals, evecs

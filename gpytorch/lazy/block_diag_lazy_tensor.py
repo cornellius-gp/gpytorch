@@ -110,3 +110,20 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         if logdet_res is not None and logdet_res.numel():
             logdet_res = logdet_res.view(*logdet_res.shape).sum(-1)
         return inv_quad_res, logdet_res
+
+    @cached(name="svd")
+    def svd(self):
+        U, S, V = torch.svd(self.base_lazy_tensor)
+        # Doesn't make much sense to sort here, o/w we lose the structure
+        S = S.view(*S.shape[:-2], S.shape[-2:].numel())
+        U = self.__class__(U)
+        V = self.__class__(V)
+        return U, S, V
+
+    @cached(name="symeig")
+    def symeig(self, eigenvectors=False):
+        evals, evecs = torch.symeig(self.base_lazy_tensor, eigenvectors=eigenvectors)
+        # Doesn't make much sense to sort here, o/w we lose the structure
+        evals = evals.view(*evals.shape[:-2], evals.shape[-2:].numel())
+        evecs = self.__class__(evecs)
+        return evals, evecs

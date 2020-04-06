@@ -182,6 +182,41 @@ class DiagLazyTensor(TriangularLazyTensor):
         base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)
         return base_samples * self._diag.sqrt()
 
+    @cached(name="svd")
+    def svd(self):
+        diag = self._diag
+        signs = torch.sign(diag)
+        S, idcs = torch.sort(diag.abs(), dim=-1, descending=True)
+        m_tot = diag.shape[:-1].numel()
+        n = diag.size(-1)
+        row_idxr = torch.arange(m_tot * n)
+        idcs = idcs.view(m_tot * n)
+        U = torch.zeros(m_tot * n, n, device=diag.device, dtype=diag.dtype)
+        U[row_idxr, idcs] = 1.0
+        U = U.view(*diag.shape, -1).transpose(-1, -2)
+        V = torch.zeros(m_tot * n, n, device=diag.device, dtype=diag.dtype)
+        V[row_idxr, idcs] = signs.view(-1)
+        V = V.view(*diag.shape, -1).transpose(-1, -2)
+        return U, S, V
+
+    @cached(name="symeig")
+    def symeig(self, eigenvectors=False):
+        diag = self._diag
+        evals, idcs = torch.sort(diag, dim=-1, descending=False)
+        if eigenvectors:
+            m_tot = diag.shape[:-1].numel()
+            n = diag.size(-1)
+            evecs = torch.zeros(m_tot * n, n, device=diag.device, dtype=diag.dtype)
+            m_tot = diag.shape[:-1].numel()
+            n = diag.size(-1)
+            row_idxr = torch.arange(m_tot * n)
+            idcs = idcs.view(m_tot * n)
+            evecs[row_idxr, idcs] = 1.0
+            evecs = evecs.view(*diag.shape, -1).transpose(-1, -2)
+        else:
+            evecs = torch.tensor([], device=diag.device, dtype=diag.dtype)
+        return evals, evecs
+
 
 class ConstantDiagLazyTensor(DiagLazyTensor):
     def __init__(self, diag_values, diag_shape):
