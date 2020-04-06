@@ -3,6 +3,7 @@
 import torch
 
 from ..distributions import base_distributions
+from ..utils.transforms import inv_softplus
 from .likelihood import _OneDimensionalLikelihood
 
 
@@ -18,16 +19,31 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
 
     def __init__(self, batch_shape=torch.Size([])):
         super().__init__()
-        self._deg_free = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
-        self._raw_noise = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
+        self.raw_deg_free = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
+        self.raw_noise = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
+
+        # Rough initialization
+        self.initialize(deg_free=7)
 
     @property
     def deg_free(self):
-        return torch.nn.functional.softplus(self._deg_free)
+        return 2 + torch.nn.functional.softplus(self.raw_deg_free)
+
+    @deg_free.setter
+    def deg_free(self, value):
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_deg_free)
+        self.initialize(raw_deg_free=inv_softplus(value - 2))
 
     @property
     def noise(self):
-        return torch.nn.functional.softplus(self._raw_noise)
+        return torch.nn.functional.softplus(self.raw_noise)
+
+    @noise.setter
+    def noise(self, value):
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_noise)
+        self.initialize(raw_noise=inv_softplus(value))
 
     def forward(self, function_samples, **kwargs):
         return base_distributions.StudentT(df=self.deg_free, loc=function_samples, scale=self.noise.sqrt())
