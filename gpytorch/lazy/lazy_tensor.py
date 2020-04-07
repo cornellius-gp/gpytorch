@@ -17,7 +17,7 @@ from ..functions._root_decomposition import RootDecomposition
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
-from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _noop_index
+from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.memoize import add_to_cache, cached
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -212,7 +212,7 @@ class LazyTensor(ABC):
             `LazyTensor`
         """
         # Special case: if both row and col are not indexed, then we are done
-        if row_index is _noop_index and col_index is _noop_index:
+        if _is_noop_index(row_index) and _is_noop_index(col_index):
             if len(batch_indices):
                 components = [component[batch_indices] for component in self._args]
                 res = self.__class__(*components, **self._kwargs)
