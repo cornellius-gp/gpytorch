@@ -4,6 +4,7 @@ from abc import abstractmethod
 
 import torch
 
+from ..utils.getitem import _is_noop_index, _noop_index
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 
@@ -59,6 +60,42 @@ class BlockLazyTensor(LazyTensor):
         batch_shape = torch.Size((*batch_shape, self.base_lazy_tensor.size(-3)))
         res = self.__class__(self.base_lazy_tensor._expand_batch(batch_shape))
         return res
+
+    def _getitem(self, row_index, col_index, *batch_indices):
+        # First the easy case: just batch indexing
+        if _is_noop_index(row_index) and _is_noop_index(col_index):
+            return self.__class__(self.base_lazy_tensor._getitem(row_index, col_index, *batch_indices, _noop_index))
+
+        # If either of the dimensions are indices, it's too complicated - go with the base case
+        if not isinstance(row_index, slice) or not isinstance(col_index, slice):
+            # It's too complicated to deal with tensor indices in this case - we'll use the super method
+            return super()._getitem(row_index, col_index, *batch_indices)
+
+        # Now we know that row_index and col_index
+        num_blocks = self.num_blocks
+        num_rows, num_cols = self.matrix_shape
+        row_start, row_end, row_step = row_index.start or 0, row_index.stop or num_rows, row_index.step
+        col_start, col_end, col_step = col_index.start or 0, col_index.stop or num_cols, col_index.step
+
+        # If we have a step, it's too complicated - go with the base case
+        if row_step is not None or col_step is not None:
+            return super()._getitem(row_index, col_index, *batch_indices)
+
+        # Let's make sure that the slice dimensions perfectly correspond with the number of
+        # outputs per input that we have
+        # Otherwise - its too complicated. We'll go with the base case
+        if (row_start % num_blocks) or (col_start % num_blocks) or (row_end % num_blocks) or (col_end % num_blocks):
+            return super()._getitem(row_index, col_index, *batch_indices)
+
+        # Otherwise - let's divide the slices by the number of outputs per input
+        row_index = slice(row_start // num_blocks, row_end // num_blocks, None)
+        col_index = slice(col_start // num_blocks, col_end // num_blocks, None)
+
+        # Now we can try the super call!
+        new_base_lazy_tensor = self.base_lazy_tensor._getitem(row_index, col_index, *batch_indices)
+
+        # Now construct a kernel with those indices
+        return self.__class__(new_base_lazy_tensor, block_dim=-3)
 
     def _matmul(self, rhs):
         isvector = rhs.ndimension() == 1
