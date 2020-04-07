@@ -60,7 +60,7 @@ class ScaleKernel(Kernel):
 
     def __init__(self, base_kernel, outputscale_prior=None, outputscale_constraint=None, **kwargs):
         if base_kernel.active_dims is not None:
-            kwargs['active_dims'] = base_kernel.active_dims
+            kwargs["active_dims"] = base_kernel.active_dims
         super(ScaleKernel, self).__init__(**kwargs)
         if outputscale_constraint is None:
             outputscale_constraint = Positive()

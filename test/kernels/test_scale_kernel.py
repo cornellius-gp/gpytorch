@@ -113,17 +113,13 @@ class TestScaleKernel(BaseKernelTestCase, unittest.TestCase):
         self.assertFalse(kernel.is_stationary)
 
     def test_inherit_active_dims(self):
-        a = torch.tensor([[1, 2, 3], [2, 4, 5]], dtype=torch.float)
-        b = torch.tensor([[1, 3, 6], [0, 4, 7]], dtype=torch.float)
         lengthscales = torch.tensor([1, 1], dtype=torch.float)
-
         base_kernel = RBFKernel(active_dims=(1, 2), ard_num_dims=2)
-
         base_kernel.initialize(lengthscale=lengthscales)
         kernel = ScaleKernel(base_kernel)
         kernel.initialize(outputscale=torch.tensor([3], dtype=torch.float))
         kernel.eval()
-        res = kernel(a, b).evaluate()
+        self.assertTrue(torch.all(kernel.active_dims == base_kernel.active_dims))
 
 
 if __name__ == "__main__":
