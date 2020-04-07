@@ -39,7 +39,8 @@ class SoftmaxLikelihood(Likelihood):
         if num_data == self.num_features:
             warnings.warn(
                 "The input to SoftmaxLikelihood should be a MultitaskMultivariateNormal (num_data x num_tasks). "
-                "Batch MultivariateNormal inputs (num_tasks x num_data) will be deprectated."
+                "Batch MultivariateNormal inputs (num_tasks x num_data) will be deprectated.",
+                DeprecationWarning,
             )
             function_samples = function_samples.transpose(-1, -2)
             num_data, num_features = function_samples.shape[-2:]
@@ -58,7 +59,8 @@ class SoftmaxLikelihood(Likelihood):
         if isinstance(function, Distribution) and not isinstance(function, MultitaskMultivariateNormal):
             warnings.warn(
                 "The input to SoftmaxLikelihood should be a MultitaskMultivariateNormal (num_data x num_tasks). "
-                "Batch MultivariateNormal inputs (num_tasks x num_data) will be deprectated."
+                "Batch MultivariateNormal inputs (num_tasks x num_data) will be deprectated.",
+                DeprecationWarning,
             )
             function = MultitaskMultivariateNormal.from_batch_mvn(function)
         return super().__call__(function, *params, **kwargs)

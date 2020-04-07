@@ -6,6 +6,7 @@ import torch
 
 from .. import settings
 from .deprecation import bool_compat
+from .warnings import NumericalWarning
 
 
 def _default_preconditioner(x):
@@ -312,7 +313,8 @@ def linear_cg(
             " which is larger than the tolerance of {} specified by"
             " gpytorch.settings.cg_tolerance."
             " If performance is affected, consider raising the maximum number of CG iterations by running code in"
-            " a gpytorch.settings.max_cg_iterations(value) context.".format(k + 1, residual_norm.mean(), tolerance)
+            " a gpytorch.settings.max_cg_iterations(value) context.".format(k + 1, residual_norm.mean(), tolerance),
+            NumericalWarning,
         )
 
     if is_vector:

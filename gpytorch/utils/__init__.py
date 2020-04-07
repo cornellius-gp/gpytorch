@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from . import broadcasting, cholesky, fft, grid, interpolation, lanczos, pivoted_cholesky, quadrature, sparse
+from . import broadcasting, cholesky, fft, grid, interpolation, lanczos, pivoted_cholesky, quadrature, sparse, warnings
 from .linear_cg import linear_cg
 from .memoize import cached
 from .stochastic_lq import StochasticLQ
@@ -29,6 +29,8 @@ __all__ = [
     "interpolation",
     "lanczos",
     "pivoted_cholesky",
+    "prod",
     "quadrature",
     "sparse",
+    "warnings",
 ]

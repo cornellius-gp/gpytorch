@@ -19,6 +19,7 @@ from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.memoize import add_to_cache, cached
+from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
@@ -1325,7 +1326,8 @@ class LazyTensor(ABC):
 
             except RuntimeError as e:
                 warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
+                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e),
+                    NumericalWarning,
                 )
 
         res = self._root_decomposition()
@@ -1358,7 +1360,8 @@ class LazyTensor(ABC):
                 return RootLazyTensor(res)
             except RuntimeError as e:
                 warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
+                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e),
+                    NumericalWarning,
                 )
 
         if not self.is_square:

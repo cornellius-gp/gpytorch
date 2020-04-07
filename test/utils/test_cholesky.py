@@ -8,6 +8,7 @@ import torch
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.cholesky import psd_safe_cholesky
 from gpytorch.utils.errors import NanError
+from gpytorch.utils.warnings import NumericalWarning
 
 
 class TestPSDSafeCholesky(unittest.TestCase):
@@ -74,7 +75,7 @@ class TestPSDSafeCholesky(unittest.TestCase):
                 L_exp = torch.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as w:
                     L_safe = psd_safe_cholesky(A)
-                    self.assertTrue(any(issubclass(w_.category, RuntimeWarning) for w_ in w))
+                    self.assertTrue(any(issubclass(w_.category, NumericalWarning) for w_ in w))
                     self.assertTrue(any("A not p.d., added jitter" in str(w_.message) for w_ in w))
                 self.assertTrue(torch.allclose(L_exp, L_safe))
                 # user-defined value
@@ -83,7 +84,7 @@ class TestPSDSafeCholesky(unittest.TestCase):
                 L_exp = torch.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as w:
                     L_safe = psd_safe_cholesky(A, jitter=1e-2)
-                    self.assertTrue(any(issubclass(w_.category, RuntimeWarning) for w_ in w))
+                    self.assertTrue(any(issubclass(w_.category, NumericalWarning) for w_ in w))
                     self.assertTrue(any("A not p.d., added jitter" in str(w_.message) for w_ in w))
                 self.assertTrue(torch.allclose(L_exp, L_safe))
 

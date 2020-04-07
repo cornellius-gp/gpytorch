@@ -11,6 +11,7 @@ from .. import settings
 from ..distributions import MultivariateNormal, base_distributions
 from ..module import Module
 from ..utils.quadrature import GaussHermiteQuadrature1D
+from ..utils.warnings import GPInputWarning
 
 
 class _Likelihood(Module, ABC):
@@ -119,7 +120,7 @@ try:
                 return self._num_data
             else:
                 warnings.warn(
-                    "likelihood.num_data isn't set. This might result in incorrect ELBO scaling.", RuntimeWarning
+                    "likelihood.num_data isn't set. This might result in incorrect ELBO scaling.", GPInputWarning
                 )
                 return ""
 

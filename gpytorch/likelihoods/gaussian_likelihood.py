@@ -10,6 +10,7 @@ from torch import Tensor
 
 from ..distributions import MultivariateNormal, base_distributions
 from ..lazy import ZeroLazyTensor
+from ..utils.warnings import GPInputWarning
 from .likelihood import Likelihood
 from .noise_models import FixedGaussianNoise, HomoskedasticNoise, Noise
 
@@ -24,7 +25,8 @@ class _GaussianLikelihoodBase(Likelihood):
         if param_transform is not None:
             warnings.warn(
                 "The 'param_transform' argument is now deprecated. If you want to use a different "
-                "transformaton, specify a different 'noise_constraint' instead."
+                "transformaton, specify a different 'noise_constraint' instead.",
+                DeprecationWarning,
             )
 
         self.noise_covar = noise_covar
@@ -192,7 +194,8 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         elif isinstance(res, ZeroLazyTensor):
             warnings.warn(
                 "You have passed data through a FixedNoiseGaussianLikelihood that did not match the size "
-                "of the fixed noise, *and* you did not specify noise. This is treated as a no-op."
+                "of the fixed noise, *and* you did not specify noise. This is treated as a no-op.",
+                GPInputWarning,
             )
 
         return res

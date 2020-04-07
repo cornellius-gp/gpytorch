@@ -74,7 +74,8 @@ class InvQuadLogDet(Function):
                 if settings.deterministic_probes.on():
                     warnings.warn(
                         "Deterministic probes will currently work only if you aren't training multiple independent"
-                        " models simultaneously."
+                        " models simultaneously.",
+                        UserWarning,
                     )
                     if settings.deterministic_probes.probe_vectors is None:
                         probe_vectors = torch.empty(matrix_shape[-1], num_random_probes, dtype=dtype, device=device)
@@ -99,7 +100,8 @@ class InvQuadLogDet(Function):
                 if settings.deterministic_probes.on():
                     warnings.warn(
                         "Deterministic probes will currently work only if you aren't training multiple independent"
-                        " models simultaneously."
+                        " models simultaneously.",
+                        UserWarning,
                     )
                     base_samples = settings.deterministic_probes.probe_vectors
                     if base_samples is None or covar_root.size(-1) != base_samples.size(-2):

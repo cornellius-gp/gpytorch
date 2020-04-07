@@ -8,8 +8,9 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
-from gpytorch.lazy import CachedCGLazyTensor, ExtraComputationWarning, NonLazyTensor
+from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase, _ensure_symmetric_grad
+from gpytorch.utils.warnings import ExtraComputationWarning
 
 
 class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):

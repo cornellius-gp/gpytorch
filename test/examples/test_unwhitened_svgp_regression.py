@@ -9,7 +9,7 @@ import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
-from gpytorch.lazy import ExtraComputationWarning
+from gpytorch.utils.warnings import ExtraComputationWarning
 from torch import optim
 
 

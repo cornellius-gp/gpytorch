@@ -42,7 +42,7 @@ class StochasticLQ(object):
         )
 
     def evaluate(self, matrix_shape, eigenvalues, eigenvectors, funcs):
-        """
+        r"""
         Computes tr(f(A)) for an arbitrary list of functions, where f(A) is equivalent to applying the function
         elementwise to the eigenvalues of A, i.e., if A = V\LambdaV^{T}, then f(A) = Vf(\Lambda)V^{T}, where
         f(\Lambda) is applied elementwise.

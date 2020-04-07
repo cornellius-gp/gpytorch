@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
-from gpytorch.lazy import ExtraComputationWarning
 from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.utils.warnings import ExtraComputationWarning
 
 
 class TestVariationalGP(BaseTestCase, unittest.TestCase):

@@ -12,8 +12,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
-from gpytorch.lazy import ExtraComputationWarning
-from gpytorch.variational.variational_strategy import OldVersionWarning
+from gpytorch.utils.warnings import ExtraComputationWarning, OldVersionWarning
 from torch import optim
 
 

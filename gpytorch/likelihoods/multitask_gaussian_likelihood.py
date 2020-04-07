@@ -18,6 +18,7 @@ from ..lazy import (
     lazify,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
+from ..utils.warnings import OldVersionWarning
 from .noise_models import MultitaskHomoskedasticNoise
 
 
@@ -291,7 +292,7 @@ def deprecate_task_noise_corr(state_dict, prefix, local_metadata, strict, missin
         # Remove after 1.0
         warnings.warn(
             "Loading a deprecated parameterization of _MultitaskGaussianLikelihoodBase. Consider re-saving your model.",
-            DeprecationWarning,
+            OldVersionWarning,
         )
         # construct the task correlation matrix from the factors using the old parameterization
         corr_factor = state_dict.pop(prefix + "task_noise_corr_factor").squeeze(0)
