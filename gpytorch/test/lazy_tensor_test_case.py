@@ -12,6 +12,14 @@ import gpytorch
 from .base_test_case import BaseTestCase
 
 
+def _ensure_symmetric_grad(grad):
+    """
+    A gradient-hook hack to ensure that symmetric matrix gradients are symmetric
+    """
+    res = torch.add(grad, grad.transpose(-1, -2)).mul(0.5)
+    return res
+
+
 class RectangularLazyTensorTestCase(BaseTestCase):
     @abstractmethod
     def create_lazy_tensor(self):
@@ -250,6 +258,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        evaluated.register_hook(_ensure_symmetric_grad)
 
         # Create a test right hand side and left hand side
         rhs.requires_grad_(True)
