@@ -61,7 +61,7 @@ class NewtonGirardAdditiveKernel(Kernel):
 
         shape = [1 for _ in range(len(kern_values.shape) + 1)]
         shape[kernel_dim - 1] = -1
-        kvals = torch.range(1, self.max_degree, device=kern_values.device).reshape(*shape)
+        kvals = torch.arange(1, self.max_degree + 1, device=kern_values.device).reshape(*shape)
         # kvals = R x 1 x 1 x 1 (these are indexes only)
 
         # e_n = torch.ones(self.max_degree+1, *kern_values.shape[1:], device=kern_values.device)  # includes 0
