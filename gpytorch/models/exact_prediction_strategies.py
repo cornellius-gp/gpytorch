@@ -356,7 +356,9 @@ class DefaultPredictionStrategy(object):
             if torch.is_tensor(test_test_covar):
                 # We can use addmm in the 2d case
                 if test_test_covar.dim() == 2:
-                    return lazify(torch.addmm(1, test_test_covar, -1, test_train_covar, covar_correction_rhs))
+                    return lazify(
+                        torch.addmm(test_test_covar, test_train_covar, covar_correction_rhs, beta=1, alpha=-1)
+                    )
                 else:
                     return lazify(test_test_covar + test_train_covar @ covar_correction_rhs.mul(-1))
             # In other cases - we'll use the standard infrastructure
@@ -367,7 +369,9 @@ class DefaultPredictionStrategy(object):
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         if torch.is_tensor(test_test_covar):
             return lazify(
-                torch.add(test_test_covar, -1, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2))
+                torch.add(
+                    test_test_covar, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2), alpha=-1
+                )
             )
         else:
             return test_test_covar + MatmulLazyTensor(

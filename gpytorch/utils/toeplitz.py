@@ -140,7 +140,7 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
     fft_product = torch.zeros_like(fft_M)
 
     fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 0])
-    fft_product[:, :, :, 0].addcmul_(-1, fft_c[:, :, :, 1], fft_M[:, :, :, 1])
+    fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 1], value=-1)
     fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 0])
     fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 1])
 

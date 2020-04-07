@@ -71,8 +71,8 @@ class KroneckerProductLazyTensor(LazyTensor):
             row_factor //= sub_row_size
             col_factor //= sub_col_size
             sub_res = lazy_tensor._get_indices(
-                row_index.div(row_factor).fmod(sub_row_size),
-                col_index.div(col_factor).fmod(sub_col_size),
+                (row_index // row_factor).fmod(sub_row_size),
+                (col_index // col_factor).fmod(sub_col_size),
                 *batch_indices,
             )
             res = sub_res if res is None else (sub_res * res)

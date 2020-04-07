@@ -238,7 +238,7 @@ def linear_cg(
 
             # Update residual
             # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
-            residual = torch.addcmul(residual, -1, alpha, mvms, out=residual)
+            residual = torch.addcmul(residual, alpha, mvms, value=-1, out=residual)
 
             # Update precond_residual
             # precon_residual{k} = M^-1 residual_{k}
