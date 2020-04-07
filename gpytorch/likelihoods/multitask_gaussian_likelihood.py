@@ -241,7 +241,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
 
     def marginal(self, function_dist, *params, **kwargs):
-        """
+        r"""
         Adds the task noises to the diagonal of the covariance matrix of the supplied
         :obj:`gpytorch.distributions.MultivariateNormal` or :obj:`gpytorch.distributions.MultitaskMultivariateNormal`,
         in case of `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.

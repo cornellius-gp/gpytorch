@@ -87,9 +87,9 @@ class DefaultPredictionStrategy(object):
         return res
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
-        """
+        r"""
         Computes :math:`K_{X^{*}X} S` given a precomputed cache
-        Where :math:`S` is a tensor such that :math:`SS^{\\top} = (K_{XX} + \sigma^2 I)^{-1}`
+        Where :math:`S` is a tensor such that :math:`SS^{\top} = (K_{XX} + \sigma^2 I)^{-1}`
 
         Args:
             precomputed_cache (:obj:`torch.tensor`): What was computed in _exact_predictive_covar_inv_quad_form_cache

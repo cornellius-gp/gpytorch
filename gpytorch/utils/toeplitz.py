@@ -164,7 +164,7 @@ def sym_toeplitz_matmul(toeplitz_column, tensor):
 
 
 def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
-    """
+    r"""
     Given a left vector v1 and a right vector v2, computes the quadratic form:
                                 v1'*(dT/dc_i)*v2
     for all i, where dT/dc_i is the derivative of the Toeplitz matrix with respect to

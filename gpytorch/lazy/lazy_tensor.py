@@ -885,7 +885,7 @@ class LazyTensor(ABC):
         return self.representation_tree()(*self.representation())
 
     def inv_matmul(self, right_tensor, left_tensor=None):
-        """
+        r"""
         Computes a linear solve (w.r.t self = :math:`A`) with several right hand sides :math:`R`.
         I.e. computes
 
