@@ -22,12 +22,12 @@ class RootDecomposition(Function):
         initial_vectors,
         *matrix_args,
     ):
-        """
-        *matrix_args - The arguments representing the symmetric matrix A (or batch of PSD matrices A)
+        r"""
+        :param list matrix_args: The arguments representing the symmetric matrix A (or batch of PSD matrices A)
 
-        Returns:
-        - (Tensor) R, such that R R^T \approx A
-        - (Tensor) R_inv, such that R_inv R_inv^T \approx A^{-1} (will only be populated if self.inverse = True)
+        :rtype: (torch.Tensor, torch.Tensor)
+        :return: :attr:`R`, such that :math:`R R^T \approx A`, and :attr:`R_inv`, such that
+            :math:`R_{inv} R_{inv}^T \approx A^{-1}` (will only be populated if self.inverse = True)
         """
         from ..lazy import lazify
 

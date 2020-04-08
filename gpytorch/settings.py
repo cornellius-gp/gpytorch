@@ -405,7 +405,7 @@ class max_preconditioner_size(_value_context):
 
 
 class max_lanczos_quadrature_iterations(_value_context):
-    """
+    r"""
     The maximum number of Lanczos iterations to perform when doing stochastic
     Lanczos quadrature. This is ONLY used for log determinant calculations and
     computing Tr(K^{-1}dK/d\theta)

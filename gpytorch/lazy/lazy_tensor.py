@@ -24,7 +24,7 @@ from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
 class LazyTensor(ABC):
-    """
+    r"""
     Base class for LazyTensors in GPyTorch.
 
     In GPyTorch, nearly all covariance matrices for Gaussian processes are handled internally as some variety of
@@ -32,10 +32,10 @@ class LazyTensor(ABC):
     typically differs in two ways:
 
     #. A tensor represented by a LazyTensor can typically be represented more efficiently than storing a full matrix.
-       For example, a LazyTensor representing :math:`K=XX^{\\top}` where :math:`K` is :math:`n \\times n` but
-       :math:`X` is :math:`n \\times d` might store :math:`X` instead of :math:`K` directly.
+       For example, a LazyTensor representing :math:`K=XX^{\top}` where :math:`K` is :math:`n \times n` but
+       :math:`X` is :math:`n \times d` might store :math:`X` instead of :math:`K` directly.
     #. A LazyTensor typically defines a matmul routine that performs :math:`KM` that is more efficient than storing
-       the full matrix. Using the above example, performing :math:`KM=X(X^{\\top}M)` requires only :math:`O(nd)` time,
+       the full matrix. Using the above example, performing :math:`KM=X(X^{\top}M)` requires only :math:`O(nd)` time,
        rather than the :math:`O(n^2)` time required if we were storing :math:`K` directly.
 
     In order to define a new LazyTensor class that can be used as a covariance matrix in GPyTorch, a user must define
@@ -74,7 +74,7 @@ class LazyTensor(ABC):
 
     .. note::
         LazyTensors are designed by default to optionally represent batches of matrices. Thus, the size of a
-        LazyTensor may be (for example) :math:`b \\times n \\times n`. Many of the methods are designed to efficiently
+        LazyTensor may be (for example) :math:`b \times n \times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
     """
 
@@ -666,8 +666,8 @@ class LazyTensor(ABC):
         return SumBatchLazyTensor(self, block_dim=dim)
 
     def _t_matmul(self, rhs):
-        """
-        Performs a transpose matrix multiplication :math:`K^{\\top}M` with the matrix :math:`K` that this
+        r"""
+        Performs a transpose matrix multiplication :math:`K^{\top}M` with the matrix :math:`K` that this
         LazyTensor represents.
 
         Args:
@@ -818,11 +818,11 @@ class LazyTensor(ABC):
         return self
 
     def diag(self):
-        """
+        r"""
         As :func:`torch.diag`, returns the diagonal of the matrix :math:`K` this LazyTensor represents as a vector.
 
-        Returns:
-            :obj:`torch.tensor`: The diagonal of :math:`K`. If :math:`K` is :math:`n \times n`, this will be a length
+        :rtype: torch.tensor
+        :return: The diagonal of :math:`K`. If :math:`K` is :math:`n \times n`, this will be a length
             n vector. If this LazyTensor represents a batch (e.g., is :math:`b \times n \times n`), this will be a
             :math:`b \times n` matrix of diagonals, one for each matrix in the batch.
         """

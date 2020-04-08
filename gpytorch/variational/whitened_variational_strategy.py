@@ -83,16 +83,15 @@ class WhitenedVariationalStrategy(UnwhitenedVariationalStrategy):
         self.variational_distribution.initialize_variational_distribution(inv_prior_dist)
 
     def forward(self, x):
-        """
+        r"""
         The :func:`~gpytorch.variational.VariationalStrategy.forward` method determines how to marginalize out the
         inducing point function values. Specifically, forward defines how to transform a variational distribution
         over the inducing point values, :math:`q(u)`, in to a variational distribution over the function values at
         specified locations x, :math:`q(f|x)`, by integrating :math:`\int p(f|x, u)q(u)du`
 
-        Args:
-            x (torch.tensor): Locations x to get the variational posterior of the function values at.
-        Returns:
-            :obj:`gpytorch.distributions.MultivariateNormal`: The distribution q(f|x)
+        :param torch.Tensor x: Locations x to get the variational posterior of the function values at.
+        :rtype: ~gpytorch.distributions.MultivariateNormal
+        :return: The distribution :math:`q(f|x)`
         """
         variational_dist = self.variational_distribution
         inducing_points = self.inducing_points

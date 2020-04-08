@@ -144,16 +144,16 @@ class DefaultPredictionStrategy(object):
         self.fantasy_inputs = inputs
         self.fantasy_targets = targets
 
-        """
+        r"""
         Compute a new mean cache given the old mean cache.
 
-        We have \\alpha = K^{-1}y, and we want to solve [K U; U' S][a; b] = [y; y_f], where U' is fant_train_covar,
+        We have \alpha = K^{-1}y, and we want to solve [K U; U' S][a; b] = [y; y_f], where U' is fant_train_covar,
         S is fant_fant_covar, and y_f is (targets - fant_mean)
 
         To do this, we solve the bordered linear system of equations for [a; b]:
             AQ = U  # Q = fant_solve
-            [S - U'Q]b = y_f - U'\\alpha   ==> b = [S - U'Q]^{-1}(y_f - U'\\alpha)
-            a = \\alpha - Qb
+            [S - U'Q]b = y_f - U'\alpha   ==> b = [S - U'Q]^{-1}(y_f - U'\alpha)
+            a = \alpha - Qb
         """
         # Get cached K inverse decomp. (or compute if we somehow don't already have the covariance cache)
         K_inverse = self.lik_train_train_covar.root_inv_decomposition()
