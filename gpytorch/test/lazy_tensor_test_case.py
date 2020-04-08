@@ -308,7 +308,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
             _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
             with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
-                with gpytorch.settings.num_trace_samples(128), gpytorch.settings.max_cholesky_size(
+                with gpytorch.settings.num_trace_samples(256), gpytorch.settings.max_cholesky_size(
                     math.inf if cholesky else 0
                 ), gpytorch.settings.cg_tolerance(1e-5):
 
