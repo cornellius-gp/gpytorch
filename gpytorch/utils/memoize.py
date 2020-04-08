@@ -6,7 +6,7 @@ import pickle
 
 def add_to_cache(obj, name, val, *args, **kwargs):
     """Add a result to the cache of an object."""
-    return _add_to_cache(obj, name, *args, pickle.dumps(kwargs))
+    return _add_to_cache(obj, name, val, *args, kwargs_pkl=pickle.dumps(kwargs))
 
 
 def _add_to_cache(obj, name, val, *args, kwargs_pkl):
