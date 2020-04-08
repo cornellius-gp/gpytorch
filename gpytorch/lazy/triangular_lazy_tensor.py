@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import annotations
-
 from typing import Callable, Optional, Tuple, Union
 
 import torch
@@ -65,7 +63,7 @@ class TriangularLazyTensor(LazyTensor):
     def _matmul(self, rhs: Tensor) -> Tensor:
         return self._tensor.matmul(rhs)
 
-    def _mul_constant(self, constant: Tensor) -> TriangularLazyTensor:
+    def _mul_constant(self, constant: Tensor) -> "TriangularLazyTensor":
         return TriangularLazyTensor(self._tensor * constant.unsqueeze(-1), upper=self.upper)
 
     def _root_decomposition(self) -> Allsor:
@@ -81,16 +79,16 @@ class TriangularLazyTensor(LazyTensor):
         # already triangular, can just call inv_matmul for the solve
         return self.inv_matmul(rhs)
 
-    def _sum_batch(self, dim: int) -> TriangularLazyTensor:
+    def _sum_batch(self, dim: int) -> "TriangularLazyTensor":
         return TriangularLazyTensor(self._tensor._sum_batch(dim), upper=self.upper)
 
-    def _transpose_nonbatch(self) -> TriangularLazyTensor:
+    def _transpose_nonbatch(self) -> "TriangularLazyTensor":
         return TriangularLazyTensor(self._tensor._transpose_nonbatch(), upper=not self.upper)
 
-    def abs(self) -> TriangularLazyTensor:
+    def abs(self) -> "TriangularLazyTensor":
         return TriangularLazyTensor(self._tensor.abs(), upper=self.upper)
 
-    def add_diag(self, added_diag: Tensor) -> TriangularLazyTensor:
+    def add_diag(self, added_diag: Tensor) -> "TriangularLazyTensor":
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
 
         shape = _mul_broadcast_shape(self._diag.shape, added_diag.shape)
@@ -104,7 +102,7 @@ class TriangularLazyTensor(LazyTensor):
     def evaluate(self) -> Tensor:
         return self._tensor.evaluate()
 
-    def exp(self) -> TriangularLazyTensor:
+    def exp(self) -> "TriangularLazyTensor":
         return TriangularLazyTensor(self._tensor.exp(), upper=self.upper)
 
     def inv_matmul(self, right_tensor: Tensor, left_tensor: Optional[Tensor] = None) -> Tensor:
@@ -134,7 +132,7 @@ class TriangularLazyTensor(LazyTensor):
         return inv_quad_term, logdet_term
 
     @cached
-    def inverse(self) -> TriangularLazyTensor:
+    def inverse(self) -> "TriangularLazyTensor":
         eye = torch.eye(self._tensor.size(-1), device=self._tensor.device, dtype=self._tensor.dtype)
         inv = self.inv_matmul(eye)
         return TriangularLazyTensor(inv, upper=self.upper)
