@@ -1,6 +1,7 @@
 import torch
 
 from ..constraints import Positive
+from ..lazy import delazify
 from .kernel import Kernel
 
 
@@ -54,14 +55,14 @@ class NewtonGirardAdditiveKernel(Kernel):
         # NOTE: comments about shape are only correct for the single-batch cases.
         # kern_values is just the order-1 terms
         # kern_values = D x n x n unless diag=True
-        kern_values = self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params)
+        kern_values = delazify(self.base_kernel(x1, x2, diag=diag, last_dim_is_batch=True, **params))
         # last dim is batch, which gets moved up to pos. 1
 
         kernel_dim = -3 if not diag else -2
 
         shape = [1 for _ in range(len(kern_values.shape) + 1)]
         shape[kernel_dim - 1] = -1
-        kvals = torch.range(1, self.max_degree, device=kern_values.device).reshape(*shape)
+        kvals = torch.arange(1, self.max_degree + 1, device=kern_values.device).reshape(*shape)
         # kvals = R x 1 x 1 x 1 (these are indexes only)
 
         # e_n = torch.ones(self.max_degree+1, *kern_values.shape[1:], device=kern_values.device)  # includes 0

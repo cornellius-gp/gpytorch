@@ -3,6 +3,7 @@
 import os
 import random
 import unittest
+import warnings
 from math import exp, pi
 
 import gpytorch
@@ -13,6 +14,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.test.utils import least_used_cuda_device
+from gpytorch.utils.warnings import NumericalWarning
 from torch import optim
 
 
@@ -22,6 +24,7 @@ from torch import optim
 def make_data(cuda=False):
     train_x = torch.linspace(0, 1, 100)
     train_y = torch.sin(train_x * (2 * pi))
+    train_y.add_(torch.randn_like(train_y), alpha=1e-2)
     test_x = torch.rand(51)
     test_y = torch.sin(test_x * (2 * pi))
     if cuda:
@@ -61,6 +64,9 @@ class TestSGPRRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_sgpr_mean_abs_error(self):
+        # Suppress numerical warnings
+        warnings.simplefilter("ignore", NumericalWarning)
+
         train_x, train_y, test_x, test_y = make_data()
         likelihood = GaussianLikelihood()
         gp_model = GPRegressionModel(train_x, train_y, likelihood)
@@ -95,6 +101,9 @@ class TestSGPRRegression(unittest.TestCase):
         self.assertLess(mean_abs_error.squeeze().item(), 0.05)
 
     def test_sgpr_fast_pred_var(self):
+        # Suppress numerical warnings
+        warnings.simplefilter("ignore", NumericalWarning)
+
         train_x, train_y, test_x, test_y = make_data()
         likelihood = GaussianLikelihood()
         gp_model = GPRegressionModel(train_x, train_y, likelihood)
@@ -135,6 +144,9 @@ class TestSGPRRegression(unittest.TestCase):
         self.assertLess(torch.max((fast_var_cache - slow_var).abs()), 1e-3)
 
     def test_sgpr_mean_abs_error_cuda(self):
+        # Suppress numerical warnings
+        warnings.simplefilter("ignore", NumericalWarning)
+
         if not torch.cuda.is_available():
             return
         with least_used_cuda_device():

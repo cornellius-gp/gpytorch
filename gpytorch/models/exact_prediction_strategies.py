@@ -87,9 +87,9 @@ class DefaultPredictionStrategy(object):
         return res
 
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
-        """
+        r"""
         Computes :math:`K_{X^{*}X} S` given a precomputed cache
-        Where :math:`S` is a tensor such that :math:`SS^{\\top} = (K_{XX} + \sigma^2 I)^{-1}`
+        Where :math:`S` is a tensor such that :math:`SS^{\top} = (K_{XX} + \sigma^2 I)^{-1}`
 
         Args:
             precomputed_cache (:obj:`torch.tensor`): What was computed in _exact_predictive_covar_inv_quad_form_cache
@@ -144,16 +144,16 @@ class DefaultPredictionStrategy(object):
         self.fantasy_inputs = inputs
         self.fantasy_targets = targets
 
-        """
+        r"""
         Compute a new mean cache given the old mean cache.
 
-        We have \\alpha = K^{-1}y, and we want to solve [K U; U' S][a; b] = [y; y_f], where U' is fant_train_covar,
+        We have \alpha = K^{-1}y, and we want to solve [K U; U' S][a; b] = [y; y_f], where U' is fant_train_covar,
         S is fant_fant_covar, and y_f is (targets - fant_mean)
 
         To do this, we solve the bordered linear system of equations for [a; b]:
             AQ = U  # Q = fant_solve
-            [S - U'Q]b = y_f - U'\\alpha   ==> b = [S - U'Q]^{-1}(y_f - U'\\alpha)
-            a = \\alpha - Qb
+            [S - U'Q]b = y_f - U'\alpha   ==> b = [S - U'Q]^{-1}(y_f - U'\alpha)
+            a = \alpha - Qb
         """
         # Get cached K inverse decomp. (or compute if we somehow don't already have the covariance cache)
         K_inverse = self.lik_train_train_covar.root_inv_decomposition()
@@ -356,7 +356,9 @@ class DefaultPredictionStrategy(object):
             if torch.is_tensor(test_test_covar):
                 # We can use addmm in the 2d case
                 if test_test_covar.dim() == 2:
-                    return lazify(torch.addmm(1, test_test_covar, -1, test_train_covar, covar_correction_rhs))
+                    return lazify(
+                        torch.addmm(test_test_covar, test_train_covar, covar_correction_rhs, beta=1, alpha=-1)
+                    )
                 else:
                     return lazify(test_test_covar + test_train_covar @ covar_correction_rhs.mul(-1))
             # In other cases - we'll use the standard infrastructure
@@ -367,7 +369,9 @@ class DefaultPredictionStrategy(object):
         covar_inv_quad_form_root = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache, test_train_covar)
         if torch.is_tensor(test_test_covar):
             return lazify(
-                torch.add(test_test_covar, -1, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2))
+                torch.add(
+                    test_test_covar, covar_inv_quad_form_root @ covar_inv_quad_form_root.transpose(-1, -2), alpha=-1
+                )
             )
         else:
             return test_test_covar + MatmulLazyTensor(

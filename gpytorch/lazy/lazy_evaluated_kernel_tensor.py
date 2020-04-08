@@ -162,14 +162,15 @@ class LazyEvaluatedKernelTensor(LazyTensor):
                 "checkpointing. This is probably a bug in GPyTorch."
             )
 
-        x1 = self.x1.detach()
-        x2 = self.x2.detach()
+        x1 = self.x1.detach().requires_grad_(True)
+        x2 = self.x2.detach().requires_grad_(True)
 
         # Break objects into chunks
         sub_x1s = torch.split(x1, split_size, dim=-2)
         sub_left_vecss = torch.split(left_vecs, split_size, dim=-2)
         # Compute the gradient in chunks
         for sub_x1, sub_left_vecs in zip(sub_x1s, sub_left_vecss):
+            sub_x1.detach_().requires_grad_(True)
             with torch.enable_grad(), settings.lazily_evaluate_kernels(False):
                 sub_kernel_matrix = lazify(
                     self.kernel(sub_x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params)
@@ -178,6 +179,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             sub_kernel_outputs = tuple(sub_kernel_matrix.representation())
             torch.autograd.backward(sub_kernel_outputs, sub_grad_outputs)
 
+        x1.grad = torch.cat([sub_x1.grad.data for sub_x1 in sub_x1s], dim=-2)
         return x1.grad, x2.grad
 
     @cached(name="size")

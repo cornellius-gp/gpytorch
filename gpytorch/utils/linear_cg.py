@@ -6,6 +6,7 @@ import torch
 
 from .. import settings
 from .deprecation import bool_compat
+from .warnings import NumericalWarning
 
 
 def _default_preconditioner(x):
@@ -237,7 +238,7 @@ def linear_cg(
 
             # Update residual
             # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
-            residual = torch.addcmul(residual, -1, alpha, mvms, out=residual)
+            residual = torch.addcmul(residual, alpha, mvms, value=-1, out=residual)
 
             # Update precond_residual
             # precon_residual{k} = M^-1 residual_{k}
@@ -312,7 +313,8 @@ def linear_cg(
             " which is larger than the tolerance of {} specified by"
             " gpytorch.settings.cg_tolerance."
             " If performance is affected, consider raising the maximum number of CG iterations by running code in"
-            " a gpytorch.settings.max_cg_iterations(value) context.".format(k + 1, residual_norm.mean(), tolerance)
+            " a gpytorch.settings.max_cg_iterations(value) context.".format(k + 1, residual_norm.mean(), tolerance),
+            NumericalWarning,
         )
 
     if is_vector:

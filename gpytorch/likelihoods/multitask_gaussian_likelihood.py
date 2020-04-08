@@ -18,6 +18,7 @@ from ..lazy import (
     lazify,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
+from ..utils.warnings import OldVersionWarning
 from .noise_models import MultitaskHomoskedasticNoise
 
 
@@ -240,7 +241,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
 
     def marginal(self, function_dist, *params, **kwargs):
-        """
+        r"""
         Adds the task noises to the diagonal of the covariance matrix of the supplied
         :obj:`gpytorch.distributions.MultivariateNormal` or :obj:`gpytorch.distributions.MultitaskMultivariateNormal`,
         in case of `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
@@ -291,7 +292,7 @@ def deprecate_task_noise_corr(state_dict, prefix, local_metadata, strict, missin
         # Remove after 1.0
         warnings.warn(
             "Loading a deprecated parameterization of _MultitaskGaussianLikelihoodBase. Consider re-saving your model.",
-            DeprecationWarning,
+            OldVersionWarning,
         )
         # construct the task correlation matrix from the factors using the old parameterization
         corr_factor = state_dict.pop(prefix + "task_noise_corr_factor").squeeze(0)

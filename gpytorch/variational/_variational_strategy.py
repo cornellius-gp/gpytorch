@@ -38,7 +38,7 @@ class _VariationalStrategy(Module, ABC):
     @abstractproperty
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
-        """
+        r"""
         The :func:`~gpytorch.variational.VariationalStrategy.prior_distribution` method determines how to compute the
         GP prior distribution of the inducing points, e.g. :math:`p(u) \sim N(\mu(X_u), K(X_u, X_u))`. Most commonly,
         this is done simply by calling the user defined GP prior on the inducing point data directly.
@@ -54,7 +54,7 @@ class _VariationalStrategy(Module, ABC):
         return self._variational_distribution()
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
-        """
+        r"""
         The :func:`~gpytorch.variational.VariationalStrategy.forward` method determines how to marginalize out the
         inducing point function values. Specifically, forward defines how to transform a variational distribution
         over the inducing point values, :math:`q(u)`, in to a variational distribution over the function values at
@@ -75,7 +75,7 @@ class _VariationalStrategy(Module, ABC):
         raise NotImplementedError
 
     def kl_divergence(self):
-        """
+        r"""
         Compute the KL divergence between the variational inducing distribution :math:`q(\mathbf u)`
         and the prior inducing distribution :math:`p(\mathbf u)`.
 

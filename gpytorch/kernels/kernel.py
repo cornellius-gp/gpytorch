@@ -156,7 +156,8 @@ class Kernel(Module):
         if param_transform is not None:
             warnings.warn(
                 "The 'param_transform' argument is now deprecated. If you want to use a different "
-                "transformation, specify a different 'lengthscale_constraint' instead."
+                "transformation, specify a different 'lengthscale_constraint' instead.",
+                DeprecationWarning,
             )
 
         if self.has_lengthscale:
@@ -392,7 +393,7 @@ class Kernel(Module):
             if settings.lazily_evaluate_kernels.on():
                 res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
             else:
-                res = super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params)
+                res = lazify(super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params))
             return res
 
     def __getstate__(self):

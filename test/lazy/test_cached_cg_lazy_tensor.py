@@ -8,8 +8,9 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
-from gpytorch.lazy import CachedCGLazyTensor, ExtraComputationWarning, NonLazyTensor
+from gpytorch.lazy import CachedCGLazyTensor, NonLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase, _ensure_symmetric_grad
+from gpytorch.utils.warnings import ExtraComputationWarning
 
 
 class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
@@ -88,6 +89,9 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
         with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
             with gpytorch.settings.max_cholesky_size(math.inf if cholesky else 0), gpytorch.settings.cg_tolerance(1e-4):
                 with warnings.catch_warnings(record=True) as ws:
+                    # Makes sure warnings we catch don't cause `-w error` to fail
+                    warnings.simplefilter("always", ExtraComputationWarning)
+
                     # Perform the inv_matmul
                     if lhs is not None:
                         res = lazy_tensor.inv_matmul(rhs, lhs)
@@ -99,6 +103,9 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
                     self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
                 with warnings.catch_warnings(record=True) as ws:
+                    # Makes sure warnings we catch don't cause `-w error` to fail
+                    warnings.simplefilter("always", ExtraComputationWarning)
+
                     # Perform backward pass
                     grad = torch.randn_like(res)
                     res.backward(gradient=grad)
@@ -122,6 +129,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
 
     def _test_inv_quad_logdet(self, reduce_inv_quad=True, cholesky=False):
         with warnings.catch_warnings():
+            # Makes sure warnings we catch don't cause `-w error` to fail
             warnings.simplefilter("ignore", ExtraComputationWarning)
             super()._test_inv_quad_logdet(reduce_inv_quad=reduce_inv_quad, cholesky=cholesky)
 
@@ -147,6 +155,7 @@ class TestCachedCGLazyTensorNoLogdet(LazyTensorTestCase, unittest.TestCase):
 
         res = root_approx.matmul(test_mat)
         with warnings.catch_warnings():
+            # Makes sure warnings we catch don't cause `-w error` to fail
             warnings.simplefilter("ignore", ExtraComputationWarning)
             actual = lazy_tensor.inv_matmul(test_mat)
         self.assertLess(torch.norm(res - actual) / actual.norm(), 0.1)

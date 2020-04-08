@@ -45,8 +45,8 @@ class BlockDiagLazyTensor(BlockLazyTensor):
 
     def _get_indices(self, row_index, col_index, *batch_indices):
         # Figure out what block the row/column indices belong to
-        row_index_block = row_index.div(self.base_lazy_tensor.size(-2))
-        col_index_block = col_index.div(self.base_lazy_tensor.size(-1))
+        row_index_block = row_index // self.base_lazy_tensor.size(-2)
+        col_index_block = col_index // self.base_lazy_tensor.size(-1)
 
         # Find the row/col index within each block
         row_index = row_index.fmod(self.base_lazy_tensor.size(-2))

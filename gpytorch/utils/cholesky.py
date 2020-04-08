@@ -5,6 +5,7 @@ import warnings
 import torch
 
 from .errors import NanError
+from .warnings import NumericalWarning
 
 
 def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
@@ -40,7 +41,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
             jitter_prev = jitter_new
             try:
                 L = torch.cholesky(Aprime, upper=upper, out=out)
-                warnings.warn(f"A not p.d., added jitter of {jitter_new} to the diagonal", RuntimeWarning)
+                warnings.warn(f"A not p.d., added jitter of {jitter_new} to the diagonal", NumericalWarning)
                 return L
             except RuntimeError:
                 continue

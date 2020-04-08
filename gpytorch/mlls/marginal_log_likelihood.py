@@ -37,17 +37,13 @@ class MarginalLogLikelihood(Module):
         self.model = model
 
     def forward(self, output, target, **kwargs):
-        """
+        r"""
         Computes the MLL given :math:`p(\mathbf f)` and `\mathbf y`
 
-        Args:
-            :attr:`output` (:obj:`gpytorch.distributions.MultivariateNormal`):
-                :math:`p(\mathbf f)` (or approximation)
-                the outputs of the latent function (the :obj:`gpytorch.models.GP`)
-            :attr:`target` (`torch.Tensor`):
-                :math:`\mathbf y` The target values
-            :attr:`**kwargs`:
-                Additional arguments to pass to the likelihood's :attr:`forward` function.
+        :param ~gpytorch.distributions.MultivariateNormal output: the outputs of the latent function
+            (the :obj:`~gpytorch.models.GP`)
+        :param torch.Tensor target: :math:`\mathbf y` The target values
+        :param dict kwargs: Additional arguments to pass to the likelihood's :attr:`forward` function.
         """
         raise NotImplementedError
 
