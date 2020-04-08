@@ -3,6 +3,7 @@
 import os
 import random
 import unittest
+import warnings
 from math import exp, pi
 
 import gpytorch
@@ -13,6 +14,7 @@ from gpytorch.likelihoods import GaussianLikelihood, FixedNoiseGaussianLikelihoo
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.test.utils import least_used_cuda_device
+from gpytorch.utils.warnings import GPInputWarning
 from torch import optim
 
 
@@ -88,6 +90,9 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
                 self.test_posterior_latent_gp_and_likelihood_without_optimization(cuda=True)
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False):
+        # This test throws a warning because the fixed noise likelihood gets the wrong input
+        warnings.simplefilter("ignore", GPInputWarning)
+
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
         # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = FixedNoiseGaussianLikelihood(torch.ones(11) * 0.001)

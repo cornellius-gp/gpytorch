@@ -55,6 +55,9 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
 
         # Ensure we get a warning
         with warnings.catch_warnings(record=True) as ws:
+            # Makes sure warnings we catch don't cause `-w error` to fail
+            warnings.simplefilter("always", OldVersionWarning)
+
             model.load_state_dict(state_dicts["model"])
             self.assertTrue(any(issubclass(w.category, OldVersionWarning) for w in ws))
 
