@@ -58,7 +58,7 @@ setup(
     install_requires=install_requires,
     extras_require={
         "dev": ["black", "twine", "pre-commit"],
-        "docs": ["ipython", "ipykernel", "sphinx", "sphinx_rtd_theme", "nbsphinx", "m2r"],
+        "docs": ["ipython", "ipykernel", "sphinx<3.0.0", "sphinx_rtd_theme", "nbsphinx", "m2r"],
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
         "pyro": ["pyro-ppl>=1.0.0"],
         "keops": ["pykeops>=1.1.1"],

@@ -168,6 +168,13 @@ def _equal_indices(a, b):
         return False
 
 
+def _is_noop_index(index):
+    """
+    Determine if a given index is a noop (e.g. ":")
+    """
+    return isinstance(index, slice) and index == _noop_index
+
+
 def _is_tensor_index_moved_to_start(indices):
     """
     Given an index, determine if the indexed part of the getitem is moved to the zero'th dimension

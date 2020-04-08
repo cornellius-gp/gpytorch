@@ -161,7 +161,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             # Reshape samples to be batch_size x num_dim x num_samples
             # or num_bim x num_samples
             base_samples = base_samples.view(-1, *self.loc.shape)
-            base_samples = base_samples.permute(*tuple(range(1, self.loc.dim() + 1)), 0)
+            base_samples = base_samples.permute(*range(1, self.loc.dim() + 1), 0)
 
             # Now reparameterize those base samples
             covar_root = covar.root_decomposition().root
@@ -173,7 +173,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size
-            res = res.permute(-1, *tuple(range(self.loc.dim()))).contiguous()
+            res = res.permute(-1, *range(self.loc.dim())).contiguous()
             res = res.view(sample_shape + self.loc.shape)
 
         return res

@@ -17,8 +17,7 @@ from ..functions._root_decomposition import RootDecomposition
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
-from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _noop_index
-from ..utils.gradients import _ensure_symmetric_grad
+from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.memoize import add_to_cache, cached
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -213,7 +212,7 @@ class LazyTensor(ABC):
             `LazyTensor`
         """
         # Special case: if both row and col are not indexed, then we are done
-        if row_index is _noop_index and col_index is _noop_index:
+        if _is_noop_index(row_index) and _is_noop_index(col_index):
             if len(batch_indices):
                 components = [component[batch_indices] for component in self._args]
                 res = self.__class__(*components, **self._kwargs)
@@ -409,11 +408,6 @@ class LazyTensor(ABC):
         # if the tensor is a scalar, we can just take the square root
         if evaluated_mat.size(-1) == 1:
             return NonLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
-
-        # NOTE: this hack is in place so that the gradient of the Cholesky factorization is symmetric
-        # We can remove this hack once https://github.com/pytorch/pytorch/issues/18825 is merged in
-        if evaluated_mat.requires_grad:
-            evaluated_mat.register_hook(_ensure_symmetric_grad)
 
         # contiguous call is necessary here
         cholesky = psd_safe_cholesky(evaluated_mat).contiguous()
