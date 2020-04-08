@@ -135,6 +135,8 @@ class CachedCGLazyTensor(LazyTensor):
         self.base_lazy_tensor.requires_grad = val
 
     def _cholesky(self, upper=False):
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
         res = self.__class__(
             self.base_lazy_tensor._cholesky(upper=upper),
             eager_rhss=self.eager_rhss,
@@ -144,7 +146,7 @@ class CachedCGLazyTensor(LazyTensor):
             probe_vector_solves=self.probe_vector_solves,
             probe_vector_tmats=self.probe_vector_tmats,
         )
-        return res
+        return TriangularLazyTensor(res, upper=upper)
 
     def _cholesky_solve(self, rhs, upper: bool = False):
         # Here we check to see what solves we've already performed

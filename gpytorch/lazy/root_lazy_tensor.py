@@ -85,7 +85,7 @@ class RootLazyTensor(LazyTensor):
         if isinstance(self.root, NonLazyTensor):
             return (self.root.tensor ** 2).sum(-1)
         else:
-            return super(RootLazyTensor, self).diag()
+            return super().diag()
 
     @cached
     def evaluate(self):

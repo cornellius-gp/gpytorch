@@ -8,6 +8,7 @@ from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 
 
+# TODO: Subclass DiagLazyTensor from TriangularLazyTensor
 class DiagLazyTensor(LazyTensor):
     def __init__(self, diag):
         """
@@ -30,7 +31,10 @@ class DiagLazyTensor(LazyTensor):
 
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
-        return self.sqrt()
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
+        # if upper or lower doesn't matter here
+        return TriangularLazyTensor(self.sqrt())
 
     def _cholesky_solve(self, rhs, upper: bool = False):
         return rhs / self._diag.pow(2)

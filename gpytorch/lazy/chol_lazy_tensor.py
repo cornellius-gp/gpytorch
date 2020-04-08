@@ -28,6 +28,10 @@ class CholLazyTensor(RootLazyTensor):
         return self.root._cholesky_solve(rhs, upper=self.upper)
 
     @cached
+    def diag(self):
+        return (self.root.evaluate() ** 2).sum(-1)
+
+    @cached
     def evaluate(self):
         root = self.root
         if self.upper:
@@ -46,10 +50,10 @@ class CholLazyTensor(RootLazyTensor):
         if is_vector:
             right_tensor = right_tensor.unsqueeze(-1)
         res = self.root._cholesky_solve(right_tensor, upper=self.upper)
-        if left_tensor is not None:
-            res = left_tensor @ res
         if is_vector:
             res = res.squeeze(-1)
+        if left_tensor is not None:
+            res = left_tensor @ res
         return res
 
     def inv_quad(self, tensor, reduce_inv_quad=True):
@@ -57,7 +61,7 @@ class CholLazyTensor(RootLazyTensor):
             R = self.root._transpose_nonbatch().inv_matmul(tensor)
         else:
             R = self.root.inv_matmul(tensor)
-        inv_quad_term = R.transpose(-1, -2) @ R
+        inv_quad_term = (R ** 2).sum(dim=-2)
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
         return inv_quad_term

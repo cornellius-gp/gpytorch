@@ -59,6 +59,9 @@ class TriangularLazyTensor(LazyTensor):
             res = self._transpose_nonbatch().inv_matmul(w)
         return res
 
+    def _get_indices(self, row_index, col_index, *batch_indices):
+        return self._tensor._get_indices(row_index, col_index, *batch_indices)
+
     def _matmul(self, rhs: Tensor) -> Tensor:
         return self._tensor.matmul(rhs)
 

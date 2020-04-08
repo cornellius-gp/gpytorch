@@ -36,7 +36,9 @@ class BlockInterleavedLazyTensor(BlockLazyTensor):
 
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
-        return self.__class__(self.base_lazy_tensor._cholesky(upper=upper))
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
+        return TriangularLazyTensor(self.__class__(self.base_lazy_tensor._cholesky(upper=upper)), upper=upper)
 
     def _cholesky_solve(self, rhs, upper: bool = False):
         rhs = self._add_batch_dim(rhs)

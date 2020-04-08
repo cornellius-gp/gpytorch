@@ -36,9 +36,11 @@ class BatchRepeatLazyTensor(LazyTensor):
 
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
         res = self.base_lazy_tensor._cholesky(upper=upper)
         res = res.repeat(*self.batch_repeat, 1, 1)
-        return res
+        return TriangularLazyTensor(res, upper=upper)
 
     def _cholesky_solve(self, rhs, upper: bool = False):
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
