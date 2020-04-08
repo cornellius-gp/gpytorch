@@ -24,6 +24,7 @@ from .root_lazy_tensor import RootLazyTensor
 from .sum_batch_lazy_tensor import SumBatchLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 from .toeplitz_lazy_tensor import ToeplitzLazyTensor
+from .triangular_lazy_tensor import TriangularLazyTensor
 from .zero_lazy_tensor import ZeroLazyTensor
 
 __all__ = [
@@ -54,5 +55,6 @@ __all__ = [
     "SumLazyTensor",
     "SumBatchLazyTensor",
     "ToeplitzLazyTensor",
+    "TriangularLazyTensor",
     "ZeroLazyTensor",
 ]

@@ -11,6 +11,7 @@ from ..utils.memoize import cached
 from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
+from .triangular_lazy_tensor import TriangularLazyTensor
 
 
 def _kron_diag(*lts) -> Tensor:
@@ -97,6 +98,11 @@ class KroneckerProductLazyTensor(LazyTensor):
             if not self.is_square:
                 raise RuntimeError("Diag works on square matrices (or batches)")
         return _kron_diag(*self.lazy_tensors)
+
+    @cached(name="cholesky")
+    def _cholesky(self, upper=False):
+        chol = KroneckerProductLazyTensor(*[lt._cholesky(upper=upper) for lt in self.lazy_tensors])
+        return TriangularLazyTensor(chol, upper=upper)
 
     def _get_indices(self, row_index, col_index, *batch_indices):
         row_factor = self.size(-2)

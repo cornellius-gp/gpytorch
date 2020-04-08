@@ -34,12 +34,12 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         return other
 
     @cached(name="cholesky")
-    def _cholesky(self):
-        return self.__class__(self.base_lazy_tensor._cholesky())
+    def _cholesky(self, upper=False):
+        return self.__class__(self.base_lazy_tensor._cholesky(upper=upper))
 
-    def _cholesky_solve(self, rhs):
+    def _cholesky_solve(self, rhs, upper: bool = False):
         rhs = self._add_batch_dim(rhs)
-        res = self.base_lazy_tensor._cholesky_solve(rhs)
+        res = self.base_lazy_tensor._cholesky_solve(rhs, upper=upper)
         res = self._remove_batch_dim(res)
         return res
 

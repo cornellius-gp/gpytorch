@@ -5,4 +5,8 @@ class NanError(RuntimeError):
     pass
 
 
-__all__ = ["NanError"]
+class NotPSDError(RuntimeError):
+    pass
+
+
+__all__ = ["NanError", "NotPSDError"]

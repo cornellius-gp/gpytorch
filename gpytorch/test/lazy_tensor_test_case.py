@@ -376,6 +376,14 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 actual[..., i, i] = actual[..., i, i] + other_diag[..., i]
             self.assertAllClose(res, actual, rtol=1e-2, atol=1e-5)
 
+    def test_cholesky(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        for upper in (False, True):
+            res = lazy_tensor.cholesky(upper=upper).evaluate()
+            actual = torch.cholesky(evaluated, upper=upper)
+            self.assertAllClose(res, actual, rtol=1e-3, atol=1e-5)
+
     def test_diag(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)

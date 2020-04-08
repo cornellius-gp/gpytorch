@@ -1,51 +1,66 @@
 #!/usr/bin/env python3
 
-import torch
+import typing  # noqa F401
 
-from .. import settings
-from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
-from .lazy_tensor import delazify
+from ..utils.memoize import cached
 from .root_lazy_tensor import RootLazyTensor
+from .triangular_lazy_tensor import TriangularLazyTensor
 
 
 class CholLazyTensor(RootLazyTensor):
-    def __init__(self, chol):
-        # Check that we have a lower triangular matrix
-        if settings.debug.on():
-            delazy_chol = (
-                delazify(chol) if not isinstance(chol, BatchRepeatLazyTensor) else delazify(chol.base_lazy_tensor)
-            )
-            mask = torch.ones(delazy_chol.shape[-2:], dtype=delazy_chol.dtype, device=delazy_chol.device).triu_(1)
-            if torch.max(delazy_chol.mul(mask)).item() > 1e-3 and torch.equal(delazy_chol, delazy_chol):
-                raise RuntimeError("CholLazyVariable should take a lower-triangular matrix in the constructor.")
-
-        # Run super constructor
-        super(CholLazyTensor, self).__init__(chol)
-
-    @property
-    def _chol(self):
-        if not hasattr(self, "_chol_memo"):
-            self._chol_memo = self.root.evaluate()
-        return self._chol_memo
+    def __init__(self, chol: TriangularLazyTensor, upper: bool = False):
+        super().__init__(chol)
+        self.upper = upper
 
     @property
     def _chol_diag(self):
-        if not hasattr(self, "_chol_diag_memo"):
-            self._chol_diag_memo = self._chol.diagonal(dim1=-2, dim2=-1).clone()
-        return self._chol_diag_memo
+        return self.root.diag()
 
-    def _cholesky(self):
-        return self.root
+    def _cholesky(self, upper=False):
+        if upper == self.upper:
+            return self.root
+        else:
+            return self.root.transpose(-1, -2)
 
     def _solve(self, rhs, preconditioner, num_tridiag=0):
         if num_tridiag:
             return super()._solve(rhs, preconditioner, num_tridiag=num_tridiag)
+        return self.root._cholesky_solve(rhs, upper=self.upper)
+
+    @cached
+    def evaluate(self):
+        root = self.root
+        if self.upper:
+            res = root.transpose(-1, -2) @ root
         else:
-            return self.root._cholesky_solve(rhs)
+            res = root @ root.transpose(-1, -2)
+        return res.evaluate()
+
+    @cached
+    def inverse(self):
+        Linv = self.root.inverse()
+        return CholLazyTensor(Linv, upper=not self.upper)
 
     def inv_matmul(self, right_tensor, left_tensor=None):
-        with settings.fast_computations(solves=False):
-            return super().inv_matmul(right_tensor, left_tensor=left_tensor)
+        is_vector = right_tensor.ndim == 1
+        if is_vector:
+            right_tensor = right_tensor.unsqueeze(-1)
+        res = self.root._cholesky_solve(right_tensor, upper=self.upper)
+        if left_tensor is not None:
+            res = left_tensor @ res
+        if is_vector:
+            res = res.squeeze(-1)
+        return res
+
+    def inv_quad(self, tensor, reduce_inv_quad=True):
+        if self.root.upper:
+            R = self.root._transpose_nonbatch().inv_matmul(tensor)
+        else:
+            R = self.root.inv_matmul(tensor)
+        inv_quad_term = R.transpose(-1, -2) @ R
+        if inv_quad_term.numel() and reduce_inv_quad:
+            inv_quad_term = inv_quad_term.sum(-1)
+        return inv_quad_term
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         if not self.is_square:

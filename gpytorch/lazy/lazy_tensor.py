@@ -387,7 +387,7 @@ class LazyTensor(ABC):
         return self.diag()
 
     @cached(name="cholesky")
-    def _cholesky(self):
+    def _cholesky(self, upper=False):
         """
         (Optional) Cholesky-factorizes the LazyTensor
 
@@ -397,7 +397,7 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor
         """
-        from .non_lazy_tensor import NonLazyTensor
+        from .triangular_lazy_tensor import TriangularLazyTensor
         from .keops_lazy_tensor import KeOpsLazyTensor
 
         evaluated_kern_mat = self.evaluate_kernel()
@@ -409,13 +409,13 @@ class LazyTensor(ABC):
 
         # if the tensor is a scalar, we can just take the square root
         if evaluated_mat.size(-1) == 1:
-            return NonLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
+            return TriangularLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
 
         # contiguous call is necessary here
         cholesky = psd_safe_cholesky(evaluated_mat, jitter=settings.cholesky_jitter.value()).contiguous()
-        return NonLazyTensor(cholesky)
+        return TriangularLazyTensor(cholesky, upper=upper)
 
-    def _cholesky_solve(self, rhs):
+    def _cholesky_solve(self, rhs, upper: bool = False):
         """
         (Optional) Assuming that `self` is a Cholesky factor, computes the cholesky solve
 
@@ -425,7 +425,7 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor
         """
-        return torch.cholesky_solve(rhs, self.evaluate())
+        return torch.cholesky_solve(rhs, self.evaluate(), upper=upper)
 
     def _inv_matmul_preconditioner(self):
         """
@@ -737,10 +737,8 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor (lower triangular)
         """
-        res = self._cholesky()
-        if upper:
-            res = res.transpose(-1, -2)
-        return res
+        # TODO: Rename _cholesky -> cholesky everywhere
+        return self._cholesky(upper=upper)
 
     def clone(self):
         """

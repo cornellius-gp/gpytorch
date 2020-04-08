@@ -134,9 +134,9 @@ class CachedCGLazyTensor(LazyTensor):
     def requires_grad(self, val):
         self.base_lazy_tensor.requires_grad = val
 
-    def _cholesky(self):
+    def _cholesky(self, upper=False):
         res = self.__class__(
-            self.base_lazy_tensor._cholesky(),
+            self.base_lazy_tensor._cholesky(upper=upper),
             eager_rhss=self.eager_rhss,
             solves=self.solves,
             probe_vectors=self.probe_vectors,
@@ -146,7 +146,7 @@ class CachedCGLazyTensor(LazyTensor):
         )
         return res
 
-    def _cholesky_solve(self, rhs):
+    def _cholesky_solve(self, rhs, upper: bool = False):
         # Here we check to see what solves we've already performed
         for eager_rhs, solve in zip(self.eager_rhss, self.solves):
             if torch.equal(rhs, eager_rhs):
@@ -158,7 +158,7 @@ class CachedCGLazyTensor(LazyTensor):
                 "LazyTensor should pre-register all vectors to run CG against.".format(rhs.shape),
                 ExtraComputationWarning,
             )
-        return super(CachedCGLazyTensor, self)._cholesky_solve(rhs)
+        return super()._cholesky_solve(rhs, upper=upper)
 
     def _expand_batch(self, batch_shape):
         return self.base_lazy_tensor._expand_batch(batch_shape)

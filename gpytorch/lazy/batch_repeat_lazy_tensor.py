@@ -35,18 +35,18 @@ class BatchRepeatLazyTensor(LazyTensor):
         self.batch_repeat = batch_repeat
 
     @cached(name="cholesky")
-    def _cholesky(self):
-        res = self.base_lazy_tensor._cholesky()
+    def _cholesky(self, upper=False):
+        res = self.base_lazy_tensor._cholesky(upper=upper)
         res = res.repeat(*self.batch_repeat, 1, 1)
         return res
 
-    def _cholesky_solve(self, rhs):
+    def _cholesky_solve(self, rhs, upper: bool = False):
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
         if rhs.shape != output_shape:
             rhs = rhs.expand(*output_shape)
 
         rhs = self._move_repeat_batches_to_columns(rhs, output_shape)
-        res = self.base_lazy_tensor._cholesky_solve(rhs)
+        res = self.base_lazy_tensor._cholesky_solve(rhs, upper=upper)
         res = self._move_repeat_batches_back(res, output_shape)
         return res
 

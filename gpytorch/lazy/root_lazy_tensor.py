@@ -13,7 +13,7 @@ from .non_lazy_tensor import NonLazyTensor, lazify
 class RootLazyTensor(LazyTensor):
     def __init__(self, root):
         root = lazify(root)
-        super(RootLazyTensor, self).__init__(root)
+        super().__init__(root)
         self.root = root
 
     def _expand_batch(self, batch_shape):

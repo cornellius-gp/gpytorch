@@ -29,10 +29,10 @@ class DiagLazyTensor(LazyTensor):
         return AddedDiagLazyTensor(other, self)
 
     @cached(name="cholesky")
-    def _cholesky(self):
+    def _cholesky(self, upper=False):
         return self.sqrt()
 
-    def _cholesky_solve(self, rhs):
+    def _cholesky_solve(self, rhs, upper: bool = False):
         return rhs / self._diag.pow(2)
 
     def _expand_batch(self, batch_shape):
@@ -149,12 +149,17 @@ class DiagLazyTensor(LazyTensor):
         return DiagLazyTensor(self._diag.log())
 
     def matmul(self, other):
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
         # this is trivial if we multiply two DiagLazyTensors
         if isinstance(other, DiagLazyTensor):
             return DiagLazyTensor(self._diag * other._diag)
         # special case if we have a NonLazyTensor
         if isinstance(other, NonLazyTensor):
             return NonLazyTensor(self._diag.unsqueeze(-1) * other.tensor)
+        # and if we have a triangular one
+        if isinstance(other, TriangularLazyTensor):
+            return TriangularLazyTensor(self._diag.unsqueeze(-1) * other._tensor, upper=other.upper)
         return super().matmul(other)
 
     def sqrt(self):
