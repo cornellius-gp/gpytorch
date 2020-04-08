@@ -5,7 +5,7 @@ import unittest
 import torch
 from torch.distributions import Distribution
 
-from gpytorch.distributions import MultivariateNormal
+from gpytorch.distributions import MultitaskMultivariateNormal, MultivariateNormal
 from gpytorch.likelihoods import SoftmaxLikelihood
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
@@ -14,11 +14,13 @@ class TestSoftmaxLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
     seed = 0
 
     def _create_conditional_input(self, batch_shape=torch.Size([])):
-        return torch.randn(*batch_shape, 6, 5)
+        return torch.randn(*batch_shape, 5, 6)
 
     def _create_marginal_input(self, batch_shape=torch.Size([])):
         mat = torch.randn(*batch_shape, 6, 5, 5)
-        return MultivariateNormal(torch.randn(*batch_shape, 6, 5), mat @ mat.transpose(-1, -2))
+        return MultitaskMultivariateNormal.from_batch_mvn(
+            MultivariateNormal(torch.randn(*batch_shape, 6, 5), mat @ mat.transpose(-1, -2))
+        )
 
     def _create_targets(self, batch_shape=torch.Size([])):
         return torch.distributions.Categorical(probs=torch.tensor([0.25, 0.25, 0.25, 0.25])).sample(
