@@ -26,6 +26,9 @@ class TriangularLazyTensor(LazyTensor):
             :attr:`upper` (bool):
                 If True, the tensor is considered to be upper-triangular, otherwise lower-triangular.
         """
+        if isinstance(tensor, TriangularLazyTensor):
+            # this is a null-op, we can just use underlying tensor directly.
+            tensor = tensor._tensor
         if torch.is_tensor(tensor):
             tensor = NonLazyTensor(tensor)
         super().__init__(tensor)
@@ -47,14 +50,18 @@ class TriangularLazyTensor(LazyTensor):
         raise NotPSDError("TriangularLazyTensor does not allow a Cholesky decomposition")
 
     def _cholesky_solve(self, rhs: Tensor, upper: bool = False) -> Tensor:
-        if upper:
-            # res = (U.T @ U)^-1 @ v = U^-1 @ U^-T @ v
-            w = self._transpose_nonbatch().inv_matmul(rhs)
-            res = self.inv_matmul(w)
-        else:
-            # res = (L @ L.T)^-1 @ v = L^-T @ L^-1 @ v
-            w = self.inv_matmul(rhs)
-            res = self._transpose_nonbatch().inv_matmul(w)
+        # use custom method if implemented
+        try:
+            res = self._tensor._cholesky_solve(rhs=rhs, upper=upper)
+        except NotImplementedError:
+            if upper:
+                # res = (U.T @ U)^-1 @ v = U^-1 @ U^-T @ v
+                w = self._transpose_nonbatch().inv_matmul(rhs)
+                res = self.inv_matmul(w)
+            else:
+                # res = (L @ L.T)^-1 @ v = L^-T @ L^-1 @ v
+                w = self.inv_matmul(rhs)
+                res = self._transpose_nonbatch().inv_matmul(w)
         return res
 
     def _get_indices(self, row_index, col_index, *batch_indices):
@@ -106,8 +113,11 @@ class TriangularLazyTensor(LazyTensor):
         return TriangularLazyTensor(self._tensor.exp(), upper=self.upper)
 
     def inv_matmul(self, right_tensor: Tensor, left_tensor: Optional[Tensor] = None) -> Tensor:
-        tsr = self.evaluate()
-        res = torch.triangular_solve(right_tensor, tsr, upper=self.upper).solution
+        if isinstance(self._tensor, NonLazyTensor):
+            res = torch.triangular_solve(right_tensor, self.evaluate(), upper=self.upper).solution
+        else:
+            # TODO: Can we be smarter here?
+            res = self._tensor.inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
         if left_tensor is not None:
             res = left_tensor @ res
         return res

@@ -7,6 +7,7 @@ import torch
 from torch.distributions import constraints
 from torch.nn import Module as TModule
 
+from ..utils.cholesky import psd_safe_cholesky
 from .prior import Prior
 
 
@@ -56,7 +57,7 @@ class LKJPrior(Prior):
             raise ValueError("Correlation matrix is not of size n={}".format(self.n.item()))
         if not _is_valid_correlation_matrix(X):
             raise ValueError("Input is not a valid correlation matrix")
-        log_diag_sum = torch.cholesky(X, upper=True).diagonal(dim1=-2, dim2=-1).log().sum(-1)
+        log_diag_sum = psd_safe_cholesky(X, upper=True).diagonal(dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
 

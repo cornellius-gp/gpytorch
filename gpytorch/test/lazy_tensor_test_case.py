@@ -383,6 +383,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             res = lazy_tensor.cholesky(upper=upper).evaluate()
             actual = torch.cholesky(evaluated, upper=upper)
             self.assertAllClose(res, actual, rtol=1e-3, atol=1e-5)
+            # TODO: Check gradients
 
     def test_diag(self):
         lazy_tensor = self.create_lazy_tensor()

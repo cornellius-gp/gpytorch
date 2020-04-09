@@ -34,7 +34,7 @@ class DiagLazyTensor(LazyTensor):
         from .triangular_lazy_tensor import TriangularLazyTensor
 
         # if upper or lower doesn't matter here
-        return TriangularLazyTensor(self.sqrt())
+        return TriangularLazyTensor(self.sqrt(), upper=upper)
 
     def _cholesky_solve(self, rhs, upper: bool = False):
         return rhs / self._diag.pow(2)

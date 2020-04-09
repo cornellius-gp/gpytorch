@@ -29,6 +29,7 @@ class CholLazyTensor(RootLazyTensor):
 
     @cached
     def diag(self):
+        # TODO: Can we be smarter here?
         return (self.root.evaluate() ** 2).sum(-1)
 
     @cached
@@ -42,7 +43,7 @@ class CholLazyTensor(RootLazyTensor):
 
     @cached
     def inverse(self):
-        Linv = self.root.inverse()
+        Linv = self.root.inverse()  # this could be slow in some cases w/ structured lazies
         return CholLazyTensor(Linv, upper=not self.upper)
 
     def inv_matmul(self, right_tensor, left_tensor=None):
@@ -57,7 +58,7 @@ class CholLazyTensor(RootLazyTensor):
         return res
 
     def inv_quad(self, tensor, reduce_inv_quad=True):
-        if self.root.upper:
+        if self.upper:
             R = self.root._transpose_nonbatch().inv_matmul(tensor)
         else:
             R = self.root.inv_matmul(tensor)
