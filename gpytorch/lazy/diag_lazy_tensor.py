@@ -4,12 +4,11 @@ import torch
 
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
-from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
+from .triangular_lazy_tensor import TriangularLazyTensor
 
 
-# TODO: Subclass DiagLazyTensor from TriangularLazyTensor
-class DiagLazyTensor(LazyTensor):
+class DiagLazyTensor(TriangularLazyTensor):
     def __init__(self, diag):
         """
         Diagonal lazy tensor. Supports arbitrary batch sizes.
@@ -19,7 +18,7 @@ class DiagLazyTensor(LazyTensor):
                 A `b1 x ... x bk x n` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` diagonal matrices
         """
-        super().__init__(diag)
+        super(TriangularLazyTensor, self).__init__(diag)
         self._diag = diag
 
     def __add__(self, other):
@@ -31,10 +30,7 @@ class DiagLazyTensor(LazyTensor):
 
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
-        from .triangular_lazy_tensor import TriangularLazyTensor
-
-        # if upper or lower doesn't matter here
-        return TriangularLazyTensor(self.sqrt(), upper=upper)
+        return self.sqrt()
 
     def _cholesky_solve(self, rhs, upper: bool = False):
         return rhs / self._diag.pow(2)
