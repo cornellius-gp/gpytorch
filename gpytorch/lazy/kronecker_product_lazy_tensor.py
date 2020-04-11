@@ -124,10 +124,9 @@ class KroneckerProductLazyTensor(LazyTensor):
     @cached
     def inverse(self):
         # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
+        # TODO: Investigate under what conditions computing individual individual inverses makes sense
         inverses = [lt.inverse() for lt in self.lazy_tensors]
         return self.__class__(*inverses)
-
-    # TODO: Investigate under what conditions computing individual individual inverses makes sense
 
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
@@ -218,6 +217,33 @@ class KroneckerProductLazyTensor(LazyTensor):
     def _transpose_nonbatch(self):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
 
+    @cached
+    def inverse(self):
+        # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
+        inverses = [lt.inverse() for lt in self.lazy_tensors]
+        return self.__class__(*inverses)
+
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        # TODO: Investigate under what conditions computing individual individual inverses makes sense
+        # For now, retain existing behavior
+        return super().inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
+
+    def _inv_matmul(self, right_tensor, left_tensor=None):
+        # Computes inv_matmul by exploiting the identity (A \kron B)^-1 = A^-1 \kron B^-1
+        tsr_shapes = [q.size(-1) for q in self.lazy_tensors]
+        n_rows = right_tensor.size(-2)
+        batch_shape = self.shape[:-2]
+        perm_batch = tuple(range(len(batch_shape)))
+        y = right_tensor.clone().expand(*batch_shape, *right_tensor.shape)
+        for n, q in zip(tsr_shapes, self.lazy_tensors):
+            # for KroneckerProductTriangularLazyTensor this inv_matmul is very cheap
+            y = q.inv_matmul(y.reshape(*batch_shape, n, -1))
+            y = y.reshape(*batch_shape, n, n_rows // n, -1).permute(*perm_batch, -2, -3, -1)
+        res = y.reshape(*batch_shape, n_rows, -1)
+        if left_tensor is not None:
+            res = left_tensor @ res
+        return res
+
 
 class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
     def __init__(self, *lazy_tensors, upper=False):
@@ -251,8 +277,5 @@ class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
         return self.__class__(*inverses, upper=self.upper)
 
     def inv_matmul(self, right_tensor, left_tensor=None):
-        # Since the individual tensors are triangular, their inverses can be computed cheaply
-        res = self.inverse() @ right_tensor
-        if left_tensor is not None:
-            res = left_tensor @ res
-        return res
+        # For triangular components, using triangular-triangular substition should generally be good
+        return self._inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
