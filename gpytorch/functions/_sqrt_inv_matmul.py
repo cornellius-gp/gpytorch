@@ -34,17 +34,6 @@ class SqrtInvMatmul(Function):
         # Save for backwards
         ctx.save_for_backward(rhs, lhs, rhs_solves, lhs_solves, weights, shifts, lhs_no_shift_solves, *matrix_args)
 
-        # Record some stats on how good the solves are
-        if settings.record_ciq_stats.on() and lhs is not None:
-            with torch.no_grad():
-                settings.record_ciq_stats.ciq_diff = (
-                    ((lhs_solves * weights).sum(dim=0).pow(2).sum(dim=-2).sub_(inv_quad_res))
-                    .div_(inv_quad_res.clamp_min_(1e-5))
-                    .abs_()
-                    .mean()
-                    .item()
-                )
-
         return sqrt_inv_matmul_res, inv_quad_res
 
     @staticmethod
