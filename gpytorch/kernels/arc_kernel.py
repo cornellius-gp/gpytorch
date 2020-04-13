@@ -160,7 +160,7 @@ class ArcKernel(Kernel):
         x_ = x.div(self.lengthscale)
         x_s = self.radius * torch.sin(pi * self.angle * x_)
         x_c = self.radius * torch.cos(pi * self.angle * x_)
-        x_ = torch.cat((x_s, x_c), dim=-1).squeeze(0)
+        x_ = torch.cat((x_s, x_c), dim=-1)
         return x_
 
     def forward(self, x1, x2, diag=False, **params):
