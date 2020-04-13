@@ -99,8 +99,8 @@ def bdsmm(sparse, dense):
 
         # Create block-diagonal sparse tensor
         indices = sparse._indices()[-2:].clone()
-        indices[0].add_(num_rows, batch_assignment)
-        indices[1].add_(num_cols, batch_assignment)
+        indices[0].add_(batch_assignment, alpha=num_rows)
+        indices[1].add_(batch_assignment, alpha=num_cols)
         sparse_2d = torch.sparse_coo_tensor(
             indices,
             sparse._values(),

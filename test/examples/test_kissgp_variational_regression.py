@@ -81,7 +81,6 @@ class TestKISSGPVariationalRegression(unittest.TestCase):
             scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[0.75 * n_epochs], gamma=0.1)
 
             for _ in range(n_epochs):
-                scheduler.step()
                 for x_batch, y_batch in train_loader:
                     x_batch = x_batch.float()
                     y_batch = y_batch.float()
@@ -91,6 +90,7 @@ class TestKISSGPVariationalRegression(unittest.TestCase):
                     loss.backward()
                     optimizer.step()
 
+                scheduler.step()
         train()
 
         for _, param in model.named_parameters():

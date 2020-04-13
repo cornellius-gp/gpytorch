@@ -9,6 +9,7 @@ from .. import settings
 from ..distributions import MultivariateNormal
 from ..likelihoods import _GaussianLikelihoodBase
 from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.warnings import GPInputWarning
 from .exact_prediction_strategies import prediction_strategy
 from .gp import GP
 
@@ -279,7 +280,8 @@ class ExactGP(GP):
             if settings.debug.on():
                 if all(torch.equal(train_input, input) for train_input, input in zip(train_inputs, inputs)):
                     warnings.warn(
-                        "The input matches the stored training data. Did you forget to call model.train()?", UserWarning
+                        "The input matches the stored training data. Did you forget to call model.train()?",
+                        GPInputWarning,
                     )
 
             # Get the terms that only depend on training data

@@ -3,6 +3,7 @@
 import os
 import random
 import unittest
+import warnings
 from math import exp, pi
 
 import gpytorch
@@ -13,6 +14,7 @@ from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.test.utils import least_used_cuda_device
+from gpytorch.utils.warnings import GPInputWarning
 from torch import optim
 
 
@@ -59,6 +61,9 @@ class TestKISSGPWhiteNoiseRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_kissgp_gp_mean_abs_error(self):
+        # This test throws a warning because the fixed noise likelihood gets the wrong input
+        warnings.simplefilter("ignore", GPInputWarning)
+
         train_x, train_y, test_x, test_y = make_data()
         likelihood = FixedNoiseGaussianLikelihood(torch.ones(100) * 0.001)
         gp_model = GPRegressionModel(train_x, train_y, likelihood)

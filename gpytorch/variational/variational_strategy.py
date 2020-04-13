@@ -9,11 +9,8 @@ from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTens
 from ..settings import trace_mode
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
+from ..utils.warnings import OldVersionWarning
 from ._variational_strategy import _VariationalStrategy
-
-
-class OldVersionWarning(RuntimeWarning):
-    pass
 
 
 def _ensure_updated_strategy_flag_set(

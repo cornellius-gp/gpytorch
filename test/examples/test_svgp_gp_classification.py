@@ -11,7 +11,7 @@ from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
-from gpytorch.lazy import ExtraComputationWarning
+from gpytorch.utils.warnings import ExtraComputationWarning
 from torch import optim
 
 

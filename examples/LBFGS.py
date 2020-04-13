@@ -259,7 +259,7 @@ class LBFGS(Optimizer):
         for p in self._params:
             numel = p.numel()
             # view as to avoid deprecated pointwise semantics
-            p.data.add_(step_size, update[offset : offset + numel].view_as(p.data))
+            p.data.add_(update[offset : offset + numel].view_as(p.data), alpha=step_size)
             offset += numel
         assert offset == self._numel()
 
@@ -328,14 +328,14 @@ class LBFGS(Optimizer):
         q = vec
         for i in range(num_old - 1, -1, -1):
             alpha[i] = old_dirs[i].dot(q) * rho[i]
-            q.add_(-alpha[i], old_stps[i])
+            q.add_(old_stps[i], alpha=-alpha[i])
 
         # multiply by initial Hessian
         # r/d is the final direction
         r = torch.mul(q, H_diag)
         for i in range(num_old):
             beta = old_stps[i].dot(r) * rho[i]
-            r.add_(alpha[i] - beta, old_dirs[i])
+            r.add_(old_dirs[i], alpha=(alpha[i] - beta))
 
         return r
 

@@ -5,12 +5,16 @@ import warnings
 
 import torch
 
+from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.cholesky import psd_safe_cholesky
 from gpytorch.utils.errors import NanError
+from gpytorch.utils.warnings import NumericalWarning
 
 
-class TestPSDSafeCholesky(unittest.TestCase):
+class TestPSDSafeCholesky(BaseTestCase, unittest.TestCase):
+    seed = 0
+
     def _gen_test_psd(self):
         return torch.tensor([[[0.25, -0.75], [-0.75, 2.25]], [[1.0, 1.0], [1.0, 1.0]]])
 
@@ -73,8 +77,11 @@ class TestPSDSafeCholesky(unittest.TestCase):
                 Aprime[..., idx, idx] += 1e-6 if A.dtype == torch.float32 else 1e-8
                 L_exp = torch.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as w:
+                    # Makes sure warnings we catch don't cause `-w error` to fail
+                    warnings.simplefilter("always", NumericalWarning)
+
                     L_safe = psd_safe_cholesky(A)
-                    self.assertTrue(any(issubclass(w_.category, RuntimeWarning) for w_ in w))
+                    self.assertTrue(any(issubclass(w_.category, NumericalWarning) for w_ in w))
                     self.assertTrue(any("A not p.d., added jitter" in str(w_.message) for w_ in w))
                 self.assertTrue(torch.allclose(L_exp, L_safe))
                 # user-defined value
@@ -82,8 +89,11 @@ class TestPSDSafeCholesky(unittest.TestCase):
                 Aprime[..., idx, idx] += 1e-2
                 L_exp = torch.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as w:
+                    # Makes sure warnings we catch don't cause `-w error` to fail
+                    warnings.simplefilter("always", NumericalWarning)
+
                     L_safe = psd_safe_cholesky(A, jitter=1e-2)
-                    self.assertTrue(any(issubclass(w_.category, RuntimeWarning) for w_ in w))
+                    self.assertTrue(any(issubclass(w_.category, NumericalWarning) for w_ in w))
                     self.assertTrue(any("A not p.d., added jitter" in str(w_.message) for w_ in w))
                 self.assertTrue(torch.allclose(L_exp, L_safe))
 

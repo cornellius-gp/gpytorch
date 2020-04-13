@@ -17,14 +17,14 @@ from ..functions._root_decomposition import RootDecomposition
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
-from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _noop_index
-from ..utils.gradients import _ensure_symmetric_grad
+from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.memoize import add_to_cache, cached
+from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
 class LazyTensor(ABC):
-    """
+    r"""
     Base class for LazyTensors in GPyTorch.
 
     In GPyTorch, nearly all covariance matrices for Gaussian processes are handled internally as some variety of
@@ -32,10 +32,10 @@ class LazyTensor(ABC):
     typically differs in two ways:
 
     #. A tensor represented by a LazyTensor can typically be represented more efficiently than storing a full matrix.
-       For example, a LazyTensor representing :math:`K=XX^{\\top}` where :math:`K` is :math:`n \\times n` but
-       :math:`X` is :math:`n \\times d` might store :math:`X` instead of :math:`K` directly.
+       For example, a LazyTensor representing :math:`K=XX^{\top}` where :math:`K` is :math:`n \times n` but
+       :math:`X` is :math:`n \times d` might store :math:`X` instead of :math:`K` directly.
     #. A LazyTensor typically defines a matmul routine that performs :math:`KM` that is more efficient than storing
-       the full matrix. Using the above example, performing :math:`KM=X(X^{\\top}M)` requires only :math:`O(nd)` time,
+       the full matrix. Using the above example, performing :math:`KM=X(X^{\top}M)` requires only :math:`O(nd)` time,
        rather than the :math:`O(n^2)` time required if we were storing :math:`K` directly.
 
     In order to define a new LazyTensor class that can be used as a covariance matrix in GPyTorch, a user must define
@@ -74,7 +74,7 @@ class LazyTensor(ABC):
 
     .. note::
         LazyTensors are designed by default to optionally represent batches of matrices. Thus, the size of a
-        LazyTensor may be (for example) :math:`b \\times n \\times n`. Many of the methods are designed to efficiently
+        LazyTensor may be (for example) :math:`b \times n \times n`. Many of the methods are designed to efficiently
         operate on these batches if present.
     """
 
@@ -213,7 +213,7 @@ class LazyTensor(ABC):
             `LazyTensor`
         """
         # Special case: if both row and col are not indexed, then we are done
-        if row_index is _noop_index and col_index is _noop_index:
+        if _is_noop_index(row_index) and _is_noop_index(col_index):
             if len(batch_indices):
                 components = [component[batch_indices] for component in self._args]
                 res = self.__class__(*components, **self._kwargs)
@@ -409,11 +409,6 @@ class LazyTensor(ABC):
         # if the tensor is a scalar, we can just take the square root
         if evaluated_mat.size(-1) == 1:
             return NonLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
-
-        # NOTE: this hack is in place so that the gradient of the Cholesky factorization is symmetric
-        # We can remove this hack once https://github.com/pytorch/pytorch/issues/18825 is merged in
-        if evaluated_mat.requires_grad:
-            evaluated_mat.register_hook(_ensure_symmetric_grad)
 
         # contiguous call is necessary here
         cholesky = psd_safe_cholesky(evaluated_mat).contiguous()
@@ -671,8 +666,8 @@ class LazyTensor(ABC):
         return SumBatchLazyTensor(self, block_dim=dim)
 
     def _t_matmul(self, rhs):
-        """
-        Performs a transpose matrix multiplication :math:`K^{\\top}M` with the matrix :math:`K` that this
+        r"""
+        Performs a transpose matrix multiplication :math:`K^{\top}M` with the matrix :math:`K` that this
         LazyTensor represents.
 
         Args:
@@ -823,11 +818,11 @@ class LazyTensor(ABC):
         return self
 
     def diag(self):
-        """
+        r"""
         As :func:`torch.diag`, returns the diagonal of the matrix :math:`K` this LazyTensor represents as a vector.
 
-        Returns:
-            :obj:`torch.tensor`: The diagonal of :math:`K`. If :math:`K` is :math:`n \times n`, this will be a length
+        :rtype: torch.tensor
+        :return: The diagonal of :math:`K`. If :math:`K` is :math:`n \times n`, this will be a length
             n vector. If this LazyTensor represents a batch (e.g., is :math:`b \times n \times n`), this will be a
             :math:`b \times n` matrix of diagonals, one for each matrix in the batch.
         """
@@ -890,7 +885,7 @@ class LazyTensor(ABC):
         return self.representation_tree()(*self.representation())
 
     def inv_matmul(self, right_tensor, left_tensor=None):
-        """
+        r"""
         Computes a linear solve (w.r.t self = :math:`A`) with several right hand sides :math:`R`.
         I.e. computes
 
@@ -1331,7 +1326,8 @@ class LazyTensor(ABC):
 
             except RuntimeError as e:
                 warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
+                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e),
+                    NumericalWarning,
                 )
 
         res = self._root_decomposition()
@@ -1364,7 +1360,8 @@ class LazyTensor(ABC):
                 return RootLazyTensor(res)
             except RuntimeError as e:
                 warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e)
+                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e),
+                    NumericalWarning,
                 )
 
         if not self.is_square:

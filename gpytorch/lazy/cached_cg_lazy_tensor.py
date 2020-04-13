@@ -5,12 +5,9 @@ import warnings
 import torch
 
 from .. import settings
+from ..utils.warnings import ExtraComputationWarning
 from .chol_lazy_tensor import CholLazyTensor
 from .lazy_tensor import LazyTensor
-
-
-class ExtraComputationWarning(UserWarning):
-    pass
 
 
 class CachedCGLazyTensor(LazyTensor):

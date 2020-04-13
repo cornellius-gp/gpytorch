@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import warnings
+
 import math
 import os
 import random
@@ -8,6 +10,7 @@ import unittest
 import gpytorch
 import torch
 from gpytorch.test.utils import least_used_cuda_device
+from gpytorch.utils.warnings import GPInputWarning
 from torch import optim
 
 
@@ -99,6 +102,8 @@ class TestGridGPRegression(unittest.TestCase):
             # Test the model
             gp_model.eval()
             likelihood.eval()
+            # Make sure we don't get GP input warnings for testing on training data
+            warnings.simplefilter("ignore", GPInputWarning)
 
             train_preds = likelihood(gp_model(train_x)).mean
             mean_abs_error = torch.mean(torch.abs(train_y - train_preds))

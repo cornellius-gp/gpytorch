@@ -12,8 +12,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
-from gpytorch.lazy import ExtraComputationWarning
-from gpytorch.variational.variational_strategy import OldVersionWarning
+from gpytorch.utils.warnings import ExtraComputationWarning, OldVersionWarning
 from torch import optim
 
 
@@ -56,6 +55,9 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
 
         # Ensure we get a warning
         with warnings.catch_warnings(record=True) as ws:
+            # Makes sure warnings we catch don't cause `-w error` to fail
+            warnings.simplefilter("always", OldVersionWarning)
+
             model.load_state_dict(state_dicts["model"])
             self.assertTrue(any(issubclass(w.category, OldVersionWarning) for w in ws))
 

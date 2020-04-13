@@ -6,7 +6,7 @@ from .kernel import Kernel
 
 
 class MultitaskKernel(Kernel):
-    """
+    r"""
     Kernel supporting Kronecker style multitask Gaussian processes (where every data point is evaluated at every
     task) using :class:`gpytorch.kernels.IndexKernel` as a basic multitask kernel.
 
@@ -14,18 +14,12 @@ class MultitaskKernel(Kernel):
     specified size :math:`K_{TT}` and returns :math:`K = K_{TT} \otimes K_{XX}`. as an
     :obj:`gpytorch.lazy.KroneckerProductLazyTensor`.
 
-    Args:
-        data_covar_module (:obj:`gpytorch.kernels.Kernel`):
-            Kernel to use as the data kernel.
-        num_tasks (int):
-            Number of tasks
-        batch_size (int, optional):
-            Set if the MultitaskKernel is operating on batches of data (and you want different
-            parameters for each batch)
-        rank (int):
-            Rank of index kernel to use for task covariance matrix.
-        task_covar_prior (:obj:`gpytorch.priors.Prior`):
-            Prior to use for task kernel. See :class:`gpytorch.kernels.IndexKernel` for details.
+    :param ~gpytorch.kernels.Kernel data_covar_module: Kernel to use as the data kernel.
+    :param int num_tasks: Number of tasks
+    :param int rank: (default 1) Rank of index kernel to use for task covariance matrix.
+    :param ~gpytorch.priors.Prior task_covar_prior: (default None) Prior to use for task kernel.
+        See :class:`gpytorch.kernels.IndexKernel` for details.
+    :param dict kwargs: Additional arguments to pass to the kernel.
     """
 
     def __init__(self, data_covar_module, num_tasks, rank=1, task_covar_prior=None, **kwargs):
@@ -51,6 +45,6 @@ class MultitaskKernel(Kernel):
     def num_outputs_per_input(self, x1, x2):
         """
         Given `n` data points `x1` and `m` datapoints `x2`, this multitask
-        kernel returns an `(n*num_tasks) x (m*num_tasks)` covariancn matrix.
+        kernel returns an `(n*num_tasks) x (m*num_tasks)` covariance matrix.
         """
         return self.num_tasks

@@ -376,7 +376,7 @@ class max_cholesky_size(_value_context):
     """
     If the size of of a LazyTensor is less than `max_cholesky_size`,
     then `root_decomposition` and `inv_matmul` of LazyTensor will use Cholesky rather than Lanczos/CG.
-    Default: 128
+    Default: 800
     """
 
     _global_value = 800
@@ -405,7 +405,7 @@ class max_preconditioner_size(_value_context):
 
 
 class max_lanczos_quadrature_iterations(_value_context):
-    """
+    r"""
     The maximum number of Lanczos iterations to perform when doing stochastic
     Lanczos quadrature. This is ONLY used for log determinant calculations and
     computing Tr(K^{-1}dK/d\theta)

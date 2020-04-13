@@ -11,7 +11,7 @@ from ._variational_strategy import _VariationalStrategy
 
 
 class GridInterpolationVariationalStrategy(_VariationalStrategy):
-    """
+    r"""
     This strategy constrains the inducing points to a grid and applies a deterministic
     relationship between :math:`\mathbf f` and :math:`\mathbf u`.
     It was introduced by `Wilson et al. (2016)`_.

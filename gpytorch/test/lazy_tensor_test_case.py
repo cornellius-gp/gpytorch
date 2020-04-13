@@ -8,9 +8,16 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
-from gpytorch.utils.gradients import _ensure_symmetric_grad
 
 from .base_test_case import BaseTestCase
+
+
+def _ensure_symmetric_grad(grad):
+    """
+    A gradient-hook hack to ensure that symmetric matrix gradients are symmetric
+    """
+    res = torch.add(grad, grad.transpose(-1, -2)).mul(0.5)
+    return res
 
 
 class RectangularLazyTensorTestCase(BaseTestCase):
@@ -301,7 +308,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
             _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
             with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
-                with gpytorch.settings.num_trace_samples(128), gpytorch.settings.max_cholesky_size(
+                with gpytorch.settings.num_trace_samples(256), gpytorch.settings.max_cholesky_size(
                     math.inf if cholesky else 0
                 ), gpytorch.settings.cg_tolerance(1e-5):
 

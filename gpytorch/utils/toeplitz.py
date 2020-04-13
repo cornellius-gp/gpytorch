@@ -140,7 +140,7 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
     fft_product = torch.zeros_like(fft_M)
 
     fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 0])
-    fft_product[:, :, :, 0].addcmul_(-1, fft_c[:, :, :, 1], fft_M[:, :, :, 1])
+    fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 1], value=-1)
     fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 0])
     fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 1])
 
@@ -164,7 +164,7 @@ def sym_toeplitz_matmul(toeplitz_column, tensor):
 
 
 def sym_toeplitz_derivative_quadratic_form(left_vectors, right_vectors):
-    """
+    r"""
     Given a left vector v1 and a right vector v2, computes the quadratic form:
                                 v1'*(dT/dc_i)*v2
     for all i, where dT/dc_i is the derivative of the Toeplitz matrix with respect to

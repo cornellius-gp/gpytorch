@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
-from gpytorch.lazy import ExtraComputationWarning
 from gpytorch.test.base_test_case import BaseTestCase
+from gpytorch.utils.warnings import ExtraComputationWarning
 
 
 class TestVariationalGP(BaseTestCase, unittest.TestCase):
@@ -37,6 +37,9 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
         distribution_cls=gpytorch.variational.CholeskyVariationalDistribution,
         constant_mean=True,
     ):
+        # This class is deprecated - so we'll ignore these warnings
+        warnings.simplefilter("always", DeprecationWarning)
+
         class _SVGPRegressionModel(gpytorch.models.ApproximateGP):
             def __init__(self, inducing_points):
                 variational_distribution = distribution_cls(num_inducing, batch_shape=batch_shape)
@@ -62,6 +65,9 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
             return _SVGPRegressionModel(inducing_points), self.likelihood_cls()
 
     def _training_iter(self, model, likelihood, batch_shape=torch.Size([]), mll_cls=gpytorch.mlls.VariationalELBO):
+        # This class is deprecated - so we'll ignore these warnings
+        warnings.simplefilter("always", DeprecationWarning)
+
         train_x = torch.randn(*batch_shape, 32, 2).clamp(-2.5, 2.5)
         train_y = torch.linspace(-1, 1, self.event_shape[0])
         train_y = train_y.view(self.event_shape[0], *([1] * (len(self.event_shape) - 1)))
@@ -89,6 +95,9 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
         return output, loss
 
     def _eval_iter(self, model, batch_shape=torch.Size([])):
+        # This class is deprecated - so we'll ignore these warnings
+        warnings.simplefilter("always", DeprecationWarning)
+
         test_x = torch.randn(*batch_shape, 32, 2).clamp(-2.5, 2.5)
 
         # Single optimization iteration
@@ -116,6 +125,9 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
         eval_data_batch_shape=None,
         expected_batch_shape=None,
     ):
+        # This class is deprecated - so we'll ignore these warnings
+        warnings.simplefilter("always", DeprecationWarning)
+
         # Batch shapes
         model_batch_shape = model_batch_shape if model_batch_shape is not None else self.batch_shape
         data_batch_shape = data_batch_shape if data_batch_shape is not None else self.batch_shape
@@ -157,6 +169,9 @@ class TestVariationalGP(BaseTestCase, unittest.TestCase):
         expected_batch_shape=None,
         constant_mean=True,
     ):
+        # This class is deprecated - so we'll ignore these warnings
+        warnings.simplefilter("always", DeprecationWarning)
+
         # Batch shapes
         model_batch_shape = model_batch_shape if model_batch_shape is not None else self.batch_shape
         data_batch_shape = data_batch_shape if data_batch_shape is not None else self.batch_shape

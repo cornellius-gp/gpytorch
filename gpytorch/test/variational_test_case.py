@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
-from gpytorch.lazy import ExtraComputationWarning
+from gpytorch.utils.warnings import ExtraComputationWarning
 
 from .base_test_case import BaseTestCase
 
