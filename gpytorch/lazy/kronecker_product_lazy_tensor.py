@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 
 from .. import settings
-from ..utils.broadcasting import _matmul_broadcast_shape
+from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.memoize import cached
 from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
@@ -232,9 +232,9 @@ class KroneckerProductLazyTensor(LazyTensor):
         # Computes inv_matmul by exploiting the identity (A \kron B)^-1 = A^-1 \kron B^-1
         tsr_shapes = [q.size(-1) for q in self.lazy_tensors]
         n_rows = right_tensor.size(-2)
-        batch_shape = self.shape[:-2]
+        batch_shape = _mul_broadcast_shape(self.shape[:-2], right_tensor.shape[:-2])
         perm_batch = tuple(range(len(batch_shape)))
-        y = right_tensor.clone().expand(*batch_shape, *right_tensor.shape)
+        y = right_tensor.clone().expand(*batch_shape, *right_tensor.shape[-2:])
         for n, q in zip(tsr_shapes, self.lazy_tensors):
             # for KroneckerProductTriangularLazyTensor this inv_matmul is very cheap
             y = q.inv_matmul(y.reshape(*batch_shape, n, -1))
