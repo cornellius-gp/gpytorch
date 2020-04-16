@@ -8,6 +8,7 @@ from torch import Tensor
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.errors import NotPSDError
 from ..utils.memoize import cached
+from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 
@@ -29,6 +30,12 @@ class TriangularLazyTensor(LazyTensor):
         if isinstance(tensor, TriangularLazyTensor):
             # this is a null-op, we can just use underlying tensor directly.
             tensor = tensor._tensor
+        elif isinstance(tensor, BatchRepeatLazyTensor):
+            # things get kind of messy when interleaving repeats and triangualrisms
+            if not isinstance(tensor.base_lazy_tensor, TriangularLazyTensor):
+                tensor = tensor.__class__(
+                    TriangularLazyTensor(tensor.base_lazy_tensor, upper=upper), batch_repeat=tensor.batch_repeat,
+                )
         if torch.is_tensor(tensor):
             tensor = NonLazyTensor(tensor)
         super().__init__(tensor)
@@ -82,7 +89,7 @@ class TriangularLazyTensor(LazyTensor):
     def _size(self) -> torch.Size:
         return self._tensor.shape
 
-    def _solve(self, rhs: Tensor, preconditioner: Callable[[Tensor], Tensor], num_tridiag: int = 0) -> Tensor:
+    def _solve(self, rhs: Tensor, preconditioner: Callable[[Tensor], Tensor], num_tridiag: int = 0,) -> Tensor:
         # already triangular, can just call inv_matmul for the solve
         return self.inv_matmul(rhs)
 
@@ -115,6 +122,10 @@ class TriangularLazyTensor(LazyTensor):
     def inv_matmul(self, right_tensor: Tensor, left_tensor: Optional[Tensor] = None) -> Tensor:
         if isinstance(self._tensor, NonLazyTensor):
             res = torch.triangular_solve(right_tensor, self.evaluate(), upper=self.upper).solution
+        elif isinstance(self._tensor, BatchRepeatLazyTensor):
+            res = self._tensor.base_lazy_tensor.inv_matmul(right_tensor, left_tensor)
+            # TODO: Proper broadcasting
+            res = res.expand(self._tensor.batch_repeat + res.shape[-2:])
         else:
             # TODO: Can we be smarter here?
             res = self._tensor.inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
