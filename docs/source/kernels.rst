@@ -71,6 +71,12 @@ Standard Kernels
 .. autoclass:: RBFKernel
    :members:
 
+:hidden:`RQKernel`
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: RQKernel
+   :members:
+
 :hidden:`SpectralMixtureKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -87,15 +93,14 @@ Composition/Decoration Kernels
 .. autoclass:: AdditiveKernel
    :members:
 
-:hidden:`AdditiveStructureKernel`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 :hidden:`MultiDeviceKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: MultiDeviceKernel
    :members:
 
+:hidden:`AdditiveStructureKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: AdditiveStructureKernel
    :members:
