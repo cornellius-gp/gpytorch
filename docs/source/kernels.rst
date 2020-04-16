@@ -71,6 +71,12 @@ Standard Kernels
 .. autoclass:: RBFKernel
    :members:
 
+:hidden:`RQKernel`
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: RQKernel
+   :members:
+
 :hidden:`SpectralMixtureKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
