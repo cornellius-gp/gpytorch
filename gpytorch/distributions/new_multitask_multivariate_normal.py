@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import torch
 from torch import Tensor
 from torch.distributions.multivariate_normal import _batch_mahalanobis
 
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.lazy.lazy_tensor import LazyTensor
 
 ADMISSIBLE_ORDERS = {"nnt", "ntt", "ntn", "ttn", "tnt", "tnn"}
 
@@ -151,6 +152,67 @@ class MultitaskMultivariateNormal(MultivariateNormal):
             ust = torch.cholesky(covariance)
             loc = self.mean.reshape(-1, n * t)
             return mvn_log_prob(loc, ust, value.view(*value.shape[:-2], -1))
+
+
+class TaskIndependentLazyMTVN(MultitaskMultivariateNormal):
+    def __init__(self, mean: Tensor, covariances: List[LazyTensor]) -> TaskIndependentLazyMTVN:
+        self._task_indep = True
+        self._point_indep = False
+        self._mean = mean
+        self._covariances = covariances
+        self._batch_shape = mean.shape[:-2]
+        n, t = mean.shape[-2:]
+        if len(covariances) != t:
+            raise ValueError
+        if any(C.size(-1) != n for C in covariances):
+            raise ValueError
+
+    @property
+    def variance(self) -> Tensor:
+        return torch.stack([C.diag() for C in self._covariances], dim=-1)
+
+    def expand(self, batch_size: Tuple[int, ...]) -> MultitaskMultivariateNormal:
+        mean = self.mean.expand(torch.Size(batch_size) + self.mean.shape[-2:])
+        covariances = [C.expand(torch.Size(batch_size) + C.shape[-2:]) for C in self._covariances]
+        return self.__class__(mean=mean, covariances=covariances)
+
+    def rsample(self, sample_shape: torch.Size = torch.Size(), base_samples: Optional[Tensor] = None) -> Tensor:
+        if base_samples is not None:
+            raise NotImplementedError
+        if len(set(C.shape for C in self._covariances)) > 1:
+            # TODO: Support broadcasting across batch dimensions
+            raise RuntimeError("all tasks must have the same shape")
+        tkwargs = {"device": self._mean.device, "dtype": self._mean.dtype}
+        batch_shape = self._covariances[0].shape[:-2]
+        samples = []
+        for C in self._covariances:
+            # root decomps could be of different shape if low-rank
+            root = C.root_decomposition().root
+            eps = torch.randn(*sample_shape, *batch_shape, root.size(-1), 1, **tkwargs)
+            samples.append(root @ eps)
+        return self._mean + torch.cat(samples, dim=-1)
+
+    def log_prob(self, value: Tensor) -> Tensor:
+        diff = value - self._mean
+        inv_quads, logdets = [], []
+        for i, C in enumerate(self._covariances):
+            # allow broadcasting w.r.t batch dimenions of inv_quad_logdet (should clean this up / optimize it!)
+            if len(diff.shape[:-1]) < len(C.batch_shape):
+                diff = diff.expand(C.shape[:-1], diff.size(-1))
+            else:
+                padded_batch_shape = (*(1 for _ in range(diff.dim() + 1 - C.dim())), *C.batch_shape)
+                batch_reps = (
+                    diff_size // covar_size for diff_size, covar_size in zip(diff.shape[:-2], padded_batch_shape)
+                )
+                C = C.repeat(*batch_reps, 1, 1)
+            # this should use the new triangular lazy tensor to avoid unnecessary compute here
+            inv_quad, logdet = C.inv_quad_logdet(inv_quad_rhs=diff[..., i : i + 1], logdet=True)
+            inv_quads.append(inv_quad)
+            logdets.append(logdet)
+        inv_quad = torch.stack(inv_quads, dim=-1)
+        logdet = torch.stack(logdets, dim=-1)
+        log_prob = -0.5 * sum([inv_quad, logdet, diff.size(-2) * math.log(2 * math.pi)])
+        return log_prob.sum(-1)
 
 
 def mvn_log_prob(loc: Tensor, unbroadcasted_scale_tril: Tensor, value: Tensor) -> Tensor:
