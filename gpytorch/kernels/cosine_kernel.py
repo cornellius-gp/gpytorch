@@ -20,7 +20,7 @@ class CosineKernel(Kernel):
             \pi \Vert \mathbf{x_1} - \mathbf{x_2} \Vert_2 / p \right)
        \end{equation*}
 
-    where :math:`p` is the periord length parameter.
+    where :math:`p` is the period length parameter.
 
     Args:
         :attr:`batch_shape` (torch.Size, optional):
