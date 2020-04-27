@@ -7,7 +7,6 @@ import torch
 from .. import settings
 from ..distributions import Delta, MultivariateNormal
 from ..module import Module
-from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
 
 
@@ -110,10 +109,10 @@ class _VariationalStrategy(Module, ABC):
 
         # Ensure inducing_points and x are the same size
         inducing_points = self.inducing_points
-        if inducing_points.shape[:-2] != x.shape[:-2]:
-            batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
-            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
-            x = x.expand(*batch_shape, *x.shape[-2:])
+
+        batch_shape = self._variational_distribution.batch_shape
+        inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
+        x = x.expand(*batch_shape, *x.shape[-2:])
 
         # Get p(u)/q(u)
         variational_dist_u = self.variational_distribution
