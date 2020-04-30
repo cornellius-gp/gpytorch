@@ -1,4 +1,5 @@
 import math
+import warnings
 
 import numpy as np
 import torch
@@ -7,12 +8,22 @@ from scipy.special import ellipj, ellipk
 from .. import settings
 from .broadcasting import _mul_broadcast_shape
 from .lanczos import lanczos_tridiag
+from .linear_cg import linear_cg
 from .minres import minres
 
 
 def contour_integral_quad(
-    lazy_tensor, rhs, inverse=False, weights=None, shifts=None, max_lanczos_iter=7, num_contour_quadrature=7
+    lazy_tensor,
+    rhs,
+    inverse=False,
+    weights=None,
+    shifts=None,
+    max_lanczos_iter=15,
+    num_contour_quadrature=7,
+    shift_offset=0,
 ):
+    from ..lazy.preconditioned_lazy_tensor import PreconditionedLazyTensor
+
     r"""
     Performs :math:`\mathbf K^{1/2} \mathbf b` or `\mathbf K^{-1/2} \mathbf b`
     using contour integral quadrature.
@@ -35,19 +46,34 @@ def contour_integral_quad(
         # Determine if init_vecs has extra_dimensions
         num_extra_dims = max(0, rhs.dim() - lazy_tensor.dim())
 
-        lanczos_basis, lanczos_mat = lanczos_tridiag(
-            lambda v: lazy_tensor._matmul(v),
-            init_vecs=(
-                rhs.__getitem__(
-                    (*([0] * num_extra_dims), Ellipsis, slice(None, None, None), slice(None, 1, None))
-                ).expand(*lazy_tensor.shape[:-1], 1)
-            ),
-            dtype=rhs.dtype,
-            device=rhs.device,
-            matrix_shape=lazy_tensor.matrix_shape,
-            batch_shape=lazy_tensor.batch_shape,
-            max_iter=max_lanczos_iter,
-        )
+        if isinstance(lazy_tensor, PreconditionedLazyTensor):
+            rhs = lazy_tensor.preconditioner(rhs)
+            lanczos_init = rhs.__getitem__(
+                (*([0] * num_extra_dims), Ellipsis, slice(None, None, None), slice(None, 1, None))
+            ).expand(*lazy_tensor.shape[:-1], 1)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)  # Supress CG stopping warning
+                _, lanczos_mat = linear_cg(
+                    lambda v: lazy_tensor.base_lazy_tensor._matmul(v),
+                    rhs=lanczos_init,
+                    n_tridiag=1,
+                    max_iter=max_lanczos_iter,
+                    max_tridiag_iter=max_lanczos_iter,
+                    preconditioner=lazy_tensor.preconditioner,
+                )
+        else:
+            lanczos_init = rhs.__getitem__(
+                (*([0] * num_extra_dims), Ellipsis, slice(None, None, None), slice(None, 1, None))
+            ).expand(*lazy_tensor.shape[:-1], 1)
+            _, lanczos_mat = lanczos_tridiag(
+                lambda v: lazy_tensor._matmul(v),
+                init_vecs=lanczos_init,
+                dtype=rhs.dtype,
+                device=rhs.device,
+                matrix_shape=lazy_tensor.matrix_shape,
+                batch_shape=lazy_tensor.batch_shape,
+                max_iter=max_lanczos_iter,
+            )
 
         """
         K^{-1/2} b = 2/pi \int_0^\infty (K - t^2 I)^{-1} dt
@@ -99,6 +125,7 @@ def contour_integral_quad(
 
         weights = flat_weights.view(num_contour_quadrature, *k2.shape, 1, 1)
         shifts = flat_shifts.view(num_contour_quadrature + 1, *k2.shape)
+        shifts.sub_(shift_offset)
 
         # Make sure we have the right shape
         if k2.shape != output_batch_shape:
@@ -112,13 +139,16 @@ def contour_integral_quad(
     solves = solves[1:]
     inverse_solves = solves
     if not inverse:
-        solves = lazy_tensor._matmul(solves)
+        if isinstance(lazy_tensor, PreconditionedLazyTensor):
+            solves = lazy_tensor.base_lazy_tensor._matmul(solves)
+        else:
+            solves = lazy_tensor._matmul(solves)
 
     # Record some stats on how good the solves are
     if settings.record_ciq_stats.on():
         with torch.no_grad():
             settings.record_ciq_stats.minres_residual = (
-                (lazy_tensor @ no_shift_solves + rhs)
+                (lazy_tensor._matmul(no_shift_solves) + rhs)
                 .div_(rhs.norm(dim=-2, keepdim=True).clamp_min_(1e-10))
                 .norm(dim=-2)
                 .mean()

@@ -1626,17 +1626,37 @@ class LazyTensor(ABC):
         """
         if settings.ciq_samples.on():
             from ..utils.contour_integral_quad import contour_integral_quad
+            from .preconditioned_lazy_tensor import PreconditionedLazyTensor
 
+            offset = 1e-4
             with torch.no_grad():
-                base_samples = torch.randn(
-                    num_samples, *self.batch_shape, self.size(-1), 1, dtype=self.dtype, device=self.device
-                )
-                solves, weights, _, _ = contour_integral_quad(
-                    self.evaluate_kernel(),
-                    base_samples,
-                    inverse=False,
-                    num_contour_quadrature=settings.num_contour_quadrature.value(),
-                )
+                lt = self.evaluate_kernel().add_jitter(offset)
+                preconditioner, preconditioner_lt, _ = lt._preconditioner()
+
+                if preconditioner is None:
+                    with settings.ciq_samples(False):
+                        base_samples = torch.randn(
+                            num_samples, *self.batch_shape, self.size(-1), 1, dtype=self.dtype, device=self.device
+                        )
+                    solves, weights, _, _ = contour_integral_quad(
+                        lt,
+                        base_samples,
+                        inverse=False,
+                        num_contour_quadrature=settings.num_contour_quadrature.value(),
+                        shift_offset=offset,
+                    )
+
+                else:
+                    with settings.ciq_samples(False):
+                        base_samples = preconditioner_lt.zero_mean_mvn_samples(num_samples).unsqueeze(-1)
+                    solves, weights, _, _ = contour_integral_quad(
+                        PreconditionedLazyTensor(lt, preconditioner),
+                        base_samples,
+                        inverse=False,
+                        num_contour_quadrature=settings.num_contour_quadrature.value(),
+                        shift_offset=offset,
+                    )
+
             return (solves * weights).sum(0).squeeze(-1)
 
         else:
