@@ -373,10 +373,10 @@ class minres_tolerance(_value_context):
 class num_contour_quadrature(_value_context):
     """
     The number of quadrature points to compute CIQ.
-    Default: 7
+    Default: 15
     """
 
-    _global_value = 7
+    _global_value = 15
 
 
 class cg_tolerance(_value_context):
