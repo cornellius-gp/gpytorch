@@ -411,7 +411,7 @@ class LazyTensor(ABC):
             return NonLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
 
         # contiguous call is necessary here
-        cholesky = psd_safe_cholesky(evaluated_mat).contiguous()
+        cholesky = psd_safe_cholesky(evaluated_mat, jitter=settings.cholesky_jitter.value()).contiguous()
         return NonLazyTensor(cholesky)
 
     def _cholesky_solve(self, rhs):

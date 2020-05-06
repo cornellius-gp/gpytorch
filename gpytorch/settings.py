@@ -338,6 +338,15 @@ class max_cg_iterations(_value_context):
     _global_value = 1000
 
 
+class cholesky_jitter(_value_context):
+    """
+    The jitter value passed to `psd_safe_cholesky` when using cholesky solves.
+    Default: None
+    """
+
+    _global_value = None
+
+
 class cg_tolerance(_value_context):
     """
     Relative residual tolerance to use for terminating CG.
