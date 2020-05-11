@@ -4,6 +4,7 @@ import warnings
 
 import torch
 
+from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, delazify
 from ..settings import trace_mode
@@ -67,7 +68,7 @@ class VariationalStrategy(_VariationalStrategy):
 
     @cached(name="cholesky_factor")
     def _cholesky_factor(self, induc_induc_covar):
-        L = psd_safe_cholesky(delazify(induc_induc_covar).double())
+        L = psd_safe_cholesky(delazify(induc_induc_covar).double(), jitter=settings.cholesky_jitter.value())
         return L
 
     @property
