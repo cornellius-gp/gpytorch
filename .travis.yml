@@ -40,12 +40,12 @@ matrix:
   include:
     - env: LINT_CHECK
       python: "3.6"
-      install: pip install flake8 flake8-print
+      install: pip install flake8==3.7.9 flake8-print==3.1.4
       script: flake8
     - env: PRECOMMIT_CHECK
       python: "3.6"
       install: pip install pre-commit; pre-commit install; pre-commit run seed-isort-config || true
-      script: pre-commit run --files test/**/*.py gpytorch/**/*.py
+      script: SKIP=flake8 pre-commit run --files test/**/*.py gpytorch/**/*.py
     - env: DOCS_CHECK
       addons:
         apt_packages:
