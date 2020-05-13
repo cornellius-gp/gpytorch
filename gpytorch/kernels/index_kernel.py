@@ -37,7 +37,7 @@ class IndexKernel(Kernel):
     Attributes:
         covar_factor:
             The :math:`B` matrix.
-        lov_var:
+        raw_var:
             The element-wise log of the :math:`\mathbf v` vector.
     """
 
