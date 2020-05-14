@@ -1,9 +1,9 @@
 # GPyTorch
 
 ---
-__News: GPyTorch v1.0.0__
+__News: GPyTorch v1.1__
 
-GPyTorch v1.0.0 has just been released. This release marks our exit from beta status and in to what we consider stable software. This means that we do not expect you to encounter any major bugs when using stable features. Check out the [release notes](https://github.com/cornellius-gp/gpytorch/releases/tag/v1.0.0), as well as our fully revamped documentation and example notebooks.
+GPyTorch v1.1 has just been released.
 
 ---
 
@@ -24,7 +24,7 @@ See our numerous [**examples and tutorials**](https://gpytorch.readthedocs.io/en
 
 **Requirements**:
 - Python >= 3.6
-- PyTorch >= 1.3
+- PyTorch >= 1.5
 
 Install GPyTorch using pip or conda:
 

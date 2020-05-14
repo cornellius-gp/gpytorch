@@ -5,6 +5,7 @@ import math
 
 import torch
 
+from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, PsdSumLazyTensor, RootLazyTensor, delazify
 from ..mlls import InducingPointKernelAddedLossTerm
@@ -44,7 +45,7 @@ class InducingPointKernel(Kernel):
         if not self.training and hasattr(self, "_cached_kernel_inv_root"):
             return self._cached_kernel_inv_root
         else:
-            chol = psd_safe_cholesky(self._inducing_mat, upper=True)
+            chol = psd_safe_cholesky(self._inducing_mat, upper=True, jitter=settings.cholesky_jitter.value())
             eye = torch.eye(chol.size(-1), device=chol.device, dtype=chol.dtype)
             inv_root = torch.triangular_solve(eye, chol)[0]
 
