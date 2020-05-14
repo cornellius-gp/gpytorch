@@ -5,7 +5,7 @@ from typing import Optional
 
 import torch
 
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..priors import Prior
 from .kernel import Kernel
 
@@ -92,19 +92,29 @@ class ArcKernel(Kernel):
     has_lengthscale = True
 
     def __init__(
-        self, base_kernel, angle_prior: Optional[Prior] = None, radius_prior: Optional[Prior] = None, **kwargs
+        self,
+        base_kernel,
+        delta_func: Optional = None,
+        angle_prior: Optional[Prior] = None,
+        radius_prior: Optional[Prior] = None,
+        **kwargs,
     ):
         super(ArcKernel, self).__init__(has_lengthscale=True, **kwargs)
 
         if self.ard_num_dims is None:
-            last_dim = 1
+            self.last_dim = 1
         else:
-            last_dim = self.ard_num_dims
-        # TODO: check the errors given by interval
-        angle_constraint = Positive()
+            self.last_dim = self.ard_num_dims
 
+        if delta_func is None:
+            self.delta_func = self.default_delta_func
+        else:
+            self.delta_func = delta_func
+
+        # TODO: check the errors given by interval
+        angle_constraint = Interval(0.1, 0.9)
         self.register_parameter(
-            name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, last_dim)),
+            name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
         )
         if angle_prior is not None:
             self.register_prior(
@@ -114,7 +124,7 @@ class ArcKernel(Kernel):
         self.register_constraint("raw_angle", angle_constraint)
 
         self.register_parameter(
-            name="raw_radius", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, last_dim)),
+            name="raw_radius", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
         )
 
         if radius_prior is not None:
@@ -157,12 +167,16 @@ class ArcKernel(Kernel):
         self.initialize(raw_radius=self.raw_radius_constraint.inverse_transform(value))
 
     def embedding(self, x):
+        mask = self.delta_func(x)
         x_ = x.div(self.lengthscale)
-        x_s = self.radius * torch.sin(pi * self.angle * x_)
-        x_c = self.radius * torch.cos(pi * self.angle * x_)
+        x_s = self.radius * torch.sin(pi * self.angle * x_) * mask
+        x_c = self.radius * torch.cos(pi * self.angle * x_) * mask
         x_ = torch.cat((x_s, x_c), dim=-1)
         return x_
 
-    def forward(self, x1, x2, diag=False, **params):
+    def default_delta_func(self, x):
+        return torch.ones_like(x)
+
+    def forward(self, x1, x2, diag, **params):
         x1_, x2_ = self.embedding(x1), self.embedding(x2)
         return self.base_kernel(x1_, x2_, diag=diag)
