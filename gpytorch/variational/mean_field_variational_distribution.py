@@ -32,14 +32,21 @@ class MeanFieldVariationalDistribution(_VariationalDistribution):
 
     @property
     def variational_stddev(self):
-        return self._variational_stddev.abs().clamp_min(1e-8)
+        # TODO: if we don't multiply self._variational_stddev by a mask of one, Pyro models fail
+        # not sure where this bug is occuring (in Pyro or PyTorch)
+        # throwing this in as a hotfix for now - we should investigate later
+        mask = torch.ones_like(self._variational_stddev)
+        return self._variational_stddev.mul(mask).abs().clamp_min(1e-8)
 
     def forward(self):
-        variational_var = self.variational_stddev.pow(2)
-        variational_covar = DiagLazyTensor(variational_var)
+        # TODO: if we don't multiply self._variational_stddev by a mask of one, Pyro models fail
+        # not sure where this bug is occuring (in Pyro or PyTorch)
+        # throwing this in as a hotfix for now - we should investigate later
+        mask = torch.ones_like(self._variational_stddev)
+        variational_covar = DiagLazyTensor(self._variational_stddev.mul(mask).pow(2))
         return MultivariateNormal(self.variational_mean, variational_covar)
 
     def initialize_variational_distribution(self, prior_dist):
         self.variational_mean.data.copy_(prior_dist.mean)
         self.variational_mean.data.add_(torch.randn_like(prior_dist.mean), alpha=self.mean_init_std)
-        self.variational_stddev.data.copy_(prior_dist.stddev)
+        self._variational_stddev.data.copy_(prior_dist.stddev)
