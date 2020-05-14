@@ -20,3 +20,6 @@ class PreconditionedLazyTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(self.base_lazy_tensor._transpose_nonbatch(), self.preconditioner)
+
+    def diag(self):
+        return self.base_lazy_tensor.diag()
