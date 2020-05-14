@@ -75,7 +75,7 @@ def contour_integral_quad(
 
         max_eig = approx_eigs.max(dim=-1)[0]
         min_eig = approx_eigs.min(dim=-1)[0]
-        k2 = min_eig / max_eig
+        k2 = (min_eig / max_eig).squeeze(-1)
         if settings.record_ciq_stats.on():
             settings.record_ciq_stats.condition_number = 1.0 / k2.mean().item()
 
@@ -113,6 +113,7 @@ def contour_integral_quad(
 
         # Make sure we have the right shape
         if k2.shape != output_batch_shape:
+            print(k2.shape)
             weights = torch.stack([w.expand(*output_batch_shape, 1, 1) for w in weights], 0)
             shifts = torch.stack([s.expand(output_batch_shape) for s in shifts], 0)
 
