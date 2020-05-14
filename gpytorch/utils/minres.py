@@ -6,7 +6,7 @@ from .. import settings
 from .broadcasting import _pad_with_singletons
 
 
-def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=None):
+def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=None, preconditioner=None):
     r"""
     Perform MINRES to find solutions to :math:`(\mathbf K + \alpha \sigma \mathbf I) \mathbf x = \mathbf b`.
     Will find solutions for multiple shifts :math:`\sigma` at the same time.
@@ -29,6 +29,10 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
 
     if shifts is None:
         shifts = torch.tensor(0.0, dtype=rhs.dtype, device=rhs.device)
+
+    # Maybe precondition
+    if preconditioner is not None:
+        rhs = preconditioner(rhs)
 
     # Scale the rhs
     squeeze = False
@@ -100,9 +104,11 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     search_update_norm = torch.zeros_like(solution_norm)
 
     # Perform iterations
-    for i in range(max_iter):
+    for i in range(max_iter + 2):
         # Perform matmul
         prod = mm_(qvec_prev1)
+        if preconditioner is not None:
+            prod = preconditioner(prod)
         if value is not None:
             prod.mul_(value)
 

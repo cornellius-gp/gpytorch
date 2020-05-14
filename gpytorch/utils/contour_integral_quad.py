@@ -7,7 +7,6 @@ from scipy.special import ellipj, ellipk
 
 from .. import settings
 from .broadcasting import _mul_broadcast_shape
-from .lanczos import lanczos_tridiag
 from .linear_cg import linear_cg
 from .minres import minres
 
@@ -18,12 +17,10 @@ def contour_integral_quad(
     inverse=False,
     weights=None,
     shifts=None,
-    max_lanczos_iter=15,
+    max_lanczos_iter=20,
     num_contour_quadrature=7,
     shift_offset=0,
 ):
-    from ..lazy.preconditioned_lazy_tensor import PreconditionedLazyTensor
-
     r"""
     Performs :math:`\mathbf K^{1/2} \mathbf b` or `\mathbf K^{-1/2} \mathbf b`
     using contour integral quadrature.
@@ -41,38 +38,24 @@ def contour_integral_quad(
     :return: Approximation to :math:`\mathbf K^{1/2} \mathbf b` or :mathbf:`\mathbf K^{-1/2} \mathbf b`.
     """
     output_batch_shape = _mul_broadcast_shape(lazy_tensor.batch_shape, rhs.shape[:-2])
+    preconditioner, preconditioner_lt, _ = lazy_tensor._preconditioner()
 
     if shifts is None:
         # Determine if init_vecs has extra_dimensions
         num_extra_dims = max(0, rhs.dim() - lazy_tensor.dim())
-
-        if isinstance(lazy_tensor, PreconditionedLazyTensor):
-            rhs = lazy_tensor.preconditioner(rhs)
-            lanczos_init = rhs.__getitem__(
-                (*([0] * num_extra_dims), Ellipsis, slice(None, None, None), slice(None, 1, None))
-            ).expand(*lazy_tensor.shape[:-1], 1)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)  # Supress CG stopping warning
-                _, lanczos_mat = linear_cg(
-                    lambda v: lazy_tensor.base_lazy_tensor._matmul(v),
-                    rhs=lanczos_init,
-                    n_tridiag=1,
-                    max_iter=max_lanczos_iter,
-                    max_tridiag_iter=max_lanczos_iter,
-                    preconditioner=lazy_tensor.preconditioner,
-                )
-        else:
-            lanczos_init = rhs.__getitem__(
-                (*([0] * num_extra_dims), Ellipsis, slice(None, None, None), slice(None, 1, None))
-            ).expand(*lazy_tensor.shape[:-1], 1)
-            _, lanczos_mat = lanczos_tridiag(
+        lanczos_init = rhs.__getitem__(
+            (*([0] * num_extra_dims), Ellipsis, slice(None, None, None), slice(None, 1, None))
+        ).expand(*lazy_tensor.shape[:-1], 1)
+        with warnings.catch_warnings(), torch.no_grad():
+            warnings.simplefilter("ignore", UserWarning)  # Supress CG stopping warning
+            _, lanczos_mat = linear_cg(
                 lambda v: lazy_tensor._matmul(v),
-                init_vecs=lanczos_init,
-                dtype=rhs.dtype,
-                device=rhs.device,
-                matrix_shape=lazy_tensor.matrix_shape,
-                batch_shape=lazy_tensor.batch_shape,
+                rhs=lanczos_init,
+                n_tridiag=1,
                 max_iter=max_lanczos_iter,
+                tolerance=1e-5,
+                max_tridiag_iter=max_lanczos_iter,
+                preconditioner=preconditioner,
             )
 
         """
@@ -89,6 +72,7 @@ def contour_integral_quad(
                 raise RuntimeError
         except RuntimeError:
             approx_eigs = lazy_tensor.diag()
+
         max_eig = approx_eigs.max(dim=-1)[0]
         min_eig = approx_eigs.min(dim=-1)[0]
         k2 = min_eig / max_eig
@@ -134,15 +118,13 @@ def contour_integral_quad(
 
     # Compute the solves at the given shifts
     # Do one more matmul if we don't want to include the inverse
-    solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=shifts)
+    with torch.no_grad():
+        solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=shifts, preconditioner=preconditioner)
     no_shift_solves = solves[0]
     solves = solves[1:]
     inverse_solves = solves
     if not inverse:
-        if isinstance(lazy_tensor, PreconditionedLazyTensor):
-            solves = lazy_tensor.base_lazy_tensor._matmul(solves)
-        else:
-            solves = lazy_tensor._matmul(solves)
+        solves = lazy_tensor._matmul(solves)
 
     # Record some stats on how good the solves are
     if settings.record_ciq_stats.on():
@@ -155,12 +137,22 @@ def contour_integral_quad(
                 .item()
             )
             inv_quad_res = (no_shift_solves * rhs).sum(dim=-2).mul_(-1)
-            settings.record_ciq_stats.ciq_diff = (
-                ((inverse_solves * weights).sum(dim=0).pow(2).sum(dim=-2).sub_(inv_quad_res))
-                .div_(inv_quad_res.clamp_min_(1e-5))
-                .abs_()
-                .mean()
-                .item()
-            )
+            if preconditioner_lt is not None:
+                sqrt = (inverse_solves * weights).sum(dim=0)
+                settings.record_ciq_stats.ciq_diff = (
+                    ((preconditioner_lt @ sqrt).mul(sqrt).sum(dim=-2).sub_(inv_quad_res))
+                    .div_(inv_quad_res.clamp_min_(1e-5))
+                    .abs_()
+                    .mean()
+                    .item()
+                )
+            else:
+                settings.record_ciq_stats.ciq_diff = (
+                    ((inverse_solves * weights).sum(dim=0).pow(2).sum(dim=-2).sub_(inv_quad_res))
+                    .div_(inv_quad_res.clamp_min_(1e-5))
+                    .abs_()
+                    .mean()
+                    .item()
+                )
 
     return solves, weights, no_shift_solves, shifts
