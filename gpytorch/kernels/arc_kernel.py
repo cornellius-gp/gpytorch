@@ -177,6 +177,6 @@ class ArcKernel(Kernel):
     def default_delta_func(self, x):
         return torch.ones_like(x)
 
-    def forward(self, x1, x2, diag, **params):
+    def forward(self, x1, x2, diag=True, **params):
         x1_, x2_ = self.embedding(x1), self.embedding(x2)
         return self.base_kernel(x1_, x2_, diag=diag)
