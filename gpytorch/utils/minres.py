@@ -26,13 +26,11 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     if torch.is_tensor(matmul_closure):
         matmul_closure = matmul_closure.matmul
     mm_ = matmul_closure
+    if preconditioner is None:
+        preconditioner = lambda x: x.clone()
 
     if shifts is None:
         shifts = torch.tensor(0.0, dtype=rhs.dtype, device=rhs.device)
-
-    # Maybe precondition
-    if preconditioner is not None:
-        rhs = preconditioner(rhs)
 
     # Scale the rhs
     squeeze = False
@@ -63,13 +61,18 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     solution = torch.zeros(shifts.shape[:1] + prod.shape, dtype=rhs.dtype, device=rhs.device)
 
     # Variasbles for Lanczos terms
+    zvec_prev2 = torch.zeros_like(prod)
+    zvec_prev1 = rhs.clone().expand_as(prod).contiguous()
+    qvec_prev1 = preconditioner(zvec_prev1)
     alpha_curr = torch.empty(prod.shape[:-2] + (1, prod.size(-1)), dtype=rhs.dtype, device=rhs.device)
     alpha_shifted_curr = torch.empty(solution.shape[:-2] + (1, prod.size(-1)), dtype=rhs.dtype, device=rhs.device)
-    beta_prev = rhs_norm.clone().expand((prod.shape[:-2] + (1, prod.size(-1)))).contiguous()
+    beta_prev = (zvec_prev1 * qvec_prev1).sum(dim=-2, keepdim=True).sqrt_()
     beta_curr = torch.empty_like(beta_prev)
-    qvec_prev2 = torch.zeros_like(prod)
-    qvec_prev1 = rhs.clone().expand_as(prod).contiguous()
-    tmpvec = torch.empty_like(qvec_prev2)
+    tmpvec = torch.empty_like(qvec_prev1)
+
+    # Divide by beta_prev
+    zvec_prev1.div_(beta_prev)
+    qvec_prev1.div_(beta_prev)
 
     # Variables for the QR rotation
     # 1) Components of the Givens rotations
@@ -107,20 +110,31 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     for i in range(max_iter + 2):
         # Perform matmul
         prod = mm_(qvec_prev1)
-        if preconditioner is not None:
-            prod = preconditioner(prod)
         if value is not None:
             prod.mul_(value)
+
+        # Get next Lanczos terms
+        # --> alpha_curr, beta_curr, qvec_curr
+        torch.mul(prod, qvec_prev1, out=tmpvec)
+        torch.sum(tmpvec, -2, keepdim=True, out=alpha_curr)
+
+        zvec_curr = prod.addcmul_(alpha_curr, zvec_prev1, value=-1).addcmul_(beta_prev, zvec_prev2, value=-1)
+
+        qvec_curr = preconditioner(zvec_curr)
+        torch.mul(zvec_curr, qvec_curr, out=tmpvec)
+        torch.sum(tmpvec, -2, keepdim=True, out=beta_curr)
+        beta_curr.sqrt_()
+        beta_curr.clamp_min_(eps)
+
+        zvec_curr.div_(beta_curr)
+        qvec_curr.div_(beta_curr)
 
         # Perform JIT-ted update
         conv = _jit_minres_updates(
             solution,
-            prod,
             shifts,
             eps,
-            qvec_prev2,
             qvec_prev1,
-            tmpvec,
             alpha_curr,
             alpha_shifted_curr,
             beta_prev,
@@ -155,7 +169,8 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
 
         # Update terms for next iteration
         # Lanczos terms
-        qvec_prev2, qvec_prev1 = qvec_prev1, prod
+        zvec_prev2, zvec_prev1 = zvec_prev1, prod
+        qvec_prev1 = qvec_curr
         beta_prev, beta_curr = beta_curr, beta_prev
         # Givens rotations terms
         cos_prev2, cos_prev1, cos_curr = cos_prev1, cos_curr, cos_prev2
@@ -173,17 +188,14 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     if squeeze:
         solution = solution.squeeze(-1)
 
-    return solution
+    return solution.mul_(rhs_norm)
 
 
 def _jit_minres_updates(
     solution,
-    prod,
     shifts,
     eps,
-    qvec_prev2,
     qvec_prev1,
-    tmpvec,
     alpha_curr,
     alpha_shifted_curr,
     beta_prev,
@@ -207,25 +219,15 @@ def _jit_minres_updates(
     search_update_norm,
     solution_norm,
 ):
-    # Get next Lanczos terms
-    # --> alpha_curr, beta_curr, qvec_curr
-    qvec_curr = prod
-    torch.mul(qvec_curr, qvec_prev1, out=tmpvec)
-    torch.sum(tmpvec, -2, keepdim=True, out=alpha_curr)
-
-    qvec_curr.addcmul_(alpha_curr, qvec_prev1, value=-1).addcmul_(beta_prev, qvec_prev2, value=-1)
-
+    # Start givens rotation
+    # Givens rotation from 2 steps ago
     torch.mul(sin_prev2, beta_prev, out=subsub_diag_term)
     torch.mul(cos_prev2, beta_prev, out=sub_diag_term)
-
-    torch.norm(qvec_curr, p=2, dim=-2, keepdim=True, out=beta_curr)
-    beta_curr.clamp_min_(eps)
-
-    qvec_curr.div_(beta_curr)
 
     # Compute shifted alpha
     torch.add(alpha_curr, shifts, out=alpha_shifted_curr)
 
+    # Givens rotation from 1 step ago
     torch.mul(alpha_shifted_curr, cos_prev1, out=diag_term).addcmul_(sin_prev1, sub_diag_term, value=-1)
     sub_diag_term.mul_(cos_prev1).addcmul_(sin_prev1, alpha_shifted_curr)
 

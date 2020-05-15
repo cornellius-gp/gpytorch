@@ -47,6 +47,9 @@ def contour_integral_quad(
         else:
             return rhs
 
+    if not inverse:
+        rhs = sqrt_precond_matmul(rhs)
+
     if shifts is None:
         # Determine if init_vecs has extra_dimensions
         num_extra_dims = max(0, rhs.dim() - lazy_tensor.dim())
@@ -125,8 +128,6 @@ def contour_integral_quad(
 
     # Compute the solves at the given shifts
     # Do one more matmul if we don't want to include the inverse
-    if not inverse:
-        rhs = sqrt_precond_matmul(rhs)
     with torch.no_grad():
         solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=shifts, preconditioner=preconditioner)
     no_shift_solves = solves[0]
