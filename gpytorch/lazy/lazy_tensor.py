@@ -1627,14 +1627,9 @@ class LazyTensor(ABC):
         if settings.ciq_samples.on():
             from ..utils.contour_integral_quad import contour_integral_quad
 
-            with settings.ciq_samples(False):
-                _, preconditioner_lt, _ = self._preconditioner()
-                if preconditioner_lt is not None:
-                    base_samples = preconditioner_lt.zero_mean_mvn_samples(num_samples).unsqueeze(-1)
-                else:
-                    base_samples = torch.randn(
-                        num_samples, *self.batch_shape, self.size(-1), 1, dtype=self.dtype, device=self.device
-                    )
+            base_samples = torch.randn(
+                num_samples, *self.batch_shape, self.size(-1), 1, dtype=self.dtype, device=self.device
+            )
             solves, weights, _, _ = contour_integral_quad(
                 self.evaluate_kernel(),
                 base_samples,

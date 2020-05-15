@@ -40,6 +40,13 @@ def contour_integral_quad(
     output_batch_shape = _mul_broadcast_shape(lazy_tensor.batch_shape, rhs.shape[:-2])
     preconditioner, preconditioner_lt, _ = lazy_tensor._preconditioner()
 
+    def sqrt_precond_matmul(rhs):
+        if preconditioner_lt is not None:
+            solves, weights, _, _ = contour_integral_quad(preconditioner_lt, rhs, inverse=False)
+            return (solves * weights).sum(0)
+        else:
+            return rhs
+
     if shifts is None:
         # Determine if init_vecs has extra_dimensions
         num_extra_dims = max(0, rhs.dim() - lazy_tensor.dim())
@@ -113,12 +120,13 @@ def contour_integral_quad(
 
         # Make sure we have the right shape
         if k2.shape != output_batch_shape:
-            print(k2.shape)
             weights = torch.stack([w.expand(*output_batch_shape, 1, 1) for w in weights], 0)
             shifts = torch.stack([s.expand(output_batch_shape) for s in shifts], 0)
 
     # Compute the solves at the given shifts
     # Do one more matmul if we don't want to include the inverse
+    if not inverse:
+        rhs = sqrt_precond_matmul(rhs)
     with torch.no_grad():
         solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=shifts, preconditioner=preconditioner)
     no_shift_solves = solves[0]
@@ -126,6 +134,8 @@ def contour_integral_quad(
     inverse_solves = solves
     if not inverse:
         solves = lazy_tensor._matmul(solves)
+    else:
+        solves = sqrt_precond_matmul(solves)
 
     # Record some stats on how good the solves are
     if settings.record_ciq_stats.on():
@@ -138,7 +148,7 @@ def contour_integral_quad(
                 .item()
             )
             inv_quad_res = (no_shift_solves * rhs).sum(dim=-2).mul_(-1)
-            if preconditioner_lt is not None:
+            if preconditioner_lt is not None and not inverse:
                 sqrt = (inverse_solves * weights).sum(dim=0)
                 settings.record_ciq_stats.ciq_diff = (
                     ((preconditioner_lt @ sqrt).mul(sqrt).sum(dim=-2).sub_(inv_quad_res))
