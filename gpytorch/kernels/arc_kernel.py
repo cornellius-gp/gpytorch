@@ -11,31 +11,37 @@ from .kernel import Kernel
 
 
 class ArcKernel(Kernel):
-
     r""" Computes a covariance matrix based on the Arc Kernel
     (https://arxiv.org/abs/1409.4011) between inputs :math:`\mathbf{x_1}`
     and :math:`\mathbf{x_2}`. First it applies a cylindrical embedding:
+
     .. math::
-          g_{i}(\mathbf{x}) = \{\begin{eqnarray}
-          [0, 0]^{T} \qquad if\;\delta_{i}(\mathbf{x}) = false\\
-          \omega_{i}[\sin{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}},
-          \cos{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}}] \qquad otherwise
-          \end{eqnarray}
+        g_{i}(\mathbf{x}) = \begin{cases}
+        [0, 0]^{T} & \delta_{i}(\mathbf{x}) = \text{false}\\
+        \omega_{i} \left[ \sin{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}},
+        \cos{\pi\rho_{i}\frac{x_{i}}{u_{i}-l_{i}}} \right] & \text{otherwise}
+        \end{cases}
+
     where
     * :math:`\rho` is the angle parameter.
     * :math:`\omega` is a radius parameter.
+
     then the kernel is built with the particular covariance function, e.g.
+
     .. math::
         \begin{equation}
-        k_{i}(\mathbf{x}, \mathbf{x^{'}}) =
-        \sigma^{2}\exp(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}))^{2}
+        k_{i}(\mathbf{x}, \mathbf{x'}) =
+        \sigma^{2}\exp \left(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}) \right)^{2}
         \end{equation}
+
     and the produt between dimensions
+
     .. math::
         \begin{equation}
-        k_{i}(\mathbf{x}, \mathbf{x^{'}}) =
-        \sigma^{2}\exp(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}))^{2}
+        k_{i}(\mathbf{x}, \mathbf{x'}) =
+        \sigma^{2}\exp \left(-\frac{1}{2}d_{i}(\mathbf{x}, \mathbf{x^{'}}) \right)^{2}
         \end{equation}
+
     .. note::
         This kernel does not have an `outputscale` parameter. To add a scaling
         parameter, decorate this kernel with a
@@ -43,26 +49,25 @@ class ArcKernel(Kernel):
         When using with an input of `b x n x d` dimensions, decorate this
         kernel with :class:`gpytorch.kernel.ProductStructuredKernel , setting
         the number of dims, `num_dims to d.`
+
     .. note::
         This kernel does not have an ARD lengthscale option.
-    Args:
-        :attr:`base_kernel` (gpytorch.kernels.Kernel):
-            The euclidean covariance of choice. Default: `MaternKernel(nu=2.5)`
-        :attr:`ard_num_dims` (int):
-            The number of dimensions to compute the kernel for. The kernel has
-            two parameters which are individually defined for each dimension.
-            Default: `None`.
-        :attr:`angle_prior` (Prior, optional):
-            Set this if you want to apply a prior to the period angle
-            parameter.  Default: `None`.
-        :attr:`radius_prior` (Prior, optional):
-            Set this if you want to apply a prior to the lengthscale parameter.
-            Default: `None`.
-    Attributes:
-        :attr:`radius` (Tensor):
-            The radius parameter. Size = `*batch_shape  x 1`.
-        :attr:`angle` (Tensor):
-            The period angle parameter. Size = `*batch_shape  x 1`.
+
+    :param base_kernel: (Default :obj:`gpytorch.kernels.MaternKernel(nu=2.5)`.)
+        The euclidean covariance of choice.
+    :type base_kernel: :obj:`~gpytorch.kernels.Kernel`
+    :param ard_num_dims: (Default `None`.) The number of dimensions to compute the kernel for.
+        The kernel has two parameters which are individually defined for each
+        dimension, defaults to None
+    :type ard_num_dims: int, optional
+    :param angle_prior: Set this if you want to apply a prior to the period angle parameter.
+    :type angle_prior: :obj:`~gpytorch.priors.Prior`, optional
+    :param radius_prior: Set this if you want to apply a prior to the lengthscale parameter.
+    :type radius_prior: :obj:`~gpytorch.priors.Prior`, optional
+
+    :var torch.Tensor radius: The radius parameter. Size = `*batch_shape  x 1`.
+    :var torch.Tensor angle: The period angle parameter. Size = `*batch_shape  x 1`.
+
     Example:
         >>> x = torch.randn(10, 5)
         >>> # Non-batch: Simple option
