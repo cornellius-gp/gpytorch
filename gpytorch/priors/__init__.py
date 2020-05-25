@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from .gp_prior import GaussianProcessPrior
 from .horseshoe_prior import HorseshoePrior
 from .lkj_prior import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior
 from .prior import Prior
@@ -20,6 +21,7 @@ __all__ = [
     "MultivariateNormalPrior",
     "NormalPrior",
     "SmoothedBoxPrior",
+    "GaussianProcessPrior",
     "UniformPrior",
     # "InverseWishartPrior",
     # "WishartPrior",

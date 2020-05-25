@@ -24,6 +24,8 @@ from .rbf_kernel_grad import RBFKernelGrad
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
+from .spectral_gp_kernel import SpectralGPKernel
+
 
 __all__ = [
     "keops",
@@ -53,4 +55,5 @@ __all__ = [
     "RQKernel",
     "ScaleKernel",
     "SpectralMixtureKernel",
+    "SpectralGPKernel",
 ]

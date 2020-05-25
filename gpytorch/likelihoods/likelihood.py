@@ -292,7 +292,10 @@ try:
                 return self.sample_target(output_dist, target)
 
         def sample_target(self, output_dist, target):
-            scale = (self.num_data or output_dist.batch_shape[-1]) / output_dist.batch_shape[-1]
+            if output_dist.batch_shape != torch.Size([]):
+                scale = (self.num_data or output_dist.batch_shape[-1]) / output_dist.batch_shape[-1]
+            else:
+                scale = self.num_data
             with pyro.poutine.scale(scale=scale):
                 return pyro.sample(self.name_prefix + ".y", output_dist, obs=target)
 

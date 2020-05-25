@@ -2,4 +2,4 @@ name: gpytorch
 channels:
   - pytorch
 dependencies:
-  - pytorch
+  - pytorch, scipy
