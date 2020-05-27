@@ -128,6 +128,7 @@ def linear_cg(
     max_tridiag_iter=None,
     initial_guess=None,
     preconditioner=None,
+    residual=None,
 ):
     """
     Implements the linear conjugate gradients method for (approximately) solving systems of the form
@@ -193,6 +194,8 @@ def linear_cg(
     n_iter = min(max_iter, num_rows) if settings.terminate_cg_by_size.on() else max_iter
     n_tridiag_iter = min(max_tridiag_iter, num_rows)
     eps = torch.tensor(eps, dtype=rhs.dtype, device=rhs.device)
+    # eps might become 0 if using half precision
+    assert eps > 0
 
     # Get the norm of the rhs - used for convergence checks
     # Here we're going to make almost-zero norms actually be 1 (so we don't get divide-by-zero issues)
@@ -204,8 +207,15 @@ def linear_cg(
     # Let's normalize. We'll un-normalize afterwards
     rhs = rhs.div(rhs_norm)
 
+    # Assume initial guess is in original space, not normalized space
+    initial_guess = initial_guess.div(rhs_norm)
+
     # residual: residual_{0} = b_vec - lhs x_{0}
-    residual = rhs - matmul_closure(initial_guess)
+    if residual is None:
+        residual = rhs - matmul_closure(initial_guess)
+    else:
+        # Assume residual is in original space, not normalized space
+        residual = residual.div(rhs_norm)
 
     # result <- x_{0}
     result = initial_guess.expand_as(residual).contiguous()

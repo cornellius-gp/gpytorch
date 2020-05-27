@@ -560,6 +560,7 @@ class ir_solve(object):
 
     _global_value = []
     _state = False
+    _num_pushes = 0
 
     def __init__(self):
         pass
@@ -579,10 +580,15 @@ class ir_solve(object):
     @classmethod
     def _set_value(cls, value):
         cls._global_value = value
+        cls._num_pushes = 0
 
     @classmethod
     def push(cls, solve):
-        return cls._global_value.append(solve)
+        cls._num_pushes += 1
+        if cls._num_pushes % 100 == 0:
+            cls._global_value = []
+        else:
+            return cls._global_value.append(solve)
 
     @classmethod
     def pop(cls):
