@@ -100,3 +100,6 @@ class ScaleKernel(Kernel):
 
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        return self.base_kernel.prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood)
