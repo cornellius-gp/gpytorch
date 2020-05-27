@@ -29,7 +29,8 @@ def lanczos_tridiag(
 
     # Get initial probe ectors - and define if not available
     if init_vecs is None:
-        init_vecs = torch.randn(matrix_shape[-1], num_init_vecs, dtype=dtype, device=device)
+        init_vecs = 2 * torch.randint(0, 2, (matrix_shape[-1], num_init_vecs), dtype=dtype, device=device) - 1
+        init_vecs = init_vecs / init_vecs.norm(2, dim=-2)
         init_vecs = init_vecs.expand(*batch_shape, matrix_shape[-1], num_init_vecs)
 
     else:

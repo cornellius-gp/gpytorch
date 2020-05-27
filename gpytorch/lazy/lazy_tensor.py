@@ -641,14 +641,48 @@ class LazyTensor(ABC):
         return inv_roots
 
     def _solve(self, rhs, preconditioner, num_tridiag=0):
-        return utils.linear_cg(
-            self._matmul,
-            rhs,
-            n_tridiag=num_tridiag,
-            max_iter=settings.max_cg_iterations.value(),
-            max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
-            preconditioner=preconditioner,
-        )
+        if settings.ir_solve.on():
+            if settings.ir_solve.isempty():
+                solve = utils.linear_cg(
+                    self._matmul,
+                    rhs,
+                    n_tridiag=num_tridiag,
+                    max_iter=settings.max_cg_iterations.value(),
+                    max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+                    preconditioner=preconditioner,
+                )
+            else:
+                assert len(settings.ir_solve._global_value) == 1
+                solve = settings.ir_solve().pop()
+                for _ in range(1):
+                    # TODO: do this in high precision
+                    residual = rhs - self._matmul(solve)
+                    #print("Before IR:", residual.norm(dim=0))
+                    # TODO: keep doing ir until error is low enough
+                    delta = utils.linear_cg(
+                        self._matmul,
+                        residual,
+                        n_tridiag=num_tridiag,
+                        max_iter=settings.max_cg_iterations.value(),
+                        max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+                        preconditioner=preconditioner,
+                    )
+                    # TODO: do this in high precision
+                    solve = solve + delta
+                    residual = rhs - self._matmul(solve)
+                    #print("After IR:", residual.norm(dim=0))
+            settings.ir_solve().push(solve)
+        else:
+            solve = utils.linear_cg(
+                self._matmul,
+                rhs,
+                n_tridiag=num_tridiag,
+                max_iter=settings.max_cg_iterations.value(),
+                max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+                preconditioner=preconditioner,
+            )
+        #last_solve = solve.detach()
+        return solve
 
     def _sum_batch(self, dim):
         """

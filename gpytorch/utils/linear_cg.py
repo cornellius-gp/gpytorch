@@ -13,18 +13,31 @@ def _default_preconditioner(x):
     return x.clone()
 
 
-@torch.jit.script
+# @torch.jit.script
 def _jit_linear_cg_updates(
-    result, alpha, residual_inner_prod, eps, beta, residual, precond_residual, mul_storage, is_zero, curr_conjugate_vec
+    result,
+    alpha,
+    residual_inner_prod,
+    eps,
+    beta,
+    residual,
+    precond_residual,
+    mul_storage,
+    is_zero,
+    curr_conjugate_vec,
 ):
     # # Update result
     # # result_{k} = result_{k-1} + alpha_{k} p_vec_{k-1}
     result = torch.addcmul(result, alpha, curr_conjugate_vec, out=result)
+    if torch.isnan(result).any():
+        breakpoint()
 
     # beta_{k} = (precon_residual{k}^T r_vec_{k}) / (precon_residual{k-1}^T r_vec_{k-1})
     beta.resize_as_(residual_inner_prod).copy_(residual_inner_prod)
     torch.mul(residual, precond_residual, out=mul_storage)
     torch.sum(mul_storage, -2, keepdim=True, out=residual_inner_prod)
+    if torch.isnan(residual_inner_prod).any():
+        breakpoint()
 
     # Do a safe division here
     torch.lt(beta, eps, out=is_zero)
@@ -35,9 +48,11 @@ def _jit_linear_cg_updates(
     # Update curr_conjugate_vec
     # curr_conjugate_vec_{k} = precon_residual{k} + beta_{k} curr_conjugate_vec_{k-1}
     curr_conjugate_vec.mul_(beta).add_(precond_residual)
+    if torch.isnan(curr_conjugate_vec).any():
+        breakpoint()
 
 
-@torch.jit.script
+# @torch.jit.script
 def _jit_linear_cg_updates_no_precond(
     mvms,
     result,
@@ -52,14 +67,28 @@ def _jit_linear_cg_updates_no_precond(
     is_zero,
     curr_conjugate_vec,
 ):
+    if torch.isnan(mvms).any() or torch.isinf(mvms).any():
+        breakpoint()
+    if torch.isnan(curr_conjugate_vec).any() or torch.isinf(mvms).any():
+        breakpoint()
     torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
+    if torch.isnan(mul_storage).any() or torch.isinf(mul_storage).any():
+        breakpoint()
     torch.sum(mul_storage, dim=-2, keepdim=True, out=alpha)
+    if torch.isnan(alpha).any() or torch.isinf(alpha).any():
+        breakpoint()
 
     # Do a safe division here
     torch.lt(alpha, eps, out=is_zero)
     alpha.masked_fill_(is_zero, 1)
+    if torch.isnan(alpha).any():
+        breakpoint()
     torch.div(residual_inner_prod, alpha, out=alpha)
+    if torch.isnan(alpha).any():
+        breakpoint()
     alpha.masked_fill_(is_zero, 0)
+    if torch.isnan(alpha).any():
+        breakpoint()
 
     # We'll cancel out any updates by setting alpha=0 for any vector that has already converged
     alpha.masked_fill_(has_converged, 0)
@@ -67,6 +96,8 @@ def _jit_linear_cg_updates_no_precond(
     # Update residual
     # residual_{k} = residual_{k-1} - alpha_{k} mat p_vec_{k-1}
     torch.addcmul(residual, -alpha, mvms, out=residual)
+    if torch.isnan(residual).any():
+        breakpoint()
 
     # Update precond_residual
     # precon_residual{k} = M^-1 residual_{k}
@@ -146,7 +177,9 @@ def linear_cg(
 
     # If we are running m CG iterations, we obviously can't get more than m Lanczos coefficients
     if max_tridiag_iter > max_iter:
-        raise RuntimeError("Getting a tridiagonalization larger than the number of CG iterations run is not possible!")
+        raise RuntimeError(
+            "Getting a tridiagonalization larger than the number of CG iterations run is not possible!"
+        )
 
     # Check matmul_closure object
     if torch.is_tensor(matmul_closure):
@@ -179,7 +212,9 @@ def linear_cg(
 
     # Check for NaNs
     if not torch.equal(residual, residual):
-        raise RuntimeError("NaNs encountered when trying to perform matrix-vector multiplication")
+        raise RuntimeError(
+            "NaNs encountered when trying to perform matrix-vector multiplication"
+        )
 
     # Sometime we're lucky and the preconditioner solves the system right away
     # Check for convergence
@@ -198,17 +233,30 @@ def linear_cg(
 
         # Define storage matrices
         mul_storage = torch.empty_like(residual)
-        alpha = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=residual.dtype, device=residual.device)
+        alpha = torch.empty(
+            *batch_shape, 1, rhs.size(-1), dtype=residual.dtype, device=residual.device
+        )
         beta = torch.empty_like(alpha)
-        is_zero = torch.empty(*batch_shape, 1, rhs.size(-1), dtype=bool_compat, device=residual.device)
+        is_zero = torch.empty(
+            *batch_shape, 1, rhs.size(-1), dtype=bool_compat, device=residual.device
+        )
 
     # Define tridiagonal matrices, if applicable
     if n_tridiag:
         t_mat = torch.zeros(
-            n_tridiag_iter, n_tridiag_iter, *batch_shape, n_tridiag, dtype=alpha.dtype, device=alpha.device
+            n_tridiag_iter,
+            n_tridiag_iter,
+            *batch_shape,
+            n_tridiag,
+            dtype=alpha.dtype,
+            device=alpha.device,
         )
-        alpha_tridiag_is_zero = torch.empty(*batch_shape, n_tridiag, dtype=bool_compat, device=t_mat.device)
-        alpha_reciprocal = torch.empty(*batch_shape, n_tridiag, dtype=t_mat.dtype, device=t_mat.device)
+        alpha_tridiag_is_zero = torch.empty(
+            *batch_shape, n_tridiag, dtype=bool_compat, device=t_mat.device
+        )
+        alpha_reciprocal = torch.empty(
+            *batch_shape, n_tridiag, dtype=t_mat.dtype, device=t_mat.device
+        )
         prev_alpha_reciprocal = torch.empty_like(alpha_reciprocal)
         prev_beta = torch.empty_like(alpha_reciprocal)
 
@@ -222,6 +270,8 @@ def linear_cg(
     for k in range(n_iter):
         # Get next alpha
         # alpha_{k} = (residual_{k-1}^T precon_residual{k-1}) / (p_vec_{k-1}^T mat p_vec_{k-1})
+        if torch.isnan(curr_conjugate_vec).any():
+            breakpoint()
         mvms = matmul_closure(curr_conjugate_vec)
         if precond:
             torch.mul(curr_conjugate_vec, mvms, out=mul_storage)
@@ -273,10 +323,14 @@ def linear_cg(
             )
 
         torch.norm(residual, 2, dim=-2, keepdim=True, out=residual_norm)
+        if torch.isnan(residual).any():
+            breakpoint()
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
-        if k >= 10 and bool(residual_norm.mean() < tolerance) and not (n_tridiag and k < n_tridiag_iter):
+        if bool(residual_norm.max() <= tolerance) and not (
+            n_tridiag and k < n_tridiag_iter
+        ):
             tolerance_reached = True
             break
 
@@ -292,7 +346,9 @@ def linear_cg(
             if k == 0:
                 t_mat[k, k].copy_(alpha_reciprocal)
             else:
-                torch.addcmul(alpha_reciprocal, prev_beta, prev_alpha_reciprocal, out=t_mat[k, k])
+                torch.addcmul(
+                    alpha_reciprocal, prev_beta, prev_alpha_reciprocal, out=t_mat[k, k]
+                )
                 torch.mul(prev_beta.sqrt_(), prev_alpha_reciprocal, out=t_mat[k, k - 1])
                 t_mat[k - 1, k].copy_(t_mat[k, k - 1])
 
@@ -306,14 +362,19 @@ def linear_cg(
 
     # Un-normalize
     result = result.mul(rhs_norm)
-
+    if n_iter == 0:
+        print(f"Tolerance after {n_iter} iterations: {residual_norm.mean()}")
+    else:
+        print(f"Tolerance after {k+1} iterations: {residual_norm.mean()}")
     if not tolerance_reached and n_iter > 0:
         warnings.warn(
             "CG terminated in {} iterations with average residual norm {}"
             " which is larger than the tolerance of {} specified by"
             " gpytorch.settings.cg_tolerance."
             " If performance is affected, consider raising the maximum number of CG iterations by running code in"
-            " a gpytorch.settings.max_cg_iterations(value) context.".format(k + 1, residual_norm.mean(), tolerance),
+            " a gpytorch.settings.max_cg_iterations(value) context.".format(
+                k + 1, residual_norm.mean(), tolerance
+            ),
             NumericalWarning,
         )
 
@@ -322,6 +383,9 @@ def linear_cg(
 
     if n_tridiag:
         t_mat = t_mat[: last_tridiag_iter + 1, : last_tridiag_iter + 1]
-        return result, t_mat.permute(-1, *range(2, 2 + len(batch_shape)), 0, 1).contiguous()
+        return (
+            result,
+            t_mat.permute(-1, *range(2, 2 + len(batch_shape)), 0, 1).contiguous(),
+        )
     else:
         return result

@@ -553,3 +553,57 @@ class use_toeplitz(_feature_flag):
     """
 
     _state = True
+
+
+class ir_solve(object):
+    """Use iterative refinement before CG solves. See LazyTensor._solve"""
+
+    _global_value = []
+    _state = False
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        self.__class__._set_state(True)
+        return self._global_value
+
+    def __exit__(self, *args):
+        self.__class__._set_state(False)
+        self.__class__._set_value([])
+
+    @classmethod
+    def _set_state(cls, state):
+        cls._state = state
+
+    @classmethod
+    def _set_value(cls, value):
+        cls._global_value = value
+
+    @classmethod
+    def push(cls, solve):
+        return cls._global_value.append(solve)
+
+    @classmethod
+    def pop(cls):
+        return cls._global_value.pop()
+
+    @classmethod
+    def peek(cls):
+        solves = cls._global_value
+        if len(solves) == 0:
+            return None
+        else:
+            return solves[-1]
+
+    @classmethod
+    def isempty(cls):
+        return len(cls._global_value) == 0
+
+    @classmethod
+    def on(cls):
+        return cls._state
+
+    @classmethod
+    def off(cls):
+        return not cls._state
