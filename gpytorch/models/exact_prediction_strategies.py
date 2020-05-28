@@ -30,7 +30,6 @@ def clear_cache_hook(module, *args, **kwargs):
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
     train_train_covar = train_prior_dist.lazy_covariance_matrix
-    print("wo dis", train_train_covar.kernel.prediction_strategy)
     if isinstance(train_train_covar, LazyEvaluatedKernelTensor):
         cls = train_train_covar.kernel.prediction_strategy
     else:
@@ -635,6 +634,5 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
 
         covar_cache = self.covar_cache
         factor = test_test_covar.root.evaluate() * constant.sqrt()
-        print(covar_cache.shape, factor.shape)
         res = RootLazyTensor(factor @ covar_cache)
         return res

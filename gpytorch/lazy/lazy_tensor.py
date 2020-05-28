@@ -1628,8 +1628,10 @@ class LazyTensor(ABC):
             from ..utils.contour_integral_quad import contour_integral_quad
 
             base_samples = torch.randn(
-                num_samples, *self.batch_shape, self.size(-1), 1, dtype=self.dtype, device=self.device
+                *self.batch_shape, self.size(-1), num_samples, dtype=self.dtype, device=self.device
             )
+            base_samples = base_samples.permute(-1, *range(self.dim() - 1)).contiguous()
+            base_samples = base_samples.unsqueeze(-1)
             solves, weights, _, _ = contour_integral_quad(
                 self.evaluate_kernel(),
                 base_samples,
