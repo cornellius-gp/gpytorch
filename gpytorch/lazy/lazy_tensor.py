@@ -643,8 +643,8 @@ class LazyTensor(ABC):
     def _solve(self, rhs, preconditioner, num_tridiag=0):
         # TODO: Reset every once in a while
         if settings.ir_solve.on():
+            solve_dtype = torch.float32
             #solve_dtype = torch.float16
-            solve_dtype = torch.float16
             #working_dtype = torch.float32
             working_dtype = self.dtype
             #residual_dtype = torch.float64
@@ -665,43 +665,43 @@ class LazyTensor(ABC):
                 residual = (rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(solve.to(residual_dtype)))
                 #print("Before IR:", residual.norm(dim=0))
                 # keep doing ir until error is low enough
-                #while residual.norm(dim=-2).max() > 1e-1:
+                for i in range(1):
+                    delta = utils.linear_cg(
+                        self.to(solve_dtype)._matmul,
+                        residual.to(solve_dtype),
+                        n_tridiag=num_tridiag,
+                        tolerance=1e-1,
+                        #tolerance=settings.cg_tolerance.value(),
+                        max_iter=settings.max_cg_iterations.value(),
+                        max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+                        preconditioner=preconditioner,
+                        eps=1e-10,
+                        #eps=1e-7,
+                    )
+                    # TODO: do this in high precision
+                    solve = solve + delta.to(working_dtype)
+                    residual = (rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(solve.to(residual_dtype)))
+                    #residual = rhs - self._matmul(solve)
+                    #print("After IR:", residual.norm(dim=0).max())
                 #for i in range(1):
-                #    delta = utils.linear_cg(
+                #    solve = utils.linear_cg(
                 #        self.to(solve_dtype)._matmul,
-                #        residual.to(solve_dtype),
+                #        rhs.to(solve_dtype),
                 #        n_tridiag=num_tridiag,
-                #        tolerance=5e-1,
+                #        #tolerance=5e-1,
+                #        #tolerance=5e-1,
                 #        max_iter=settings.max_cg_iterations.value(),
                 #        max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
                 #        preconditioner=preconditioner,
                 #        #eps=1e-10,
                 #        eps=1e-7,
-                #    )
+                #        residual=residual.to(solve_dtype),
+                #        initial_guess=solve.to(solve_dtype)
+                #    ).to(working_dtype)
                 #    # TODO: do this in high precision
-                #    solve = solve + delta.to(working_dtype)
                 #    residual = (rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(solve.to(residual_dtype)))
                 #    #residual = rhs - self._matmul(solve)
-                #    print("After IR:", residual.norm(dim=0).max())
-                for i in range(1):
-                    solve = utils.linear_cg(
-                        self.to(solve_dtype)._matmul,
-                        rhs.to(solve_dtype),
-                        n_tridiag=num_tridiag,
-                        #tolerance=5e-1,
-                        #tolerance=5e-1,
-                        max_iter=settings.max_cg_iterations.value(),
-                        max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
-                        preconditioner=preconditioner,
-                        #eps=1e-10,
-                        eps=1e-7,
-                        residual=residual.to(solve_dtype),
-                        initial_guess=solve.to(solve_dtype)
-                    ).to(working_dtype)
-                    # TODO: do this in high precision
-                    residual = (rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(solve.to(residual_dtype)))
-                    #residual = rhs - self._matmul(solve)
-                    #print("After IR:", residual.norm(dim=0).max())
+                #    #print("After IR:", residual.norm(dim=0).max())
             settings.ir_solve().push(solve)
         else:
             solve = utils.linear_cg(
