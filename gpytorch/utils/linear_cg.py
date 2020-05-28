@@ -374,8 +374,10 @@ def linear_cg(
     result = result.mul(rhs_norm)
     if n_iter == 0:
         print(f"Tolerance after {n_iter} iterations: {residual_norm.mean()}")
+        settings.cache.append(n_iter)
     else:
         print(f"Tolerance after {k+1} iterations: {residual_norm.mean()}")
+        settings.cache.append(k + 1)
     if not tolerance_reached and n_iter > 0:
         warnings.warn(
             "CG terminated in {} iterations with average residual norm {}"

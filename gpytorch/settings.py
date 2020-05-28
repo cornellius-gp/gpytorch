@@ -613,3 +613,5 @@ class ir_solve(object):
     @classmethod
     def off(cls):
         return not cls._state
+
+cache = []

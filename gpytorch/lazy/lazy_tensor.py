@@ -644,7 +644,7 @@ class LazyTensor(ABC):
         # TODO: Reset every once in a while
         if settings.ir_solve.on():
             #solve_dtype = torch.float16
-            solve_dtype = torch.float32
+            solve_dtype = torch.float16
             #working_dtype = torch.float32
             working_dtype = self.dtype
             #residual_dtype = torch.float64
@@ -693,8 +693,8 @@ class LazyTensor(ABC):
                         max_iter=settings.max_cg_iterations.value(),
                         max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
                         preconditioner=preconditioner,
-                        eps=1e-10,
-                        #eps=1e-7,
+                        #eps=1e-10,
+                        eps=1e-7,
                         residual=residual.to(solve_dtype),
                         initial_guess=solve.to(solve_dtype)
                     ).to(working_dtype)
