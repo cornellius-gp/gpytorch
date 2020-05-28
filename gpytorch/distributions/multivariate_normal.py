@@ -61,6 +61,9 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         else:
             self.__unbroadcasted_scale_tril = ust
 
+    def add_jitter(self, noise=1e-4):
+        return self.__class__(self.mean, self.lazy_covariance_matrix.add_jitter(noise))
+
     def expand(self, batch_size):
         new_loc = self.loc.expand(torch.Size(batch_size) + self.loc.shape[-1:])
         new_covar = self._covar.expand(torch.Size(batch_size) + self._covar.shape[-2:])
