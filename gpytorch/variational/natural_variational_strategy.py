@@ -4,7 +4,7 @@ import torch
 
 from .. import settings
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, delazify, lazify
+from ..lazy import DiagLazyTensor, lazify
 from ..module import Module
 from ..settings import record_ciq_stats
 from ..utils import linear_cg
@@ -153,13 +153,9 @@ class NaturalVariationalStrategy(_VariationalStrategy):
         # Covariance terms
         num_induc = inducing_points.size(-2)
         test_mean = full_output.mean[..., num_induc:]
-        induc_induc_covar = delazify(full_covar[..., :num_induc, :num_induc].add_jitter())
+        induc_induc_covar = full_covar[..., :num_induc, :num_induc].evaluate_kernel().add_jitter(1e-2)
         induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
         data_data_covar = full_covar[..., num_induc:, num_induc:].add_jitter(1e-4)
-
-        # Error out if we encounter NaNs
-        if not torch.equal(induc_induc_covar, induc_induc_covar):
-            raise RuntimeError("NaN encountered in K_ZZ matrix")
 
         # Compute interpolation terms
         # K_XZ K_ZZ^{-1} \mu_z

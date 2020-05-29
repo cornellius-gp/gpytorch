@@ -47,8 +47,8 @@ def contour_integral_quad(
         else:
             return rhs
 
-    if not inverse:
-        rhs = sqrt_precond_matmul(rhs)
+    # if not inverse:
+    rhs = sqrt_precond_matmul(rhs)
 
     if shifts is None:
         # Determine if init_vecs has extra_dimensions
@@ -132,11 +132,8 @@ def contour_integral_quad(
         solves = minres(lambda v: lazy_tensor._matmul(v), rhs, value=-1, shifts=shifts, preconditioner=preconditioner)
     no_shift_solves = solves[0]
     solves = solves[1:]
-    inverse_solves = solves
     if not inverse:
         solves = lazy_tensor._matmul(solves)
-    else:
-        solves = sqrt_precond_matmul(solves)
 
     # Record some stats on how good the solves are
     if settings.record_ciq_stats.on():
@@ -149,18 +146,10 @@ def contour_integral_quad(
                 .item()
             )
             inv_quad_res = (no_shift_solves * rhs).sum(dim=-2).mul_(-1)
-            if preconditioner_lt is not None and not inverse:
-                sqrt = (inverse_solves * weights).sum(dim=0)
+            if preconditioner_lt is not None:
+                sqrt = (solves * weights).sum(dim=0)
                 settings.record_ciq_stats.ciq_diff = (
                     ((preconditioner_lt @ sqrt).mul(sqrt).sum(dim=-2).sub_(inv_quad_res))
-                    .div_(inv_quad_res.clamp_min_(1e-5))
-                    .abs_()
-                    .mean()
-                    .item()
-                )
-            else:
-                settings.record_ciq_stats.ciq_diff = (
-                    ((inverse_solves * weights).sum(dim=0).pow(2).sum(dim=-2).sub_(inv_quad_res))
                     .div_(inv_quad_res.clamp_min_(1e-5))
                     .abs_()
                     .mean()
