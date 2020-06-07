@@ -484,6 +484,81 @@ class prior_mode(_feature_flag):
     _state = False
 
 
+class save_solves(object):
+    """Save the solution of the previous linear system solve.
+    Can be used to initialize the next linear system solve's residuals or to initialize iterative refinement.
+
+    See LazyTensor._solve.
+
+    Required settings to use this setting:
+        gpytorch.settings.skip_logdet_forward()
+        gpytorch.settings.deterministic_probes()
+
+    Suggested settings:
+        gpytorch.settings.max_preconditioner_size(0)
+        gpytorch.settings.max_cholesky_size(1)
+    """
+
+    _global_value = []
+    _state = False
+    _num_pushes = 0
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        self.__class__._set_state(True)
+        return self._global_value
+
+    def __exit__(self, *args):
+        self.__class__._set_state(False)
+        self.__class__._set_value(([], 0))
+
+    @classmethod
+    def _set_state(cls, state):
+        cls._state = state
+
+    @classmethod
+    def _set_value(cls, value):
+        global_value, num_pushes = value
+        cls._global_value = global_value
+        cls._num_pushes = num_pushes
+
+    @classmethod
+    def push(cls, solve):
+        cls._num_pushes += 1
+        # Reset solves every once in a while
+        # if cls._num_pushes % 100 == 0:
+        #    cls._global_value = []
+        # else:
+        #    return cls._global_value.append(solve)
+        return cls._global_value.append(solve)
+
+    @classmethod
+    def pop(cls):
+        return cls._global_value.pop()
+
+    @classmethod
+    def peek(cls):
+        solves = cls._global_value
+        if len(solves) == 0:
+            return None
+        else:
+            return solves[-1]
+
+    @classmethod
+    def isempty(cls):
+        return len(cls._global_value) == 0
+
+    @classmethod
+    def on(cls):
+        return cls._state
+
+    @classmethod
+    def off(cls):
+        return not cls._state
+
+
 class skip_logdet_forward(_feature_flag):
     """
     .. warning:

@@ -97,6 +97,7 @@ def linear_cg(
     max_tridiag_iter=None,
     initial_guess=None,
     preconditioner=None,
+    residual=None,
 ):
     """
     Implements the linear conjugate gradients method for (approximately) solving systems of the form
@@ -160,6 +161,8 @@ def linear_cg(
     n_iter = min(max_iter, num_rows) if settings.terminate_cg_by_size.on() else max_iter
     n_tridiag_iter = min(max_tridiag_iter, num_rows)
     eps = torch.tensor(eps, dtype=rhs.dtype, device=rhs.device)
+    # eps might become 0 if using half precision
+    assert eps > 0
 
     # Get the norm of the rhs - used for convergence checks
     # Here we're going to make almost-zero norms actually be 1 (so we don't get divide-by-zero issues)
@@ -171,8 +174,15 @@ def linear_cg(
     # Let's normalize. We'll un-normalize afterwards
     rhs = rhs.div(rhs_norm)
 
+    # Assume initial guess is in original space, not normalized space
+    initial_guess = initial_guess.div(rhs_norm)
+
     # residual: residual_{0} = b_vec - lhs x_{0}
-    residual = rhs - matmul_closure(initial_guess)
+    if residual is None:
+        residual = rhs - matmul_closure(initial_guess)
+    else:
+        # Assume residual is in original space, not normalized space
+        residual = residual.div(rhs_norm)
 
     # result <- x_{0}
     result = initial_guess.expand_as(residual).contiguous()
@@ -276,7 +286,7 @@ def linear_cg(
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
-        if k >= 10 and bool(residual_norm.mean() < tolerance) and not (n_tridiag and k < n_tridiag_iter):
+        if bool(residual_norm.mean() < tolerance) and not (n_tridiag and k < n_tridiag_iter):
             tolerance_reached = True
             break
 
@@ -306,6 +316,15 @@ def linear_cg(
 
     # Un-normalize
     result = result.mul(rhs_norm)
+
+    # TODO remove next few lines
+    if n_iter == 0:
+        print(f"Tolerance after {n_iter} iterations: {residual_norm.mean()}")
+        settings.cache.append(n_iter)
+    else:
+        print(f"Tolerance after {k+1} iterations: {residual_norm.mean()}")
+        settings.cache.append(k + 1)
+    # TODO: remove above lines
 
     if not tolerance_reached and n_iter > 0:
         warnings.warn(
