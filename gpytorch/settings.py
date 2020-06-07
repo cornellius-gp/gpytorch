@@ -289,7 +289,9 @@ class fast_computations(object):
     solves = _fast_solves
 
     def __init__(self, covar_root_decomposition=True, log_prob=True, solves=True):
-        self.covar_root_decomposition = _fast_covar_root_decomposition(covar_root_decomposition)
+        self.covar_root_decomposition = _fast_covar_root_decomposition(
+            covar_root_decomposition
+        )
         self.log_prob = _fast_log_prob(log_prob)
         self.solves = _fast_solves(solves)
 
@@ -556,7 +558,11 @@ class use_toeplitz(_feature_flag):
 
 
 class ir_solve(object):
-    """Use iterative refinement before CG solves. See LazyTensor._solve"""
+    """Save the solution of the previous linear system solve.
+    Can be used to initialize the next linear system solve's residuals or to initialize iterative refinement.
+
+    See LazyTensor._solve
+    """
 
     _global_value = []
     _state = False
@@ -571,7 +577,7 @@ class ir_solve(object):
 
     def __exit__(self, *args):
         self.__class__._set_state(False)
-        self.__class__._set_value([])
+        self.__class__._set_value([], 0)
 
     @classmethod
     def _set_state(cls, state):
@@ -579,16 +585,19 @@ class ir_solve(object):
 
     @classmethod
     def _set_value(cls, value):
-        cls._global_value = value
-        cls._num_pushes = 0
+        global_value, num_pushes = value
+        cls._global_value = global_value
+        cls._num_pushes = num_pushes
 
     @classmethod
     def push(cls, solve):
         cls._num_pushes += 1
-        if cls._num_pushes % 100 == 0:
-            cls._global_value = []
-        else:
-            return cls._global_value.append(solve)
+        # Reset solves every once in a while
+        # if cls._num_pushes % 100 == 0:
+        #    cls._global_value = []
+        # else:
+        #    return cls._global_value.append(solve)
+        return cls._global_value.append(solve)
 
     @classmethod
     def pop(cls):
@@ -613,5 +622,6 @@ class ir_solve(object):
     @classmethod
     def off(cls):
         return not cls._state
+
 
 cache = []

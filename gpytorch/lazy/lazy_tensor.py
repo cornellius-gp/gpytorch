@@ -17,7 +17,12 @@ from ..functions._root_decomposition import RootDecomposition
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
-from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
+from ..utils.getitem import (
+    _compute_getitem_size,
+    _convert_indices_to_tensors,
+    _is_noop_index,
+    _noop_index,
+)
 from ..utils.memoize import add_to_cache, cached
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
@@ -117,7 +122,9 @@ class LazyTensor(ABC):
         Returns:
             :obj:`torch.tensor`: matrix * rhs
         """
-        raise NotImplementedError("The class {} requires a _matmul function!".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "The class {} requires a _matmul function!".format(self.__class__.__name__)
+        )
 
     @abstractmethod
     def _size(self):
@@ -131,7 +138,9 @@ class LazyTensor(ABC):
         Returns:
             :obj:`torch.Size`: The size of the matrix :math:`K` represented by this LazyTensor
         """
-        raise NotImplementedError("The class {} requires a _size function!".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "The class {} requires a _size function!".format(self.__class__.__name__)
+        )
 
     @abstractmethod
     def _transpose_nonbatch(self):
@@ -144,7 +153,9 @@ class LazyTensor(ABC):
             does some additional work. Calling this method directly is discouraged.
         """
         raise NotImplementedError(
-            "The class {} requires a _transpose_nonbatch function!".format(self.__class__.__name__)
+            "The class {} requires a _transpose_nonbatch function!".format(
+                self.__class__.__name__
+            )
         )
 
     ####
@@ -223,18 +234,32 @@ class LazyTensor(ABC):
 
         # Normal case: we have to do some processing on either the rows or columns
         # We will handle this through "interpolation"
-        row_interp_indices = torch.arange(0, self.size(-2), dtype=torch.long, device=self.device).view(-1, 1)
+        row_interp_indices = torch.arange(
+            0, self.size(-2), dtype=torch.long, device=self.device
+        ).view(-1, 1)
         row_interp_indices = row_interp_indices.expand(*self.batch_shape, -1, 1)
-        row_interp_values = torch.tensor(1.0, dtype=self.dtype, device=self.device).expand_as(row_interp_indices)
+        row_interp_values = torch.tensor(
+            1.0, dtype=self.dtype, device=self.device
+        ).expand_as(row_interp_indices)
 
-        col_interp_indices = torch.arange(0, self.size(-1), dtype=torch.long, device=self.device).view(-1, 1)
+        col_interp_indices = torch.arange(
+            0, self.size(-1), dtype=torch.long, device=self.device
+        ).view(-1, 1)
         col_interp_indices = col_interp_indices.expand(*self.batch_shape, -1, 1)
-        col_interp_values = torch.tensor(1.0, dtype=self.dtype, device=self.device).expand_as(col_interp_indices)
+        col_interp_values = torch.tensor(
+            1.0, dtype=self.dtype, device=self.device
+        ).expand_as(col_interp_indices)
 
         # Construct interpolated LazyTensor
         from . import InterpolatedLazyTensor
 
-        res = InterpolatedLazyTensor(self, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values)
+        res = InterpolatedLazyTensor(
+            self,
+            row_interp_indices,
+            row_interp_values,
+            col_interp_indices,
+            col_interp_values,
+        )
         return res._getitem(row_index, col_index, *batch_indices)
 
     def _unsqueeze_batch(self, dim):
@@ -262,9 +287,15 @@ class LazyTensor(ABC):
             This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.expand`,
             which does some additional work. Calling this method directly is discouraged.
         """
-        current_shape = torch.Size([1 for _ in range(len(batch_shape) - self.dim() - 2)] + list(self.batch_shape))
+        current_shape = torch.Size(
+            [1 for _ in range(len(batch_shape) - self.dim() - 2)]
+            + list(self.batch_shape)
+        )
         batch_repeat = torch.Size(
-            [expand_size // current_size for expand_size, current_size in zip(batch_shape, current_shape)]
+            [
+                expand_size // current_size
+                for expand_size, current_size in zip(batch_shape, current_shape)
+            ]
         )
         return self.repeat(*batch_repeat, 1, 1)
 
@@ -286,28 +317,44 @@ class LazyTensor(ABC):
         Returns:
             Tensor (size determined by broadcasted shape of indices) of selected values
         """
-        final_shape = _mul_broadcast_shape(*(index.shape for index in batch_indices), row_index.shape, col_index.shape)
+        final_shape = _mul_broadcast_shape(
+            *(index.shape for index in batch_indices), row_index.shape, col_index.shape
+        )
         row_index = row_index.expand(final_shape)
         col_index = col_index.expand(final_shape)
         batch_indices = tuple(index.expand(final_shape) for index in batch_indices)
 
-        base_lazy_tensor = self._getitem(_noop_index, _noop_index, *batch_indices)._expand_batch(final_shape)
+        base_lazy_tensor = self._getitem(
+            _noop_index, _noop_index, *batch_indices
+        )._expand_batch(final_shape)
 
         # Create some interoplation indices and values
-        row_interp_indices = torch.arange(0, self.size(-2), dtype=torch.long, device=self.device)
+        row_interp_indices = torch.arange(
+            0, self.size(-2), dtype=torch.long, device=self.device
+        )
         row_interp_indices = row_interp_indices[row_index].unsqueeze_(-1).unsqueeze_(-1)
-        row_interp_values = torch.tensor(1.0, dtype=self.dtype, device=self.device).expand_as(row_interp_indices)
+        row_interp_values = torch.tensor(
+            1.0, dtype=self.dtype, device=self.device
+        ).expand_as(row_interp_indices)
 
-        col_interp_indices = torch.arange(0, self.size(-1), dtype=torch.long, device=self.device)
+        col_interp_indices = torch.arange(
+            0, self.size(-1), dtype=torch.long, device=self.device
+        )
         col_interp_indices = col_interp_indices[col_index].unsqueeze_(-1).unsqueeze_(-1)
-        col_interp_values = torch.tensor(1.0, dtype=self.dtype, device=self.device).expand_as(col_interp_indices)
+        col_interp_values = torch.tensor(
+            1.0, dtype=self.dtype, device=self.device
+        ).expand_as(col_interp_indices)
 
         # Construct interpolated LazyTensor
         from . import InterpolatedLazyTensor
 
         res = (
             InterpolatedLazyTensor(
-                base_lazy_tensor, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values
+                base_lazy_tensor,
+                row_interp_indices,
+                row_interp_values,
+                col_interp_indices,
+                col_interp_values,
             )
             .evaluate()
             .squeeze(-2)
@@ -342,7 +389,9 @@ class LazyTensor(ABC):
         with torch.autograd.enable_grad():
             loss = (left_vecs * self._matmul(right_vecs)).sum()
             loss.requires_grad_(True)
-            actual_grads = deque(torch.autograd.grad(loss, args_with_grads, allow_unused=True))
+            actual_grads = deque(
+                torch.autograd.grad(loss, args_with_grads, allow_unused=True)
+            )
 
         # Now make sure that the object we return has one entry for every item in args
         grads = []
@@ -401,8 +450,12 @@ class LazyTensor(ABC):
 
         evaluated_kern_mat = self.evaluate_kernel()
 
-        if any(isinstance(sub_mat, KeOpsLazyTensor) for sub_mat in evaluated_kern_mat._args):
-            raise RuntimeError("Cannot run Cholesky with KeOps: it will either be really slow or not work.")
+        if any(
+            isinstance(sub_mat, KeOpsLazyTensor) for sub_mat in evaluated_kern_mat._args
+        ):
+            raise RuntimeError(
+                "Cannot run Cholesky with KeOps: it will either be really slow or not work."
+            )
 
         evaluated_mat = evaluated_kern_mat.evaluate()
 
@@ -411,7 +464,9 @@ class LazyTensor(ABC):
             return NonLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
 
         # contiguous call is necessary here
-        cholesky = psd_safe_cholesky(evaluated_mat, jitter=settings.cholesky_jitter.value()).contiguous()
+        cholesky = psd_safe_cholesky(
+            evaluated_mat, jitter=settings.cholesky_jitter.value()
+        ).contiguous()
         return NonLazyTensor(cholesky)
 
     def _cholesky_solve(self, rhs):
@@ -442,7 +497,9 @@ class LazyTensor(ABC):
             if hasattr(self, "_default_preconditioner_cache"):
                 U, S, V = self._default_preconditioner_cache
             else:
-                precond_basis_size = min(gpytorch.settings.max_preconditioner_size.value(), self.size(-1))
+                precond_basis_size = min(
+                    gpytorch.settings.max_preconditioner_size.value(), self.size(-1)
+                )
                 random_basis = torch.randn(
                     self.batch_shape + torch.Size((self.size(-2), precond_basis_size)),
                     device=self.device,
@@ -500,9 +557,16 @@ class LazyTensor(ABC):
         if isinstance(self, NonLazyTensor) or isinstance(other, NonLazyTensor):
             return NonLazyTensor(self.evaluate() * other.evaluate())
         else:
-            left_lazy_tensor = self if self._root_decomposition_size() < other._root_decomposition_size() else other
+            left_lazy_tensor = (
+                self
+                if self._root_decomposition_size() < other._root_decomposition_size()
+                else other
+            )
             right_lazy_tensor = other if left_lazy_tensor is self else self
-            return MulLazyTensor(left_lazy_tensor.root_decomposition(), right_lazy_tensor.root_decomposition())
+            return MulLazyTensor(
+                left_lazy_tensor.root_decomposition(),
+                right_lazy_tensor.root_decomposition(),
+            )
 
     def _preconditioner(self):
         """
@@ -543,7 +607,10 @@ class LazyTensor(ABC):
                 shape = list(roots.shape)
                 shape[dim] = 1
                 extra_root = torch.full(
-                    shape, dtype=self.dtype, device=self.device, fill_value=(1.0 / math.sqrt(self.size(-2)))
+                    shape,
+                    dtype=self.dtype,
+                    device=self.device,
+                    fill_value=(1.0 / math.sqrt(self.size(-2))),
                 )
                 roots = torch.cat([roots, extra_root], dim)
                 num_batch += 1
@@ -644,10 +711,10 @@ class LazyTensor(ABC):
         # TODO: Reset every once in a while
         if settings.ir_solve.on():
             solve_dtype = torch.float32
-            #solve_dtype = torch.float16
-            #working_dtype = torch.float32
+            # solve_dtype = torch.float16
+            # working_dtype = torch.float32
             working_dtype = self.dtype
-            #residual_dtype = torch.float64
+            # residual_dtype = torch.float64
             residual_dtype = torch.float32
             if settings.ir_solve.isempty():
                 solve = utils.linear_cg(
@@ -662,8 +729,10 @@ class LazyTensor(ABC):
                 assert len(settings.ir_solve._global_value) == 1
                 solve = settings.ir_solve().pop()
                 # do this in higher precision
-                residual = (rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(solve.to(residual_dtype)))
-                #print("Before IR:", residual.norm(dim=0))
+                residual = rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(
+                    solve.to(residual_dtype)
+                )
+                # print("Before IR:", residual.norm(dim=0))
                 # keep doing ir until error is low enough
                 for i in range(1):
                     delta = utils.linear_cg(
@@ -671,19 +740,21 @@ class LazyTensor(ABC):
                         residual.to(solve_dtype),
                         n_tridiag=num_tridiag,
                         tolerance=1e-1,
-                        #tolerance=settings.cg_tolerance.value(),
+                        # tolerance=settings.cg_tolerance.value(),
                         max_iter=settings.max_cg_iterations.value(),
                         max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
                         preconditioner=preconditioner,
                         eps=1e-10,
-                        #eps=1e-7,
+                        # eps=1e-7,
                     )
                     # TODO: do this in high precision
                     solve = solve + delta.to(working_dtype)
-                    residual = (rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(solve.to(residual_dtype)))
-                    #residual = rhs - self._matmul(solve)
-                    #print("After IR:", residual.norm(dim=0).max())
-                #for i in range(1):
+                    residual = rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(
+                        solve.to(residual_dtype)
+                    )
+                    # residual = rhs - self._matmul(solve)
+                    # print("After IR:", residual.norm(dim=0).max())
+                # for i in range(1):
                 #    solve = utils.linear_cg(
                 #        self.to(solve_dtype)._matmul,
                 #        rhs.to(solve_dtype),
@@ -712,7 +783,6 @@ class LazyTensor(ABC):
                 max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
                 preconditioner=preconditioner,
             )
-        #last_solve = solve.detach()
         return solve
 
     def _sum_batch(self, dim):
@@ -811,7 +881,10 @@ class LazyTensor(ABC):
         Clones the LazyTensor (creates clones of all underlying tensors)
         """
         args = [arg.clone() if hasattr(arg, "clone") else arg for arg in self._args]
-        kwargs = {key: val.clone() if hasattr(val, "clone") else val for key, val in self._kwargs.items()}
+        kwargs = {
+            key: val.clone() if hasattr(val, "clone") else val
+            for key, val in self._kwargs.items()
+        }
         return self.__class__(*args, **kwargs)
 
     def cpu(self):
@@ -895,7 +968,9 @@ class LazyTensor(ABC):
             if not self.is_square:
                 raise RuntimeError("Diag works on square matrices (or batches)")
 
-        row_col_iter = torch.arange(0, self.matrix_shape[-1], dtype=torch.long, device=self.device)
+        row_col_iter = torch.arange(
+            0, self.matrix_shape[-1], dtype=torch.long, device=self.device
+        )
         return self[..., row_col_iter, row_col_iter]
 
     def dim(self):
@@ -996,9 +1071,17 @@ class LazyTensor(ABC):
 
         func = InvMatmul
         if left_tensor is None:
-            return func.apply(self.representation_tree(), False, right_tensor, *self.representation())
+            return func.apply(
+                self.representation_tree(), False, right_tensor, *self.representation()
+            )
         else:
-            return func.apply(self.representation_tree(), True, left_tensor, right_tensor, *self.representation())
+            return func.apply(
+                self.representation_tree(),
+                True,
+                left_tensor,
+                right_tensor,
+                *self.representation(),
+            )
 
     def inv_quad(self, tensor, reduce_inv_quad=True):
         """
@@ -1061,11 +1144,17 @@ class LazyTensor(ABC):
             - scalar - log determinant
         """
         # Special case: use Cholesky to compute these terms
-        if settings.fast_computations.log_prob.off() or (self.size(-1) <= settings.max_cholesky_size.value()):
+        if settings.fast_computations.log_prob.off() or (
+            self.size(-1) <= settings.max_cholesky_size.value()
+        ):
             from .chol_lazy_tensor import CholLazyTensor
 
             cholesky = CholLazyTensor(self.cholesky())
-            return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
+            return cholesky.inv_quad_logdet(
+                inv_quad_rhs=inv_quad_rhs,
+                logdet=logdet,
+                reduce_inv_quad=reduce_inv_quad,
+            )
 
         # Default: use modified batch conjugate gradients to compute these terms
         # See NeurIPS 2018 paper: https://arxiv.org/abs/1809.11165
@@ -1088,7 +1177,10 @@ class LazyTensor(ABC):
                     "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
                     "of dimensions.".format(self.shape, inv_quad_rhs.shape)
                 )
-            elif self.batch_shape != inv_quad_rhs.shape[:-2] or self.shape[-1] != inv_quad_rhs.shape[-2]:
+            elif (
+                self.batch_shape != inv_quad_rhs.shape[:-2]
+                or self.shape[-1] != inv_quad_rhs.shape[-2]
+            ):
                 raise RuntimeError(
                     "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
                         self.shape, inv_quad_rhs.shape
@@ -1195,7 +1287,9 @@ class LazyTensor(ABC):
             _mul_broadcast_shape(self.shape, other.shape)
         except RuntimeError:
             raise RuntimeError(
-                "Cannot multiply LazyTensor of size {} by an object of size {}".format(self.shape, other.shape)
+                "Cannot multiply LazyTensor of size {} by an object of size {}".format(
+                    self.shape, other.shape
+                )
             )
 
         if torch.is_tensor(other):
@@ -1243,7 +1337,9 @@ class LazyTensor(ABC):
                     )
 
         if dims[-2:] != (num_dims - 2, num_dims - 1):
-            raise ValueError("At the moment, cannot permute the non-batch dimensions of LazyTensors.")
+            raise ValueError(
+                "At the moment, cannot permute the non-batch dimensions of LazyTensors."
+            )
 
         return self._permute_batch(*dims[:-2])
 
@@ -1277,7 +1373,9 @@ class LazyTensor(ABC):
             >>> # Returns: torch.Tensor([[[2, 4], [0, -2]], [[6, 2], [2, 0]]])
         """
         if dim is None:
-            raise ValueError("At the moment, LazyTensor.prod requires a dim argument (got None)")
+            raise ValueError(
+                "At the moment, LazyTensor.prod requires a dim argument (got None)"
+            )
 
         orig_dim = dim
         if dim < 0:
@@ -1324,10 +1422,14 @@ class LazyTensor(ABC):
         for arg in self._args:
             if torch.is_tensor(arg):
                 representation.append(arg)
-            elif hasattr(arg, "representation") and callable(arg.representation):  # Is it a LazyTensor?
+            elif hasattr(arg, "representation") and callable(
+                arg.representation
+            ):  # Is it a LazyTensor?
                 representation += list(arg.representation())
             else:
-                raise RuntimeError("Representation of a LazyTensor should consist only of Tensors")
+                raise RuntimeError(
+                    "Representation of a LazyTensor should consist only of Tensors"
+                )
         return tuple(representation)
 
     def representation_tree(self):
@@ -1391,7 +1493,9 @@ class LazyTensor(ABC):
 
             except RuntimeError as e:
                 warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e),
+                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(
+                        e
+                    ),
                     NumericalWarning,
                 )
 
@@ -1425,7 +1529,9 @@ class LazyTensor(ABC):
                 return RootLazyTensor(res)
             except RuntimeError as e:
                 warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e),
+                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(
+                        e
+                    ),
                     NumericalWarning,
                 )
 
@@ -1448,7 +1554,10 @@ class LazyTensor(ABC):
                     "LazyTensor (size={}) and initial_vectors (size={}) should have the same number "
                     "of dimensions.".format(self.shape, initial_vectors.shape)
                 )
-            elif self.batch_shape != initial_vectors.shape[:-2] or self.shape[-1] != initial_vectors.shape[-2]:
+            elif (
+                self.batch_shape != initial_vectors.shape[:-2]
+                or self.shape[-1] != initial_vectors.shape[-2]
+            ):
                 raise RuntimeError(
                     "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
                         self.shape, initial_vectors.shape
@@ -1472,9 +1581,9 @@ class LazyTensor(ABC):
                 .view(*self.batch_shape, self.matrix_shape[-1], -1)
             )
             mat_times_solves = self.matmul(solves)
-            mat_times_solves = mat_times_solves.view(*self.batch_shape, self.matrix_shape[-1], -1, num_probes).permute(
-                -1, *range(0, self.dim())
-            )
+            mat_times_solves = mat_times_solves.view(
+                *self.batch_shape, self.matrix_shape[-1], -1, num_probes
+            ).permute(-1, *range(0, self.dim()))
 
             # Compute residuals
             residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
@@ -1555,7 +1664,11 @@ class LazyTensor(ABC):
         elif dim < self.dim():
             return self._sum_batch(dim)
         else:
-            raise ValueError("Invalid dim ({}) for LazyTensor of size {}".format(orig_dim, self.shape))
+            raise ValueError(
+                "Invalid dim ({}) for LazyTensor of size {}".format(
+                    orig_dim, self.shape
+                )
+            )
 
     def to(self, device_id):
         """
@@ -1602,7 +1715,12 @@ class LazyTensor(ABC):
             dim1 = ndimension + dim1
         if dim2 < 0:
             dim2 = ndimension + dim2
-        if dim1 >= ndimension or dim2 >= ndimension or not isinstance(dim1, int) or not isinstance(dim2, int):
+        if (
+            dim1 >= ndimension
+            or dim2 >= ndimension
+            or not isinstance(dim1, int)
+            or not isinstance(dim2, int)
+        ):
             raise RuntimeError("Invalid dimension")
 
         # Batch case
@@ -1621,7 +1739,9 @@ class LazyTensor(ABC):
             res = self._transpose_nonbatch()
 
         else:
-            raise RuntimeError("Cannot transpose batch dimension with non-batch dimension")
+            raise RuntimeError(
+                "Cannot transpose batch dimension with non-batch dimension"
+            )
 
         return res
 
@@ -1656,9 +1776,17 @@ class LazyTensor(ABC):
             covar_root = self.root_decomposition().root
 
         base_samples = torch.randn(
-            *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
+            *self.batch_shape,
+            covar_root.size(-1),
+            num_samples,
+            dtype=self.dtype,
+            device=self.device,
         )
-        samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
+        samples = (
+            covar_root.matmul(base_samples)
+            .permute(-1, *range(self.dim() - 1))
+            .contiguous()
+        )
 
         return samples
 
@@ -1709,7 +1837,9 @@ class LazyTensor(ABC):
         from .zero_lazy_tensor import ZeroLazyTensor
 
         if isinstance(other, ZeroLazyTensor):
-            raise RuntimeError("Attempted to divide by a ZeroLazyTensor (divison by zero)")
+            raise RuntimeError(
+                "Attempted to divide by a ZeroLazyTensor (divison by zero)"
+            )
 
         return self.mul(1.0 / other)
 
@@ -1722,12 +1852,19 @@ class LazyTensor(ABC):
 
         # Process the index
         index = index if isinstance(index, tuple) else (index,)
-        index = tuple(torch.tensor(idx) if isinstance(idx, list) else idx for idx in index)
-        index = tuple(idx.item() if torch.is_tensor(idx) and not len(idx.shape) else idx for idx in index)
+        index = tuple(
+            torch.tensor(idx) if isinstance(idx, list) else idx for idx in index
+        )
+        index = tuple(
+            idx.item() if torch.is_tensor(idx) and not len(idx.shape) else idx
+            for idx in index
+        )
 
         # Handle the ellipsis
         # Find the index of the ellipsis
-        ellipsis_locs = tuple(index for index, item in enumerate(index) if item is Ellipsis)
+        ellipsis_locs = tuple(
+            index for index, item in enumerate(index) if item is Ellipsis
+        )
         if settings.debug.on():
             if len(ellipsis_locs) > 1:
                 raise RuntimeError(
@@ -1737,7 +1874,11 @@ class LazyTensor(ABC):
         if len(ellipsis_locs) == 1:
             ellipsis_loc = ellipsis_locs[0]
             num_to_fill_in = ndimension - (len(index) - 1)
-            index = index[:ellipsis_loc] + tuple(_noop_index for _ in range(num_to_fill_in)) + index[ellipsis_loc + 1 :]
+            index = (
+                index[:ellipsis_loc]
+                + tuple(_noop_index for _ in range(num_to_fill_in))
+                + index[ellipsis_loc + 1 :]
+            )
 
         # Pad the index with empty indices
         index = index + tuple(_noop_index for _ in range(ndimension - len(index)))
@@ -1746,14 +1887,18 @@ class LazyTensor(ABC):
         *batch_indices, row_index, col_index = index
 
         # Helpers to determine what the final shape will be if we're tensor indexed
-        batch_has_tensor_index = bool(len(batch_indices)) and any(torch.is_tensor(index) for index in batch_indices)
+        batch_has_tensor_index = bool(len(batch_indices)) and any(
+            torch.is_tensor(index) for index in batch_indices
+        )
         row_has_tensor_index = torch.is_tensor(row_index)
         col_has_tensor_index = torch.is_tensor(col_index)
         # These are the cases where the row and/or column indices will be "absorbed" into other indices
         row_col_are_absorbed = any(
             (
-                batch_has_tensor_index and (row_has_tensor_index or col_has_tensor_index),
-                not batch_has_tensor_index and (row_has_tensor_index and col_has_tensor_index),
+                batch_has_tensor_index
+                and (row_has_tensor_index or col_has_tensor_index),
+                not batch_has_tensor_index
+                and (row_has_tensor_index and col_has_tensor_index),
             )
         )
 
@@ -1794,7 +1939,9 @@ class LazyTensor(ABC):
             if expected_shape != res.shape:
                 raise RuntimeError(
                     "{}.__getitem__ failed! Expected a final shape of size {}, got {}. This is a bug with GPyTorch, "
-                    "or your custom LazyTensor.".format(self.__class__.__name__, expected_shape, res.shape)
+                    "or your custom LazyTensor.".format(
+                        self.__class__.__name__, expected_shape, res.shape
+                    )
                 )
 
         # We're done!
@@ -1837,9 +1984,15 @@ def delazify(obj):
     elif isinstance(obj, LazyTensor):
         return obj.evaluate()
     else:
-        raise TypeError("object of class {} cannot be made into a Tensor".format(obj.__class__.__name__))
+        raise TypeError(
+            "object of class {} cannot be made into a Tensor".format(
+                obj.__class__.__name__
+            )
+        )
 
 
-_deprecate_renamed_methods(LazyTensor, inv_quad_log_det="inv_quad_logdet", log_det="logdet")
+_deprecate_renamed_methods(
+    LazyTensor, inv_quad_log_det="inv_quad_logdet", log_det="logdet"
+)
 
 __all__ = ["LazyTensor", "delazify"]
