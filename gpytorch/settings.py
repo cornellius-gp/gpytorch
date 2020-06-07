@@ -577,7 +577,7 @@ class ir_solve(object):
 
     def __exit__(self, *args):
         self.__class__._set_state(False)
-        self.__class__._set_value([], 0)
+        self.__class__._set_value(([], 0))
 
     @classmethod
     def _set_state(cls, state):
@@ -593,11 +593,11 @@ class ir_solve(object):
     def push(cls, solve):
         cls._num_pushes += 1
         # Reset solves every once in a while
-        # if cls._num_pushes % 100 == 0:
-        #    cls._global_value = []
-        # else:
-        #    return cls._global_value.append(solve)
-        return cls._global_value.append(solve)
+        if cls._num_pushes % 100 == 0:
+           cls._global_value = []
+        else:
+           return cls._global_value.append(solve)
+        #return cls._global_value.append(solve)
 
     @classmethod
     def pop(cls):
