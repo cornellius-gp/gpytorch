@@ -642,11 +642,11 @@ class LazyTensor(ABC):
 
     def _solve(self, rhs, preconditioner, num_tridiag=0):
         if settings.save_solves.on():
-            # Set up 3 precisions for future work. See https://epubs.siam.org/doi/pdf/10.1137/17M1140819
-            solve_dtype = self.dtype
+            # Set up 3 precisions. See https://epubs.siam.org/doi/pdf/10.1137/17M1140819
             working_dtype = self.dtype
-            residual_dtype = self.dtype
-            if settings.save_solves.isempty():
+            residual_dtype = torch.float64 if settings.fp64_residuals.on() else self.dtype
+            solve_dtype = torch.float16 if settings.fp16_solves.on() else self.dtype
+            if settings.save_solves.is_empty():
                 solve = utils.linear_cg(
                     self.to(residual_dtype)._matmul,
                     rhs.to(residual_dtype),
@@ -656,22 +656,39 @@ class LazyTensor(ABC):
                     preconditioner=preconditioner,
                 ).to(working_dtype)
             else:
-                assert len(settings.save_solves._global_value) == 1
-                solve = settings.save_solves().pop()
+                solve = settings.save_solves.pop()
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                torch.cuda.synchronize()
+                start.record()
                 residual = rhs.to(residual_dtype) - self.to(residual_dtype)._matmul(
                     solve.to(residual_dtype)
                 )
+                torch.cuda.synchronize()
+                end.record()
+                torch.cuda.synchronize()
+                print("Residual time", start.elapsed_time(end))
+
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                torch.cuda.synchronize()
+                start.record()
                 solve = utils.linear_cg(
                     self.to(solve_dtype)._matmul,
                     rhs.to(solve_dtype),
                     n_tridiag=num_tridiag,
                     max_iter=settings.max_cg_iterations.value(),
                     max_tridiag_iter=settings.max_lanczos_quadrature_iterations.value(),
+                    eps=1e-7 if solve_dtype == torch.float16 else 1e-10,
                     preconditioner=preconditioner,
                     residual=residual.to(solve_dtype),
                     initial_guess=solve.to(solve_dtype)
                 ).to(working_dtype)
-            settings.save_solves().push(solve)
+                torch.cuda.synchronize()
+                end.record()
+                torch.cuda.synchronize()
+                print("Solve time", start.elapsed_time(end))
+            settings.save_solves.push(solve.detach())
         else:
             solve = utils.linear_cg(
                 self._matmul,

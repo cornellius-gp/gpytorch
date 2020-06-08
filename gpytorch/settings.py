@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from collections import namedtuple
 
 
 class _feature_flag(object):
@@ -305,6 +306,27 @@ class fast_computations(object):
         return False
 
 
+class fp16_solves(_feature_flag):
+    """Forcibly use fp16 solves when using settings.save_solves
+
+    Note that this can lead to NaNs during CG.
+
+    Ways to resolve NaNs include:
+     - Reset the solve every few iterations (see `since_reset` in `save_solves`) to use the working precision
+     - Fix the number of CG iterations to be lower
+     - Increase the CG tolerance
+    """
+    _state = False
+
+
+class fp64_residuals(_feature_flag):
+    """Forcibly use fp64 to compute residuals when using settings.save_solves
+
+    Note that this can be 4x or more slower than using regular fp32 residuals
+    """
+    _state = False
+
+
 class lazily_evaluate_kernels(_feature_flag):
     """
     Lazily compute the entries of covariance matrices (set to True by default).
@@ -484,7 +506,7 @@ class prior_mode(_feature_flag):
     _state = False
 
 
-class save_solves(object):
+class save_solves(_value_context):
     """Save the solution of the previous linear system solve.
     Can be used to initialize the next linear system solve's residuals or to initialize iterative refinement.
 
@@ -493,70 +515,66 @@ class save_solves(object):
     Required settings to use this setting:
         gpytorch.settings.skip_logdet_forward()
         gpytorch.settings.deterministic_probes()
+        gpytorch.settings.max_preconditioner_size(0)
 
     Suggested settings:
-        gpytorch.settings.max_preconditioner_size(0)
         gpytorch.settings.max_cholesky_size(1)
+
+    We only store one solve at a time, but in the future we could extend this to save multiple solves
+    since we store solves with a list
     """
 
-    _global_value = []
-    _state = False
-    _num_pushes = 0
+    State = namedtuple("State", ["solves", "since_reset", "reset_every", "on"], defaults=([], 0, 0, False))
 
-    def __init__(self):
-        pass
+    _global_value = State()
 
-    def __enter__(self):
-        self.__class__._set_state(True)
-        return self._global_value
-
-    def __exit__(self, *args):
-        self.__class__._set_state(False)
-        self.__class__._set_value(([], 0))
-
-    @classmethod
-    def _set_state(cls, state):
-        cls._state = state
-
-    @classmethod
-    def _set_value(cls, value):
-        global_value, num_pushes = value
-        cls._global_value = global_value
-        cls._num_pushes = num_pushes
+    def __init__(self, reset_every=0, solves=[], since_reset=0):
+        value = self.__class__.State(solves=solves, since_reset=since_reset, reset_every=reset_every, on=True)
+        super().__init__(value)
 
     @classmethod
     def push(cls, solve):
-        cls._num_pushes += 1
-        # Reset solves every once in a while
-        # if cls._num_pushes % 100 == 0:
-        #    cls._global_value = []
-        # else:
-        #    return cls._global_value.append(solve)
-        return cls._global_value.append(solve)
+        value = cls.value()
+        solves = value.solves
+        since_reset = value.since_reset + 1
+        reset_every = value.reset_every
+        solves.append(solve)
+        if reset_every > 0 and since_reset % reset_every == 0:
+            solves = []
+        value = value._replace(solves=solves)
+        value = value._replace(since_reset=since_reset)
+        cls._set_value(value)
 
     @classmethod
     def pop(cls):
-        return cls._global_value.pop()
+        solves = cls.value().solves
+        assert len(solves) == 1, "We save only one solve at a time for now"
+        return solves.pop()
 
     @classmethod
     def peek(cls):
-        solves = cls._global_value
+        solves = cls.value().solves
         if len(solves) == 0:
             return None
         else:
             return solves[-1]
 
     @classmethod
-    def isempty(cls):
-        return len(cls._global_value) == 0
+    def is_empty(cls):
+        solves = cls.value().solves
+        return len(solves) == 0
+
+    @classmethod
+    def since_reset(cls):
+        return cls.value().since_reset
 
     @classmethod
     def on(cls):
-        return cls._state
+        return cls.value().on
 
     @classmethod
     def off(cls):
-        return not cls._state
+        return not cls.value().on
 
 
 class skip_logdet_forward(_feature_flag):
