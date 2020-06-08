@@ -44,11 +44,14 @@ good_state_dict = OrderedDict(
 
 
 class SpectralMixtureGPModel(gpytorch.models.ExactGP):
-    def __init__(self, train_x, train_y, likelihood):
+    def __init__(self, train_x, train_y, likelihood, empspect=False):
         super(SpectralMixtureGPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
         self.covar_module = SpectralMixtureKernel(num_mixtures=4, ard_num_dims=1)
-        self.covar_module.initialize_from_data(train_x, train_y)
+        if empspect:
+            self.covar_module.initialize_from_data(train_x, train_y)
+        else:
+            self.covar_module.initialize_from_data_empspect(train_x, train_y)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -70,9 +73,12 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_spectral_mixture_gp_mean_abs_error(self):
+    def test_spectral_mixture_gp_mean_abs_error_empspect_init(self):
+        return self.test_spectral_mixture_gp_mean_abs_error(empspect=True)
+
+    def test_spectral_mixture_gp_mean_abs_error(self, empspect=False):
         likelihood = GaussianLikelihood(noise_prior=SmoothedBoxPrior(exp(-5), exp(3), sigma=0.1))
-        gp_model = SpectralMixtureGPModel(train_x, train_y, likelihood)
+        gp_model = SpectralMixtureGPModel(train_x, train_y, likelihood, empspect=empspect)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
         # Optimize the model
@@ -81,27 +87,26 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
         optimizer = optim.SGD(list(gp_model.parameters()), lr=0.1)
         optimizer.n_iter = 0
 
-        with gpytorch.settings.num_trace_samples(100):
-            for _ in range(150):
-                optimizer.zero_grad()
-                output = gp_model(train_x)
-                loss = -mll(output, train_y)
-                loss.backward()
-                optimizer.n_iter += 1
-                optimizer.step()
-
-            for param in gp_model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
+        for _ in range(300):
+            optimizer.zero_grad()
+            output = gp_model(train_x)
+            loss = -mll(output, train_y)
+            loss.backward()
+            optimizer.n_iter += 1
             optimizer.step()
 
-            gp_model.load_state_dict(good_state_dict, strict=False)
+        for param in gp_model.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        for param in likelihood.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        optimizer.step()
 
-            # Test the model
-        with torch.no_grad(), gpytorch.settings.max_cg_iterations(100):
+        gp_model.load_state_dict(good_state_dict, strict=False)
+
+        # Test the model
+        with torch.no_grad():
             gp_model.eval()
             likelihood.eval()
             test_preds = likelihood(gp_model(test_x)).mean
