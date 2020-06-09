@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+import math
 from typing import Optional
+
 import torch
 from torch import Tensor
-import math
 
-from .kernel import Kernel
 from ..lazy import MatmulLazyTensor, RootLazyTensor
+from .kernel import Kernel
 
 
 class RFFKernel(Kernel):
@@ -45,10 +46,7 @@ class RFFKernel(Kernel):
             self._init_weights(num_dims, num_samples)
 
     def _init_weights(
-            self,
-            num_dims: Optional[int] = None,
-            num_samples: Optional[int] = None,
-            randn_weights: Optional[Tensor] = None
+        self, num_dims: Optional[int] = None, num_samples: Optional[int] = None, randn_weights: Optional[Tensor] = None
     ):
         if num_dims is not None and num_samples is not None:
             d = num_dims
@@ -56,9 +54,7 @@ class RFFKernel(Kernel):
         if randn_weights is None:
             randn_shape = torch.Size([*self._batch_shape, d, D])
             randn_weights = torch.randn(
-                randn_shape,
-                dtype=self.raw_lengthscale.dtype,
-                device=self.raw_lengthscale.device
+                randn_shape, dtype=self.raw_lengthscale.dtype, device=self.raw_lengthscale.device
             )
         self.register_buffer("randn_weights", randn_weights)
 
