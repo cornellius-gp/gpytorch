@@ -81,14 +81,9 @@ class SumLazyTensor(LazyTensor):
             broadcasted_other = lazify(other.expand(broadcasted_shape))
 
             # update the lazy tensors' shape as well
-            if broadcasted_shape != self.shape:
-                broadcasted_lts = [
-                    lt.expand(*broadcasted_shape, 1).squeeze(-1).transpose(-1, -2) for lt in self.lazy_tensors
-                ]
-            else:
-                broadcasted_lts = list(self.lazy_tensors)
+            new_self = self if broadcasted_shape == self.shape else self._expand_batch(broadcasted_shape[:-2])
 
-            return SumLazyTensor(*(broadcasted_lts + [broadcasted_other]))
+            return SumLazyTensor(*(list(new_self.lazy_tensors) + [broadcasted_other]))
         else:
             raise AttributeError("other must be a LazyTensor")
 

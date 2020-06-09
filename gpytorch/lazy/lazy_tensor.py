@@ -1624,7 +1624,9 @@ class LazyTensor(ABC):
         elif isinstance(other, Tensor):
             other = lazify(other)
             shape = _mul_broadcast_shape(self.shape, other.shape)
-            return SumLazyTensor(self.expand(shape), other.expand(shape))
+            new_self = self if self.shape == shape else self._expand_batch(shape[:-2])
+            new_other = other if other.shape == shape else other._expand_batch(shape[:-2])
+            return SumLazyTensor(new_self, new_other)
         else:
             return SumLazyTensor(self, other)
 

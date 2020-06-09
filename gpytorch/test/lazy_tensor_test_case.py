@@ -45,6 +45,19 @@ class RectangularLazyTensorTestCase(BaseTestCase):
             if arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-3)
 
+    def test_add(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        rhs = torch.randn(lazy_tensor.shape)
+        self.assertAllClose((lazy_tensor + rhs).evaluate(), evaluated + rhs)
+
+        rhs = torch.randn(lazy_tensor.matrix_shape)
+        self.assertAllClose((lazy_tensor + rhs).evaluate(), evaluated + rhs)
+
+        rhs = torch.randn(2, *lazy_tensor.shape)
+        self.assertAllClose((lazy_tensor + rhs).evaluate(), evaluated + rhs)
+
     def test_matmul_vec(self):
         lazy_tensor = self.create_lazy_tensor()
         rhs = torch.randn(lazy_tensor.size(-1))

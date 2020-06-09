@@ -68,7 +68,10 @@ class ConstantMulLazyTensor(LazyTensor):
         return res * self._constant.unsqueeze(-1)
 
     def _expand_batch(self, batch_shape):
-        return self.__class__(self.base_lazy_tensor._expand_batch(batch_shape), self._constant.expand(*batch_shape))
+        return self.__class__(
+            self.base_lazy_tensor._expand_batch(batch_shape),
+            self._constant.expand(*batch_shape) if len(batch_shape) else self._constant,
+        )
 
     def _get_indices(self, row_index, col_index, *batch_indices):
         # NOTE TO FUTURE SELF:
