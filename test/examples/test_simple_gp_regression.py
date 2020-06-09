@@ -9,7 +9,7 @@ from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import RBFKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
-from gpytorch.priors import SmoothedBoxPrior, LogNormalPrior, UniformPrior
+from gpytorch.priors import SmoothedBoxPrior, UniformPrior
 from gpytorch.constraints import Positive
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
@@ -465,9 +465,9 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
 
         # Register normal GPyTorch priors
         gp_model.mean_module.register_prior("mean_prior", UniformPrior(-1, 1), "constant")
-        gp_model.covar_module.base_kernel.register_prior("lengthscale_prior", UniformPrior(0.01, 0.2), "lengthscale")
+        gp_model.covar_module.base_kernel.register_prior("lengthscale_prior", UniformPrior(0.01, 0.5), "lengthscale")
         gp_model.covar_module.register_prior("outputscale_prior", UniformPrior(1, 2), "outputscale")
-        likelihood.register_prior("noise_prior", LogNormalPrior(-1.5, 0.1), "noise")
+        likelihood.register_prior("noise_prior", UniformPrior(0.05, 0.3), "noise")
 
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
