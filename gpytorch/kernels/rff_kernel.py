@@ -15,26 +15,73 @@ class RFFKernel(Kernel):
     Computes a covariance matrix based on Random Fourier Features with the
     RBFKernel.
 
-    See Random Features for Large-Scale Kernel Machines by Rahimi and Recht
+    Random Fourier features was originally proposed in
+    'Random Features for Large-Scale Kernel Machines' by Rahimi and Recht (2008).
+    Instead of the shifted cosine features from Rahimi and Recht (2008), we use
+    the sine and cosine features which is a lower-variance estimator --- see
+    'On the Error of Random Fourier Features' by Sutherland and Schneider (2015).
 
-    Here we use sine and cosine features which gives a lower-variance estimator.
-    See On the Error of Random Fourier Features by Sutherland and Schneider.
+    By Bochner's theorem, any continuous kernel :math:`k` is positive definite
+    if and only if it is the Fourier transform of a non-negative measure
+    :math:`p(\omega)`, i.e.
+    .. math::
+        \begin{equation}
+            k(x, x') = k(x - x') = \int p(\omega) e^{i(\omega^\top (x - x'))} d\omega.
+        \end{equation}
 
-    Args:
-        :attr:`num_samples` (int):
-            Number of random frequencies to draw. This is :math:`D` in the above
-            papers. This will produce :math:`D` sine features and :math:`D`
-            cosine features.
-        :attr:`num_dims` (Optional[int]):
-            Dimensionality of the data space. This is :math:`d` in the above
-            papers. Note that if you want an independent lengthscale for each
-            dimension, set `ard_num_dims` equal to `num_dims`. If unspecified,
-            it will be inferred the first time `forward` is called.
+    where :math:`p(\omega)` is a normalized probability measure if :math:`k(0)=1`.
 
-    Attributes:
-        :attr:`randn_weights` (Tensor):
-            The random frequencies that are drawn once at initialization and
-            fixed.
+    For the RBF kernel,
+    .. math::
+        \begin{equation}
+        k(\Delta) = \exp{(-\frac{\Delta^2}{2\sigma^2})}$ and $p(\omega) = \exp{(-\frac{\sigma^2\omega^2}{2})}
+        \end{equation}
+    where :math:`\Delta = x - x'`.
+
+    Given datapoint :math:`x\in \mathbb{R}^d`, we can construct its random Fourier features
+    :math:`z(x) \in \mathbb{R}^{2D}` by
+    .. math::
+        \begin{equation}
+        z(x) = \sqrt{\frac{1}{D}}
+        \begin{bmatrix}
+            \cos(\omega_1^\top x)\\
+            \sin(\omega_1^\top x)\\
+            \cdots \\
+            \cos(\omega_D^\top x)\\
+            \sin(\omega_D^\top x)
+        \end{bmatrix}, \omega_1, \ldots, \omega_D \sim p(\omega)
+        \end{equation}
+
+    such that we have an unbiased Monte Carlo estimator
+    .. math::
+        \begin{equation}
+            k(x, x') = k(x - x') \approx z(x)^\top z(x') = \frac{1}{D}\sum_{i=1}^D \cos(\omega_i^\top (x - x')).
+        \end{equation}
+
+    .. note::
+        When this kernel is used in batch mode, the random frequencies are drawn
+        independently across the batch dimension as well by default.
+
+    :param num_samples: Number of random frequencies to draw. This is :math:`D` in the above
+        papers. This will produce :math:`D` sine features and :math:`D` cosine
+        features for a total of :math:`2D` random Fourier features.
+    :type num_samples: int
+    :param num_dims: (Default `None`.) Dimensionality of the data space.
+        This is :math:`d` in the above papers. Note that if you want an
+        independent lengthscale for each dimension, set `ard_num_dims` equal to
+        `num_dims`. If unspecified, it will be inferred the first time `forward`
+        is called.
+    :type num_dims: int, optional
+
+    :var torch.Tensor randn_weights: The random frequencies that are drawn once and then fixed.
+
+    Example:
+        >>> # This will infer `num_dims` automatically
+        >>> kernel= gpytorch.kernels.RFFKernel(num_samples=5)
+        >>> x = torch.randn(10, 3)
+        >>> kxx = kernel(x, x).evaluate()
+        >>> print(kxx.randn_weights.size())
+        torch.Size([3, 5])
     """
 
     has_lengthscale = True
