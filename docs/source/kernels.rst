@@ -71,6 +71,12 @@ Standard Kernels
 .. autoclass:: RBFKernel
    :members:
 
+:hidden:`RFFKernel`
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: RFFKernel
+   :members:
+
 :hidden:`RQKernel`
 ~~~~~~~~~~~~~~~~~~~
 
