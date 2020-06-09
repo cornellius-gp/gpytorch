@@ -7,6 +7,7 @@ import torch
 from torch import Tensor
 
 from ..lazy import MatmulLazyTensor, RootLazyTensor
+from ..models.exact_prediction_strategies import RFFPredictionStrategy
 from .kernel import Kernel
 
 
@@ -135,3 +136,7 @@ class RFFKernel(Kernel):
             D = self.num_samples
             z = z / math.sqrt(D)
         return z
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        # Allow for fast sampling
+        return RFFPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
