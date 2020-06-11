@@ -3,6 +3,7 @@
 import unittest
 
 import torch
+
 from gpytorch.kernels import RFFKernel
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
