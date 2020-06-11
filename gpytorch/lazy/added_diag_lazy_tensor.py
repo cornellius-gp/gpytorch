@@ -95,12 +95,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         self._noise = self._diag_tensor.diag().unsqueeze(-1)
 
         # the check for constant diag needs to be done carefully for batches.
-        if len(self._noise.shape) == 2:
-            noise_first_element = self._noise[0]
-        else:
-            noise_first_element = self._noise[:, 0, ...]
-            noise_first_element = noise_first_element.unsqueeze(-1)
-
+        noise_first_element = self._noise[..., :1, :]
         self._constant_diag = torch.equal(self._noise, noise_first_element * torch.ones_like(self._noise))
         eye = torch.eye(k, dtype=self._piv_chol_self.dtype, device=self._piv_chol_self.device)
 
