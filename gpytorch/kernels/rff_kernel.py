@@ -13,8 +13,7 @@ from .kernel import Kernel
 
 class RFFKernel(Kernel):
     r"""
-    Computes a covariance matrix based on Random Fourier Features with the
-    RBFKernel.
+    Computes a covariance matrix based on Random Fourier Features with the RBFKernel.
 
     Random Fourier features was originally proposed in
     'Random Features for Large-Scale Kernel Machines' by Rahimi and Recht (2008).
@@ -23,8 +22,8 @@ class RFFKernel(Kernel):
     'On the Error of Random Fourier Features' by Sutherland and Schneider (2015).
 
     By Bochner's theorem, any continuous kernel :math:`k` is positive definite
-    if and only if it is the Fourier transform of a non-negative measure
-    :math:`p(\omega)`, i.e.
+    if and only if it is the Fourier transform of a non-negative measure :math:`p(\omega)`, i.e.
+
     .. math::
         \begin{equation}
             k(x, x') = k(x - x') = \int p(\omega) e^{i(\omega^\top (x - x'))} d\omega.
@@ -33,14 +32,17 @@ class RFFKernel(Kernel):
     where :math:`p(\omega)` is a normalized probability measure if :math:`k(0)=1`.
 
     For the RBF kernel,
+
     .. math::
         \begin{equation}
         k(\Delta) = \exp{(-\frac{\Delta^2}{2\sigma^2})}$ and $p(\omega) = \exp{(-\frac{\sigma^2\omega^2}{2})}
         \end{equation}
+
     where :math:`\Delta = x - x'`.
 
     Given datapoint :math:`x\in \mathbb{R}^d`, we can construct its random Fourier features
     :math:`z(x) \in \mathbb{R}^{2D}` by
+
     .. math::
         \begin{equation}
         z(x) = \sqrt{\frac{1}{D}}
@@ -54,6 +56,7 @@ class RFFKernel(Kernel):
         \end{equation}
 
     such that we have an unbiased Monte Carlo estimator
+
     .. math::
         \begin{equation}
             k(x, x') = k(x - x') \approx z(x)^\top z(x') = \frac{1}{D}\sum_{i=1}^D \cos(\omega_i^\top (x - x')).
@@ -77,12 +80,14 @@ class RFFKernel(Kernel):
     :var torch.Tensor randn_weights: The random frequencies that are drawn once and then fixed.
 
     Example:
+
         >>> # This will infer `num_dims` automatically
         >>> kernel= gpytorch.kernels.RFFKernel(num_samples=5)
         >>> x = torch.randn(10, 3)
         >>> kxx = kernel(x, x).evaluate()
         >>> print(kxx.randn_weights.size())
         torch.Size([3, 5])
+
     """
 
     has_lengthscale = True

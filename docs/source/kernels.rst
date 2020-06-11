@@ -71,12 +71,6 @@ Standard Kernels
 .. autoclass:: RBFKernel
    :members:
 
-:hidden:`RFFKernel`
-~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: RFFKernel
-   :members:
-
 :hidden:`RQKernel`
 ~~~~~~~~~~~~~~~~~~~
 
@@ -184,4 +178,10 @@ Kernels for Scalable GP Regression Methods
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: InducingPointKernel
+   :members:
+
+:hidden:`RFFKernel`
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: RFFKernel
    :members:
