@@ -179,3 +179,9 @@ Kernels for Scalable GP Regression Methods
 
 .. autoclass:: InducingPointKernel
    :members:
+
+:hidden:`RFFKernel`
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: RFFKernel
+   :members:
