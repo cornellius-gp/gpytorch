@@ -8,6 +8,7 @@ import torch
 from .. import settings
 from ..lazy import (
     BatchRepeatLazyTensor,
+    ConstantMulLazyTensor,
     InterpolatedLazyTensor,
     LazyEvaluatedKernelTensor,
     MatmulLazyTensor,
@@ -589,3 +590,55 @@ class SumPredictionStrategy(DefaultPredictionStrategy):
                     self._sub_strategies, precomputed_cache, test_train_covar.evaluate_kernel().lazy_tensors
                 )
             )
+
+
+class RFFPredictionStrategy(DefaultPredictionStrategy):
+    def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
+        self.train_prior_dist = self.train_prior_dist.__class__(
+            self.train_prior_dist.mean, self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
+        )
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
+        raise NotImplementedError("Fantasy observation updates not yet supported for models using RFFs")
+
+    @property
+    @cached(name="covar_cache")
+    def covar_cache(self):
+        lt = self.train_prior_dist.lazy_covariance_matrix
+        if isinstance(lt, ConstantMulLazyTensor):
+            constant = lt.expanded_constant
+            lt = lt.base_lazy_tensor
+        else:
+            constant = torch.tensor(1.0, dtype=lt.dtype, device=lt.device)
+
+        train_factor = lt.root.evaluate()
+        train_train_covar = self.lik_train_train_covar
+        inner_term = (
+            torch.eye(train_factor.size(-1), dtype=train_factor.dtype, device=train_factor.device)
+            - (train_factor.transpose(-1, -2) @ train_train_covar.inv_matmul(train_factor)) * constant
+        )
+        return psd_safe_cholesky(inner_term)
+
+    def exact_prediction(self, joint_mean, joint_covar):
+        # Find the components of the distribution that contain test data
+        test_mean = joint_mean[..., self.num_train :]
+        test_test_covar = joint_covar[..., self.num_train :, self.num_train :].evaluate_kernel()
+        test_train_covar = joint_covar[..., self.num_train :, : self.num_train].evaluate_kernel()
+
+        return (
+            self.exact_predictive_mean(test_mean, test_train_covar),
+            self.exact_predictive_covar(test_test_covar, test_train_covar),
+        )
+
+    def exact_predictive_covar(self, test_test_covar, test_train_covar):
+        if isinstance(test_test_covar, ConstantMulLazyTensor):
+            constant = test_test_covar.expanded_constant
+            test_test_covar = test_test_covar.base_lazy_tensor
+        else:
+            constant = torch.tensor(1.0, dtype=test_test_covar.dtype, device=test_test_covar.device)
+
+        covar_cache = self.covar_cache
+        factor = test_test_covar.root.evaluate() * constant.sqrt()
+        res = RootLazyTensor(factor @ covar_cache)
+        return res
