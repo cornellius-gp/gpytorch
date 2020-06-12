@@ -35,6 +35,15 @@ class _VariationalStrategy(Module, ABC):
         self._variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
 
+    def _expand_inputs(self, x, inducing_points):
+        """
+        Pre-processing step in __call__ to make x the same batch_shape as the inducing points
+        """
+        batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
+        inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
+        x = x.expand(*batch_shape, *x.shape[-2:])
+        return x, inducing_points
+
     @abstractproperty
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
@@ -111,9 +120,7 @@ class _VariationalStrategy(Module, ABC):
         # Ensure inducing_points and x are the same size
         inducing_points = self.inducing_points
         if inducing_points.shape[:-2] != x.shape[:-2]:
-            batch_shape = _mul_broadcast_shape(inducing_points.shape[:-2], x.shape[:-2])
-            inducing_points = inducing_points.expand(*batch_shape, *inducing_points.shape[-2:])
-            x = x.expand(*batch_shape, *x.shape[-2:])
+            x, inducing_points = self._expand_inputs(x, inducing_points)
 
         # Get p(u)/q(u)
         variational_dist_u = self.variational_distribution
