@@ -30,6 +30,12 @@ Standard Means
 .. autoclass:: ConstantMean
    :members:
 
+:hidden:`LinearMean`
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: LinearMean
+   :members:
+
 
 Specialty Means
 -----------------------------------
