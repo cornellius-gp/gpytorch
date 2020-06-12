@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from math import exp, pi
+from math import pi
 
 import os
 import random
@@ -8,7 +8,7 @@ import torch
 import unittest
 
 import gpytorch
-from gpytorch.kernels import RBFKernel, GridInterpolationKernel, ScaleKernel
+from gpytorch.kernels import RBFKernel, GridInterpolationKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
@@ -43,9 +43,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
-        self.base_covar_module = ScaleKernel(
-            RBFKernel(ard_num_dims=2, lengthscale_prior=SmoothedBoxPrior(exp(-3), exp(3), sigma=0.1))
-        )
+        self.base_covar_module = RBFKernel(ard_num_dims=2)
         self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=64, num_dims=2)
 
     def forward(self, x):
@@ -76,7 +74,7 @@ class TestKISSGPKroneckerProductRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.use_toeplitz(False):
+        with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.use_toeplitz(True):
             optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
             optimizer.n_iter = 0
             for _ in range(8):
@@ -94,7 +92,9 @@ class TestKISSGPKroneckerProductRegression(unittest.TestCase):
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
 
-            # Test the model
+        # Test the model
+        # Use the other toeplitz option here for testing
+        with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.use_toeplitz(True):
             gp_model.eval()
             likelihood.eval()
 
