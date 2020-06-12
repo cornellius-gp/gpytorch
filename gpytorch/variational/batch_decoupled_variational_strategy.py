@@ -28,7 +28,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             \\
             \text{Var}[ f(\mathbf x) ] &= k_{\mathbf x \mathbf x} - \mathbf k_{\mathbf Z_\sigma \mathbf x}^\top
             \mathbf K_{\mathbf Z_\sigma \mathbf Z_\sigma}^{-1}
-            \left( K_{\mathbf Z_\sigma} - \mathbf S \right)
+            \left( \mathbf K_{\mathbf Z_\sigma} - \mathbf S \right)
             \mathbf K_{\mathbf Z_\sigma \mathbf Z_\sigma}^{-1}
             \mathbf k_{\mathbf Z_\sigma \mathbf x}
         \end{align*}
