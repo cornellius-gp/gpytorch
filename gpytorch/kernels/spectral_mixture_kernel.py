@@ -158,6 +158,11 @@ class SpectralMixtureKernel(Kernel):
         from scipy.fftpack import fft
         from scipy.integrate import cumtrapz
 
+        if not torch.is_tensor(train_x) or not torch.is_tensor(train_y):
+            raise RuntimeError("train_x and train_y should be tensors")
+        if train_x.ndimension() == 1:
+            train_x = train_x.unsqueeze(-1)
+
         N = train_x.size(-2)
         emp_spect = np.abs(fft(train_y.cpu().detach().numpy())) ** 2 / N
         M = math.floor(N / 2)

@@ -13,8 +13,8 @@ env:
   - PYTORCH_VERSION=stable WITH_PYRO=true EXAMPLES=true
 
 install:
+  - pip install numpy; pip install scipy; pip install scikit-learn;
   - if [[ $PYTORCH_VERSION = "master" ]]; then
-      pip install numpy;
       pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html;
       python setup.py build develop;
     else
