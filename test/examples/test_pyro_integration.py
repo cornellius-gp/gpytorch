@@ -67,7 +67,7 @@ try:
             variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
                 num_inducing_points=inducing_points.size(-2), batch_shape=torch.Size([num_functions])
             )
-            variational_strategy = gpytorch.variational.MultitaskVariationalStrategy(
+            variational_strategy = gpytorch.variational.IndependentMultitaskVariationalStrategy(
                 gpytorch.variational.VariationalStrategy(self, inducing_points, variational_distribution),
                 num_tasks=num_functions,
             )
@@ -123,7 +123,7 @@ try:
             variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
                 num_inducing_points=inducing_points.size(-2), batch_shape=torch.Size([num_functions])
             )
-            variational_strategy = gpytorch.variational.MultitaskVariationalStrategy(
+            variational_strategy = gpytorch.variational.IndependentMultitaskVariationalStrategy(
                 gpytorch.variational.VariationalStrategy(self, inducing_points, variational_distribution),
                 num_tasks=num_functions,
             )

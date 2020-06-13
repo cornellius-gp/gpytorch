@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
 
+import warnings
+
 from ..distributions import MultitaskMultivariateNormal
 from ..module import Module
 from ._variational_strategy import _VariationalStrategy
 
 
-class MultitaskVariationalStrategy(_VariationalStrategy):
+class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
     """
-    MultitaskVariationalStrategy wraps an existing :obj:`~gpytorch.variational.VariationalStrategy`
-    to product a :obj:`~gpytorch.variational.MultitaskMultivariateNormal` distribution.
-    This is useful for multi-output variational models.
+    IndependentMultitaskVariationalStrategy wraps an existing
+    :obj:`~gpytorch.variational.VariationalStrategy`
+    to produce a :obj:`~gpytorch.variational.MultitaskMultivariateNormal` distribution.
+    All outputs will be independent of one another.
 
     The base variational strategy is assumed to operate on a batch of GPs. One of the batch
     dimensions corresponds to the multiple tasks.
 
     :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
-    :param int task_dim: (default=-1) Which batch dimension is the task dimension
+    :param int num_tasks: Number of tasks. Should correspond to the batch size of :attr:`task_dim`.
+    :param int task_dim: (Default: -1) Which batch dimension is the task dimension
     """
 
     def __init__(self, base_variational_strategy, num_tasks, task_dim=-1):
@@ -52,3 +56,26 @@ class MultitaskVariationalStrategy(_VariationalStrategy):
             function_dist = MultitaskMultivariateNormal.from_batch_mvn(function_dist, task_dim=self.task_dim)
             assert function_dist.event_shape[-1] == self.num_tasks
             return function_dist
+
+
+class MultitaskVariationalStrategy(_VariationalStrategy):
+    """
+    IndependentMultitaskVariationalStrategy wraps an existing
+    :obj:`~gpytorch.variational.VariationalStrategy`
+    to produce a :obj:`~gpytorch.variational.MultitaskMultivariateNormal` distribution.
+    All outputs will be independent of one another.
+
+    The base variational strategy is assumed to operate on a batch of GPs. One of the batch
+    dimensions corresponds to the multiple tasks.
+
+    :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
+    :param int num_tasks: Number of tasks. Should correspond to the batch size of :attr:`task_dim`.
+    :param int task_dim: (Default: -1) Which batch dimension is the task dimension
+    """
+
+    def __init__(self, base_variational_strategy, num_tasks, task_dim=-1):
+        warnings.warn(
+            "MultitaskVariationalStrategy has been renamed to IndependentMultitaskVariationalStrategy",
+            DeprecationWarning,
+        )
+        super().__init__(base_variational_strategy, num_tasks, task_dim=-1)

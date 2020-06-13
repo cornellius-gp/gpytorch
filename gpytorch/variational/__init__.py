@@ -7,8 +7,11 @@ from .batch_decoupled_variational_strategy import BatchDecoupledVariationalStrat
 from .cholesky_variational_distribution import CholeskyVariationalDistribution
 from .delta_variational_distribution import DeltaVariationalDistribution
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
+from .independent_multitask_variational_strategy import (
+    IndependentMultitaskVariationalStrategy,
+    MultitaskVariationalStrategy,
+)
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
-from .multitask_variational_strategy import MultitaskVariationalStrategy
 from .orthogonally_decoupled_variational_strategy import OrthogonallyDecoupledVariationalStrategy
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 from .variational_strategy import VariationalStrategy
@@ -19,6 +22,7 @@ __all__ = [
     "AdditiveGridInterpolationVariationalStrategy",
     "BatchDecoupledVariationalStrategy",
     "GridInterpolationVariationalStrategy",
+    "IndependentMultitaskVariationalStrategy",
     "MultitaskVariationalStrategy",
     "OrthogonallyDecoupledVariationalStrategy",
     "VariationalStrategy",
