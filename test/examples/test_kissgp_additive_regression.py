@@ -35,7 +35,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ZeroMean()
-        self.base_covar_module = ScaleKernel(RBFKernel())
+        self.base_covar_module = ScaleKernel(RBFKernel(ard_num_dims=2))
         self.covar_module = AdditiveStructureKernel(
             GridInterpolationKernel(self.base_covar_module, grid_size=100, num_dims=1), num_dims=2
         )
@@ -59,13 +59,13 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
         if hasattr(self, "rng_state"):
             torch.set_rng_state(self.rng_state)
 
-    def test_kissgp_gp_mean_abs_error(self):
+    def test_kissgp_gp_mean_abs_error(self, toeplitz=False):
         likelihood = GaussianLikelihood()
         gp_model = GPRegressionModel(train_x, train_y, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
         with gpytorch.settings.max_preconditioner_size(10), gpytorch.settings.max_cg_iterations(50):
-            with gpytorch.settings.fast_pred_var():
+            with gpytorch.settings.fast_pred_var(), gpytorch.settings.use_toeplitz(toeplitz):
                 # Optimize the model
                 gp_model.train()
                 likelihood.train()
