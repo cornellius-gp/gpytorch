@@ -84,7 +84,7 @@ deterministic relationship between :math:`\mathbf f` and :math:`\mathbf u`.
    :members:
 
 
-Variational Strategies for Multi-Ouptut Functions
+Variational Strategies for Multi-Output Functions
 ---------------------------------------------------
 
 These are special :obj:`~gpytorch.variational._VariationalStrategy` objects that return
