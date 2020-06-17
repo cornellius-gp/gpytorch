@@ -109,5 +109,59 @@ class TestDeltaLMCRobustVGP(TestLMCRobustVGP):
         return gpytorch.variational.DeltaVariationalDistribution
 
 
+class TestLMCVariationalGPSharedVariational(TestLMCVariationalGP, unittest.TestCase):
+    @property
+    def batch_shape(self):
+        return torch.Size([3])
+
+
+class TestLMCPredictiveGPSharedVariational(TestLMCVariationalGPSharedVariational):
+    @property
+    def mll_cls(self):
+        return gpytorch.mlls.PredictiveLogLikelihood
+
+
+class TestLMCRobustVGPSharedVariational(TestLMCVariationalGPSharedVariational):
+    @property
+    def mll_cls(self):
+        return gpytorch.mlls.GammaRobustVariationalELBO
+
+
+class TestMeanFieldLMCVariationalGPSharedVariational(TestLMCVariationalGPSharedVariational):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.MeanFieldVariationalDistribution
+
+
+class TestMeanFieldLMCPredictiveGPSharedVariational(TestLMCPredictiveGPSharedVariational):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.MeanFieldVariationalDistribution
+
+
+class TestMeanFieldLMCRobustVGPSharedVariational(TestLMCRobustVGPSharedVariational):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.MeanFieldVariationalDistribution
+
+
+class TestDeltaLMCVariationalGPSharedVariational(TestLMCVariationalGPSharedVariational):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.DeltaVariationalDistribution
+
+
+class TestDeltaLMCPredictiveGPSharedVariational(TestLMCPredictiveGPSharedVariational):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.DeltaVariationalDistribution
+
+
+class TestDeltaLMCRobustVGPSharedVariational(TestLMCRobustVGPSharedVariational):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.DeltaVariationalDistribution
+
+
 if __name__ == "__main__":
     unittest.main()
