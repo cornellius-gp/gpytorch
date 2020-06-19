@@ -9,8 +9,6 @@ from gpytorch.kernels import SpectralMixtureKernel
 
 
 class TestSpectralMixtureKernel(unittest.TestCase):
-    seed = 1
-
     def test_standard(self):
         a = torch.tensor([[0, 1], [2, 2], [2, 0]], dtype=torch.float)
         means = torch.tensor([[1, 2], [2, 1]], dtype=torch.float)
