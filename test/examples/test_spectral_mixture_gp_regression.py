@@ -3,8 +3,6 @@
 from math import exp, pi
 from collections import OrderedDict
 
-import os
-import random
 import torch
 import unittest
 
@@ -15,6 +13,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.distributions import MultivariateNormal
+from gpytorch.test.base_test_case import BaseTestCase
 
 
 # Simple training data: let's try to learn a sine function
@@ -59,19 +58,8 @@ class SpectralMixtureGPModel(gpytorch.models.ExactGP):
         return MultivariateNormal(mean_x, covar_x)
 
 
-class TestSpectralMixtureGPRegression(unittest.TestCase):
-    def setUp(self):
-        if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
-            seed = 4
-            self.rng_state = torch.get_rng_state()
-            torch.manual_seed(seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(seed)
-            random.seed(seed)
-
-    def tearDown(self):
-        if hasattr(self, "rng_state"):
-            torch.set_rng_state(self.rng_state)
+class TestSpectralMixtureGPRegression(BaseTestCase, unittest.TestCase):
+    seed = 4
 
     def test_spectral_mixture_gp_mean_abs_error_empspect_init(self):
         return self.test_spectral_mixture_gp_mean_abs_error(empspect=True)
@@ -87,7 +75,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
         optimizer = optim.SGD(list(gp_model.parameters()), lr=0.1)
         optimizer.n_iter = 0
 
-        for _ in range(300):
+        for i in range(300):
             optimizer.zero_grad()
             output = gp_model(train_x)
             loss = -mll(output, train_y)
@@ -95,13 +83,10 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
             optimizer.n_iter += 1
             optimizer.step()
 
-        for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        optimizer.step()
+            if i == 0:
+                for param in gp_model.parameters():
+                    self.assertTrue(param.grad is not None)
+                    self.assertGreater(param.grad.norm().item(), 0.)
 
         gp_model.load_state_dict(good_state_dict, strict=False)
 
