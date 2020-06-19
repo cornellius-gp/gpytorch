@@ -14,7 +14,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
     A VariationalStrategy that uses a different set of inducing points for the
     variational mean and variational covar.  It follows the "decoupled" model
     proposed by `Jankowiak et al. (2020)`_ (which is roughly based on the strategies
-    prooposed by `Cheng et al. (2017)`_.
+    proposed by `Cheng et al. (2017)`_.
 
     Let :math:`\mathbf Z_\mu` and :math:`\mathbf Z_\sigma` be the mean/variance
     inducing points. The variational distribution for an input :math:`\mathbf
