@@ -12,9 +12,9 @@ from .variational_strategy import VariationalStrategy
 class BatchDecoupledVariationalStrategy(VariationalStrategy):
     r"""
     A VariationalStrategy that uses a different set of inducing points for the
-    variational mean and variational covar.  It is roughly based on the model
-    proposed by `Cheng et al. (2017)`_, but with a few differences (proposed by
-    `Jankowiak et al. (2020)`_).
+    variational mean and variational covar.  It follows the "decoupled" model
+    proposed by `Jankowiak et al. (2020)`_ (which is roughly based on the strategies
+    prooposed by `Cheng et al. (2017)`_.
 
     Let :math:`\mathbf Z_\mu` and :math:`\mathbf Z_\sigma` be the mean/variance
     inducing points. The variational distribution for an input :math:`\mathbf
@@ -81,7 +81,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
     .. _Jankowiak et al. (2020):
         https://arxiv.org/abs/1910.07123
 
-    Example:
+    Example (**different** hypers for mean/variance):
         >>> class MeanFieldDecoupledModel(gpytorch.models.ApproximateGP):
         >>>     '''
         >>>     A batch of 3 independent MeanFieldDecoupled PPGPR models.
@@ -103,6 +103,28 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         >>>         self.covar_module = gpytorch.kernels.ScaleKernel(
         >>>             gpytorch.kernels.RBFKernel(batch_shape=torch.Size([3, 2])),
         >>>             batch_shape=torch.Size([3, 2]),
+        >>>         )
+
+    Example (**shared** hypers for mean/variance):
+        >>> class MeanFieldDecoupledModel(gpytorch.models.ApproximateGP):
+        >>>     '''
+        >>>     A batch of 3 independent MeanFieldDecoupled PPGPR models.
+        >>>     '''
+        >>>     def __init__(self, inducing_points):
+        >>>         # The variational parameters have a batch_shape of [3]
+        >>>         variational_distribution = gpytorch.variational.MeanFieldVariationalDistribution(
+        >>>             inducing_points.size(-1), batch_shape=torch.Size([3]),
+        >>>         )
+        >>>         variational_strategy = gpytorch.variational.BatchDecoupledVariationalStrategy(
+        >>>             self, inducing_points, variational_distribution, learn_inducing_locations=True,
+        >>>         )
+        >>>
+        >>>         # The mean/covar modules have a batch_shape of [3]
+        >>>         super().__init__(variational_strategy)
+        >>>         self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([3]))
+        >>>         self.covar_module = gpytorch.kernels.ScaleKernel(
+        >>>             gpytorch.kernels.RBFKernel(batch_shape=torch.Size([3])),
+        >>>             batch_shape=torch.Size([3]),
         >>>         )
     """
 
