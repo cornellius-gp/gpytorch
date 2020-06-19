@@ -44,7 +44,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
     kernels.
 
     .. note::
-        We recommend using the "right-most" batch dimension (i.e. :attr:`mean_var_batch_dim=-3`) for the dimension
+        We recommend using the "right-most" batch dimension (i.e. :attr:`mean_var_batch_dim=-1`) for the dimension
         that corresponds to the different mean/variance kernel parameters.
 
         Assuming you want `b1` many independent GPs, the :obj:`~gpytorch.variational._VariationalDistribution`
@@ -69,7 +69,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
     :type learn_inducing_locations: `bool`, optional
     :type mean_var_batch_dim: `int`, optional
     :param mean_var_batch_dim: (Default `None`):
-        Set this parameter (ideally to `-3`) to indicate which dimension corresponds to different
+        Set this parameter (ideally to `-1`) to indicate which dimension corresponds to different
         kernel hyperparameters for the mean/variance functions.
 
     .. _Cheng et al. (2017):
@@ -93,7 +93,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         >>>         )
         >>>         variational_strategy = gpytorch.variational.BatchDecoupledVariationalStrategy(
         >>>             self, inducing_points, variational_distribution, learn_inducing_locations=True,
-        >>>             mean_var_batch_dim=-3
+        >>>             mean_var_batch_dim=-1
         >>>         )
         >>>
         >>>         # The mean/covar modules have a batch_shape of [3, 2]
@@ -146,7 +146,10 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
 
         # We're going to create two set of inducing points
         # One set for computing the mean, one set for computing the variance
-        inducing_points = torch.stack([inducing_points, inducing_points], dim=(self.mean_var_batch_dim or -3))
+        if self.mean_var_batch_dim is not None:
+            inducing_points = torch.stack([inducing_points, inducing_points], dim=(self.mean_var_batch_dim - 2))
+        else:
+            inducing_points = torch.stack([inducing_points, inducing_points], dim=-3)
         super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations)
 
     def _expand_inputs(self, x, inducing_points):
@@ -154,14 +157,14 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         if self.mean_var_batch_dim is None:
             x = x.unsqueeze(-3)
         else:
-            x = x.unsqueeze(self.mean_var_batch_dim)
+            x = x.unsqueeze(self.mean_var_batch_dim - 2)
         return super()._expand_inputs(x, inducing_points)
 
     def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
         # We'll compute the covariance, and cross-covariance terms for both the
         # pred-mean and pred-covar, using their different inducing points (and maybe kernel hypers)
 
-        mean_var_batch_dim = self.mean_var_batch_dim or -3
+        mean_var_batch_dim = self.mean_var_batch_dim or -1
 
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
@@ -184,15 +187,15 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             del self._memoize_cache["cholesky_factor"]
             L = self._cholesky_factor(induc_induc_covar)
         interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0].to(full_inputs.dtype)
-        mean_interp_term = interp_term.select(mean_var_batch_dim, 0)
-        var_interp_term = interp_term.select(mean_var_batch_dim, 1)
+        mean_interp_term = interp_term.select(mean_var_batch_dim - 2, 0)
+        var_interp_term = interp_term.select(mean_var_batch_dim - 2, 1)
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} m + \mu_X
         # Here we're using the terms that correspond to the mean's inducing points
         predictive_mean = torch.add(
             torch.matmul(mean_interp_term.transpose(-1, -2), inducing_values.unsqueeze(-1)).squeeze(-1),
-            test_mean.select(mean_var_batch_dim + 1, 0),
+            test_mean.select(mean_var_batch_dim - 1, 0),
         )
 
         # Compute the covariance of q(f)
@@ -201,7 +204,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         if variational_inducing_covar is not None:
             middle_term = SumLazyTensor(variational_inducing_covar, middle_term)
         predictive_covar = SumLazyTensor(
-            data_data_covar.add_jitter(1e-4).evaluate().select(mean_var_batch_dim, 1),
+            data_data_covar.add_jitter(1e-4).evaluate().select(mean_var_batch_dim - 2, 1),
             MatmulLazyTensor(var_interp_term.transpose(-1, -2), middle_term @ var_interp_term),
         )
 

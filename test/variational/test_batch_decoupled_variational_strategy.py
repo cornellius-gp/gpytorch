@@ -20,7 +20,7 @@ def strategy_cls(model, inducing_points, variational_distribution, learn_inducin
 
 def batch_dim_strategy_cls(model, inducing_points, variational_distribution, learn_inducing_locations):
     return gpytorch.variational.BatchDecoupledVariationalStrategy(
-        model, inducing_points, variational_distribution, learn_inducing_locations, mean_var_batch_dim=-3
+        model, inducing_points, variational_distribution, learn_inducing_locations, mean_var_batch_dim=-1
     )
 
 
