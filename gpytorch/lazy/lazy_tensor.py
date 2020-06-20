@@ -263,7 +263,7 @@ class LazyTensor(ABC):
             This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.expand`,
             which does some additional work. Calling this method directly is discouraged.
         """
-        current_shape = torch.Size([1 for _ in range(len(batch_shape) - self.dim() - 2)] + list(self.batch_shape))
+        current_shape = torch.Size([1 for _ in range(len(batch_shape) - self.dim() + 2)] + list(self.batch_shape))
         batch_repeat = torch.Size(
             [expand_size // current_size for expand_size, current_size in zip(batch_shape, current_shape)]
         )
@@ -1679,8 +1679,8 @@ class LazyTensor(ABC):
         elif isinstance(other, Tensor):
             other = lazify(other)
             shape = _mul_broadcast_shape(self.shape, other.shape)
-            new_self = self if self.shape == shape else self._expand_batch(shape[:-2])
-            new_other = other if other.shape == shape else other._expand_batch(shape[:-2])
+            new_self = self if self.shape[:-2] == shape[:-2] else self._expand_batch(shape[:-2])
+            new_other = other if other.shape[:-2] == shape[:-2] else other._expand_batch(shape[:-2])
             return SumLazyTensor(new_self, new_other)
         else:
             return SumLazyTensor(self, other)
