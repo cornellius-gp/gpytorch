@@ -5,7 +5,7 @@ from ._approximate_mll import _ApproximateMarginalLogLikelihood
 
 class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
     r"""
-    An alternative objective function for approximate GPs, proposed in `Jankowiak et al., 2019`_.
+    An alternative objective function for approximate GPs, proposed in `Jankowiak et al., 2020`_.
     It typically produces better predictive variances than the :obj:`gpytorch.mlls.VariationalELBO` objective.
 
     .. math::
@@ -27,12 +27,12 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
 
     :math:`\beta` is a scaling constant that reduces the regularization effect of the KL
     divergence. Setting :math:`\beta=1` (default) results in an objective that can be motivated by a connection
-    to Stochastic Expectation Propagation (see `Jankowiak et al., 2019`_ for details).
+    to Stochastic Expectation Propagation (see `Jankowiak et al., 2020`_ for details).
 
     .. note::
         This objective is very similar to the variational ELBO.
         The only difference is that the :math:`log` occurs *outside* the expectation :math:`\mathbb{E}_{q(\mathbf u)}`.
-        This difference results in very different predictive performance (see `Jankowiak et al., 2019`_).
+        This difference results in very different predictive performance (see `Jankowiak et al., 2020`_).
 
     :param ~gpytorch.likelihoods.Likelihood likelihood: The likelihood for the model
     :param ~gpytorch.models.ApproximateGP model: The approximate GP model
@@ -52,7 +52,7 @@ class PredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
         >>> loss = -mll(output, train_y)
         >>> loss.backward()
 
-    .. _Jankowiak et al., 2019:
+    .. _Jankowiak et al., 2020:
         https://arxiv.org/abs/1910.07123
     """
 

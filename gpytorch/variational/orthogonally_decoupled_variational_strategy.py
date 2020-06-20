@@ -20,6 +20,13 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
     It then wraps a different :obj:`~gpytorch.variational._VariationalStrategy` which
     defines the covariance inducing points.
 
+    :param ~gpytorch.variational._VariationalStrategy covar_variational_strategy:
+        The variational strategy for the covariance term.
+    :param torch.Tensor inducing_points: Tensor containing a set of inducing
+        points to use for variational inference.
+    :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
+        VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
+
     Example:
         >>> mean_inducing_points = torch.randn(1000, train_x.size(-1), dtype=train_x.dtype, device=train_x.device)
         >>> covar_inducing_points = torch.randn(100, train_x.size(-1), dtype=train_x.dtype, device=train_x.device)
@@ -39,14 +46,16 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
         https://arxiv.org/abs/1809.08820
     """
 
-    def __init__(self, model, inducing_points, variational_distribution):
+    def __init__(self, covar_variational_strategy, inducing_points, variational_distribution):
         if not isinstance(variational_distribution, DeltaVariationalDistribution):
             raise NotImplementedError(
                 "OrthogonallyDecoupledVariationalStrategy currently works with DeltaVariationalDistribution"
             )
 
-        super().__init__(model, inducing_points, variational_distribution, learn_inducing_locations=True)
-        self.base_variational_strategy = model
+        super().__init__(
+            covar_variational_strategy, inducing_points, variational_distribution, learn_inducing_locations=True
+        )
+        self.base_variational_strategy = covar_variational_strategy
 
     @property
     @cached(name="prior_distribution_memo")

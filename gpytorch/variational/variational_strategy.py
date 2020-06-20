@@ -51,9 +51,10 @@ class VariationalStrategy(_VariationalStrategy):
         points to use for variational inference.
     :param ~gpytorch.variational.VariationalDistribution variational_distribution: A
         VariationalDistribution object that represents the form of the variational distribution :math:`q(\mathbf u)`
-    :param bool learn_inducing_points: (optional, default True): Whether or not
+    :param learn_inducing_locations: (Default True): Whether or not
         the inducing point locations :math:`\mathbf Z` should be learned (i.e. are they
         parameters of the model).
+    :type learn_inducing_locations: `bool`, optional
 
     .. _Hensman et al. (2015):
         http://proceedings.mlr.press/v38/hensman15.pdf
