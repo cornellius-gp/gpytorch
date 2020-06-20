@@ -8,6 +8,7 @@ from .delta_variational_distribution import DeltaVariationalDistribution
 from .grid_interpolation_variational_strategy import GridInterpolationVariationalStrategy
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
 from .multitask_variational_strategy import MultitaskVariationalStrategy
+from .natural_variational_distribution import NaturalVariationalDistribution
 from .orthogonally_decoupled_variational_strategy import OrthogonallyDecoupledVariationalStrategy
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 from .variational_strategy import VariationalStrategy
@@ -26,4 +27,5 @@ __all__ = [
     "CholeskyVariationalDistribution",
     "MeanFieldVariationalDistribution",
     "DeltaVariationalDistribution",
+    "NaturalVariationalDistribution",
 ]
