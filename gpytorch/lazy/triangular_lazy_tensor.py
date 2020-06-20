@@ -80,6 +80,10 @@ class TriangularLazyTensor(LazyTensor):
     def _mul_constant(self, constant: Tensor) -> "TriangularLazyTensor":
         return TriangularLazyTensor(self._tensor * constant.unsqueeze(-1), upper=self.upper)
 
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        res = left_vecs.matmul(right_vecs.transpose(-1, -2))
+        return (res,)
+
     def _root_decomposition(self) -> Allsor:
         raise NotPSDError("TriangularLazyTensor does not allow a root decomposition")
 
