@@ -139,3 +139,10 @@ distributions.
 
 .. autoclass:: MeanFieldVariationalDistribution
    :members:
+
+
+:hidden:`NaturalVariationalDistribution`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: NaturalVariationalDistribution
+   :members:
