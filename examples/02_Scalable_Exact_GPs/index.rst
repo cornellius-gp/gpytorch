@@ -41,6 +41,19 @@ Here are examples of Exact GPs using GPU acceleration.
    Simple_MultiGPU_GP_Regression.ipynb
    KeOps_GP_Regression.ipynb
 
+Scalable Posterior Sampling with CIQ
+---------------------------------------
+
+Here we provide a notebook demonstrating the use of Contour Integral Quadrature with msMINRES as described in the `CIQ paper`_.
+For the most dramatic results, we recommend combining this technique with other techniques in this section like kernel checkpointing with KeOps,
+which would allow for posterior sampling on up to hundreds of thousands of test examples.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   Exact_GP_Posterior_Sampling_with_CIQ.ipynb
+
 Scalable Kernel Approximations
 -----------------------------------
 
@@ -102,3 +115,6 @@ See the `Grid Regression`_ example for more info.
 
 .. _Grid Regression:
   ./Grid_GP_Regression.ipynb
+
+.. _CIQ paper:
+  https://arxiv.org/abs/2006.11267
