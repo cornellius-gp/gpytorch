@@ -184,6 +184,12 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
 
     if squeeze:
         solution = solution.squeeze(-1)
+        rhs = rhs.squeeze(-1)
+        rhs_norm = rhs_norm.squeeze(-1)
+
+    if shifts.numel() == 1:
+        # If we weren't shifting we shouldn't return a batch output
+        solution = solution.squeeze(0)
 
     return solution.mul_(rhs_norm)
 
