@@ -1,7 +1,6 @@
 import math
 import warnings
 
-import numpy as np
 import torch
 
 from .broadcasting import _mul_broadcast_shape
@@ -26,16 +25,16 @@ def contour_integral_quad(
     .. note::
         Right now this only works for non-batch matrices
 
-
-    :param gpytorch.lazy.LazyTensor lazy_tensor: LazyTensor representing :math:`K`
-    :param torch.Tensor rhs: Right hand side tensor :math:`b`
-    :param bool inverse: (default False) whether to compute :math:`K^{1/2} b` (if False)
-        or `K^{-1/2} b` (if True)
+    :param gpytorch.lazy.LazyTensor lazy_tensor: LazyTensor representing :math:`\mathbf K`
+    :param torch.Tensor rhs: Right hand side tensor :math:`\mathbf b`
+    :param bool inverse: (default False) whether to compute :math:`\mathbf K^{1/2} \mathbf b` (if False)
+        or `\mathbf K^{-1/2} \mathbf b` (if True)
     :param int max_lanczos_iter: (default 10) Number of Lanczos iterations to run (to estimate eigenvalues)
     :param int num_contour_quadrature: (default 15) How many quadrature samples to use for approximation
     :rtype: torch.Tensor
-    :return: Approximation to :math:`K^{1/2} b` or :mathbf:`K^{-1/2} b`.
+    :return: Approximation to :math:`\mathbf K^{1/2} \mathbf b` or :math:`\mathbf K^{-1/2} \mathbf b`.
     """
+    import numpy as np
     from scipy.special import ellipj, ellipk
 
     output_batch_shape = _mul_broadcast_shape(lazy_tensor.batch_shape, rhs.shape[:-2])
