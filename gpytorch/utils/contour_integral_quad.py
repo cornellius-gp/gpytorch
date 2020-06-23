@@ -6,6 +6,7 @@ import torch
 from .broadcasting import _mul_broadcast_shape
 from .linear_cg import linear_cg
 from .minres import minres
+from .warnings import NumericalWarning
 
 
 def contour_integral_quad(
@@ -57,7 +58,7 @@ def contour_integral_quad(
             (*([0] * num_extra_dims), Ellipsis, slice(None, None, None), slice(None, 1, None))
         ).expand(*lazy_tensor.shape[:-1], 1)
         with warnings.catch_warnings(), torch.no_grad():
-            warnings.simplefilter("ignore", UserWarning)  # Supress CG stopping warning
+            warnings.simplefilter("ignore", NumericalWarning)  # Supress CG stopping warning
             _, lanczos_mat = linear_cg(
                 lambda v: lazy_tensor._matmul(v),
                 rhs=lanczos_init,
