@@ -8,7 +8,7 @@ from .errors import NanError
 from .warnings import NumericalWarning
 
 
-def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
+def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
     """Compute the Cholesky decomposition of A. If A is only p.s.d, add a small jitter to the diagonal.
     Args:
         :attr:`A` (Tensor):
@@ -35,7 +35,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None):
             jitter = 1e-6 if A.dtype == torch.float32 else 1e-8
         Aprime = A.clone()
         jitter_prev = 0
-        for i in range(3):
+        for i in range(max_tries):
             jitter_new = jitter * (10 ** i)
             Aprime.diagonal(dim1=-2, dim2=-1).add_(jitter_new - jitter_prev)
             jitter_prev = jitter_new

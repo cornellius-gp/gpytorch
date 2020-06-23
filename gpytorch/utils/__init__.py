@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 from . import broadcasting, cholesky, fft, grid, interpolation, lanczos, pivoted_cholesky, quadrature, sparse, warnings
+from .contour_integral_quad import contour_integral_quad
 from .linear_cg import linear_cg
 from .memoize import cached
+from .minres import minres
 from .stochastic_lq import StochasticLQ
 
 
@@ -21,6 +23,7 @@ def prod(items):
 __all__ = [
     "broadcasting",
     "cached",
+    "contour_integral_quad",
     "linear_cg",
     "StochasticLQ",
     "cholesky",
@@ -28,6 +31,7 @@ __all__ = [
     "grid",
     "interpolation",
     "lanczos",
+    "minres",
     "pivoted_cholesky",
     "prod",
     "quadrature",
