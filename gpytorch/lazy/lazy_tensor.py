@@ -1471,7 +1471,7 @@ class LazyTensor(ABC):
             rhs = rhs.unsqueeze(-1)
             squeeze = True
 
-        func = SqrtInvMatmul(has_lhs=(lhs is not None))
+        func = SqrtInvMatmul()
         sqrt_inv_matmul_res, inv_quad_res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
 
         if squeeze:
@@ -1621,9 +1621,9 @@ class LazyTensor(ABC):
             :obj:`torch.tensor`:
                 Samples from MVN (num_samples x batch_size x num_dim) or (num_samples x num_dim)
         """
-        if settings.ciq_samples.on():
-            from ..utils.contour_integral_quad import contour_integral_quad
+        from ..utils.contour_integral_quad import contour_integral_quad
 
+        if settings.ciq_samples.on():
             base_samples = torch.randn(
                 *self.batch_shape, self.size(-1), num_samples, dtype=self.dtype, device=self.device
             )

@@ -511,14 +511,6 @@ class prior_mode(_feature_flag):
     _state = False
 
 
-class single_precision_cholesky(_feature_flag):
-    """
-    Use single precision when computing the Cholesky decomposition (and solves)
-    """
-
-    _state = False
-
-
 class skip_logdet_forward(_feature_flag):
     """
     .. warning:

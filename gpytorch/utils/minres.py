@@ -56,11 +56,11 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     if value is not None:
         prod.mul_(value)
 
-    # Reisze shifts
+    # Resize shifts
     shifts = _pad_with_singletons(shifts, 0, prod.dim() - shifts.dim() + 1)
     solution = torch.zeros(shifts.shape[:1] + prod.shape, dtype=rhs.dtype, device=rhs.device)
 
-    # Variasbles for Lanczos terms
+    # Variables for Lanczos terms
     zvec_prev2 = torch.zeros_like(prod)
     zvec_prev1 = rhs.clone().expand_as(prod).contiguous()
     qvec_prev1 = preconditioner(zvec_prev1)
