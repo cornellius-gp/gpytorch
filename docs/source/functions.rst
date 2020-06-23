@@ -33,3 +33,5 @@ Functions
 .. autofunction:: root_decomposition
 
 .. autofunction:: root_inv_decomposition
+
+.. autofunction:: sqrt_inv_matmul
