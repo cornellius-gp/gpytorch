@@ -4,6 +4,8 @@ from .additive_structure_kernel import AdditiveStructureKernel
 from .arc_kernel import ArcKernel
 from .cosine_kernel import CosineKernel
 from .cylindrical_kernel import CylindricalKernel
+from .distributional_input_kernel import DistributionalInputKernel
+from .gaussian_symmetrized_kl_kernel import GaussianSymmetrizedKLKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .grid_kernel import GridKernel
 from .index_kernel import IndexKernel
@@ -35,6 +37,8 @@ __all__ = [
     "CylindricalKernel",
     "MultiDeviceKernel",
     "CosineKernel",
+    "DistributionalInputKernel",
+    "GaussianSymmetrizedKLKernel",
     "GridKernel",
     "GridInterpolationKernel",
     "IndexKernel",
