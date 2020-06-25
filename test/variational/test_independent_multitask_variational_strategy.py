@@ -13,7 +13,7 @@ def likelihood_cls():
 
 
 def strategy_cls(model, inducing_points, variational_distribution, learn_inducing_locations):
-    return gpytorch.variational.MultitaskVariationalStrategy(
+    return gpytorch.variational.IndependentMultitaskVariationalStrategy(
         gpytorch.variational.VariationalStrategy(
             model, inducing_points, variational_distribution, learn_inducing_locations
         ),
