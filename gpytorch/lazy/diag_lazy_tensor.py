@@ -122,7 +122,6 @@ class DiagLazyTensor(LazyTensor):
         return res
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
-
         # TODO: Use proper batching for inv_quad_rhs (prepand to shape rathern than append)
         if inv_quad_rhs is None:
             rhs_batch_shape = torch.Size()

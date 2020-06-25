@@ -3,6 +3,7 @@ import warnings
 
 import torch
 
+from .. import settings
 from .broadcasting import _mul_broadcast_shape
 from .linear_cg import linear_cg
 from .minres import minres
@@ -16,7 +17,7 @@ def contour_integral_quad(
     weights=None,
     shifts=None,
     max_lanczos_iter=20,
-    num_contour_quadrature=7,
+    num_contour_quadrature=None,
     shift_offset=0,
 ):
     r"""
@@ -28,12 +29,15 @@ def contour_integral_quad(
     :param bool inverse: (default False) whether to compute :math:`\mathbf K^{1/2} \mathbf b` (if False)
         or `\mathbf K^{-1/2} \mathbf b` (if True)
     :param int max_lanczos_iter: (default 10) Number of Lanczos iterations to run (to estimate eigenvalues)
-    :param int num_contour_quadrature: (default 15) How many quadrature samples to use for approximation
+    :param int num_contour_quadrature: How many quadrature samples to use for approximation. Default is in settings.
     :rtype: torch.Tensor
     :return: Approximation to :math:`\mathbf K^{1/2} \mathbf b` or :math:`\mathbf K^{-1/2} \mathbf b`.
     """
     import numpy as np
     from scipy.special import ellipj, ellipk
+
+    if num_contour_quadrature is None:
+        num_contour_quadrature = settings.num_contour_quadrature.value()
 
     output_batch_shape = _mul_broadcast_shape(lazy_tensor.batch_shape, rhs.shape[:-2])
     preconditioner, preconditioner_lt, _ = lazy_tensor._preconditioner()

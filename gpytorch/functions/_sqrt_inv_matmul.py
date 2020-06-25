@@ -8,6 +8,13 @@ from ..utils.contour_integral_quad import contour_integral_quad
 
 
 class SqrtInvMatmul(Function):
+    """
+    Given a PD matrix A, this function computes one of the following:
+    - A^{-1/2} rhs
+    - lhs A^{-1/2} rhs
+    using contour integral quadrature.
+    """
+
     @staticmethod
     def forward(ctx, representation_tree, rhs, lhs, *matrix_args):
         ctx.representation_tree = representation_tree

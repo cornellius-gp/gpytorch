@@ -1466,6 +1466,9 @@ class LazyTensor(ABC):
         return self.size()
 
     def sqrt_inv_matmul(self, rhs, lhs=None):
+        """
+        If A is positive definite, computes either lhs A^{-1/2} rhs or A^{-1/2} rhs.
+        """
         squeeze = False
         if rhs.dim() == 1:
             rhs = rhs.unsqueeze(-1)
