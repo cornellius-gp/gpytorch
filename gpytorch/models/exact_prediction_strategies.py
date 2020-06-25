@@ -564,7 +564,7 @@ class SumPredictionStrategy(DefaultPredictionStrategy):
         return sub_strategies
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
-        test_train_covar = test_train_covar.evaluate_kernel()
+        test_train_covar = lazify(test_train_covar).evaluate_kernel()
         if not isinstance(test_train_covar, SumLazyTensor):
             return super(SumPredictionStrategy, self)._exact_predictive_covar_inv_quad_form_cache(
                 train_train_covar_inv_root, test_train_covar
@@ -578,7 +578,7 @@ class SumPredictionStrategy(DefaultPredictionStrategy):
     def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
         # Here the precomputed cache is a list
         # where each component in the list is the precomputed cache for each component lazy tensor
-        test_train_covar = test_train_covar.evaluate_kernel()
+        test_train_covar = lazify(test_train_covar).evaluate_kernel()
         if not isinstance(test_train_covar, SumLazyTensor):
             return super(SumPredictionStrategy, self)._exact_predictive_covar_inv_quad_form_root(
                 precomputed_cache, test_train_covar

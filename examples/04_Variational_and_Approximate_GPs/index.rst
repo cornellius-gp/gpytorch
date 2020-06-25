@@ -25,7 +25,7 @@ Here we provide some examples which highlight some of the common use cases:
 - **Large-scale regression** (when exact methods are too memory intensive): see the `stochastic variational regression example`_.
 - **Variational distribution options** for different scalability/expressiveness: see the `strategy/distribution comparison`_.
 - **Alternative optimization objectives** for the GP's predictive distribution: see the `approximate GP objective functions notebook`_.
-  This example compares and contrasts the variational ELBO with the predictive log likelihood of Jankowiak et al., 2019.
+  This example compares and contrasts the variational ELBO with the predictive log likelihood of Jankowiak et al., 2020.
 - **Classification**: see the `non-Gaussian likelihood notebook`_.
 - **Multi-output variational GPs** (when exact methods are too memory intensive): see the `variational GPs with multiple outputs example`_.
 - **Uncertain inputs**: see the `GPs with uncertain inputs example`_.
