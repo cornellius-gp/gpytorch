@@ -2,7 +2,7 @@
 
 import torch
 
-from ..utils.broadcasting import _matmul_broadcast_shape, _pad_with_singletons
+from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape, _pad_with_singletons
 from ..utils.getitem import _noop_index
 from ..utils.memoize import cached
 from .diag_lazy_tensor import DiagLazyTensor
@@ -22,6 +22,13 @@ class MatmulLazyTensor(LazyTensor):
     def __init__(self, left_lazy_tensor, right_lazy_tensor):
         left_lazy_tensor = lazify(left_lazy_tensor)
         right_lazy_tensor = lazify(right_lazy_tensor)
+
+        # Match batch dimensions
+        batch_shape = _mul_broadcast_shape(left_lazy_tensor.batch_shape, right_lazy_tensor.batch_shape)
+        if left_lazy_tensor.batch_shape != batch_shape:
+            left_lazy_tensor = left_lazy_tensor._expand_batch(batch_shape)
+        if right_lazy_tensor.batch_shape != batch_shape:
+            right_lazy_tensor = right_lazy_tensor._expand_batch(batch_shape)
 
         super().__init__(left_lazy_tensor, right_lazy_tensor)
         self.left_lazy_tensor = left_lazy_tensor
