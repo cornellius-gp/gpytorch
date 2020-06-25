@@ -47,7 +47,7 @@ class SmoothedBoxPrior(Prior):
         del self.a, self.b, self.sigma
         self.register_buffer("a", _a)
         self.register_buffer("b", _b)
-        self.register_buffer("sigma", _sigma)
+        self.register_buffer("sigma", _sigma.clone())
         self.tails = NormalPrior(torch.zeros_like(_a), _sigma, validate_args=validate_args)
         self._transform = transform
 
