@@ -14,6 +14,7 @@ from ..functions._inv_quad import InvQuad
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
+from ..functions._sqrt_inv_matmul import SqrtInvMatmul
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
@@ -839,6 +840,24 @@ class LazyTensor(ABC):
         """
         return self.ndimension()
 
+    def double(self, device_id=None):
+        """
+        This method operates identically to :func:`torch.Tensor.double`.
+        """
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, "double"):
+                new_args.append(arg.double())
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, "double"):
+                new_kwargs[name] = val.double()
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
+
     @property
     def dtype(self):
         return self._args[0].dtype
@@ -1446,6 +1465,26 @@ class LazyTensor(ABC):
     def shape(self):
         return self.size()
 
+    def sqrt_inv_matmul(self, rhs, lhs=None):
+        """
+        If A is positive definite, computes either lhs A^{-1/2} rhs or A^{-1/2} rhs.
+        """
+        squeeze = False
+        if rhs.dim() == 1:
+            rhs = rhs.unsqueeze(-1)
+            squeeze = True
+
+        func = SqrtInvMatmul()
+        sqrt_inv_matmul_res, inv_quad_res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
+
+        if squeeze:
+            sqrt_inv_matmul_res = sqrt_inv_matmul_res.squeeze(-1)
+
+        if lhs is None:
+            return sqrt_inv_matmul_res
+        else:
+            return sqrt_inv_matmul_res, inv_quad_res
+
     def sum(self, dim=None):
         """
         Sum the LazyTensor across a dimension.
@@ -1585,15 +1624,33 @@ class LazyTensor(ABC):
             :obj:`torch.tensor`:
                 Samples from MVN (num_samples x batch_size x num_dim) or (num_samples x num_dim)
         """
-        if self.size()[-2:] == torch.Size([1, 1]):
-            covar_root = self.evaluate().sqrt()
-        else:
-            covar_root = self.root_decomposition().root
+        from ..utils.contour_integral_quad import contour_integral_quad
 
-        base_samples = torch.randn(
-            *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
-        )
-        samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
+        if settings.ciq_samples.on():
+            base_samples = torch.randn(
+                *self.batch_shape, self.size(-1), num_samples, dtype=self.dtype, device=self.device
+            )
+            base_samples = base_samples.permute(-1, *range(self.dim() - 1)).contiguous()
+            base_samples = base_samples.unsqueeze(-1)
+            solves, weights, _, _ = contour_integral_quad(
+                self.evaluate_kernel(),
+                base_samples,
+                inverse=False,
+                num_contour_quadrature=settings.num_contour_quadrature.value(),
+            )
+
+            return (solves * weights).sum(0).squeeze(-1)
+
+        else:
+            if self.size()[-2:] == torch.Size([1, 1]):
+                covar_root = self.evaluate().sqrt()
+            else:
+                covar_root = self.root_decomposition().root
+
+            base_samples = torch.randn(
+                *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
+            )
+            samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
 
         return samples
 

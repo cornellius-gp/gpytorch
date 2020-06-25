@@ -15,7 +15,7 @@ class TestDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
     should_call_lanczos = False
 
     def create_lazy_tensor(self):
-        diag = torch.tensor([1.0, 2.0, 4.0, 2.0, 3.0], requires_grad=True)
+        diag = torch.tensor([1.0, 2.0, 4.0, 5.0, 3.0], requires_grad=True)
         return DiagLazyTensor(diag)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
