@@ -104,7 +104,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         noise = self._diag_tensor[0, 0]
         sub_eigs = []
         for lazy_tensor in self._lazy_tensor.lazy_tensors:
-            sub_eigs.append(lazy_tensor.evaluate().eig()[0][:, 0].unsqueeze(-1))
+            sub_eigs.append(lazy_tensor.evaluate().eig(eigenvectors=True)[0][:, 0].unsqueeze(-1))
 
         eigs = sub_eigs[0].matmul(sub_eigs[1].t())
         return torch.log(eigs + noise).sum()
