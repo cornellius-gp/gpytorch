@@ -6,7 +6,6 @@ from .. import settings
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
-from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor, lazify
 
 # TODO: check the speed of the linear algebra - svd vs eig etc.
@@ -27,16 +26,16 @@ class _DiagKroneckerProdLazyTensor(KroneckerProductLazyTensor):
         super(_DiagKroneckerProdLazyTensor, self).__init__(*lazy_tensors)
         self.lazy_tensors = lazy_tensors
 
-    def get_diag(self):
-        sz1 = self.lazy_tensors[0].size(0)
-        sz2 = self.lazy_tensors[1].size(0)
+    def diag(self):
+        kronecker_shape = self.lazy_tensors[0].size(0)
+        diagonal_shape = self.lazy_tensors[1].size(0)
 
-        d1 = self.lazy_tensors[0].diag()
-        d2 = self.lazy_tensors[1].diag()
+        kronecker_diagonal = self.lazy_tensors[0].diag()
+        diagonal_2 = self.lazy_tensors[1].diag()
 
-        out = d2.expand(sz1, sz2).t().mul(d1)
+        out = diagonal_2.expand(kronecker_shape, diagonal_shape).t().mul(kronecker_diagonal)
 
-        return out.t().contiguous().view(sz1 * sz2)
+        return out.t().contiguous().view(kronecker_shape * diagonal_shape)
 
 
 class _KroneckerProductLazyLogDet(KroneckerProductLazyTensor):
@@ -104,8 +103,8 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def logdet(self):
         noise = self._diag_tensor[0, 0]
         sub_eigs = []
-        for lt in self._lazy_tensor.lazy_tensors:
-            sub_eigs.append(lt.evaluate().eig()[0][:, 0].unsqueeze(-1))
+        for lazy_tensor in self._lazy_tensor.lazy_tensors:
+            sub_eigs.append(lazy_tensor.evaluate().eig()[0][:, 0].unsqueeze(-1))
 
         eigs = sub_eigs[0].matmul(sub_eigs[1].t())
         return torch.log(eigs + noise).sum()
@@ -113,22 +112,22 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def _kron_svd(self):
         return [lt.evaluate().svd() for lt in self._lazy_tensor.lazy_tensors]
 
-    def inv_quad(self, rhs):
+    def inv_quad(self, tensor, reduce_inv_quad=True):
         # TODO: check stability of numerics here
 
         svd_list = self._kron_svd()
         noise = self._diag_tensor[0, 0]
-        V = _DiagKroneckerProdLazyTensor(DiagLazyTensor(svd_list[0].S), DiagLazyTensor(svd_list[1].S))
-        Q = KroneckerProductLazyTensor(lazify(svd_list[0].U), lazify(svd_list[1].U))
+        v_matrix = _DiagKroneckerProdLazyTensor(DiagLazyTensor(svd_list[0].S), DiagLazyTensor(svd_list[1].S))
+        q_matrix = KroneckerProductLazyTensor(lazify(svd_list[0].U), lazify(svd_list[1].U))
         for sub_ind in range(2, len(svd_list)):
-            V = KroneckerProductLazyTensor(V, DiagLazyTensor(svd_list[sub_ind].S))
-            Q = KroneckerProductLazyTensor(Q, LazyTensor(svd_list[sub_ind].S))
+            v_matrix = KroneckerProductLazyTensor(v_matrix, DiagLazyTensor(svd_list[sub_ind].S))
+            q_matrix = KroneckerProductLazyTensor(q_matrix, DiagLazyTensor(svd_list[sub_ind].S))
 
         # TODO: this could be a memory hog.
-        inv_mat = DiagLazyTensor(V.get_diag() + noise)
+        inv_mat = DiagLazyTensor(v_matrix.diag() + noise)
 
-        res = Q.t().matmul(rhs)
+        res = q_matrix.t().matmul(tensor)
         res = inv_mat.inverse().matmul(res)
-        res = Q.matmul(res)
+        res = q_matrix.matmul(res)
 
-        return rhs.t().matmul(res).squeeze()
+        return tensor.t().matmul(res).squeeze()

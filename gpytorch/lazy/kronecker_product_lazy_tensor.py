@@ -7,6 +7,7 @@ import torch
 
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
+from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 
@@ -45,6 +46,13 @@ def _t_matmul(lazy_tensors, kp_shape, rhs):
 
 
 class KroneckerProductLazyTensor(LazyTensor):
+    r"""
+    Returns the Kronecker product of the given lazy tensors
+
+    Args:
+        :`lazy_tensors`: List of lazy tensors
+    """
+
     def __init__(self, *lazy_tensors):
         try:
             lazy_tensors = tuple(lazify(lazy_tensor) for lazy_tensor in lazy_tensors)
@@ -58,6 +66,12 @@ class KroneckerProductLazyTensor(LazyTensor):
                 )
         super(KroneckerProductLazyTensor, self).__init__(*lazy_tensors)
         self.lazy_tensors = lazy_tensors
+
+    def __add__(self, other):
+        if isinstance(other, DiagLazyTensor):
+            return self.add_diag(other.diag())
+        else:
+            return super().__add__(other)
 
     def _get_indices(self, row_index, col_index, *batch_indices):
         row_factor = self.size(-2)
@@ -112,3 +126,24 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
+
+    def add_diag(self, diag):
+        r"""
+        Adds a diagonal to a KroneckerProductLazyTensor
+        """
+
+        from .kronecker_product_added_diag_lazy_tensor import KroneckerProductAddedDiagLazyTensor
+
+        if not self.is_square:
+            raise RuntimeError("add_diag only defined for square matrices")
+
+        try:
+            expanded_diag = diag.expand(self.shape[:-1])
+        except RuntimeError:
+            raise RuntimeError(
+                "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
+                    self.shape, diag.shape
+                )
+            )
+
+        return KroneckerProductAddedDiagLazyTensor(self, DiagLazyTensor(expanded_diag))
