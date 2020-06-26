@@ -1,40 +1,45 @@
 #!/usr/bin/env python3
 
-import torch
 import unittest
-import numpy as np
-import gpytorch
 
-from gpytorch.lazy import NonLazyTensor, KroneckerProductPlusDiagLazyTensor
-from gpytorch.lazy.kronecker_product_added_diag_lazy_tensor import \
-                        _DiagKroneckerProdLazyTensor, _KroneckerProductLazyLogDet
+import torch
+
+from gpytorch.distributions import MultivariateNormal
+from gpytorch.kernels import MaternKernel
+from gpytorch.lazy import DiagLazyTensor, KroneckerProductAddedDiagLazyTensor, KroneckerProductLazyTensor
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
+
+# import numpy as np
+# import gpytorch
+
 
 # TODO: write unit test for the three classes - lazylogdet is here
 
-class TestKroneckerLazyLogDet(unittest.TestCase):
-    def test_logdet_and_solve(self):
-        with torch.no_grad():
-            kernel = gpytorch.kernels.RBFKernel()
-            mat1 = kernel(torch.linspace(0, 1, 5)).evaluate()
-            mat2 = kernel(torch.linspace(0, 3, 5)).evaluate()
 
-        rhs = torch.randn(25)
+class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestCase):
+    def create_lazy_tensor(self):
+        dims = (3, 5, 10)
+        latent_spaces = [torch.randn(d) for d in dims]
+        kernels = [MaternKernel()(ll) for ll in latent_spaces]
+        lazy_kernel_matrices = KroneckerProductLazyTensor(*kernels)
 
-        eval_numpy = np.kron(mat1.numpy(), mat2.numpy())
+        return KroneckerProductAddedDiagLazyTensor(
+            lazy_kernel_matrices, DiagLazyTensor(0.1 * torch.ones(lazy_kernel_matrices.shape[-1]))
+        )
 
-        eval_sgp = _KroneckerProductLazyLogDet(gpytorch.lazy.NonLazyTensor(mat1), gpytorch.lazy.NonLazyTensor(mat2))
+    def evaluate_lazy_tensor(self, lazy_tensor):
+        tensor = lazy_tensor._lazy_tensor.evaluate()
+        diag = lazy_tensor._diag_tensor._diag
+        return tensor + diag.diag()
 
-        #gp_lt = gpytorch.lazy.KroneckerProductLazyTensor(gpytorch.lazy.NonLazyTensor(mat1), gpytorch.lazy.NonLazyTensor(mat2))
+    def test_log_likelihood_computation(self):
+        covariance = self.create_lazy_tensor()
+        mean_value = torch.zeros(covariance.shape[-1], device=covariance.device, dtype=covariance.dtype)
+        dist = MultivariateNormal(mean_value, covariance)
 
-        self.assertEqual(np.linalg.norm(eval_numpy - eval_sgp.evaluate().numpy()), 0.0)
-        
-        solve_numpy = np.linalg.solve(eval_numpy, rhs)
-        solve_sgp = eval_sgp.inv_matmul(rhs)
-        #solve_gpy = torch.solve(rhs.unsqueeze(-1), gp_lt.evaluate())[0].squeeze()
-        
-        self.assertLess(np.linalg.norm(solve_numpy - solve_sgp.numpy()) / np.linalg.norm(solve_numpy), 0.02)
-
-# class TestKroneckerAddedDiag(unittest.TestCase):
+        target = torch.randn_like(mean_value)
+        value = dist.log_prob(target)
+        value.backward()
 
 
 if __name__ == "__main__":
