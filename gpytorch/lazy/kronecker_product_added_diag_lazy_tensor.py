@@ -1,18 +1,16 @@
+#!/usr/bin/env python3
+
 import torch
-import warnings
 
-from gpytorch.lazy import KroneckerProductLazyTensor, AddedDiagLazyTensor
-from gpytorch.lazy import LazyTensor
-from gpytorch.lazy.non_lazy_tensor import NonLazyTensor, lazify
-from gpytorch.lazy.sum_lazy_tensor import SumLazyTensor
-from gpytorch.lazy.diag_lazy_tensor import DiagLazyTensor
-from gpytorch.lazy.psd_sum_lazy_tensor import PsdSumLazyTensor
-from gpytorch.lazy.root_lazy_tensor import RootLazyTensor
-from gpytorch.utils import broadcasting, pivoted_cholesky, woodbury
-from gpytorch import settings
+from .. import settings
+from .added_diag_lazy_tensor import AddedDiagLazyTensor
+from .diag_lazy_tensor import DiagLazyTensor
+from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
+from .lazy_tensor import LazyTensor
+from .non_lazy_tensor import NonLazyTensor, lazify
 
-#TODO: @greg, does this work????
-#TODO: check the speed of the linear algebra - svd vs eig etc.
+# TODO: check the speed of the linear algebra - svd vs eig etc.
+
 
 class _DiagKroneckerProdLazyTensor(KroneckerProductLazyTensor):
     def __init__(self, *lazy_tensors):
@@ -38,17 +36,17 @@ class _DiagKroneckerProdLazyTensor(KroneckerProductLazyTensor):
 
         out = d2.expand(sz1, sz2).t().mul(d1)
 
-        return out.t().contiguous().view(sz1*sz2)
+        return out.t().contiguous().view(sz1 * sz2)
 
 
 class _KroneckerProductLazyLogDet(KroneckerProductLazyTensor):
     def __init__(self, *lazy_tensors, jitter=settings.tridiagonal_jitter.value()):
         super(_KroneckerProductLazyLogDet, self).__init__(*lazy_tensors)
         # on initialization take the eigenvectors & eigenvalues of all of the lazy tensors
-        self.eig_cache = [torch.symeig(lt.evaluate(), eigenvectors = True) for lt in self.lazy_tensors]
+        self.eig_cache = [torch.symeig(lt.evaluate(), eigenvectors=True) for lt in self.lazy_tensors]
 
     def inv_matmul(self, rhs, jitter=settings.tridiagonal_jitter.value()):
-        Vinv = KroneckerProductLazyTensor(*[DiagLazyTensor(1 / (s[0].abs()+jitter) ) for s in self.eig_cache])
+        Vinv = KroneckerProductLazyTensor(*[DiagLazyTensor(1 / (s[0].abs() + jitter)) for s in self.eig_cache])
         Q = KroneckerProductLazyTensor(*[NonLazyTensor(s[1]) for s in self.eig_cache])
 
         # first compute Q^T y
@@ -66,16 +64,16 @@ class _KroneckerProductLazyLogDet(KroneckerProductLazyTensor):
         # det(A \kron B) = det(A)^m det(B)^n where m,n are the sizes of A,B
         scaled_logdets = [m * s[0].sum() for m, s in zip(lt_sizes, self.eig_cache)]
 
-        full_logdet = 0.
+        full_logdet = 0.0
         for logdet in scaled_logdets:
             full_logdet = logdet + full_logdet
-        
+
         return full_logdet
 
 
-class KroneckerProductPlusDiagLazyTensor(AddedDiagLazyTensor):
+class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def __init__(self, *lazy_tensors):
-        super(KroneckerProductPlusDiagLazyTensor, self).__init__(*lazy_tensors)
+        super(KroneckerProductAddedDiagLazyTensor, self).__init__(*lazy_tensors)
         if len(lazy_tensors) > 2:
             raise RuntimeError("An AddedDiagLazyTensor can only have two components")
         if isinstance(lazy_tensors[0], DiagLazyTensor) and isinstance(lazy_tensors[1], DiagLazyTensor):
@@ -104,8 +102,7 @@ class KroneckerProductPlusDiagLazyTensor(AddedDiagLazyTensor):
         return inv_quad_term, logdet_term
 
     def logdet(self):
-        noise = self._diag_tensor[0,0]
-        ### THIS WORKS FOR 2 DIMENSIONS NOW ###
+        noise = self._diag_tensor[0, 0]
         sub_eigs = []
         for lt in self._lazy_tensor.lazy_tensors:
             sub_eigs.append(lt.evaluate().eig()[0][:, 0].unsqueeze(-1))
@@ -120,16 +117,14 @@ class KroneckerProductPlusDiagLazyTensor(AddedDiagLazyTensor):
         # TODO: check stability of numerics here
 
         svd_list = self._kron_svd()
-        noise = self._diag_tensor[0,0]
-        V = _DiagKroneckerProdLazyTensor(DiagLazyTensor(svd_list[0].S),
-                     DiagLazyTensor(svd_list[1].S))
-        Q = KroneckerProductLazyTensor(lazify(svd_list[0].U),
-                                       lazify(svd_list[1].U))
+        noise = self._diag_tensor[0, 0]
+        V = _DiagKroneckerProdLazyTensor(DiagLazyTensor(svd_list[0].S), DiagLazyTensor(svd_list[1].S))
+        Q = KroneckerProductLazyTensor(lazify(svd_list[0].U), lazify(svd_list[1].U))
         for sub_ind in range(2, len(svd_list)):
             V = KroneckerProductLazyTensor(V, DiagLazyTensor(svd_list[sub_ind].S))
             Q = KroneckerProductLazyTensor(Q, LazyTensor(svd_list[sub_ind].S))
 
-        ## this is a real memory hog ##
+        # TODO: this could be a memory hog.
         inv_mat = DiagLazyTensor(V.get_diag() + noise)
 
         res = Q.t().matmul(rhs)

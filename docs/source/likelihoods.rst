@@ -21,7 +21,7 @@ One-Dimensional Likelihoods
 Likelihoods for GPs that are distributions of scalar functions.
 (I.e. for a specific :math:`\mathbf x` we expect that :math:`f(\mathbf x) \in \mathbb{R}`.)
 
-One-dimensional likelihoods should extend :obj:`gpytoch.likelihoods._OneDimensionalLikelihood` to 
+One-dimensional likelihoods should extend :obj:`gpytoch.likelihoods._OneDimensionalLikelihood` to
 reduce the variance when computing approximate GP objective functions.
 (Variance reduction is accomplished by using 1D Gauss-Hermite quadrature rather than MC-integration).
 
