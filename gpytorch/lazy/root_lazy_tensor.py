@@ -69,6 +69,9 @@ class RootLazyTensor(LazyTensor):
             deriv.append(item_part_1 + item_part_2)
         return tuple(deriv)
 
+    def root_decomposition(self):
+        return self
+
     def _root_decomposition(self):
         return self.root
 
