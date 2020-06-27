@@ -186,7 +186,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             # Aggressive caching can cause nasty shape incompatibilies when evaluating with different batch shapes
             del self._memoize_cache["cholesky_factor"]
             L = self._cholesky_factor(induc_induc_covar)
-        interp_term = torch.triangular_solve(induc_data_covar.double(), L, upper=False)[0].to(full_inputs.dtype)
+        interp_term = L.inv_matmul(induc_data_covar.double()).to(full_inputs.dtype)
         mean_interp_term = interp_term.select(mean_var_batch_dim - 2, 0)
         var_interp_term = interp_term.select(mean_var_batch_dim - 2, 1)
 

@@ -17,6 +17,8 @@ class RootLazyTensor(LazyTensor):
         self.root = root
 
     def _expand_batch(self, batch_shape):
+        if len(batch_shape) == 0:
+            return self
         return self.__class__(self.root._expand_batch(batch_shape))
 
     def _get_indices(self, row_index, col_index, *batch_indices):
