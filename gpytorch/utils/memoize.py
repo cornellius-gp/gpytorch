@@ -5,12 +5,12 @@ import pickle
 
 
 def add_to_cache(obj, name, val, *args, **kwargs):
-    """Add a result to the cache of an object."""
+    """Add a result to the cache of an object (honoring calling args)."""
     return _add_to_cache(obj, name, val, *args, kwargs_pkl=pickle.dumps(kwargs))
 
 
 def _add_to_cache(obj, name, val, *args, kwargs_pkl):
-    """Add a result to the cache of an object."""
+    """Add a result to the cache of an object (honoring calling args)."""
     if not hasattr(obj, "_memoize_cache"):
         obj._memoize_cache = {}
     obj._memoize_cache[(name, args, kwargs_pkl)] = val
@@ -18,7 +18,7 @@ def _add_to_cache(obj, name, val, *args, kwargs_pkl):
 
 
 def _get_from_cache(obj, name, *args, kwargs_pkl):
-    """Get an item from the cache."""
+    """Get an item from the cache (honoring calling args)."""
     if not _is_in_cache(obj, name, *args, kwargs_pkl=kwargs_pkl):
         raise RuntimeError("Object does not have item {} stored in cache.".format(name))
     return obj._memoize_cache[(name, args, kwargs_pkl)]
@@ -28,10 +28,48 @@ def _is_in_cache(obj, name, *args, kwargs_pkl):
     return hasattr(obj, "_memoize_cache") and (name, args, kwargs_pkl) in obj._memoize_cache
 
 
-def cached(method=None, name=None):
-    """A decorator allowing for specifying the name of a cache, allowing it to be modified elsewhere."""
+def _add_to_cache_ignore_args(obj, name, val):
+    """Add a result to the cache of an object (ignoring calling args)."""
+    if not hasattr(obj, "_memoize_cache"):
+        obj._memoize_cache = {}
+    obj._memoize_cache[name] = val
+    return val
+
+
+def _get_from_cache_ignore_args(obj, name):
+    """Get an item from the cache (ignoring calling args)."""
+    if not _is_in_cache_ignore_args(obj, name):
+        raise RuntimeError("Object does not have item {} stored in cache.".format(name))
+    return obj._memoize_cache[name]
+
+
+def _is_in_cache_ignore_args(obj, name):
+    return hasattr(obj, "_memoize_cache") and name in obj._memoize_cache
+
+
+def _cached_ignore_args(method=None, name=None):
+    """A decorator allowing for specifying the name of a cache, allowing it to be modified elsewhere.
+    This variant ignores the calling args to the decorated function.
+    """
     if method is None:
-        return functools.partial(cached, name=name)
+        return functools.partial(_cached_ignore_args, name=name)
+
+    @functools.wraps(method)
+    def g(self, *args, **kwargs):
+        cache_name = name if name is not None else method
+        if not _is_in_cache_ignore_args(self, cache_name):
+            return _add_to_cache_ignore_args(self, cache_name, method(self, *args, **kwargs))
+        return _get_from_cache_ignore_args(self, cache_name)
+
+    return g
+
+
+def _cached(method=None, name=None):
+    """A decorator allowing for specifying the name of a cache, allowing it to be modified elsewhere.
+    This variant honors the calling args to the decorated function.
+    """
+    if method is None:
+        return functools.partial(_cached, name=name)
 
     @functools.wraps(method)
     def g(self, *args, **kwargs):
@@ -42,3 +80,11 @@ def cached(method=None, name=None):
         return _get_from_cache(self, cache_name, *args, kwargs_pkl=kwargs_pkl)
 
     return g
+
+
+def cached(method=None, name=None, ignore_args=False):
+    """A decorator allowing for specifying the name of a cache, allowing it to be modified elsewhere."""
+    if ignore_args:
+        return _cached_ignore_args(method=method, name=name)
+    else:
+        return _cached(method=method, name=name)

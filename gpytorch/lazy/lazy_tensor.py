@@ -1266,6 +1266,7 @@ class LazyTensor(ABC):
                 "Invalid repeat arguments {}. Currently, repeat only works to create repeated "
                 "batches of a 2D LazyTensor.".format(tuple(sizes))
             )
+
         return BatchRepeatLazyTensor(self, batch_repeat=torch.Size(sizes[:-2]))
 
     def representation(self):
