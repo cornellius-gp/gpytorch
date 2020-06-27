@@ -3,10 +3,17 @@
 import functools
 import pickle
 
+from .errors import CachingError
+
 
 def add_to_cache(obj, name, val, *args, **kwargs):
     """Add a result to the cache of an object (honoring calling args)."""
     return _add_to_cache(obj, name, val, *args, kwargs_pkl=pickle.dumps(kwargs))
+
+
+def get_from_cache(obj, name, *args, **kwargs):
+    """Get an item from the cache (honoring calling args)."""
+    return _get_from_cache(obj, name, *args, kwargs_pkl=pickle.dumps(kwargs))
 
 
 def _add_to_cache(obj, name, val, *args, kwargs_pkl):
@@ -20,7 +27,7 @@ def _add_to_cache(obj, name, val, *args, kwargs_pkl):
 def _get_from_cache(obj, name, *args, kwargs_pkl):
     """Get an item from the cache (honoring calling args)."""
     if not _is_in_cache(obj, name, *args, kwargs_pkl=kwargs_pkl):
-        raise RuntimeError("Object does not have item {} stored in cache.".format(name))
+        raise CachingError("Object does not have item {} stored in cache.".format(name))
     return obj._memoize_cache[(name, args, kwargs_pkl)]
 
 
@@ -39,7 +46,7 @@ def _add_to_cache_ignore_args(obj, name, val):
 def _get_from_cache_ignore_args(obj, name):
     """Get an item from the cache (ignoring calling args)."""
     if not _is_in_cache_ignore_args(obj, name):
-        raise RuntimeError("Object does not have item {} stored in cache.".format(name))
+        raise CachingError("Object does not have item {} stored in cache.".format(name))
     return obj._memoize_cache[name]
 
 

@@ -38,7 +38,7 @@ class BatchRepeatLazyTensor(LazyTensor):
     def _cholesky(self, upper=False):
         from .triangular_lazy_tensor import TriangularLazyTensor
 
-        res = self.base_lazy_tensor._cholesky(upper=upper)._tensor
+        res = self.base_lazy_tensor.cholesky(upper=upper)._tensor
         res = res.repeat(*self.batch_repeat, 1, 1)
         return TriangularLazyTensor(res, upper=upper)
 

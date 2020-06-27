@@ -16,11 +16,12 @@ class CholLazyTensor(RootLazyTensor):
     def _chol_diag(self):
         return self.root.diag()
 
+    @cached(name="cholesky")
     def _cholesky(self, upper=False):
         if upper == self.upper:
             return self.root
         else:
-            return self.root.transpose(-1, -2)
+            return self.root._transpose_nonbatch()
 
     def _solve(self, rhs, preconditioner, num_tridiag=0):
         if num_tridiag:
@@ -36,9 +37,9 @@ class CholLazyTensor(RootLazyTensor):
     def evaluate(self):
         root = self.root
         if self.upper:
-            res = root.transpose(-1, -2) @ root
+            res = root._transpose_nonbatch() @ root
         else:
-            res = root @ root.transpose(-1, -2)
+            res = root @ root._transpose_nonbatch()
         return res.evaluate()
 
     @cached
@@ -107,4 +108,4 @@ class CholLazyTensor(RootLazyTensor):
 
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         inv_root = self.root.inverse()
-        return RootLazyTensor(inv_root.transpose(-1, -2))
+        return RootLazyTensor(inv_root._transpose_nonbatch())

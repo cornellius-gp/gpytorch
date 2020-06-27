@@ -395,11 +395,8 @@ class LazyTensor(ABC):
             This method is used as an internal helper. Calling this method directly is discouraged.
 
         Returns:
-            (LazyTensor) Cholesky factor
+            (TriangularLazyTensor) Cholesky factor
         """
-        if upper:
-            return self._cholesky(upper=False)._transpose_nonbatch()
-
         from .triangular_lazy_tensor import TriangularLazyTensor
         from .keops_lazy_tensor import KeOpsLazyTensor
 
@@ -740,8 +737,10 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor (lower triangular)
         """
-        # TODO: Rename _cholesky -> cholesky everywhere
-        return self._cholesky(upper=upper)
+        chol = self._cholesky(upper=False)
+        if upper:
+            chol = chol._transpose_nonbatch()
+        return chol
 
     def clone(self):
         """

@@ -130,7 +130,7 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
-        chol_factors = [lt._cholesky(upper=upper) for lt in self.lazy_tensors]
+        chol_factors = [lt.cholesky(upper=upper) for lt in self.lazy_tensors]
         return KroneckerProductTriangularLazyTensor(*chol_factors, upper=upper)
 
     def _get_indices(self, row_index, col_index, *batch_indices):

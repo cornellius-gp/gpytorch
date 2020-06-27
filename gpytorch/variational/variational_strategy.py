@@ -147,7 +147,7 @@ class VariationalStrategy(_VariationalStrategy):
                 # Change the variational parameters to be whitened
                 variational_dist = self.variational_distribution
                 mean_diff = (variational_dist.loc - prior_mean).unsqueeze(-1).double()
-                whitened_mean = L.inv_matmul(mean_diff).to(variational_dist.loc.dtype)
+                whitened_mean = L.inv_matmul(mean_diff).squeeze(-1).to(variational_dist.loc.dtype)
                 covar_root = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate().double()
                 whitened_covar = RootLazyTensor(L.inv_matmul(covar_root).to(variational_dist.loc.dtype))
                 whitened_variational_distribution = variational_dist.__class__(whitened_mean, whitened_covar)

@@ -37,7 +37,7 @@ class BlockDiagLazyTensor(BlockLazyTensor):
     def _cholesky(self, upper=False):
         from .triangular_lazy_tensor import TriangularLazyTensor
 
-        chol = self.__class__(self.base_lazy_tensor._cholesky(upper=upper))
+        chol = self.__class__(self.base_lazy_tensor.cholesky(upper=upper))
         return TriangularLazyTensor(chol, upper=upper)
 
     def _cholesky_solve(self, rhs, upper: bool = False):

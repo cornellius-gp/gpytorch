@@ -89,7 +89,7 @@ class CachedCGLazyTensor(LazyTensor):
                 if settings.fast_computations.log_prob.on():
                     solves = base_lazy_tensor._solve(eager_rhs, preconditioner=base_lazy_tensor._preconditioner()[0])
                 else:
-                    solves = base_lazy_tensor._cholesky()._cholesky_solve(eager_rhs)
+                    solves = base_lazy_tensor.cholesky()._cholesky_solve(eager_rhs)
                 dtype = solves.dtype
                 device = solves.device
                 return (
@@ -139,7 +139,7 @@ class CachedCGLazyTensor(LazyTensor):
         from .triangular_lazy_tensor import TriangularLazyTensor
 
         res = self.__class__(
-            self.base_lazy_tensor._cholesky(upper=upper),
+            self.base_lazy_tensor.cholesky(upper=upper),
             eager_rhss=self.eager_rhss,
             solves=self.solves,
             probe_vectors=self.probe_vectors,
