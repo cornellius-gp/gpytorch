@@ -28,7 +28,7 @@ class DiagLazyTensor(TriangularLazyTensor):
 
         return AddedDiagLazyTensor(other, self)
 
-    @cached(name="cholesky")
+    @cached(name="cholesky", ignore_args=True)
     def _cholesky(self, upper=False):
         return self.sqrt()
 

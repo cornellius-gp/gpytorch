@@ -397,6 +397,9 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor
         """
+        if upper:
+            return self._cholesky(upper=False)._transpose_nonbatch()
+
         from .triangular_lazy_tensor import TriangularLazyTensor
         from .keops_lazy_tensor import KeOpsLazyTensor
 
