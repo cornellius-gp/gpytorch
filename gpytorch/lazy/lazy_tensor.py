@@ -412,7 +412,7 @@ class LazyTensor(ABC):
             return TriangularLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
 
         # contiguous call is necessary here
-        cholesky = psd_safe_cholesky(evaluated_mat, jitter=settings.cholesky_jitter.value()).contiguous()
+        cholesky = psd_safe_cholesky(evaluated_mat, jitter=settings.cholesky_jitter.value(), upper=upper).contiguous()
         return TriangularLazyTensor(cholesky, upper=upper)
 
     def _cholesky_solve(self, rhs, upper: bool = False):

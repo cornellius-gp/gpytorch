@@ -14,7 +14,7 @@ def _add_to_cache(obj, name, val, *args, kwargs_pkl):
     if not hasattr(obj, "_memoize_cache"):
         obj._memoize_cache = {}
     obj._memoize_cache[(name, args, kwargs_pkl)] = val
-    return obj
+    return val
 
 
 def _get_from_cache(obj, name, *args, kwargs_pkl):
@@ -38,7 +38,7 @@ def cached(method=None, name=None):
         cache_name = name if name is not None else method
         kwargs_pkl = pickle.dumps(kwargs)
         if not _is_in_cache(self, cache_name, *args, kwargs_pkl=kwargs_pkl):
-            _add_to_cache(self, cache_name, method(self, *args, **kwargs), *args, kwargs_pkl=kwargs_pkl)
+            return _add_to_cache(self, cache_name, method(self, *args, **kwargs), *args, kwargs_pkl=kwargs_pkl)
         return _get_from_cache(self, cache_name, *args, kwargs_pkl=kwargs_pkl)
 
     return g
