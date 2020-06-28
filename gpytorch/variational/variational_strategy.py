@@ -9,7 +9,7 @@ from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, TriangularLazyTensor, delazify
 from ..settings import trace_mode
 from ..utils.cholesky import psd_safe_cholesky
-from ..utils.memoize import cached
+from ..utils.memoize import cached, clear_cache_hook, pop_from_cache
 from ..utils.warnings import OldVersionWarning
 from ._variational_strategy import _VariationalStrategy
 
@@ -99,7 +99,8 @@ class VariationalStrategy(_VariationalStrategy):
         L = self._cholesky_factor(induc_induc_covar)
         if L.shape != induc_induc_covar.shape:
             # Aggressive caching can cause nasty shape incompatibilies when evaluating with different batch shapes
-            del self._memoize_cache["cholesky_factor"]
+            # TODO: Use a hook fo this
+            pop_from_cache(self, "cholesky_factor")
             L = self._cholesky_factor(induc_induc_covar)
         interp_term = L.inv_matmul(induc_data_covar.double()).to(full_inputs.dtype)
 
@@ -157,9 +158,7 @@ class VariationalStrategy(_VariationalStrategy):
                 self._variational_distribution.mean_init_std = orig_mean_init_std
 
                 # Reset the cache
-                if hasattr(self, "_memoize_cache"):
-                    delattr(self, "_memoize_cache")
-                    self._memoize_cache = dict()
+                clear_cache_hook(self)
 
                 # Mark that we have updated the variational strategy
                 self.updated_strategy.fill_(True)

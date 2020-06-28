@@ -21,11 +21,7 @@ from ..lazy import (
 )
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.interpolation import left_interp, left_t_interp
-from ..utils.memoize import add_to_cache, cached
-
-
-def clear_cache_hook(module, *args, **kwargs):
-    module._memoize_cache = {}
+from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
@@ -251,8 +247,8 @@ class DefaultPredictionStrategy(object):
             root=new_root,
             inv_root=new_covar_cache,
         )
-        fant_strat._memoize_cache = {"mean_cache": fant_mean_cache, "covar_cache": new_covar_cache}
-
+        add_to_cache(fant_strat, "mean_cache", fant_mean_cache)
+        add_to_cache(fant_strat, "covar_cache", new_covar_cache)
         return fant_strat
 
     @property
@@ -532,10 +528,9 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         test_interp_values = test_train_covar.left_interp_values
 
         precomputed_cache = self.covar_cache
-        if (settings.fast_pred_samples.on() and precomputed_cache[0] is None) or (
-            settings.fast_pred_samples.off() and precomputed_cache[1] is None
-        ):
-            self._memoize_cache.pop("covar_cache")
+        fps = settings.fast_pred_samples.on()
+        if (fps and precomputed_cache[0] is None) or (not fps and precomputed_cache[1] is None):
+            pop_from_cache(self, "covar_cache")
             precomputed_cache = self.covar_cache
 
         # Compute the exact predictive posterior

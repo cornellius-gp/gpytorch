@@ -3,7 +3,7 @@
 import torch
 
 from ..distributions import MultivariateNormal
-from ..utils.memoize import cached
+from ..utils.memoize import add_to_cache, cached
 from ._variational_strategy import _VariationalStrategy
 from .delta_variational_distribution import DeltaVariationalDistribution
 
@@ -78,7 +78,8 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
         if self.training:
             induc_mean = full_mean[..., num_data:]
             induc_induc_covar = full_covar[..., num_data:, num_data:]
-            self._memoize_cache["prior_distribution_memo"] = MultivariateNormal(induc_mean, induc_induc_covar)
+            prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
+            add_to_cache(self, "prior_distribution_memo", prior_dist)
 
         test_mean = full_mean[..., :num_data]
         data_induc_covar = full_covar[..., :num_data, num_data:]

@@ -5,6 +5,7 @@ from torch.distributions.kl import kl_divergence
 
 from ..distributions import Delta, MultivariateNormal
 from ..lazy import MatmulLazyTensor, SumLazyTensor
+from ..utils.memoize import pop_from_cache
 from .delta_variational_distribution import DeltaVariationalDistribution
 from .variational_strategy import VariationalStrategy
 
@@ -184,7 +185,8 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         L = self._cholesky_factor(induc_induc_covar)
         if L.shape != induc_induc_covar.shape:
             # Aggressive caching can cause nasty shape incompatibilies when evaluating with different batch shapes
-            del self._memoize_cache["cholesky_factor"]
+            # TODO: Use a hook to make this cleaner
+            pop_from_cache(self, "cholesky_factor")
             L = self._cholesky_factor(induc_induc_covar)
         interp_term = L.inv_matmul(induc_data_covar.double()).to(full_inputs.dtype)
         mean_interp_term = interp_term.select(mean_var_batch_dim - 2, 0)

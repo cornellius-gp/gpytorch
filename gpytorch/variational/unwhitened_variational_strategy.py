@@ -18,7 +18,7 @@ from ..lazy import (
 )
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
-from ..utils.memoize import cached
+from ..utils.memoize import add_to_cache, cached
 from ._variational_strategy import _VariationalStrategy
 
 
@@ -157,7 +157,8 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
         # Cache the kernel matrix with the cached CG calls
         if self.training:
-            self._memoize_cache["prior_distribution_memo"] = MultivariateNormal(induc_mean, induc_induc_covar)
+            prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
+            add_to_cache(self, "prior_distribution_memo", prior_dist)
 
         # Compute predictive mean
         inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))

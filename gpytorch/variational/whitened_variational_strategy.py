@@ -17,7 +17,7 @@ from ..lazy import (
     RootLazyTensor,
 )
 from ..module import Module
-from ..utils.memoize import cached
+from ..utils.memoize import add_to_cache, cached, clear_cache_hook
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
 
 
@@ -214,9 +214,10 @@ class WhitenedVariationalStrategy(UnwhitenedVariationalStrategy):
 
             # Save the logdet, mean_diff_inv_quad, prior distribution for the ELBO
             if self.training:
-                self._memoize_cache["prior_distribution_memo"] = MultivariateNormal(induc_mean, induc_induc_covar)
-                self._memoize_cache["logdet_memo"] = -logdet
-                self._memoize_cache["mean_diff_inv_quad_memo"] = mean_diff_inv_quad
+                prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
+                add_to_cache(self, "prior_distribution_memo", prior_dist)
+                add_to_cache(self, "logdet_memo", -logdet)
+                add_to_cache(self, "mean_diff_inv_quad_memo", mean_diff_inv_quad)
 
             return MultivariateNormal(predictive_mean, predictive_covar)
 
@@ -227,9 +228,7 @@ class WhitenedVariationalStrategy(UnwhitenedVariationalStrategy):
 
         # Delete previously cached items from the training distribution
         if self.training:
-            if hasattr(self, "_memoize_cache"):
-                delattr(self, "_memoize_cache")
-                self._memoize_cache = dict()
+            clear_cache_hook(self)
         # (Maybe) initialize variational distribution
         if not self.variational_params_initialized.item():
             prior_dist = self.prior_distribution
