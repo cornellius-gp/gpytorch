@@ -6,6 +6,7 @@ import torch
 
 from .. import settings
 from ..utils import broadcasting, pivoted_cholesky
+from ..utils.memoize import cached
 from ..utils.warnings import NumericalWarning
 from .diag_lazy_tensor import DiagLazyTensor
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
@@ -125,3 +126,21 @@ class AddedDiagLazyTensor(SumLazyTensor):
         logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2)
         logdet -= (1.0 / self._noise).log().sum([-1, -2])
         self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
+
+    @cached(name="svd")
+    def _svd(self):
+        diag = self._diag_tensor.diag()
+        if torch.equal(diag, diag[..., :1].expand(diag.shape)):
+            U, S_, V = self._lazy_tensor.svd()
+            S = S_ + diag  # this assumes all diagonal entries are positive
+            return U, S, V
+        return super()._svd()
+
+    @cached(name="symeig")
+    def _symeig(self, eigenvectors=False):
+        diag = self._diag_tensor.diag()
+        if torch.equal(diag, diag[..., :1].expand(diag.shape)):
+            evals_, evecs = self._lazy_tensor.symeig(eigenvectors=eigenvectors)
+            evals = evals_ + diag  # this assumes all diagonal entries are positive
+            return evals, evecs
+        return super()._symeig(eigenvectors=eigenvectors)

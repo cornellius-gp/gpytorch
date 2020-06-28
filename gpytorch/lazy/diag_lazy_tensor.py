@@ -183,7 +183,7 @@ class DiagLazyTensor(TriangularLazyTensor):
         return base_samples * self._diag.sqrt()
 
     @cached(name="svd")
-    def svd(self):
+    def _svd(self):
         diag = self._diag
         signs = torch.sign(diag)
         S, idcs = torch.sort(diag.abs(), dim=-1, descending=True)
@@ -200,7 +200,7 @@ class DiagLazyTensor(TriangularLazyTensor):
         return U, S, V
 
     @cached(name="symeig")
-    def symeig(self, eigenvectors=False):
+    def _symeig(self, eigenvectors=False):
         diag = self._diag
         evals, idcs = torch.sort(diag, dim=-1, descending=False)
         if eigenvectors:

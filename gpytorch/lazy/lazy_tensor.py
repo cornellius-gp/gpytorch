@@ -21,8 +21,8 @@ from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.memoize import add_to_cache, cached
-from ..utils.warnings import NumericalWarning
 from ..utils.pivoted_cholesky import pivoted_cholesky
+from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
 
@@ -1553,7 +1553,6 @@ class LazyTensor(ABC):
         else:
             raise ValueError("Invalid dim ({}) for LazyTensor of size {}".format(orig_dim, self.shape))
 
-    @cached(name="svd")
     def svd(self):
         """
         Compute the SVD of the lazy tensor `M` s.t. `M = U @ S @ V.T`.
@@ -1569,7 +1568,6 @@ class LazyTensor(ABC):
         """
         return torch.svd(self.evaluate())
 
-    @cached(name="symeig")
     def symeig(self, eigenvectors=False):
         """
         Compute the symmetric eigendecomposition of the lazy tensor. This can be very
@@ -1579,11 +1577,13 @@ class LazyTensor(ABC):
         Args:
             :attr:`eigenvectors` (bool): If True, compute the eigenvectors in addition to the eigenvalues.
         Returns:
-            :obj:`torch.Tensor`: The eigenvalues.
-            :obj:`torch.Tensor`: The eigenvectors. If `eigenvectors=False`, it's an empty tensor.
-                Otherwise, this tensor contains the orthonormal eigenvectors of teh lazy tensor.
+            :obj:`torch.Tensor`:
+                The eigenvalues.
+            :obj:`torch.Tensor`:
+                The eigenvectors. If `eigenvectors=False`, it's an empty tensor. Otherwise, this tensor
+                contains the orthonormal eigenvectors of teh lazy tensor.
         """
-        return torch.symeig(self.evaluate(), eigenvectors=eigenvectors)
+        return self._symeig(eigenvectors=eigenvectors)
 
     def to(self, device_id):
         """
@@ -1847,6 +1847,16 @@ class LazyTensor(ABC):
 
         # We're done!
         return res
+
+    @cached(name="svd")
+    def _svd(self):
+        """Method that allows implementing special-cased SVD computation. Should not be called directly"""
+        return torch.svd(self.evaluate())
+
+    @cached(name="symeig")
+    def _symeig(self, eigenvectors=False):
+        """Method that allows implementing special-cased symeig computation. Should not be called directly"""
+        return torch.symeig(self.evaluate(), eigenvectors=eigenvectors)
 
     def __matmul__(self, other):
         return self.matmul(other)

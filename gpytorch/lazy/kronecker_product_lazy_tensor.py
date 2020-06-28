@@ -96,16 +96,22 @@ class KroneckerProductLazyTensor(LazyTensor):
         if not self.is_square:
             raise RuntimeError("add_diag only defined for square matrices")
 
-        try:
-            expanded_diag = diag.expand(self.shape[:-1])
-        except RuntimeError:
-            raise RuntimeError(
-                "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
-                    self.shape, diag.shape
+        diag_shape = diag.shape
+        if len(diag_shape) == 0 or diag_shape[-1] == 1:
+            # interpret scalar tensor or single-trailing element as constant diag
+            diag_tensor = ConstantDiagLazyTensor(diag, diag_shape=self.shape[-1])
+        else:
+            try:
+                expanded_diag = diag.expand(self.shape[:-1])
+            except RuntimeError:
+                raise RuntimeError(
+                    "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
+                        self.shape, diag_shape
+                    )
                 )
-            )
+            diag_tensor = DiagLazyTensor(expanded_diag)
 
-        return KroneckerProductAddedDiagLazyTensor(self, DiagLazyTensor(expanded_diag))
+        return KroneckerProductAddedDiagLazyTensor(self, diag_tensor)
 
     def diag(self):
         r"""
@@ -193,35 +199,33 @@ class KroneckerProductLazyTensor(LazyTensor):
         left_size = _prod(lazy_tensor.size(-2) for lazy_tensor in self.lazy_tensors)
         right_size = _prod(lazy_tensor.size(-1) for lazy_tensor in self.lazy_tensors)
         return torch.Size((*self.lazy_tensors[0].batch_shape, left_size, right_size))
+    
+    @cached(name="svd")
+    def _svd(self) -> Tuple[LazyTensor, Tensor, LazyTensor]:
+        U, S, V = [], [], []
+        for lt in self.lazy_tensors:
+            U_, S_, V_ = lt.svd()
+            U.append(U_)
+            S.append(S_)
+            V.append(V_)
+        S = KroneckerProductLazyTensor(*[DiagLazyTensor(S_) for S_ in S]).diag()
+        U = KroneckerProductLazyTensor(*U)
+        V = KroneckerProductLazyTensor(*V)
+        return U, S, V
 
     @cached(name="symeig")
-    def _symeig(self, eigenvectors=True):
-        # eigenvectors may not get zeroed if called w/o eigenvectors after initialization
-
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        # TODO: Deal with case where evec version has already been cached.
         evals, evecs = [], []
-        for lazy_tensor in self.lazy_tensors:
-            # TODO: replace with lazy_tensor.symeig() once that is added in.
-            # TODO: ensure that the symeig call is also done in this manner
-
-            eval_tensor = lazy_tensor.evaluate()
-            tensor_dtype = eval_tensor.dtype
-
-            evals_, evecs_ = eval_tensor.double().symeig(eigenvectors=eigenvectors)
-
-            # we chop any negative eigenvalues
-            evals_ = evals_.clamp_min(0.0)
-
-            evals_ = evals_.type(tensor_dtype)
-            evecs_ = evecs_.type(tensor_dtype)
-
+        for lt in self.lazy_tensors:
+            evals_, evecs_ = lt.symeig(eigenvectors=eigenvectors)
             evals.append(evals_)
             evecs.append(evecs_)
-        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])
+        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals]).diag()
         if eigenvectors:
-            evecs = KroneckerProductLazyTensor(*[lazify(evecs_) for evecs_ in evecs])
+            evecs = KroneckerProductLazyTensor(*evecs)
         else:
-            evecs = Tensor([])
-
+            evecs = None
         return evals, evecs
 
     def _t_matmul(self, rhs):
@@ -234,9 +238,6 @@ class KroneckerProductLazyTensor(LazyTensor):
         if is_vec:
             res = res.squeeze(-1)
         return res
-
-    def _transpose_nonbatch(self):
-        return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
 
 
 class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
