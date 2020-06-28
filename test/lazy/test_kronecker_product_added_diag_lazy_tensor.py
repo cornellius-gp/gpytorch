@@ -9,12 +9,6 @@ from gpytorch.kernels import MaternKernel
 from gpytorch.lazy import DiagLazyTensor, KroneckerProductAddedDiagLazyTensor, KroneckerProductLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
-# import numpy as np
-# import gpytorch
-
-
-# TODO: write unit test for the three classes - lazylogdet is here
-
 
 class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestCase):
     def create_lazy_tensor(self):
