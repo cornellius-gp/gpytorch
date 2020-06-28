@@ -161,3 +161,8 @@ class TriangularLazyTensor(LazyTensor):
         eye = torch.eye(self._tensor.size(-1), device=self._tensor.device, dtype=self._tensor.dtype)
         inv = self.inv_matmul(eye)
         return TriangularLazyTensor(inv, upper=self.upper)
+
+    def _expand_batch(self, batch_shape):
+        if len(batch_shape) == 0:
+            return self
+        return self.__class__(tensor=self._tensor._expand_batch(batch_shape), upper=self.upper)
