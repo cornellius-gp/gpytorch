@@ -11,6 +11,9 @@ from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
 class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestCase):
+    # this lazy tensor has an explicit inverse so we don't need to run these
+    skip_slq_tests = True
+
     def create_lazy_tensor(self):
         dims = (3, 5, 10)
         latent_spaces = [torch.arange(d).float() for d in dims]

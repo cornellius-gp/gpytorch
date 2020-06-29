@@ -5,7 +5,8 @@ import torch
 from ..utils import cached
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
-from .root_lazy_tensor import RootLazyTensor
+
+# from .root_lazy_tensor import RootLazyTensor
 
 
 class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
@@ -84,21 +85,26 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         inv_matmul_res = self.inv_quad(lhs.transpose(-2, -1), reduce_inv_quad=False)
         return sqrt_inv_matmul_res, inv_matmul_res
 
-    def _root_decomposition(self):
-        q_matrix = self._kronecker_eigenvectors()
-        eigs_sqrt = DiagLazyTensor((self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
+    # TODO: remove these as they'll be taken care of in the alternative root decomposition PRs
 
-        matrix_root = eigs_sqrt.matmul(q_matrix)
+    # def _root_decomposition(self):
+    #     q_matrix = self._kronecker_eigenvectors()
+    #     eigs_sqrt = DiagLazyTensor((self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
 
-        return RootLazyTensor(matrix_root)
+    #     #matrix_root = eigs_sqrt.matmul(q_matrix)
+    #     matrix_root = q_matrix.matmul(eigs_sqrt)
 
-    def _root_inv_decomposition(self, initial_vectors=None):
-        q_matrix = self._kronecker_eigenvectors()
-        inv_eigs_sqrt = DiagLazyTensor(1.0 / ((self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5))
+    #     return RootLazyTensor(matrix_root)
 
-        matrix_inv_root = inv_eigs_sqrt.matmul(q_matrix)
+    # def _root_inv_decomposition(self, initial_vectors=None):
+    #     q_matrix = self._kronecker_eigenvectors()
+    #     inv_eigs_sqrt = DiagLazyTensor(
+    #       1.0 / ((self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
+    #     )
 
-        return RootLazyTensor(matrix_inv_root)
+    #     matrix_inv_root = inv_eigs_sqrt.matmul(q_matrix)
+
+    #     return RootLazyTensor(matrix_inv_root)
 
     # def _quad_form_derivative(self, left_vecs, right_vecs):
     #     res = left_vecs.matmul(right_vecs.transpose(-1, -2))
