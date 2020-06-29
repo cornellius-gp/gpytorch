@@ -69,6 +69,21 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         final_res = res2.transpose(-2, -1).matmul(res2).sum(dim=reduction_dims)
         return final_res
 
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        q_matrix = self._kronecker_eigenvectors()
+        inv_mat_sqrt = DiagLazyTensor(1.0 / (self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
+
+        res = q_matrix.transpose(-2, -1).matmul(right_tensor)
+        res2 = inv_mat_sqrt.matmul(res)
+
+        if left_tensor is not None:
+            left_res = q_matrix.transpose(-2, -1).matmul(left_tensor.transpose(-2, -1))
+            left_res2 = inv_mat_sqrt.matmul(left_res).transpose(-2, -1)
+            return left_res2.matmul(res2)
+        else:
+            lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
+            return lazy_lhs.matmul(res2)
+
     # def sqrt_inv_matmul(self, rhs, lhs=None):
     #     q_matrix = self._kronecker_eigenvectors()
     #     inv_mat_sqrt = DiagLazyTensor(1.0 / (self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
