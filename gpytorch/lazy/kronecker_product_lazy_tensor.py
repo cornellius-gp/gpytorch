@@ -3,7 +3,7 @@
 import operator
 from functools import reduce
 
-import torch
+from torch import Size, Tensor
 
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
@@ -33,7 +33,7 @@ def _matmul(lazy_tensors, kp_shape, rhs):
 def _t_matmul(lazy_tensors, kp_shape, rhs):
     kp_t_shape = (*kp_shape[:-2], kp_shape[-1], kp_shape[-2])
     output_shape = _matmul_broadcast_shape(kp_t_shape, rhs.shape)
-    output_batch_shape = torch.Size(output_shape[:-2])
+    output_batch_shape = Size(output_shape[:-2])
 
     res = rhs.contiguous().expand(*output_batch_shape, *rhs.shape[-2:])
     num_cols = rhs.size(-1)
@@ -122,7 +122,7 @@ class KroneckerProductLazyTensor(LazyTensor):
     def _size(self):
         left_size = _prod(lazy_tensor.size(-2) for lazy_tensor in self.lazy_tensors)
         right_size = _prod(lazy_tensor.size(-1) for lazy_tensor in self.lazy_tensors)
-        return torch.Size((*self.lazy_tensors[0].batch_shape, left_size, right_size))
+        return Size((*self.lazy_tensors[0].batch_shape, left_size, right_size))
 
     def _transpose_nonbatch(self):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
@@ -147,3 +147,18 @@ class KroneckerProductLazyTensor(LazyTensor):
             )
 
         return KroneckerProductAddedDiagLazyTensor(self, DiagLazyTensor(expanded_diag))
+
+    @cached(name="symeig")
+    def _symeig(self, eigenvectors=True):
+        evals, evecs = [], []
+        for lazy_tensor in self.lazy_tensors:
+            evals_, evecs_ = lazy_tensor.evaluate().symeig(eigenvectors=eigenvectors)
+            evals.append(evals_)
+            evecs.append(evecs_)
+        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])
+        if eigenvectors:
+            evecs = KroneckerProductLazyTensor(*[lazify(evecs_) for evecs_ in evecs])
+        else:
+            evecs = Tensor([])
+
+        return evals, evecs
