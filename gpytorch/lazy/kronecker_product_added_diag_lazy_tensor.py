@@ -28,19 +28,26 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
-        if inv_quad_rhs is not None:
-            inv_quad_term = self.inv_quad(inv_quad_rhs, reduce_inv_quad=reduce_inv_quad)
-        else:
-            inv_quad_term = None
+        # if inv_quad_rhs is not None:
+        #     inv_quad_term = self._inv_quad(inv_quad_rhs, reduce_inv_quad=reduce_inv_quad)
+        # else:
+        #     inv_quad_term = None
 
         if logdet is not None:
-            logdet_term = self.logdet()
+            logdet_term = self._logdet()
         else:
             logdet_term = None
 
+        if inv_quad_rhs is not None:
+            inv_quad_term, _ = super().inv_quad_logdet(
+                inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
+            )
+        else:
+            inv_quad_term = None
+
         return inv_quad_term, logdet_term
 
-    def logdet(self):
+    def _logdet(self):
         evals_plus_diag = self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()
         return torch.log(evals_plus_diag).sum(dim=-1)
 
@@ -52,37 +59,38 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def _kronecker_eigenvectors(self):
         return self._lazy_tensor._symeig()[1]
 
-    def inv_quad(self, tensor, reduce_inv_quad=True):
-        # TODO: check stability of numerics here
+    # def _inv_quad(self, tensor, reduce_inv_quad=True):
+    #     # TODO: check stability of numerics here
 
+    #     q_matrix = self._kronecker_eigenvectors()
+    #     inv_mat_sqrt = DiagLazyTensor(1.0 / (self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
+
+    #     res = q_matrix.transpose(-2, -1).matmul(tensor)
+    #     res2 = inv_mat_sqrt.matmul(res)
+
+    #     if reduce_inv_quad:
+    #         reduction_dims = (-1, -2)
+    #     else:
+    #         reduction_dims = -1
+
+    #     final_res = res2.transpose(-2, -1).matmul(res2).sum(dim=reduction_dims)
+    #     return final_res
+
+    def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         q_matrix = self._kronecker_eigenvectors()
         inv_mat_sqrt = DiagLazyTensor(1.0 / (self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
 
-        res = q_matrix.transpose(-2, -1).matmul(tensor)
+        res = q_matrix.transpose(-2, -1).matmul(rhs)
         res2 = inv_mat_sqrt.matmul(res)
 
-        if reduce_inv_quad:
-            reduction_dims = (-1, -2)
-        else:
-            reduction_dims = -1
+        # if left_tensor is not None:
+        #     left_res = q_matrix.transpose(-2, -1).matmul(left_tensor.transpose(-2, -1))
+        #     left_res2 = inv_mat_sqrt.matmul(left_res).transpose(-2, -1)
+        #     return left_res2.matmul(res2)
+        # else:
 
-        final_res = res2.transpose(-2, -1).matmul(res2).sum(dim=reduction_dims)
-        return final_res
-
-    def inv_matmul(self, right_tensor, left_tensor=None):
-        q_matrix = self._kronecker_eigenvectors()
-        inv_mat_sqrt = DiagLazyTensor(1.0 / (self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
-
-        res = q_matrix.transpose(-2, -1).matmul(right_tensor)
-        res2 = inv_mat_sqrt.matmul(res)
-
-        if left_tensor is not None:
-            left_res = q_matrix.transpose(-2, -1).matmul(left_tensor.transpose(-2, -1))
-            left_res2 = inv_mat_sqrt.matmul(left_res).transpose(-2, -1)
-            return left_res2.matmul(res2)
-        else:
-            lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
-            return lazy_lhs.matmul(res2)
+        lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
+        return lazy_lhs.matmul(res2)
 
     # def sqrt_inv_matmul(self, rhs, lhs=None):
     #     q_matrix = self._kronecker_eigenvectors()
