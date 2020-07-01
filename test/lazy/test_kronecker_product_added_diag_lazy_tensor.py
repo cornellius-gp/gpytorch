@@ -6,6 +6,7 @@ import torch
 
 from gpytorch.lazy import DiagLazyTensor, KroneckerProductAddedDiagLazyTensor, KroneckerProductLazyTensor, NonLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.utils.memoize import is_cached
 
 
 class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestCase):
@@ -31,6 +32,13 @@ class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestC
         tensor = lazy_tensor._lazy_tensor.evaluate()
         diag = lazy_tensor._diag_tensor._diag
         return tensor + diag.diag()
+
+    def test_if_cholesky_used(self):
+        lazy_tensor = self.create_lazy_tensor()
+        rhs = torch.randn(lazy_tensor.size(-1))
+
+        self._test_inv_matmul(rhs, cholesky=False)
+        self.assertEqual(is_cached(lazy_tensor, "cholesky"), False)
 
 
 if __name__ == "__main__":

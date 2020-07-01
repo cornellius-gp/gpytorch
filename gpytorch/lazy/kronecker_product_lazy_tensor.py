@@ -150,8 +150,11 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     @cached(name="symeig")
     def _symeig(self, eigenvectors=True):
+        # eigenvectors may not get zeroed if called w/o eigenvectors after initialization
+
         evals, evecs = [], []
         for lazy_tensor in self.lazy_tensors:
+            # TODO: replace with lazy_tensor.symeig() once that is added in.
             evals_, evecs_ = lazy_tensor.evaluate().symeig(eigenvectors=eigenvectors)
             evals.append(evals_)
             evecs.append(evecs_)

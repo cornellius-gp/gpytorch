@@ -2,7 +2,6 @@
 
 import torch
 
-from ..utils import cached
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
@@ -19,11 +18,11 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         if len(lazy_tensors) > 2:
             raise RuntimeError("An AddedDiagLazyTensor can only have two components")
         elif isinstance(lazy_tensors[0], DiagLazyTensor):
-            self._diag_tensor = lazy_tensors[0]
-            self._lazy_tensor = lazy_tensors[1]
+            self.diag_tensor = lazy_tensors[0]
+            self.lazy_tensor = lazy_tensors[1]
         elif isinstance(lazy_tensors[1], DiagLazyTensor):
-            self._diag_tensor = lazy_tensors[1]
-            self._lazy_tensor = lazy_tensors[0]
+            self.diag_tensor = lazy_tensors[1]
+            self.lazy_tensor = lazy_tensors[0]
         else:
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
@@ -44,24 +43,17 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return inv_quad_term, logdet_term
 
     def _logdet(self):
-        evals_plus_diag = self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()
+        eig_matrix, _ = self.lazy_tensor._symeig()
+        evals_plus_diag = eig_matrix.diag() + self.diag_tensor.diag()
         return torch.log(evals_plus_diag).sum(dim=-1)
 
     def _preconditioner(self):
         # solves don't use CG so don't waste time computing it
         return None, None, None
 
-    @cached(name="kronecker_evals")
-    def _kronecker_eigenvalues(self):
-        return self._lazy_tensor._symeig()[0]
-
-    @cached(name="kronecker_evecs")
-    def _kronecker_eigenvectors(self):
-        return self._lazy_tensor._symeig()[1]
-
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
-        q_matrix = self._kronecker_eigenvectors()
-        inv_mat_sqrt = DiagLazyTensor(1.0 / (self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
+        eig_matrix, q_matrix = self.lazy_tensor._symeig()
+        inv_mat_sqrt = DiagLazyTensor(1.0 / (eig_matrix.diag() + self.diag_tensor.diag()) ** 0.5)
 
         res = q_matrix.transpose(-2, -1).matmul(rhs)
         res2 = inv_mat_sqrt.matmul(res)
@@ -70,8 +62,9 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return lazy_lhs.matmul(res2)
 
     def root_decomposition(self):
-        q_matrix = self._kronecker_eigenvectors()
-        eigs_sqrt = DiagLazyTensor((self._kronecker_eigenvalues().diag() + self._diag_tensor.diag()) ** 0.5)
+        # TODO: use _root_decomposition instead
+        eig_matrix, q_matrix = self.lazy_tensor._symeig()
+        eigs_sqrt = DiagLazyTensor((eig_matrix.diag() + self.diag_tensor.diag()) ** 0.5)
 
         matrix_root = q_matrix.matmul(eigs_sqrt)
 
