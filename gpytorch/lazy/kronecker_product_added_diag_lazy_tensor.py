@@ -4,8 +4,6 @@ import torch
 
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
-from .lazy_tensor import LazyTensor
-from .root_lazy_tensor import RootLazyTensor
 
 
 class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
@@ -61,14 +59,14 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
         return lazy_lhs.matmul(res2)
 
-    def root_decomposition(self):
-        # TODO: use _root_decomposition instead
+    def _root_decomposition(self):
         eig_matrix, q_matrix = self.lazy_tensor._symeig()
-        eigs_sqrt = DiagLazyTensor((eig_matrix.diag() + self.diag_tensor.diag()) ** 0.5)
+        updated_eigs = DiagLazyTensor((eig_matrix.diag() + self.diag_tensor.diag()).pow(0.5))
+        matrix_root = q_matrix.matmul(updated_eigs)
+        return matrix_root
 
-        matrix_root = q_matrix.matmul(eigs_sqrt)
-
-        return RootLazyTensor(matrix_root)
-
-    def _quad_form_derivative(self, left_vecs, right_vecs):
-        return LazyTensor._quad_form_derivative(self, left_vecs, right_vecs)
+    def _root_inv_decomposition(self, initial_vectors=None):
+        eig_matrix, q_matrix = self.lazy_tensor._symeig()
+        inv_sqrt_eigs = DiagLazyTensor((eig_matrix.diag() + self.diag_tensor.diag()).pow(-0.5))
+        matrix_inv_root = q_matrix.matmul(inv_sqrt_eigs)
+        return matrix_inv_root

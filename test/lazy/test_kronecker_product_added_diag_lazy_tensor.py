@@ -4,6 +4,7 @@ import unittest
 
 import torch
 
+from gpytorch import settings
 from gpytorch.lazy import DiagLazyTensor, KroneckerProductAddedDiagLazyTensor, KroneckerProductLazyTensor, NonLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 from gpytorch.utils.memoize import is_cached
@@ -39,6 +40,18 @@ class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestC
 
         self._test_inv_matmul(rhs, cholesky=False)
         self.assertEqual(is_cached(lazy_tensor, "cholesky"), False)
+
+    def test_root_inv_decomposition_no_cholesky(self):
+        with settings.max_cholesky_size(0):
+            lazy_tensor = self.create_lazy_tensor()
+            root_approx = lazy_tensor.root_inv_decomposition()
+
+            test_mat = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
+
+            res = root_approx.matmul(test_mat)
+            actual = lazy_tensor.inv_matmul(test_mat)
+            self.assertAllClose(res, actual, rtol=0.05, atol=0.02)
+            self.assertEqual(is_cached(lazy_tensor, "cholesky"), False)
 
 
 if __name__ == "__main__":
