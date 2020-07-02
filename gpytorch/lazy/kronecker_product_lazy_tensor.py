@@ -5,11 +5,22 @@ from functools import reduce
 
 from torch import Size, Tensor
 
+from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
 from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
+
+
+def _kron_diag(*lts) -> Tensor:
+    """Compute diagonal of a KroneckerProductLazyTensor from the diagonals of the constituiting tensors"""
+    lead_diag = lts[0].diag()
+    if len(lts) == 1:  # base case:
+        return lead_diag
+    trail_diag = _kron_diag(*lts[1:])
+    diag = lead_diag.unsqueeze(-2) * trail_diag.unsqueeze(-1)
+    return diag.transpose(-1, -2).reshape(*diag.shape[:-2], -1)
 
 
 def _prod(iterable):
@@ -72,6 +83,20 @@ class KroneckerProductLazyTensor(LazyTensor):
             return self.add_diag(other.diag())
         else:
             return super().__add__(other)
+
+    def diag(self):
+        r"""
+        As :func:`torch.diag`, returns the diagonal of the matrix :math:`K` this LazyTensor represents as a vector.
+
+        :rtype: torch.tensor
+        :return: The diagonal of :math:`K`. If :math:`K` is :math:`n \times n`, this will be a length
+            n vector. If this LazyTensor represents a batch (e.g., is :math:`b \times n \times n`), this will be a
+            :math:`b \times n` matrix of diagonals, one for each matrix in the batch.
+        """
+        if settings.debug.on():
+            if not self.is_square:
+                raise RuntimeError("Diag works on square matrices (or batches)")
+        return _kron_diag(*self.lazy_tensors)
 
     def _get_indices(self, row_index, col_index, *batch_indices):
         row_factor = self.size(-2)
