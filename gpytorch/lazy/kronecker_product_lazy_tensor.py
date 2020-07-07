@@ -151,11 +151,26 @@ class KroneckerProductLazyTensor(LazyTensor):
     @cached(name="symeig")
     def _symeig(self, eigenvectors=True):
         # eigenvectors may not get zeroed if called w/o eigenvectors after initialization
+        from torch import zeros_like
 
         evals, evecs = [], []
         for lazy_tensor in self.lazy_tensors:
             # TODO: replace with lazy_tensor.symeig() once that is added in.
-            evals_, evecs_ = lazy_tensor.evaluate().symeig(eigenvectors=eigenvectors)
+            # TODO: ensure that the symeig call is also done in this manner
+
+            eval_tensor = lazy_tensor.evaluate()
+            tensor_dtype = eval_tensor.dtype
+
+            evals_, evecs_ = eval_tensor.double().symeig(eigenvectors=eigenvectors)
+
+            # we chop any negative eigenvalues
+            neg_evals = zeros_like(evals_)
+            neg_evals[evals_.data < 0] = -evals_.data[evals_.data < 0]
+            evals_ = evals_ + neg_evals
+
+            evals_ = evals_.type(tensor_dtype)
+            evecs_ = evecs_.type(tensor_dtype)
+
             evals.append(evals_)
             evecs.append(evecs_)
         evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])

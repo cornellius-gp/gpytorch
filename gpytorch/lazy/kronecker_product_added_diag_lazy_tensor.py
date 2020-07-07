@@ -50,14 +50,23 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return None, None, None
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
+        # we do the solve in double for numerical stability issues
+
+        rhs_dtype = rhs.dtype
+        rhs = rhs.double()
+
         eig_matrix, q_matrix = self.lazy_tensor._symeig()
-        inv_mat_sqrt = DiagLazyTensor(1.0 / (eig_matrix.diag() + self.diag_tensor.diag()) ** 0.5)
+        eig_matrix, q_matrix = eig_matrix.double(), q_matrix.double()
+
+        eigs_plus_diagonal = eig_matrix.diag() + self.diag_tensor.diag()
+        eigs_root = eigs_plus_diagonal.pow(0.5)
+        inv_mat_sqrt = DiagLazyTensor(eigs_root.reciprocal())
 
         res = q_matrix.transpose(-2, -1).matmul(rhs)
         res2 = inv_mat_sqrt.matmul(res)
 
         lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
-        return lazy_lhs.matmul(res2)
+        return lazy_lhs.matmul(res2).type(rhs_dtype)
 
     def _root_decomposition(self):
         eig_matrix, q_matrix = self.lazy_tensor._symeig()
