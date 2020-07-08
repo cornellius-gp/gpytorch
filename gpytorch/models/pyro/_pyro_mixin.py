@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-import torch
-
 import pyro
+import torch
 
 
 class _PyroMixin(object):

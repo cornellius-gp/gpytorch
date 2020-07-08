@@ -3,10 +3,11 @@
 import operator
 from functools import reduce
 
-import torch
+from torch import Size, Tensor
 
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
+from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 
@@ -32,7 +33,7 @@ def _matmul(lazy_tensors, kp_shape, rhs):
 def _t_matmul(lazy_tensors, kp_shape, rhs):
     kp_t_shape = (*kp_shape[:-2], kp_shape[-1], kp_shape[-2])
     output_shape = _matmul_broadcast_shape(kp_t_shape, rhs.shape)
-    output_batch_shape = torch.Size(output_shape[:-2])
+    output_batch_shape = Size(output_shape[:-2])
 
     res = rhs.contiguous().expand(*output_batch_shape, *rhs.shape[-2:])
     num_cols = rhs.size(-1)
@@ -45,6 +46,13 @@ def _t_matmul(lazy_tensors, kp_shape, rhs):
 
 
 class KroneckerProductLazyTensor(LazyTensor):
+    r"""
+    Returns the Kronecker product of the given lazy tensors
+
+    Args:
+        :`lazy_tensors`: List of lazy tensors
+    """
+
     def __init__(self, *lazy_tensors):
         try:
             lazy_tensors = tuple(lazify(lazy_tensor) for lazy_tensor in lazy_tensors)
@@ -58,6 +66,12 @@ class KroneckerProductLazyTensor(LazyTensor):
                 )
         super(KroneckerProductLazyTensor, self).__init__(*lazy_tensors)
         self.lazy_tensors = lazy_tensors
+
+    def __add__(self, other):
+        if isinstance(other, DiagLazyTensor):
+            return self.add_diag(other.diag())
+        else:
+            return super().__add__(other)
 
     def _get_indices(self, row_index, col_index, *batch_indices):
         row_factor = self.size(-2)
@@ -108,7 +122,58 @@ class KroneckerProductLazyTensor(LazyTensor):
     def _size(self):
         left_size = _prod(lazy_tensor.size(-2) for lazy_tensor in self.lazy_tensors)
         right_size = _prod(lazy_tensor.size(-1) for lazy_tensor in self.lazy_tensors)
-        return torch.Size((*self.lazy_tensors[0].batch_shape, left_size, right_size))
+        return Size((*self.lazy_tensors[0].batch_shape, left_size, right_size))
 
     def _transpose_nonbatch(self):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
+
+    def add_diag(self, diag):
+        r"""
+        Adds a diagonal to a KroneckerProductLazyTensor
+        """
+
+        from .kronecker_product_added_diag_lazy_tensor import KroneckerProductAddedDiagLazyTensor
+
+        if not self.is_square:
+            raise RuntimeError("add_diag only defined for square matrices")
+
+        try:
+            expanded_diag = diag.expand(self.shape[:-1])
+        except RuntimeError:
+            raise RuntimeError(
+                "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
+                    self.shape, diag.shape
+                )
+            )
+
+        return KroneckerProductAddedDiagLazyTensor(self, DiagLazyTensor(expanded_diag))
+
+    @cached(name="symeig")
+    def _symeig(self, eigenvectors=True):
+        # eigenvectors may not get zeroed if called w/o eigenvectors after initialization
+
+        evals, evecs = [], []
+        for lazy_tensor in self.lazy_tensors:
+            # TODO: replace with lazy_tensor.symeig() once that is added in.
+            # TODO: ensure that the symeig call is also done in this manner
+
+            eval_tensor = lazy_tensor.evaluate()
+            tensor_dtype = eval_tensor.dtype
+
+            evals_, evecs_ = eval_tensor.double().symeig(eigenvectors=eigenvectors)
+
+            # we chop any negative eigenvalues
+            evals_.clamp_min_(0.0)
+
+            evals_ = evals_.type(tensor_dtype)
+            evecs_ = evecs_.type(tensor_dtype)
+
+            evals.append(evals_)
+            evecs.append(evecs_)
+        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])
+        if eigenvectors:
+            evecs = KroneckerProductLazyTensor(*[lazify(evecs_) for evecs_ in evecs])
+        else:
+            evecs = Tensor([])
+
+        return evals, evecs
