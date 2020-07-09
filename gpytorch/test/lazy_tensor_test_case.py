@@ -587,3 +587,33 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
+
+    def test_symeig(self, repeated_evals: bool = False):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+
+        # Perform forward pass
+        evals_unsorted, evecs_unsorted = lazy_tensor.symeig(eigenvectors=True)
+        evecs_unsorted = evecs_unsorted.evaluate()
+
+        # since LazyTensor.symeig does not sort evals, we do this here for the check
+        evals, idxr = torch.sort(evals_unsorted, dim=-1, descending=False)
+        evecs = torch.gather(evecs_unsorted, dim=-1, index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape))
+
+        evals_actual, evecs_actual = torch.symeig(evaluated.double(), eigenvectors=True)
+        evals_actual = evals_actual.to(dtype=evaluated.dtype)
+        evecs_actual = evecs_actual.to(dtype=evaluated.dtype)
+
+        # Check forward pass
+        self.assertAllClose(evals, evals_actual, rtol=1e-4, atol=1e-3)
+        lt_from_eigendecomp = evecs @ torch.diag_embed(evals) @ evecs.transpose(-1, -2)
+        self.assertAllClose(lt_from_eigendecomp, evaluated, rtol=1e-4, atol=1e-3)
+
+        if not repeated_evals:
+            # if there are repeated evals the evecs aren't unique (in terms of their ordering)
+            # so we only perform this check if there aren't any repeated evals
+            # orientation of evecs can be different, use abs
+            self.assertAllClose(evecs.abs(), evecs_actual.abs(), rtol=1e-4, atol=1e-3)
+
+        # TODO: Perform and check backward pass

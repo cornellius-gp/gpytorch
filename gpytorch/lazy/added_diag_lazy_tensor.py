@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
 import warnings
+from typing import Optional, Tuple
 
 import torch
+from torch import Tensor
 
 from .. import settings
 from ..utils import broadcasting, pivoted_cholesky
 from ..utils.memoize import cached
 from ..utils.warnings import NumericalWarning
 from .diag_lazy_tensor import DiagLazyTensor
+from .lazy_tensor import LazyTensor
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
@@ -128,7 +131,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
 
     @cached(name="svd")
-    def _svd(self):
+    def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
         diag = self._diag_tensor.diag()
         if torch.equal(diag, diag[..., :1].expand(diag.shape)):
             U, S_, V = self._lazy_tensor.svd()
@@ -137,7 +140,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         return super()._svd()
 
     @cached(name="symeig")
-    def _symeig(self, eigenvectors=False):
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
         diag = self._diag_tensor.diag()
         if torch.equal(diag, diag[..., :1].expand(diag.shape)):
             evals_, evecs = self._lazy_tensor.symeig(eigenvectors=eigenvectors)

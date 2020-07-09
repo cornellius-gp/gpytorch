@@ -3,9 +3,10 @@
 import math
 import warnings
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
+from torch import Tensor
 
 import gpytorch
 
@@ -1553,35 +1554,36 @@ class LazyTensor(ABC):
         else:
             raise ValueError("Invalid dim ({}) for LazyTensor of size {}".format(orig_dim, self.shape))
 
-    def svd(self):
+    def svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
         """
         Compute the SVD of the lazy tensor `M` s.t. `M = U @ S @ V.T`.
         This can be very slow for large tensors. Should be special-cased for tensors with particular structure.
+        Does NOT sort the sigular values.
 
         Returns:
-            :obj:`torch.Tensor`:
+            :obj:`~gpytorch.lazy.LazyTensor`:
                 The left singular vectors (`U`).
             :obj:`torch.Tensor`:
                 The singular values (`S`).
-            :obj:`torch.Tensor`:
+            :obj:`~gpytorch.lazy.LazyTensor`:
                 The right singular vectors (`V`).
         """
-        return torch.svd(self.evaluate())
+        return self._svd()
 
-    def symeig(self, eigenvectors=False):
+    def symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
         """
         Compute the symmetric eigendecomposition of the lazy tensor. This can be very
         slow for large tensors. Should be special-cased for tensors with particular
-        structure.
+        structure. Does NOT sort the eigenvalues.
 
         Args:
             :attr:`eigenvectors` (bool): If True, compute the eigenvectors in addition to the eigenvalues.
         Returns:
             :obj:`torch.Tensor`:
                 The eigenvalues.
-            :obj:`torch.Tensor`:
-                The eigenvectors. If `eigenvectors=False`, it's an empty tensor. Otherwise, this tensor
-                contains the orthonormal eigenvectors of teh lazy tensor.
+            :obj:`~gpytorch.lazy.LazyTensor`:
+                The eigenvectors. If `eigenvectors=False`, this is None. Otherwise, this LazyTensor
+                contains the orthonormal eigenvectors of the matrix.
         """
         return self._symeig(eigenvectors=eigenvectors)
 
@@ -1849,14 +1851,27 @@ class LazyTensor(ABC):
         return res
 
     @cached(name="svd")
-    def _svd(self):
+    def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
         """Method that allows implementing special-cased SVD computation. Should not be called directly"""
-        return torch.svd(self.evaluate())
+        from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
+
+        U, S, V = torch.svd(self.evaluate())
+        return NonLazyTensor(U), S, NonLazyTensor(V)
 
     @cached(name="symeig")
-    def _symeig(self, eigenvectors=False):
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
         """Method that allows implementing special-cased symeig computation. Should not be called directly"""
-        return torch.symeig(self.evaluate(), eigenvectors=eigenvectors)
+        from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
+
+        dtype = self.dtype  # perform decomposition in double precision for numerical stability
+        evals, evecs = torch.symeig(self.evaluate().to(dtype=torch.double), eigenvectors=eigenvectors)
+        # chop any negative eigenvalues. TODO: warn if evals are significantly negative
+        evals = evals.clamp_min(0.0).to(dtype=dtype)
+        if eigenvectors:
+            evecs = NonLazyTensor(evecs.to(dtype=dtype))
+        else:
+            evecs = None
+        return evals, evecs
 
     def __matmul__(self, other):
         return self.matmul(other)

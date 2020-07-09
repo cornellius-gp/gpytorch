@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Tuple
+
 import torch
+from torch import Tensor
 
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
@@ -183,38 +186,20 @@ class DiagLazyTensor(TriangularLazyTensor):
         return base_samples * self._diag.sqrt()
 
     @cached(name="svd")
-    def _svd(self):
-        diag = self._diag
-        signs = torch.sign(diag)
-        S, idcs = torch.sort(diag.abs(), dim=-1, descending=True)
-        m_tot = diag.shape[:-1].numel()
-        n = diag.size(-1)
-        row_idxr = torch.arange(m_tot * n)
-        idcs = idcs.view(m_tot * n)
-        U = torch.zeros(m_tot * n, n, device=diag.device, dtype=diag.dtype)
-        U[row_idxr, idcs] = 1.0
-        U = U.view(*diag.shape, -1).transpose(-1, -2)
-        V = torch.zeros(m_tot * n, n, device=diag.device, dtype=diag.dtype)
-        V[row_idxr, idcs] = signs.view(-1)
-        V = V.view(*diag.shape, -1).transpose(-1, -2)
+    def _svd(self) -> Tuple[LazyTensor, Tensor, LazyTensor]:
+        evals, evecs = self.symeig(eigenvectors=True)
+        S = torch.abs(evals)
+        U = evecs
+        V = evecs * torch.sign(evals)
         return U, S, V
 
     @cached(name="symeig")
-    def _symeig(self, eigenvectors=False):
-        diag = self._diag
-        evals, idcs = torch.sort(diag, dim=-1, descending=False)
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        evals = self._diag
         if eigenvectors:
-            m_tot = diag.shape[:-1].numel()
-            n = diag.size(-1)
-            evecs = torch.zeros(m_tot * n, n, device=diag.device, dtype=diag.dtype)
-            m_tot = diag.shape[:-1].numel()
-            n = diag.size(-1)
-            row_idxr = torch.arange(m_tot * n)
-            idcs = idcs.view(m_tot * n)
-            evecs[row_idxr, idcs] = 1.0
-            evecs = evecs.view(*diag.shape, -1).transpose(-1, -2)
+            evecs = DiagLazyTensor(torch.ones_like(evals))
         else:
-            evecs = torch.tensor([], device=diag.device, dtype=diag.dtype)
+            evecs = None
         return evals, evecs
 
 

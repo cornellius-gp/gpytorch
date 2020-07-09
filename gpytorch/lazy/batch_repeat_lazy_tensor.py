@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import itertools
+from typing import Optional, Tuple
 
 import torch
+from torch import Tensor
 
 from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape
@@ -285,7 +287,7 @@ class BatchRepeatLazyTensor(LazyTensor):
         )
 
     @cached(name="svd")
-    def _svd(self):
+    def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
         U_, S_, V_ = self.base_lazy_tensor.svd()
         U = U_.repeat(*self.batch_repeat, 1, 1)
         S = S_.repeat(*self.batch_repeat, 1)
@@ -293,7 +295,7 @@ class BatchRepeatLazyTensor(LazyTensor):
         return U, S, V
 
     @cached(name="symeig")
-    def _symeig(self, eigenvectors=False):
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
         evals_, evecs_ = self.base_lazy_tensor.symeig(eigenvectors=eigenvectors)
         evals = evals_.repeat(*self.batch_repeat, 1)
         evecs = evecs_.repeat(*self.batch_repeat, 1, 1)

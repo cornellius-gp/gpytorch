@@ -2,6 +2,7 @@
 
 import operator
 from functools import reduce
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -199,7 +200,7 @@ class KroneckerProductLazyTensor(LazyTensor):
         left_size = _prod(lazy_tensor.size(-2) for lazy_tensor in self.lazy_tensors)
         right_size = _prod(lazy_tensor.size(-1) for lazy_tensor in self.lazy_tensors)
         return torch.Size((*self.lazy_tensors[0].batch_shape, left_size, right_size))
-    
+
     @cached(name="svd")
     def _svd(self) -> Tuple[LazyTensor, Tensor, LazyTensor]:
         U, S, V = [], [], []
@@ -239,20 +240,30 @@ class KroneckerProductLazyTensor(LazyTensor):
             res = res.squeeze(-1)
         return res
 
+    def _transpose_nonbatch(self):
+        return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
 
-class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
+
+class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor, TriangularLazyTensor):
     def __init__(self, *lazy_tensors, upper=False):
-        from .triangular_lazy_tensor import TriangularLazyTensor
-
         if not all(isinstance(lt, TriangularLazyTensor) for lt in lazy_tensors):
             raise RuntimeError("Components of KroneckerProductTriangularLazyTensor must be TriangularLazyTensor.")
         super().__init__(*lazy_tensors)
         self.upper = upper
 
+    @cached
+    def inverse(self):
+        # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
+        inverses = [lt.inverse() for lt in self.lazy_tensors]
+        return self.__class__(*inverses, upper=self.upper)
+
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        # For triangular components, using triangular-triangular substition should generally be good
+        return self._inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
+
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
-        chol = KroneckerProductLazyTensor(*[lt._cholesky(upper=upper) for lt in self.lazy_tensors])
-        return TriangularLazyTensor(chol, upper=upper)
+        raise NotImplementedError("_cholesky not applicable to triangular lazy tensors")
 
     def _cholesky_solve(self, rhs, upper=False):
         if upper:
@@ -265,12 +276,5 @@ class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
             res = self._transpose_nonbatch().inv_matmul(w)
         return res
 
-    @cached
-    def inverse(self):
-        # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
-        inverses = [lt.inverse() for lt in self.lazy_tensors]
-        return self.__class__(*inverses, upper=self.upper)
-
-    def inv_matmul(self, right_tensor, left_tensor=None):
-        # For triangular components, using triangular-triangular substition should generally be good
-        return self._inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        raise NotImplementedError("_symeig not applicable to triangular lazy tensors")
