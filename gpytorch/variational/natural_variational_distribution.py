@@ -1,39 +1,23 @@
 #!/usr/bin/env python3
 
+import abc
+
 import torch
 
 from ..distributions import MultivariateNormal
 from ..lazy import CholLazyTensor
-from ..utils.cholesky import psd_safe_cholesky
 from ._variational_distribution import _VariationalDistribution
 
 
-class _ExpectationParams(torch.autograd.Function):
+class AbstractNaturalVariationalDistribution(_VariationalDistribution, abc.ABC):
+    r"""Any :obj:`~gpytorch.variational._VariationalDistribution` which calculates
+    natural gradients with respect to its parameters.
     """
-    Given the canonical params, computes the expectation params
-
-    expec_mean = m = -1/2 natural_mat^{-1} natural_vec
-    expec_covar = m m^T + S = [ expec_mean expec_mean^T - 0.5 natural_mat^{-1} ]
-
-    On the backward pass, we simply pass the gradients from the expected parameters into the canonical params
-    This will allow us to perform NGD
-    """
-
-    @staticmethod
-    def forward(ctx, natural_vec, natural_mat):
-        cov_mat = natural_mat.inverse().mul_(-0.5)
-        expec_mean = cov_mat @ natural_vec
-        expec_covar = (expec_mean.unsqueeze(-1) @ expec_mean.unsqueeze(-2)).add_(cov_mat)
-        return expec_mean, expec_covar
-
-    @staticmethod
-    def backward(ctx, expec_mean_grad, expec_covar_grad):
-        return expec_mean_grad, expec_covar_grad
+    pass
 
 
-class NaturalVariationalDistribution(_VariationalDistribution):
-    r"""
-    A multivariate normal :obj:`~gpytorch.variational._VariationalDistribution`,
+class NaturalVariationalDistribution(AbstractNaturalVariationalDistribution):
+    r"""A multivariate normal :obj:`~gpytorch.variational._VariationalDistribution`,
     parameterized by **natural** parameters.
 
     If the variational distribution is defined by :math:`\mathcal{N}(\mathbf m, \mathbf S)`, then
@@ -42,21 +26,37 @@ class NaturalVariationalDistribution(_VariationalDistribution):
     .. math::
 
         \begin{align*}
-            \boldsymbol \theta &= \mathbf S^{-1} \mathbf m
+            \boldsymbol \theta_\text{vec} &= \mathbf S^{-1} \mathbf m
             \\
-            \boldsymbol \Theta &= -\frac{1}{2} \mathbf S^{-1}.
+            \boldsymbol \Theta_\text{mat} &= -\frac{1}{2} \mathbf S^{-1}.
         \end{align*}
 
-    This is for use with natural gradient descent (see e.g. `Salimbeni et al., 2018`_).
+    The gradients with respect to the variational parameters calculated by this
+    class are instead the **natural** gradients. Thus, optimising its
+    parameters using gradient descent (:obj:`~torch.optim.SGDOptimizer`)
+    becomes natural gradient descent (see e.g. `Salimbeni et al., 2018`_).
+
+    .. note::
+       The :obj:`~gpytorch.variational.NaturalVariationalDistribution` can only
+       be used with the :obj:`~torc.optim.SGDOptimizer`, or other optimizers
+       that follow exactly the gradient direction. Failure to do so will cause
+       the natural matrix :math:`\mathbf \Theta_\text{mat}` to stop being
+       positive definite, and a :obj:`~RuntimeError` will be raised.
 
     .. seealso::
         The `natural gradient descent tutorial
         <examples/04_Variational_and_Approximate_GPs/Natural_Gradient_Descent.ipynb>`_
         for use instructions.
 
+        The :obs:`~gpytorch.variational.TrilNaturalVariationalDistribution` for
+        a more numerically stable parameterization, at the cost of needing more
+        iterations to make variational regression converge.
+
     .. note::
-        Natural gradient descent is very stable with variational regression, but can be unstable with
-        non-conjugate likelihoods and alternative objective functions.
+        Natural gradient descent is very stable with variational regression,
+        and fast: if the hyperparameters are fixed, the variational parameters
+        converge in 1 iteration. However, it can be unstable with non-conjugate
+        likelihoods and alternative objective functions.
 
     .. _Salimbeni et al., 2018:
         https://arxiv.org/abs/1803.09151
@@ -67,6 +67,7 @@ class NaturalVariationalDistribution(_VariationalDistribution):
         for the variational parameters. This is useful for example when doing additive variational inference.
     :type batch_shape: :obj:`torch.Size`, optional
     :param float mean_init_std: (Default: 1e-3) Standard deviation of gaussian noise to add to the mean initialization.
+
     """
 
     def __init__(self, num_inducing_points, batch_shape=torch.Size([]), mean_init_std=1e-3, **kwargs):
@@ -81,23 +82,7 @@ class NaturalVariationalDistribution(_VariationalDistribution):
         self.register_parameter(name="natural_mat", parameter=torch.nn.Parameter(neg_prec_init))
 
     def forward(self):
-        # First - get the natural/canonical parameters (\theta in Hensman, 2013, eqn. 6)
-        # This is what's computed by super().forward()
-        # natural_vec = S^{-1} m
-        # natural_mat = -1/2 S^{-1}
-        natural_vec = self.natural_vec
-        natural_mat = self.natural_mat
-
-        # From the canonical parameters, compute the expectation parameters (\eta in Hensman, 2013, eqn. 6)
-        # expec_mean = m = -1/2 natural_mat^{-1} natural_vec
-        # expec_covar = m m^T + S = [ expec_mean expec_mean^T - 0.5 natural_mat^{-1} ]
-        expec_mean, expec_covar = _ExpectationParams().apply(natural_vec, natural_mat)
-
-        # Finally, convert the expected parameters into m and S
-        # m = expec_mean
-        # S = expec_covar - expec_mean expec_mean^T
-        mean = expec_mean
-        chol_covar = psd_safe_cholesky(expec_covar - expec_mean.unsqueeze(-1) @ expec_mean.unsqueeze(-2), max_tries=4)
+        mean, chol_covar = _NaturalToMuVarSqrt.apply(self.natural_vec, self.natural_mat)
         return MultivariateNormal(mean, CholLazyTensor(chol_covar))
 
     def initialize_variational_distribution(self, prior_dist):
@@ -107,3 +92,78 @@ class NaturalVariationalDistribution(_VariationalDistribution):
 
         self.natural_vec.data.copy_((prior_prec @ prior_mean).add_(noise))
         self.natural_mat.data.copy_(prior_prec.mul(-0.5))
+
+
+def _triangular_inverse(A, upper=False):
+    eye = torch.eye(A.size(-1), dtype=A.dtype, device=A.device)
+    return eye.triangular_solve(A, upper=upper).solution
+
+
+def _phi_for_cholesky_(A):
+    "Modifies A to be the phi function used in differentiating through Cholesky"
+    A.tril_().diagonal(offset=0, dim1=-2, dim2=-1).mul_(0.5)
+    return A
+
+
+def _cholesky_backward(dout_dL, L, L_inverse):
+    # c.f. https://github.com/pytorch/pytorch/blob/25ba802ce4cbdeaebcad4a03cec8502f0de9b7b3/
+    #      tools/autograd/templates/Functions.cpp
+    A = L.transpose(-1, -2) @ dout_dL
+    phi = _phi_for_cholesky_(A)
+    grad_input = (L_inverse.transpose(-1, -2) @ phi) @ L_inverse
+    # Symmetrize gradient
+    return grad_input.add(grad_input.transpose(-1, -2)).mul_(0.5)
+
+
+class _NaturalToMuVarSqrt(torch.autograd.Function):
+    @staticmethod
+    def _forward(nat_mean, nat_covar):
+        try:
+            L_inv = torch.cholesky(-2.0 * nat_covar, upper=False)
+        except RuntimeError as e:
+            if str(e).startswith("cholesky"):
+                raise RuntimeError(
+                    "Non-negative-definite natural covariance. You probably "
+                    "updated it using an optimizer other than SGD (such as Adam). "
+                    "This is not supported."
+                )
+            else:
+                raise e
+        L = _triangular_inverse(L_inv, upper=False)
+        S = L.transpose(-1, -2) @ L
+        mu = (S @ nat_mean.unsqueeze(-1)).squeeze(-1)
+        # Two choleskys are annoying, but we don't have good support for a
+        # LazyTensor of form L.T @ L
+        return mu, torch.cholesky(S, upper=False)
+
+    @staticmethod
+    def forward(ctx, nat_mean, nat_covar):
+        mu, L = _NaturalToMuVarSqrt._forward(nat_mean, nat_covar)
+        ctx.save_for_backward(mu, L)
+        return mu, L
+
+    @staticmethod
+    def _backward(dout_dmu, dout_dL, mu, L, C):
+        """Calculate dout/d(eta1, eta2), which are:
+        eta1 = mu
+        eta2 = mu*mu^T + LL^T = mu*mu^T + Sigma
+
+        Thus:
+        dout/deta1 = dout/dmu + dout/dL dL/deta1
+        dout/deta2 = dout/dL dL/deta1
+
+        For L = chol(eta2 - eta1*eta1^T).
+        dout/dSigma = _cholesky_backward(dout/dL, L)
+        dout/deta2 = dout/dSigma
+        dSigma/deta1 = -2* (dout/dSigma) mu
+        """
+        dout_dSigma = _cholesky_backward(dout_dL, L, C)
+        dout_deta1 = dout_dmu - 2 * (dout_dSigma @ mu.unsqueeze(-1)).squeeze(-1)
+        return dout_deta1, dout_dSigma
+
+    @staticmethod
+    def backward(ctx, dout_dmu, dout_dL):
+        "Calculates the natural gradient with respect to nat_mean, nat_covar"
+        mu, L = ctx.saved_tensors
+        C = _triangular_inverse(L, upper=False)
+        return _NaturalToMuVarSqrt._backward(dout_dmu, dout_dL, mu, L, C)
