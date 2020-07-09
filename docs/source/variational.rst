@@ -125,3 +125,10 @@ distributions.
 
 .. autoclass:: NaturalVariationalDistribution
    :members:
+
+
+:hidden:`TrilNaturalVariationalDistribution`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: TrilNaturalVariationalDistribution
+   :members:

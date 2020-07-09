@@ -39,7 +39,7 @@ class TrilNaturalVariationalDistribution(AbstractNaturalVariationalDistribution)
         <examples/04_Variational_and_Approximate_GPs/Natural_Gradient_Descent.ipynb>`_
         for use instructions.
 
-        The :obs:`~gpytorch.variational.NaturalVariationalDistribution`, which
+        The :obj:`~gpytorch.variational.NaturalVariationalDistribution`, which
         needs less iterations to make variational regression converge, at the
         cost of introducing numerical instability.
 
