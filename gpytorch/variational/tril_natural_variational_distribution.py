@@ -132,6 +132,6 @@ class _TrilNaturalToMuVarSqrt(torch.autograd.Function):
         _C = -C _L C = phi(-2 L^T _theta_cov L)C
         """
         A = L.transpose(-2, -1) @ dout_dnat2 @ L
-        phi = _phi_for_cholesky_(-2 * A)
+        phi = _phi_for_cholesky_(A.mul_(-2))
         dout_dtril = phi @ C
         return dout_dnat1, dout_dtril
