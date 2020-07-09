@@ -112,24 +112,24 @@ class _TrilNaturalToMuVarSqrt(torch.autograd.Function):
         Now we need to do the Jacobian-Vector Product for the transformation:
         L = inv(chol(inv(-2 theta_cov)))
 
-        C^T C = -2theta_cov
+        C^T C = -2 theta_cov
 
-        so we need to do forward differentiation, starting with sensitivity:
-        theta_cov = dout_dnat2
+        so we need to do forward differentiation, starting with sensitivity (sensitivities marked with .dots.)
+        .theta_cov. = dout_dnat2
 
-        and ending with sensitivity _C
+        and ending with sensitivity .C.
 
         if B = inv(-2 theta_cov) then:
 
-        _B  =  d inv(-2 theta_cov)/dtheta_cov * _theta_cov  =  -B (-2 _theta_cov) B
+        .B.  =  d inv(-2 theta_cov)/dtheta_cov * .theta_cov.  =  -B (-2 .theta_cov.) B
 
         if L = chol(B), B = LL^T then (https://homepages.inf.ed.ac.uk/imurray2/pub/16choldiff/choldiff.pdf):
 
-        _L = L phi(L^{-1} _B_ (L^{-1})^T) = L phi(2 L^T _theta_cov L)
+        .L. = L phi(L^{-1} .B. (L^{-1})^T) = L phi(2 L^T .theta_cov. L)
 
         Then C = inv(L), so
 
-        _C = -C _L C = phi(-2 L^T _theta_cov L)C
+        .C. = -C .L. C = phi(-2 L^T .theta_cov. L)C
         """
         A = L.transpose(-2, -1) @ dout_dnat2 @ L
         phi = _phi_for_cholesky_(-2 * A)
