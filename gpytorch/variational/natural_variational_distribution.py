@@ -9,36 +9,20 @@ from ..lazy import CholLazyTensor, TriangularLazyTensor
 from ._variational_distribution import _VariationalDistribution
 
 
-class AbstractNaturalVariationalDistribution(_VariationalDistribution, abc.ABC):
+class _NaturalVariationalDistribution(_VariationalDistribution, abc.ABC):
     r"""Any :obj:`~gpytorch.variational._VariationalDistribution` which calculates
     natural gradients with respect to its parameters.
     """
     pass
 
 
-class NaturalVariationalDistribution(AbstractNaturalVariationalDistribution):
+class NaturalVariationalDistribution(_NaturalVariationalDistribution):
     r"""A multivariate normal :obj:`~gpytorch.variational._VariationalDistribution`,
     parameterized by **natural** parameters.
 
-    If the variational distribution is defined by :math:`\mathcal{N}(\mathbf m, \mathbf S)`, then
-    a :obj:`~gpytorch.variational.NaturalVariationalDistribution` uses the parameterization:
-
-    .. math::
-
-        \begin{align*}
-            \boldsymbol \theta_\text{vec} &= \mathbf S^{-1} \mathbf m
-            \\
-            \boldsymbol \Theta_\text{mat} &= -\frac{1}{2} \mathbf S^{-1}.
-        \end{align*}
-
-    The gradients with respect to the variational parameters calculated by this
-    class are instead the **natural** gradients. Thus, optimising its
-    parameters using gradient descent (:obj:`~torch.optim.SGDOptimizer`)
-    becomes natural gradient descent (see e.g. `Salimbeni et al., 2018`_).
-
     .. note::
        The :obj:`~gpytorch.variational.NaturalVariationalDistribution` can only
-       be used with the :obj:`~torc.optim.SGDOptimizer`, or other optimizers
+       be used with :obj:`~torch.optim.SGD`, or other optimizers
        that follow exactly the gradient direction. Failure to do so will cause
        the natural matrix :math:`\mathbf \Theta_\text{mat}` to stop being
        positive definite, and a :obj:`~RuntimeError` will be raised.
@@ -48,18 +32,9 @@ class NaturalVariationalDistribution(AbstractNaturalVariationalDistribution):
         <examples/04_Variational_and_Approximate_GPs/Natural_Gradient_Descent.ipynb>`_
         for use instructions.
 
-        The :obs:`~gpytorch.variational.TrilNaturalVariationalDistribution` for
+        The :obj:`~gpytorch.variational.TrilNaturalVariationalDistribution` for
         a more numerically stable parameterization, at the cost of needing more
         iterations to make variational regression converge.
-
-    .. note::
-        Natural gradient descent is very stable with variational regression,
-        and fast: if the hyperparameters are fixed, the variational parameters
-        converge in 1 iteration. However, it can be unstable with non-conjugate
-        likelihoods and alternative objective functions.
-
-    .. _Salimbeni et al., 2018:
-        https://arxiv.org/abs/1803.09151
 
     :param int num_inducing_points: Size of the variational distribution. This implies that the variational mean
         should be this size, and the variational covariance matrix should have this many rows and columns.

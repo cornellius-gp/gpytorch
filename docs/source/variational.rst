@@ -141,8 +141,51 @@ distributions.
    :members:
 
 
+Variational Distributions for Natural Gradient Descent
+---------------------------------------------------------
+
+Special :obj:`~_VariationalDistribution` objects designed specifically for
+use with natural gradient descent techniques.
+
+If the variational distribution is defined by :math:`\mathcal{N}(\mathbf m, \mathbf S)`, then
+a :obj:`~gpytorch.variational.NaturalVariationalDistribution` uses the parameterization:
+
+.. math::
+
+    \begin{align*}
+        \boldsymbol \theta_\text{vec} &= \mathbf S^{-1} \mathbf m
+        \\
+        \boldsymbol \Theta_\text{mat} &= -\frac{1}{2} \mathbf S^{-1}.
+    \end{align*}
+
+The gradients with respect to the variational parameters calculated by this
+class are instead the **natural** gradients. Thus, optimising its
+parameters using gradient descent (:obj:`~torch.optim.SGDOptimizer`)
+becomes natural gradient descent (see e.g. `Salimbeni et al., 2018`_).
+
+GPyTorch offers several :obj:`_NaturalVariationalDistribution` classes, each of which uses a
+different representation of the natural parameters. The different parameterizations trade off
+speed and stability.
+
+.. note::
+    Natural gradient descent is very stable with variational regression,
+    and fast: if the hyperparameters are fixed, the variational parameters
+    converge in 1 iteration. However, it can be unstable with non-conjugate
+    likelihoods and alternative objective functions.
+
+.. _Salimbeni et al., 2018:
+    https://arxiv.org/abs/1803.09151
+
+
 :hidden:`NaturalVariationalDistribution`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: NaturalVariationalDistribution
+   :members:
+
+
+:hidden:`TrilNaturalVariationalDistribution`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: TrilNaturalVariationalDistribution
    :members:

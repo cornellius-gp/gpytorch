@@ -13,7 +13,7 @@ from .independent_multitask_variational_strategy import (
 )
 from .lmc_variational_strategy import LMCVariationalStrategy
 from .mean_field_variational_distribution import MeanFieldVariationalDistribution
-from .natural_variational_distribution import AbstractNaturalVariationalDistribution, NaturalVariationalDistribution
+from .natural_variational_distribution import _NaturalVariationalDistribution, NaturalVariationalDistribution
 from .orthogonally_decoupled_variational_strategy import OrthogonallyDecoupledVariationalStrategy
 from .tril_natural_variational_distribution import TrilNaturalVariationalDistribution
 from .unwhitened_variational_strategy import UnwhitenedVariationalStrategy
@@ -36,7 +36,7 @@ __all__ = [
     "CholeskyVariationalDistribution",
     "MeanFieldVariationalDistribution",
     "DeltaVariationalDistribution",
-    "AbstractNaturalVariationalDistribution",
+    "_NaturalVariationalDistribution",
     "NaturalVariationalDistribution",
     "TrilNaturalVariationalDistribution",
 ]
