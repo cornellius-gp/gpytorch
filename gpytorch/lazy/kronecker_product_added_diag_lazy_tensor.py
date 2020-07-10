@@ -26,13 +26,6 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
-
-        if logdet is not None:
-            # we use the InvQuadLogDet backwards call to get the gradient
-            logdet_term = self._logdet().detach()
-        else:
-            logdet_term = None
-
         # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
         # solve but we only want to cache the probe vectors for the backwards
         with skip_logdet_forward(True):
@@ -40,7 +33,15 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 inv_quad_rhs=inv_quad_rhs, logdet=logdet is not None, reduce_inv_quad=reduce_inv_quad
             )
 
-        logdet_term = logdet_term + func_logdet_term
+        if logdet is not None:
+            if skip_logdet_forward.off():
+                # we use the InvQuadLogDet backwards call to get the gradient
+                logdet_term = self._logdet().detach()
+                logdet_term = logdet_term + func_logdet_term
+            else:
+                logdet_term = func_logdet_term
+        else:
+            logdet_term = None
 
         return inv_quad_term, logdet_term
 
