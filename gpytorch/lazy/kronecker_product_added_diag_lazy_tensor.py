@@ -2,6 +2,7 @@
 
 import torch
 
+from ..settings import skip_logdet_forward
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 
@@ -25,18 +26,22 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
+        # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
+        # solve but we only want to cache the probe vectors for the backwards
+        with skip_logdet_forward(True):
+            inv_quad_term, func_logdet_term = super().inv_quad_logdet(
+                inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad
+            )
 
         if logdet is not None:
-            logdet_term = self._logdet()
+            if skip_logdet_forward.off():
+                # we use the InvQuadLogDet backwards call to get the gradient
+                logdet_term = self._logdet().detach()
+                logdet_term = logdet_term + func_logdet_term
+            else:
+                logdet_term = func_logdet_term
         else:
             logdet_term = None
-
-        if inv_quad_rhs is not None:
-            inv_quad_term, _ = super().inv_quad_logdet(
-                inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
-            )
-        else:
-            inv_quad_term = None
 
         return inv_quad_term, logdet_term
 

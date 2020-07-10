@@ -188,7 +188,7 @@ class KroneckerProductLazyTensor(LazyTensor):
             evals_, evecs_ = eval_tensor.double().symeig(eigenvectors=eigenvectors)
 
             # we chop any negative eigenvalues
-            evals_ = evals_.clamp_min(0.0)
+            evals_.clamp_min_(0.0)
 
             evals_ = evals_.type(tensor_dtype)
             evecs_ = evecs_.type(tensor_dtype)
