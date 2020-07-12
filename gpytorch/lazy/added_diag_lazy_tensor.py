@@ -142,7 +142,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
     @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
         diag = self._diag_tensor.diag()
-        if torch.equal(diag, diag[..., :1].expand(diag.shape)):
+        if torch.equal(diag, diag[..., :1].expand(diag.shape)) and torch.all(diag[..., :1] >= 0):
             evals_, evecs = self._lazy_tensor.symeig(eigenvectors=eigenvectors)
             evals = evals_ + diag  # this assumes all diagonal entries are positive
             return evals, evecs

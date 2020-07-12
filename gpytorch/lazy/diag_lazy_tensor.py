@@ -190,7 +190,7 @@ class DiagLazyTensor(TriangularLazyTensor):
         evals, evecs = self.symeig(eigenvectors=True)
         S = torch.abs(evals)
         U = evecs
-        V = evecs * torch.sign(evals)
+        V = evecs * torch.sign(evals).unsqueeze(-1)
         return U, S, V
 
     @cached(name="symeig")

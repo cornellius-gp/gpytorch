@@ -22,9 +22,6 @@ class TestDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
         diag = lazy_tensor._diag
         return diag.diag()
 
-    def test_symeig(self):
-        super().test_symeig(repeated_evals=True)
-
 
 class TestDiagLazyTensorBatch(TestDiagLazyTensor):
     seed = 0

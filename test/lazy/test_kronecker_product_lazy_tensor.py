@@ -50,9 +50,6 @@ class TestKroneckerProductLazyTensorBatch(TestKroneckerProductLazyTensor):
         kp_lazy_tensor = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
         return kp_lazy_tensor
 
-    def test_symeig(self):
-        super().test_symeig(repeated_evals=True)
-
 
 class TestKroneckerProductLazyTensorRectangular(RectangularLazyTensorTestCase, unittest.TestCase):
     seed = 0

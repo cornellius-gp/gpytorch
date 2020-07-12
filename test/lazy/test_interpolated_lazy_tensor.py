@@ -173,6 +173,7 @@ class TestInterpolatedLazyTensorRectangular(RectangularLazyTensorTestCase, unitt
     test_sqrt_inv_matmul = empty_method
     test_sqrt_inv_matmul_no_lhs = empty_method
     test_symeig = empty_method
+    test_svd = empty_method
 
 
 if __name__ == "__main__":

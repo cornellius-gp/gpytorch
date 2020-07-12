@@ -1356,7 +1356,7 @@ class LazyTensor(ABC):
                 method = "symeig"
 
         if method == "pivoted_cholesky":
-            return RootLazyTensor(pivoted_cholesky(self.evaluate(), max_iter=100))
+            return RootLazyTensor(pivoted_cholesky(self.evaluate(), max_iter=self._root_decomposition_size()))
 
         if method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
@@ -1864,6 +1864,7 @@ class LazyTensor(ABC):
         from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
 
         dtype = self.dtype  # perform decomposition in double precision for numerical stability
+        # TODO: Use fp64 registry once #1213 is addressed
         evals, evecs = torch.symeig(self.evaluate().to(dtype=torch.double), eigenvectors=eigenvectors)
         # chop any negative eigenvalues. TODO: warn if evals are significantly negative
         evals = evals.clamp_min(0.0).to(dtype=dtype)

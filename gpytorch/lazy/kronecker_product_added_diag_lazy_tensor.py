@@ -3,6 +3,7 @@
 import torch
 
 from ..settings import skip_logdet_forward
+from ..utils.memoize import get_from_cache
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 
@@ -46,7 +47,10 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return inv_quad_term, logdet_term
 
     def _logdet(self):
-        evals, _ = self.lazy_tensor.symeig(eigenvectors=False)
+        try:
+            evals, _ = get_from_cache(self.lazy_tensor, "symeig")
+        except RuntimeError:
+            evals, _ = self.lazy_tensor.symeig(eigenvectors=False)
         evals_plus_diag = evals + self.diag_tensor.diag()
         return torch.log(evals_plus_diag).sum(dim=-1)
 
@@ -56,6 +60,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         # we do the solve in double for numerical stability issues
+        # TODO: Use fp64 registry once #1213 is addressed
 
         rhs_dtype = rhs.dtype
         rhs = rhs.double()
