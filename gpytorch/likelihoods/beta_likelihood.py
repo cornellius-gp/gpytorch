@@ -2,6 +2,7 @@
 
 import torch
 
+from ..constraints import Positive
 from ..distributions import base_distributions
 from .likelihood import _OneDimensionalLikelihood
 
@@ -25,13 +26,30 @@ class BetaLikelihood(_OneDimensionalLikelihood):
     :var torch.Tensor scale: :math:`s` parameter (scale)
     """
 
-    def __init__(self, batch_shape=torch.Size([])):
+    def __init__(self, batch_shape=torch.Size([]), scale_prior=None, scale_constraint=None):
         super().__init__()
+
+        if scale_constraint is None:
+            scale_constraint = Positive()
+
         self.raw_scale = torch.nn.Parameter(torch.ones(*batch_shape, 1))
+        if scale_prior is not None:
+            self.register_prior("scale_prior", scale_prior, lambda: self.scale, lambda v: self._set_scale(v))
+
+        self.register_constraint("raw_scale", scale_constraint)
 
     @property
     def scale(self):
-        return torch.exp(self.raw_scale)
+        return self.raw_scale_constraint.transform(self.raw_scale)
+
+    @scale.setter
+    def scale(self, value):
+        self._set_scale(value)
+
+    def _set_scale(self, value):
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value).to(self.raw_scale)
+        self.initialize(raw_scale=self.raw_scale_constraint.inverse_transform(value))
 
     def forward(self, function_samples, **kwargs):
         mixture = torch.sigmoid(function_samples)
