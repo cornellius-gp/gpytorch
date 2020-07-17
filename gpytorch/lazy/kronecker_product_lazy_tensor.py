@@ -128,10 +128,18 @@ class KroneckerProductLazyTensor(LazyTensor):
         inverses = [lt.inverse() for lt in self.lazy_tensors]
         return self.__class__(*inverses)
 
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        # TODO: Investigate under what conditions computing individual individual inverses makes sense
+        # For now, retain existing behavior
+        return super().inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
+
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
         chol_factors = [lt.cholesky(upper=upper) for lt in self.lazy_tensors]
         return KroneckerProductTriangularLazyTensor(*chol_factors, upper=upper)
+
+    def _expand_batch(self, batch_shape):
+        return self.__class__(*[lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors])
 
     def _get_indices(self, row_index, col_index, *batch_indices):
         row_factor = self.size(-2)
@@ -153,6 +161,22 @@ class KroneckerProductLazyTensor(LazyTensor):
 
         return res
 
+    def _inv_matmul(self, right_tensor, left_tensor=None):
+        # Computes inv_matmul by exploiting the identity (A \kron B)^-1 = A^-1 \kron B^-1
+        tsr_shapes = [q.size(-1) for q in self.lazy_tensors]
+        n_rows = right_tensor.size(-2)
+        batch_shape = _mul_broadcast_shape(self.shape[:-2], right_tensor.shape[:-2])
+        perm_batch = tuple(range(len(batch_shape)))
+        y = right_tensor.clone().expand(*batch_shape, *right_tensor.shape[-2:])
+        for n, q in zip(tsr_shapes, self.lazy_tensors):
+            # for KroneckerProductTriangularLazyTensor this inv_matmul is very cheap
+            y = q.inv_matmul(y.reshape(*batch_shape, n, -1))
+            y = y.reshape(*batch_shape, n, n_rows // n, -1).permute(*perm_batch, -2, -3, -1)
+        res = y.reshape(*batch_shape, n_rows, -1)
+        if left_tensor is not None:
+            res = left_tensor @ res
+        return res
+
     def _matmul(self, rhs):
         is_vec = rhs.ndimension() == 1
         if is_vec:
@@ -163,20 +187,6 @@ class KroneckerProductLazyTensor(LazyTensor):
         if is_vec:
             res = res.squeeze(-1)
         return res
-
-    def _t_matmul(self, rhs):
-        is_vec = rhs.ndimension() == 1
-        if is_vec:
-            rhs = rhs.unsqueeze(-1)
-
-        res = _t_matmul(self.lazy_tensors, self.shape, rhs.contiguous())
-
-        if is_vec:
-            res = res.squeeze(-1)
-        return res
-
-    def _expand_batch(self, batch_shape):
-        return self.__class__(*[lazy_tensor._expand_batch(batch_shape) for lazy_tensor in self.lazy_tensors])
 
     @cached(name="size")
     def _size(self):
@@ -214,35 +224,19 @@ class KroneckerProductLazyTensor(LazyTensor):
 
         return evals, evecs
 
+    def _t_matmul(self, rhs):
+        is_vec = rhs.ndimension() == 1
+        if is_vec:
+            rhs = rhs.unsqueeze(-1)
+
+        res = _t_matmul(self.lazy_tensors, self.shape, rhs.contiguous())
+
+        if is_vec:
+            res = res.squeeze(-1)
+        return res
+
     def _transpose_nonbatch(self):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
-
-    @cached
-    def inverse(self):
-        # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
-        inverses = [lt.inverse() for lt in self.lazy_tensors]
-        return self.__class__(*inverses)
-
-    def inv_matmul(self, right_tensor, left_tensor=None):
-        # TODO: Investigate under what conditions computing individual individual inverses makes sense
-        # For now, retain existing behavior
-        return super().inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
-
-    def _inv_matmul(self, right_tensor, left_tensor=None):
-        # Computes inv_matmul by exploiting the identity (A \kron B)^-1 = A^-1 \kron B^-1
-        tsr_shapes = [q.size(-1) for q in self.lazy_tensors]
-        n_rows = right_tensor.size(-2)
-        batch_shape = _mul_broadcast_shape(self.shape[:-2], right_tensor.shape[:-2])
-        perm_batch = tuple(range(len(batch_shape)))
-        y = right_tensor.clone().expand(*batch_shape, *right_tensor.shape[-2:])
-        for n, q in zip(tsr_shapes, self.lazy_tensors):
-            # for KroneckerProductTriangularLazyTensor this inv_matmul is very cheap
-            y = q.inv_matmul(y.reshape(*batch_shape, n, -1))
-            y = y.reshape(*batch_shape, n, n_rows // n, -1).permute(*perm_batch, -2, -3, -1)
-        res = y.reshape(*batch_shape, n_rows, -1)
-        if left_tensor is not None:
-            res = left_tensor @ res
-        return res
 
 
 class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
