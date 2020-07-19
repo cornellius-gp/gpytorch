@@ -92,8 +92,10 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             task_covar_blocks = MatmulLazyTensor(MatmulLazyTensor(noise_sem, task_corr_exp), noise_sem)
         else:
             # otherwise tasks are uncorrelated
+            if isinstance(noise_covar, DiagLazyTensor):
+                flattened_diag = noise_covar._diag.view(*noise_covar._diag.shape[:-2], -1)
+                return DiagLazyTensor(flattened_diag)
             task_covar_blocks = noise_covar
-
         if len(batch_shape) == 1:
             # TODO: Properly support general batch shapes in BlockDiagLazyTensor (no shape arithmetic)
             tcb_eval = task_covar_blocks.evaluate()
