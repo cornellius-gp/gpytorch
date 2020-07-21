@@ -686,22 +686,28 @@ class LazyTensor(ABC):
         Args:
             - diag (Scalar Tensor)
         """
-        from .diag_lazy_tensor import DiagLazyTensor
+        from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
 
         if not self.is_square:
             raise RuntimeError("add_diag only defined for square matrices")
 
-        try:
-            expanded_diag = diag.expand(self.shape[:-1])
-        except RuntimeError:
-            raise RuntimeError(
-                "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
-                    self.shape, diag.shape
+        diag_shape = diag.shape
+        if len(diag_shape) == 0 or diag_shape[-1] == 1:
+            # interpret scalar tensor or single-trailing element as constant diag
+            diag_tensor = ConstantDiagLazyTensor(diag, self.shape[-1])
+        else:
+            try:
+                expanded_diag = diag.expand(self.shape[:-1])
+            except RuntimeError:
+                raise RuntimeError(
+                    "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
+                        self.shape, diag_shape
+                    )
                 )
-            )
+            diag_tensor = DiagLazyTensor(expanded_diag)
 
-        return AddedDiagLazyTensor(self, DiagLazyTensor(expanded_diag))
+        return AddedDiagLazyTensor(self, diag_tensor)
 
     def add_jitter(self, jitter_val=1e-3):
         """

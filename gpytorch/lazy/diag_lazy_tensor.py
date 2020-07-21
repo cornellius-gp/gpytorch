@@ -173,3 +173,20 @@ class DiagLazyTensor(LazyTensor):
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)
         return base_samples * self._diag.sqrt()
+
+
+class ConstantDiagLazyTensor(DiagLazyTensor):
+    def __init__(self, diag_values, n):
+        """
+        Diagonal lazy tensor with constant entries. Supports arbitrary batch sizes.
+        Used e.g. for adding jitter to matrices.
+
+        Args:
+            :attr:`n` (int):
+                The (non-batch) dimension of the (square) matrix
+            :attr:`diag_values` (Tensor):
+                A `b1 x ... x bk x 1` Tensor, representing a `b1 x ... x bk`-sized batch
+                of `n x n` diagonal matrices
+        """
+        super(DiagLazyTensor, self).__init__(diag_values, n)
+        self._diag = diag_values.expand(*diag_values.shape[:-1], n)

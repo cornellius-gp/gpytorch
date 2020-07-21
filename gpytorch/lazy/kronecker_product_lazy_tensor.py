@@ -8,7 +8,7 @@ from torch import Size, Tensor
 from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape
 from ..utils.memoize import cached
-from .diag_lazy_tensor import DiagLazyTensor
+from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 
@@ -162,16 +162,22 @@ class KroneckerProductLazyTensor(LazyTensor):
         if not self.is_square:
             raise RuntimeError("add_diag only defined for square matrices")
 
-        try:
-            expanded_diag = diag.expand(self.shape[:-1])
-        except RuntimeError:
-            raise RuntimeError(
-                "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
-                    self.shape, diag.shape
+        diag_shape = diag.shape
+        if len(diag_shape) == 0 or diag_shape[-1] == 1:
+            # interpret scalar tensor or single-trailing element as constant diag
+            diag_tensor = ConstantDiagLazyTensor(diag, self.shape[-1])
+        else:
+            try:
+                expanded_diag = diag.expand(self.shape[:-1])
+            except RuntimeError:
+                raise RuntimeError(
+                    "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
+                        self.shape, diag_shape
+                    )
                 )
-            )
+            diag_tensor = DiagLazyTensor(expanded_diag)
 
-        return KroneckerProductAddedDiagLazyTensor(self, DiagLazyTensor(expanded_diag))
+        return KroneckerProductAddedDiagLazyTensor(self, diag_tensor)
 
     @cached(name="symeig")
     def _symeig(self, eigenvectors=True):

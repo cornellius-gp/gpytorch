@@ -9,7 +9,7 @@ from .cached_cg_lazy_tensor import CachedCGLazyTensor
 from .cat_lazy_tensor import CatLazyTensor, cat
 from .chol_lazy_tensor import CholLazyTensor
 from .constant_mul_lazy_tensor import ConstantMulLazyTensor
-from .diag_lazy_tensor import DiagLazyTensor
+from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .interpolated_lazy_tensor import InterpolatedLazyTensor
 from .keops_lazy_tensor import KeOpsLazyTensor
 from .kronecker_product_added_diag_lazy_tensor import KroneckerProductAddedDiagLazyTensor
@@ -40,6 +40,7 @@ __all__ = [
     "CachedCGLazyTensor",
     "CatLazyTensor",
     "CholLazyTensor",
+    "ConstantDiagLazyTensor",
     "ConstantMulLazyTensor",
     "DiagLazyTensor",
     "InterpolatedLazyTensor",
