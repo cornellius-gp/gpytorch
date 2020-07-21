@@ -176,7 +176,7 @@ class DiagLazyTensor(LazyTensor):
 
 
 class ConstantDiagLazyTensor(DiagLazyTensor):
-    def __init__(self, diag_values, n):
+    def __init__(self, diag_values, diag_shape):
         """
         Diagonal lazy tensor with constant entries. Supports arbitrary batch sizes.
         Used e.g. for adding jitter to matrices.
@@ -188,5 +188,5 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
                 A `b1 x ... x bk x 1` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` diagonal matrices
         """
-        super(DiagLazyTensor, self).__init__(diag_values, n)
-        self._diag = diag_values.expand(*diag_values.shape[:-1], n)
+        super(DiagLazyTensor, self).__init__(diag_values, diag_shape=diag_shape)
+        self._diag = diag_values.expand(*diag_values.shape[:-1], diag_shape)

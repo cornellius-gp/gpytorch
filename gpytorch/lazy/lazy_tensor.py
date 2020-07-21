@@ -695,7 +695,7 @@ class LazyTensor(ABC):
         diag_shape = diag.shape
         if len(diag_shape) == 0 or diag_shape[-1] == 1:
             # interpret scalar tensor or single-trailing element as constant diag
-            diag_tensor = ConstantDiagLazyTensor(diag, self.shape[-1])
+            diag_tensor = ConstantDiagLazyTensor(diag, diag_shape=self.shape[-1])
         else:
             try:
                 expanded_diag = diag.expand(self.shape[:-1])
