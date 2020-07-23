@@ -227,11 +227,16 @@ class DefaultPredictionStrategy(object):
         new_root[..., m:, n:] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
-        # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
-        device = new_root.device
-        Q, R = torch.qr(new_root.cpu())
-        Q = Q.to(device)
-        R = R.to(device)
+
+        if new_root.shape[-1] <= 2048:
+            # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
+            device = new_root.device
+            Q, R = torch.qr(new_root.cpu())
+            Q = Q.to(device)
+            R = R.to(device)
+        else:
+            Q, R = torch.qr(new_root)
+
         Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
         # if R is almost singular, add jitter
         zeroish = Rdiag.abs() < 1e-6
