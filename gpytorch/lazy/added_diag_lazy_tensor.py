@@ -10,7 +10,7 @@ from .. import settings
 from ..utils import broadcasting, pivoted_cholesky
 from ..utils.memoize import cached
 from ..utils.warnings import NumericalWarning
-from .diag_lazy_tensor import DiagLazyTensor
+from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
 from .root_lazy_tensor import RootLazyTensor
@@ -132,18 +132,16 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
     @cached(name="svd")
     def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
-        diag = self._diag_tensor.diag()
-        if torch.equal(diag, diag[..., :1].expand(diag.shape)):
+        if isinstance(self._diag_tensor, ConstantDiagLazyTensor):
             U, S_, V = self._lazy_tensor.svd()
-            S = S_ + diag  # this assumes all diagonal entries are positive
+            S = S_ + self._diag_tensor.diag()  # this assumes all diagonal entries are positive
             return U, S, V
         return super()._svd()
 
     @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
-        diag = self._diag_tensor.diag()
-        if torch.equal(diag, diag[..., :1].expand(diag.shape)) and torch.all(diag[..., :1] >= 0):
+        if isinstance(self._diag_tensor, ConstantDiagLazyTensor):
             evals_, evecs = self._lazy_tensor.symeig(eigenvectors=eigenvectors)
-            evals = evals_ + diag  # this assumes all diagonal entries are positive
+            evals = evals_ + self._diag_tensor.diag()  # this assumes all diagonal entries are positive
             return evals, evecs
         return super()._symeig(eigenvectors=eigenvectors)
