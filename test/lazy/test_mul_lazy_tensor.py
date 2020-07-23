@@ -4,7 +4,7 @@ import unittest
 
 import torch
 
-from gpytorch.lazy import RootLazyTensor
+from gpytorch.lazy import LazyTensor, RootLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
@@ -30,6 +30,20 @@ class TestMulLazyTensor(LazyTensorTestCase, unittest.TestCase):
         res = res + diag_tensor
         return res
 
+    def test_quad_form_derivative(self):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor._diag_tensor.requires_grad_(False)
+        lazy_tensor_clone = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor_clone._diag_tensor.requires_grad_(False)
+        left_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-2), 2)
+        right_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
+        deriv_custom = lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
+        deriv_auto = LazyTensor._quad_form_derivative(lazy_tensor_clone, left_vecs, right_vecs)
+
+        for dc, da in zip(deriv_custom, deriv_auto):
+            if dc is not None or da is not None:
+                self.assertAllClose(dc, da)
+
 
 class TestMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
     seed = 2
@@ -47,6 +61,20 @@ class TestMulLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
         )
         res = res + diag_tensor
         return res
+
+    def test_quad_form_derivative(self):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor._diag_tensor.requires_grad_(False)
+        lazy_tensor_clone = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor_clone._diag_tensor.requires_grad_(False)
+        left_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-2), 2)
+        right_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
+        deriv_custom = lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
+        deriv_auto = LazyTensor._quad_form_derivative(lazy_tensor_clone, left_vecs, right_vecs)
+
+        for dc, da in zip(deriv_custom, deriv_auto):
+            if dc is not None or da is not None:
+                self.assertAllClose(dc, da)
 
 
 class TestMulLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
@@ -69,6 +97,20 @@ class TestMulLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase):
 
     def test_inv_quad_logdet(self):
         pass
+
+    def test_quad_form_derivative(self):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor._diag_tensor.requires_grad_(False)
+        lazy_tensor_clone = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor_clone._diag_tensor.requires_grad_(False)
+        left_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-2), 2)
+        right_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
+        deriv_custom = lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
+        deriv_auto = LazyTensor._quad_form_derivative(lazy_tensor_clone, left_vecs, right_vecs)
+
+        for dc, da in zip(deriv_custom, deriv_auto):
+            if dc is not None or da is not None:
+                self.assertAllClose(dc, da)
 
 
 if __name__ == "__main__":

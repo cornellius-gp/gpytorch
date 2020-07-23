@@ -69,6 +69,9 @@ class DiagLazyTensor(LazyTensor):
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         # TODO: Use proper batching for input vectors (prepand to shape rathern than append)
+        if not self._diag.requires_grad:
+            return (None,)
+
         res = left_vecs * right_vecs
         if res.ndimension() > self._diag.ndimension():
             res = res.sum(-1)
