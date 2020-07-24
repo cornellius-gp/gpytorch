@@ -204,7 +204,7 @@ class DefaultPredictionStrategy(object):
         batch_shape = fant_train_covar.shape[:-2]
 
         L_inverse = self.covar_cache
-        L = delazify(self.lik_train_train_covar.root_decomposition().root)
+        L = self.lik_train_train_covar.root_decomposition().root
         m, n = L.shape[-2:]
 
         lower_left = fant_train_covar.matmul(L_inverse)
@@ -212,17 +212,33 @@ class DefaultPredictionStrategy(object):
         schur_root = psd_safe_cholesky(schur, jitter=settings.cholesky_jitter.value())
 
         # Form new root Z = [L 0; lower_left schur_root]
+
+        # # TODO: Special case triangular case once #1102 goes in
+        # if isinstance(L, TriangularLazyTensor):
+        #     # The whole thing is triangular, we can just do two triangular solves
+        #     ...
+        # else:
+
+        L = delazify(L)
         num_fant = schur_root.size(-2)
-        m, n = L.shape[-2:]
         new_root = torch.zeros(*batch_shape, m + num_fant, n + num_fant, device=L.device, dtype=L.dtype)
         new_root[..., :m, :n] = L
         new_root[..., m:, :n] = lower_left
         new_root[..., m:, n:] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
-        Q, R = torch.qr(new_root)
+
+        if new_root.shape[-1] <= 2048:
+            # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
+            device = new_root.device
+            Q, R = torch.qr(new_root.cpu())
+            Q = Q.to(device)
+            R = R.to(device)
+        else:
+            Q, R = torch.qr(new_root)
+
         Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
-        # if R is almost singular, add jitter (Rdiag is a view, so this works)
+        # if R is almost singular, add jitter
         zeroish = Rdiag.abs() < 1e-6
         if torch.any(zeroish):
             # can't use in-place operation here b/c it would mess up backward pass
