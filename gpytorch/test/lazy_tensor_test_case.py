@@ -616,7 +616,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         evecs_abs, evecs_actual_abs = evecs.abs(), evecs_actual.abs()
         for idx in itertools.product(*[range(b) for b in evals_actual.shape[:-1]]):
             eval_i = evals_actual[idx]
-            if torch.unique(eval_i).shape[-1] == eval_i.shape[-1]:
+            if torch.unique(eval_i.detach()).shape[-1] == eval_i.shape[-1]:  # detach to avoid pytorch/pytorch#41389
                 self.assertAllClose(evecs_abs[idx], evecs_actual_abs[idx], rtol=1e-4, atol=1e-3)
             else:
                 any_evals_repeated = True
@@ -665,7 +665,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         any_svals_repeated = False
         for idx in itertools.product(*[range(b) for b in S_actual.shape[:-1]]):
             Si = S_actual[idx]
-            if torch.unique(Si).shape[-1] == Si.shape[-1]:
+            if torch.unique(Si.detach()).shape[-1] == Si.shape[-1]:  # detach to avoid pytorch/pytorch#41389
                 self.assertAllClose(U_abs[idx], U_actual_abs[idx], rtol=1e-4, atol=1e-3)
                 self.assertAllClose(V_abs[idx], V_actual_abs[idx], rtol=1e-4, atol=1e-3)
             else:
