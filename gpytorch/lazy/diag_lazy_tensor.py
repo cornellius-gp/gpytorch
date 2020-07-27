@@ -69,6 +69,9 @@ class DiagLazyTensor(TriangularLazyTensor):
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         # TODO: Use proper batching for input vectors (prepand to shape rathern than append)
+        if not self._diag.requires_grad:
+            return (None,)
+
         res = left_vecs * right_vecs
         if res.ndimension() > self._diag.ndimension():
             res = res.sum(-1)
@@ -178,3 +181,27 @@ class DiagLazyTensor(TriangularLazyTensor):
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)
         return base_samples * self._diag.sqrt()
+
+
+class ConstantDiagLazyTensor(DiagLazyTensor):
+    def __init__(self, diag_values, diag_shape):
+        """
+        Diagonal lazy tensor with constant entries. Supports arbitrary batch sizes.
+        Used e.g. for adding jitter to matrices.
+
+        Args:
+            :attr:`n` (int):
+                The (non-batch) dimension of the (square) matrix
+            :attr:`diag_values` (Tensor):
+                A `b1 x ... x bk x 1` Tensor, representing a `b1 x ... x bk`-sized batch
+                of `n x n` diagonal matrices
+        """
+        super(DiagLazyTensor, self).__init__(diag_values, diag_shape=diag_shape)
+        self.diag_shape = diag_shape
+        self._diag = diag_values.expand(*diag_values.shape[:-1], diag_shape)
+
+    def _expand_batch(self, batch_shape):
+        return self.__class__(self._diag.expand(*batch_shape, self._diag.size(-1)), diag_shape=self.diag_shape)
+
+    def _sum_batch(self, dim):
+        return self.__class__(self._diag.sum(dim), diag_shape=self.diag_shape)
