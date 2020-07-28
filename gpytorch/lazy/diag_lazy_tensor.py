@@ -196,7 +196,7 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
                 A `b1 x ... x bk x 1` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` diagonal matrices
         """
-        super(DiagLazyTensor, self).__init__(diag_values, diag_shape=diag_shape)
+        super(TriangularLazyTensor, self).__init__(diag_values, diag_shape=diag_shape)
         self.diag_shape = diag_shape
         self._diag = diag_values.expand(*diag_values.shape[:-1], diag_shape)
 
