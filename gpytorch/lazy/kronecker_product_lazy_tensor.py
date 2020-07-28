@@ -9,7 +9,7 @@ from torch import Tensor
 from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.memoize import cached
-from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
+from .diag_lazy_tensor import DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 from .triangular_lazy_tensor import TriangularLazyTensor
