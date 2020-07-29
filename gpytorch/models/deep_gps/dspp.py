@@ -27,15 +27,15 @@ class AbstractDSPPLayer(AbstractDeepGPLayer):
             mus, sigmas = inputs.mean, inputs.variance.sqrt()
 
             if expand_for_quadgrid:
-                xi_mus = mus.unsqueeze(-3)  # 1 x n x t
-                xi_sigmas = sigmas.unsqueeze(-3)  # 1 x n x t
+                xi_mus = mus.unsqueeze(0)  # 1 x n x t
+                xi_sigmas = sigmas.unsqueeze(0)  # 1 x n x t
             else:
                 xi_mus = mus
                 xi_sigmas = sigmas
 
             # unsqueeze sigmas to 1 x n x t, locations from [q] to Q^T x 1 x T.
             # Broadcasted result will be Q^T x N x T
-            qg = self.quad_grid.unsqueeze(-2)
+            qg = self.quad_grid.view([self.num_sample_sites] + [1] * (xi_mus.dim() - 2) + [self.input_dims])
             # qg = qg + torch.randn_like(qg) * 1e-2
             xi_sigmas = xi_sigmas * qg
 
