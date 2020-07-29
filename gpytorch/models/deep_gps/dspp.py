@@ -9,7 +9,7 @@ from ..approximate_gp import ApproximateGP
 from .deep_gp import DeepGPLayer as AbstractDeepGPLayer
 
 
-class AbstractPredictiveDeepGPLayer(AbstractDeepGPLayer):
+class AbstractDSPPLayer(AbstractDeepGPLayer):
     def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3, quad_grid=None):
         super().__init__(variational_strategy, input_dims, output_dims)
 
