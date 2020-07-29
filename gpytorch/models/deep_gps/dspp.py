@@ -58,7 +58,6 @@ class DSPPLayer(DeepGPLayer):
             # unsqueeze sigmas to 1 x n x t, locations from [q] to Q^T x 1 x T.
             # Broadcasted result will be Q^T x N x T
             qg = self.quad_sites.view([self.num_quad_sites] + [1] * (xi_mus.dim() - 2) + [self.input_dims])
-            # qg = qg + torch.randn_like(qg) * 1e-2
             xi_sigmas = xi_sigmas * qg
 
             inputs = xi_mus + xi_sigmas  # q^t x n x t
