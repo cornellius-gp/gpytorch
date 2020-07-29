@@ -9,16 +9,39 @@ from .deep_gp import DeepGP, DeepGPLayer
 
 
 class DSPPLayer(DeepGPLayer):
-    def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3, quad_sites=None):
+    """
+    Represents a layer in a DSPP where inference is performed using the techniques defined in Jankowiak et al., 2020.
+
+    From an end user perspective, the functionality and usage of a DSPPLayer is essentially identical to that of a
+    DeepGPLayer. It is therefore recommended that you review the documentation for DeepGPLayer.
+
+    :param ~gpytorch.variational.VariationalStrategy variational_strategy: Strategy for
+        changing q(u) -> q(f) (see other VI docs)
+    :param int input_dims: Dimensionality of input data expected by each GP
+    :param int output_dims: (default None) Number of GPs in this layer, equivalent to
+        output dimensionality. If set to `None`, then the output dimension will be squashed.
+    :param int num_quad_sites: Number of quadrature sites to use. Also the number of Gaussians in the mixture output
+        by this layer.
+
+    Again, refer to the documentation for DeepGPLayer or our example notebooks for full details on what calling a
+    DSPPLayer module does. The high level overview is that if a tensor `x` is `n x d` then
+
+        >>> hidden_gp2(hidden_gp1(x))
+
+    will return a `num_quad_sites` by `output_dims` set of Gaussians, where for each output dim the first batch dim
+    represents a weighted mixture of `num_quad_sites` Gaussians with weights given by DSPP.quad_weights (see DSPP below)
+    """
+
+    def __init__(self, variational_strategy, input_dims, output_dims, num_quad_sites=3, quad_sites=None):
         super().__init__(variational_strategy, input_dims, output_dims)
 
-        self.num_sample_sites = num_sample_sites
+        self.num_quad_sites = num_quad_sites
 
         # Pass in previous_layer.quad_sites if you want to share quad_sites across layers.
         if quad_sites is not None:
             self.quad_sites = quad_sites
         else:
-            self.quad_sites = torch.nn.Parameter(torch.randn(num_sample_sites, input_dims))
+            self.quad_sites = torch.nn.Parameter(torch.randn(num_quad_sites, input_dims))
 
     def __call__(self, inputs, are_samples=False, expand_for_quadgrid=True, **kwargs):
         if isinstance(inputs, MultitaskMultivariateNormal):
@@ -34,7 +57,7 @@ class DSPPLayer(DeepGPLayer):
 
             # unsqueeze sigmas to 1 x n x t, locations from [q] to Q^T x 1 x T.
             # Broadcasted result will be Q^T x N x T
-            qg = self.quad_sites.view([self.num_sample_sites] + [1] * (xi_mus.dim() - 2) + [self.input_dims])
+            qg = self.quad_sites.view([self.num_quad_sites] + [1] * (xi_mus.dim() - 2) + [self.input_dims])
             # qg = qg + torch.randn_like(qg) * 1e-2
             xi_sigmas = xi_sigmas * qg
 
@@ -59,7 +82,7 @@ class DSPPLayer(DeepGPLayer):
         # Now run samples through the GP
         output = ApproximateGP.__call__(self, inputs, **kwargs)
 
-        if self.num_sample_sites > 0:
+        if self.num_quad_sites > 0:
             if self.output_dims is not None and not isinstance(output, MultitaskMultivariateNormal):
                 mean = output.loc.transpose(-1, -2)
                 covar = BlockDiagLazyTensor(output.lazy_covariance_matrix, block_dim=-3)
@@ -71,10 +94,19 @@ class DSPPLayer(DeepGPLayer):
 
 
 class DSPP(DeepGP):
-    def __init__(self, num_sample_sites):
+    """
+    A container module to build a DSPP
+    This module should contain :obj:`~gpytorch.models.deep_gps.DSPPLayer`
+    modules, and can also contain other modules as well.
+
+    This Module contains an additional set of parameters, `raw_quad_weights`, that represent the mixture weights for
+    the output distribution.
+    """
+
+    def __init__(self, num_quad_sites):
         super().__init__()
-        self.num_sample_sites = num_sample_sites
-        self.register_parameter("raw_quad_weights", torch.nn.Parameter(torch.randn(self.num_sample_sites)))
+        self.num_quad_sites = num_quad_sites
+        self.register_parameter("raw_quad_weights", torch.nn.Parameter(torch.randn(self.num_quad_sites)))
 
     @property
     def quad_weights(self):

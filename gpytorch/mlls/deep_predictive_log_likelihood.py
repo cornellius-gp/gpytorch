@@ -4,15 +4,11 @@ from ._approximate_mll import _ApproximateMarginalLogLikelihood
 
 class DeepPredictiveLogLikelihood(_ApproximateMarginalLogLikelihood):
     """
-    A wrapper to make a GPyTorch approximate marginal log likelihoods compatible with Deep GPs.
+    An implementation of the predictive log likelihood extended to DSPPs as discussed in Jankowiak et al., 2020.
 
-    Example:
-        >>> deep_mll = gpytorch.mlls.DeepApproximateMLL(
-        >>>     gpytorch.mlls.VariationalELBO(likelihood, model, num_data=1000)
-        >>> )
+    If you are using a DSPP model, this is the loss object you want to create and optimize over.
 
-    :param ~gpytorch.mlls._ApproximateMarginalLogLikelihood base_mll: The base
-        approximate MLL
+    This loss object is compatible only with models of type :obj:~gpytorch.models.deep_gps.DSPP
     """
 
     def __init__(self, likelihood, model, num_data, beta=1.0, combine_terms=True):
