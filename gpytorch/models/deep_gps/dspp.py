@@ -5,11 +5,10 @@ from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.lazy import BlockDiagLazyTensor
 
 from ..approximate_gp import ApproximateGP
-from .deep_gp import DeepGP
-from .deep_gp import DeepGPLayer as AbstractDeepGPLayer
+from .deep_gp import DeepGP, DeepGPLayer
 
 
-class AbstractDSPPLayer(AbstractDeepGPLayer):
+class DSPPLayer(DeepGPLayer):
     def __init__(self, variational_strategy, input_dims, output_dims, num_sample_sites=3, quad_sites=None):
         super().__init__(variational_strategy, input_dims, output_dims)
 
