@@ -8,12 +8,26 @@ from .kernel import Kernel
 
 
 class SpectralDeltaKernel(Kernel):
+    r"""
+    A kernel that supports spectral learning for GPs, where the underlying spectral density is modeled as a mixture
+    of delta distributions (e.g., with point masses). This has been explored e.g. in Lazaro-Gredilla et al., 2010.
+
+    Conceptually, this kernel is similar to random Fourier features as implemented in RFFKernel, but instead of sampling
+    a Gaussian to determine the spectrum sites, they are treated as learnable parameters.
+
+    When using CG for inference, this kernel supports linear space and time (in N) for training and inference.
+
+    Args:
+        :param int num_dims: Dimensionality of input data that this kernel will operate on. Note that if active_dims is
+        used, this should be the length of the active dim set.
+        :param int num_deltas: Number of point masses to learn.
+    """
     has_lengthscale = True
 
-    def __init__(self, num_dims, num_deltas=128, Z_constraint=None, **kwargs):
-        Kernel.__init__(self, has_lengthscale=True, **kwargs)
+    def __init__(self, num_dims, num_deltas=128, Z_constraint=None, batch_shape=torch.Size([]), **kwargs):
+        Kernel.__init__(self, has_lengthscale=True, batch_shape=batch_shape, **kwargs)
 
-        self.raw_Z = torch.nn.Parameter(torch.rand(num_deltas, num_dims))
+        self.raw_Z = torch.nn.Parameter(torch.rand(*batch_shape, num_deltas, num_dims))
 
         if Z_constraint:
             self.register_constraint("raw_Z", Z_constraint)
@@ -23,6 +37,11 @@ class SpectralDeltaKernel(Kernel):
         self.num_dims = num_dims
 
     def initialize_from_data(self, train_x, train_y):
+        """
+        Initialize the point masses for this kernel from the empirical spectrum of the data. To do this, we estimate
+        the empirical spectrum's CDF and then simply sample from it. This is analogous to how the SM kernel's mixture
+        is initialized, but we skip the last step of fitting a GMM to the samples and just use the samples directly.
+        """
         import numpy as np
         from scipy.fftpack import fft
         from scipy.integrate import cumtrapz
