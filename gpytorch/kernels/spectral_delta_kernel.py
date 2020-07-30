@@ -8,7 +8,7 @@ from .kernel import Kernel
 
 
 class SpectralDeltaKernel(Kernel):
-    r"""
+    """
     A kernel that supports spectral learning for GPs, where the underlying spectral density is modeled as a mixture
     of delta distributions (e.g., with point masses). This has been explored e.g. in Lazaro-Gredilla et al., 2010.
 
@@ -17,11 +17,11 @@ class SpectralDeltaKernel(Kernel):
 
     When using CG for inference, this kernel supports linear space and time (in N) for training and inference.
 
-    Args:
-        :param int num_dims: Dimensionality of input data that this kernel will operate on. Note that if active_dims is
+    :param int num_dims: Dimensionality of input data that this kernel will operate on. Note that if active_dims is
         used, this should be the length of the active dim set.
-        :param int num_deltas: Number of point masses to learn.
+    :param int num_deltas: Number of point masses to learn.
     """
+
     has_lengthscale = True
 
     def __init__(self, num_dims, num_deltas=128, Z_constraint=None, batch_shape=torch.Size([]), **kwargs):
