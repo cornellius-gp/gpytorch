@@ -4,7 +4,7 @@ import unittest
 
 import torch
 
-from gpytorch.lazy import CholLazyTensor
+from gpytorch.lazy import CholLazyTensor, TriangularLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
@@ -20,7 +20,7 @@ class TestCholLazyTensor(LazyTensorTestCase, unittest.TestCase):
             dtype=torch.float,
             requires_grad=True,
         )
-        return CholLazyTensor(chol)
+        return CholLazyTensor(TriangularLazyTensor(chol))
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         chol = lazy_tensor.root.evaluate()
@@ -40,7 +40,7 @@ class TestCholLazyTensorBatch(TestCholLazyTensor):
         )
         chol.add_(torch.eye(5).unsqueeze(0))
         chol.requires_grad_(True)
-        return CholLazyTensor(chol)
+        return CholLazyTensor(TriangularLazyTensor(chol))
 
 
 class TestCholLazyTensorMultiBatch(TestCholLazyTensor):
@@ -62,7 +62,7 @@ class TestCholLazyTensorMultiBatch(TestCholLazyTensor):
         chol[2].mul_(0.5)
         chol.add_(torch.eye(5).unsqueeze_(0).unsqueeze_(0))
         chol.requires_grad_(True)
-        return CholLazyTensor(chol)
+        return CholLazyTensor(TriangularLazyTensor(chol))
 
 
 if __name__ == "__main__":

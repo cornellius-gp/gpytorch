@@ -263,7 +263,7 @@ class LazyTensor(ABC):
             This method is used internally by the related function :func:`~gpytorch.lazy.LazyTensor.expand`,
             which does some additional work. Calling this method directly is discouraged.
         """
-        current_shape = torch.Size([1 for _ in range(len(batch_shape) - self.dim() - 2)] + list(self.batch_shape))
+        current_shape = torch.Size([1 for _ in range(len(batch_shape) - self.dim() + 2)] + list(self.batch_shape))
         batch_repeat = torch.Size(
             [expand_size // current_size for expand_size, current_size in zip(batch_shape, current_shape)]
         )
@@ -387,7 +387,7 @@ class LazyTensor(ABC):
         return self.diag()
 
     @cached(name="cholesky")
-    def _cholesky(self):
+    def _cholesky(self, upper=False):
         """
         (Optional) Cholesky-factorizes the LazyTensor
 
@@ -395,9 +395,9 @@ class LazyTensor(ABC):
             This method is used as an internal helper. Calling this method directly is discouraged.
 
         Returns:
-            (LazyTensor) Cholesky factor
+            (TriangularLazyTensor) Cholesky factor
         """
-        from .non_lazy_tensor import NonLazyTensor
+        from .triangular_lazy_tensor import TriangularLazyTensor
         from .keops_lazy_tensor import KeOpsLazyTensor
 
         evaluated_kern_mat = self.evaluate_kernel()
@@ -409,13 +409,13 @@ class LazyTensor(ABC):
 
         # if the tensor is a scalar, we can just take the square root
         if evaluated_mat.size(-1) == 1:
-            return NonLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
+            return TriangularLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
 
         # contiguous call is necessary here
-        cholesky = psd_safe_cholesky(evaluated_mat, jitter=settings.cholesky_jitter.value()).contiguous()
-        return NonLazyTensor(cholesky)
+        cholesky = psd_safe_cholesky(evaluated_mat, jitter=settings.cholesky_jitter.value(), upper=upper).contiguous()
+        return TriangularLazyTensor(cholesky, upper=upper)
 
-    def _cholesky_solve(self, rhs):
+    def _cholesky_solve(self, rhs, upper: bool = False):
         """
         (Optional) Assuming that `self` is a Cholesky factor, computes the cholesky solve
 
@@ -425,7 +425,7 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor
         """
-        return torch.cholesky_solve(rhs, self.evaluate())
+        raise NotImplementedError("_cholesky_solve not implemented for the base LazyTensor")
 
     def _inv_matmul_preconditioner(self):
         """
@@ -743,10 +743,10 @@ class LazyTensor(ABC):
         Returns:
             (LazyTensor) Cholesky factor (lower triangular)
         """
-        res = self._cholesky()
+        chol = self._cholesky(upper=False)
         if upper:
-            res = res.transpose(-1, -2)
-        return res
+            chol = chol._transpose_nonbatch()
+        return chol
 
     def clone(self):
         """
@@ -1264,6 +1264,7 @@ class LazyTensor(ABC):
                 "Invalid repeat arguments {}. Currently, repeat only works to create repeated "
                 "batches of a 2D LazyTensor.".format(tuple(sizes))
             )
+
         return BatchRepeatLazyTensor(self, batch_repeat=torch.Size(sizes[:-2]))
 
     def representation(self):
@@ -1677,8 +1678,8 @@ class LazyTensor(ABC):
         elif isinstance(other, Tensor):
             other = lazify(other)
             shape = _mul_broadcast_shape(self.shape, other.shape)
-            new_self = self if self.shape == shape else self._expand_batch(shape[:-2])
-            new_other = other if other.shape == shape else other._expand_batch(shape[:-2])
+            new_self = self if self.shape[:-2] == shape[:-2] else self._expand_batch(shape[:-2])
+            new_other = other if other.shape[:-2] == shape[:-2] else other._expand_batch(shape[:-2])
             return SumLazyTensor(new_self, new_other)
         else:
             return SumLazyTensor(self, other)

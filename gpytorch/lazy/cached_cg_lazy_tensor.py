@@ -8,6 +8,7 @@ from .. import settings
 from ..utils.warnings import ExtraComputationWarning
 from .chol_lazy_tensor import CholLazyTensor
 from .lazy_tensor import LazyTensor
+from .triangular_lazy_tensor import TriangularLazyTensor
 
 
 class CachedCGLazyTensor(LazyTensor):
@@ -88,7 +89,7 @@ class CachedCGLazyTensor(LazyTensor):
                 if settings.fast_computations.log_prob.on():
                     solves = base_lazy_tensor._solve(eager_rhs, preconditioner=base_lazy_tensor._preconditioner()[0])
                 else:
-                    solves = base_lazy_tensor._cholesky()._cholesky_solve(eager_rhs)
+                    solves = base_lazy_tensor.cholesky()._cholesky_solve(eager_rhs)
                 dtype = solves.dtype
                 device = solves.device
                 return (
@@ -109,7 +110,7 @@ class CachedCGLazyTensor(LazyTensor):
         probe_vector_solves=torch.tensor([]),
         probe_vector_tmats=torch.tensor([]),
     ):
-        super(CachedCGLazyTensor, self).__init__(
+        super().__init__(
             base_lazy_tensor,
             eager_rhss=eager_rhss,
             solves=solves,
@@ -134,9 +135,11 @@ class CachedCGLazyTensor(LazyTensor):
     def requires_grad(self, val):
         self.base_lazy_tensor.requires_grad = val
 
-    def _cholesky(self):
+    def _cholesky(self, upper=False):
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
         res = self.__class__(
-            self.base_lazy_tensor._cholesky(),
+            self.base_lazy_tensor.cholesky(upper=upper),
             eager_rhss=self.eager_rhss,
             solves=self.solves,
             probe_vectors=self.probe_vectors,
@@ -144,9 +147,9 @@ class CachedCGLazyTensor(LazyTensor):
             probe_vector_solves=self.probe_vector_solves,
             probe_vector_tmats=self.probe_vector_tmats,
         )
-        return res
+        return TriangularLazyTensor(res, upper=upper)
 
-    def _cholesky_solve(self, rhs):
+    def _cholesky_solve(self, rhs, upper: bool = False):
         # Here we check to see what solves we've already performed
         for eager_rhs, solve in zip(self.eager_rhss, self.solves):
             if torch.equal(rhs, eager_rhs):
@@ -158,7 +161,7 @@ class CachedCGLazyTensor(LazyTensor):
                 "LazyTensor should pre-register all vectors to run CG against.".format(rhs.shape),
                 ExtraComputationWarning,
             )
-        return super(CachedCGLazyTensor, self)._cholesky_solve(rhs)
+        return torch.cholesky_solve(rhs, self.evaluate(), upper=upper)
 
     def _expand_batch(self, batch_shape):
         return self.base_lazy_tensor._expand_batch(batch_shape)
@@ -190,7 +193,7 @@ class CachedCGLazyTensor(LazyTensor):
                         "CachedCGLazyTensor did not recognize the supplied probe vectors for tridiagonalization.",
                         ExtraComputationWarning,
                     )
-                return super(CachedCGLazyTensor, self)._solve(rhs, preconditioner, num_tridiag=num_tridiag)
+                return super()._solve(rhs, preconditioner, num_tridiag=num_tridiag)
 
         # Here we check to see what solves we've already performed
         truncated_rhs = rhs[..., (num_tridiag or 0) :]
@@ -207,7 +210,7 @@ class CachedCGLazyTensor(LazyTensor):
                 "LazyTensor should pre-register all vectors to run CG against.".format(rhs.shape),
                 ExtraComputationWarning,
             )
-        return super(CachedCGLazyTensor, self)._solve(rhs, preconditioner, num_tridiag=num_tridiag)
+        return super()._solve(rhs, preconditioner, num_tridiag=num_tridiag)
 
     def _size(self):
         return self.base_lazy_tensor._size()
@@ -223,6 +226,9 @@ class CachedCGLazyTensor(LazyTensor):
         return self
 
     def inv_matmul(self, right_tensor, left_tensor=None):
+        if isinstance(self.base_lazy_tensor, TriangularLazyTensor):
+            return self.base_lazy_tensor.inv_matmul(right_tensor, left_tensor=left_tensor)
+
         if not isinstance(self.base_lazy_tensor, CholLazyTensor):
             return super().inv_matmul(right_tensor, left_tensor=left_tensor)
 

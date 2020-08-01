@@ -24,6 +24,9 @@ class NonLazyTensor(LazyTensor):
         super(NonLazyTensor, self).__init__(tsr)
         self.tensor = tsr
 
+    def _cholesky_solve(self, rhs, upper=False):
+        return torch.cholesky_solve(rhs, self.evaluate(), upper=upper)
+
     def _expand_batch(self, batch_shape):
         return self.__class__(self.tensor.expand(*batch_shape, *self.matrix_shape))
 

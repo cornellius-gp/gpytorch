@@ -12,12 +12,13 @@ from ..lazy import (
     DiagLazyTensor,
     PsdSumLazyTensor,
     RootLazyTensor,
+    TriangularLazyTensor,
     ZeroLazyTensor,
     delazify,
 )
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
-from ..utils.memoize import cached
+from ..utils.memoize import add_to_cache, cached
 from ._variational_strategy import _VariationalStrategy
 
 
@@ -45,11 +46,11 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         parameters of the model).
     """
 
-    @cached(name="cholesky_factor")
+    @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
         # Maybe used - if we're not using CG
         L = psd_safe_cholesky(delazify(induc_induc_covar), jitter=settings.cholesky_jitter.value())
-        return L
+        return TriangularLazyTensor(L)
 
     @property
     @cached(name="prior_distribution_memo")
@@ -156,7 +157,8 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
         # Cache the kernel matrix with the cached CG calls
         if self.training:
-            self._memoize_cache["prior_distribution_memo"] = MultivariateNormal(induc_mean, induc_induc_covar)
+            prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
+            add_to_cache(self, "prior_distribution_memo", prior_dist)
 
         # Compute predictive mean
         inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))

@@ -8,7 +8,7 @@ from .. import settings
 from ..distributions import Delta, MultivariateNormal
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
-from ..utils.memoize import cached
+from ..utils.memoize import cached, clear_cache_hook
 
 
 class _VariationalStrategy(Module, ABC):
@@ -97,8 +97,7 @@ class _VariationalStrategy(Module, ABC):
     def train(self, mode=True):
         # Make sure we are clearing the cache if we change modes
         if (self.training and not mode) or mode:
-            if hasattr(self, "_memoize_cache"):
-                delattr(self, "_memoize_cache")
+            clear_cache_hook(self)
         return super().train(mode=mode)
 
     def __call__(self, x, prior=False):
@@ -108,9 +107,7 @@ class _VariationalStrategy(Module, ABC):
 
         # Delete previously cached items from the training distribution
         if self.training:
-            if hasattr(self, "_memoize_cache"):
-                delattr(self, "_memoize_cache")
-                self._memoize_cache = dict()
+            clear_cache_hook(self)
         # (Maybe) initialize variational distribution
         if not self.variational_params_initialized.item():
             prior_dist = self.prior_distribution

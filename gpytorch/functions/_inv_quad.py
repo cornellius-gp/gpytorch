@@ -12,7 +12,7 @@ def _solve(lazy_tsr, rhs):
         or settings.fast_computations.log_prob.off()
         or lazy_tsr.size(-1) <= settings.max_cholesky_size.value()
     ):
-        return lazy_tsr._cholesky()._cholesky_solve(rhs)
+        return lazy_tsr.cholesky()._cholesky_solve(rhs)
     else:
         with torch.no_grad():
             preconditioner = lazy_tsr.detach()._inv_matmul_preconditioner()

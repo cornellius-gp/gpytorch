@@ -13,10 +13,12 @@ from .non_lazy_tensor import NonLazyTensor, lazify
 class RootLazyTensor(LazyTensor):
     def __init__(self, root):
         root = lazify(root)
-        super(RootLazyTensor, self).__init__(root)
+        super().__init__(root)
         self.root = root
 
     def _expand_batch(self, batch_shape):
+        if len(batch_shape) == 0:
+            return self
         return self.__class__(self.root._expand_batch(batch_shape))
 
     def _get_indices(self, row_index, col_index, *batch_indices):
@@ -69,6 +71,9 @@ class RootLazyTensor(LazyTensor):
             deriv.append(item_part_1 + item_part_2)
         return tuple(deriv)
 
+    def root_decomposition(self):
+        return self
+
     def _root_decomposition(self):
         return self.root
 
@@ -85,7 +90,7 @@ class RootLazyTensor(LazyTensor):
         if isinstance(self.root, NonLazyTensor):
             return (self.root.tensor ** 2).sum(-1)
         else:
-            return super(RootLazyTensor, self).diag()
+            return super().diag()
 
     @cached
     def evaluate(self):

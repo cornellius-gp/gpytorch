@@ -7,8 +7,12 @@ from .. import settings
 
 
 def _solve(lazy_tsr, rhs):
+    from ..lazy import CholLazyTensor, TriangularLazyTensor
+
+    if isinstance(lazy_tsr, (CholLazyTensor, TriangularLazyTensor)):
+        return lazy_tsr.inv_matmul(rhs)
     if settings.fast_computations.solves.off() or lazy_tsr.size(-1) <= settings.max_cholesky_size.value():
-        return lazy_tsr._cholesky()._cholesky_solve(rhs)
+        return lazy_tsr.cholesky()._cholesky_solve(rhs)
     else:
         with torch.no_grad():
             preconditioner = lazy_tsr.detach()._inv_matmul_preconditioner()

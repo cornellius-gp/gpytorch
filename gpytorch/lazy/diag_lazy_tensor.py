@@ -4,11 +4,11 @@ import torch
 
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
-from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
+from .triangular_lazy_tensor import TriangularLazyTensor
 
 
-class DiagLazyTensor(LazyTensor):
+class DiagLazyTensor(TriangularLazyTensor):
     def __init__(self, diag):
         """
         Diagonal lazy tensor. Supports arbitrary batch sizes.
@@ -18,7 +18,7 @@ class DiagLazyTensor(LazyTensor):
                 A `b1 x ... x bk x n` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` diagonal matrices
         """
-        super().__init__(diag)
+        super(TriangularLazyTensor, self).__init__(diag)
         self._diag = diag
 
     def __add__(self, other):
@@ -28,8 +28,8 @@ class DiagLazyTensor(LazyTensor):
 
         return AddedDiagLazyTensor(other, self)
 
-    @cached(name="cholesky")
-    def _cholesky(self):
+    @cached(name="cholesky", ignore_args=True)
+    def _cholesky(self, upper=False):
         return self.sqrt()
 
     def _cholesky_solve(self, rhs):
@@ -152,12 +152,17 @@ class DiagLazyTensor(LazyTensor):
         return DiagLazyTensor(self._diag.log())
 
     def matmul(self, other):
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
         # this is trivial if we multiply two DiagLazyTensors
         if isinstance(other, DiagLazyTensor):
             return DiagLazyTensor(self._diag * other._diag)
         # special case if we have a NonLazyTensor
         if isinstance(other, NonLazyTensor):
             return NonLazyTensor(self._diag.unsqueeze(-1) * other.tensor)
+        # and if we have a triangular one
+        if isinstance(other, TriangularLazyTensor):
+            return TriangularLazyTensor(self._diag.unsqueeze(-1) * other._tensor, upper=other.upper)
         return super().matmul(other)
 
     def sqrt(self):
@@ -191,7 +196,7 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
                 A `b1 x ... x bk x 1` Tensor, representing a `b1 x ... x bk`-sized batch
                 of `n x n` diagonal matrices
         """
-        super(DiagLazyTensor, self).__init__(diag_values, diag_shape=diag_shape)
+        super(TriangularLazyTensor, self).__init__(diag_values, diag_shape=diag_shape)
         self.diag_shape = diag_shape
         self._diag = diag_values.expand(*diag_values.shape[:-1], diag_shape)
 

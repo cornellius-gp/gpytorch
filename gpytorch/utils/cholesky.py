@@ -4,7 +4,7 @@ import warnings
 
 import torch
 
-from .errors import NanError
+from .errors import NanError, NotPSDError
 from .warnings import NumericalWarning
 
 
@@ -47,4 +47,6 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
                 return L
             except RuntimeError:
                 continue
-        raise e
+        raise NotPSDError(
+            f"Matrix not positive definite after repeatedly adding jitter. Original error on first attempt: {e}"
+        )
