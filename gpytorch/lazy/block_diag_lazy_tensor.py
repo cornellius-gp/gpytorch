@@ -5,7 +5,8 @@ from typing import Optional, Tuple
 import torch
 from torch import Tensor
 
-from ..utils.memoize import cached
+from ..utils.errors import CachingError
+from ..utils.memoize import cached, pop_from_cache
 from .block_lazy_tensor import BlockLazyTensor
 from .lazy_tensor import LazyTensor
 
@@ -127,6 +128,10 @@ class BlockDiagLazyTensor(BlockLazyTensor):
 
     @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        try:
+            return pop_from_cache(self, "symeig", eigenvectors=True)
+        except CachingError:
+            pass
         evals, evecs = self.base_lazy_tensor.symeig(eigenvectors=eigenvectors)
         # Doesn't make much sense to sort here, o/w we lose the structure
         evals = evals.reshape(*evals.shape[:-2], evals.shape[-2:].numel())

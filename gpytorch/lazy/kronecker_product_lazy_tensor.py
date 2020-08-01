@@ -9,8 +9,9 @@ from torch import Tensor
 
 from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
-from ..utils.memoize import cached
-from .diag_lazy_tensor import DiagLazyTensor
+from ..utils.errors import CachingError
+from ..utils.memoize import cached, pop_from_cache
+from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 from .triangular_lazy_tensor import TriangularLazyTensor
@@ -216,7 +217,10 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
-        # TODO: Deal with case where evec version has already been cached.
+        try:
+            return pop_from_cache(self, "symeig", eigenvectors=True)
+        except CachingError:
+            pass
         evals, evecs = [], []
         for lt in self.lazy_tensors:
             evals_, evecs_ = lt.symeig(eigenvectors=eigenvectors)
@@ -244,7 +248,7 @@ class KroneckerProductLazyTensor(LazyTensor):
         return self.__class__(*(lazy_tensor._transpose_nonbatch() for lazy_tensor in self.lazy_tensors), **self._kwargs)
 
 
-class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor, TriangularLazyTensor):
+class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
     def __init__(self, *lazy_tensors, upper=False):
         if not all(isinstance(lt, TriangularLazyTensor) for lt in lazy_tensors):
             raise RuntimeError("Components of KroneckerProductTriangularLazyTensor must be TriangularLazyTensor.")

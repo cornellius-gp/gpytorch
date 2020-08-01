@@ -8,7 +8,8 @@ from torch import Tensor
 
 from .. import settings
 from ..utils import broadcasting, pivoted_cholesky
-from ..utils.memoize import cached
+from ..utils.errors import CachingError
+from ..utils.memoize import cached, pop_from_cache
 from ..utils.warnings import NumericalWarning
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .lazy_tensor import LazyTensor
@@ -140,6 +141,10 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
     @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        try:
+            return pop_from_cache(self, "symeig", eigenvectors=True)
+        except CachingError:
+            pass
         if isinstance(self._diag_tensor, ConstantDiagLazyTensor):
             evals_, evecs = self._lazy_tensor.symeig(eigenvectors=eigenvectors)
             evals = evals_ + self._diag_tensor.diag()  # this assumes all diagonal entries are positive

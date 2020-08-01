@@ -20,8 +20,9 @@ from ..functions._sqrt_inv_matmul import SqrtInvMatmul
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
+from ..utils.errors import CachingError
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
-from ..utils.memoize import add_to_cache, cached
+from ..utils.memoize import add_to_cache, cached, pop_from_cache
 from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
@@ -1865,6 +1866,11 @@ class LazyTensor(ABC):
     @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
         """Method that allows implementing special-cased symeig computation. Should not be called directly"""
+        try:
+            return pop_from_cache(self, "symeig", eigenvectors=True)
+        except CachingError:
+            pass
+
         from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
 
         dtype = self.dtype  # perform decomposition in double precision for numerical stability

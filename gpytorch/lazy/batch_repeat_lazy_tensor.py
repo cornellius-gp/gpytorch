@@ -8,7 +8,8 @@ from torch import Tensor
 
 from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape
-from ..utils.memoize import cached
+from ..utils.errors import CachingError
+from ..utils.memoize import cached, pop_from_cache
 from .lazy_tensor import LazyTensor
 
 
@@ -296,6 +297,10 @@ class BatchRepeatLazyTensor(LazyTensor):
 
     @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        try:
+            return pop_from_cache(self, "symeig", eigenvectors=True)
+        except CachingError:
+            pass
         evals_, evecs_ = self.base_lazy_tensor.symeig(eigenvectors=eigenvectors)
         evals = evals_.repeat(*self.batch_repeat, 1)
         evecs = evecs_.repeat(*self.batch_repeat, 1, 1)
