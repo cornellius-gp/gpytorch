@@ -657,7 +657,6 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         self.assertAllClose(S, S_actual, rtol=1e-4, atol=1e-3)
         lt_from_svd = U @ torch.diag_embed(S) @ V.transpose(-1, -2)
         self.assertAllClose(lt_from_svd, evaluated, rtol=1e-4, atol=1e-3)
-        self.assertAllClose(S, S_actual, rtol=1e-4, atol=1e-3)
 
         # if there are repeated singular values, we'll skip checking the singular vectors
         U_abs, U_actual_abs = U.abs(), U_actual.abs()

@@ -1853,10 +1853,14 @@ class LazyTensor(ABC):
     @cached(name="svd")
     def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
         """Method that allows implementing special-cased SVD computation. Should not be called directly"""
-        from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
-
-        U, S, V = torch.svd(self.evaluate())
-        return NonLazyTensor(U), S, NonLazyTensor(V)
+        # Using symeig is preferable here for psd LazyTensors.
+        # Will need to overwrite this function for non-psd LazyTensors.
+        evals, evecs = self.symeig(eigenvectors=True)
+        signs = torch.sign(evals)
+        U = evecs * signs.unsqueeze(-2)
+        S = torch.abs(evals)
+        V = evecs
+        return U, S, V
 
     @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
