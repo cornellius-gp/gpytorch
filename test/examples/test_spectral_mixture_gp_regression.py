@@ -75,6 +75,9 @@ class TestSpectralMixtureGPRegression(BaseTestCase, unittest.TestCase):
         optimizer = optim.SGD(list(gp_model.parameters()), lr=0.1)
         optimizer.n_iter = 0
 
+        if not empspect:
+            gp_model.load_state_dict(good_state_dict, strict=False)
+
         for i in range(300):
             optimizer.zero_grad()
             output = gp_model(train_x)
@@ -88,8 +91,6 @@ class TestSpectralMixtureGPRegression(BaseTestCase, unittest.TestCase):
                     self.assertTrue(param.grad is not None)
                     # TODO: Uncomment when we figure out why this is flaky.
                     # self.assertGreater(param.grad.norm().item(), 0.)
-
-        gp_model.load_state_dict(good_state_dict, strict=False)
 
         # Test the model
         with torch.no_grad():

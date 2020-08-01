@@ -980,26 +980,16 @@ class LazyTensor(ABC):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if self.dim() == 2 and tensor.dim() == 1:
-            if self.shape[-1] != tensor.numel():
-                raise RuntimeError(
-                    "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
-                        self.shape, tensor.shape
-                    )
-                )
-        elif self.dim() != tensor.dim():
-            raise RuntimeError(
-                "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
-                "of dimensions.".format(self.shape, tensor.shape)
-            )
-        elif self.shape[-1] != tensor.shape[-2]:
+        try:
+            result_shape = _matmul_broadcast_shape(self.shape, tensor.shape)
+        except RuntimeError:
             raise RuntimeError(
                 "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
                     self.shape, tensor.shape
                 )
             )
 
-        args = (tensor,) + self.representation()
+        args = (tensor.expand(*result_shape[:-2], *tensor.shape[-2:]),) + self.representation()
         func = InvQuad.apply
         inv_quad_term = func(self.representation_tree(), *args)
 

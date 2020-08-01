@@ -643,6 +643,9 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
         )
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
+        if settings.skip_posterior_variances.on():
+            return ZeroLazyTensor(*test_test_covar.size())
+
         if isinstance(test_test_covar, ConstantMulLazyTensor):
             constant = test_test_covar.expanded_constant
             test_test_covar = test_test_covar.base_lazy_tensor
