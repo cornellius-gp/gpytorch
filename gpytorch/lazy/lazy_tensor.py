@@ -3,8 +3,10 @@
 import math
 import warnings
 from abc import ABC, abstractmethod
+from typing import Optional, Tuple
 
 import torch
+from torch import Tensor
 
 import gpytorch
 
@@ -18,8 +20,10 @@ from ..functions._sqrt_inv_matmul import SqrtInvMatmul
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
+from ..utils.errors import CachingError
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
-from ..utils.memoize import add_to_cache, cached
+from ..utils.memoize import add_to_cache, cached, pop_from_cache
+from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -1317,7 +1321,7 @@ class LazyTensor(ABC):
         return self
 
     @cached(name="root_decomposition")
-    def root_decomposition(self):
+    def root_decomposition(self, method: Optional[str] = None):
         """
         Returns a (usually low-rank) root decomposition lazy tensor of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
@@ -1332,22 +1336,45 @@ class LazyTensor(ABC):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if (
-            self.size(-1) <= settings.max_cholesky_size.value()
-            or settings.fast_computations.covar_root_decomposition.off()
-        ):
+        if method is None:
+            if (
+                self.size(-1) <= settings.max_cholesky_size.value()
+                or settings.fast_computations.covar_root_decomposition.off()
+            ):
+                method = "cholesky"
+            else:
+                method = "lanczos"
+
+        if method == "cholesky":
             try:
                 res = self.cholesky()
                 return CholLazyTensor(res)
-
             except RuntimeError as e:
                 warnings.warn(
-                    "Runtime Error when computing Cholesky decomposition: {}. Using RootDecomposition.".format(e),
+                    f"Runtime Error when computing Cholesky decomposition: {e}. Using RootDecomposition.".format(e),
                     NumericalWarning,
                 )
+                method = "symeig"
 
-        res = self._root_decomposition()
-        return RootLazyTensor(res)
+        if method == "pivoted_cholesky":
+            return RootLazyTensor(pivoted_cholesky(self.evaluate(), max_iter=self._root_decomposition_size()))
+
+        if method == "symeig":
+            evals, evecs = self.symeig(eigenvectors=True)
+            # TODO: only use non-zero evals (req. dealing w/ batches...)
+            F = evecs * evals.clamp(0.0).sqrt().unsqueeze(-2)
+            return RootLazyTensor(F)
+
+        if method == "svd":
+            U, S, _ = self.svd()
+            # TODO: only use non-zero singular values (req. dealing w/ batches...)
+            F = U * S.sqrt().unsqueeze(-2)
+            return RootLazyTensor(F)
+
+        if method == "lanczos":
+            return RootLazyTensor(self._root_decomposition())
+
+        raise RuntimeError(f"Unknown method '{method}'")
 
     @cached(name="root_inv_decomposition")
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
@@ -1527,6 +1554,44 @@ class LazyTensor(ABC):
             return self._sum_batch(dim)
         else:
             raise ValueError("Invalid dim ({}) for LazyTensor of size {}".format(orig_dim, self.shape))
+
+    def svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
+        """
+        Compute the SVD of the lazy tensor `M` s.t. `M = U @ S @ V.T`.
+        This can be very slow for large tensors. Should be special-cased for tensors with particular structure.
+        Does NOT sort the sigular values.
+
+        Returns:
+            :obj:`~gpytorch.lazy.LazyTensor`:
+                The left singular vectors (`U`).
+            :obj:`torch.Tensor`:
+                The singular values (`S`).
+            :obj:`~gpytorch.lazy.LazyTensor`:
+                The right singular vectors (`V`).
+        """
+        return self._svd()
+
+    @cached(name="symeig")
+    def symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
+        """
+        Compute the symmetric eigendecomposition of the lazy tensor. This can be very
+        slow for large tensors. Should be special-cased for tensors with particular
+        structure. Does NOT sort the eigenvalues.
+
+        Args:
+            :attr:`eigenvectors` (bool): If True, compute the eigenvectors in addition to the eigenvalues.
+        Returns:
+            :obj:`torch.Tensor`:
+                The eigenvalues.
+            :obj:`~gpytorch.lazy.LazyTensor`:
+                The eigenvectors. If `eigenvectors=False`, this is None. Otherwise, this LazyTensor
+                contains the orthonormal eigenvectors of the matrix.
+        """
+        try:
+            return pop_from_cache(self, "symeig", eigenvectors=True)
+        except CachingError:
+            pass
+        return self._symeig(eigenvectors=eigenvectors)
 
     def to(self, device_id):
         """
@@ -1790,6 +1855,33 @@ class LazyTensor(ABC):
 
         # We're done!
         return res
+
+    @cached(name="svd")
+    def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
+        """Method that allows implementing special-cased SVD computation. Should not be called directly"""
+        # Using symeig is preferable here for psd LazyTensors.
+        # Will need to overwrite this function for non-psd LazyTensors.
+        evals, evecs = self.symeig(eigenvectors=True)
+        signs = torch.sign(evals)
+        U = evecs * signs.unsqueeze(-2)
+        S = torch.abs(evals)
+        V = evecs
+        return U, S, V
+
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
+        """Method that allows implementing special-cased symeig computation. Should not be called directly"""
+        from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
+
+        dtype = self.dtype  # perform decomposition in double precision for numerical stability
+        # TODO: Use fp64 registry once #1213 is addressed
+        evals, evecs = torch.symeig(self.evaluate().to(dtype=torch.double), eigenvectors=eigenvectors)
+        # chop any negative eigenvalues. TODO: warn if evals are significantly negative
+        evals = evals.clamp_min(0.0).to(dtype=dtype)
+        if eigenvectors:
+            evecs = NonLazyTensor(evecs.to(dtype=dtype))
+        else:
+            evecs = None
+        return evals, evecs
 
     def __matmul__(self, other):
         return self.matmul(other)

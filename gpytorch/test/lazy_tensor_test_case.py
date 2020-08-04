@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import itertools
 import math
 from abc import abstractmethod
 from itertools import combinations, product
@@ -587,3 +588,95 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
+
+    def test_symeig(self):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+
+        # Perform forward pass
+        evals_unsorted, evecs_unsorted = lazy_tensor.symeig(eigenvectors=True)
+        evecs_unsorted = evecs_unsorted.evaluate()
+
+        # since LazyTensor.symeig does not sort evals, we do this here for the check
+        evals, idxr = torch.sort(evals_unsorted, dim=-1, descending=False)
+        evecs = torch.gather(evecs_unsorted, dim=-1, index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape))
+
+        evals_actual, evecs_actual = torch.symeig(evaluated.double(), eigenvectors=True)
+        evals_actual = evals_actual.to(dtype=evaluated.dtype)
+        evecs_actual = evecs_actual.to(dtype=evaluated.dtype)
+
+        # Check forward pass
+        self.assertAllClose(evals, evals_actual, rtol=1e-4, atol=1e-3)
+        lt_from_eigendecomp = evecs @ torch.diag_embed(evals) @ evecs.transpose(-1, -2)
+        self.assertAllClose(lt_from_eigendecomp, evaluated, rtol=1e-4, atol=1e-3)
+
+        # if there are repeated evals, we'll skip checking the eigenvectors for those
+        any_evals_repeated = False
+        evecs_abs, evecs_actual_abs = evecs.abs(), evecs_actual.abs()
+        for idx in itertools.product(*[range(b) for b in evals_actual.shape[:-1]]):
+            eval_i = evals_actual[idx]
+            if torch.unique(eval_i.detach()).shape[-1] == eval_i.shape[-1]:  # detach to avoid pytorch/pytorch#41389
+                self.assertAllClose(evecs_abs[idx], evecs_actual_abs[idx], rtol=1e-4, atol=1e-3)
+            else:
+                any_evals_repeated = True
+
+        # Perform backward pass
+        symeig_grad = torch.randn_like(evals)
+        ((evals * symeig_grad).sum()).backward()
+        ((evals_actual * symeig_grad).sum()).backward()
+
+        # Check grads if there were no repeated evals
+        if not any_evals_repeated:
+            for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+                if arg_copy.grad is not None:
+                    self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
+
+    def test_svd(self):
+        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+
+        # Perform forward pass
+        U_unsorted, S_unsorted, V_unsorted = lazy_tensor.svd()
+        U_unsorted, V_unsorted = U_unsorted.evaluate(), V_unsorted.evaluate()
+
+        # since LazyTensor.svd does not sort the singular values, we do this here for the check
+        S, idxr = torch.sort(S_unsorted, dim=-1, descending=True)
+        idxr = idxr.unsqueeze(-2).expand(U_unsorted.shape)
+        U = torch.gather(U_unsorted, dim=-1, index=idxr)
+        V = torch.gather(V_unsorted, dim=-1, index=idxr)
+
+        # compute expected result from full tensor
+        U_actual, S_actual, V_actual = torch.svd(evaluated.double())
+        U_actual = U_actual.to(dtype=evaluated.dtype)
+        S_actual = S_actual.to(dtype=evaluated.dtype)
+        V_actual = V_actual.to(dtype=evaluated.dtype)
+
+        # Check forward pass
+        self.assertAllClose(S, S_actual, rtol=1e-4, atol=1e-3)
+        lt_from_svd = U @ torch.diag_embed(S) @ V.transpose(-1, -2)
+        self.assertAllClose(lt_from_svd, evaluated, rtol=1e-4, atol=1e-3)
+
+        # if there are repeated singular values, we'll skip checking the singular vectors
+        U_abs, U_actual_abs = U.abs(), U_actual.abs()
+        V_abs, V_actual_abs = V.abs(), V_actual.abs()
+        any_svals_repeated = False
+        for idx in itertools.product(*[range(b) for b in S_actual.shape[:-1]]):
+            Si = S_actual[idx]
+            if torch.unique(Si.detach()).shape[-1] == Si.shape[-1]:  # detach to avoid pytorch/pytorch#41389
+                self.assertAllClose(U_abs[idx], U_actual_abs[idx], rtol=1e-4, atol=1e-3)
+                self.assertAllClose(V_abs[idx], V_actual_abs[idx], rtol=1e-4, atol=1e-3)
+            else:
+                any_svals_repeated = True
+
+        # Perform backward pass
+        svd_grad = torch.randn_like(S)
+        ((S * svd_grad).sum()).backward()
+        ((S_actual * svd_grad).sum()).backward()
+
+        # Check grads if there were no repeated singular values
+        if not any_svals_repeated:
+            for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+                if arg_copy.grad is not None:
+                    self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)

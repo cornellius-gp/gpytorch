@@ -46,8 +46,8 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return inv_quad_term, logdet_term
 
     def _logdet(self):
-        eig_matrix, _ = self.lazy_tensor._symeig()
-        evals_plus_diag = eig_matrix.diag() + self.diag_tensor.diag()
+        evals, _ = self.lazy_tensor.symeig(eigenvectors=False)
+        evals_plus_diag = evals + self.diag_tensor.diag()
         return torch.log(evals_plus_diag).sum(dim=-1)
 
     def _preconditioner(self):
@@ -56,16 +56,17 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         # we do the solve in double for numerical stability issues
+        # TODO: Use fp64 registry once #1213 is addressed
 
         rhs_dtype = rhs.dtype
         rhs = rhs.double()
 
-        eig_matrix, q_matrix = self.lazy_tensor._symeig()
-        eig_matrix, q_matrix = eig_matrix.double(), q_matrix.double()
+        evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
+        evals, q_matrix = evals.double(), q_matrix.double()
 
-        eigs_plus_diagonal = eig_matrix.diag() + self.diag_tensor.diag()
-        eigs_root = eigs_plus_diagonal.pow(0.5)
-        inv_mat_sqrt = DiagLazyTensor(eigs_root.reciprocal())
+        evals_plus_diagonal = evals + self.diag_tensor.diag()
+        evals_root = evals_plus_diagonal.pow(0.5)
+        inv_mat_sqrt = DiagLazyTensor(evals_root.reciprocal())
 
         res = q_matrix.transpose(-2, -1).matmul(rhs)
         res2 = inv_mat_sqrt.matmul(res)
@@ -74,13 +75,13 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return lazy_lhs.matmul(res2).type(rhs_dtype)
 
     def _root_decomposition(self):
-        eig_matrix, q_matrix = self.lazy_tensor._symeig()
-        updated_eigs = DiagLazyTensor((eig_matrix.diag() + self.diag_tensor.diag()).pow(0.5))
-        matrix_root = q_matrix.matmul(updated_eigs)
+        evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
+        updated_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(0.5))
+        matrix_root = q_matrix.matmul(updated_evals)
         return matrix_root
 
     def _root_inv_decomposition(self, initial_vectors=None):
-        eig_matrix, q_matrix = self.lazy_tensor._symeig()
-        inv_sqrt_eigs = DiagLazyTensor((eig_matrix.diag() + self.diag_tensor.diag()).pow(-0.5))
-        matrix_inv_root = q_matrix.matmul(inv_sqrt_eigs)
+        evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
+        inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
+        matrix_inv_root = q_matrix.matmul(inv_sqrt_evals)
         return matrix_inv_root

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Tuple
+
 import torch
+from torch import Tensor
 
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
+from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .triangular_lazy_tensor import TriangularLazyTensor
 
@@ -181,6 +185,22 @@ class DiagLazyTensor(TriangularLazyTensor):
     def zero_mean_mvn_samples(self, num_samples):
         base_samples = torch.randn(num_samples, *self._diag.shape, dtype=self.dtype, device=self.device)
         return base_samples * self._diag.sqrt()
+
+    @cached(name="svd")
+    def _svd(self) -> Tuple[LazyTensor, Tensor, LazyTensor]:
+        evals, evecs = self.symeig(eigenvectors=True)
+        S = torch.abs(evals)
+        U = evecs
+        V = evecs * torch.sign(evals).unsqueeze(-1)
+        return U, S, V
+
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        evals = self._diag
+        if eigenvectors:
+            evecs = DiagLazyTensor(torch.ones_like(evals))
+        else:
+            evecs = None
+        return evals, evecs
 
 
 class ConstantDiagLazyTensor(DiagLazyTensor):

@@ -28,7 +28,7 @@ def pop_from_cache(obj, name, *args, **kwargs):
     """Pop an item from the cache (honoring calling args)."""
     try:
         return obj._memoize_cache.pop((name, args, pickle.dumps(kwargs)))
-    except KeyError:
+    except (KeyError, AttributeError):
         raise CachingError("Object does not have item {} stored in cache.".format(name))
 
 

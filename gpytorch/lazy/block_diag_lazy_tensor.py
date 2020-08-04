@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Tuple
+
 import torch
+from torch import Tensor
 
 from ..utils.memoize import cached
 from .block_lazy_tensor import BlockLazyTensor
+from .lazy_tensor import LazyTensor
 
 
 class BlockDiagLazyTensor(BlockLazyTensor):
@@ -110,3 +114,20 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         if logdet_res is not None and logdet_res.numel():
             logdet_res = logdet_res.view(*logdet_res.shape).sum(-1)
         return inv_quad_res, logdet_res
+
+    @cached(name="svd")
+    def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
+        U, S, V = self.base_lazy_tensor.svd()
+        # Doesn't make much sense to sort here, o/w we lose the structure
+        S = S.reshape(*S.shape[:-2], S.shape[-2:].numel())
+        # can assume that block_dim is -3 here
+        U = self.__class__(U)
+        V = self.__class__(V)
+        return U, S, V
+
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        evals, evecs = self.base_lazy_tensor.symeig(eigenvectors=eigenvectors)
+        # Doesn't make much sense to sort here, o/w we lose the structure
+        evals = evals.reshape(*evals.shape[:-2], evals.shape[-2:].numel())
+        evecs = self.__class__(evecs)  # can assume that block_dim is -3 here
+        return evals, evecs

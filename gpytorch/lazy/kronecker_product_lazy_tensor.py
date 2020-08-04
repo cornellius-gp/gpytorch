@@ -2,6 +2,7 @@
 
 import operator
 from functools import reduce
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -9,7 +10,7 @@ from torch import Tensor
 from .. import settings
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.memoize import cached
-from .diag_lazy_tensor import DiagLazyTensor
+from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import lazify
 from .triangular_lazy_tensor import TriangularLazyTensor
@@ -96,16 +97,22 @@ class KroneckerProductLazyTensor(LazyTensor):
         if not self.is_square:
             raise RuntimeError("add_diag only defined for square matrices")
 
-        try:
-            expanded_diag = diag.expand(self.shape[:-1])
-        except RuntimeError:
-            raise RuntimeError(
-                "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
-                    self.shape, diag.shape
+        diag_shape = diag.shape
+        if len(diag_shape) == 0 or diag_shape[-1] == 1:
+            # interpret scalar tensor or single-trailing element as constant diag
+            diag_tensor = ConstantDiagLazyTensor(diag, diag_shape=self.shape[-1])
+        else:
+            try:
+                expanded_diag = diag.expand(self.shape[:-1])
+            except RuntimeError:
+                raise RuntimeError(
+                    "add_diag for LazyTensor of size {} received invalid diagonal of size {}.".format(
+                        self.shape, diag_shape
+                    )
                 )
-            )
+            diag_tensor = DiagLazyTensor(expanded_diag)
 
-        return KroneckerProductAddedDiagLazyTensor(self, DiagLazyTensor(expanded_diag))
+        return KroneckerProductAddedDiagLazyTensor(self, diag_tensor)
 
     def diag(self):
         r"""
@@ -194,34 +201,30 @@ class KroneckerProductLazyTensor(LazyTensor):
         right_size = _prod(lazy_tensor.size(-1) for lazy_tensor in self.lazy_tensors)
         return torch.Size((*self.lazy_tensors[0].batch_shape, left_size, right_size))
 
-    @cached(name="symeig")
-    def _symeig(self, eigenvectors=True):
-        # eigenvectors may not get zeroed if called w/o eigenvectors after initialization
+    @cached(name="svd")
+    def _svd(self) -> Tuple[LazyTensor, Tensor, LazyTensor]:
+        U, S, V = [], [], []
+        for lt in self.lazy_tensors:
+            U_, S_, V_ = lt.svd()
+            U.append(U_)
+            S.append(S_)
+            V.append(V_)
+        S = KroneckerProductLazyTensor(*[DiagLazyTensor(S_) for S_ in S]).diag()
+        U = KroneckerProductLazyTensor(*U)
+        V = KroneckerProductLazyTensor(*V)
+        return U, S, V
 
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
         evals, evecs = [], []
-        for lazy_tensor in self.lazy_tensors:
-            # TODO: replace with lazy_tensor.symeig() once that is added in.
-            # TODO: ensure that the symeig call is also done in this manner
-
-            eval_tensor = lazy_tensor.evaluate()
-            tensor_dtype = eval_tensor.dtype
-
-            evals_, evecs_ = eval_tensor.double().symeig(eigenvectors=eigenvectors)
-
-            # we chop any negative eigenvalues
-            evals_ = evals_.clamp_min(0.0)
-
-            evals_ = evals_.type(tensor_dtype)
-            evecs_ = evecs_.type(tensor_dtype)
-
+        for lt in self.lazy_tensors:
+            evals_, evecs_ = lt.symeig(eigenvectors=eigenvectors)
             evals.append(evals_)
             evecs.append(evecs_)
-        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])
+        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals]).diag()
         if eigenvectors:
-            evecs = KroneckerProductLazyTensor(*[lazify(evecs_) for evecs_ in evecs])
+            evecs = KroneckerProductLazyTensor(*evecs)
         else:
-            evecs = Tensor([])
-
+            evecs = None
         return evals, evecs
 
     def _t_matmul(self, rhs):
@@ -241,17 +244,24 @@ class KroneckerProductLazyTensor(LazyTensor):
 
 class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
     def __init__(self, *lazy_tensors, upper=False):
-        from .triangular_lazy_tensor import TriangularLazyTensor
-
         if not all(isinstance(lt, TriangularLazyTensor) for lt in lazy_tensors):
             raise RuntimeError("Components of KroneckerProductTriangularLazyTensor must be TriangularLazyTensor.")
         super().__init__(*lazy_tensors)
         self.upper = upper
 
+    @cached
+    def inverse(self):
+        # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
+        inverses = [lt.inverse() for lt in self.lazy_tensors]
+        return self.__class__(*inverses, upper=self.upper)
+
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        # For triangular components, using triangular-triangular substition should generally be good
+        return self._inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
+
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
-        chol = KroneckerProductLazyTensor(*[lt._cholesky(upper=upper) for lt in self.lazy_tensors])
-        return TriangularLazyTensor(chol, upper=upper)
+        raise NotImplementedError("_cholesky not applicable to triangular lazy tensors")
 
     def _cholesky_solve(self, rhs, upper=False):
         if upper:
@@ -264,12 +274,5 @@ class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
             res = self._transpose_nonbatch().inv_matmul(w)
         return res
 
-    @cached
-    def inverse(self):
-        # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
-        inverses = [lt.inverse() for lt in self.lazy_tensors]
-        return self.__class__(*inverses, upper=self.upper)
-
-    def inv_matmul(self, right_tensor, left_tensor=None):
-        # For triangular components, using triangular-triangular substition should generally be good
-        return self._inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        raise NotImplementedError("_symeig not applicable to triangular lazy tensors")

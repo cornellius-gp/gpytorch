@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
 import warnings
+from typing import Optional, Tuple
 
 import torch
+from torch import Tensor
 
 from .. import settings
 from ..utils import broadcasting, pivoted_cholesky
+from ..utils.memoize import cached
 from ..utils.warnings import NumericalWarning
-from .diag_lazy_tensor import DiagLazyTensor
+from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
+from .lazy_tensor import LazyTensor
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
@@ -125,3 +129,18 @@ class AddedDiagLazyTensor(SumLazyTensor):
         logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2)
         logdet -= (1.0 / self._noise).log().sum([-1, -2])
         self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
+
+    @cached(name="svd")
+    def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
+        if isinstance(self._diag_tensor, ConstantDiagLazyTensor):
+            U, S_, V = self._lazy_tensor.svd()
+            S = S_ + self._diag_tensor.diag()
+            return U, S, V
+        return super()._svd()
+
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+        if isinstance(self._diag_tensor, ConstantDiagLazyTensor):
+            evals_, evecs = self._lazy_tensor.symeig(eigenvectors=eigenvectors)
+            evals = evals_ + self._diag_tensor.diag()
+            return evals, evecs
+        return super()._symeig(eigenvectors=eigenvectors)
