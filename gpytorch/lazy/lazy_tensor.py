@@ -1571,6 +1571,7 @@ class LazyTensor(ABC):
         """
         return self._svd()
 
+    @cached(name="symeig")
     def symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
         """
         Compute the symmetric eigendecomposition of the lazy tensor. This can be very
@@ -1586,6 +1587,10 @@ class LazyTensor(ABC):
                 The eigenvectors. If `eigenvectors=False`, this is None. Otherwise, this LazyTensor
                 contains the orthonormal eigenvectors of the matrix.
         """
+        try:
+            return pop_from_cache(self, "symeig", eigenvectors=True)
+        except CachingError:
+            pass
         return self._symeig(eigenvectors=eigenvectors)
 
     def to(self, device_id):
@@ -1863,14 +1868,8 @@ class LazyTensor(ABC):
         V = evecs
         return U, S, V
 
-    @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
         """Method that allows implementing special-cased symeig computation. Should not be called directly"""
-        try:
-            return pop_from_cache(self, "symeig", eigenvectors=True)
-        except CachingError:
-            pass
-
         from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
 
         dtype = self.dtype  # perform decomposition in double precision for numerical stability

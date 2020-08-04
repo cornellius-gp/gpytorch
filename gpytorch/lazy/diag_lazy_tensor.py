@@ -6,8 +6,7 @@ import torch
 from torch import Tensor
 
 from ..utils.broadcasting import _mul_broadcast_shape
-from ..utils.errors import CachingError
-from ..utils.memoize import cached, pop_from_cache
+from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
 from .non_lazy_tensor import NonLazyTensor
 from .triangular_lazy_tensor import TriangularLazyTensor
@@ -195,12 +194,7 @@ class DiagLazyTensor(TriangularLazyTensor):
         V = evecs * torch.sign(evals).unsqueeze(-1)
         return U, S, V
 
-    @cached(name="symeig")
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
-        try:
-            return pop_from_cache(self, "symeig", eigenvectors=True)
-        except CachingError:
-            pass
         evals = self._diag
         if eigenvectors:
             evecs = DiagLazyTensor(torch.ones_like(evals))
