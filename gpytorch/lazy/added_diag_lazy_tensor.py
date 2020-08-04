@@ -134,13 +134,13 @@ class AddedDiagLazyTensor(SumLazyTensor):
     def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:
         if isinstance(self._diag_tensor, ConstantDiagLazyTensor):
             U, S_, V = self._lazy_tensor.svd()
-            S = S_ + self._diag_tensor.diag()  # this assumes all diagonal entries are positive
+            S = S_ + self._diag_tensor.diag()
             return U, S, V
         return super()._svd()
 
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
         if isinstance(self._diag_tensor, ConstantDiagLazyTensor):
             evals_, evecs = self._lazy_tensor.symeig(eigenvectors=eigenvectors)
-            evals = evals_ + self._diag_tensor.diag()  # this assumes all diagonal entries are positive
+            evals = evals_ + self._diag_tensor.diag()
             return evals, evecs
         return super()._symeig(eigenvectors=eigenvectors)
