@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import torch
+
 
 class _feature_flag(object):
     _state = False
@@ -48,6 +50,49 @@ class _value_context(object):
 
     def __exit__(self, *args):
         self.__class__._set_value(self._orig_value)
+        return False
+
+
+class _dtype_value_context(object):
+    _global_float_value = None
+    _global_double_value = None
+    _global_half_value = None
+
+    @classmethod
+    def value(cls, dtype):
+        if torch.is_tensor(dtype):
+            dtype = dtype.dtype
+        if dtype == torch.float:
+            return cls._global_float_value
+        elif dtype == torch.double:
+            return cls._global_double_value
+        elif dtype == torch.half:
+            return cls._global_half_value
+        else:
+            raise RuntimeError(f"Unsupported dtype for {cls.__name__}.")
+
+    @classmethod
+    def _set_value(cls, float_value, double_value, half_value):
+        if float_value is not None:
+            cls._global_float_value = float_value
+        if double_value is not None:
+            cls._global_double_value = double_value
+        if half_value is not None:
+            cls._global_half_value = half_value
+
+    def __init__(self, float=None, double=None, half=None):
+        self._orig_float_value = self.__class__.value()
+        self._instance_float_value = float
+        self._orig_double_value = self.__class__.value()
+        self._instance_double_value = double
+        self._orig_half_value = self.__class__.value()
+        self._instance_half_value = half
+
+    def __enter__(self,):
+        self.__class__._set_value(self._instance_float_value, self._instance_double_value, self._instance_half_value)
+
+    def __exit__(self, *args):
+        self.__class__._set_value(self._orig_float_value, self._orig_double_value, self._orig_half_value)
         return False
 
 
@@ -336,6 +381,17 @@ class max_cg_iterations(_value_context):
     """
 
     _global_value = 1000
+
+
+class min_variance(_dtype_value_context):
+    """
+    The minimum variance that can be returned from :obj:`~gpytorch.distributions.MultivariateNormal#variance`
+    (default 1e-6). If variances are smaller than this, they are rounded up and a warning is raised.
+    """
+
+    _global_float_value = 1e-6
+    _global_double_value = 1e-10
+    _global_half_value = 1e-3
 
 
 class cholesky_jitter(_value_context):
