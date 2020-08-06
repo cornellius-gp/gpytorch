@@ -153,8 +153,10 @@ def _is_valid_correlation_matrix(Sigma, tol=1e-6):
             mode, all matrices in the batch need to be valid correlation matrices)
 
     """
-    pdef = torch.all(constraints.positive_definite.check(Sigma))
-    return pdef and all(torch.all(torch.abs(S.diag() - 1) < tol) for S in Sigma.view(-1, *Sigma.shape[-2:]))
+    evals, _ = torch.symeig(Sigma, eigenvectors=False)
+    if not torch.all(evals >= 0):
+        return False
+    return all(torch.all(torch.abs(S.diag() - 1) < tol) for S in Sigma.view(-1, *Sigma.shape[-2:]))
 
 
 def _is_valid_correlation_matrix_cholesky_factor(L, tol=1e-6):
