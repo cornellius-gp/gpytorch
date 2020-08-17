@@ -59,18 +59,6 @@ class RootLazyTensor(LazyTensor):
         # Matrix is symmetric
         return self._matmul(rhs)
 
-    def _quad_form_derivative(self, left_vecs, right_vecs):
-        right_vecs_times_rhs = self.root._t_matmul(right_vecs)
-        left_vecs_times_lhs_t = self.root._t_matmul(left_vecs)
-
-        deriv_part_1 = self.root._quad_form_derivative(left_vecs, right_vecs_times_rhs)
-        deriv_part_2 = self.root._quad_form_derivative(right_vecs, left_vecs_times_lhs_t)
-
-        deriv = []
-        for item_part_1, item_part_2 in zip(deriv_part_1, deriv_part_2):
-            deriv.append(item_part_1 + item_part_2)
-        return tuple(deriv)
-
     def root_decomposition(self):
         return self
 
