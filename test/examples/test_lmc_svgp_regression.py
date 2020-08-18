@@ -122,10 +122,10 @@ class TestIndependentMultitaskGPRegression(unittest.TestCase):
             mean_abs_error2 = torch.mean(torch.abs(train_y[..., 1] - preds2))
             mean_abs_error3 = torch.mean(torch.abs(train_y[..., 2] - preds3))
             mean_abs_error4 = torch.mean(torch.abs(train_y[..., 3] - preds4))
-            self.assertLess(mean_abs_error1.squeeze().item(), 0.1)
-            self.assertLess(mean_abs_error2.squeeze().item(), 0.1)
-            self.assertLess(mean_abs_error3.squeeze().item(), 0.1)
-            self.assertLess(mean_abs_error4.squeeze().item(), 0.1)
+            self.assertLess(mean_abs_error1.squeeze().item(), 0.15)
+            self.assertLess(mean_abs_error2.squeeze().item(), 0.15)
+            self.assertLess(mean_abs_error3.squeeze().item(), 0.15)
+            self.assertLess(mean_abs_error4.squeeze().item(), 0.15)
 
             # Smoke test for getting predictive uncertainties
             lower, upper = batch_predictions.confidence_region()

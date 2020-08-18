@@ -5,7 +5,7 @@ import unittest
 import torch
 
 from gpytorch.lazy import InterpolatedLazyTensor, NonLazyTensor
-from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
+from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase, RectangularLazyTensorTestCase
 
 
 class TestInterpolatedLazyTensor(LazyTensorTestCase, unittest.TestCase):
@@ -145,7 +145,7 @@ def empty_method(self):
     pass
 
 
-class TestInterpolatedLazyTensorRectangular(LazyTensorTestCase, unittest.TestCase):
+class TestInterpolatedLazyTensorRectangular(RectangularLazyTensorTestCase, unittest.TestCase):
     def create_lazy_tensor(self):
         itplzt = InterpolatedLazyTensor(NonLazyTensor(torch.rand(3, 4)))
         return itplzt
@@ -172,6 +172,8 @@ class TestInterpolatedLazyTensorRectangular(LazyTensorTestCase, unittest.TestCas
     test_root_inv_decomposition = empty_method
     test_sqrt_inv_matmul = empty_method
     test_sqrt_inv_matmul_no_lhs = empty_method
+    test_symeig = empty_method
+    test_svd = empty_method
 
 
 if __name__ == "__main__":

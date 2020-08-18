@@ -8,7 +8,9 @@ class _PyroMixin(object):
     def pyro_guide(self, input, beta=1.0, name_prefix=""):
         # Inducing values q(u)
         with pyro.poutine.scale(scale=beta):
-            pyro.sample(name_prefix + ".u", self.variational_strategy.variational_distribution)
+            variational_distribution = self.variational_strategy.variational_distribution
+            variational_distribution = variational_distribution.to_event(len(variational_distribution.batch_shape))
+            pyro.sample(name_prefix + ".u", variational_distribution)
 
         # Draw samples from q(f)
         function_dist = self(input, prior=False)
@@ -20,12 +22,14 @@ class _PyroMixin(object):
     def pyro_model(self, input, beta=1.0, name_prefix=""):
         # Inducing values p(u)
         with pyro.poutine.scale(scale=beta):
-            u_samples = pyro.sample(self.name_prefix + ".u", self.variational_strategy.prior_distribution)
+            prior_distribution = self.variational_strategy.prior_distribution
+            prior_distribution = prior_distribution.to_event(len(prior_distribution.batch_shape))
+            u_samples = pyro.sample(name_prefix + ".u", prior_distribution)
 
         # Include term for GPyTorch priors
         log_prior = torch.tensor(0.0, dtype=u_samples.dtype, device=u_samples.device)
         for _, prior, closure, _ in self.named_priors():
-            log_prior.add_(prior.log_prob(closure()).sum().div(self.num_data))
+            log_prior.add_(prior.log_prob(closure()).sum())
         pyro.factor(name_prefix + ".log_prior", log_prior)
 
         # Include factor for added loss terms

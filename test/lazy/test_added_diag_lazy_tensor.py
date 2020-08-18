@@ -75,7 +75,7 @@ class TestAddedDiagLazyTensorPrecondOverride(unittest.TestCase):
         diag = torch.abs(torch.randn(1000))
 
         standard_lt = AddedDiagLazyTensor(RootLazyTensor(tensor), DiagLazyTensor(diag))
-        evals, evecs = torch.symeig(standard_lt.evaluate(), eigenvectors=True)
+        evals, evecs = standard_lt.symeig(eigenvectors=True)
 
         # this preconditioner is a simple example of near deflation
         def nonstandard_preconditioner(self):

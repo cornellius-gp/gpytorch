@@ -13,10 +13,12 @@ from .non_lazy_tensor import NonLazyTensor, lazify
 class RootLazyTensor(LazyTensor):
     def __init__(self, root):
         root = lazify(root)
-        super(RootLazyTensor, self).__init__(root)
+        super().__init__(root)
         self.root = root
 
     def _expand_batch(self, batch_shape):
+        if len(batch_shape) == 0:
+            return self
         return self.__class__(self.root._expand_batch(batch_shape))
 
     def _get_indices(self, row_index, col_index, *batch_indices):
@@ -57,17 +59,8 @@ class RootLazyTensor(LazyTensor):
         # Matrix is symmetric
         return self._matmul(rhs)
 
-    def _quad_form_derivative(self, left_vecs, right_vecs):
-        right_vecs_times_rhs = self.root._t_matmul(right_vecs)
-        left_vecs_times_lhs_t = self.root._t_matmul(left_vecs)
-
-        deriv_part_1 = self.root._quad_form_derivative(left_vecs, right_vecs_times_rhs)
-        deriv_part_2 = self.root._quad_form_derivative(right_vecs, left_vecs_times_lhs_t)
-
-        deriv = []
-        for item_part_1, item_part_2 in zip(deriv_part_1, deriv_part_2):
-            deriv.append(item_part_1 + item_part_2)
-        return tuple(deriv)
+    def root_decomposition(self):
+        return self
 
     def _root_decomposition(self):
         return self.root
@@ -85,7 +78,7 @@ class RootLazyTensor(LazyTensor):
         if isinstance(self.root, NonLazyTensor):
             return (self.root.tensor ** 2).sum(-1)
         else:
-            return super(RootLazyTensor, self).diag()
+            return super().diag()
 
     @cached
     def evaluate(self):

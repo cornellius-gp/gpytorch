@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 
 
+class CachingError(RuntimeError):
+    pass
+
+
 class NanError(RuntimeError):
     pass
 
 
-__all__ = ["NanError"]
+class NotPSDError(RuntimeError):
+    pass
+
+
+__all__ = ["CachingError", "NanError", "NotPSDError"]
