@@ -15,6 +15,7 @@ from ..lazy import (
     MatmulLazyTensor,
     PsdSumLazyTensor,
     RootLazyTensor,
+    TriangularLazyTensor,
 )
 from ..module import Module
 from ..utils.memoize import add_to_cache, cached, clear_cache_hook
@@ -137,7 +138,7 @@ class WhitenedVariationalStrategy(UnwhitenedVariationalStrategy):
             # If we're less than a certain size, we'll compute the Cholesky decomposition of induc_induc_covar
             cholesky = False
             if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
-                induc_induc_covar = CholLazyTensor(induc_induc_covar.cholesky())
+                induc_induc_covar = CholLazyTensor(TriangularLazyTensor(induc_induc_covar.cholesky()))
                 cholesky = True
 
             # Cache the CG results
