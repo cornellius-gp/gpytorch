@@ -26,6 +26,7 @@ from .rbf_kernel_grad import RBFKernelGrad
 from .rff_kernel import RFFKernel
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
+from .spectral_delta_kernel import SpectralDeltaKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 
 __all__ = [
@@ -58,5 +59,6 @@ __all__ = [
     "RBFKernelGrad",
     "RQKernel",
     "ScaleKernel",
+    "SpectralDeltaKernel",
     "SpectralMixtureKernel",
 ]

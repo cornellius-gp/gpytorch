@@ -77,6 +77,12 @@ Standard Kernels
 .. autoclass:: RQKernel
    :members:
 
+:hidden:`SpectralDeltaKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: SpectralDeltaKernel
+   :members:
+
 :hidden:`SpectralMixtureKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

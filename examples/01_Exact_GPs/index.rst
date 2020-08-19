@@ -16,6 +16,7 @@ All examples here use exact GP inference.
    :hidden:
 
    Simple_GP_Regression.ipynb
+   Spectral_Delta_GP_Regression.ipynb
    Spectral_Mixture_GP_Regression.ipynb
    GP_Regression_Fully_Bayesian.ipynb
    GP_Regression_DistributionalKernel.ipynb
