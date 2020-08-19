@@ -1329,7 +1329,6 @@ class LazyTensor(ABC):
         low-rank version of a matrix
         """
         from .chol_lazy_tensor import CholLazyTensor
-        from .triangular_lazy_tensor import TriangularLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
         if not self.is_square:

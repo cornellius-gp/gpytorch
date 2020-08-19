@@ -3,8 +3,8 @@ import torch
 from ..distributions import MultivariateNormal
 from ..lazy import CholLazyTensor, TriangularLazyTensor
 from .natural_variational_distribution import (
-    _NaturalVariationalDistribution,
     _NaturalToMuVarSqrt,
+    _NaturalVariationalDistribution,
     _phi_for_cholesky_,
     _triangular_inverse,
 )
