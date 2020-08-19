@@ -154,7 +154,7 @@ def _is_valid_correlation_matrix(Sigma, tol=1e-6):
 
     """
     evals, _ = torch.symeig(Sigma, eigenvectors=False)
-    if not torch.all(evals >= 0):
+    if not torch.all(evals >= -tol):
         return False
     return all(torch.all(torch.abs(S.diag() - 1) < tol) for S in Sigma.view(-1, *Sigma.shape[-2:]))
 
