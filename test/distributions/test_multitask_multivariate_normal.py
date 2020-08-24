@@ -203,7 +203,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
 
     def test_multitask_from_batch(self):
         mean = torch.randn(2, 3)
-        variance = torch.randn(2, 3)
+        variance = torch.randn(2, 3).clamp_min(1e-6)
         mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
         mmvn = MultitaskMultivariateNormal.from_batch_mvn(mvn, task_dim=-1)
         self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))
@@ -214,7 +214,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
         self.assertEqual(mmvn.variance, variance.transpose(-1, -2))
 
         mean = torch.randn(2, 4, 3)
-        variance = torch.randn(2, 4, 3)
+        variance = torch.randn(2, 4, 3).clamp_min(1e-6)
         mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
         mmvn = MultitaskMultivariateNormal.from_batch_mvn(mvn, task_dim=0)
         self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))
@@ -226,7 +226,7 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
 
     def test_multitask_from_repeat(self):
         mean = torch.randn(2, 3)
-        variance = torch.randn(2, 3)
+        variance = torch.randn(2, 3).clamp_min(1e-6)
         mvn = MultivariateNormal(mean, DiagLazyTensor(variance))
         mmvn = MultitaskMultivariateNormal.from_repeated_mvn(mvn, num_tasks=4)
         self.assertTrue(isinstance(mmvn, MultitaskMultivariateNormal))

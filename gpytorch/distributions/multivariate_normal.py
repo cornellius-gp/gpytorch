@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import warnings
 
 import torch
 from torch.distributions import MultivariateNormal as TMultivariateNormal
@@ -202,14 +203,31 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         return base_distributions.Normal(self.mean, self.stddev)
 
     @property
+    def stddev(self):
+        # self.variance is guaranteed to be positive, because we do clamping.
+        return self.variance.sqrt()
+
+    @property
     def variance(self):
         if self.islazy:
             # overwrite this since torch MVN uses unbroadcasted_scale_tril for this
             diag = self.lazy_covariance_matrix.diag()
             diag = diag.view(diag.shape[:-1] + self._event_shape)
-            return diag.expand(self._batch_shape + self._event_shape)
+            variance = diag.expand(self._batch_shape + self._event_shape)
         else:
-            return super().variance
+            variance = super().variance
+
+        # Check to make sure that variance isn't lower than minimum allowed value (default 1e-6).
+        # This ensures that all variances are positive
+        min_variance = settings.min_variance.value(variance.dtype)
+        if variance.lt(min_variance).any():
+            warnings.warn(
+                f"Negative variance values detected. "
+                "This is likely due to numerical instabilities. "
+                f"Rounding negative variances up to {min_variance}."
+            )
+            variance = variance.clamp_min(min_variance)
+        return variance
 
     def __add__(self, other):
         if isinstance(other, MultivariateNormal):
