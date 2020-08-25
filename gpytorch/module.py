@@ -138,9 +138,12 @@ class Module(nn.Module):
         return _extract_named_added_loss_terms(module=self, memo=None, prefix="")
 
     def named_hyperparameters(self):
-        for name, param in self.named_parameters():
-            if "variational_" not in name:
-                yield name, param
+        from .variational._variational_distribution import _VariationalDistribution
+
+        for module_prefix, module in self.named_modules():
+            if not isinstance(module, _VariationalDistribution):
+                for elem in module.named_parameters(prefix=module_prefix, recurse=False):
+                    yield elem
 
     def named_priors(self, memo=None, prefix=""):
         """Returns an iterator over the module's priors, yielding the name of the prior,
@@ -159,9 +162,12 @@ class Module(nn.Module):
         return _extract_named_constraints(module=self, memo=None, prefix="")
 
     def named_variational_parameters(self):
-        for name, param in self.named_parameters():
-            if "variational_" in name:
-                yield name, param
+        from .variational._variational_distribution import _VariationalDistribution
+
+        for module_prefix, module in self.named_modules():
+            if isinstance(module, _VariationalDistribution):
+                for elem in module.named_parameters(prefix=module_prefix, recurse=False):
+                    yield elem
 
     def register_added_loss_term(self, name):
         self._added_loss_terms[name] = None

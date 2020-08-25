@@ -35,6 +35,7 @@ GPyTorch's documentation
    distributions
    priors
    variational
+   optim
 
 .. toctree::
    :maxdepth: 1

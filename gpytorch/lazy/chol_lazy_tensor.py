@@ -45,7 +45,7 @@ class CholLazyTensor(RootLazyTensor):
     @cached
     def inverse(self):
         Linv = self.root.inverse()  # this could be slow in some cases w/ structured lazies
-        return CholLazyTensor(Linv, upper=not self.upper)
+        return CholLazyTensor(TriangularLazyTensor(Linv, upper=not self.upper), upper=not self.upper)
 
     def inv_matmul(self, right_tensor, left_tensor=None):
         is_vector = right_tensor.ndim == 1

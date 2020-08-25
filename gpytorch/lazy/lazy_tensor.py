@@ -1017,8 +1017,9 @@ class LazyTensor(ABC):
         # Special case: use Cholesky to compute these terms
         if settings.fast_computations.log_prob.off() or (self.size(-1) <= settings.max_cholesky_size.value()):
             from .chol_lazy_tensor import CholLazyTensor
+            from .triangular_lazy_tensor import TriangularLazyTensor
 
-            cholesky = CholLazyTensor(self.cholesky())
+            cholesky = CholLazyTensor(TriangularLazyTensor(self.cholesky()))
             return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
 
         # Default: use modified batch conjugate gradients to compute these terms

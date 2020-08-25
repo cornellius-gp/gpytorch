@@ -23,6 +23,7 @@ The variational documentation has more information on how to use these objects.
 Here we provide some examples which highlight some of the common use cases:
 
 - **Large-scale regression** (when exact methods are too memory intensive): see the `stochastic variational regression example`_.
+- **Variational inference with natural gradient descent** (for faster/better optimization): see the `ngd example`_.
 - **Variational distribution options** for different scalability/expressiveness: see the `strategy/distribution comparison`_.
 - **Alternative optimization objectives** for the GP's predictive distribution: see the `approximate GP objective functions notebook`_.
   This example compares and contrasts the variational ELBO with the predictive log likelihood of Jankowiak et al., 2020.
@@ -36,6 +37,7 @@ Here we provide some examples which highlight some of the common use cases:
 
    SVGP_Regression_CUDA.ipynb
    Modifying_the_variational_strategy_and_distribution.ipynb
+   Natural_Gradient_Descent.ipynb
    Approximate_GP_Objective_Functions.ipynb
    Non_Gaussian_Likelihoods.ipynb
    SVGP_Multitask_GP_Regression.ipynb
@@ -46,6 +48,9 @@ Here we provide some examples which highlight some of the common use cases:
 
 .. _stochastic variational regression example:
   ./SVGP_Regression_CUDA.ipynb
+
+.. _ngd example:
+  ./Natural_Gradient_Descent.ipynb
 
 .. _approximate GP objective functions notebook:
   ./Approximate_GP_Objective_Functions.ipynb

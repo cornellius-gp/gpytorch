@@ -24,7 +24,7 @@ class _VariationalDistribution(Module, ABC):
         Constructs and returns the variational distribution
 
         :rtype: :obj:`~gpytorch.distributions.MultivariateNormal`
-        :return: The distribution :math:q(\mathbf u)"
+        :return: The distribution :math:`q(\mathbf u)`
         """
         raise NotImplementedError
 
@@ -33,7 +33,7 @@ class _VariationalDistribution(Module, ABC):
         r"""
         Method for initializing the variational distribution, based on the prior distribution.
 
-        :param ~gpytorch.distribution.Distribution prior_dist: The prior distribution :math:`p(\mathbf u)`.
+        :param ~gpytorch.distributions.Distribution prior_dist: The prior distribution :math:`p(\mathbf u)`.
         """
         raise NotImplementedError
 
