@@ -22,7 +22,7 @@ class NaturalVariationalDistribution(_NaturalVariationalDistribution):
 
     .. note::
        The :obj:`~gpytorch.variational.NaturalVariationalDistribution` can only
-       be used with :obj:`~torch.optim.SGD`, or other optimizers
+       be used with :obj:`gpytorch.optim.NGD`, or other optimizers
        that follow exactly the gradient direction. Failure to do so will cause
        the natural matrix :math:`\mathbf \Theta_\text{mat}` to stop being
        positive definite, and a :obj:`~RuntimeError` will be raised.
@@ -100,7 +100,7 @@ class _NaturalToMuVarSqrt(torch.autograd.Function):
             if str(e).startswith("cholesky"):
                 raise RuntimeError(
                     "Non-negative-definite natural covariance. You probably "
-                    "updated it using an optimizer other than SGD (such as Adam). "
+                    "updated it using an optimizer other than gpytorch.optim.NGD (such as Adam). "
                     "This is not supported."
                 )
             else:

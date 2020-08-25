@@ -17,7 +17,7 @@ class TrilNaturalVariationalDistribution(_NaturalVariationalDistribution):
 
     .. note::
        The :obj:`~gpytorch.variational.TrilNaturalVariationalDistribution` should only
-       be used with :obj:`~torch.optim.SGD`, or other optimizers
+       be used with :obj:`gpytorch.optim.NGD`, or other optimizers
        that follow exactly the gradient direction.
 
     .. seealso::
