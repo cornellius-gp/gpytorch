@@ -95,7 +95,7 @@ GPyTorch is primarily maintained by:
 - [Jake Gardner](http://github.com/jacobrgardner) (Uber AI Labs)
 - [Geoff Pleiss](http://github.com/gpleiss) (Cornell University)
 - [Kilian Weinberger](http://kilian.cs.cornell.edu/) (Cornell University)
-- [Andrew Gordon Wilson](https://people.orie.cornell.edu/andrew/) (Cornell University)
+- [Andrew Gordon Wilson](https://cims.nyu.edu/~andrewgw/) (New York University)
 - [Max Balandat](https://research.fb.com/people/balandat-max/) (Facebook)
 
 <img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
