@@ -92,10 +92,10 @@ From then on, this will automatically run flake8, isort, black and other tools o
 ## The Team
 
 GPyTorch is primarily maintained by:
-- [Jake Gardner](http://github.com/jacobrgardner) (Uber AI Labs)
-- [Geoff Pleiss](http://github.com/gpleiss) (Cornell University)
+- [Jake Gardner](https://www.cis.upenn.edu/~jacobrg/index.html) (University of Pennsylvania)
+- [Geoff Pleiss](http://github.com/gpleiss) (Columbia University)
 - [Kilian Weinberger](http://kilian.cs.cornell.edu/) (Cornell University)
-- [Andrew Gordon Wilson](https://people.orie.cornell.edu/andrew/) (Cornell University)
+- [Andrew Gordon Wilson](https://cims.nyu.edu/~andrewgw/) (New York University)
 - [Max Balandat](https://research.fb.com/people/balandat-max/) (Facebook)
 
 <img width="300" src=https://brand.cornell.edu/assets/images/downloads/logos/cornell_logo_simple/cornell_logo_simple.svg alt="Cornell Logo" />
