@@ -56,7 +56,7 @@ class Interpolation(object):
         lt_min_mask = (x_target_min - grid_mins).lt(-1e-7)
         gt_max_mask = (x_target_max - grid_maxs).gt(1e-7)
         if lt_min_mask.sum().item():
-            first_out_of_range = lt_min_mask.nonzero().squeeze(1)[0].item()
+            first_out_of_range = lt_min_mask.nonzero(as_tuple=False).squeeze(1)[0].item()
             raise RuntimeError(
                 (
                     "Received data that was out of bounds for the specified grid. "
@@ -70,7 +70,7 @@ class Interpolation(object):
                 )
             )
         if gt_max_mask.sum().item():
-            first_out_of_range = gt_max_mask.nonzero().squeeze(1)[0].item()
+            first_out_of_range = gt_max_mask.nonzero(as_tuple=False).squeeze(1)[0].item()
             raise RuntimeError(
                 (
                     "Received data that was out of bounds for the specified grid. "
@@ -116,7 +116,7 @@ class Interpolation(object):
 
             # Find points who's closest lower grid point is the first grid point
             # This corresponds to a boundary condition that we must fix manually.
-            left_boundary_pts = (lower_grid_pt_idxs < 0).nonzero()
+            left_boundary_pts = (lower_grid_pt_idxs < 0).nonzero(as_tuple=False)
             num_left = len(left_boundary_pts)
 
             if num_left > 0:
@@ -132,7 +132,7 @@ class Interpolation(object):
                     dim_interp_values[left_boundary_pts[j], closest_from_first[j]] = 1
                     lower_grid_pt_idxs[left_boundary_pts[j]] = 0
 
-            right_boundary_pts = (lower_grid_pt_idxs > num_grid_points - num_coefficients).nonzero()
+            right_boundary_pts = (lower_grid_pt_idxs > num_grid_points - num_coefficients).nonzero(as_tuple=False)
             num_right = len(right_boundary_pts)
 
             if num_right > 0:

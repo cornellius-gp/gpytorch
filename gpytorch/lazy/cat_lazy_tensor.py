@@ -159,7 +159,7 @@ class CatLazyTensor(LazyTensor):
         lazy_tensors = [self.lazy_tensors[idx] for idx in lazy_tensor_indices]
 
         # Get the new set of indices for each of the LazyTensors
-        switch_tensor = does_switch_tensor.nonzero().squeeze(-1)
+        switch_tensor = does_switch_tensor.nonzero(as_tuple=False).squeeze(-1)
         split_sizes = (switch_tensor[1:] - switch_tensor[:-1]).tolist()
         sub_indices = zip(
             *[
@@ -212,7 +212,7 @@ class CatLazyTensor(LazyTensor):
             lazy_tensors = [self.lazy_tensors[idx] for idx in lazy_tensor_indices]
 
             # Get the new set of indices for each of the LazyTensors
-            switch_tensor = does_switch_tensor.nonzero().squeeze(-1)
+            switch_tensor = does_switch_tensor.nonzero(as_tuple=False).squeeze(-1)
             split_sizes = (switch_tensor[1:] - switch_tensor[:-1]).tolist()
             sub_indices = zip(
                 *[
