@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+import warnings
 from math import exp, pi
 
 import gpytorch
@@ -100,6 +101,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
         )
 
     def test_posterior_latent_gp_and_likelihood_without_optimization(self, cuda=False):
+        warnings.simplefilter("ignore", gpytorch.utils.warnings.NumericalWarning)
         train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
         # We're manually going to set the hyperparameters to be ridiculous
         likelihood = GaussianLikelihood(noise_constraint=Positive())  # This test actually wants a noise < 1e-4

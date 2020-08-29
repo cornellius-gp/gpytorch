@@ -11,6 +11,7 @@ from torch.distributions.utils import _standard_normal, lazy_property
 from .. import settings
 from ..lazy import DiagLazyTensor, LazyTensor, delazify, lazify
 from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.warnings import NumericalWarning
 from .distribution import Distribution
 
 
@@ -224,7 +225,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             warnings.warn(
                 f"Negative variance values detected. "
                 "This is likely due to numerical instabilities. "
-                f"Rounding negative variances up to {min_variance}."
+                f"Rounding negative variances up to {min_variance}.",
+                NumericalWarning,
             )
             variance = variance.clamp_min(min_variance)
         return variance
