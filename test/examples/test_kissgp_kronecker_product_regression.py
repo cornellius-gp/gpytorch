@@ -75,7 +75,7 @@ class TestKISSGPKroneckerProductRegression(unittest.TestCase):
         likelihood.train()
 
         with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.use_toeplitz(True):
-            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+            optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
             optimizer.n_iter = 0
             for _ in range(8):
                 optimizer.zero_grad()
@@ -86,9 +86,6 @@ class TestKISSGPKroneckerProductRegression(unittest.TestCase):
                 optimizer.step()
 
             for param in gp_model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
 

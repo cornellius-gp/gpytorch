@@ -81,7 +81,7 @@ class TestGridGPRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
         optimizer.n_iter = 0
         with gpytorch.settings.debug(True):
             for _ in range(20):
@@ -93,9 +93,6 @@ class TestGridGPRegression(unittest.TestCase):
                 optimizer.step()
 
             for name, param in gp_model.named_parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
 

@@ -230,7 +230,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.15)
         with gpytorch.beta_features.checkpoint_kernel(checkpoint), gpytorch.settings.fast_pred_var():
             for _ in range(20 if checkpoint else 50):
                 optimizer.zero_grad()
@@ -240,9 +240,6 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
                 optimizer.step()
 
             for param in gp_model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
             optimizer.step()
@@ -281,7 +278,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.15)
         for _ in range(50):
             optimizer.zero_grad()
             with gpytorch.settings.debug(False):
@@ -291,9 +288,6 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
             optimizer.step()
 
         for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
         optimizer.step()
@@ -350,7 +344,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.15)
         for _ in range(50):
             optimizer.zero_grad()
             with gpytorch.settings.debug(False):
@@ -360,9 +354,6 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
             optimizer.step()
 
         for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
         optimizer.step()
@@ -421,7 +412,7 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
             # Find optimal model hyperparameters
             gp_model.train()
             likelihood.train()
-            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+            optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
             for _ in range(50):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
@@ -430,9 +421,6 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
                 optimizer.step()
 
             for param in gp_model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
             optimizer.step()
