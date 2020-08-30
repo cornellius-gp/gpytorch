@@ -16,7 +16,9 @@ requirements:
     - python>=3.6
 
   run:
-    - pytorch>=1.5
+    - pytorch>=1.6
+    - scikit-learn
+    - scipy
 
 test:
   imports:
