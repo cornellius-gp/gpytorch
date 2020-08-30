@@ -87,9 +87,6 @@ class TestSGPRRegression(unittest.TestCase):
         for param in gp_model.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
 
         # Test the model
         gp_model.eval()
@@ -124,9 +121,6 @@ class TestSGPRRegression(unittest.TestCase):
         for param in gp_model.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
 
         # Test the model
         gp_model.eval()
@@ -159,7 +153,7 @@ class TestSGPRRegression(unittest.TestCase):
             gp_model.train()
             likelihood.train()
 
-            optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+            optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
             optimizer.n_iter = 0
             for _ in range(25):
                 optimizer.zero_grad()
@@ -170,9 +164,6 @@ class TestSGPRRegression(unittest.TestCase):
                 optimizer.step()
 
             for param in gp_model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
 

@@ -78,10 +78,6 @@ class TestKISSGPClassification(unittest.TestCase):
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
 
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-
         # Set back to eval mode
         model.eval()
         likelihood.eval()

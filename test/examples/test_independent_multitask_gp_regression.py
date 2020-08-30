@@ -76,9 +76,6 @@ class TestIndependentMultitaskGPRegression(unittest.TestCase):
             for param in gp_model.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
 
         # Test the model
         gp_model.eval()

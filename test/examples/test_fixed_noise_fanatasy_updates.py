@@ -65,7 +65,7 @@ class TestFixedNoiseFantasies(BaseTestCase, unittest.TestCase):
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.15)
         for _ in range(50):
             optimizer.zero_grad()
             with gpytorch.settings.debug(False):
@@ -134,7 +134,7 @@ class TestFixedNoiseFantasies(BaseTestCase, unittest.TestCase):
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.15)
         for _ in range(50):
             optimizer.zero_grad()
             with gpytorch.settings.debug(False):

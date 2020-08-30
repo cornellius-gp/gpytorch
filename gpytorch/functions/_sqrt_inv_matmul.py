@@ -60,7 +60,7 @@ class SqrtInvMatmul(Function):
                 # lhs_grad term from sqrt_inv_matmul
                 lhs_grad = weighted_rhs_solves_mul_grad.transpose(-1, -2).sum(0)
                 # lhs_grad term from inv_quad
-                lhs_grad.add_(2, neg_inv_quad_solves_mul_grad.transpose(-1, -2))
+                lhs_grad.add_(neg_inv_quad_solves_mul_grad.transpose(-1, -2), alpha=2)
 
             # Compute rhs grad
             if ctx.needs_input_grad[1]:

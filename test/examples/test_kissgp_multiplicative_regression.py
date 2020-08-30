@@ -75,7 +75,7 @@ class TestKISSGPMultiplicativeRegression(unittest.TestCase):
         gp_model.train()
         likelihood.train()
 
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.2)
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.2)
         optimizer.n_iter = 0
         for _ in range(15):
             optimizer.zero_grad()
@@ -85,9 +85,6 @@ class TestKISSGPMultiplicativeRegression(unittest.TestCase):
             optimizer.n_iter += 1
 
             for param in gp_model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
             optimizer.step()

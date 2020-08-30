@@ -77,7 +77,7 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
         # Find optimal model hyperparameters
         gp_model.train()
         likelihood.train()
-        optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.1)
+        optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
         optimizer.n_iter = 0
         gp_model.train()
         likelihood.train()
@@ -90,9 +90,6 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
             optimizer.step()
 
             for param in gp_model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
 
@@ -133,9 +130,6 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
             for param in gp_model.parameters():
                 self.assertTrue(param.grad is not None)
                 self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
 
         # Test the model
         gp_model.eval()
@@ -172,9 +166,6 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
             optimizer.step()
 
         for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
 

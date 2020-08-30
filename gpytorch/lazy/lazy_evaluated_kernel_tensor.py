@@ -160,11 +160,11 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         x2 = self.x2.detach().requires_grad_(True)
 
         # Break objects into chunks
-        sub_x1s = torch.split(x1, split_size, dim=-2)
+        sub_x1s = [sub_x1.detach() for sub_x1 in torch.split(x1, split_size, dim=-2)]
         sub_left_vecss = torch.split(left_vecs, split_size, dim=-2)
         # Compute the gradient in chunks
         for sub_x1, sub_left_vecs in zip(sub_x1s, sub_left_vecss):
-            sub_x1.detach_().requires_grad_(True)
+            sub_x1.requires_grad_(True)
             with torch.enable_grad(), settings.lazily_evaluate_kernels(False):
                 sub_kernel_matrix = lazify(
                     self.kernel(sub_x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params)

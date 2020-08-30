@@ -155,7 +155,6 @@ def linear_cg(
         raise RuntimeError("matmul_closure must be a tensor, or a callable object!")
 
     # Get some constants
-    batch_shape = rhs.shape[:-2]
     num_rows = rhs.size(-2)
     n_iter = min(max_iter, num_rows) if settings.terminate_cg_by_size.on() else max_iter
     n_tridiag_iter = min(max_tridiag_iter, num_rows)
@@ -173,6 +172,7 @@ def linear_cg(
 
     # residual: residual_{0} = b_vec - lhs x_{0}
     residual = rhs - matmul_closure(initial_guess)
+    batch_shape = residual.shape[:-2]
 
     # result <- x_{0}
     result = initial_guess.expand_as(residual).contiguous()

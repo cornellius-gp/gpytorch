@@ -44,7 +44,7 @@ def make_sparse_from_indices_and_values(interp_indices, interp_values, num_rows)
 
     # Value tensor
     value_tensor = interp_values.reshape(-1)
-    nonzero_indices = value_tensor.nonzero()
+    nonzero_indices = value_tensor.nonzero(as_tuple=False)
     if nonzero_indices.storage():
         nonzero_indices.squeeze_()
         index_tensor = index_tensor.index_select(1, nonzero_indices)
@@ -244,7 +244,7 @@ def to_sparse(dense):
     """
     """
     mask = dense.ne(0)
-    indices = mask.nonzero()
+    indices = mask.nonzero(as_tuple=False)
     if indices.storage():
         values = dense[mask]
     else:

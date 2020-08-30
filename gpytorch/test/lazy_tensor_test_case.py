@@ -43,7 +43,7 @@ class RectangularLazyTensorTestCase(BaseTestCase):
         res.backward(gradient=grad)
         actual.backward(gradient=grad)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-            if arg_copy.grad is not None:
+            if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-3)
 
     def test_add(self):
@@ -298,7 +298,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 res.backward(gradient=grad)
                 actual.backward(gradient=grad)
                 for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-                    if arg_copy.grad is not None:
+                    if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
                         self.assertAllClose(arg.grad, arg_copy.grad, rtol=0.03, atol=1e-5)
                 self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=0.03, atol=1e-5)
                 if lhs is not None:
@@ -552,7 +552,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=1e-4, atol=1e-3)
         self.assertAllClose(lhs.grad, lhs_copy.grad, rtol=1e-4, atol=1e-3)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-            if arg_copy.grad is not None:
+            if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
 
     def test_sqrt_inv_matmul_no_lhs(self):
@@ -586,7 +586,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         # Check grads
         self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=1e-4, atol=1e-3)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-            if arg_copy.grad is not None:
+            if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
 
     def test_symeig(self):
@@ -629,7 +629,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         # Check grads if there were no repeated evals
         if not any_evals_repeated:
             for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-                if arg_copy.grad is not None:
+                if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
                     self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
 
     def test_svd(self):
@@ -678,5 +678,5 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         # Check grads if there were no repeated singular values
         if not any_svals_repeated:
             for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-                if arg_copy.grad is not None:
+                if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
                     self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
