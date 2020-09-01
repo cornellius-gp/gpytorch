@@ -28,7 +28,7 @@ class TestNatVariational(Float64Test):
 
         out_dist = v_dist()
 
-        assert torch.allclose(out_dist.mean, dist.mean)
+        assert torch.allclose(out_dist.mean, dist.mean, rtol=1e-04, atol=1e-06)
         assert torch.allclose(out_dist.covariance_matrix, dist.covariance_matrix)
 
     def test_natgrad(self, D=5):
