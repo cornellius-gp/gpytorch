@@ -32,6 +32,14 @@ def pop_from_cache(obj, name, *args, **kwargs):
         raise CachingError("Object does not have item {} stored in cache.".format(name))
 
 
+def pop_from_cache_ignore_args(obj, name):
+    """Pop an item from the cache (honoring calling args)."""
+    try:
+        return obj._memoize_cache.pop(name)
+    except (KeyError, AttributeError):
+        raise CachingError("Object does not have item {} stored in cache.".format(name))
+
+
 def clear_cache_hook(module, *args, **kwargs):
     module._memoize_cache = {}
 
