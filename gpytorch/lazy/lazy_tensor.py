@@ -1589,7 +1589,8 @@ class LazyTensor(ABC):
                 contains the orthonormal eigenvectors of the matrix.
         """
         try:
-            return pop_from_cache(self, "symeig", eigenvectors=True)
+            evals, evecs = pop_from_cache(self, "symeig", eigenvectors=True)
+            return evals, None
         except CachingError:
             pass
         return self._symeig(eigenvectors=eigenvectors)
