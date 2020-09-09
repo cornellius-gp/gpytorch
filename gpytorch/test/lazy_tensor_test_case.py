@@ -632,6 +632,10 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
                     self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
 
+        # Test with eigenvectors=False
+        _, evecs = lazy_tensor.symeig(eigenvectors=False)
+        self.assertIsNone(evecs)
+
     def test_svd(self):
         lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
         lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
