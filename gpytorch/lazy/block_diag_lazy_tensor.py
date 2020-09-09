@@ -129,5 +129,8 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         evals, evecs = self.base_lazy_tensor.symeig(eigenvectors=eigenvectors)
         # Doesn't make much sense to sort here, o/w we lose the structure
         evals = evals.reshape(*evals.shape[:-2], evals.shape[-2:].numel())
-        evecs = self.__class__(evecs)  # can assume that block_dim is -3 here
+        if eigenvectors:
+            evecs = self.__class__(evecs)  # can assume that block_dim is -3 here
+        else:
+            evecs = None
         return evals, evecs
