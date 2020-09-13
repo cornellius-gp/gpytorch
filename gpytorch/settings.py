@@ -471,7 +471,7 @@ class max_preconditioner_size(_value_context):
     """
     The maximum size of preconditioner to use. 0 corresponds to turning
     preconditioning off. When enabled, usually a value of around ~10 works fairly well.
-    Default: 0
+    Default: 15
     """
 
     _global_value = 15
