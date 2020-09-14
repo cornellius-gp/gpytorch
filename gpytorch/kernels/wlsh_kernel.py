@@ -38,12 +38,13 @@ class WLSHKernel(Kernel):
 
         # (Maybe) construct hashing distribuiton
         if hash_distribution is None:
-            poisson_rate = torch.full((self.num_dims,), fill_value=5.0)
-            hash_distribution = torch.distributions.Poisson(rate=poisson_rate)
+            concentration = torch.full((self.num_dims,), fill_value=5.0)
+            rate = torch.ones_like(concentration)
+            hash_distribution = torch.distributions.Gamma(concentration=concentration, rate=rate)
         self.hash_distribution = hash_distribution
 
         # Construct hash bins and locations
-        hash_bins_ws = self.hash_distribution.sample(torch.Size([self.num_samples])).unsqueeze(-2).clamp_min(1)
+        hash_bins_ws = self.hash_distribution.sample(torch.Size([self.num_samples])).unsqueeze(-2)
         hash_bins_zs = torch.rand_like(hash_bins_ws).mul(hash_bins_ws)
         self.register_buffer("hash_bins_ws", hash_bins_ws)
         self.register_buffer("hash_bins_zs", hash_bins_zs)
@@ -61,7 +62,7 @@ class WLSHKernel(Kernel):
             torch.where(x.gt(0.375), scalar(-0.5), scalar(-0.25)),
         )
         y_offset = torch.where(x.abs().lt(0.375), scalar(1.0), scalar(0.0))
-        y = (8 * (x + x_offset)) ** 2 * y_sign + y_offset
+        y = ((8 * (x + x_offset)) ** 2 * y_sign + y_offset) / 0.8317
         return y.prod(dim=-1)
 
     def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **kwargs) -> Tensor:
