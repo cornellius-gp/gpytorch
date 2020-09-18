@@ -40,7 +40,7 @@ class WLSHKernel(Kernel):
 
         # (Maybe) construct hashing distribuiton
         if hash_distribution is None:
-            concentration = torch.full((self.num_dims,), fill_value=5.0)
+            concentration = torch.full((self.num_dims,), fill_value=5.0 if smooth else 2.0)
             rate = torch.ones_like(concentration)
             hash_distribution = torch.distributions.Gamma(concentration=concentration, rate=rate)
         self.hash_distribution = hash_distribution
