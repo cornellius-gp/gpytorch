@@ -23,6 +23,7 @@ class WLSHKernel(Kernel):
         num_dims: Optional[int] = None,
         ard_num_dims: int = 1,
         hash_distribution: Optional[Distribution] = None,
+        smooth=True,
         **kwargs,
     ):
         if num_dims is None and ard_num_dims == 1:
@@ -35,6 +36,7 @@ class WLSHKernel(Kernel):
         super().__init__(ard_num_dims=ard_num_dims, **kwargs)
         self.num_samples = num_samples
         self.num_dims = num_dims
+        self.smooth = smooth
 
         # (Maybe) construct hashing distribuiton
         if hash_distribution is None:
@@ -50,19 +52,22 @@ class WLSHKernel(Kernel):
         self.register_buffer("hash_bins_zs", hash_bins_zs)
 
     def _smoothed_rect(self, x):
-        scalar = lambda i: torch.tensor(i, dtype=x.dtype, device=x.device)
-        y_sign = torch.where(
-            x.abs().lt(0.375),
-            torch.where(x.abs().lt(0.25), scalar(0.0), scalar(-0.5)),
-            torch.where(x.abs().gt(0.5), scalar(0.0), scalar(0.5)),
-        )
-        x_offset = torch.where(
-            x.lt(0),
-            torch.where(x.lt(-0.375), scalar(0.5), scalar(0.25)),
-            torch.where(x.gt(0.375), scalar(-0.5), scalar(-0.25)),
-        )
-        y_offset = torch.where(x.abs().lt(0.375), scalar(1.0), scalar(0.0))
-        y = ((8 * (x + x_offset)) ** 2 * y_sign + y_offset) / 0.8317
+        if self.smooth:
+            scalar = lambda i: torch.tensor(i, dtype=x.dtype, device=x.device)
+            y_sign = torch.where(
+                x.abs().lt(0.375),
+                torch.where(x.abs().lt(0.25), scalar(0.0), scalar(-0.5)),
+                torch.where(x.abs().gt(0.5), scalar(0.0), scalar(0.5)),
+            )
+            x_offset = torch.where(
+                x.lt(0),
+                torch.where(x.lt(-0.375), scalar(0.5), scalar(0.25)),
+                torch.where(x.gt(0.375), scalar(-0.5), scalar(-0.25)),
+            )
+            y_offset = torch.where(x.abs().lt(0.375), scalar(1.0), scalar(0.0))
+            y = ((8 * (x + x_offset)) ** 2 * y_sign + y_offset)
+        else: # use rect
+            y = ((x > -0.5) & (x < 0.5)).type_as(x)  # not actually necessary since arg always in domain i think
         return y.prod(dim=-1)
 
     def forward(self, x1: Tensor, x2: Tensor, diag: bool = False, last_dim_is_batch: bool = False, **kwargs) -> Tensor:
@@ -116,7 +121,3 @@ class WLSHKernel(Kernel):
         if diag:
             return res.diag()
         return res
-
-    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        # Allow for fast sampling
-        return RFFPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
