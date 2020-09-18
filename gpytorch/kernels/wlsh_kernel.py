@@ -7,7 +7,6 @@ from torch import Tensor
 
 from ..distributions import Distribution
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor
-from ..models.exact_prediction_strategies import RFFPredictionStrategy
 from .kernel import Kernel
 
 
@@ -65,8 +64,8 @@ class WLSHKernel(Kernel):
                 torch.where(x.gt(0.375), scalar(-0.5), scalar(-0.25)),
             )
             y_offset = torch.where(x.abs().lt(0.375), scalar(1.0), scalar(0.0))
-            y = ((8 * (x + x_offset)) ** 2 * y_sign + y_offset)
-        else: # use rect
+            y = (8 * (x + x_offset)) ** 2 * y_sign + y_offset
+        else:  # use rect
             y = ((x > -0.5) & (x < 0.5)).type_as(x)  # not actually necessary since arg always in domain i think
         return y.prod(dim=-1)
 
@@ -91,7 +90,10 @@ class WLSHKernel(Kernel):
         with torch.no_grad():
             flattened_hash_ids1 = hash_ids1.view(-1, *hash_ids1.shape[-2:])
             flattened_hash_bins1 = torch.stack(
-                [torch.unique(hash_ids, sorted=False, return_inverse=True)[1] for hash_ids in flattened_hash_ids1]
+                [
+                    torch.unique(hash_ids, sorted=False, return_inverse=True, dim=-2)[1]
+                    for hash_ids in flattened_hash_ids1
+                ]
             )
             hash_bins1 = flattened_hash_bins1.view(*flattened_hash_ids1.shape[:-1])
             if x1_eq_x2:
@@ -99,7 +101,10 @@ class WLSHKernel(Kernel):
             else:
                 flattened_hash_ids2 = hash_ids2.view(-1, *hash_ids2.shape[-2:])
                 flattened_hash_bins2 = torch.stack(
-                    [torch.unique(hash_ids, sorted=False, return_inverse=True)[1] for hash_ids in flattened_hash_ids2]
+                    [
+                        torch.unique(hash_ids, sorted=False, return_inverse=True, dim=-2)[1]
+                        for hash_ids in flattened_hash_ids2
+                    ]
                 )
                 hash_bins2 = flattened_hash_bins2.view(*flattened_hash_ids2.shape[:-1])
 
