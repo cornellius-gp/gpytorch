@@ -128,9 +128,10 @@ class TestZeroLazyTensor(unittest.TestCase):
         product = zero.matmul(lazy_square)
         self.assertTrue(approx_equal(product, actual))
 
-        tensor_square = torch.eye(3).repeat(5, 1, 1)
+        tensor_square = torch.eye(3, dtype=int).repeat(5, 1, 1)
         product = zero._matmul(tensor_square)
         self.assertTrue(approx_equal(product, actual))
+        self.assertEqual(product.dtype, tensor_square.dtype)
 
         tensor_square = torch.eye(4).repeat(5, 1, 1)
         actual = torch.zeros(5, 3, 4)

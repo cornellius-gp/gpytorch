@@ -50,7 +50,7 @@ class ZeroLazyTensor(LazyTensor):
         else:
             *batch_shape, m, n = rhs.shape
             output_shape = (*batch_shape, new_m, n)
-        return torch.zeros(*output_shape)
+        return torch.zeros(*output_shape, dtype=rhs.dtype, device=rhs.device)
 
     def _prod_batch(self, dim):
         sizes = list(self.sizes)
@@ -88,7 +88,7 @@ class ZeroLazyTensor(LazyTensor):
         else:
             *batch_shape, m, n = rhs.shape
             output_shape = (*batch_shape, new_m, n)
-        return torch.zeros(*output_shape)
+        return torch.zeros(*output_shape, dtype=rhs.dtype, device=rhs.device)
 
     def _transpose_nonbatch(self):
         return self.transpose(-2, -1)
@@ -168,7 +168,7 @@ class ZeroLazyTensor(LazyTensor):
         else:
             *batch_shape, m, n = tensor.shape
             output_shape = (*batch_shape, new_m, n)
-        return ZeroLazyTensor(*output_shape)
+        return ZeroLazyTensor(*output_shape, dtype=tensor.dtype, device=tensor.device)
 
     def mul(self, other):
         shape = _mul_broadcast_shape(self.shape, other.shape)
