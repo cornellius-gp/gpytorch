@@ -5,6 +5,7 @@ from typing import Optional
 import torch
 from torch import Tensor
 
+from .. import settings
 from ..distributions import Distribution
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor
 from .kernel import Kernel
@@ -118,7 +119,6 @@ class WLSHKernel(Kernel):
                 right_interp_indices=hash_bins2.unsqueeze(-1),
                 right_interp_values=features2.unsqueeze(-1),
             )
-            .evaluate()
             .sum(dim=0)
             .mul(1.0 / self.num_samples)
         )
@@ -126,3 +126,7 @@ class WLSHKernel(Kernel):
         if diag:
             return res.diag()
         return res
+
+    def __call__(self, x1, x2=None, diag=False, last_dim_is_batch=False, **params):
+        with settings.lazily_evaluate_kernels(False):
+            return super().__call__(x1, x2=None, diag=False, last_dim_is_batch=False, **params)

@@ -359,10 +359,10 @@ class InterpolatedLazyTensor(LazyTensor):
         permute_order = (*range(0, dim), *range(dim + 1, self.dim()), dim)
         left_shape = (*left_interp_indices.shape[:dim], *left_interp_indices.shape[dim + 1 : -1], -1)
         right_shape = (*right_interp_indices.shape[:dim], *right_interp_indices.shape[dim + 1 : -1], -1)
-        left_interp_indices = left_interp_indices.permute(permute_order).reshape(left_shape)
-        left_interp_values = left_interp_values.permute(permute_order).reshape(left_shape)
-        right_interp_indices = right_interp_indices.permute(permute_order).reshape(right_shape)
-        right_interp_values = right_interp_values.permute(permute_order).reshape(right_shape)
+        left_interp_indices = left_interp_indices.permute(permute_order).reshape(left_shape).contiguous()
+        left_interp_values = left_interp_values.permute(permute_order).reshape(left_shape).contiguous()
+        right_interp_indices = right_interp_indices.permute(permute_order).reshape(right_shape).contiguous()
+        right_interp_values = right_interp_values.permute(permute_order).reshape(right_shape).contiguous()
 
         # Make the base_lazy tensor block diagonal
         from .block_diag_lazy_tensor import BlockDiagLazyTensor
