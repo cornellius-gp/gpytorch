@@ -103,10 +103,10 @@ try:
 
             - If likelihood is called with a :class:`torch.Tensor` object, then it is
               assumed that the input is samples from :math:`f(\mathbf x)`. This
-              returns the *conditional* distribution `p(y|f(\mathbf x))`.
+              returns the *conditional* distribution :math:`p(y|f(\mathbf x))`.
             - If likelihood is called with a :class:`~gpytorch.distribution.MultivariateNormal` object,
               then it is assumed that the input is the distribution :math:`f(\mathbf x)`.
-              This returns the *marginal* distribution `p(y|\mathbf x)`.
+              This returns the *marginal* distribution :math:`p(y|\mathbf x)`.
 
         Args:
             :attr:`max_plate_nesting` (int, default=1)
