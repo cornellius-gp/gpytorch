@@ -21,8 +21,8 @@ class Interval(Module):
             lower_bound (float or torch.Tensor): The lower bound on the parameter.
             upper_bound (float or torch.Tensor): The upper bound on the parameter.
         """
-        lower_bound = torch.as_tensor(lower_bound)
-        upper_bound = torch.as_tensor(upper_bound)
+        lower_bound = torch.as_tensor(lower_bound).float()
+        upper_bound = torch.as_tensor(upper_bound).float()
 
         if torch.any(torch.ge(lower_bound, upper_bound)):
             raise RuntimeError("Got parameter bounds with empty intervals.")
