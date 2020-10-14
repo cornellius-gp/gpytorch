@@ -29,8 +29,8 @@ class Interval(Module):
 
         super().__init__()
 
-        self.lower_bound = lower_bound
-        self.upper_bound = upper_bound
+        self.register_buffer("lower_bound", lower_bound)
+        self.register_buffer("upper_bound", upper_bound)
 
         self._transform = transform
         self._inv_transform = inv_transform
