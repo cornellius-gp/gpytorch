@@ -35,6 +35,9 @@ class _VariationalStrategy(Module, ABC):
         self._variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
 
+    def _clear_cache(self):
+        clear_cache_hook(self)
+
     def _expand_inputs(self, x, inducing_points):
         """
         Pre-processing step in __call__ to make x the same batch_shape as the inducing points
@@ -94,12 +97,6 @@ class _VariationalStrategy(Module, ABC):
             kl_divergence = torch.distributions.kl.kl_divergence(self.variational_distribution, self.prior_distribution)
         return kl_divergence
 
-    def train(self, mode=True):
-        # Make sure we are clearing the cache if we change modes
-        if (self.training and not mode) or mode:
-            clear_cache_hook(self)
-        return super().train(mode=mode)
-
     def __call__(self, x, prior=False):
         # If we're in prior mode, then we're done!
         if prior:
@@ -107,7 +104,7 @@ class _VariationalStrategy(Module, ABC):
 
         # Delete previously cached items from the training distribution
         if self.training:
-            clear_cache_hook(self)
+            self._clear_cache()
         # (Maybe) initialize variational distribution
         if not self.variational_params_initialized.item():
             prior_dist = self.prior_distribution
