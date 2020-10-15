@@ -3,6 +3,7 @@
 import torch
 
 from ..lazy import BlockDiagLazyTensor, BlockInterleavedLazyTensor, CatLazyTensor, LazyTensor, lazify
+from ..utils.broadcasting import _mul_broadcast_shape
 from .multivariate_normal import MultivariateNormal
 
 
@@ -32,6 +33,19 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
         if mean.dim() < 2:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
+
+        batch_shape = _mul_broadcast_shape(mean.shape[:-2], covariance_matrix.shape[:-2])
+        if mean.shape[-2:].numel() != covariance_matrix.size(-1):
+            if mean.size(-2) == 1:
+                mean = mean.expand(*batch_shape, covariance_matrix.size(-1) // mean.size(-1), mean.size(-1))
+            elif mean.size(-1) == 1:
+                mean = mean.expand(*batch_shape, mean.size(-2), covariance_matrix.size(-2) // mean.size(-2))
+            else:
+                raise RuntimeError(
+                    f"mean shape {mean.shape} is incompatible with covariance shape {covariance_matrix.shape}"
+                )
+        else:
+            mean = mean.expand(*batch_shape, *mean.shape[-2:])
 
         self._output_shape = mean.shape
         # TODO: Instead of transpose / view operations, use a PermutationLazyTensor (see #539) to handle interleaving
