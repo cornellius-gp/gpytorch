@@ -61,15 +61,14 @@ class GridKernel(Kernel):
         if not self.interpolation_mode:
             self.register_buffer("full_grid", create_data_from_grid(grid))
 
+    def _clear_cache(self):
+        if hasattr(self, "_cached_kernel_mat"):
+            del self._cached_kernel_mat
+
     def register_buffer_list(self, base_name, tensors):
         """Helper to register several buffers at once under a single base name"""
         for i, tensor in enumerate(tensors):
             self.register_buffer(base_name + "_" + str(i), tensor)
-
-    def train(self, mode=True):
-        if hasattr(self, "_cached_kernel_mat"):
-            del self._cached_kernel_mat
-        return super(GridKernel, self).train(mode)
 
     @property
     def grid(self):
@@ -91,8 +90,7 @@ class GridKernel(Kernel):
         if not self.interpolation_mode:
             self.full_grid = create_data_from_grid(self.grid)
 
-        if hasattr(self, "_cached_kernel_mat"):
-            del self._cached_kernel_mat
+        self._clear_cache()
         return self
 
     @property

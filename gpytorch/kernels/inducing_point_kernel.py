@@ -25,10 +25,9 @@ class InducingPointKernel(Kernel):
         self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points))
         self.register_added_loss_term("inducing_point_loss_term")
 
-    def train(self, mode=True):
+    def _clear_cache(self):
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
-        return super(InducingPointKernel, self).train(mode)
 
     @property
     def _inducing_mat(self):
