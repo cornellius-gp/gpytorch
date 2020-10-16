@@ -13,6 +13,17 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
     It has two learnable parameters: :math:`\nu` - the degrees of freedom, and
     :math:`\sigma^2` - the noise
 
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :type batch_shape: torch.Size, optional
+    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
+    :type noise_prior: ~gpytorch.priors.Prior, optional
+    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
+    :type noise_constraint: ~gpytorch.constraints.Interval, optional
+    :param deg_free_prior: Prior for deg_free parameter :math:`\nu`.
+    :type deg_free_prior: ~gpytorch.priors.Prior, optional
+    :param deg_free_constraint: Constraint for deg_free parameter :math:`\nu`.
+    :type deg_free_constraint: ~gpytorch.constraints.Interval, optional
+
     :var torch.Tensor deg_free: :math:`\nu` parameter (degrees of freedom)
     :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
     """

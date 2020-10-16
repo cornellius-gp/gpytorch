@@ -10,9 +10,16 @@ from .likelihood import _OneDimensionalLikelihood
 class LaplaceLikelihood(_OneDimensionalLikelihood):
     r"""
     A Laplace likelihood/noise model for GP regression.
-    It has one learnable parameter: :math:`\sigma^2` - the noise
+    It has one learnable parameter: :math:`\sigma` - the noise
 
-    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :type batch_shape: torch.Size, optional
+    :param noise_prior: Prior for noise parameter :math:`\sigma`.
+    :type noise_prior: ~gpytorch.priors.Prior, optional
+    :param noise_constraint: Constraint for noise parameter :math:`\sigma`.
+    :type noise_constraint: ~gpytorch.constraints.Interval, optional
+
+    :var torch.Tensor noise: :math:`\sigma` parameter (noise)
     """
 
     def __init__(self, batch_shape=torch.Size([]), noise_prior=None, noise_constraint=None):

@@ -74,6 +74,28 @@ class _GaussianLikelihoodBase(Likelihood):
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
+    r"""
+    The standard likelihood for regression.
+    Assumes a standard homoskedastic noise model:
+
+    .. math::
+        p(y \mid f) = f + \epsilon, \quad \epsilon \sim \mathcal N (0, \sigma^2)
+
+    where :math:`\sigma^2` is a noise parameter.
+
+    .. note::
+        This likelihood can be used for exact or approximate inference.
+
+    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
+    :type noise_prior: ~gpytorch.priors.Prior, optional
+    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
+    :type noise_constraint: ~gpytorch.constraints.Interval, optional
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :type batch_shape: torch.Size, optional
+
+    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
+    """
+
     def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), **kwargs):
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
@@ -102,14 +124,22 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     A Likelihood that assumes fixed heteroscedastic noise. This is useful when you have fixed, known observation
     noise for each training example.
 
-    Args:
-        :attr:`noise` (Tensor):
-            Known observation noise (variance) for each training example.
-        :attr:`learn_additional_noise` (bool, optional):
-            Set to true if you additionally want to learn added diagonal noise, similar to GaussianLikelihood.
-
     Note that this likelihood takes an additional argument when you call it, `noise`, that adds a specified amount
     of noise to the passed MultivariateNormal. This allows for adding known observational noise to test data.
+
+    .. note::
+        This likelihood can be used for exact or approximate inference.
+
+    :param noise: Known observation noise (variance) for each training example.
+    :type noise: torch.Tensor (... x N)
+    :param learn_additional_noise: Set to true if you additionally want to
+        learn added diagonal noise, similar to GaussianLikelihood.
+    :type learn_additional_noise: bool, optional
+    :param batch_shape: The batch shape of the learned noise parameter (default
+        []) if :obj:`learn_additional_noise=True`.
+    :type batch_shape: torch.Size, optional
+
+    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
 
     Example:
         >>> train_x = torch.randn(55, 2)

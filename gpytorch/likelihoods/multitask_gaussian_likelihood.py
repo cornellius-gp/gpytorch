@@ -112,13 +112,37 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
 
 class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
-    """
+    r"""
     A convenient extension of the :class:`gpytorch.likelihoods.GaussianLikelihood` to the multitask setting that allows
-    for a full cross-task covariance structure for the noise. The fitted covariance matrix has rank `rank`.
-    If a strictly diagonal task noise covariance matrix is desired, then rank=0 should be set. (This option still
-    allows for a different `log_noise` parameter for each task.). This likelihood assumes homoskedastic noise.
+    for a full cross-task covariance structure for the noise.
+    The likelihood is given by
 
-    Like the Gaussian likelihood, this object can be used with exact inference.
+    .. math::
+        p(\mathbf y \mid \mathbf f) = \mathcal N \left( \mathbf f, \mathbf B \mathbf B^\top + \sigma^2 \mathbf I \right)
+
+    where :math:`\sigma^2` is a constant noise term, and the covariance matrix :math:`\mathbf B \mathbf B^\top`
+    captures inter-task noise.
+    The fitted covariance matrix has rank `rank`.
+    If a strictly diagonal task noise covariance matrix is desired, then rank=0 should be set.
+    This likelihood assumes homoskedastic noise.
+
+    .. note::
+        Like the Gaussian likelihood, this object can be used with exact inference.
+
+    :param int num_tasks: Number of tasks.
+    :param int rank: The rank of the task noise covariance matrix  :math:`\mathbf B \mathbf B^\top`to fit.
+        If `rank` is set to 0, then a diagonal covariance matrix is fit.
+    :param task_correlation_prior: Prior to use over the task noise correlaton matrix :math:`\mathbf B`.
+        Only used when `rank` > 0.
+    :type task_correlation_prior: ~gpytorch.priors.Prior, optional
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :type batch_shape: torch.Size, optional
+    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
+    :type noise_prior: ~gpytorch.priors.Prior, optional
+    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
+    :type noise_constraint: ~gpytorch.constraints.Interval, optional
+
+    :var torch.Tensor noise: :math:`\sigma^2` parameter (constant diagonal noise)
     """
 
     def __init__(
@@ -134,10 +158,12 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         Args:
             num_tasks (int): Number of tasks.
 
-            rank (int): The rank of the task noise covariance matrix to fit. If `rank` is set to 0,
+            rank (int):
+            The rank of the task noise covariance matrix to fit. If `rank` is set to 0,
             then a diagonal covariance matrix is fit.
 
-            task_correlation_prior (:obj:`gpytorch.priors.Prior`): Prior to use over the task noise correlaton matrix.
+            task_correlation_prior (:obj:`gpytorch.priors.Prior`):
+            Prior to use over the task noise correlaton matrix.
             Only used when `rank` > 0.
 
         """

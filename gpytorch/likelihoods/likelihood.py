@@ -108,10 +108,9 @@ try:
               then it is assumed that the input is the distribution :math:`f(\mathbf x)`.
               This returns the *marginal* distribution :math:`p(y|\mathbf x)`.
 
-        Args:
-            :attr:`max_plate_nesting` (int, default=1)
-                (For Pyro integration only). How many batch dimensions are in the function.
-                This should be modified if the likelihood uses plated random variables.
+        :param max_plate_nesting: (For Pyro integration only). How many batch dimensions are in the function.
+            This should be modified if the likelihood uses plated random variables.
+        :type max_plate_nesting: int, default=1
         """
 
         @property
@@ -171,16 +170,11 @@ try:
                 \sum_{\mathbf x, y} \mathbb{E}_{q\left( f(\mathbf x) \right)}
                 \left[ \log p \left( y \mid f(\mathbf x) \right) \right]
 
-            Args:
-                :attr:`observations` (:class:`torch.Tensor`)
-                    Values of :math:`y`.
-                :attr:`function_dist` (:class:`~gpytorch.distributions.MultivariateNormal`)
-                    Distribution for :math:`f(x)`.
-                :attr:`args`, :attr:`kwargs`
-                    Passed to the `forward` function
-
-            Returns
-                `torch.Tensor` (log probability)
+            :param torch.Tensor observations: Values of :math:`y`.
+            :param ~gpytorch.distributions.MultivariateNormal function_dist: Distribution for :math:`f(x)`.
+            :param args: Additional args (passed to the foward function).
+            :param kwargs: Additional kwargs (passed to the foward function).
+            :rtype: torch.Tensor
             """
             return super().expected_log_prob(observations, function_dist, *args, **kwargs)
 
@@ -191,14 +185,13 @@ try:
             \mathbf f, \ldots)` that defines the likelihood.
 
             :param torch.Tensor function_samples: Samples from the function (:math:`\mathbf f`)
-            :param dict data: (Optional, Pyro integration only) Additional
-                variables (:math:`\ldots`) that the likelihood needs to condition
+            :param data: Additional variables that the likelihood needs to condition
                 on. The keys of the dictionary will correspond to Pyro sample sites
                 in the likelihood's model/guide.
+            :type data: dict {str: torch.Tensor}, optional - Pyro integration only
             :param args: Additional args
             :param kwargs: Additional kwargs
-            :return: Distribution object (with same shape as :attr:`function_samples`)
-            :rtype: :obj:`Distribution`
+            :rtype: :obj:`Distribution` (with same shape as :attr:`function_samples` )
             """
             raise NotImplementedError
 
@@ -220,16 +213,11 @@ try:
             Note that this differs from :meth:`expected_log_prob` because the :math:`log` is on the outside
             of the expectation.
 
-            Args:
-                :attr:`observations` (:class:`torch.Tensor`)
-                    Values of :math:`y`.
-                :attr:`function_dist` (:class:`~gpytorch.distributions.MultivariateNormal`)
-                    Distribution for :math:`f(x)`.
-                :attr:`args`, :attr:`kwargs`
-                    Passed to the `forward` function
-
-            Returns
-                `torch.Tensor` (log probability)
+            :param torch.Tensor observations: Values of :math:`y`.
+            :param ~gpytorch.distributions.MultivariateNormal function_dist: Distribution for :math:`f(x)`.
+            :param args: Additional args (passed to the foward function).
+            :param kwargs: Additional kwargs (passed to the foward function).
+            :rtype: torch.Tensor
             """
             return super().log_marginal(observations, function_dist, *args, **kwargs)
 
@@ -245,14 +233,11 @@ try:
             should usually be a :obj:`~gpytorch.distributions.MultivariateNormal` specified by the mean and
             (co)variance of :math:`p(\mathbf f|...)`.
 
-            Args:
-                :attr:`function_dist` (:class:`~gpytorch.distributions.MultivariateNormal`)
-                    Distribution for :math:`f(x)`.
-                :attr:`args`, :attr:`kwargs`
-                    Passed to the `forward` function
-
-            Returns:
-                Distribution object (the marginal distribution, or samples from it)
+            :param ~gpytorch.distributions.MultivariateNormal function_dist: Distribution for :math:`f(x)`.
+            :param args: Additional args (passed to the foward function).
+            :param kwargs: Additional kwargs (passed to the foward function).
+            :return: The marginal distribution, or samples from it.
+            :rtype: ~gpytorch.distributions.Distribution
             """
             return super().marginal(function_dist, *args, **kwargs)
 
