@@ -8,7 +8,7 @@ from ..distributions import MultivariateNormal
 from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 
 
-class LeaveOneOutLikelihood(ExactMarginalLogLikelihood):
+class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
     """
     The leave one out cross-validation (LOO-CV) likelihood from RW 5.4.2 for an exact Gaussian process with a
     Gaussian likelihood. This offers an alternative to the exact marginal log likelihood where we
@@ -33,7 +33,7 @@ class LeaveOneOutLikelihood(ExactMarginalLogLikelihood):
     Example:
         >>> # model is a gpytorch.models.ExactGP
         >>> # likelihood is a gpytorch.likelihoods.Likelihood
-        >>> loocv = gpytorch.mlls.LeaveOneOutLikelihood(likelihood, model)
+        >>> loocv = gpytorch.mlls.LeaveOneOutPseudoLikelihood(likelihood, model)
         >>>
         >>> output = model(train_x)
         >>> loss = -loocv(output, train_y)
@@ -64,4 +64,16 @@ class LeaveOneOutLikelihood(ExactMarginalLogLikelihood):
         term1 = -0.5 * torch.log(sigma2)
         term2 = -0.5 * (target - mu).pow(2.0) / sigma2
         log_loocv = term1 + term2 - 0.5 * math.log(2 * math.pi)
-        return log_loocv.sum(dim=-1)
+        res = log_loocv.sum(dim=-1)
+
+        # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)
+        for added_loss_term in self.model.added_loss_terms():
+            res = res.add(added_loss_term.loss(*params))
+
+        # Add log probs of priors on the (functions of) parameters
+        for _, prior, closure, _ in self.named_priors():
+            res.add_(prior.log_prob(closure()).sum())
+
+        # Scale by the amount of data we have
+        num_data = target.size(-1)
+        return res.div_(num_data)
