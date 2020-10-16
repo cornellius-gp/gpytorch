@@ -8,6 +8,7 @@ from .deep_predictive_log_likelihood import DeepPredictiveLogLikelihood
 from .exact_marginal_log_likelihood import ExactMarginalLogLikelihood
 from .gamma_robust_variational_elbo import GammaRobustVariationalELBO
 from .inducing_point_kernel_added_loss_term import InducingPointKernelAddedLossTerm
+from .leave_one_out_likelihood import LeaveOneOutLikelihood
 from .marginal_log_likelihood import MarginalLogLikelihood
 from .noise_model_added_loss_term import NoiseModelAddedLossTerm
 from .predictive_log_likelihood import PredictiveLogLikelihood
@@ -38,6 +39,7 @@ __all__ = [
     "DeepPredictiveLogLikelihood",
     "ExactMarginalLogLikelihood",
     "InducingPointKernelAddedLossTerm",
+    "LeaveOneOutLikelihood",
     "MarginalLogLikelihood",
     "NoiseModelAddedLossTerm",
     "PredictiveLogLikelihood",
