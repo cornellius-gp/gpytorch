@@ -66,13 +66,7 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         log_loocv = term1 + term2 - 0.5 * math.log(2 * math.pi)
         res = log_loocv.sum(dim=-1)
 
-        # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)
-        for added_loss_term in self.model.added_loss_terms():
-            res = res.add(added_loss_term.loss(*params))
-
-        # Add log probs of priors on the (functions of) parameters
-        for _, prior, closure, _ in self.named_priors():
-            res.add_(prior.log_prob(closure()).sum())
+        res = self._add_other_terms(res)
 
         # Scale by the amount of data we have
         num_data = target.size(-1)
