@@ -36,7 +36,11 @@ class MultitaskMultivariateNormal(MultivariateNormal):
 
         batch_shape = _mul_broadcast_shape(mean.shape[:-2], covariance_matrix.shape[:-2])
         if mean.shape[-2:].numel() != covariance_matrix.size(-1):
-            if mean.size(-2) == 1:
+            if covariance_matrix.size(-1) % mean.shape[-2:].numel():
+                raise RuntimeError(
+                    f"mean shape {mean.shape} is incompatible with covariance shape {covariance_matrix.shape}"
+                )
+            elif mean.size(-2) == 1:
                 mean = mean.expand(*batch_shape, covariance_matrix.size(-1) // mean.size(-1), mean.size(-1))
             elif mean.size(-1) == 1:
                 mean = mean.expand(*batch_shape, mean.size(-2), covariance_matrix.size(-2) // mean.size(-2))
