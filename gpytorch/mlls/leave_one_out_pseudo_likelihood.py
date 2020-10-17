@@ -60,13 +60,12 @@ class LeaveOneOutPseudoLikelihood(ExactMarginalLogLikelihood):
         identity = torch.eye(*L.shape[-2:], dtype=m.dtype, device=m.device)
         sigma2 = 1.0 / L._cholesky_solve(identity, upper=False).diagonal(dim1=-1, dim2=-2)  # 1 / diag(inv(K))
         mu = target - L._cholesky_solve((target - m).unsqueeze(-1), upper=False).squeeze(-1) * sigma2
-        term1 = -0.5 * torch.log(sigma2)
+        term1 = -0.5 * sigma2.log()
         term2 = -0.5 * (target - mu).pow(2.0) / sigma2
-        log_loocv = term1 + term2 - 0.5 * math.log(2 * math.pi)
-        res = log_loocv.sum(dim=-1)
+        res = (term1 + term2).sum(dim=-1)
 
         res = self._add_other_terms(res, params)
 
-        # Scale by the amount of data we have
+        # Scale by the amount of data we have and then add on the scaled constant
         num_data = target.size(-1)
-        return res.div_(num_data)
+        return res.div_(num_data) - 0.5 * math.log(2 * math.pi)
