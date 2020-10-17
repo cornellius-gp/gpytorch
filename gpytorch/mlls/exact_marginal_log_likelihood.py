@@ -33,7 +33,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
             raise RuntimeError("Likelihood must be Gaussian for exact inference")
         super(ExactMarginalLogLikelihood, self).__init__(likelihood, model)
 
-    def _add_other_terms(self, res):
+    def _add_other_terms(self, res, params):
         # Add additional terms (SGPR / learned inducing points, heteroskedastic likelihood models)
         for added_loss_term in self.model.added_loss_terms():
             res = res.add(added_loss_term.loss(*params))
@@ -60,7 +60,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         # Get the log prob of the marginal distribution
         output = self.likelihood(function_dist, *params)
         res = output.log_prob(target)
-        self._add_other_terms(res)
+        self._add_other_terms(res, params)
 
         # Scale by the amount of data we have
         num_data = target.size(-1)
