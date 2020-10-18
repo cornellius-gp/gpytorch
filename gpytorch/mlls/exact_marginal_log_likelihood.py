@@ -60,7 +60,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         # Get the log prob of the marginal distribution
         output = self.likelihood(function_dist, *params)
         res = output.log_prob(target)
-        self._add_other_terms(res, params)
+        res = self._add_other_terms(res, params)
 
         # Scale by the amount of data we have
         num_data = target.size(-1)
