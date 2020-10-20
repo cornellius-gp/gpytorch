@@ -19,7 +19,7 @@ try:
             return MaternKernel(nu=2.5, ard_num_dims=num_dims, **kwargs)
 
     class TestMaternKeOpsKernel(unittest.TestCase):
-        def test_forward_x1_eq_x2(self, nu):
+        def forward_x1_eq_x2(self, nu):
             if not torch.cuda.is_available():
                 return
 
@@ -33,7 +33,7 @@ try:
 
             self.assertLess(torch.norm(k1 - k2), 1e-4)
 
-        def test_forward_x1_neq_x2(self, nu):
+        def forward_x1_neq_x2(self, nu):
             if not torch.cuda.is_available():
                 return
 
@@ -49,22 +49,22 @@ try:
             self.assertLess(torch.norm(k1 - k2), 1e-4)
 
         def test_forward_nu25_x1_eq_x2(self):
-            return self.test_forward_x1_eq_x2(nu=2.5)
+            return self.forward_x1_eq_x2(nu=2.5)
 
         def test_forward_nu25_x1_neq_x2(self):
-            return self.test_forward_nu05_x1_neq_x2(nu=2.5)
+            return self.forward_x1_neq_x2(nu=2.5)
 
         def test_forward_nu15_x1_eq_x2(self):
-            return self.test_forward_x1_eq_x2(nu=1.5)
+            return self.forward_x1_eq_x2(nu=1.5)
 
         def test_forward_nu15_x1_neq_x2(self):
-            return self.test_forward_x1_neq_x2(nu=1.5)
+            return self.forward_x1_neq_x2(nu=1.5)
 
         def test_forward_nu05_x1_eq_x2(self):
-            return self.test_forward_x1_eq_x2(nu=0.5)
+            return self.forward_x1_eq_x2(nu=0.5)
 
         def test_forward_nu05_x1_neq_x2(self):
-            return self.test_forward_x1_neq_x2(nu=0.5)
+            return self.forward_x1_neq_x2(nu=0.5)
 
         def test_batch_matmul(self):
             if not torch.cuda.is_available():

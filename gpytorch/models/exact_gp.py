@@ -85,6 +85,10 @@ class ExactGP(GP):
             self.train_targets = fn(self.train_targets)
         return super(ExactGP, self)._apply(fn)
 
+    def _clear_cache(self):
+        # The precomputed caches from test time live in prediction_strategy
+        self.prediction_strategy = None
+
     def local_load_samples(self, samples_dict, memo, prefix):
         """
         Replace the model's learned hyperparameters with samples from a posterior distribution.
@@ -235,19 +239,6 @@ class ExactGP(GP):
         new_model.train_targets = full_targets
 
         return new_model
-
-    def train(self, mode=True):
-        if mode:
-            self.prediction_strategy = None
-        return super(ExactGP, self).train(mode)
-
-    def _load_from_state_dict(
-        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-    ):
-        self.prediction_strategy = None
-        super()._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-        )
 
     def __call__(self, *args, **kwargs):
         train_inputs = list(self.train_inputs) if self.train_inputs is not None else []

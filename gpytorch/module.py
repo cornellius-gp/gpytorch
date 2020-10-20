@@ -30,6 +30,13 @@ class Module(nn.Module):
             return [_validate_module_outputs(output) for output in outputs]
         return _validate_module_outputs(outputs)
 
+    def _clear_cache(self):
+        """
+        Clear any precomputed caches.
+        Should be implemented by any module that caches any computation at test time.
+        """
+        pass
+
     def _get_module_and_name(self, parameter_name):
         """Get module and name from full parameter name."""
         module, name = parameter_name.split(".", 1)
@@ -260,6 +267,12 @@ class Module(nn.Module):
         if new_constraint.initial_value is not None:
             self.initialize(**{param_name: new_constraint.initial_value})
 
+    def train(self, mode=True):
+        # If we're going in training mode, we need to clear any pre-comptued caches from eval mode
+        if (self.training and not mode) or mode:
+            self._clear_cache()
+        return super().train(mode=mode)
+
     def constraint_for_parameter_name(self, param_name):
         base_module = self
         base_name = param_name
@@ -289,6 +302,15 @@ class Module(nn.Module):
                 key = prefix + name
                 if key in state_dict:
                     param.data = state_dict[key].data
+
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        # If we're loading from a state dict, we need to clear any precomputed caches
+        self._clear_cache()
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        )
 
     def load_strict_shapes(self, value):
         def apply_fn(module):
