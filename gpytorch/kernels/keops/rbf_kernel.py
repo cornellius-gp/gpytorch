@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
 import torch
 
+from ... import settings
 from ...lazy import KeOpsLazyTensor
 from ..rbf_kernel import postprocess_rbf
 from .keops_kernel import KeOpsKernel
@@ -28,8 +30,17 @@ try:
                 )
             else:
                 with torch.autograd.enable_grad():
-                    x1_ = KEOLazyTensor(x1[..., :, None, :])
-                    x2_ = KEOLazyTensor(x2[..., None, :, :])
+                    # We only should use KeOps on big kernel matrices
+                    # If we would otherwise be performing Cholesky inference, then don't apply KeOps
+                    if (
+                        x1.size(-2) < settings.max_cholesky_size.value()
+                        or x2.size(-2) < settings.max_cholesky_size.value()
+                    ):
+                        x1_ = x1[..., :, None, :]
+                        x2_ = x2[..., None, :, :]
+                    else:
+                        x1_ = KEOLazyTensor(x1[..., :, None, :])
+                        x2_ = KEOLazyTensor(x2[..., None, :, :])
 
                     K = (-((x1_ - x2_) ** 2).sum(-1) / 2).exp()
 
