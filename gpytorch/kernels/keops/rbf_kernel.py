@@ -20,27 +20,30 @@ try:
 
         has_lengthscale = True
 
+        def _nonkeops_covar_func(self, x1, x2, diag=False):
+            return self.covar_dist(
+                x1, x2, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rbf, postprocess=True
+            )
+
         def covar_func(self, x1, x2, diag=False):
+            # We only should use KeOps on big kernel matrices
+            # If we would otherwise be performing Cholesky inference, (or when just computing a kernel matrix diag)
+            # then don't apply KeOps
+            if (
+                diag
+                or x1.size(-2) < settings.max_cholesky_size.value()
+                or x2.size(-2) < settings.max_cholesky_size.value()
+            ):
+                return self._nonkeops_covar_func(x1, x2, diag=diag)
             # TODO: x1 / x2 size checks are a work around for a very minor bug in KeOps.
             # This bug is fixed on KeOps master, and we'll remove that part of the check
             # when they cut a new release.
-            if diag or x1.size(-2) == 1 or x2.size(-2) == 1:
-                return self.covar_dist(
-                    x1, x2, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rbf, postprocess=True
-                )
+            elif x1.size(-2) == 1 or x2.size(-2) == 1:
+                return self._nonkeops_covar_func(x1, x2, diag=diag)
             else:
                 with torch.autograd.enable_grad():
-                    # We only should use KeOps on big kernel matrices
-                    # If we would otherwise be performing Cholesky inference, then don't apply KeOps
-                    if (
-                        x1.size(-2) < settings.max_cholesky_size.value()
-                        or x2.size(-2) < settings.max_cholesky_size.value()
-                    ):
-                        x1_ = x1[..., :, None, :]
-                        x2_ = x2[..., None, :, :]
-                    else:
-                        x1_ = KEOLazyTensor(x1[..., :, None, :])
-                        x2_ = KEOLazyTensor(x2[..., None, :, :])
+                    x1_ = KEOLazyTensor(x1[..., :, None, :])
+                    x2_ = KEOLazyTensor(x2[..., None, :, :])
 
                     K = (-((x1_ - x2_) ** 2).sum(-1) / 2).exp()
 
@@ -49,8 +52,6 @@ try:
         def forward(self, x1, x2, diag=False, **params):
             x1_ = x1.div(self.lengthscale)
             x2_ = x2.div(self.lengthscale)
-            if diag:
-                return self.covar_func(x1_, x2_, diag=True)
 
             covar_func = lambda x1, x2, diag=False: self.covar_func(x1, x2, diag)
             return KeOpsLazyTensor(x1_, x2_, covar_func)
