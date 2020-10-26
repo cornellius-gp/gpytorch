@@ -3,6 +3,7 @@ import math
 
 import torch
 
+from ... import settings
 from ...lazy import KeOpsLazyTensor
 from .keops_kernel import KeOpsKernel
 
@@ -26,25 +27,46 @@ try:
             super(MaternKernel, self).__init__(**kwargs)
             self.nu = nu
 
+        def _nonkeops_covar_func(self, x1, x2, diag=False):
+            distance = self.covar_dist(x1, x2, diag=diag)
+            exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)
+
+            if self.nu == 0.5:
+                constant_component = 1
+            elif self.nu == 1.5:
+                constant_component = (math.sqrt(3) * distance).add(1)
+            elif self.nu == 2.5:
+                constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance ** 2)
+            return constant_component * exp_component
+
         def covar_func(self, x1, x2, diag=False):
+            # We only should use KeOps on big kernel matrices
+            # If we would otherwise be performing Cholesky inference, (or when just computing a kernel matrix diag)
+            # then don't apply KeOps
+            if (
+                diag
+                or x1.size(-2) < settings.max_cholesky_size.value()
+                or x2.size(-2) < settings.max_cholesky_size.value()
+            ):
+                return self._nonkeops_covar_func(x1, x2, diag=diag)
             # TODO: x1 / x2 size checks are a work around for a very minor bug in KeOps.
             # This bug is fixed on KeOps master, and we'll remove that part of the check
             # when they cut a new release.
-            if diag or x1.size(-2) == 1 or x2.size(-2) == 1:
-                distance = self.covar_dist(x1, x2, diag=diag)
-                exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)
-
-                if self.nu == 0.5:
-                    constant_component = 1
-                elif self.nu == 1.5:
-                    constant_component = (math.sqrt(3) * distance).add(1)
-                elif self.nu == 2.5:
-                    constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance ** 2)
-                return constant_component * exp_component
+            elif x1.size(-2) == 1 or x2.size(-2) == 1:
+                return self._nonkeops_covar_func(x1, x2, diag=diag)
             else:
                 with torch.autograd.enable_grad():
-                    x1_ = KEOLazyTensor(x1[..., :, None, :])
-                    x2_ = KEOLazyTensor(x2[..., None, :, :])
+                    # We only should use KeOps on big kernel matrices
+                    # If we would otherwise be performing Cholesky inference, then don't apply KeOps
+                    if (
+                        x1.size(-2) < settings.max_cholesky_size.value()
+                        or x2.size(-2) < settings.max_cholesky_size.value()
+                    ):
+                        x1_ = x1[..., :, None, :]
+                        x2_ = x2[..., None, :, :]
+                    else:
+                        x1_ = KEOLazyTensor(x1[..., :, None, :])
+                        x2_ = KEOLazyTensor(x2[..., None, :, :])
 
                     distance = ((x1_ - x2_) ** 2).sum(-1).sqrt()
                     exp_component = (-math.sqrt(self.nu * 2) * distance).exp()
