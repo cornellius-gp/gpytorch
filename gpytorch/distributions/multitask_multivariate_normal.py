@@ -34,6 +34,8 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         if mean.dim() < 2:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
 
+        # Ensure that shapes are broadcasted appropriately across the mean and covariance
+        # Means can have singleton dimensions for either the `n` or `t` dimensions
         batch_shape = _mul_broadcast_shape(mean.shape[:-2], covariance_matrix.shape[:-2])
         if mean.shape[-2:].numel() != covariance_matrix.size(-1):
             if covariance_matrix.size(-1) % mean.shape[-2:].numel():
