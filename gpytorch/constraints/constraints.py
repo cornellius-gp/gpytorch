@@ -44,6 +44,22 @@ class Interval(Module):
         self.upper_bound = fn(self.upper_bound)
         return super()._apply(fn)
 
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        result = super()._load_from_state_dict(
+            state_dict=state_dict,
+            prefix=prefix,
+            local_metadata=local_metadata,
+            strict=False,
+            missing_keys=missing_keys,
+            unexpected_keys=unexpected_keys,
+            error_msgs=error_msgs,
+        )
+        # The lower_bound and upper_bound buffers are new, and so may not be present in older state dicts
+        # Because of this, we won't have strict-mode on when loading this module
+        return result
+
     @property
     def enforced(self):
         return self._transform is not None
