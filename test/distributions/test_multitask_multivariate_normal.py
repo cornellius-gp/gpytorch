@@ -274,6 +274,25 @@ class TestMultiTaskMultivariateNormal(BaseTestCase, unittest.TestCase):
             with least_used_cuda_device():
                 self.test_from_independent_mvns(cuda=True)
 
+    def test_multitask_multivariate_normal_broadcasting(self):
+        mean = torch.randn(5, 1, 3)
+        _covar = torch.randn(6, 6)
+        covar = _covar @ _covar.transpose(-1, -2)
+        sample = MultitaskMultivariateNormal(mean, covar).rsample()
+        self.assertEqual(sample.shape, torch.Size([5, 2, 3]))
+
+        mean = torch.randn(5, 1)
+        _covar = torch.randn(3, 10, 10)
+        covar = _covar @ _covar.transpose(-1, -2)
+        sample = MultitaskMultivariateNormal(mean, covar).rsample()
+        self.assertEqual(sample.shape, torch.Size([3, 5, 2]))
+
+        with self.assertRaises(RuntimeError):
+            mean = torch.randn(5, 1)
+            _covar = torch.randn(12, 12)
+            covar = _covar @ _covar.transpose(-1, -2)
+            MultitaskMultivariateNormal(mean, covar)
+
 
 if __name__ == "__main__":
     unittest.main()
