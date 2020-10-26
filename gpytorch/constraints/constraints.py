@@ -21,16 +21,16 @@ class Interval(Module):
             lower_bound (float or torch.Tensor): The lower bound on the parameter.
             upper_bound (float or torch.Tensor): The upper bound on the parameter.
         """
-        lower_bound = torch.as_tensor(lower_bound)
-        upper_bound = torch.as_tensor(upper_bound)
+        lower_bound = torch.as_tensor(lower_bound).float()
+        upper_bound = torch.as_tensor(upper_bound).float()
 
         if torch.any(torch.ge(lower_bound, upper_bound)):
             raise RuntimeError("Got parameter bounds with empty intervals.")
 
         super().__init__()
 
-        self.lower_bound = lower_bound
-        self.upper_bound = upper_bound
+        self.register_buffer("lower_bound", lower_bound)
+        self.register_buffer("upper_bound", upper_bound)
 
         self._transform = transform
         self._inv_transform = inv_transform
@@ -43,6 +43,22 @@ class Interval(Module):
         self.lower_bound = fn(self.lower_bound)
         self.upper_bound = fn(self.upper_bound)
         return super()._apply(fn)
+
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        result = super()._load_from_state_dict(
+            state_dict=state_dict,
+            prefix=prefix,
+            local_metadata=local_metadata,
+            strict=False,
+            missing_keys=missing_keys,
+            unexpected_keys=unexpected_keys,
+            error_msgs=error_msgs,
+        )
+        # The lower_bound and upper_bound buffers are new, and so may not be present in older state dicts
+        # Because of this, we won't have strict-mode on when loading this module
+        return result
 
     @property
     def enforced(self):
