@@ -111,14 +111,14 @@ class InvMatmul(Function):
             else:
                 left_solves = left_solves @ grad_output
 
-                if ctx.needs_input_grad[3]:
+                if ctx.needs_input_grad[2]:
                     left_grad = grad_output @ right_solves.transpose(-1, -2)
                 if any(ctx.needs_input_grad[4:]):
                     # We do this concatenation to ensure that the gradient of lazy_tsr is symmetric
                     arg_grads = lazy_tsr._quad_form_derivative(
                         torch.cat([left_solves, right_solves], -1), torch.cat([right_solves, left_solves], -1).mul(-0.5)
                     )
-                if ctx.needs_input_grad[2]:
+                if ctx.needs_input_grad[3]:
                     right_grad = left_solves
                     if ctx.is_vector:
                         right_grad.squeeze_(-1)
