@@ -8,7 +8,7 @@ gpytorch.optim
 .. currentmodule:: gpytorch.optim
 
 
-LazyTensor
+NGD
 ----------------
 
 .. autoclass:: NGD
