@@ -199,7 +199,7 @@ class KroneckerProductLazyTensor(LazyTensor):
     def root_decomposition(self, method: Optional[str] = None):
         from gpytorch.lazy import RootLazyTensor
 
-        if method == "symeig":
+        if method == "symeig" or method is None:
             evals, evecs = self._symeig(eigenvectors=True, return_evals_as_lazy=True)
             # TODO: only use non-zero evals (req. dealing w/ batches...)
             f_list = [
