@@ -195,6 +195,22 @@ class KroneckerProductLazyTensor(LazyTensor):
             res = res.squeeze(-1)
         return res
 
+    @cached(name="root_decomposition")
+    def root_decomposition(self, method: Optional[str] = None):
+        from gpytorch.lazy import RootLazyTensor
+
+        if method == "symeig":
+            evals, evecs = self._symeig(eigenvectors=True, return_evals_as_lazy=True)
+            # TODO: only use non-zero evals (req. dealing w/ batches...)
+            f_list = [
+                evec * eval.diag().clamp(0.0).sqrt().unsqueeze(-2)
+                for eval, evec in zip(evals.lazy_tensors, evecs.lazy_tensors)
+            ]
+            F = KroneckerProductLazyTensor(*f_list)
+            return RootLazyTensor(F)
+        else:
+            return super().root_decomposition(method=method)
+
     @cached(name="size")
     def _size(self):
         left_size = _prod(lazy_tensor.size(-2) for lazy_tensor in self.lazy_tensors)
@@ -214,13 +230,19 @@ class KroneckerProductLazyTensor(LazyTensor):
         V = KroneckerProductLazyTensor(*V)
         return U, S, V
 
-    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
+    def _symeig(
+        self, eigenvectors: bool = False, return_evals_as_lazy: bool = False
+    ) -> Tuple[Tensor, Optional[LazyTensor]]:
         evals, evecs = [], []
         for lt in self.lazy_tensors:
             evals_, evecs_ = lt.symeig(eigenvectors=eigenvectors)
             evals.append(evals_)
             evecs.append(evecs_)
-        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals]).diag()
+        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])
+
+        if not return_evals_as_lazy:
+            evals = evals.diag()
+
         if eigenvectors:
             evecs = KroneckerProductLazyTensor(*evecs)
         else:
