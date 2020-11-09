@@ -233,6 +233,9 @@ class KroneckerProductLazyTensor(LazyTensor):
     def _symeig(
         self, eigenvectors: bool = False, return_evals_as_lazy: bool = False
     ) -> Tuple[Tensor, Optional[LazyTensor]]:
+        # return_evals_as_lazy is a flag to return the eigenvalues as a lazy tensor
+        # which is useful for root decompositions here (see the root_decomposition
+        # method above)
         evals, evecs = [], []
         for lt in self.lazy_tensors:
             evals_, evecs_ = lt.symeig(eigenvectors=eigenvectors)
