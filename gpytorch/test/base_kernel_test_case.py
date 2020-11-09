@@ -142,4 +142,4 @@ class BaseKernelTestCase(object):
 
     def test_kernel_pickle_unpickle(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
-        pickle.loads(pickle.dumps(kernel)) # Should be able to pickle and unpickle a kernel
+        pickle.loads(pickle.dumps(kernel))  # Should be able to pickle and unpickle a kernel
