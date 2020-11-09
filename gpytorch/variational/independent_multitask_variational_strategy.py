@@ -43,8 +43,8 @@ class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
     def kl_divergence(self):
         return super().kl_divergence().sum(dim=-1)
 
-    def __call__(self, x, prior=False):
-        function_dist = self.base_variational_strategy(x, prior=prior)
+    def __call__(self, x, prior=False, **kwargs):
+        function_dist = self.base_variational_strategy(x, prior=prior, **kwargs)
         if (
             self.task_dim > 0
             and self.task_dim > len(function_dist.batch_shape)
