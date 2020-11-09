@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
+import pickle
 from abc import abstractmethod
 
 import torch
-
-import pickle
 
 
 class BaseKernelTestCase(object):
