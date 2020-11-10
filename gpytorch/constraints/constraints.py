@@ -9,7 +9,6 @@ from torch.nn import Module
 from .. import settings
 from ..utils.transforms import _get_inv_param_transform, inv_sigmoid, inv_softplus
 
-
 # define softplus here instead of using torch.nn.functional.softplus because the functional version can't be pickled
 softplus = torch.nn.Softplus()
 
