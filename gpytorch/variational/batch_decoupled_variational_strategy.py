@@ -121,12 +121,13 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         >>>             self, inducing_points, variational_distribution, learn_inducing_locations=True,
         >>>         )
         >>>
-        >>>         # The mean/covar modules have a batch_shape of [3]
+        >>>         # The mean/covar modules have a batch_shape of [3, 1]
+        >>>         # where the singleton dimension corresponds to the shared mean/variance hyperparameters
         >>>         super().__init__(variational_strategy)
-        >>>         self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([3]))
+        >>>         self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([3, 1]))
         >>>         self.covar_module = gpytorch.kernels.ScaleKernel(
-        >>>             gpytorch.kernels.RBFKernel(batch_shape=torch.Size([3])),
-        >>>             batch_shape=torch.Size([3]),
+        >>>             gpytorch.kernels.RBFKernel(batch_shape=torch.Size([3, 1])),
+        >>>             batch_shape=torch.Size([3, 1]),
         >>>         )
     """
 
