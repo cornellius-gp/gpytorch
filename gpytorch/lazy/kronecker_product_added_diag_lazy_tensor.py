@@ -27,7 +27,6 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
         # solve but we only want to cache the probe vectors for the backwards
-        # with skip_logdet_forward(True):
         inv_quad_term, _ = super().inv_quad_logdet(
             inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
         )
