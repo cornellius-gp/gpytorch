@@ -64,14 +64,14 @@ class OrthogonallyDecoupledVariationalStrategy(_VariationalStrategy):
         res = MultivariateNormal(out.mean, out.lazy_covariance_matrix.add_jitter())
         return res
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         if variational_inducing_covar is not None:
             raise NotImplementedError(
                 "OrthogonallyDecoupledVariationalStrategy currently works with DeltaVariationalDistribution"
             )
 
         num_data = x.size(-2)
-        full_output = self.model(torch.cat([x, inducing_points], dim=-2))
+        full_output = self.model(torch.cat([x, inducing_points], dim=-2), **kwargs)
         full_mean = full_output.mean
         full_covar = full_output.lazy_covariance_matrix
 
