@@ -123,7 +123,7 @@ for root, dirs, files in os.walk(examples_source):
         if os.path.splitext(fil)[1] in [".ipynb", ".md", ".rst"]:
             source_filename = os.path.join(root, fil)
             dest_filename = source_filename.replace(examples_source, examples_dest)
-            # shutil.copyfile(source_filename, dest_filename)
+            shutil.copyfile(source_filename, dest_filename)
 
 # -- Project information -----------------------------------------------------
 
