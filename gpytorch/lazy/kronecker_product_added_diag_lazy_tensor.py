@@ -31,7 +31,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
         )
 
-        if logdet is not None:
+        if logdet is not False:
             logdet_term = self._logdet()
         else:
             logdet_term = None
