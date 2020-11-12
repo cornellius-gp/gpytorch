@@ -2,7 +2,6 @@
 
 import torch
 
-from ..settings import skip_logdet_forward
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 
@@ -28,25 +27,20 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
         # solve but we only want to cache the probe vectors for the backwards
-        with skip_logdet_forward(True):
-            inv_quad_term, func_logdet_term = super().inv_quad_logdet(
-                inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad
-            )
+        inv_quad_term, _ = super().inv_quad_logdet(
+            inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
+        )
 
-        if logdet is not None:
-            if skip_logdet_forward.off():
-                # we use the InvQuadLogDet backwards call to get the gradient
-                logdet_term = self._logdet().detach()
-                logdet_term = logdet_term + func_logdet_term
-            else:
-                logdet_term = func_logdet_term
+        if logdet is not False:
+            logdet_term = self._logdet()
         else:
             logdet_term = None
 
         return inv_quad_term, logdet_term
 
     def _logdet(self):
-        evals, _ = self.lazy_tensor.symeig(eigenvectors=False)
+        # symeig requires computing the eigenvectors so that it's differentiable
+        evals, _ = self.lazy_tensor.symeig(eigenvectors=True)
         evals_plus_diag = evals + self.diag_tensor.diag()
         return torch.log(evals_plus_diag).sum(dim=-1)
 
