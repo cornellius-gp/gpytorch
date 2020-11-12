@@ -81,10 +81,10 @@ class VariationalStrategy(_VariationalStrategy):
         res = MultivariateNormal(zeros, DiagLazyTensor(ones))
         return res
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
-        full_output = self.model.forward(full_inputs)
+        full_output = self.model.forward(full_inputs, **kwargs)
         full_covar = full_output.lazy_covariance_matrix
 
         # Covariance terms
@@ -137,7 +137,7 @@ class VariationalStrategy(_VariationalStrategy):
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
 
-    def __call__(self, x, prior=False):
+    def __call__(self, x, prior=False, **kwargs):
         if not self.updated_strategy.item() and not prior:
             with torch.no_grad():
                 # Get unwhitened p(u)
@@ -167,4 +167,4 @@ class VariationalStrategy(_VariationalStrategy):
                 # Mark that we have updated the variational strategy
                 self.updated_strategy.fill_(True)
 
-        return super().__call__(x, prior=prior)
+        return super().__call__(x, prior=prior, **kwargs)
