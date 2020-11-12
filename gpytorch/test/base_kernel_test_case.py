@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import pickle
 from abc import abstractmethod
 
 import torch
@@ -137,3 +138,7 @@ class BaseKernelTestCase(object):
         res2 = new_kernel(x[0, 1]).evaluate()  # Should also be result of first kernel on first batch of data.
 
         self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
+
+    def test_kernel_pickle_unpickle(self):
+        kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
+        pickle.loads(pickle.dumps(kernel))  # Should be able to pickle and unpickle a kernel
