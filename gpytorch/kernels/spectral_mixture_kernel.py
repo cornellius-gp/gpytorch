@@ -257,8 +257,7 @@ class SpectralMixtureKernel(Kernel):
         else:
             return x1_.unsqueeze(-2), x2_.unsqueeze(-3)
 
-    def forward(self, x1, x2, last_dim_is_batch=False, **params):
-        batch_shape = x1.shape[:-2]
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         n, num_dims = x1.shape[-2:]
 
         if not num_dims == self.ard_num_dims:
@@ -266,16 +265,11 @@ class SpectralMixtureKernel(Kernel):
                 "The SpectralMixtureKernel expected the input to have {} dimensionality "
                 "(based on the ard_num_dims argument). Got {}.".format(self.ard_num_dims, num_dims)
             )
-        if not batch_shape == self.batch_shape:
-            raise RuntimeError(
-                "The SpectralMixtureKernel expected the input to have a batch_size of {} "
-                "(based on the batch_size argument). Got {}.".format(self.batch_shape, batch_shape)
-            )
 
         # Expand x1 and x2 to account for the number of mixtures
-        # Should make x1/x2 (b x k x n x d) for k mixtures
-        x1_ = x1.unsqueeze(len(batch_shape))
-        x2_ = x2.unsqueeze(len(batch_shape))
+        # Should make x1/x2 (... x k x n x d) for k mixtures
+        x1_ = x1.unsqueeze(-3)
+        x2_ = x2.unsqueeze(-3)
 
         # Compute distances - scaled by appropriate parameters
         x1_exp = x1_ * self.mixture_scales
@@ -284,8 +278,12 @@ class SpectralMixtureKernel(Kernel):
         x2_cos = x2_ * self.mixture_means
 
         # Create grids
-        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, last_dim_is_batch=last_dim_is_batch, **params)
-        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, last_dim_is_batch=last_dim_is_batch, **params)
+        x1_exp_, x2_exp_ = self._create_input_grid(
+            x1_exp, x2_exp, diag=diag, last_dim_is_batch=last_dim_is_batch, **params
+        )
+        x1_cos_, x2_cos_ = self._create_input_grid(
+            x1_cos, x2_cos, diag=diag, last_dim_is_batch=last_dim_is_batch, **params
+        )
 
         # Compute the exponential and cosine terms
         exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi ** 2)
@@ -299,12 +297,11 @@ class SpectralMixtureKernel(Kernel):
             res = res.prod(-1)
 
         # Sum over mixtures
-        mixture_weights = self.mixture_weights
-
+        mixture_weights = self.mixture_weights.unsqueeze(-1)
+        if not diag:
+            mixture_weights = mixture_weights.unsqueeze(-1)
         if last_dim_is_batch:
             mixture_weights = mixture_weights.unsqueeze(-1)
-        while mixture_weights.dim() < res.dim():
-            mixture_weights = mixture_weights.unsqueeze(-1)
 
-        res = (res * mixture_weights).sum(len(batch_shape))
+        res = (res * mixture_weights).sum(-2 if diag else -3)
         return res

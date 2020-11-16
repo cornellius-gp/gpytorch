@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import math
 import unittest
 
 import torch
@@ -9,84 +8,107 @@ from gpytorch.kernels import SpectralMixtureKernel
 
 
 class TestSpectralMixtureKernel(unittest.TestCase):
-    def test_standard(self):
-        a = torch.tensor([[0, 1], [2, 2], [2, 0]], dtype=torch.float)
-        means = torch.tensor([[1, 2], [2, 1]], dtype=torch.float)
-        scales = torch.tensor([[0.5, 0.25], [0.25, 0.5]], dtype=torch.float)
-        scales = scales.unsqueeze(1)
-        means = means.unsqueeze(1)
-        weights = torch.tensor([4, 2], dtype=torch.float)
-        kernel = SpectralMixtureKernel(num_mixtures=2, ard_num_dims=2)
-        kernel.initialize(mixture_weights=weights, mixture_means=means, mixture_scales=scales)
-        kernel.eval()
+    def create_kernel(self, num_dims, **kwargs):
+        return SpectralMixtureKernel(num_mixtures=5, ard_num_dims=num_dims, **kwargs)
 
-        actual = torch.zeros(2, 3, 3, 2)
-        for i in range(3):
-            for j in range(3):
-                for k in range(2):
-                    new_term = torch.cos(2 * math.pi * (a[i] - a[j]) * means[k])
-                    new_term *= torch.exp(-2 * (math.pi * (a[i] - a[j])) ** 2 * scales[k] ** 2)
-                    actual[k, i, j] = new_term
-        actual = actual.prod(-1)
-        actual[0].mul_(weights[0])
-        actual[1].mul_(weights[1])
-        actual = actual.sum(0)
+    def create_data_no_batch(self):
+        return torch.randn(50, 10)
 
-        res = kernel(a, a).evaluate()
-        self.assertLess(torch.norm(res - actual), 1e-5)
+    def create_data_single_batch(self):
+        return torch.randn(2, 50, 2)
 
-        # diag
-        res = kernel(a, a).diag()
-        actual = actual.diag()
-        self.assertLess(torch.norm(res - actual), 1e-5)
+    def create_data_double_batch(self):
+        return torch.randn(3, 2, 50, 2)
 
-        # batch_dims
-        actual = torch.zeros(2, 3, 3, 2)
-        for i in range(3):
-            for j in range(3):
-                for k in range(2):
-                    new_term = torch.cos(2 * math.pi * (a[i] - a[j]) * means[k])
-                    new_term *= torch.exp(-2 * (math.pi * (a[i] - a[j])) ** 2 * scales[k] ** 2)
-                    actual[k, i, j] = new_term
-        actual[0].mul_(weights[0])
-        actual[1].mul_(weights[1])
-        actual = actual.sum(0)
-        actual = actual.permute(2, 0, 1)
-        res = kernel(a, a, last_dim_is_batch=True).evaluate()
-        self.assertLess(torch.norm(res - actual), 1e-5)
+    def test_active_dims_list(self):
+        x = self.create_data_no_batch()
+        kernel = self.create_kernel(num_dims=4, active_dims=[0, 2, 4, 6])
+        covar_mat = kernel(x).evaluate_kernel().evaluate()
+        kernel_basic = self.create_kernel(num_dims=4)
+        covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().evaluate()
 
-        # batch_dims + diag
-        res = kernel(a, a, last_dim_is_batch=True).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
-        self.assertLess(torch.norm(res - actual), 1e-5)
+        self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
 
-    def test_batch_separate(self):
-        a = torch.tensor([[4, 2, 8], [1, 2, 3]], dtype=torch.float).view(2, 3, 1)
-        b = torch.tensor([[0, 2, 1], [-1, 2, 0]], dtype=torch.float).view(2, 3, 1)
-        means = torch.tensor([[1, 2], [2, 3]], dtype=torch.float).view(2, 2, 1, 1)
-        scales = torch.tensor([[0.5, 0.25], [0.25, 1]], dtype=torch.float).view(2, 2, 1, 1)
-        weights = torch.tensor([[4, 2], [1, 2]], dtype=torch.float).view(2, 2)
-        kernel = SpectralMixtureKernel(batch_shape=torch.Size([2]), num_mixtures=2)
-        kernel.initialize(mixture_weights=weights, mixture_means=means, mixture_scales=scales)
-        kernel.eval()
+    def test_active_dims_range(self):
+        active_dims = list(range(3, 9))
+        x = self.create_data_no_batch()
+        kernel = self.create_kernel(num_dims=6, active_dims=active_dims)
+        covar_mat = kernel(x).evaluate_kernel().evaluate()
+        kernel_basic = self.create_kernel(num_dims=6)
+        covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().evaluate()
 
-        actual = torch.zeros(2, 3, 3)
-        for l in range(2):
-            for k in range(2):
-                for i in range(3):
-                    for j in range(3):
-                        new_term = torch.cos(2 * math.pi * (a[l, i] - b[l, j]) * means[l, k])
-                        new_term *= torch.exp(-2 * (math.pi * (a[l, i] - b[l, j])) ** 2 * scales[l, k] ** 2)
-                        new_term *= weights[l, k]
-                        actual[l, i, j] += new_term.item()
+        self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
 
-        res = kernel(a, b).evaluate()
-        self.assertLess(torch.norm(res - actual), 1e-5)
+    def test_no_batch_kernel_single_batch_x(self):
+        x = self.create_data_single_batch()
+        kernel = self.create_kernel(num_dims=x.size(-1))
+        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
 
-        # diag
-        res = kernel(a, b).diag()
-        actual = torch.cat([actual[i].diag().unsqueeze(0) for i in range(actual.size(0))])
-        self.assertLess(torch.norm(res - actual), 1e-5)
+        actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
+        actual_mat_2 = kernel(x[1]).evaluate_kernel().evaluate()
+        actual_covar_mat = torch.cat([actual_mat_1.unsqueeze(0), actual_mat_2.unsqueeze(0)])
+
+        self.assertLess(torch.norm(batch_covar_mat - actual_covar_mat) / actual_covar_mat.norm(), 1e-4)
+
+        # Test diagonal
+        kernel_diag = kernel(x, diag=True)
+        actual_diag = actual_covar_mat.diagonal(dim1=-1, dim2=-2)
+        self.assertLess(torch.norm(kernel_diag - actual_diag) / actual_diag.norm(), 1e-4)
+
+    def test_single_batch_kernel_single_batch_x(self):
+        x = self.create_data_single_batch()
+        kernel = self.create_kernel(num_dims=x.size(-1), batch_shape=torch.Size([]))
+        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+
+        actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
+        actual_mat_2 = kernel(x[1]).evaluate_kernel().evaluate()
+        actual_covar_mat = torch.cat([actual_mat_1.unsqueeze(0), actual_mat_2.unsqueeze(0)])
+
+        self.assertLess(torch.norm(batch_covar_mat - actual_covar_mat) / actual_covar_mat.norm(), 1e-4)
+
+        # Test diagonal
+        kernel_diag = kernel(x, diag=True)
+        actual_diag = actual_covar_mat.diagonal(dim1=-1, dim2=-2)
+        self.assertLess(torch.norm(kernel_diag - actual_diag) / actual_diag.norm(), 1e-4)
+
+    def test_smoke_double_batch_kernel_double_batch_x(self):
+        x = self.create_data_double_batch()
+        kernel = self.create_kernel(num_dims=x.size(-1), batch_shape=torch.Size([3, 2]))
+        batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        kernel_diag = kernel(x, diag=True)
+        return batch_covar_mat, kernel_diag
+
+    def test_kernel_getitem_single_batch(self):
+        x = self.create_data_single_batch()
+        kernel = self.create_kernel(num_dims=x.size(-1), batch_shape=torch.Size([2]))
+
+        res1 = kernel(x).evaluate()[0]  # Result of first kernel on first batch of data
+
+        new_kernel = kernel[0]
+        res2 = new_kernel(x[0]).evaluate()  # Should also be result of first kernel on first batch of data.
+
+        self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
+
+        # Test diagonal
+        kernel_diag = kernel(x, diag=True)
+        actual_diag = res1.diagonal(dim1=-1, dim2=-2)
+        self.assertLess(torch.norm(kernel_diag - actual_diag) / actual_diag.norm(), 1e-4)
+
+    def test_kernel_getitem_double_batch(self):
+        x = self.create_data_double_batch()
+        kernel = self.create_kernel(num_dims=x.size(-1), batch_shape=torch.Size([3, 2]))
+
+        res1 = kernel(x).evaluate()[0, 1]  # Result of first kernel on first batch of data
+
+        new_kernel = kernel[0, 1]
+        res2 = new_kernel(x[0, 1]).evaluate()  # Should also be result of first kernel on first batch of data.
+
+        self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
+
+        # Test diagonal
+        kernel_diag = kernel(x, diag=True)
+        actual_diag = res1.diagonal(dim1=-1, dim2=-2)
+        self.assertLess(torch.norm(kernel_diag - actual_diag) / actual_diag.norm(), 1e-4)
 
 
 if __name__ == "__main__":
