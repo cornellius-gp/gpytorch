@@ -23,8 +23,15 @@ class TestSpectralMixtureKernel(unittest.TestCase):
     def test_active_dims_list(self):
         x = self.create_data_no_batch()
         kernel = self.create_kernel(num_dims=4, active_dims=[0, 2, 4, 6])
+        y = torch.randn_like(x[..., 0])
+        kernel.initialize_from_data(x, y)
+        kernel.initialize_from_data_empspect(x, y)
+
         covar_mat = kernel(x).evaluate_kernel().evaluate()
         kernel_basic = self.create_kernel(num_dims=4)
+        kernel_basic.raw_mixture_weights.data = kernel.raw_mixture_weights
+        kernel_basic.raw_mixture_means.data = kernel.raw_mixture_means
+        kernel_basic.raw_mixture_scales.data = kernel.raw_mixture_scales
         covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().evaluate()
 
         self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
@@ -33,8 +40,15 @@ class TestSpectralMixtureKernel(unittest.TestCase):
         active_dims = list(range(3, 9))
         x = self.create_data_no_batch()
         kernel = self.create_kernel(num_dims=6, active_dims=active_dims)
+        y = torch.randn_like(x[..., 0])
+        kernel.initialize_from_data(x, y)
+        kernel.initialize_from_data_empspect(x, y)
+
         covar_mat = kernel(x).evaluate_kernel().evaluate()
         kernel_basic = self.create_kernel(num_dims=6)
+        kernel_basic.raw_mixture_weights.data = kernel.raw_mixture_weights
+        kernel_basic.raw_mixture_means.data = kernel.raw_mixture_means
+        kernel_basic.raw_mixture_scales.data = kernel.raw_mixture_scales
         covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().evaluate()
 
         self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
@@ -42,6 +56,9 @@ class TestSpectralMixtureKernel(unittest.TestCase):
     def test_no_batch_kernel_single_batch_x(self):
         x = self.create_data_single_batch()
         kernel = self.create_kernel(num_dims=x.size(-1))
+        y = torch.randn_like(x[..., 0])
+        kernel.initialize_from_data(x, y)
+        kernel.initialize_from_data_empspect(x, y)
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
 
         actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
@@ -58,6 +75,9 @@ class TestSpectralMixtureKernel(unittest.TestCase):
     def test_single_batch_kernel_single_batch_x(self):
         x = self.create_data_single_batch()
         kernel = self.create_kernel(num_dims=x.size(-1), batch_shape=torch.Size([]))
+        y = torch.randn_like(x[..., 0])
+        kernel.initialize_from_data(x, y)
+        kernel.initialize_from_data_empspect(x, y)
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
 
         actual_mat_1 = kernel(x[0]).evaluate_kernel().evaluate()
@@ -74,6 +94,10 @@ class TestSpectralMixtureKernel(unittest.TestCase):
     def test_smoke_double_batch_kernel_double_batch_x(self):
         x = self.create_data_double_batch()
         kernel = self.create_kernel(num_dims=x.size(-1), batch_shape=torch.Size([3, 2]))
+        y = torch.randn_like(x[..., 0])
+        kernel.initialize_from_data(x, y)
+        kernel.initialize_from_data_empspect(x, y)
+
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
         kernel_diag = kernel(x, diag=True)
         return batch_covar_mat, kernel_diag
