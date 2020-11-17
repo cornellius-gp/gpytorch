@@ -9,11 +9,23 @@ from .likelihood import Likelihood
 
 
 class SoftmaxLikelihood(Likelihood):
-    """
+    r"""
     Implements the Softmax (multiclass) likelihood used for GP classification.
+
+    .. math::
+        p(\mathbf y \mid \mathbf f) = \text{Softmax} \left( \mathbf W \mathbf f \right)
+
+    :math:`\mathbf W` is a set of linear mixing weights applied to the latent functions :math:`\mathbf f`.
+
+    :param int num_features: Dimensionality of latent function :math:`\mathbf f`.
+    :param int num_classes: Number of classes.
+    :param bool mixing_weights: (Default: `True`) Whether to learn a linear mixing weight :math:`\mathbf W` applied to
+        the latent function :math:`\mathbf f`. If `False`, then :math:`\mathbf W = \mathbf I`.
+    :param mixing_weights_prior: Prior to use over the mixing weights :math:`\mathbf W`.
+    :type mixing_weights_prior: ~gpytorch.priors.Prior, optional
     """
 
-    def __init__(self, num_features=None, num_classes=None, mixing_weights=True, mixing_weights_prior=None, **kwargs):
+    def __init__(self, num_features=None, num_classes=None, mixing_weights=True, mixing_weights_prior=None):
         super().__init__()
         if num_classes is None:
             raise ValueError("num_classes is required")

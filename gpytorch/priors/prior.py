@@ -20,5 +20,8 @@ class Prior(Distribution, Module, ABC):
         return self._transform(x) if self._transform is not None else x
 
     def log_prob(self, x):
-        """Returns the log-probability of the parameter value under the prior."""
+        r"""
+        :return: log-probability of the parameter value under the prior
+        :rtype: torch.Tensor
+        """
         return super(Prior, self).log_prob(self.transform(x))

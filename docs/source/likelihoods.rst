@@ -33,10 +33,38 @@ reduce the variance when computing approximate GP objective functions.
    :members:
 
 
+:hidden:`FixedNoiseGaussianLikelihood`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: FixedNoiseGaussianLikelihood
+   :members:
+
+
 :hidden:`BernoulliLikelihood`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: BernoulliLikelihood
+   :members:
+
+
+:hidden:`BetaLikelihood`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: BetaLikelihood
+   :members:
+
+
+:hidden:`LaplaceLikelihood`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: LaplaceLikelihood
+   :members:
+
+
+:hidden:`StudentTLikelihood`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: StudentTLikelihood
    :members:
 
 
@@ -47,11 +75,13 @@ Likelihoods for GPs that are distributions of vector-valued functions.
 (I.e. for a specific :math:`\mathbf x` we expect that :math:`f(\mathbf x) \in \mathbb{R}^t`,
 where :math:`t` is the number of output dimensions.)
 
+
 :hidden:`MultitaskGaussianLikelihood`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: MultitaskGaussianLikelihood
    :members:
+
 
 :hidden:`SoftmaxLikelihood`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

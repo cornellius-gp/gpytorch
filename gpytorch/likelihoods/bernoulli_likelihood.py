@@ -13,8 +13,8 @@ class BernoulliLikelihood(_OneDimensionalLikelihood):
     r"""
     Implements the Bernoulli likelihood used for GP classification, using
     Probit regression (i.e., the latent function is warped to be in [0,1]
-    using the standard Normal CDF \Phi(x)). Given the identity \Phi(-x) =
-    1-\Phi(x), we can write the likelihood compactly as:
+    using the standard Normal CDF :math:`\Phi(x)`). Given the identity
+    :math:`\Phi(-x) = 1-\Phi(x)`, we can write the likelihood compactly as:
 
     .. math::
         \begin{equation*}

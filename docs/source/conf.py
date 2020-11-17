@@ -76,6 +76,8 @@ class Mock(MagicMock):
             return _SubDistribution
         elif "Kernel" in name or "Parallel" in name:
             return _Kernel
+        elif "__version__" in name:
+            return "1000000000.0.1"
         else:
             res = MagicMock()
             res.Module = ModuleMock
@@ -126,7 +128,7 @@ for root, dirs, files in os.walk(examples_source):
 # -- Project information -----------------------------------------------------
 
 project = "GPyTorch"
-copyright = "2019, Cornellius GP"
+copyright = "2020, Cornellius GP"
 author = "Cornellius GP"
 
 # The short X.Y version
