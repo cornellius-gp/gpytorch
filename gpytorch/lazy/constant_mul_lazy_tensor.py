@@ -161,7 +161,7 @@ class ConstantMulLazyTensor(LazyTensor):
         if (self._constant > 0).sum() == self._constant.numel():
 
             base_root = self.base_lazy_tensor.root_decomposition(method=method).root
-            constant_root = self._constant ** 0.5
+            constant_root = self.expanded_constant ** 0.5
             return RootLazyTensor(constant_root * base_root)
 
         return super().root_decomposition(method=method)
