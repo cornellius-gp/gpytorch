@@ -2,12 +2,12 @@
 
 import torch
 
+from ..utils.cholesky import psd_safe_cholesky
+from ..utils.memoize import cached
 from . import delazify
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import DiagLazyTensor
 from .low_rank_root_lazy_tensor import LowRankRootLazyTensor
-from ..utils.cholesky import psd_safe_cholesky
-from ..utils.memoize import cached
 
 
 class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):

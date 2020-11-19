@@ -11,6 +11,7 @@ class LowRankRootLazyTensor(RootLazyTensor):
     The rationale for this class existing is that we can create LowRankAddedDiagLazyTensor without having to
     write custom _getitem, _get_indices, etc, leading to much better code reuse.
     """
+
     def add_diag(self, diag):
         """
         Adds an element to the diagonal of the matrix.
@@ -44,6 +45,7 @@ class LowRankRootLazyTensor(RootLazyTensor):
     def __add__(self, other):
         from .diag_lazy_tensor import DiagLazyTensor
         from .low_rank_root_added_diag_lazy_tensor import LowRankRootAddedDiagLazyTensor
+
         if isinstance(other, DiagLazyTensor):
             return LowRankRootAddedDiagLazyTensor(self, other)
         else:
