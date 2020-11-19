@@ -57,15 +57,15 @@ class AddedDiagLazyTensor(SumLazyTensor):
         return torch.addcmul(self._lazy_tensor._matmul(rhs), self._diag_tensor._diag.unsqueeze(-1), rhs)
 
     def add_diag(self, added_diag):
-        return AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor.add_diag(added_diag))
+        return self.__class__(self._lazy_tensor, self._diag_tensor.add_diag(added_diag))
 
     def __add__(self, other):
         from .diag_lazy_tensor import DiagLazyTensor
 
         if isinstance(other, DiagLazyTensor):
-            return AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor + other)
+            return self.__class__(self._lazy_tensor, self._diag_tensor + other)
         else:
-            return AddedDiagLazyTensor(self._lazy_tensor + other, self._diag_tensor)
+            return self.__class__(self._lazy_tensor + other, self._diag_tensor)
 
     def _preconditioner(self):
         r"""
