@@ -137,6 +137,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
                 )
 
         # Get log determininat and first part of quadratic form
+        covar = covar.evaluate_kernel()
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
         res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])

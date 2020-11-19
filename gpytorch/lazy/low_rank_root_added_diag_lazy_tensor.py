@@ -22,12 +22,13 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         super().__init__(*lazy_tensors, preconditioner_override=preconditioner_override)
 
+    @property
     @cached(name="chol_cap_mat")
     def chol_cap_mat(self):
         A_inv = self._diag_tensor.inverse()  # This is fine since it's a DiagLazyTensor
         U = self._lazy_tensor.root
         V = self._lazy_tensor.root.transpose(-2, -1)
-        C = DiagLazyTensor(torch.ones(*V.batch_shape, V.shape[-2], V.shape[-2], device=V.device, dtype=V.dtype))
+        C = DiagLazyTensor(torch.ones(*V.batch_shape, V.shape[-2], device=V.device, dtype=V.dtype))
 
         cap_mat = delazify(C + V.matmul(A_inv.matmul(U)))
         chol_cap_mat = psd_safe_cholesky(cap_mat)
@@ -50,11 +51,22 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
 
     def _logdet(self):
         chol_cap_mat = self.chol_cap_mat
-        logdet_cap_mat = 2 * chol_cap_mat.diag().log().sum(-1)
+        logdet_cap_mat = 2 * torch.diagonal(chol_cap_mat, offset=0, dim1=-2, dim2=-1).log().sum(-1)
         logdet_A = self._diag_tensor.logdet()
         logdet_term = logdet_cap_mat + logdet_A
 
         return logdet_term
+
+    def add_diag(self, added_diag):
+        return self.__class__(self._lazy_tensor, self._diag_tensor.add_diag(added_diag))
+
+    def __add__(self, other):
+        from .diag_lazy_tensor import DiagLazyTensor
+
+        if isinstance(other, DiagLazyTensor):
+            return self.__class__(self._lazy_tensor, self._diag_tensor + other)
+        else:
+            return self.__class__(self._lazy_tensor + other, self._diag_tensor)
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         if not self.is_square:
@@ -90,6 +102,6 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
             inv_quad_term = inv_quad_rhs.transpose(-2, -1).matmul(self_inv_rhs)
 
         if logdet:
-            logdet_term = self._logdet
+            logdet_term = self._logdet()
 
         return inv_quad_term, logdet_term

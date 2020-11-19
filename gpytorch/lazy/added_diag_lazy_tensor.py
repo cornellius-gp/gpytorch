@@ -168,3 +168,17 @@ class AddedDiagLazyTensor(SumLazyTensor):
             evals = evals_ + self._diag_tensor.diag()
             return evals, evecs
         return super()._symeig(eigenvectors=eigenvectors)
+
+    def evaluate_kernel(self):
+        """
+        Overriding this is currently necessary to allow for subclasses of AddedDiagLT to be created. For example,
+        consider the following:
+
+            >>> covar1 = covar_module(x).add_diag(torch.tensor(1.)).evaluate_kernel()
+            >>> covar2 = covar_module(x).evaluate_kernel().add_diag(torch.tensor(1.))
+
+        Unless we override this method (or find a better solution), covar1 and covar2 might not be the same type.
+        In particular, covar1 would *always* be a standard AddedDiagLazyTensor, but covar2 might be a subtype.
+        """
+        added_diag_lazy_tsr = self.representation_tree()(*self.representation())
+        return added_diag_lazy_tsr._lazy_tensor + added_diag_lazy_tsr._diag_tensor
