@@ -40,3 +40,11 @@ class LowRankRootLazyTensor(RootLazyTensor):
             diag_tensor = DiagLazyTensor(expanded_diag)
 
         return LowRankRootAddedDiagLazyTensor(self, diag_tensor)
+
+    def __add__(self, other):
+        from .diag_lazy_tensor import DiagLazyTensor
+        from .low_rank_root_added_diag_lazy_tensor import LowRankRootAddedDiagLazyTensor
+        if isinstance(other, DiagLazyTensor):
+            return LowRankRootAddedDiagLazyTensor(self, other)
+        else:
+            return super().__add__(self, other)
