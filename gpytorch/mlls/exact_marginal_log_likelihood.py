@@ -39,8 +39,8 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
             res = res.add(added_loss_term.loss(*params))
 
         # Add log probs of priors on the (functions of) parameters
-        for _, prior, closure, _ in self.named_priors():
-            res.add_(prior.log_prob(closure()).sum())
+        for name, module, prior, closure, _ in self.named_priors():
+            res.add_(prior.log_prob(closure(module)).sum())
 
         return res
 
