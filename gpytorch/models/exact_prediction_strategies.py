@@ -37,7 +37,7 @@ class DefaultPredictionStrategy(object):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, root=None, inv_root=None):
         # Flatten the training labels
         train_shape = train_prior_dist.event_shape
-        train_labels = train_labels.view(*train_labels.shape[: -len(train_shape)], train_shape.numel())
+        train_labels = train_labels.reshape(*train_labels.shape[: -len(train_shape)], train_shape.numel())
 
         self.train_inputs = train_inputs
         self.train_prior_dist = train_prior_dist
