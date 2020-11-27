@@ -6,7 +6,7 @@ from ..utils.cholesky import psd_safe_cholesky
 from ..utils.memoize import cached
 from . import delazify
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
-from .diag_lazy_tensor import DiagLazyTensor, ConstantDiagLazyTensor
+from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .low_rank_root_lazy_tensor import LowRankRootLazyTensor
 
 
@@ -28,7 +28,7 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
         A_inv = self._diag_tensor.inverse()  # This is fine since it's a DiagLazyTensor
         U = self._lazy_tensor.root
         V = self._lazy_tensor.root.transpose(-2, -1)
-        C = ConstantDiagLazyTensor(torch.ones(*V.batch_shape, device=V.device, dtype=V.dtype), V.shape[-1])
+        C = ConstantDiagLazyTensor(torch.ones(V.batch_shape, device=V.device, dtype=V.dtype), V.shape[-2])
 
         cap_mat = delazify(C + V.matmul(A_inv.matmul(U)))
         chol_cap_mat = psd_safe_cholesky(cap_mat)
@@ -56,7 +56,6 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
         logdet_term = logdet_cap_mat + logdet_A
 
         return logdet_term
-
 
     def __add__(self, other):
         from .diag_lazy_tensor import DiagLazyTensor
