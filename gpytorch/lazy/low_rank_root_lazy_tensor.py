@@ -5,7 +5,7 @@ from .root_lazy_tensor import RootLazyTensor
 
 class LowRankRootLazyTensor(RootLazyTensor):
     """
-    Very thin wrapper around MatmulLazyTensor that denotes that the matmul specifically represents a low rank
+    Very thin wrapper around RootLazyTensor that denotes that the tensor specifically represents a low rank
     decomposition of a full rank matrix.
 
     The rationale for this class existing is that we can create LowRankAddedDiagLazyTensor without having to
