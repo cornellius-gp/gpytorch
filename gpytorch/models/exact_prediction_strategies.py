@@ -281,7 +281,7 @@ class DefaultPredictionStrategy(object):
         train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
-        mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+        mean_cache = train_train_covar.evaluate_kernel().inv_matmul(train_labels_offset).squeeze(-1)
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
