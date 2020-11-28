@@ -72,7 +72,7 @@ class TestSpectralMixtureGPRegression(BaseTestCase, unittest.TestCase):
         # Optimize the model
         gp_model.train()
         likelihood.train()
-        optimizer = optim.SGD(list(gp_model.parameters()), lr=0.1)
+        optimizer = optim.Adam(list(gp_model.parameters()), lr=0.01)
         optimizer.n_iter = 0
 
         if not empspect:

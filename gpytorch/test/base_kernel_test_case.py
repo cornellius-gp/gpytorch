@@ -5,13 +5,14 @@ from abc import abstractmethod
 
 import torch
 
+from .base_test_case import BaseTestCase
 
-class BaseKernelTestCase(object):
+
+class BaseKernelTestCase(BaseTestCase):
     @abstractmethod
     def create_kernel_no_ard(self, **kwargs):
         raise NotImplementedError()
 
-    @abstractmethod
     def create_kernel_ard(self, num_dims, **kwargs):
         raise NotImplementedError()
 
@@ -19,7 +20,7 @@ class BaseKernelTestCase(object):
         return torch.randn(50, 10)
 
     def create_data_single_batch(self):
-        return torch.randn(2, 50, 2)
+        return torch.randn(2, 3, 2)
 
     def create_data_double_batch(self):
         return torch.randn(3, 2, 50, 2)
@@ -31,7 +32,7 @@ class BaseKernelTestCase(object):
         kernel_basic = self.create_kernel_no_ard()
         covar_mat_actual = kernel_basic(x[:, [0, 2, 4, 6]]).evaluate_kernel().evaluate()
 
-        self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
+        self.assertAllClose(covar_mat, covar_mat_actual, rtol=1e-3, atol=1e-5)
 
     def test_active_dims_range(self):
         active_dims = list(range(3, 9))
@@ -41,7 +42,7 @@ class BaseKernelTestCase(object):
         kernel_basic = self.create_kernel_no_ard()
         covar_mat_actual = kernel_basic(x[:, active_dims]).evaluate_kernel().evaluate()
 
-        self.assertLess(torch.norm(covar_mat - covar_mat_actual) / covar_mat_actual.norm(), 1e-4)
+        self.assertAllClose(covar_mat, covar_mat_actual, rtol=1e-3, atol=1e-5)
 
     def test_no_batch_kernel_single_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard()
@@ -52,7 +53,12 @@ class BaseKernelTestCase(object):
         actual_mat_2 = kernel(x[1]).evaluate_kernel().evaluate()
         actual_covar_mat = torch.cat([actual_mat_1.unsqueeze(0), actual_mat_2.unsqueeze(0)])
 
-        self.assertLess(torch.norm(batch_covar_mat - actual_covar_mat) / actual_covar_mat.norm(), 1e-4)
+        self.assertAllClose(batch_covar_mat, actual_covar_mat, rtol=1e-3, atol=1e-5)
+
+        # Test diagonal
+        kernel_diag = kernel(x, diag=True)
+        actual_diag = actual_covar_mat.diagonal(dim1=-1, dim2=-2)
+        self.assertAllClose(kernel_diag, actual_diag, rtol=1e-3, atol=1e-5)
 
     def test_single_batch_kernel_single_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
@@ -63,7 +69,12 @@ class BaseKernelTestCase(object):
         actual_mat_2 = kernel(x[1]).evaluate_kernel().evaluate()
         actual_covar_mat = torch.cat([actual_mat_1.unsqueeze(0), actual_mat_2.unsqueeze(0)])
 
-        self.assertLess(torch.norm(batch_covar_mat - actual_covar_mat) / actual_covar_mat.norm(), 1e-4)
+        self.assertAllClose(batch_covar_mat, actual_covar_mat, rtol=1e-3, atol=1e-5)
+
+        # Test diagonal
+        kernel_diag = kernel(x, diag=True)
+        actual_diag = actual_covar_mat.diagonal(dim1=-1, dim2=-2)
+        self.assertAllClose(kernel_diag, actual_diag, rtol=1e-3, atol=1e-5)
 
     def test_no_batch_kernel_double_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
@@ -79,7 +90,12 @@ class BaseKernelTestCase(object):
 
         actual_covar_mat = torch.cat([ac.unsqueeze(0) for ac in ij_actual_covars])
 
-        self.assertLess(torch.norm(batch_covar_mat - actual_covar_mat) / actual_covar_mat.norm(), 1e-4)
+        self.assertAllClose(batch_covar_mat, actual_covar_mat, rtol=1e-3, atol=1e-5)
+
+        # Test diagonal
+        kernel_diag = kernel(x, diag=True)
+        actual_diag = actual_covar_mat.diagonal(dim1=-1, dim2=-2)
+        self.assertAllClose(kernel_diag, actual_diag, rtol=1e-3, atol=1e-5)
 
     def test_no_batch_kernel_double_batch_x_ard(self):
         try:
@@ -99,12 +115,18 @@ class BaseKernelTestCase(object):
 
         actual_covar_mat = torch.cat([ac.unsqueeze(0) for ac in ij_actual_covars])
 
-        self.assertLess(torch.norm(batch_covar_mat - actual_covar_mat) / actual_covar_mat.norm(), 2e-4)
+        self.assertAllClose(batch_covar_mat, actual_covar_mat, rtol=1e-3, atol=1e-5)
+
+        # Test diagonal
+        kernel_diag = kernel(x, diag=True)
+        actual_diag = actual_covar_mat.diagonal(dim1=-1, dim2=-2)
+        self.assertAllClose(kernel_diag, actual_diag, rtol=1e-3, atol=1e-5)
 
     def test_smoke_double_batch_kernel_double_batch_x_no_ard(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([3, 2]))
         x = self.create_data_double_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        kernel(x, diag=True)
         return batch_covar_mat
 
     def test_smoke_double_batch_kernel_double_batch_x_ard(self):
@@ -115,6 +137,7 @@ class BaseKernelTestCase(object):
 
         x = self.create_data_double_batch()
         batch_covar_mat = kernel(x).evaluate_kernel().evaluate()
+        kernel(x, diag=True)
         return batch_covar_mat
 
     def test_kernel_getitem_single_batch(self):
@@ -126,7 +149,7 @@ class BaseKernelTestCase(object):
         new_kernel = kernel[0]
         res2 = new_kernel(x[0]).evaluate()  # Should also be result of first kernel on first batch of data.
 
-        self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
+        self.assertAllClose(res1, res2, rtol=1e-3, atol=1e-5)
 
     def test_kernel_getitem_double_batch(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([3, 2]))
@@ -137,7 +160,7 @@ class BaseKernelTestCase(object):
         new_kernel = kernel[0, 1]
         res2 = new_kernel(x[0, 1]).evaluate()  # Should also be result of first kernel on first batch of data.
 
-        self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
+        self.assertAllClose(res1, res2, rtol=1e-3, atol=1e-5)
 
     def test_kernel_pickle_unpickle(self):
         kernel = self.create_kernel_no_ard(batch_shape=torch.Size([]))
