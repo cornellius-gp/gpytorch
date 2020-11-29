@@ -140,8 +140,10 @@ class VariationalTestCase(BaseTestCase):
         # Mocks
         _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
+        _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
         _cholesky_mock = patch("torch.cholesky", new=_wrapped_cholesky)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
+        _ciq_mock = patch("gpytorch.utils.contour_integral_quad", new=_wrapped_ciq)
 
         # Make model and likelihood
         model, likelihood = self._make_model_and_likelihood(
@@ -154,14 +156,14 @@ class VariationalTestCase(BaseTestCase):
         # Do one forward pass
         self._training_iter(model, likelihood, data_batch_shape, mll_cls=self.mll_cls, cuda=self.cuda)
 
-        # Now do evaluatioj
-        with _cholesky_mock as cholesky_mock, _cg_mock as cg_mock:
+        # Now do evaluation
+        with _cholesky_mock as cholesky_mock, _cg_mock as cg_mock, _ciq_mock as ciq_mock:
             # Iter 1
             _ = self._eval_iter(model, eval_data_batch_shape, cuda=self.cuda)
             output = self._eval_iter(model, eval_data_batch_shape, cuda=self.cuda)
             self.assertEqual(output.batch_shape, expected_batch_shape)
             self.assertEqual(output.event_shape, self.event_shape)
-            return cg_mock, cholesky_mock
+            return cg_mock, cholesky_mock, ciq_mock
 
     def test_eval_smaller_pred_batch(self):
         return self.test_eval_iteration(
@@ -198,8 +200,10 @@ class VariationalTestCase(BaseTestCase):
         # Mocks
         _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
+        _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
         _cholesky_mock = patch("torch.cholesky", new=_wrapped_cholesky)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
+        _ciq_mock = patch("gpytorch.utils.contour_integral_quad", new=_wrapped_ciq)
 
         # Make model and likelihood
         model, likelihood = self._make_model_and_likelihood(
@@ -211,7 +215,7 @@ class VariationalTestCase(BaseTestCase):
         )
 
         # Do forward pass
-        with _cholesky_mock as cholesky_mock, _cg_mock as cg_mock:
+        with _cholesky_mock as cholesky_mock, _cg_mock as cg_mock, _ciq_mock as ciq_mock:
             # Iter 1
             self.assertEqual(model.variational_strategy.variational_params_initialized.item(), 0)
             self._training_iter(model, likelihood, data_batch_shape, mll_cls=self.mll_cls, cuda=self.cuda)
@@ -223,7 +227,7 @@ class VariationalTestCase(BaseTestCase):
             self.assertEqual(output.batch_shape, expected_batch_shape)
             self.assertEqual(output.event_shape, self.event_shape)
             self.assertEqual(loss.shape, expected_batch_shape)
-            return cg_mock, cholesky_mock
+            return cg_mock, cholesky_mock, ciq_mock
 
     def test_training_iteration_batch_inducing(self):
         return self.test_training_iteration(

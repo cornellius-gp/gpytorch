@@ -51,14 +51,18 @@ class TestLMCVariationalGP(VariationalTestCase, unittest.TestCase):
     def test_training_iteration(self, *args, expected_batch_shape=None, **kwargs):
         expected_batch_shape = expected_batch_shape or self.batch_shape
         expected_batch_shape = expected_batch_shape[:-1]
-        cg_mock, _ = super().test_training_iteration(*args, expected_batch_shape=expected_batch_shape, **kwargs)
+        cg_mock, _, ciq_mock = super().test_training_iteration(
+            *args, expected_batch_shape=expected_batch_shape, **kwargs
+        )
         self.assertFalse(cg_mock.called)
+        self.assertFalse(ciq_mock.called)
 
     def test_eval_iteration(self, *args, expected_batch_shape=None, **kwargs):
         expected_batch_shape = expected_batch_shape or self.batch_shape
         expected_batch_shape = expected_batch_shape[:-1]
-        cg_mock, _ = super().test_eval_iteration(*args, expected_batch_shape=expected_batch_shape, **kwargs)
+        cg_mock, _, ciq_mock = super().test_eval_iteration(*args, expected_batch_shape=expected_batch_shape, **kwargs)
         self.assertFalse(cg_mock.called)
+        self.assertFalse(ciq_mock.called)
 
 
 class TestLMCPredictiveGP(TestLMCVariationalGP):
