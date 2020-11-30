@@ -127,6 +127,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
     Similar to :class:`~gpytorch.variational.VariationalStrategy`,
     except the whitening operation is performed using Contour Integral Quadrature
     rather than Cholesky (see `Pleiss et al. (2020)`_ for more info).
+    See the `CIQ-SVGP tutorial`_ for an example.
 
     Contour Integral Quadrature uses iterative matrix-vector multiplication to approximate
     the :math:`\mathbf K_{\mathbf Z \mathbf Z}^{-1/2}` matrix used for the whitening operation.
@@ -138,7 +139,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
 
         It is recommended that this object is used in conjunction with
         :obj:`~gpytorch.variational.NaturalVariationalDistribution` and
-        `natural gradient descent`_
+        `natural gradient descent`_.
 
     :param ~gpytorch.models.ApproximateGP model: Model this strategy is applied to.
         Typically passed in when the VariationalStrategy is created in the
@@ -154,6 +155,8 @@ class CiqVariationalStrategy(_VariationalStrategy):
 
     .. _Pleiss et al. (2020):
         https://arxiv.org/pdf/2006.11267.pdf
+    .. _CIQ-SVGP tutorial:
+        examples/04_Variational_and_Approximate_GPs/SVGP_CIQ.html
     .. _natural gradient descent:
         examples/04_Variational_and_Approximate_GPs/Natural_Gradient_Descent.html
     """
@@ -206,7 +209,8 @@ class CiqVariationalStrategy(_VariationalStrategy):
         # Compute interpolation terms
         # K_XZ K_ZZ^{-1} \mu_z
         # K_XZ K_ZZ^{-1/2} \mu_Z
-        interp_term = lazify(induc_induc_covar).sqrt_inv_matmul(induc_data_covar)
+        with settings.max_preconditioner_size(0):  # Turn off preconditioning for CIQ
+            interp_term = lazify(induc_induc_covar).sqrt_inv_matmul(induc_data_covar)
 
         # Compute interpolated mean and variance terms
         # We have separate computation rules for NGD versus standard GD
