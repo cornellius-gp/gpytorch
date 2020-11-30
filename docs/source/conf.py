@@ -17,10 +17,6 @@ import io
 import re
 import shutil
 import sys
-
-# Mock - so RTD doesn't have to import torch
-from unittest.mock import MagicMock  # noqa
-
 import sphinx_rtd_theme  # noqa
 
 
@@ -40,71 +36,6 @@ def find_version(*file_paths):
 
 
 sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..", "..")))
-
-
-# Mechanism to mock out modules
-class ModuleMock(object):
-    def __init__(self, *args, **kwargs):
-        pass
-
-
-# We need some dirty hackary to fix the distributions mocking
-class _Distribution(object):
-    pass
-
-
-# More dirty hackary
-class _SubDistribution(object):
-    pass
-
-
-class _Kernel(object):
-    pass
-
-
-# Putting all of our dirty hacks together
-class Mock(MagicMock):
-    __metaclass__ = type
-
-    @classmethod
-    def __getattr__(cls, name):
-        if "Module" == name:
-            return ModuleMock
-        elif "Distribution" in name:
-            return _Distribution
-        elif "Normal" in name or "Gamma" in name or "Wishart" in name or "Uniform" in name:
-            return _SubDistribution
-        elif "Kernel" in name or "Parallel" in name:
-            return _Kernel
-        elif "__version__" in name:
-            return "1000000000.0.1"
-        else:
-            res = MagicMock()
-            res.Module = ModuleMock
-            res.__metaclass__ = type
-            return res
-
-
-MOCK_MODULES = [
-    "pyro",
-    "pyro.distributions",
-    "pyro.distributions.torch_distribution",
-    "torch",
-    "torch.autograd",
-    "torch.nn",
-    "torch.nn.functional",
-    "torch.nn.parallel",
-    "torch.optim",
-    "torch.utils",
-    "torch.utils.data",
-    "torch.distributions.kl",
-    "torch.distributions.multivariate_normal",
-    "torch.distributions.utils",
-    "torch.distributions",
-    "torch.optim.lr_scheduler",
-    "numpy",
-]
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # - Copy over examples folder to docs/source
 # This makes it so that nbsphinx properly loads the notebook images
@@ -278,4 +209,9 @@ texinfo_documents = [
 ]
 
 
-# -- Extension configuration -------------------------------------------------
+# Taken from https://github.com/pyro-ppl/pyro/blob/dev/docs/source/conf.py#L213
+# @jpchen's hack to get rtd builder to install latest pytorch
+# See similar line in the install section of .travis.yml
+if "READTHEDOCS" in os.environ:
+    os.system("pip install torch==1.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html")
+    os.system("pip install pyro-ppl")

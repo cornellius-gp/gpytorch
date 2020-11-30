@@ -38,18 +38,7 @@ script:
 
 matrix:
   include:
-    - env: LINT_CHECK
-      python: "3.6"
-      install: pip install flake8==3.7.9 flake8-print==3.1.4
-      script: flake8
     - env: PRECOMMIT_CHECK
       python: "3.6"
-      install: pip install pre-commit; pre-commit install; pre-commit run seed-isort-config || true
-      script: SKIP=flake8 pre-commit run --files test/**/*.py gpytorch/**/*.py
-    - env: DOCS_CHECK
-      addons:
-        apt_packages:
-          - pandoc
-      python: "3.6"
-      install: pip install "nbformat<=4.4" IPython ipykernel "sphinx<3.0.0" sphinx_rtd_theme nbsphinx m2r attrs==19.1 scipy
-      script: python setup.py build_sphinx
+      install: pip install flake8==3.7.9 flake8-print==3.1.4 pre-commit; pre-commit install; pre-commit run seed-isort-config || true
+      script: flake8 && SKIP=flake8 pre-commit run --files test/**/*.py gpytorch/**/*.py
