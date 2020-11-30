@@ -1,9 +1,9 @@
 # GPyTorch
 
 ---
-__News: GPyTorch v1.2__
+__News: GPyTorch v1.3__
 
-GPyTorch v1.2 has just been released.
+GPyTorch v1.3 has just been released.
 
 ---
 
