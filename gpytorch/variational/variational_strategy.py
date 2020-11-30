@@ -76,7 +76,11 @@ class VariationalStrategy(_VariationalStrategy):
     @property
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
-        zeros = torch.zeros_like(self.variational_distribution.mean)
+        zeros = torch.zeros(
+            self._variational_distribution.shape(),
+            dtype=self._variational_distribution.dtype,
+            device=self._variational_distribution.device,
+        )
         ones = torch.ones_like(zeros)
         res = MultivariateNormal(zeros, DiagLazyTensor(ones))
         return res
