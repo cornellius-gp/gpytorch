@@ -24,7 +24,7 @@ See our numerous [**examples and tutorials**](https://gpytorch.readthedocs.io/en
 
 **Requirements**:
 - Python >= 3.6
-- PyTorch >= 1.6
+- PyTorch >= 1.7
 
 Install GPyTorch using pip or conda:
 
