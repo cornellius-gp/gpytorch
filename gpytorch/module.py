@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import inspect
 import itertools
 from collections import OrderedDict
 
@@ -236,7 +237,12 @@ class Module(nn.Module):
                 return module.initialize(**{param_or_closure: val})
 
         else:
+            if len(inspect.signature(param_or_closure).parameters) == 0:
+                raise ValueError("`param_or_closure` must operate on a module instance.")
+            if inspect.isfunction(setting_closure) and len(inspect.signature(setting_closure).parameters) < 2:
+                raise ValueError("`setting_closure` must operate on a module instance and tensor input.")
             closure = param_or_closure
+
         self.add_module(name, prior)
         self._priors[name] = (prior, closure, setting_closure)
 
