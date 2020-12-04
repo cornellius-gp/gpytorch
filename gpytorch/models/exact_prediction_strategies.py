@@ -629,7 +629,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
             torch.eye(train_factor.size(-1), dtype=train_factor.dtype, device=train_factor.device)
             - (train_factor.transpose(-1, -2) @ train_train_covar.inv_matmul(train_factor)) * constant
         )
-        return psd_safe_cholesky(inner_term)
+        return psd_safe_cholesky(inner_term, jitter=settings.cholesky_jitter.value())
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data
