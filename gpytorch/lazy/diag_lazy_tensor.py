@@ -210,11 +210,11 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
         Used e.g. for adding jitter to matrices.
 
         Args:
-            :attr:`n` (int):
-                The (non-batch) dimension of the (square) matrix
             :attr:`diag_values` (Tensor):
                 A `b1 x ... x bk x 1` Tensor, representing a `b1 x ... x bk`-sized batch
-                of `n x n` diagonal matrices
+                of `diag_shape x diag_shape` diagonal matrices
+            :attr:`diag_shape` (int):
+                The (non-batch) dimension of the (square) matrix
         """
         super(TriangularLazyTensor, self).__init__(diag_values, diag_shape=diag_shape)
         self.diag_shape = diag_shape
