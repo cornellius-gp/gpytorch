@@ -9,9 +9,6 @@ class NGD(torch.optim.Optimizer):
     r"""Implements a natural gradient descent step.
     It **can only** be used in conjunction with a :obj:`~gpytorch.variational._NaturalVariationalDistribution`.
 
-    Nesterov momentum is based on the formula from
-    `On the importance of initialization and momentum in deep learning`__.
-
     .. seealso::
         - :obj:`gpytorch.variational.NaturalVariationalDistribution`
         - :obj:`gpytorch.variational.TrilNaturalVariationalDistribution`
