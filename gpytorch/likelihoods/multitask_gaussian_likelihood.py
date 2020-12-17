@@ -51,7 +51,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             self.register_parameter("task_noise_corr", torch.nn.Parameter(task_noise_corr))
             if task_correlation_prior is not None:
                 self.register_prior(
-                    "MultitaskErrorCorrelationPrior", task_correlation_prior, lambda: self._eval_corr_matrix
+                    "MultitaskErrorCorrelationPrior", task_correlation_prior, lambda m: m._eval_corr_matrix
                 )
         elif task_correlation_prior is not None:
             raise ValueError("Can only specify task_correlation_prior if rank>0")
@@ -245,7 +245,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
                 name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn(*batch_shape, num_tasks, rank))
             )
             if task_prior is not None:
-                self.register_prior("MultitaskErrorCovariancePrior", task_prior, self._eval_covar_matrix)
+                self.register_prior("MultitaskErrorCovariancePrior", task_prior, lambda m: m._eval_covar_matrix)
         self.num_tasks = num_tasks
         self.rank = rank
 
