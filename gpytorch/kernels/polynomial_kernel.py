@@ -53,7 +53,7 @@ class PolynomialKernel(Kernel):
         self.power = power
 
         if offset_prior is not None:
-            self.register_prior("offset_prior", offset_prior, lambda: self.offset, lambda v: self._set_offset(v))
+            self.register_prior("offset_prior", offset_prior, lambda m: m.offset, lambda m, v: m._set_offset(v))
 
         self.register_constraint("raw_offset", offset_constraint)
 
