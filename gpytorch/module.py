@@ -238,9 +238,28 @@ class Module(nn.Module):
 
         else:
             if len(inspect.signature(param_or_closure).parameters) == 0:
-                raise ValueError("`param_or_closure` must operate on a module instance.")
+                raise ValueError(
+                    """As of version 1.4, `param_or_closure` must operate on a module instance. For example:
+
+                    likelihood.noise_covar.register_prior(
+                        "noise_std_prior",
+                        gpytorch.priors.NormalPrior(0, 1),
+                        lambda module: module.noise.sqrt()
+                    )
+                    """
+                )
             if inspect.isfunction(setting_closure) and len(inspect.signature(setting_closure).parameters) < 2:
-                raise ValueError("`setting_closure` must operate on a module instance and tensor input.")
+                raise ValueError(
+                    """As of version 1.4, `setting_closure` must operate on a module instance and a tensor. For example:
+
+                    kernel.register_prior(
+                        "radius_prior",
+                        gpytorch.priors.LogNormalPrior(0, 1),
+                        lambda module: module.radius,
+                        lambda module, value: m._set_radius(value),
+                    )
+                    """
+                )
             closure = param_or_closure
 
         self.add_module(name, prior)
