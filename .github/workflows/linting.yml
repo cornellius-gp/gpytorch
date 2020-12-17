@@ -1,0 +1,32 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: GPyTorch Linting
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.6"
+    - name: Install dependencies
+      run: |
+        pip install flake8==3.7.9 flake8-print==3.1.4 pre-commit
+        pre-commit install
+        pre-commit run seed-isort-config || true
+    - name: Run linting
+      run: |
+        flake8
+    - name: Run pre-commit checks
+      run: |
+        SKIP=flake8 pre-commit run --files test/**/*.py gpytorch/**/*.py
