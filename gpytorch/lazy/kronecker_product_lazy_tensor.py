@@ -199,17 +199,25 @@ class KroneckerProductLazyTensor(LazyTensor):
     def root_decomposition(self, method: Optional[str] = None):
         from gpytorch.lazy import RootLazyTensor
 
-        if method == "symeig" or method is None:
-            evals, evecs = self._symeig(eigenvectors=True, return_evals_as_lazy=True)
-            # TODO: only use non-zero evals (req. dealing w/ batches...)
-            f_list = [
-                evec * eval.diag().clamp(0.0).sqrt().unsqueeze(-2)
-                for eval, evec in zip(evals.lazy_tensors, evecs.lazy_tensors)
-            ]
-            F = KroneckerProductLazyTensor(*f_list)
-            return RootLazyTensor(F)
-        else:
+        # return a dense root decomposition if the matrix is small
+        if self.shape[-1] <= settings.max_cholesky_size.value():
             return super().root_decomposition(method=method)
+
+        root_list = [lt.root_decomposition(method=method).root for lt in self.lazy_tensors]
+        kronecker_root = KroneckerProductLazyTensor(*root_list)
+        return RootLazyTensor(kronecker_root)
+
+    @cached(name="root_inv_decomposition")
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+        from gpytorch.lazy import RootLazyTensor
+
+        # return a dense root decomposition if the matrix is small
+        if self.shape[-1] <= settings.max_cholesky_size.value():
+            return super().root_inv_decomposition()
+
+        root_list = [lt.root_inv_decomposition().root for lt in self.lazy_tensors]
+        kronecker_root = KroneckerProductLazyTensor(*root_list)
+        return RootLazyTensor(kronecker_root)
 
     @cached(name="size")
     def _size(self):

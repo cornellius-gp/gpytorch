@@ -20,7 +20,7 @@ def kron(a, b):
 
 class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
-    should_call_lanczos = False
+    should_call_lanczos = True
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
@@ -40,12 +40,14 @@ class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
 class TestKroneckerProductLazyTensorBatch(TestKroneckerProductLazyTensor):
     seed = 0
-    should_call_lanczos = False
+    should_call_lanczos = True
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float).repeat(3, 1, 1)
         b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float).repeat(3, 1, 1)
-        c = torch.tensor([[4, 0, 1, 0], [0, 4, -1, 0], [1, -1, 3, 0], [0, 0, 0, 4]], dtype=torch.float).repeat(3, 1, 1)
+        c = torch.tensor([[4, 0.1, 1, 0], [0.1, 4, -1, 0], [1, -1, 3, 0], [0, 0, 0, 4]], dtype=torch.float).repeat(
+            3, 1, 1
+        )
         a.requires_grad_(True)
         b.requires_grad_(True)
         c.requires_grad_(True)
