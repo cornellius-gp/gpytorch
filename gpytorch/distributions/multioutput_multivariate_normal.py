@@ -52,8 +52,9 @@ class MultioutputMultivariateNormal(MultivariateNormal):
         for o, d in zip(order, covariance.shape[-len(order) :]):
             if d != dims[o]:
                 raise ValueError("Supplied order inconsistent with covariance dimensions")
-        b = len(self._batch_shape)
-        self._covar, self._nlzd_order = _normalize_covar(covariance=covariance, order=order, b=b)
+        self._covar, self._nlzd_order = _normalize_covar(
+            covariance=covariance, order=order, bdims=len(self._batch_shape)
+        )
 
     @classmethod
     def from_independent_mvns(cls, mvns: Iterable[MultivariateNormal]) -> MultioutputMultivariateNormal:
@@ -97,9 +98,9 @@ class MultioutputMultivariateNormal(MultivariateNormal):
         if self._nlzd_order == NormalizedOrder.INDEPENDENT:
             return self._covar
         if self._nlzd_order == NormalizedOrder.OUTPUT_INDEPENDENT:
-            return torch.diagonal(self._covar, dim1=-1, dim2=-1).transpose(-1, -2)
+            return torch.diagonal(self._covar, dim1=-1, dim2=-2).transpose(-1, -2)
         if self._nlzd_order == NormalizedOrder.POINT_INDEPENDENT:
-            return torch.diagonal(self._covar, dim1=-1, dim2=-1)
+            return torch.diagonal(self._covar, dim1=-1, dim2=-2)
         C = torch.diagonal(self._covar, dim1=-1, dim2=-3)
         return torch.diagonal(C, dim1=-3, dim2=-2).transpose(-1, -2)
 
@@ -157,7 +158,7 @@ class MultioutputMultivariateNormal(MultivariateNormal):
             loc = self.mean.reshape(-1, n * m)
             return mvn_log_prob(loc, ust, value.view(*value.shape[:-2], -1))
 
-    def __getitem__(self, index) -> MultioutputMultivariateNormal:
+    def __getitem__(self, index) -> MultivariateNormal:
         if not isinstance(index, tuple):
             index = (index,)
         fixed = []
@@ -166,13 +167,11 @@ class MultioutputMultivariateNormal(MultivariateNormal):
             if slice_ is Ellipsis:
                 fixed.extend([slice(None)] * (dims - length + 1))
                 length = len(fixed)
-            elif isinstance(slice_, int):
-                fixed.append(slice(slice_, slice_ + 1, 1))
             else:
                 fixed.append(slice_)
+        if len(fixed) < dims:
+            fixed += (slice(None),) * (dims - len(fixed))
         index = tuple(fixed)
-        if len(index) < dims:
-            index += (slice(None),) * (dims - len(index))
         new_mean = self.mean[index]
         if self._nlzd_order == NormalizedOrder.INDEPENDENT:
             new_covar = self._covar[index]
@@ -186,8 +185,33 @@ class MultioutputMultivariateNormal(MultivariateNormal):
         else:
             tail_idx = (n_idx, m_idx)
         new_covar = self._covar[(*index[:-2], *tail_idx)]
-        # TODO: Consider returing MVN / Normal if indexing results in singleton dimensions
-        return self.__class__(mean=new_mean, covariance=new_covar, order=self._nlzd_order.value)
+        # Deal with indices that collaps this into either a single output or a single observation
+        numint = sum(isinstance(idx, int) for idx in (n_idx, m_idx))
+        if numint == 0:  # we return a MultioutputMultivariateNormal
+            return self.__class__(mean=new_mean, covariance=new_covar, order=self._nlzd_order.value)
+        if numint == 2:
+            # Everything has collapsed, we return a degenerate MVN with n=1
+            new_covar = new_covar.unsqueeze(-1).unsqueeze(-1)
+            new_mean = new_mean.unsqueeze(-1)
+        # we need to deal with how exactly things have collapsed
+        if new_mean.shape == new_covar.shape:
+            new_covar = torch.diag_embed(new_covar, dim1=-1, dim2=-2)
+        return MultivariateNormal(new_mean, new_covar)
+
+    def __repr__(self) -> str:
+        rep = f"{self.__class__.__name__}("
+        if self.batch_shape:
+            rep += f"batch_shape={tuple(self.batch_shape)}, "
+        n, m = self.event_shape
+        rep += f"n={n}, m={m}"
+        if self._nlzd_order == NormalizedOrder.INDEPENDENT:
+            rep += ", fully independent"
+        elif self._nlzd_order == NormalizedOrder.OUTPUT_INDEPENDENT:
+            rep += ", independent outputs"
+        elif self._nlzd_order == NormalizedOrder.POINT_INDEPENDENT:
+            rep += ", independent points"
+        rep += ")"
+        return rep
 
 
 class TaskIndependentLazyMTVN(MultioutputMultivariateNormal):
@@ -258,18 +282,18 @@ def mvn_log_prob(loc: Tensor, unbroadcasted_scale_tril: Tensor, value: Tensor) -
     return -0.5 * (loc.size(-1) * math.log(2 * math.pi) + M) - half_log_det
 
 
-def _normalize_covar(covariance: Tensor, order: str, b: int) -> Tuple[Tensor, NormalizedOrder]:
+def _normalize_covar(covariance: Tensor, order: str, bdims: int) -> Tuple[Tensor, NormalizedOrder]:
     output_indep = order.count("m") == 1
     point_indep = order.count("n") == 1
     if point_indep:
         if output_indep:
-            assert covariance.ndim == b + 2
+            assert covariance.ndim == bdims + 2
             # normalize to `n` x m`
             nlzd_order = NormalizedOrder("nm")
             if order.find("m") == 0:
                 covariance = covariance.transpose(-1, -2)
         else:
-            assert covariance.ndim == b + 3
+            assert covariance.ndim == bdims + 3
             # normalize to `n x m x m`
             nlzd_order = NormalizedOrder("nmm")
             nloc = order.find("n")
@@ -277,19 +301,19 @@ def _normalize_covar(covariance: Tensor, order: str, b: int) -> Tuple[Tensor, No
                 covariance = covariance.transpose(-3, -3 + nloc)
     else:
         if output_indep:
-            assert covariance.ndim == b + 3
+            assert covariance.ndim == bdims + 3
             # normalize to `m x n x n`
             nlzd_order = NormalizedOrder("mnn")
             mloc = order.find("m")
             if mloc != 0:
                 covariance = covariance.transpose(-3, -3 + mloc)
         else:
-            assert covariance.ndim == b + 4
+            assert covariance.ndim == bdims + 4
             # normalize to `n x m x n x m`
             nlzd_order = NormalizedOrder("nmnm")
             nlocs = [i for i, s in enumerate(order) if s == "n"]
             mlocs = [i for i, s in enumerate(order) if s == "m"]
             if nlocs != [0, 2]:
-                perm_idcs = (b + nlocs[0], b + mlocs[0], b + nlocs[1], b + mlocs[1])
-                covariance = covariance.permute(*range(b), *perm_idcs)
+                perm_idcs = (bdims + nlocs[0], bdims + mlocs[0], bdims + nlocs[1], bdims + mlocs[1])
+                covariance = covariance.permute(*range(bdims), *perm_idcs)
     return covariance, nlzd_order
