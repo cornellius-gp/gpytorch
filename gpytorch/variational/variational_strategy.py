@@ -114,12 +114,7 @@ class VariationalStrategy(_VariationalStrategy):
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
-        predictive_mean = (
-            torch.matmul(
-                interp_term.transpose(-1, -2), (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
-            ).squeeze(-1)
-            + test_mean
-        )
+        predictive_mean = (interp_term.transpose(-1, -2) @ inducing_values.unsqueeze(-1)).squeeze(-1) + test_mean
 
         # Compute the covariance of q(f)
         # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
