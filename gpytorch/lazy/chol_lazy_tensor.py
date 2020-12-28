@@ -84,10 +84,12 @@ class CholLazyTensor(RootLazyTensor):
                         )
                     )
             elif self.dim() != inv_quad_rhs.dim():
-                raise RuntimeError(
-                    "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
-                    "of dimensions.".format(self.shape, inv_quad_rhs.shape)
-                )
+                # Dan 12/16/2020 -- comment out.
+                pass  
+                # raise RuntimeError(
+                #     "LazyTensor (size={}) and right-hand-side Tensor (size={}) should have the same number "
+                #     "of dimensions.".format(self.shape, inv_quad_rhs.shape)
+                # )
             elif self.shape[-1] != inv_quad_rhs.shape[-2]:
                 raise RuntimeError(
                     "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
