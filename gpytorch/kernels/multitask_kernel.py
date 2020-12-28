@@ -23,8 +23,7 @@ class MultitaskKernel(Kernel):
     """
 
     def __init__(self, data_covar_module, num_tasks, rank=1, task_covar_prior=None, **kwargs):
-        """
-        """
+        """"""
         super(MultitaskKernel, self).__init__(**kwargs)
         self.task_covar_module = IndexKernel(
             num_tasks=num_tasks, batch_shape=self.batch_shape, rank=rank, prior=task_covar_prior

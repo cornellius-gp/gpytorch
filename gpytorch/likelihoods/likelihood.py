@@ -196,8 +196,7 @@ try:
             raise NotImplementedError
 
         def get_fantasy_likelihood(self, **kwargs):
-            """
-            """
+            """"""
             return super().get_fantasy_likelihood(**kwargs)
 
         def log_marginal(self, observations, function_dist, *args, **kwargs):

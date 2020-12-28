@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-import torch
-
 import pyro
+import torch
 
 
 class _PyroMixin(object):
@@ -29,8 +28,8 @@ class _PyroMixin(object):
 
         # Include term for GPyTorch priors
         log_prior = torch.tensor(0.0, dtype=u_samples.dtype, device=u_samples.device)
-        for _, prior, closure, _ in self.named_priors():
-            log_prior.add_(prior.log_prob(closure()).sum())
+        for _, module, prior, closure, _ in self.named_priors():
+            log_prior.add_(prior.log_prob(closure(module)).sum())
         pyro.factor(name_prefix + ".log_prior", log_prior)
 
         # Include factor for added loss terms

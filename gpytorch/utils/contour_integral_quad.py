@@ -69,6 +69,7 @@ def contour_integral_quad(
                 max_tridiag_iter=max_lanczos_iter,
                 preconditioner=preconditioner,
             )
+            lanczos_mat = lanczos_mat.squeeze(0)  # We have an extra singleton batch dimension from the Lanczos init
 
         """
         K^{-1/2} b = 2/pi \int_0^\infty (K - t^2 I)^{-1} dt
@@ -87,7 +88,7 @@ def contour_integral_quad(
 
         max_eig = approx_eigs.max(dim=-1)[0]
         min_eig = approx_eigs.min(dim=-1)[0]
-        k2 = (min_eig / max_eig).squeeze(-1)
+        k2 = min_eig / max_eig
 
         # Compute the shifts needed for the contour
         flat_shifts = torch.zeros(num_contour_quadrature + 1, k2.numel(), dtype=k2.dtype, device=k2.device)

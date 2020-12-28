@@ -25,7 +25,7 @@ readme = open("README.md").read()
 version = find_version("gpytorch", "__init__.py")
 
 
-torch_min = "1.6"
+torch_min = "1.7"
 install_requires = [">=".join(["torch", torch_min]), "scikit-learn", "scipy"]
 # if recent dev version of PyTorch is installed, no need to install stable
 try:

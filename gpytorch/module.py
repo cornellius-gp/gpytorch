@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import inspect
 import itertools
 from collections import OrderedDict
 
@@ -9,7 +10,6 @@ from torch.distributions import Distribution
 
 from .constraints import Interval
 from .lazy import LazyTensor
-from .utils.deprecation import DeprecationError
 
 
 class Module(nn.Module):
@@ -127,7 +127,7 @@ class Module(nn.Module):
             if prior_name in self._priors:
                 prior, closure, _ = self._priors[prior_name]
                 try:
-                    prior._validate_sample(closure())
+                    prior._validate_sample(closure(self))
                 except ValueError as e:
                     raise ValueError("Invalid input value for prior {}. Error:\n{}".format(prior_name, e))
 
@@ -157,8 +157,9 @@ class Module(nn.Module):
         the prior, the associated parameter names, and the transformation callable.
 
         Yields:
-            (string, Prior, tuple((Parameter, callable)), callable): Tuple containing:
+            (string, Module, Prior, tuple((Parameter, callable)), callable): Tuple containing:
                 - the name of the prior
+                - the parent module of the prior
                 - the prior
                 - a tuple of tuples (param, transform), one for each of the parameters associated with the prior
                 - the prior's transform to be called on the parameters
@@ -179,7 +180,7 @@ class Module(nn.Module):
     def register_added_loss_term(self, name):
         self._added_loss_terms[name] = None
 
-    def register_parameter(self, name, parameter, prior=None):
+    def register_parameter(self, name, parameter):
         r"""
         Adds a parameter to the module. The parameter can be accessed as an attribute using the given name.
 
@@ -189,11 +190,6 @@ class Module(nn.Module):
             :attr:`parameter` (torch.nn.Parameter):
                 The parameter
         """
-        if prior is not None:
-            raise DeprecationError(
-                "Setting a prior upon registering a parameter is deprecated. Please use "
-                ".register_prior('{name}_prior', prior, '{name}') instead.".format(name=name)
-            )
         if "_parameters" not in self.__dict__:
             raise AttributeError("Cannot assign parameter before Module.__init__() call")
         super().register_parameter(name, parameter)
@@ -209,17 +205,17 @@ class Module(nn.Module):
                 The prior to be registered`
             :attr:`param_or_closure` (string or callable):
                 Either the name of the parameter, or a closure (which upon calling evalutes a function on
-                one or more parameters):
+                the module instance and one or more parameters):
                 single parameter without a transform: `.register_prior("foo_prior", foo_prior, "foo_param")`
                 transform a single parameter (e.g. put a log-Normal prior on it):
-                `.register_prior("foo_prior", NormalPrior(0, 1), lambda: torch.log(self.foo_param))`
+                `.register_prior("foo_prior", NormalPrior(0, 1), lambda module: torch.log(module.foo_param))`
                 function of multiple parameters:
-                `.register_prior("foo2_prior", foo2_prior, lambda: f(self.param1, self.param2)))`
+                `.register_prior("foo2_prior", foo2_prior, lambda module: f(module.param1, module.param2)))`
             :attr:`setting_closure` (callable, optional):
-                A function taking in a tensor in (transformed) parameter space and initializing the
-                internal parameter representation to the proper value by applying the inverse transform.
-                Enables setting parametres directly in the transformed space, as well as sampling
-                parameter values from priors (see `sample_from_prior`)
+                A function taking in the module instance and a tensor in (transformed) parameter space,
+                initializing the internal parameter representation to the proper value by applying the
+                inverse transform. Enables setting parametres directly in the transformed space, as well
+                as sampling parameter values from priors (see `sample_from_prior`)
 
         """
         if isinstance(param_or_closure, str):
@@ -231,17 +227,41 @@ class Module(nn.Module):
                     + " Make sure the parameter is registered before registering a prior."
                 )
 
-            def closure():
-                return getattr(self, param_or_closure)
+            def closure(module):
+                return getattr(module, param_or_closure)
 
             if setting_closure is not None:
                 raise RuntimeError("Must specify a closure instead of a parameter name when providing setting_closure")
 
-            def setting_closure(val):
-                return self.initialize(**{param_or_closure: val})
+            def setting_closure(module, val):
+                return module.initialize(**{param_or_closure: val})
 
         else:
+            if len(inspect.signature(param_or_closure).parameters) == 0:
+                raise ValueError(
+                    """As of version 1.4, `param_or_closure` must operate on a module instance. For example:
+
+                    likelihood.noise_covar.register_prior(
+                        "noise_std_prior",
+                        gpytorch.priors.NormalPrior(0, 1),
+                        lambda module: module.noise.sqrt()
+                    )
+                    """
+                )
+            if inspect.isfunction(setting_closure) and len(inspect.signature(setting_closure).parameters) < 2:
+                raise ValueError(
+                    """As of version 1.4, `setting_closure` must operate on a module instance and a tensor. For example:
+
+                    kernel.register_prior(
+                        "radius_prior",
+                        gpytorch.priors.LogNormalPrior(0, 1),
+                        lambda module: module.radius,
+                        lambda module, value: m._set_radius(value),
+                    )
+                    """
+                )
             closure = param_or_closure
+
         self.add_module(name, prior)
         self._priors[name] = (prior, closure, setting_closure)
 
@@ -329,7 +349,7 @@ class Module(nn.Module):
         prior, _, setting_closure = self._priors[prior_name]
         if setting_closure is None:
             raise RuntimeError("Must provide inverse transform to be able to sample from prior.")
-        setting_closure(prior.sample())
+        setting_closure(self, prior.sample())
 
     def pyro_sample_from_prior(self):
         """
@@ -354,7 +374,7 @@ class Module(nn.Module):
         for name, (prior, closure, setting_closure) in self._priors.items():
             if prior is not None and prior not in memo:
                 memo.add(prior)
-                setting_closure(samples_dict[prefix + ("." if prefix else "") + name])
+                setting_closure(self, samples_dict[prefix + ("." if prefix else "") + name])
         self._strict(True)
 
     def pyro_load_from_samples(self, samples_dict):
@@ -442,9 +462,9 @@ def _pyro_sample_from_prior(module, memo=None, prefix=""):
                         f" but the following prior had none: {prior_name}, {prior}."
                     )
                 memo.add(prior)
-                prior = prior.expand(closure().shape)
+                prior = prior.expand(closure(module).shape)
                 value = pyro.sample(prefix + ("." if prefix else "") + prior_name, prior)
-                setting_closure(value)
+                setting_closure(module, value)
 
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
@@ -484,11 +504,13 @@ def _extract_named_priors(module, memo=None, prefix=""):
             if prior is not None and prior not in memo:
                 memo.add(prior)
                 full_name = ("." if prefix else "").join([prefix, name])
-                yield full_name, prior, closure, inv_closure
+                yield full_name, module, prior, closure, inv_closure
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
-        for name, prior, closure, inv_closure in _extract_named_priors(module_, memo=memo, prefix=submodule_prefix):
-            yield name, prior, closure, inv_closure
+        for name, parent_module, prior, closure, inv_closure in _extract_named_priors(
+            module_, memo=memo, prefix=submodule_prefix
+        ):
+            yield name, parent_module, prior, closure, inv_closure
 
 
 def _extract_named_constraints(module, memo=None, prefix=""):

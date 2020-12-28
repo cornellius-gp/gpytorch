@@ -1,13 +1,13 @@
 # GPyTorch
 
 ---
-__News: GPyTorch v1.2__
+__News: GPyTorch v1.3__
 
-GPyTorch v1.2 has just been released.
+GPyTorch v1.3 has just been released.
 
 ---
-
-[![Build status](https://travis-ci.org/cornellius-gp/gpytorch.svg?branch=master)](https://travis-ci.org/cornellius-gp/gpytorch)
+![GPyTorch Unit Tests](https://github.com/cornellius-gp/gpytorch/workflows/GPyTorch%20Unit%20Tests/badge.svg)
+![GPyTorch Examples](https://github.com/cornellius-gp/gpytorch/workflows/GPyTorch%20Examples/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/gpytorch/badge/?version=latest)](https://gpytorch.readthedocs.io/en/latest/?badge=latest)
 
 GPyTorch is a Gaussian process library implemented using PyTorch. GPyTorch is designed for creating scalable, flexible, and modular Gaussian process models with ease.
@@ -24,7 +24,7 @@ See our numerous [**examples and tutorials**](https://gpytorch.readthedocs.io/en
 
 **Requirements**:
 - Python >= 3.6
-- PyTorch >= 1.6
+- PyTorch >= 1.7
 
 Install GPyTorch using pip or conda:
 
