@@ -100,7 +100,7 @@ class RR_RFF_Kernel(Kernel):
             d = num_dims
             D = num_samples
         if randn_weights is None:
-            randn_shape = torch.Size([*self._batch_shape, d, D])
+            randn_shape = torch.Size([*self._batch_shape, D, d, D])
             randn_weights = torch.randn(
                 randn_shape, dtype=self.raw_lengthscale.dtype, device=self.raw_lengthscale.device
             )
@@ -114,18 +114,10 @@ class RR_RFF_Kernel(Kernel):
         ToDo: z_new currently does not support further data batching'''
         D = int(z_pre.shape[-1] / 2)  # D:= n rff samples
         d = int(z_pre.shape[-2])  # d:= num data points
-        first_inds = torch.arange(D).long()  # sine inds
-        second_inds = torch.arange(D, 2 * D).long()  # cosine inds
-        z_new = torch.zeros(size=(D, d, 2 * D))  # new z for RootLazyTensor.
-        for i in first_inds:
-            '''this indexing pulls out all the sines first, 
-            then all the cosines. ordering of terms doesn't affect z*z^T
-            '''
-            z_new[i, :, :2 * i +
-                  2] = z_pre[:,
-                             torch.cat([first_inds[:i + 1],
-                                        second_inds[:i + 1]])] \
-                        / torch.sqrt(i + 1.)
+        mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2)
+        mask = mask / torch.arange(1, D + 1, dtype=z_pre.dtype, device=z_pre.device).sqrt().view(-1, 1, 1)
+        mask = torch.cat([mask, mask], dim=-1)
+        z_new = z_pre * mask
         return z_new
 
     def forward(self, x1: Tensor, x2: Tensor, 
@@ -160,7 +152,7 @@ class RR_RFF_Kernel(Kernel):
             return RootLazyTensor(z1) # note, dividing by the local torch.sqrt(D) in self.expand_z()
         else:
             print('Warning: x1!=x2 case is not supported for RR.')
-            return MatmulLazyTensor(z1 / D, z2.transpose(-1, -2))
+            return MatmulLazyTensor(z1, z2.transpose(-1, -2))
 
     def _featurize(self, x: Tensor, normalize: bool = False) -> Tensor:
         # Recompute division each time to allow backprop through lengthscale
