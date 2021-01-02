@@ -81,14 +81,14 @@ class RR_RFF_Kernel(Kernel):
     """
 
     has_lengthscale = True
-    print('successful imports of rr_rff')
 
-    def __init__(self, #dist_obj, 
+    def __init__(self, single_sample: bool = False, 
                  num_dims: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         print('initializing RR RFF class')
         #self.dist_obj = dist_obj # RR distribution instance
         self.num_samples = None # ToDo: just for now; modified in forward method
+        self.single_sample = single_sample # used in self.expand_z()
         #self.sqrt_RR_weights = None # ToDo: same. should be torch.Size([num_samples*2])
         if num_dims is not None:
             self._init_weights(num_dims, self.num_samples) # will return an error if num_dims is not None, since self.num_samples=None
@@ -106,19 +106,34 @@ class RR_RFF_Kernel(Kernel):
             )
         self.register_buffer("randn_weights", randn_weights)
    
-    @staticmethod
-    def expand_z(z_pre):
+    def expand_z(self, z_pre):
         '''z_pre: torch.Size(d, 2*D).
         this is the guts of the RR approach; expand the embedding to a tensor that is 
         D times bigger.
         ToDo: z_new currently does not support further data batching'''
         D = int(z_pre.shape[-1] / 2)  # D:= n rff samples
         d = int(z_pre.shape[-2])  # d:= num data points
-        mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2)
-        mask = mask / torch.arange(1, D + 1, dtype=z_pre.dtype, device=z_pre.device).sqrt().view(-1, 1, 1)
-        mask = torch.cat([mask, mask], dim=-1)
+        mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2) # torch.Size([D,1,2*D])
+        mask = mask / torch.arange(1, D + 1, dtype=z_pre.dtype, device=z_pre.device).sqrt().view(-1, 1, 1) # torch.Size([D,1,D])
+        mask = torch.cat([mask, mask], dim=-1) # torch.Size([D,1,2*D])
+        if self.single_sample:
+            mask = mask[-2:, :, :] # torch.Size([2,1,2*D]), with batch elements [J-1, J]
         z_new = z_pre * mask
-        return z_new
+        return z_new 
+    
+    # @staticmethod
+    # def expand_z(z_pre):
+    #     '''z_pre: torch.Size(d, 2*D).
+    #     this is the guts of the RR approach; expand the embedding to a tensor that is 
+    #     D times bigger.
+    #     ToDo: z_new currently does not support further data batching'''
+    #     D = int(z_pre.shape[-1] / 2)  # D:= n rff samples
+    #     d = int(z_pre.shape[-2])  # d:= num data points
+    #     mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2) # torch.Size([D,1,2*D])
+    #     mask = mask / torch.arange(1, D + 1, dtype=z_pre.dtype, device=z_pre.device).sqrt().view(-1, 1, 1) # torch.Size([D,1,D])
+    #     mask = torch.cat([mask, mask], dim=-1) # torch.Size([D,1,2*D])
+    #     z_new = z_pre * mask
+    #     return z_new
 
     def forward(self, x1: Tensor, x2: Tensor, 
                 diag: bool = False, 
