@@ -86,10 +86,12 @@ class RR_RFF_Kernel(Kernel):
     has_lengthscale = True
 
     def __init__(self, single_sample: bool = False,
+                 min_val: Optional[int] = None,
                  num_dims: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         print('initializing RR RFF class')
         #self.dist_obj = dist_obj # RR distribution instance
+        self.min_val = min_val
         self.num_samples = None # ToDo: just for now; modified in forward method
         self.single_sample = single_sample # used in self.expand_z()
         #self.sqrt_RR_weights = None # ToDo: same. should be torch.Size([num_samples*2])
@@ -142,7 +144,6 @@ class RR_RFF_Kernel(Kernel):
 
     def forward(self, x1: Tensor, x2: Tensor,
                 diag: bool = False,
-                last_dim_is_batch: bool = False,
                 # num_RR_samples: Optional[int] = None,
                 **kwargs) -> Tensor:
         if last_dim_is_batch:
