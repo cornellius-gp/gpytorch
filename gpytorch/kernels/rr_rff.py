@@ -82,11 +82,13 @@ class RR_RFF_Kernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, single_sample: bool = False, 
+    def __init__(self, single_sample: bool = False,
+                 min_val: Optional[int] = None,
                  num_dims: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         print('initializing RR RFF class')
         #self.dist_obj = dist_obj # RR distribution instance
+        self.min_val = min_val
         self.num_samples = None # ToDo: just for now; modified in forward method
         self.single_sample = single_sample # used in self.expand_z()
         #self.sqrt_RR_weights = None # ToDo: same. should be torch.Size([num_samples*2])
@@ -97,10 +99,10 @@ class RR_RFF_Kernel(Kernel):
         self, num_dims: Optional[int] = None, num_samples: Optional[int] = None, randn_weights: Optional[Tensor] = None
     ):
         if num_dims is not None and num_samples is not None:
-            d = num_dims
+            d = num_dims # is this the right notation? or d=N. decide on notation.
             D = num_samples
         if randn_weights is None:
-            randn_shape = torch.Size([*self._batch_shape, D, d, D])
+            randn_shape = torch.Size([*self._batch_shape, D, d, D]) # first D was added by Geoff for the RR version (not in vanilla RFF)
             randn_weights = torch.randn(
                 randn_shape, dtype=self.raw_lengthscale.dtype, device=self.raw_lengthscale.device
             )
@@ -113,12 +115,17 @@ class RR_RFF_Kernel(Kernel):
         ToDo: z_new currently does not support further data batching'''
         D = int(z_pre.shape[-1] / 2)  # D:= n rff samples
         d = int(z_pre.shape[-2])  # d:= num data points
-        mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2) # torch.Size([D,1,2*D])
+        mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2) # torch.Size([D,1,D])
         mask = mask / torch.arange(1, D + 1, dtype=z_pre.dtype, device=z_pre.device).sqrt().view(-1, 1, 1) # torch.Size([D,1,D])
         mask = torch.cat([mask, mask], dim=-1) # torch.Size([D,1,2*D])
-        if self.single_sample:
-            mask = mask[-2:, :, :] # torch.Size([2,1,2*D]), with batch elements [J-1, J]
         z_new = z_pre * mask
+        if self.single_sample:
+            inds = torch.unique( \
+                torch.cat( \
+                    [torch.arange(self.min_val), \
+                     torch.tensor([z_new.shape[0]-2, z_new.shape[0]-1 ])] \
+                        )).to(z_new.device)
+            z_new = z_new[inds, :, :] # torch.Size([self.min_val+2,1,2*D]), with batch elements [1, ..., self.min_val, J-1, J]
         return z_new 
     
     # @staticmethod
@@ -172,9 +179,15 @@ class RR_RFF_Kernel(Kernel):
     def _featurize(self, x: Tensor, normalize: bool = False) -> Tensor:
         # Recompute division each time to allow backprop through lengthscale
         # Transpose lengthscale to allow for ARD
-        x = x.matmul(self.randn_weights / self.lengthscale.transpose(-1, -2))
+        '''
+        x: torch.Size(N, d), N data points of dimension d
+        self.randn_weights:  torch.Size(D, d, D)
+        x.matmul(self_randn_weights) will be broadcast into torch.Size(D, N, D)
+        whereas in vanilla RFF it is just torch.Size(N, D).
+        '''
+        x = x.matmul(self.randn_weights / self.lengthscale.transpose(-1, -2)) # torch.Size(D, N, D)
         # all the cosine terms, followed by all the sine terms. no interleaving.
-        z = torch.cat([torch.cos(x), torch.sin(x)], dim=-1) 
+        z = torch.cat([torch.cos(x), torch.sin(x)], dim=-1) # torch.Size(D, N, 2*D)
         if normalize:
             D = self.num_samples
             z = z / math.sqrt(D)
