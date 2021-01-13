@@ -14,9 +14,10 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-from ..lazy import MatmulLazyTensor, RootLazyTensor
 from ..models.exact_prediction_strategies import RFFPredictionStrategy
+from ..lazy import MatmulLazyTensor, RootLazyTensor
 from .kernel import Kernel
+
 
 class RR_RFF_Kernel(Kernel):
     r"""
@@ -36,7 +37,8 @@ class RR_RFF_Kernel(Kernel):
     For the RBF kernel,
     .. math::
         \begin{equation}
-        k(\Delta) = \exp{(-\frac{\Delta^2}{2\sigma^2})}$ and $p(\omega) = \exp{(-\frac{\sigma^2\omega^2}{2})}
+        k(\Delta) = \exp{(-\frac{\Delta^2}{2\sigma^2})}$ and $p(\omega) =
+        \exp{(-\frac{\sigma^2\omega^2}{2})}
         \end{equation}
     where :math:`\Delta = x - x'`.
     Given datapoint :math:`x\in \mathbb{R}^d`, we can construct its random Fourier features
@@ -55,7 +57,8 @@ class RR_RFF_Kernel(Kernel):
     such that we have an unbiased Monte Carlo estimator
     .. math::
         \begin{equation}
-            k(x, x') = k(x - x') \approx z(x)^\top z(x') = \frac{1}{D}\sum_{i=1}^D \cos(\omega_i^\top (x - x')).
+            k(x, x') = k(x - x') \approx z(x)^\top z(x') =
+            \frac{1}{D}\sum_{i=1}^D \cos(\omega_i^\top (x - x')).
         \end{equation}
     .. note::
         When this kernel is used in batch mode, the random frequencies are drawn
@@ -87,65 +90,62 @@ class RR_RFF_Kernel(Kernel):
                  num_dims: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         print('initializing RR RFF class')
-        #self.dist_obj = dist_obj # RR distribution instance
+        # self.dist_obj = dist_obj # RR distribution instance
         self.min_val = min_val
-        self.num_samples = None # ToDo: just for now; modified in forward method
-        self.single_sample = single_sample # used in self.expand_z()
-        #self.sqrt_RR_weights = None # ToDo: same. should be torch.Size([num_samples*2])
+        self.num_samples = None  # ToDo: just for now; modified in forward method
+        self.single_sample = single_sample  # used in self.expand_z()
+        # self.sqrt_RR_weights = None # ToDo: same. should be torch.Size([num_samples*2])
         if num_dims is not None:
-            self._init_weights(num_dims, self.num_samples) # will return an error if num_dims is not None, since self.num_samples=None
+            # will return an error if num_dims is not None, since self.num_samples=None
+            self._init_weights(num_dims, self.num_samples)
 
-    def _init_weights(
-        self, num_dims: Optional[int] = None, num_samples: Optional[int] = None, randn_weights: Optional[Tensor] = None
-    ):
+    def _init_weights(self, num_dims: Optional[int] = None, num_samples: Optional[int] = None,
+                      randn_weights: Optional[Tensor] = None):
         if num_dims is not None and num_samples is not None:
-            d = num_dims # is this the right notation? or d=N. decide on notation.
+            d = num_dims  # is this the right notation? or d=N. decide on notation.
             D = num_samples
         if randn_weights is None:
-            randn_shape = torch.Size([*self._batch_shape, D, d, D]) # first D was added by Geoff for the RR version (not in vanilla RFF)
-            randn_weights = torch.randn(
-                randn_shape, dtype=self.raw_lengthscale.dtype, device=self.raw_lengthscale.device
-            )
+            # first D was added by Geoff for the RR version (not in vanilla RFF)
+            randn_shape = torch.Size([*self._batch_shape, D, d, D])
+            randn_weights = torch.randn(randn_shape,
+                                        dtype=self.raw_lengthscale.dtype,
+                                        device=self.raw_lengthscale.device)
         self.register_buffer("randn_weights", randn_weights)
-   
+
     def expand_z(self, z_pre):
         '''z_pre: torch.Size(d, 2*D).
-        this is the guts of the RR approach; expand the embedding to a tensor that is 
+        this is the guts of the RR approach; expand the embedding to a tensor that is
         D times bigger.
         ToDo: z_new currently does not support further data batching'''
         D = int(z_pre.shape[-1] / 2)  # D:= n rff samples
-        d = int(z_pre.shape[-2])  # d:= num data points
-        mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2) # torch.Size([D,1,D])
-        mask = mask / torch.arange(1, D + 1, dtype=z_pre.dtype, device=z_pre.device).sqrt().view(-1, 1, 1) # torch.Size([D,1,D])
-        mask = torch.cat([mask, mask], dim=-1) # torch.Size([D,1,2*D])
+        # d = int(z_pre.shape[-2])  # d:= num data points
+        mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2)
+        # torch.Size([D,1,D])
+        mask = mask / torch.arange(1, D + 1, dtype=z_pre.dtype,
+                                   device=z_pre.device).sqrt().view(-1, 1, 1)  # torch.Size([D,1,D])
+        mask = torch.cat([mask, mask], dim=-1)  # torch.Size([D,1,2*D])
         z_new = z_pre * mask
         if self.single_sample:
-            inds = torch.unique( \
-                torch.cat( \
-                    [torch.arange(self.min_val), \
-                     torch.tensor([z_new.shape[0]-2, z_new.shape[0]-1 ])] \
-                        )).to(z_new.device)
-            z_new = z_new[inds, :, :] # torch.Size([self.min_val+2,1,2*D]), with batch elements [1, ..., self.min_val, J-1, J]
-        return z_new 
-    
-    # @staticmethod
-    # def expand_z(z_pre):
-    #     '''z_pre: torch.Size(d, 2*D).
-    #     this is the guts of the RR approach; expand the embedding to a tensor that is 
-    #     D times bigger.
-    #     ToDo: z_new currently does not support further data batching'''
-    #     D = int(z_pre.shape[-1] / 2)  # D:= n rff samples
-    #     d = int(z_pre.shape[-2])  # d:= num data points
-    #     mask = torch.ones(D, D, dtype=z_pre.dtype, device=z_pre.device).tril_().unsqueeze(-2) # torch.Size([D,1,2*D])
-    #     mask = mask / torch.arange(1, D + 1, dtype=z_pre.dtype, device=z_pre.device).sqrt().view(-1, 1, 1) # torch.Size([D,1,D])
-    #     mask = torch.cat([mask, mask], dim=-1) # torch.Size([D,1,2*D])
-    #     z_new = z_pre * mask
-    #     return z_new
+            inds = self.select_inds(z_new)
+            z_new = z_new[inds, :, :]
+        return z_new
 
-    def forward(self, x1: Tensor, x2: Tensor, 
-                diag: bool = False, 
+    def select_inds(self, z_new):
+        # torch.Size([self.min_val+2,1,2*D]), with batch elements [1, ..., self.min_val, J-1, J]
+        # aux = torch.cat([torch.arange(self.min_val),
+        #                  torch.tensor([z_new.shape[0] - 2, z_new.shape[0] - 1])])
+        # TODO: improve the last bit
+        if z_new.shape[0] == self.min_val:
+            aux = torch.tensor(z_new.shape[0] - 1)
+        else:
+            aux = torch.tensor([z_new.shape[0] - 2, z_new.shape[0] - 1])
+        inds = torch.unique(aux).to(z_new.device)
+        return inds
+
+    def forward(self, x1: Tensor, x2: Tensor,
+                diag: bool = False,
                 last_dim_is_batch: bool = False,
-                #num_RR_samples: Optional[int] = None,
+                # num_RR_samples: Optional[int] = None,
                 **kwargs) -> Tensor:
         if last_dim_is_batch:
             x1 = x1.transpose(-1, -2).unsqueeze(-1)
@@ -156,13 +156,13 @@ class RR_RFF_Kernel(Kernel):
         # self.sqrt_RR_weights = \
         #     torch.sqrt(self.dist_obj.RR_weights[:self.num_samples]).repeat(2)
         # note the indexing: self.dist_obj.RR_weights already shifts cdf(J-1) so it's ok to use J.
-        
+
         # different from regular RFF, we re-initialize weights at any forward run
         self._init_weights(num_dims, self.num_samples)
         x1_eq_x2 = torch.equal(x1, x2)
-        z1 = self._featurize(x1, normalize=False) # compute vanilla rff's z
-        z1 = self.expand_z(z1) # convert z to the RR version, torch.Size((D, d, 2D))
-        
+        z1 = self._featurize(x1, normalize=False)  # compute vanilla rff's z
+        z1 = self.expand_z(z1)  # convert z to the RR version, torch.Size((D, d, 2D))
+
         if not x1_eq_x2:
             z2 = self._featurize(x2, normalize=False)
         else:
@@ -171,7 +171,8 @@ class RR_RFF_Kernel(Kernel):
         if diag:
             return (z1 * z2).sum(-1) / D
         if x1_eq_x2:
-            return RootLazyTensor(z1) # note, dividing by the local torch.sqrt(D) in self.expand_z()
+            # note, dividing by the local torch.sqrt(D) in self.expand_z()
+            return RootLazyTensor(z1)
         else:
             print('Warning: x1!=x2 case is not supported for RR.')
             return MatmulLazyTensor(z1, z2.transpose(-1, -2))
@@ -185,18 +186,20 @@ class RR_RFF_Kernel(Kernel):
         x.matmul(self_randn_weights) will be broadcast into torch.Size(D, N, D)
         whereas in vanilla RFF it is just torch.Size(N, D).
         '''
-        x = x.matmul(self.randn_weights / self.lengthscale.transpose(-1, -2)) # torch.Size(D, N, D)
+        # torch.Size(D, N, D)
+        x = x.matmul(self.randn_weights / self.lengthscale.transpose(-1, -2))
         # all the cosine terms, followed by all the sine terms. no interleaving.
-        z = torch.cat([torch.cos(x), torch.sin(x)], dim=-1) # torch.Size(D, N, 2*D)
+        z = torch.cat([torch.cos(x), torch.sin(x)], dim=-1)  # torch.Size(D, N, 2*D)
         if normalize:
             D = self.num_samples
             z = z / math.sqrt(D)
         return z
 
-    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+    @staticmethod
+    def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
         # Allow for fast sampling
         return RFFPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
-    
+
 # # test expand_z
 # D = 7 # num_samples
 # d = 3 # input dims
