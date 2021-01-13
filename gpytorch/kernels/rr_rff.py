@@ -16,6 +16,7 @@ from torch import Tensor
 
 from ..lazy import MatmulLazyTensor, LowRankRootLazyTensor
 from ..models.exact_prediction_strategies import RFFPredictionStrategy
+from ..lazy import MatmulLazyTensor, RootLazyTensor
 from .kernel import Kernel
 
 
@@ -90,11 +91,11 @@ class RR_RFF_Kernel(Kernel):
                  num_dims: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         print('initializing RR RFF class')
-        #self.dist_obj = dist_obj # RR distribution instance
+        # self.dist_obj = dist_obj # RR distribution instance
         self.min_val = min_val
-        self.num_samples = None # ToDo: just for now; modified in forward method
-        self.single_sample = single_sample # used in self.expand_z()
-        #self.sqrt_RR_weights = None # ToDo: same. should be torch.Size([num_samples*2])
+        self.num_samples = None  # ToDo: just for now; modified in forward method
+        self.single_sample = single_sample  # used in self.expand_z()
+        # self.sqrt_RR_weights = None # ToDo: same. should be torch.Size([num_samples*2])
         if num_dims is not None:
             # will return an error if num_dims is not None, since self.num_samples=None
             self._init_weights(num_dims, self.num_samples)
@@ -144,6 +145,7 @@ class RR_RFF_Kernel(Kernel):
 
     def forward(self, x1: Tensor, x2: Tensor,
                 diag: bool = False,
+                last_dim_is_batch: bool = False,
                 # num_RR_samples: Optional[int] = None,
                 **kwargs) -> Tensor:
         if last_dim_is_batch:
