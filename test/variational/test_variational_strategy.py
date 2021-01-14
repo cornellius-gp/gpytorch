@@ -86,5 +86,23 @@ class TestDeltaRobustVGP(TestRobustVGP):
         return gpytorch.variational.DeltaVariationalDistribution
 
 
+class TestNGDVariationalGP(TestVariationalGP):
+    @property
+    def distribution_cls(self):
+        return gpytorch.variational.NaturalVariationalDistribution
+
+    def test_training_iteration(self, *args, **kwargs):
+        cg_mock, cholesky_mock, ciq_mock = VariationalTestCase.test_training_iteration(self, *args, **kwargs)
+        self.assertFalse(cg_mock.called)
+        self.assertEqual(cholesky_mock.call_count, 6)  # Three for each forward pass
+        self.assertFalse(ciq_mock.called)
+
+    def test_eval_iteration(self, *args, **kwargs):
+        cg_mock, cholesky_mock, ciq_mock = VariationalTestCase.test_eval_iteration(self, *args, **kwargs)
+        self.assertFalse(cg_mock.called)
+        self.assertEqual(cholesky_mock.call_count, 3)  # One to compute cache + 2 to compute variational distribution
+        self.assertFalse(ciq_mock.called)
+
+
 if __name__ == "__main__":
     unittest.main()
