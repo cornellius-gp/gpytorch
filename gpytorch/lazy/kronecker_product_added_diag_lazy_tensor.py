@@ -20,9 +20,10 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             self.lazy_tensor = lazy_tensors[0]
         else:
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
+        self._diag_is_constant = isinstance(self.diag_tensor, ConstantDiagLazyTensor)
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
-        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+        if self._diag_is_constant:
             # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
             # solve but we only want to cache the probe vectors for the backwards
             inv_quad_term, _ = super().inv_quad_logdet(
@@ -33,7 +34,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return super().inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
 
     def _logdet(self):
-        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+        if self._diag_is_constant:
             # symeig requires computing the eigenvectors so that it's differentiable
             evals, _ = self.lazy_tensor.symeig(eigenvectors=True)
             evals_plus_diag = evals + self.diag_tensor.diag()
@@ -45,7 +46,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return None, None, None
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
-        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+        if self._diag_is_constant:
             # we do the solve in double for numerical stability issues
             # TODO: Use fp64 registry once #1213 is addressed
 
@@ -70,14 +71,14 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
 
     def _root_decomposition(self):
-        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+        if self._diag_is_constant:
             evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
             updated_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(0.5))
             return MatmulLazyTensor(q_matrix, updated_evals)
         super()._root_decomposition()
 
     def _root_inv_decomposition(self, initial_vectors=None):
-        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+        if self._diag_is_constant:
             evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
             inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
             return MatmulLazyTensor(q_matrix, inv_sqrt_evals)
