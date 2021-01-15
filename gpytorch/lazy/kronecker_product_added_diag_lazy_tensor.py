@@ -3,14 +3,12 @@
 import torch
 
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
-from .diag_lazy_tensor import DiagLazyTensor
+from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .matmul_lazy_tensor import MatmulLazyTensor
 
 
 class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def __init__(self, *lazy_tensors, preconditioner_override=None):
-        # TODO: implement the woodbury formula for diagonal tensors that are non constants.
-
         super().__init__(*lazy_tensors, preconditioner_override=preconditioner_override)
         if len(lazy_tensors) > 2:
             raise RuntimeError("An AddedDiagLazyTensor can only have two components")
@@ -24,52 +22,63 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             raise RuntimeError("One of the LazyTensors input to AddedDiagLazyTensor must be a DiagLazyTensor!")
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
-        # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
-        # solve but we only want to cache the probe vectors for the backwards
-        inv_quad_term, _ = super().inv_quad_logdet(
-            inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
-        )
-        logdet_term = self._logdet() if logdet else None
-        return inv_quad_term, logdet_term
+        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+            # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
+            # solve but we only want to cache the probe vectors for the backwards
+            inv_quad_term, _ = super().inv_quad_logdet(
+                inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
+            )
+            logdet_term = self._logdet() if logdet else None
+            return inv_quad_term, logdet_term
+        return super().inv_quad_logdet(inv_quad_rhs=None, logdet=False, reduce_inv_quad=True)
 
     def _logdet(self):
-        # symeig requires computing the eigenvectors so that it's differentiable
-        evals, _ = self.lazy_tensor.symeig(eigenvectors=True)
-        evals_plus_diag = evals + self.diag_tensor.diag()
-        return torch.log(evals_plus_diag).sum(dim=-1)
+        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+            # symeig requires computing the eigenvectors so that it's differentiable
+            evals, _ = self.lazy_tensor.symeig(eigenvectors=True)
+            evals_plus_diag = evals + self.diag_tensor.diag()
+            return torch.log(evals_plus_diag).sum(dim=-1)
+        return super()._logdet()
 
     def _preconditioner(self):
         # solves don't use CG so don't waste time computing it
         return None, None, None
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
-        # we do the solve in double for numerical stability issues
-        # TODO: Use fp64 registry once #1213 is addressed
+        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+            # we do the solve in double for numerical stability issues
+            # TODO: Use fp64 registry once #1213 is addressed
 
-        rhs_dtype = rhs.dtype
-        rhs = rhs.double()
+            rhs_dtype = rhs.dtype
+            rhs = rhs.double()
 
-        evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
-        evals, q_matrix = evals.double(), q_matrix.double()
+            evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
+            evals, q_matrix = evals.double(), q_matrix.double()
 
-        evals_plus_diagonal = evals + self.diag_tensor.diag()
-        evals_root = evals_plus_diagonal.pow(0.5)
-        inv_mat_sqrt = DiagLazyTensor(evals_root.reciprocal())
+            evals_plus_diagonal = evals + self.diag_tensor.diag()
+            evals_root = evals_plus_diagonal.pow(0.5)
+            inv_mat_sqrt = DiagLazyTensor(evals_root.reciprocal())
 
-        res = q_matrix.transpose(-2, -1).matmul(rhs)
-        res2 = inv_mat_sqrt.matmul(res)
+            res = q_matrix.transpose(-2, -1).matmul(rhs)
+            res2 = inv_mat_sqrt.matmul(res)
 
-        lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
-        return lazy_lhs.matmul(res2).type(rhs_dtype)
+            lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
+            return lazy_lhs.matmul(res2).type(rhs_dtype)
+
+        # TODO: implement woodbury formula for non-constant Kronecker-structured diagonal tensors
+
+        super()._solve(rhs, preconditioner=None, num_tridiag=0)
 
     def _root_decomposition(self):
-        evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
-        updated_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(0.5))
-        matrix_root = MatmulLazyTensor(q_matrix, updated_evals)
-        return matrix_root
+        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+            evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
+            updated_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(0.5))
+            return MatmulLazyTensor(q_matrix, updated_evals)
+        super()._root_decomposition()
 
     def _root_inv_decomposition(self, initial_vectors=None):
-        evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
-        inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
-        matrix_inv_root = MatmulLazyTensor(q_matrix, inv_sqrt_evals)
-        return matrix_inv_root
+        if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
+            evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
+            inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
+            return MatmulLazyTensor(q_matrix, inv_sqrt_evals)
+        super()._root_inv_decomposition(initial_vectors=initial_vectors)
