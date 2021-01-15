@@ -50,7 +50,7 @@ class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestC
             with mock.patch.object(lazy_tensor, "cholesky") as chol_mock:
                 root_approx = lazy_tensor.root_inv_decomposition()
                 res = root_approx.matmul(test_mat)
-                actual = lazy_tensor.inv_matmul(test_mat)
+                actual = torch.solve(test_mat, lazy_tensor.evaluate()).solution
                 self.assertAllClose(res, actual, rtol=0.05, atol=0.02)
                 chol_mock.assert_not_called()
 
