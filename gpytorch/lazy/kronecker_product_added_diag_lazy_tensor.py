@@ -30,7 +30,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             )
             logdet_term = self._logdet() if logdet else None
             return inv_quad_term, logdet_term
-        return super().inv_quad_logdet(inv_quad_rhs=None, logdet=False, reduce_inv_quad=True)
+        return super().inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
 
     def _logdet(self):
         if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
@@ -67,7 +67,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         # TODO: implement woodbury formula for non-constant Kronecker-structured diagonal tensors
 
-        super()._solve(rhs, preconditioner=None, num_tridiag=0)
+        super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
 
     def _root_decomposition(self):
         if isinstance(self.diag_tensor, ConstantDiagLazyTensor):
