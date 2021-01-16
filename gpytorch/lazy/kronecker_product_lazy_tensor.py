@@ -249,7 +249,7 @@ class KroneckerProductLazyTensor(LazyTensor):
             evals_, evecs_ = lt.symeig(eigenvectors=eigenvectors)
             evals.append(evals_)
             evecs.append(evecs_)
-        evals = KroneckerProductLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])
+        evals = KroneckerProductDiagLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])
 
         if not return_evals_as_lazy:
             evals = evals.diag()
@@ -309,3 +309,37 @@ class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
 
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
         raise NotImplementedError("_symeig not applicable to triangular lazy tensors")
+
+
+class KroneckerProductDiagLazyTensor(KroneckerProductTriangularLazyTensor, DiagLazyTensor):
+    def __init__(self, *lazy_tensors):
+        if not all(isinstance(lt, DiagLazyTensor) for lt in lazy_tensors):
+            raise RuntimeError("Components of KroneckerProductDiagLazyTensor must be DiagLazyTensor.")
+        super(KroneckerProductTriangularLazyTensor, self).__init__(*lazy_tensors)
+
+    @cached(name="cholesky")
+    def _cholesky(self, upper=False):
+        chol_factors = [lt.cholesky(upper=upper) for lt in self.lazy_tensors]
+        return KroneckerProductDiagLazyTensor(*chol_factors)
+
+    def _symeig(
+        self, eigenvectors: bool = False, return_evals_as_lazy: bool = False
+    ) -> Tuple[Tensor, Optional[LazyTensor]]:
+        # return_evals_as_lazy is a flag to return the eigenvalues as a lazy tensor
+        # which is useful for root decompositions here (see the root_decomposition
+        # method above)
+        evals, evecs = [], []
+        for lt in self.lazy_tensors:
+            evals_, evecs_ = lt.symeig(eigenvectors=eigenvectors)
+            evals.append(evals_)
+            evecs.append(evecs_)
+        evals = KroneckerProductDiagLazyTensor(*[DiagLazyTensor(evals_) for evals_ in evals])
+
+        if not return_evals_as_lazy:
+            evals = evals.diag()
+
+        if eigenvectors:
+            evecs = KroneckerProductDiagLazyTensor(*evecs)
+        else:
+            evecs = None
+        return evals, evecs
