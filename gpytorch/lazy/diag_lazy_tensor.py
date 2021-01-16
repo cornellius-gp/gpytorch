@@ -82,7 +82,7 @@ class DiagLazyTensor(TriangularLazyTensor):
         return self.sqrt()
 
     def _root_inv_decomposition(self, initial_vectors=None):
-        return self.__class__(self._diag.reciprocal().sqrt())
+        return self.inverse().sqrt()
 
     def _size(self):
         return self._diag.shape + self._diag.shape[-1:]
@@ -170,7 +170,7 @@ class DiagLazyTensor(TriangularLazyTensor):
         return self.__class__(self._diag.sqrt())
 
     def sqrt_inv_matmul(self, rhs, lhs=None):
-        matrix_inv_root = self.inverse().sqrt()
+        matrix_inv_root = self._root_inv_decomposition()
         if lhs is None:
             return matrix_inv_root.matmul(rhs)
         else:
@@ -236,9 +236,6 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
 
     def _prod_batch(self, dim):
         return self.__class__(self.diag_values.prod(dim), diag_shape=self.diag_shape)
-
-    def _root_inv_decomposition(self, initial_vectors=None):
-        return self.__class__(self._diag.reciprocal().sqrt(), diag_shape=self.diag_shape)
 
     def _sum_batch(self, dim):
         return self.__class__(self.diag_values.sum(dim), diag_shape=self.diag_shape)
