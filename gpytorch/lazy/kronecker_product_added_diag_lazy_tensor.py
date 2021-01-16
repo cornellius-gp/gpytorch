@@ -47,9 +47,10 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         if self._diag_is_constant:
+            # we can perform the solve using the Kronecker-structured eigendecomposition
+
             # we do the solve in double for numerical stability issues
             # TODO: Use fp64 registry once #1213 is addressed
-
             rhs_dtype = rhs.dtype
             rhs = rhs.double()
 
@@ -66,8 +67,12 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
             return lazy_lhs.matmul(res2).type(rhs_dtype)
 
-        # TODO: implement woodbury formula for non-constant Kronecker-structured diagonal tensors
+        # if isinstance(self.diag_tensor, KroneckerDiagLazyTensor):
+        #     # If the diagonal has the same Kronecker structure as the full matrix, we can perform the
+        #     # solve by using Woodbury's matrix identity
+        #     raise NotImplementedError
 
+        # in other cases we have to fall back to the default
         super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
 
     def _root_decomposition(self):
