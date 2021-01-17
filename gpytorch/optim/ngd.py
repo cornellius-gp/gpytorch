@@ -17,7 +17,7 @@ class NGD(torch.optim.Optimizer):
           for use instructions.
 
     Example:
-        >>> ngd_optimizer = torch.optim.NGD(model.variational_parameters(), lr=0.1, momentum=0.9)
+        >>> ngd_optimizer = torch.optim.NGD(model.variational_parameters(), num_data=train_y.size(0), lr=0.1)
         >>> ngd_optimizer.zero_grad()
         >>> mll(gp_model(input), target).backward()
         >>> ngd_optimizer.step()
