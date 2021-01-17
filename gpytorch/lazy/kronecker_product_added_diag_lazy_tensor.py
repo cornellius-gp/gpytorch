@@ -4,6 +4,7 @@ import torch
 
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
+from .kronecker_product_lazy_tensor import KroneckerProductDiagLazyTensor, KroneckerProductLazyTensor
 from .matmul_lazy_tensor import MatmulLazyTensor
 
 
@@ -46,33 +47,54 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return None, None, None
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
+        rhs_dtype = rhs.dtype
         if self._diag_is_constant:
             # we can perform the solve using the Kronecker-structured eigendecomposition
-
             # we do the solve in double for numerical stability issues
             # TODO: Use fp64 registry once #1213 is addressed
-            rhs_dtype = rhs.dtype
-            rhs = rhs.double()
+            evals, q_matrix = self.lazy_tensor.to(torch.double).symeig(eigenvectors=True)
 
-            evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
-            evals, q_matrix = evals.double(), q_matrix.double()
-
-            evals_plus_diagonal = evals + self.diag_tensor.diag()
+            evals_plus_diagonal = evals + self.diag_tensor.diag().double()
             evals_root = evals_plus_diagonal.pow(0.5)
             inv_mat_sqrt = DiagLazyTensor(evals_root.reciprocal())
 
-            res = q_matrix.transpose(-2, -1).matmul(rhs)
+            res = q_matrix.transpose(-2, -1).matmul(rhs.double())
             res2 = inv_mat_sqrt.matmul(res)
 
             lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
             return lazy_lhs.matmul(res2).type(rhs_dtype)
 
-        # if isinstance(self.diag_tensor, KroneckerDiagLazyTensor):
-        #     # If the diagonal has the same Kronecker structure as the full matrix, we can perform the
-        #     # solve by using Woodbury's matrix identity
-        #     raise NotImplementedError
+        if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):
+            # If the diagonal has the same Kronecker structure as the full matrix, we can perform the
+            # solve by using Woodbury's matrix identity
+            if len(self.lazy_tensor.lazy_tensors) == len(self.diag_tensor.lazy_tensors) and all(
+                tfull.shape == tdiag.shape
+                for tfull, tdiag in zip(self.lazy_tensor.lazy_tensors, self.diag_tensor.lazy_tensors)
+            ):
+                # We have
+                #   (K + D)^{-1} = K^{-1} - K^{-1} (K D^{-1} + I)^{-1}
+                #                = K^{-1} - K^{-1} (\kron_i{K_i D_i^{-1}} + I)^{-1}
+                # and so with an eigendecomposition \kron_i{K_i D_i^{-1}} = S Lambda S
+                # we can solve (K + D) = b as
+                # K^{-1} b - K^{-1} (S (Lambda + I)^{-1} S^T b)
 
-        # in other cases we have to fall back to the default
+                # again we do the solve in double precision
+                # TODO: Use fp64 registry once #1213 is addressed
+                rhs = rhs.double()
+                lt = self.lazy_tensor.to(torch.double)
+                dlt = self.diag_tensor.to(torch.double)
+
+                KDinv = KroneckerProductLazyTensor(
+                    *[tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)]
+                )
+                # TODO: Figure out how to cache the decompositon for use in later solves
+                Lambda, S = KDinv.symeig(eigenvectors=True)
+                LambdaI = DiagLazyTensor(Lambda + 1)
+                tmp_term = S.matmul(LambdaI.inv_matmul(S._transpose_nonbatch().matmul(rhs)))
+                res = lt._solve(rhs - tmp_term, preconditioner=preconditioner, num_tridiag=num_tridiag)
+                return res.to(rhs_dtype)
+
+        # in all other cases we fall back to the default
         super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
 
     def _root_decomposition(self):

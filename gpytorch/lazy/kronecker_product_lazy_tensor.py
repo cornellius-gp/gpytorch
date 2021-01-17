@@ -68,12 +68,6 @@ class KroneckerProductLazyTensor(LazyTensor):
     """
 
     def __init__(self, *lazy_tensors):
-        lazy_tensors = KroneckerProductLazyTensor._check_init_args(*lazy_tensors)
-        super().__init__(*lazy_tensors)
-        self.lazy_tensors = lazy_tensors
-
-    @classmethod
-    def _check_init_args(cls, *lazy_tensors):
         try:
             lazy_tensors = tuple(lazify(lazy_tensor) for lazy_tensor in lazy_tensors)
         except TypeError:
@@ -84,7 +78,8 @@ class KroneckerProductLazyTensor(LazyTensor):
                     "KroneckerProductLazyTensor expects lazy tensors with the "
                     "same batch shapes. Got {}.".format([lv.batch_shape for lv in lazy_tensors])
                 )
-        return lazy_tensors
+        super().__init__(*lazy_tensors)
+        self.lazy_tensors = lazy_tensors
 
     def __add__(self, other):
         if isinstance(other, DiagLazyTensor):
@@ -141,7 +136,7 @@ class KroneckerProductLazyTensor(LazyTensor):
         return self.__class__(*inverses)
 
     def inv_matmul(self, right_tensor, left_tensor=None):
-        # TODO: Investigate under what conditions computing individual individual inverses makes sense
+        # TODO: Investigate under what conditions computing individual inverses makes sense
         # For now, retain existing behavior
         return super().inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
 
@@ -316,20 +311,22 @@ class KroneckerProductTriangularLazyTensor(KroneckerProductLazyTensor):
         raise NotImplementedError("_symeig not applicable to triangular lazy tensors")
 
 
-class KroneckerProductDiagLazyTensor(KroneckerProductTriangularLazyTensor, DiagLazyTensor):
+class KroneckerProductDiagLazyTensor(DiagLazyTensor, KroneckerProductTriangularLazyTensor):
     def __init__(self, *lazy_tensors):
         if not all(isinstance(lt, DiagLazyTensor) for lt in lazy_tensors):
             raise RuntimeError("Components of KroneckerProductDiagLazyTensor must be DiagLazyTensor.")
-        # The inheritance from DiagLazyTensor messes up the super construction here
-        lazy_tensors = KroneckerProductLazyTensor._check_init_args(*lazy_tensors)
-        LazyTensor.__init__(self, *lazy_tensors)
-        self.lazy_tensors = lazy_tensors
+        super(KroneckerProductTriangularLazyTensor, self).__init__(*lazy_tensors)
         self.upper = False
 
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
         chol_factors = [lt.cholesky(upper=upper) for lt in self.lazy_tensors]
         return KroneckerProductDiagLazyTensor(*chol_factors)
+
+    @property
+    @cached
+    def _diag(self):
+        return _kron_diag(*self.lazy_tensors)
 
     def _symeig(
         self, eigenvectors: bool = False, return_evals_as_lazy: bool = False
@@ -352,3 +349,9 @@ class KroneckerProductDiagLazyTensor(KroneckerProductTriangularLazyTensor, DiagL
         else:
             evecs = None
         return evals, evecs
+
+    @cached
+    def inverse(self):
+        # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
+        inverses = [lt.inverse() for lt in self.lazy_tensors]
+        return self.__class__(*inverses)
