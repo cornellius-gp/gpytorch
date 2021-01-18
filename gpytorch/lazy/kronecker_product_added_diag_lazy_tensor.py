@@ -65,32 +65,34 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             return lazy_lhs.matmul(res2).type(rhs_dtype)
 
         if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):
-            # If the diagonal has the same Kronecker structure as the full matrix, we can perform the
-            # solve by using Woodbury's matrix identity
+            # If the diagonal has the same Kronecker structure as the full matrix, with each factor being
+            # constatnt, wee can perform the solve efficiently by exploiting the Woodbury matrix identity
             if len(self.lazy_tensor.lazy_tensors) == len(self.diag_tensor.lazy_tensors) and all(
-                tfull.shape == tdiag.shape
+                tfull.shape == tdiag.shape and isinstance(tdiag, ConstantDiagLazyTensor)
                 for tfull, tdiag in zip(self.lazy_tensor.lazy_tensors, self.diag_tensor.lazy_tensors)
             ):
-                # We have
-                #   (K + D)^{-1} = K^{-1} - K^{-1} (K D^{-1} + I)^{-1}
-                #                = K^{-1} - K^{-1} (\kron_i{K_i D_i^{-1}} + I)^{-1}
-                # and so with an eigendecomposition \kron_i{K_i D_i^{-1}} = S Lambda S
-                # we can solve (K + D) = b as
-                # K^{-1} b - K^{-1} (S (Lambda + I)^{-1} S^T b)
-
                 # again we do the solve in double precision
                 # TODO: Use fp64 registry once #1213 is addressed
                 rhs = rhs.double()
                 lt = self.lazy_tensor.to(torch.double)
                 dlt = self.diag_tensor.to(torch.double)
 
-                KDinv = KroneckerProductLazyTensor(
-                    *[tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)]
-                )
-                # TODO: Figure out how to cache the decompositon for use in later solves
-                Lambda, S = KDinv.symeig(eigenvectors=True)
-                LambdaI = DiagLazyTensor(Lambda + 1)
-                tmp_term = S.matmul(LambdaI.inv_matmul(S._transpose_nonbatch().matmul(rhs)))
+                # We have
+                #   (K + D)^{-1} = K^{-1} - K^{-1} (K D^{-1} + I)^{-1}
+                #                = K^{-1} - K^{-1} (\kron_i{K_i D_i^{-1}} + I)^{-1}
+                #
+                # and so with an eigendecomposition \kron_i{K_i D_i^{-1}} = S Lambda S, we can solve (K + D) = b as
+                # K^{-1} b - K^{-1} (S (Lambda + I)^{-1} S^T b).
+                # Each sub-matrix D_i^{-1} has constant diagonal, so we may scale the eigenvalues of the
+                # eigendecomposition of K_i by its inverse to get an eigendecomposition of K_i D_i^{-1}.
+                sub_evals, sub_evecs = [], []
+                for lt_, dlt_ in zip(lt.lazy_tensors, dlt.lazy_tensors):
+                    evals_, evecs_ = lt_.symeig(eigenvectors=True)
+                    sub_evals.append(DiagLazyTensor(evals_ / dlt_.diag_values))
+                    sub_evecs.append(evecs_)
+                Lambda_I = KroneckerProductDiagLazyTensor(*sub_evals).add_jitter(1.0)
+                S = KroneckerProductLazyTensor(*sub_evecs)
+                tmp_term = S.matmul(Lambda_I.inv_matmul(S._transpose_nonbatch().matmul(rhs)))
                 res = lt._solve(rhs - tmp_term, preconditioner=preconditioner, num_tridiag=num_tridiag)
                 return res.to(rhs_dtype)
 
