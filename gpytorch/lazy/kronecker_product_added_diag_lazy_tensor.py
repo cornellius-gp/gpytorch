@@ -93,7 +93,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 Lambda_I = KroneckerProductDiagLazyTensor(*sub_evals).add_jitter(1.0)
                 S = KroneckerProductLazyTensor(*sub_evecs)
                 tmp_term = S.matmul(Lambda_I.inv_matmul(S._transpose_nonbatch().matmul(rhs)))
-                res = lt._solve(rhs - tmp_term, preconditioner=preconditioner, num_tridiag=num_tridiag)
+                res = lt._inv_matmul(rhs - tmp_term)
                 return res.to(rhs_dtype)
 
         # in all other cases we fall back to the default
