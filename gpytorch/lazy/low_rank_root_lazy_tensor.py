@@ -42,6 +42,11 @@ class LowRankRootLazyTensor(RootLazyTensor):
 
         return LowRankRootAddedDiagLazyTensor(self, diag_tensor)
 
+    def _mul_constant(self, other):
+        from .constant_mul_lazy_tensor import ConstantMulLazyTensor
+
+        return self.__class__(ConstantMulLazyTensor(self.root, other))
+
     def __add__(self, other):
         from .diag_lazy_tensor import DiagLazyTensor
         from .low_rank_root_added_diag_lazy_tensor import LowRankRootAddedDiagLazyTensor
