@@ -13,7 +13,7 @@ from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .interpolated_lazy_tensor import InterpolatedLazyTensor
 from .keops_lazy_tensor import KeOpsLazyTensor
 from .kronecker_product_added_diag_lazy_tensor import KroneckerProductAddedDiagLazyTensor
-from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor, KroneckerProductTriangularLazyTensor
+from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor, KroneckerProductTriangularLazyTensor, KroneckerProductDiagLazyTensor
 from .lazy_evaluated_kernel_tensor import LazyEvaluatedKernelTensor
 from .lazy_tensor import LazyTensor, delazify
 from .low_rank_root_added_diag_lazy_tensor import LowRankRootAddedDiagLazyTensor
