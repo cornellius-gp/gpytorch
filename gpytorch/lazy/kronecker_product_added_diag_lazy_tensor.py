@@ -57,6 +57,24 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 first_term = (const_times_evals.diag() + 1).log().sum(dim=-1)
                 return diag_term + first_term
 
+            else:
+               # we use the same matrix determinant identity: |K + D| = |D| |I + D^{-1}K|
+               # but have to symmetrize the second matrix because torch.eig may not be
+               # completely differentiable.
+                kron_times_diag_list = [
+                    tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)
+                ]
+                
+                # We symmetrize the sub-components K_i D_i^{-1}
+                kron_times_diag_symm = KroneckerProductLazyTensor(
+                    *[k.matmul(k.transpose(-1, -2)) for k in kron_times_diag_list]
+                )
+                evals_square, _ = kron_times_diag_symm.symeig(eigenvectors=True)
+                evals_plus_i = DiagLazyTensor(evals_square.sqrt() + 1)
+                
+                diag_term = self.diag_tensor.diag().clamp(min=1e-7).log().sum(dim=-1)
+                return diag_term + evals_plus_i.sum(dim=-1)
+
         return super()._logdet()
 
     def _preconditioner(self):
@@ -133,18 +151,18 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             return res.to(rhs_dtype)
 
         # in all other cases we fall back to the default
-        super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
+        return super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
 
     def _root_decomposition(self):
         if self._diag_is_constant:
             evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
             updated_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(0.5))
             return MatmulLazyTensor(q_matrix, updated_evals)
-        super()._root_decomposition()
+        return super()._root_decomposition()
 
     def _root_inv_decomposition(self, initial_vectors=None):
         if self._diag_is_constant:
             evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
             inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
             return MatmulLazyTensor(q_matrix, inv_sqrt_evals)
-        super()._root_inv_decomposition(initial_vectors=initial_vectors)
+        return super()._root_inv_decomposition(initial_vectors=initial_vectors)

@@ -19,10 +19,8 @@ from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestCase):
     # this lazy tensor has an explicit inverse so we don't need to run these
     skip_slq_tests = True
-    should_call_lanczos = False
-    should_call_cg = False
 
-    def create_lazy_tensor(self, constant_diag=True):
+    def create_lazy_tensor(self, constant_diag=False):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
         b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float)
         c = torch.tensor([[4, 0.5, 1, 0], [0.5, 4, -1, 0], [1, -1, 3, 0], [0, 0, 0, 4]], dtype=torch.float)
@@ -43,6 +41,13 @@ class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestC
         diag = lazy_tensor._diag_tensor._diag
         return tensor + diag.diag()
 
+class TestKroneckerProductAddedConstDiagLazyTensor(TestKroneckerProductAddedDiagLazyTensor):
+    should_call_lanczos = False
+    should_call_cg = False
+
+    def create_lazy_tensor(self):
+        return super().create_lazy_tensor(constant_diag=True)
+
     def test_if_cholesky_used(self):
         lazy_tensor = self.create_lazy_tensor()
         rhs = torch.randn(lazy_tensor.size(-1))
@@ -62,7 +67,6 @@ class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestC
                 actual = torch.solve(test_mat, lazy_tensor.evaluate()).solution
                 self.assertAllClose(res, actual, rtol=0.05, atol=0.02)
                 chol_mock.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()
