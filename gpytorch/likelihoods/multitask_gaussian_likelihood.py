@@ -14,6 +14,7 @@ from ..lazy import (
     ConstantDiagLazyTensor,
     DiagLazyTensor,
     KroneckerProductLazyTensor,
+    KroneckerProductDiagLazyTensor,
     MatmulLazyTensor,
     RootLazyTensor,
     lazify,
@@ -247,7 +248,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
                 name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, num_tasks))
             )
             self.register_constraint("raw_task_noises", noise_constraint)
-            self.register_prior("raw_task_noise_prior", noise_prior, lambda: self.task_noises)
+            self.register_prior("raw_task_noises_prior", noise_prior, lambda m: m.task_noises)
             if task_prior is not None:
                 raise RuntimeError("Cannot set a `task_prior` if rank=0")
         else:
@@ -262,7 +263,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         if has_second_noise:
             self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
             self.register_constraint("raw_noise", noise_constraint)
-            self.register_prior("raw_task_noise_prior", noise_prior, lambda: self.noise)
+            self.register_prior("raw_noise_prior", noise_prior, lambda m: m.noise)
             
         self.has_second_noise = has_second_noise
 
@@ -308,21 +309,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         """
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
 
-        if self.rank == 0:
-            task_noises = self.raw_noise_constraint.transform(self.raw_task_noises)
-            task_var_lt = DiagLazyTensor(task_noises)
-            dtype, device = task_noises.dtype, task_noises.device
-        else:
-            task_noise_covar_factor = self.task_noise_covar_factor
-            task_var_lt = RootLazyTensor(task_noise_covar_factor)
-            dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
-
-        eye_lt = ConstantDiagLazyTensor(
-            torch.ones(*covar.batch_shape, dtype=dtype, device=device),diag_shape=covar.size(-1) // self.num_tasks
-        )
-        task_var_lt = task_var_lt.expand(*covar.batch_shape, *task_var_lt.matrix_shape)
-
-        covar_kron_lt = KroneckerProductLazyTensor(eye_lt, task_var_lt)
+        covar_kron_lt = self._shaped_noise_covar(covar.shape, add_noise=False)
         covar = covar + covar_kron_lt
 
         if self.has_second_noise:
@@ -330,6 +317,34 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             covar = add_diag(covar, noise)
         return function_dist.__class__(mean, covar)
 
+    def _shaped_noise_covar(self, shape, add_noise=True, *params, **kwargs):
+        if self.rank == 0:
+            task_noises = self.raw_task_noises_constraint.transform(self.raw_task_noises)
+            task_var_lt = DiagLazyTensor(task_noises)
+            dtype, device = task_noises.dtype, task_noises.device
+            ckl_init = KroneckerProductDiagLazyTensor
+        else:
+            task_noise_covar_factor = self.task_noise_covar_factor
+            task_var_lt = RootLazyTensor(task_noise_covar_factor)
+            dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
+            ckl_init = KroneckerProductLazyTensor
+
+        eye_lt = ConstantDiagLazyTensor(
+            torch.ones(*shape[:-2], 1, dtype=dtype, device=device),diag_shape=shape[-2]
+        )
+        task_var_lt = task_var_lt.expand(*shape[:-2], *task_var_lt.matrix_shape)
+        covar_kron_lt = ckl_init(eye_lt, task_var_lt)
+        if add_noise and self.has_second_noise:
+            noise = ConstantDiagLazyTensor(self.noise, diag_shape=covar_kron_lt.shape[-1])
+            # TODO: ensure that this doesn't flatten the diagonal out
+            covar_kron_lt = covar_kron_lt + noise
+            
+        return covar_kron_lt
+
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
+        noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        noise = noise.view(*noise.shape[:-1], *function_samples.shape[-2:])
+        return base_distributions.Independent(base_distributions.Normal(function_samples, noise.sqrt()), 1)
 
 def deprecate_task_noise_corr(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
     if prefix + "task_noise_corr_factor" in state_dict:
