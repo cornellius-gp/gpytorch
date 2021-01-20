@@ -158,7 +158,7 @@ class SpectralMixtureKernel(Kernel):
     def initialize_from_data_empspect(self, train_x: torch.Tensor, train_y: torch.Tensor):
         """
         Initialize mixture components based on the empirical spectrum of the data.
-        This will often be better than the standard initialize_from_data method, but it assumes 
+        This will often be better than the standard initialize_from_data method, but it assumes
         that your inputs are evenly spaced.
 
         :param torch.Tensor train_x: Training inputs
@@ -217,7 +217,7 @@ class SpectralMixtureKernel(Kernel):
 
     def initialize_from_data(self, train_x: torch.Tensor, train_y: torch.Tensor, **kwargs):
         """
-        Initialize mixture components based on batch statistics of the data. You should use 
+        Initialize mixture components based on batch statistics of the data. You should use
         this initialization routine if your observations are not evenly spaced.
 
         :param torch.Tensor train_x: Training inputs
