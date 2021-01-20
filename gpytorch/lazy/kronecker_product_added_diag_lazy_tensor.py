@@ -24,15 +24,13 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         self._diag_is_constant = isinstance(self.diag_tensor, ConstantDiagLazyTensor)
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
-        if self._diag_is_constant:
-            # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
-            # solve but we only want to cache the probe vectors for the backwards
-            inv_quad_term, _ = super().inv_quad_logdet(
-                inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
-            )
-            logdet_term = self._logdet() if logdet else None
-            return inv_quad_term, logdet_term
-        return super().inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
+        # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
+        # solve but we only want to cache the probe vectors for the backwards
+        inv_quad_term, _ = super().inv_quad_logdet(
+            inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
+        )
+        logdet_term = self._logdet() if logdet else None
+        return inv_quad_term, logdet_term
 
     def _logdet(self):
         if self._diag_is_constant:
@@ -72,8 +70,8 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 evals_square, _ = kron_times_diag_symm.symeig(eigenvectors=True)
                 evals_plus_i = DiagLazyTensor(evals_square.sqrt() + 1)
                 
-                diag_term = self.diag_tensor.diag().clamp(min=1e-7).log().sum(dim=-1)
-                return diag_term + evals_plus_i.sum(dim=-1)
+                diag_term = self.diag_tensor.logdet()
+                return diag_term + evals_plus_i.logdet()
 
         return super()._logdet()
 

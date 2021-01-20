@@ -20,7 +20,7 @@ class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestC
     # this lazy tensor has an explicit inverse so we don't need to run these
     skip_slq_tests = True
 
-    def create_lazy_tensor(self, constant_diag=False):
+    def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
         b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float)
         c = torch.tensor([[4, 0.5, 1, 0], [0.5, 4, -1, 0], [1, -1, 3, 0], [0, 0, 0, 4]], dtype=torch.float)
@@ -28,12 +28,7 @@ class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestC
         b.requires_grad_(True)
         c.requires_grad_(True)
         kp_lazy_tensor = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
-        if constant_diag:
-            diag_lazy_tensor = ConstantDiagLazyTensor(
-                torch.tensor([0.25], dtype=torch.float), kp_lazy_tensor.shape[-1],
-            )
-        else:
-            diag_lazy_tensor = DiagLazyTensor(0.5 * torch.rand(kp_lazy_tensor.shape[-1], dtype=torch.float))
+        diag_lazy_tensor = DiagLazyTensor(0.5 * torch.rand(kp_lazy_tensor.shape[-1], dtype=torch.float))
         return KroneckerProductAddedDiagLazyTensor(kp_lazy_tensor, diag_lazy_tensor)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
@@ -46,7 +41,17 @@ class TestKroneckerProductAddedConstDiagLazyTensor(TestKroneckerProductAddedDiag
     should_call_cg = False
 
     def create_lazy_tensor(self):
-        return super().create_lazy_tensor(constant_diag=True)
+        a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
+        b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float)
+        c = torch.tensor([[4, 0.5, 1, 0], [0.5, 4, -1, 0], [1, -1, 3, 0], [0, 0, 0, 4]], dtype=torch.float)
+        a.requires_grad_(True)
+        b.requires_grad_(True)
+        c.requires_grad_(True)
+        kp_lazy_tensor = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
+        diag_lazy_tensor = ConstantDiagLazyTensor(
+            torch.tensor([0.25], dtype=torch.float), kp_lazy_tensor.shape[-1],
+        )
+        return KroneckerProductAddedDiagLazyTensor(kp_lazy_tensor, diag_lazy_tensor)
 
     def test_if_cholesky_used(self):
         lazy_tensor = self.create_lazy_tensor()
