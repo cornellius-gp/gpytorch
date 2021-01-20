@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 import torch
 from torch import Tensor
 
+from .. import settings
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
@@ -213,6 +214,12 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
             :attr:`diag_shape` (int):
                 The (non-batch) dimension of the (square) matrix
         """
+        if settings.debug.on():
+            if not (diag_values.dim() and diag_values.size(-1) == 1):
+                raise ValueError(
+                    f"diag_values argument to ConstantDiagLazyTensor needs to have a final "
+                    f"singleton dimension. Instead, got a value with shape {diag_values.shape}."
+                )
         super(TriangularLazyTensor, self).__init__(diag_values, diag_shape=diag_shape)
         self.diag_values = diag_values
         self.diag_shape = diag_shape
@@ -222,7 +229,7 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
         return self.diag_values.expand(*self.diag_values.shape[:-1], self.diag_shape)
 
     def _expand_batch(self, batch_shape):
-        return self.__class__(self._diag.expand(*batch_shape, self._diag.size(-1)), diag_shape=self.diag_shape)
+        return self.__class__(self.diag_values.expand(*batch_shape, 1), diag_shape=self.diag_shape)
 
     def _mul_constant(self, constant):
         return self.__class__(self.diag_values * constant, diag_shape=self.diag_shape)
@@ -242,12 +249,11 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         # TODO: Use proper batching for input vectors (prepand to shape rathern than append)
-        if not self._diag.requires_grad:
+        if not self.diag_values.requires_grad:
             return (None,)
 
-        res = left_vecs * right_vecs
-        if res.ndimension() > self._diag.ndimension():
-            res = res.sum(-1).sum(dim=-1, keepdim=True)
+        res = (left_vecs * right_vecs).sum(dim=[-1, -2])
+        res = res.unsqueeze(-1)
         return (res,)
 
     def _sum_batch(self, dim):
