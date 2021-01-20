@@ -11,6 +11,7 @@ from ..distributions import base_distributions
 from ..functions import add_diag
 from ..lazy import (
     BlockDiagLazyTensor,
+    ConstantDiagLazyTensor,
     DiagLazyTensor,
     KroneckerProductLazyTensor,
     MatmulLazyTensor,
@@ -217,7 +218,14 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
     """
 
     def __init__(
-        self, num_tasks, rank=0, task_prior=None, batch_shape=torch.Size(), noise_prior=None, noise_constraint=None
+        self, 
+        num_tasks, 
+        rank=0, 
+        task_prior=None, 
+        batch_shape=torch.Size(), 
+        noise_prior=None, 
+        noise_constraint=None,
+        has_second_noise=True,
     ):
         """
         Args:
@@ -233,11 +241,13 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         super(Likelihood, self).__init__()
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
-        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
+        
         if rank == 0:
             self.register_parameter(
                 name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, num_tasks))
             )
+            self.register_constraint("raw_task_noises", noise_constraint)
+            self.register_prior("raw_task_noise_prior", noise_prior, lambda: self.task_noises)
             if task_prior is not None:
                 raise RuntimeError("Cannot set a `task_prior` if rank=0")
         else:
@@ -249,7 +259,12 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         self.num_tasks = num_tasks
         self.rank = rank
 
-        self.register_constraint("raw_noise", noise_constraint)
+        if has_second_noise:
+            self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
+            self.register_constraint("raw_noise", noise_constraint)
+            self.register_prior("raw_task_noise_prior", noise_prior, lambda: self.noise)
+            
+        self.has_second_noise = has_second_noise
 
     @property
     def noise(self):
@@ -302,16 +317,17 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             task_var_lt = RootLazyTensor(task_noise_covar_factor)
             dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
 
-        eye_lt = DiagLazyTensor(
-            torch.ones(*covar.batch_shape, covar.size(-1) // self.num_tasks, dtype=dtype, device=device)
+        eye_lt = ConstantDiagLazyTensor(
+            torch.ones(*covar.batch_shape, dtype=dtype, device=device),diag_shape=covar.size(-1) // self.num_tasks
         )
         task_var_lt = task_var_lt.expand(*covar.batch_shape, *task_var_lt.matrix_shape)
 
         covar_kron_lt = KroneckerProductLazyTensor(eye_lt, task_var_lt)
         covar = covar + covar_kron_lt
 
-        noise = self.noise
-        covar = add_diag(covar, noise)
+        if self.has_second_noise:
+            noise = self.noise
+            covar = add_diag(covar, noise)
         return function_dist.__class__(mean, covar)
 
 

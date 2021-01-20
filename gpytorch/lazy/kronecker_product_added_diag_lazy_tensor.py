@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Tuple
+
 import torch
+
+from torch import Tensor
 
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .kronecker_product_lazy_tensor import KroneckerProductDiagLazyTensor, KroneckerProductLazyTensor
 from .matmul_lazy_tensor import MatmulLazyTensor
-
+from .lazy_tensor import LazyTensor
 
 class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def __init__(self, *lazy_tensors, preconditioner_override=None):
@@ -164,3 +168,26 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
             return MatmulLazyTensor(q_matrix, inv_sqrt_evals)
         return super()._root_inv_decomposition(initial_vectors=initial_vectors)
+
+    def _symeig(
+        self, eigenvectors: bool = False, return_evals_as_lazy: bool = False
+    ) -> Tuple[Tensor, Optional[LazyTensor]]:
+        # return_evals_as_lazy is a flag to return the eigenvalues as a lazy tensor
+        # which is useful for root decompositions here (see the root_decomposition
+        # method above)
+        if self._diag_is_constant:
+            evals, evecs = self.lazy_tensor.symeig(eigenvectors=eigenvectors)
+            if not return_evals_as_lazy:
+                evals = evals.diag()
+            evals = evals + self.diag_tensor.diag_values
+
+            return evals, evecs
+        super()._symeig(eigenvectors=eigenvectors)
+
+    def __add__(self, other):
+        if isinstance(other, ConstantDiagLazyTensor):
+            if not self._diag_is_constant:
+                new_kpadlt = KroneckerProductAddedDiagLazyTensor(self.lazy_tensor, other)
+                return KroneckerProductAddedDiagLazyTensor(new_kpadlt, self.diag_tensor)
+            return KroneckerProductAddedDiagLazyTensor(self.lazy_tensor, self.diag_tensor + other)
+        return super().__add__(other)
