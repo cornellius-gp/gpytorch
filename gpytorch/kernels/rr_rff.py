@@ -90,7 +90,6 @@ class RR_RFF_Kernel(Kernel):
                  min_val: Optional[int] = None,
                  num_dims: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
-        print('initializing RR RFF class')
         self.min_val = min_val
         self.num_samples = None
         self.single_sample = single_sample
@@ -137,11 +136,10 @@ class RR_RFF_Kernel(Kernel):
 
     def expand_z(self, z_pre):
         D = int(z_pre.shape[-1] / 2)
-        min_val = torch.tensor(torch.clone(self.min_val), dtype=z_pre.dtype, device=z_pre.device)
         ones = torch.ones(1, self.min_val, dtype=z_pre.dtype, device=z_pre.device)
         zeros = torch.zeros(1, D - self.min_val, dtype=z_pre.dtype, device=z_pre.device)
         mask = torch.cat([ones, zeros], dim=1)
-        mask /= torch.sqrt(min_val)
+        mask /= torch.sqrt(self.min_val.float())
 
         ones = torch.ones(1, D - 1, dtype=z_pre.dtype, device=z_pre.device)
         zeros = torch.zeros(1, 1, dtype=z_pre.dtype, device=z_pre.device)
@@ -152,7 +150,6 @@ class RR_RFF_Kernel(Kernel):
         ones /= torch.sqrt(torch.tensor(D, dtype=z_pre.dtype, device=z_pre.device))
         mask = torch.cat([mask, aux, ones], dim=0)
 
-        mask = torch.ones(3, D, dtype=z_pre.dtype, device=z_pre.device)
         mask = mask.unsqueeze(-2)
         mask = torch.cat([mask, mask], dim=-1)
 
