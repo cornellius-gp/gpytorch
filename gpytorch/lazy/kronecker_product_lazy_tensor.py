@@ -103,8 +103,11 @@ class KroneckerProductLazyTensor(LazyTensor):
             raise RuntimeError("add_diag only defined for square matrices")
 
         diag_shape = diag.shape
-        if len(diag_shape) == 0 or diag_shape[-1] == 1:
-            # interpret scalar tensor or single-trailing element as constant diag
+        if len(diag_shape) == 0:
+            # interpret scalar tensor as constant diag
+            diag_tensor = ConstantDiagLazyTensor(diag.unsqueeze(-1), diag_shape=self.shape[-1])
+        elif diag_shape[-1] == 1:
+            # interpret single-trailing element as constant diag
             diag_tensor = ConstantDiagLazyTensor(diag, diag_shape=self.shape[-1])
         else:
             try:
