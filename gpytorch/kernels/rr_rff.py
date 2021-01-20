@@ -91,13 +91,10 @@ class RR_RFF_Kernel(Kernel):
                  num_dims: Optional[int] = None, **kwargs):
         super().__init__(**kwargs)
         print('initializing RR RFF class')
-        # self.dist_obj = dist_obj # RR distribution instance
         self.min_val = min_val
-        self.num_samples = None  # ToDo: just for now; modified in forward method
-        self.single_sample = single_sample  # used in self.expand_z()
-        # self.sqrt_RR_weights = None # ToDo: same. should be torch.Size([num_samples*2])
+        self.num_samples = None
+        self.single_sample = single_sample
         if num_dims is not None:
-            # will return an error if num_dims is not None, since self.num_samples=None
             self._init_weights(num_dims, self.num_samples)
 
     def _init_weights(self, num_dims: Optional[int] = None, num_samples: Optional[int] = None,
@@ -107,7 +104,6 @@ class RR_RFF_Kernel(Kernel):
             D = num_samples
         if randn_weights is None:
             randn_shape = torch.Size([*self._batch_shape, 3, d, D])
-            # randn_shape = torch.Size([*self._batch_shape, d, D])
             randn_weights = torch.randn(randn_shape,
                                         dtype=self.raw_lengthscale.dtype,
                                         device=self.raw_lengthscale.device)
