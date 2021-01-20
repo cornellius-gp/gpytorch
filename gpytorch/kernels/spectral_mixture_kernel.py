@@ -158,7 +158,8 @@ class SpectralMixtureKernel(Kernel):
     def initialize_from_data_empspect(self, train_x: torch.Tensor, train_y: torch.Tensor):
         """
         Initialize mixture components based on the empirical spectrum of the data.
-        This will often be better than the standard initialize_from_data method.
+        This will often be better than the standard initialize_from_data method, but it assumes
+        that your inputs are evenly spaced.
 
         :param torch.Tensor train_x: Training inputs
         :param torch.Tensor train_y: Training outputs
@@ -216,7 +217,8 @@ class SpectralMixtureKernel(Kernel):
 
     def initialize_from_data(self, train_x: torch.Tensor, train_y: torch.Tensor, **kwargs):
         """
-        Initialize mixture components based on batch statistics of the data.
+        Initialize mixture components based on batch statistics of the data. You should use
+        this initialization routine if your observations are not evenly spaced.
 
         :param torch.Tensor train_x: Training inputs
         :param torch.Tensor train_y: Training outputs
@@ -326,30 +328,26 @@ class SpectralMixtureKernel(Kernel):
         x2_cos = x2_ * self.mixture_means
 
         # Create grids
-        x1_exp_, x2_exp_ = self._create_input_grid(
-            x1_exp, x2_exp, diag=diag, last_dim_is_batch=last_dim_is_batch, **params
-        )
-        x1_cos_, x2_cos_ = self._create_input_grid(
-            x1_cos, x2_cos, diag=diag, last_dim_is_batch=last_dim_is_batch, **params
-        )
+        x1_exp_, x2_exp_ = self._create_input_grid(x1_exp, x2_exp, diag=diag, **params)
+        x1_cos_, x2_cos_ = self._create_input_grid(x1_cos, x2_cos, diag=diag, **params)
 
         # Compute the exponential and cosine terms
         exp_term = (x1_exp_ - x2_exp_).pow_(2).mul_(-2 * math.pi ** 2)
         cos_term = (x1_cos_ - x2_cos_).mul_(2 * math.pi)
         res = exp_term.exp_() * cos_term.cos_()
 
+        # Sum over mixtures
+        mixture_weights = self.mixture_weights.view(*self.mixture_weights.shape, 1, 1)
+        if not diag:
+            mixture_weights = mixture_weights.unsqueeze(-2)
+
+        res = (res * mixture_weights).sum(-3 if diag else -4)
+
         # Product over dimensions
         if last_dim_is_batch:
-            res = res.squeeze(-1)
+            # Put feature-dimension in front of data1/data2 dimensions
+            res = res.permute(*list(range(0, res.dim() - 3)), -1, -3, -2)
         else:
             res = res.prod(-1)
 
-        # Sum over mixtures
-        mixture_weights = self.mixture_weights.unsqueeze(-1)
-        if not diag:
-            mixture_weights = mixture_weights.unsqueeze(-1)
-        if last_dim_is_batch:
-            mixture_weights = mixture_weights.unsqueeze(-1)
-
-        res = (res * mixture_weights).sum(-2 if diag else -3)
         return res
