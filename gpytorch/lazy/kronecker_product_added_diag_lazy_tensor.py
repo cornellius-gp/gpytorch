@@ -133,7 +133,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             return res.to(rhs_dtype)
 
         # in all other cases we fall back to the default
-        super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
+        return super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
 
     def _root_decomposition(self):
         if self._diag_is_constant:
