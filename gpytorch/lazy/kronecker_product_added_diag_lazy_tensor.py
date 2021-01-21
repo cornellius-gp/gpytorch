@@ -6,6 +6,7 @@ import torch
 
 from torch import Tensor
 
+from .. import settings
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .kronecker_product_lazy_tensor import KroneckerProductDiagLazyTensor, KroneckerProductLazyTensor
@@ -42,7 +43,8 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             evals, _ = self.lazy_tensor.symeig(eigenvectors=True)
             evals_plus_diag = evals + self.diag_tensor.diag()
             return torch.log(evals_plus_diag).sum(dim=-1)
-        if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):
+        if self.shape[-1] >= settings.max_cholesky_size.value() and \
+                isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):
             # If the diagonal has the same Kronecker structure as the full matrix, with each factor being
             # constatnt, wee can compute the logdet efficiently
             if len(self.lazy_tensor.lazy_tensors) == len(self.diag_tensor.lazy_tensors) and all(
@@ -63,6 +65,8 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                # we use the same matrix determinant identity: |K + D| = |D| |I + D^{-1}K|
                # but have to symmetrize the second matrix because torch.eig may not be
                # completely differentiable.
+                lt = self.lazy_tensor
+                dlt = self.diag_tensor
                 kron_times_diag_list = [
                     tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)
                 ]
@@ -77,7 +81,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 diag_term = self.diag_tensor.logdet()
                 return diag_term + evals_plus_i.logdet()
 
-        return super()._logdet()
+        return self.evaluate().logdet() 
 
     def _preconditioner(self):
         # solves don't use CG so don't waste time computing it

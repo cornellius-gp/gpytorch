@@ -274,7 +274,11 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
     @noise.setter
     def noise(self, value):
         self._set_noise(value)
-
+    
+    @property
+    def task_noises(self):
+        return self.raw_task_noises_constraint.transform(self.raw_task_noises)
+    
     def _set_noise(self, value):
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
 
@@ -309,7 +313,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         """
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
 
-        covar_kron_lt = self._shaped_noise_covar(covar.shape, add_noise=False)
+        covar_kron_lt = self._shaped_noise_covar(mean.shape, add_noise=False)
         covar = covar + covar_kron_lt
 
         if self.has_second_noise:
