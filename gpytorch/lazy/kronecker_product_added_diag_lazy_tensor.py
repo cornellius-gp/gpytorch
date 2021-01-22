@@ -69,32 +69,34 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 lt = self.lazy_tensor
                 dlt = self.diag_tensor
                 if isinstance(lt, KroneckerProductAddedDiagLazyTensor):
+                    raise(
+                        NotImplementedError("KPADLT + ConstDiagLT log dets not implemented.")
+                    )
                     # here we need to compute (K+a I)'(K+a I)
                     # = D^{-1} K^2 D^{-1} + 2 a D^{-1} K D^{-1} + a^2 D^{-2}
-                    kron_times_diag_list = [
-                        tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(
-                            lt.lazy_tensor.lazy_tensors, dlt.lazy_tensors
-                        )
-                    ]
-                    const = lt.diag_tensor.diag_values
+                    # kron_times_diag_list = [
+                    #     tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(
+                    #         lt.lazy_tensor.lazy_tensors, dlt.lazy_tensors
+                    #     )
+                    # ]
+                    # const = lt.diag_tensor.diag_values
 
-                    kron_symm = [
-                        k.matmul(k.transpose(-1, -2)) + 2. * const * tdiag.inv_matmul(k) + \
-                            const**2 * tdiag.inverse() * tdiag.inverse() for k, tdiag in zip(
-                                kron_times_diag_list, dlt.lazy_tensors
-                            )]
-                    kron_times_diag_symm = KroneckerProductLazyTensor(*kron_symm)
+                    # kron_symm = [
+                    #     k.matmul(k.transpose(-1, -2)) + 2. * const * tdiag.inv_matmul(k) + \
+                    #         const**2 * tdiag.inverse() * tdiag.inverse() for k, tdiag in zip(
+                    #             kron_times_diag_list, dlt.lazy_tensors
+                    #         )]
+                    # kron_times_diag_symm = KroneckerProductLazyTensor(*kron_symm)
                 else:
-                    kron_times_diag_list = [
-                        tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)
-                    ]
-                    
-                    # We symmetrize the sub-components K_i D_i^{-1}
-                    kron_times_diag_symm = KroneckerProductLazyTensor(
-                        *[k.matmul(k.transpose(-1, -2)) for k in kron_times_diag_list]
+                    dlt_inv_root = dlt.sqrt().inverse()
+                    symm_prod = KroneckerProductLazyTensor(
+                        *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
                     )
-                evals_square, _ = kron_times_diag_symm.symeig(eigenvectors=True)
-                evals_plus_i = DiagLazyTensor(evals_square.sqrt() + 1)
+                    evals, _ = symm_prod.symeig(eigenvectors = True)
+                    evals_plus_i = DiagLazyTensor(evals + 1.)
+
+                # evals_square, _ = kron_times_diag_symm.symeig(eigenvectors=True)
+                # evals_plus_i = DiagLazyTensor(evals_square.sqrt() + 1)
                 
                 diag_term = self.diag_tensor.logdet()
                 return diag_term + evals_plus_i.logdet()
