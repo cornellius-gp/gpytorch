@@ -6,9 +6,10 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-from ..lazy import MatmulLazyTensor, RootLazyTensor
+from ..lazy import MatmulLazyTensor, LowRankRootLazyTensor
 from ..models.exact_prediction_strategies import RFFPredictionStrategy
 from .kernel import Kernel
+
 
 class RFFKernel(Kernel):
     r"""
