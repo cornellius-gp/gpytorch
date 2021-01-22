@@ -96,7 +96,10 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         if inv_quad_rhs is not None:
             self_inv_rhs = self._solve(inv_quad_rhs)
-            inv_quad_term = inv_quad_rhs.transpose(-2, -1).matmul(self_inv_rhs)
+            if reduce_inv_quad:
+                inv_quad_term = inv_quad_rhs.transpose(-2, -1).matmul(self_inv_rhs).squeeze(-2).squeeze(-1)
+            else:
+                inv_quad_term = (inv_quad_rhs * self_inv_rhs).sum(dim=-2)
 
         if logdet:
             logdet_term = self._logdet()
