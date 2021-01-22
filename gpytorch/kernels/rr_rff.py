@@ -15,7 +15,7 @@ import torch
 from torch import Tensor
 
 # from ..lazy import MatmulLazyTensor, LowRankRootLazyTensor
-from ..lazy import MatmulLazyTensor, RootLazyTensor
+from ..lazy import MatmulLazyTensor, LowRankRootLazyTensor
 from ..models.exact_prediction_strategies import RFFPredictionStrategy
 from .kernel import Kernel
 
@@ -129,7 +129,7 @@ class RR_RFF_Kernel(Kernel):
             return (z1 * z2).sum(-1) / D
         if x1_eq_x2:
             # return LowRankRootLazyTensor(z1)
-            return RootLazyTensor(z1)
+            return LowRankRootLazyTensor(z1)
         else:
             print('Warning: x1!=x2 case is not supported for RR.')
             return MatmulLazyTensor(z1, z2.transpose(-1, -2))
