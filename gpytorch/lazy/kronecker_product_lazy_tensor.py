@@ -332,7 +332,6 @@ class KroneckerProductDiagLazyTensor(DiagLazyTensor, KroneckerProductTriangularL
         return KroneckerProductDiagLazyTensor(*chol_factors)
 
     @property
-    @cached
     def _diag(self):
         return _kron_diag(*self.lazy_tensors)
 
