@@ -49,4 +49,4 @@ class LowRankRootLazyTensor(RootLazyTensor):
         if isinstance(other, DiagLazyTensor):
             return LowRankRootAddedDiagLazyTensor(self, other)
         else:
-            return super().__add__(self, other)
+            return super().__add__(other)
