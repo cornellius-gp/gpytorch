@@ -336,6 +336,9 @@ class KroneckerProductDiagLazyTensor(DiagLazyTensor, KroneckerProductTriangularL
     def _diag(self):
         return _kron_diag(*self.lazy_tensors)
 
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        return KroneckerProductTriangularLazyTensor._quad_form_derivative(self, left_vecs, right_vecs)
+        
     def _symeig(
         self, eigenvectors: bool = False, return_evals_as_lazy: bool = False
     ) -> Tuple[Tensor, Optional[LazyTensor]]:
