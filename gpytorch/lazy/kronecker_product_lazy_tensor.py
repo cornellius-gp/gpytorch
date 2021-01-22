@@ -336,9 +336,18 @@ class KroneckerProductDiagLazyTensor(DiagLazyTensor, KroneckerProductTriangularL
     def _diag(self):
         return _kron_diag(*self.lazy_tensors)
 
+    def _expand_batch(self, batch_shape):
+        return KroneckerProductTriangularLazyTensor._expand_batch(self, batch_shape)
+
+    def _mul_constant(self, constant):
+        return DiagLazyTensor(self._diag * constant.unsqueeze(-1))
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         return KroneckerProductTriangularLazyTensor._quad_form_derivative(self, left_vecs, right_vecs)
-        
+
+    def sqrt(self):
+        return self.__class__(*[lt.sqrt() for lt in self.lazy_tensors])
+
     def _symeig(
         self, eigenvectors: bool = False, return_evals_as_lazy: bool = False
     ) -> Tuple[Tensor, Optional[LazyTensor]]:

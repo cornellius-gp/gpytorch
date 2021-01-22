@@ -29,11 +29,12 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         self._diag_is_constant = isinstance(self.diag_tensor, ConstantDiagLazyTensor)
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
-        # we want to call the standard InvQuadLogDet to easily get the probe vectors and do the
-        # solve but we only want to cache the probe vectors for the backwards
-        inv_quad_term, _ = super().inv_quad_logdet(
-            inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
-        )
+        if inv_quad_rhs is not None:
+            inv_quad_term, _ = super().inv_quad_logdet(
+                inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
+            )
+        else:
+            inv_quad_term = None
         logdet_term = self._logdet() if logdet else None
         return inv_quad_term, logdet_term
 
@@ -67,14 +68,31 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                # completely differentiable.
                 lt = self.lazy_tensor
                 dlt = self.diag_tensor
-                kron_times_diag_list = [
-                    tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)
-                ]
-                
-                # We symmetrize the sub-components K_i D_i^{-1}
-                kron_times_diag_symm = KroneckerProductLazyTensor(
-                    *[k.matmul(k.transpose(-1, -2)) for k in kron_times_diag_list]
-                )
+                if isinstance(lt, KroneckerProductAddedDiagLazyTensor):
+                    # here we need to compute (K+a I)'(K+a I)
+                    # = D^{-1} K^2 D^{-1} + 2 a D^{-1} K D^{-1} + a^2 D^{-2}
+                    kron_times_diag_list = [
+                        tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(
+                            lt.lazy_tensor.lazy_tensors, dlt.lazy_tensors
+                        )
+                    ]
+                    const = lt.diag_tensor.diag_values
+
+                    kron_symm = [
+                        k.matmul(k.transpose(-1, -2)) + 2. * const * tdiag.inv_matmul(k) + \
+                            const**2 * tdiag.inverse() * tdiag.inverse() for k, tdiag in zip(
+                                kron_times_diag_list, dlt.lazy_tensors
+                            )]
+                    kron_times_diag_symm = KroneckerProductLazyTensor(*kron_symm)
+                else:
+                    kron_times_diag_list = [
+                        tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)
+                    ]
+                    
+                    # We symmetrize the sub-components K_i D_i^{-1}
+                    kron_times_diag_symm = KroneckerProductLazyTensor(
+                        *[k.matmul(k.transpose(-1, -2)) for k in kron_times_diag_list]
+                    )
                 evals_square, _ = kron_times_diag_symm.symeig(eigenvectors=True)
                 evals_plus_i = DiagLazyTensor(evals_square.sqrt() + 1)
                 
@@ -107,12 +125,16 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         # If the diagonal has the same Kronecker structure as the full matrix, we can perform the solve
         # efficiently by using the Woodbury matrix identity
+        if isinstance(self.lazy_tensor, KroneckerProductAddedDiagLazyTensor):
+            kron_lazy_tensors = self.lazy_tensor.lazy_tensor.lazy_tensors
+        else:
+            kron_lazy_tensors = self.lazy_tensor.lazy_tensors
         if (
             isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor)
-            and len(self.lazy_tensor.lazy_tensors) == len(self.diag_tensor.lazy_tensors)
+            and len(kron_lazy_tensors) == len(self.diag_tensor.lazy_tensors)
             and all(
                 tfull.shape == tdiag.shape
-                for tfull, tdiag in zip(self.lazy_tensor.lazy_tensors, self.diag_tensor.lazy_tensors)
+                for tfull, tdiag in zip(kron_lazy_tensors, self.diag_tensor.lazy_tensors)
             )
         ):
             # We have
@@ -142,18 +164,36 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
             # If the diagonals are not constant, we have to do some more work since K D^{-1} is generally not symmetric
             else:
-                kron_times_diag_list = [
-                    tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)
-                ]
-                # We symmetrize the sub-components K_i D_i^{-1}
-                kron_times_diag_symm = KroneckerProductLazyTensor(
-                    *[k.matmul(k.transpose(-1, -2)) for k in kron_times_diag_list]
-                )
+                if isinstance(lt, KroneckerProductAddedDiagLazyTensor):
+                    # here we need to compute (K+a I)'(K+a I)
+                    # = D^{-1} K^2 D^{-1} + 2 a D^{-1} K D^{-1} + a^2 D^{-2}
+                    kron_times_diag_list = [
+                        tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(
+                            lt.lazy_tensor.lazy_tensors, dlt.lazy_tensors
+                        )
+                    ]
+                    const = lt.diag_tensor.diag_values
+
+                    kron_symm = [
+                        k.matmul(k.transpose(-1, -2)) + 2. * const * tdiag.inv_matmul(k) + \
+                            const**2 * tdiag.inverse() * tdiag.inverse() for k, tdiag in zip(
+                                kron_times_diag_list, dlt.lazy_tensors
+                            )]
+                    kron_times_diag_symm = KroneckerProductLazyTensor(*kron_symm)
+                else:
+                    kron_times_diag_list = [
+                        tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(lt.lazy_tensors, dlt.lazy_tensors)
+                    ]
+                    # We symmetrize the sub-components K_i D_i^{-1}
+                    kron_times_diag_symm = KroneckerProductLazyTensor(
+                        *[k.matmul(k.transpose(-1, -2)) for k in kron_times_diag_list]
+                    )
                 Lambda_square, S = kron_times_diag_symm.symeig(eigenvectors=True)
                 Lambda_I = DiagLazyTensor(Lambda_square.sqrt() + 1)
 
             tmp_term = S.matmul(Lambda_I.inv_matmul(S._transpose_nonbatch().matmul(rhs)))
-            res = lt._inv_matmul(rhs - tmp_term)  # performed efficiently b/c lt has Kronecker structure
+            res = lt._inv_matmul(rhs - tmp_term)
+
             return res.to(rhs_dtype)
 
         # in all other cases we fall back to the default
@@ -173,20 +213,16 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             return MatmulLazyTensor(q_matrix, inv_sqrt_evals)
         return super()._root_inv_decomposition(initial_vectors=initial_vectors)
 
-    def _symeig(
-        self, eigenvectors: bool = False, return_evals_as_lazy: bool = False
-    ) -> Tuple[Tensor, Optional[LazyTensor]]:
+    def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
         # return_evals_as_lazy is a flag to return the eigenvalues as a lazy tensor
         # which is useful for root decompositions here (see the root_decomposition
         # method above)
         if self._diag_is_constant:
             evals, evecs = self.lazy_tensor.symeig(eigenvectors=eigenvectors)
-            if not return_evals_as_lazy:
-                evals = evals.diag()
             evals = evals + self.diag_tensor.diag_values
 
             return evals, evecs
-        super()._symeig(eigenvectors=eigenvectors)
+        return super()._symeig(eigenvectors=eigenvectors)
 
     def __add__(self, other):
         if isinstance(other, ConstantDiagLazyTensor):
