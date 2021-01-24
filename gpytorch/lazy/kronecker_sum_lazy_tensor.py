@@ -60,34 +60,18 @@ class KroneckerSumLazyTensor(SumLazyTensor):
         lt2_logdet = self.lazy_tensors[1].logdet()
         return inner_mat._logdet() + lt2_logdet
 
-    @cached(name="root_decomposition")
-    def root_decomposition(self, method: Optional[str] = None):
-        from gpytorch.lazy import RootLazyTensor
-
-        # return a dense root decomposition if the matrix is small
-        if self.shape[-1] <= settings.max_cholesky_size.value():
-            return super().root_decomposition(method=method)
-
+    def _root_decomposition(self):
         inner_mat = self._sum_formulation
-        lt2_root = self.lazy_tensors[1].root_decomposition(method=method).root
-        inner_mat_root = inner_mat.root_decomposition(method=method).root
+        lt2_root = KroneckerProductLazyTensor(
+            *[lt.root_decomposition().root for lt in self.lazy_tensors[1].lazy_tensors]
+        )
+        inner_mat_root = inner_mat.root_decomposition().root
         root = lt2_root.matmul(inner_mat_root)
-        return RootLazyTensor(root)
+        return root
 
-    @cached(name="root_inv_decomposition")
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
-        from gpytorch.lazy import RootLazyTensor
-
-        # return a dense root decomposition if the matrix is small
-        if self.shape[-1] <= settings.max_cholesky_size.value():
-            return super().root_inv_decomposition(initial_vectors=initial_vectors, test_vectors=test_vectors)
-
+    def _root_inv_decomposition(self, initial_vectors=None):
         inner_mat = self._sum_formulation
-        lt2_root_inv = self.lazy_tensors[1].root_inv_decomposition(
-            initial_vectors=initial_vectors, test_vectors=test_vectors
-        ).root
-        inner_mat_root_inv = inner_mat.root_inv_decomposition(
-            initial_vectors=initial_vectors, test_vectors=test_vectors
-        ).root
+        lt2_root_inv = self.lazy_tensors[1].root_inv_decomposition().root
+        inner_mat_root_inv = inner_mat.root_inv_decomposition().root
         inv_root = lt2_root_inv.matmul(inner_mat_root_inv)
-        return RootLazyTensor(inv_root)
+        return inv_root

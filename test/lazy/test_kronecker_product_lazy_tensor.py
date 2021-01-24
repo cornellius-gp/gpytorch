@@ -48,9 +48,9 @@ class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
 class TestKroneckerProductDiagLazyTensor(TestDiagLazyTensor):
     def create_lazy_tensor(self):
-        a = torch.tensor([40, 10., 2.], dtype=torch.float)
-        b = torch.tensor([80., 1], dtype=torch.float)
-        c = torch.tensor([4.75, 10.95, 1.05, 0.25], dtype=torch.float)
+        a = torch.tensor([4., 1., 2.], dtype=torch.float)
+        b = torch.tensor([3., 1.3], dtype=torch.float)
+        c = torch.tensor([1.75, 1.95, 1.05, 0.25], dtype=torch.float)
         a.requires_grad_(True)
         b.requires_grad_(True)
         c.requires_grad_(True)

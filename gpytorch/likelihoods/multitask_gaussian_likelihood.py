@@ -226,7 +226,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         batch_shape=torch.Size(), 
         noise_prior=None, 
         noise_constraint=None,
-        has_ind_noise=True,
+        has_global_noise=True,
         has_task_noise=True,
     ):
         """
@@ -239,12 +239,19 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             task_prior (:obj:`gpytorch.priors.Prior`): Prior to use over the task noise covariance matrix if
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
+            has_global_noise (bool): whether to include a \sigma^2 I_{nt} term in the noise model.
+
+            has_task_noise (bool): whether to include task-specific noise terms, which add I_n \kron D_T
+            into the noise model.
+
+            At least one of has_global_noise or has_task_noise should be specified.
+
         """
         super(Likelihood, self).__init__()
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
         
-        assert has_task_noise or has_ind_noise
+        assert has_task_noise or has_global_noise
 
         if has_task_noise:
             if rank == 0:
@@ -264,12 +271,12 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         self.num_tasks = num_tasks
         self.rank = rank
 
-        if has_ind_noise:
+        if has_global_noise:
             self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
             self.register_constraint("raw_noise", noise_constraint)
             self.register_prior("raw_noise_prior", noise_prior, lambda m: m.noise)
             
-        self.has_ind_noise = has_ind_noise
+        self.has_global_noise = has_global_noise
         self.has_task_noise = has_task_noise
 
     @property
@@ -319,12 +326,9 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
 
         if self.has_task_noise:
-            covar_kron_lt = self._shaped_noise_covar(mean.shape, add_noise=self.has_ind_noise)
+            covar_kron_lt = self._shaped_noise_covar(mean.shape, add_noise=self.has_global_noise)
             covar = covar + covar_kron_lt
 
-        # if self.has_ind_noise:
-        #     noise = self.noise
-        #     covar = add_diag(covar, noise)
         return function_dist.__class__(mean, covar)
 
     def _shaped_noise_covar(self, shape, add_noise=True, *params, **kwargs):
@@ -352,14 +356,11 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         # I \kron D_T + \sigma^2 I_{NT} = I \kron (D_T + \sigma^2 I)
         # which allows us to move the latent noise inside the task dependent noise 
         # thereby allowing exploitation of Kronecker structure in this likelihood.
-        if add_noise and self.has_second_noise:
-            task_var_lt = task_var_lt + self.noise
+        if add_noise and self.has_global_noise:
+            noise = ConstantDiagLazyTensor(self.noise, diag_shape=task_var_lt.shape[-1])
+            task_var_lt = task_var_lt + noise
             
         covar_kron_lt = ckl_init(eye_lt, task_var_lt)
-        # if add_noise and self.has_second_noise:
-        #     noise = ConstantDiagLazyTensor(self.noise, diag_shape=covar_kron_lt.shape[-1])
-        #     # TODO: ensure that this doesn't flatten the diagonal out
-        #     covar_kron_lt = covar_kron_lt + noise
             
         return covar_kron_lt
 
