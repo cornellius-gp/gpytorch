@@ -251,7 +251,11 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
         
-        assert has_task_noise or has_global_noise
+        if not has_task_noise and not has_global_noise:
+            raise(
+                ValueError("At least one of has_task_noise or has_global_noise must be specified." + \
+                    "Attempting to specify a likelihood that has no noise terms.")
+            )
 
         if has_task_noise:
             if rank == 0:
@@ -352,9 +356,9 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         )
         task_var_lt = task_var_lt.expand(*shape[:-2], *task_var_lt.matrix_shape)
        
-        # to add the latent noise we exploit the fact that 
+        # to add the latent noise we exploit the fact that
         # I \kron D_T + \sigma^2 I_{NT} = I \kron (D_T + \sigma^2 I)
-        # which allows us to move the latent noise inside the task dependent noise 
+        # which allows us to move the latent noise inside the task dependent noise
         # thereby allowing exploitation of Kronecker structure in this likelihood.
         if add_noise and self.has_global_noise:
             noise = ConstantDiagLazyTensor(self.noise, diag_shape=task_var_lt.shape[-1])

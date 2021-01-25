@@ -15,7 +15,7 @@ class KroneckerSumLazyTensor(SumLazyTensor):
         (C^{-1/2}AC^{-1/2} \kron D^{-1/2} B D^{-1/2} + I_|C| \kron I_|D|)(C^{1/2} \kron D^{1/2})^{T}
     where .^{1/2} = Q_.\Lambda_.^{1/2} (e.g. an eigen-decomposition.)
 
-    This formulation emits efficient solves and log determinants.
+    This formulation admits efficient solves and log determinants.
 
     The original reference is [https://papers.nips.cc/paper/2013/file/59c33016884a62116be975a9bb8257e3-Paper.pdf].
 

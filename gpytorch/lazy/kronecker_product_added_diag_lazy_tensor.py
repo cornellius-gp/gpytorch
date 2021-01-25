@@ -72,21 +72,6 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                     raise(
                         NotImplementedError("KPADLT + ConstDiagLT log dets not implemented.")
                     )
-                    # here we need to compute (K+a I)'(K+a I)
-                    # = D^{-1} K^2 D^{-1} + 2 a D^{-1} K D^{-1} + a^2 D^{-2}
-                    # kron_times_diag_list = [
-                    #     tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(
-                    #         lt.lazy_tensor.lazy_tensors, dlt.lazy_tensors
-                    #     )
-                    # ]
-                    # const = lt.diag_tensor.diag_values
-
-                    # kron_symm = [
-                    #     k.matmul(k.transpose(-1, -2)) + 2. * const * tdiag.inv_matmul(k) + \
-                    #         const**2 * tdiag.inverse() * tdiag.inverse() for k, tdiag in zip(
-                    #             kron_times_diag_list, dlt.lazy_tensors
-                    #         )]
-                    # kron_times_diag_symm = KroneckerProductLazyTensor(*kron_symm)
                 else:
                     dlt_inv_root = dlt.sqrt().inverse()
                     symm_prod = KroneckerProductLazyTensor(
