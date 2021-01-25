@@ -224,6 +224,12 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
         self.diag_values = diag_values
         self.diag_shape = diag_shape
 
+    def __add__(self, other):
+        if isinstance(other, ConstantDiagLazyTensor):
+            assert other.shape[-1] == self.shape[-1]
+            return ConstantDiagLazyTensor(self.diag_values + other.diag_values, self.diag_shape)
+        return super().__add__(other)
+        
     @property
     def _diag(self):
         return self.diag_values.expand(*self.diag_values.shape[:-1], self.diag_shape)

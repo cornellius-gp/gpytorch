@@ -101,7 +101,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 diag_term = self.diag_tensor.logdet()
                 return diag_term + evals_plus_i.logdet()
 
-        return self.evaluate().logdet() 
+        return super().logdet()
 
     def _preconditioner(self):
         # solves don't use CG so don't waste time computing it
@@ -170,24 +170,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                         NotImplementedError(
                             "Inverses of KroneckerProductAddedDiagonals and ConstantDiagLazyTensors are "+ 
                             "not implemented yet.")
-                        )
-                    # # here we need to compute (K+a I)'(K+a I)
-                    # # = D^{-1} K^2 D^{-1} + 2 a D^{-1} K D^{-1} + a^2 D^{-2}
-                    # kron_times_diag_list = [
-                    #     tfull.matmul(tdiag.inverse()) for tfull, tdiag in zip(
-                    #         lt.lazy_tensor.lazy_tensors, dlt.lazy_tensors
-                    #     )
-                    # ]
-                    # const = lt.diag_tensor.diag_values
-
-                    # kron_symm = [
-                    #     k.matmul(k.transpose(-1, -2)) + 2. * const * tdiag.inv_matmul(k) + \
-                    #         const**2 * tdiag.inverse() * tdiag.inverse() for k, tdiag in zip(
-                    #             kron_times_diag_list, dlt.lazy_tensors
-                    #         )]
-                    # kron_times_diag_symm = KroneckerProductLazyTensor(*kron_symm)
-                    # Lambda_square, S = kron_times_diag_symm.symeig(eigenvectors=True)
-                    # Lambda_I = DiagLazyTensor(Lambda_square.sqrt() + 1)                    
+                        )                  
                 else:
                     # in this case we can pull across the diagonals
                     # (\otimes K_i + \otimes D_i) = (\otimes D_i^{1/2})(\otimes D_i^{-1/2}K_iD_i^{-1/2} + I)(\otimes D_i^{1/2})
@@ -208,12 +191,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                     return res.to(rhs_dtype)
 
             tmp_term = S.matmul(Lambda_I.inv_matmul(S._transpose_nonbatch().matmul(rhs)))
-
-            # TODO: check why these are different!
-            if isinstance(lt, KroneckerProductLazyTensor):
-                res = lt._inv_matmul(rhs - tmp_term)
-            elif isinstance(lt, KroneckerProductAddedDiagLazyTensor):
-                res = lt._solve(rhs - tmp_term)
+            res = lt._inv_matmul(rhs - tmp_term)
 
             return res.to(rhs_dtype)
 
@@ -246,9 +224,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         return super()._symeig(eigenvectors=eigenvectors)
 
     def __add__(self, other):
-        if isinstance(other, ConstantDiagLazyTensor):
-            if not self._diag_is_constant:
-                new_kpadlt = KroneckerProductAddedDiagLazyTensor(self.lazy_tensor, other)
-                return KroneckerProductAddedDiagLazyTensor(new_kpadlt, self.diag_tensor)
+        if isinstance(other, ConstantDiagLazyTensor) and self._diag_is_constant:
+            # the other cases have only partial implementations
             return KroneckerProductAddedDiagLazyTensor(self.lazy_tensor, self.diag_tensor + other)
         return super().__add__(other)
