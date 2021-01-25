@@ -86,7 +86,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 diag_term = self.diag_tensor.logdet()
                 return diag_term + evals_plus_i.logdet()
 
-        return super().logdet()
+        return super().inv_quad_logdet(logdet=True)[1]
 
     def _preconditioner(self):
         # solves don't use CG so don't waste time computing it
