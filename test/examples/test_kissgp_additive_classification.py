@@ -73,7 +73,7 @@ class TestKISSGPAdditiveClassification(unittest.TestCase):
             model.train()
             likelihood.train()
 
-            optimizer = optim.Adam(model.parameters(), lr=0.14455771335700404)
+            optimizer = optim.Adam(model.parameters(), lr=0.145)
             optimizer.n_iter = 0
             for _ in range(10):
                 optimizer.zero_grad()
