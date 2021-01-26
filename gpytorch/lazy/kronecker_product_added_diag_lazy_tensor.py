@@ -188,6 +188,30 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
             updated_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(0.5))
             return MatmulLazyTensor(q_matrix, updated_evals)
+        
+        dlt = self.diag_tensor
+        lt = self.lazy_tensor
+        if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):   
+            if all(isinstance(tdiag, ConstantDiagLazyTensor) for tdiag in dlt.lazy_tensors):
+                sub_evals, sub_evecs = [], []
+                for lt_, dlt_ in zip(lt.lazy_tensors, dlt.lazy_tensors):
+                    evals_, evecs_ = lt_.symeig(eigenvectors=True)
+                    sub_evals.append(DiagLazyTensor(evals_ / dlt_.diag_values))
+                    sub_evecs.append(evecs_)
+                Lambda_I = KroneckerProductDiagLazyTensor(*sub_evals).add_jitter(1.0)
+                S = KroneckerProductLazyTensor(*sub_evecs)
+                return MatmulLazyTensor(S, Lambda_I.sqrt())
+            else:    
+                # again, we compute the root decomposition by pulling across the diagonals
+                dlt_inv_root = dlt.sqrt().inverse()
+                dlt_root = dlt.sqrt()
+                symm_prod = KroneckerProductLazyTensor(
+                    *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
+                )
+                evals, evecs = symm_prod.symeig(eigenvectors = True)
+                evals_p_i_root = DiagLazyTensor((evals + 1.).sqrt())
+                return MatmulLazyTensor(dlt_root, MatmulLazyTensor(evecs, evals_p_i_root))
+            
         return super()._root_decomposition()
 
     def _root_inv_decomposition(self, initial_vectors=None):
@@ -195,6 +219,30 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
             inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
             return MatmulLazyTensor(q_matrix, inv_sqrt_evals)
+        
+        dlt = self.diag_tensor
+        lt = self.lazy_tensor
+        if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor): 
+            if all(isinstance(tdiag, ConstantDiagLazyTensor) for tdiag in dlt.lazy_tensors):
+                sub_evals, sub_evecs = [], []
+                for lt_, dlt_ in zip(lt.lazy_tensors, dlt.lazy_tensors):
+                    evals_, evecs_ = lt_.symeig(eigenvectors=True)
+                    sub_evals.append(DiagLazyTensor(evals_ / dlt_.diag_values))
+                    sub_evecs.append(evecs_)
+                Lambda_I = KroneckerProductDiagLazyTensor(*sub_evals).add_jitter(1.0)
+                S = KroneckerProductLazyTensor(*sub_evecs)
+                return MatmulLazyTensor(S, Lambda_I.inverse().sqrt())
+            else:
+                # again, we compute the root decomposition by pulling across the diagonals
+                dlt_inv_root = dlt.sqrt().inverse()
+                dlt_root = dlt.sqrt()
+                symm_prod = KroneckerProductLazyTensor(
+                    *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
+                )
+                evals, evecs = symm_prod.symeig(eigenvectors = True)
+                evals_p_i_root = DiagLazyTensor((evals + 1.).reciprocal().sqrt())
+                return MatmulLazyTensor(dlt_inv_root, MatmulLazyTensor(evecs, evals_p_i_root))
+        
         return super()._root_inv_decomposition(initial_vectors=initial_vectors)
 
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
