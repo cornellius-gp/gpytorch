@@ -82,7 +82,7 @@ class KroneckerProductLazyTensor(LazyTensor):
         self.lazy_tensors = lazy_tensors
 
     def __add__(self, other):
-        if isinstance(other, KroneckerProductDiagLazyTensor):
+        if isinstance(other, (KroneckerProductDiagLazyTensor, ConstantDiagLazyTensor)):
             from .kronecker_product_added_diag_lazy_tensor import KroneckerProductAddedDiagLazyTensor
             return KroneckerProductAddedDiagLazyTensor(self, other)
         if isinstance(other, KroneckerProductLazyTensor):
