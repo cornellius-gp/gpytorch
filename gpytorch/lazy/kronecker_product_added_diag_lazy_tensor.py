@@ -193,11 +193,6 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             res = dlt_inv_root.matmul(res3)
             return res.to(rhs_dtype)
 
-            tmp_term = evecs.matmul(evals_p_i.inv_matmul(evecs._transpose_nonbatch().matmul(rhs)))
-            res = lt._inv_matmul(rhs - tmp_term)
-
-            return res.to(rhs_dtype)
-
         # in all other cases we fall back to the default
         return super()._solve(rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
 
