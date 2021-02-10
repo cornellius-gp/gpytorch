@@ -4,9 +4,11 @@ import unittest
 
 import torch
 
-from gpytorch.lazy import KroneckerProductLazyTensor, KroneckerProductDiagLazyTensor, NonLazyTensor, DiagLazyTensor
+from gpytorch.lazy import DiagLazyTensor, KroneckerProductDiagLazyTensor, KroneckerProductLazyTensor, NonLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase, RectangularLazyTensorTestCase
+
 from .test_diag_lazy_tensor import TestDiagLazyTensor
+
 
 def kron(a, b):
     res = []
@@ -17,6 +19,7 @@ def kron(a, b):
         res.append(torch.cat(row_res, -1))
     return torch.cat(res, -2)
 
+
 def kron_diag(*lts):
     """Compute diagonal of a KroneckerProductLazyTensor from the diagonals of the constituiting tensors"""
     lead_diag = lts[0].diag()
@@ -25,6 +28,7 @@ def kron_diag(*lts):
     trail_diag = kron_diag(*lts[1:])
     diag = lead_diag.unsqueeze(-2) * trail_diag.unsqueeze(-1)
     return diag.transpose(-1, -2).reshape(*diag.shape[:-2], -1)
+
 
 class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
@@ -48,8 +52,8 @@ class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
 class TestKroneckerProductDiagLazyTensor(TestDiagLazyTensor):
     def create_lazy_tensor(self):
-        a = torch.tensor([4., 1., 2.], dtype=torch.float)
-        b = torch.tensor([3., 1.3], dtype=torch.float)
+        a = torch.tensor([4.0, 1.0, 2.0], dtype=torch.float)
+        b = torch.tensor([3.0, 1.3], dtype=torch.float)
         c = torch.tensor([1.75, 1.95, 1.05, 0.25], dtype=torch.float)
         a.requires_grad_(True)
         b.requires_grad_(True)
@@ -60,6 +64,7 @@ class TestKroneckerProductDiagLazyTensor(TestDiagLazyTensor):
     def evaluate_lazy_tensor(self, lazy_tensor):
         res_diag = kron_diag(*lazy_tensor.lazy_tensors)
         return torch.diag_embed(res_diag)
+
 
 class TestKroneckerProductLazyTensorBatch(TestKroneckerProductLazyTensor):
     seed = 0
