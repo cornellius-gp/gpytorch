@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-from typing import Optional
-
-from .sum_lazy_tensor import SumLazyTensor
-from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
 from .. import settings
-from ..utils.memoize import cached
+from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
+from .sum_lazy_tensor import SumLazyTensor
+
 
 class KroneckerSumLazyTensor(SumLazyTensor):
     r"""
@@ -25,16 +23,16 @@ class KroneckerSumLazyTensor(SumLazyTensor):
 
     @property
     def _sum_formulation(self):
-         # where M = (C^{-1/2}AC^{-1/2} \kron D^{-1/2} B D^{-1/2} + I_|C| \kron I_|D|)
+        # where M = (C^{-1/2}AC^{-1/2} \kron D^{-1/2} B D^{-1/2} + I_|C| \kron I_|D|)
         lt1 = self.lazy_tensors[0]
         lt2 = self.lazy_tensors[1]
-        
+
         lt2_inv_roots = [lt.root_inv_decomposition().root for lt in lt2.lazy_tensors]
-        
+
         lt2_inv_root_mm_lt2 = [
-            rm.transpose(-1,-2).matmul(lt).matmul(rm) for rm, lt in zip(lt2_inv_roots, lt1.lazy_tensors)
+            rm.transpose(-1, -2).matmul(lt).matmul(rm) for rm, lt in zip(lt2_inv_roots, lt1.lazy_tensors)
         ]
-        inv_root_times_lt1 = KroneckerProductLazyTensor(*lt2_inv_root_mm_lt2).add_jitter(1.)
+        inv_root_times_lt1 = KroneckerProductLazyTensor(*lt2_inv_root_mm_lt2).add_jitter(1.0)
         return inv_root_times_lt1
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
