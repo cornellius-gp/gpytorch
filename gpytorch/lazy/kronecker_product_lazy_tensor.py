@@ -84,9 +84,11 @@ class KroneckerProductLazyTensor(LazyTensor):
     def __add__(self, other):
         if isinstance(other, (KroneckerProductDiagLazyTensor, ConstantDiagLazyTensor)):
             from .kronecker_product_added_diag_lazy_tensor import KroneckerProductAddedDiagLazyTensor
+
             return KroneckerProductAddedDiagLazyTensor(self, other)
         if isinstance(other, KroneckerProductLazyTensor):
             from .kronecker_sum_lazy_tensor import KroneckerSumLazyTensor
+
             return KroneckerSumLazyTensor(self, other)
         if isinstance(other, DiagLazyTensor):
             return self.add_diag(other.diag())

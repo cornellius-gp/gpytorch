@@ -9,7 +9,7 @@ from torch.nn import Parameter
 from .. import settings
 from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, ZeroLazyTensor, ConstantDiagLazyTensor
+from ..lazy import ConstantDiagLazyTensor, DiagLazyTensor, ZeroLazyTensor
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 
