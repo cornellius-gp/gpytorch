@@ -66,6 +66,29 @@ class TestKroneckerProductAddedKroneckerDiagLazyTensor(TestKroneckerProductAdded
         return KroneckerProductAddedDiagLazyTensor(kp_lazy_tensor, diag_lazy_tensor)
 
 
+class TestKroneckerProductAddedKroneckerConstDiagLazyTensor(TestKroneckerProductAddedKroneckerDiagLazyTensor):
+    def create_lazy_tensor(self):
+        a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
+        b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float)
+        c = torch.tensor([[4, 0.5, 1, 0], [0.5, 4, -1, 0], [1, -1, 3, 0], [0, 0, 0, 4]], dtype=torch.float)
+        d = torch.tensor([2], dtype=torch.float)
+        e = torch.tensor([5], dtype=torch.float)
+        f = torch.tensor([2.5], dtype=torch.float)
+        a.requires_grad_(True)
+        b.requires_grad_(True)
+        c.requires_grad_(True)
+        d.requires_grad_(True)
+        e.requires_grad_(True)
+        f.requires_grad_(True)
+        kp_lazy_tensor = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
+        diag_lazy_tensor = KroneckerProductDiagLazyTensor(
+            ConstantDiagLazyTensor(d, diag_shape=3),
+            ConstantDiagLazyTensor(e, diag_shape=2),
+            ConstantDiagLazyTensor(f, diag_shape=4),
+        )
+        return KroneckerProductAddedDiagLazyTensor(kp_lazy_tensor, diag_lazy_tensor)
+
+
 class TestKroneckerProductAddedConstDiagLazyTensor(TestKroneckerProductAddedDiagLazyTensor):
     should_call_lanczos = False
     should_call_cg = False
