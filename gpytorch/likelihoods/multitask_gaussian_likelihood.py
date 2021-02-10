@@ -64,9 +64,9 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
     def marginal(self, function_dist, *params, **kwargs):
         r"""
-        Adds the task noises to the diagonal of the covariance matrix of the supplied
-        :obj:`gpytorch.distributions.MultivariateNormal` or :obj:`gpytorch.distributions.MultitaskMultivariateNormal`,
-        in case of `rank` == 0. Otherwise, adds a rank `rank` covariance matrix to it.
+        If `rank` == 0, adds the task noises to the diagonal of the covariance matrix of the supplied
+        :obj:`gpytorch.distributions.MultivariateNormal` or :obj:`gpytorch.distributions.MultitaskMultivariateNormal`.
+        Otherwise, adds a rank `rank` covariance matrix to it.
 
         To accomplish this, we form a new :obj:`gpytorch.lazy.KroneckerProductLazyTensor` between :math:`I_{n}`,
         an identity matrix with size equal to the data and a (not necessarily diagonal) matrix containing the task
@@ -229,5 +229,5 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
 
 
 # TODO: remove in a later commit
-# MultitaskGaussianLikelihoodKronecker has replaced MultitaskGaussianLikelihood
+# MultitaskGaussianLikelihood has replaced MultitaskGaussianLikelihoodKronecker
 MultitaskGaussianLikelihoodKronecker = MultitaskGaussianLikelihood
