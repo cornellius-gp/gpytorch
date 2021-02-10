@@ -3,15 +3,29 @@
 from typing import Optional, Tuple
 
 import torch
-
 from torch import Tensor
 
 from .. import settings
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .kronecker_product_lazy_tensor import KroneckerProductDiagLazyTensor, KroneckerProductLazyTensor
-from .matmul_lazy_tensor import MatmulLazyTensor
 from .lazy_tensor import LazyTensor
+from .matmul_lazy_tensor import MatmulLazyTensor
+
+
+def _symmetrize_kpadlt_constructor(lt, dlt):
+    # internally computes the components of the symmetrization solve.
+    # (K + D)^{-1} = D^{-1/2}(D^{-1/2}KD^{-1/2} + I)^{-1}D^{-1/2}
+
+    dlt_inv_root = dlt.sqrt().inverse()
+    symm_prod = KroneckerProductLazyTensor(
+        *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
+    )
+    evals, evecs = symm_prod.symeig(eigenvectors=True)
+    evals_plus_i = DiagLazyTensor(evals + 1.0)
+
+    return dlt_inv_root, evals_plus_i, evecs
+
 
 class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
     def __init__(self, *lazy_tensors, preconditioner_override=None):
@@ -44,9 +58,8 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             evals, _ = self.lazy_tensor.symeig(eigenvectors=True)
             evals_plus_diag = evals + self.diag_tensor.diag()
             return torch.log(evals_plus_diag).sum(dim=-1)
-        if (
-            self.shape[-1] >= settings.max_cholesky_size.value() and 
-            isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor)
+        if self.shape[-1] >= settings.max_cholesky_size.value() and isinstance(
+            self.diag_tensor, KroneckerProductDiagLazyTensor
         ):
             # If the diagonal has the same Kronecker structure as the full matrix, with each factor being
             # constant, wee can compute the logdet efficiently
@@ -72,16 +85,10 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 dlt = self.diag_tensor
                 if isinstance(lt, KroneckerProductAddedDiagLazyTensor):
                     raise NotImplementedError(
-                       "Log determinant for KroneckerProductAddedDiagLazyTensor + "
-                       "DiagLazyTensor not implemented."
+                        "Log determinant for KroneckerProductAddedDiagLazyTensor + " "DiagLazyTensor not implemented."
                     )
                 else:
-                    dlt_inv_root = dlt.sqrt().inverse()
-                    symm_prod = KroneckerProductLazyTensor(
-                        *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
-                    )
-                    evals, _ = symm_prod.symeig(eigenvectors=True)
-                    evals_plus_i = DiagLazyTensor(evals + 1.)
+                    _, evals_plus_i, _ = _symmetrize_kpadlt_constructor(lt, dlt)
 
                 diag_term = self.diag_tensor.logdet()
                 return diag_term + evals_plus_i.logdet()
@@ -120,8 +127,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor)
             and len(kron_lazy_tensors) == len(self.diag_tensor.lazy_tensors)
             and all(
-                tfull.shape == tdiag.shape
-                for tfull, tdiag in zip(kron_lazy_tensors, self.diag_tensor.lazy_tensors)
+                tfull.shape == tdiag.shape for tfull, tdiag in zip(kron_lazy_tensors, self.diag_tensor.lazy_tensors)
             )
         ):
             # We have
@@ -149,31 +155,31 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 Lambda_I = KroneckerProductDiagLazyTensor(*sub_evals).add_jitter(1.0)
                 S = KroneckerProductLazyTensor(*sub_evecs)
             else:
-                # If the diagonals are not constant, we have to do some more work since K D^{-1} is generally not symmetric
+                # If the diagonals are not constant, we have to do some more work
+                # since K D^{-1} is generally not symmetric. TODO: implement this solve.
                 if isinstance(lt, KroneckerProductAddedDiagLazyTensor):
-                    raise(
+                    raise (
                         NotImplementedError(
-                            "Inverses of KroneckerProductAddedDiagonals and ConstantDiagLazyTensors are "+ 
-                            "not implemented yet.")
-                        )                  
-                else:
-                    # in this case we can pull across the diagonals
-                    # (\otimes K_i + \otimes D_i) = (\otimes D_i^{1/2})(\otimes D_i^{-1/2}K_iD_i^{-1/2} + I)(\otimes D_i^{1/2})
-                    # so that
-                    # (\otimes K_i + \otimes D_i)^{-1} = (\otimes D_i^{1/2})^{-1}
-                    #   \tilde Q (\tilde \Lambda + I)^{-1} \tilde Q (\otimes D_i^{1/2})
-                    dlt_inv_root = dlt.sqrt().inverse()
-                    symm_prod = KroneckerProductLazyTensor(
-                        *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
+                            "Inverses of KroneckerProductAddedDiagonals and ConstantDiagLazyTensors are "
+                            + "not implemented yet."
+                        )
                     )
-                    evals, evecs = symm_prod.symeig(eigenvectors = True)
-                    evals_p_i = DiagLazyTensor(evals + 1.)
-                    res = dlt_inv_root.matmul(
-                        evecs.matmul(
-                            evals_p_i.inv_matmul(
-                                evecs._transpose_nonbatch().matmul(dlt_inv_root.matmul(rhs))))
-                    )
-                    return res.to(rhs_dtype)
+                # in this case we can pull across the diagonals
+                # (\otimes K_i + \otimes D_i) = (\otimes D_i^{1/2})
+                #   (\otimes D_i^{-1/2}K_iD_i^{-1/2} + I)(\otimes D_i^{1/2})
+                # so that
+                # (\otimes K_i + \otimes D_i)^{-1} = (\otimes D_i^{1/2})^{-1}
+                #   \tilde Q (\tilde \Lambda + I)^{-1} \tilde Q (\otimes D_i^{1/2})
+                # Reference: Rakitsch, et al, 2013. "It is all in the noise,"
+                # https://papers.nips.cc/paper/2013/file/59c33016884a62116be975a9bb8257e3-Paper.pdf
+
+                dlt_inv_root, evals_p_i, evecs = _symmetrize_kpadlt_constructor(lt, dlt)
+
+                res1 = evecs._transpose_nonbatch().matmul(dlt_inv_root.matmul(rhs))
+                res2 = evals_p_i.inv_matmul(res1)
+                res3 = evecs.matmul(res2)
+                res = dlt_inv_root.matmul(res3)
+                return res.to(rhs_dtype)
 
             tmp_term = S.matmul(Lambda_I.inv_matmul(S._transpose_nonbatch().matmul(rhs)))
             res = lt._inv_matmul(rhs - tmp_term)
@@ -188,10 +194,10 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
             updated_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(0.5))
             return MatmulLazyTensor(q_matrix, updated_evals)
-        
+
         dlt = self.diag_tensor
         lt = self.lazy_tensor
-        if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):   
+        if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):
             if all(isinstance(tdiag, ConstantDiagLazyTensor) for tdiag in dlt.lazy_tensors):
                 sub_evals, sub_evecs = [], []
                 for lt_, dlt_ in zip(lt.lazy_tensors, dlt.lazy_tensors):
@@ -201,17 +207,13 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 Lambda_I = KroneckerProductDiagLazyTensor(*sub_evals).add_jitter(1.0)
                 S = KroneckerProductLazyTensor(*sub_evecs)
                 return MatmulLazyTensor(S, Lambda_I.sqrt())
-            else:    
+            else:
                 # again, we compute the root decomposition by pulling across the diagonals
-                dlt_inv_root = dlt.sqrt().inverse()
                 dlt_root = dlt.sqrt()
-                symm_prod = KroneckerProductLazyTensor(
-                    *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
-                )
-                evals, evecs = symm_prod.symeig(eigenvectors = True)
-                evals_p_i_root = DiagLazyTensor((evals + 1.).sqrt())
+                _, evals_p_i, evecs = _symmetrize_kpadlt_constructor(lt, dlt)
+                evals_p_i_root = DiagLazyTensor(evals_p_i.diag().sqrt())
                 return MatmulLazyTensor(dlt_root, MatmulLazyTensor(evecs, evals_p_i_root))
-            
+
         return super()._root_decomposition()
 
     def _root_inv_decomposition(self, initial_vectors=None):
@@ -219,10 +221,10 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             evals, q_matrix = self.lazy_tensor.symeig(eigenvectors=True)
             inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
             return MatmulLazyTensor(q_matrix, inv_sqrt_evals)
-        
+
         dlt = self.diag_tensor
         lt = self.lazy_tensor
-        if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor): 
+        if isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):
             if all(isinstance(tdiag, ConstantDiagLazyTensor) for tdiag in dlt.lazy_tensors):
                 sub_evals, sub_evecs = [], []
                 for lt_, dlt_ in zip(lt.lazy_tensors, dlt.lazy_tensors):
@@ -234,15 +236,11 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 return MatmulLazyTensor(S, Lambda_I.inverse().sqrt())
             else:
                 # again, we compute the root decomposition by pulling across the diagonals
-                dlt_inv_root = dlt.sqrt().inverse()
-                dlt_root = dlt.sqrt()
-                symm_prod = KroneckerProductLazyTensor(
-                    *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
-                )
-                evals, evecs = symm_prod.symeig(eigenvectors = True)
-                evals_p_i_root = DiagLazyTensor((evals + 1.).reciprocal().sqrt())
+                dlt_sqrt, evals_p_i, evecs = _symmetrize_kpadlt_constructor(lt, dlt)
+                dlt_inv_root = dlt_sqrt.inverse()
+                evals_p_i_root = DiagLazyTensor(evals_p_i.diag().reciprocal().sqrt())
                 return MatmulLazyTensor(dlt_inv_root, MatmulLazyTensor(evecs, evals_p_i_root))
-        
+
         return super()._root_inv_decomposition(initial_vectors=initial_vectors)
 
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
