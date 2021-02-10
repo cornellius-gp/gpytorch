@@ -8,6 +8,7 @@ from . import delazify
 from .added_diag_lazy_tensor import AddedDiagLazyTensor
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .low_rank_root_lazy_tensor import LowRankRootLazyTensor
+from .sum_batch_lazy_tensor import SumBatchLazyTensor
 
 
 class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
@@ -49,6 +50,9 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         return solve
 
+    def _sum_batch(self, dim):
+        return SumBatchLazyTensor(self, dim)
+
     def _logdet(self):
         chol_cap_mat = self.chol_cap_mat
         logdet_cap_mat = 2 * torch.diagonal(chol_cap_mat, offset=0, dim1=-2, dim2=-1).log().sum(-1)
@@ -63,7 +67,7 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
         if isinstance(other, DiagLazyTensor):
             return self.__class__(self._lazy_tensor, self._diag_tensor + other)
         else:
-            return self.__class__(self._lazy_tensor + other, self._diag_tensor)
+            return AddedDiagLazyTensor(self._lazy_tensor + other, self._diag_tensor)
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         if not self.is_square:
@@ -96,7 +100,9 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         if inv_quad_rhs is not None:
             self_inv_rhs = self._solve(inv_quad_rhs)
-            inv_quad_term = inv_quad_rhs.transpose(-2, -1).matmul(self_inv_rhs)
+            inv_quad_term = (inv_quad_rhs * self_inv_rhs).sum(dim=-2)
+            if reduce_inv_quad:
+                inv_quad_term = inv_quad_term.sum(dim=-1)
 
         if logdet:
             logdet_term = self._logdet()
