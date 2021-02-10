@@ -252,9 +252,10 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             noise_constraint = GreaterThan(1e-4)
         
         if not has_task_noise and not has_global_noise:
-            raise(
-                ValueError("At least one of has_task_noise or has_global_noise must be specified." + \
-                    "Attempting to specify a likelihood that has no noise terms.")
+            raise ValueError(
+                "At least one of has_task_noise or has_global_noise must be specified. "
+                "Attempting to specify a likelihood that has no noise terms."
+            )
             )
 
         if has_task_noise:

@@ -44,10 +44,12 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             evals, _ = self.lazy_tensor.symeig(eigenvectors=True)
             evals_plus_diag = evals + self.diag_tensor.diag()
             return torch.log(evals_plus_diag).sum(dim=-1)
-        if self.shape[-1] >= settings.max_cholesky_size.value() and \
-                isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor):
+        if (
+            self.shape[-1] >= settings.max_cholesky_size.value() and 
+            isinstance(self.diag_tensor, KroneckerProductDiagLazyTensor)
+        ):
             # If the diagonal has the same Kronecker structure as the full matrix, with each factor being
-            # constatnt, wee can compute the logdet efficiently
+            # constant, wee can compute the logdet efficiently
             if len(self.lazy_tensor.lazy_tensors) == len(self.diag_tensor.lazy_tensors) and all(
                 isinstance(dt, ConstantDiagLazyTensor) for dt in self.diag_tensor.lazy_tensors
             ):
@@ -63,26 +65,24 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
                 return diag_term + first_term
 
             else:
-               # we use the same matrix determinant identity: |K + D| = |D| |I + D^{-1}K|
-               # but have to symmetrize the second matrix because torch.eig may not be
-               # completely differentiable.
+                # we use the same matrix determinant identity: |K + D| = |D| |I + D^{-1}K|
+                # but have to symmetrize the second matrix because torch.eig may not be
+                # completely differentiable.
                 lt = self.lazy_tensor
                 dlt = self.diag_tensor
                 if isinstance(lt, KroneckerProductAddedDiagLazyTensor):
-                    raise(
-                        NotImplementedError("KPADLT + ConstDiagLT log dets not implemented.")
+                    raise NotImplementedError(
+                       "Log determinant for KroneckerProductAddedDiagLazyTensor + "
+                       "DiagLazyTensor not implemented."
                     )
                 else:
                     dlt_inv_root = dlt.sqrt().inverse()
                     symm_prod = KroneckerProductLazyTensor(
                         *[d.matmul(k).matmul(d) for k, d in zip(lt.lazy_tensors, dlt_inv_root.lazy_tensors)]
                     )
-                    evals, _ = symm_prod.symeig(eigenvectors = True)
+                    evals, _ = symm_prod.symeig(eigenvectors=True)
                     evals_plus_i = DiagLazyTensor(evals + 1.)
 
-                # evals_square, _ = kron_times_diag_symm.symeig(eigenvectors=True)
-                # evals_plus_i = DiagLazyTensor(evals_square.sqrt() + 1)
-                
                 diag_term = self.diag_tensor.logdet()
                 return diag_term + evals_plus_i.logdet()
 

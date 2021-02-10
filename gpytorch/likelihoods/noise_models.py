@@ -76,7 +76,7 @@ class _HomoskedasticNoiseBase(Noise):
         noise_diag = noise.expand(*batch_shape, 1, num_tasks).contiguous()
         if num_tasks == 1:
             noise_diag = noise_diag.view(*batch_shape, 1)
-        return ConstantDiagLazyTensor(noise_diag, diag_shape=(n * num_tasks))
+        return ConstantDiagLazyTensor(noise_diag, diag_shape=n * num_tasks)
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):
