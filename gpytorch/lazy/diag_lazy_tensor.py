@@ -224,6 +224,16 @@ class ConstantDiagLazyTensor(DiagLazyTensor):
         self.diag_values = diag_values
         self.diag_shape = diag_shape
 
+    def __add__(self, other):
+        if isinstance(other, ConstantDiagLazyTensor):
+            if other.shape[-1] == self.shape[-1]:
+                return ConstantDiagLazyTensor(self.diag_values + other.diag_values, self.diag_shape)
+            raise RuntimeError(
+                f"Trailing batch shapes must match for adding two ConstantDiagLazyTensors. "
+                f"Instead, got shapes of {other.shape} and {self.shape}."
+            )
+        return super().__add__(other)
+
     @property
     def _diag(self):
         return self.diag_values.expand(*self.diag_values.shape[:-1], self.diag_shape)

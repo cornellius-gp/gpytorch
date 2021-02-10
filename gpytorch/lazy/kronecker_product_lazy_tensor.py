@@ -82,10 +82,15 @@ class KroneckerProductLazyTensor(LazyTensor):
         self.lazy_tensors = lazy_tensors
 
     def __add__(self, other):
+        if isinstance(other, (KroneckerProductDiagLazyTensor, ConstantDiagLazyTensor)):
+            from .kronecker_product_added_diag_lazy_tensor import KroneckerProductAddedDiagLazyTensor
+            return KroneckerProductAddedDiagLazyTensor(self, other)
+        if isinstance(other, KroneckerProductLazyTensor):
+            from .kronecker_sum_lazy_tensor import KroneckerSumLazyTensor
+            return KroneckerSumLazyTensor(self, other)
         if isinstance(other, DiagLazyTensor):
             return self.add_diag(other.diag())
-        else:
-            return super().__add__(other)
+        return super().__add__(other)
 
     def add_diag(self, diag):
         r"""
@@ -327,9 +332,20 @@ class KroneckerProductDiagLazyTensor(DiagLazyTensor, KroneckerProductTriangularL
         return KroneckerProductDiagLazyTensor(*chol_factors)
 
     @property
-    @cached
     def _diag(self):
         return _kron_diag(*self.lazy_tensors)
+
+    def _expand_batch(self, batch_shape):
+        return KroneckerProductTriangularLazyTensor._expand_batch(self, batch_shape)
+
+    def _mul_constant(self, constant):
+        return DiagLazyTensor(self._diag * constant.unsqueeze(-1))
+
+    def _quad_form_derivative(self, left_vecs, right_vecs):
+        return KroneckerProductTriangularLazyTensor._quad_form_derivative(self, left_vecs, right_vecs)
+
+    def sqrt(self):
+        return self.__class__(*[lt.sqrt() for lt in self.lazy_tensors])
 
     def _symeig(
         self, eigenvectors: bool = False, return_evals_as_lazy: bool = False

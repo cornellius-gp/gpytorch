@@ -9,7 +9,7 @@ from torch.nn import Parameter
 from .. import settings
 from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, ZeroLazyTensor
+from ..lazy import DiagLazyTensor, ZeroLazyTensor, ConstantDiagLazyTensor
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 
@@ -73,10 +73,10 @@ class _HomoskedasticNoiseBase(Noise):
         num_tasks = noise.shape[-1]
         batch_shape = _mul_broadcast_shape(noise_batch_shape, batch_shape)
         noise = noise.unsqueeze(-2)
-        noise_diag = noise.expand(*batch_shape, n, num_tasks).contiguous()
+        noise_diag = noise.expand(*batch_shape, 1, num_tasks).contiguous()
         if num_tasks == 1:
-            noise_diag = noise_diag.view(*batch_shape, n)
-        return DiagLazyTensor(noise_diag)
+            noise_diag = noise_diag.view(*batch_shape, 1)
+        return ConstantDiagLazyTensor(noise_diag, diag_shape=n * num_tasks)
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):

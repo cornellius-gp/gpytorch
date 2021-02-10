@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import warnings
 from typing import Any
 
 import torch
@@ -8,17 +7,17 @@ from torch import Tensor
 
 from ..constraints import GreaterThan
 from ..distributions import base_distributions
-from ..functions import add_diag
 from ..lazy import (
     BlockDiagLazyTensor,
+    ConstantDiagLazyTensor,
     DiagLazyTensor,
+    KroneckerProductDiagLazyTensor,
     KroneckerProductLazyTensor,
     MatmulLazyTensor,
     RootLazyTensor,
     lazify,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
-from ..utils.warnings import OldVersionWarning
 from .noise_models import MultitaskHomoskedasticNoise
 
 
@@ -57,8 +56,6 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
             raise ValueError("Can only specify task_correlation_prior if rank>0")
         self.num_tasks = num_tasks
         self.rank = rank
-        # Handle deprecation of parameterization - TODO: Remove in future release
-        self._register_load_state_dict_pre_hook(deprecate_task_noise_corr)
 
     def _eval_corr_matrix(self):
         tnc = self.task_noise_corr
@@ -217,7 +214,15 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
     """
 
     def __init__(
-        self, num_tasks, rank=0, task_prior=None, batch_shape=torch.Size(), noise_prior=None, noise_constraint=None
+        self,
+        num_tasks,
+        rank=0,
+        task_prior=None,
+        batch_shape=torch.Size(),
+        noise_prior=None,
+        noise_constraint=None,
+        has_global_noise=True,
+        has_task_noise=True,
     ):
         """
         Args:
@@ -229,27 +234,50 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
             task_prior (:obj:`gpytorch.priors.Prior`): Prior to use over the task noise covariance matrix if
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
+            has_global_noise (bool): whether to include a \sigma^2 I_{nt} term in the noise model.
+
+            has_task_noise (bool): whether to include task-specific noise terms, which add I_n \kron D_T
+            into the noise model.
+
+            At least one of has_global_noise or has_task_noise should be specified.
+
         """
         super(Likelihood, self).__init__()
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
-        self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
-        if rank == 0:
-            self.register_parameter(
-                name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, num_tasks))
+
+        if not has_task_noise and not has_global_noise:
+            raise ValueError(
+                "At least one of has_task_noise or has_global_noise must be specified. "
+                "Attempting to specify a likelihood that has no noise terms."
             )
-            if task_prior is not None:
-                raise RuntimeError("Cannot set a `task_prior` if rank=0")
-        else:
-            self.register_parameter(
-                name="task_noise_covar_factor", parameter=torch.nn.Parameter(torch.randn(*batch_shape, num_tasks, rank))
-            )
-            if task_prior is not None:
-                self.register_prior("MultitaskErrorCovariancePrior", task_prior, lambda m: m._eval_covar_matrix)
+
+        if has_task_noise:
+            if rank == 0:
+                self.register_parameter(
+                    name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, num_tasks))
+                )
+                self.register_constraint("raw_task_noises", noise_constraint)
+                self.register_prior("raw_task_noises_prior", noise_prior, lambda m: m.task_noises)
+                if task_prior is not None:
+                    raise RuntimeError("Cannot set a `task_prior` if rank=0")
+            else:
+                self.register_parameter(
+                    name="task_noise_covar_factor",
+                    parameter=torch.nn.Parameter(torch.randn(*batch_shape, num_tasks, rank)),
+                )
+                if task_prior is not None:
+                    self.register_prior("MultitaskErrorCovariancePrior", task_prior, lambda m: m._eval_covar_matrix)
         self.num_tasks = num_tasks
         self.rank = rank
 
-        self.register_constraint("raw_noise", noise_constraint)
+        if has_global_noise:
+            self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
+            self.register_constraint("raw_noise", noise_constraint)
+            self.register_prior("raw_noise_prior", noise_prior, lambda m: m.noise)
+
+        self.has_global_noise = has_global_noise
+        self.has_task_noise = has_task_noise
 
     @property
     def noise(self):
@@ -258,6 +286,10 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
     @noise.setter
     def noise(self, value):
         self._set_noise(value)
+
+    @property
+    def task_noises(self):
+        return self.raw_task_noises_constraint.transform(self.raw_task_noises)
 
     def _set_noise(self, value):
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
@@ -293,46 +325,43 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         """
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
 
+        covar_kron_lt = self._shaped_noise_covar(mean.shape, add_noise=self.has_global_noise)
+        covar = covar + covar_kron_lt
+
+        return function_dist.__class__(mean, covar)
+
+    def _shaped_noise_covar(self, shape, add_noise=True, *params, **kwargs):
+        if not self.has_task_noise:
+            noise = ConstantDiagLazyTensor(self.noise, diag_shape=shape[-2] * self.num_tasks)
+            return noise
+
         if self.rank == 0:
-            task_noises = self.raw_noise_constraint.transform(self.raw_task_noises)
+            task_noises = self.raw_task_noises_constraint.transform(self.raw_task_noises)
             task_var_lt = DiagLazyTensor(task_noises)
             dtype, device = task_noises.dtype, task_noises.device
+            ckl_init = KroneckerProductDiagLazyTensor
         else:
             task_noise_covar_factor = self.task_noise_covar_factor
             task_var_lt = RootLazyTensor(task_noise_covar_factor)
             dtype, device = task_noise_covar_factor.dtype, task_noise_covar_factor.device
+            ckl_init = KroneckerProductLazyTensor
 
-        eye_lt = DiagLazyTensor(
-            torch.ones(*covar.batch_shape, covar.size(-1) // self.num_tasks, dtype=dtype, device=device)
-        )
-        task_var_lt = task_var_lt.expand(*covar.batch_shape, *task_var_lt.matrix_shape)
+        eye_lt = ConstantDiagLazyTensor(torch.ones(*shape[:-2], 1, dtype=dtype, device=device), diag_shape=shape[-2])
+        task_var_lt = task_var_lt.expand(*shape[:-2], *task_var_lt.matrix_shape)
 
-        covar_kron_lt = KroneckerProductLazyTensor(eye_lt, task_var_lt)
-        covar = covar + covar_kron_lt
+        # to add the latent noise we exploit the fact that
+        # I \kron D_T + \sigma^2 I_{NT} = I \kron (D_T + \sigma^2 I)
+        # which allows us to move the latent noise inside the task dependent noise
+        # thereby allowing exploitation of Kronecker structure in this likelihood.
+        if add_noise and self.has_global_noise:
+            noise = ConstantDiagLazyTensor(self.noise, diag_shape=task_var_lt.shape[-1])
+            task_var_lt = task_var_lt + noise
 
-        noise = self.noise
-        covar = add_diag(covar, noise)
-        return function_dist.__class__(mean, covar)
+        covar_kron_lt = ckl_init(eye_lt, task_var_lt)
 
+        return covar_kron_lt
 
-def deprecate_task_noise_corr(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
-    if prefix + "task_noise_corr_factor" in state_dict:
-        # Remove after 1.0
-        warnings.warn(
-            "Loading a deprecated parameterization of _MultitaskGaussianLikelihoodBase. Consider re-saving your model.",
-            OldVersionWarning,
-        )
-        # construct the task correlation matrix from the factors using the old parameterization
-        corr_factor = state_dict.pop(prefix + "task_noise_corr_factor").squeeze(0)
-        corr_diag = state_dict.pop(prefix + "task_noise_corr_diag").squeeze(0)
-        num_tasks, rank = corr_factor.shape[-2:]
-        M = corr_factor.matmul(corr_factor.transpose(-1, -2))
-        idx = torch.arange(M.shape[-1], dtype=torch.long, device=M.device)
-        M[..., idx, idx] += corr_diag
-        sem_inv = 1 / torch.diagonal(M, dim1=-2, dim2=-1).sqrt().unsqueeze(-1)
-        C = M * sem_inv.matmul(sem_inv.transpose(-1, -2))
-        # perform a Cholesky decomposition and extract the required entries
-        L = torch.cholesky(C)
-        tidcs = torch.tril_indices(num_tasks, rank)[:, 1:]
-        task_noise_corr = L[..., tidcs[0], tidcs[1]]
-        state_dict[prefix + "task_noise_corr"] = task_noise_corr
+    def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
+        noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
+        noise = noise.view(*noise.shape[:-1], *function_samples.shape[-2:])
+        return base_distributions.Independent(base_distributions.Normal(function_samples, noise.sqrt()), 1)
