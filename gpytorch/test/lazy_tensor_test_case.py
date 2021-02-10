@@ -97,7 +97,12 @@ class RectangularLazyTensorTestCase(BaseTestCase):
     def test_constant_mul(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        self.assertAllClose((lazy_tensor * 5).evaluate(), evaluated * 5)
+        self.assertAllClose((lazy_tensor * 5.0).evaluate(), evaluated * 5.0)
+
+    def test_neg_constant_mul(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        self.assertAllClose((lazy_tensor * -5.0).evaluate(), evaluated * -5.0)
 
     def test_evaluate(self):
         lazy_tensor = self.create_lazy_tensor()

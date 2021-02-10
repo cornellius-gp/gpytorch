@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-from ..lazy import MatmulLazyTensor, RootLazyTensor
+from ..lazy import LowRankRootLazyTensor, MatmulLazyTensor
 from ..models.exact_prediction_strategies import RFFPredictionStrategy
 from .kernel import Kernel
 
@@ -128,7 +128,7 @@ class RFFKernel(Kernel):
         if diag:
             return (z1 * z2).sum(-1) / D
         if x1_eq_x2:
-            return RootLazyTensor(z1 / math.sqrt(D))
+            return LowRankRootLazyTensor(z1 / math.sqrt(D))
         else:
             return MatmulLazyTensor(z1 / D, z2.transpose(-1, -2))
 

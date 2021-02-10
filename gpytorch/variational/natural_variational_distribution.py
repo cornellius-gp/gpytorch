@@ -6,6 +6,7 @@ import torch
 
 from ..distributions import MultivariateNormal
 from ..lazy import CholLazyTensor, TriangularLazyTensor
+from ..utils.cholesky import psd_safe_cholesky
 from ._variational_distribution import _VariationalDistribution
 
 
@@ -66,7 +67,7 @@ class NaturalVariationalDistribution(_NaturalVariationalDistribution):
         prior_mean = prior_dist.mean
         noise = torch.randn_like(prior_mean).mul_(self.mean_init_std)
 
-        self.natural_vec.data.copy_((prior_prec @ prior_mean).add_(noise))
+        self.natural_vec.data.copy_((prior_prec @ prior_mean.unsqueeze(-1)).squeeze(-1).add_(noise))
         self.natural_mat.data.copy_(prior_prec.mul(-0.5))
 
 
@@ -95,7 +96,7 @@ class _NaturalToMuVarSqrt(torch.autograd.Function):
     @staticmethod
     def _forward(nat_mean, nat_covar):
         try:
-            L_inv = torch.cholesky(-2.0 * nat_covar, upper=False)
+            L_inv = psd_safe_cholesky(-2.0 * nat_covar, upper=False)
         except RuntimeError as e:
             if str(e).startswith("cholesky"):
                 raise RuntimeError(
@@ -110,7 +111,7 @@ class _NaturalToMuVarSqrt(torch.autograd.Function):
         mu = (S @ nat_mean.unsqueeze(-1)).squeeze(-1)
         # Two choleskys are annoying, but we don't have good support for a
         # LazyTensor of form L.T @ L
-        return mu, torch.cholesky(S, upper=False)
+        return mu, psd_safe_cholesky(S, upper=False)
 
     @staticmethod
     def forward(ctx, nat_mean, nat_covar):
