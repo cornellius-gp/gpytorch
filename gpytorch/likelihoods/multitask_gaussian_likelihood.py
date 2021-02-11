@@ -228,6 +228,4 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
 
 
-# TODO: remove in a later commit
 # MultitaskGaussianLikelihood has replaced MultitaskGaussianLikelihoodKronecker
-MultitaskGaussianLikelihoodKronecker = MultitaskGaussianLikelihood

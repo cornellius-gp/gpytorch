@@ -10,7 +10,7 @@ import gpytorch
 from torch import optim
 from gpytorch.kernels import RBFKernel, MultitaskKernel
 from gpytorch.means import ConstantMean, MultitaskMean
-from gpytorch.likelihoods import MultitaskGaussianLikelihoodKronecker
+from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.distributions import MultitaskMultivariateNormal
 
 
@@ -68,7 +68,7 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
 
     def test_train_on_single_set_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
-        likelihood = MultitaskGaussianLikelihoodKronecker(
+        likelihood = MultitaskGaussianLikelihood(
             noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(1), scale=torch.ones(1)), num_tasks=2
         )
         gp_model = ExactGPModel(train_x1, train_y1, likelihood)
@@ -108,7 +108,7 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
 
     def test_train_on_batch_test_on_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
-        likelihood = MultitaskGaussianLikelihoodKronecker(
+        likelihood = MultitaskGaussianLikelihood(
             noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
             batch_shape=torch.Size([2]),
             num_tasks=2,
@@ -146,7 +146,7 @@ class TestBatchMultitaskGPRegression(unittest.TestCase):
 
     def test_train_on_batch_test_on_batch_shared_hypers_over_batch(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
-        likelihood = MultitaskGaussianLikelihoodKronecker(
+        likelihood = MultitaskGaussianLikelihood(
             noise_prior=gpytorch.priors.NormalPrior(loc=torch.zeros(2), scale=torch.ones(2)),
             batch_shape=torch.Size(),
             num_tasks=2,
