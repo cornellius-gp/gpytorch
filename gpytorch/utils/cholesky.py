@@ -35,7 +35,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
             )
 
         if jitter is None:
-            jitter = settings.cholesky_jitter.value()
+            jitter = settings.cholesky_jitter.value(A.dtype)
         Aprime = A.clone()
         jitter_prev = 0
         for i in range(max_tries):

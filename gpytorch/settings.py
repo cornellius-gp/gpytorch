@@ -394,13 +394,14 @@ class min_variance(_dtype_value_context):
     _global_half_value = 1e-3
 
 
-class cholesky_jitter(_value_context):
+class cholesky_jitter(_dtype_value_context):
     """
     The jitter value passed to `psd_safe_cholesky` when using cholesky solves.
     Default: None
     """
 
-    _global_value = None
+    _global_float_value = 1e-6
+    _global_double_value = 1e-8
 
 
 class cg_tolerance(_value_context):
