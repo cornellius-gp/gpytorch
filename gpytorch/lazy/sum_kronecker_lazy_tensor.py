@@ -5,7 +5,7 @@ from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 
 
-class KroneckerSumLazyTensor(SumLazyTensor):
+class SumKroneckerLazyTensor(SumLazyTensor):
     r"""
     Returns the sum of two Kronecker product lazy tensors. Solves and log-determinants
     are computed using the eigen-decomposition of the right lazy tensor; that is,
@@ -18,7 +18,7 @@ class KroneckerSumLazyTensor(SumLazyTensor):
     The original reference is [https://papers.nips.cc/paper/2013/file/59c33016884a62116be975a9bb8257e3-Paper.pdf].
 
     Args:
-        :`lazy_tensors`: List of lazy tensors
+        :`lazy_tensors`: List of two Kronecker lazy tensors
     """
 
     @property

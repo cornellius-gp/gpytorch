@@ -4,7 +4,7 @@ import unittest
 
 import torch
 
-from gpytorch.lazy import KroneckerProductLazyTensor, KroneckerSumLazyTensor, NonLazyTensor
+from gpytorch.lazy import KroneckerProductLazyTensor, NonLazyTensor, SumKroneckerLazyTensor
 from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 
 
@@ -18,7 +18,7 @@ def kron(a, b):
     return torch.cat(res, -2)
 
 
-class TestKroneckerSumLazyTensor(LazyTensorTestCase, unittest.TestCase):
+class TestSumKroneckerLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_call_lanczos = True
     should_call_cg = False
@@ -37,7 +37,7 @@ class TestKroneckerSumLazyTensor(LazyTensorTestCase, unittest.TestCase):
         kp_lt_1 = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b))
         kp_lt_2 = KroneckerProductLazyTensor(NonLazyTensor(c), NonLazyTensor(d))
 
-        return KroneckerSumLazyTensor(kp_lt_1, kp_lt_2)
+        return SumKroneckerLazyTensor(kp_lt_1, kp_lt_2)
 
     def evaluate_lazy_tensor(self, lazy_tensor):
         res1 = kron(
