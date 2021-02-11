@@ -200,9 +200,13 @@ class Positive(GreaterThan):
 
 
 class LessThan(Interval):
-    def __init__(self, upper_bound, transform=softplus, inv_transform=inv_softplus):
+    def __init__(self, upper_bound, transform=softplus, inv_transform=inv_softplus, initial_value=None):
         super().__init__(
-            lower_bound=-math.inf, upper_bound=upper_bound, transform=transform, inv_transform=inv_transform
+            lower_bound=-math.inf,
+            upper_bound=upper_bound,
+            transform=transform,
+            inv_transform=inv_transform,
+            initial_value=initial_value,
         )
 
     def transform(self, tensor):
