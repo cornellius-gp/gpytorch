@@ -161,7 +161,7 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
             task_prior (:obj:`gpytorch.priors.Prior`): Prior to use over the task noise covariance matrix if
             `rank` > 0, or a prior over the log of just the diagonal elements, if `rank` == 0.
 
-            has_global_noise (bool): whether to include a \sigma^2 I_{nt} term in the noise model.
+            has_global_noise (bool): whether to include a \\sigma^2 I_{nt} term in the noise model.
 
             has_task_noise (bool): whether to include task-specific noise terms, which add I_n \kron D_T
             into the noise model.
@@ -228,6 +228,4 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
 
 
-# TODO: remove in a later commit
 # MultitaskGaussianLikelihood has replaced MultitaskGaussianLikelihoodKronecker
-MultitaskGaussianLikelihoodKronecker = MultitaskGaussianLikelihood

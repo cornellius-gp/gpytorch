@@ -18,7 +18,6 @@ from .kronecker_product_lazy_tensor import (
     KroneckerProductLazyTensor,
     KroneckerProductTriangularLazyTensor,
 )
-from .kronecker_sum_lazy_tensor import KroneckerSumLazyTensor
 from .lazy_evaluated_kernel_tensor import LazyEvaluatedKernelTensor
 from .lazy_tensor import LazyTensor, delazify
 from .low_rank_root_added_diag_lazy_tensor import LowRankRootAddedDiagLazyTensor
@@ -29,6 +28,7 @@ from .non_lazy_tensor import NonLazyTensor, lazify
 from .psd_sum_lazy_tensor import PsdSumLazyTensor
 from .root_lazy_tensor import RootLazyTensor
 from .sum_batch_lazy_tensor import SumBatchLazyTensor
+from .sum_kronecker_lazy_tensor import SumKroneckerLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 from .toeplitz_lazy_tensor import ToeplitzLazyTensor
 from .triangular_lazy_tensor import TriangularLazyTensor
@@ -57,7 +57,7 @@ __all__ = [
     "KroneckerProductAddedDiagLazyTensor",
     "KroneckerProductDiagLazyTensor",
     "KroneckerProductTriangularLazyTensor",
-    "KroneckerSumLazyTensor",
+    "SumKroneckerLazyTensor",
     "LowRankRootAddedDiagLazyTensor",
     "LowRankRootLazyTensor",
     "MatmulLazyTensor",

@@ -6,11 +6,7 @@ from .gaussian_likelihood import FixedNoiseGaussianLikelihood, GaussianLikelihoo
 from .laplace_likelihood import LaplaceLikelihood
 from .likelihood import Likelihood, _OneDimensionalLikelihood
 from .likelihood_list import LikelihoodList
-from .multitask_gaussian_likelihood import (
-    MultitaskGaussianLikelihood,
-    MultitaskGaussianLikelihoodKronecker,
-    _MultitaskGaussianLikelihoodBase,
-)
+from .multitask_gaussian_likelihood import MultitaskGaussianLikelihood, _MultitaskGaussianLikelihoodBase
 from .noise_models import HeteroskedasticNoise
 from .softmax_likelihood import SoftmaxLikelihood
 from .student_t_likelihood import StudentTLikelihood
@@ -28,7 +24,6 @@ __all__ = [
     "Likelihood",
     "LikelihoodList",
     "MultitaskGaussianLikelihood",
-    "MultitaskGaussianLikelihoodKronecker",
     "SoftmaxLikelihood",
     "StudentTLikelihood",
 ]
