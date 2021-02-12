@@ -226,6 +226,3 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         noise = self.noise
         D = noise * torch.eye(self.num_tasks, dtype=noise.dtype, device=noise.device)
         return covar_factor.matmul(covar_factor.transpose(-1, -2)) + D
-
-
-# MultitaskGaussianLikelihood has replaced MultitaskGaussianLikelihoodKronecker
