@@ -5,7 +5,6 @@ import math
 
 import torch
 
-from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, PsdSumLazyTensor, RootLazyTensor, delazify
 from ..mlls import InducingPointKernelAddedLossTerm

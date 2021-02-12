@@ -19,7 +19,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
         :attr:`out` (Tensor, optional):
             See torch.cholesky
         :attr:`jitter` (float, optional):
-            The jitter to add to the diagonal of A in case A is only p.s.d. If omitted, 
+            The jitter to add to the diagonal of A in case A is only p.s.d. If omitted,
             uses settings.cholesky_jitter.value()
         :attr:`max_tries` (int, optional):
             Number of attempts (with successively increasing jitter) to make before raising an error.

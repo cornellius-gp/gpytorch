@@ -4,7 +4,6 @@ import warnings
 
 import torch
 
-from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, TriangularLazyTensor, delazify
 from ..settings import trace_mode
