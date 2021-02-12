@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import torch
+import warnings
 
+import torch
 
 class _feature_flag(object):
     _state = False
@@ -402,6 +403,16 @@ class cholesky_jitter(_dtype_value_context):
 
     _global_float_value = 1e-6
     _global_double_value = 1e-8
+
+    @classmethod
+    def value(cls, dtype=None):
+        if dtype is None:
+            warnings.warn(
+                "cholesky_jitter is now a _dtype_value_context and should be called with a dtype argument",
+                DeprecationWarning,
+            )
+            return cls._global_float_value
+        return super().value(dtype=dtype)
 
 
 class cg_tolerance(_value_context):
