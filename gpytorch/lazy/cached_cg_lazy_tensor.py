@@ -202,7 +202,7 @@ class CachedCGLazyTensor(LazyTensor):
                 if num_tridiag:
                     return torch.cat([probe_vector_solves, solve], -1), tmats
                 else:
-                    return solve
+                    return solve.clone()
 
         if settings.debug.on():
             warnings.warn(
