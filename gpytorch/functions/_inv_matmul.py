@@ -10,6 +10,8 @@ def _solve(lazy_tsr, rhs):
     from ..lazy import CholLazyTensor, TriangularLazyTensor
 
     if isinstance(lazy_tsr, (CholLazyTensor, TriangularLazyTensor)):
+        # May want to do this for some KroneckerProductLazyTensors and possibly
+        # KroneckerProductAddedDiagLazyTensors as well
         return lazy_tsr.inv_matmul(rhs)
     if settings.fast_computations.solves.off() or lazy_tsr.size(-1) <= settings.max_cholesky_size.value():
         return lazy_tsr.cholesky()._cholesky_solve(rhs)

@@ -3,6 +3,7 @@
 import numbers
 
 import torch
+from torch.distributions import constraints
 from torch.distributions.kl import register_kl
 
 from .distribution import Distribution
@@ -28,6 +29,7 @@ except ImportError:
         :param int event_dim: Optional event dimension, defaults to zero.
         """
 
+        arg_constraints = {"v": constraints.real, "log_density": constraints.real}
         has_rsample = True
 
         def __init__(self, v, log_density=0.0, event_dim=0, validate_args=None):
