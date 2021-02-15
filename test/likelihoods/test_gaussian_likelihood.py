@@ -6,7 +6,7 @@ import torch
 
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
-from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood
+from gpytorch.likelihoods import DirichletClassificationLikelihood, FixedNoiseGaussianLikelihood, GaussianLikelihood
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
@@ -94,6 +94,55 @@ class TestFixedNoiseGaussianLikelihoodMultiBatch(BaseLikelihoodTestCase, unittes
 
     def test_batch(self):
         pass
+
+
+class TestDirichletClassificationLikelihood(BaseLikelihoodTestCase, unittest.TestCase):
+    def create_likelihood(self):
+        train_x = torch.randn(15)
+        labels = torch.round(train_x).long()
+        likelihood = DirichletClassificationLikelihood(labels)
+        return likelihood
+
+    def test_batch(self):
+        pass
+
+    def test_multi_batch(self):
+        pass
+
+    def test_nonbatch(self):
+        pass
+
+    def test_dirichlet_classification_likelihood(self, cuda=False):
+        device = torch.device("cuda") if cuda else torch.device("cpu")
+        for dtype in (torch.float, torch.double):
+            noise = torch.rand(6, device=device, dtype=dtype) > 0.5
+            noise = noise.long()
+            lkhd = DirichletClassificationLikelihood(noise, dtype=dtype)
+            # test basics
+            self.assertIsInstance(lkhd.noise_covar, FixedGaussianNoise)
+            noise = torch.rand(6, device=device, dtype=dtype) > 0.5
+            noise = noise.long()
+            new_noise, _, _ = lkhd._prepare_targets(noise, dtype=dtype)
+            lkhd.noise = new_noise
+            self.assertTrue(torch.equal(lkhd.noise, new_noise))
+            # test __call__
+            mean = torch.zeros(6, device=device, dtype=dtype)
+            covar = DiagLazyTensor(torch.ones(6, device=device, dtype=dtype))
+            mvn = MultivariateNormal(mean, covar)
+            out = lkhd(mvn)
+            self.assertTrue(torch.allclose(out.variance, 1 + new_noise))
+            # things should break if dimensions mismatch
+            mean = torch.zeros(5, device=device, dtype=dtype)
+            covar = DiagLazyTensor(torch.ones(5, device=device, dtype=dtype))
+            mvn = MultivariateNormal(mean, covar)
+            with self.assertWarns(UserWarning):
+                lkhd(mvn)
+            # test __call__ w/ new targets
+            obs_noise = 0.1 + torch.rand(5, device=device, dtype=dtype)
+            obs_noise = (obs_noise > 0.5).long()
+            out = lkhd(mvn, targets=obs_noise)
+            obs_targets, _, _ = lkhd._prepare_targets(obs_noise, dtype=dtype)
+            self.assertTrue(torch.allclose(out.variance, 1.0 + obs_targets))
 
 
 if __name__ == "__main__":
