@@ -43,8 +43,8 @@ class Interval(Module):
 
         if initial_value is not None:
             if not isinstance(initial_value, torch.Tensor):
-                initial_value = torch.Tensor(initial_value)
-            self._initial_value = self._inverse_transform(initial_value)
+                initial_value = torch.tensor(initial_value)
+            self._initial_value = self.inverse_transform(initial_value)
 
     def _apply(self, fn):
         self.lower_bound = fn(self.lower_bound)
