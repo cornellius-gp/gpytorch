@@ -18,7 +18,7 @@ class MaternKernel(Kernel):
 
        \begin{equation*}
           k_{\text{Matern}}(\mathbf{x_1}, \mathbf{x_2}) = \frac{2^{1 - \nu}}{\Gamma(\nu)}
-          \left( \sqrt{2 \nu} d \right) K_\nu \left( \sqrt{2 \nu} d \right)
+          \left( \sqrt{2 \nu} d \right)^{\nu} K_\nu \left( \sqrt{2 \nu} d \right)
        \end{equation*}
 
     where
@@ -37,30 +37,29 @@ class MaternKernel(Kernel):
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
-    Args:
-        :attr:`nu` (float):
-            The smoothness parameter: either 1/2, 3/2, or 5/2.
-        :attr:`ard_num_dims` (int, optional):
-            Set this if you want a separate lengthscale for each
-            input dimension. It should be `d` if :attr:`x1` is a `n x d` matrix. Default: `None`
-        :attr:`batch_shape` (torch.Size, optional):
-            Set this if you want a separate lengthscale for each
-             batch of input data. It should be `b` if :attr:`x1` is a `b x n x d` tensor. Default: `torch.Size([])`
-        :attr:`active_dims` (tuple of ints, optional):
-            Set this if you want to
-            compute the covariance of only a few input dimensions. The ints
-            corresponds to the indices of the dimensions. Default: `None`.
-        :attr:`lengthscale_prior` (Prior, optional):
-            Set this if you want to apply a prior to the lengthscale parameter.  Default: `None`
-        :attr:`lengthscale_constraint` (Constraint, optional):
-            Set this if you want to apply a constraint to the lengthscale parameter. Default: `Positive`.
-        :attr:`eps` (float):
-            The minimum value that the lengthscale can take (prevents divide by zero errors). Default: `1e-6`.
+    :param nu: (Default: 2.5) The smoothness parameter.
+    :type nu: float (0.5, 1.5, or 2.5)
+    :param ard_num_dims: (Default: `None`) Set this if you want a separate lengthscale for each
+        input dimension. It should be `d` if :attr:`x1` is a `... x n x d` matrix.
+    :type ard_num_dims: int, optional
+    :param batch_shape: (Default: `None`) Set this if you want a separate lengthscale for each
+         batch of input data. It should be `torch.Size([b1, b2])` for a `b1 x b2 x n x m` kernel output.
+    :type batch_shape: torch.Size, optional
+    :param active_dims: (Default: `None`) Set this if you want to
+        compute the covariance of only a few input dimensions. The ints
+        corresponds to the indices of the dimensions.
+    :type active_dims: Tuple(int)
+    :param lengthscale_prior: (Default: `None`)
+        Set this if you want to apply a prior to the lengthscale parameter.
+    :type lengthscale_prior: ~gpytorch.priors.Prior, optional
+    :param lengthscale_constraint: (Default: `Positive`) Set this if you want
+        to apply a constraint to the lengthscale parameter.
+    :type lengthscale_constraint: ~gpytorch.constraints.Interval, optional
+    :param eps: (Default: 1e-6) The minimum value that the lengthscale can take (prevents divide by zero errors).
+    :type eps: float, optional
 
-    Attributes:
-        :attr:`lengthscale` (Tensor):
-            The lengthscale parameter. Size/shape of parameter depends on the
-            :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
+    :var torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
+        :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
