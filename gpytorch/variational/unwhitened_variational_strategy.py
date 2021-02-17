@@ -7,7 +7,6 @@ import torch
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import (
-    CachedCGLazyTensor,
     CholLazyTensor,
     DiagLazyTensor,
     PsdSumLazyTensor,
@@ -83,19 +82,13 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         induc_data_covar = full_covar[..., :num_induc, num_induc:].evaluate()
         data_data_covar = full_covar[..., num_induc:, num_induc:]
 
-        # If we're less than a certain size, we'll compute the Cholesky decomposition of induc_induc_covar
-        cholesky = False
+        # Compute Cholesky factorization of inducing covariance matrix
         if settings.fast_computations.log_prob.off() or (num_induc <= settings.max_cholesky_size.value()):
             induc_induc_covar = CholLazyTensor(self._cholesky_factor(induc_induc_covar))
-            cholesky = True
 
         # If we are making predictions and don't need variances, we can do things very quickly.
         if not self.training and settings.skip_posterior_variances.on():
-            if not hasattr(self, "_mean_cache"):
-                # For now: run variational inference without a preconditioner
-                # The preconditioner screws things up for some reason
-                with settings.max_preconditioner_size(0):
-                    self._mean_cache = induc_induc_covar.inv_matmul(mean_diff).detach()
+            self._mean_cache = induc_induc_covar.inv_matmul(mean_diff).detach()
             predictive_mean = torch.add(
                 test_mean, induc_data_covar.transpose(-2, -1).matmul(self._mean_cache).squeeze(-1)
             )
@@ -114,53 +107,16 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         if variational_inducing_covar is not None:
             root_variational_covar = root_variational_covar.expand(*shape, root_variational_covar.size(-1))
 
-        # Cache the CG results
-        # For now: run variational inference without a preconditioner
-        # The preconditioner screws things up for some reason
-        with settings.max_preconditioner_size(0):
-            # Cache the CG results
-            if variational_inducing_covar is None:
-                left_tensors = mean_diff
-            else:
-                left_tensors = torch.cat([mean_diff, root_variational_covar], -1)
-
-            with torch.no_grad():
-                eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
-                solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                    induc_induc_covar,
-                    eager_rhs.detach(),
-                    logdet_terms=(not cholesky),
-                    include_tmats=(not settings.skip_logdet_forward.on() and not cholesky),
-                )
-                eager_rhss = [
-                    eager_rhs.detach(),
-                    eager_rhs[..., left_tensors.size(-1) :].detach(),
-                    eager_rhs[..., : left_tensors.size(-1)].detach(),
-                ]
-                solves = [
-                    solve.detach(),
-                    solve[..., left_tensors.size(-1) :].detach(),
-                    solve[..., : left_tensors.size(-1)].detach(),
-                ]
-                if settings.skip_logdet_forward.on():
-                    eager_rhss.append(torch.cat([probe_vecs, left_tensors], -1))
-                    solves.append(torch.cat([probe_vec_solves, solve[..., : left_tensors.size(-1)]], -1))
-            induc_induc_covar = CachedCGLazyTensor(
-                induc_induc_covar,
-                eager_rhss=eager_rhss,
-                solves=solves,
-                probe_vectors=probe_vecs,
-                probe_vector_norms=probe_vec_norms,
-                probe_vector_solves=probe_vec_solves,
-                probe_vector_tmats=tmats,
-            )
-
         # Cache the kernel matrix with the cached CG calls
         if self.training:
             prior_dist = MultivariateNormal(induc_mean, induc_induc_covar)
             add_to_cache(self, "prior_distribution_memo", prior_dist)
 
         # Compute predictive mean
+        if variational_inducing_covar is None:
+            left_tensors = mean_diff
+        else:
+            left_tensors = torch.cat([mean_diff, root_variational_covar], -1)
         inv_products = induc_induc_covar.inv_matmul(induc_data_covar, left_tensors.transpose(-1, -2))
         predictive_mean = torch.add(test_mean, inv_products[..., 0, :])
 

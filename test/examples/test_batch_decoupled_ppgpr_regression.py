@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import math
-import warnings
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -10,7 +9,6 @@ import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
-from gpytorch.utils.warnings import ExtraComputationWarning
 from torch import optim
 
 
@@ -59,7 +57,7 @@ class TestPPGPRRegression(BaseTestCase, unittest.TestCase):
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
-        with warnings.catch_warnings(record=True) as ws, _cg_mock as cg_mock:
+        with _cg_mock as cg_mock:
             for _ in range(75):
                 optimizer.zero_grad()
                 output = model(train_x)
@@ -83,7 +81,6 @@ class TestPPGPRRegression(BaseTestCase, unittest.TestCase):
 
             # Make sure CG was called (or not), and no warnings were thrown
             self.assertFalse(cg_mock.called)
-            self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
 
 if __name__ == "__main__":

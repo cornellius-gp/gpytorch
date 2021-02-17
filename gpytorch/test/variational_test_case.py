@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
-import warnings
 from abc import abstractproperty
 from unittest.mock import MagicMock, patch
 
 import torch
 
 import gpytorch
-from gpytorch.utils.warnings import ExtraComputationWarning
 
 from .base_test_case import BaseTestCase
 
@@ -62,10 +60,9 @@ class VariationalTestCase(BaseTestCase):
         # Single optimization iteration
         model.train()
         likelihood.train()
-        with warnings.catch_warnings(record=True) as ws:
-            output = model(train_x)
-            loss = -mll(output, train_y)
-            loss.sum().backward()
+        output = model(train_x)
+        loss = -mll(output, train_y)
+        loss.sum().backward()
 
         # Make sure we have gradients for all parameters
         for _, param in model.named_parameters():
@@ -75,8 +72,6 @@ class VariationalTestCase(BaseTestCase):
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)
 
-        # Make sure there were no warnings
-        self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
         return output, loss
 
     def _eval_iter(self, model, batch_shape=torch.Size([]), cuda=False):
@@ -87,11 +82,9 @@ class VariationalTestCase(BaseTestCase):
 
         # Single optimization iteration
         model.eval()
-        with warnings.catch_warnings(record=True) as ws, torch.no_grad():
+        with torch.no_grad():
             output = model(test_x)
 
-        # Make sure there were no warnings
-        self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
         return output
 
     @abstractproperty
