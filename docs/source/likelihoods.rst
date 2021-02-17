@@ -40,6 +40,13 @@ reduce the variance when computing approximate GP objective functions.
    :members:
 
 
+:hidden:`DirichletClassificationLikelihood`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: DirichletClassificationLikelihood
+   :members:
+
+
 :hidden:`BernoulliLikelihood`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
