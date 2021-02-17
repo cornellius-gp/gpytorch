@@ -36,10 +36,16 @@ class Interval(Module):
 
         self._transform = transform
         self._inv_transform = inv_transform
-        self._initial_value = initial_value
 
         if transform is not None and inv_transform is None:
             self._inv_transform = _get_inv_param_transform(transform)
+
+        if initial_value is not None:
+            if not isinstance(initial_value, torch.Tensor):
+                initial_value = torch.tensor(initial_value)
+            self._initial_value = self.inverse_transform(initial_value)
+        else:
+            self._initial_value = None
 
     def _apply(self, fn):
         self.lower_bound = fn(self.lower_bound)

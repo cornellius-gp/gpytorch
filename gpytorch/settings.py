@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import warnings
+
 import torch
 
 
@@ -406,13 +408,25 @@ class min_variance(_dtype_value_context):
     _global_half_value = 1e-3
 
 
-class cholesky_jitter(_value_context):
+class cholesky_jitter(_dtype_value_context):
     """
     The jitter value passed to `psd_safe_cholesky` when using cholesky solves.
     Default: None
     """
 
-    _global_value = None
+    _global_float_value = 1e-6
+    _global_double_value = 1e-8
+
+    @classmethod
+    def value(cls, dtype=None):
+        if dtype is None:
+            # Deprecated in 1.4: remove in 1.5
+            warnings.warn(
+                "cholesky_jitter is now a _dtype_value_context and should be called with a dtype argument",
+                DeprecationWarning,
+            )
+            return cls._global_float_value
+        return super().value(dtype=dtype)
 
 
 class cg_tolerance(_value_context):
