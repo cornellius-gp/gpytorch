@@ -295,7 +295,8 @@ class BatchRepeatLazyTensor(LazyTensor):
         return U, S, V
 
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
-        evals_, evecs_ = self.base_lazy_tensor.symeig(eigenvectors=eigenvectors)
-        evals = evals_.repeat(*self.batch_repeat, 1)
-        evecs = evecs_.repeat(*self.batch_repeat, 1, 1)
+        evals, evecs = self.base_lazy_tensor.symeig(eigenvectors=eigenvectors)
+        evals = evals.repeat(*self.batch_repeat, 1)
+        if eigenvectors:
+            evecs = evecs.repeat(*self.batch_repeat, 1, 1)
         return evals, evecs

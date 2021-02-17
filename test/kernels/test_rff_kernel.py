@@ -4,8 +4,22 @@ import unittest
 
 import torch
 
+import gpytorch
 from gpytorch.kernels import RFFKernel
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
+
+
+class TestModel(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y):
+        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        super().__init__(train_x, train_y, likelihood)
+        self.mean_module = gpytorch.means.ZeroMean()
+        self.covar_module = gpytorch.kernels.ScaleKernel(RFFKernel(num_samples=5))
+
+    def forward(self, input):
+        mean = self.mean_module(input)
+        covar = self.covar_module(input)
+        return gpytorch.distributions.MultivariateNormal(mean, covar)
 
 
 class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
@@ -64,3 +78,11 @@ class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
         res2 = new_kernel(x[0, 1]).evaluate()  # Should also be result of first kernel on first batch of data.
 
         self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
+
+    def test_kernel_output(self):
+        train_x = torch.randn(1000, 3)
+        train_y = torch.randn(1000)
+        model = TestModel(train_x, train_y)
+        model.train()
+        output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
+        self.assertIsInstance(output, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)

@@ -58,9 +58,7 @@ class LinearKernel(Kernel):
             warnings.warn("The `offset_prior` argument is deprecated and no longer used.", DeprecationWarning)
         self.register_parameter(name="raw_variance", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1)))
         if variance_prior is not None:
-            self.register_prior(
-                "variance_prior", variance_prior, lambda: self.variance, lambda v: self._set_variance(v)
-            )
+            self.register_prior("variance_prior", variance_prior, lambda m: m.variance, lambda m, v: m._set_variance(v))
 
         self.register_constraint("raw_variance", variance_constraint)
 

@@ -20,8 +20,18 @@ class BetaLikelihood(_OneDimensionalLikelihood):
             \alpha = ms, \quad \beta = (1-m)s
         \end{equation*}
 
-    The mixture parameter is the output of the GP passed through a logit function.
+    The mixture parameter is the output of the GP passed through a logit function :math:`\sigma(\cdot)`.
     The scale parameter is learned.
+
+    .. math::
+        p(y \mid f) = \text{Beta} \left( \sigma(f) s , (1 - \sigma(f)) s\right)
+
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :type batch_shape: torch.Size, optional
+    :param scale_prior: Prior for scale parameter :math:`s`.
+    :type scale_prior: ~gpytorch.priors.Prior, optional
+    :param scale_constraint: Constraint for scale parameter :math:`s`.
+    :type scale_constraint: ~gpytorch.constraints.Interval, optional
 
     :var torch.Tensor scale: :math:`s` parameter (scale)
     """
@@ -34,7 +44,7 @@ class BetaLikelihood(_OneDimensionalLikelihood):
 
         self.raw_scale = torch.nn.Parameter(torch.ones(*batch_shape, 1))
         if scale_prior is not None:
-            self.register_prior("scale_prior", scale_prior, lambda: self.scale, lambda v: self._set_scale(v))
+            self.register_prior("scale_prior", scale_prior, lambda m: m.scale, lambda m, v: m._set_scale(v))
 
         self.register_constraint("raw_scale", scale_constraint)
 

@@ -123,7 +123,7 @@ class ArcKernel(Kernel):
         )
         if angle_prior is not None:
             self.register_prior(
-                "angle_prior", angle_prior, lambda: self.angle, lambda v: self._set_angle(v),
+                "angle_prior", angle_prior, lambda m: m.angle, lambda m, v: m._set_angle(v),
             )
 
         self.register_constraint("raw_angle", angle_constraint)
@@ -134,7 +134,7 @@ class ArcKernel(Kernel):
 
         if radius_prior is not None:
             self.register_prior(
-                "radius_prior", radius_prior, lambda: self.radius, lambda v: self._set_radius(v),
+                "radius_prior", radius_prior, lambda m: m.radius, lambda m, v: m._set_radius(v),
             )
 
         radius_constraint = Positive()

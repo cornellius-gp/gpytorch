@@ -84,6 +84,10 @@ class TestSGPRRegression(unittest.TestCase):
             loss.backward()
             optimizer.step()
 
+            # Check that we have the right LazyTensor type
+            kernel = likelihood(gp_model(train_x)).lazy_covariance_matrix.evaluate_kernel()
+            self.assertIsInstance(kernel, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)
+
         for param in gp_model.parameters():
             self.assertTrue(param.grad is not None)
             self.assertGreater(param.grad.norm().item(), 0)

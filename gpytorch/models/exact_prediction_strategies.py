@@ -37,7 +37,7 @@ class DefaultPredictionStrategy(object):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, root=None, inv_root=None):
         # Flatten the training labels
         train_shape = train_prior_dist.event_shape
-        train_labels = train_labels.view(*train_labels.shape[: -len(train_shape)], train_shape.numel())
+        train_labels = train_labels.reshape(*train_labels.shape[: -len(train_shape)], train_shape.numel())
 
         self.train_inputs = train_inputs
         self.train_prior_dist = train_prior_dist
@@ -281,7 +281,7 @@ class DefaultPredictionStrategy(object):
         train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
-        mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+        mean_cache = train_train_covar.evaluate_kernel().inv_matmul(train_labels_offset).squeeze(-1)
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
@@ -629,7 +629,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
             torch.eye(train_factor.size(-1), dtype=train_factor.dtype, device=train_factor.device)
             - (train_factor.transpose(-1, -2) @ train_train_covar.inv_matmul(train_factor)) * constant
         )
-        return psd_safe_cholesky(inner_term)
+        return psd_safe_cholesky(inner_term, jitter=settings.cholesky_jitter.value())
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data

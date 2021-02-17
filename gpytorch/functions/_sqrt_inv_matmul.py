@@ -3,8 +3,7 @@
 import torch
 from torch.autograd import Function
 
-from .. import settings
-from ..utils.contour_integral_quad import contour_integral_quad
+from .. import settings, utils
 
 
 class SqrtInvMatmul(Function):
@@ -22,7 +21,7 @@ class SqrtInvMatmul(Function):
 
         if lhs is not None:
             terms = torch.cat([rhs, lhs.transpose(-1, -2)], dim=-1)
-            solves, weights, no_shift_solves, shifts = contour_integral_quad(
+            solves, weights, no_shift_solves, shifts = utils.contour_integral_quad(
                 ctx.lazy_tsr, terms, inverse=True, num_contour_quadrature=settings.num_contour_quadrature.value()
             )
             rhs_solves, lhs_solves = solves.split([rhs.size(-1), lhs.size(-2)], dim=-1)
@@ -30,7 +29,7 @@ class SqrtInvMatmul(Function):
             sqrt_inv_matmul_res = lhs @ (rhs_solves * weights).sum(0)
             inv_quad_res = (lhs_no_shift_solves.transpose(-1, -2) * lhs).sum(dim=-1).mul_(-1)
         else:
-            rhs_solves, weights, _, shifts = contour_integral_quad(
+            rhs_solves, weights, _, shifts = utils.contour_integral_quad(
                 ctx.lazy_tsr, rhs, inverse=True, num_contour_quadrature=settings.num_contour_quadrature.value()
             )
             sqrt_inv_matmul_res = (rhs_solves * weights).sum(0)
@@ -75,7 +74,7 @@ class SqrtInvMatmul(Function):
 
         else:
             # Intermediate terms for sqrt_inv_matmul/quad
-            grad_solves, _, _, _ = contour_integral_quad(
+            grad_solves, _, _, _ = utils.contour_integral_quad(
                 ctx.lazy_tsr,
                 sqrt_inv_matmul_grad,
                 inverse=True,

@@ -74,6 +74,28 @@ class _GaussianLikelihoodBase(Likelihood):
 
 
 class GaussianLikelihood(_GaussianLikelihoodBase):
+    r"""
+    The standard likelihood for regression.
+    Assumes a standard homoskedastic noise model:
+
+    .. math::
+        p(y \mid f) = f + \epsilon, \quad \epsilon \sim \mathcal N (0, \sigma^2)
+
+    where :math:`\sigma^2` is a noise parameter.
+
+    .. note::
+        This likelihood can be used for exact or approximate inference.
+
+    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
+    :type noise_prior: ~gpytorch.priors.Prior, optional
+    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
+    :type noise_constraint: ~gpytorch.constraints.Interval, optional
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :type batch_shape: torch.Size, optional
+
+    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
+    """
+
     def __init__(self, noise_prior=None, noise_constraint=None, batch_shape=torch.Size(), **kwargs):
         noise_covar = HomoskedasticNoise(
             noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
@@ -102,14 +124,22 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     A Likelihood that assumes fixed heteroscedastic noise. This is useful when you have fixed, known observation
     noise for each training example.
 
-    Args:
-        :attr:`noise` (Tensor):
-            Known observation noise (variance) for each training example.
-        :attr:`learn_additional_noise` (bool, optional):
-            Set to true if you additionally want to learn added diagonal noise, similar to GaussianLikelihood.
-
     Note that this likelihood takes an additional argument when you call it, `noise`, that adds a specified amount
     of noise to the passed MultivariateNormal. This allows for adding known observational noise to test data.
+
+    .. note::
+        This likelihood can be used for exact or approximate inference.
+
+    :param noise: Known observation noise (variance) for each training example.
+    :type noise: torch.Tensor (... x N)
+    :param learn_additional_noise: Set to true if you additionally want to
+        learn added diagonal noise, similar to GaussianLikelihood.
+    :type learn_additional_noise: bool, optional
+    :param batch_shape: The batch shape of the learned noise parameter (default
+        []) if :obj:`learn_additional_noise=True`.
+    :type batch_shape: torch.Size, optional
+
+    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
 
     Example:
         >>> train_x = torch.randn(55, 2)
@@ -199,3 +229,105 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
             )
 
         return res
+
+
+class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
+    """
+    A classification likelihood that treats the labels as regression targets with fixed heteroscedastic noise.
+    From Milios et al, NeurIPS, 2018 [https://arxiv.org/abs/1805.10915].
+
+    .. note::
+        This likelihood can be used for exact or approximate inference.
+
+    :param targets: classification labels.
+    :type targets: torch.Tensor (N).
+    :param alpha_epsilon: tuning parameter for the scaling of the likeihood targets. We'd suggest 0.01 or setting
+        via cross-validation.
+    :type alpha_epsilon: int.
+
+    :param learn_additional_noise: Set to true if you additionally want to
+        learn added diagonal noise, similar to GaussianLikelihood.
+    :type learn_additional_noise: bool, optional
+    :param batch_shape: The batch shape of the learned noise parameter (default
+        []) if :obj:`learn_additional_noise=True`.
+    :type batch_shape: torch.Size, optional
+
+    Example:
+        >>> train_x = torch.randn(55, 1)
+        >>> labels = torch.round(train_x).long()
+        >>> likelihood = DirichletClassificationLikelihood(targets=labels, learn_additional_noise=True)
+        >>> pred_y = likelihood(gp_model(train_x))
+        >>>
+        >>> test_x = torch.randn(21, 1)
+        >>> test_labels = torch.round(test_x).long()
+        >>> pred_y = likelihood(gp_model(test_x), targets=labels)
+    """
+
+    def _prepare_targets(self, targets, alpha_epsilon=0.01, dtype=torch.float):
+        num_classes = targets.max() + 1
+        # set alpha = \alpha_\epsilon
+        alpha = alpha_epsilon * torch.ones(targets.shape[-1], num_classes, device=targets.device, dtype=dtype)
+
+        # alpha[class_labels] = 1 + \alpha_\epsilon
+        alpha[torch.arange(len(targets)), targets] = alpha[torch.arange(len(targets)), targets] + 1.0
+
+        # sigma^2 = log(1 / alpha + 1)
+        sigma2_i = torch.log(1 / alpha + 1.0)
+
+        # y = log(alpha) - 0.5 * sigma^2
+        transformed_targets = alpha.log() - 0.5 * sigma2_i
+
+        return sigma2_i.transpose(-2, -1).type(dtype), transformed_targets.type(dtype), num_classes
+
+    def __init__(
+        self,
+        targets: Tensor,
+        alpha_epsilon: int = 0.01,
+        learn_additional_noise: Optional[bool] = False,
+        batch_shape: Optional[torch.Size] = torch.Size(),
+        dtype: Optional[torch.dtype] = torch.float,
+        **kwargs,
+    ):
+        sigma2_labels, transformed_targets, num_classes = self._prepare_targets(
+            targets, alpha_epsilon=alpha_epsilon, dtype=dtype
+        )
+        super().__init__(
+            noise=sigma2_labels,
+            learn_additional_noise=learn_additional_noise,
+            batch_shape=torch.Size((num_classes,)),
+            **kwargs,
+        )
+        self.transformed_targets = transformed_targets.transpose(-2, -1)
+        self.num_classes = num_classes
+        self.targets = targets
+        self.alpha_epsilon = alpha_epsilon
+
+    def get_fantasy_likelihood(self, **kwargs):
+        # we assume that the number of classes does not change.
+
+        if "targets" not in kwargs:
+            raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `targets` kwarg")
+
+        old_noise_covar = self.noise_covar
+        self.noise_covar = None
+        fantasy_liklihood = deepcopy(self)
+        self.noise_covar = old_noise_covar
+
+        old_noise = old_noise_covar.noise
+        new_targets = kwargs.get("noise")
+        new_noise, new_targets, _ = fantasy_liklihood._prepare_targets(new_targets, self.alpha_epsilon)
+        fantasy_liklihood.targets = torch.cat([fantasy_liklihood.targets, new_targets], -1)
+
+        if old_noise.dim() != new_noise.dim():
+            old_noise = old_noise.expand(*new_noise.shape[:-1], old_noise.shape[-1])
+
+        fantasy_liklihood.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
+        return fantasy_liklihood
+
+    def __call__(self, *args, **kwargs):
+        if "targets" in kwargs:
+            targets = kwargs.pop("targets")
+            dtype = self.transformed_targets.dtype
+            new_noise, _, _ = self._prepare_targets(targets, dtype=dtype)
+            kwargs["noise"] = new_noise
+        return super().__call__(*args, **kwargs)

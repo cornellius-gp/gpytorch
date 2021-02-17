@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import torch
+
 from .kernel import Kernel
 
 
@@ -34,4 +36,7 @@ class DistributionalInputKernel(Kernel):
         if not diag:
             return res
         else:
-            return res.diag()
+            if torch.is_tensor(res):
+                return res.diagonal(dim1=-1, dim2=-2)
+            else:
+                return res.diag()  # For LazyTensor

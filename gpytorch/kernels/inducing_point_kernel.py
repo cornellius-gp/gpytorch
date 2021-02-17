@@ -6,7 +6,7 @@ import math
 import torch
 
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, MatmulLazyTensor, PsdSumLazyTensor, RootLazyTensor, delazify
+from ..lazy import DiagLazyTensor, LowRankRootAddedDiagLazyTensor, LowRankRootLazyTensor, MatmulLazyTensor, delazify
 from ..mlls import InducingPointKernelAddedLossTerm
 from ..utils.cholesky import psd_safe_cholesky
 from .kernel import Kernel
@@ -24,10 +24,9 @@ class InducingPointKernel(Kernel):
         self.register_parameter(name="inducing_points", parameter=torch.nn.Parameter(inducing_points))
         self.register_added_loss_term("inducing_point_loss_term")
 
-    def train(self, mode=True):
+    def _clear_cache(self):
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
-        return super(InducingPointKernel, self).train(mode)
 
     @property
     def _inducing_mat(self):
@@ -56,11 +55,11 @@ class InducingPointKernel(Kernel):
     def _get_covariance(self, x1, x2):
         k_ux1 = delazify(self.base_kernel(x1, self.inducing_points))
         if torch.equal(x1, x2):
-            covar = RootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
+            covar = LowRankRootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
 
             # Diagonal correction for predictive posterior
             correction = (self.base_kernel(x1, x2, diag=True) - covar.diag()).clamp(0, math.inf)
-            covar = PsdSumLazyTensor(covar, DiagLazyTensor(correction))
+            covar = LowRankRootAddedDiagLazyTensor(covar, DiagLazyTensor(correction))
         else:
             k_ux2 = delazify(self.base_kernel(x2, self.inducing_points))
             covar = MatmulLazyTensor(
