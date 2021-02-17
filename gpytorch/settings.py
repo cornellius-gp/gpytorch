@@ -420,6 +420,7 @@ class cholesky_jitter(_dtype_value_context):
     @classmethod
     def value(cls, dtype=None):
         if dtype is None:
+            # Deprecated in 1.4: remove in 1.5
             warnings.warn(
                 "cholesky_jitter is now a _dtype_value_context and should be called with a dtype argument",
                 DeprecationWarning,
