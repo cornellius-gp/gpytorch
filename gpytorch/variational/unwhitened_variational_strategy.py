@@ -49,7 +49,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
         # Maybe used - if we're not using CG
-        L = psd_safe_cholesky(delazify(induc_induc_covar), jitter=settings.cholesky_jitter.value())
+        L = psd_safe_cholesky(delazify(induc_induc_covar))
         return TriangularLazyTensor(L)
 
     @property

@@ -4,6 +4,7 @@ import warnings
 
 import torch
 
+from .. import settings
 from .errors import NanError, NotPSDError
 from .warnings import NumericalWarning
 
@@ -18,8 +19,8 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
         :attr:`out` (Tensor, optional):
             See torch.cholesky
         :attr:`jitter` (float, optional):
-            The jitter to add to the diagonal of A in case A is only p.s.d. If omitted, chosen
-            as 1e-6 (float) or 1e-8 (double)
+            The jitter to add to the diagonal of A in case A is only p.s.d. If omitted,
+            uses settings.cholesky_jitter.value()
         :attr:`max_tries` (int, optional):
             Number of attempts (with successively increasing jitter) to make before raising an error.
     """
@@ -34,7 +35,7 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
             )
 
         if jitter is None:
-            jitter = 1e-6 if A.dtype == torch.float32 else 1e-8
+            jitter = settings.cholesky_jitter.value(A.dtype)
         Aprime = A.clone()
         jitter_prev = 0
         for i in range(max_tries):
