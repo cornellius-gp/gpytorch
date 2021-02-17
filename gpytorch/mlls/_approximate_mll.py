@@ -73,6 +73,6 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
             return log_likelihood - kl_divergence + log_prior - added_loss
         else:
             if had_added_losses:
-                return log_likelihood, kl_divergence, log_prior.div(self.num_data), added_loss
+                return log_likelihood, kl_divergence, log_prior, added_loss
             else:
-                return log_likelihood, kl_divergence, log_prior.div(self.num_data)
+                return log_likelihood, kl_divergence, log_prior
