@@ -402,10 +402,16 @@ class Kernel(Module):
         return self.__dict__
 
     def __add__(self, other):
-        return AdditiveKernel(self, other)
+        kernels = []
+        kernels += self.kernels if isinstance(self, AdditiveKernel) else [self]
+        kernels += other.kernels if isinstance(other, AdditiveKernel) else [other]
+        return AdditiveKernel(*kernels)
 
     def __mul__(self, other):
-        return ProductKernel(self, other)
+        kernels = []
+        kernels += self.kernels if isinstance(self, ProductKernel) else [self]
+        kernels += other.kernels if isinstance(other, ProductKernel) else [other]
+        return ProductKernel(*kernels)
 
     def __setstate__(self, d):
         self.__dict__ = d
