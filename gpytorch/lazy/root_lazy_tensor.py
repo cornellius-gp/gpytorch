@@ -66,7 +66,7 @@ class RootLazyTensor(LazyTensor):
         # Matrix is symmetric
         return self._matmul(rhs)
 
-    def root_decomposition(self):
+    def root_decomposition(self, method=None):
         return self
 
     def _root_decomposition(self):
