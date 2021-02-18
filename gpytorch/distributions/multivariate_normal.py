@@ -9,7 +9,7 @@ from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
-from ..lazy import DiagLazyTensor, LazyTensor, delazify, lazify
+from ..lazy import DiagLazyTensor, LazyTensor, RootLazyTensor, delazify, lazify
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.warnings import NumericalWarning
 from .distribution import Distribution
@@ -42,7 +42,17 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             self.__unbroadcasted_scale_tril = None
             self._validate_args = validate_args
             batch_shape = _mul_broadcast_shape(self.loc.shape[:-1], covariance_matrix.shape[:-2])
-            event_shape = self.loc.shape[-1:]
+            if not isinstance(self._covar, RootLazyTensor):
+                should_have_separate_event = False
+            else:
+                should_have_separate_event = True
+            if should_have_separate_event:
+                should_have_separate_event = self._covar.root.shape[-1] > self._covar.root.shape[-2]
+            if not should_have_separate_event:
+                event_shape = self.loc.shape[-1:]
+            else:
+                event_shape = self._covar.root.shape[-1:]
+
             # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
         else:
@@ -154,8 +164,13 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             res = res.view(sample_shape + self.loc.shape)
 
         else:
+            covar_root = covar.root_decomposition().root
+
             # Make sure that the base samples agree with the distribution
-            if self.loc.shape != base_samples.shape[-self.loc.dim() :]:
+            if (
+                self.loc.shape != base_samples.shape[-self.loc.dim() :]
+                and covar_root.shape[-1] < base_samples.shape[-1]
+            ):
                 raise RuntimeError(
                     "The size of base_samples (minus sample shape dimensions) should agree with the size "
                     "of self.loc. Expected ...{} but got {}".format(self.loc.shape, base_samples.shape)
@@ -166,16 +181,16 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
             # Reshape samples to be batch_size x num_dim x num_samples
             # or num_bim x num_samples
-            base_samples = base_samples.view(-1, *self.loc.shape)
+            base_samples = base_samples.view(-1, *self.loc.shape[:-1], covar_root.shape[-1])
             base_samples = base_samples.permute(*range(1, self.loc.dim() + 1), 0)
 
             # Now reparameterize those base samples
-            covar_root = covar.root_decomposition().root
             # If necessary, adjust base_samples for rank of root decomposition
             if covar_root.shape[-1] < base_samples.shape[-2]:
                 base_samples = base_samples[..., : covar_root.shape[-1], :]
             elif covar_root.shape[-1] > base_samples.shape[-2]:
-                raise RuntimeError("Incompatible dimension of `base_samples`")
+                # raise RuntimeError("Incompatible dimension of `base_samples`")
+                covar_root = covar_root.transpose(-2, -1)
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size

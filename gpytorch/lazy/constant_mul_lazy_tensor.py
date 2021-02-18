@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+from typing import Optional
 
 import torch
 
 from ..utils.memoize import cached
 from .lazy_tensor import LazyTensor
+from .root_lazy_tensor import RootLazyTensor
 
 
 class ConstantMulLazyTensor(LazyTensor):
@@ -153,3 +155,11 @@ class ConstantMulLazyTensor(LazyTensor):
     def evaluate(self):
         res = self.base_lazy_tensor.evaluate()
         return res * self.expanded_constant
+
+    @cached(name="root_decomposition")
+    def root_decomposition(self, method: Optional[str] = None):
+        if torch.all(self._constant >= 0):
+            base_root = self.base_lazy_tensor.root_decomposition(method=method).root
+            return RootLazyTensor(ConstantMulLazyTensor(base_root, self._constant ** 0.5))
+
+        return super().root_decomposition(method=method)
