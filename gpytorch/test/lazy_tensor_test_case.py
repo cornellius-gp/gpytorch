@@ -272,6 +272,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     skip_slq_tests = False
     should_call_cg = True
     should_call_lanczos = True
+    should_call_lanczos_diagonalization = True
 
     def _test_inv_matmul(self, rhs, lhs=None, cholesky=False):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
@@ -497,6 +498,28 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertTrue(lanczos_mock.called)
             else:
                 self.assertFalse(lanczos_mock.called)
+
+    def test_diagonalization(self, symeig=False):
+        _wrapped_lanczos = MagicMock(wraps=gpytorch.utils.lanczos.lanczos_tridiag)
+        with patch("gpytorch.utils.lanczos.lanczos_tridiag", new=_wrapped_lanczos) as lanczos_mock:
+            lazy_tensor = self.create_lazy_tensor()
+            test_mat = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 5)
+            with gpytorch.settings.max_cholesky_size(math.inf if symeig else 0):
+                evals, evecs = lazy_tensor.diagonalization()
+                evecs = evecs.evaluate()
+                approx = evecs.matmul(torch.diag_embed(evals)).matmul(evecs.transpose(-2, -1))
+                res = approx.matmul(test_mat)
+                actual = lazy_tensor.matmul(test_mat)
+                self.assertAllClose(res, actual, rtol=0.05)
+
+            # Make sure that we're calling the correct function
+            if not symeig and self.__class__.should_call_lanczos_diagonalization:
+                self.assertTrue(lanczos_mock.called)
+            else:
+                self.assertFalse(lanczos_mock.called)
+
+    def test_diagonalization_symeig(self):
+        return self.test_diagonalization(symeig=True)
 
     def test_root_decomposition_cholesky(self):
         return self.test_root_decomposition(cholesky=True)
