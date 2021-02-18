@@ -7,6 +7,7 @@ import torch
 
 from .. import settings
 from ..lazy import (
+    AddedDiagLazyTensor,
     BatchRepeatLazyTensor,
     ConstantMulLazyTensor,
     InterpolatedLazyTensor,
@@ -661,3 +662,45 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
         factor = test_test_covar.root.evaluate() * constant.sqrt()
         res = RootLazyTensor(factor @ covar_cache)
         return res
+
+
+class SGPRPredictionStrategy(DefaultPredictionStrategy):
+    @property
+    @cached(name="covar_cache")
+    def covar_cache(self):
+        # Here, the covar_cache is going to be the inverse of K_{XX} + \sigma^2 I
+        # This is easily computed using Woodbury
+        train_train_covar = self.lik_train_train_covar.evaluate_kernel()
+
+        # Get terms needed for woodbury
+        root = train_train_covar._lazy_tensor.root_decomposition().root
+        inv_diag = train_train_covar._diag_tensor.inverse()
+
+        # Form LT using woodbury
+        ones = torch.tensor(1.0, dtype=inv_diag.dtype, device=inv_diag.device)
+        chol_factor = (root.transpose(-1, -2) @ root).add_diag(ones).cholesky().evaluate()
+        woodbury_term = torch.triangular_solve(
+            inv_diag.diag().unsqueeze(-2) * root.evaluate().transpose(-1, -2), chol_factor, upper=False
+        )[0]
+        inverse = AddedDiagLazyTensor(MatmulLazyTensor(woodbury_term.transpose(-1, -2), -woodbury_term), inv_diag)
+        return inverse
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
+        raise NotImplementedError(
+            "Fantasy observation updates not yet supported for models using SGPRPredictionStrategy"
+        )
+
+    def exact_prediction(self, joint_mean, joint_covar):
+        # Find the components of the distribution that contain test data
+        test_mean = joint_mean[..., self.num_train :]
+        test_test_covar = joint_covar[..., self.num_train :, self.num_train :].evaluate_kernel()
+        test_train_covar = joint_covar[..., self.num_train :, : self.num_train].evaluate_kernel()
+
+        return (
+            self.exact_predictive_mean(test_mean, test_train_covar),
+            self.exact_predictive_covar(test_test_covar, test_train_covar),
+        )
+
+    def exact_predictive_covar(self, test_test_covar, test_train_covar):
+        train_train_precision = self.covar_cache
+        return (test_train_covar @ (train_train_precision @ test_train_covar.transpose(-1, -2))) + test_test_covar
