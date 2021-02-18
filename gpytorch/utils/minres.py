@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
-
 import torch
 
 from .. import settings
@@ -109,8 +107,8 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     search_update_norm = torch.zeros_like(solution_norm)
 
     # Maybe log
-    if settings.verbose.on():
-        logging.debug(
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
             f"Running MINRES on a {rhs.shape} RHS for {max_iter} iterations (tol={settings.minres_tolerance.value()}). "
             f"Output: {solution.shape}."
         )

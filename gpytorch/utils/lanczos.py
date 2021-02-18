@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
-
 import torch
 
 from .. import settings
@@ -59,8 +57,8 @@ def lanczos_tridiag(
     num_iter = min(max_iter, matrix_shape[-1])
     dim_dimension = -2
 
-    if settings.verbose.on():
-        logging.debug(
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
             f"Running Lanczos on a {matrix_shape} matrix with a {init_vecs.shape} RHS for {num_iter} iterations."
         )
 

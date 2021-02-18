@@ -664,14 +664,20 @@ class use_toeplitz(_feature_flag):
     _default = True
 
 
-class verbose(_feature_flag):
+class verbose_linalg(_feature_flag):
     """
     Print out information whenever running an expesnive linear algebra routine (e.g. Cholesky, CG, Lanczos, CIQ, etc.)
     """
 
     _default = False
 
-    def __init__(self, state=True):
-        super().__init__(state=state)
-        if state:
-            logging.basicConfig(level=logging.DEBUG)
+    # Create a global logger
+    logger = logging.getLogger("LinAlg (Verbose)")
+    logger.setLevel(logging.DEBUG)
+
+    # Output logging results to the stdout stream
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)

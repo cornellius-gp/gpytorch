@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 import warnings
 
 import torch
@@ -179,8 +178,8 @@ def linear_cg(
     result = initial_guess.expand_as(residual).contiguous()
 
     # Maybe log
-    if settings.verbose.on():
-        logging.debug(
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
             f"Running CG on a {rhs.shape} RHS for {n_iter} iterations (tol={tolerance}). Output: {result.shape}."
         )
 

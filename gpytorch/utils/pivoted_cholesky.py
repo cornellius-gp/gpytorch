@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
-
 import torch
 
 from .. import settings
@@ -43,8 +41,10 @@ def pivoted_cholesky(matrix, max_iter, error_tol=None):
     ]
 
     # Maybe log
-    if settings.verbose.on():
-        logging.debug(f"Running Pivoted Cholesky on a {matrix.shape} RHS for {max_iter} iterations.")
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
+            f"Running Pivoted Cholesky on a {matrix.shape} RHS for {max_iter} iterations."
+        )
 
     m = 0
     while (m == 0) or (m < max_iter and torch.max(errors) > error_tol):
