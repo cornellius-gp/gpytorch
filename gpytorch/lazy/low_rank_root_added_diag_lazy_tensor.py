@@ -36,6 +36,9 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         return chol_cap_mat
 
+    def _inv_matmul_preconditioner(self):
+        return None
+
     def _mul_constant(self, constant):
         # We have to over-ride this here for the case where the constant is negative
         if constant > 0:
