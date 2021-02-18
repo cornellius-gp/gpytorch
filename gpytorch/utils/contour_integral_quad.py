@@ -80,6 +80,9 @@ def contour_integral_quad(
         # Compute an approximate condition number
         # We'll do this with Lanczos
         try:
+            if settings.verbose_linalg.on():
+                settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {lanczos_mat.shape}.")
+
             approx_eigs = lanczos_mat.symeig()[0]
             if approx_eigs.min() <= 0:
                 raise RuntimeError
