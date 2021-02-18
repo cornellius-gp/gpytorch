@@ -456,6 +456,11 @@ class LazyTensor(ABC):
                 projected_mat = self._matmul(random_basis)
                 proj_q = torch.qr(projected_mat)
                 orthog_projected_mat = self._matmul(proj_q).transpose(-2, -1)
+                # Maybe log
+                if settings.verbose_linalg.on():
+                    settings.verbose_linalg.logger.debug(
+                        f"Running svd on a matrix of size {orthog_projected_mat.shape}."
+                    )
                 U, S, V = torch.svd(orthog_projected_mat)
                 U = proj_q.matmul(U)
 
@@ -1876,6 +1881,9 @@ class LazyTensor(ABC):
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
         """Method that allows implementing special-cased symeig computation. Should not be called directly"""
         from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
+
+        if settings.verbose_linalg.on():
+            settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {self.shape}.")
 
         dtype = self.dtype  # perform decomposition in double precision for numerical stability
         # TODO: Use fp64 registry once #1213 is addressed

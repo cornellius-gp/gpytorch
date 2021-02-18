@@ -57,6 +57,11 @@ def lanczos_tridiag(
     num_iter = min(max_iter, matrix_shape[-1])
     dim_dimension = -2
 
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
+            f"Running Lanczos on a {matrix_shape} matrix with a {init_vecs.shape} RHS for {num_iter} iterations."
+        )
+
     # Create storage for q_mat, alpha,and beta
     # q_mat - batch version of Q - orthogonal matrix of decomp
     # alpha - batch version main diagonal of T
@@ -161,6 +166,9 @@ def lanczos_tridiag_to_diag(t_mat):
     TODO: make the eigenvalue computations done in batch mode.
     """
     orig_device = t_mat.device
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {t_mat.shape}.")
+
     if t_mat.size(-1) < 32:
         retr = torch.symeig(t_mat.cpu(), eigenvectors=True)
     else:

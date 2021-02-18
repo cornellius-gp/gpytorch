@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import warnings
 
 import torch
@@ -661,3 +662,22 @@ class use_toeplitz(_feature_flag):
     """
 
     _default = True
+
+
+class verbose_linalg(_feature_flag):
+    """
+    Print out information whenever running an expesnive linear algebra routine (e.g. Cholesky, CG, Lanczos, CIQ, etc.)
+    """
+
+    _default = False
+
+    # Create a global logger
+    logger = logging.getLogger("LinAlg (Verbose)")
+    logger.setLevel(logging.DEBUG)
+
+    # Output logging results to the stdout stream
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
