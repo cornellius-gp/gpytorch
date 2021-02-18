@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import warnings
 
 import torch
@@ -661,3 +662,16 @@ class use_toeplitz(_feature_flag):
     """
 
     _default = True
+
+
+class verbose(_feature_flag):
+    """
+    Print out information whenever running an expesnive linear algebra routine (e.g. Cholesky, CG, Lanczos, CIQ, etc.)
+    """
+
+    _default = False
+
+    def __init__(self, state=True):
+        super().__init__(state=state)
+        if state:
+            logging.basicConfig(level=logging.DEBUG)

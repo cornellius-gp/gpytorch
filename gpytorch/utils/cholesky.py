@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import warnings
 
 import torch
@@ -24,6 +25,10 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
         :attr:`max_tries` (int, optional):
             Number of attempts (with successively increasing jitter) to make before raising an error.
     """
+    # Maybe log
+    if settings.verbose.on():
+        logging.debug(f"Running Cholesky on a matrix of size {A.shape}.")
+
     try:
         L = torch.cholesky(A, upper=upper, out=out)
         return L

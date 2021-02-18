@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import logging
+
 import torch
 
 from .. import settings
@@ -56,6 +58,11 @@ def lanczos_tridiag(
     # Define some constants
     num_iter = min(max_iter, matrix_shape[-1])
     dim_dimension = -2
+
+    if settings.verbose.on():
+        logging.debug(
+            f"Running Lanczos on a {matrix_shape} matrix with a {init_vecs.shape} RHS for {num_iter} iterations."
+        )
 
     # Create storage for q_mat, alpha,and beta
     # q_mat - batch version of Q - orthogonal matrix of decomp
