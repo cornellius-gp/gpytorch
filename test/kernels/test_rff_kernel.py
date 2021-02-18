@@ -15,7 +15,7 @@ class TestModel(gpytorch.models.ExactGP):
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
         super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ZeroMean()
-        self.covar_module = gpytorch.kernels.ScaleKernel(RFFKernel(num_samples=100))
+        self.covar_module = gpytorch.kernels.ScaleKernel(RFFKernel(num_samples=50))
 
     def forward(self, input):
         mean = self.mean_module(input)
@@ -24,6 +24,8 @@ class TestModel(gpytorch.models.ExactGP):
 
 
 class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
+    seed = 0
+
     def create_kernel_no_ard(self, **kwargs):
         return RFFKernel(num_samples=5, **kwargs)
 
