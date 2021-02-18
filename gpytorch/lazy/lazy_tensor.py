@@ -1339,7 +1339,6 @@ class LazyTensor(ABC):
 
         if method is None:
             if self.size(-1) <= settings.max_cholesky_size.value():
-                print("failing by calling symeig?")
                 method = "symeig"
             else:
                 method = "lanczos"
