@@ -92,12 +92,15 @@ class InvQuadLogDet(Function):
                     probe_vectors = probe_vectors.expand(*batch_shape, matrix_shape[-1], num_random_probes)
                     probe_vector_norms = probe_vector_norms.expand(*batch_shape, 1, num_random_probes)
             else:  # When preconditioning, probe vectors must be drawn from N(0, P)
-                if precond_lt.size()[-2:] == torch.Size([1, 1]):
-                    covar_root = precond_lt.evaluate().sqrt()
-                else:
-                    covar_root = precond_lt.root_decomposition().root
-
                 if settings.deterministic_probes.on():
+                    # NOTE: calling precond_lt.root_decomposition() is expensive
+                    # because it requires Lanczos
+                    # We don't have any other choice for when we want to use deterministic probes, however
+                    if precond_lt.size()[-2:] == torch.Size([1, 1]):
+                        covar_root = precond_lt.evaluate().sqrt()
+                    else:
+                        covar_root = precond_lt.root_decomposition().root
+
                     warnings.warn(
                         "Deterministic probes will currently work only if you aren't training multiple independent"
                         " models simultaneously.",
@@ -116,13 +119,6 @@ class InvQuadLogDet(Function):
 
                     probe_vectors = covar_root.matmul(base_samples).permute(-1, *range(precond_lt.dim() - 1))
                 else:
-                    base_samples = torch.randn(
-                        *precond_lt.batch_shape,
-                        covar_root.size(-1),
-                        num_random_probes,
-                        dtype=precond_lt.dtype,
-                        device=precond_lt.device,
-                    )
                     probe_vectors = precond_lt.zero_mean_mvn_samples(num_random_probes)
                 probe_vectors = probe_vectors.unsqueeze(-2).transpose(0, -2).squeeze(0).transpose(-2, -1).contiguous()
                 probe_vector_norms = torch.norm(probe_vectors, p=2, dim=-2, keepdim=True)
