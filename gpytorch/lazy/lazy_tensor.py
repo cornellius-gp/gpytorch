@@ -731,6 +731,103 @@ class LazyTensor(ABC):
         diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
 
+    def cat_rows(self, fant_train, fant_fant):
+        """
+        Concatenates new rows and columns to the matrix that this LazyTensor represents, e.g.
+        C = ((A; B); B', D).
+
+        TODO: add reference.
+        """
+        from .cat_lazy_tensor import CatLazyTensor
+
+        batch_shape = fant_train.shape[:-2]
+        L = self.root_decomposition().root.evaluate()
+
+        L_inverse = self.root_inv_decomposition().root.evaluate()
+
+        m, n = L.shape[-2:]
+
+        lower_left = fant_train.matmul(L_inverse)
+        schur = fant_fant - lower_left.matmul(lower_left.transpose(-2, -1))
+        schur_root = schur.root_decomposition().root.evaluate()
+
+        # Form new root Z = [L 0; lower_left schur_root]
+        num_fant = schur_root.size(-2)
+        new_root = torch.zeros(*batch_shape, m + num_fant, n + num_fant, device=L.device, dtype=L.dtype)
+        new_root[..., :m, :n] = L
+        new_root[..., m:, : lower_left.shape[-1]] = lower_left
+        new_root[..., m:, n : (n + schur_root.shape[-1])] = schur_root
+
+        new_lazy_tensor_1 = CatLazyTensor(self, fant_train, dim=-2)
+        new_lazy_tensor_2 = CatLazyTensor(fant_train.transpose(-1, -2), fant_fant, dim=-2)
+        new_lazy_tensor = CatLazyTensor(new_lazy_tensor_1, new_lazy_tensor_2, dim=-1)
+        add_to_cache(new_lazy_tensor, "root_decomposition", new_root)
+
+        # TODO: update the inverse root too.
+        return new_lazy_tensor
+
+    def add_low_rank(self, low_rank_mat):
+        """
+        Adds a low rank matrix to the matrix that this LazyTensor represents, e.g.
+        computes A + BB'. We then update both the tensor and its root decomposition.
+
+        TODO: add reference.
+        """
+        from . import lazify
+
+        # TODO: add a check if this should NOT be a lazy addition
+        new_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
+
+        # we are going to compute the following
+        # \tilde{A} = A + vv' = L(I + L^{-1} v v' L^{-T})L'
+
+        # first get LL' = A
+        current_root = self.root_decomposition().root
+        # and BB' = A^{-1}
+        current_inv_root = self.root_inv_decomposition().root.transpose(-1, -2)
+
+        # compute p = B v and take its SVD
+        pvector = current_inv_root.matmul(low_rank_mat)
+        # USV' = p
+        # when p is a vector this saves us the trouble of computing an orthonormal basis
+        U, S, _ = torch.svd(pvector, some=False)
+
+        # we want the root decomposition of I_r + U S^2 U' but S is q so we need to pad.
+        one_padding = torch.ones(torch.Size((*S.shape[:-1], U.shape[-2] - S.shape[-1])), device=S.device, dtype=S.dtype)
+        # the non zero eigenvalues get updated by S^2 + 1, so we take the square root.
+        root_S_plus_identity = (S ** 2 + 1.0) ** 0.5
+        # pad the nonzero eigenvalues with the ones
+        #######
+        # \tilde{S} = ((S^2 + 1)^0.5; 0
+        # (0; 1)
+        #######
+        stacked_root_S = torch.cat((root_S_plus_identity, one_padding), dim=-1)
+        # compute U \tilde{S} for the new root
+        inner_root = U.matmul(torch.diag_embed(stacked_root_S))
+        # \tilde{L} = L U \tilde{S}
+        if inner_root.shape[-1] == current_root.shape[-1]:
+            updated_root = current_root.matmul(inner_root)
+        else:
+            updated_root = torch.cat(
+                (
+                    current_root.evaluate(),
+                    torch.zeros(*current_root.shape[:-1], 1, device=current_root.device, dtype=current_root.dtype),
+                ),
+                dim=-1,
+            )
+
+        # compute \tilde{S}^{-1}
+        stacked_inv_root_S = torch.cat((1.0 / root_S_plus_identity, one_padding), dim=-1)
+        # compute the new inverse inner root: U \tilde{S}^{-1}
+        inner_inv_root = U.matmul(torch.diag_embed(stacked_inv_root_S))
+        # finally \tilde{L}^{-1} = L^{-1} U \tilde{S}^{-1}
+        updated_inv_root = current_inv_root.transpose(-1, -2).matmul(inner_inv_root)
+
+        add_to_cache(new_tensor, "root_decomposition", updated_root)
+        add_to_cache(new_tensor, "root_inv_decomposition", updated_inv_root)
+
+        return new_tensor
+
     @property
     def batch_dim(self):
         """
@@ -1336,6 +1433,7 @@ class LazyTensor(ABC):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
+        print("now calling the default root decomposition")
         from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
@@ -1743,6 +1841,7 @@ class LazyTensor(ABC):
         from .zero_lazy_tensor import ZeroLazyTensor
         from .diag_lazy_tensor import DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
+        from .root_lazy_tensor import RootLazyTensor
         from .non_lazy_tensor import lazify
         from torch import Tensor
 
@@ -1750,6 +1849,8 @@ class LazyTensor(ABC):
             return self
         elif isinstance(other, DiagLazyTensor):
             return AddedDiagLazyTensor(self, other)
+        elif isinstance(other, RootLazyTensor):
+            return self.add_low_rank(self, other.root)
         elif isinstance(other, Tensor):
             other = lazify(other)
             shape = _mul_broadcast_shape(self.shape, other.shape)
