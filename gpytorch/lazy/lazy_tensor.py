@@ -1433,7 +1433,6 @@ class LazyTensor(ABC):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        print("now calling the default root decomposition")
         from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
