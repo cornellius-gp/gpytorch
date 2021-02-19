@@ -739,6 +739,7 @@ class LazyTensor(ABC):
         TODO: add reference.
         """
         from .cat_lazy_tensor import CatLazyTensor
+        from .root_lazy_tensor import RootLazyTensor
 
         batch_shape = fant_train.shape[:-2]
         L = self.root_decomposition().root.evaluate()
@@ -761,7 +762,8 @@ class LazyTensor(ABC):
         new_lazy_tensor_1 = CatLazyTensor(self, fant_train, dim=-2)
         new_lazy_tensor_2 = CatLazyTensor(fant_train.transpose(-1, -2), fant_fant, dim=-2)
         new_lazy_tensor = CatLazyTensor(new_lazy_tensor_1, new_lazy_tensor_2, dim=-1)
-        add_to_cache(new_lazy_tensor, "root_decomposition", new_root)
+
+        add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(new_root))
 
         # TODO: update the inverse root too.
         return new_lazy_tensor
@@ -774,6 +776,7 @@ class LazyTensor(ABC):
         TODO: add reference.
         """
         from . import lazify
+        from .root_lazy_tensor import RootLazyTensor
 
         # TODO: add a check if this should NOT be a lazy addition
         new_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
@@ -823,8 +826,8 @@ class LazyTensor(ABC):
         # finally \tilde{L}^{-1} = L^{-1} U \tilde{S}^{-1}
         updated_inv_root = current_inv_root.transpose(-1, -2).matmul(inner_inv_root)
 
-        add_to_cache(new_tensor, "root_decomposition", updated_root)
-        add_to_cache(new_tensor, "root_inv_decomposition", updated_inv_root)
+        add_to_cache(new_tensor, "root_decomposition", RootLazyTensor(updated_root))
+        add_to_cache(new_tensor, "root_inv_decomposition", RootLazyTensor(updated_inv_root))
 
         return new_tensor
 
