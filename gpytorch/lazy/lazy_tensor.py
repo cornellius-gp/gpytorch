@@ -416,7 +416,7 @@ class LazyTensor(ABC):
             return TriangularLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
 
         # contiguous call is necessary here
-        cholesky = psd_safe_cholesky(evaluated_mat, jitter=settings.cholesky_jitter.value(), upper=upper).contiguous()
+        cholesky = psd_safe_cholesky(evaluated_mat, upper=upper).contiguous()
         return TriangularLazyTensor(cholesky, upper=upper)
 
     def _cholesky_solve(self, rhs, upper: bool = False):
@@ -456,6 +456,11 @@ class LazyTensor(ABC):
                 projected_mat = self._matmul(random_basis)
                 proj_q = torch.qr(projected_mat)
                 orthog_projected_mat = self._matmul(proj_q).transpose(-2, -1)
+                # Maybe log
+                if settings.verbose_linalg.on():
+                    settings.verbose_linalg.logger.debug(
+                        f"Running svd on a matrix of size {orthog_projected_mat.shape}."
+                    )
                 U, S, V = torch.svd(orthog_projected_mat)
                 U = proj_q.matmul(U)
 
@@ -697,8 +702,11 @@ class LazyTensor(ABC):
             raise RuntimeError("add_diag only defined for square matrices")
 
         diag_shape = diag.shape
-        if len(diag_shape) == 0 or diag_shape[-1] == 1:
-            # interpret scalar tensor or single-trailing element as constant diag
+        if len(diag_shape) == 0:
+            # interpret scalar tensor as constant diag
+            diag_tensor = ConstantDiagLazyTensor(diag.unsqueeze(-1), diag_shape=self.shape[-1])
+        elif diag_shape[-1] == 1:
+            # interpret single-trailing element as constant diag
             diag_tensor = ConstantDiagLazyTensor(diag, diag_shape=self.shape[-1])
         else:
             try:
@@ -1830,7 +1838,7 @@ class LazyTensor(ABC):
         # Alternatively, if we're using tensor indices and losing dimensions, use self._get_indices
         if row_col_are_absorbed:
             # Convert all indices into tensor indices
-            *batch_indices, row_index, col_index, = _convert_indices_to_tensors(
+            (*batch_indices, row_index, col_index,) = _convert_indices_to_tensors(
                 self, (*batch_indices, row_index, col_index)
             )
             res = self._get_indices(row_index, col_index, *batch_indices)
@@ -1873,6 +1881,9 @@ class LazyTensor(ABC):
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional["LazyTensor"]]:
         """Method that allows implementing special-cased symeig computation. Should not be called directly"""
         from gpytorch.lazy.non_lazy_tensor import NonLazyTensor
+
+        if settings.verbose_linalg.on():
+            settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {self.shape}.")
 
         dtype = self.dtype  # perform decomposition in double precision for numerical stability
         # TODO: Use fp64 registry once #1213 is addressed

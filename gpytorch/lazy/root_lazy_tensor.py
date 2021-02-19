@@ -55,11 +55,18 @@ class RootLazyTensor(LazyTensor):
     def _matmul(self, rhs):
         return self.root._matmul(self.root._t_matmul(rhs))
 
+    def _mul_constant(self, constant):
+        if constant > 0:
+            res = self.__class__(self.root._mul_constant(constant.sqrt()))
+        else:
+            res = super()._mul_constant(constant)
+        return res
+
     def _t_matmul(self, rhs):
         # Matrix is symmetric
         return self._matmul(rhs)
 
-    def root_decomposition(self):
+    def root_decomposition(self, method=None):
         return self
 
     def _root_decomposition(self):

@@ -168,7 +168,7 @@ class Kernel(Module):
             )
             if lengthscale_prior is not None:
                 self.register_prior(
-                    "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
+                    "lengthscale_prior", lengthscale_prior, lambda m: m.lengthscale, lambda m, v: m._set_lengthscale(v)
                 )
 
             self.register_constraint("raw_lengthscale", lengthscale_constraint)
@@ -402,10 +402,16 @@ class Kernel(Module):
         return self.__dict__
 
     def __add__(self, other):
-        return AdditiveKernel(self, other)
+        kernels = []
+        kernels += self.kernels if isinstance(self, AdditiveKernel) else [self]
+        kernels += other.kernels if isinstance(other, AdditiveKernel) else [other]
+        return AdditiveKernel(*kernels)
 
     def __mul__(self, other):
-        return ProductKernel(self, other)
+        kernels = []
+        kernels += self.kernels if isinstance(self, ProductKernel) else [self]
+        kernels += other.kernels if isinstance(other, ProductKernel) else [other]
+        return ProductKernel(*kernels)
 
     def __setstate__(self, d):
         self.__dict__ = d

@@ -63,6 +63,13 @@ deterministic relationship between :math:`\mathbf f` and :math:`\mathbf u`.
    :members:
 
 
+:hidden:`CiqVariationalStrategy`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: CiqVariationalStrategy
+   :members:
+
+
 :hidden:`OrthogonallyDecoupledVariationalStrategy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -146,6 +153,7 @@ Variational Distributions for Natural Gradient Descent
 
 Special :obj:`~_VariationalDistribution` objects designed specifically for
 use with natural gradient descent techniques.
+See the `natural gradient descent tutorial`_ for examples using these objects.
 
 If the variational distribution is defined by :math:`\mathcal{N}(\mathbf m, \mathbf S)`, then
 a :obj:`~gpytorch.variational.NaturalVariationalDistribution` uses the parameterization:
@@ -168,6 +176,7 @@ different representation of the natural parameters. The different parameterizati
 speed and stability.
 
 .. note::
+
     Natural gradient descent is very stable with variational regression,
     and fast: if the hyperparameters are fixed, the variational parameters
     converge in 1 iteration. However, it can be unstable with non-conjugate

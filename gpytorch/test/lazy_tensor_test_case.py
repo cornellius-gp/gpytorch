@@ -31,8 +31,8 @@ class RectangularLazyTensorTestCase(BaseTestCase):
         raise NotImplementedError()
 
     def _test_matmul(self, rhs):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
         res = lazy_tensor.matmul(rhs)
@@ -97,7 +97,12 @@ class RectangularLazyTensorTestCase(BaseTestCase):
     def test_constant_mul(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        self.assertAllClose((lazy_tensor * 5).evaluate(), evaluated * 5)
+        self.assertAllClose((lazy_tensor * 5.0).evaluate(), evaluated * 5.0)
+
+    def test_neg_constant_mul(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        self.assertAllClose((lazy_tensor * -5.0).evaluate(), evaluated * -5.0)
 
     def test_evaluate(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -229,8 +234,8 @@ class RectangularLazyTensorTestCase(BaseTestCase):
             self.assertAllClose(res, actual)
 
     def test_quad_form_derivative(self):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
-        lazy_tensor_clone = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+        lazy_tensor_clone = lazy_tensor.clone().detach().requires_grad_(True)
         left_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-2), 2)
         right_vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 2)
 
@@ -269,8 +274,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     should_call_lanczos = True
 
     def _test_inv_matmul(self, rhs, lhs=None, cholesky=False):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
         evaluated.register_hook(_ensure_symmetric_grad)
 
@@ -318,7 +323,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
             vecs = torch.randn(*lazy_tensor.batch_shape, lazy_tensor.size(-1), 3, requires_grad=True)
-            vecs_copy = vecs.clone().detach_().requires_grad_(True)
+            vecs_copy = vecs.clone().detach().requires_grad_(True)
 
             _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
             with patch("gpytorch.utils.linear_cg", new=_wrapped_cg) as linear_cg_mock:
@@ -516,11 +521,11 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             self.assertAllClose(sample_covar, evaluated, rtol=0.3, atol=0.3)
 
     def test_sqrt_inv_matmul(self):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
         if len(lazy_tensor.batch_shape):
             return
 
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
         evaluated.register_hook(_ensure_symmetric_grad)
 
@@ -556,11 +561,11 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
 
     def test_sqrt_inv_matmul_no_lhs(self):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
         if len(lazy_tensor.batch_shape):
             return
 
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
         evaluated.register_hook(_ensure_symmetric_grad)
 
@@ -590,8 +595,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
 
     def test_symeig(self):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
         # Perform forward pass
@@ -637,8 +642,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         self.assertIsNone(evecs)
 
     def test_svd(self):
-        lazy_tensor = self.create_lazy_tensor().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach_().requires_grad_(True)
+        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
         evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
         # Perform forward pass

@@ -19,10 +19,14 @@ class TestMatern25BaseKernel(unittest.TestCase, BaseKernelTestCase):
 
 class TestMatern05BaseKernel(unittest.TestCase, BaseKernelTestCase):
     def create_kernel_no_ard(self, **kwargs):
-        return MaternKernel(nu=0.5, **kwargs)
+        kernel = MaternKernel(nu=0.5, **kwargs)
+        kernel.initialize(lengthscale=5.0)
+        return kernel
 
     def create_kernel_ard(self, num_dims, **kwargs):
-        return MaternKernel(nu=0.5, ard_num_dims=num_dims, **kwargs)
+        kernel = MaternKernel(nu=0.5, ard_num_dims=num_dims, **kwargs)
+        kernel.initialize(lengthscale=5.0)
+        return kernel
 
 
 class TestMaternKernel(unittest.TestCase, BaseKernelTestCase):

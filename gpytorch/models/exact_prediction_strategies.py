@@ -37,7 +37,7 @@ class DefaultPredictionStrategy(object):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, root=None, inv_root=None):
         # Flatten the training labels
         train_shape = train_prior_dist.event_shape
-        train_labels = train_labels.view(*train_labels.shape[: -len(train_shape)], train_shape.numel())
+        train_labels = train_labels.reshape(*train_labels.shape[: -len(train_shape)], train_shape.numel())
 
         self.train_inputs = train_inputs
         self.train_prior_dist = train_prior_dist
@@ -168,7 +168,7 @@ class DefaultPredictionStrategy(object):
         small_system_rhs = targets - fant_mean - ftcm
         small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
-        schur_cholesky = psd_safe_cholesky(schur_complement, jitter=settings.cholesky_jitter.value())
+        schur_cholesky = psd_safe_cholesky(schur_complement)
         fant_cache_lower = torch.cholesky_solve(small_system_rhs, schur_cholesky)
 
         # Get "a", the new upper portion of the cache corresponding to the old training points.
@@ -205,7 +205,7 @@ class DefaultPredictionStrategy(object):
 
         lower_left = fant_train_covar.matmul(L_inverse)
         schur = fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1))
-        schur_root = psd_safe_cholesky(schur, jitter=settings.cholesky_jitter.value())
+        schur_root = psd_safe_cholesky(schur)
 
         # Form new root Z = [L 0; lower_left schur_root]
 
@@ -281,7 +281,7 @@ class DefaultPredictionStrategy(object):
         train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
-        mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+        mean_cache = train_train_covar.evaluate_kernel().inv_matmul(train_labels_offset).squeeze(-1)
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
@@ -629,7 +629,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
             torch.eye(train_factor.size(-1), dtype=train_factor.dtype, device=train_factor.device)
             - (train_factor.transpose(-1, -2) @ train_train_covar.inv_matmul(train_factor)) * constant
         )
-        return psd_safe_cholesky(inner_term)
+        return psd_safe_cholesky(inner_term, jitter=settings.cholesky_jitter.value())
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data

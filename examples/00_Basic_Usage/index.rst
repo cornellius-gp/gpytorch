@@ -17,6 +17,7 @@ Before checking these out, you may want to check out our `simple GP regression t
 
    Hyperparameters.ipynb
    Saving_and_Loading_Models.ipynb
+   Implementing_a_custom_Kernel.ipynb
 
 .. _simple GP regression tutorial:
   ../01_Exact_GPs/Simple_GP_Regression.ipynb
@@ -26,3 +27,6 @@ Before checking these out, you may want to check out our `simple GP regression t
 
 .. _Saving and Loading Models:
   Saving_and_Loading_Models.ipynb
+
+.. _Implementing a custom Kernel:
+  Implementing_a_custom_Kernel.ipynb

@@ -5,10 +5,12 @@ import math
 import torch
 from torch import sigmoid
 from torch.nn import Module
-from torch.nn.functional import softplus
 
 from .. import settings
 from ..utils.transforms import _get_inv_param_transform, inv_sigmoid, inv_softplus
+
+# define softplus here instead of using torch.nn.functional.softplus because the functional version can't be pickled
+softplus = torch.nn.Softplus()
 
 
 class Interval(Module):
@@ -34,10 +36,16 @@ class Interval(Module):
 
         self._transform = transform
         self._inv_transform = inv_transform
-        self._initial_value = initial_value
 
         if transform is not None and inv_transform is None:
             self._inv_transform = _get_inv_param_transform(transform)
+
+        if initial_value is not None:
+            if not isinstance(initial_value, torch.Tensor):
+                initial_value = torch.tensor(initial_value)
+            self._initial_value = self.inverse_transform(initial_value)
+        else:
+            self._initial_value = None
 
     def _apply(self, fn):
         self.lower_bound = fn(self.lower_bound)
@@ -198,9 +206,13 @@ class Positive(GreaterThan):
 
 
 class LessThan(Interval):
-    def __init__(self, upper_bound, transform=softplus, inv_transform=inv_softplus):
+    def __init__(self, upper_bound, transform=softplus, inv_transform=inv_softplus, initial_value=None):
         super().__init__(
-            lower_bound=-math.inf, upper_bound=upper_bound, transform=transform, inv_transform=inv_transform
+            lower_bound=-math.inf,
+            upper_bound=upper_bound,
+            transform=transform,
+            inv_transform=inv_transform,
+            initial_value=initial_value,
         )
 
     def transform(self, tensor):

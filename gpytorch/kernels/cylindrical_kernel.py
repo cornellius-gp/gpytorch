@@ -79,13 +79,13 @@ class CylindricalKernel(Kernel):
             self.register_prior(
                 "angular_weights_prior",
                 angular_weights_prior,
-                lambda: self.angular_weights,
-                lambda v: self._set_angular_weights(v),
+                lambda m: m.angular_weights,
+                lambda m, v: m._set_angular_weights(v),
             )
         if alpha_prior is not None:
-            self.register_prior("alpha_prior", alpha_prior, lambda: self.alpha, lambda v: self._set_alpha(v))
+            self.register_prior("alpha_prior", alpha_prior, lambda m: m.alpha, lambda m, v: m._set_alpha(v))
         if beta_prior is not None:
-            self.register_prior("beta_prior", beta_prior, lambda: self.beta, lambda v: self._set_beta(v))
+            self.register_prior("beta_prior", beta_prior, lambda m: m.beta, lambda m, v: m._set_beta(v))
 
     @property
     def angular_weights(self) -> torch.Tensor:

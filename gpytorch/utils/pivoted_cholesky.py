@@ -40,6 +40,12 @@ def pivoted_cholesky(matrix, max_iter, error_tol=None):
         for i, size in enumerate(batch_shape)
     ]
 
+    # Maybe log
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
+            f"Running Pivoted Cholesky on a {matrix.shape} RHS for {max_iter} iterations."
+        )
+
     m = 0
     while (m == 0) or (m < max_iter and torch.max(errors) > error_tol):
         permuted_diags = torch.gather(matrix_diag, -1, permutation[..., m:])

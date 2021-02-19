@@ -1,25 +1,39 @@
 #!/usr/bin/env python3
 
+import logging
+import warnings
+
 import torch
 
 
-class _feature_flag(object):
-    _state = False
+class _feature_flag:
+    r"""Base class for feature flag settings with global scope.
+    The default is set via the `_default` class attribute.
+    """
+
+    _default = False
+    _state = None
+
+    @classmethod
+    def is_default(cls):
+        return cls._state is None
 
     @classmethod
     def on(cls):
+        if cls.is_default():
+            return cls._default
         return cls._state
 
     @classmethod
     def off(cls):
-        return not cls._state
+        return not cls.on()
 
     @classmethod
     def _set_state(cls, state):
         cls._state = state
 
     def __init__(self, state=True):
-        self.prev = self.__class__.on()
+        self.prev = self.__class__._state
         self.state = state
 
     def __enter__(self):
@@ -30,7 +44,7 @@ class _feature_flag(object):
         return False
 
 
-class _value_context(object):
+class _value_context:
     _global_value = None
 
     @classmethod
@@ -53,7 +67,7 @@ class _value_context(object):
         return False
 
 
-class _dtype_value_context(object):
+class _dtype_value_context:
     _global_float_value = None
     _global_double_value = None
     _global_half_value = None
@@ -89,7 +103,9 @@ class _dtype_value_context(object):
         self._instance_half_value = half
 
     def __enter__(self,):
-        self.__class__._set_value(self._instance_float_value, self._instance_double_value, self._instance_half_value)
+        self.__class__._set_value(
+            self._instance_float_value, self._instance_double_value, self._instance_half_value,
+        )
 
     def __exit__(self, *args):
         self.__class__._set_value(self._orig_float_value, self._orig_double_value, self._orig_half_value)
@@ -116,7 +132,7 @@ class _fast_covar_root_decomposition(_feature_flag):
     size of the low rank decomposition used).
     """
 
-    _state = True
+    _default = True
 
 
 class _fast_log_prob(_feature_flag):
@@ -143,7 +159,7 @@ class _fast_log_prob(_feature_flag):
         https://arxiv.org/pdf/1809.11165.pdf
     """
 
-    _state = True
+    _default = True
 
 
 class _fast_solves(_feature_flag):
@@ -158,7 +174,7 @@ class _fast_solves(_feature_flag):
         This may be infeasible for GPs with structure covariance matrices.
     """
 
-    _state = True
+    _default = True
 
 
 class skip_posterior_variances(_feature_flag):
@@ -169,7 +185,7 @@ class skip_posterior_variances(_feature_flag):
     the covariance matrix when it is not needed, speeding up computations.
     """
 
-    _state = False
+    _default = False
 
 
 class detach_test_caches(_feature_flag):
@@ -180,7 +196,7 @@ class detach_test_caches(_feature_flag):
     then you must disable this.
     """
 
-    _state = True
+    _default = True
 
 
 class deterministic_probes(_feature_flag):
@@ -193,12 +209,11 @@ class deterministic_probes(_feature_flag):
     if multiple independent GP models are being trained in the same context (i.e., it works fine with a single GP model)
     """
 
-    _state = False
     probe_vectors = None
 
     @classmethod
     def _set_state(cls, state):
-        cls._state = state
+        super()._set_state(state)
         cls.probe_vectors = None
 
 
@@ -210,7 +225,7 @@ class debug(_feature_flag):
     Cons: possibility of supplying incorrect data, model accidentially in wrong mode
     """
 
-    _state = True
+    _default = True
 
 
 class fast_pred_var(_feature_flag):
@@ -242,15 +257,15 @@ class fast_pred_var(_feature_flag):
     def __init__(self, state=True, num_probe_vectors=1):
         self.orig_value = self.__class__.num_probe_vectors()
         self.value = num_probe_vectors
-        super(fast_pred_var, self).__init__(state)
+        super().__init__(state)
 
     def __enter__(self):
         self.__class__._set_num_probe_vectors(self.value)
-        super(fast_pred_var, self).__enter__()
+        super().__enter__()
 
     def __exit__(self, *args):
         self.__class__._set_num_probe_vectors(self.orig_value)
-        return super(fast_pred_var, self).__exit__()
+        return super().__exit__()
 
 
 class fast_pred_samples(_feature_flag):
@@ -269,10 +284,10 @@ class fast_pred_samples(_feature_flag):
         https://arxiv.org/pdf/1803.06058.pdf
     """
 
-    pass
+    _default = False
 
 
-class fast_computations(object):
+class fast_computations:
     r"""
     This feature flag controls whether or not to use fast approximations to various mathematical
     functions used in GP inference.
@@ -360,7 +375,7 @@ class lazily_evaluate_kernels(_feature_flag):
     training and test data.
     """
 
-    _state = True
+    _default = True
 
 
 class max_eager_kernel_size(_value_context):
@@ -394,13 +409,25 @@ class min_variance(_dtype_value_context):
     _global_half_value = 1e-3
 
 
-class cholesky_jitter(_value_context):
+class cholesky_jitter(_dtype_value_context):
     """
     The jitter value passed to `psd_safe_cholesky` when using cholesky solves.
     Default: None
     """
 
-    _global_value = None
+    _global_float_value = 1e-6
+    _global_double_value = 1e-8
+
+    @classmethod
+    def value(cls, dtype=None):
+        if dtype is None:
+            # Deprecated in 1.4: remove in 1.5
+            warnings.warn(
+                "cholesky_jitter is now a _dtype_value_context and should be called with a dtype argument",
+                DeprecationWarning,
+            )
+            return cls._global_float_value
+        return super().value(dtype=dtype)
 
 
 class cg_tolerance(_value_context):
@@ -418,7 +445,7 @@ class ciq_samples(_feature_flag):
     Whether to draw samples using CIQ or not
     """
 
-    _state = False
+    _default = False
 
 
 class preconditioner_tolerance(_value_context):
@@ -442,7 +469,7 @@ class eval_cg_tolerance(_value_context):
 
 
 class _use_eval_tolerance(_feature_flag):
-    _state = False
+    _default = False
 
 
 class max_cholesky_size(_value_context):
@@ -483,7 +510,6 @@ class max_lanczos_quadrature_iterations(_value_context):
     Lanczos quadrature. This is ONLY used for log determinant calculations and
     computing Tr(K^{-1}dK/d\theta)
     """
-
     _global_value = 20
 
 
@@ -494,7 +520,7 @@ class memory_efficient(_feature_flag):
     Cons: slower on GPUs with < 10000 inducing points
     """
 
-    _state = False
+    _default = False
 
 
 class min_preconditioning_size(_value_context):
@@ -564,7 +590,7 @@ class prior_mode(_feature_flag):
     This allows evaluating any Exact GP model in prior mode, even it if has training data / targets.
     """
 
-    _state = False
+    _default = False
 
 
 class skip_logdet_forward(_feature_flag):
@@ -590,7 +616,7 @@ class skip_logdet_forward(_feature_flag):
     this setting may give your model a performance boost.
     """
 
-    _state = False
+    _default = False
 
 
 class terminate_cg_by_size(_feature_flag):
@@ -598,7 +624,7 @@ class terminate_cg_by_size(_feature_flag):
     If set to true, cg will terminate after n iterations for an n x n matrix.
     """
 
-    _state = False
+    _default = False
 
 
 class trace_mode(_feature_flag):
@@ -614,7 +640,7 @@ class trace_mode(_feature_flag):
     is fixed.
     """
 
-    _state = False
+    _default = False
 
 
 class tridiagonal_jitter(_value_context):
@@ -635,4 +661,23 @@ class use_toeplitz(_feature_flag):
     Cons: slower on GPUs with < 10000 inducing points
     """
 
-    _state = True
+    _default = True
+
+
+class verbose_linalg(_feature_flag):
+    """
+    Print out information whenever running an expesnive linear algebra routine (e.g. Cholesky, CG, Lanczos, CIQ, etc.)
+    """
+
+    _default = False
+
+    # Create a global logger
+    logger = logging.getLogger("LinAlg (Verbose)")
+    logger.setLevel(logging.DEBUG)
+
+    # Output logging results to the stdout stream
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)

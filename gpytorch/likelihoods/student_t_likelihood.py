@@ -13,6 +13,17 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
     It has two learnable parameters: :math:`\nu` - the degrees of freedom, and
     :math:`\sigma^2` - the noise
 
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :type batch_shape: torch.Size, optional
+    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
+    :type noise_prior: ~gpytorch.priors.Prior, optional
+    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
+    :type noise_constraint: ~gpytorch.constraints.Interval, optional
+    :param deg_free_prior: Prior for deg_free parameter :math:`\nu`.
+    :type deg_free_prior: ~gpytorch.priors.Prior, optional
+    :param deg_free_constraint: Constraint for deg_free parameter :math:`\nu`.
+    :type deg_free_constraint: ~gpytorch.constraints.Interval, optional
+
     :var torch.Tensor deg_free: :math:`\nu` parameter (degrees of freedom)
     :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
     """
@@ -37,14 +48,12 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
         self.raw_noise = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
 
         if noise_prior is not None:
-            self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
+            self.register_prior("noise_prior", noise_prior, lambda m: m.noise, lambda m, v: m._set_noise(v))
 
         self.register_constraint("raw_noise", noise_constraint)
 
         if deg_free_prior is not None:
-            self.register_prior(
-                "deg_free_prior", deg_free_prior, lambda: self.deg_free, lambda v: self._set_deg_free(v)
-            )
+            self.register_prior("deg_free_prior", deg_free_prior, lambda m: m.deg_free, lambda m, v: m._set_deg_free(v))
 
         self.register_constraint("raw_deg_free", deg_free_constraint)
 

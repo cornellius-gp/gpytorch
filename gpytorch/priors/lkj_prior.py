@@ -7,6 +7,7 @@ import torch
 from torch.distributions import constraints
 from torch.nn import Module as TModule
 
+from .. import settings
 from ..utils.cholesky import psd_safe_cholesky
 from .prior import Prior
 
@@ -153,6 +154,9 @@ def _is_valid_correlation_matrix(Sigma, tol=1e-6):
             mode, all matrices in the batch need to be valid correlation matrices)
 
     """
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {Sigma.shape}.")
+
     evals, _ = torch.symeig(Sigma, eigenvectors=False)
     if not torch.all(evals >= -tol):
         return False
