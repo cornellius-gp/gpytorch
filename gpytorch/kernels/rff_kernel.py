@@ -6,8 +6,8 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-from ..lazy import LowRankRootLazyTensor, MatmulLazyTensor
-from ..models.exact_prediction_strategies import RFFPredictionStrategy
+from ..lazy import LowRankRootLazyTensor, MatmulLazyTensor, RootLazyTensor
+from ..models import exact_prediction_strategies
 from .kernel import Kernel
 
 
@@ -128,7 +128,11 @@ class RFFKernel(Kernel):
         if diag:
             return (z1 * z2).sum(-1) / D
         if x1_eq_x2:
-            return LowRankRootLazyTensor(z1 / math.sqrt(D))
+            # Exploit low rank structure, if there are fewer features than data points
+            if z1.size(-1) < z2.size(-2):
+                return LowRankRootLazyTensor(z1 / math.sqrt(D))
+            else:
+                return RootLazyTensor(z1 / math.sqrt(D))
         else:
             return MatmulLazyTensor(z1 / D, z2.transpose(-1, -2))
 
@@ -144,4 +148,6 @@ class RFFKernel(Kernel):
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
         # Allow for fast sampling
-        return RFFPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
+        return exact_prediction_strategies.RFFPredictionStrategy(
+            train_inputs, train_prior_dist, train_labels, likelihood
+        )

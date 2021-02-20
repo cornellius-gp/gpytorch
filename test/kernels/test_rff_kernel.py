@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+from unittest.mock import MagicMock, patch
 
 import torch
 
@@ -14,7 +15,7 @@ class TestModel(gpytorch.models.ExactGP):
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
         super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ZeroMean()
-        self.covar_module = gpytorch.kernels.ScaleKernel(RFFKernel(num_samples=5))
+        self.covar_module = gpytorch.kernels.ScaleKernel(RFFKernel(num_samples=50))
 
     def forward(self, input):
         mean = self.mean_module(input)
@@ -23,6 +24,8 @@ class TestModel(gpytorch.models.ExactGP):
 
 
 class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
+    seed = 0
+
     def create_kernel_no_ard(self, **kwargs):
         return RFFKernel(num_samples=5, **kwargs)
 
@@ -79,10 +82,52 @@ class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
 
         self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
 
-    def test_kernel_output(self):
+    def test_kernel_output_fewer_features_than_data(self):
         train_x = torch.randn(1000, 3)
         train_y = torch.randn(1000)
+        test_x = torch.randn(500, 3)
         model = TestModel(train_x, train_y)
+
+        # Make sure that the prior kernel is the correct type
+        model.train()
+        output = model(train_x).lazy_covariance_matrix.evaluate_kernel()
+        self.assertIsInstance(output, gpytorch.lazy.LowRankRootLazyTensor)
+
+        # Make sure that the prior predictive kernel is the correct type
         model.train()
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
         self.assertIsInstance(output, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)
+
+        # Make sure we're calling the correct prediction strategy
+        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.RFFPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.RFFPredictionStrategy", new=_wrapped_ps) as ps_mock:
+            model.eval()
+            output = model.likelihood(model(test_x))
+            _ = output.mean + output.variance  # Compute something to break through any lazy evaluations
+            self.assertTrue(ps_mock.called)
+
+    def test_kernel_output_more_features_than_data(self):
+        train_x = torch.randn(50, 3)
+        train_y = torch.randn(50)
+        test_x = torch.randn(500, 3)
+        model = TestModel(train_x, train_y)
+
+        # Make sure that the prior kernel is the correct type
+        model.train()
+        output = model(train_x).lazy_covariance_matrix.evaluate_kernel()
+        self.assertIsInstance(output, gpytorch.lazy.RootLazyTensor)
+        self.assertNotIsInstance(output, gpytorch.lazy.LowRankRootLazyTensor)
+
+        # Make sure that the prior predictive kernel is the correct type
+        model.train()
+        output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
+        self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
+        self.assertNotIsInstance(output, gpytorch.lazy.LowRankRootAddedDiagLazyTensor)
+
+        # Make sure we're calling the correct prediction strategy
+        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.RFFPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.RFFPredictionStrategy", new=_wrapped_ps) as ps_mock:
+            model.eval()
+            output = model.likelihood(model(test_x))
+            _ = output.mean + output.variance  # Compute something to break through any lazy evaluations
+            self.assertTrue(ps_mock.called)

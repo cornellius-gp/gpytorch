@@ -63,8 +63,14 @@ class MulLazyTensor(LazyTensor):
         res = res.squeeze(-1) if is_vector else res
         return res
 
-    def _mul_constant(self, other):
-        return self.__class__(self.left_lazy_tensor._mul_constant(other), self.right_lazy_tensor)
+    def _mul_constant(self, constant):
+        if constant > 0:
+            res = self.__class__(self.left_lazy_tensor._mul_constant(constant), self.right_lazy_tensor)
+        else:
+            # Negative constants can screw up the root_decomposition
+            # So we'll do a standard _mul_constant
+            res = super()._mul_constant(constant)
+        return res
 
     def _quad_form_derivative(self, left_vecs, right_vecs):
         if left_vecs.ndimension() == 1:
