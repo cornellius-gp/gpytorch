@@ -20,6 +20,11 @@ from gpytorch.test.lazy_tensor_test_case import LazyTensorTestCase
 class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestCase):
     # this lazy tensor has an explicit inverse so we don't need to run these
     skip_slq_tests = True
+    tolerances = {
+        **LazyTensorTestCase.tolerances,
+        # back-propagating through symeig (used in Kronecker algebra) yields less precise gradients
+        "grad": {"rtol": 0.03, "atol": 1e-4},
+    }
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
