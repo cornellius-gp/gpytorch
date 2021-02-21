@@ -22,8 +22,9 @@ class TestKroneckerProductAddedDiagLazyTensor(unittest.TestCase, LazyTensorTestC
     skip_slq_tests = True
     tolerances = {
         **LazyTensorTestCase.tolerances,
-        # back-propagating through symeig (used in Kronecker algebra) yields less precise gradients
+        # symeig (used in Kronecker algebra) yields less precise solves
         "grad": {"rtol": 0.03, "atol": 1e-4},
+        "inv_matmul": {"rtol": 0.02, "atol": 1e-4},
     }
 
     def create_lazy_tensor(self):

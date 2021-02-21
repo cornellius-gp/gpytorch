@@ -22,6 +22,12 @@ def _ensure_symmetric_grad(grad):
 
 
 class RectangularLazyTensorTestCase(BaseTestCase):
+
+    tolerances = {
+        "matmul": {"rtol": 1e-3},
+        "transpose": {"rtol": 1e-4, "atol": 1e-5},
+    }
+
     @abstractmethod
     def create_lazy_tensor(self):
         raise NotImplementedError()
@@ -44,7 +50,7 @@ class RectangularLazyTensorTestCase(BaseTestCase):
         actual.backward(gradient=grad)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-3)
+                self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["matmul"])
 
     def test_add(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -264,7 +270,7 @@ class RectangularLazyTensorTestCase(BaseTestCase):
             for i, j in combinations(range(lazy_tensor.dim() - 2), 2):
                 res = lazy_tensor.transpose(i, j).evaluate()
                 actual = evaluated.transpose(i, j)
-                self.assertAllClose(res, actual, rtol=1e-4, atol=1e-5)
+                self.assertAllClose(res, actual, **self.tolerances["transpose"])
 
 
 class LazyTensorTestCase(RectangularLazyTensorTestCase):
@@ -273,6 +279,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     should_call_cg = True
     should_call_lanczos = True
     tolerances = {
+        **RectangularLazyTensorTestCase.tolerances,
         "cholesky": {"rtol": 1e-3, "atol": 1e-5},
         "diag": {"rtol": 1e-2, "atol": 1e-5},
         "inv_matmul": {"rtol": 0.02, "atol": 1e-5},
