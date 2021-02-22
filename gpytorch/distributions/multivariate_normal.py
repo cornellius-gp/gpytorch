@@ -42,16 +42,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             self.__unbroadcasted_scale_tril = None
             self._validate_args = validate_args
             batch_shape = _mul_broadcast_shape(self.loc.shape[:-1], covariance_matrix.shape[:-2])
-            if not isinstance(self._covar, RootLazyTensor):
-                should_have_separate_event = False
-            else:
-                should_have_separate_event = True
-            if should_have_separate_event:
-                should_have_separate_event = self._covar.root.shape[-1] > self._covar.root.shape[-2]
-            if not should_have_separate_event:
-                event_shape = self.loc.shape[-1:]
-            else:
-                event_shape = self._covar.root.shape[-1:]
+
+            event_shape = self.loc.shape[-1:]
 
             # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
@@ -81,6 +73,20 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         new_covar = self._covar.expand(torch.Size(batch_size) + self._covar.shape[-2:])
         res = self.__class__(new_loc, new_covar)
         return res
+
+    def _extended_shape(self, sample_shape=torch.Size()):
+        """
+        Returns the size of the sample returned by the distribution, given
+        a `sample_shape`. Note, that the batch and event shapes of a distribution
+        instance are fixed at the time of construction. If this is empty, the
+        returned shape is upcast to (1,).
+
+        Args:
+            sample_shape (torch.Size): the size of the sample to be drawn.
+        """
+        if not isinstance(sample_shape, torch.Size):
+            sample_shape = torch.Size(sample_shape)
+        return sample_shape + self._batch_shape + self.base_sample_shape
 
     def confidence_region(self):
         """
@@ -114,6 +120,19 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             base_samples = _standard_normal(shape, dtype=self.loc.dtype, device=self.loc.device)
         return base_samples
 
+    @property
+    def base_sample_shape(self):
+        """
+        Returns the shape of a base sample (without batching) that is used to
+        generate a single sample.
+        """
+        base_sample_shape = self.event_shape
+        if isinstance(self.lazy_covariance_matrix, RootLazyTensor):
+            if self.lazy_covariance_matrix.root.shape[-1] > self.lazy_covariance_matrix.root.shape[-2]:
+                base_sample_shape = self.lazy_covariance_matrix.root.shape[-1:]
+
+        return base_sample_shape
+
     @lazy_property
     def lazy_covariance_matrix(self):
         """
@@ -146,7 +165,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
                     1,
                 )
 
-        # Get log determininat and first part of quadratic form
+        # Get log determininant and first part of quadratic form
         covar = covar.evaluate_kernel()
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 

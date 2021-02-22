@@ -38,12 +38,9 @@ class DefaultPredictionStrategy(object):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, root=None, inv_root=None):
         # Get training shape
         self._train_shape = train_prior_dist.event_shape
-        # Ensure that the event_shape actually matches the number of inputs
-        if self._train_shape[0] != train_inputs[0].size(-2):
-            self._train_shape = torch.Size([train_inputs[0].size(-2), *self._train_shape[1:]])
 
         # Flatten the training labels
-        train_labels = train_labels.reshape(*train_labels.shape[: -len(self.train_shape)], self.num_train)
+        train_labels = train_labels.reshape(*train_labels.shape[: -len(self.train_shape)], self._train_shape.numel())
 
         self.train_inputs = train_inputs
         self.train_prior_dist = train_prior_dist
