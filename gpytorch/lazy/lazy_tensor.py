@@ -1423,16 +1423,12 @@ class LazyTensor(ABC):
 
         if method == "lanczos":
             # check to see if we have already run lanczos for a diagonalization
-            diagonalization = None
             try:
-                diagonalization = get_from_cache(self, "diagonalization")
-            except CachingError:
-                pass
-
-            if diagonalization is not None:
-                evals, evecs = diagonalization
+                evals, evecs = get_from_cache(self, "diagonalization")
                 F = evecs * evals.clamp(1e-7).sqrt().unsqueeze(-2)
                 return RootLazyTensor(F)
+            except CachingError:
+                pass                        
 
             # if not run standard lanczos
             return RootLazyTensor(self._root_decomposition())
@@ -1477,16 +1473,12 @@ class LazyTensor(ABC):
             )
 
         # check to see if we have already run lanczos for a diagonalization
-        diagonalization = None
         try:
-            diagonalization = get_from_cache(self, "diagonalization")
-        except CachingError:
-            pass
-
-        if diagonalization is not None:
-            evals, evecs = diagonalization
+            evals, evecs = get_from_cache(self, "diagonalization")
             F = evecs * evals.clamp(1e-7).sqrt().reciprocal().unsqueeze(-2)
             return RootLazyTensor(F)
+        except CachingError:
+            pass
 
         # if not run standard lanczos
         if initial_vectors is not None:
