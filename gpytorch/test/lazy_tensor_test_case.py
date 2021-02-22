@@ -22,6 +22,12 @@ def _ensure_symmetric_grad(grad):
 
 
 class RectangularLazyTensorTestCase(BaseTestCase):
+
+    tolerances = {
+        "matmul": {"rtol": 1e-3},
+        "transpose": {"rtol": 1e-4, "atol": 1e-5},
+    }
+
     @abstractmethod
     def create_lazy_tensor(self):
         raise NotImplementedError()
@@ -44,7 +50,7 @@ class RectangularLazyTensorTestCase(BaseTestCase):
         actual.backward(gradient=grad)
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-3)
+                self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["matmul"])
 
     def test_add(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -264,7 +270,7 @@ class RectangularLazyTensorTestCase(BaseTestCase):
             for i, j in combinations(range(lazy_tensor.dim() - 2), 2):
                 res = lazy_tensor.transpose(i, j).evaluate()
                 actual = evaluated.transpose(i, j)
-                self.assertAllClose(res, actual, rtol=1e-4, atol=1e-5)
+                self.assertAllClose(res, actual, **self.tolerances["transpose"])
 
 
 class LazyTensorTestCase(RectangularLazyTensorTestCase):
@@ -272,6 +278,22 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     skip_slq_tests = False
     should_call_cg = True
     should_call_lanczos = True
+    tolerances = {
+        **RectangularLazyTensorTestCase.tolerances,
+        "cholesky": {"rtol": 1e-3, "atol": 1e-5},
+        "diag": {"rtol": 1e-2, "atol": 1e-5},
+        "inv_matmul": {"rtol": 0.02, "atol": 1e-5},
+        "inv_quad": {"rtol": 0.01, "atol": 0.01},
+        "logdet": {"rtol": 0.2, "atol": 0.03},
+        "prod": {"rtol": 1e-2, "atol": 1e-2},
+        "grad": {"rtol": 0.03, "atol": 1e-5},
+        "root_decomposition": {"rtol": 0.05},
+        "root_inv_decomposition": {"rtol": 0.05, "atol": 0.02},
+        "sample": {"rtol": 0.3, "atol": 0.3},
+        "sqrt_inv_matmul": {"rtol": 1e-4, "atol": 1e-3},
+        "symeig": {"rtol": 1e-4, "atol": 1e-3},
+        "svd": {"rtol": 1e-4, "atol": 1e-3},
+    }
 
     def _test_inv_matmul(self, rhs, lhs=None, cholesky=False):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
@@ -296,7 +318,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 else:
                     res = lazy_tensor.inv_matmul(rhs)
                     actual = evaluated.inverse().matmul(rhs_copy)
-                self.assertAllClose(res, actual, rtol=0.02, atol=1e-5)
+                self.assertAllClose(res, actual, **self.tolerances["inv_matmul"])
 
                 # Perform backward pass
                 grad = torch.randn_like(res)
@@ -304,10 +326,10 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 actual.backward(gradient=grad)
                 for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
                     if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                        self.assertAllClose(arg.grad, arg_copy.grad, rtol=0.03, atol=1e-5)
-                self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=0.03, atol=1e-5)
+                        self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["grad"])
+                self.assertAllClose(rhs.grad, rhs_copy.grad, **self.tolerances["grad"])
                 if lhs is not None:
-                    self.assertAllClose(lhs.grad, lhs_copy.grad, rtol=0.03, atol=1e-5)
+                    self.assertAllClose(lhs.grad, lhs_copy.grad, **self.tolerances["grad"])
 
             # Determine if we've called CG or not
             if not cholesky and self.__class__.should_call_cg:
@@ -342,8 +364,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 [torch.logdet(flattened_evaluated[i]).unsqueeze(0) for i in range(lazy_tensor.batch_shape.numel())]
             ).view(lazy_tensor.batch_shape)
 
-            self.assertAllClose(res_inv_quad, actual_inv_quad, rtol=0.01, atol=0.01)
-            self.assertAllClose(res_logdet, actual_logdet, rtol=0.2, atol=0.03)
+            self.assertAllClose(res_inv_quad, actual_inv_quad, **self.tolerances["inv_quad"])
+            self.assertAllClose(res_logdet, actual_logdet, **self.tolerances["logdet"])
 
             if not cholesky and self.__class__.should_call_cg:
                 self.assertTrue(linear_cg_mock.called)
@@ -380,7 +402,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             actual = evaluated.clone().detach()
             for i in range(other_diag.size(-1)):
                 actual[..., i, i] = actual[..., i, i] + other_diag[..., i]
-            self.assertAllClose(res, actual, rtol=1e-2, atol=1e-5)
+            self.assertAllClose(res, actual, **self.tolerances["diag"])
 
     def test_cholesky(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -388,7 +410,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         for upper in (False, True):
             res = lazy_tensor.cholesky(upper=upper).evaluate()
             actual = torch.cholesky(evaluated, upper=upper)
-            self.assertAllClose(res, actual, rtol=1e-3, atol=1e-5)
+            self.assertAllClose(res, actual, **self.tolerances["cholesky"])
             # TODO: Check gradients
 
     def test_diag(self):
@@ -398,7 +420,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         res = lazy_tensor.diag()
         actual = evaluated.diagonal(dim1=-2, dim2=-1)
         actual = actual.view(*lazy_tensor.batch_shape, -1)
-        self.assertAllClose(res, actual, rtol=1e-2, atol=1e-5)
+        self.assertAllClose(res, actual, **self.tolerances["diag"])
 
     def test_inv_matmul_vector(self, cholesky=False):
         lazy_tensor = self.create_lazy_tensor()
@@ -477,9 +499,9 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             evaluated = self.evaluate_lazy_tensor(lazy_tensor)
 
             if lazy_tensor.ndimension() > 2:
-                self.assertAllClose(lazy_tensor.prod(-3).evaluate(), evaluated.prod(-3), atol=1e-2, rtol=1e-2)
+                self.assertAllClose(lazy_tensor.prod(-3).evaluate(), evaluated.prod(-3), **self.tolerances["prod"])
             if lazy_tensor.ndimension() > 3:
-                self.assertAllClose(lazy_tensor.prod(-4).evaluate(), evaluated.prod(-4), atol=1e-2, rtol=1e-2)
+                self.assertAllClose(lazy_tensor.prod(-4).evaluate(), evaluated.prod(-4), **self.tolerances["prod"])
 
     def test_root_decomposition(self, cholesky=False):
         _wrapped_lanczos = MagicMock(wraps=gpytorch.utils.lanczos.lanczos_tridiag)
@@ -490,7 +512,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 root_approx = lazy_tensor.root_decomposition()
                 res = root_approx.matmul(test_mat)
                 actual = lazy_tensor.matmul(test_mat)
-                self.assertAllClose(res, actual, rtol=0.05)
+                self.assertAllClose(res, actual, **self.tolerances["root_decomposition"])
 
             # Make sure that we're calling the correct function
             if not cholesky and self.__class__.should_call_lanczos:
@@ -509,7 +531,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
         res = root_approx.matmul(test_mat)
         actual = lazy_tensor.inv_matmul(test_mat)
-        self.assertAllClose(res, actual, rtol=0.05, atol=0.02)
+        self.assertAllClose(res, actual, **self.tolerances["root_inv_decomposition"])
 
     def test_sample(self):
         if self.__class__.should_test_sample:
@@ -518,7 +540,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
             samples = lazy_tensor.zero_mean_mvn_samples(50000)
             sample_covar = samples.unsqueeze(-1).matmul(samples.unsqueeze(-2)).mean(0)
-            self.assertAllClose(sample_covar, evaluated, rtol=0.3, atol=0.3)
+            self.assertAllClose(sample_covar, evaluated, **self.tolerances["sample"])
 
     def test_sqrt_inv_matmul(self):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
@@ -544,8 +566,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         inv_quad_actual = (lhs_copy @ matrix_inv_root).pow(2).sum(dim=-1)
 
         # Check forward pass
-        self.assertAllClose(sqrt_inv_matmul_res, sqrt_inv_matmul_actual, rtol=1e-4, atol=1e-3)
-        self.assertAllClose(inv_quad_res, inv_quad_actual, rtol=1e-4, atol=1e-3)
+        self.assertAllClose(sqrt_inv_matmul_res, sqrt_inv_matmul_actual, **self.tolerances["sqrt_inv_matmul"])
+        self.assertAllClose(inv_quad_res, inv_quad_actual, **self.tolerances["sqrt_inv_matmul"])
 
         # Perform backward pass
         sqrt_inv_matmul_grad = torch.randn_like(sqrt_inv_matmul_res)
@@ -554,11 +576,11 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         ((sqrt_inv_matmul_actual * sqrt_inv_matmul_grad).sum() + (inv_quad_actual * inv_quad_grad).sum()).backward()
 
         # Check grads
-        self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=1e-4, atol=1e-3)
-        self.assertAllClose(lhs.grad, lhs_copy.grad, rtol=1e-4, atol=1e-3)
+        self.assertAllClose(rhs.grad, rhs_copy.grad, **self.tolerances["sqrt_inv_matmul"])
+        self.assertAllClose(lhs.grad, lhs_copy.grad, **self.tolerances["sqrt_inv_matmul"])
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
+                self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["sqrt_inv_matmul"])
 
     def test_sqrt_inv_matmul_no_lhs(self):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
@@ -581,7 +603,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         sqrt_inv_matmul_actual = matrix_inv_root @ rhs_copy
 
         # Check forward pass
-        self.assertAllClose(sqrt_inv_matmul_res, sqrt_inv_matmul_actual, rtol=1e-4, atol=1e-3)
+        self.assertAllClose(sqrt_inv_matmul_res, sqrt_inv_matmul_actual, **self.tolerances["sqrt_inv_matmul"])
 
         # Perform backward pass
         sqrt_inv_matmul_grad = torch.randn_like(sqrt_inv_matmul_res)
@@ -589,10 +611,10 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         ((sqrt_inv_matmul_actual * sqrt_inv_matmul_grad).sum()).backward()
 
         # Check grads
-        self.assertAllClose(rhs.grad, rhs_copy.grad, rtol=1e-4, atol=1e-3)
+        self.assertAllClose(rhs.grad, rhs_copy.grad, **self.tolerances["sqrt_inv_matmul"])
         for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
             if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
+                self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["sqrt_inv_matmul"])
 
     def test_symeig(self):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
@@ -612,9 +634,9 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         evecs_actual = evecs_actual.to(dtype=evaluated.dtype)
 
         # Check forward pass
-        self.assertAllClose(evals, evals_actual, rtol=1e-4, atol=1e-3)
+        self.assertAllClose(evals, evals_actual, **self.tolerances["symeig"])
         lt_from_eigendecomp = evecs @ torch.diag_embed(evals) @ evecs.transpose(-1, -2)
-        self.assertAllClose(lt_from_eigendecomp, evaluated, rtol=1e-4, atol=1e-3)
+        self.assertAllClose(lt_from_eigendecomp, evaluated, **self.tolerances["symeig"])
 
         # if there are repeated evals, we'll skip checking the eigenvectors for those
         any_evals_repeated = False
@@ -622,7 +644,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         for idx in itertools.product(*[range(b) for b in evals_actual.shape[:-1]]):
             eval_i = evals_actual[idx]
             if torch.unique(eval_i.detach()).shape[-1] == eval_i.shape[-1]:  # detach to avoid pytorch/pytorch#41389
-                self.assertAllClose(evecs_abs[idx], evecs_actual_abs[idx], rtol=1e-4, atol=1e-3)
+                self.assertAllClose(evecs_abs[idx], evecs_actual_abs[idx], **self.tolerances["symeig"])
             else:
                 any_evals_repeated = True
 
@@ -635,7 +657,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         if not any_evals_repeated:
             for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
                 if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                    self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
+                    self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["symeig"])
 
         # Test with eigenvectors=False
         _, evecs = lazy_tensor.symeig(eigenvectors=False)
@@ -663,9 +685,9 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         V_actual = V_actual.to(dtype=evaluated.dtype)
 
         # Check forward pass
-        self.assertAllClose(S, S_actual, rtol=1e-4, atol=1e-3)
+        self.assertAllClose(S, S_actual, **self.tolerances["svd"])
         lt_from_svd = U @ torch.diag_embed(S) @ V.transpose(-1, -2)
-        self.assertAllClose(lt_from_svd, evaluated, rtol=1e-4, atol=1e-3)
+        self.assertAllClose(lt_from_svd, evaluated, **self.tolerances["svd"])
 
         # if there are repeated singular values, we'll skip checking the singular vectors
         U_abs, U_actual_abs = U.abs(), U_actual.abs()
@@ -674,8 +696,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         for idx in itertools.product(*[range(b) for b in S_actual.shape[:-1]]):
             Si = S_actual[idx]
             if torch.unique(Si.detach()).shape[-1] == Si.shape[-1]:  # detach to avoid pytorch/pytorch#41389
-                self.assertAllClose(U_abs[idx], U_actual_abs[idx], rtol=1e-4, atol=1e-3)
-                self.assertAllClose(V_abs[idx], V_actual_abs[idx], rtol=1e-4, atol=1e-3)
+                self.assertAllClose(U_abs[idx], U_actual_abs[idx], **self.tolerances["svd"])
+                self.assertAllClose(V_abs[idx], V_actual_abs[idx], **self.tolerances["svd"])
             else:
                 any_svals_repeated = True
 
@@ -688,4 +710,4 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         if not any_svals_repeated:
             for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
                 if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                    self.assertAllClose(arg.grad, arg_copy.grad, rtol=1e-4, atol=1e-3)
+                    self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["svd"])
