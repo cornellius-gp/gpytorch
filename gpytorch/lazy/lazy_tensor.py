@@ -11,6 +11,7 @@ from torch import Tensor
 import gpytorch
 
 from .. import settings, utils
+from ..functions._diagonalization import Diagonalization
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad import InvQuad
 from ..functions._inv_quad_log_det import InvQuadLogDet
@@ -1331,6 +1332,11 @@ class LazyTensor(ABC):
 
     @cached(name="diagonalization")
     def diagonalization(self, method: Optional[str] = None):
+        """
+        Returns a (usually partial) diagonalization of a symmetric PSD matrix.
+        Options are either "lanczos" or "symeig". "lanczos" runs Lanczos while
+        "symeig" runs torch.symeig.
+        """
         if not self.is_square:
             raise RuntimeError(
                 "diagonalization only operates on (batches of) square (symmetric) LazyTensors. "
@@ -1344,19 +1350,20 @@ class LazyTensor(ABC):
                 method = "lanczos"
 
         if method == "lanczos":
-            # from ..utils.lanczos import lanczos_tridiag, lanczos_tridiag_to_diag
             from ..lazy import lazify
 
-            qmat, tmat = gpytorch.utils.lanczos.lanczos_tridiag(
-                self.matmul,
-                max_iter=settings.max_root_decomposition_size.value(),
-                dtype=self.dtype,
-                device=self.device,
-                matrix_shape=self.shape[-2:],
-                batch_shape=self.batch_shape,
+            func = Diagonalization()
+            evals, evecs = func.apply(
+                self.representation_tree(),
+                self.device,
+                self.dtype,
+                self.matrix_shape,
+                self._root_decomposition_size(),
+                self.batch_shape,
+                *self.representation(),
             )
-            evals, q_t = gpytorch.utils.lanczos.lanczos_tridiag_to_diag(tmat)
-            evecs = lazify(qmat @ q_t)
+            evecs = lazify(evecs)
+            print("shape here!: ", evecs.shape)
 
         elif method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
