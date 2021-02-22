@@ -308,6 +308,14 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         # check that an event shape of base samples fails
         self.assertRaises(RuntimeError, dist.rsample, torch.Size((16,)), base_samples=torch.randn(16, 5))
 
+        # check that the proper event shape of base samples is okay for
+        # a non root lt
+        nonlazy_square_a = lazify(lazy_square_a.evaluate())
+        dist = MultivariateNormal(torch.zeros(5), nonlazy_square_a)
+
+        samples = dist.rsample(torch.Size((16,)), base_samples=torch.randn(16, 5))
+        self.assertEqual(samples.shape, torch.Size((16, 5)))
+
 
 if __name__ == "__main__":
     unittest.main()

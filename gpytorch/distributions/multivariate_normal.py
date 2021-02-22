@@ -128,8 +128,7 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         """
         base_sample_shape = self.event_shape
         if isinstance(self.lazy_covariance_matrix, RootLazyTensor):
-            if self.lazy_covariance_matrix.root.shape[-1] > self.lazy_covariance_matrix.root.shape[-2]:
-                base_sample_shape = self.lazy_covariance_matrix.root.shape[-1:]
+            base_sample_shape = self.lazy_covariance_matrix.root.shape[-1:]
 
         return base_sample_shape
 
