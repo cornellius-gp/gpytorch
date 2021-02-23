@@ -24,8 +24,6 @@ class TestModel(gpytorch.models.ExactGP):
 
 
 class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
-    seed = 0
-
     def create_kernel_no_ard(self, **kwargs):
         return RFFKernel(num_samples=5, **kwargs)
 
@@ -83,6 +81,8 @@ class TestRFFKernel(unittest.TestCase, BaseKernelTestCase):
         self.assertLess(torch.norm(res1 - res2) / res1.norm(), 1e-4)
 
     def test_kernel_output_fewer_features_than_data(self):
+        # not fixing the seed can result in occasional bad params that cause a flaky test
+        torch.manual_seed(1234)
         train_x = torch.randn(1000, 3)
         train_y = torch.randn(1000)
         test_x = torch.randn(500, 3)
