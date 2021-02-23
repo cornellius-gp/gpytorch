@@ -6,6 +6,7 @@ from .cosine_kernel import CosineKernel
 from .cylindrical_kernel import CylindricalKernel
 from .distributional_input_kernel import DistributionalInputKernel
 from .gaussian_symmetrized_kl_kernel import GaussianSymmetrizedKLKernel
+from .gpfa_kernel import GPFAKernel
 from .grid_interpolation_kernel import GridInterpolationKernel
 from .grid_kernel import GridKernel
 from .index_kernel import IndexKernel
@@ -23,6 +24,7 @@ from .polynomial_kernel_grad import PolynomialKernelGrad
 from .product_structure_kernel import ProductStructureKernel
 from .rbf_kernel import RBFKernel
 from .rbf_kernel_grad import RBFKernelGrad
+from .reversible_gpfa_component_kernel import ReversibleGPFAComponentKernel
 from .rff_kernel import RFFKernel
 from .rq_kernel import RQKernel
 from .scale_kernel import ScaleKernel
@@ -42,6 +44,7 @@ __all__ = [
     "GaussianSymmetrizedKLKernel",
     "GridKernel",
     "GridInterpolationKernel",
+    "GPFAKernel",
     "IndexKernel",
     "InducingPointKernel",
     "LCMKernel",
@@ -57,6 +60,7 @@ __all__ = [
     "RBFKernel",
     "RFFKernel",
     "RBFKernelGrad",
+    "ReversibleGPFAComponentKernel",
     "RQKernel",
     "ScaleKernel",
     "SpectralDeltaKernel",
