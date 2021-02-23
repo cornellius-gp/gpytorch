@@ -1363,7 +1363,6 @@ class LazyTensor(ABC):
                 *self.representation(),
             )
             evecs = lazify(evecs)
-            print("shape here!: ", evecs.shape)
 
         elif method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
@@ -1428,7 +1427,7 @@ class LazyTensor(ABC):
                 F = evecs * evals.clamp(1e-7).sqrt().unsqueeze(-2)
                 return RootLazyTensor(F)
             except CachingError:
-                pass                        
+                pass
 
             # if not run standard lanczos
             return RootLazyTensor(self._root_decomposition())
