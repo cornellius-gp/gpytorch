@@ -36,6 +36,22 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         return chol_cap_mat
 
+    def _inv_matmul_preconditioner(self):
+        return None
+
+    def _mul_constant(self, constant):
+        # We have to over-ride this here for the case where the constant is negative
+        if constant > 0:
+            res = super()._mul_constant(constant)
+        else:
+            res = AddedDiagLazyTensor(
+                self._lazy_tensor._mul_constant(constant), self._diag_tensor._mul_constant(constant)
+            )
+        return res
+
+    def _preconditioner(self):
+        return None, None, None
+
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         A_inv = self._diag_tensor.inverse()  # This is fine since it's a DiagLazyTensor
         U = self._lazy_tensor.root

@@ -39,6 +39,10 @@ class SumLazyTensor(LazyTensor):
     def _matmul(self, rhs):
         return sum(lazy_tensor._matmul(rhs) for lazy_tensor in self.lazy_tensors)
 
+    def _mul_constant(self, other):
+        # We're using a custom method here - the constant mul is applied to the base_lazy_tensors
+        return self.__class__(*[lt._mul_constant(other) for lt in self.lazy_tensors])
+
     def _quad_form_derivative(self, left_vecs, right_vecs):
         return tuple(
             var for lazy_tensor in self.lazy_tensors for var in lazy_tensor._quad_form_derivative(left_vecs, right_vecs)
