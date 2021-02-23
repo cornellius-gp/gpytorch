@@ -8,6 +8,7 @@ import torch
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, LowRankRootAddedDiagLazyTensor, LowRankRootLazyTensor, MatmulLazyTensor, delazify
 from ..mlls import InducingPointKernelAddedLossTerm
+from ..models import exact_prediction_strategies
 from ..utils.cholesky import psd_safe_cholesky
 from .kernel import Kernel
 
@@ -58,8 +59,9 @@ class InducingPointKernel(Kernel):
             covar = LowRankRootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
 
             # Diagonal correction for predictive posterior
-            correction = (self.base_kernel(x1, x2, diag=True) - covar.diag()).clamp(0, math.inf)
-            covar = LowRankRootAddedDiagLazyTensor(covar, DiagLazyTensor(correction))
+            if not self.training:
+                correction = (self.base_kernel(x1, x2, diag=True) - covar.diag()).clamp(0, math.inf)
+                covar = LowRankRootAddedDiagLazyTensor(covar, DiagLazyTensor(correction))
         else:
             k_ux2 = delazify(self.base_kernel(x2, self.inducing_points))
             covar = MatmulLazyTensor(
@@ -123,3 +125,9 @@ class InducingPointKernel(Kernel):
             cp._cached_kernel_mat = kernel_mat
 
         return cp
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        # Allow for fast variances
+        return exact_prediction_strategies.SGPRPredictionStrategy(
+            train_inputs, train_prior_dist, train_labels, likelihood
+        )

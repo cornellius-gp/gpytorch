@@ -58,7 +58,7 @@ class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
             return function_dist
 
 
-class MultitaskVariationalStrategy(_VariationalStrategy):
+class MultitaskVariationalStrategy(IndependentMultitaskVariationalStrategy):
     """
     IndependentMultitaskVariationalStrategy wraps an existing
     :obj:`~gpytorch.variational.VariationalStrategy`

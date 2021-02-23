@@ -1,11 +1,6 @@
 # GPyTorch
 
 ---
-__News: GPyTorch v1.3__
-
-GPyTorch v1.3 has just been released.
-
----
 ![GPyTorch Unit Tests](https://github.com/cornellius-gp/gpytorch/workflows/GPyTorch%20Unit%20Tests/badge.svg)
 ![GPyTorch Examples](https://github.com/cornellius-gp/gpytorch/workflows/GPyTorch%20Examples/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/gpytorch/badge/?version=latest)](https://gpytorch.readthedocs.io/en/latest/?badge=latest)

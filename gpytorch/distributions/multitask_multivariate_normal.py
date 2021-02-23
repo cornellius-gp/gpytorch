@@ -63,6 +63,15 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         super().__init__(mean=mean_mvn, covariance_matrix=covariance_matrix, validate_args=validate_args)
 
     @property
+    def base_sample_shape(self):
+        """
+        Returns the shape of a base sample (without batching) that is used to
+        generate a single sample.
+        """
+        base_sample_shape = self.event_shape
+        return base_sample_shape
+
+    @property
     def event_shape(self):
         return self._output_shape[-2:]
 
