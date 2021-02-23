@@ -801,7 +801,11 @@ class LazyTensor(ABC):
             jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
             R = R + torch.diag_embed(jitter_diag)
 
-        new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
+        if R.shape[-2] == R.shape[-1]:
+            new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
+        else:
+            # solve with least squares
+            new_inv_root = torch.lstsq(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
 
         cross_mat = lazify(cross_mat)
         new_mat = lazify(new_mat)

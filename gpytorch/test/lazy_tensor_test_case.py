@@ -428,7 +428,10 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         # check that the inverse root decomposition is close
         concat_solve = torch.solve(rhs.unsqueeze(-1), concatenated_lt)[0].squeeze(-1)
         root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
-        self.assertAllClose(root_inv_solve, concat_solve, **self.tolerances["root_inv_decomposition"])
+        self.assertLess(
+            (root_inv_solve - concat_solve).norm() / concat_solve.norm(),
+            self.tolerances["root_inv_decomposition"]["rtol"],
+        )
 
     def test_cholesky(self):
         lazy_tensor = self.create_lazy_tensor()
