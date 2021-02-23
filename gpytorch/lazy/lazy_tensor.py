@@ -755,9 +755,16 @@ class LazyTensor(ABC):
         """
         from .cat_lazy_tensor import CatLazyTensor
         from .root_lazy_tensor import RootLazyTensor
+        from . import lazify
 
         batch_shape = cross_mat.shape[:-2]
         L = self.root_decomposition().root.evaluate()
+
+        # # TODO: Special case triangular case once #1102 goes in
+        # if isinstance(L, TriangularLazyTensor):
+        #     # The whole thing is triangular, we can just do two triangular solves
+        #     ...
+        # else:
 
         L_inverse = self.root_inv_decomposition().root.evaluate()
 
@@ -765,7 +772,7 @@ class LazyTensor(ABC):
 
         lower_left = cross_mat.matmul(L_inverse)
         schur = new_mat - lower_left.matmul(lower_left.transpose(-2, -1))
-        schur_root = schur.root_decomposition().root.evaluate()
+        schur_root = lazify(schur).root_decomposition().root.evaluate()
 
         # Form new root Z = [L 0; lower_left schur_root]
         num_fant = schur_root.size(-2)
@@ -795,6 +802,8 @@ class LazyTensor(ABC):
             R = R + torch.diag_embed(jitter_diag)
         new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
 
+        cross_mat = lazify(cross_mat)
+        new_mat = lazify(new_mat)
         new_lazy_tensor_1 = CatLazyTensor(self, cross_mat, dim=-2)
         new_lazy_tensor_2 = CatLazyTensor(cross_mat.transpose(-1, -2), new_mat, dim=-2)
         new_lazy_tensor = CatLazyTensor(new_lazy_tensor_1, new_lazy_tensor_2, dim=-1)

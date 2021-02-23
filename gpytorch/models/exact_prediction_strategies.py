@@ -183,68 +183,10 @@ class DefaultPredictionStrategy(object):
         # New mean cache.
         fant_mean_cache = torch.cat((fant_cache_upper, fant_cache_lower), dim=-1)
 
-        """
-        Compute a new covariance cache given the old covariance cache.
-
-        We have access to K \\approx LL' and K^{-1} \\approx R^{-1}R^{-T}, where L and R are low rank matrices
-        resulting from Lanczos (see the LOVE paper).
-
-        To update R^{-1}, we first update L:
-            [K U; U' S] = [L 0; A B][L' A'; 0 B']
-        Solving this matrix equation, we get:
-            K = LL' ==>       L = L
-            U = LA' ==>       A = UR^{-1}
-            S = AA' + BB' ==> B = cholesky(S - AA')
-
-        Once we've computed Z = [L 0; A B], we have that the new kernel matrix [K U; U' S] \approx ZZ'. Therefore,
-        we can form a pseudo-inverse of Z directly to approximate [K U; U' S]^{-1/2}.
-        """
-        # [K U; U' S] = [L 0; lower_left schur_root]
-        batch_shape = fant_train_covar.shape[:-2]
-
-        L_inverse = self.covar_cache
-        L = self.lik_train_train_covar.root_decomposition().root
-        m, n = L.shape[-2:]
-
-        lower_left = fant_train_covar.matmul(L_inverse)
-        schur = fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1))
-        schur_root = psd_safe_cholesky(schur)
-
-        # Form new root Z = [L 0; lower_left schur_root]
-
-        # # TODO: Special case triangular case once #1102 goes in
-        # if isinstance(L, TriangularLazyTensor):
-        #     # The whole thing is triangular, we can just do two triangular solves
-        #     ...
-        # else:
-
-        L = delazify(L)
-        num_fant = schur_root.size(-2)
-        new_root = torch.zeros(*batch_shape, m + num_fant, n + num_fant, device=L.device, dtype=L.dtype)
-        new_root[..., :m, :n] = L
-        new_root[..., m:, :n] = lower_left
-        new_root[..., m:, n:] = schur_root
-
-        # Use pseudo-inverse of Z as new inv root
-
-        if new_root.shape[-1] <= 2048:
-            # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
-            device = new_root.device
-            Q, R = torch.qr(new_root.cpu())
-            Q = Q.to(device)
-            R = R.to(device)
-        else:
-            Q, R = torch.qr(new_root)
-
-        Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
-        # if R is almost singular, add jitter
-        zeroish = Rdiag.abs() < 1e-6
-        if torch.any(zeroish):
-            # can't use in-place operation here b/c it would mess up backward pass
-            # haven't found a more elegant way to add a jitter diagonal yet...
-            jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
-            R = R + torch.diag_embed(jitter_diag)
-        new_covar_cache = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
+        # now update the root and root inverse
+        new_lt = self.lik_train_train_covar.cat_rows(fant_train_covar, fant_fant_covar)
+        new_root = new_lt.root_decomposition().root
+        new_covar_cache = new_lt.root_inv_decomposition().root
 
         # Expand inputs accordingly if necessary (for fantasies at the same points)
         if full_inputs[0].dim() <= full_targets.dim():
