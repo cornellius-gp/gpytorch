@@ -68,32 +68,28 @@ class Diagonalization(Function):
 
     @staticmethod
     def backward(ctx, evals_grad_output, evecs_grad_output):
-        # backwards pass uses Power Iteration style gradients from
-        # Backpropagation Friendly Eigen-Decomposition, Wang, et al, NeurIPS, 2019
-        # and Matrix Backpropagation for Deep Networks with Structured Lazyers,
-        # Ionescu, CVPR, 2015.
+        # backwards pass uses explicit gradients from
+        # Matrix Backpropagation for Deep Networks with Structured Lazyers,
+        # Ionescu, et al CVPR, 2015. https://arxiv.org/pdf/1509.07838.pdf
+        # TODO: check matrix friendly backpropagation
 
-        # TODO: ensure that this is actually Wang et al's Eq. 10
-
-        # matrix_args = ctx.saved_tensors[:-2]
         q_mat = ctx.saved_tensors[-2]
         eigenvalues = ctx.saved_tensors[-1]
 
-        v_k = q_mat[..., -1].unsqueeze(-1)
-        # num_iter = q_mat.shape[-1]
+        # (\tilde K)_{ij} = 1_{i\neq j} (\sigma_i - \sigma_j)^{-1}
+        # add a small amount of jitter to ensure that no zeros are produced
+        kmat = (eigenvalues.unsqueeze(-1) - eigenvalues.unsqueeze(-2) + 1e-10).reciprocal()
+        kmat[..., torch.arange(kmat.shape[-1]), torch.arange(kmat.shape[-1])] = 0.0
 
-        q_mat_minus_1 = q_mat[..., :-1]
-        eigenvalues_minus_top = eigenvalues[:-1]
+        # dU = U(\tilde K^T \hadamard (U^T dL/dU)U^T
+        inner_term = kmat.transpose(-1, -2) * q_mat.transpose(-1, -2).matmul(evecs_grad_output)
+        term1 = q_mat.matmul(inner_term).matmul(q_mat.transpose(-1, -2))
 
-        inv_evals = torch.diag_embed((eigenvalues[-1] - eigenvalues_minus_top + 1e-7).reciprocal())
-        term1 = q_mat_minus_1.matmul(inv_evals).matmul(q_mat_minus_1.transpose(-1, -2))
-
-        dL_dvk = evecs_grad_output[..., -1].unsqueeze(-1)
-
-        dL_dM = torch.matmul(term1.matmul(dL_dvk), v_k.transpose(-1, -2))
-
+        # d\Sigma = U dL/d\Sigma U^T
         term2 = q_mat.matmul(torch.diag_embed(evals_grad_output)).matmul(q_mat.transpose(-1, -2))
-        dL_dM = dL_dM + term2
+
+        # finally sum the two
+        dL_dM = term1 + term2
         output = tuple([None] * 6 + [dL_dM])
 
         return output
