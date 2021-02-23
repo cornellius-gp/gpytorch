@@ -800,11 +800,18 @@ class LazyTensor(ABC):
             # haven't found a more elegant way to add a jitter diagonal yet...
             jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
             R = R + torch.diag_embed(jitter_diag)
+
         new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
 
         cross_mat = lazify(cross_mat)
         new_mat = lazify(new_mat)
-        new_lazy_tensor_1 = CatLazyTensor(self, cross_mat, dim=-2)
+        if self.ndimension() < cross_mat.ndimension():
+            from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
+
+            old_tsr = BatchRepeatLazyTensor(self, batch_shape)
+        else:
+            old_tsr = self
+        new_lazy_tensor_1 = CatLazyTensor(old_tsr, cross_mat, dim=-2)
         new_lazy_tensor_2 = CatLazyTensor(cross_mat.transpose(-1, -2), new_mat, dim=-2)
         new_lazy_tensor = CatLazyTensor(new_lazy_tensor_1, new_lazy_tensor_2, dim=-1)
 
