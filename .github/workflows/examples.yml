@@ -23,7 +23,7 @@ jobs:
       run: |
         pip install pytest nbval jupyter tqdm matplotlib torchvision scipy
         python setup.py build develop
-        pip install git+https://github.com/pyro-ppl/pyro@dev;
+        pip install git+https://github.com/pyro-ppl/pyro@master;
     - name: Run example notebooks
       run: |
         grep -l smoke_test examples/**/*.ipynb | xargs grep -L 'smoke_test = False' | CI=true xargs pytest --nbval-lax --current-env
