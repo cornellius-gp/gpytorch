@@ -731,25 +731,40 @@ class LazyTensor(ABC):
         diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
 
-    def cat_rows(self, fant_train, fant_fant):
+    def cat_rows(self, cross_mat, new_mat):
         """
         Concatenates new rows and columns to the matrix that this LazyTensor represents, e.g.
-        C = ((A; B); B', D).
+        C = ((A; B); B', D). where A is the existing lazy tensor, and B and D are new components.
+        This is most useful in fantasizing with kernel matrices.
 
-        TODO: add reference.
+        We have access to K \\approx LL' and K^{-1} \\approx R^{-1}R^{-T}, where L and R are low rank matrices
+        resulting from Lanczos (see the LOVE paper).
+
+        To update R^{-1}, we first update L:
+            [K U; U' S] = [L 0; A B][L' A'; 0 B']
+        Solving this matrix equation, we get:
+            K = LL' ==>       L = L
+            U = LA' ==>       A = UR^{-1}
+            S = AA' + BB' ==> B = cholesky(S - AA')
+
+        Once we've computed Z = [L 0; A B], we have that the new kernel matrix [K U; U' S] \approx ZZ'. Therefore,
+        we can form a pseudo-inverse of Z directly to approximate [K U; U' S]^{-1/2}.
+
+        This strategy is also described in "Efficient Nonmyopic Bayesian Optimization via One-Shot Multistep Trees,"
+        Jiang et al, NeurIPS, 2020. https://arxiv.org/abs/2006.15779
         """
         from .cat_lazy_tensor import CatLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
-        batch_shape = fant_train.shape[:-2]
+        batch_shape = cross_mat.shape[:-2]
         L = self.root_decomposition().root.evaluate()
 
         L_inverse = self.root_inv_decomposition().root.evaluate()
 
         m, n = L.shape[-2:]
 
-        lower_left = fant_train.matmul(L_inverse)
-        schur = fant_fant - lower_left.matmul(lower_left.transpose(-2, -1))
+        lower_left = cross_mat.matmul(L_inverse)
+        schur = new_mat - lower_left.matmul(lower_left.transpose(-2, -1))
         schur_root = schur.root_decomposition().root.evaluate()
 
         # Form new root Z = [L 0; lower_left schur_root]
@@ -759,13 +774,34 @@ class LazyTensor(ABC):
         new_root[..., m:, : lower_left.shape[-1]] = lower_left
         new_root[..., m:, n : (n + schur_root.shape[-1])] = schur_root
 
-        new_lazy_tensor_1 = CatLazyTensor(self, fant_train, dim=-2)
-        new_lazy_tensor_2 = CatLazyTensor(fant_train.transpose(-1, -2), fant_fant, dim=-2)
+        # Use pseudo-inverse of Z as new inv root
+
+        if new_root.shape[-1] <= 2048:
+            # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
+            device = new_root.device
+            Q, R = torch.qr(new_root.cpu())
+            Q = Q.to(device)
+            R = R.to(device)
+        else:
+            Q, R = torch.qr(new_root)
+
+        Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
+        # if R is almost singular, add jitter
+        zeroish = Rdiag.abs() < 1e-6
+        if torch.any(zeroish):
+            # can't use in-place operation here b/c it would mess up backward pass
+            # haven't found a more elegant way to add a jitter diagonal yet...
+            jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
+            R = R + torch.diag_embed(jitter_diag)
+        new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
+
+        new_lazy_tensor_1 = CatLazyTensor(self, cross_mat, dim=-2)
+        new_lazy_tensor_2 = CatLazyTensor(cross_mat.transpose(-1, -2), new_mat, dim=-2)
         new_lazy_tensor = CatLazyTensor(new_lazy_tensor_1, new_lazy_tensor_2, dim=-1)
 
         add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(new_root))
+        add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(new_inv_root))
 
-        # TODO: update the inverse root too.
         return new_lazy_tensor
 
     def add_low_rank(self, low_rank_mat):
