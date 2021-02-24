@@ -3,7 +3,8 @@
 import torch
 
 from ..lazy import DiagLazyTensor, KroneckerProductLazyTensor
-from .kernel import Kernel
+from .kernel import AdditiveKernel, Kernel
+from .reversible_gpfa_component_kernel import ReversibleGPFAComponentKernel
 
 
 class GPFAKernel(Kernel):
@@ -31,9 +32,10 @@ class GPFAKernel(Kernel):
     # TODO: confirm if don't need priors / constraints on most of this.
     def __init__(
         self,
-        latent_covar_module,
+        data_covar_modules,
         num_latents,
-        num_obs,  # GPFA_component = Reversible_GPFA_Component_Kernel,
+        num_obs,
+        GPFA_component=ReversibleGPFAComponentKernel,
         # C_prior=None, C_constraint=None, R_prior = None,
         **kwargs,
     ):
@@ -43,7 +45,9 @@ class GPFAKernel(Kernel):
         # gpfa_components = [GPFA_component(data_covar_modules[i],num_latents,i) for i in range(num_latents)]
         # TODO: check for length of data_covar modules matching, or length one, in which case repeat the same module,
         # deep copy, like in multitaskmean
-        self.covar_module = latent_covar_module
+        self.covar_module = AdditiveKernel(
+            *[GPFA_component(data_covar_modules[i], num_latents, i) for i in range(num_latents)]
+        )
         # AdditiveKernel(*[GPFA_component(data_covar_modules[i],num_latents,i) for i in range(num_latents)])
         self.register_parameter(name="raw_C", parameter=torch.nn.Parameter(torch.randn(num_obs, num_latents)))
 
