@@ -45,7 +45,7 @@ class GPFAKernel(Kernel):
         # gpfa_components = [GPFA_component(data_covar_modules[i],num_latents,i) for i in range(num_latents)]
         # TODO: check for length of data_covar modules matching, or length one, in which case repeat the same module,
         # deep copy, like in multitaskmean
-        self.covar_module = AdditiveKernel(
+        self.latent_covar_module = AdditiveKernel(
             *[GPFA_component(data_covar_modules[i], num_latents, i) for i in range(num_latents)]
         )
         # AdditiveKernel(*[GPFA_component(data_covar_modules[i],num_latents,i) for i in range(num_latents)])
@@ -68,7 +68,7 @@ class GPFAKernel(Kernel):
         # what to do with I_t if have dif numbers of input & output timesteps? TODO (jasmine): fix this
         I_t = DiagLazyTensor(torch.ones(len(x1)))
         kron_prod = KroneckerProductLazyTensor(I_t, self.C)
-        covar = kron_prod @ self.covar_module(x1, x2, **params) @ kron_prod.t()
+        covar = kron_prod @ self.latent_covar_module(x1, x2, **params) @ kron_prod.t()
         return covar.diag() if diag else covar
 
     def num_outputs_per_input(self, x1, x2):
