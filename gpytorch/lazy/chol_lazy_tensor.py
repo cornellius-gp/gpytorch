@@ -106,6 +106,6 @@ class CholLazyTensor(RootLazyTensor):
 
         return inv_quad_term, logdet_term
 
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+    def root_inv_decomposition(self, method=None, initial_vectors=None, test_vectors=None):
         inv_root = self.root.inverse()
         return RootLazyTensor(inv_root._transpose_nonbatch())

@@ -218,7 +218,7 @@ class KroneckerProductLazyTensor(LazyTensor):
         return RootLazyTensor(kronecker_root)
 
     @cached(name="root_inv_decomposition")
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+    def root_inv_decomposition(self, method=None, initial_vectors=None, test_vectors=None):
         from gpytorch.lazy import RootLazyTensor
 
         # return a dense root decomposition if the matrix is small

@@ -824,10 +824,16 @@ class LazyTensor(ABC):
 
         return new_lazy_tensor
 
-    def add_low_rank(self, low_rank_mat):
+    def add_low_rank(
+        self, low_rank_mat, root_decomp_method: Optional[str] = None, root_inv_decomp_method: Optional[str] = None
+    ):
         """
         Adds a low rank matrix to the matrix that this LazyTensor represents, e.g.
         computes A + BB'. We then update both the tensor and its root decomposition.
+
+        We have access to, L and M where A \approx LL^T and A^{-1} \approx MM^T.
+        We compute \tilde{A} = A + VV^T = L(I + M V V^T M^T)L' and then decompose
+        (I + M VV^T M^T) \approx RR^T, using LR as our new root decomposition.
 
         TODO: add reference.
         """
@@ -841,9 +847,9 @@ class LazyTensor(ABC):
         # \tilde{A} = A + vv' = L(I + L^{-1} v v' L^{-T})L'
 
         # first get LL' = A
-        current_root = self.root_decomposition().root
+        current_root = self.root_decomposition(method=root_decomp_method).root
         # and BB' = A^{-1}
-        current_inv_root = self.root_inv_decomposition().root.transpose(-1, -2)
+        current_inv_root = self.root_inv_decomposition(method=root_inv_decomp_method).root.transpose(-1, -2)
 
         # compute p = B v and take its SVD
         pvector = current_inv_root.matmul(low_rank_mat)
@@ -1542,7 +1548,7 @@ class LazyTensor(ABC):
         raise RuntimeError(f"Unknown method '{method}'")
 
     @cached(name="root_inv_decomposition")
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+    def root_inv_decomposition(self, method: Optional[str] = None, initial_vectors=None, test_vectors=None):
         """
         Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
@@ -1554,10 +1560,16 @@ class LazyTensor(ABC):
         if self.shape[-2:].numel() == 1:
             return RootLazyTensor(1 / self.evaluate().sqrt())
 
-        if (
-            self.size(-1) <= settings.max_cholesky_size.value()
-            or settings.fast_computations.covar_root_decomposition.off()
-        ):
+        if method is None:
+            if (
+                self.size(-1) <= settings.max_cholesky_size.value()
+                or settings.fast_computations.covar_root_decomposition.off()
+            ):
+                method = "cholesky"
+            else:
+                method = "lanczos"
+
+        if method == "cholesky":
             try:
                 L = delazify(self.cholesky())
                 # we know L is triangular, so inverting is a simple triangular solve agaist the identity
@@ -1578,57 +1590,73 @@ class LazyTensor(ABC):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if initial_vectors is not None:
-            if self.dim() == 2 and initial_vectors.dim() == 1:
-                if self.shape[-1] != initial_vectors.numel():
+        if method == "lanczos" or method is None:
+            if initial_vectors is not None:
+                if self.dim() == 2 and initial_vectors.dim() == 1:
+                    if self.shape[-1] != initial_vectors.numel():
+                        raise RuntimeError(
+                            "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
+                                self.shape, initial_vectors.shape
+                            )
+                        )
+                elif self.dim() != initial_vectors.dim():
+                    raise RuntimeError(
+                        "LazyTensor (size={}) and initial_vectors (size={}) should have the same number "
+                        "of dimensions.".format(self.shape, initial_vectors.shape)
+                    )
+                elif self.batch_shape != initial_vectors.shape[:-2] or self.shape[-1] != initial_vectors.shape[-2]:
                     raise RuntimeError(
                         "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
                             self.shape, initial_vectors.shape
                         )
                     )
-            elif self.dim() != initial_vectors.dim():
-                raise RuntimeError(
-                    "LazyTensor (size={}) and initial_vectors (size={}) should have the same number "
-                    "of dimensions.".format(self.shape, initial_vectors.shape)
+
+            inv_roots = self._root_inv_decomposition(initial_vectors)
+
+            # Choose the best of the inv_roots, if there were more than one initial vectors
+            if initial_vectors is not None and initial_vectors.size(-1) > 1:
+                num_probes = initial_vectors.size(-1)
+                test_vectors = test_vectors.unsqueeze(0)
+
+                # Compute solves
+                solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
+
+                # Compute self * solves
+                solves = (
+                    solves.permute(*range(1, self.dim() + 1), 0)
+                    .contiguous()
+                    .view(*self.batch_shape, self.matrix_shape[-1], -1)
                 )
-            elif self.batch_shape != initial_vectors.shape[:-2] or self.shape[-1] != initial_vectors.shape[-2]:
-                raise RuntimeError(
-                    "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
-                        self.shape, initial_vectors.shape
-                    )
-                )
+                mat_times_solves = self.matmul(solves)
+                mat_times_solves = mat_times_solves.view(
+                    *self.batch_shape, self.matrix_shape[-1], -1, num_probes
+                ).permute(-1, *range(0, self.dim()))
 
-        inv_roots = self._root_inv_decomposition(initial_vectors)
+                # Compute residuals
+                residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
+                residuals = residuals.view(residuals.size(0), -1).sum(-1)
 
-        # Choose the best of the inv_roots, if there were more than one initial vectors
-        if initial_vectors is not None and initial_vectors.size(-1) > 1:
-            num_probes = initial_vectors.size(-1)
-            test_vectors = test_vectors.unsqueeze(0)
+                # Choose solve that best fits
+                _, best_solve_index = residuals.min(0)
+                inv_root = inv_roots[best_solve_index].squeeze(0)
 
-            # Compute solves
-            solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
+            else:
+                inv_root = inv_roots
 
-            # Compute self * solves
-            solves = (
-                solves.permute(*range(1, self.dim() + 1), 0)
-                .contiguous()
-                .view(*self.batch_shape, self.matrix_shape[-1], -1)
-            )
-            mat_times_solves = self.matmul(solves)
-            mat_times_solves = mat_times_solves.view(*self.batch_shape, self.matrix_shape[-1], -1, num_probes).permute(
-                -1, *range(0, self.dim())
-            )
+        if method == "symeig":
+            evals, evecs = self.symeig(eigenvectors=True)
+            # TODO: only use non-zero evals (req. dealing w/ batches...)
+            inv_root = evecs * evals.clamp(1e-7).reciprocal().sqrt().unsqueeze(-2)
 
-            # Compute residuals
-            residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
-            residuals = residuals.view(residuals.size(0), -1).sum(-1)
+        if method == "svd":
+            U, S, _ = self.svd()
+            # TODO: only use non-zero singular values (req. dealing w/ batches...)
+            inv_root = U * S.clamp(1e-7).reciprocal().sqrt().unsqueeze(-2)
 
-            # Choose solve that best fits
-            _, best_solve_index = residuals.min(0)
-            inv_root = inv_roots[best_solve_index].squeeze(0)
-
-        else:
-            inv_root = inv_roots
+        if method == "pinverse":
+            # this is numerically unstable and should rarely be used
+            root = self.root_decomposition().root.evaluate()
+            inv_root = torch.pinverse(root).transpose(-1, -2)
 
         return RootLazyTensor(inv_root)
 
