@@ -1590,7 +1590,7 @@ class LazyTensor(ABC):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if method == "lanczos" or method is None:
+        if method == "lanczos":
             if initial_vectors is not None:
                 if self.dim() == 2 and initial_vectors.dim() == 1:
                     if self.shape[-1] != initial_vectors.numel():

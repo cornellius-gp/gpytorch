@@ -439,7 +439,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         # Get inverse root
         train_train_covar_inv_root = train_train_covar_plus_noise.root_inv_decomposition(
-            probe_vectors, test_vectors
+            initial_vectors=probe_vectors, test_vectors=test_vectors
         ).root
         train_train_covar_inv_root = train_train_covar_inv_root.evaluate()
 
