@@ -78,7 +78,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
     """
 
     def __init__(
-        self, base_variational_strategy, num_tasks, num_latents=1, latent_dim=0,
+        self, base_variational_strategy, num_tasks, num_latents=1, latent_dim=-1,
     ):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
