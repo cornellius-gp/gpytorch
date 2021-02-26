@@ -7,7 +7,7 @@ import torch
 from torch.distributions import MultivariateNormal as TMultivariateNormal
 
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.lazy import DiagLazyTensor, LazyTensor, NonLazyTensor
+from gpytorch.lazy import DiagLazyTensor, LazyTensor, NonLazyTensor, RootLazyTensor, lazify
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
 
@@ -295,6 +295,26 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         d = dist[1, 2, 2, ...]
         assert torch.equal(d.mean, dist.mean[1, 2, 2, :])
         self.assertAllClose(d.covariance_matrix, dist_cov[1, 2, 2, :, :])
+
+    def test_base_sample_shape(self):
+        a = torch.randn(5, 10)
+        lazy_square_a = RootLazyTensor(lazify(a))
+        dist = MultivariateNormal(torch.zeros(5), lazy_square_a)
+
+        # check that providing the base samples is okay
+        samples = dist.rsample(torch.Size((16,)), base_samples=torch.randn(16, 10))
+        self.assertEqual(samples.shape, torch.Size((16, 5)))
+
+        # check that an event shape of base samples fails
+        self.assertRaises(RuntimeError, dist.rsample, torch.Size((16,)), base_samples=torch.randn(16, 5))
+
+        # check that the proper event shape of base samples is okay for
+        # a non root lt
+        nonlazy_square_a = lazify(lazy_square_a.evaluate())
+        dist = MultivariateNormal(torch.zeros(5), nonlazy_square_a)
+
+        samples = dist.rsample(torch.Size((16,)), base_samples=torch.randn(16, 5))
+        self.assertEqual(samples.shape, torch.Size((16, 5)))
 
 
 if __name__ == "__main__":
