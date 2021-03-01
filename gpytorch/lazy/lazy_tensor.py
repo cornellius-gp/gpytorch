@@ -802,19 +802,18 @@ class LazyTensor(ABC):
             R = R + torch.diag_embed(jitter_diag)
 
         if R.shape[-2] == R.shape[-1]:
-            new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
+            new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R, upper=True).solution.transpose(-2, -1)
         else:
             # solve with least squares
-            new_inv_root = torch.lstsq(Q.transpose(-2, -1), R)[0].transpose(-2, -1)
+            new_inv_root = torch.lstsq(Q.transpose(-2, -1), R).solution.transpose(-2, -1)
 
         cross_mat = lazify(cross_mat)
         new_mat = lazify(new_mat)
-        if self.ndimension() < cross_mat.ndimension():
+        old_tsr = self
+        if old_tsr.ndimension() < cross_mat.ndimension():
             from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
 
-            old_tsr = BatchRepeatLazyTensor(self, batch_shape)
-        else:
-            old_tsr = self
+            old_tsr = BatchRepeatLazyTensor(old_tsr, batch_shape)
         new_lazy_tensor_1 = CatLazyTensor(old_tsr, cross_mat, dim=-2)
         new_lazy_tensor_2 = CatLazyTensor(cross_mat.transpose(-1, -2), new_mat, dim=-2)
         new_lazy_tensor = CatLazyTensor(new_lazy_tensor_1, new_lazy_tensor_2, dim=-1)
@@ -858,7 +857,7 @@ class LazyTensor(ABC):
         U, S, _ = torch.svd(pvector, some=False)
 
         # we want the root decomposition of I_r + U S^2 U' but S is q so we need to pad.
-        one_padding = torch.ones(torch.Size((*S.shape[:-1], U.shape[-2] - S.shape[-1])), device=S.device, dtype=S.dtype)
+        one_padding = torch.ones(*S.shape[:-1], U.shape[-2] - S.shape[-1], device=S.device, dtype=S.dtype)
         # the non zero eigenvalues get updated by S^2 + 1, so we take the square root.
         root_S_plus_identity = (S ** 2 + 1.0) ** 0.5
         # pad the nonzero eigenvalues with the ones
