@@ -734,24 +734,33 @@ class LazyTensor(ABC):
     def cat_rows(self, cross_mat, new_mat):
         """
         Concatenates new rows and columns to the matrix that this LazyTensor represents, e.g.
-        C = ((A; B); B', D). where A is the existing lazy tensor, and B and D are new components.
-        This is most useful in fantasizing with kernel matrices.
+        C = ((A; B); B^T, D). where A is the existing lazy tensor, and B (cross_mat) and D (new_mat)
+        are new components. This is most commonly used when fantasizing with kernel matrices.
 
-        We have access to K \\approx LL' and K^{-1} \\approx R^{-1}R^{-T}, where L and R are low rank matrices
-        resulting from Lanczos (see the LOVE paper).
+        We have access to K \\approx LL^T and K^{-1} \\approx RR^T, where L and R are low rank matrices
+        resulting from root and root inverse decompositions (see the LOVE paper).
 
-        To update R^{-1}, we first update L:
-            [K U; U' S] = [L 0; A B][L' A'; 0 B']
+        To update R, we first update L:
+            [K U; U^T S] = [L 0; A B][L^T A^T; 0 BT]
         Solving this matrix equation, we get:
-            K = LL' ==>       L = L
-            U = LA' ==>       A = UR^{-1}
-            S = AA' + BB' ==> B = cholesky(S - AA')
+            K = LL^T ==>       L = L
+            U = LA^T ==>       A = UR^{-1}
+            S = AA^T + BB^T ==> B = cholesky(S - AA^T)
 
-        Once we've computed Z = [L 0; A B], we have that the new kernel matrix [K U; U' S] \approx ZZ'. Therefore,
-        we can form a pseudo-inverse of Z directly to approximate [K U; U' S]^{-1/2}.
+        Once we've computed Z = [L 0; A B], we have that the new kernel matrix [K U; U^T S] \approx ZZ^T. Therefore,
+        we can form a pseudo-inverse of Z directly to approximate [K U; U^T S]^{-1/2}.
 
         This strategy is also described in "Efficient Nonmyopic Bayesian Optimization via One-Shot Multistep Trees,"
-        Jiang et al, NeurIPS, 2020. https://arxiv.org/abs/2006.15779
+        Jiang et al, NeurIPS, 2020. https://arxiv.org/abs/2006.15779.
+
+        Args:
+            cross_mat (:obj:`torch.tensor`): the matrix :math:`B` we are appending to the matrix :math:`A`.
+                If :math:`A` is n x n, then this matrix should be n x k.
+            new_mat (:obj:`torch.tensor`): the matrix :math:`D` we are appending to the matrix :math:`A`.
+                If :math:`B` is n x k, then this matrix should be k x k.
+
+        Returns:
+            :obj:`LazyTensor`: concatenated lazy tensor with the new rows and columns.
         """
         from .cat_lazy_tensor import CatLazyTensor
         from .root_lazy_tensor import RootLazyTensor
@@ -828,10 +837,10 @@ class LazyTensor(ABC):
     ):
         """
         Adds a low rank matrix to the matrix that this LazyTensor represents, e.g.
-        computes A + BB'. We then update both the tensor and its root decomposition.
+        computes A + BB^T. We then update both the tensor and its root decomposition.
 
         We have access to, L and M where A \approx LL^T and A^{-1} \approx MM^T.
-        We compute \tilde{A} = A + VV^T = L(I + M V V^T M^T)L' and then decompose
+        We compute \tilde{A} = A + BB^T = L(I + M B B^T M^T)L' and then decompose
         (I + M VV^T M^T) \approx RR^T, using LR as our new root decomposition.
 
         TODO: add reference.
@@ -843,27 +852,26 @@ class LazyTensor(ABC):
         new_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
 
         # we are going to compute the following
-        # \tilde{A} = A + vv' = L(I + L^{-1} v v' L^{-T})L'
+        # \tilde{A} = A + BB^T = L(I + L^{-1} B B^T L^{-T})L^T
 
-        # first get LL' = A
+        # first get LL^T = A
         current_root = self.root_decomposition(method=root_decomp_method).root
-        # and BB' = A^{-1}
+        # and MM^T = A^{-1}
         current_inv_root = self.root_inv_decomposition(method=root_inv_decomp_method).root.transpose(-1, -2)
 
-        # compute p = B v and take its SVD
+        # compute p = M B and take its SVD
         pvector = current_inv_root.matmul(low_rank_mat)
-        # USV' = p
-        # when p is a vector this saves us the trouble of computing an orthonormal basis
+        # USV^T = p; when p is a vector this saves us the trouble of computing an orthonormal basis
         U, S, _ = torch.svd(pvector, some=False)
 
-        # we want the root decomposition of I_r + U S^2 U' but S is q so we need to pad.
+        # we want the root decomposition of I_r + U S^2 U^T but S is q so we need to pad.
         one_padding = torch.ones(*S.shape[:-1], U.shape[-2] - S.shape[-1], device=S.device, dtype=S.dtype)
         # the non zero eigenvalues get updated by S^2 + 1, so we take the square root.
         root_S_plus_identity = (S ** 2 + 1.0) ** 0.5
         # pad the nonzero eigenvalues with the ones
         #######
-        # \tilde{S} = ((S^2 + 1)^0.5; 0
-        # (0; 1)
+        # \tilde{S} = \left(((S^2 + 1)^{0.5}; 0
+        # (0; 1) \right)
         #######
         stacked_root_S = torch.cat((root_S_plus_identity, one_padding), dim=-1)
         # compute U \tilde{S} for the new root
