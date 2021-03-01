@@ -44,7 +44,7 @@ class Diagonalization(Function):
             q_mat = q_mat.unsqueeze(0)
             t_mat = t_mat.unsqueeze(0)
 
-        mins = torch.diagonal(t_mat, dim1=-1, dim2=-2).min(dim=-1, keepdim=True).solution
+        mins = torch.diagonal(t_mat, dim1=-1, dim2=-2).min(dim=-1, keepdim=True)[0]
         jitter_val = settings.tridiagonal_jitter.value()
         jitter_mat = torch.diag_embed(jitter_val * mins).expand_as(t_mat)
         eigenvalues, eigenvectors = lanczos.lanczos_tridiag_to_diag(t_mat + jitter_mat)
