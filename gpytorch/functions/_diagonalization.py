@@ -45,10 +45,9 @@ class Diagonalization(Function):
             q_mat = q_mat.unsqueeze(0)
             t_mat = t_mat.unsqueeze(0)
 
-        mins = lazify(t_mat).diag().min(dim=-1, keepdim=True)[0].unsqueeze(-1)
-        jitter_mat = (settings.tridiagonal_jitter.value() * mins) * torch.eye(
-            t_mat.size(-1), device=t_mat.device, dtype=t_mat.dtype
-        ).expand_as(t_mat)
+        mins = torch.diagonal(t_mat, dim1=-1, dim2=-2).min(dim=-1, keepdim=True).solution
+        jitter_val = settings.tridiagonal_jitter.value()
+        jitter_mat = torch.diag_embed(jitter_val * mins).expand_as(t_mat)
         eigenvalues, eigenvectors = lanczos.lanczos_tridiag_to_diag(t_mat + jitter_mat)
 
         # Get orthogonal matrix and eigenvalues
@@ -79,7 +78,7 @@ class Diagonalization(Function):
         # (\tilde K)_{ij} = 1_{i\neq j} (\sigma_i - \sigma_j)^{-1}
         # add a small amount of jitter to ensure that no zeros are produced
         kmat = (eigenvalues.unsqueeze(-1) - eigenvalues.unsqueeze(-2) + 1e-10).reciprocal()
-        kmat[..., torch.arange(kmat.shape[-1]), torch.arange(kmat.shape[-1])] = 0.0
+        torch.diagonal(kmat, dim1=-1, dim2=-2).zero_()
 
         # dU = U(\tilde K^T \hadamard (U^T dL/dU)U^T
         inner_term = kmat.transpose(-1, -2) * q_mat.transpose(-1, -2).matmul(evecs_grad_output)

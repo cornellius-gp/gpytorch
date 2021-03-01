@@ -1335,7 +1335,7 @@ class LazyTensor(ABC):
         """
         Returns a (usually partial) diagonalization of a symmetric PSD matrix.
         Options are either "lanczos" or "symeig". "lanczos" runs Lanczos while
-        "symeig" runs torch.symeig.
+        "symeig" runs LazyTensor.symeig.
         """
         if not self.is_square:
             raise RuntimeError(
