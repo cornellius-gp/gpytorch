@@ -20,8 +20,10 @@ class GaussHermiteQuadrature1D(Module):
     should initialize one time, but that should obey parent calls to .cuda(), .double() etc.
     """
 
-    def __init__(self, num_locs=settings.num_gauss_hermite_locs.value()):
+    def __init__(self, num_locs=None):
         super().__init__()
+        if num_locs is None:
+            num_locs = settings.num_gauss_hermite_locs.value()
         self.num_locs = num_locs
 
         locations, weights = self._locs_and_weights(num_locs)
