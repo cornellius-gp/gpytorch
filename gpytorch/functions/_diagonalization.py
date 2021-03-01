@@ -16,7 +16,6 @@ class Diagonalization(Function):
         :rtype: (torch.Tensor, torch.Tensor)
         :return: :attr:`Q`, :attr: `S` such that :math:`Q S Q^T \approx A`
         """
-        from gpytorch.lazy import lazify
 
         ctx.representation_tree = representation_tree
         ctx.device = device
