@@ -246,6 +246,8 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
 
     @task_noise_covar.setter
     def task_noise_covar(self, value):
+        # internally uses a pivoted cholesky decomposition to construct a low rank
+        # approximation of the covariance
         if self.rank > 0:
             self.task_noise_covar_factor.data = pivoted_cholesky(value, max_iter=self.rank)
         else:
