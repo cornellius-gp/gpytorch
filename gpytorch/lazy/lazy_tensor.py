@@ -11,6 +11,7 @@ from torch import Tensor
 import gpytorch
 
 from .. import settings, utils
+from ..functions._diagonalization import Diagonalization
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad import InvQuad
 from ..functions._inv_quad_log_det import InvQuadLogDet
@@ -22,7 +23,7 @@ from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
-from ..utils.memoize import add_to_cache, cached, pop_from_cache
+from ..utils.memoize import add_to_cache, cached, get_from_cache, pop_from_cache
 from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
@@ -1329,6 +1330,45 @@ class LazyTensor(ABC):
         self.requires_grad = val
         return self
 
+    @cached(name="diagonalization")
+    def diagonalization(self, method: Optional[str] = None):
+        """
+        Returns a (usually partial) diagonalization of a symmetric PSD matrix.
+        Options are either "lanczos" or "symeig". "lanczos" runs Lanczos while
+        "symeig" runs LazyTensor.symeig.
+        """
+        if not self.is_square:
+            raise RuntimeError(
+                "diagonalization only operates on (batches of) square (symmetric) LazyTensors. "
+                "Got a {} of size {}.".format(self.__class__.__name__, self.size())
+            )
+
+        if method is None:
+            if self.size(-1) <= settings.max_cholesky_size.value():
+                method = "symeig"
+            else:
+                method = "lanczos"
+
+        if method == "lanczos":
+            from ..lazy import lazify
+
+            func = Diagonalization()
+            evals, evecs = func.apply(
+                self.representation_tree(),
+                self.device,
+                self.dtype,
+                self.matrix_shape,
+                self._root_decomposition_size(),
+                self.batch_shape,
+                *self.representation(),
+            )
+            evecs = lazify(evecs)
+
+        elif method == "symeig":
+            evals, evecs = self.symeig(eigenvectors=True)
+
+        return evals, evecs
+
     @cached(name="root_decomposition")
     def root_decomposition(self, method: Optional[str] = None):
         """
@@ -1381,6 +1421,15 @@ class LazyTensor(ABC):
             return RootLazyTensor(F)
 
         if method == "lanczos":
+            # check to see if we have already run lanczos for a diagonalization
+            try:
+                evals, evecs = get_from_cache(self, "diagonalization")
+                F = evecs * evals.clamp(1e-7).sqrt().unsqueeze(-2)
+                return RootLazyTensor(F)
+            except CachingError:
+                pass
+
+            # if not run standard lanczos
             return RootLazyTensor(self._root_decomposition())
 
         raise RuntimeError(f"Unknown method '{method}'")
@@ -1422,6 +1471,15 @@ class LazyTensor(ABC):
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
+        # check to see if we have already run lanczos for a diagonalization
+        try:
+            evals, evecs = get_from_cache(self, "diagonalization")
+            F = evecs * evals.clamp(1e-7).sqrt().reciprocal().unsqueeze(-2)
+            return RootLazyTensor(F)
+        except CachingError:
+            pass
+
+        # if not run standard lanczos
         if initial_vectors is not None:
             if self.dim() == 2 and initial_vectors.dim() == 1:
                 if self.shape[-1] != initial_vectors.numel():
