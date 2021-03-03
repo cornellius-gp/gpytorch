@@ -262,18 +262,19 @@ class Module(nn.Module):
                 )
             closure = param_or_closure
 
-        hyperparameter_shape = closure().shape
-        prior_shape = prior.shape()
+        if prior is not None:
+            hyperparameter_shape = closure(self).shape
+            prior_shape = prior.shape()
 
-        if prior_shape != hyperparameter_shape:
-            try:
-                prior = prior.expand(hyperparameter_shape)
-            except RuntimeError:
-                raise RuntimeError(
-                    "Attempting to broadcast a prior that is not broadcastable! "
-                    + f"Got parameter shape {hyperparameter_shape} "
-                    + f"but prior shape {prior_shape}!"
-                )
+            if prior_shape != hyperparameter_shape:
+                try:
+                    prior = prior.expand(hyperparameter_shape)
+                except RuntimeError:
+                    raise RuntimeError(
+                        "Attempting to broadcast a prior that is not broadcastable! "
+                        + f"Got parameter shape {hyperparameter_shape} "
+                        + f"but prior shape {prior_shape}!"
+                    )
 
         self.add_module(name, prior)
         self._priors[name] = (prior, closure, setting_closure)
