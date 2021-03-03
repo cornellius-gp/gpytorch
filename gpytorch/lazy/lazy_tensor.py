@@ -793,20 +793,18 @@ class LazyTensor(ABC):
             return new_lazy_tensor
 
         L = self.root_decomposition().root
+        l_is_triang = isinstance(L, TriangularLazyTensor)
+        L = L.evaluate()
         L_inverse = self.root_inv_decomposition().root.evaluate()
 
         m, n = L.shape[-2:]
 
-        if isinstance(L, TriangularLazyTensor):
-            l_is_chol = True
-            L = delazify(L)
+        if l_is_triang:
             # The whole thing is triangular, we can just do two triangular solves
             if isinstance(cross_mat, LazyTensor):
                 cross_mat = cross_mat.evaluate()
             lower_left = torch.triangular_solve(cross_mat.transpose(-1, -2), L, upper=False).solution.transpose(-2, -1)
         else:
-            l_is_chol = False
-            L = delazify(L)
             lower_left = cross_mat.matmul(L_inverse)
 
         schur = new_mat - lower_left.matmul(lower_left.transpose(-2, -1))
@@ -820,13 +818,12 @@ class LazyTensor(ABC):
         new_root[..., m:, n : (n + schur_root.shape[-1])] = schur_root
 
         # Use pseudo-inverse of Z as new inv root
-        if l_is_chol:
-            # we know L is triangular, so inverting is a simple triangular solve agaist the identity
+        if l_is_triang:
+            # we know L is triangular, so inverting is a triangular solve agaist the identity
             # we don't need the batch shape here, thanks to broadcasting
             Eye = torch.eye(new_root.shape[-2], device=new_root.device, dtype=new_root.dtype)
             new_inv_root = torch.triangular_solve(Eye, new_root, upper=False)[0]
             new_inv_root = lazify(new_inv_root.transpose(-1, -2))
-
         else:
             Q, R = stable_qr(new_root)
 
