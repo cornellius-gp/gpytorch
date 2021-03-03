@@ -71,3 +71,9 @@ class SmoothedBoxPrior(Prior):
         # x = "distances from box`"
         X = ((x - self._c).abs_() - self._r).clamp(min=0)
         return (self.tails.log_prob(X) - self._M).sum(-1)
+
+    def expand(self, batch_shape):
+        batch_shape = torch.Size(batch_shape)
+        return SmoothedBoxPrior(self.a.expand(batch_shape),
+                                self.b.expand(batch_shape),
+                                self.sigma.expand(batch_shape))
