@@ -877,9 +877,8 @@ class LazyTensor(ABC):
             low_rank_mat (:obj:`torch.tensor`): the matrix `B` that we are adding to `A`.
             root_decomp_method (:obj:`str`): how to compute the root decomposition of `A`.
             root_inv_decomp_method (:obj:`str`): how to compute the root inverse decomposition of `A`.
-            generate_roots (:obj:`bool`): whether to generate the root decomposition of :math:`A` even if it has
-                not been created yet.
-
+            generate_roots (:obj:`bool`): whether to generate the root decomposition of :math:`A` even if it
+            has not been created yet.
 
         Returns:
             :obj:`SumLazyTensor`: addition of A and BB^T.
