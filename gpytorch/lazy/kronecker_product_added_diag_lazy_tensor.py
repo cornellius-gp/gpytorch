@@ -227,7 +227,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         return super()._root_decomposition()
 
-    def _root_inv_decomposition(self, initial_vectors=None):
+    def _root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         if self._diag_is_constant:
             evals, q_matrix = self.lazy_tensor.diagonalization()
             inv_sqrt_evals = DiagLazyTensor((evals + self.diag_tensor.diag()).pow(-0.5))
@@ -256,7 +256,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
             evals_p_i_root = DiagLazyTensor(evals_p_i.diag().reciprocal().sqrt())
             return MatmulLazyTensor(dlt_inv_root, MatmulLazyTensor(evecs, evals_p_i_root))
 
-        return super()._root_inv_decomposition(initial_vectors=initial_vectors)
+        return super()._root_inv_decomposition(initial_vectors=initial_vectors, test_vectors=test_vectors)
 
     def _symeig(self, eigenvectors: bool = False) -> Tuple[Tensor, Optional[LazyTensor]]:
         # return_evals_as_lazy is a flag to return the eigenvalues as a lazy tensor

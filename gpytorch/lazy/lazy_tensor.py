@@ -616,7 +616,7 @@ class LazyTensor(ABC):
         """
         return settings.max_root_decomposition_size.value()
 
-    def _root_inv_decomposition(self, initial_vectors=None):
+    def _root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         """
         Returns the (usually low-rank) inverse root of a lazy tensor of a PSD matrix.
 
@@ -644,10 +644,40 @@ class LazyTensor(ABC):
             *self.representation(),
         )
 
-        if initial_vectors is not None and initial_vectors.size(-1) > 1:
+        has_several_initial_vectors = initial_vectors is not None and initial_vectors.size(-1) > 1
+
+        if has_several_initial_vectors:
             add_to_cache(self, "root_decomposition", RootLazyTensor(roots[0]))
         else:
             add_to_cache(self, "root_decomposition", RootLazyTensor(roots))
+
+        # Choose the best of the inv_roots, if there were more than one initial vectors
+        if has_several_initial_vectors and test_vectors is not None:
+            num_probes = initial_vectors.size(-1)
+            test_vectors = test_vectors.unsqueeze(0)
+
+            # Compute solves
+            solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
+
+            # Compute self * solves
+            solves = (
+                solves.permute(*range(1, self.dim() + 1), 0)
+                .contiguous()
+                .view(*self.batch_shape, self.matrix_shape[-1], -1)
+            )
+            mat_times_solves = self.matmul(solves)
+            mat_times_solves = mat_times_solves.view(*self.batch_shape, self.matrix_shape[-1], -1, num_probes).permute(
+                -1, *range(0, self.dim())
+            )
+
+            # Compute residuals
+            residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
+            residuals = residuals.view(residuals.size(0), -1).sum(-1)
+
+            # Choose solve that best fits
+            _, best_solve_index = residuals.min(0)
+            inv_root = inv_roots[best_solve_index].squeeze(0)
+            return inv_root
 
         return inv_roots
 
@@ -765,19 +795,19 @@ class LazyTensor(ABC):
         Returns:
             :obj:`LazyTensor`: concatenated lazy tensor with the new rows and columns.
         """
+        from . import lazify
+        from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
         from .cat_lazy_tensor import CatLazyTensor
         from .root_lazy_tensor import RootLazyTensor
         from .triangular_lazy_tensor import TriangularLazyTensor
-        from . import lazify
 
         cross_mat = lazify(cross_mat)
         batch_shape = cross_mat.shape[:-2]
         new_mat = lazify(new_mat)
         old_tsr = self
         if old_tsr.ndimension() < cross_mat.ndimension():
-            from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
-
             old_tsr = BatchRepeatLazyTensor(old_tsr, batch_shape)
+
         new_lazy_tensor_1 = CatLazyTensor(old_tsr, cross_mat, dim=-2)
         new_lazy_tensor_2 = CatLazyTensor(cross_mat.transpose(-1, -2), new_mat, dim=-2)
         new_lazy_tensor = CatLazyTensor(new_lazy_tensor_1, new_lazy_tensor_2, dim=-1)
@@ -886,9 +916,18 @@ class LazyTensor(ABC):
         """
         from . import lazify
         from .root_lazy_tensor import RootLazyTensor
+        from .sum_lazy_tensor import SumLazyTensor
 
-        # TODO: add a check if this should NOT be a lazy addition
-        new_lazy_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
+        if not isinstance(self, SumLazyTensor):
+            new_lazy_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
+        else:
+            new_lazy_tensor = SumLazyTensor(
+                *self.lazy_tensors, lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
+            )
+
+            # return as a nonlazy tensor if small enough to reduce memory overhead
+            if new_lazy_tensor.shape[-1] < settings.max_cholesky_size.value():
+                new_lazy_tensor = lazify(new_lazy_tensor.evaluate())
 
         # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
         # don't create one
@@ -1650,7 +1689,7 @@ class LazyTensor(ABC):
         raise RuntimeError(f"Unknown method '{method}'")
 
     @cached(name="root_inv_decomposition")
-    def root_inv_decomposition(self, method: Optional[str] = None, initial_vectors=None, test_vectors=None):
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None, method: Optional[str] = None):
         """
         Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
@@ -1691,7 +1730,7 @@ class LazyTensor(ABC):
                 "root_inv_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
-            
+
         # check to see if we have already run lanczos for a diagonalization
         try:
             evals, evecs = get_from_cache(self, "diagonalization")
@@ -1699,7 +1738,7 @@ class LazyTensor(ABC):
             return RootLazyTensor(F)
         except CachingError:
             pass
-          
+
         # otherwise run lanczos
         if method == "lanczos":
             if initial_vectors is not None:
@@ -1722,37 +1761,7 @@ class LazyTensor(ABC):
                         )
                     )
 
-            inv_roots = self._root_inv_decomposition(initial_vectors)
-
-            # Choose the best of the inv_roots, if there were more than one initial vectors
-            if initial_vectors is not None and initial_vectors.size(-1) > 1:
-                num_probes = initial_vectors.size(-1)
-                test_vectors = test_vectors.unsqueeze(0)
-
-                # Compute solves
-                solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
-
-                # Compute self * solves
-                solves = (
-                    solves.permute(*range(1, self.dim() + 1), 0)
-                    .contiguous()
-                    .view(*self.batch_shape, self.matrix_shape[-1], -1)
-                )
-                mat_times_solves = self.matmul(solves)
-                mat_times_solves = mat_times_solves.view(
-                    *self.batch_shape, self.matrix_shape[-1], -1, num_probes
-                ).permute(-1, *range(0, self.dim()))
-
-                # Compute residuals
-                residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
-                residuals = residuals.view(residuals.size(0), -1).sum(-1)
-
-                # Choose solve that best fits
-                _, best_solve_index = residuals.min(0)
-                inv_root = inv_roots[best_solve_index].squeeze(0)
-
-            else:
-                inv_root = inv_roots
+            inv_root = self._root_inv_decomposition(initial_vectors, test_vectors)
 
         if method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
