@@ -870,7 +870,8 @@ class LazyTensor(ABC):
         We compute \tilde{A} = A + BB^T = L(I + M B B^T M^T)L' and then decompose
         (I + M VV^T M^T) \approx RR^T, using LR as our new root decomposition.
 
-        TODO: add reference.
+        This strategy is described in more detail in "Kernel Interpolation for Scalable Online Gaussian
+        Processes," Stanton et al, AISTATS, 2021. https://arxiv.org/abs/2103.01454.
 
         Args:
             low_rank_mat (:obj:`torch.tensor`): the matrix `B` that we are adding to `A`.
