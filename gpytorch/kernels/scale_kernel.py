@@ -68,12 +68,13 @@ class ScaleKernel(Kernel):
         self.base_kernel = base_kernel
         outputscale = torch.zeros(*self.batch_shape) if len(self.batch_shape) else torch.tensor(0.0)
         self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(outputscale))
+        self.register_constraint("raw_outputscale", outputscale_constraint)
+
         if outputscale_prior is not None:
             self.register_prior(
                 "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)
             )
 
-        self.register_constraint("raw_outputscale", outputscale_constraint)
 
     @property
     def outputscale(self):

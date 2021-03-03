@@ -208,6 +208,7 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         if noise_constraint is None:
             noise_constraint = GreaterThan(1e-4)
         self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
+        self.register_constraint("raw_noise", noise_constraint)
         if rank == 0:
             self.register_parameter(
                 name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, num_tasks))
@@ -223,7 +224,6 @@ class MultitaskGaussianLikelihoodKronecker(_MultitaskGaussianLikelihoodBase):
         self.num_tasks = num_tasks
         self.rank = rank
 
-        self.register_constraint("raw_noise", noise_constraint)
 
     @property
     def noise(self):

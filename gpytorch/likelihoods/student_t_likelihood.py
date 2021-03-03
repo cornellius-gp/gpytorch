@@ -35,18 +35,18 @@ class StudentTLikelihood(_OneDimensionalLikelihood):
 
         self.raw_deg_free = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
         self.raw_noise = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
+        self.register_constraint("raw_noise", noise_constraint)
 
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
 
-        self.register_constraint("raw_noise", noise_constraint)
+        self.register_constraint("raw_deg_free", deg_free_constraint)
 
         if deg_free_prior is not None:
             self.register_prior(
                 "deg_free_prior", deg_free_prior, lambda: self.deg_free, lambda v: self._set_deg_free(v)
             )
 
-        self.register_constraint("raw_deg_free", deg_free_constraint)
 
         # Rough initialization
         self.initialize(deg_free=7)

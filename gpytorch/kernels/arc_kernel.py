@@ -121,24 +121,24 @@ class ArcKernel(Kernel):
         self.register_parameter(
             name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
         )
+        self.register_constraint("raw_angle", angle_constraint)
+
         if angle_prior is not None:
             self.register_prior(
                 "angle_prior", angle_prior, lambda: self.angle, lambda v: self._set_angle(v),
             )
 
-        self.register_constraint("raw_angle", angle_constraint)
-
         self.register_parameter(
             name="raw_radius", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
         )
+        radius_constraint = Positive()
+        self.register_constraint("raw_radius", radius_constraint)
 
         if radius_prior is not None:
             self.register_prior(
                 "radius_prior", radius_prior, lambda: self.radius, lambda v: self._set_radius(v),
             )
 
-        radius_constraint = Positive()
-        self.register_constraint("raw_radius", radius_constraint)
 
         self.base_kernel = base_kernel
         if self.base_kernel.has_lengthscale:

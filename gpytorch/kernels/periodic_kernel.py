@@ -82,6 +82,7 @@ class PeriodicKernel(Kernel):
         self.register_parameter(
             name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1))
         )
+        self.register_constraint("raw_period_length", period_length_constraint)
 
         if period_length_prior is not None:
             self.register_prior(
@@ -91,7 +92,6 @@ class PeriodicKernel(Kernel):
                 lambda v: self._set_period_length(v),
             )
 
-        self.register_constraint("raw_period_length", period_length_constraint)
 
     @property
     def period_length(self):

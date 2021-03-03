@@ -33,10 +33,10 @@ class BetaLikelihood(_OneDimensionalLikelihood):
             scale_constraint = Positive()
 
         self.raw_scale = torch.nn.Parameter(torch.ones(*batch_shape, 1))
+        self.register_constraint("raw_scale", scale_constraint)
         if scale_prior is not None:
             self.register_prior("scale_prior", scale_prior, lambda: self.scale, lambda v: self._set_scale(v))
 
-        self.register_constraint("raw_scale", scale_constraint)
 
     @property
     def scale(self):
