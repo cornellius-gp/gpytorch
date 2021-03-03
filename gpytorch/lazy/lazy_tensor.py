@@ -23,8 +23,10 @@ from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
+from ..utils.lanczos import _postprocess_lanczos_root_inv_decomp
 from ..utils.memoize import _is_in_cache_ignore_args, add_to_cache, cached, get_from_cache, pop_from_cache
 from ..utils.pivoted_cholesky import pivoted_cholesky
+from ..utils.qr import stable_qr
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -644,40 +646,10 @@ class LazyTensor(ABC):
             *self.representation(),
         )
 
-        has_several_initial_vectors = initial_vectors is not None and initial_vectors.size(-1) > 1
-
-        if has_several_initial_vectors:
+        if initial_vectors is not None and initial_vectors.size(-1) > 1:
             add_to_cache(self, "root_decomposition", RootLazyTensor(roots[0]))
         else:
             add_to_cache(self, "root_decomposition", RootLazyTensor(roots))
-
-        # Choose the best of the inv_roots, if there were more than one initial vectors
-        if has_several_initial_vectors and test_vectors is not None:
-            num_probes = initial_vectors.size(-1)
-            test_vectors = test_vectors.unsqueeze(0)
-
-            # Compute solves
-            solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
-
-            # Compute self * solves
-            solves = (
-                solves.permute(*range(1, self.dim() + 1), 0)
-                .contiguous()
-                .view(*self.batch_shape, self.matrix_shape[-1], -1)
-            )
-            mat_times_solves = self.matmul(solves)
-            mat_times_solves = mat_times_solves.view(*self.batch_shape, self.matrix_shape[-1], -1, num_probes).permute(
-                -1, *range(0, self.dim())
-            )
-
-            # Compute residuals
-            residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
-            residuals = residuals.view(residuals.size(0), -1).sum(-1)
-
-            # Choose solve that best fits
-            _, best_solve_index = residuals.min(0)
-            inv_root = inv_roots[best_solve_index].squeeze(0)
-            return inv_root
 
         return inv_roots
 
@@ -856,24 +828,7 @@ class LazyTensor(ABC):
             new_inv_root = lazify(new_inv_root.transpose(-1, -2))
 
         else:
-            # otherwise we need to do QR
-            if new_root.shape[-1] <= 2048:
-                # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
-                device = new_root.device
-                Q, R = torch.qr(new_root.cpu())
-                Q = Q.to(device)
-                R = R.to(device)
-            else:
-                Q, R = torch.qr(new_root)
-
-            Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
-            # if R is almost singular, add jitter
-            zeroish = Rdiag.abs() < 1e-6
-            if torch.any(zeroish):
-                # can't use in-place operation here b/c it would mess up backward pass
-                # haven't found a more elegant way to add a jitter diagonal yet...
-                jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
-                R = R + torch.diag_embed(jitter_diag)
+            Q, R = stable_qr(new_root)
 
             if R.shape[-2] == R.shape[-1]:
                 new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R, upper=True).solution.transpose(-2, -1)
@@ -1761,7 +1716,9 @@ class LazyTensor(ABC):
                         )
                     )
 
-            inv_root = self._root_inv_decomposition(initial_vectors, test_vectors)
+            inv_root = self._root_inv_decomposition(initial_vectors)
+            if initial_vectors is not None and initial_vectors.size(-1) > 1:
+                inv_root = _postprocess_lanczos_root_inv_decomp(self, inv_root, initial_vectors, test_vectors)
 
         if method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
