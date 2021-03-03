@@ -173,7 +173,6 @@ class Kernel(Module):
                     "lengthscale_prior", lengthscale_prior, lambda m: m.lengthscale, lambda m, v: m._set_lengthscale(v)
                 )
 
-
         self.distance_module = None
         # TODO: Remove this on next official PyTorch release.
         self.__pdist_supports_batch = True

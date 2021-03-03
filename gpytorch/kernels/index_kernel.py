@@ -58,7 +58,6 @@ class IndexKernel(Kernel):
         if prior is not None:
             self.register_prior("IndexKernelPrior", prior, lambda m: m._eval_covar_matrix())
 
-
     @property
     def var(self):
         return self.raw_var_constraint.transform(self.raw_var)

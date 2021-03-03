@@ -261,14 +261,14 @@ class Module(nn.Module):
                     """
                 )
             closure = param_or_closure
-        
+
         hyperparameter_shape = closure().shape
         prior_shape = prior.shape()
 
         if prior_shape != hyperparameter_shape:
             try:
                 prior = prior.expand(hyperparameter_shape)
-            except RuntimeError: 
+            except RuntimeError:
                 raise RuntimeError(
                     "Attempting to broadcast a prior that is not broadcastable! "
                     + f"Got parameter shape {hyperparameter_shape} "

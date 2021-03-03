@@ -47,7 +47,6 @@ class BetaLikelihood(_OneDimensionalLikelihood):
         if scale_prior is not None:
             self.register_prior("scale_prior", scale_prior, lambda m: m.scale, lambda m, v: m._set_scale(v))
 
-
     @property
     def scale(self):
         return self.raw_scale_constraint.transform(self.raw_scale)

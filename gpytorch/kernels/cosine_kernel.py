@@ -75,7 +75,6 @@ class CosineKernel(Kernel):
                 lambda m, v: m._set_period_length(v),
             )
 
-
     @property
     def period_length(self):
         return self.raw_period_length_constraint.transform(self.raw_period_length)

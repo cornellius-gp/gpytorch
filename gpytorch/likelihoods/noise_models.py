@@ -29,7 +29,6 @@ class _HomoskedasticNoiseBase(Noise):
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda m: m.noise, lambda m, v: m._set_noise(v))
 
-
     @property
     def noise(self):
         return self.raw_noise_constraint.transform(self.raw_noise)

@@ -139,7 +139,6 @@ class ArcKernel(Kernel):
                 "radius_prior", radius_prior, lambda m: m.radius, lambda m, v: m._set_radius(v),
             )
 
-
         self.base_kernel = base_kernel
         if self.base_kernel.has_lengthscale:
             self.base_kernel.lengthscale = 1

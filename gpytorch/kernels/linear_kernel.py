@@ -61,7 +61,6 @@ class LinearKernel(Kernel):
         if variance_prior is not None:
             self.register_prior("variance_prior", variance_prior, lambda m: m.variance, lambda m, v: m._set_variance(v))
 
-
     @property
     def variance(self):
         return self.raw_variance_constraint.transform(self.raw_variance)

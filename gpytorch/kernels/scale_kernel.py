@@ -75,7 +75,6 @@ class ScaleKernel(Kernel):
                 "outputscale_prior", outputscale_prior, lambda m: m.outputscale, lambda m, v: m._set_outputscale(v)
             )
 
-
     @property
     def outputscale(self):
         return self.raw_outputscale_constraint.transform(self.raw_outputscale)

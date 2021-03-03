@@ -56,7 +56,6 @@ class PolynomialKernel(Kernel):
         if offset_prior is not None:
             self.register_prior("offset_prior", offset_prior, lambda m: m.offset, lambda m, v: m._set_offset(v))
 
-
     @property
     def offset(self) -> torch.Tensor:
         return self.raw_offset_constraint.transform(self.raw_offset)
