@@ -35,6 +35,9 @@ class _VariationalStrategy(Module, ABC):
         self._variational_distribution = variational_distribution
         self.register_buffer("variational_params_initialized", torch.tensor(0))
 
+    def _clear_cache(self):
+        clear_cache_hook(self)
+
     def _expand_inputs(self, x, inducing_points):
         """
         Pre-processing step in __call__ to make x the same batch_shape as the inducing points
@@ -62,7 +65,7 @@ class _VariationalStrategy(Module, ABC):
     def variational_distribution(self):
         return self._variational_distribution()
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         r"""
         The :func:`~gpytorch.variational.VariationalStrategy.forward` method determines how to marginalize out the
         inducing point function values. Specifically, forward defines how to transform a variational distribution
@@ -94,20 +97,14 @@ class _VariationalStrategy(Module, ABC):
             kl_divergence = torch.distributions.kl.kl_divergence(self.variational_distribution, self.prior_distribution)
         return kl_divergence
 
-    def train(self, mode=True):
-        # Make sure we are clearing the cache if we change modes
-        if (self.training and not mode) or mode:
-            clear_cache_hook(self)
-        return super().train(mode=mode)
-
-    def __call__(self, x, prior=False):
+    def __call__(self, x, prior=False, **kwargs):
         # If we're in prior mode, then we're done!
         if prior:
-            return self.model.forward(x)
+            return self.model.forward(x, **kwargs)
 
         # Delete previously cached items from the training distribution
         if self.training:
-            clear_cache_hook(self)
+            self._clear_cache()
         # (Maybe) initialize variational distribution
         if not self.variational_params_initialized.item():
             prior_dist = self.prior_distribution
@@ -129,10 +126,11 @@ class _VariationalStrategy(Module, ABC):
                 inducing_points,
                 inducing_values=variational_dist_u.mean,
                 variational_inducing_covar=variational_dist_u.lazy_covariance_matrix,
+                **kwargs,
             )
         elif isinstance(variational_dist_u, Delta):
             return super().__call__(
-                x, inducing_points, inducing_values=variational_dist_u.mean, variational_inducing_covar=None
+                x, inducing_points, inducing_values=variational_dist_u.mean, variational_inducing_covar=None, **kwargs
             )
         else:
             raise RuntimeError(

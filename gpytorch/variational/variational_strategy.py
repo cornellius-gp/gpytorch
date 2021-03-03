@@ -4,7 +4,6 @@ import warnings
 
 import torch
 
-from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, TriangularLazyTensor, delazify
 from ..settings import trace_mode
@@ -70,21 +69,25 @@ class VariationalStrategy(_VariationalStrategy):
 
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
-        L = psd_safe_cholesky(delazify(induc_induc_covar).double(), jitter=settings.cholesky_jitter.value())
+        L = psd_safe_cholesky(delazify(induc_induc_covar).double())
         return TriangularLazyTensor(L)
 
     @property
     @cached(name="prior_distribution_memo")
     def prior_distribution(self):
-        zeros = torch.zeros_like(self.variational_distribution.mean)
+        zeros = torch.zeros(
+            self._variational_distribution.shape(),
+            dtype=self._variational_distribution.dtype,
+            device=self._variational_distribution.device,
+        )
         ones = torch.ones_like(zeros)
         res = MultivariateNormal(zeros, DiagLazyTensor(ones))
         return res
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
-        full_output = self.model.forward(full_inputs)
+        full_output = self.model.forward(full_inputs, **kwargs)
         full_covar = full_output.lazy_covariance_matrix
 
         # Covariance terms
@@ -110,12 +113,7 @@ class VariationalStrategy(_VariationalStrategy):
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
-        predictive_mean = (
-            torch.matmul(
-                interp_term.transpose(-1, -2), (inducing_values - self.prior_distribution.mean).unsqueeze(-1)
-            ).squeeze(-1)
-            + test_mean
-        )
+        predictive_mean = (interp_term.transpose(-1, -2) @ inducing_values.unsqueeze(-1)).squeeze(-1) + test_mean
 
         # Compute the covariance of q(f)
         # K_XX + k_XZ K_ZZ^{-1/2} (S - I) K_ZZ^{-1/2} k_ZX
@@ -137,7 +135,7 @@ class VariationalStrategy(_VariationalStrategy):
         # Return the distribution
         return MultivariateNormal(predictive_mean, predictive_covar)
 
-    def __call__(self, x, prior=False):
+    def __call__(self, x, prior=False, **kwargs):
         if not self.updated_strategy.item() and not prior:
             with torch.no_grad():
                 # Get unwhitened p(u)
@@ -167,4 +165,4 @@ class VariationalStrategy(_VariationalStrategy):
                 # Mark that we have updated the variational strategy
                 self.updated_strategy.fill_(True)
 
-        return super().__call__(x, prior=prior)
+        return super().__call__(x, prior=prior, **kwargs)

@@ -9,7 +9,7 @@ from torch.nn import Parameter
 from .. import settings
 from ..constraints import GreaterThan
 from ..distributions import MultivariateNormal
-from ..lazy import DiagLazyTensor, ZeroLazyTensor
+from ..lazy import ConstantDiagLazyTensor, DiagLazyTensor, ZeroLazyTensor
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 
@@ -27,7 +27,7 @@ class _HomoskedasticNoiseBase(Noise):
         self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(*batch_shape, num_tasks)))
         self.register_constraint("raw_noise", noise_constraint)
         if noise_prior is not None:
-            self.register_prior("noise_prior", noise_prior, lambda: self.noise, lambda v: self._set_noise(v))
+            self.register_prior("noise_prior", noise_prior, lambda m: m.noise, lambda m, v: m._set_noise(v))
 
 
     @property
@@ -73,10 +73,12 @@ class _HomoskedasticNoiseBase(Noise):
         num_tasks = noise.shape[-1]
         batch_shape = _mul_broadcast_shape(noise_batch_shape, batch_shape)
         noise = noise.unsqueeze(-2)
-        noise_diag = noise.expand(*batch_shape, n, num_tasks).contiguous()
+        noise_diag = noise.expand(*batch_shape, 1, num_tasks).contiguous()
         if num_tasks == 1:
-            noise_diag = noise_diag.view(*batch_shape, n)
-        return DiagLazyTensor(noise_diag)
+            noise_diag = noise_diag.view(*batch_shape, 1)
+        if noise_diag.shape[-1] != 1:
+            noise_diag = noise_diag.unsqueeze(-1)
+        return ConstantDiagLazyTensor(noise_diag, diag_shape=n)
 
 
 class HomoskedasticNoise(_HomoskedasticNoiseBase):

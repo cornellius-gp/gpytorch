@@ -2,13 +2,45 @@
 
 import math
 import unittest
+from unittest.mock import MagicMock, patch
 
 import torch
 
-from gpytorch.kernels import AdditiveKernel, LinearKernel, ProductKernel, RBFKernel
+import gpytorch
+from gpytorch.kernels import LinearKernel, MaternKernel, RBFKernel, RFFKernel
 
 
-class TestAdditiveKernel(unittest.TestCase):
+class TestModel(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y):
+        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        super().__init__(train_x, train_y, likelihood)
+        self.mean_module = gpytorch.means.ZeroMean()
+        self.covar_module = gpytorch.kernels.ScaleKernel(
+            RFFKernel(active_dims=[0], num_samples=10) + MaternKernel(nu=2.5, active_dims=[1, 2])
+        )
+
+    def forward(self, input):
+        mean = self.mean_module(input)
+        covar = self.covar_module(input)
+        return gpytorch.distributions.MultivariateNormal(mean, covar)
+
+
+class TestModelNoStructure(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y):
+        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        super().__init__(train_x, train_y, likelihood)
+        self.mean_module = gpytorch.means.ZeroMean()
+        self.covar_module = gpytorch.kernels.ScaleKernel(
+            RBFKernel(active_dims=[0], num_samples=10) + MaternKernel(nu=2.5, active_dims=[1, 2])
+        )
+
+    def forward(self, input):
+        mean = self.mean_module(input)
+        covar = self.covar_module(input)
+        return gpytorch.distributions.MultivariateNormal(mean, covar)
+
+
+class TestAdditiveAndProductKernel(unittest.TestCase):
     def test_computes_product_of_radial_basis_function(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
@@ -118,10 +150,68 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
-        kernel = ProductKernel(kernel_1, kernel_2, kernel_3)
+        kernel = (kernel_1 * kernel_2) * kernel_3
+        self.assertEqual(len(kernel.kernels), 3)
+        for sub_kernel in kernel.kernels:
+            self.assertIsInstance(sub_kernel, RBFKernel)
 
         actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
         actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 3
+
+        kernel.eval()
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual), 2e-5)
+
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = (kernel_1 * kernel_2) * kernel_3
+        self.assertEqual(len(kernel.kernels), 3)
+        for sub_kernel in kernel.kernels:
+            self.assertIsInstance(sub_kernel, RBFKernel)
+
+        kernel.eval()
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual), 2e-5)
+
+    def test_computes_product_of_four_radial_basis_function(self):
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
+        lengthscale = 2
+
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_4 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = kernel_1 * kernel_2 * kernel_3 * kernel_4
+        self.assertEqual(len(kernel.kernels), 4)
+        for sub_kernel in kernel.kernels:
+            self.assertIsInstance(sub_kernel, RBFKernel)
+
+        actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
+        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 4
+
+        kernel.eval()
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual), 2e-5)
+
+    def test_computes_sum_of_four_radial_basis_function(self):
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
+        lengthscale = 2
+
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_4 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = (kernel_1 + kernel_2) + (kernel_3 + kernel_4)
+        self.assertEqual(len(kernel.kernels), 4)
+        for sub_kernel in kernel.kernels:
+            self.assertIsInstance(sub_kernel, RBFKernel)
+
+        actual = (
+            torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float).mul_(-0.5).div_(lengthscale ** 2).exp() * 4
+        )
 
         kernel.eval()
         res = kernel(a, b).evaluate()
@@ -135,11 +225,26 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
-        kernel = AdditiveKernel(kernel_1, kernel_2, kernel_3)
+        kernel = (kernel_1 + kernel_2) + kernel_3
+        self.assertEqual(len(kernel.kernels), 3)
+        for sub_kernel in kernel.kernels:
+            self.assertIsInstance(sub_kernel, RBFKernel)
 
         actual = (
             torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float).mul_(-0.5).div_(lengthscale ** 2).exp() * 3
         )
+
+        kernel.eval()
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual), 2e-5)
+
+        kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = kernel_1 + (kernel_2 + kernel_3)
+        self.assertEqual(len(kernel.kernels), 3)
+        for sub_kernel in kernel.kernels:
+            self.assertIsInstance(sub_kernel, RBFKernel)
 
         kernel.eval()
         res = kernel(a, b).evaluate()
@@ -184,7 +289,7 @@ class TestAdditiveKernel(unittest.TestCase):
         kernel_1 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
         kernel_3 = RBFKernel().initialize(lengthscale=lengthscale)
-        kernel = AdditiveKernel(kernel_1, kernel_2, kernel_3)
+        kernel = kernel_1 + kernel_2 + kernel_3
         kernel.eval()
 
         output = kernel(a, b).evaluate()
@@ -205,6 +310,54 @@ class TestAdditiveKernel(unittest.TestCase):
         self.assertTrue((kernel_1 * kernel_2).is_stationary)
         self.assertFalse((kernel_1 + kernel_3).is_stationary)
         self.assertFalse((kernel_1 * kernel_3).is_stationary)
+
+    def test_kernel_output(self):
+        train_x = torch.randn(1000, 3)
+        train_y = torch.randn(1000)
+        test_x = torch.randn(500, 3)
+        model = TestModel(train_x, train_y)
+
+        # Make sure that the prior kernel is the correct type
+        model.train()
+        output = model(train_x).lazy_covariance_matrix.evaluate_kernel()
+        self.assertIsInstance(output, gpytorch.lazy.SumLazyTensor)
+
+        # Make sure that the prior predictive kernel is the correct type
+        model.train()
+        output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
+        self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
+
+        # Make sure we're calling the correct prediction strategy
+        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.SumPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.SumPredictionStrategy", new=_wrapped_ps) as ps_mock:
+            model.eval()
+            output = model.likelihood(model(test_x))
+            _ = output.mean + output.variance  # Compute something to break through any lazy evaluations
+            self.assertTrue(ps_mock.called)
+
+    def test_kernel_output_no_structure(self):
+        train_x = torch.randn(1000, 3)
+        train_y = torch.randn(1000)
+        test_x = torch.randn(500, 3)
+        model = TestModelNoStructure(train_x, train_y)
+
+        # Make sure that the prior kernel is the correct type
+        model.train()
+        output = model(train_x).lazy_covariance_matrix.evaluate_kernel()
+        self.assertIsInstance(output, gpytorch.lazy.ConstantMulLazyTensor)
+
+        # Make sure that the prior predictive kernel is the correct type
+        model.train()
+        output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
+        self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
+
+        # Make sure we're calling the correct prediction strategy
+        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.SumPredictionStrategy)
+        with patch("gpytorch.models.exact_prediction_strategies.SumPredictionStrategy", new=_wrapped_ps) as ps_mock:
+            model.eval()
+            output = model.likelihood(model(test_x))
+            _ = output.mean + output.variance  # Compute something to break through any lazy evaluations
+            self.assertTrue(ps_mock.called)
 
 
 if __name__ == "__main__":

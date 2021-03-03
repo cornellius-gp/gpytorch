@@ -9,7 +9,7 @@ from .kernel import Kernel
 
 
 class PeriodicKernel(Kernel):
-    r""" Computes a covariance matrix based on the periodic kernel
+    r"""Computes a covariance matrix based on the periodic kernel
     between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`:
 
     .. math::
@@ -88,8 +88,8 @@ class PeriodicKernel(Kernel):
             self.register_prior(
                 "period_length_prior",
                 period_length_prior,
-                lambda: self.period_length,
-                lambda v: self._set_period_length(v),
+                lambda m: m.period_length,
+                lambda m, v: m._set_period_length(v),
             )
 
 

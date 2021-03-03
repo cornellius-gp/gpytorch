@@ -30,9 +30,17 @@ class PolynomialKernelGrad(PolynomialKernel):
             K22_base_diag = self.power * (self.power - 1) * base_diag.pow(self.power - 2)
             K12_base_diag = self.power * base_diag.pow(self.power - 1)
 
-            K22_diag = all_outers_diag * K22_base_diag.repeat(d) + K12_base_diag.repeat(d)
+            K22_diag = torch.add(
+                all_outers_diag * K22_base_diag.repeat(*([1] * (K22_base_diag.dim() - 1)), d),
+                K12_base_diag.repeat(*([1] * (K12_base_diag.dim() - 1)), d),
+            )
 
-            return torch.cat([K11_diag, K22_diag], dim=-1)
+            K_diag = torch.cat([K11_diag, K22_diag], dim=-1)
+            # Apply perfect shuffle
+            pi1 = torch.arange(n1 * (d + 1)).view(d + 1, n1).t().reshape((n1 * (d + 1)))
+            K_diag = K_diag[..., pi1]
+            return K_diag
+
         else:
             base_inner_prod = torch.matmul(x1, x2.transpose(-2, -1)) + offset
             K11 = base_inner_prod.pow(self.power)

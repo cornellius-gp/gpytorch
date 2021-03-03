@@ -53,43 +53,7 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
         test_y = torch.sin(test_x * (2 * pi))
         return train_x, test_x, train_y, test_y
 
-    def test_posterior_latent_gp_and_likelihood_without_optimization(self, cuda=False):
-        train_x, test_x, train_y, test_y = self._get_data(cuda=cuda)
-        with gpytorch.settings.debug(False):
-            # We're manually going to set the hyperparameters to be ridiculous
-            likelihood = FixedNoiseGaussianLikelihood(torch.ones(11) * 1e-8)
-            gp_model = ExactGPModel(train_x, train_y, likelihood)
-            # Update lengthscale prior to accommodate extreme parameters
-            gp_model.rbf_covar_module.initialize(lengthscale=exp(-6))
-            gp_model.mean_module.initialize(constant=0)
-
-            if cuda:
-                gp_model.cuda()
-                likelihood.cuda()
-
-            # Compute posterior distribution
-            gp_model.eval()
-            likelihood.eval()
-
-            # Let's see how our model does, conditioned with weird hyperparams
-            # The posterior should fit all the data
-            function_predictions = likelihood(gp_model(train_x))
-
-            self.assertLess(torch.norm(function_predictions.mean - train_y), 1e-3)
-            self.assertLess(torch.norm(function_predictions.variance), 5e-3)
-
-            # It shouldn't fit much else though
-            test_function_predictions = gp_model(torch.tensor([1.1]).type_as(test_x))
-
-            self.assertLess(torch.norm(test_function_predictions.mean - 0), 1e-4)
-            self.assertLess(torch.norm(test_function_predictions.variance - gp_model.covar_module.outputscale), 1e-4)
-
-    def test_posterior_latent_gp_and_likelihood_without_optimization_cuda(self):
-        if torch.cuda.is_available():
-            with least_used_cuda_device():
-                self.test_posterior_latent_gp_and_likelihood_without_optimization(cuda=True)
-
-    def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False):
+    def test_posterior_latent_gp_and_likelihood_with_optimization(self, cuda=False, cg=False):
         # This test throws a warning because the fixed noise likelihood gets the wrong input
         warnings.simplefilter("ignore", GPInputWarning)
 
@@ -111,7 +75,7 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
 
         optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
         optimizer.n_iter = 0
-        with gpytorch.settings.debug(False):
+        with gpytorch.settings.debug(False), gpytorch.settings.max_cholesky_size(0 if cg else 1e10):
             for _ in range(75):
                 optimizer.zero_grad()
                 output = gp_model(train_x)
@@ -132,6 +96,9 @@ class TestWhiteNoiseGPRegression(unittest.TestCase):
             mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean))
 
         self.assertLess(mean_abs_error.squeeze().item(), 0.05)
+
+    def test_posterior_latent_gp_and_likelihood_with_optimization_with_cg(self):
+        return self.test_posterior_latent_gp_and_likelihood_with_optimization(cg=True)
 
     def test_posterior_latent_gp_and_likelihood_with_optimization_cuda(self):
         if torch.cuda.is_available():

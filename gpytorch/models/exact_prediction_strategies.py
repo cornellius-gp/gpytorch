@@ -7,6 +7,7 @@ import torch
 
 from .. import settings
 from ..lazy import (
+    AddedDiagLazyTensor,
     BatchRepeatLazyTensor,
     ConstantMulLazyTensor,
     InterpolatedLazyTensor,
@@ -35,9 +36,11 @@ def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood
 
 class DefaultPredictionStrategy(object):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, root=None, inv_root=None):
+        # Get training shape
+        self._train_shape = train_prior_dist.event_shape
+
         # Flatten the training labels
-        train_shape = train_prior_dist.event_shape
-        train_labels = train_labels.view(*train_labels.shape[: -len(train_shape)], train_shape.numel())
+        train_labels = train_labels.reshape(*train_labels.shape[: -len(self.train_shape)], self._train_shape.numel())
 
         self.train_inputs = train_inputs
         self.train_prior_dist = train_prior_dist
@@ -168,7 +171,7 @@ class DefaultPredictionStrategy(object):
         small_system_rhs = targets - fant_mean - ftcm
         small_system_rhs = small_system_rhs.unsqueeze(-1)
         # Schur complement of a spd matrix is guaranteed to be positive definite
-        schur_cholesky = psd_safe_cholesky(schur_complement, jitter=settings.cholesky_jitter.value())
+        schur_cholesky = psd_safe_cholesky(schur_complement)
         fant_cache_lower = torch.cholesky_solve(small_system_rhs, schur_cholesky)
 
         # Get "a", the new upper portion of the cache corresponding to the old training points.
@@ -205,7 +208,7 @@ class DefaultPredictionStrategy(object):
 
         lower_left = fant_train_covar.matmul(L_inverse)
         schur = fant_fant_covar - lower_left.matmul(lower_left.transpose(-2, -1))
-        schur_root = psd_safe_cholesky(schur, jitter=settings.cholesky_jitter.value())
+        schur_root = psd_safe_cholesky(schur)
 
         # Form new root Z = [L 0; lower_left schur_root]
 
@@ -281,7 +284,7 @@ class DefaultPredictionStrategy(object):
         train_mean, train_train_covar = mvn.loc, mvn.lazy_covariance_matrix
 
         train_labels_offset = (self.train_labels - train_mean).unsqueeze(-1)
-        mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
+        mean_cache = train_train_covar.evaluate_kernel().inv_matmul(train_labels_offset).squeeze(-1)
 
         if settings.detach_test_caches.on():
             mean_cache = mean_cache.detach()
@@ -295,11 +298,11 @@ class DefaultPredictionStrategy(object):
 
     @property
     def num_train(self):
-        return self.train_prior_dist.event_shape.numel()
+        return self._train_shape.numel()
 
     @property
     def train_shape(self):
-        return self.train_prior_dist.event_shape
+        return self._train_shape
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data
@@ -629,7 +632,7 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
             torch.eye(train_factor.size(-1), dtype=train_factor.dtype, device=train_factor.device)
             - (train_factor.transpose(-1, -2) @ train_train_covar.inv_matmul(train_factor)) * constant
         )
-        return psd_safe_cholesky(inner_term)
+        return psd_safe_cholesky(inner_term, jitter=settings.cholesky_jitter.value())
 
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data
@@ -656,3 +659,45 @@ class RFFPredictionStrategy(DefaultPredictionStrategy):
         factor = test_test_covar.root.evaluate() * constant.sqrt()
         res = RootLazyTensor(factor @ covar_cache)
         return res
+
+
+class SGPRPredictionStrategy(DefaultPredictionStrategy):
+    @property
+    @cached(name="covar_cache")
+    def covar_cache(self):
+        # Here, the covar_cache is going to be the inverse of K_{XX} + \sigma^2 I
+        # This is easily computed using Woodbury
+        train_train_covar = self.lik_train_train_covar.evaluate_kernel()
+
+        # Get terms needed for woodbury
+        root = train_train_covar._lazy_tensor.root_decomposition().root
+        inv_diag = train_train_covar._diag_tensor.inverse()
+
+        # Form LT using woodbury
+        ones = torch.tensor(1.0, dtype=inv_diag.dtype, device=inv_diag.device)
+        chol_factor = (root.transpose(-1, -2) @ root).add_diag(ones).cholesky().evaluate()
+        woodbury_term = torch.triangular_solve(
+            inv_diag.diag().unsqueeze(-2) * root.evaluate().transpose(-1, -2), chol_factor, upper=False
+        )[0]
+        inverse = AddedDiagLazyTensor(MatmulLazyTensor(woodbury_term.transpose(-1, -2), -woodbury_term), inv_diag)
+        return inverse
+
+    def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
+        raise NotImplementedError(
+            "Fantasy observation updates not yet supported for models using SGPRPredictionStrategy"
+        )
+
+    def exact_prediction(self, joint_mean, joint_covar):
+        # Find the components of the distribution that contain test data
+        test_mean = joint_mean[..., self.num_train :]
+        test_test_covar = joint_covar[..., self.num_train :, self.num_train :].evaluate_kernel()
+        test_train_covar = joint_covar[..., self.num_train :, : self.num_train].evaluate_kernel()
+
+        return (
+            self.exact_predictive_mean(test_mean, test_train_covar),
+            self.exact_predictive_covar(test_test_covar, test_train_covar),
+        )
+
+    def exact_predictive_covar(self, test_test_covar, test_train_covar):
+        train_train_precision = self.covar_cache
+        return (test_train_covar @ (train_train_precision @ test_train_covar.transpose(-1, -2))) + test_test_covar

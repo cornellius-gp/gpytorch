@@ -72,7 +72,7 @@ class ScaleKernel(Kernel):
 
         if outputscale_prior is not None:
             self.register_prior(
-                "outputscale_prior", outputscale_prior, lambda: self.outputscale, lambda v: self._set_outputscale(v)
+                "outputscale_prior", outputscale_prior, lambda m: m.outputscale, lambda m, v: m._set_outputscale(v)
             )
 
 
@@ -103,3 +103,6 @@ class ScaleKernel(Kernel):
 
     def num_outputs_per_input(self, x1, x2):
         return self.base_kernel.num_outputs_per_input(x1, x2)
+
+    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
+        return self.base_kernel.prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood)

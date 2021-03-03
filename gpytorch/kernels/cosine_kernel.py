@@ -71,8 +71,8 @@ class CosineKernel(Kernel):
             self.register_prior(
                 "period_length_prior",
                 period_length_prior,
-                lambda: self.period_length,
-                lambda v: self._set_period_length(v),
+                lambda m: m.period_length,
+                lambda m, v: m._set_period_length(v),
             )
 
 

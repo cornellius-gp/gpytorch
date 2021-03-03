@@ -66,13 +66,13 @@ class _ApproximateMarginalLogLikelihood(MarginalLogLikelihood, ABC):
 
         # Log prior term
         log_prior = torch.zeros_like(log_likelihood)
-        for _, prior, closure, _ in self.named_priors():
-            log_prior.add_(prior.log_prob(closure()).sum().div(self.num_data))
+        for name, module, prior, closure, _ in self.named_priors():
+            log_prior.add_(prior.log_prob(closure(module)).sum().div(self.num_data))
 
         if self.combine_terms:
             return log_likelihood - kl_divergence + log_prior - added_loss
         else:
             if had_added_losses:
-                return log_likelihood, kl_divergence, log_prior.div(self.num_data), added_loss
+                return log_likelihood, kl_divergence, log_prior, added_loss
             else:
-                return log_likelihood, kl_divergence, log_prior.div(self.num_data)
+                return log_likelihood, kl_divergence, log_prior

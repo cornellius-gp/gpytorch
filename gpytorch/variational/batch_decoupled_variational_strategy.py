@@ -121,12 +121,13 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
         >>>             self, inducing_points, variational_distribution, learn_inducing_locations=True,
         >>>         )
         >>>
-        >>>         # The mean/covar modules have a batch_shape of [3]
+        >>>         # The mean/covar modules have a batch_shape of [3, 1]
+        >>>         # where the singleton dimension corresponds to the shared mean/variance hyperparameters
         >>>         super().__init__(variational_strategy)
-        >>>         self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([3]))
+        >>>         self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([3, 1]))
         >>>         self.covar_module = gpytorch.kernels.ScaleKernel(
-        >>>             gpytorch.kernels.RBFKernel(batch_shape=torch.Size([3])),
-        >>>             batch_shape=torch.Size([3]),
+        >>>             gpytorch.kernels.RBFKernel(batch_shape=torch.Size([3, 1])),
+        >>>             batch_shape=torch.Size([3, 1]),
         >>>         )
     """
 
@@ -162,7 +163,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
             x = x.unsqueeze(self.mean_var_batch_dim - 2)
         return super()._expand_inputs(x, inducing_points)
 
-    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None):
+    def forward(self, x, inducing_points, inducing_values, variational_inducing_covar=None, **kwargs):
         # We'll compute the covariance, and cross-covariance terms for both the
         # pred-mean and pred-covar, using their different inducing points (and maybe kernel hypers)
 
@@ -170,7 +171,7 @@ class BatchDecoupledVariationalStrategy(VariationalStrategy):
 
         # Compute full prior distribution
         full_inputs = torch.cat([inducing_points, x], dim=-2)
-        full_output = self.model.forward(full_inputs)
+        full_output = self.model.forward(full_inputs, **kwargs)
         full_covar = full_output.lazy_covariance_matrix
 
         # Covariance terms

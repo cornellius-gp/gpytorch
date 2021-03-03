@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import math
-import warnings
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -11,7 +10,6 @@ from gpytorch.likelihoods import BernoulliLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
-from gpytorch.utils.warnings import ExtraComputationWarning
 from torch import optim
 
 
@@ -63,7 +61,7 @@ class TestSVGPClassification(BaseTestCase, unittest.TestCase):
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
-        with warnings.catch_warnings(record=True) as ws, _cg_mock as cg_mock:
+        with _cg_mock as cg_mock:
             for _ in range(400):
                 optimizer.zero_grad()
                 output = model(train_x)
@@ -85,9 +83,7 @@ class TestSVGPClassification(BaseTestCase, unittest.TestCase):
             mean_abs_error = torch.mean(torch.ne(train_y, test_preds).float())
             self.assertLess(mean_abs_error.item(), 2e-1)
 
-            # Make sure CG was called (or not), and no warnings were thrown
             self.assertFalse(cg_mock.called)
-            self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
     def test_predictive_ll_classification_error(self):
         return self.test_classification_error(mll_cls=gpytorch.mlls.PredictiveLogLikelihood)
