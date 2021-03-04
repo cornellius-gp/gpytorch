@@ -823,7 +823,7 @@ class LazyTensor(ABC):
             # we don't need the batch shape here, thanks to broadcasting
             Eye = torch.eye(new_root.shape[-2], device=new_root.device, dtype=new_root.dtype)
             new_inv_root = torch.triangular_solve(Eye, new_root, upper=False)[0]
-            new_inv_root = lazify(new_inv_root.transpose(-1, -2))
+            new_inv_root = new_inv_root.transpose(-1, -2)
         else:
             Q, R = stable_qr(new_root)
 
@@ -833,8 +833,8 @@ class LazyTensor(ABC):
                 # solve with least squares
                 new_inv_root = torch.lstsq(Q.transpose(-2, -1), R).solution.transpose(-2, -1)
 
-        add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(new_root))
-        add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(new_inv_root))
+        add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(TriangularLazyTensor(new_root)))
+        add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(TriangularLazyTensor(new_inv_root)))
 
         return new_lazy_tensor
 
@@ -869,6 +869,7 @@ class LazyTensor(ABC):
         from . import lazify
         from .root_lazy_tensor import RootLazyTensor
         from .sum_lazy_tensor import SumLazyTensor
+        from .triangular_lazy_tensor import TriangularLazyTensor
 
         if not isinstance(self, SumLazyTensor):
             new_lazy_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
@@ -894,6 +895,8 @@ class LazyTensor(ABC):
 
         # first get LL^T = A
         current_root = self.root_decomposition(method=root_decomp_method).root
+        return_triangular = isinstance(current_root, TriangularLazyTensor)
+
         # and MM^T = A^{-1}
         current_inv_root = self.root_inv_decomposition(method=root_inv_decomp_method).root.transpose(-1, -2)
 
@@ -932,6 +935,10 @@ class LazyTensor(ABC):
         inner_inv_root = U.matmul(torch.diag_embed(stacked_inv_root_S))
         # finally \tilde{L}^{-1} = L^{-1} U \tilde{S}^{-1}
         updated_inv_root = current_inv_root.transpose(-1, -2).matmul(inner_inv_root)
+
+        if return_triangular:
+            updated_root = TriangularLazyTensor(updated_root)
+            updated_inv_root = TriangularLazyTensor(updated_inv_root)
 
         add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(updated_root))
         add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(updated_inv_root))
