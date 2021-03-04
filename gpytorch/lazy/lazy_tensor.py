@@ -1030,11 +1030,13 @@ class LazyTensor(ABC):
 
             # if the root decomposition has already been computed and is triangular we can use it instead
             # of computing the cholesky.
+            will_need_cholesky = True
             if _is_in_cache_ignore_args(self, "root_decomposition"):
                 root = self.root_decomposition().root
                 if isinstance(root, TriangularLazyTensor):
-                    cholesky = root
-            else:
+                    cholesky = CholLazyTensor(root)
+                    will_need_cholesky = False
+            if will_need_cholesky:
                 cholesky = CholLazyTensor(TriangularLazyTensor(self.cholesky()))
             return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
 
