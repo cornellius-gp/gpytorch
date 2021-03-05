@@ -23,7 +23,7 @@ from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
-from ..utils.memoize import add_to_cache, cached, get_from_cache, pop_from_cache
+from ..utils.memoize import _is_in_cache_ignore_all_args, add_to_cache, cached, get_from_cache, pop_from_cache
 from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
@@ -1031,8 +1031,7 @@ class LazyTensor(ABC):
             # if the root decomposition has already been computed and is triangular we can use it instead
             # of computing the cholesky.
             will_need_cholesky = True
-            # TODO: shouldn't this be _is_in_cache_ignore_args
-            if hasattr(self, "_memoize_cache") and "root_decomposition" in [x[0] for x in self._memoize_cache.keys()]:
+            if _is_in_cache_ignore_all_args(self, "root_decomposition"):
                 root = self.root_decomposition().root
                 if isinstance(root, TriangularLazyTensor):
                     cholesky = CholLazyTensor(root)
