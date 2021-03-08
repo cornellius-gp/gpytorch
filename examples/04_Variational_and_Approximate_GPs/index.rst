@@ -42,6 +42,7 @@ Here we provide some examples which highlight some of the common use cases:
    SVGP_CIQ.ipynb
    Approximate_GP_Objective_Functions.ipynb
    Non_Gaussian_Likelihoods.ipynb
+   PolyaGamma_Binary_Classification.ipynb
    SVGP_Multitask_GP_Regression.ipynb
    GP_Regression_with_Uncertain_Inputs.ipynb
 
