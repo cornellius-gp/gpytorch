@@ -50,7 +50,6 @@ class TestKroneckerProductAddedKroneckerDiagLazyTensor(TestKroneckerProductAdded
     # this lazy tensor has an explicit inverse so we don't need to run these
     skip_slq_tests = True
     should_call_cg = False
-    should_call_lanczos = False
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
@@ -96,7 +95,6 @@ class TestKroneckerProductAddedKroneckerConstDiagLazyTensor(TestKroneckerProduct
 
 
 class TestKroneckerProductAddedConstDiagLazyTensor(TestKroneckerProductAddedDiagLazyTensor):
-    should_call_lanczos = False
     should_call_cg = False
 
     def create_lazy_tensor(self):

@@ -12,6 +12,7 @@ class TestRootLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_test_sample = True
     should_call_lanczos = False
+    should_call_lanczos_diagonalization = True
 
     def create_lazy_tensor(self):
         root = torch.randn(3, 5, requires_grad=True)

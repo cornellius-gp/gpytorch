@@ -13,6 +13,7 @@ class TestCholLazyTensor(LazyTensorTestCase, unittest.TestCase):
     should_test_sample = True
     should_call_cg = False
     should_call_lanczos = False
+    should_call_lanczos_diagonalization = True
 
     def create_lazy_tensor(self):
         chol = torch.tensor(
