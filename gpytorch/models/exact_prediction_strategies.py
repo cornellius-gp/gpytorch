@@ -667,19 +667,24 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
     def covar_cache(self):
         # Here, the covar_cache is going to be the inverse of K_{XX} + \sigma^2 I
         # This is easily computed using Woodbury
+        # K_{XX} + \sigma^2 I = R R^T + \sigma^2 I
+        #                     = \sigma^{-2} ( I - \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T  )
         train_train_covar = self.lik_train_train_covar.evaluate_kernel()
 
         # Get terms needed for woodbury
-        root = train_train_covar._lazy_tensor.root_decomposition().root
-        inv_diag = train_train_covar._diag_tensor.inverse()
+        root = train_train_covar._lazy_tensor.root_decomposition().root.evaluate()  # R
+        inv_diag = train_train_covar._diag_tensor.inverse()  # \sigma^{-2}
 
         # Form LT using woodbury
-        ones = torch.tensor(1.0, dtype=inv_diag.dtype, device=inv_diag.device)
-        chol_factor = (root.transpose(-1, -2) @ root).add_diag(ones).cholesky().evaluate()
-        woodbury_term = torch.triangular_solve(
-            inv_diag.diag().unsqueeze(-2) * root.evaluate().transpose(-1, -2), chol_factor, upper=False
-        )[0]
-        inverse = AddedDiagLazyTensor(MatmulLazyTensor(woodbury_term.transpose(-1, -2), -woodbury_term), inv_diag)
+        ones = torch.tensor(1.0, dtype=root.dtype, device=root.device)
+        chol_factor = lazify(root.transpose(-1, -2) @ (inv_diag @ root)).add_diag(ones)  # (I + \sigma^{-2} R^T R)^{-1}
+        woodbury_term = inv_diag @ torch.triangular_solve(
+            root.transpose(-1, -2), chol_factor.cholesky().evaluate(), upper=False
+        )[0].transpose(-1, -2)
+        # woodbury_term @ woodbury_term^T = \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T \sigma^{-2}
+
+        inverse = AddedDiagLazyTensor(inv_diag, MatmulLazyTensor(-woodbury_term, woodbury_term.transpose(-1, -2)))
+        # \sigma^{-2} ( I - \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T  )
         return inverse
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
@@ -700,4 +705,6 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
         train_train_precision = self.covar_cache
-        return (test_train_covar @ (train_train_precision @ test_train_covar.transpose(-1, -2))) + test_test_covar
+        test_train_covar = test_train_covar.evaluate()  # Evaluation is more efficient than lazy evaluation
+        res = test_test_covar - (test_train_covar @ (train_train_precision @ test_train_covar.transpose(-1, -2)))
+        return res

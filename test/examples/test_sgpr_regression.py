@@ -17,6 +17,8 @@ from gpytorch.test.utils import least_used_cuda_device
 from gpytorch.utils.warnings import NumericalWarning
 from torch import optim
 
+from gpytorch.test.base_test_case import BaseTestCase
+
 
 # Simple training data: let's try to learn a sine function,
 # but with SGPR
@@ -50,7 +52,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         return MultivariateNormal(mean_x, covar_x)
 
 
-class TestSGPRRegression(unittest.TestCase):
+class TestSGPRRegression(unittest.TestCase, BaseTestCase):
     def setUp(self):
         if os.getenv("UNLOCK_SEED") is None or os.getenv("UNLOCK_SEED").lower() == "false":
             self.rng_state = torch.get_rng_state()
@@ -101,45 +103,14 @@ class TestSGPRRegression(unittest.TestCase):
 
         self.assertLess(mean_abs_error.squeeze().item(), 0.05)
 
-    def test_sgpr_fast_pred_var(self):
-        # Suppress numerical warnings
-        warnings.simplefilter("ignore", NumericalWarning)
-
-        train_x, train_y, test_x, test_y = make_data()
-        likelihood = GaussianLikelihood()
-        gp_model = GPRegressionModel(train_x, train_y, likelihood)
-        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
-
-        # Optimize the model
-        gp_model.train()
-        likelihood.train()
-
-        optimizer = optim.Adam(gp_model.parameters(), lr=0.1)
-        for _ in range(50):
-            optimizer.zero_grad()
-            output = gp_model(train_x)
-            loss = -mll(output, train_y)
-            loss.backward()
-            optimizer.step()
-
-        for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-
-        # Test the model
-        gp_model.eval()
-        likelihood.eval()
-
-        with gpytorch.settings.max_preconditioner_size(5), gpytorch.settings.max_cg_iterations(50):
-            with gpytorch.settings.fast_pred_var(True):
-                fast_var = gp_model(test_x).variance
-                fast_var_cache = gp_model(test_x).variance
-                self.assertLess(torch.max((fast_var_cache - fast_var).abs()), 1e-3)
-
-            with gpytorch.settings.fast_pred_var(False):
-                slow_var = gp_model(test_x).variance
-
-        self.assertLess(torch.max((fast_var_cache - slow_var).abs()), 1e-3)
+        # Test variances
+        test_vars = likelihood(gp_model(test_x)).variance
+        self.assertAllClose(test_vars, likelihood(gp_model(test_x)).covariance_matrix.diagonal(dim1=-1, dim2=-2))
+        self.assertGreater(test_vars.min().item() + 0.05, likelihood.noise.item())
+        self.assertLess(
+            test_vars.max().item() - 0.05,
+            likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
+        )
 
     def test_sgpr_mean_abs_error_cuda(self):
         # Suppress numerical warnings
@@ -178,6 +149,15 @@ class TestSGPRRegression(unittest.TestCase):
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
             self.assertLess(mean_abs_error.squeeze().item(), 0.02)
+
+            # Test variances
+            test_vars = likelihood(gp_model(test_x)).variance
+            self.assertAllClose(test_vars, likelihood(gp_model(test_x)).covariance_matrix.diagonal(dim1=-1, dim2=-2))
+            self.assertGreater(test_vars.min().item() + 0.05, likelihood.noise.item())
+            self.assertLess(
+                test_vars.max().item() - 0.05,
+                likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
+            )
 
 
 if __name__ == "__main__":
