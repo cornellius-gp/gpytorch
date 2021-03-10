@@ -338,10 +338,11 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             else:
                 self.assertFalse(linear_cg_mock.called)
 
-    def _test_inv_quad_logdet(self, reduce_inv_quad=True, cholesky=False):
+    def _test_inv_quad_logdet(self, reduce_inv_quad=True, cholesky=False, lazy_tensor=None):
         if not self.__class__.skip_slq_tests:
             # Forward
-            lazy_tensor = self.create_lazy_tensor()
+            if lazy_tensor is None:
+                lazy_tensor = self.create_lazy_tensor()
             evaluated = self.evaluate_lazy_tensor(lazy_tensor)
             flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
@@ -543,8 +544,30 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     def test_diagonalization_symeig(self):
         return self.test_diagonalization(symeig=True)
 
+    def _test_triangular_lazy_tensor_inv_quad_logdet(self):
+        # now we need to test that a second cholesky isn't being called in the inv_quad_logdet
+        with gpytorch.settings.max_cholesky_size(math.inf):
+            lazy_tensor = self.create_lazy_tensor()
+            rootdecomp = lazy_tensor.root_decomposition()
+
+            if isinstance(rootdecomp, gpytorch.lazy.CholLazyTensor):
+                chol = lazy_tensor.root_decomposition().root.clone()
+                gpytorch.utils.memoize.clear_cache_hook(lazy_tensor)
+                gpytorch.utils.memoize.add_to_cache(
+                    lazy_tensor, "root_decomposition", gpytorch.lazy.RootLazyTensor(chol)
+                )
+
+                _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
+                with patch("torch.cholesky", new=_wrapped_cholesky) as cholesky_mock:
+                    self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=True, lazy_tensor=lazy_tensor)
+                self.assertFalse(cholesky_mock.called)
+
     def test_root_decomposition_cholesky(self):
-        return self.test_root_decomposition(cholesky=True)
+        # first test if the root decomposition is accurate
+        self.test_root_decomposition(cholesky=True)
+
+        # now test that a second cholesky isn't being called in the inv_quad_logdet
+        self._test_inv_quad_logdet()
 
     def test_root_inv_decomposition(self):
         lazy_tensor = self.create_lazy_tensor()
