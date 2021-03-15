@@ -97,6 +97,9 @@ class TestLowRankRootAddedDiagLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
             self.assertFalse(linear_cg_mock.called)
 
+    def test_root_decomposition_cholesky(self):
+        self.test_root_decomposition(cholesky=True)
+
 
 class TestLowRankRootAddedDiagLazyTensorBatch(TestLowRankRootAddedDiagLazyTensor):
     seed = 4

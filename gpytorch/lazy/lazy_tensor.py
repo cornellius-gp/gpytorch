@@ -24,7 +24,14 @@ from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.lanczos import _postprocess_lanczos_root_inv_decomp
-from ..utils.memoize import _is_in_cache_ignore_args, add_to_cache, cached, get_from_cache, pop_from_cache
+from ..utils.memoize import (
+    _is_in_cache_ignore_all_args,
+    _is_in_cache_ignore_args,
+    add_to_cache,
+    cached,
+    get_from_cache,
+    pop_from_cache,
+)
 from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.qr import stable_qr
 from ..utils.warnings import NumericalWarning
@@ -1241,7 +1248,16 @@ class LazyTensor(ABC):
             from .chol_lazy_tensor import CholLazyTensor
             from .triangular_lazy_tensor import TriangularLazyTensor
 
-            cholesky = CholLazyTensor(TriangularLazyTensor(self.cholesky()))
+            # if the root decomposition has already been computed and is triangular we can use it instead
+            # of computing the cholesky.
+            will_need_cholesky = True
+            if _is_in_cache_ignore_all_args(self, "root_decomposition"):
+                root = self.root_decomposition().root
+                if isinstance(root, TriangularLazyTensor):
+                    cholesky = CholLazyTensor(root)
+                    will_need_cholesky = False
+            if will_need_cholesky:
+                cholesky = CholLazyTensor(TriangularLazyTensor(self.cholesky()))
             return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
 
         # Default: use modified batch conjugate gradients to compute these terms
