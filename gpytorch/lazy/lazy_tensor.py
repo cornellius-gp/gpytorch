@@ -741,7 +741,7 @@ class LazyTensor(ABC):
         diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
 
-    def cat_rows(self, cross_mat, new_mat, generate_roots=True):
+    def cat_rows(self, cross_mat, new_mat, generate_roots=True, **root_decomp_kwargs):
         """
         Concatenates new rows and columns to the matrix that this LazyTensor represents, e.g.
         C = ((A; B); B^T, D). where A is the existing lazy tensor, and B (cross_mat) and D (new_mat)
@@ -799,7 +799,7 @@ class LazyTensor(ABC):
         if not generate_roots and not does_not_have_roots:
             return new_lazy_tensor
 
-        L = self.root_decomposition().root
+        L = self.root_decomposition(**root_decomp_kwargs).root
         l_is_triang = isinstance(L, TriangularLazyTensor)
         L = L.evaluate()
         L_inverse = self.root_inv_decomposition().root.evaluate()
@@ -851,6 +851,7 @@ class LazyTensor(ABC):
         root_decomp_method: Optional[str] = None,
         root_inv_decomp_method: Optional[str] = None,
         generate_roots: Optional[bool] = True,
+        **root_decomp_kwargs,
     ):
         """
         Adds a low rank matrix to the matrix that this LazyTensor represents, e.g.
@@ -901,7 +902,7 @@ class LazyTensor(ABC):
         # \tilde{A} = A + BB^T = L(I + L^{-1} B B^T L^{-T})L^T
 
         # first get LL^T = A
-        current_root = self.root_decomposition(method=root_decomp_method).root
+        current_root = self.root_decomposition(method=root_decomp_method, **root_decomp_kwargs).root
         return_triangular = isinstance(current_root, TriangularLazyTensor)
 
         # and MM^T = A^{-1}
