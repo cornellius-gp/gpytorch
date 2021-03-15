@@ -23,8 +23,17 @@ from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
-from ..utils.memoize import _is_in_cache_ignore_all_args, add_to_cache, cached, get_from_cache, pop_from_cache
+from ..utils.lanczos import _postprocess_lanczos_root_inv_decomp
+from ..utils.memoize import (
+    _is_in_cache_ignore_all_args,
+    _is_in_cache_ignore_args,
+    add_to_cache,
+    cached,
+    get_from_cache,
+    pop_from_cache,
+)
 from ..utils.pivoted_cholesky import pivoted_cholesky
+from ..utils.qr import stable_qr
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -616,7 +625,7 @@ class LazyTensor(ABC):
         """
         return settings.max_root_decomposition_size.value()
 
-    def _root_inv_decomposition(self, initial_vectors=None):
+    def _root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
         """
         Returns the (usually low-rank) inverse root of a lazy tensor of a PSD matrix.
 
@@ -731,6 +740,218 @@ class LazyTensor(ABC):
         """
         diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
+
+    def cat_rows(self, cross_mat, new_mat, generate_roots=True, **root_decomp_kwargs):
+        """
+        Concatenates new rows and columns to the matrix that this LazyTensor represents, e.g.
+        C = ((A; B); B^T, D). where A is the existing lazy tensor, and B (cross_mat) and D (new_mat)
+        are new components. This is most commonly used when fantasizing with kernel matrices.
+
+        We have access to K \\approx LL^T and K^{-1} \\approx RR^T, where L and R are low rank matrices
+        resulting from root and root inverse decompositions (see the LOVE paper).
+
+        To update R, we first update L:
+            [K U; U^T S] = [L 0; A B][L^T A^T; 0 BT]
+        Solving this matrix equation, we get:
+            K = LL^T ==>       L = L
+            U = LA^T ==>       A = UR^{-1}
+            S = AA^T + BB^T ==> B = cholesky(S - AA^T)
+
+        Once we've computed Z = [L 0; A B], we have that the new kernel matrix [K U; U^T S] \approx ZZ^T. Therefore,
+        we can form a pseudo-inverse of Z directly to approximate [K U; U^T S]^{-1/2}.
+
+        This strategy is also described in "Efficient Nonmyopic Bayesian Optimization via One-Shot Multistep Trees,"
+        Jiang et al, NeurIPS, 2020. https://arxiv.org/abs/2006.15779.
+
+        Args:
+            cross_mat (:obj:`torch.tensor`): the matrix :math:`B` we are appending to the matrix :math:`A`.
+                If :math:`A` is n x n, then this matrix should be n x k.
+            new_mat (:obj:`torch.tensor`): the matrix :math:`D` we are appending to the matrix :math:`A`.
+                If :math:`B` is n x k, then this matrix should be k x k.
+            generate_roots (:obj:`bool`): whether to generate the root decomposition of :math:`A` even if it
+                has not been created yet.
+
+        Returns:
+            :obj:`LazyTensor`: concatenated lazy tensor with the new rows and columns.
+        """
+        from . import lazify
+        from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
+        from .cat_lazy_tensor import CatLazyTensor
+        from .root_lazy_tensor import RootLazyTensor
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
+        cross_mat = lazify(cross_mat)
+        batch_shape = cross_mat.shape[:-2]
+        new_mat = lazify(new_mat)
+        old_tsr = self
+        if old_tsr.ndimension() < cross_mat.ndimension():
+            old_tsr = BatchRepeatLazyTensor(old_tsr, batch_shape)
+
+        new_lazy_tensor_1 = CatLazyTensor(old_tsr, cross_mat, dim=-2)
+        new_lazy_tensor_2 = CatLazyTensor(cross_mat.transpose(-1, -2), new_mat, dim=-2)
+        new_lazy_tensor = CatLazyTensor(new_lazy_tensor_1, new_lazy_tensor_2, dim=-1)
+
+        # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
+        # don't create one
+        does_not_have_roots = _is_in_cache_ignore_args(self, "root_decomposition") or _is_in_cache_ignore_args(
+            self, "root_inv_decomposition"
+        )
+        if not generate_roots and not does_not_have_roots:
+            return new_lazy_tensor
+
+        L = self.root_decomposition(**root_decomp_kwargs).root
+        l_is_triang = isinstance(L, TriangularLazyTensor)
+        L = L.evaluate()
+        L_inverse = self.root_inv_decomposition().root.evaluate()
+
+        m, n = L.shape[-2:]
+
+        if l_is_triang:
+            # The whole thing is triangular, we can just do two triangular solves
+            if isinstance(cross_mat, LazyTensor):
+                cross_mat = cross_mat.evaluate()
+            lower_left = torch.triangular_solve(cross_mat.transpose(-1, -2), L, upper=False).solution.transpose(-2, -1)
+        else:
+            lower_left = cross_mat.matmul(L_inverse)
+
+        schur = new_mat - lower_left.matmul(lower_left.transpose(-2, -1))
+        schur_root = lazify(schur).root_decomposition().root.evaluate()
+
+        # Form new root Z = [L 0; lower_left schur_root]
+        num_fant = schur_root.size(-2)
+        new_root = torch.zeros(*batch_shape, m + num_fant, n + num_fant, device=L.device, dtype=L.dtype)
+        new_root[..., :m, :n] = L
+        new_root[..., m:, : lower_left.shape[-1]] = lower_left
+        new_root[..., m:, n : (n + schur_root.shape[-1])] = schur_root
+
+        # Use pseudo-inverse of Z as new inv root
+        if l_is_triang:
+            # we know L is triangular, so inverting is a triangular solve agaist the identity
+            # we don't need the batch shape here, thanks to broadcasting
+            Eye = torch.eye(new_root.shape[-2], device=new_root.device, dtype=new_root.dtype)
+            new_inv_root = torch.triangular_solve(Eye, new_root, upper=False)[0]
+            new_inv_root = new_inv_root.transpose(-1, -2)
+        else:
+            Q, R = stable_qr(new_root)
+
+            if R.shape[-2] == R.shape[-1]:
+                new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R, upper=True).solution.transpose(-2, -1)
+            else:
+                # solve with least squares
+                new_inv_root = torch.lstsq(Q.transpose(-2, -1), R).solution.transpose(-2, -1)
+
+        add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(TriangularLazyTensor(new_root)))
+        add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(TriangularLazyTensor(new_inv_root)))
+
+        return new_lazy_tensor
+
+    def add_low_rank(
+        self,
+        low_rank_mat,
+        root_decomp_method: Optional[str] = None,
+        root_inv_decomp_method: Optional[str] = None,
+        generate_roots: Optional[bool] = True,
+        **root_decomp_kwargs,
+    ):
+        """
+        Adds a low rank matrix to the matrix that this LazyTensor represents, e.g.
+        computes A + BB^T. We then update both the tensor and its root decomposition.
+
+        We have access to, L and M where A \approx LL^T and A^{-1} \approx MM^T.
+        We compute \tilde{A} = A + BB^T = L(I + M B B^T M^T)L' and then decompose
+        (I + M VV^T M^T) \approx RR^T, using LR as our new root decomposition.
+
+        This strategy is described in more detail in "Kernel Interpolation for Scalable Online Gaussian
+        Processes," Stanton et al, AISTATS, 2021. https://arxiv.org/abs/2103.01454.
+
+        Args:
+            low_rank_mat (:obj:`torch.tensor`): the matrix `B` that we are adding to `A`.
+            root_decomp_method (:obj:`str`): how to compute the root decomposition of `A`.
+            root_inv_decomp_method (:obj:`str`): how to compute the root inverse decomposition of `A`.
+            generate_roots (:obj:`bool`): whether to generate the root decomposition of :math:`A` even if it
+            has not been created yet.
+
+        Returns:
+            :obj:`SumLazyTensor`: addition of A and BB^T.
+        """
+        from . import lazify
+        from .root_lazy_tensor import RootLazyTensor
+        from .sum_lazy_tensor import SumLazyTensor
+        from .triangular_lazy_tensor import TriangularLazyTensor
+
+        if not isinstance(self, SumLazyTensor):
+            new_lazy_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
+        else:
+            new_lazy_tensor = SumLazyTensor(
+                *self.lazy_tensors, lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
+            )
+
+            # return as a nonlazy tensor if small enough to reduce memory overhead
+            if new_lazy_tensor.shape[-1] < settings.max_cholesky_size.value():
+                new_lazy_tensor = lazify(new_lazy_tensor.evaluate())
+
+        # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
+        # don't create one
+        does_not_have_roots = _is_in_cache_ignore_args(self, "root_decomposition") or _is_in_cache_ignore_args(
+            self, "root_inv_decomposition"
+        )
+        if not generate_roots and not does_not_have_roots:
+            return new_lazy_tensor
+
+        # we are going to compute the following
+        # \tilde{A} = A + BB^T = L(I + L^{-1} B B^T L^{-T})L^T
+
+        # first get LL^T = A
+        current_root = self.root_decomposition(method=root_decomp_method, **root_decomp_kwargs).root
+        return_triangular = isinstance(current_root, TriangularLazyTensor)
+
+        # and MM^T = A^{-1}
+        current_inv_root = self.root_inv_decomposition(method=root_inv_decomp_method).root.transpose(-1, -2)
+
+        # compute p = M B and take its SVD
+        pvector = current_inv_root.matmul(low_rank_mat)
+        # USV^T = p; when p is a vector this saves us the trouble of computing an orthonormal basis
+        U, S, _ = torch.svd(pvector, some=False)
+
+        # we want the root decomposition of I_r + U S^2 U^T but S is q so we need to pad.
+        one_padding = torch.ones(*S.shape[:-1], U.shape[-2] - S.shape[-1], device=S.device, dtype=S.dtype)
+        # the non zero eigenvalues get updated by S^2 + 1, so we take the square root.
+        root_S_plus_identity = (S ** 2 + 1.0) ** 0.5
+        # pad the nonzero eigenvalues with the ones
+        #######
+        # \tilde{S} = \left(((S^2 + 1)^{0.5}; 0
+        # (0; 1) \right)
+        #######
+        stacked_root_S = torch.cat((root_S_plus_identity, one_padding), dim=-1)
+        # compute U \tilde{S} for the new root
+        inner_root = U.matmul(torch.diag_embed(stacked_root_S))
+        # \tilde{L} = L U \tilde{S}
+        if inner_root.shape[-1] == current_root.shape[-1]:
+            updated_root = current_root.matmul(inner_root)
+        else:
+            updated_root = torch.cat(
+                (
+                    current_root.evaluate(),
+                    torch.zeros(*current_root.shape[:-1], 1, device=current_root.device, dtype=current_root.dtype),
+                ),
+                dim=-1,
+            )
+
+        # compute \tilde{S}^{-1}
+        stacked_inv_root_S = torch.cat((1.0 / root_S_plus_identity, one_padding), dim=-1)
+        # compute the new inverse inner root: U \tilde{S}^{-1}
+        inner_inv_root = U.matmul(torch.diag_embed(stacked_inv_root_S))
+        # finally \tilde{L}^{-1} = L^{-1} U \tilde{S}^{-1}
+        updated_inv_root = current_inv_root.transpose(-1, -2).matmul(inner_inv_root)
+
+        if return_triangular:
+            updated_root = TriangularLazyTensor(updated_root)
+            updated_inv_root = TriangularLazyTensor(updated_inv_root)
+
+        add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(updated_root))
+        add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(updated_inv_root))
+
+        return new_lazy_tensor
 
     @property
     def batch_dim(self):
@@ -1444,7 +1665,7 @@ class LazyTensor(ABC):
         raise RuntimeError(f"Unknown method '{method}'")
 
     @cached(name="root_inv_decomposition")
-    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None):
+    def root_inv_decomposition(self, initial_vectors=None, test_vectors=None, method: Optional[str] = None):
         """
         Returns a (usually low-rank) root decomposotion lazy tensor of a PSD matrix.
         This can be used for sampling from a Gaussian distribution, or for obtaining a
@@ -1456,10 +1677,16 @@ class LazyTensor(ABC):
         if self.shape[-2:].numel() == 1:
             return RootLazyTensor(1 / self.evaluate().sqrt())
 
-        if (
-            self.size(-1) <= settings.max_cholesky_size.value()
-            or settings.fast_computations.covar_root_decomposition.off()
-        ):
+        if method is None:
+            if (
+                self.size(-1) <= settings.max_cholesky_size.value()
+                or settings.fast_computations.covar_root_decomposition.off()
+            ):
+                method = "cholesky"
+            else:
+                method = "lanczos"
+
+        if method == "cholesky":
             try:
                 L = delazify(self.cholesky())
                 # we know L is triangular, so inverting is a simple triangular solve agaist the identity
@@ -1488,58 +1715,46 @@ class LazyTensor(ABC):
         except CachingError:
             pass
 
-        # if not run standard lanczos
-        if initial_vectors is not None:
-            if self.dim() == 2 and initial_vectors.dim() == 1:
-                if self.shape[-1] != initial_vectors.numel():
+        # otherwise run lanczos
+        if method == "lanczos":
+            if initial_vectors is not None:
+                if self.dim() == 2 and initial_vectors.dim() == 1:
+                    if self.shape[-1] != initial_vectors.numel():
+                        raise RuntimeError(
+                            "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
+                                self.shape, initial_vectors.shape
+                            )
+                        )
+                elif self.dim() != initial_vectors.dim():
+                    raise RuntimeError(
+                        "LazyTensor (size={}) and initial_vectors (size={}) should have the same number "
+                        "of dimensions.".format(self.shape, initial_vectors.shape)
+                    )
+                elif self.batch_shape != initial_vectors.shape[:-2] or self.shape[-1] != initial_vectors.shape[-2]:
                     raise RuntimeError(
                         "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
                             self.shape, initial_vectors.shape
                         )
                     )
-            elif self.dim() != initial_vectors.dim():
-                raise RuntimeError(
-                    "LazyTensor (size={}) and initial_vectors (size={}) should have the same number "
-                    "of dimensions.".format(self.shape, initial_vectors.shape)
-                )
-            elif self.batch_shape != initial_vectors.shape[:-2] or self.shape[-1] != initial_vectors.shape[-2]:
-                raise RuntimeError(
-                    "LazyTensor (size={}) cannot be multiplied with initial_vectors (size={}).".format(
-                        self.shape, initial_vectors.shape
-                    )
-                )
 
-        inv_roots = self._root_inv_decomposition(initial_vectors)
+            inv_root = self._root_inv_decomposition(initial_vectors)
+            if initial_vectors is not None and initial_vectors.size(-1) > 1:
+                inv_root = _postprocess_lanczos_root_inv_decomp(self, inv_root, initial_vectors, test_vectors)
 
-        # Choose the best of the inv_roots, if there were more than one initial vectors
-        if initial_vectors is not None and initial_vectors.size(-1) > 1:
-            num_probes = initial_vectors.size(-1)
-            test_vectors = test_vectors.unsqueeze(0)
+        if method == "symeig":
+            evals, evecs = self.symeig(eigenvectors=True)
+            # TODO: only use non-zero evals (req. dealing w/ batches...)
+            inv_root = evecs * evals.clamp(1e-7).reciprocal().sqrt().unsqueeze(-2)
 
-            # Compute solves
-            solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
+        if method == "svd":
+            U, S, _ = self.svd()
+            # TODO: only use non-zero singular values (req. dealing w/ batches...)
+            inv_root = U * S.clamp(1e-7).reciprocal().sqrt().unsqueeze(-2)
 
-            # Compute self * solves
-            solves = (
-                solves.permute(*range(1, self.dim() + 1), 0)
-                .contiguous()
-                .view(*self.batch_shape, self.matrix_shape[-1], -1)
-            )
-            mat_times_solves = self.matmul(solves)
-            mat_times_solves = mat_times_solves.view(*self.batch_shape, self.matrix_shape[-1], -1, num_probes).permute(
-                -1, *range(0, self.dim())
-            )
-
-            # Compute residuals
-            residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
-            residuals = residuals.view(residuals.size(0), -1).sum(-1)
-
-            # Choose solve that best fits
-            _, best_solve_index = residuals.min(0)
-            inv_root = inv_roots[best_solve_index].squeeze(0)
-
-        else:
-            inv_root = inv_roots
+        if method == "pinverse":
+            # this is numerically unstable and should rarely be used
+            root = self.root_decomposition().root.evaluate()
+            inv_root = torch.pinverse(root).transpose(-1, -2)
 
         return RootLazyTensor(inv_root)
 
@@ -1810,6 +2025,7 @@ class LazyTensor(ABC):
         from .zero_lazy_tensor import ZeroLazyTensor
         from .diag_lazy_tensor import DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
+        from .root_lazy_tensor import RootLazyTensor
         from .non_lazy_tensor import lazify
         from torch import Tensor
 
@@ -1817,6 +2033,8 @@ class LazyTensor(ABC):
             return self
         elif isinstance(other, DiagLazyTensor):
             return AddedDiagLazyTensor(self, other)
+        elif isinstance(other, RootLazyTensor):
+            return self.add_low_rank(self, other.root)
         elif isinstance(other, Tensor):
             other = lazify(other)
             shape = _mul_broadcast_shape(self.shape, other.shape)

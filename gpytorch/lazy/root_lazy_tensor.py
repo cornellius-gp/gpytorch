@@ -66,6 +66,9 @@ class RootLazyTensor(LazyTensor):
         # Matrix is symmetric
         return self._matmul(rhs)
 
+    def add_low_rank(self, low_rank_mat, root_decomp_method=None, root_inv_decomp_method="pinverse"):
+        return super().add_low_rank(low_rank_mat, root_inv_decomp_method=root_inv_decomp_method)
+
     def root_decomposition(self, method=None):
         return self
 

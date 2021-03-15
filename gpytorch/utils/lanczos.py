@@ -180,3 +180,37 @@ def lanczos_tridiag_to_diag(t_mat):
     evals = evals.masked_fill_(~mask, 1)
 
     return evals.to(orig_device), evecs.to(orig_device)
+
+
+def _postprocess_lanczos_root_inv_decomp(lazy_tsr, inv_roots, initial_vectors, test_vectors):
+    """
+    Given lazy_tsr and a set of inv_roots of shape num_init_vecs x num_batch x n x k,
+    as well as the initial vectors of shape num_init_vecs x num_batch x n,
+    determine which inverse root is best given the test_vectors of shape
+    num_init_vecs x num_batch x n
+    """
+    num_probes = initial_vectors.size(-1)
+    test_vectors = test_vectors.unsqueeze(0)
+
+    # Compute solves
+    solves = inv_roots.matmul(inv_roots.transpose(-1, -2).matmul(test_vectors))
+
+    # Compute lazy_tsr * solves
+    solves = (
+        solves.permute(*range(1, lazy_tsr.dim() + 1), 0)
+        .contiguous()
+        .view(*lazy_tsr.batch_shape, lazy_tsr.matrix_shape[-1], -1)
+    )
+    mat_times_solves = lazy_tsr.matmul(solves)
+    mat_times_solves = mat_times_solves.view(*lazy_tsr.batch_shape, lazy_tsr.matrix_shape[-1], -1, num_probes).permute(
+        -1, *range(0, lazy_tsr.dim())
+    )
+
+    # Compute residuals
+    residuals = (mat_times_solves - test_vectors).norm(2, dim=-2)
+    residuals = residuals.view(residuals.size(0), -1).sum(-1)
+
+    # Choose solve that best fits
+    _, best_solve_index = residuals.min(0)
+    inv_root = inv_roots[best_solve_index].squeeze(0)
+    return inv_root
