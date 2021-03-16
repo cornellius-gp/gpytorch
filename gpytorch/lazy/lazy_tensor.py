@@ -775,7 +775,6 @@ class LazyTensor(ABC):
             :obj:`LazyTensor`: concatenated lazy tensor with the new rows and columns.
         """
         from . import lazify
-        from .batch_repeat_lazy_tensor import BatchRepeatLazyTensor
         from .cat_lazy_tensor import CatLazyTensor
         from .root_lazy_tensor import RootLazyTensor
         from .triangular_lazy_tensor import TriangularLazyTensor
@@ -783,9 +782,11 @@ class LazyTensor(ABC):
         cross_mat = lazify(cross_mat)
         batch_shape = cross_mat.shape[:-2]
         new_mat = lazify(new_mat)
-        old_tsr = self
-        if old_tsr.ndimension() < cross_mat.ndimension():
-            old_tsr = BatchRepeatLazyTensor(old_tsr, batch_shape)
+        if self.ndimension() < cross_mat.ndimension():
+            expand_shape = _mul_broadcast_shape(self.shape[:-2], cross_mat.shape[:-2]) + self.shape[-2:]
+            old_tsr = self.expand(expand_shape)
+        else:
+            old_tsr = self
 
         new_lazy_tensor_1 = CatLazyTensor(old_tsr, cross_mat, dim=-2)
         new_lazy_tensor_2 = CatLazyTensor(cross_mat.transpose(-1, -2), new_mat, dim=-2)
@@ -838,7 +839,11 @@ class LazyTensor(ABC):
                 new_inv_root = torch.triangular_solve(Q.transpose(-2, -1), R, upper=True).solution.transpose(-2, -1)
             else:
                 # solve with least squares
-                new_inv_root = torch.lstsq(Q.transpose(-2, -1), R).solution.transpose(-2, -1)
+                if R.ndim > 2:
+                    # temporary hack around PyTorch limitation, this is no good...
+                    new_inv_root = (torch.pinverse(R) @ Q.transpose(-1, -2)).transpose(-1, -2)
+                else:
+                    new_inv_root = torch.lstsq(Q.transpose(-2, -1), R).solution.transpose(-2, -1)
 
         add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(TriangularLazyTensor(new_root)))
         add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(TriangularLazyTensor(new_inv_root)))
