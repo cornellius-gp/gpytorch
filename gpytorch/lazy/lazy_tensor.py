@@ -840,7 +840,8 @@ class LazyTensor(ABC):
             else:
                 # solve with least squares
                 if R.ndim > 2:
-                    # temporary hack around PyTorch limitation, this is no good...
+                    # TODO: Replace with `torch.linalg.lstsq` (introduced in #49093) once we have a Pytorch >=1.9 req.
+                    # temporary hack around this limitation for now
                     new_inv_root = (torch.pinverse(R) @ Q.transpose(-1, -2)).transpose(-1, -2)
                 else:
                     new_inv_root = torch.lstsq(Q.transpose(-2, -1), R).solution.transpose(-2, -1)
