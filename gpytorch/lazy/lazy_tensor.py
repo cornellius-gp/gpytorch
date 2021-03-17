@@ -1594,7 +1594,8 @@ class LazyTensor(ABC):
         from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
-        # # no need to do extra work if we already have a cached cholesky decomposition
+        # no need to do extra work if we already have a cached cholesky decomposition
+        # TODO: Resolve issues related to triangular tensor instantiation
         # if _is_in_cache_ignore_args(self, "cholesky"):
         #     res = self.cholesky()
         #     return CholLazyTensor(res)
@@ -1667,7 +1668,8 @@ class LazyTensor(ABC):
         if self.shape[-2:].numel() == 1:
             return RootLazyTensor(1 / self.evaluate().sqrt())
 
-        # # no need to do extra work if we already have a cached cholesky decomposition
+        # no need to do extra work if we already have a cached cholesky decomposition
+        # TODO: Resolve issues related to triangular tensor instantiation \
         # if _is_in_cache_ignore_args(self, "cholesky"):
         #     res = self.cholesky()
         #     return CholLazyTensor(res).inverse()
