@@ -788,7 +788,7 @@ class LazyTensor(ABC):
         else:
             A = self
 
-        # form matrix C = [A B; B^T D]
+        # form matrix C = [A B; B^T D], where A = self, B = cross_mat, D = new_mat
         upper_row = CatLazyTensor(A, B, dim=-2)
         lower_row = CatLazyTensor(B.transpose(-1, -2), D, dim=-2)
         new_lazy_tensor = CatLazyTensor(upper_row, lower_row, dim=-1)
@@ -801,22 +801,24 @@ class LazyTensor(ABC):
         if not generate_roots and not does_not_have_roots:
             return new_lazy_tensor
 
-        E = self.root_decomposition(**root_decomp_kwargs).root
+        # Get compomnents for new root Z = [E 0; F G]
+        E = self.root_decomposition(**root_decomp_kwargs).root  # E = L, LL^T = A
         m, n = E.shape[-2:]
-        R = self.root_inv_decomposition().root.evaluate()  # this is fast if L is triangular
-        F = B_ @ R
-        G = lazify(D - F.matmul(F.transpose(-2, -1))).root_decomposition().root.evaluate()
+        R = self.root_inv_decomposition().root.evaluate()  # RR^T = A^{-1} (this is fast if L is triangular)
+        lower_left = B_ @ R  # F = BR
+        schur = D - lower_left.matmul(lower_left.transpose(-2, -1))  # GG^T = new_mat - FF^T
+        schur_root = lazify(schur).root_decomposition().root.evaluate()  # G = (new_mat - FF^T)^{1/2}
 
-        # Form new root Z = [E 0; F G]
-        num_fant = G.size(-2)
+        # Form new root matrix
+        num_fant = schur_root.size(-2)
         new_root = torch.zeros(*batch_shape, m + num_fant, n + num_fant, device=E.device, dtype=E.dtype)
         new_root[..., :m, :n] = E.evaluate()
-        new_root[..., m:, : F.shape[-1]] = F
-        new_root[..., m:, n : (n + G.shape[-1])] = G
+        new_root[..., m:, : lower_left.shape[-1]] = lower_left
+        new_root[..., m:, n : (n + schur_root.shape[-1])] = schur_root
 
-        if isinstance(E, TriangularLazyTensor) and isinstance(G, TriangularLazyTensor):
+        if isinstance(E, TriangularLazyTensor) and isinstance(schur_root, TriangularLazyTensor):
             # make sure these are actually upper triangular
-            if getattr(E, "upper", False) or getattr(G, "upper", False):
+            if getattr(E, "upper", False) or getattr(schur_root, "upper", False):
                 raise NotImplementedError
             # in this case we know new_root is triangular as well
             new_root = TriangularLazyTensor(new_root)
