@@ -33,6 +33,7 @@ def kron_diag(*lts):
 class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_call_lanczos = True
+    should_call_lanczos_diagonalization = False
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
@@ -51,6 +52,8 @@ class TestKroneckerProductLazyTensor(LazyTensorTestCase, unittest.TestCase):
 
 
 class TestKroneckerProductDiagLazyTensor(TestDiagLazyTensor):
+    should_call_lanczos_diagonalization = False
+
     def create_lazy_tensor(self):
         a = torch.tensor([4.0, 1.0, 2.0], dtype=torch.float)
         b = torch.tensor([3.0, 1.3], dtype=torch.float)
@@ -69,6 +72,7 @@ class TestKroneckerProductDiagLazyTensor(TestDiagLazyTensor):
 class TestKroneckerProductLazyTensorBatch(TestKroneckerProductLazyTensor):
     seed = 0
     should_call_lanczos = True
+    should_call_lanczos_diagonalization = False
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float).repeat(3, 1, 1)

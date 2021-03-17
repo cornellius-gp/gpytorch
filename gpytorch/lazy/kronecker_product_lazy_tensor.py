@@ -138,6 +138,11 @@ class KroneckerProductLazyTensor(LazyTensor):
                 raise RuntimeError("Diag works on square matrices (or batches)")
         return _kron_diag(*self.lazy_tensors)
 
+    def diagonalization(self, method: Optional[str] = None):
+        if method is None:
+            method = "symeig"
+        return super().diagonalization(method=method)
+
     @cached
     def inverse(self):
         # here we use that (A \kron B)^-1 = A^-1 \kron B^-1
