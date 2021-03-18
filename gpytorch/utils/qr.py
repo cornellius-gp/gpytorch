@@ -7,8 +7,9 @@ def stable_qr(mat):
     """
     performs a QR decomposition on the batched matrix mat.
     We need to use these functions because of
-        a) slow batched QR in pytorch (pytorch/pytorch#22573)
-        b) possible singularity in R
+
+    1. slow batched QR in pytorch (pytorch/pytorch#22573)
+    2. possible singularity in R
     """
     if mat.shape[-1] <= 2048:
         # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
