@@ -432,31 +432,34 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     def test_cat_rows(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
-        new_rows = 1e-4 * torch.randn(*lazy_tensor.shape[:-2], 1, lazy_tensor.shape[-1])
-        new_point = torch.rand(*lazy_tensor.shape[:-2], 1, 1)
 
-        concatenated_lt = torch.cat(
-            (torch.cat((evaluated, new_rows), dim=-2), torch.cat((new_rows.transpose(-1, -2), new_point), dim=-2),),
-            dim=-1,
-        )
-        new_lt = lazy_tensor.cat_rows(new_rows, new_point)
+        for batch_shape in (torch.Size(), torch.Size([2])):
+            new_rows = 1e-4 * torch.randn(*batch_shape, *lazy_tensor.shape[:-2], 1, lazy_tensor.shape[-1])
+            new_point = torch.rand(*batch_shape, *lazy_tensor.shape[:-2], 1, 1)
 
-        # check that the concatenation is okay
-        self.assertAllClose(new_lt.evaluate(), concatenated_lt)
+            # we need to expand here to be able to concat (this happens automatically in cat_rows)
+            cat_col1 = torch.cat((evaluated.expand(*batch_shape, *evaluated.shape), new_rows), dim=-2)
+            cat_col2 = torch.cat((new_rows.transpose(-1, -2), new_point), dim=-2)
 
-        # check that the root approximation is close
-        rhs = torch.randn(lazy_tensor.size(-1) + 1)
-        concat_rhs = concatenated_lt.matmul(rhs)
-        root_rhs = new_lt.root_decomposition().matmul(rhs)
-        self.assertAllClose(root_rhs, concat_rhs, **self.tolerances["root_decomposition"])
+            concatenated_lt = torch.cat((cat_col1, cat_col2), dim=-1)
+            new_lt = lazy_tensor.cat_rows(new_rows, new_point)
 
-        # check that the inverse root decomposition is close
-        concat_solve = torch.solve(rhs.unsqueeze(-1), concatenated_lt)[0].squeeze(-1)
-        root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
-        self.assertLess(
-            (root_inv_solve - concat_solve).norm() / concat_solve.norm(),
-            self.tolerances["root_inv_decomposition"]["rtol"],
-        )
+            # check that the concatenation is okay
+            self.assertAllClose(new_lt.evaluate(), concatenated_lt)
+
+            # check that the root approximation is close
+            rhs = torch.randn(lazy_tensor.size(-1) + 1)
+            concat_rhs = concatenated_lt.matmul(rhs)
+            root_rhs = new_lt.root_decomposition().matmul(rhs)
+            self.assertAllClose(root_rhs, concat_rhs, **self.tolerances["root_decomposition"])
+
+            # check that the inverse root decomposition is close
+            concat_solve = torch.solve(rhs.unsqueeze(-1), concatenated_lt).solution.squeeze(-1)
+            root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
+            self.assertLess(
+                (root_inv_solve - concat_solve).norm() / concat_solve.norm(),
+                self.tolerances["root_inv_decomposition"]["rtol"],
+            )
 
     def test_cholesky(self):
         lazy_tensor = self.create_lazy_tensor()
