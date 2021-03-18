@@ -1529,22 +1529,28 @@ class LazyTensor(ABC):
             if hasattr(arg, "requires_grad")
         )
 
-    @requires_grad.setter
-    def requires_grad(self, val):
+    def _set_requires_grad(self, val):
+        # Note: subclasses should overwrite this method, not the requires_grad.setter
         for arg in self._args:
             if hasattr(arg, "requires_grad"):
                 if arg.dtype in (torch.float, torch.double, torch.half):
-                    arg.requires_grad = val
+                    arg.requires_grad_(val)
         for arg in self._kwargs.values():
             if hasattr(arg, "requires_grad"):
-                arg.requires_grad = val
+                arg.requires_grad_(val)
+
+    @requires_grad.setter
+    def requires_grad(self, val):
+        # Note: subclasses cannot overwrite this method
+        # To change the setter behavior, overwrite the _set_requires_grad method instead
+        self._set_requires_grad(val)
 
     def requires_grad_(self, val):
         """
         Sets `requires_grad=val` on all the Tensors that make up the LazyTensor
         This is an inplace operation.
         """
-        self.requires_grad = val
+        self._set_requires_grad(val)
         return self
 
     @cached(name="diagonalization")
