@@ -28,7 +28,9 @@ class IndexKernel(Kernel):
             Set if the MultitaskKernel is operating on batches of data (and you want different
             parameters for each batch)
         :attr:`rank` (int):
-            Rank of :math:`B` matrix.
+            Rank of :math:`B` matrix. Controls the degree of
+            correlation between the outputs. With a rank of 1 the
+            outputs share same shape only differing in scale.
         :attr:`prior` (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
         :attr:`var_constraint` (Constraint, optional):
