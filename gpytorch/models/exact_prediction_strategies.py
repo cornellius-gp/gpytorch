@@ -10,7 +10,6 @@ from ..lazy import (
     AddedDiagLazyTensor,
     BatchRepeatLazyTensor,
     ConstantMulLazyTensor,
-    InterpolatedLazyTensor,
     LazyEvaluatedKernelTensor,
     MatmulLazyTensor,
     NonLazyTensor,
@@ -22,7 +21,7 @@ from ..lazy import (
 )
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.interpolation import left_interp, left_t_interp
-from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
+from ..utils.memoize import add_to_cache, cached, clear_cache_hook
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
@@ -365,28 +364,88 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         return res
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
-        raise NotImplementedError(
-            "Fantasy observation updates not yet supported for models using InterpolatedLazyTensors"
+        r"""
+        Implements the fantasy strategy described in https://arxiv.org/abs/2103.01454.
+        """
+        full_mean, full_covar = full_output.mean, full_output.lazy_covariance_matrix
+
+        batch_shape = full_inputs[0].shape[:-2]
+
+        full_mean = full_mean.view(*batch_shape, -1)
+        num_train = self.num_train
+
+        # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
+        fant_fant_covar = full_covar[..., num_train:, num_train:]
+        # fant_mean = full_mean[..., num_train:]
+
+        fant_wmat = self.prepare_dense_wmat(fant_fant_covar)
+
+        fant_likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
+        fant_noise = fant_likelihood.noise_covar(inputs)
+        fant_root_vector = fant_noise.sqrt_inv_matmul(fant_wmat.transpose(-1, -2)).transpose(-1, -2)
+
+        new_wmat = self.interp_inner_prod.add_low_rank(fant_root_vector)
+        new_interp_response_cache = self.interp_response_cache + new_wmat.matmul(fant_noise.inv_matmul(targets))
+
+        # Create new DefaultPredictionStrategy object
+        fant_strat = self.__class__(
+            train_inputs=full_inputs,
+            train_prior_dist=self.train_prior_dist.__class__(full_mean, full_covar),
+            train_labels=full_targets,
+            likelihood=fant_likelihood,
         )
+        add_to_cache(fant_strat, "interp_inner_prod", new_wmat)
+        add_to_cache(fant_strat, "interp_response_cache", new_interp_response_cache)
+
+    def prepare_dense_wmat(self, covar=None):
+        # prepare the w matrix.
+        if covar is None:
+            covar = self.train_prior_dist.lazy_covariance_matrix
+        wmat = covar._sparse_left_interp_t(covar.left_interp_indices, covar.left_interp_values).to_dense()
+        return lazify(wmat)
+
+    @property
+    @cached(name="interp_inner_prod")
+    def interp_inner_prod(self):
+        # the W'W cache
+        wmat = self.prepare_dense_wmat()
+        noise_term = self.likelihood.noise_covar(wmat)
+        interp_inner_prod = wmat.matmul(noise_term.inv_matmul(wmat.transpose(-1, -2)))
+        return interp_inner_prod
+
+    @property
+    @cached(name="interp_response_cache")
+    def interp_response_cache(self):
+        wmat = self.prepare_dense_wmat()
+        noise_term = self.likelihood.noise_covar(wmat)
+        demeaned_train_targets = self.train_labels - self.train_prior_dist.mean
+        dinv_y = noise_term.inv_matmul(demeaned_train_targets)
+        return wmat.matmul(dinv_y)
 
     @property
     @cached(name="mean_cache")
     def mean_cache(self):
+        # first construct K_UU
         train_train_covar = self.train_prior_dist.lazy_covariance_matrix
-        train_interp_indices = train_train_covar.left_interp_indices
-        train_interp_values = train_train_covar.left_interp_values
+        Kuu = train_train_covar.base_lazy_tensor
 
-        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
-        train_mean, train_train_covar_with_noise = mvn.mean, mvn.lazy_covariance_matrix
+        # now get L such that LL' \approx WD^{-1}W'
+        interp_inner_prod_root = self.interp_inner_prod.root_decomposition().root
+        # M = KL
+        inducing_compression_matrix = Kuu.matmul(interp_inner_prod_root)
 
-        mean_diff = (self.train_labels - train_mean).unsqueeze(-1)
-        train_train_covar_inv_labels = train_train_covar_with_noise.inv_matmul(mean_diff)
+        # Q = L'KL + 1
+        current_qmatrix = interp_inner_prod_root.transpose(-1, -2).matmul(inducing_compression_matrix).add_jitter(1.0)
 
-        # New root factor
-        base_size = train_train_covar.base_lazy_tensor.size(-1)
-        mean_cache = train_train_covar.base_lazy_tensor.matmul(
-            left_t_interp(train_interp_indices, train_interp_values, train_train_covar_inv_labels, base_size)
-        )
+        # m = K_UU WD^{-1}(y - \mu)
+        Kuu_response = Kuu.matmul(self.interp_response_cache)
+
+        # L' m
+        root_space_projection = interp_inner_prod_root.transpose(-1, -2).matmul(Kuu_response)
+        # Q^{-1} (L' m)
+        qmat_solve = current_qmatrix.inv_matmul(root_space_projection)
+
+        mean_cache = Kuu_response - inducing_compression_matrix @ qmat_solve
 
         # Prevent backprop through this variable
         if settings.detach_test_caches.on():
@@ -397,64 +456,35 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     @property
     @cached(name="covar_cache")
     def covar_cache(self):
-        # Get inverse root
         train_train_covar = self.train_prior_dist.lazy_covariance_matrix
-        train_interp_indices = train_train_covar.left_interp_indices
-        train_interp_values = train_train_covar.left_interp_values
+        Kuu = train_train_covar.base_lazy_tensor
 
-        # Get probe vectors for inverse root
-        num_probe_vectors = settings.fast_pred_var.num_probe_vectors()
-        num_inducing = train_train_covar.base_lazy_tensor.size(-1)
-        vector_indices = torch.randperm(num_inducing).type_as(train_interp_indices)
-        probe_vector_indices = vector_indices[:num_probe_vectors]
-        test_vector_indices = vector_indices[num_probe_vectors : 2 * num_probe_vectors]
+        interp_inner_prod_root = self.interp_inner_prod.root_decomposition().root
+        inducing_compression_matrix = Kuu.matmul(interp_inner_prod_root)
 
-        probe_interp_indices = probe_vector_indices.unsqueeze(1)
-        probe_test_interp_indices = test_vector_indices.unsqueeze(1)
-        dtype = train_train_covar.dtype
-        device = train_train_covar.device
-        probe_interp_values = torch.ones(num_probe_vectors, 1, dtype=dtype, device=device)
+        current_qmatrix = interp_inner_prod_root.transpose(-1, -2).matmul(inducing_compression_matrix).add_jitter(1.0)
 
-        batch_shape = train_train_covar.base_lazy_tensor.batch_shape
-        probe_vectors = InterpolatedLazyTensor(
-            train_train_covar.base_lazy_tensor,
-            train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
-            train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
-            probe_interp_indices.expand(*batch_shape, *probe_interp_indices.shape[-2:]),
-            probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
-        ).evaluate()
-        test_vectors = InterpolatedLazyTensor(
-            train_train_covar.base_lazy_tensor,
-            train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
-            train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
-            probe_test_interp_indices.expand(*batch_shape, *probe_test_interp_indices.shape[-2:]),
-            probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
-        ).evaluate()
-
-        # Put data through the likelihood
-        dist = self.train_prior_dist.__class__(
-            torch.zeros_like(self.train_prior_dist.mean), self.train_prior_dist.lazy_covariance_matrix
-        )
-        train_train_covar_plus_noise = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
-
-        # Get inverse root
-        train_train_covar_inv_root = train_train_covar_plus_noise.root_inv_decomposition(
-            initial_vectors=probe_vectors, test_vectors=test_vectors
-        ).root
-        train_train_covar_inv_root = train_train_covar_inv_root.evaluate()
-
-        # New root factor
-        root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
+        if settings.fast_pred_var.on():
+            qmat_inv_root = current_qmatrix.root_inv_decomposition()
+            # to lazify you have to evaluate the inverse root which is slow
+            # otherwise, you can't backprop your way through it
+            inner_cache = RootLazyTensor(inducing_compression_matrix.matmul(qmat_inv_root.root.evaluate()))
+        else:
+            inner_cache = inducing_compression_matrix.matmul(
+                current_qmatrix.inv_matmul(inducing_compression_matrix.transpose(-1, -2))
+            )
 
         # Precomputed factor
         if settings.fast_pred_samples.on():
-            inside = train_train_covar.base_lazy_tensor + RootLazyTensor(root).mul(-1)
-            inside_root = inside.root_decomposition().root.evaluate()
+            predictive_covar_cache = Kuu - inner_cache
+            inside_root = predictive_covar_cache.root_decomposition().root
             # Prevent backprop through this variable
             if settings.detach_test_caches.on():
                 inside_root = inside_root.detach()
             covar_cache = inside_root, None
         else:
+            root = inner_cache.root_decomposition().root
+
             # Prevent backprop through this variable
             if settings.detach_test_caches.on():
                 root = root.detach()
@@ -490,16 +520,11 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         precomputed_cache = self.covar_cache
         fps = settings.fast_pred_samples.on()
-        if (fps and precomputed_cache[0] is None) or (not fps and precomputed_cache[1] is None):
-            pop_from_cache(self, "covar_cache")
-            precomputed_cache = self.covar_cache
-
-        # Compute the exact predictive posterior
-        if settings.fast_pred_samples.on():
-            res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache[0], test_train_covar)
-            res = RootLazyTensor(res)
+        if fps:
+            root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[0].evaluate())
+            res = RootLazyTensor(root)
         else:
-            root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1])
+            root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1].evaluate())
             res = test_test_covar + RootLazyTensor(root).mul(-1)
         return res
 
