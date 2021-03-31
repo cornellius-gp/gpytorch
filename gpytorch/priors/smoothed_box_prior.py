@@ -71,3 +71,20 @@ class SmoothedBoxPrior(Prior):
         # x = "distances from box`"
         X = ((x - self._c).abs_() - self._r).clamp(min=0)
         return (self.tails.log_prob(X) - self._M).sum(-1)
+
+    def sample(self, sample_shape=torch.Size()):
+        with torch.no_grad():
+            shape = self._extended_shape(sample_shape)
+            gauss_max = 1 / (math.sqrt(2 * math.pi) * self.sigma)
+            gauss_weight = 1 / (gauss_max * (self.b - self.a) + 1)
+
+            picks = torch.empty(shape).to(self.a.device)
+            torch.bernoulli(gauss_weight.expand(shape), out=picks)
+
+            uniform_eps = torch.rand(shape, dtype=self.a.dtype, device=self.a.device)
+            uniform_samples = self.a + uniform_eps * (self.b - self.a)
+
+            gaussian_eps = self.tails.sample(sample_shape).to(self.a.device)
+            gaussian_samples = gaussian_eps + self.a + (gaussian_eps > 0.0) * (self.b - self.a)
+
+            return torch.where(picks > 0, gaussian_samples, uniform_samples)
