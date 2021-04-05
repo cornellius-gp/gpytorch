@@ -30,7 +30,7 @@ class IndexKernel(Kernel):
         :attr:`rank` (int):
             Rank of :math:`B` matrix. Controls the degree of
             correlation between the outputs. With a rank of 1 the
-            outputs share same shape only differing in scale.
+            outputs are identical except for a scaling factor.
         :attr:`prior` (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
         :attr:`var_constraint` (Constraint, optional):
