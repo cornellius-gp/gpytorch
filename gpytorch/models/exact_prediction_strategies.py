@@ -410,7 +410,6 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         # the W'W cache
         wmat = self.prepare_dense_wmat()
         noise_term = self.likelihood.noise_covar(wmat.transpose(-1, -2) if len(wmat.shape) > 2 else wmat)
-        print(wmat.shape, noise_term.shape)
         interp_inner_prod = wmat.matmul(noise_term.inv_matmul(wmat.transpose(-1, -2)))
         return interp_inner_prod
 
@@ -507,7 +506,6 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
     def exact_predictive_mean(self, test_mean, test_train_covar):
         precomputed_cache = self.mean_cache
-        print(precomputed_cache)
         test_interp_indices = test_train_covar.left_interp_indices
         test_interp_values = test_train_covar.left_interp_values
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache).squeeze(-1) + test_mean
