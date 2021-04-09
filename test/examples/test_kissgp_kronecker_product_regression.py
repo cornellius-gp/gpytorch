@@ -44,7 +44,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
         self.base_covar_module = RBFKernel(ard_num_dims=2)
-        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=64, num_dims=2)
+        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=16, num_dims=2)
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -96,6 +96,7 @@ class TestKISSGPKroneckerProductRegression(unittest.TestCase):
             likelihood.eval()
 
             test_preds = likelihood(gp_model(test_x)).mean
+            print(test_preds.shape, test_y.shape)
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
             self.assertLess(mean_abs_error.squeeze().item(), 0.2)
 

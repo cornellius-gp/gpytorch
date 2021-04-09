@@ -398,7 +398,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         add_to_cache(fant_strat, "interp_response_cache", new_interp_response_cache)
 
     def prepare_dense_wmat(self, covar=None):
-        # prepare the w matrix.
+        # prepare the w matrix which is batch shape x m x n, where n = covar.shape[-2]
         if covar is None:
             covar = self.train_prior_dist.lazy_covariance_matrix
         wmat = covar._sparse_left_interp_t(covar.left_interp_indices, covar.left_interp_values).to_dense()
@@ -409,7 +409,8 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     def interp_inner_prod(self):
         # the W'W cache
         wmat = self.prepare_dense_wmat()
-        noise_term = self.likelihood.noise_covar(wmat)
+        noise_term = self.likelihood.noise_covar(wmat.transpose(-1, -2) if len(wmat.shape) > 2 else wmat)
+        print(wmat.shape, noise_term.shape)
         interp_inner_prod = wmat.matmul(noise_term.inv_matmul(wmat.transpose(-1, -2)))
         return interp_inner_prod
 
@@ -417,9 +418,9 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     @cached(name="interp_response_cache")
     def interp_response_cache(self):
         wmat = self.prepare_dense_wmat()
-        noise_term = self.likelihood.noise_covar(wmat)
+        noise_term = self.likelihood.noise_covar(wmat.transpose(-1, -2) if len(wmat.shape) > 2 else wmat)
         demeaned_train_targets = self.train_labels - self.train_prior_dist.mean
-        dinv_y = noise_term.inv_matmul(demeaned_train_targets)
+        dinv_y = noise_term.inv_matmul(demeaned_train_targets.unsqueeze(-1))
         return wmat.matmul(dinv_y)
 
     @property
@@ -427,25 +428,25 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     def mean_cache(self):
         # first construct K_UU
         train_train_covar = self.train_prior_dist.lazy_covariance_matrix
-        Kuu = train_train_covar.base_lazy_tensor
+        inducing_covar = train_train_covar.base_lazy_tensor
 
         # now get L such that LL' \approx WD^{-1}W'
-        interp_inner_prod_root = self.interp_inner_prod.root_decomposition().root
+        interp_inner_prod_root = self.interp_inner_prod.root_decomposition(method="cholesky").root
         # M = KL
-        inducing_compression_matrix = Kuu.matmul(interp_inner_prod_root)
+        inducing_compression_matrix = inducing_covar.matmul(interp_inner_prod_root)
 
         # Q = L'KL + 1
         current_qmatrix = interp_inner_prod_root.transpose(-1, -2).matmul(inducing_compression_matrix).add_jitter(1.0)
 
         # m = K_UU WD^{-1}(y - \mu)
-        Kuu_response = Kuu.matmul(self.interp_response_cache)
+        inducing_covar_response = inducing_covar.matmul(self.interp_response_cache)
 
         # L' m
-        root_space_projection = interp_inner_prod_root.transpose(-1, -2).matmul(Kuu_response)
+        root_space_projection = interp_inner_prod_root.transpose(-1, -2).matmul(inducing_covar_response)
         # Q^{-1} (L' m)
         qmat_solve = current_qmatrix.inv_matmul(root_space_projection)
 
-        mean_cache = Kuu_response - inducing_compression_matrix @ qmat_solve
+        mean_cache = inducing_covar_response - inducing_compression_matrix @ qmat_solve
 
         # Prevent backprop through this variable
         if settings.detach_test_caches.on():
@@ -457,10 +458,11 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     @cached(name="covar_cache")
     def covar_cache(self):
         train_train_covar = self.train_prior_dist.lazy_covariance_matrix
-        Kuu = train_train_covar.base_lazy_tensor
+        inducing_covar = train_train_covar.base_lazy_tensor
 
-        interp_inner_prod_root = self.interp_inner_prod.root_decomposition().root
-        inducing_compression_matrix = Kuu.matmul(interp_inner_prod_root)
+        # we need to enforce a cholesky here for numerical stability
+        interp_inner_prod_root = self.interp_inner_prod.root_decomposition(method="cholesky").root
+        inducing_compression_matrix = inducing_covar.matmul(interp_inner_prod_root)
 
         current_qmatrix = interp_inner_prod_root.transpose(-1, -2).matmul(inducing_compression_matrix).add_jitter(1.0)
 
@@ -476,14 +478,14 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         # Precomputed factor
         if settings.fast_pred_samples.on():
-            predictive_covar_cache = Kuu - inner_cache
-            inside_root = predictive_covar_cache.root_decomposition().root
+            predictive_covar_cache = inducing_covar - inner_cache
+            inside_root = predictive_covar_cache.root_decomposition(method="cholesky").root
             # Prevent backprop through this variable
             if settings.detach_test_caches.on():
                 inside_root = inside_root.detach()
             covar_cache = inside_root, None
         else:
-            root = inner_cache.root_decomposition().root
+            root = inner_cache.root_decomposition(method="cholesky").root
 
             # Prevent backprop through this variable
             if settings.detach_test_caches.on():
@@ -505,6 +507,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
     def exact_predictive_mean(self, test_mean, test_train_covar):
         precomputed_cache = self.mean_cache
+        print(precomputed_cache)
         test_interp_indices = test_train_covar.left_interp_indices
         test_interp_values = test_train_covar.left_interp_values
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache).squeeze(-1) + test_mean
