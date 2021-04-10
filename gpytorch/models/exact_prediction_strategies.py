@@ -10,6 +10,7 @@ from ..lazy import (
     AddedDiagLazyTensor,
     BatchRepeatLazyTensor,
     ConstantMulLazyTensor,
+    InterpolatedLazyTensor,
     LazyEvaluatedKernelTensor,
     MatmulLazyTensor,
     NonLazyTensor,
@@ -21,7 +22,7 @@ from ..lazy import (
 )
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.interpolation import left_interp, left_t_interp
-from ..utils.memoize import add_to_cache, cached, clear_cache_hook
+from ..utils.memoize import add_to_cache, cached, clear_cache_hook, pop_from_cache
 
 
 def prediction_strategy(train_inputs, train_prior_dist, train_labels, likelihood):
@@ -339,11 +340,18 @@ class DefaultPredictionStrategy(object):
 
 
 class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
-    def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
-        self.train_prior_dist = self.train_prior_dist.__class__(
-            self.train_prior_dist.mean, self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
+    def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood, uses_wiski=False):
+        train_prior_dist = train_prior_dist.__class__(
+            train_prior_dist.mean, train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
         )
+        super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
+        # covar = self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel()
+        # if isinstance(covar, LazyEvaluatedKernelTensor):
+        #     covar = covar.evaluate_kernel()
+        # self.train_prior_dist = self.train_prior_dist.__class__(
+        #     self.train_prior_dist.mean, covar
+        # )
+        self.uses_wiski = uses_wiski
 
     def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
         train_interp_indices = test_train_covar.right_interp_indices
@@ -375,17 +383,18 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         num_train = self.num_train
 
         # Evaluate fant x train and fant x fant covariance matrices, leave train x train unevaluated.
-        fant_fant_covar = full_covar[..., num_train:, num_train:]
-        # fant_mean = full_mean[..., num_train:]
+        fant_fant_covar = full_covar[..., num_train:, num_train:].evaluate_kernel()
+        fant_mean = full_mean[..., num_train:]
 
         fant_wmat = self.prepare_dense_wmat(fant_fant_covar)
 
         fant_likelihood = self.likelihood.get_fantasy_likelihood(**kwargs)
-        fant_noise = fant_likelihood.noise_covar(inputs)
+        fant_noise = fant_likelihood.noise_covar(fant_wmat.transpose(-1, -2) if len(fant_wmat.shape) > 2 else fant_wmat)
         fant_root_vector = fant_noise.sqrt_inv_matmul(fant_wmat.transpose(-1, -2)).transpose(-1, -2)
 
-        new_wmat = self.interp_inner_prod.add_low_rank(fant_root_vector)
-        new_interp_response_cache = self.interp_response_cache + new_wmat.matmul(fant_noise.inv_matmul(targets))
+        new_wmat = self.interp_inner_prod.add_low_rank(fant_root_vector.evaluate())
+        mean_diff = (targets - fant_mean).unsqueeze(-1)
+        new_interp_response_cache = self.interp_response_cache + fant_wmat.matmul(fant_noise.inv_matmul(mean_diff))
 
         # Create new DefaultPredictionStrategy object
         fant_strat = self.__class__(
@@ -393,9 +402,11 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             train_prior_dist=self.train_prior_dist.__class__(full_mean, full_covar),
             train_labels=full_targets,
             likelihood=fant_likelihood,
+            uses_wiski=True,
         )
         add_to_cache(fant_strat, "interp_inner_prod", new_wmat)
         add_to_cache(fant_strat, "interp_response_cache", new_interp_response_cache)
+        return fant_strat
 
     def prepare_dense_wmat(self, covar=None):
         # prepare the w matrix which is batch shape x m x n, where n = covar.shape[-2]
@@ -425,6 +436,31 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
     @property
     @cached(name="mean_cache")
     def mean_cache(self):
+        train_train_covar = self.train_prior_dist.lazy_covariance_matrix
+        train_interp_indices = train_train_covar.left_interp_indices
+        train_interp_values = train_train_covar.left_interp_values
+
+        mvn = self.likelihood(self.train_prior_dist, self.train_inputs)
+        train_mean, train_train_covar_with_noise = mvn.mean, mvn.lazy_covariance_matrix
+
+        mean_diff = (self.train_labels - train_mean).unsqueeze(-1)
+        train_train_covar_inv_labels = train_train_covar_with_noise.inv_matmul(mean_diff)
+
+        # New root factor
+        base_size = train_train_covar.base_lazy_tensor.size(-1)
+        mean_cache = train_train_covar.base_lazy_tensor.matmul(
+            left_t_interp(train_interp_indices, train_interp_values, train_train_covar_inv_labels, base_size)
+        )
+
+        # Prevent backprop through this variable
+        if settings.detach_test_caches.on():
+            return mean_cache.detach()
+        else:
+            return mean_cache
+
+    @property
+    @cached(name="fantasy_mean_cache")
+    def fantasy_mean_cache(self):
         # first construct K_UU
         train_train_covar = self.train_prior_dist.lazy_covariance_matrix
         inducing_covar = train_train_covar.base_lazy_tensor
@@ -454,8 +490,8 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             return mean_cache
 
     @property
-    @cached(name="covar_cache")
-    def covar_cache(self):
+    @cached(name="fantasy_covar_cache")
+    def fantasy_covar_cache(self):
         train_train_covar = self.train_prior_dist.lazy_covariance_matrix
         inducing_covar = train_train_covar.base_lazy_tensor
 
@@ -493,6 +529,74 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
         return covar_cache
 
+    @property
+    @cached(name="covar_cache")
+    def covar_cache(self):
+        # Get inverse root
+        train_train_covar = self.train_prior_dist.lazy_covariance_matrix
+        train_interp_indices = train_train_covar.left_interp_indices
+        train_interp_values = train_train_covar.left_interp_values
+
+        # Get probe vectors for inverse root
+        num_probe_vectors = settings.fast_pred_var.num_probe_vectors()
+        num_inducing = train_train_covar.base_lazy_tensor.size(-1)
+        vector_indices = torch.randperm(num_inducing).type_as(train_interp_indices)
+        probe_vector_indices = vector_indices[:num_probe_vectors]
+        test_vector_indices = vector_indices[num_probe_vectors : 2 * num_probe_vectors]
+
+        probe_interp_indices = probe_vector_indices.unsqueeze(1)
+        probe_test_interp_indices = test_vector_indices.unsqueeze(1)
+        dtype = train_train_covar.dtype
+        device = train_train_covar.device
+        probe_interp_values = torch.ones(num_probe_vectors, 1, dtype=dtype, device=device)
+
+        batch_shape = train_train_covar.base_lazy_tensor.batch_shape
+        probe_vectors = InterpolatedLazyTensor(
+            train_train_covar.base_lazy_tensor,
+            train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
+            train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
+            probe_interp_indices.expand(*batch_shape, *probe_interp_indices.shape[-2:]),
+            probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
+        ).evaluate()
+        test_vectors = InterpolatedLazyTensor(
+            train_train_covar.base_lazy_tensor,
+            train_interp_indices.expand(*batch_shape, *train_interp_indices.shape[-2:]),
+            train_interp_values.expand(*batch_shape, *train_interp_values.shape[-2:]),
+            probe_test_interp_indices.expand(*batch_shape, *probe_test_interp_indices.shape[-2:]),
+            probe_interp_values.expand(*batch_shape, *probe_interp_values.shape[-2:]),
+        ).evaluate()
+
+        # Put data through the likelihood
+        dist = self.train_prior_dist.__class__(
+            torch.zeros_like(self.train_prior_dist.mean), self.train_prior_dist.lazy_covariance_matrix
+        )
+        train_train_covar_plus_noise = self.likelihood(dist, self.train_inputs).lazy_covariance_matrix
+
+        # Get inverse root
+        train_train_covar_inv_root = train_train_covar_plus_noise.root_inv_decomposition(
+            initial_vectors=probe_vectors, test_vectors=test_vectors
+        ).root
+        train_train_covar_inv_root = train_train_covar_inv_root.evaluate()
+
+        # New root factor
+        root = self._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, self._last_test_train_covar)
+
+        # Precomputed factor
+        if settings.fast_pred_samples.on():
+            inside = train_train_covar.base_lazy_tensor + RootLazyTensor(root).mul(-1)
+            inside_root = inside.root_decomposition().root.evaluate()
+            # Prevent backprop through this variable
+            if settings.detach_test_caches.on():
+                inside_root = inside_root.detach()
+            covar_cache = inside_root, None
+        else:
+            # Prevent backprop through this variable
+            if settings.detach_test_caches.on():
+                root = root.detach()
+            covar_cache = None, root
+
+        return covar_cache
+
     def exact_prediction(self, joint_mean, joint_covar):
         # Find the components of the distribution that contain test data
         test_mean = joint_mean[..., self.num_train :]
@@ -505,7 +609,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         )
 
     def exact_predictive_mean(self, test_mean, test_train_covar):
-        precomputed_cache = self.mean_cache
+        precomputed_cache = self.fantasy_mean_cache if self.uses_wiski else self.mean_cache
         test_interp_indices = test_train_covar.left_interp_indices
         test_interp_values = test_train_covar.left_interp_values
         res = left_interp(test_interp_indices, test_interp_values, precomputed_cache).squeeze(-1) + test_mean
@@ -519,15 +623,31 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
         test_interp_indices = test_train_covar.left_interp_indices
         test_interp_values = test_train_covar.left_interp_values
 
-        precomputed_cache = self.covar_cache
-        fps = settings.fast_pred_samples.on()
-        if fps:
-            root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[0].evaluate())
-            res = RootLazyTensor(root)
+        if self.uses_wiski:
+            precomputed_cache = self.fantasy_covar_cache
+            fps = settings.fast_pred_samples.on()
+            if fps:
+                root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[0].evaluate())
+                res = RootLazyTensor(root)
+            else:
+                root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1].evaluate())
+                res = test_test_covar + RootLazyTensor(root).mul(-1)
+            return res
         else:
-            root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1].evaluate())
-            res = test_test_covar + RootLazyTensor(root).mul(-1)
-        return res
+            precomputed_cache = self.covar_cache
+            fps = settings.fast_pred_samples.on()
+            if (fps and precomputed_cache[0] is None) or (not fps and precomputed_cache[1] is None):
+                pop_from_cache(self, "covar_cache")
+                precomputed_cache = self.covar_cache
+
+            # Compute the exact predictive posterior
+            if settings.fast_pred_samples.on():
+                res = self._exact_predictive_covar_inv_quad_form_root(precomputed_cache[0], test_train_covar)
+                res = RootLazyTensor(res)
+            else:
+                root = left_interp(test_interp_indices, test_interp_values, precomputed_cache[1])
+                res = test_test_covar + RootLazyTensor(root).mul(-1)
+            return res
 
 
 class SumPredictionStrategy(DefaultPredictionStrategy):
