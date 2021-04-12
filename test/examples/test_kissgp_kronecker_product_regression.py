@@ -96,7 +96,6 @@ class TestKISSGPKroneckerProductRegression(unittest.TestCase):
             likelihood.eval()
 
             test_preds = likelihood(gp_model(test_x)).mean
-            print(test_preds.shape, test_y.shape)
             mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
             self.assertLess(mean_abs_error.squeeze().item(), 0.2)
 
