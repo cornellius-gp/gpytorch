@@ -124,6 +124,22 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
             gp_model = GPRegressionModel(train_x, train_y, likelihood).cuda()
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 
+            # Test the model before optimization
+            gp_model.eval()
+            likelihood.eval()
+            test_preds = likelihood(gp_model(test_x)).mean
+            mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
+            self.assertLess(mean_abs_error.squeeze().item(), 0.02)
+
+            # Test variances before optimization
+            test_vars = likelihood(gp_model(test_x)).variance
+            self.assertAllClose(test_vars, likelihood(gp_model(test_x)).covariance_matrix.diagonal(dim1=-1, dim2=-2))
+            self.assertGreater(test_vars.min().item() + 0.05, likelihood.noise.item())
+            self.assertLess(
+                test_vars.max().item() - 0.05,
+                likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
+            )
+
             # Optimize the model
             gp_model.train()
             likelihood.train()

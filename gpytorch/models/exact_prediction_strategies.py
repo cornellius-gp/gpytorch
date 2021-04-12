@@ -607,7 +607,7 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
     @property
     @cached(name="covar_cache")
     def covar_cache(self):
-        # Here, the covar_cache is going to be the inverse of K_{XX} + \sigma^2 I
+        # Here, the covar_cache is going to be K_{UU}^{-1/2} K_{UX}( K_{XX} + \sigma^2 I )^{-1} K_{XU} K_{UU}^{-1/2}
         # This is easily computed using Woodbury
         # K_{XX} + \sigma^2 I = R R^T + \sigma^2 I
         #                     = \sigma^{-2} ( I - \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T  )
@@ -627,7 +627,8 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
 
         inverse = AddedDiagLazyTensor(inv_diag, MatmulLazyTensor(-woodbury_term, woodbury_term.transpose(-1, -2)))
         # \sigma^{-2} ( I - \sigma^{-2} R (I + \sigma^{-2} R^T R)^{-1} R^T  )
-        return inverse
+
+        return root.transpose(-1, -2) @ (inverse @ root)
 
     def get_fantasy_strategy(self, inputs, targets, full_inputs, full_targets, full_output, **kwargs):
         raise NotImplementedError(
@@ -635,9 +636,24 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         )
 
     def exact_prediction(self, joint_mean, joint_covar):
+        from ..kernels.inducing_point_kernel import InducingPointKernel
+
         # Find the components of the distribution that contain test data
         test_mean = joint_mean[..., self.num_train :]
-        test_test_covar = joint_covar[..., self.num_train :, self.num_train :].evaluate_kernel()
+
+        # If we're in lazy evaluation mode, let's use the base kernel of the SGPR output to compute the prior covar
+        test_test_covar = joint_covar[..., self.num_train :, self.num_train :]
+        if isinstance(test_test_covar, LazyEvaluatedKernelTensor) and isinstance(
+            test_test_covar.kernel, InducingPointKernel
+        ):
+            test_test_covar = LazyEvaluatedKernelTensor(
+                test_test_covar.x1,
+                test_test_covar.x2,
+                test_test_covar.kernel.base_kernel,
+                test_test_covar.last_dim_is_batch,
+                **test_test_covar.params,
+            )
+
         test_train_covar = joint_covar[..., self.num_train :, : self.num_train].evaluate_kernel()
 
         return (
@@ -646,7 +662,17 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         )
 
     def exact_predictive_covar(self, test_test_covar, test_train_covar):
-        train_train_precision = self.covar_cache
-        test_train_covar = test_train_covar.evaluate()  # Evaluation is more efficient than lazy evaluation
-        res = test_test_covar - (test_train_covar @ (train_train_precision @ test_train_covar.transpose(-1, -2)))
+        covar_cache = self.covar_cache
+        # covar_cache = K_{UU}^{-1/2} K_{UX}( K_{XX} + \sigma^2 I )^{-1} K_{XU} K_{UU}^{-1/2}
+
+        # Decompose test_train_covar = l, r
+        if not isinstance(test_train_covar, MatmulLazyTensor):
+            # We should not hit this point of the code - this is to catch potential bugs in GPyTorch
+            raise ValueError(
+                f"Expected SGPR output to be a MatmulLazyTensor. Got {test_train_covar.__class__.__name__} instead. "
+                "This is likely a bug in GPyTorch."
+            )
+        L = test_train_covar.left_lazy_tensor.evaluate()
+
+        res = test_test_covar - (L @ (covar_cache @ L.transpose(-1, -2)))
         return res
