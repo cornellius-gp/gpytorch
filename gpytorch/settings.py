@@ -558,7 +558,7 @@ class memory_efficient(_feature_flag):
     Pros: memory efficient, faster on CPU
     Cons: slower on GPUs with < 10000 inducing points
 
-    (Default: True)
+    (Default: False)
     """
 
     _default = False
