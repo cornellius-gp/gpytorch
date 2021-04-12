@@ -636,12 +636,16 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         )
 
     def exact_prediction(self, joint_mean, joint_covar):
+        from ..kernels.inducing_point_kernel import InducingPointKernel
+
         # Find the components of the distribution that contain test data
         test_mean = joint_mean[..., self.num_train :]
 
         # If we're in lazy evaluation mode, let's use the base kernel of the SGPR output to compute the prior covar
         test_test_covar = joint_covar[..., self.num_train :, self.num_train :]
-        if isinstance(test_test_covar, LazyEvaluatedKernelTensor) and hasattr(test_test_covar.kernel, "base_kernel"):
+        if isinstance(test_test_covar, LazyEvaluatedKernelTensor) and isinstance(
+            test_test_covar.kernel, InducingPointKernel
+        ):
             test_test_covar = LazyEvaluatedKernelTensor(
                 test_test_covar.x1,
                 test_test_covar.x2,
