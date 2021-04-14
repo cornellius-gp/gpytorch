@@ -69,6 +69,6 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
     def pyro_factor(self, output, target, *params):
         import pyro
 
-        mll = self(output, target, *params)
+        mll = target.size(-1) * self(output, target, *params)
         pyro.factor("gp_mll", mll)
         return mll
