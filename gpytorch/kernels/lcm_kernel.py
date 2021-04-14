@@ -37,6 +37,9 @@ class LCMKernel(Kernel):
         for k in base_kernels:
             if not isinstance(k, Kernel):
                 raise ValueError("base_kernels must only contain Kernel objects")
+        if not isinstance(rank, list):
+            rank = [rank] * len(base_kernels)
+
         super(LCMKernel, self).__init__()
         self.covar_module_list = ModuleList(
             [
