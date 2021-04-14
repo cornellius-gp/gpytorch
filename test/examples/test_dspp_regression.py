@@ -17,7 +17,7 @@ test_n = 10
 test_x = torch.linspace(-0.2, 1.2, test_n).unsqueeze(-1)
 test_y = torch.sin(2 * test_x[..., 0])
 
-num_inducing_pts = 30            # Number of inducing points in each hidden layer
+num_inducing_pts = 10            # Number of inducing points in each hidden layer
 num_epochs = 100                 # Number of epochs to train for
 initial_lr = 0.1                 # Initial learning rate
 hidden_dim = 3                   # Number of GPs (i.e., the width) in the hidden layer.
@@ -132,5 +132,5 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
 
         model.eval()
         preds = model.likelihood(model(test_x))
-        self.assertLess((preds.mean - test_y).abs().mean().item(), 0.3)
-        self.assertLess(preds.variance.mean().item(), 0.2)
+        self.assertLess((preds.mean - test_y).abs().mean().item(), 0.5)
+        self.assertLess(preds.variance.mean().item(), 0.5)
