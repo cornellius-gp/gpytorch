@@ -898,7 +898,7 @@ class LazyTensor(ABC):
         # compute p = M B and take its SVD
         pvector = current_inv_root.matmul(low_rank_mat)
         # USV^T = p; when p is a vector this saves us the trouble of computing an orthonormal basis
-        U, S, _ = torch.svd(pvector, some=False)
+        U, S, _ = torch.svd(pvector.evaluate(), some=False)
 
         # we want the root decomposition of I_r + U S^2 U^T but S is q so we need to pad.
         one_padding = torch.ones(*S.shape[:-1], U.shape[-2] - S.shape[-1], device=S.device, dtype=S.dtype)
@@ -2041,7 +2041,7 @@ class LazyTensor(ABC):
         elif isinstance(other, DiagLazyTensor):
             return AddedDiagLazyTensor(self, other)
         elif isinstance(other, RootLazyTensor):
-            return self.add_low_rank(self, other.root)
+            return self.add_low_rank(other.root)
         elif isinstance(other, Tensor):
             other = lazify(other)
             shape = _mul_broadcast_shape(self.shape, other.shape)
