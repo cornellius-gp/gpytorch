@@ -29,11 +29,10 @@ class LaplaceLikelihood(_OneDimensionalLikelihood):
             noise_constraint = Positive()
 
         self.raw_noise = torch.nn.Parameter(torch.zeros(*batch_shape, 1))
+        self.register_constraint("raw_noise", noise_constraint)
 
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda m: m.noise, lambda m, v: m._set_noise(v))
-
-        self.register_constraint("raw_noise", noise_constraint)
 
     @property
     def noise(self):

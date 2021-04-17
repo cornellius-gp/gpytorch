@@ -65,6 +65,7 @@ class CosineKernel(Kernel):
 
         if period_length_constraint is None:
             period_length_constraint = Positive()
+        self.register_constraint("raw_period_length", period_length_constraint)
 
         if period_length_prior is not None:
             self.register_prior(
@@ -73,8 +74,6 @@ class CosineKernel(Kernel):
                 lambda m: m.period_length,
                 lambda m, v: m._set_period_length(v),
             )
-
-        self.register_constraint("raw_period_length", period_length_constraint)
 
     @property
     def period_length(self):

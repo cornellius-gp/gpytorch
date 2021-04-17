@@ -55,10 +55,10 @@ class IndexKernel(Kernel):
             name="covar_factor", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks, rank))
         )
         self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks)))
+        self.register_constraint("raw_var", var_constraint)
+
         if prior is not None:
             self.register_prior("IndexKernelPrior", prior, lambda m: m._eval_covar_matrix())
-
-        self.register_constraint("raw_var", var_constraint)
 
     @property
     def var(self):

@@ -25,10 +25,9 @@ class _HomoskedasticNoiseBase(Noise):
             noise_constraint = GreaterThan(1e-4)
 
         self.register_parameter(name="raw_noise", parameter=Parameter(torch.zeros(*batch_shape, num_tasks)))
+        self.register_constraint("raw_noise", noise_constraint)
         if noise_prior is not None:
             self.register_prior("noise_prior", noise_prior, lambda m: m.noise, lambda m, v: m._set_noise(v))
-
-        self.register_constraint("raw_noise", noise_constraint)
 
     @property
     def noise(self):

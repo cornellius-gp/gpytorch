@@ -51,11 +51,10 @@ class PolynomialKernel(Kernel):
                 power = power.item()
 
         self.power = power
+        self.register_constraint("raw_offset", offset_constraint)
 
         if offset_prior is not None:
             self.register_prior("offset_prior", offset_prior, lambda m: m.offset, lambda m, v: m._set_offset(v))
-
-        self.register_constraint("raw_offset", offset_constraint)
 
     @property
     def offset(self) -> torch.Tensor:

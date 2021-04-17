@@ -166,12 +166,12 @@ class Kernel(Module):
                 name="raw_lengthscale",
                 parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, lengthscale_num_dims)),
             )
+            self.register_constraint("raw_lengthscale", lengthscale_constraint)
+
             if lengthscale_prior is not None:
                 self.register_prior(
                     "lengthscale_prior", lengthscale_prior, lambda m: m.lengthscale, lambda m, v: m._set_lengthscale(v)
                 )
-
-            self.register_constraint("raw_lengthscale", lengthscale_constraint)
 
         self.distance_module = None
         # TODO: Remove this on next official PyTorch release.
