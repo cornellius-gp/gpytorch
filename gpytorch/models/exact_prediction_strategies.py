@@ -15,7 +15,6 @@ from ..lazy import (
     MatmulLazyTensor,
     NonLazyTensor,
     RootLazyTensor,
-    SumLazyTensor,
     ZeroLazyTensor,
     delazify,
     lazify,
@@ -651,47 +650,7 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
 
 
 class SumPredictionStrategy(DefaultPredictionStrategy):
-    @property
-    def _sub_strategies(self):
-        sub_strategies = []
-        for lazy_tensor in self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel().lazy_tensors:
-            pred_strat = prediction_strategy(
-                self.train_inputs,
-                self.train_prior_dist.__class__(self.train_prior_dist.mean, lazy_tensor),
-                self.train_labels,
-                self.likelihood,
-            )
-            sub_strategies.append(pred_strat)
-
-        return sub_strategies
-
-    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
-        test_train_covar = lazify(test_train_covar).evaluate_kernel()
-        if not isinstance(test_train_covar, SumLazyTensor):
-            return super(SumPredictionStrategy, self)._exact_predictive_covar_inv_quad_form_cache(
-                train_train_covar_inv_root, test_train_covar
-            )
-        else:
-            return tuple(
-                sub_strat._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar_comp)
-                for sub_strat, test_train_covar_comp in zip(self._sub_strategies, test_train_covar.lazy_tensors)
-            )
-
-    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
-        # Here the precomputed cache is a list
-        # where each component in the list is the precomputed cache for each component lazy tensor
-        test_train_covar = lazify(test_train_covar).evaluate_kernel()
-        if not isinstance(test_train_covar, SumLazyTensor):
-            return super(SumPredictionStrategy, self)._exact_predictive_covar_inv_quad_form_root(
-                precomputed_cache, test_train_covar
-            )
-        else:
-            return sum(
-                sub_strat._exact_predictive_covar_inv_quad_form_root(cache_comp, test_train_covar_comp)
-                for sub_strat, cache_comp, test_train_covar_comp in zip(
-                    self._sub_strategies, precomputed_cache, test_train_covar.evaluate_kernel().lazy_tensors
-                )
-            )
+    pass
 
 
 class RFFPredictionStrategy(DefaultPredictionStrategy):
