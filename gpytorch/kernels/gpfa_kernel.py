@@ -1,33 +1,32 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
+
 import torch
 
 from ..lazy import DiagLazyTensor, KroneckerProductLazyTensor
+from .gpfa_component_kernel import GPFAComponentKernel
 from .kernel import AdditiveKernel, Kernel
-from .reversible_gpfa_component_kernel import ReversibleGPFAComponentKernel
 
 
 class GPFAKernel(Kernel):
     r"""
-    Kernel supporting Kronecker style multitask Gaussian processes (where every data point is evaluated at every
-    task) using :class:`gpytorch.kernels.IndexKernel` as a basic multitask kernel.
+    Kernel supporting Gaussian Process Factor Analysis using
+    :class:`gpytorch.kernels.GPFAComponentKernel` as a basic GPFA latent kernel.
 
-    Given a base covariance module to be used for the data, :math:`K_{XX}`, this kernel computes a task kernel of
-    specified size :math:`K_{TT}` and returns :math:`K = K_{TT} \otimes K_{XX}`. as an
-    :obj:`gpytorch.lazy.KroneckerProductLazyTensor`.
+    Given base covariance modules to be used for the latents, :math:`k_i`, this kernel
+    puts the base covariance modules in a block diagonal with :math:`M` blocks as :math:`K_{XX}`.
+    This defines :math:`C \in MxN` and returns :math:`(I_T \otimes C)K_{XX}(I_T \otimes C)^T` as an
+    :obj:`gpytorch.lazy.LazyEvaluatedKernelTensor`.
 
-    :param ~gpytorch.kernels.Kernel data_covar_module: Kernel to use as the data kernel.
-    :param int num_tasks: Number of tasks
-    :param int rank: (default 1) Rank of index kernel to use for task covariance matrix.
-    :param ~gpytorch.priors.Prior task_covar_prior: (default None) Prior to use for task kernel.
-        See :class:`gpytorch.kernels.IndexKernel` for details.
+    :param ~gpytorch.kernels.Kernel data_covar_module: Kernel to use as the latent kernel.
+    :param int num_latents: Number of latents (M).
+    :param int num_obs: Number of observation dimensions (typically, the number of neurons, N).
+    :param ~gpytorch.kernels.Kernel GPFA_component: (default GPFAComponentKernel) Kernel to use to scale the latent
+    kernels to the necessary shape.
+    GPFAComponentKernel is currently the only option; if non-reversible kernels are later added,
+    there will then be another option here.
     :param dict kwargs: Additional arguments to pass to the kernel.
-    """
-    """
-    TODO(jasmine):deal with docstrings and comments
-    input dim is input dim at each timepoint, e.g. if just putting in
-
-    need num_tasks = = len(data_covar_modules)
     """
     # TODO: confirm if don't need priors / constraints on most of this.
     def __init__(
@@ -35,20 +34,21 @@ class GPFAKernel(Kernel):
         data_covar_modules,
         num_latents,
         num_obs,
-        GPFA_component=ReversibleGPFAComponentKernel,
-        # C_prior=None, C_constraint=None, R_prior = None,
+        GPFA_component=GPFAComponentKernel,
+        # C_prior=None, C_constraint=None,
         **kwargs,
     ):
         super(GPFAKernel, self).__init__(**kwargs)
         self.num_obs = num_obs
         self.num_latents = num_latents
-        # gpfa_components = [GPFA_component(data_covar_modules[i],num_latents,i) for i in range(num_latents)]
-        # TODO: check for length of data_covar modules matching, or length one, in which case repeat the same module,
-        # deep copy, like in multitaskmean
+
+        if len(data_covar_modules) == 1:
+            data_covar_modules = data_covar_modules + [
+                deepcopy(data_covar_modules[0]) for i in range(num_latents - 1)
+            ]  # TODO test this line
         self.latent_covar_module = AdditiveKernel(
             *[GPFA_component(data_covar_modules[i], num_latents, i) for i in range(num_latents)]
         )
-        # AdditiveKernel(*[GPFA_component(data_covar_modules[i],num_latents,i) for i in range(num_latents)])
         self.register_parameter(name="raw_C", parameter=torch.nn.Parameter(torch.randn(num_obs, num_latents)))
 
     @property
@@ -73,7 +73,7 @@ class GPFAKernel(Kernel):
 
     def num_outputs_per_input(self, x1, x2):
         """`
-        Given `n` data points `x1` and `m` datapoints `x2`, this multitask
+        Given `n` data points `x1` and `m` datapoints `x2`, this
         kernel returns an `(n*num_obs) x (m*num_obs)` covariance matrix.
         """
         return self.num_obs
