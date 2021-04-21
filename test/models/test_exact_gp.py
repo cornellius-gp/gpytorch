@@ -5,12 +5,11 @@ import unittest
 import torch
 
 import gpytorch
+from gpytorch import settings
 from gpytorch.kernels import GridInterpolationKernel
 from gpytorch.models import ExactGP
 from gpytorch.models.exact_prediction_strategies import InterpolatedPredictionStrategy
 from gpytorch.test.model_test_case import BaseModelTestCase
-from gpytorch import settings
-
 
 N_PTS = 50
 
