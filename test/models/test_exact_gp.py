@@ -59,7 +59,8 @@ class SumExactGPModel(ExactGP):
         self.mean_module = gpytorch.means.ConstantMean()
         covar_a = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
         covar_b = gpytorch.kernels.ScaleKernel(gpytorch.kernels.MaternKernel(nu=0.5))
-        self.covar_module = covar_a + covar_b
+        covar_c = gpytorch.kernels.LinearKernel()  # this one is important because its covariance matrix can be lazy
+        self.covar_module = covar_a + covar_b + covar_c
 
     def forward(self, x):
         mean_x = self.mean_module(x)
