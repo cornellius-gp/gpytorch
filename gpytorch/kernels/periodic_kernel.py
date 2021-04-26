@@ -107,10 +107,18 @@ class PeriodicKernel(Kernel):
         self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, **params):
-        x1_ = x1.div(self.period_length)
-        x2_ = x2.div(self.period_length)
-        diff = self.covar_dist(x1_, x2_, diag=diag, **params)
-        res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
+        # x1_ = x1.div(self.period_length)
+        # x2_ = x2.div(self.period_length)
+        # diff = self.covar_dist(x1_, x2_, diag=diag, **params)
+        if x1.dim() == 3 and x2.dim() == 3:  # batched operation
+            diff = x1.unsqueeze(2) - x2.unsqueeze(1)
+        elif x1.dim() == 2 and x2.dim() == 2:
+            diff = x1.unsqueeze(1) - x2.unsqueeze(0)
+        else:
+            raise ValueError("x.dims() must be 2 or 3")
+        diff = diff * math.pi / self.period_length
+        res = diff.sin().div(self.lengthscale).pow(2).sum(dim=-1).mul(-0.5).exp_()
+        # res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
         if diag:
             res = res.squeeze(0)
         return res
