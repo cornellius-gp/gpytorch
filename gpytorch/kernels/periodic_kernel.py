@@ -14,16 +14,22 @@ class PeriodicKernel(Kernel):
 
     .. math::
 
-       \begin{equation*}
-          k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
-            \frac{2 \sin^2 \left( \pi \Vert \mathbf{x_1} - \mathbf{x_2} \Vert_1 / p \right) }
-            { \ell^2 } \right)
-       \end{equation*}
+    \begin{equation*}
+        k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
+        -\frac{1}{2} \sum_i \left(
+        \frac{\sin \left( \frac{\pi}{\lambda} (\mathbf{x_{1,i}} - \mathbf{x_{2,i}}\right)}{p}
+        \right)^2
+        \right)
+    \end{equation*}
 
     where
 
-    * :math:`p` is the periord length parameter.
-    * :math:`\ell` is a lengthscale parameter.
+    * :math:`p` is the period length parameter.
+    * :math:`\lambda` is a lengthscale parameter.
+
+    Equation is taken from [David Mackay's Introduction to Gaussian Processes equation 47]
+    (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.81.1927&rep=rep1&type=pdf)
+    albeit without feature-specific lengthscales and period lengths.
 
     .. note::
 
@@ -32,7 +38,7 @@ class PeriodicKernel(Kernel):
 
     .. note::
 
-        This kernel does not have an ARD lengthscale option.
+        This kernel does not have an ARD lengthscale or period length option.
 
     Args:
         :attr:`batch_shape` (torch.Size, optional):
