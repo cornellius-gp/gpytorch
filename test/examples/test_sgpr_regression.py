@@ -112,6 +112,11 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
             likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
         )
 
+        # Test on training data
+        test_outputs = likelihood(gp_model(train_x))
+        self.assertLess((test_outputs.mean - train_y).max().item(), 0.05)
+        self.assertLess(test_outputs.variance.max().item(), likelihood.noise.item() * 2)
+
     def test_sgpr_mean_abs_error_cuda(self):
         # Suppress numerical warnings
         warnings.simplefilter("ignore", NumericalWarning)
