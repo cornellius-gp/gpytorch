@@ -43,24 +43,18 @@ class DSPPLayer(DeepGPLayer):
         else:
             self.quad_sites = torch.nn.Parameter(torch.randn(num_quad_sites, input_dims))
 
-    def __call__(self, inputs, are_samples=False, expand_for_quadgrid=True, **kwargs):
+    def __call__(self, inputs, **kwargs):
         if isinstance(inputs, MultitaskMultivariateNormal):
-            # inputs is definitely in the second layer, and mean is n x t
+            # This is for subsequent layers. We apply quadrature here
+            # Mean, stdv are q x ... x n x t
             mus, sigmas = inputs.mean, inputs.variance.sqrt()
+            qg = self.quad_sites.view([self.num_quad_sites] + [1] * (mus.dim() - 2) + [self.input_dims])
+            sigmas = sigmas * qg
+            inputs = mus + sigmas  # q^t x n x t
+            deterministic_inputs = False
+        else:
+            deterministic_inputs = True
 
-            if expand_for_quadgrid:
-                xi_mus = mus.unsqueeze(0)  # 1 x n x t
-                xi_sigmas = sigmas.unsqueeze(0)  # 1 x n x t
-            else:
-                xi_mus = mus
-                xi_sigmas = sigmas
-
-            # unsqueeze sigmas to 1 x n x t, locations from [q] to Q^T x 1 x T.
-            # Broadcasted result will be Q^T x N x T
-            qg = self.quad_sites.view([self.num_quad_sites] + [1] * (xi_mus.dim() - 2) + [self.input_dims])
-            xi_sigmas = xi_sigmas * qg
-
-            inputs = xi_mus + xi_sigmas  # q^t x n x t
         if settings.debug.on():
             if not torch.is_tensor(inputs):
                 raise ValueError(
@@ -78,8 +72,14 @@ class DSPPLayer(DeepGPLayer):
         if self.output_dims is not None:
             inputs = inputs.unsqueeze(-3)
             inputs = inputs.expand(*inputs.shape[:-3], self.output_dims, *inputs.shape[-2:])
+
         # Now run samples through the GP
         output = ApproximateGP.__call__(self, inputs, **kwargs)
+
+        # If this is the first layer (deterministic inputs), expand the output
+        # This allows quadrature to be applied to future layers
+        if deterministic_inputs:
+            output = output.expand(torch.Size([self.num_quad_sites]) + output.batch_shape)
 
         if self.num_quad_sites > 0:
             if self.output_dims is not None and not isinstance(output, MultitaskMultivariateNormal):

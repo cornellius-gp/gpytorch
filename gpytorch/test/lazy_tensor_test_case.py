@@ -65,6 +65,8 @@ class RectangularLazyTensorTestCase(BaseTestCase):
         rhs = torch.randn(2, *lazy_tensor.shape)
         self.assertAllClose((lazy_tensor + rhs).evaluate(), evaluated + rhs)
 
+        self.assertAllClose((lazy_tensor + lazy_tensor).evaluate(), evaluated * 2)
+
     def test_matmul_vec(self):
         lazy_tensor = self.create_lazy_tensor()
         rhs = torch.randn(lazy_tensor.size(-1))
