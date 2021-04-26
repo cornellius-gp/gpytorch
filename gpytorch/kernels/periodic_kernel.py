@@ -14,13 +14,13 @@ class PeriodicKernel(Kernel):
 
     .. math::
 
-    \begin{equation*}
-        k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
-        -\frac{1}{2} \sum_i \left(
-        \frac{\sin \left( \frac{\pi}{\lambda} (\mathbf{x_{1,i}} - \mathbf{x_{2,i}}\right)}{p}
-        \right)^2
-        \right)
-    \end{equation*}
+        \begin{equation*}
+            k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
+            -\frac{1}{2} \sum_i \left(
+            \frac{\sin \left( \frac{\pi}{\lambda} (\mathbf{x_{1,i}} - \mathbf{x_{2,i}}\right)}{p}
+            \right)^2
+            \right)
+        \end{equation*}
 
     where
 
