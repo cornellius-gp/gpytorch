@@ -16,9 +16,8 @@ class PeriodicKernel(Kernel):
 
         \begin{equation*}
             k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
-            -\frac{1}{2} \sum_i \left(
-            \frac{\sin \left( \frac{\pi}{\lambda} (\mathbf{x_{1,i}} - \mathbf{x_{2,i}}\right)}{p}
-            \right)^2
+            -2 \sum_i
+            \frac{\sin ^2 \left( \frac{\pi}{p} (\mathbf{x_{1,i}} - \mathbf{x_{2,i}} ) \right)}{\lambda}
             \right)
         \end{equation*}
 
@@ -27,9 +26,10 @@ class PeriodicKernel(Kernel):
     * :math:`p` is the period length parameter.
     * :math:`\lambda` is a lengthscale parameter.
 
-    Equation is taken from [David Mackay's Introduction to Gaussian Processes equation 47]
+    Equation is based on [David Mackay's Introduction to Gaussian Processes equation 47]
     (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.81.1927&rep=rep1&type=pdf)
-    albeit without feature-specific lengthscales and period lengths.
+    albeit without feature-specific lengthscales and period lengths. The exponential
+    coefficient was changed and lengthscale is not squared to maintain backwards compatibility
 
     .. note::
 
@@ -120,7 +120,7 @@ class PeriodicKernel(Kernel):
         else:
             raise ValueError("x.dims() must be 2 or 3")
         diff = diff * math.pi / self.period_length.unsqueeze(-1)
-        res = diff.sin().div(self.lengthscale.unsqueeze(-1)).pow(2).sum(dim=-1).mul(-0.5).exp_()
+        res = diff.sin().pow(2).sum(dim=-1).div(self.lengthscale).mul(-2.0).exp_()
         if diag:
             res = res.squeeze(0)
         return res

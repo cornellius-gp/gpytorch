@@ -20,8 +20,8 @@ class TestPeriodicKernel(unittest.TestCase):
         actual = torch.zeros(3, 2)
         for i in range(3):
             for j in range(2):
-                val = (torch.sin(math.pi / period * (a[i] - b[j])) / lengthscale) ** 2
-                actual[i, j] = torch.exp(-0.5 * val).item()
+                val = 2 * torch.pow(torch.sin(math.pi * (a[i] - b[j]) / 3), 2) / lengthscale
+                actual[i, j] = torch.exp(-val).item()
 
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
@@ -72,7 +72,7 @@ class TestPeriodicKernel(unittest.TestCase):
         for k in range(2):
             diff = a[k].unsqueeze(1) - b[k].unsqueeze(0)
             diff = diff * math.pi / period[k].unsqueeze(-1)
-            actual[k] = diff.sin().div(lengthscale[k]).pow(2).sum(dim=-1).mul(-0.5).exp_()
+            actual[k] = diff.sin().pow(2).sum(dim=-1).div(lengthscale[k]).mul(-2.0).exp_()
 
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
