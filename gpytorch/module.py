@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+import copy
 import inspect
 import itertools
+import operator
 from collections import OrderedDict
 
 import torch
@@ -81,7 +83,6 @@ class Module(nn.Module):
 
         Value can take the form of a tensor, a float, or an int
         """
-
         for name, val in kwargs.items():
             if isinstance(val, int):
                 val = float(val)
@@ -351,6 +352,21 @@ class Module(nn.Module):
             raise RuntimeError("Must provide inverse transform to be able to sample from prior.")
         setting_closure(self, prior.sample())
 
+    def to_pyro_random_module(self):
+        pyro_random_module_cls = type("_Pyro" + self.__class__.__name__, (RandomModuleMixin, self.__class__), {})
+        if not isinstance(self, pyro_random_module_cls):
+            new_module = copy.deepcopy(self)
+            new_module.__class__ = pyro_random_module_cls  # hack
+        else:
+            # Unclear if this branch would ever get used in practice, but it semantically makes sense to have.
+            new_module = copy.deepcopy(self)
+
+        for mname, child in new_module.named_children():
+            if isinstance(child, Module):
+                setattr(new_module, mname, child.to_pyro_random_module())
+
+        return new_module
+
     def pyro_sample_from_prior(self):
         """
         For each parameter in this Module and submodule that have defined priors, sample a value for that parameter
@@ -359,7 +375,8 @@ class Module(nn.Module):
         This method can be used in a Pyro model to conveniently define pyro sample sites for all
         parameters of the model that have GPyTorch priors registered to them.
         """
-        return _pyro_sample_from_prior(module=self, memo=None, prefix="")
+        new_module = self.to_pyro_random_module()
+        return _pyro_sample_from_prior(module=new_module, memo=None, prefix="")
 
     def local_load_samples(self, samples_dict, memo, prefix):
         """
@@ -451,6 +468,7 @@ def _pyro_sample_from_prior(module, memo=None, prefix=""):
         import pyro
     except ImportError:
         raise RuntimeError("Cannot call pyro_sample_from_prior without pyro installed!")
+
     if memo is None:
         memo = set()
     if hasattr(module, "_priors"):
@@ -469,6 +487,8 @@ def _pyro_sample_from_prior(module, memo=None, prefix=""):
     for mname, module_ in module.named_children():
         submodule_prefix = prefix + ("." if prefix else "") + mname
         _pyro_sample_from_prior(module=module_, memo=memo, prefix=submodule_prefix)
+
+    return module
 
 
 def _pyro_load_from_samples(module, samples_dict, memo=None, prefix=""):
@@ -526,3 +546,43 @@ def _extract_named_constraints(module, memo=None, prefix=""):
         submodule_prefix = prefix + ("." if prefix else "") + mname
         for name, constraint in _extract_named_constraints(module_, memo=memo, prefix=submodule_prefix):
             yield name, constraint
+
+
+class RandomModuleMixin(object):
+    def initialize(self, **kwargs):
+        """
+        Set a value for a parameter
+
+        kwargs: (param_name, value) - parameter to initialize.
+        Can also initialize recursively by passing in the full name of a
+        parameter. For example if model has attribute model.likelihood,
+        we can initialize the noise with either
+        `model.initialize(**{'likelihood.noise': 0.1})`
+        or
+        `model.likelihood.initialize(noise=0.1)`.
+        The former method would allow users to more easily store the
+        initialization values as one object.
+
+        Value can take the form of a tensor, a float, or an int
+        """
+        for name, value in kwargs.items():
+            if not torch.is_tensor(value):
+                raise RuntimeError("Initialize in RandomModules can only be done with tensor values.")
+
+            names = name.rsplit(".")
+            if len(names) > 1:
+                mod_name, param_name = names
+                mod = operator.attrgetter(mod_name)(self)
+            else:
+                mod, param_name = self, name
+
+            old_param = getattr(mod, param_name)
+            is_property = hasattr(type(self), name) and isinstance(getattr(type(self), name), property)
+            if not isinstance(old_param, torch.nn.Parameter) or is_property:
+                # Presumably we're calling a getter that will call initialize again on the actual parameter.
+                setattr(mod, param_name, value.expand(old_param.shape))
+            else:
+                delattr(mod, param_name)
+                setattr(mod, param_name, value.expand(old_param.shape))
+
+        return self
