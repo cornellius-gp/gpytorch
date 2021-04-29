@@ -24,6 +24,7 @@ from .functions import (  # Deprecated
     log_normal_cdf,
     logdet,
     matmul,
+    pivoted_cholesky,
     root_decomposition,
     root_inv_decomposition,
 )
@@ -62,6 +63,7 @@ __all__ = [
     "logdet",
     "log_normal_cdf",
     "matmul",
+    "pivoted_cholesky",
     "root_decomposition",
     "root_inv_decomposition",
     # Context managers
