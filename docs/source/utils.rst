@@ -19,10 +19,10 @@ Lanczos Utilities
 .. automodule:: gpytorch.utils.lanczos
    :members:
 
-Pivoted Cholesky Utilities
+Permutation Utilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: gpytorch.utils.pivoted_cholesky
+.. automodule:: gpytorch.utils.permutation
    :members:
 
 Quadrature Utilities
