@@ -8,12 +8,10 @@ from torch import Tensor
 
 from .. import settings
 from ..utils import broadcasting
-from ..utils.memoize import cached
+from ..utils.memoize import add_to_cache, cached
 from ..utils.warnings import NumericalWarning
 from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 from .lazy_tensor import LazyTensor
-from .psd_sum_lazy_tensor import PsdSumLazyTensor
-from .root_lazy_tensor import RootLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 
 
@@ -67,6 +65,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         else:
             return self.__class__(self._lazy_tensor + other, self._diag_tensor)
 
+    @cached(name="preconditioner")
     def _preconditioner(self):
         r"""
         Here we use a partial pivoted Cholesky preconditioner:
@@ -132,7 +131,10 @@ class AddedDiagLazyTensor(SumLazyTensor):
         else:
             self._init_cache_for_non_constant_diag(eye, batch_shape, n)
 
-        self._precond_lt = PsdSumLazyTensor(RootLazyTensor(self._piv_chol_self), self._diag_tensor)
+        from .low_rank_root_lazy_tensor import LowRankRootLazyTensor
+        from .low_rank_root_added_diag_lazy_tensor import LowRankRootAddedDiagLazyTensor
+
+        self._precond_lt = LowRankRootAddedDiagLazyTensor(LowRankRootLazyTensor(self._piv_chol_self), self._diag_tensor)
 
     def _init_cache_for_constant_diag(self, eye, batch_shape, n, k):
         # We can factor out the noise for for both QR and solves.
@@ -154,6 +156,34 @@ class AddedDiagLazyTensor(SumLazyTensor):
         logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2)
         logdet -= (1.0 / self._noise).log().sum([-1, -2])
         self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
+
+    @cached(name="probe_vectors")
+    def _probe_vectors_and_norms(self):
+        _, precond_lt, _ = self._preconditioner()
+        if precond_lt is None:
+            return None, None
+
+        # HACKY method to produce probe vectors `z` and `z'`,
+        # where z' is a deterministic transform of z, E[ z z^\top ] = I, and E[ z' z'^\top ] = P
+        # z and the probe vectors for preconditioner, and z' are the probe vectors for self
+
+        # First create z such that E[ z z^\top ] = I
+        num_random_probes = settings.num_trace_samples.value()
+        eye_probe_vectors = torch.randn(*self.shape[:-1], num_random_probes, dtype=self.dtype, device=self.device)
+        eye_probe_vector_norms = torch.norm(eye_probe_vectors, p=2, dim=-2, keepdim=True)
+        eye_probe_vectors = eye_probe_vectors.div(eye_probe_vector_norms)
+        # HACK add these probes/norms to the preconditioner
+        add_to_cache(precond_lt, "probe_vectors", (eye_probe_vectors, eye_probe_vector_norms))
+
+        # Now transform z -> z' such that E[ z' z'^\top ] = P
+        # This is HACKY, relying on us knowing the form of the preconditioner
+        L = precond_lt._lazy_tensor.root
+        diag_root = precond_lt._diag_tensor.sqrt()
+        p_probe_vectors = L @ eye_probe_vectors[..., : L.size(-1), :] + diag_root @ eye_probe_vectors
+        p_probe_vector_norms = torch.norm(p_probe_vectors, p=2, dim=-2, keepdim=True)
+        p_probe_vectors = p_probe_vectors.div(p_probe_vector_norms)
+
+        return p_probe_vectors, p_probe_vector_norms
 
     @cached(name="svd")
     def _svd(self) -> Tuple["LazyTensor", Tensor, "LazyTensor"]:

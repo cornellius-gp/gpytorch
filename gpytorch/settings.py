@@ -429,6 +429,20 @@ class min_variance(_dtype_value_context):
     _global_half_value = 1e-3
 
 
+class mll_variance_reduction(_feature_flag):
+    """
+    Whether or not to perform backward-pass variance reduction when computing the marginal log likelihood
+    via SLQ.
+
+    (Default: True)
+    """
+
+    _default = True
+
+    p_exact_logdet = 0.0
+    pinvk_hutch_logdet = 0.0
+
+
 class cholesky_jitter(_dtype_value_context):
     """
     The jitter value passed to `psd_safe_cholesky` when using cholesky solves.

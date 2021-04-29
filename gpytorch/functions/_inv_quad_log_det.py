@@ -41,7 +41,6 @@ class InvQuadLogDet(Function):
         - (Scalar) The inverse quadratic form (or None, if self.inv_quad is False)
         - (Scalar) The log determinant (or None, self.if logdet is False)
         """
-
         if not (inv_quad or logdet):
             raise RuntimeError("Either inv_quad or logdet must be true (or both)")
 
@@ -175,7 +174,12 @@ class InvQuadLogDet(Function):
                 (logdet_term,) = slq.evaluate(ctx.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
 
                 # Add correction
-                if logdet_correction is not None:
+                #
+                # HACKY: we're now only going to add the logdet correction here if we're NOT doing
+                #    backward pass variance reduction.
+                # The correction term will be added outside of this function if we are doing variance reduction.
+                #
+                if logdet_correction is not None and settings.mll_variance_reduction.off():
                     logdet_term = logdet_term + logdet_correction
 
         # Extract inv_quad solves from all the solves
