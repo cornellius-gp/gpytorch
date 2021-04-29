@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+import os
 import warnings
 
 import torch
@@ -742,7 +743,7 @@ class verbose_linalg(_feature_flag):
     (Default: False)
     """
 
-    _default = False
+    _default = os.getenv("VERBOSE")
 
     # Create a global logger
     logger = logging.getLogger("LinAlg (Verbose)")
