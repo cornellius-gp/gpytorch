@@ -96,8 +96,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         # Through matrix determinant lemma, log |L L^T + D| reduces down to 2 log |R|
         if self._q_cache is None:
             max_iter = settings.max_preconditioner_size.value()
-            with torch.no_grad():
-                self._piv_chol_self = self._lazy_tensor.pivoted_cholesky(rank=max_iter)
+            self._piv_chol_self = self._lazy_tensor.pivoted_cholesky(rank=max_iter)
             if torch.any(torch.isnan(self._piv_chol_self)).item():
                 warnings.warn(
                     "NaNs encountered in preconditioner computation. Attempting to continue without preconditioning.",
