@@ -97,5 +97,8 @@ def psd_safe_cholesky(A, upper=False, out=None, jitter=None, max_tries=3):
         """
     L = _psd_safe_cholesky(A, out=out, jitter=jitter, max_tries=max_tries)
     if upper:
-        L = L.transpose(-1, -2)
+        if out is not None:
+            out = out.transpose_(-1, -2)
+        else:
+            L = L.transpose(-1, -2)
     return L
