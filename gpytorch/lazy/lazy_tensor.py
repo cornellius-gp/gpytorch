@@ -1661,13 +1661,7 @@ class LazyTensor(ABC):
             # TODO: only use non-zero singular values (req. dealing w/ batches...)
             root = U * S.sqrt().unsqueeze(-2)
         elif method == "lanczos":
-            # check to see if we have already run lanczos for a diagonalization
-            try:
-                evals, evecs = get_from_cache(self, "diagonalization")
-                root = evecs * evals.clamp_min(1e-7).sqrt().unsqueeze(-2)
-            except CachingError:
-                # if not run standard lanczos
-                root = self._root_decomposition()
+            root = self._root_decomposition()
         else:
             raise RuntimeError(f"Unknown root decomposition method '{method}'")
 
