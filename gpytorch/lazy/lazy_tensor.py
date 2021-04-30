@@ -1590,8 +1590,29 @@ class LazyTensor(ABC):
 
         elif method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
+        else:
+            raise RuntimeError(f"Unknown diagonalization method '{method}'")
 
         return evals, evecs
+
+    def _choose_root_method(self, method: Optional[str] = None) -> str:
+        # Better inform which root_decomposition or root_inv_decomposition
+        # method to use based on available caches and matrix size.
+        if _is_in_cache_ignore_all_args(self, "symeig"):
+            return "symeig"
+        if _is_in_cache_ignore_all_args(self, "diagonalization"):
+            return "diagonalization"
+        if _is_in_cache_ignore_all_args(self, "lanczos"):
+            return "lanczos"
+        if method is None:
+            if (
+                self.size(-1) <= settings.max_cholesky_size.value()
+                or settings.fast_computations.covar_root_decomposition.off()
+            ):
+                return "cholesky"
+            return "lanczos"
+
+        return method
 
     @cached(name="root_decomposition")
     def root_decomposition(self, method: Optional[str] = None):
@@ -1603,66 +1624,54 @@ class LazyTensor(ABC):
         from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
-        # no need to do extra work if we already have a cached cholesky decomposition
-        # TODO: Resolve issues related to triangular tensor instantiation
-        # if _is_in_cache_ignore_args(self, "cholesky"):
-        #     res = self.cholesky()
-        #     return CholLazyTensor(res)
-
         if not self.is_square:
             raise RuntimeError(
                 "root_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if method is None:
-            if (
-                self.size(-1) <= settings.max_cholesky_size.value()
-                or settings.fast_computations.covar_root_decomposition.off()
-            ):
-                method = "cholesky"
-            else:
-                method = "lanczos"
+        if self.shape[-2:].numel() == 1:
+            return RootLazyTensor(self.evaluate().sqrt())
+
+        method = self._choose_root_method(method)
 
         if method == "cholesky":
+            # self.cholesky will hit cache if available
             try:
                 res = self.cholesky()
                 return CholLazyTensor(res)
             except RuntimeError as e:
                 warnings.warn(
-                    f"Runtime Error when computing Cholesky decomposition: {e}. Using RootDecomposition.".format(e),
+                    f"Runtime Error when computing Cholesky decomposition: {e}. Using RootDecomposition.",
                     NumericalWarning,
                 )
                 method = "symeig"
 
         if method == "pivoted_cholesky":
-            return RootLazyTensor(pivoted_cholesky(self.evaluate(), max_iter=self._root_decomposition_size()))
-
-        if method == "symeig":
+            root = pivoted_cholesky(self.evaluate(), max_iter=self._root_decomposition_size())
+        elif method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
             # TODO: only use non-zero evals (req. dealing w/ batches...)
-            F = evecs * evals.clamp(0.0).sqrt().unsqueeze(-2)
-            return RootLazyTensor(F)
-
-        if method == "svd":
+            root = evecs * evals.clamp_min(0.0).sqrt().unsqueeze(-2)
+        elif method == "diagonalization":
+            evals, evecs = self.diagonalization()
+            root = evecs * evals.clamp_min(0.0).sqrt().unsqueeze(-2)
+        elif method == "svd":
             U, S, _ = self.svd()
             # TODO: only use non-zero singular values (req. dealing w/ batches...)
-            F = U * S.sqrt().unsqueeze(-2)
-            return RootLazyTensor(F)
-
-        if method == "lanczos":
+            root = U * S.sqrt().unsqueeze(-2)
+        elif method == "lanczos":
             # check to see if we have already run lanczos for a diagonalization
             try:
                 evals, evecs = get_from_cache(self, "diagonalization")
-                F = evecs * evals.clamp(1e-7).sqrt().unsqueeze(-2)
-                return RootLazyTensor(F)
+                root = evecs * evals.clamp_min(1e-7).sqrt().unsqueeze(-2)
             except CachingError:
-                pass
+                # if not run standard lanczos
+                root = self._root_decomposition()
+        else:
+            raise RuntimeError(f"Unknown root decomposition method '{method}'")
 
-            # if not run standard lanczos
-            return RootLazyTensor(self._root_decomposition())
-
-        raise RuntimeError(f"Unknown method '{method}'")
+        return RootLazyTensor(root)
 
     @cached(name="root_inv_decomposition")
     def root_inv_decomposition(self, initial_vectors=None, test_vectors=None, method: Optional[str] = None):
@@ -1674,50 +1683,27 @@ class LazyTensor(ABC):
         from .root_lazy_tensor import RootLazyTensor
         from .non_lazy_tensor import lazify
 
-        if self.shape[-2:].numel() == 1:
-            return RootLazyTensor(1 / self.evaluate().sqrt())
-
-        # check to see if we have already run lanczos for a diagonalization
-        try:
-            evals, evecs = get_from_cache(self, "diagonalization")
-            F = evecs * evals.clamp(1e-7).sqrt().reciprocal().unsqueeze(-2)
-            return RootLazyTensor(F)
-        except CachingError:
-            pass
-
         if not self.is_square:
             raise RuntimeError(
                 "root_inv_decomposition only operates on (batches of) square (symmetric) LazyTensors. "
                 "Got a {} of size {}.".format(self.__class__.__name__, self.size())
             )
 
-        if method is None:
-            if (
-                self.size(-1) <= settings.max_cholesky_size.value()
-                or settings.fast_computations.covar_root_decomposition.off()
-            ):
-                method = "cholesky"
-            else:
-                method = "lanczos"
+        if self.shape[-2:].numel() == 1:
+            return RootLazyTensor(1 / self.evaluate().sqrt())
 
-        # no need to do extra work if we already have a cached cholesky decomposition
-        # TODO: Resolve issues related to triangular tensor instantiation \
-        # if _is_in_cache_ignore_args(self, "cholesky"):
-        #     res = self.cholesky()
-        #     return CholLazyTensor(res).inverse()
+        method = self._choose_root_method(method)
+
         if method == "cholesky":
+            # self.cholesky will hit cache if available
             L = delazify(self.cholesky())
             # we know L is triangular, so inverting is a simple triangular solve agaist the identity
             # we don't need the batch shape here, thanks to broadcasting
             Eye = torch.eye(L.shape[-2], device=L.device, dtype=L.dtype)
             Linv = torch.triangular_solve(Eye, L, upper=False)[0]
             res = lazify(Linv.transpose(-1, -2))
-            return RootLazyTensor(res)
-            # L = self.cholesky()
-            # return CholLazyTensor(L).inverse()
-
-        # otherwise run lanczos
-        if method == "lanczos":
+            inv_root = res
+        elif method == "lanczos":
             if initial_vectors is not None:
                 if self.dim() == 2 and initial_vectors.dim() == 1:
                     if self.shape[-1] != initial_vectors.numel():
@@ -1744,17 +1730,20 @@ class LazyTensor(ABC):
         elif method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
             # TODO: only use non-zero evals (req. dealing w/ batches...)
-            inv_root = evecs * evals.clamp(1e-7).reciprocal().sqrt().unsqueeze(-2)
+            inv_root = evecs * evals.clamp_min(1e-7).reciprocal().sqrt().unsqueeze(-2)
+        elif method == "diagonalization":
+            evals, evecs = self.diagonalization()
+            inv_root = evecs * evals.clamp_min(1e-7).reciprocal().sqrt().unsqueeze(-2)
         elif method == "svd":
             U, S, _ = self.svd()
             # TODO: only use non-zero singular values (req. dealing w/ batches...)
-            inv_root = U * S.clamp(1e-7).reciprocal().sqrt().unsqueeze(-2)
+            inv_root = U * S.clamp_min(1e-7).reciprocal().sqrt().unsqueeze(-2)
         elif method == "pinverse":
             # this is numerically unstable and should rarely be used
             root = self.root_decomposition().root.evaluate()
             inv_root = torch.pinverse(root).transpose(-1, -2)
         else:
-            raise RuntimeError("Unable to handle method {} for root_inv_decomposition".format(method))
+            raise RuntimeError(f"Unknown root inv decomposition method '{method}'")
 
         return RootLazyTensor(inv_root)
 
