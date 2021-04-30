@@ -24,14 +24,7 @@ from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
 from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.lanczos import _postprocess_lanczos_root_inv_decomp
-from ..utils.memoize import (
-    _is_in_cache_ignore_all_args,
-    _is_in_cache_ignore_args,
-    add_to_cache,
-    cached,
-    get_from_cache,
-    pop_from_cache,
-)
+from ..utils.memoize import _is_in_cache_ignore_all_args, _is_in_cache_ignore_args, add_to_cache, cached, pop_from_cache
 from ..utils.pinverse import stable_pinverse
 from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
