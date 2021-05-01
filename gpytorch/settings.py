@@ -723,7 +723,7 @@ class use_toeplitz(_feature_flag):
 
 class verbose_linalg(_feature_flag):
     """
-    Print out information whenever running an expesnive linear algebra routine (e.g. Cholesky, CG, Lanczos, CIQ, etc.)
+    Print out information whenever running an expensive linear algebra routine (e.g. Cholesky, CG, Lanczos, CIQ, etc.)
 
     (Default: False)
     """
