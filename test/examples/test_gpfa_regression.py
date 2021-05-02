@@ -179,7 +179,7 @@ class TestGPFARegression(unittest.TestCase):
             preds = likelihood(model(train_x))
             pred_mean = preds.mean
             mean_abs_error = torch.mean(torch.abs(test_y - pred_mean), axis=0)
-            self.assertFalse(torch.sum(mean_abs_error > (torch.diagonal(R))))
+            self.assertFalse(torch.sum(mean_abs_error > (2 * torch.diagonal(R))))
 
 
 if __name__ == "__main__":
