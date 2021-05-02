@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import ApproximateGP
+from gpytorch.models import ApproximateGP
 
 class BayesianGPLVM(ApproximateGP):
     def __init__(self, X, variational_strategy):
