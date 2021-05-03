@@ -113,13 +113,9 @@ class PeriodicKernel(Kernel):
         self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, **params):
-        if x1.dim() == 3 and x2.dim() == 3:  # batched operation
-            diff = x1.unsqueeze(2) - x2.unsqueeze(1)
-        elif x1.dim() == 2 and x2.dim() == 2:
-            diff = x1.unsqueeze(1) - x2.unsqueeze(0)
-        else:
-            raise ValueError("x.dims() must be 2 or 3")
-        diff = diff * math.pi / self.period_length.unsqueeze(-1)
+        x1_ = x1.div(self.period_length).mul(math.pi)
+        x2_ = x2.div(self.period_length).mul(math.pi)
+        diff = x1_.unsqueeze(-2) - x2_.unsqueeze(-3)
         res = diff.sin().pow(2).sum(dim=-1).div(self.lengthscale).mul(-2.0).exp_()
         if diag:
             res = res.squeeze(0)
