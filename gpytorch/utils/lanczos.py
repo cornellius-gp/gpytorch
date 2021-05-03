@@ -101,7 +101,6 @@ def lanczos_tridiag(
         r_vec = matmul_closure(q_curr_vec) - q_prev_vec.mul(beta_prev)
         alpha_curr = q_curr_vec.mul(r_vec).sum(dim_dimension, keepdim=True)
         # Copy over to t_mat
-        print("SET", k, k)
         t_mat[k, k].copy_(alpha_curr.squeeze(dim_dimension))
 
         # Copy over alpha_curr, beta_curr to t_mat
@@ -118,7 +117,6 @@ def lanczos_tridiag(
             # Get next beta value
             beta_curr = r_vec_norm.squeeze_(dim_dimension)
             # Update t_mat with new beta value
-            print("SET", k, k + 1)
             t_mat[k, k + 1].copy_(beta_curr)
             t_mat[k + 1, k].copy_(beta_curr)
 
