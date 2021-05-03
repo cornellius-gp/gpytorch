@@ -66,13 +66,7 @@ train_x, tau, C, d, R, kernels, xs, train_y = generate_GPFA_Data(
     end_time=end_time,
     zero_mean=True)
 
-# test_x = torch.linspace(-5,5, 51)
-# test_latents = torch.stack([
-#         gpytorch.distributions.MultivariateNormal(
-#             torch.zeros(51),
-#             k(test_x,test_x)
-#         ).sample()
-#         for k in kernels])
+# For now, just test that GPFA more or less recovers the noiseless version of train_y
 test_y = (C @ xs.T).T
 
 
@@ -93,6 +87,7 @@ class GPFAModel(gpytorch.models.ExactGP):
         return gpytorch.distributions.MultitaskMultivariateNormal(
             self.mean_module(x), self.covar_module(x))
 
+    # Not currently used in this test. TODO: Test recovery of latents
     def latent_posterior(self, x):
         r'''
         See equations 4 and 5 in `Non-reversible Gaussian processes for
@@ -165,9 +160,7 @@ class TestGPFARegression(unittest.TestCase):
             # Zero prev backpropped gradients
             optimizer.zero_grad()
             # Make predictions from training data
-            # Again, note feeding duplicated x_data and indices indicating which task
             output = model(train_x)
-            # TODO: Fix this view call!!
             loss = -mll(output, train_y)
             loss.backward()
             optimizer.step()
