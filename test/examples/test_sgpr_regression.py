@@ -101,12 +101,12 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
         test_preds = likelihood(gp_model(test_x)).mean
         mean_abs_error = torch.mean(torch.abs(test_y - test_preds))
 
-        self.assertLess(mean_abs_error.squeeze().item(), 0.05)
+        self.assertLess(mean_abs_error.squeeze().item(), 0.1)
 
         # Test variances
         test_vars = likelihood(gp_model(test_x)).variance
         self.assertAllClose(test_vars, likelihood(gp_model(test_x)).covariance_matrix.diagonal(dim1=-1, dim2=-2))
-        self.assertGreater(test_vars.min().item() + 0.05, likelihood.noise.item())
+        self.assertGreater(test_vars.min().item() + 0.1, likelihood.noise.item())
         self.assertLess(
             test_vars.max().item() - 0.05,
             likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
@@ -114,7 +114,7 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
 
         # Test on training data
         test_outputs = likelihood(gp_model(train_x))
-        self.assertLess((test_outputs.mean - train_y).max().item(), 0.05)
+        self.assertLess((test_outputs.mean - train_y).max().item(), 0.1)
         self.assertLess(test_outputs.variance.max().item(), likelihood.noise.item() * 2)
 
     def test_sgpr_mean_abs_error_cuda(self):
@@ -139,7 +139,7 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
             # Test variances before optimization
             test_vars = likelihood(gp_model(test_x)).variance
             self.assertAllClose(test_vars, likelihood(gp_model(test_x)).covariance_matrix.diagonal(dim1=-1, dim2=-2))
-            self.assertGreater(test_vars.min().item() + 0.05, likelihood.noise.item())
+            self.assertGreater(test_vars.min().item() + 0.1, likelihood.noise.item())
             self.assertLess(
                 test_vars.max().item() - 0.05,
                 likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
@@ -174,7 +174,7 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
             # Test variances
             test_vars = likelihood(gp_model(test_x)).variance
             self.assertAllClose(test_vars, likelihood(gp_model(test_x)).covariance_matrix.diagonal(dim1=-1, dim2=-2))
-            self.assertGreater(test_vars.min().item() + 0.05, likelihood.noise.item())
+            self.assertGreater(test_vars.min().item() + 0.1, likelihood.noise.item())
             self.assertLess(
                 test_vars.max().item() - 0.05,
                 likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
