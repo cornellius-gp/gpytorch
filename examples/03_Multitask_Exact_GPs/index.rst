@@ -21,6 +21,7 @@ Multi-output (vector valued functions)
    Multitask_GP_Regression.ipynb
    Batch_Independent_Multioutput_GP.ipynb
    ModelList_GP_Regression.ipynb
+   GP_Factor_Analysis_Regression.ipynb
 
 Scalar function with multiple tasks
 ----------------------------------------
