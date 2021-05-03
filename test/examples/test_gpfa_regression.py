@@ -174,6 +174,42 @@ class TestGPFARegression(unittest.TestCase):
             mean_abs_error = torch.mean(torch.abs(test_y - pred_mean), axis=0)
             self.assertFalse(torch.sum(mean_abs_error > (2 * torch.diagonal(R))))
 
+    def test_multitask_gp_mean_abs_error_one_kernel(self):
+        likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(
+            num_tasks=num_obs)
+        model = GPFAModel(train_x, train_y, likelihood, gpytorch.kernels.RBFKernel(), n_latents,
+                          num_obs)
+        # Find optimal model hyperparameters
+        model.train()
+        likelihood.train()
+
+        # Use the adam optimizer
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=0.1)  # Includes GaussianLikelihood parameters
+
+        # "Loss" for GPs - the marginal log likelihood
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+        n_iter = 50
+        for _ in range(n_iter):
+            # Zero prev backpropped gradients
+            optimizer.zero_grad()
+            # Make predictions from training data
+            output = model(train_x)
+            loss = -mll(output, train_y)
+            loss.backward()
+            optimizer.step()
+
+        # Test the model predictions on noiseless test_ys
+        with torch.no_grad(), gpytorch.settings.fast_pred_var():
+            model.eval()
+            likelihood.eval()
+            preds = likelihood(model(train_x))
+            pred_mean = preds.mean
+            mean_abs_error = torch.mean(torch.abs(test_y - pred_mean), axis=0)
+            self.assertFalse(torch.sum(mean_abs_error > (2 * torch.diagonal(R))))
+
 
 if __name__ == "__main__":
     unittest.main()

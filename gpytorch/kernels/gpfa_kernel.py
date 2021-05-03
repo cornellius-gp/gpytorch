@@ -42,10 +42,11 @@ class GPFAKernel(Kernel):
         self.num_obs = num_obs
         self.num_latents = num_latents
 
-        if len(data_covar_modules) == 1:
-            data_covar_modules = data_covar_modules + [
-                deepcopy(data_covar_modules[0]) for i in range(num_latents - 1)
-            ]  # TODO test this line
+        if not isinstance(data_covar_modules, list) or len(data_covar_modules) == 1:
+            if isinstance(data_covar_modules, list):
+                data_covar_modules = data_covar_modules[0]
+            data_covar_modules = [deepcopy(data_covar_modules) for i in range(num_latents)]
+
         self.latent_covar_module = AdditiveKernel(
             *[GPFA_component(data_covar_modules[i], num_latents, i) for i in range(num_latents)]
         )
