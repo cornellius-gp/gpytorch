@@ -88,13 +88,11 @@ class RootDecomposition(Function):
         if ctx.batch_shape is None:
             root = root.squeeze(1) if root.numel() else root
             q_mat = q_mat.squeeze(1)
-            t_mat = t_mat.squeeze(1)
             root_evals = root_evals.squeeze(1)
             inverse = inverse.squeeze(1) if inverse.numel() else inverse
         if n_probes == 1:
             root = root.squeeze(0) if root.numel() else root
             q_mat = q_mat.squeeze(0)
-            t_mat = t_mat.squeeze(0)
             root_evals = root_evals.squeeze(0)
             inverse = inverse.squeeze(0) if inverse.numel() else inverse
 

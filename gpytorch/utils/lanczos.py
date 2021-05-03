@@ -101,6 +101,7 @@ def lanczos_tridiag(
         r_vec = matmul_closure(q_curr_vec) - q_prev_vec.mul(beta_prev)
         alpha_curr = q_curr_vec.mul(r_vec).sum(dim_dimension, keepdim=True)
         # Copy over to t_mat
+        print("SET", k, k)
         t_mat[k, k].copy_(alpha_curr.squeeze(dim_dimension))
 
         # Copy over alpha_curr, beta_curr to t_mat
@@ -117,6 +118,7 @@ def lanczos_tridiag(
             # Get next beta value
             beta_curr = r_vec_norm.squeeze_(dim_dimension)
             # Update t_mat with new beta value
+            print("SET", k, k + 1)
             t_mat[k, k + 1].copy_(beta_curr)
             t_mat[k + 1, k].copy_(beta_curr)
 
@@ -144,9 +146,9 @@ def lanczos_tridiag(
     num_iter = k + 1
 
     # num_init_vecs x batch_shape x matrix_shape[-1] x num_iter
-    q_mat = q_mat[: num_iter + 1].permute(-1, *range(1, 1 + len(batch_shape)), -2, 0).contiguous()
+    q_mat = q_mat[:num_iter].permute(-1, *range(1, 1 + len(batch_shape)), -2, 0).contiguous()
     # num_init_vecs x batch_shape x num_iter x num_iter
-    t_mat = t_mat[: num_iter + 1, : num_iter + 1].permute(-1, *range(2, 2 + len(batch_shape)), 0, 1).contiguous()
+    t_mat = t_mat[:num_iter, :num_iter].permute(-1, *range(2, 2 + len(batch_shape)), 0, 1).contiguous()
 
     # If we weren't in batch mode, remove batch dimension
     if not multiple_init_vecs:
