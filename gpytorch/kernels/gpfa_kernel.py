@@ -28,15 +28,9 @@ class GPFAKernel(Kernel):
     there will then be another option here.
     :param dict kwargs: Additional arguments to pass to the kernel.
     """
-    # TODO: confirm if don't need priors / constraints on most of this.
+
     def __init__(
-        self,
-        data_covar_modules,
-        num_latents,
-        num_obs,
-        GPFA_component=GPFAComponentKernel,
-        # C_prior=None, C_constraint=None,
-        **kwargs,
+        self, data_covar_modules, num_latents, num_obs, GPFA_component=GPFAComponentKernel, **kwargs,
     ):
         super(GPFAKernel, self).__init__(**kwargs)
         self.num_obs = num_obs
@@ -66,10 +60,11 @@ class GPFAKernel(Kernel):
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         if last_dim_is_batch:
             raise RuntimeError("GPFAKernel does not yet accept the last_dim_is_batch argument.")
-        # what to do with I_t if have dif numbers of input & output timesteps? TODO (jasmine): fix this
-        I_t = DiagLazyTensor(torch.ones(len(x1)))
-        kron_prod = KroneckerProductLazyTensor(I_t, self.C)
-        covar = kron_prod @ self.latent_covar_module(x1, x2, **params) @ kron_prod.t()
+        I_t1 = DiagLazyTensor(torch.ones(len(x1)))
+        I_t2 = DiagLazyTensor(torch.ones(len(x2)))
+        kron_prod_1 = KroneckerProductLazyTensor(I_t1, self.C)
+        kron_prod_2 = KroneckerProductLazyTensor(I_t2, self.C)
+        covar = kron_prod_1 @ self.latent_covar_module(x1, x2, **params) @ kron_prod_2.t()
         return covar.diag() if diag else covar
 
     def num_outputs_per_input(self, x1, x2):
