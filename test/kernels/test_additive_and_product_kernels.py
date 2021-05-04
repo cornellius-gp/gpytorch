@@ -2,7 +2,6 @@
 
 import math
 import unittest
-from unittest.mock import MagicMock, patch
 
 import torch
 
@@ -314,7 +313,6 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
     def test_kernel_output(self):
         train_x = torch.randn(1000, 3)
         train_y = torch.randn(1000)
-        test_x = torch.randn(500, 3)
         model = TestModel(train_x, train_y)
 
         # Make sure that the prior kernel is the correct type
@@ -327,18 +325,9 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
         self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
 
-        # Make sure we're calling the correct prediction strategy
-        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.SumPredictionStrategy)
-        with patch("gpytorch.models.exact_prediction_strategies.SumPredictionStrategy", new=_wrapped_ps) as ps_mock:
-            model.eval()
-            output = model.likelihood(model(test_x))
-            _ = output.mean + output.variance  # Compute something to break through any lazy evaluations
-            self.assertTrue(ps_mock.called)
-
     def test_kernel_output_no_structure(self):
         train_x = torch.randn(1000, 3)
         train_y = torch.randn(1000)
-        test_x = torch.randn(500, 3)
         model = TestModelNoStructure(train_x, train_y)
 
         # Make sure that the prior kernel is the correct type
@@ -350,14 +339,6 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         model.train()
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
         self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
-
-        # Make sure we're calling the correct prediction strategy
-        _wrapped_ps = MagicMock(wraps=gpytorch.models.exact_prediction_strategies.SumPredictionStrategy)
-        with patch("gpytorch.models.exact_prediction_strategies.SumPredictionStrategy", new=_wrapped_ps) as ps_mock:
-            model.eval()
-            output = model.likelihood(model(test_x))
-            _ = output.mean + output.variance  # Compute something to break through any lazy evaluations
-            self.assertTrue(ps_mock.called)
 
 
 if __name__ == "__main__":
