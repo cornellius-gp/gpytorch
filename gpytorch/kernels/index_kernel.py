@@ -82,13 +82,16 @@ class IndexKernel(Kernel):
         return res
 
     def forward(self, i1, i2, **params):
+
+        i1, i2 = torch.LongTensor(i1.long()), torch.LongTensor(i2.long())
         covar_matrix = self._eval_covar_matrix()
         batch_shape = _mul_broadcast_shape(i1.shape[:-2], self.batch_shape)
-        index_shape = batch_shape + i1.shape[-2:]
+        index1_shape = batch_shape + i1.shape[-2:]
+        index2_shape = batch_shape + i2.shape[-2:]
 
         res = InterpolatedLazyTensor(
             base_lazy_tensor=covar_matrix,
-            left_interp_indices=i1.expand(index_shape),
-            right_interp_indices=i2.expand(index_shape),
+            left_interp_indices=i1.expand(index1_shape),
+            right_interp_indices=i2.expand(index2_shape),
         )
         return res
