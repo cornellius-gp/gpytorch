@@ -86,12 +86,10 @@ class IndexKernel(Kernel):
         i1, i2 = i1.long(), i2.long()
         covar_matrix = self._eval_covar_matrix()
         batch_shape = _mul_broadcast_shape(i1.shape[:-2], self.batch_shape)
-        index1_shape = batch_shape + i1.shape[-2:]
-        index2_shape = batch_shape + i2.shape[-2:]
 
         res = InterpolatedLazyTensor(
             base_lazy_tensor=covar_matrix,
-            left_interp_indices=i1.expand(index1_shape),
-            right_interp_indices=i2.expand(index2_shape),
+            left_interp_indices=i1.expand(batch_shape + i1.shape[-2:]),
+            right_interp_indices=i2.expand(batch_shape + i2.shape[-2:]),
         )
         return res
