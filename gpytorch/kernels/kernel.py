@@ -470,11 +470,6 @@ class AdditiveKernel(Kernel):
 
         return res
 
-    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        return exact_prediction_strategies.SumPredictionStrategy(
-            train_inputs, train_prior_dist, train_labels, likelihood
-        )
-
     def num_outputs_per_input(self, x1, x2):
         return self.kernels[0].num_outputs_per_input(x1, x2)
 
