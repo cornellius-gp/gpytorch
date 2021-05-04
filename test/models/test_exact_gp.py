@@ -7,6 +7,8 @@ import torch
 import gpytorch
 from gpytorch import settings
 from gpytorch.kernels import GridInterpolationKernel
+from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.models import ExactGP
 from gpytorch.models.exact_prediction_strategies import InterpolatedPredictionStrategy
 from gpytorch.test.model_test_case import BaseModelTestCase
@@ -172,6 +174,28 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
             prior_out_cm = model(test_data)
         self.assertTrue(torch.allclose(prior_out.mean, prior_out_cm.mean))
         self.assertTrue(torch.allclose(prior_out.covariance_matrix, prior_out_cm.covariance_matrix))
+
+    def test_lanczos_fantasy_model(self):
+        lanczos_thresh = 10
+        n = lanczos_thresh + 1
+        n_dims = 2
+        with settings.max_cholesky_size(lanczos_thresh):
+            x = torch.ones((n, n_dims))
+            y = torch.randn(n)
+            likelihood = GaussianLikelihood()
+            model = ExactGPModel(x, y, likelihood=likelihood)
+            mll = ExactMarginalLogLikelihood(likelihood, model)
+            mll.train()
+            mll.eval()
+
+            # get a posterior to fill in caches
+            model(torch.randn((1, n_dims)))
+
+            new_n = 2
+            new_x = torch.randn((new_n, n_dims))
+            new_y = torch.randn(new_n)
+            # just check that this can run without error
+            model.get_fantasy_model(new_x, new_y)
 
 
 class TestInterpolatedExactGP(TestExactGP):
