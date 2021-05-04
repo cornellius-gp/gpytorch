@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import random
 from contextlib import contextmanager
 from typing import Generator
 
@@ -31,7 +32,11 @@ def get_cuda_max_memory_allocations() -> int:
 def least_used_cuda_device() -> Generator:
     """Contextmanager for automatically selecting the cuda device
     with the least allocated memory"""
-    mem_allocs = get_cuda_max_memory_allocations()
-    least_used_device = torch.argmin(mem_allocs).item()
+    try:
+        mem_allocs = get_cuda_max_memory_allocations()
+        least_used_device = torch.argmin(mem_allocs).item()
+    except RuntimeError:  # raised if cuda has not been initialized
+        # here we can just randomize
+        least_used_device = random.randint(0, torch.cuda.device_count() - 1)
     with torch.cuda.device(least_used_device):
         yield

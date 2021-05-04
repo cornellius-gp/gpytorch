@@ -36,3 +36,9 @@ Sparse Utilities
 
 .. automodule:: gpytorch.utils.sparse
    :members:
+
+Grid Utilities
+~~~~~~~~~~~~~~~~~
+
+.. automodule:: gpytorch.utils.grid
+   :members:

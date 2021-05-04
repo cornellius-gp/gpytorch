@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import math
-import warnings
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -10,7 +9,6 @@ import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
-from gpytorch.utils.warnings import ExtraComputationWarning
 from torch import optim
 
 
@@ -62,7 +60,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
-        with warnings.catch_warnings(record=True) as ws, _cg_mock as cg_mock:
+        with _cg_mock as cg_mock:
             for _ in range(75):
                 optimizer.zero_grad()
                 output = model(train_x)
@@ -84,9 +82,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
             mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
             self.assertLess(mean_abs_error.item(), 1e-1)
 
-            # Make sure CG was called (or not), and no warnings were thrown
             self.assertFalse(cg_mock.called)
-            self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
     def test_predictive_ll_regression_error(self):
         return self.test_regression_error(

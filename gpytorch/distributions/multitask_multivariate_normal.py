@@ -3,6 +3,7 @@
 import torch
 
 from ..lazy import BlockDiagLazyTensor, BlockInterleavedLazyTensor, CatLazyTensor, LazyTensor, lazify
+from ..utils.broadcasting import _mul_broadcast_shape
 from .multivariate_normal import MultivariateNormal
 
 
@@ -33,6 +34,25 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         if mean.dim() < 2:
             raise RuntimeError("mean should be a matrix or a batch matrix (batch mode)")
 
+        # Ensure that shapes are broadcasted appropriately across the mean and covariance
+        # Means can have singleton dimensions for either the `n` or `t` dimensions
+        batch_shape = _mul_broadcast_shape(mean.shape[:-2], covariance_matrix.shape[:-2])
+        if mean.shape[-2:].numel() != covariance_matrix.size(-1):
+            if covariance_matrix.size(-1) % mean.shape[-2:].numel():
+                raise RuntimeError(
+                    f"mean shape {mean.shape} is incompatible with covariance shape {covariance_matrix.shape}"
+                )
+            elif mean.size(-2) == 1:
+                mean = mean.expand(*batch_shape, covariance_matrix.size(-1) // mean.size(-1), mean.size(-1))
+            elif mean.size(-1) == 1:
+                mean = mean.expand(*batch_shape, mean.size(-2), covariance_matrix.size(-2) // mean.size(-2))
+            else:
+                raise RuntimeError(
+                    f"mean shape {mean.shape} is incompatible with covariance shape {covariance_matrix.shape}"
+                )
+        else:
+            mean = mean.expand(*batch_shape, *mean.shape[-2:])
+
         self._output_shape = mean.shape
         # TODO: Instead of transpose / view operations, use a PermutationLazyTensor (see #539) to handle interleaving
         self._interleaved = interleaved
@@ -41,6 +61,15 @@ class MultitaskMultivariateNormal(MultivariateNormal):
         else:
             mean_mvn = mean.transpose(-1, -2).reshape(*mean.shape[:-2], -1)
         super().__init__(mean=mean_mvn, covariance_matrix=covariance_matrix, validate_args=validate_args)
+
+    @property
+    def base_sample_shape(self):
+        """
+        Returns the shape of a base sample (without batching) that is used to
+        generate a single sample.
+        """
+        base_sample_shape = self.event_shape
+        return base_sample_shape
 
     @property
     def event_shape(self):

@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
 
 
-class ExtraComputationWarning(UserWarning):
-    """
-    Warning thrown when a GP model does extra computation that it is not designed to do.
-    This is mostly designed for :obj:`~gpytorch.variational.UnwhitenedVariationalStrategy`, which
-    should cache most of its solves up front.
-    """
-
-    pass
-
-
 class GPInputWarning(UserWarning):
     """
     Warning thrown when a GP model receives an unexpected input.

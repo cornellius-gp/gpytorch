@@ -5,8 +5,22 @@ import unittest
 import torch
 
 import gpytorch
+from gpytorch import settings
+from gpytorch.kernels import GridInterpolationKernel
+from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.models import ExactGP
+from gpytorch.models.exact_prediction_strategies import InterpolatedPredictionStrategy
 from gpytorch.test.model_test_case import BaseModelTestCase
+
+
+class GridInterpolationKernelMock(GridInterpolationKernel):
+    def __init__(self, should_use_wiski=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.should_use_wiski = should_use_wiski
+
+    def prediction_strategy(self, *args, **kwargs):
+        return InterpolatedPredictionStrategy(uses_wiski=self.should_use_wiski, *args, **kwargs)
 
 
 class ExactGPModel(ExactGP):
@@ -22,11 +36,14 @@ class ExactGPModel(ExactGP):
 
 
 class InterpolatedExactGPModel(ExactGP):
-    def __init__(self, train_x, train_y, likelihood):
+    def __init__(self, train_x, train_y, likelihood, should_use_wiski=False):
         super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
-        self.covar_module = gpytorch.kernels.GridInterpolationKernel(
-            gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel()), grid_size=128, num_dims=1
+        self.covar_module = GridInterpolationKernelMock(
+            base_kernel=gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel()),
+            grid_size=128,
+            num_dims=1,
+            should_use_wiski=should_use_wiski,
         )
 
     def forward(self, x):
@@ -155,11 +172,70 @@ class TestExactGP(BaseModelTestCase, unittest.TestCase):
         self.assertTrue(torch.allclose(prior_out.mean, prior_out_cm.mean))
         self.assertTrue(torch.allclose(prior_out.covariance_matrix, prior_out_cm.covariance_matrix))
 
+    def test_lanczos_fantasy_model(self):
+        lanczos_thresh = 10
+        n = lanczos_thresh + 1
+        n_dims = 2
+        with settings.max_cholesky_size(lanczos_thresh):
+            x = torch.ones((n, n_dims))
+            y = torch.randn(n)
+            likelihood = GaussianLikelihood()
+            model = ExactGPModel(x, y, likelihood=likelihood)
+            mll = ExactMarginalLogLikelihood(likelihood, model)
+            mll.train()
+            mll.eval()
+
+            # get a posterior to fill in caches
+            model(torch.randn((1, n_dims)))
+
+            new_n = 2
+            new_x = torch.randn((new_n, n_dims))
+            new_y = torch.randn(new_n)
+            # just check that this can run without error
+            model.get_fantasy_model(new_x, new_y)
+
 
 class TestInterpolatedExactGP(TestExactGP):
     def create_model(self, train_x, train_y, likelihood):
         model = InterpolatedExactGPModel(train_x, train_y, likelihood)
         return model
+
+
+class TestWiskiExactGP(TestInterpolatedExactGP):
+    def create_model(self, train_x, train_y, likelihood):
+        model = InterpolatedExactGPModel(train_x, train_y, likelihood, should_use_wiski=True)
+        return model
+
+    def test_fantasy_model(self):
+        x = self.create_test_data()
+        likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(x, labels, likelihood)
+        test_x = self.create_test_data()
+        _, test_labels = self.create_likelihood_and_labels()
+        with torch.no_grad():
+            model.eval()
+            model(test_x)
+        new_model = model.get_fantasy_model(test_x, test_labels)
+
+        self.assertEqual(type(new_model), type(model))
+        self.assertTrue(new_model.prediction_strategy.uses_wiski)
+
+    def test_nonbatch_to_batch_fantasy_model(self, batch_shape=torch.Size([3])):
+        x = self.create_test_data()
+        likelihood, labels = self.create_likelihood_and_labels()
+        model = self.create_model(x, labels, likelihood)
+        test_x = self.create_batch_test_data(batch_shape=batch_shape)
+        _, test_labels = self.create_batch_likelihood_and_labels(batch_shape=batch_shape)
+        with torch.no_grad():
+            model.eval()
+            model(test_x)
+        new_model = model.get_fantasy_model(test_x, test_labels)
+
+        self.assertEqual(type(new_model), type(model))
+        self.assertTrue(new_model.prediction_strategy.uses_wiski)
+
+    def test_nonbatch_to_multibatch_fantasy_model(self):
+        self.test_nonbatch_to_batch_fantasy_model(batch_shape=torch.Size([2, 3]))
 
 
 class TestSumExactGP(TestExactGP):

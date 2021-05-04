@@ -106,6 +106,13 @@ def minres(matmul_closure, rhs, eps=1e-25, shifts=None, value=None, max_iter=Non
     solution_norm = torch.zeros(*solution.shape[:-2], solution.size(-1), dtype=solution.dtype, device=solution.device)
     search_update_norm = torch.zeros_like(solution_norm)
 
+    # Maybe log
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
+            f"Running MINRES on a {rhs.shape} RHS for {max_iter} iterations (tol={settings.minres_tolerance.value()}). "
+            f"Output: {solution.shape}."
+        )
+
     # Perform iterations
     for i in range(max_iter + 2):
         # Perform matmul

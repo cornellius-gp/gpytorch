@@ -9,9 +9,6 @@ class NGD(torch.optim.Optimizer):
     r"""Implements a natural gradient descent step.
     It **can only** be used in conjunction with a :obj:`~gpytorch.variational._NaturalVariationalDistribution`.
 
-    Nesterov momentum is based on the formula from
-    `On the importance of initialization and momentum in deep learning`__.
-
     .. seealso::
         - :obj:`gpytorch.variational.NaturalVariationalDistribution`
         - :obj:`gpytorch.variational.TrilNaturalVariationalDistribution`
@@ -20,7 +17,7 @@ class NGD(torch.optim.Optimizer):
           for use instructions.
 
     Example:
-        >>> ngd_optimizer = torch.optim.NGD(model.variational_parameters(), lr=0.1, momentum=0.9)
+        >>> ngd_optimizer = torch.optim.NGD(model.variational_parameters(), num_data=train_y.size(0), lr=0.1)
         >>> ngd_optimizer.zero_grad()
         >>> mll(gp_model(input), target).backward()
         >>> ngd_optimizer.step()
@@ -31,7 +28,7 @@ class NGD(torch.optim.Optimizer):
         super().__init__(params, defaults=dict(lr=lr))
 
     @torch.no_grad()
-    def step(self) -> torch.Tensor:
+    def step(self) -> None:
         """Performs a single optimization step.
         """
         for group in self.param_groups:

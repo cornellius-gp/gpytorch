@@ -10,7 +10,7 @@ import torch
 import gpytorch
 from gpytorch.distributions import MultitaskMultivariateNormal
 from gpytorch.kernels import MultitaskKernel, RBFKernel
-from gpytorch.likelihoods import MultitaskGaussianLikelihoodKronecker
+from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, MultitaskMean
 
 # Simple training data: let's try to learn a sine function
@@ -53,7 +53,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_low_rank_noise_covar(self):
-        likelihood = MultitaskGaussianLikelihoodKronecker(num_tasks=2, rank=1)
+        likelihood = MultitaskGaussianLikelihood(num_tasks=2, rank=1)
         model = MultitaskGPModel(train_x, train_y, likelihood)
         # Find optimal model hyperparameters
         model.train()

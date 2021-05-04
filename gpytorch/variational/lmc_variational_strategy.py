@@ -78,7 +78,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
     """
 
     def __init__(
-        self, base_variational_strategy, num_tasks, num_latents=1, latent_dim=0,
+        self, base_variational_strategy, num_tasks, num_latents=1, latent_dim=-1,
     ):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy
@@ -120,8 +120,8 @@ class LMCVariationalStrategy(_VariationalStrategy):
     def kl_divergence(self):
         return super().kl_divergence().sum(dim=self.latent_dim)
 
-    def __call__(self, x, prior=False):
-        function_dist = self.base_variational_strategy(x, prior=prior)
+    def __call__(self, x, prior=False, **kwargs):
+        function_dist = self.base_variational_strategy(x, prior=prior, **kwargs)
         lmc_coefficients = self.lmc_coefficients.expand(*function_dist.batch_shape, self.lmc_coefficients.size(-1))
         num_batch = len(function_dist.batch_shape)
         num_dim = num_batch + len(function_dist.event_shape)

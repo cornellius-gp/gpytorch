@@ -28,7 +28,9 @@ class IndexKernel(Kernel):
             Set if the MultitaskKernel is operating on batches of data (and you want different
             parameters for each batch)
         :attr:`rank` (int):
-            Rank of :math:`B` matrix.
+            Rank of :math:`B` matrix. Controls the degree of
+            correlation between the outputs. With a rank of 1 the
+            outputs are identical except for a scaling factor.
         :attr:`prior` (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
         :attr:`var_constraint` (Constraint, optional):
@@ -54,7 +56,7 @@ class IndexKernel(Kernel):
         )
         self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks)))
         if prior is not None:
-            self.register_prior("IndexKernelPrior", prior, self._eval_covar_matrix)
+            self.register_prior("IndexKernelPrior", prior, lambda m: m._eval_covar_matrix())
 
         self.register_constraint("raw_var", var_constraint)
 

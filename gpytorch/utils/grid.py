@@ -1,24 +1,73 @@
 #!/usr/bin/env python3
 
 import math
+import warnings
 from typing import List, Tuple
 
 import torch
 
 
-def scale_to_bounds(x, lower_bound, upper_bound):
+class ScaleToBounds(torch.nn.Module):
     """
     Scale the input data so that it lies in between the lower and upper bounds.
 
-    Args:
-        :attr:`x` (Tensor `n` or `b x n`):
-            the input
-        :attr:`lower_bound` (float)
-        :attr:`upper_bound` (float)
+    In training (`self.train()`), this module adjusts the scaling factor to the minibatch of data.
+    During evaluation (`self.eval()`), this module uses the scaling factor from the previous minibatch of data.
 
-    Returns:
-        :obj:`torch.Tensor`
+    :param float lower_bound: lower bound of scaled data
+    :param float upper_bound: upper bound of scaled data
+
+    Example:
+        >>> train_x = torch.randn(10, 5)
+        >>> module = gpytorch.utils.grid.ScaleToBounds(lower_bound=-1., upper_bound=1.)
+        >>>
+        >>> module.train()
+        >>> scaled_train_x = module(train_x)  # Data should be between -0.95 and 0.95
+        >>>
+        >>> module.eval()
+        >>> test_x = torch.randn(10, 5)
+        >>> scaled_test_x = module(test_x)  # Scaling is based on train_x
     """
+
+    def __init__(self, lower_bound, upper_bound):
+        super().__init__()
+        self.lower_bound = float(lower_bound)
+        self.upper_bound = float(upper_bound)
+        self.register_buffer("min_val", torch.tensor(lower_bound))
+        self.register_buffer("max_val", torch.tensor(upper_bound))
+
+    def forward(self, x):
+        if self.training:
+            min_val = x.min()
+            max_val = x.max()
+            self.min_val.data = min_val
+            self.max_val.data = max_val
+        else:
+            min_val = self.min_val
+            max_val = self.max_val
+            # Clamp extreme values
+            x = x.clamp(min_val, max_val)
+
+        diff = max_val - min_val
+        x = (x - min_val) * (0.95 * (self.upper_bound - self.lower_bound) / diff) + 0.95 * self.lower_bound
+        return x
+
+
+def scale_to_bounds(x, lower_bound, upper_bound):
+    """
+    DEPRECATRED: Use :obj:`~gpytorch.utils.grid.ScaleToBounds` instead.
+
+    :param x: the input data
+    :type x: torch.Tensor (... x n x d)
+    :param float lower_bound: lower bound of scaled data
+    :param float upper_bound: upper bound of scaled data
+    :return: scaled data
+    :rtype: torch.Tensor (... x n x d)
+    """
+    warnings.warn(
+        "The `scale_to_bounds` method is deprecated. Use the `gpytorch.utils.grid.ScaleToBounds` module instead.",
+        DeprecationWarning,
+    )
     # Scale features so they fit inside grid bounds
     min_val = x.min()
     max_val = x.max()
@@ -31,17 +80,15 @@ def choose_grid_size(train_inputs, ratio=1.0, kronecker_structure=True):
     """
     Given some training inputs, determine a good grid size for KISS-GP.
 
-    Args:
-        :attr:`train_inputs` (Tensor `n` or `n x d` or `b x n x d`):
-            training data
-        :attr:`ratio` (float, optional):
-            Ratio - number of grid points to the amount of data (default: 1.)
-        :attr:`kronecker_structure` (bool, default=True):
-            Whether or not the model will use Kronecker structure in the grid
-            (set to True unless there is an additive or product decomposition in the prior)
-
-    Returns:
-        :obj:`int`
+    :param x: the input data
+    :type x: torch.Tensor (... x n x d)
+    :param ratio: Amount of grid points per data point (default: 1.)
+    :type ratio: float, optional
+    :param kronecker_structure: Whether or not the model will use Kronecker structure in the grid
+        (set to True unless there is an additive or product decomposition in the prior)
+    :type kronecker_structure: bool, optional
+    :return: Grid size
+    :rtype: int
     """
     # Scale features so they fit inside grid bounds
     num_data = train_inputs.numel() if train_inputs.dim() == 1 else train_inputs.size(-2)
@@ -58,13 +105,10 @@ def convert_legacy_grid(grid: torch.Tensor) -> List[torch.Tensor]:
 
 def create_data_from_grid(grid: List[torch.Tensor]) -> torch.Tensor:
     """
-    Args:
-        :attr:`grid` (List[Tensor])
-            Each Tensor is a 1D set of increments for the grid in that dimension
-    Returns:
-        `grid_data` (Tensor)
-            Returns the set of points on the grid going by column-major order
-            (due to legacy reasons).
+    :param grid: Each Tensor is a 1D set of increments for the grid in that dimension
+    :type grid: List[torch.Tensor]
+    :return: The set of points on the grid going by column-major order
+    :rtype: torch.Tensor
     """
     if torch.is_tensor(grid):
         grid = convert_legacy_grid(grid)
@@ -90,7 +134,18 @@ def create_grid(
     projections of the grid into each dimension
 
     If `extend`, we extend the grid by two points past the specified boundary
-    which can be important for getting good grid interpolations
+    which can be important for getting good grid interpolations.
+
+    :param grid_sizes: Sizes of each grid dimension
+    :type grid_sizes: List[int]
+    :param grid_bounds: Lower and upper bounds of each grid dimension
+    :type grid_sizes: List[Tuple[float, float]]
+    :param device: target device for output (default: cpu)
+    :type device: torch.device, optional
+    :param dtype: target dtype for output (default: torch.float)
+    :type dtype: torch.dtype, optional
+    :return: Grid points for each dimension. Grid points are stored in a :obj:`torch.Tensor` with shape `grid_sizes[i]`.
+    :rtype: List[torch.Tensor]
     """
     grid = []
     for i in range(len(grid_bounds)):

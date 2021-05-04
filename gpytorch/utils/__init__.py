@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-from . import broadcasting, cholesky, fft, grid, interpolation, lanczos, pivoted_cholesky, quadrature, sparse, warnings
+from . import broadcasting, cholesky, grid, interpolation, lanczos, pivoted_cholesky, quadrature, sparse, warnings
 from .contour_integral_quad import contour_integral_quad
 from .linear_cg import linear_cg
 from .memoize import cached
 from .minres import minres
+from .pinverse import stable_pinverse
+from .qr import stable_qr
 from .stochastic_lq import StochasticLQ
 
 
@@ -27,14 +29,16 @@ __all__ = [
     "linear_cg",
     "StochasticLQ",
     "cholesky",
-    "fft",
     "grid",
     "interpolation",
     "lanczos",
     "minres",
+    "pinverse",
     "pivoted_cholesky",
     "prod",
     "quadrature",
     "sparse",
+    "stable_pinverse",
+    "stable_qr",
     "warnings",
 ]

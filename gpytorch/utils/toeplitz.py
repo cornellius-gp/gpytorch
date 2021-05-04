@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import torch
+from torch.fft import fft, ifft
 
-from ..utils import broadcasting, fft
+from ..utils import broadcasting
 
 
 def toeplitz(toeplitz_column, toeplitz_row):
@@ -109,11 +110,11 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
 
     if tensor.ndimension() == 1:
         tensor = tensor.unsqueeze(-1)
-    toeplitz_column = toeplitz_column.expand(*broadcasted_t_shape).reshape(-1, toeplitz_column.size(-1))
-    toeplitz_row = toeplitz_row.expand(*broadcasted_t_shape).reshape(-1, toeplitz_row.size(-1))
-    tensor = tensor.expand(*output_shape).reshape(-1, *tensor.shape[-2:])
+    toeplitz_column = toeplitz_column.expand(*broadcasted_t_shape)
+    toeplitz_row = toeplitz_row.expand(*broadcasted_t_shape)
+    tensor = tensor.expand(*output_shape)
 
-    if not torch.equal(toeplitz_column[:, 0], toeplitz_row[:, 0]):
+    if not torch.equal(toeplitz_column[..., 0], toeplitz_row[..., 0]):
         raise RuntimeError(
             "The first column and first row of the Toeplitz matrix should have "
             "the same first element, otherwise the value of T[0,0] is ambiguous. "
@@ -123,31 +124,24 @@ def toeplitz_matmul(toeplitz_column, toeplitz_row, tensor):
     if type(toeplitz_column) != type(toeplitz_row) or type(toeplitz_column) != type(tensor):
         raise RuntimeError("The types of all inputs to ToeplitzMV must match.")
 
-    batch_size, orig_size, num_rhs = tensor.size()
-    r_reverse = toeplitz_row[:, 1:].flip(dims=(1,))
+    *batch_shape, orig_size, num_rhs = tensor.size()
+    r_reverse = toeplitz_row[..., 1:].flip(dims=(-1,))
 
-    c_r_rev = torch.zeros(batch_size, orig_size + r_reverse.size(1), dtype=tensor.dtype, device=tensor.device)
-    c_r_rev[:, :orig_size] = toeplitz_column
-    c_r_rev[:, orig_size:] = r_reverse
+    c_r_rev = torch.zeros(*batch_shape, orig_size + r_reverse.size(-1), dtype=tensor.dtype, device=tensor.device)
+    c_r_rev[..., :orig_size] = toeplitz_column
+    c_r_rev[..., orig_size:] = r_reverse
 
     temp_tensor = torch.zeros(
-        batch_size, 2 * orig_size - 1, num_rhs, dtype=toeplitz_column.dtype, device=toeplitz_column.device
+        *batch_shape, 2 * orig_size - 1, num_rhs, dtype=toeplitz_column.dtype, device=toeplitz_column.device
     )
-    temp_tensor[:, :orig_size, :] = tensor
+    temp_tensor[..., :orig_size, :] = tensor
 
-    fft_M = fft.fft1(temp_tensor.transpose(1, 2).contiguous())
-    fft_c = fft.fft1(c_r_rev).unsqueeze(1).expand_as(fft_M)
-    fft_product = torch.zeros_like(fft_M)
+    fft_M = fft(temp_tensor.transpose(-1, -2).contiguous())
+    fft_c = fft(c_r_rev).unsqueeze(-2).expand_as(fft_M)
+    fft_product = fft_M.mul_(fft_c)
 
-    fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 0])
-    fft_product[:, :, :, 0].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 1], value=-1)
-    fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 1], fft_M[:, :, :, 0])
-    fft_product[:, :, :, 1].addcmul_(fft_c[:, :, :, 0], fft_M[:, :, :, 1])
-
-    output = fft.ifft1(fft_product).transpose(1, 2)
-    output = output[:, :orig_size, :]
-
-    output = output.view(*output_shape)
+    output = ifft(fft_product).real.transpose(-1, -2)
+    output = output[..., :orig_size, :]
     return output
 
 

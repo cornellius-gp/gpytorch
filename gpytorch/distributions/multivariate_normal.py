@@ -9,7 +9,7 @@ from torch.distributions.kl import register_kl
 from torch.distributions.utils import _standard_normal, lazy_property
 
 from .. import settings
-from ..lazy import DiagLazyTensor, LazyTensor, delazify, lazify
+from ..lazy import DiagLazyTensor, LazyTensor, RootLazyTensor, delazify, lazify
 from ..utils.broadcasting import _mul_broadcast_shape
 from ..utils.warnings import NumericalWarning
 from .distribution import Distribution
@@ -42,7 +42,9 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             self.__unbroadcasted_scale_tril = None
             self._validate_args = validate_args
             batch_shape = _mul_broadcast_shape(self.loc.shape[:-1], covariance_matrix.shape[:-2])
+
             event_shape = self.loc.shape[-1:]
+
             # TODO: Integrate argument validation for LazyTensors into torch.distribution validation logic
             super(TMultivariateNormal, self).__init__(batch_shape, event_shape, validate_args=False)
         else:
@@ -71,6 +73,20 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
         new_covar = self._covar.expand(torch.Size(batch_size) + self._covar.shape[-2:])
         res = self.__class__(new_loc, new_covar)
         return res
+
+    def _extended_shape(self, sample_shape=torch.Size()):
+        """
+        Returns the size of the sample returned by the distribution, given
+        a `sample_shape`. Note, that the batch and event shapes of a distribution
+        instance are fixed at the time of construction. If this is empty, the
+        returned shape is upcast to (1,).
+
+        Args:
+            sample_shape (torch.Size): the size of the sample to be drawn.
+        """
+        if not isinstance(sample_shape, torch.Size):
+            sample_shape = torch.Size(sample_shape)
+        return sample_shape + self._batch_shape + self.base_sample_shape
 
     def confidence_region(self):
         """
@@ -104,6 +120,18 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             base_samples = _standard_normal(shape, dtype=self.loc.dtype, device=self.loc.device)
         return base_samples
 
+    @property
+    def base_sample_shape(self):
+        """
+        Returns the shape of a base sample (without batching) that is used to
+        generate a single sample.
+        """
+        base_sample_shape = self.event_shape
+        if isinstance(self.lazy_covariance_matrix, RootLazyTensor):
+            base_sample_shape = self.lazy_covariance_matrix.root.shape[-1:]
+
+        return base_sample_shape
+
     @lazy_property
     def lazy_covariance_matrix(self):
         """
@@ -136,7 +164,8 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
                     1,
                 )
 
-        # Get log determininat and first part of quadratic form
+        # Get log determininant and first part of quadratic form
+        covar = covar.evaluate_kernel()
         inv_quad, logdet = covar.inv_quad_logdet(inv_quad_rhs=diff.unsqueeze(-1), logdet=True)
 
         res = -0.5 * sum([inv_quad, logdet, diff.size(-1) * math.log(2 * math.pi)])
@@ -153,8 +182,13 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
             res = res.view(sample_shape + self.loc.shape)
 
         else:
+            covar_root = covar.root_decomposition().root
+
             # Make sure that the base samples agree with the distribution
-            if self.loc.shape != base_samples.shape[-self.loc.dim() :]:
+            if (
+                self.loc.shape != base_samples.shape[-self.loc.dim() :]
+                and covar_root.shape[-1] < base_samples.shape[-1]
+            ):
                 raise RuntimeError(
                     "The size of base_samples (minus sample shape dimensions) should agree with the size "
                     "of self.loc. Expected ...{} but got {}".format(self.loc.shape, base_samples.shape)
@@ -165,16 +199,16 @@ class MultivariateNormal(TMultivariateNormal, Distribution):
 
             # Reshape samples to be batch_size x num_dim x num_samples
             # or num_bim x num_samples
-            base_samples = base_samples.view(-1, *self.loc.shape)
+            base_samples = base_samples.view(-1, *self.loc.shape[:-1], covar_root.shape[-1])
             base_samples = base_samples.permute(*range(1, self.loc.dim() + 1), 0)
 
             # Now reparameterize those base samples
-            covar_root = covar.root_decomposition().root
             # If necessary, adjust base_samples for rank of root decomposition
             if covar_root.shape[-1] < base_samples.shape[-2]:
                 base_samples = base_samples[..., : covar_root.shape[-1], :]
             elif covar_root.shape[-1] > base_samples.shape[-2]:
-                raise RuntimeError("Incompatible dimension of `base_samples`")
+                # raise RuntimeError("Incompatible dimension of `base_samples`")
+                covar_root = covar_root.transpose(-2, -1)
             res = covar_root.matmul(base_samples) + self.loc.unsqueeze(-1)
 
             # Permute and reshape new samples to be original size

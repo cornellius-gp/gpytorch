@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import math
-import warnings
 import unittest
 
 import gpytorch
@@ -9,7 +8,6 @@ import torch
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
-from gpytorch.utils.warnings import ExtraComputationWarning
 from torch import optim
 
 
@@ -62,30 +60,26 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
         likelihood.train()
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
 
-        with warnings.catch_warnings(record=True) as ws:
-            for _ in range(200):
-                optimizer.zero_grad()
-                output = model(train_x)
-                loss = -mll(output, train_y)
-                loss.backward()
-                optimizer.step()
+        for _ in range(200):
+            optimizer.zero_grad()
+            output = model(train_x)
+            loss = -mll(output, train_y)
+            loss.backward()
+            optimizer.step()
 
-            for param in model.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
-            for param in likelihood.parameters():
-                self.assertTrue(param.grad is not None)
-                self.assertGreater(param.grad.norm().item(), 0)
+        for param in model.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
+        for param in likelihood.parameters():
+            self.assertTrue(param.grad is not None)
+            self.assertGreater(param.grad.norm().item(), 0)
 
-            # Set back to eval mode
-            model.eval()
-            likelihood.eval()
-            test_preds = likelihood(model(train_x)).mean.squeeze()
-            mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-            self.assertLess(mean_abs_error.item(), 1e-1)
-
-            # Make sure CG was called (or not), and no warnings were thrown
-            self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
+        # Set back to eval mode
+        model.eval()
+        likelihood.eval()
+        test_preds = likelihood(model(train_x)).mean.squeeze()
+        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+        self.assertLess(mean_abs_error.item(), 1e-1)
 
 
 if __name__ == "__main__":

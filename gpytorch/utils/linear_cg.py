@@ -177,6 +177,12 @@ def linear_cg(
     # result <- x_{0}
     result = initial_guess.expand_as(residual).contiguous()
 
+    # Maybe log
+    if settings.verbose_linalg.on():
+        settings.verbose_linalg.logger.debug(
+            f"Running CG on a {rhs.shape} RHS for {n_iter} iterations (tol={tolerance}). Output: {result.shape}."
+        )
+
     # Check for NaNs
     if not torch.equal(residual, residual):
         raise RuntimeError("NaNs encountered when trying to perform matrix-vector multiplication")
@@ -276,7 +282,11 @@ def linear_cg(
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
-        if k >= 10 and bool(residual_norm.mean() < tolerance) and not (n_tridiag and k < n_tridiag_iter):
+        if (
+            k >= min(10, max_iter - 1)
+            and bool(residual_norm.mean() < tolerance)
+            and not (n_tridiag and k < min(n_tridiag_iter, max_iter - 1))
+        ):
             tolerance_reached = True
             break
 

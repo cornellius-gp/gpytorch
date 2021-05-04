@@ -57,23 +57,44 @@ class AddedDiagLazyTensor(SumLazyTensor):
         return torch.addcmul(self._lazy_tensor._matmul(rhs), self._diag_tensor._diag.unsqueeze(-1), rhs)
 
     def add_diag(self, added_diag):
-        return AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor.add_diag(added_diag))
+        return self.__class__(self._lazy_tensor, self._diag_tensor.add_diag(added_diag))
 
     def __add__(self, other):
         from .diag_lazy_tensor import DiagLazyTensor
 
         if isinstance(other, DiagLazyTensor):
-            return AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor + other)
+            return self.__class__(self._lazy_tensor, self._diag_tensor + other)
         else:
-            return AddedDiagLazyTensor(self._lazy_tensor + other, self._diag_tensor)
+            return self.__class__(self._lazy_tensor + other, self._diag_tensor)
 
     def _preconditioner(self):
+        r"""
+        Here we use a partial pivoted Cholesky preconditioner:
+
+        K \approx L L^T + D
+
+        where L L^T is a low rank approximation, and D is a diagonal.
+        We can compute the preconditioner's inverse using Woodbury
+
+        (L L^T + D)^{-1} = D^{-1} - D^{-1} L (I + L D^{-1} L^T)^{-1} L^T D^{-1}
+
+        This function returns:
+        - A function `precondition_closure` that computes the solve (L L^T + D)^{-1} x
+        - A LazyTensor `precondition_lt` that represents (L L^T + D)
+        - The log determinant of (L L^T + D)
+        """
+
         if self.preconditioner_override is not None:
             return self.preconditioner_override(self)
 
         if settings.max_preconditioner_size.value() == 0 or self.size(-1) < settings.min_preconditioning_size.value():
             return None, None, None
 
+        # Cache a QR decomposition [Q; Q'] R = [D^{-1/2}; L]
+        # This makes it fast to compute solves and log determinants with it
+        #
+        # Through woodbury, (L L^T + D)^{-1} reduces down to (D^{-1} - D^{-1/2} Q Q^T D^{-1/2})
+        # Through matrix determinant lemma, log |L L^T + D| reduces down to 2 log |R|
         if self._q_cache is None:
             max_iter = settings.max_preconditioner_size.value()
             self._piv_chol_self = pivoted_cholesky.pivoted_cholesky(self._lazy_tensor, max_iter)
@@ -87,6 +108,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
         # NOTE: We cannot memoize this precondition closure as it causes a memory leak
         def precondition_closure(tensor):
+            # This makes it fast to compute solves with it
             qqt = self._q_cache.matmul(self._q_cache.transpose(-2, -1).matmul(tensor))
             if self._constant_diag:
                 return (1 / self._noise) * (tensor - qqt)
@@ -102,6 +124,7 @@ class AddedDiagLazyTensor(SumLazyTensor):
         noise_first_element = self._noise[..., :1, :]
         self._constant_diag = torch.equal(self._noise, noise_first_element * torch.ones_like(self._noise))
         eye = torch.eye(k, dtype=self._piv_chol_self.dtype, device=self._piv_chol_self.device)
+        eye = eye.expand(*batch_shape, k, k)
 
         if self._constant_diag:
             self._init_cache_for_constant_diag(eye, batch_shape, n, k)
@@ -123,9 +146,10 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
     def _init_cache_for_non_constant_diag(self, eye, batch_shape, n):
         # With non-constant diagonals, we cant factor out the noise as easily
-        self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), eye)))
+        self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), eye), dim=-2))
         self._q_cache = self._q_cache[..., :n, :] / self._noise.sqrt()
 
+        # Use the matrix determinant lemma for the logdet, using the fact that R'R = L_k'L_k + s*I
         logdet = self._r_cache.diagonal(dim1=-1, dim2=-2).abs().log().sum(-1).mul(2)
         logdet -= (1.0 / self._noise).log().sum([-1, -2])
         self._precond_logdet_cache = logdet.view(*batch_shape) if len(batch_shape) else logdet.squeeze()
@@ -144,3 +168,17 @@ class AddedDiagLazyTensor(SumLazyTensor):
             evals = evals_ + self._diag_tensor.diag()
             return evals, evecs
         return super()._symeig(eigenvectors=eigenvectors)
+
+    def evaluate_kernel(self):
+        """
+        Overriding this is currently necessary to allow for subclasses of AddedDiagLT to be created. For example,
+        consider the following:
+
+            >>> covar1 = covar_module(x).add_diag(torch.tensor(1.)).evaluate_kernel()
+            >>> covar2 = covar_module(x).evaluate_kernel().add_diag(torch.tensor(1.))
+
+        Unless we override this method (or find a better solution), covar1 and covar2 might not be the same type.
+        In particular, covar1 would *always* be a standard AddedDiagLazyTensor, but covar2 might be a subtype.
+        """
+        added_diag_lazy_tsr = self.representation_tree()(*self.representation())
+        return added_diag_lazy_tsr._lazy_tensor + added_diag_lazy_tsr._diag_tensor

@@ -10,7 +10,7 @@ from torch.nn import ModuleList
 from .. import settings
 from ..constraints import Positive
 from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
-from ..models.exact_prediction_strategies import DefaultPredictionStrategy, SumPredictionStrategy
+from ..models import exact_prediction_strategies
 from ..module import Module
 from ..utils.broadcasting import _mul_broadcast_shape
 
@@ -168,7 +168,7 @@ class Kernel(Module):
             )
             if lengthscale_prior is not None:
                 self.register_prior(
-                    "lengthscale_prior", lengthscale_prior, lambda: self.lengthscale, lambda v: self._set_lengthscale(v)
+                    "lengthscale_prior", lengthscale_prior, lambda m: m.lengthscale, lambda m, v: m._set_lengthscale(v)
                 )
 
             self.register_constraint("raw_lengthscale", lengthscale_constraint)
@@ -345,7 +345,9 @@ class Kernel(Module):
         return 1
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        return DefaultPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
+        return exact_prediction_strategies.DefaultPredictionStrategy(
+            train_inputs, train_prior_dist, train_labels, likelihood
+        )
 
     def sub_kernels(self):
         for _, kernel in self.named_sub_kernels():
@@ -402,10 +404,16 @@ class Kernel(Module):
         return self.__dict__
 
     def __add__(self, other):
-        return AdditiveKernel(self, other)
+        kernels = []
+        kernels += self.kernels if isinstance(self, AdditiveKernel) else [self]
+        kernels += other.kernels if isinstance(other, AdditiveKernel) else [other]
+        return AdditiveKernel(*kernels)
 
     def __mul__(self, other):
-        return ProductKernel(self, other)
+        kernels = []
+        kernels += self.kernels if isinstance(self, ProductKernel) else [self]
+        kernels += other.kernels if isinstance(other, ProductKernel) else [other]
+        return ProductKernel(*kernels)
 
     def __setstate__(self, d):
         self.__dict__ = d
@@ -463,7 +471,9 @@ class AdditiveKernel(Kernel):
         return res
 
     def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        return SumPredictionStrategy(train_inputs, train_prior_dist, train_labels, likelihood)
+        return exact_prediction_strategies.SumPredictionStrategy(
+            train_inputs, train_prior_dist, train_labels, likelihood
+        )
 
     def num_outputs_per_input(self, x1, x2):
         return self.kernels[0].num_outputs_per_input(x1, x2)

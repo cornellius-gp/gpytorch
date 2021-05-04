@@ -12,7 +12,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.test.base_test_case import BaseTestCase
 from gpytorch.test.utils import least_used_cuda_device
-from gpytorch.utils.warnings import ExtraComputationWarning, OldVersionWarning
+from gpytorch.utils.warnings import OldVersionWarning
 from torch import optim
 
 
@@ -55,7 +55,6 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
 
         # Ensure we get a warning
         with warnings.catch_warnings(record=True) as ws:
-            # Makes sure warnings we catch don't cause `-w error` to fail
             warnings.simplefilter("always", OldVersionWarning)
 
             model.load_state_dict(state_dicts["model"])
@@ -90,7 +89,7 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
 
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
-        with warnings.catch_warnings(record=True) as ws, _cg_mock as cg_mock:
+        with _cg_mock as cg_mock:
             for _ in range(150):
                 optimizer.zero_grad()
                 output = model(train_x)
@@ -114,7 +113,6 @@ class TestSVGPRegression(BaseTestCase, unittest.TestCase):
 
             # Make sure CG was called (or not), and no warnings were thrown
             self.assertFalse(cg_mock.called)
-            self.assertFalse(any(issubclass(w.category, ExtraComputationWarning) for w in ws))
 
     def test_predictive_ll_regression_error(self):
         return self.test_regression_error(
