@@ -649,10 +649,6 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             return res
 
 
-class SumPredictionStrategy(DefaultPredictionStrategy):
-    pass
-
-
 class RFFPredictionStrategy(DefaultPredictionStrategy):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
         super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
