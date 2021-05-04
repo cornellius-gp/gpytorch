@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
+from gpytorch.utils.cholesky import CHOLESKY_METHOD
 
 from .base_test_case import BaseTestCase
 
@@ -614,8 +615,10 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                     lazy_tensor, "root_decomposition", gpytorch.lazy.RootLazyTensor(chol)
                 )
 
-                _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
-                with patch("torch.cholesky", new=_wrapped_cholesky) as cholesky_mock:
+                _wrapped_cholesky = MagicMock(
+                    wraps=torch.cholesky if CHOLESKY_METHOD == "torch.cholesky" else torch.linalg.cholesky_ex
+                )
+                with patch(CHOLESKY_METHOD, new=_wrapped_cholesky) as cholesky_mock:
                     self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=True, lazy_tensor=lazy_tensor)
                 self.assertFalse(cholesky_mock.called)
 
