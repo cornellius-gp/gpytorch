@@ -1588,8 +1588,9 @@ class LazyTensor(ABC):
 
         return evals, evecs
 
-    def _choose_root_method(self, method: Optional[str] = None) -> str:
-        # Better inform which root_decomposition or root_inv_decomposition
+    def _choose_root_method(self) -> str:
+        # When method is not specified,
+        # better inform which root_decomposition or root_inv_decomposition
         # method to use based on available caches and matrix size.
         if _is_in_cache_ignore_all_args(self, "symeig"):
             return "symeig"
@@ -1597,15 +1598,12 @@ class LazyTensor(ABC):
             return "diagonalization"
         if _is_in_cache_ignore_all_args(self, "lanczos"):
             return "lanczos"
-        if method is None:
-            if (
-                self.size(-1) <= settings.max_cholesky_size.value()
-                or settings.fast_computations.covar_root_decomposition.off()
-            ):
-                return "cholesky"
-            return "lanczos"
-
-        return method
+        if (
+            self.size(-1) <= settings.max_cholesky_size.value()
+            or settings.fast_computations.covar_root_decomposition.off()
+        ):
+            return "cholesky"
+        return "lanczos"
 
     @cached(name="root_decomposition")
     def root_decomposition(self, method: Optional[str] = None):
@@ -1626,7 +1624,8 @@ class LazyTensor(ABC):
         if self.shape[-2:].numel() == 1:
             return RootLazyTensor(self.evaluate().sqrt())
 
-        method = self._choose_root_method(method)
+        if method is None:
+            method = self._choose_root_method()
 
         if method == "cholesky":
             # self.cholesky will hit cache if available
@@ -1635,8 +1634,7 @@ class LazyTensor(ABC):
                 return CholLazyTensor(res)
             except RuntimeError as e:
                 warnings.warn(
-                    f"Runtime Error when computing Cholesky decomposition: {e}. Using RootDecomposition.",
-                    NumericalWarning,
+                    f"Runtime Error when computing Cholesky decomposition: {e}. Using symeig method.", NumericalWarning,
                 )
                 method = "symeig"
 
@@ -1679,7 +1677,8 @@ class LazyTensor(ABC):
         if self.shape[-2:].numel() == 1:
             return RootLazyTensor(1 / self.evaluate().sqrt())
 
-        method = self._choose_root_method(method)
+        if method is None:
+            method = self._choose_root_method()
 
         if method == "cholesky":
             # self.cholesky will hit cache if available
