@@ -83,7 +83,7 @@ class IndexKernel(Kernel):
 
     def forward(self, i1, i2, **params):
 
-        i1, i2 = torch.LongTensor(i1.long()), torch.LongTensor(i2.long())
+        i1, i2 = i1.long(), i2.long()
         covar_matrix = self._eval_covar_matrix()
         batch_shape = _mul_broadcast_shape(i1.shape[:-2], self.batch_shape)
         index1_shape = batch_shape + i1.shape[-2:]
