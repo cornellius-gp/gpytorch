@@ -60,8 +60,8 @@ class GPFAKernel(Kernel):
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         if last_dim_is_batch:
             raise RuntimeError("GPFAKernel does not yet accept the last_dim_is_batch argument.")
-        I_t1 = DiagLazyTensor(torch.ones(len(x1)))
-        I_t2 = DiagLazyTensor(torch.ones(len(x2)))
+        I_t1 = DiagLazyTensor(torch.ones(len(x1), dtype=self.C.dtype))
+        I_t2 = DiagLazyTensor(torch.ones(len(x2), dtype=self.C.dtype))
         kron_prod_1 = KroneckerProductLazyTensor(I_t1, self.C)
         kron_prod_2 = KroneckerProductLazyTensor(I_t2, self.C)
         covar = kron_prod_1 @ self.latent_covar_module(x1, x2, **params) @ kron_prod_2.t()
