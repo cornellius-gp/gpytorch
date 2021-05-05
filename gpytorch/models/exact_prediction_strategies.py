@@ -12,10 +12,10 @@ from ..lazy import (
     ConstantMulLazyTensor,
     InterpolatedLazyTensor,
     LazyEvaluatedKernelTensor,
+    LowRankRootAddedDiagLazyTensor,
     MatmulLazyTensor,
     NonLazyTensor,
     RootLazyTensor,
-    SumLazyTensor,
     ZeroLazyTensor,
     delazify,
     lazify,
@@ -650,50 +650,6 @@ class InterpolatedPredictionStrategy(DefaultPredictionStrategy):
             return res
 
 
-class SumPredictionStrategy(DefaultPredictionStrategy):
-    @property
-    def _sub_strategies(self):
-        sub_strategies = []
-        for lazy_tensor in self.train_prior_dist.lazy_covariance_matrix.evaluate_kernel().lazy_tensors:
-            pred_strat = prediction_strategy(
-                self.train_inputs,
-                self.train_prior_dist.__class__(self.train_prior_dist.mean, lazy_tensor),
-                self.train_labels,
-                self.likelihood,
-            )
-            sub_strategies.append(pred_strat)
-
-        return sub_strategies
-
-    def _exact_predictive_covar_inv_quad_form_cache(self, train_train_covar_inv_root, test_train_covar):
-        test_train_covar = lazify(test_train_covar).evaluate_kernel()
-        if not isinstance(test_train_covar, SumLazyTensor):
-            return super(SumPredictionStrategy, self)._exact_predictive_covar_inv_quad_form_cache(
-                train_train_covar_inv_root, test_train_covar
-            )
-        else:
-            return tuple(
-                sub_strat._exact_predictive_covar_inv_quad_form_cache(train_train_covar_inv_root, test_train_covar_comp)
-                for sub_strat, test_train_covar_comp in zip(self._sub_strategies, test_train_covar.lazy_tensors)
-            )
-
-    def _exact_predictive_covar_inv_quad_form_root(self, precomputed_cache, test_train_covar):
-        # Here the precomputed cache is a list
-        # where each component in the list is the precomputed cache for each component lazy tensor
-        test_train_covar = lazify(test_train_covar).evaluate_kernel()
-        if not isinstance(test_train_covar, SumLazyTensor):
-            return super(SumPredictionStrategy, self)._exact_predictive_covar_inv_quad_form_root(
-                precomputed_cache, test_train_covar
-            )
-        else:
-            return sum(
-                sub_strat._exact_predictive_covar_inv_quad_form_root(cache_comp, test_train_covar_comp)
-                for sub_strat, cache_comp, test_train_covar_comp in zip(
-                    self._sub_strategies, precomputed_cache, test_train_covar.evaluate_kernel().lazy_tensors
-                )
-            )
-
-
 class RFFPredictionStrategy(DefaultPredictionStrategy):
     def __init__(self, train_inputs, train_prior_dist, train_labels, likelihood):
         super().__init__(train_inputs, train_prior_dist, train_labels, likelihood)
@@ -812,13 +768,19 @@ class SGPRPredictionStrategy(DefaultPredictionStrategy):
         # covar_cache = K_{UU}^{-1/2} K_{UX}( K_{XX} + \sigma^2 I )^{-1} K_{XU} K_{UU}^{-1/2}
 
         # Decompose test_train_covar = l, r
-        if not isinstance(test_train_covar, MatmulLazyTensor):
+        # Main case: test_x and train_x are different - test_train_covar is a MatmulLazyTensor
+        if isinstance(test_train_covar, MatmulLazyTensor):
+            L = test_train_covar.left_lazy_tensor.evaluate()
+        # Edge case: test_x and train_x are the same - test_train_covar is a LowRankRootAddedDiagLazyTensor
+        elif isinstance(test_train_covar, LowRankRootAddedDiagLazyTensor):
+            L = test_train_covar._lazy_tensor.root.evaluate()
+        else:
             # We should not hit this point of the code - this is to catch potential bugs in GPyTorch
             raise ValueError(
-                f"Expected SGPR output to be a MatmulLazyTensor. Got {test_train_covar.__class__.__name__} instead. "
+                "Expected SGPR output to be a MatmulLazyTensor or AddedDiagLazyTensor. "
+                f"Got {test_train_covar.__class__.__name__} instead. "
                 "This is likely a bug in GPyTorch."
             )
-        L = test_train_covar.left_lazy_tensor.evaluate()
 
         res = test_test_covar - (L @ (covar_cache @ L.transpose(-1, -2)))
         return res
