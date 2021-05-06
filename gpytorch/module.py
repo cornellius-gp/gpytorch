@@ -90,6 +90,12 @@ class Module(nn.Module):
                 module.initialize(**{name: val})
             elif not hasattr(self, name):
                 raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
+            elif not self.training:
+                raise RuntimeError(
+                    f"Attempting to set parameter {name} while in eval mode. "
+                    "This is discouraged because certain cached tensors may not be appropriately updated. "
+                    "Please call self.train() and try again."
+                )
             elif name not in self._parameters and name not in self._buffers:
                 setattr(self, name, val)
             elif torch.is_tensor(val):
