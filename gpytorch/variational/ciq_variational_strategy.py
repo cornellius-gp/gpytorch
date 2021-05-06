@@ -215,7 +215,7 @@ class CiqVariationalStrategy(_VariationalStrategy):
         # Compute interpolated mean and variance terms
         # We have separate computation rules for NGD versus standard GD
         if self._ngd():
-            interp_mean, interp_var, kl_div = _NgdInterpTerms().apply(
+            interp_mean, interp_var, kl_div = _NgdInterpTerms.apply(
                 interp_term, self._variational_distribution.natural_vec, self._variational_distribution.natural_mat,
             )
 
