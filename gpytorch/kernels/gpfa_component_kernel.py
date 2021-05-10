@@ -28,14 +28,14 @@ class GPFAComponentKernel(Kernel):
         super(GPFAComponentKernel, self).__init__(**kwargs)
         task_diag = torch.zeros(num_latents)
         task_diag[kernel_loc] = 1
-        self.task_covar = DiagLazyTensor(task_diag)
+        self.register_buffer("task_diag", task_diag)
         self.data_covar_module = data_covar_module
         self.num_latents = num_latents
 
     def forward(self, x1, x2, diag=False, last_dim_is_batch=False, **params):
         if last_dim_is_batch:
             raise RuntimeError("GPFAComponentKernel does not accept the last_dim_is_batch argument.")
-        covar_i = self.task_covar
+        covar_i = DiagLazyTensor(self.task_diag)
         if len(x1.shape[:-2]):
             covar_i = covar_i.repeat(*x1.shape[:-2], 1, 1)
         covar_x = lazify(self.data_covar_module.forward(x1, x2, **params))
