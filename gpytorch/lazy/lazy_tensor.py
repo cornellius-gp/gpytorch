@@ -1291,6 +1291,47 @@ class LazyTensor(ABC):
             *args,
         )
 
+        # Maybe do variance reduction
+        _, precond_lt, _ = self._preconditioner()
+        if precond_lt is not None and settings.mll_variance_reduction.on():
+            if settings.verbose_linalg.on():
+                settings.verbose_linalg.logger.debug("*Performing variance reduction*")
+
+            # Compute preconditioner logdet exactly
+            with gpytorch.settings.max_cholesky_size(1e20):
+                p_exact_logdet = precond_lt.logdet()
+
+            # Compute preconditioner logdet using SLQ
+            precond_probe_vectors, precond_probe_vector_norms = precond_lt._probe_vectors_and_norms()
+            with gpytorch.settings.skip_logdet_forward(True):
+                _, p_hutch_logdet = func(
+                    precond_lt.representation_tree(),
+                    self.dtype,
+                    self.device,
+                    self.matrix_shape,
+                    self.batch_shape,
+                    False,
+                    True,
+                    precond_probe_vectors,
+                    precond_probe_vector_norms,
+                    *precond_lt.representation(),
+                )  # This outputs zero, but we'll populate stuff in the backward pass
+
+            # Add all values together
+            # (HACKY) in variance reduction mode, logdet_term doesn't add the correction term
+            pinvk_hutch_logdet = logdet_term
+            logdet_term = pinvk_hutch_logdet + p_exact_logdet - p_hutch_logdet
+
+            # Log values
+            with torch.no_grad():
+                if settings.verbose_linalg.on():
+                    settings.verbose_linalg.logger.debug("*Done with variance reduction*")
+                    settings.verbose_linalg.logger.debug(f"* - P_exact_logdet: {p_exact_logdet.mean().item()}*")
+                    settings.verbose_linalg.logger.debug(f"* - PinvK_hutch_logdet: {pinvk_hutch_logdet.mean().item()}*")
+
+                settings.mll_variance_reduction.p_exact_logdet = p_exact_logdet.mean().item()
+                settings.mll_variance_reduction.pinvk_hutch_logdet = pinvk_hutch_logdet.mean().item()
+
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)
         return inv_quad_term, logdet_term

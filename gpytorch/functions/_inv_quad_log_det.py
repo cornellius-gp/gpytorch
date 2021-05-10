@@ -175,7 +175,7 @@ class InvQuadLogDet(Function):
                 (logdet_term,) = slq.evaluate(ctx.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
 
                 # Add correction
-                if logdet_correction is not None:
+                if logdet_correction is not None and settings.mll_variance_reduction.off():
                     logdet_term = logdet_term + logdet_correction
 
         # Extract inv_quad solves from all the solves

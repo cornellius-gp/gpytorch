@@ -124,3 +124,11 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
             logdet_term = self._logdet()
 
         return inv_quad_term, logdet_term
+
+    def zero_mean_mvn_samples(self, num_samples):
+        root_size = self._lazy_tensor.root.size(-1)
+        _eye_probe_vectors = torch.randn(num_samples, *self.shape[:-1], 1, dtype=self.dtype, device=self.device)
+        return sum(
+            self._lazy_tensor.root @ _eye_probe_vectors[..., :root_size, :],
+            self._diag_tensor.sqrt() @ _eye_probe_vectors,
+        ).squeeze(-1)
