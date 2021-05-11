@@ -16,7 +16,7 @@ class PeriodicKernel(Kernel):
 
        \begin{equation*}
           k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
-            \frac{2 \sin^2 \left( \pi \Vert \mathbf{x_1} - \mathbf{x_2} \Vert_1 / p \right) }
+            \frac{-2 \sin^2 \left( \pi \Vert \mathbf{x_1} - \mathbf{x_2} \Vert_1 / p \right) }
             { \ell^2 } \right)
        \end{equation*}
 
