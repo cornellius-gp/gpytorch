@@ -344,10 +344,10 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         kernel_1 = RBFKernel().initialize(lengthscale=1)
         kernel_2 = RBFKernel().initialize(lengthscale=2)
         kernel_add = kernel_1 + kernel_2
-        d = {'kernels.0.lengthscale': 0., 'kernels.1.lengthscale': 5.}
+        d = {'kernels.0.lengthscale': 0.0, 'kernels.1.lengthscale': 5.0}
         kernel_add.initialize(**d)
-        self.assertEqual(kernel_add.kernels[0].lengthscale, 0.)
-        self.assertEqual(kernel_add.kernels[1].lengthscale, 5.)
+        self.assertEqual(kernel_add.kernels[0].lengthscale, 0.0)
+        self.assertEqual(kernel_add.kernels[1].lengthscale, 5.0)
 
 
 if __name__ == "__main__":
