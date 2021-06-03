@@ -340,6 +340,15 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
         self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
 
+    def test_initialize(self):
+        kernel_1 = RBFKernel().initialize(lengthscale=1)
+        kernel_2 = RBFKernel().initialize(lengthscale=2)
+        kernel_add = kernel_1 + kernel_2
+        d = {'kernels.0.lengthscale': 0., 'kernels.1.lengthscale': 5.}
+        kernel_add.initialize(**d)
+        self.assertEqual(kernel_add.kernels[0].lengthscale, 0.)
+        self.assertEqual(kernel_add.kernels[1].lengthscale, 5.)
+
 
 if __name__ == "__main__":
     unittest.main()
