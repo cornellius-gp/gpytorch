@@ -18,6 +18,7 @@ from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..functions._sqrt_inv_matmul import SqrtInvMatmul
+from ..settings import cholesky_jitter
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
@@ -419,7 +420,7 @@ class LazyTensor(ABC):
             return TriangularLazyTensor(evaluated_mat.clamp_min(0.0).sqrt())
 
         # contiguous call is necessary here
-        cholesky = psd_safe_cholesky(evaluated_mat, upper=upper).contiguous()
+        cholesky = psd_safe_cholesky(evaluated_mat, upper=upper, jitter=cholesky_jitter.value()).contiguous()
         return TriangularLazyTensor(cholesky, upper=upper)
 
     def _cholesky_solve(self, rhs, upper: bool = False):
