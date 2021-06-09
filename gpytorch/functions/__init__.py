@@ -58,7 +58,7 @@ def dsmm(sparse_mat, dense_mat):
     Returns:
         - matrix (b x)mxo - Result
     """
-    return DSMM().apply(sparse_mat, dense_mat)
+    return DSMM.apply(sparse_mat, dense_mat)
 
 
 def log_normal_cdf(x):
@@ -68,7 +68,7 @@ def log_normal_cdf(x):
     This function should always be preferred over calling normal_cdf and taking the log
     manually, as it is more numerically stable.
     """
-    return LogNormalCDF().apply(x)
+    return LogNormalCDF.apply(x)
 
 
 def matmul(mat, rhs):

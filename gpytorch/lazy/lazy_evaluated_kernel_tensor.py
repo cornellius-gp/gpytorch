@@ -262,7 +262,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             if res.shape != expected_shape:
                 raise RuntimeError(
                     "The kernel {} is not equipped to handle and diag. Expected size {}. "
-                    "Got size {}".format(self.__class__.__name__, expected_shape, res.shape)
+                    "Got size {}".format(self.kernel.__class__.__name__, expected_shape, res.shape)
                 )
 
         if isinstance(res, LazyTensor):
