@@ -31,6 +31,7 @@ Here we provide some examples which highlight some of the common use cases:
 - **Classification**: see the `non-Gaussian likelihood notebook`_ and the `Polya-Gamma Binary Classification notebook`_.
 - **Multi-output variational GPs** (when exact methods are too memory intensive): see the `variational GPs with multiple outputs example`_.
 - **Uncertain inputs**: see the `GPs with uncertain inputs example`_.
+- **Latent variable models**: see the `GPLVM example`_.
 
 .. toctree::
    :maxdepth: 1
@@ -45,6 +46,7 @@ Here we provide some examples which highlight some of the common use cases:
    PolyaGamma_Binary_Classification.ipynb
    SVGP_Multitask_GP_Regression.ipynb
    GP_Regression_with_Uncertain_Inputs.ipynb
+   Gaussian_Process_Latent_Variable_Models_with_Stochastic_Variational_Inference.ipynb
 
 .. _strategy/distribution comparison:
   ./Modifying_the_variational_strategy_and_distribution.ipynb
@@ -72,3 +74,6 @@ Here we provide some examples which highlight some of the common use cases:
 
 .. _GPs with uncertain inputs example:
   ./GP_Regression_with_Uncertain_Inputs.ipynb
+
+.. _GPLVM example:
+  ./Gaussian_Process_Latent_Variable_Models_with_Stochastic_Variational_Inference.ipynb
