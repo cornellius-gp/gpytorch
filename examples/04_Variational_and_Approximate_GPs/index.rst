@@ -28,7 +28,7 @@ Here we provide some examples which highlight some of the common use cases:
 - **Variational distribution options** for different scalability/expressiveness: see the `strategy/distribution comparison`_.
 - **Alternative optimization objectives** for the GP's predictive distribution: see the `approximate GP objective functions notebook`_.
   This example compares and contrasts the variational ELBO with the predictive log likelihood of Jankowiak et al., 2020.
-- **Classification**: see the `non-Gaussian likelihood notebook`_.
+- **Classification**: see the `non-Gaussian likelihood notebook`_ and the `Polya-Gamma Binary Classification notebook`_.
 - **Multi-output variational GPs** (when exact methods are too memory intensive): see the `variational GPs with multiple outputs example`_.
 - **Uncertain inputs**: see the `GPs with uncertain inputs example`_.
 
@@ -42,6 +42,7 @@ Here we provide some examples which highlight some of the common use cases:
    SVGP_CIQ.ipynb
    Approximate_GP_Objective_Functions.ipynb
    Non_Gaussian_Likelihoods.ipynb
+   PolyaGamma_Binary_Classification.ipynb
    SVGP_Multitask_GP_Regression.ipynb
    GP_Regression_with_Uncertain_Inputs.ipynb
 
@@ -62,6 +63,9 @@ Here we provide some examples which highlight some of the common use cases:
 
 .. _non-Gaussian likelihood notebook:
   ./Non_Gaussian_Likelihoods.ipynb
+
+.. _Polya-Gamma Binary Classification notebook:
+  ./PolyaGamma_Binary_Classification.ipynb
 
 .. _variational GPs with multiple outputs example:
   ./SVGP_Multitask_GP_Regression.ipynb
