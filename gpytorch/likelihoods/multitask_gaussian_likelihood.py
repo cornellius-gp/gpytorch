@@ -15,6 +15,7 @@ from ..lazy import (
     RootLazyTensor,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
+from ..utils.pivoted_cholesky import pivoted_cholesky
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
@@ -185,7 +186,8 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
                     name="raw_task_noises", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, num_tasks))
                 )
                 self.register_constraint("raw_task_noises", noise_constraint)
-                self.register_prior("raw_task_noises_prior", noise_prior, lambda m: m.task_noises)
+                if noise_prior is not None:
+                    self.register_prior("raw_task_noises_prior", noise_prior, lambda m: m.task_noises)
                 if task_prior is not None:
                     raise RuntimeError("Cannot set a `task_prior` if rank=0")
             else:
@@ -201,7 +203,8 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         if has_global_noise:
             self.register_parameter(name="raw_noise", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1)))
             self.register_constraint("raw_noise", noise_constraint)
-            self.register_prior("raw_noise_prior", noise_prior, lambda m: m.noise)
+            if noise_prior is not None:
+                self.register_prior("raw_noise_prior", noise_prior, lambda m: m.noise)
 
         self.has_global_noise = has_global_noise
         self.has_task_noise = has_task_noise
@@ -216,10 +219,39 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
 
     @property
     def task_noises(self):
-        return self.raw_task_noises_constraint.transform(self.raw_task_noises)
+        if self.rank == 0:
+            return self.raw_task_noises_constraint.transform(self.raw_task_noises)
+        else:
+            raise AttributeError("Cannot set diagonal task noises when covariance has ", self.rank, ">0")
+
+    @task_noises.setter
+    def task_noises(self, value):
+        if self.rank == 0:
+            self._set_task_noises(value)
+        else:
+            raise AttributeError("Cannot set diagonal task noises when covariance has ", self.rank, ">0")
 
     def _set_noise(self, value):
         self.initialize(raw_noise=self.raw_noise_constraint.inverse_transform(value))
+
+    def _set_task_noises(self, value):
+        self.initialize(raw_task_noises=self.raw_task_noises_constraint.inverse_transform(value))
+
+    @property
+    def task_noise_covar(self):
+        if self.rank > 0:
+            return self.task_noise_covar_factor.matmul(self.task_noise_covar_factor.transpose(-1, -2))
+        else:
+            raise AttributeError("Cannot retrieve task noises when covariance is diagonal.")
+
+    @task_noise_covar.setter
+    def task_noise_covar(self, value):
+        # internally uses a pivoted cholesky decomposition to construct a low rank
+        # approximation of the covariance
+        if self.rank > 0:
+            self.task_noise_covar_factor.data = pivoted_cholesky(value, max_iter=self.rank)
+        else:
+            raise AttributeError("Cannot set non-diagonal task noises when covariance is diagonal.")
 
     def _eval_covar_matrix(self):
         covar_factor = self.task_noise_covar_factor

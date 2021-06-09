@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 from copy import deepcopy
+from typing import List, Optional, Union
 
 from torch.nn import ModuleList
 
+from ..priors import Prior
 from .kernel import Kernel
 from .multitask_kernel import MultitaskKernel
 
@@ -18,7 +20,9 @@ class LCMKernel(Kernel):
     The returned object is of type :obj:`gpytorch.lazy.KroneckerProductLazyTensor`.
     """
 
-    def __init__(self, base_kernels, num_tasks, rank=1, task_covar_prior=None):
+    def __init__(
+        self, base_kernels: List, num_tasks: int, rank: Union[int, List] = 1, task_covar_prior: Optional[Prior] = None
+    ):
         """
         Args:
             base_kernels (:type: list of `Kernel` objects): A list of base kernels.
@@ -33,11 +37,14 @@ class LCMKernel(Kernel):
         for k in base_kernels:
             if not isinstance(k, Kernel):
                 raise ValueError("base_kernels must only contain Kernel objects")
+        if not isinstance(rank, list):
+            rank = [rank] * len(base_kernels)
+
         super(LCMKernel, self).__init__()
         self.covar_module_list = ModuleList(
             [
-                MultitaskKernel(base_kernel, num_tasks=num_tasks, rank=rank, task_covar_prior=task_covar_prior)
-                for base_kernel in base_kernels
+                MultitaskKernel(base_kernel, num_tasks=num_tasks, rank=r, task_covar_prior=task_covar_prior)
+                for base_kernel, r in zip(base_kernels, rank)
             ]
         )
 

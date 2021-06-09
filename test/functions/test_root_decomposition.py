@@ -38,7 +38,11 @@ class TestRootDecomposition(BaseTestCase, unittest.TestCase):
         # Forward
         probe_vectors = torch.randn(*mat.shape[:-2], 4, 5)
         test_vectors = torch.randn(*mat.shape[:-2], 4, 5)
-        root = NonLazyTensor(mat).root_inv_decomposition(probe_vectors, test_vectors).root.evaluate()
+        root = (
+            NonLazyTensor(mat)
+            .root_inv_decomposition(method="lanczos", initial_vectors=probe_vectors, test_vectors=test_vectors)
+            .root.evaluate()
+        )
         res = root.matmul(root.transpose(-1, -2))
         actual = mat_clone.inverse()
         self.assertAllClose(res, actual)

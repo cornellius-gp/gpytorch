@@ -37,6 +37,16 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def device(self):
         return self.x1.device
 
+    @property
+    def requires_grad(self):
+        return super().requires_grad or any(param.requires_grad for param in self.kernel.parameters())
+
+    def _set_requires_grad(self, val):
+        super()._set_requires_grad(val)
+        # The behavior that differs from the base LazyTensor setter
+        for param in self.kernel.parameters():
+            param.requires_grad_(val)
+
     def _expand_batch(self, batch_shape):
         return self.evaluate_kernel()._expand_batch(batch_shape)
 
@@ -91,8 +101,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         except IndexError:
             if any(not isinstance(bi, slice) for bi in batch_indices):
                 raise RuntimeError(
-                    f"Attempting to tensor index a non-batch matrix's batch dimensions. "
-                    "Got batch index {batch_indices} but my shape was {self.shape}"
+                    "Attempting to tensor index a non-batch matrix's batch dimensions. "
+                    f"Got batch index {batch_indices} but my shape was {self.shape}"
                 )
             x1 = x1.expand(*([1] * (len(batch_indices) - self.x1.dim() + 2)), *self.x1.shape)
             x1 = x1[(*batch_indices, row_index, dim_index)]
@@ -105,8 +115,8 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         except IndexError:
             if any([not isinstance(bi, slice) for bi in batch_indices]):
                 raise RuntimeError(
-                    f"Attempting to tensor index a non-batch matrix's batch dimensions. "
-                    "Got batch index {batch_indices} but my shape was {self.shape}"
+                    "Attempting to tensor index a non-batch matrix's batch dimensions. "
+                    f"Got batch index {batch_indices} but my shape was {self.shape}"
                 )
             x2 = x2.expand(*([1] * (len(batch_indices) - self.x1.dim() + 2)), *self.x2.shape)
             x2 = x2[(*batch_indices, col_index, dim_index)]
@@ -252,7 +262,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             if res.shape != expected_shape:
                 raise RuntimeError(
                     "The kernel {} is not equipped to handle and diag. Expected size {}. "
-                    "Got size {}".format(self.__class__.__name__, expected_shape, res.shape)
+                    "Got size {}".format(self.kernel.__class__.__name__, expected_shape, res.shape)
                 )
 
         if isinstance(res, LazyTensor):
