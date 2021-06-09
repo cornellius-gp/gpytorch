@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
-from torch.distributions import kl_divergence
 
-from ...mlls.added_loss_term import AddedLossTerm
 from ...module import Module
 
 
@@ -92,26 +90,10 @@ class VariationalLatentVariable(LatentVariable):
         self.register_added_loss_term("x_kl")
 
     def forward(self):
+        from ...mlls import KLGaussianAddedLossTerm
+
         # Variational distribution over the latent variable q(x)
         q_x = torch.distributions.Normal(self.q_mu, torch.nn.functional.softplus(self.q_log_sigma))
-        x_kl = kl_gaussian_loss_term(q_x, self.prior_x, self.n, self.data_dim)
+        x_kl = KLGaussianAddedLossTerm(q_x, self.prior_x, self.n, self.data_dim)
         self.update_added_loss_term("x_kl", x_kl)  # Update the KL term
         return q_x.rsample()
-
-
-class kl_gaussian_loss_term(AddedLossTerm):
-    def __init__(self, q_x, p_x, n, data_dim):
-        self.q_x = q_x
-        self.p_x = p_x
-        self.n = n
-        self.data_dim = data_dim
-
-    def loss(self):
-        kl_per_latent_dim = kl_divergence(self.q_x, self.p_x).sum(axis=0)  # vector of size latent_dim
-        kl_per_point = kl_per_latent_dim.sum() / self.n  # scalar
-        # inside the forward method of variational ELBO,
-        # the added loss terms are expanded (using add_) to take the same
-        # shape as the log_lik term (has shape data_dim)
-        # so they can be added together. Hence, we divide by data_dim to avoid
-        # overcounting the kl term
-        return kl_per_point / self.data_dim
