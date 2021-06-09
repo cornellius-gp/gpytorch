@@ -149,3 +149,7 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Data files that might be downloaded
+**/*.tar.gz
+**/*.txt
