@@ -43,7 +43,14 @@ class ZeroLazyTensor(LazyTensor):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
         if self.size(-1) != rhs.size(rhs_size_ind):
             raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
-        return rhs * 0
+        new_m = self.size(-2)
+        if rhs_size_ind == -1:
+            *batch_shape, m = rhs.shape
+            output_shape = (*batch_shape, new_m)
+        else:
+            *batch_shape, m, n = rhs.shape
+            output_shape = (*batch_shape, new_m, n)
+        return torch.zeros(*output_shape, dtype=rhs.dtype, device=rhs.device)
 
     def _prod_batch(self, dim):
         sizes = list(self.sizes)
@@ -72,9 +79,16 @@ class ZeroLazyTensor(LazyTensor):
 
     def _t_matmul(self, rhs):
         rhs_size_ind = -2 if rhs.ndimension() > 1 else -1
-        if self.size(-1) != rhs.size(rhs_size_ind):
+        if self.size(-2) != rhs.size(rhs_size_ind):
             raise RuntimeError("Size mismatch, self: {}, rhs: {}".format(self.size(), rhs.size()))
-        return rhs * 0
+        new_m = self.size(-1)
+        if rhs_size_ind == -1:
+            *batch_shape, m = rhs.shape
+            output_shape = (*batch_shape, new_m)
+        else:
+            *batch_shape, m, n = rhs.shape
+            output_shape = (*batch_shape, new_m, n)
+        return torch.zeros(*output_shape, dtype=rhs.dtype, device=rhs.device)
 
     def _transpose_nonbatch(self):
         return self.transpose(-2, -1)
@@ -147,7 +161,14 @@ class ZeroLazyTensor(LazyTensor):
         tensor_size_ind = -2 if tensor.ndimension() > 1 else -1
         if self.size(-1) != tensor.size(tensor_size_ind):
             raise RuntimeError("Size mismatch, self: {}, tensor: {}".format(self.size(), tensor.size()))
-        return tensor * 0
+        new_m = self.size(-2)
+        if tensor_size_ind == -1:
+            *batch_shape, m = tensor.shape
+            output_shape = (*batch_shape, new_m)
+        else:
+            *batch_shape, m, n = tensor.shape
+            output_shape = (*batch_shape, new_m, n)
+        return ZeroLazyTensor(*output_shape, dtype=tensor.dtype, device=tensor.device)
 
     def mul(self, other):
         shape = _mul_broadcast_shape(self.shape, other.shape)
