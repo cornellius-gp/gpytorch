@@ -2,7 +2,7 @@
 
 import warnings
 
-from . import deep_gps, exact_prediction_strategies, pyro
+from . import deep_gps, exact_prediction_strategies, gplvm, pyro
 from .approximate_gp import ApproximateGP
 from .exact_gp import ExactGP
 from .gp import GP
@@ -38,6 +38,7 @@ __all__ = [
     "PyroGP",
     "VariationalGP",
     "deep_gps",
+    "gplvm",
     "exact_prediction_strategies",
     "pyro",
 ]
