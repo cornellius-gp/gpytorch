@@ -1,4 +1,3 @@
-
 Variational and Approximate GPs
 ================================
 
