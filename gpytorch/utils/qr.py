@@ -14,11 +14,11 @@ def stable_qr(mat):
     if mat.shape[-1] <= 2048:
         # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
         device = mat.device
-        Q, R = torch.qr(mat.cpu())
+        Q, R = torch.linalg.qr(mat.cpu())
         Q = Q.to(device)
         R = R.to(device)
     else:
-        Q, R = torch.qr(mat)
+        Q, R = torch.linalg.qr(mat)
 
     Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
     # if R is almost singular, add jitter

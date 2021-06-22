@@ -96,7 +96,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         for dtype in (torch.float, torch.double):
             mean = torch.tensor([0, 1, 2], device=device, dtype=dtype)
             covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype))
-            covmat_chol = torch.cholesky(covmat)
+            covmat_chol = torch.linalg.cholesky(covmat)
             mvn = MultivariateNormal(mean=mean, covariance_matrix=NonLazyTensor(covmat))
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
             self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
@@ -141,7 +141,7 @@ class TestMultivariateNormal(BaseTestCase, unittest.TestCase):
         for dtype in (torch.float, torch.double):
             mean = torch.tensor([0, 1, 2], device=device, dtype=dtype).repeat(2, 1)
             covmat = torch.diag(torch.tensor([1, 0.75, 1.5], device=device, dtype=dtype)).repeat(2, 1, 1)
-            covmat_chol = torch.cholesky(covmat)
+            covmat_chol = torch.linalg.cholesky(covmat)
             mvn = MultivariateNormal(mean=mean, covariance_matrix=NonLazyTensor(covmat))
             self.assertTrue(torch.is_tensor(mvn.covariance_matrix))
             self.assertIsInstance(mvn.lazy_covariance_matrix, LazyTensor)
