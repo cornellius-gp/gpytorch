@@ -116,6 +116,17 @@ try:
             res = gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
             return res
 
+    class ExactGPModel(gpytorch.models.ExactGP):
+        def __init__(self, train_x, train_y, likelihood):
+            super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
+            self.mean_module = gpytorch.means.ConstantMean()
+            self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
+
+        def forward(self, x):
+            mean_x = self.mean_module(x)
+            covar_x = self.covar_module(x)
+            return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
     class LowLevelInterfaceClusterMultitaskGPModel(gpytorch.models.ApproximateGP):
         def __init__(self, train_x, train_y, num_functions=2):
             # Define all the variational stuff
@@ -301,6 +312,54 @@ try:
             self.assertGreater(cluster_probs[2, cluster_2_idx].squeeze().item(), 0.9)
             self.assertGreater(cluster_probs[3, cluster_1_idx].squeeze().item(), 0.9)
 
+        def test_nuts_derivatives(self):
+            x = torch.linspace(0, 1, 10).double()
+            y = torch.sin(x * (2 * pi)).double() + torch.randn(x.size()).double() * 0.1
+
+            likelihood = gpytorch.likelihoods.GaussianLikelihood()
+            likelihood.double()
+
+            model = ExactGPModel(x, y, likelihood)
+            model.double()
+
+            model.covar_module.base_kernel.register_prior(
+                "lengthscale_prior", gpytorch.priors.LogNormalPrior(0.1, 1.), "lengthscale"
+            )
+            model.covar_module.register_prior(
+                "raw_outputscale_prior", gpytorch.priors.NormalPrior(0., 1.), "raw_outputscale"
+            )
+            model.likelihood.register_prior("raw_noise_prior", gpytorch.priors.NormalPrior(0., 1.), "raw_noise")
+            model.mean_module.register_prior("constant_prior", gpytorch.priors.NormalPrior(0., 1.), "constant")
+
+            def pyro_model(x, y):
+                sampled_model = model.pyro_sample_from_prior()
+                output = sampled_model.likelihood(sampled_model(x))
+                pyro.sample("obs", output, obs=y)
+
+            nuts_kernel = pyro.infer.mcmc.NUTS(pyro_model)
+            nuts_kernel.setup(0, x, y)
+
+            for i in range(10):
+                # Sampling some random values for each of the parameters
+                sampled_model = model.pyro_sample_from_prior()
+                initial_params = {
+                    'covar_module.base_kernel.lengthscale_prior': sampled_model.covar_module.base_kernel.lengthscale,
+                    'covar_module.raw_outputscale_prior': sampled_model.covar_module.raw_outputscale,
+                    'mean_module.constant_prior': sampled_model.mean_module.constant,
+                    'likelihood.raw_noise_prior': sampled_model.likelihood.raw_noise}
+
+                # check gradient of the potential fn w.r.t. the parameters at these specific values.
+                d = 1e-4
+                grads, v = pyro.ops.integrator.potential_grad(nuts_kernel.potential_fn, initial_params)
+                for param in initial_params:
+                    new_params = initial_params.copy()
+                    new_params[param] = new_params[param] + d
+                    v2 = nuts_kernel.potential_fn(new_params).item()
+                    numerical = (v2 - v) / d
+
+                    abs_delta = (torch.abs(grads[param] - numerical) / torch.abs(numerical)).item()
+                    # Pyro's gradient should differ by less than 5% from numerical est.
+                    self.assertLess(abs_delta, 0.05)
 
 except ImportError:
     pass
