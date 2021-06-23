@@ -6,8 +6,12 @@ import torch
 
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.lazy import DiagLazyTensor
-from gpytorch.likelihoods import DirichletClassificationLikelihood, FixedNoiseGaussianLikelihood, \
-    GaussianLikelihood, GaussianLikelihoodWithMissingObs
+from gpytorch.likelihoods import (
+    DirichletClassificationLikelihood,
+    FixedNoiseGaussianLikelihood,
+    GaussianLikelihood,
+    GaussianLikelihoodWithMissingObs,
+)
 from gpytorch.likelihoods.noise_models import FixedGaussianNoise
 from gpytorch.test.base_likelihood_test_case import BaseLikelihoodTestCase
 
@@ -153,30 +157,26 @@ class TestGaussianLikelihoodwithMissingObs(BaseLikelihoodTestCase, unittest.Test
         return GaussianLikelihoodWithMissingObs()
 
     def test_missing_value_inference(self):
-        '''
+        """
         samples = mvn samples + noise samples
         In this test, we try to recover noise parameters when some elements in
         'samples' are missing at random.
-        '''
+        """
 
         torch.manual_seed(self.seed)
 
         mu = torch.zeros(2, 3)
-        sigma = torch.tensor([[
-                [ 1,  0.999, -0.999],
-                [ 0.999,  1, -0.999],
-                [-0.999, -0.999,  1] ]]*2).float()
+        sigma = torch.tensor([[[1, 0.999, -0.999], [0.999, 1, -0.999], [-0.999, -0.999, 1]]] * 2).float()
         mvn = MultivariateNormal(mu, sigma)
-        samples = mvn.sample(torch.Size([10000])) # mvn samples
+        samples = mvn.sample(torch.Size([10000]))  # mvn samples
 
         noise_sd = 0.5
         noise_dist = torch.distributions.Normal(0, noise_sd)
-        samples += noise_dist.sample(samples.shape) # noise
+        samples += noise_dist.sample(samples.shape)  # noise
 
         missing_prop = 0.33
-        missing_idx = torch.distributions.Binomial(1, missing_prop).\
-                      sample(samples.shape).bool()
-        samples[missing_idx] = float('nan')
+        missing_idx = torch.distributions.Binomial(1, missing_prop).sample(samples.shape).bool()
+        samples[missing_idx] = float("nan")
 
         likelihood = GaussianLikelihoodWithMissingObs()
 
@@ -199,10 +199,11 @@ class TestGaussianLikelihoodwithMissingObs(BaseLikelihoodTestCase, unittest.Test
             loss = -likelihood.log_marginal(samples, mvn).sum()
             loss.backward()
             opt.step()
-        
+
         assert abs(float(likelihood.noise.sqrt()) - 0.5) < 0.02
 
-        check_log_marginal_works = likelihood.log_marginal(samples[0], mvn)
+        # Check log marginal works
+        likelihood.log_marginal(samples[0], mvn)
 
 
 if __name__ == "__main__":

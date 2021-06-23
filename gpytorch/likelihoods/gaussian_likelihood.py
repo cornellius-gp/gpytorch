@@ -118,6 +118,7 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
     def raw_noise(self, value: Tensor) -> None:
         self.noise_covar.initialize(raw_noise=value)
 
+
 class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
     r"""
     The standard likelihood for regression with support for missing values.
