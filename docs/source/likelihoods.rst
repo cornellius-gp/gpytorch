@@ -33,7 +33,7 @@ reduce the variance when computing approximate GP objective functions.
    :members:
 
 :hidden:`GaussianLikelihoodWithMissingObs`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: GaussianLikelihoodWithMissingObs
    :members:
