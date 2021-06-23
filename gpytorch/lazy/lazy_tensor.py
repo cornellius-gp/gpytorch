@@ -594,8 +594,7 @@ class LazyTensor(ABC):
         Returns:
             (Tensor or LazyTensor): The root of the root decomposition
         """
-        func = RootDecomposition()
-        res, _ = func.apply(
+        res, _ = RootDecomposition.apply(
             self.representation_tree(),
             self._root_decomposition_size(),
             self.dtype,
@@ -632,8 +631,7 @@ class LazyTensor(ABC):
         """
         from .root_lazy_tensor import RootLazyTensor
 
-        func = RootDecomposition()
-        roots, inv_roots = func.apply(
+        roots, inv_roots = RootDecomposition.apply(
             self.representation_tree(),
             self._root_decomposition_size(),
             self.dtype,
@@ -1333,8 +1331,7 @@ class LazyTensor(ABC):
 
             return MatmulLazyTensor(self, other)
 
-        func = Matmul()
-        return func.apply(self.representation_tree(), other, *self.representation())
+        return Matmul.apply(self.representation_tree(), other, *self.representation())
 
     @property
     def matrix_shape(self):
@@ -1569,8 +1566,7 @@ class LazyTensor(ABC):
         if method == "lanczos":
             from ..lazy import lazify
 
-            func = Diagonalization()
-            evals, evecs = func.apply(
+            evals, evecs = Diagonalization.apply(
                 self.representation_tree(),
                 self.device,
                 self.dtype,
@@ -1764,7 +1760,7 @@ class LazyTensor(ABC):
             rhs = rhs.unsqueeze(-1)
             squeeze = True
 
-        func = SqrtInvMatmul()
+        func = SqrtInvMatmul
         sqrt_inv_matmul_res, inv_quad_res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
 
         if squeeze:

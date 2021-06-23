@@ -88,7 +88,11 @@ class Module(nn.Module):
                 val = float(val)
             if "." in name:
                 module, name = self._get_module_and_name(name)
-                module.initialize(**{name: val})
+                if isinstance(module, nn.ModuleList):
+                    idx, name = name.split(".", 1)
+                    module[int(idx)].initialize(**{name: val})
+                else:
+                    module.initialize(**{name: val})
             elif not hasattr(self, name):
                 raise AttributeError("Unknown parameter {p} for {c}".format(p=name, c=self.__class__.__name__))
             elif name not in self._parameters and name not in self._buffers:

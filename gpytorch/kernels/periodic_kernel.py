@@ -14,16 +14,22 @@ class PeriodicKernel(Kernel):
 
     .. math::
 
-       \begin{equation*}
-          k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
-            \frac{2 \sin^2 \left( \pi \Vert \mathbf{x_1} - \mathbf{x_2} \Vert_1 / p \right) }
-            { \ell^2 } \right)
-       \end{equation*}
+        \begin{equation*}
+            k_{\text{Periodic}}(\mathbf{x_1}, \mathbf{x_2}) = \exp \left(
+            -2 \sum_i
+            \frac{\sin ^2 \left( \frac{\pi}{p} (\mathbf{x_{1,i}} - \mathbf{x_{2,i}} ) \right)}{\lambda}
+            \right)
+        \end{equation*}
 
     where
 
-    * :math:`p` is the periord length parameter.
-    * :math:`\ell` is a lengthscale parameter.
+    * :math:`p` is the period length parameter.
+    * :math:`\lambda` is a lengthscale parameter.
+
+    Equation is based on [David Mackay's Introduction to Gaussian Processes equation 47]
+    (http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.81.1927&rep=rep1&type=pdf)
+    albeit without feature-specific lengthscales and period lengths. The exponential
+    coefficient was changed and lengthscale is not squared to maintain backwards compatibility
 
     .. note::
 
@@ -32,7 +38,7 @@ class PeriodicKernel(Kernel):
 
     .. note::
 
-        This kernel does not have an ARD lengthscale option.
+        This kernel does not have an ARD lengthscale or period length option.
 
     Args:
         :attr:`batch_shape` (torch.Size, optional):
@@ -107,10 +113,10 @@ class PeriodicKernel(Kernel):
         self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
 
     def forward(self, x1, x2, diag=False, **params):
-        x1_ = x1.div(self.period_length)
-        x2_ = x2.div(self.period_length)
-        diff = self.covar_dist(x1_, x2_, diag=diag, **params)
-        res = torch.sin(diff.mul(math.pi)).pow(2).mul(-2 / self.lengthscale).exp_()
+        x1_ = x1.div(self.period_length).mul(math.pi)
+        x2_ = x2.div(self.period_length).mul(math.pi)
+        diff = x1_.unsqueeze(-2) - x2_.unsqueeze(-3)
+        res = diff.sin().pow(2).sum(dim=-1).div(self.lengthscale).mul(-2.0).exp_()
         if diag:
             res = res.squeeze(0)
         return res

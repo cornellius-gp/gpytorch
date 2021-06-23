@@ -63,5 +63,5 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         res = self._add_other_terms(res, params)
 
         # Scale by the amount of data we have
-        num_data = target.size(-1)
+        num_data = function_dist.event_shape.numel()
         return res.div_(num_data)
