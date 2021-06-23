@@ -457,7 +457,7 @@ class LazyTensor(ABC):
                     dtype=self.dtype,
                 )
                 projected_mat = self._matmul(random_basis)
-                proj_q = torch.qr(projected_mat)
+                proj_q = torch.linalg.qr(projected_mat)
                 orthog_projected_mat = self._matmul(proj_q).transpose(-2, -1)
                 # Maybe log
                 if settings.verbose_linalg.on():
@@ -2143,7 +2143,7 @@ class LazyTensor(ABC):
 
         dtype = self.dtype  # perform decomposition in double precision for numerical stability
         # TODO: Use fp64 registry once #1213 is addressed
-        evals, evecs = torch.symeig(self.evaluate().to(dtype=torch.double), eigenvectors=eigenvectors)
+        evals, evecs = torch.linalg.eigh(self.evaluate().to(dtype=torch.double))
         # chop any negative eigenvalues. TODO: warn if evals are significantly negative
         evals = evals.clamp_min(0.0).to(dtype=dtype)
         if eigenvectors:

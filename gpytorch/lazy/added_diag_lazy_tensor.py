@@ -136,7 +136,9 @@ class AddedDiagLazyTensor(SumLazyTensor):
     def _init_cache_for_constant_diag(self, eye, batch_shape, n, k):
         # We can factor out the noise for for both QR and solves.
         self._noise = self._noise.narrow(-2, 0, 1)
-        self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self, self._noise.sqrt() * eye), dim=-2))
+        self._q_cache, self._r_cache = torch.linalg.qr(
+            torch.cat((self._piv_chol_self, self._noise.sqrt() * eye), dim=-2)
+        )
         self._q_cache = self._q_cache[..., :n, :]
 
         # Use the matrix determinant lemma for the logdet, using the fact that R'R = L_k'L_k + s*I
@@ -146,7 +148,9 @@ class AddedDiagLazyTensor(SumLazyTensor):
 
     def _init_cache_for_non_constant_diag(self, eye, batch_shape, n):
         # With non-constant diagonals, we cant factor out the noise as easily
-        self._q_cache, self._r_cache = torch.qr(torch.cat((self._piv_chol_self / self._noise.sqrt(), eye), dim=-2))
+        self._q_cache, self._r_cache = torch.linalg.qr(
+            torch.cat((self._piv_chol_self / self._noise.sqrt(), eye), dim=-2)
+        )
         self._q_cache = self._q_cache[..., :n, :] / self._noise.sqrt()
 
         # Use the matrix determinant lemma for the logdet, using the fact that R'R = L_k'L_k + s*I

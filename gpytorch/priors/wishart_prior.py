@@ -106,6 +106,6 @@ class InverseWishartPrior(Prior):
 
     def log_prob(self, X):
         logdetp = torch.logdet(X)
-        pinvK = torch.solve(self.K, X)[0]
+        pinvK = torch.linalg.solve(X, self.K)
         trpinvK = torch.diagonal(pinvK, dim1=-2, dim2=-1).sum(-1)  # trace in batch mode
         return self.C - 0.5 * ((self.nu + 2 * self.n) * logdetp + trpinvK)

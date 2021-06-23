@@ -72,7 +72,7 @@ class TestLinearCG(unittest.TestCase):
         solves = linear_cg(matrix.matmul, rhs=rhs, max_iter=size)
 
         # Check cg
-        matrix_chol = torch.cholesky(matrix)
+        matrix_chol = torch.linalg.cholesky(matrix)
         actual = torch.cholesky_solve(rhs, matrix_chol)
         self.assertTrue(torch.allclose(solves, actual, atol=1e-3, rtol=1e-4))
 
@@ -90,7 +90,7 @@ class TestLinearCG(unittest.TestCase):
         )
 
         # Check cg
-        matrix_chol = torch.cholesky(matrix)
+        matrix_chol = torch.linalg.cholesky(matrix)
         actual = torch.cholesky_solve(rhs, matrix_chol)
         self.assertTrue(torch.allclose(solves, actual, atol=1e-3, rtol=1e-4))
 

@@ -133,7 +133,7 @@ class VariationalTestCase(BaseTestCase):
 
         # Mocks
         _wrapped_cholesky = MagicMock(
-            wraps=torch.cholesky if CHOLESKY_METHOD == "torch.cholesky" else torch.linalg.cholesky_ex
+            wraps=torch.linalg.cholesky if CHOLESKY_METHOD == "torch.linalg.cholesky" else torch.linalg.cholesky_ex
         )
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
@@ -195,7 +195,7 @@ class VariationalTestCase(BaseTestCase):
 
         # Mocks
         _wrapped_cholesky = MagicMock(
-            wraps=torch.cholesky if CHOLESKY_METHOD == "torch.cholesky" else torch.linalg.cholesky_ex
+            wraps=torch.linalg.cholesky if CHOLESKY_METHOD == "torch.linalg.cholesky" else torch.linalg.cholesky_ex
         )
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
