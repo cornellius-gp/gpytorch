@@ -50,10 +50,10 @@ try:
 
 except ImportError:
 
-    # Fall back to torch.cholesky - this can be more than 3 orders of magnitude slower!
+    # Fall back to torch.linalg.cholesky - this can be more than 3 orders of magnitude slower!
     # TODO: Remove once PyTorch req. is >= 1.9
 
-    CHOLESKY_METHOD = "torch.cholesky"  # used for counting mock calls
+    CHOLESKY_METHOD = "torch.linalg.cholesky"  # used for counting mock calls
 
     def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=3):
         # Maybe log
@@ -61,7 +61,7 @@ except ImportError:
             settings.verbose_linalg.logger.debug(f"Running Cholesky on a matrix of size {A.shape}.")
 
         try:
-            L = torch.cholesky(A, out=out)
+            L = torch.linalg.cholesky(A, out=out)
             return L
         except RuntimeError as e:
             isnan = torch.isnan(A)
@@ -79,7 +79,7 @@ except ImportError:
                 Aprime.diagonal(dim1=-2, dim2=-1).add_(jitter_new - jitter_prev)
                 jitter_prev = jitter_new
                 try:
-                    L = torch.cholesky(Aprime, out=out)
+                    L = torch.linalg.cholesky(Aprime, out=out)
                     warnings.warn(f"A not p.d., added jitter of {jitter_new:.1e} to the diagonal", NumericalWarning)
                     return L
                 except RuntimeError:

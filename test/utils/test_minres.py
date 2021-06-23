@@ -39,7 +39,7 @@ class TestMinres(BaseTestCase, unittest.TestCase):
             )
 
         # Compute solves exactly
-        actual, _ = torch.solve(rhs.unsqueeze(-1) if rhs.dim() == 1 else rhs, -matrix)
+        actual = torch.linalg.solve(-matrix, rhs.unsqueeze(-1) if rhs.dim() == 1 else rhs)
         if rhs.dim() == 1:
             actual = actual.squeeze(-1)
 

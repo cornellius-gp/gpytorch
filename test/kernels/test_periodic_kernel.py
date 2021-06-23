@@ -32,7 +32,7 @@ class TestPeriodicKernel(unittest.TestCase):
         kernel = PeriodicKernel()
         with torch.no_grad():
             K = kernel(x, x).evaluate() + 1e-4 * torch.eye(len(x))
-            eig = torch.symeig(K)[0]
+            eig = torch.linalg.eigvalsh(K)
             self.assertTrue((eig > 0.0).all().item())
 
     def test_multidimensional_inputs(self):
@@ -42,7 +42,7 @@ class TestPeriodicKernel(unittest.TestCase):
         kernel = PeriodicKernel()
         with torch.no_grad():
             K = kernel(x, x).evaluate() + 1e-4 * torch.eye(len(x))
-            eig = torch.symeig(K)[0]
+            eig = torch.linalg.eigvalsh(K)
             self.assertTrue((eig > 0.0).all().item())
 
     def test_batch(self):

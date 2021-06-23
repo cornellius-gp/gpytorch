@@ -428,7 +428,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         self.assertAllClose(root_rhs, summed_rhs, **self.tolerances["root_decomposition"])
 
         # check that the inverse root decomposition is close
-        summed_solve = torch.solve(rhs.unsqueeze(-1), summed_lt)[0].squeeze(-1)
+        summed_solve = torch.linalg.solve(summed_lt, rhs.unsqueeze(-1)).squeeze(-1)
         root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
         self.assertAllClose(root_inv_solve, summed_solve, **self.tolerances["root_inv_decomposition"])
 
@@ -457,7 +457,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             self.assertAllClose(root_rhs, concat_rhs, **self.tolerances["root_decomposition"])
 
             # check that the inverse root decomposition is close
-            concat_solve = torch.solve(rhs.unsqueeze(-1), concatenated_lt).solution.squeeze(-1)
+            concat_solve = torch.linalg.solve(concatenated_lt, rhs.unsqueeze(-1)).squeeze(-1)
             root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
             self.assertLess(
                 (root_inv_solve - concat_solve).norm() / concat_solve.norm(),
@@ -469,7 +469,9 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
         for upper in (False, True):
             res = lazy_tensor.cholesky(upper=upper).evaluate()
-            actual = torch.cholesky(evaluated, upper=upper)
+            actual = torch.linalg.cholesky(evaluated)
+            if upper:
+                actual = actual.transpose(-1, -2)
             self.assertAllClose(res, actual, **self.tolerances["cholesky"])
             # TODO: Check gradients
 
@@ -616,7 +618,9 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 )
 
                 _wrapped_cholesky = MagicMock(
-                    wraps=torch.cholesky if CHOLESKY_METHOD == "torch.cholesky" else torch.linalg.cholesky_ex
+                    wraps=torch.linalg.cholesky
+                    if CHOLESKY_METHOD == "torch.linalg.cholesky"
+                    else torch.linalg.cholesky_ex
                 )
                 with patch(CHOLESKY_METHOD, new=_wrapped_cholesky) as cholesky_mock:
                     self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=True, lazy_tensor=lazy_tensor)
@@ -735,7 +739,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         evals, idxr = torch.sort(evals_unsorted, dim=-1, descending=False)
         evecs = torch.gather(evecs_unsorted, dim=-1, index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape))
 
-        evals_actual, evecs_actual = torch.symeig(evaluated.double(), eigenvectors=True)
+        evals_actual, evecs_actual = torch.linalg.eigh(evaluated.double())
         evals_actual = evals_actual.to(dtype=evaluated.dtype)
         evecs_actual = evecs_actual.to(dtype=evaluated.dtype)
 
