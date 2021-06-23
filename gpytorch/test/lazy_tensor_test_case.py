@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
+from gpytorch.utils.cholesky import CHOLESKY_METHOD
 
 from .base_test_case import BaseTestCase
 
@@ -64,6 +65,8 @@ class RectangularLazyTensorTestCase(BaseTestCase):
 
         rhs = torch.randn(2, *lazy_tensor.shape)
         self.assertAllClose((lazy_tensor + rhs).evaluate(), evaluated + rhs)
+
+        self.assertAllClose((lazy_tensor + lazy_tensor).evaluate(), evaluated * 2)
 
     def test_matmul_vec(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -406,6 +409,61 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 actual[..., i, i] = actual[..., i, i] + other_diag[..., i]
             self.assertAllClose(res, actual, **self.tolerances["diag"])
 
+    def test_add_low_rank(self):
+        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        new_rows = torch.randn(*lazy_tensor.shape[:-1], 3)
+
+        summed_lt = evaluated + new_rows.matmul(new_rows.transpose(-1, -2))
+        new_lt = lazy_tensor.add_low_rank(new_rows)
+
+        # check that the concatenation is okay
+        self.assertAllClose(new_lt.evaluate(), summed_lt)
+
+        # check that the root approximation is close
+        rhs = torch.randn(lazy_tensor.size(-1))
+        summed_rhs = summed_lt.matmul(rhs)
+        root_rhs = new_lt.root_decomposition().matmul(rhs)
+        self.assertAllClose(root_rhs, summed_rhs, **self.tolerances["root_decomposition"])
+
+        # check that the inverse root decomposition is close
+        summed_solve = torch.solve(rhs.unsqueeze(-1), summed_lt)[0].squeeze(-1)
+        root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
+        self.assertAllClose(root_inv_solve, summed_solve, **self.tolerances["root_inv_decomposition"])
+
+    def test_cat_rows(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        for batch_shape in (torch.Size(), torch.Size([2])):
+            new_rows = 1e-4 * torch.randn(*batch_shape, *lazy_tensor.shape[:-2], 1, lazy_tensor.shape[-1])
+            new_point = torch.rand(*batch_shape, *lazy_tensor.shape[:-2], 1, 1)
+
+            # we need to expand here to be able to concat (this happens automatically in cat_rows)
+            cat_col1 = torch.cat((evaluated.expand(*batch_shape, *evaluated.shape), new_rows), dim=-2)
+            cat_col2 = torch.cat((new_rows.transpose(-1, -2), new_point), dim=-2)
+
+            concatenated_lt = torch.cat((cat_col1, cat_col2), dim=-1)
+            new_lt = lazy_tensor.cat_rows(new_rows, new_point)
+
+            # check that the concatenation is okay
+            self.assertAllClose(new_lt.evaluate(), concatenated_lt)
+
+            # check that the root approximation is close
+            rhs = torch.randn(lazy_tensor.size(-1) + 1)
+            concat_rhs = concatenated_lt.matmul(rhs)
+            root_rhs = new_lt.root_decomposition().matmul(rhs)
+            self.assertAllClose(root_rhs, concat_rhs, **self.tolerances["root_decomposition"])
+
+            # check that the inverse root decomposition is close
+            concat_solve = torch.solve(rhs.unsqueeze(-1), concatenated_lt).solution.squeeze(-1)
+            root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
+            self.assertLess(
+                (root_inv_solve - concat_solve).norm() / concat_solve.norm(),
+                self.tolerances["root_inv_decomposition"]["rtol"],
+            )
+
     def test_cholesky(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -557,8 +615,10 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                     lazy_tensor, "root_decomposition", gpytorch.lazy.RootLazyTensor(chol)
                 )
 
-                _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
-                with patch("torch.cholesky", new=_wrapped_cholesky) as cholesky_mock:
+                _wrapped_cholesky = MagicMock(
+                    wraps=torch.cholesky if CHOLESKY_METHOD == "torch.cholesky" else torch.linalg.cholesky_ex
+                )
+                with patch(CHOLESKY_METHOD, new=_wrapped_cholesky) as cholesky_mock:
                     self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=True, lazy_tensor=lazy_tensor)
                 self.assertFalse(cholesky_mock.called)
 

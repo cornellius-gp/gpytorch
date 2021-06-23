@@ -44,6 +44,33 @@ Models for Deep GPs
    :members:
 
 
+Gaussian Process Latent Variable Models (GPLVM)
+-------------------------------------------------------
+
+:hidden:`gplvm.BayesianGPLVM`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: gpytorch.models.gplvm.BayesianGPLVM
+   :members:
+
+:hidden:`gplvm.PointLatentVariable`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: gpytorch.models.gplvm.PointLatentVariable
+   :members:
+
+:hidden:`gplvm.MAPLatentVariable`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: gpytorch.models.gplvm.MAPLatentVariable
+   :members:
+
+:hidden:`gplvm.VariationalLatentVariable`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: gpytorch.models.gplvm.VariationalLatentVariable
+   :members:
+
 Models for integrating with Pyro
 -----------------------------------
 

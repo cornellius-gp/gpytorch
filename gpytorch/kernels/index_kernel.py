@@ -28,7 +28,9 @@ class IndexKernel(Kernel):
             Set if the MultitaskKernel is operating on batches of data (and you want different
             parameters for each batch)
         :attr:`rank` (int):
-            Rank of :math:`B` matrix.
+            Rank of :math:`B` matrix. Controls the degree of
+            correlation between the outputs. With a rank of 1 the
+            outputs are identical except for a scaling factor.
         :attr:`prior` (:obj:`gpytorch.priors.Prior`):
             Prior for :math:`B` matrix.
         :attr:`var_constraint` (Constraint, optional):
@@ -80,13 +82,14 @@ class IndexKernel(Kernel):
         return res
 
     def forward(self, i1, i2, **params):
+
+        i1, i2 = i1.long(), i2.long()
         covar_matrix = self._eval_covar_matrix()
-        batch_shape = _mul_broadcast_shape(i1.shape[:-2], self.batch_shape)
-        index_shape = batch_shape + i1.shape[-2:]
+        batch_shape = _mul_broadcast_shape(i1.shape[:-2], i2.shape[:-2], self.batch_shape)
 
         res = InterpolatedLazyTensor(
             base_lazy_tensor=covar_matrix,
-            left_interp_indices=i1.expand(index_shape),
-            right_interp_indices=i2.expand(index_shape),
+            left_interp_indices=i1.expand(batch_shape + i1.shape[-2:]),
+            right_interp_indices=i2.expand(batch_shape + i2.shape[-2:]),
         )
         return res

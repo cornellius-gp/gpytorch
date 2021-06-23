@@ -28,20 +28,19 @@ class TestRootLazyTensorBatch(TestRootLazyTensor):
     seed = 1
 
     def create_lazy_tensor(self):
-        root = torch.randn(3, 5, 5)
-        root.add_(torch.eye(5).unsqueeze(0))
+        root = torch.randn(3, 5, 5) + torch.eye(5)
         root.requires_grad_(True)
         return RootLazyTensor(root)
 
 
 class TestRootLazyTensorMultiBatch(TestRootLazyTensor):
-    seed = 1
+    seed = 2
     # Because these LTs are large, we'll skil the big tests
     should_test_sample = False
     skip_slq_tests = True
 
     def create_lazy_tensor(self):
-        root = torch.randn(4, 3, 5, 5)
+        root = torch.randn(2, 3, 5, 5) + torch.eye(5)
         root.requires_grad_(True)
         return RootLazyTensor(root)
 

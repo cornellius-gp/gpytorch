@@ -29,6 +29,7 @@ class SmoothedBoxPrior(Prior):
 
     arg_constraints = {"sigma": constraints.positive, "a": constraints.real, "b": constraints.real}
     support = constraints.real
+    has_rsample = True
     _validate_args = True
 
     def __init__(self, a, b, sigma=0.01, validate_args=False, transform=None):
@@ -71,3 +72,18 @@ class SmoothedBoxPrior(Prior):
         # x = "distances from box`"
         X = ((x - self._c).abs_() - self._r).clamp(min=0)
         return (self.tails.log_prob(X) - self._M).sum(-1)
+
+    def rsample(self, sample_shape=torch.Size()):
+        shape = self._extended_shape(sample_shape)
+        gauss_max = 1 / (math.sqrt(2 * math.pi) * self.sigma)
+        gauss_weight = 1 / (gauss_max * (self.b - self.a) + 1)
+
+        picks = torch.bernoulli(gauss_weight.expand(shape)).to(self.a.device)
+
+        uniform_eps = torch.rand(shape, dtype=self.a.dtype, device=self.a.device)
+        uniform_samples = self.a + uniform_eps * (self.b - self.a)
+
+        gaussian_eps = self.tails.rsample(sample_shape).to(self.a.device)
+        gaussian_samples = gaussian_eps + torch.where(gaussian_eps < 0.0, self.a, self.b)
+
+        return torch.where(picks > 0, gaussian_samples, uniform_samples)

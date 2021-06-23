@@ -28,6 +28,8 @@ class InducingPointKernel(Kernel):
     def _clear_cache(self):
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
+        if hasattr(self, "_cached_kernel_inv_root"):
+            del self._cached_kernel_inv_root
 
     @property
     def _inducing_mat(self):
