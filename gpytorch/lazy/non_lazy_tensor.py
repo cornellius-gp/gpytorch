@@ -16,7 +16,8 @@ class NonLazyTensor(LazyTensor):
 
     def __init__(self, tsr):
         """
-        Not a lazy tensor
+        Wraps a (non-lazy) PyTorch tensor, but enables the usage of methods specific to lazy tensors that are
+        not implemented by default in PyTorch.
 
         Args:
         - tsr (Tensor: matrix) a Tensor
