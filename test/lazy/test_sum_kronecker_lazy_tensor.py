@@ -22,7 +22,7 @@ class TestSumKroneckerLazyTensor(LazyTensorTestCase, unittest.TestCase):
     seed = 0
     should_call_lanczos = True
     should_call_cg = False
-    skip_slq_tests = True
+    skip_slq_tests = False
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
@@ -47,3 +47,19 @@ class TestSumKroneckerLazyTensor(LazyTensorTestCase, unittest.TestCase):
             lazy_tensor.lazy_tensors[1].lazy_tensors[0].tensor, lazy_tensor.lazy_tensors[1].lazy_tensors[1].tensor
         )
         return res1 + res2
+
+    def test_inv_quad_logdet(self):
+        # mock call cg here
+        self.__class__.should_call_cg = True
+        super().test_inv_quad_logdet()
+        self.__class__.should_call_cg = False
+
+    def test_inv_quad_logdet_no_reduce(self):
+        self.__class__.should_call_cg = True
+        super().test_inv_quad_logdet_no_reduce()
+        self.__class__.should_call_cg = False
+
+    def test_root_decomposition_cholesky(self):
+        self.__class__.should_call_cg = True
+        super().test_root_decomposition_cholesky()
+        self.__class__.should_call_cg = False

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from .. import settings
 from .kronecker_product_lazy_tensor import KroneckerProductLazyTensor
 from .sum_lazy_tensor import SumLazyTensor
 
@@ -36,9 +35,6 @@ class SumKroneckerLazyTensor(SumLazyTensor):
         return inv_root_times_lt1
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
-        if self.shape[-1] <= settings.max_cholesky_size.value():
-            return super()._solve(rhs=rhs, preconditioner=preconditioner, num_tridiag=num_tridiag)
-
         inner_mat = self._sum_formulation
         # root decomposition may not be trustworthy if it uses a different method than
         # root_inv_decomposition. so ensure that we call this locally
@@ -73,3 +69,19 @@ class SumKroneckerLazyTensor(SumLazyTensor):
         inner_mat_root_inv = inner_mat.root_inv_decomposition().root
         inv_root = lt2_root_inv.matmul(inner_mat_root_inv)
         return inv_root
+
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
+        inv_quad_term = None
+        logdet_term = None
+
+        if inv_quad_rhs is not None:
+            solve = self._solve(inv_quad_rhs)
+            inv_quad_term = (inv_quad_rhs * solve).sum(-2)
+
+            if inv_quad_term.numel() and reduce_inv_quad:
+                inv_quad_term = inv_quad_term.sum(-1)
+
+        if logdet:
+            logdet_term = self._logdet()
+
+        return inv_quad_term, logdet_term
