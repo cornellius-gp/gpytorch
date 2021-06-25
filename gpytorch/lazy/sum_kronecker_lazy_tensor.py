@@ -75,7 +75,7 @@ class SumKroneckerLazyTensor(SumLazyTensor):
         logdet_term = None
 
         if inv_quad_rhs is not None:
-            solve = self._solve(inv_quad_rhs)
+            solve = self.inv_matmul(inv_quad_rhs)
             inv_quad_term = (inv_quad_rhs * solve).sum(-2)
 
             if inv_quad_term.numel() and reduce_inv_quad:
