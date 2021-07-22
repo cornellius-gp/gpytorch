@@ -331,8 +331,8 @@ class Kernel(Module):
         return res
 
     def named_sub_kernels(self):
-        for name, module in self._modules.items():
-            if isinstance(module, Kernel):
+        for name, module in self.named_modules():
+            if module is not self and isinstance(module, Kernel):
                 yield name, module
 
     def num_outputs_per_input(self, x1, x2):
