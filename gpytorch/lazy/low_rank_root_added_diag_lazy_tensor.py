@@ -124,3 +124,24 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
             logdet_term = self._logdet()
 
         return inv_quad_term, logdet_term
+
+    def inv_matmul(self, right_tensor, left_tensor=None):
+            if not self.is_square:
+                raise RuntimeError(
+                    "inv_matmul only operates on (batches of) square (positive semi-definite) LazyTensors. "
+                    "Got a {} of size {}.".format(self.__class__.__name__, self.size())
+                )
+
+            if self.dim() == 2 and right_tensor.dim() == 1:
+                if self.shape[-1] != right_tensor.numel():
+                    raise RuntimeError(
+                        "LazyTensor (size={}) cannot be multiplied with right-hand-side Tensor (size={}).".format(
+                            self.shape, right_tensor.shape
+                        )
+                    )
+
+            solve = self._solve(right_tensor)
+            if left_tensor is not None:
+                return left_tensor @ solve
+            else:
+                return solve
