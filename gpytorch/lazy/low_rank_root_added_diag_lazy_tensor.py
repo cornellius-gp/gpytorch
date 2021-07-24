@@ -140,7 +140,15 @@ class LowRankRootAddedDiagLazyTensor(AddedDiagLazyTensor):
                     )
                 )
 
+        squeeze_solve = False
+        if right_tensor.ndimension() == 1:
+            right_tensor = right_tensor.unsqueeze(-1)
+            squeeze_solve = True
+
         solve = self._solve(right_tensor)
+        if squeeze_solve:
+            solve = solve.squeeze(-1)
+
         if left_tensor is not None:
             return left_tensor @ solve
         else:
