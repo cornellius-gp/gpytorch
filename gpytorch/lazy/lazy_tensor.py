@@ -780,9 +780,9 @@ class LazyTensor(ABC):
             A = self
 
         # form matrix C = [A B; B^T D], where A = self, B = cross_mat, D = new_mat
-        upper_row = CatLazyTensor(A, B, dim=-2)
-        lower_row = CatLazyTensor(B.transpose(-1, -2), D, dim=-2)
-        new_lazy_tensor = CatLazyTensor(upper_row, lower_row, dim=-1)
+        upper_row = CatLazyTensor(A, B, dim=-2, output_device=A.device)
+        lower_row = CatLazyTensor(B.transpose(-1, -2), D, dim=-2, output_device=A.device)
+        new_lazy_tensor = CatLazyTensor(upper_row, lower_row, dim=-1, output_device=A.device)
 
         # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
         # don't create one
