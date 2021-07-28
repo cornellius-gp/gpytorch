@@ -29,6 +29,6 @@ def stable_qr(mat):
         Rdiag_sign = torch.sign(Rdiag)
         # force zero diagonals to have jitter added to them.
         Rdiag_sign[Rdiag_sign == 0] = 1.0
-        jitter_diag = 1e-4 * Rdiag_sign * zeroish.to(Rdiag)
+        jitter_diag = 1e-6 * Rdiag_sign * zeroish.to(Rdiag)
         R = R + torch.diag_embed(jitter_diag)
     return Q, R
