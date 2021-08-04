@@ -63,12 +63,5 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         res = self._add_other_terms(res, params)
 
         # Scale by the amount of data we have
-        num_data = target.size(-1)
+        num_data = function_dist.event_shape.numel()
         return res.div_(num_data)
-
-    def pyro_factor(self, output, target, *params):
-        import pyro
-
-        mll = target.size(-1) * self(output, target, *params)
-        pyro.factor("gp_mll", mll)
-        return mll

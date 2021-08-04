@@ -457,7 +457,7 @@ class LazyTensor(ABC):
                     dtype=self.dtype,
                 )
                 projected_mat = self._matmul(random_basis)
-                proj_q = torch.qr(projected_mat)
+                proj_q = torch.linalg.qr(projected_mat)
                 orthog_projected_mat = self._matmul(proj_q).transpose(-2, -1)
                 # Maybe log
                 if settings.verbose_linalg.on():
@@ -594,8 +594,7 @@ class LazyTensor(ABC):
         Returns:
             (Tensor or LazyTensor): The root of the root decomposition
         """
-        func = RootDecomposition()
-        res, _ = func.apply(
+        res, _ = RootDecomposition.apply(
             self.representation_tree(),
             self._root_decomposition_size(),
             self.dtype,
@@ -632,8 +631,7 @@ class LazyTensor(ABC):
         """
         from .root_lazy_tensor import RootLazyTensor
 
-        func = RootDecomposition()
-        roots, inv_roots = func.apply(
+        roots, inv_roots = RootDecomposition.apply(
             self.representation_tree(),
             self._root_decomposition_size(),
             self.dtype,
@@ -782,9 +780,9 @@ class LazyTensor(ABC):
             A = self
 
         # form matrix C = [A B; B^T D], where A = self, B = cross_mat, D = new_mat
-        upper_row = CatLazyTensor(A, B, dim=-2)
-        lower_row = CatLazyTensor(B.transpose(-1, -2), D, dim=-2)
-        new_lazy_tensor = CatLazyTensor(upper_row, lower_row, dim=-1)
+        upper_row = CatLazyTensor(A, B, dim=-2, output_device=A.device)
+        lower_row = CatLazyTensor(B.transpose(-1, -2), D, dim=-2, output_device=A.device)
+        new_lazy_tensor = CatLazyTensor(upper_row, lower_row, dim=-1, output_device=A.device)
 
         # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
         # don't create one
@@ -1333,8 +1331,7 @@ class LazyTensor(ABC):
 
             return MatmulLazyTensor(self, other)
 
-        func = Matmul()
-        return func.apply(self.representation_tree(), other, *self.representation())
+        return Matmul.apply(self.representation_tree(), other, *self.representation())
 
     @property
     def matrix_shape(self):
@@ -1569,8 +1566,7 @@ class LazyTensor(ABC):
         if method == "lanczos":
             from ..lazy import lazify
 
-            func = Diagonalization()
-            evals, evecs = func.apply(
+            evals, evecs = Diagonalization.apply(
                 self.representation_tree(),
                 self.device,
                 self.dtype,
@@ -1764,7 +1760,7 @@ class LazyTensor(ABC):
             rhs = rhs.unsqueeze(-1)
             squeeze = True
 
-        func = SqrtInvMatmul()
+        func = SqrtInvMatmul
         sqrt_inv_matmul_res, inv_quad_res = func.apply(self.representation_tree(), rhs, lhs, *self.representation())
 
         if squeeze:
@@ -2147,7 +2143,7 @@ class LazyTensor(ABC):
 
         dtype = self.dtype  # perform decomposition in double precision for numerical stability
         # TODO: Use fp64 registry once #1213 is addressed
-        evals, evecs = torch.symeig(self.evaluate().to(dtype=torch.double), eigenvectors=eigenvectors)
+        evals, evecs = torch.linalg.eigh(self.evaluate().to(dtype=torch.double))
         # chop any negative eigenvalues. TODO: warn if evals are significantly negative
         evals = evals.clamp_min(0.0).to(dtype=dtype)
         if eigenvectors:

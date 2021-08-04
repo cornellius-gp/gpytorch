@@ -14,11 +14,11 @@ def stable_qr(mat):
     if mat.shape[-1] <= 2048:
         # Dispatch to CPU so long as pytorch/pytorch#22573 is not fixed
         device = mat.device
-        Q, R = torch.qr(mat.cpu())
+        Q, R = torch.linalg.qr(mat.cpu())
         Q = Q.to(device)
         R = R.to(device)
     else:
-        Q, R = torch.qr(mat)
+        Q, R = torch.linalg.qr(mat)
 
     Rdiag = torch.diagonal(R, dim1=-2, dim2=-1)
     # if R is almost singular, add jitter
@@ -26,6 +26,9 @@ def stable_qr(mat):
     if torch.any(zeroish):
         # can't use in-place operation here b/c it would mess up backward pass
         # haven't found a more elegant way to add a jitter diagonal yet...
-        jitter_diag = 1e-6 * torch.sign(Rdiag) * zeroish.to(Rdiag)
+        Rdiag_sign = torch.sign(Rdiag)
+        # force zero diagonals to have jitter added to them.
+        Rdiag_sign[Rdiag_sign == 0] = 1.0
+        jitter_diag = 1e-6 * Rdiag_sign * zeroish.to(Rdiag)
         R = R + torch.diag_embed(jitter_diag)
     return Q, R

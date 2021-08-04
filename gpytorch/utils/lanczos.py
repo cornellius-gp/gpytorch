@@ -170,9 +170,9 @@ def lanczos_tridiag_to_diag(t_mat):
         settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {t_mat.shape}.")
 
     if t_mat.size(-1) < 32:
-        retr = torch.symeig(t_mat.cpu(), eigenvectors=True)
+        retr = torch.linalg.eigh(t_mat.cpu())
     else:
-        retr = torch.symeig(t_mat, eigenvectors=True)
+        retr = torch.linalg.eigh(t_mat)
 
     evals, evecs = retr
     mask = evals.ge(0)

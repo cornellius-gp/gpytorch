@@ -157,7 +157,7 @@ def _is_valid_correlation_matrix(Sigma, tol=1e-6):
     if settings.verbose_linalg.on():
         settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {Sigma.shape}.")
 
-    evals, _ = torch.symeig(Sigma, eigenvectors=False)
+    evals = torch.linalg.eigvalsh(Sigma)
     if not torch.all(evals >= -tol):
         return False
     return all(torch.all(torch.abs(S.diag() - 1) < tol) for S in Sigma.view(-1, *Sigma.shape[-2:]))

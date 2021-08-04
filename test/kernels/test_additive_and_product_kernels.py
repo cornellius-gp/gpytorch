@@ -56,6 +56,23 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 2e-5)
 
+    def test_computes_product_of_radial_basis_function_batch(self):
+        a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
+        b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
+        lengthscale = 2
+
+        kernel_1 = RBFKernel(batch_shape=torch.Size([4])).initialize(lengthscale=lengthscale)
+        kernel_2 = RBFKernel().initialize(lengthscale=lengthscale)
+        kernel = kernel_1 * kernel_2
+
+        actual = torch.tensor([[16, 4], [4, 0], [64, 36]], dtype=torch.float)
+        actual = actual.mul_(-0.5).div_(lengthscale ** 2).exp() ** 2
+        actual = actual.repeat(4, 1, 1)
+
+        kernel.eval()
+        res = kernel(a, b).evaluate()
+        self.assertLess(torch.norm(res - actual), 2e-5)
+
     def test_computes_sum_of_radial_basis_function(self):
         a = torch.tensor([4, 2, 8], dtype=torch.float).view(3, 1)
         b = torch.tensor([0, 2], dtype=torch.float).view(2, 1)
@@ -339,6 +356,15 @@ class TestAdditiveAndProductKernel(unittest.TestCase):
         model.train()
         output = model.likelihood(model(train_x)).lazy_covariance_matrix.evaluate_kernel()
         self.assertIsInstance(output, gpytorch.lazy.AddedDiagLazyTensor)
+
+    def test_initialize(self):
+        kernel_1 = RBFKernel().initialize(lengthscale=1)
+        kernel_2 = RBFKernel().initialize(lengthscale=2)
+        kernel_add = kernel_1 + kernel_2
+        d = {"kernels.0.lengthscale": 0.0, "kernels.1.lengthscale": 5.0}
+        kernel_add.initialize(**d)
+        self.assertEqual(kernel_add.kernels[0].lengthscale, 0.0)
+        self.assertEqual(kernel_add.kernels[1].lengthscale, 5.0)
 
 
 if __name__ == "__main__":

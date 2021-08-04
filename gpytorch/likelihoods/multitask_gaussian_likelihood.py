@@ -12,6 +12,7 @@ from ..lazy import (
     DiagLazyTensor,
     KroneckerProductDiagLazyTensor,
     KroneckerProductLazyTensor,
+    LazyEvaluatedKernelTensor,
     RootLazyTensor,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
@@ -88,6 +89,10 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
         """
         mean, covar = function_dist.mean, function_dist.lazy_covariance_matrix
 
+        # ensure that sumKroneckerLT is actually called
+        if isinstance(covar, LazyEvaluatedKernelTensor):
+            covar = covar.evaluate_kernel()
+
         covar_kron_lt = self._shaped_noise_covar(mean.shape, add_noise=self.has_global_noise)
         covar = covar + covar_kron_lt
 
@@ -126,7 +131,7 @@ class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
 
     def forward(self, function_samples: Tensor, *params: Any, **kwargs: Any) -> base_distributions.Normal:
         noise = self._shaped_noise_covar(function_samples.shape, *params, **kwargs).diag()
-        noise = noise.view(*noise.shape[:-1], *function_samples.shape[-2:])
+        noise = noise.reshape(*noise.shape[:-1], *function_samples.shape[-2:])
         return base_distributions.Independent(base_distributions.Normal(function_samples, noise.sqrt()), 1)
 
 

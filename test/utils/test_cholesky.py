@@ -36,25 +36,26 @@ class TestPSDSafeCholesky(BaseTestCase, unittest.TestCase):
                     D = torch.eye(2).type_as(A)
                 A += D
                 # basic
-                L = torch.cholesky(A)
+                L = torch.linalg.cholesky(A)
                 L_safe = psd_safe_cholesky(A)
                 self.assertTrue(torch.allclose(L, L_safe))
                 # upper
-                L = torch.cholesky(A, upper=True)
+                L = torch.linalg.cholesky(A).transpose(-1, -2)
                 L_safe = psd_safe_cholesky(A, upper=True)
                 self.assertTrue(torch.allclose(L, L_safe))
                 # output tensors
                 L = torch.empty_like(A)
                 L_safe = torch.empty_like(A)
-                torch.cholesky(A, out=L)
+                torch.linalg.cholesky(A, out=L)
                 psd_safe_cholesky(A, out=L_safe)
                 self.assertTrue(torch.allclose(L, L_safe))
                 # output tensors, upper
-                torch.cholesky(A, upper=True, out=L)
+                torch.linalg.cholesky(A, out=L)
+                L = L.transpose(-1, -2)
                 psd_safe_cholesky(A, upper=True, out=L_safe)
                 self.assertTrue(torch.allclose(L, L_safe))
                 # make sure jitter doesn't do anything if p.d.
-                L = torch.cholesky(A)
+                L = torch.linalg.cholesky(A)
                 L_safe = psd_safe_cholesky(A, jitter=1e-2)
                 self.assertTrue(torch.allclose(L, L_safe))
 
@@ -75,7 +76,7 @@ class TestPSDSafeCholesky(BaseTestCase, unittest.TestCase):
                 # default values
                 Aprime = A.clone()
                 Aprime[..., idx, idx] += 1e-6 if A.dtype == torch.float32 else 1e-8
-                L_exp = torch.cholesky(Aprime)
+                L_exp = torch.linalg.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as w:
                     # Makes sure warnings we catch don't cause `-w error` to fail
                     warnings.simplefilter("always", NumericalWarning)
@@ -87,7 +88,7 @@ class TestPSDSafeCholesky(BaseTestCase, unittest.TestCase):
                 # user-defined value
                 Aprime = A.clone()
                 Aprime[..., idx, idx] += 1e-2
-                L_exp = torch.cholesky(Aprime)
+                L_exp = torch.linalg.cholesky(Aprime)
                 with warnings.catch_warnings(record=True) as w:
                     # Makes sure warnings we catch don't cause `-w error` to fail
                     warnings.simplefilter("always", NumericalWarning)

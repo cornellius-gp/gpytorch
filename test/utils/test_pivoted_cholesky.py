@@ -46,12 +46,12 @@ class TestPivotedCholesky(unittest.TestCase):
             F = lazy_tsr._piv_chol_self
             M = noise.diag() + F.matmul(F.t())
 
-        x_exact = torch.solve(y, M)[0]
+        x_exact = torch.linalg.solve(M, y)
         x_qr = precondition_qr(y)
 
         self.assertTrue(approx_equal(x_exact, x_qr, tol))
 
-        logdet = 2 * torch.cholesky(M).diag().log().sum(-1)
+        logdet = 2 * torch.linalg.cholesky(M).diag().log().sum(-1)
         self.assertTrue(approx_equal(logdet, logdet_qr, tol))
 
     def test_solve_qr_constant_noise(self, dtype=torch.float64, tol=1e-8):
@@ -67,12 +67,12 @@ class TestPivotedCholesky(unittest.TestCase):
             F = lazy_tsr._piv_chol_self
         M = noise.diag() + F.matmul(F.t())
 
-        x_exact = torch.solve(y, M)[0]
+        x_exact = torch.linalg.solve(M, y)
         x_qr = precondition_qr(y)
 
         self.assertTrue(approx_equal(x_exact, x_qr, tol))
 
-        logdet = 2 * torch.cholesky(M).diag().log().sum(-1)
+        logdet = 2 * torch.linalg.cholesky(M).diag().log().sum(-1)
         self.assertTrue(approx_equal(logdet, logdet_qr, tol))
 
     def test_solve_qr_float32(self):
