@@ -48,3 +48,12 @@ class TestInducingPointKernel(unittest.TestCase):
             output = model.likelihood(model(test_x))
             _ = output.mean + output.variance  # Compute something to break through any lazy evaluations
             self.assertTrue(ps_mock.called)
+
+        # Check whether changing diagonal correction makes a difference (ensuring that cache is cleared)
+        model.train(); model.eval();
+        with gpytorch.settings.sgpr_diagonal_correction(True), torch.no_grad():
+            output_mean_correct = model(test_x).mean
+        model.train(); model.eval();
+        with gpytorch.settings.sgpr_diagonal_correction(False), torch.no_grad():
+            output_mean_no_correct = model(test_x).mean
+        self.assertNotAlmostEqual(output_mean_correct.sum().item(), output_mean_no_correct.sum().item())
