@@ -640,6 +640,19 @@ class prior_mode(_feature_flag):
     _default = False
 
 
+class sgpr_diagonal_correction(_feature_flag):
+    """
+    If set to true, during posterior prediction the variances of the InducingPointKernel
+    will be corrected to match the variances of the exact kernel.
+
+    If false then no such correction will be performed (this is the default in other libraries).
+
+    (Default: True)
+    """
+
+    _default = True
+
+
 class skip_logdet_forward(_feature_flag):
     """
     .. warning:
