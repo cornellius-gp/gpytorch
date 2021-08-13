@@ -681,6 +681,17 @@ class skip_logdet_forward(_feature_flag):
     _default = False
 
 
+class symeig_dtype(_value_context):
+    """
+    Whether to perform symeig calls in double precision or in float or in half precision.
+    The default is to perform all symeig calls in double precision.
+
+    (Default: torch.double)
+    """
+
+    _global_value = torch.double
+
+
 class terminate_cg_by_size(_feature_flag):
     """
     If set to true, cg will terminate after n iterations for an n x n matrix.
