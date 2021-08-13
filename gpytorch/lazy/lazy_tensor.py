@@ -1122,6 +1122,42 @@ class LazyTensor(ABC):
         """
         return self.representation_tree()(*self.representation())
 
+    def float(self, device_id=None):
+        """
+        This method operates identically to :func:`torch.Tensor.float`.
+        """
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, "float"):
+                new_args.append(arg.float())
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, "float"):
+                new_kwargs[name] = val.float()
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
+
+    def half(self, device_id=None):
+        """
+        This method operates identically to :func:`torch.Tensor.half`.
+        """
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, "half"):
+                new_args.append(arg.half())
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, "half"):
+                new_kwargs[name] = val.half()
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
+
     def inv_matmul(self, right_tensor, left_tensor=None):
         r"""
         Computes a linear solve (w.r.t self = :math:`A`) with several right hand sides :math:`R`.
