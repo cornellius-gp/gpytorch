@@ -1960,6 +1960,16 @@ class LazyTensor(ABC):
 
         return res
 
+    def type(self, dtype):
+        if dtype == torch.float:
+            return self.float()
+        elif dtype == torch.double:
+            return self.double()
+        elif dtype == torch.half:
+            return self.half()
+        else:
+            raise RuntimeError("Dtype", dtype, "not found.")
+
     def unsqueeze(self, dim):
         positive_dim = (self.dim() + dim + 1) if dim < 0 else dim
         if positive_dim > len(self.batch_shape):
