@@ -3,6 +3,7 @@
 import math
 import warnings
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Optional, Tuple
 
 import torch
@@ -1067,12 +1068,18 @@ class LazyTensor(ABC):
         new_kwargs = {}
         for arg in self._args:
             if hasattr(arg, "double"):
-                new_args.append(arg.double())
+                try:
+                    new_args.append(arg.clone().double())
+                except AttributeError:
+                    new_args.append(deepcopy(arg).double())
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
             if hasattr(val, "double"):
-                new_kwargs[name] = val.double()
+                try:
+                    new_kwargs[name] = val.clone().double()
+                except AttributeError:
+                    new_kwargs[name] = deepcopy(val).double()
             else:
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
@@ -1130,12 +1137,18 @@ class LazyTensor(ABC):
         new_kwargs = {}
         for arg in self._args:
             if hasattr(arg, "float"):
-                new_args.append(arg.float())
+                try:
+                    new_args.append(arg.clone().float())
+                except AttributeError:
+                    new_args.append(deepcopy(arg).float())
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
             if hasattr(val, "float"):
-                new_kwargs[name] = val.float()
+                try:
+                    new_kwargs[name] = val.clone().float()
+                except AttributeError:
+                    new_kwargs[name] = deepcopy(val).float()
             else:
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
@@ -1148,12 +1161,18 @@ class LazyTensor(ABC):
         new_kwargs = {}
         for arg in self._args:
             if hasattr(arg, "half"):
-                new_args.append(arg.half())
+                try:
+                    new_args.append(arg.clone().half())
+                except AttributeError:
+                    new_args.append(deepcopy(arg).half())
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
             if hasattr(val, "half"):
-                new_kwargs[name] = val.half()
+                try:
+                    new_kwargs[name] = val.clone().half()
+                except AttributeError:
+                    new_kwargs[name] = deepcopy(val).half()
             else:
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
