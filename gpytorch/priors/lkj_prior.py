@@ -4,7 +4,7 @@ import math
 from numbers import Number
 
 import torch
-from torch.distributions import constraints
+from torch.distributions import Beta, constraints
 from torch.nn import Module as TModule
 
 from .. import settings
@@ -61,6 +61,47 @@ class LKJPrior(Prior):
         log_diag_sum = psd_safe_cholesky(X, upper=True).diagonal(dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
+    def _rsample(self, sample_shape=None, return_covariance=False):
+        # this sampling method comes from
+        # https://github.com/rmcelreath/rethinking/blob/2acf2fd7b01718cf66a8352c52d001886c7d3c4c/R/distributions.r#L214
+        if sample_shape is None:
+            sample_shape = torch.Size()
+
+        N = self.n.item()
+
+        alpha = self.eta + (N - 1) / 2
+        r12 = 2.0 * Beta(alpha, alpha).rsample(sample_shape) - 1
+        R = torch.zeros(*sample_shape, N, N)
+
+        R[..., 0, 0] = 1.0
+        R[..., 0, 1] = r12
+        R[..., 1, 1] = (1 - r12.pow(2)).pow(0.5)
+
+        for m in range(1, N):
+            alpha = alpha - 0.5
+            y = Beta(m / 2, alpha).rsample(sample_shape)
+
+            # uniform on a hypersphere
+            z = torch.randn(*sample_shape, m)
+            z = z / z.pow(2.0).sum(-1, keepdim=True).pow(0.5)
+
+            R[..., :m, m] = y.pow(0.5).unsqueeze(-1) * z
+            R[..., m, m] = (1.0 - y).pow(0.5)
+
+        sample_as_covariance = R.matmul(R.transpose(-1, -2))
+
+        if not return_covariance:
+            # we seem to need to back-convert the resulting matrix into a correlation matrix
+            inverse_diagonal = torch.diag_embed(
+                torch.diagonal(sample_shape, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
+            )
+            return inverse_diagonal.matmul(sample_as_covariance).matmul(inverse_diagonal)
+        else:
+            return sample_as_covariance
+
+    def rsample(self, sample_shape):
+        return self._rsample(sample_shape=sample_shape, return_covariance=False)
+
 
 class LKJCholeskyFactorPrior(LKJPrior):
     r"""LKJ prior over n x n (positive definite) Cholesky-decomposed
@@ -88,6 +129,9 @@ class LKJCholeskyFactorPrior(LKJPrior):
             raise ValueError("Input is not a Cholesky factor of a valid correlation matrix")
         log_diag_sum = torch.diagonal(X, dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
+
+    def rsample(self, sample_shape):
+        return super()._rsample(sample_shape=sample_shape, return_covariance=True)
 
 
 class LKJCovariancePrior(LKJPrior):
@@ -129,6 +173,11 @@ class LKJCovariancePrior(LKJPrior):
         log_prob_corr = self.correlation_prior.log_prob(correlations)
         log_prob_sd = self.sd_prior.log_prob(marginal_sd)
         return log_prob_corr + log_prob_sd
+
+    def rsample(self, sample_shape):
+        base_correlation = super().rsample(sample_shape)
+        marginal_vars = torch.diag_embed(self.sd_prior.rsample(sample_shape))
+        return marginal_vars.matmul(base_correlation).matmul(marginal_vars)
 
 
 def _batch_form_diag(tsr):
