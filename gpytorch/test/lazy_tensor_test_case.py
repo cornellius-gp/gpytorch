@@ -475,6 +475,14 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             self.assertAllClose(res, actual, **self.tolerances["cholesky"])
             # TODO: Check gradients
 
+    def test_double(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        res = lazy_tensor.double()
+        actual = evaluated.double()
+        self.assertEqual(res.dtype, actual.dtype)
+
     def test_diag(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
@@ -483,6 +491,25 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         actual = evaluated.diagonal(dim1=-2, dim2=-1)
         actual = actual.view(*lazy_tensor.batch_shape, -1)
         self.assertAllClose(res, actual, **self.tolerances["diag"])
+
+    def test_float(self):
+        lazy_tensor = self.create_lazy_tensor().double()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        res = lazy_tensor.float()
+        actual = evaluated.float()
+        self.assertEqual(res.dtype, actual.dtype)
+
+    def _test_half(self, lazy_tensor):
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        res = lazy_tensor.half()
+        actual = evaluated.half()
+        self.assertEqual(res.dtype, actual.dtype)
+
+    def test_half(self):
+        lazy_tensor = self.create_lazy_tensor()
+        self._test_half(lazy_tensor)
 
     def test_inv_matmul_vector(self, cholesky=False):
         lazy_tensor = self.create_lazy_tensor()

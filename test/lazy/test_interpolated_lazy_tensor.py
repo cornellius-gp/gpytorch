@@ -35,8 +35,8 @@ class TestInterpolatedLazyTensor(LazyTensorTestCase, unittest.TestCase):
         )
 
     def evaluate_lazy_tensor(self, lazy_tensor):
-        left_matrix = torch.zeros(4, 6)
-        right_matrix = torch.zeros(4, 6)
+        left_matrix = torch.zeros(4, 6, dtype=lazy_tensor.dtype)
+        right_matrix = torch.zeros(4, 6, dtype=lazy_tensor.dtype)
         left_matrix.scatter_(1, lazy_tensor.left_interp_indices, lazy_tensor.left_interp_values)
         right_matrix.scatter_(1, lazy_tensor.right_interp_indices, lazy_tensor.right_interp_values)
 
@@ -75,8 +75,8 @@ class TestInterpolatedLazyTensorBatch(LazyTensorTestCase, unittest.TestCase):
         left_matrix_comps = []
         right_matrix_comps = []
         for i in range(5):
-            left_matrix_comp = torch.zeros(4, 6)
-            right_matrix_comp = torch.zeros(4, 6)
+            left_matrix_comp = torch.zeros(4, 6, dtype=lazy_tensor.dtype)
+            right_matrix_comp = torch.zeros(4, 6, dtype=lazy_tensor.dtype)
             left_matrix_comp.scatter_(1, lazy_tensor.left_interp_indices[i], lazy_tensor.left_interp_values[i])
             right_matrix_comp.scatter_(1, lazy_tensor.right_interp_indices[i], lazy_tensor.right_interp_values[i])
             left_matrix_comps.append(left_matrix_comp.unsqueeze(0))
@@ -121,8 +121,8 @@ class TestInterpolatedLazyTensorMultiBatch(LazyTensorTestCase, unittest.TestCase
         right_matrix_comps = []
         for i in range(2):
             for j in range(5):
-                left_matrix_comp = torch.zeros(4, 6)
-                right_matrix_comp = torch.zeros(4, 6)
+                left_matrix_comp = torch.zeros(4, 6, dtype=lazy_tensor.dtype)
+                right_matrix_comp = torch.zeros(4, 6, dtype=lazy_tensor.dtype)
                 left_matrix_comp.scatter_(
                     1, lazy_tensor.left_interp_indices[i, j], lazy_tensor.left_interp_values[i, j]
                 )
