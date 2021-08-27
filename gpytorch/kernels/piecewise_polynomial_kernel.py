@@ -27,12 +27,12 @@ class PiecewisePolynomialKernel(Kernel):
     Gaussian Processes for Machine Learning, the MIT Press, 2006, ISBN 026218253X.
     c 2006 Massachusetts Institute of Technology. www.GaussianProcess.org/gpml
 
-        .. note::
+    .. note::
 
         This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
-    :param q: (default= 2) The smoothness parameter.
+    :param int q: (default= 2) The smoothness parameter.
     :type q: int (0, 1, 2 or 3)
     :param int ard_num_dims: (optional, default=None) Set this if you want a separate lengthscale for each
         input dimension. It should be `d` if `x1` is a `n x d` matrix. Default: `None`
@@ -42,7 +42,7 @@ class PiecewisePolynomialKernel(Kernel):
     :param active_dims: (optional, default = None)Set this if you want to compute the
         covariance of only a few input dimensions. The ints corresponds to the indices of the
         dimensions.
-    :type active_dims: tuple of ints
+    :type active_dims: tuple(int)
     :param lengthscale_prior: (optional, default = None) Set this if you want to apply
         a prior to the lengthscale parameter.
     :type lengthscale_prior: ~gpytorch.priors.Prior
@@ -55,7 +55,7 @@ class PiecewisePolynomialKernel(Kernel):
     Attributes:
         :param:`lengthscale` (Tensor):
             The lengthscale parameter. Size/shape of parameter depends on the
-            :param:`ard_num_dims` and :param:`batch_shape` arguments.
+            `ard_num_dims` and `batch_shape` arguments.
 
     Example:
         >>> x = torch.randn(10, 5)
