@@ -25,7 +25,6 @@ class TestPolynomialKernel(unittest.TestCase, BaseKernelTestCase):
 
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
-        print(actual)
         # diag
         res = kernel(a, b).diag()
         actual = actual.diag()
