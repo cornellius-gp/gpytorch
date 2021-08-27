@@ -54,7 +54,7 @@ Standard Kernels
    :members:
 
 :hidden:`PiecewisePolynomialKernel`
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: PiecewisePolynomialKernel
    :members:
