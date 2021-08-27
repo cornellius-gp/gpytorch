@@ -53,6 +53,12 @@ Standard Kernels
 .. autoclass:: PeriodicKernel
    :members:
 
+:hidden:`PiecewisePolynomialKernel`
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: PiecewisePolynomialKernel
+   :members:
+
 :hidden:`PolynomialKernel`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
