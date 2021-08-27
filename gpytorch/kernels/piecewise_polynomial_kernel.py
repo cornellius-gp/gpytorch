@@ -32,28 +32,29 @@ class PiecewisePolynomialKernel(Kernel):
 
     :param int q: (default= 2) The smoothness parameter.
     :type q: int (0, 1, 2 or 3)
-    :param int ard_num_dims: (optional, default=None) Set this if you want a separate lengthscale for each
-        input dimension. It should be `d` if `x1` is a `n x d` matrix. Default: `None`
-    :param batch_shape: (optional, default = torch.Size([])) Set this if you want a separate
-        lengthscale for each batch of input data. It should be `b` if `x1` is a `b x n x d` tensor.
-    :type batch_shape: torch.Size([])
-    :param active_dims: (optional, default = None)Set this if you want to compute the
-        covariance of only a few input dimensions. The ints corresponds to the indices of the
-        dimensions.
-    :type active_dims: tuple(int)
-    :param lengthscale_prior: (optional, default = None) Set this if you want to apply
-        a prior to the lengthscale parameter.
-    :type lengthscale_prior: ~gpytorch.priors.Prior
-    :param lengthscale_constraint: (optional, default = Positive) Set this if you want to
-        apply a constraint to the lengthscale parameter.
-    :type lengthscale_constraint: ~gpytorch.constraints.Positive
-    :param float eps: (default= 1e-6) The minimum value that the lengthscale can take
-        (prevents divide by zero errors).
+    :param ard_num_dims: (Default: `None`) Set this if you want a separate lengthscale for each
+        input dimension. It should be `d` if :attr:`x1` is a `... x n x d` matrix.
+    :type ard_num_dims: int, optional
+    :param batch_shape: (Default: `None`) Set this if you want a separate lengthscale for each
+         batch of input data. It should be `torch.Size([b1, b2])` for a `b1 x b2 x n x m` kernel output.
+    :type batch_shape: torch.Size, optional
+    :param active_dims: (Default: `None`) Set this if you want to
+        compute the covariance of only a few input dimensions. The ints
+        corresponds to the indices of the dimensions.
+    :type active_dims: Tuple(int)
+    :param lengthscale_prior: (Default: `None`)
+        Set this if you want to apply a prior to the lengthscale parameter.
+    :type lengthscale_prior: ~gpytorch.priors.Prior, optional
+    :param lengthscale_constraint: (Default: `Positive`) Set this if you want
+        to apply a constraint to the lengthscale parameter.
+    :type lengthscale_constraint: ~gpytorch.constraints.Interval, optional
+    :param eps: (Default: 1e-6) The minimum value that the lengthscale can take (prevents divide by zero errors).
+    :type eps: float, optional
 
-    Attributes:
-        :param:`lengthscale` (Tensor):
-            The lengthscale parameter. Size/shape of parameter depends on the
-            `ard_num_dims` and `batch_shape` arguments.
+    :var torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
+        :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
+
+
 
     Example:
         >>> x = torch.randn(10, 5)
