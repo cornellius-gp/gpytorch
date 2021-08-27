@@ -27,9 +27,7 @@ class PiecewisePolynomialKernel(Kernel):
     Gaussian Processes for Machine Learning, the MIT Press, 2006, ISBN 026218253X.
     c 2006 Massachusetts Institute of Technology. www.GaussianProcess.org/gpml
 
-    .. note::
-
-        This kernel does not have an `outputscale` parameter. To add a scaling parameter,
+    .. note:: This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
 
     :param int q: (default= 2) The smoothness parameter.
@@ -49,7 +47,7 @@ class PiecewisePolynomialKernel(Kernel):
     :param lengthscale_constraint: (optional, default = Positive) Set this if you want to
         apply a constraint to the lengthscale parameter.
     :type lengthscale_constraint: ~gpytorch.constraints.Positive
-    :param eps (float): (Default= 1e-6): The minimum value that the lengthscale can take
+    :param floats eps: (Default= 1e-6): The minimum value that the lengthscale can take
         (prevents divide by zero errors).
 
     Attributes:
