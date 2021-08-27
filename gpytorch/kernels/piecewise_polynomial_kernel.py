@@ -36,17 +36,17 @@ class PiecewisePolynomialKernel(Kernel):
     :type q: int (0, 1, 2 or 3)
     :param int ard_num_dims: (optional, default=None) Set this if you want a separate lengthscale for each
         input dimension. It should be `d` if `x1` is a `n x d` matrix. Default: `None`
-    :param batch_shape (optional, default = torch.Size([])): Set this if you want a separate
+    :param batch_shape: (optional, default = torch.Size([])) Set this if you want a separate
         lengthscale for each batch of input data. It should be `b` if `x1` is a `b x n x d` tensor.
     :type batch_shape: torch.Size([])
-    :param active_dims (optional, default = None):Set this if you want to compute the
+    :param active_dims: (optional, default = None)Set this if you want to compute the
         covariance of only a few input dimensions. The ints corresponds to the indices of the
         dimensions.
     :type active_dims: tuple of ints
-    :param lengthscale_prior (optional, default = None): Set this if you want to apply
+    :param lengthscale_prior: (optional, default = None) Set this if you want to apply
         a prior to the lengthscale parameter.
     :type lengthscale_prior: ~gpytorch.priors.Prior
-    :param lengthscale_constraint (optional, default = Positive): Set this if you want to
+    :param lengthscale_constraint: (optional, default = Positive) Set this if you want to
         apply a constraint to the lengthscale parameter.
     :type lengthscale_constraint: ~gpytorch.constraints.Positive
     :param eps (float): (Default= 1e-6): The minimum value that the lengthscale can take
