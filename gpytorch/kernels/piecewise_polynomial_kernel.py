@@ -11,8 +11,9 @@ class PiecewisePolynomialKernel(Kernel):
     .. math::
 
         \begin{equation*}
-            r = \norm{x1 - x2} \\
-            j = \lfloor frac{D}{2} \rfloor + q +1 \\
+        \begin{aligned}
+            r = \left\Vert x1 - x2 \right\Vert \\
+            j = \lfloor \frac{D}{2} \rfloor + q +1 \\
             K_{\text{ppD, 0}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)^j_+ , \\
             K_{\text{ppD, 1}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)^{j+1}_+ ((j + 1)r + 1), \\
             K_{\text{ppD, 2}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)^{j+2}_+ ((1 + (j+2)r +
@@ -20,10 +21,11 @@ class PiecewisePolynomialKernel(Kernel):
             K_{\text{ppD, 3}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)^{j+3}_+
                 (1 + (j+3)r + \frac{6j^2 + 36j + 45}{15}r^2 +
                 \frac{j^3 + 9j^2 + 23j +15}{15}r^3) \\
+        \end{aligned}
         \end{equation*}
 
-    where :math: `K_{\text{ppD, q}}` is positive semidefinite in :math: `\mathbb{R}^{D}` and
-    :math: `q` is the smoothness coefficient. Equation taken from Equation 4.21, C. E. Rasmussen & C. K. I. Williams,
+    where :math:`K_{\text{ppD, q}}` is positive semidefinite in :math:`\mathbb{R}^{D}` and
+    :math:`q` is the smoothness coefficient. Equation taken from Equation 4.21, C. E. Rasmussen & C. K. I. Williams,
     Gaussian Processes for Machine Learning, the MIT Press, 2006, ISBN 026218253X.
     c 2006 Massachusetts Institute of Technology. www.GaussianProcess.org/gpml
 
