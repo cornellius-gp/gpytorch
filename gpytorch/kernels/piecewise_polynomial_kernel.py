@@ -12,13 +12,13 @@ class PiecewisePolynomialKernel(Kernel):
 
         \begin{equation*}
         \begin{aligned}
-            r = \left\Vert x1 - x2 \right\Vert \\
-            j = \lfloor \frac{D}{2} \rfloor + q +1 \\
-            K_{\text{ppD, 0}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)^j_+ , \\
-            K_{\text{ppD, 1}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)^{j+1}_+ ((j + 1)r + 1), \\
-            K_{\text{ppD, 2}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)^{j+2}_+ ((1 + (j+2)r +
+            r &= \left\Vert x1 - x2 \right\Vert \\
+            j &= \lfloor \frac{D}{2} \rfloor + q +1 \\
+            K_{\text{ppD, 0}}(\mathbf{x_1}, \mathbf{x_2}) &= (1-r)^j_+ , \\
+            K_{\text{ppD, 1}}(\mathbf{x_1}, \mathbf{x_2}) &= (1-r)^{j+1}_+ ((j + 1)r + 1), \\
+            K_{\text{ppD, 2}}(\mathbf{x_1}, \mathbf{x_2}) &= (1-r)^{j+2}_+ ((1 + (j+2)r +
                 \frac{j^2 + 4j + 3}{3}r^2), \\
-            K_{\text{ppD, 3}}(\mathbf{x_1}, \mathbf{x_2}) = (1-r)^{j+3}_+
+            K_{\text{ppD, 3}}(\mathbf{x_1}, \mathbf{x_2}) &= (1-r)^{j+3}_+
                 (1 + (j+3)r + \frac{6j^2 + 36j + 45}{15}r^2 +
                 \frac{j^3 + 9j^2 + 23j +15}{15}r^3) \\
         \end{aligned}
