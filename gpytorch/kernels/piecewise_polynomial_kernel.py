@@ -10,7 +10,6 @@ class PiecewisePolynomialKernel(Kernel):
 
     .. math::
 
-        \begin{equation*}
         \begin{align}
             r &= \left\Vert x1 - x2 \right\Vert \\
             j &= \lfloor \frac{D}{2} \rfloor + q +1 \\
@@ -22,7 +21,6 @@ class PiecewisePolynomialKernel(Kernel):
                 (1 + (j+3)r + \frac{6j^2 + 36j + 45}{15}r^2 +
                 \frac{j^3 + 9j^2 + 23j +15}{15}r^3) \\
         \end{align}
-        \end{equation*}
 
     where :math:`K_{\text{ppD, q}}` is positive semidefinite in :math:`\mathbb{R}^{D}` and
     :math:`q` is the smoothness coefficient. Equation taken from Equation 4.21, C. E. Rasmussen & C. K. I. Williams,
