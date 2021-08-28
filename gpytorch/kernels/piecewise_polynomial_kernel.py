@@ -11,7 +11,7 @@ class PiecewisePolynomialKernel(Kernel):
     .. math::
 
         \begin{equation*}
-        \begin{aligned}
+        \begin{align}
             r &= \left\Vert x1 - x2 \right\Vert \\
             j &= \lfloor \frac{D}{2} \rfloor + q +1 \\
             K_{\text{ppD, 0}}(\mathbf{x_1}, \mathbf{x_2}) &= (1-r)^j_+ , \\
@@ -21,7 +21,7 @@ class PiecewisePolynomialKernel(Kernel):
             K_{\text{ppD, 3}}(\mathbf{x_1}, \mathbf{x_2}) &= (1-r)^{j+3}_+
                 (1 + (j+3)r + \frac{6j^2 + 36j + 45}{15}r^2 +
                 \frac{j^3 + 9j^2 + 23j +15}{15}r^3) \\
-        \end{aligned}
+        \end{align}
         \end{equation*}
 
     where :math:`K_{\text{ppD, q}}` is positive semidefinite in :math:`\mathbb{R}^{D}` and
