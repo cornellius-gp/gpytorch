@@ -64,4 +64,5 @@ setup(
         "keops": ["pykeops>=1.1.1"],
         "test": ["flake8", "flake8-print", "pytest", "nbval"],
     },
+    test_suite="test",
 )
