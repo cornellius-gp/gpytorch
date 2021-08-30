@@ -199,9 +199,14 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         x1 = self.x1
         x2 = self.x2
-        num_outputs_per_input = self.kernel.num_outputs_per_input(x1, x2)
-        num_rows = x1.size(-2) * num_outputs_per_input
-        num_cols = x2.size(-2) * num_outputs_per_input
+        num_outs_per_in = self.kernel.num_outputs_per_input(x1, x2)
+        if isinstance(num_outs_per_in, tuple):
+            num_outs_per_in_rows, num_outs_per_in_cols = num_outs_per_in
+        else:
+            num_outs_per_in_rows = num_outs_per_in
+            num_outs_per_in_cols = num_outs_per_in
+        num_rows = x1.size(-2) * num_outs_per_in_rows
+        num_cols = x2.size(-2) * num_outs_per_in_cols
 
         # Default case - when we're not using broadcasting
         # We write this case special for efficiency
