@@ -54,13 +54,18 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         x1 = self.x1
         x2 = self.x2
         num_outs_per_in = self.kernel.num_outputs_per_input(x1, x2)
+        if isinstance(num_outs_per_in, tuple):
+            num_outs_per_in_rows, num_outs_per_in_cols = num_outs_per_in
+        else:
+            num_outs_per_in_rows = num_outs_per_in
+            num_outs_per_in_cols = num_outs_per_in
 
         # The row index and col index should exactly correspond to which entries of x1 and x2 we need
         # So we'll basically call x1[*batch_indices, row_index, :], x2[*batch_indices, col_index, :]
 
         # However - if we have multiple outputs per input, then the indices won't directly
         # correspond to the entries of row/col. We'll have to do a little pre-processing
-        if num_outs_per_in != 1:
+        if num_outs_per_in_rows != 1 or num_outs_per_in_cols != 1:
             if not isinstance(x1, slice) or not isinstance(x2, slice):
                 # It's too complicated to deal with tensor indices in this case - we'll use the super method
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
@@ -73,16 +78,16 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             if row_step is not None or col_step is not None:
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
             if (
-                (row_start % num_outs_per_in)
-                or (col_start % num_outs_per_in)
-                or (row_end % num_outs_per_in)
-                or (col_end % num_outs_per_in)
+                (row_start % num_outs_per_in_rows)
+                or (col_start % num_outs_per_in_cols)
+                or (row_end % num_outs_per_in_rows)
+                or (col_end % num_outs_per_in_cols)
             ):
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
 
             # Otherwise - let's divide the slices by the number of outputs per input
-            row_index = slice(row_start // num_outs_per_in, row_end // num_outs_per_in, None)
-            col_index = slice(col_start // num_outs_per_in, col_end // num_outs_per_in, None)
+            row_index = slice(row_start // num_outs_per_in_rows, row_end // num_outs_per_in_rows, None)
+            col_index = slice(col_start // num_outs_per_in_cols, col_end // num_outs_per_in_cols, None)
 
         # Define the index we're using for the last index
         # If the last index corresponds to a batch, then we'll use the appropriate batch_index
