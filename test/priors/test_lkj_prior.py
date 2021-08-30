@@ -6,6 +6,7 @@ from math import exp
 import torch
 
 from gpytorch.priors import LKJCholeskyFactorPrior, LKJCovariancePrior, LKJPrior, SmoothedBoxPrior
+from gpytorch.priors.lkj_prior import _is_valid_correlation_matrix, _is_valid_correlation_matrix_cholesky_factor
 from gpytorch.test.utils import approx_equal, least_used_cuda_device
 
 
@@ -58,6 +59,12 @@ class TestLKJPrior(unittest.TestCase):
         if torch.cuda.is_available():
             with least_used_cuda_device():
                 self.test_lkj_prior_batch_log_prob(cuda=True)
+
+    def test_lkj_prior_rsample(self):
+        prior = LKJPrior(2, 0.5)
+        random_samples = prior.rsample(torch.Size((6,)))
+        self.assertTrue(_is_valid_correlation_matrix(random_samples))
+        self.assertEqual(random_samples.shape, torch.Size((6, 2, 2)))
 
 
 class TestLKJCholeskyFactorPrior(unittest.TestCase):
@@ -112,6 +119,12 @@ class TestLKJCholeskyFactorPrior(unittest.TestCase):
         if torch.cuda.is_available():
             with least_used_cuda_device():
                 self.test_lkj_cholesky_factor_prior_batch_log_prob(cuda=True)
+
+    def test_lkj_prior_rsample(self):
+        prior = LKJCholeskyFactorPrior(2, 0.5)
+        random_samples = prior.rsample(torch.Size((6,)))
+        self.assertTrue(_is_valid_correlation_matrix_cholesky_factor(random_samples))
+        self.assertEqual(random_samples.shape, torch.Size((6, 2, 2)))
 
 
 class TestLKJCovariancePrior(unittest.TestCase):
@@ -196,6 +209,14 @@ class TestLKJCovariancePrior(unittest.TestCase):
         if torch.cuda.is_available():
             with least_used_cuda_device():
                 self.test_lkj_covariance_prior_batch_log_prob(cuda=True)
+
+    def test_lkj_prior_rsample(self):
+        prior = LKJCovariancePrior(2, 0.5, sd_prior=SmoothedBoxPrior(exp(-1), exp(1)))
+        random_samples = prior.rsample(torch.Size((6,)))
+        # only need to check that this is a PSD matrix
+        self.assertTrue(random_samples.symeig()[0].min() >= 0)
+
+        self.assertEqual(random_samples.shape, torch.Size((6, 2, 2)))
 
 
 if __name__ == "__main__":

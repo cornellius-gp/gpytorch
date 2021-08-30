@@ -71,7 +71,7 @@ class LKJPrior(Prior):
 
         alpha = self.eta + (N - 1) / 2
         r12 = 2.0 * Beta(alpha, alpha).rsample(sample_shape) - 1
-        R = torch.zeros(*sample_shape, N, N)
+        R = torch.zeros(*sample_shape, N, N, device=self.eta.device, dtype=self.eta.dtype)
 
         R[..., 0, 0] = 1.0
         R[..., 0, 1] = r12
@@ -82,7 +82,7 @@ class LKJPrior(Prior):
             y = Beta(m / 2, alpha).rsample(sample_shape)
 
             # uniform on a hypersphere
-            z = torch.randn(*sample_shape, m)
+            z = torch.randn(*sample_shape, m, device=self.eta.device, dtype=self.eta.dtype)
             z = z / z.pow(2.0).sum(-1, keepdim=True).pow(0.5)
 
             R[..., :m, m] = y.pow(0.5).unsqueeze(-1) * z
@@ -131,7 +131,8 @@ class LKJCholeskyFactorPrior(LKJPrior):
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
     def rsample(self, sample_shape):
-        return super()._rsample(sample_shape=sample_shape, return_covariance=True)
+        res = super()._rsample(sample_shape=sample_shape, return_covariance=False)
+        return res.cholesky()
 
 
 class LKJCovariancePrior(LKJPrior):
@@ -175,9 +176,20 @@ class LKJCovariancePrior(LKJPrior):
         return log_prob_corr + log_prob_sd
 
     def rsample(self, sample_shape):
-        base_correlation = super().rsample(sample_shape)
-        marginal_vars = torch.diag_embed(self.sd_prior.rsample(sample_shape))
-        return marginal_vars.matmul(base_correlation).matmul(marginal_vars)
+        base_correlation = self.correlation_prior.rsample(sample_shape)
+        marginal_sds = self.sd_prior.rsample(sample_shape)
+        # create an empty diagonal matrix
+        empty_diag_mat = torch.zeros(
+            *sample_shape,
+            self.correlation_prior.n,
+            self.correlation_prior.n,
+            device=base_correlation.device,
+            dtype=base_correlation.dtype,
+        )
+        # and add to the batch dimension
+        marginal_sds = marginal_sds.unsqueeze(-1) + empty_diag_mat
+        print(marginal_sds.shape, base_correlation.shape)
+        return marginal_sds.matmul(base_correlation).matmul(marginal_sds)
 
 
 def _batch_form_diag(tsr):
