@@ -3,6 +3,7 @@
 import math
 import warnings
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Optional, Tuple
 
 import torch
@@ -29,6 +30,8 @@ from ..utils.pinverse import stable_pinverse
 from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
+
+_TYPES_DICT = {torch.float: "float", torch.half: "half", torch.double: "double"}
 
 
 class LazyTensor(ABC):
@@ -1063,19 +1066,7 @@ class LazyTensor(ABC):
         """
         This method operates identically to :func:`torch.Tensor.double`.
         """
-        new_args = []
-        new_kwargs = {}
-        for arg in self._args:
-            if hasattr(arg, "double"):
-                new_args.append(arg.double())
-            else:
-                new_args.append(arg)
-        for name, val in self._kwargs.items():
-            if hasattr(val, "double"):
-                new_kwargs[name] = val.double()
-            else:
-                new_kwargs[name] = val
-        return self.__class__(*new_args, **new_kwargs)
+        return self.type(torch.double)
 
     @property
     def dtype(self):
@@ -1121,6 +1112,18 @@ class LazyTensor(ABC):
         all lazily evaluated kernels actually evaluated.
         """
         return self.representation_tree()(*self.representation())
+
+    def float(self, device_id=None):
+        """
+        This method operates identically to :func:`torch.Tensor.float`.
+        """
+        return self.type(torch.float)
+
+    def half(self, device_id=None):
+        """
+        This method operates identically to :func:`torch.Tensor.half`.
+        """
+        return self.type(torch.half)
 
     def inv_matmul(self, right_tensor, left_tensor=None):
         r"""
@@ -1924,6 +1927,32 @@ class LazyTensor(ABC):
 
         return res
 
+    def type(self, dtype):
+        """
+        This method operates similarly to :func:`torch.Tensor.type`.
+        """
+        attr_flag = _TYPES_DICT[dtype]
+
+        new_args = []
+        new_kwargs = {}
+        for arg in self._args:
+            if hasattr(arg, attr_flag):
+                try:
+                    new_args.append(arg.clone().to(dtype))
+                except AttributeError:
+                    new_args.append(deepcopy(arg).to(dtype))
+            else:
+                new_args.append(arg)
+        for name, val in self._kwargs.items():
+            if hasattr(val, attr_flag):
+                try:
+                    new_kwargs[name] = val.clone().to(dtype)
+                except AttributeError:
+                    new_kwargs[name] = deepcopy(val).to(dtype)
+            else:
+                new_kwargs[name] = val
+        return self.__class__(*new_args, **new_kwargs)
+
     def unsqueeze(self, dim):
         positive_dim = (self.dim() + dim + 1) if dim < 0 else dim
         if positive_dim > len(self.batch_shape):
@@ -2141,10 +2170,11 @@ class LazyTensor(ABC):
         if settings.verbose_linalg.on():
             settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {self.shape}.")
 
-        dtype = self.dtype  # perform decomposition in double precision for numerical stability
-        # TODO: Use fp64 registry once #1213 is addressed
-        evals, evecs = torch.linalg.eigh(self.evaluate().to(dtype=torch.double))
-        # chop any negative eigenvalues. TODO: warn if evals are significantly negative
+        # potentially perform decomposition in double precision for numerical stability
+        dtype = self.dtype
+        evals, evecs = torch.linalg.eigh(self.evaluate().to(dtype=settings._linalg_dtype_symeig.value()))
+        # chop any negative eigenvalues.
+        # TODO: warn if evals are significantly negative
         evals = evals.clamp_min(0.0).to(dtype=dtype)
         if eigenvectors:
             evecs = NonLazyTensor(evecs.to(dtype=dtype))

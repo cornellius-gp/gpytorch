@@ -127,6 +127,13 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
     def test_quad_form_derivative(self):
         pass
 
+    def test_half(self):
+        # many transform operations aren't supported in half so we overwrite
+        # this test
+        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor.kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
+        self._test_half(lazy_tensor)
+
 
 class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorBatch):
     seed = 0
@@ -139,6 +146,13 @@ class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorB
 
     def test_inv_matmul_matrix_with_checkpointing(self):
         pass
+
+    def test_half(self):
+        # many transform operations aren't supported in half so we overwrite
+        # this test
+        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor.kernel.data_covar_module.raw_lengthscale_constraint.transform = lambda x: x + 0.1
+        self._test_half(lazy_tensor)
 
 
 class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
@@ -162,3 +176,10 @@ class TestLazyEvaluatedKernelTensorAdditive(TestLazyEvaluatedKernelTensorBatch):
 
     def test_inv_matmul_matrix_with_checkpointing(self):
         pass
+
+    def test_half(self):
+        # many transform operations aren't supported in half so we overwrite
+        # this test
+        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor.kernel.base_kernel.raw_lengthscale_constraint.transform = lambda x: x + 0.1
+        self._test_half(lazy_tensor)

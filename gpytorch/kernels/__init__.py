@@ -18,6 +18,7 @@ from .multi_device_kernel import MultiDeviceKernel
 from .multitask_kernel import MultitaskKernel
 from .newton_girard_additive_kernel import NewtonGirardAdditiveKernel
 from .periodic_kernel import PeriodicKernel
+from .piecewise_polynomial_kernel import PiecewisePolynomialKernel
 from .polynomial_kernel import PolynomialKernel
 from .polynomial_kernel_grad import PolynomialKernelGrad
 from .product_structure_kernel import ProductStructureKernel
@@ -50,6 +51,7 @@ __all__ = [
     "MultitaskKernel",
     "NewtonGirardAdditiveKernel",
     "PeriodicKernel",
+    "PiecewisePolynomialKernel",
     "PolynomialKernel",
     "PolynomialKernelGrad",
     "ProductKernel",
