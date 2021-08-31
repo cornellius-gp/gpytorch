@@ -2170,10 +2170,11 @@ class LazyTensor(ABC):
         if settings.verbose_linalg.on():
             settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {self.shape}.")
 
-        dtype = self.dtype  # perform decomposition in double precision for numerical stability
-        # TODO: Use fp64 registry once #1213 is addressed
-        evals, evecs = torch.linalg.eigh(self.evaluate().to(dtype=torch.double))
-        # chop any negative eigenvalues. TODO: warn if evals are significantly negative
+        # potentially perform decomposition in double precision for numerical stability
+        dtype = self.dtype
+        evals, evecs = torch.linalg.eigh(self.evaluate().to(dtype=settings._linalg_dtype_symeig.value()))
+        # chop any negative eigenvalues.
+        # TODO: warn if evals are significantly negative
         evals = evals.clamp_min(0.0).to(dtype=dtype)
         if eigenvectors:
             evecs = NonLazyTensor(evecs.to(dtype=dtype))
