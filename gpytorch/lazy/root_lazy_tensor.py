@@ -56,7 +56,7 @@ class RootLazyTensor(LazyTensor):
         return self.root._matmul(self.root._t_matmul(rhs))
 
     def _mul_constant(self, constant):
-        if constant > 0:
+        if (constant > 0).all():
             res = self.__class__(self.root._mul_constant(constant.sqrt()))
         else:
             res = super()._mul_constant(constant)
