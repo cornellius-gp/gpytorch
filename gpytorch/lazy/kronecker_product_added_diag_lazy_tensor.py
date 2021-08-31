@@ -119,7 +119,7 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
         rhs_dtype = rhs.dtype
 
         # we perform the solve in double for numerical stability issues
-        symeig_dtype = settings._linalg_symeig.value()
+        symeig_dtype = settings._linalg_dtype_symeig.value()
 
         # if the diagonal is constant, we can solve this using the Kronecker-structured eigendecomposition
         # and performing a spectral shift of its eigenvalues

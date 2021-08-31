@@ -2172,7 +2172,7 @@ class LazyTensor(ABC):
 
         # potentially perform decomposition in double precision for numerical stability
         dtype = self.dtype
-        evals, evecs = torch.linalg.eigh(self.evaluate().to(dtype=settings._linalg_symeig.value()))
+        evals, evecs = torch.linalg.eigh(self.evaluate().to(dtype=settings._linalg_dtype_symeig.value()))
         # chop any negative eigenvalues.
         # TODO: warn if evals are significantly negative
         evals = evals.clamp_min(0.0).to(dtype=dtype)

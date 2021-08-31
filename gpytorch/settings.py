@@ -681,11 +681,11 @@ class skip_logdet_forward(_feature_flag):
     _default = False
 
 
-class _linalg_symeig(_value_context):
+class _linalg_dtype_symeig(_value_context):
     _global_value = torch.double
 
 
-class _linalg_cholesky(_value_context):
+class _linalg_dtype_cholesky(_value_context):
     _global_value = torch.double
 
 
@@ -702,8 +702,8 @@ class linalg_dtypes:
         symeig = default if symeig is None else symeig
         cholesky = default if cholesky is None else cholesky
 
-        self.symeig = _linalg_symeig(symeig)
-        self.cholesky = _linalg_cholesky(cholesky)
+        self.symeig = _linalg_dtype_symeig(symeig)
+        self.cholesky = _linalg_dtype_cholesky(cholesky)
 
     def __enter__(self):
         self.symeig.__enter__()
