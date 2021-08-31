@@ -152,7 +152,10 @@ class LKJCovariancePrior(LKJPrior):
             raise ValueError("sd_prior must be an instance of Prior")
         if not isinstance(n, int):
             raise ValueError("n must be an integer")
-        if sd_prior.event_shape not in {torch.Size([1]), torch.Size([n])}:
+        # bug-fix event shapes if necessary
+        if sd_prior.event_shape not in {torch.Size([1]), torch.Size([n]), torch.Size([])}:
+            if sd_prior.event_shape == torch.Size([]):
+                sd_prior._event_shape = torch.Size([1])
             raise ValueError("sd_prior must have event_shape 1 or n")
         correlation_prior = LKJPrior(n=n, eta=eta, validate_args=validate_args)
         if sd_prior.batch_shape != correlation_prior.batch_shape:
@@ -188,7 +191,6 @@ class LKJCovariancePrior(LKJPrior):
         )
         # and add to the batch dimension
         marginal_sds = marginal_sds.unsqueeze(-1) + empty_diag_mat
-        print(marginal_sds.shape, base_correlation.shape)
         return marginal_sds.matmul(base_correlation).matmul(marginal_sds)
 
 
