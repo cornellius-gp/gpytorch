@@ -23,9 +23,7 @@ class PiecewisePolynomialKernel(Kernel):
         \end{align}
 
     where :math:`K_{\text{ppD, q}}` is positive semidefinite in :math:`\mathbb{R}^{D}` and
-    :math:`q` is the smoothness coefficient. Equation taken from Equation 4.21, C. E. Rasmussen & C. K. I. Williams,
-    Gaussian Processes for Machine Learning, the MIT Press, 2006, ISBN 026218253X.
-    c 2006 Massachusetts Institute of Technology. www.GaussianProcess.org/gpml
+    :math:`q` is the smoothness coefficient. See `Rasmussen and Williams (2006)`_ Equation 4.21. 
 
     .. note:: This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
@@ -54,7 +52,8 @@ class PiecewisePolynomialKernel(Kernel):
     :var torch.Tensor lengthscale: The lengthscale parameter. Size/shape of parameter depends on the
         :attr:`ard_num_dims` and :attr:`batch_shape` arguments.
 
-
+    .. _Rasmussen and Williams (2006):
+        http://www.gaussianprocess.org/gpml/
 
     Example:
         >>> x = torch.randn(10, 5)
