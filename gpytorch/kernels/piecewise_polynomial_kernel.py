@@ -23,7 +23,7 @@ class PiecewisePolynomialKernel(Kernel):
         \end{align}
 
     where :math:`K_{\text{ppD, q}}` is positive semidefinite in :math:`\mathbb{R}^{D}` and
-    :math:`q` is the smoothness coefficient. See `Rasmussen and Williams (2006)`_ Equation 4.21. 
+    :math:`q` is the smoothness coefficient. See `Rasmussen and Williams (2006)`_ Equation 4.21.
 
     .. note:: This kernel does not have an `outputscale` parameter. To add a scaling parameter,
         decorate this kernel with a :class:`gpytorch.kernels.ScaleKernel`.
