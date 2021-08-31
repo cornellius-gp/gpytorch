@@ -755,10 +755,8 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["sqrt_inv_matmul"])
 
     def test_symeig(self):
-        dtype_names = ["double", "float"]
         dtypes = {"double": torch.double, "float": torch.float}
-        for name in dtype_names:
-            dtype = dtypes[name]
+        for name, dtype in dtypes.items():
             tolerances = self.tolerances["symeig"][name]
 
             lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
