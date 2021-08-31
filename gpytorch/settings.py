@@ -671,7 +671,7 @@ class skip_logdet_forward(_feature_flag):
     pass will skip certain computations (i.e. the logdet computation), and will therefore
     be improper estimates.
 
-    If you're using SGD (or a varient) to optimize parameters, you probably
+    If you're using SGD (or a variant) to optimize parameters, you probably
     don't need an accurate MLL estimate; you only need accurate gradients. So
     this setting may give your model a performance boost.
 
@@ -679,6 +679,40 @@ class skip_logdet_forward(_feature_flag):
     """
 
     _default = False
+
+
+class _linalg_dtype_symeig(_value_context):
+    _global_value = torch.double
+
+
+class _linalg_dtype_cholesky(_value_context):
+    _global_value = torch.double
+
+
+class linalg_dtypes:
+    """
+    Whether to perform less stable linalg calls in double precision or in a lower precision.
+    Currently, the default is to apply all symeig calls and cholesky calls within variational
+    methods in double precision.
+
+    (Default: torch.double)
+    """
+
+    def __init__(self, default=torch.double, symeig=None, cholesky=None):
+        symeig = default if symeig is None else symeig
+        cholesky = default if cholesky is None else cholesky
+
+        self.symeig = _linalg_dtype_symeig(symeig)
+        self.cholesky = _linalg_dtype_cholesky(cholesky)
+
+    def __enter__(self):
+        self.symeig.__enter__()
+        self.cholesky.__enter__()
+
+    def __exit__(self, *args):
+        self.symeig.__exit__()
+        self.cholesky.__exit__()
+        return False
 
 
 class terminate_cg_by_size(_feature_flag):

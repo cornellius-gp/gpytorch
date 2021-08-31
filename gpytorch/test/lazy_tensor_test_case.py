@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
+from gpytorch.settings import linalg_dtypes
 from gpytorch.utils.cholesky import CHOLESKY_METHOD
 
 from .base_test_case import BaseTestCase
@@ -295,7 +296,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         "root_inv_decomposition": {"rtol": 0.05, "atol": 0.02},
         "sample": {"rtol": 0.3, "atol": 0.3},
         "sqrt_inv_matmul": {"rtol": 1e-4, "atol": 1e-3},
-        "symeig": {"rtol": 1e-4, "atol": 1e-3},
+        "symeig": {"double": {"rtol": 1e-4, "atol": 1e-3}, "float": {"rtol": 1e-3, "atol": 1e-2}},
         "svd": {"rtol": 1e-4, "atol": 1e-3},
     }
 
@@ -754,51 +755,56 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["sqrt_inv_matmul"])
 
     def test_symeig(self):
-        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        dtypes = {"double": torch.double, "float": torch.float}
+        for name, dtype in dtypes.items():
+            tolerances = self.tolerances["symeig"][name]
 
-        # Perform forward pass
-        evals_unsorted, evecs_unsorted = lazy_tensor.symeig(eigenvectors=True)
-        evecs_unsorted = evecs_unsorted.evaluate()
+            lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+            lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
-        # since LazyTensor.symeig does not sort evals, we do this here for the check
-        evals, idxr = torch.sort(evals_unsorted, dim=-1, descending=False)
-        evecs = torch.gather(evecs_unsorted, dim=-1, index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape))
+            # Perform forward pass
+            with linalg_dtypes(dtype):
+                evals_unsorted, evecs_unsorted = lazy_tensor.symeig(eigenvectors=True)
+                evecs_unsorted = evecs_unsorted.evaluate()
 
-        evals_actual, evecs_actual = torch.linalg.eigh(evaluated.double())
-        evals_actual = evals_actual.to(dtype=evaluated.dtype)
-        evecs_actual = evecs_actual.to(dtype=evaluated.dtype)
+            # since LazyTensor.symeig does not sort evals, we do this here for the check
+            evals, idxr = torch.sort(evals_unsorted, dim=-1, descending=False)
+            evecs = torch.gather(evecs_unsorted, dim=-1, index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape))
 
-        # Check forward pass
-        self.assertAllClose(evals, evals_actual, **self.tolerances["symeig"])
-        lt_from_eigendecomp = evecs @ torch.diag_embed(evals) @ evecs.transpose(-1, -2)
-        self.assertAllClose(lt_from_eigendecomp, evaluated, **self.tolerances["symeig"])
+            evals_actual, evecs_actual = torch.linalg.eigh(evaluated.type(dtype))
+            evals_actual = evals_actual.to(dtype=evaluated.dtype)
+            evecs_actual = evecs_actual.to(dtype=evaluated.dtype)
 
-        # if there are repeated evals, we'll skip checking the eigenvectors for those
-        any_evals_repeated = False
-        evecs_abs, evecs_actual_abs = evecs.abs(), evecs_actual.abs()
-        for idx in itertools.product(*[range(b) for b in evals_actual.shape[:-1]]):
-            eval_i = evals_actual[idx]
-            if torch.unique(eval_i.detach()).shape[-1] == eval_i.shape[-1]:  # detach to avoid pytorch/pytorch#41389
-                self.assertAllClose(evecs_abs[idx], evecs_actual_abs[idx], **self.tolerances["symeig"])
-            else:
-                any_evals_repeated = True
+            # Check forward pass
+            self.assertAllClose(evals, evals_actual, **tolerances)
+            lt_from_eigendecomp = evecs @ torch.diag_embed(evals) @ evecs.transpose(-1, -2)
+            self.assertAllClose(lt_from_eigendecomp, evaluated, **tolerances)
 
-        # Perform backward pass
-        symeig_grad = torch.randn_like(evals)
-        ((evals * symeig_grad).sum()).backward()
-        ((evals_actual * symeig_grad).sum()).backward()
+            # if there are repeated evals, we'll skip checking the eigenvectors for those
+            any_evals_repeated = False
+            evecs_abs, evecs_actual_abs = evecs.abs(), evecs_actual.abs()
+            for idx in itertools.product(*[range(b) for b in evals_actual.shape[:-1]]):
+                eval_i = evals_actual[idx]
+                if torch.unique(eval_i.detach()).shape[-1] == eval_i.shape[-1]:  # detach to avoid pytorch/pytorch#41389
+                    self.assertAllClose(evecs_abs[idx], evecs_actual_abs[idx], **tolerances)
+                else:
+                    any_evals_repeated = True
 
-        # Check grads if there were no repeated evals
-        if not any_evals_repeated:
-            for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-                if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                    self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["symeig"])
+            # Perform backward pass
+            symeig_grad = torch.randn_like(evals)
+            ((evals * symeig_grad).sum()).backward()
+            ((evals_actual * symeig_grad).sum()).backward()
 
-        # Test with eigenvectors=False
-        _, evecs = lazy_tensor.symeig(eigenvectors=False)
-        self.assertIsNone(evecs)
+            # Check grads if there were no repeated evals
+            if not any_evals_repeated:
+                for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+                    if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
+                        self.assertAllClose(arg.grad, arg_copy.grad, **tolerances)
+
+            # Test with eigenvectors=False
+            _, evecs = lazy_tensor.symeig(eigenvectors=False)
+            self.assertIsNone(evecs)
 
     def test_svd(self):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
