@@ -25,7 +25,6 @@ class TestPolynomialKernel(unittest.TestCase, BaseKernelTestCase):
 
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
-
         # diag
         res = kernel(a, b).diag()
         actual = actual.diag()
@@ -33,8 +32,8 @@ class TestPolynomialKernel(unittest.TestCase, BaseKernelTestCase):
 
         # batch_dims
         actual = torch.zeros(2, 3, 3)
-        for l in range(2):
-            actual[l] = kernel(a[:, l].unsqueeze(-1), b[:, l].unsqueeze(-1)).evaluate()
+        for i in range(2):
+            actual[i] = kernel(a[:, i].unsqueeze(-1), b[:, i].unsqueeze(-1)).evaluate()
 
         res = kernel(a, b, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
@@ -65,8 +64,8 @@ class TestPolynomialKernel(unittest.TestCase, BaseKernelTestCase):
 
         # batch_dims
         actual = torch.zeros(2, 3, 3)
-        for l in range(2):
-            actual[l] = kernel(a[:, l].unsqueeze(-1), b[:, l].unsqueeze(-1)).evaluate()
+        for i in range(2):
+            actual[i] = kernel(a[:, i].unsqueeze(-1), b[:, i].unsqueeze(-1)).evaluate()
 
         res = kernel(a, b, last_dim_is_batch=True).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)

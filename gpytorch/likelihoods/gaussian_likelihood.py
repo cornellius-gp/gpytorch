@@ -309,7 +309,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
     """
 
     def _prepare_targets(self, targets, alpha_epsilon=0.01, dtype=torch.float):
-        num_classes = targets.max() + 1
+        num_classes = int(targets.max() + 1)
         # set alpha = \alpha_\epsilon
         alpha = alpha_epsilon * torch.ones(targets.shape[-1], num_classes, device=targets.device, dtype=dtype)
 
