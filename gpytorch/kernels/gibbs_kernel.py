@@ -8,7 +8,7 @@ from ..constraints import Positive
 from .kernel import Kernel
 
 
-class PeriodicKernel(Kernel):
+class GibbsKernel(Kernel):
     r"""Computes a covariance matrix based on the periodic kernel
     between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`:
 
@@ -81,7 +81,7 @@ class PeriodicKernel(Kernel):
     has_lengthscale = True
 
     def __init__(self, period_length_prior=None, period_length_constraint=None, **kwargs):
-        super(PeriodicKernel, self).__init__(**kwargs)
+        super(GibbsKernel, self).__init__(**kwargs)
         if period_length_constraint is None:
             period_length_constraint = Positive()
 
