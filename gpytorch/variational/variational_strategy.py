@@ -6,7 +6,7 @@ import torch
 
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, MatmulLazyTensor, RootLazyTensor, SumLazyTensor, TriangularLazyTensor, delazify
-from ..settings import trace_mode
+from ..settings import _linalg_dtype_cholesky, trace_mode
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.errors import CachingError
 from ..utils.memoize import cached, clear_cache_hook, pop_from_cache_ignore_args
@@ -69,7 +69,7 @@ class VariationalStrategy(_VariationalStrategy):
 
     @cached(name="cholesky_factor", ignore_args=True)
     def _cholesky_factor(self, induc_induc_covar):
-        L = psd_safe_cholesky(delazify(induc_induc_covar).double())
+        L = psd_safe_cholesky(delazify(induc_induc_covar).type(_linalg_dtype_cholesky.value()))
         return TriangularLazyTensor(L)
 
     @property
@@ -109,7 +109,7 @@ class VariationalStrategy(_VariationalStrategy):
             except CachingError:
                 pass
             L = self._cholesky_factor(induc_induc_covar)
-        interp_term = L.inv_matmul(induc_data_covar.double()).to(full_inputs.dtype)
+        interp_term = L.inv_matmul(induc_data_covar.type(_linalg_dtype_cholesky.value())).to(full_inputs.dtype)
 
         # Compute the mean of q(f)
         # k_XZ K_ZZ^{-1/2} (m - K_ZZ^{-1/2} \mu_Z) + \mu_X
@@ -149,9 +149,10 @@ class VariationalStrategy(_VariationalStrategy):
 
                 # Change the variational parameters to be whitened
                 variational_dist = self.variational_distribution
-                mean_diff = (variational_dist.loc - prior_mean).unsqueeze(-1).double()
+                mean_diff = (variational_dist.loc - prior_mean).unsqueeze(-1).type(_linalg_dtype_cholesky.value())
                 whitened_mean = L.inv_matmul(mean_diff).squeeze(-1).to(variational_dist.loc.dtype)
-                covar_root = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate().double()
+                covar_root = variational_dist.lazy_covariance_matrix.root_decomposition().root.evaluate()
+                covar_root = covar_root.type(_linalg_dtype_cholesky.value())
                 whitened_covar = RootLazyTensor(L.inv_matmul(covar_root).to(variational_dist.loc.dtype))
                 whitened_variational_distribution = variational_dist.__class__(whitened_mean, whitened_covar)
                 self._variational_distribution.initialize_variational_distribution(whitened_variational_distribution)
