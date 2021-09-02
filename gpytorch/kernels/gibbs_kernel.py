@@ -4,7 +4,6 @@ import math
 
 import torch
 
-from ..constraints import Positive
 from .kernel import Kernel
 
 
@@ -15,24 +14,8 @@ class GibbsKernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, period_length_prior=None, period_length_constraint=None, **kwargs):
-        super(GibbsKernel, self).__init__(**kwargs)
-        if period_length_constraint is None:
-            period_length_constraint = Positive()
-
-        self.register_parameter(
-            name="raw_period_length", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1))
-        )
-
-        if period_length_prior is not None:
-            self.register_prior(
-                "period_length_prior",
-                period_length_prior,
-                lambda m: m.period_length,
-                lambda m, v: m._set_period_length(v),
-            )
-
-        self.register_constraint("raw_period_length", period_length_constraint)
+    def __init__(self, ard_num_dims: int = 1, batch_shape: torch.Size = torch.Size([]), **kwargs):
+        super().__init__(ard_num_dims=ard_num_dims, batch_shape=batch_shape, **kwargs)
 
     @property
     def period_length(self):
