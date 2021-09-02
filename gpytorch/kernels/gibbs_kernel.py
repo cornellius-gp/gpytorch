@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import math
 
 import torch
 
@@ -12,29 +11,22 @@ class GibbsKernel(Kernel):
     between inputs :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`:
     """
 
-    has_lengthscale = True
+    has_lengthscale = False
 
-    def __init__(self, ard_num_dims: int = 1, batch_shape: torch.Size = torch.Size([]), **kwargs):
+    def __init__(
+        self, lengthscale1, lengthscale2, ard_num_dims: int = 1, batch_shape: torch.Size = torch.Size([]), **kwargs
+    ):
         super().__init__(ard_num_dims=ard_num_dims, batch_shape=batch_shape, **kwargs)
-
-    @property
-    def period_length(self):
-        return self.raw_period_length_constraint.transform(self.raw_period_length)
-
-    @period_length.setter
-    def period_length(self, value):
-        self._set_period_length(value)
-
-    def _set_period_length(self, value):
-        if not torch.is_tensor(value):
-            value = torch.as_tensor(value).to(self.raw_period_length)
-        self.initialize(raw_period_length=self.raw_period_length_constraint.inverse_transform(value))
+        self.lengthscale1 = lengthscale1
+        self.lengthscale2 = lengthscale2
 
     def forward(self, x1, x2, diag=False, **params):
-        x1_ = x1.div(self.period_length).mul(math.pi)
-        x2_ = x2.div(self.period_length).mul(math.pi)
-        diff = x1_.unsqueeze(-2) - x2_.unsqueeze(-3)
-        res = diff.sin().pow(2).sum(dim=-1).div(self.lengthscale).mul(-2.0).exp_()
+        x1_ = x1
+        x2_ = x2
+        diff = (x1_.unsqueeze(-2) - x2_.unsqueeze(-3)).pow(2)
+        square_term = (self.lengthscale1).pow(2).unsqueeze(-2) + (self.lengthscale2).pow(2).unsqueeze(-3)
+        prod_term = 2 * (self.lengthscale1) * (self.lengthscale2)
+        res = (prod_term / square_term).pow(0.5).prod(dim=-1) * ((-(diff / square_term).sum(dim=-1)).exp_())
         if diag:
             res = res.squeeze(0)
         return res
