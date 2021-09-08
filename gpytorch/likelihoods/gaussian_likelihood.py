@@ -119,6 +119,51 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(raw_noise=value)
 
 
+class GaussianLikelihoodWithMissingObs(GaussianLikelihood):
+    r"""
+    The standard likelihood for regression with support for missing values.
+    Assumes a standard homoskedastic noise model:
+
+    .. math::
+        p(y \mid f) = f + \epsilon, \quad \epsilon \sim \mathcal N (0, \sigma^2)
+
+    where :math:`\sigma^2` is a noise parameter. Values of y that are nan do
+    not impact the likelihood calculation.
+
+    .. note::
+        This likelihood can be used for exact or approximate inference.
+
+    :param noise_prior: Prior for noise parameter :math:`\sigma^2`.
+    :type noise_prior: ~gpytorch.priors.Prior, optional
+    :param noise_constraint: Constraint for noise parameter :math:`\sigma^2`.
+    :type noise_constraint: ~gpytorch.constraints.Interval, optional
+    :param batch_shape: The batch shape of the learned noise parameter (default: []).
+    :type batch_shape: torch.Size, optional
+
+    :var torch.Tensor noise: :math:`\sigma^2` parameter (noise)
+    """
+
+    MISSING_VALUE_FILL = -999.0
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _get_masked_obs(self, x):
+        missing_idx = x.isnan()
+        x_masked = x.masked_fill(missing_idx, self.MISSING_VALUE_FILL)
+        return missing_idx, x_masked
+
+    def expected_log_prob(self, target, input, *params, **kwargs):
+        missing_idx, target = self._get_masked_obs(target)
+        res = super().expected_log_prob(target, input, *params, **kwargs)
+        return res * ~missing_idx
+
+    def log_marginal(self, observations, function_dist, *params, **kwargs):
+        missing_idx, observations = self._get_masked_obs(observations)
+        res = super().log_marginal(observations, function_dist, *params, **kwargs)
+        return res * ~missing_idx
+
+
 class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     """
     A Likelihood that assumes fixed heteroscedastic noise. This is useful when you have fixed, known observation
@@ -264,7 +309,7 @@ class DirichletClassificationLikelihood(FixedNoiseGaussianLikelihood):
     """
 
     def _prepare_targets(self, targets, alpha_epsilon=0.01, dtype=torch.float):
-        num_classes = targets.max() + 1
+        num_classes = int(targets.max() + 1)
         # set alpha = \alpha_\epsilon
         alpha = alpha_epsilon * torch.ones(targets.shape[-1], num_classes, device=targets.device, dtype=dtype)
 

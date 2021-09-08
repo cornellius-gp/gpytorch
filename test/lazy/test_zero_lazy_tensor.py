@@ -121,6 +121,23 @@ class TestZeroLazyTensor(unittest.TestCase):
         actual = torch.cat([diag[0].diag().unsqueeze(0), diag[1].diag().unsqueeze(0)])
         self.assertTrue(approx_equal(res, actual))
 
+    def test_matmul(self):
+        zero = ZeroLazyTensor(5, 4, 3)
+        lazy_square = ZeroLazyTensor(5, 3, 3)
+        actual = torch.zeros(5, 4, 3)
+        product = zero.matmul(lazy_square)
+        self.assertTrue(approx_equal(product, actual))
+
+        tensor_square = torch.eye(3, dtype=int).repeat(5, 1, 1)
+        product = zero._matmul(tensor_square)
+        self.assertTrue(approx_equal(product, actual))
+        self.assertEqual(product.dtype, tensor_square.dtype)
+
+        tensor_square = torch.eye(4).repeat(5, 1, 1)
+        actual = torch.zeros(5, 3, 4)
+        product = zero._t_matmul(tensor_square)
+        self.assertTrue(approx_equal(product, actual))
+
 
 if __name__ == "__main__":
     unittest.main()

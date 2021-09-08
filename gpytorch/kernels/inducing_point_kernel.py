@@ -5,6 +5,7 @@ import math
 
 import torch
 
+from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, LowRankRootAddedDiagLazyTensor, LowRankRootLazyTensor, MatmulLazyTensor, delazify
 from ..mlls import InducingPointKernelAddedLossTerm
@@ -28,6 +29,8 @@ class InducingPointKernel(Kernel):
     def _clear_cache(self):
         if hasattr(self, "_cached_kernel_mat"):
             del self._cached_kernel_mat
+        if hasattr(self, "_cached_kernel_inv_root"):
+            del self._cached_kernel_inv_root
 
     @property
     def _inducing_mat(self):
@@ -59,7 +62,7 @@ class InducingPointKernel(Kernel):
             covar = LowRankRootLazyTensor(k_ux1.matmul(self._inducing_inv_root))
 
             # Diagonal correction for predictive posterior
-            if not self.training:
+            if not self.training and settings.sgpr_diagonal_correction.on():
                 correction = (self.base_kernel(x1, x2, diag=True) - covar.diag()).clamp(0, math.inf)
                 covar = LowRankRootAddedDiagLazyTensor(covar, DiagLazyTensor(correction))
         else:

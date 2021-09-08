@@ -7,7 +7,7 @@
 
 # VS Code settings stuff
 .vscode
-
+.pylintrc
 # Project specific
 gpytorch/libfft
 .pytest_cache
@@ -149,3 +149,7 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Data files that might be downloaded
+**/*.tar.gz
+**/*.txt

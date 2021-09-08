@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
+from gpytorch.settings import linalg_dtypes
+from gpytorch.utils.cholesky import CHOLESKY_METHOD
 
 from .base_test_case import BaseTestCase
 
@@ -64,6 +66,8 @@ class RectangularLazyTensorTestCase(BaseTestCase):
 
         rhs = torch.randn(2, *lazy_tensor.shape)
         self.assertAllClose((lazy_tensor + rhs).evaluate(), evaluated + rhs)
+
+        self.assertAllClose((lazy_tensor + lazy_tensor).evaluate(), evaluated * 2)
 
     def test_matmul_vec(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -292,7 +296,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         "root_inv_decomposition": {"rtol": 0.05, "atol": 0.02},
         "sample": {"rtol": 0.3, "atol": 0.3},
         "sqrt_inv_matmul": {"rtol": 1e-4, "atol": 1e-3},
-        "symeig": {"rtol": 1e-4, "atol": 1e-3},
+        "symeig": {"double": {"rtol": 1e-4, "atol": 1e-3}, "float": {"rtol": 1e-3, "atol": 1e-2}},
         "svd": {"rtol": 1e-4, "atol": 1e-3},
     }
 
@@ -338,10 +342,11 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             else:
                 self.assertFalse(linear_cg_mock.called)
 
-    def _test_inv_quad_logdet(self, reduce_inv_quad=True, cholesky=False):
+    def _test_inv_quad_logdet(self, reduce_inv_quad=True, cholesky=False, lazy_tensor=None):
         if not self.__class__.skip_slq_tests:
             # Forward
-            lazy_tensor = self.create_lazy_tensor()
+            if lazy_tensor is None:
+                lazy_tensor = self.create_lazy_tensor()
             evaluated = self.evaluate_lazy_tensor(lazy_tensor)
             flattened_evaluated = evaluated.view(-1, *lazy_tensor.matrix_shape)
 
@@ -405,14 +410,79 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 actual[..., i, i] = actual[..., i, i] + other_diag[..., i]
             self.assertAllClose(res, actual, **self.tolerances["diag"])
 
+    def test_add_low_rank(self):
+        lazy_tensor = self.create_lazy_tensor()
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+        new_rows = torch.randn(*lazy_tensor.shape[:-1], 3)
+
+        summed_lt = evaluated + new_rows.matmul(new_rows.transpose(-1, -2))
+        new_lt = lazy_tensor.add_low_rank(new_rows)
+
+        # check that the concatenation is okay
+        self.assertAllClose(new_lt.evaluate(), summed_lt)
+
+        # check that the root approximation is close
+        rhs = torch.randn(lazy_tensor.size(-1))
+        summed_rhs = summed_lt.matmul(rhs)
+        root_rhs = new_lt.root_decomposition().matmul(rhs)
+        self.assertAllClose(root_rhs, summed_rhs, **self.tolerances["root_decomposition"])
+
+        # check that the inverse root decomposition is close
+        summed_solve = torch.linalg.solve(summed_lt, rhs.unsqueeze(-1)).squeeze(-1)
+        root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
+        self.assertAllClose(root_inv_solve, summed_solve, **self.tolerances["root_inv_decomposition"])
+
+    def test_cat_rows(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        for batch_shape in (torch.Size(), torch.Size([2])):
+            new_rows = 1e-4 * torch.randn(*batch_shape, *lazy_tensor.shape[:-2], 1, lazy_tensor.shape[-1])
+            new_point = torch.rand(*batch_shape, *lazy_tensor.shape[:-2], 1, 1)
+
+            # we need to expand here to be able to concat (this happens automatically in cat_rows)
+            cat_col1 = torch.cat((evaluated.expand(*batch_shape, *evaluated.shape), new_rows), dim=-2)
+            cat_col2 = torch.cat((new_rows.transpose(-1, -2), new_point), dim=-2)
+
+            concatenated_lt = torch.cat((cat_col1, cat_col2), dim=-1)
+            new_lt = lazy_tensor.cat_rows(new_rows, new_point)
+
+            # check that the concatenation is okay
+            self.assertAllClose(new_lt.evaluate(), concatenated_lt)
+
+            # check that the root approximation is close
+            rhs = torch.randn(lazy_tensor.size(-1) + 1)
+            concat_rhs = concatenated_lt.matmul(rhs)
+            root_rhs = new_lt.root_decomposition().matmul(rhs)
+            self.assertAllClose(root_rhs, concat_rhs, **self.tolerances["root_decomposition"])
+
+            # check that the inverse root decomposition is close
+            concat_solve = torch.linalg.solve(concatenated_lt, rhs.unsqueeze(-1)).squeeze(-1)
+            root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
+            self.assertLess(
+                (root_inv_solve - concat_solve).norm() / concat_solve.norm(),
+                self.tolerances["root_inv_decomposition"]["rtol"],
+            )
+
     def test_cholesky(self):
         lazy_tensor = self.create_lazy_tensor()
         evaluated = self.evaluate_lazy_tensor(lazy_tensor)
         for upper in (False, True):
             res = lazy_tensor.cholesky(upper=upper).evaluate()
-            actual = torch.cholesky(evaluated, upper=upper)
+            actual = torch.linalg.cholesky(evaluated)
+            if upper:
+                actual = actual.transpose(-1, -2)
             self.assertAllClose(res, actual, **self.tolerances["cholesky"])
             # TODO: Check gradients
+
+    def test_double(self):
+        lazy_tensor = self.create_lazy_tensor()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        res = lazy_tensor.double()
+        actual = evaluated.double()
+        self.assertEqual(res.dtype, actual.dtype)
 
     def test_diag(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -422,6 +492,25 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         actual = evaluated.diagonal(dim1=-2, dim2=-1)
         actual = actual.view(*lazy_tensor.batch_shape, -1)
         self.assertAllClose(res, actual, **self.tolerances["diag"])
+
+    def test_float(self):
+        lazy_tensor = self.create_lazy_tensor().double()
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        res = lazy_tensor.float()
+        actual = evaluated.float()
+        self.assertEqual(res.dtype, actual.dtype)
+
+    def _test_half(self, lazy_tensor):
+        evaluated = self.evaluate_lazy_tensor(lazy_tensor)
+
+        res = lazy_tensor.half()
+        actual = evaluated.half()
+        self.assertEqual(res.dtype, actual.dtype)
+
+    def test_half(self):
+        lazy_tensor = self.create_lazy_tensor()
+        self._test_half(lazy_tensor)
 
     def test_inv_matmul_vector(self, cholesky=False):
         lazy_tensor = self.create_lazy_tensor()
@@ -543,8 +632,34 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
     def test_diagonalization_symeig(self):
         return self.test_diagonalization(symeig=True)
 
+    def _test_triangular_lazy_tensor_inv_quad_logdet(self):
+        # now we need to test that a second cholesky isn't being called in the inv_quad_logdet
+        with gpytorch.settings.max_cholesky_size(math.inf):
+            lazy_tensor = self.create_lazy_tensor()
+            rootdecomp = lazy_tensor.root_decomposition()
+
+            if isinstance(rootdecomp, gpytorch.lazy.CholLazyTensor):
+                chol = lazy_tensor.root_decomposition().root.clone()
+                gpytorch.utils.memoize.clear_cache_hook(lazy_tensor)
+                gpytorch.utils.memoize.add_to_cache(
+                    lazy_tensor, "root_decomposition", gpytorch.lazy.RootLazyTensor(chol)
+                )
+
+                _wrapped_cholesky = MagicMock(
+                    wraps=torch.linalg.cholesky
+                    if CHOLESKY_METHOD == "torch.linalg.cholesky"
+                    else torch.linalg.cholesky_ex
+                )
+                with patch(CHOLESKY_METHOD, new=_wrapped_cholesky) as cholesky_mock:
+                    self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=True, lazy_tensor=lazy_tensor)
+                self.assertFalse(cholesky_mock.called)
+
     def test_root_decomposition_cholesky(self):
-        return self.test_root_decomposition(cholesky=True)
+        # first test if the root decomposition is accurate
+        self.test_root_decomposition(cholesky=True)
+
+        # now test that a second cholesky isn't being called in the inv_quad_logdet
+        self._test_inv_quad_logdet()
 
     def test_root_inv_decomposition(self):
         lazy_tensor = self.create_lazy_tensor()
@@ -640,51 +755,56 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["sqrt_inv_matmul"])
 
     def test_symeig(self):
-        lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
-        lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
-        evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
+        dtypes = {"double": torch.double, "float": torch.float}
+        for name, dtype in dtypes.items():
+            tolerances = self.tolerances["symeig"][name]
 
-        # Perform forward pass
-        evals_unsorted, evecs_unsorted = lazy_tensor.symeig(eigenvectors=True)
-        evecs_unsorted = evecs_unsorted.evaluate()
+            lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)
+            lazy_tensor_copy = lazy_tensor.clone().detach().requires_grad_(True)
+            evaluated = self.evaluate_lazy_tensor(lazy_tensor_copy)
 
-        # since LazyTensor.symeig does not sort evals, we do this here for the check
-        evals, idxr = torch.sort(evals_unsorted, dim=-1, descending=False)
-        evecs = torch.gather(evecs_unsorted, dim=-1, index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape))
+            # Perform forward pass
+            with linalg_dtypes(dtype):
+                evals_unsorted, evecs_unsorted = lazy_tensor.symeig(eigenvectors=True)
+                evecs_unsorted = evecs_unsorted.evaluate()
 
-        evals_actual, evecs_actual = torch.symeig(evaluated.double(), eigenvectors=True)
-        evals_actual = evals_actual.to(dtype=evaluated.dtype)
-        evecs_actual = evecs_actual.to(dtype=evaluated.dtype)
+            # since LazyTensor.symeig does not sort evals, we do this here for the check
+            evals, idxr = torch.sort(evals_unsorted, dim=-1, descending=False)
+            evecs = torch.gather(evecs_unsorted, dim=-1, index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape))
 
-        # Check forward pass
-        self.assertAllClose(evals, evals_actual, **self.tolerances["symeig"])
-        lt_from_eigendecomp = evecs @ torch.diag_embed(evals) @ evecs.transpose(-1, -2)
-        self.assertAllClose(lt_from_eigendecomp, evaluated, **self.tolerances["symeig"])
+            evals_actual, evecs_actual = torch.linalg.eigh(evaluated.type(dtype))
+            evals_actual = evals_actual.to(dtype=evaluated.dtype)
+            evecs_actual = evecs_actual.to(dtype=evaluated.dtype)
 
-        # if there are repeated evals, we'll skip checking the eigenvectors for those
-        any_evals_repeated = False
-        evecs_abs, evecs_actual_abs = evecs.abs(), evecs_actual.abs()
-        for idx in itertools.product(*[range(b) for b in evals_actual.shape[:-1]]):
-            eval_i = evals_actual[idx]
-            if torch.unique(eval_i.detach()).shape[-1] == eval_i.shape[-1]:  # detach to avoid pytorch/pytorch#41389
-                self.assertAllClose(evecs_abs[idx], evecs_actual_abs[idx], **self.tolerances["symeig"])
-            else:
-                any_evals_repeated = True
+            # Check forward pass
+            self.assertAllClose(evals, evals_actual, **tolerances)
+            lt_from_eigendecomp = evecs @ torch.diag_embed(evals) @ evecs.transpose(-1, -2)
+            self.assertAllClose(lt_from_eigendecomp, evaluated, **tolerances)
 
-        # Perform backward pass
-        symeig_grad = torch.randn_like(evals)
-        ((evals * symeig_grad).sum()).backward()
-        ((evals_actual * symeig_grad).sum()).backward()
+            # if there are repeated evals, we'll skip checking the eigenvectors for those
+            any_evals_repeated = False
+            evecs_abs, evecs_actual_abs = evecs.abs(), evecs_actual.abs()
+            for idx in itertools.product(*[range(b) for b in evals_actual.shape[:-1]]):
+                eval_i = evals_actual[idx]
+                if torch.unique(eval_i.detach()).shape[-1] == eval_i.shape[-1]:  # detach to avoid pytorch/pytorch#41389
+                    self.assertAllClose(evecs_abs[idx], evecs_actual_abs[idx], **tolerances)
+                else:
+                    any_evals_repeated = True
 
-        # Check grads if there were no repeated evals
-        if not any_evals_repeated:
-            for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
-                if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
-                    self.assertAllClose(arg.grad, arg_copy.grad, **self.tolerances["symeig"])
+            # Perform backward pass
+            symeig_grad = torch.randn_like(evals)
+            ((evals * symeig_grad).sum()).backward()
+            ((evals_actual * symeig_grad).sum()).backward()
 
-        # Test with eigenvectors=False
-        _, evecs = lazy_tensor.symeig(eigenvectors=False)
-        self.assertIsNone(evecs)
+            # Check grads if there were no repeated evals
+            if not any_evals_repeated:
+                for arg, arg_copy in zip(lazy_tensor.representation(), lazy_tensor_copy.representation()):
+                    if arg_copy.requires_grad and arg_copy.is_leaf and arg_copy.grad is not None:
+                        self.assertAllClose(arg.grad, arg_copy.grad, **tolerances)
+
+            # Test with eigenvectors=False
+            _, evecs = lazy_tensor.symeig(eigenvectors=False)
+            self.assertIsNone(evecs)
 
     def test_svd(self):
         lazy_tensor = self.create_lazy_tensor().detach().requires_grad_(True)

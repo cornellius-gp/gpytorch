@@ -45,7 +45,7 @@ class TestNatVariational(Float64Test):
 
         eta1 = mu.clone().requires_grad_(True)
         eta2 = (mu[:, None] * mu + cov @ cov.t()).requires_grad_(True)
-        L = torch.cholesky(eta2 - eta1[:, None] * eta1)
+        L = torch.linalg.cholesky(eta2 - eta1[:, None] * eta1)
         dist2 = MultivariateNormal(eta1, CholLazyTensor(TriangularLazyTensor(L)))
         dist2.log_prob(sample).squeeze().backward()
 

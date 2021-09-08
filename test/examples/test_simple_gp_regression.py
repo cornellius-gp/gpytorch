@@ -459,16 +459,15 @@ class TestSimpleGPRegression(BaseTestCase, unittest.TestCase):
         gp_model.covar_module.register_prior("outputscale_prior", UniformPrior(1, 2), "outputscale")
         likelihood.register_prior("noise_prior", UniformPrior(0.05, 0.3), "noise")
 
-        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
-
         def pyro_model(x, y):
-            gp_model.pyro_sample_from_prior()
-            output = gp_model(x)
-            mll.pyro_factor(output, y)
+            with gpytorch.settings.fast_computations(False, False, False):
+                sampled_model = gp_model.pyro_sample_from_prior()
+                output = sampled_model.likelihood(sampled_model(x))
+                pyro.sample("obs", output, obs=y)
             return y
 
         nuts_kernel = NUTS(pyro_model, adapt_step_size=True)
-        mcmc_run = MCMC(nuts_kernel, num_samples=3, warmup_steps=20)
+        mcmc_run = MCMC(nuts_kernel, num_samples=3, warmup_steps=20, disable_progbar=True)
         mcmc_run.run(train_x, train_y)
 
         gp_model.pyro_load_from_samples(mcmc_run.get_samples())

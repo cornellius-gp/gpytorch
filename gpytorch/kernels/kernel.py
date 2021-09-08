@@ -331,8 +331,8 @@ class Kernel(Module):
         return res
 
     def named_sub_kernels(self):
-        for name, module in self._modules.items():
-            if isinstance(module, Kernel):
+        for name, module in self.named_modules():
+            if module is not self and isinstance(module, Kernel):
                 yield name, module
 
     def num_outputs_per_input(self, x1, x2):
@@ -469,11 +469,6 @@ class AdditiveKernel(Kernel):
                 res = res + next_term
 
         return res
-
-    def prediction_strategy(self, train_inputs, train_prior_dist, train_labels, likelihood):
-        return exact_prediction_strategies.SumPredictionStrategy(
-            train_inputs, train_prior_dist, train_labels, likelihood
-        )
 
     def num_outputs_per_input(self, x1, x2):
         return self.kernels[0].num_outputs_per_input(x1, x2)

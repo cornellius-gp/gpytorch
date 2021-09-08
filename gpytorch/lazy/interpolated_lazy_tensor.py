@@ -386,6 +386,13 @@ class InterpolatedLazyTensor(LazyTensor):
         else:
             return super(InterpolatedLazyTensor, self).diag()
 
+    def double(self, device_id=None):
+        # We need to ensure that the indices remain integers.
+        new_lt = super().double(device_id=device_id)
+        new_lt.left_interp_indices = new_lt.left_interp_indices.type(torch.int64)
+        new_lt.right_interp_indices = new_lt.right_interp_indices.type(torch.int64)
+        return new_lt
+
     def matmul(self, tensor):
         # We're using a custom matmul here, because it is significantly faster than
         # what we get from the function factory.

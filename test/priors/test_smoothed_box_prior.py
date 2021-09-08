@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import unittest
 
 import torch
@@ -76,6 +77,27 @@ class TestSmoothedBoxPrior(unittest.TestCase):
         if torch.cuda.is_available():
             with least_used_cuda_device():
                 return self.test_smoothed_box_prior_batch_log_prob(cuda=True)
+
+    def test_sample(self):
+        a = torch.as_tensor(0.0)
+        b = torch.as_tensor(1.0)
+        sigma = 0.01
+
+        gauss_max = 1 / (math.sqrt(2 * math.pi) * sigma)
+        ratio_gaussian_mass = 1 / (gauss_max * (b - a) + 1)
+
+        prior = SmoothedBoxPrior(a, b, sigma)
+
+        n_samples = 50000
+        samples = prior.sample((n_samples,))
+
+        gaussian_idx = (samples < a) | (samples > b)
+        gaussian_samples = samples[gaussian_idx]
+        n_gaussian = gaussian_samples.shape[0]
+
+        self.assertTrue(
+            torch.all(approx_equal(torch.as_tensor(n_gaussian / n_samples), ratio_gaussian_mass, epsilon=0.005))
+        )
 
 
 if __name__ == "__main__":

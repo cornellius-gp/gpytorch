@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
+from gpytorch.utils.cholesky import CHOLESKY_METHOD
 
 from .base_test_case import BaseTestCase
 
@@ -131,10 +132,12 @@ class VariationalTestCase(BaseTestCase):
         eval_data_batch_shape = eval_data_batch_shape if eval_data_batch_shape is not None else self.batch_shape
 
         # Mocks
-        _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
+        _wrapped_cholesky = MagicMock(
+            wraps=torch.linalg.cholesky if CHOLESKY_METHOD == "torch.linalg.cholesky" else torch.linalg.cholesky_ex
+        )
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
-        _cholesky_mock = patch("torch.cholesky", new=_wrapped_cholesky)
+        _cholesky_mock = patch(CHOLESKY_METHOD, new=_wrapped_cholesky)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
         _ciq_mock = patch("gpytorch.utils.contour_integral_quad", new=_wrapped_ciq)
 
@@ -191,10 +194,12 @@ class VariationalTestCase(BaseTestCase):
         expected_batch_shape = expected_batch_shape if expected_batch_shape is not None else self.batch_shape
 
         # Mocks
-        _wrapped_cholesky = MagicMock(wraps=torch.cholesky)
+        _wrapped_cholesky = MagicMock(
+            wraps=torch.linalg.cholesky if CHOLESKY_METHOD == "torch.linalg.cholesky" else torch.linalg.cholesky_ex
+        )
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
-        _cholesky_mock = patch("torch.cholesky", new=_wrapped_cholesky)
+        _cholesky_mock = patch(CHOLESKY_METHOD, new=_wrapped_cholesky)
         _cg_mock = patch("gpytorch.utils.linear_cg", new=_wrapped_cg)
         _ciq_mock = patch("gpytorch.utils.contour_integral_quad", new=_wrapped_ciq)
 

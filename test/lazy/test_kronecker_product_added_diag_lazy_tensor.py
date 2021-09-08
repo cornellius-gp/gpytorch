@@ -50,6 +50,7 @@ class TestKroneckerProductAddedKroneckerDiagLazyTensor(TestKroneckerProductAdded
     # this lazy tensor has an explicit inverse so we don't need to run these
     skip_slq_tests = True
     should_call_cg = False
+    should_call_lanczos = False
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
@@ -72,6 +73,8 @@ class TestKroneckerProductAddedKroneckerDiagLazyTensor(TestKroneckerProductAdded
 
 
 class TestKroneckerProductAddedKroneckerConstDiagLazyTensor(TestKroneckerProductAddedKroneckerDiagLazyTensor):
+    should_call_lanczos = True
+
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
         b = torch.tensor([[2, 1], [1, 2]], dtype=torch.float)
@@ -96,6 +99,7 @@ class TestKroneckerProductAddedKroneckerConstDiagLazyTensor(TestKroneckerProduct
 
 class TestKroneckerProductAddedConstDiagLazyTensor(TestKroneckerProductAddedDiagLazyTensor):
     should_call_cg = False
+    should_call_lanczos = False
 
     def create_lazy_tensor(self):
         a = torch.tensor([[4, 0, 2], [0, 3, -1], [2, -1, 3]], dtype=torch.float)
@@ -126,7 +130,7 @@ class TestKroneckerProductAddedConstDiagLazyTensor(TestKroneckerProductAddedDiag
             with mock.patch.object(lazy_tensor, "cholesky") as chol_mock:
                 root_approx = lazy_tensor.root_inv_decomposition()
                 res = root_approx.matmul(test_mat)
-                actual = torch.solve(test_mat, lazy_tensor.evaluate()).solution
+                actual = torch.linalg.solve(lazy_tensor.evaluate(), test_mat)
                 self.assertAllClose(res, actual, rtol=0.05, atol=0.02)
                 chol_mock.assert_not_called()
 

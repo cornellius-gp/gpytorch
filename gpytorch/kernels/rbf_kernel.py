@@ -83,7 +83,7 @@ class RBFKernel(Kernel):
             return self.covar_dist(
                 x1_, x2_, square_dist=True, diag=diag, dist_postprocess_func=postprocess_rbf, postprocess=True, **params
             )
-        return RBFCovariance().apply(
+        return RBFCovariance.apply(
             x1,
             x2,
             self.lengthscale,
