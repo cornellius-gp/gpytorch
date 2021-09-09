@@ -1859,9 +1859,11 @@ class LazyTensor(ABC):
             pass
         return self._symeig(eigenvectors=eigenvectors)
 
-    def to(self, device=None, dtype=None):
+    def to(self, *args, **kwargs):
         """
         A device-agnostic method of moving the lazy_tensor to the specified device or dtype.
+        Note that we do NOT support non_blocking or other `torch.to` options other than
+        device and dtype.
 
         Args:
             device (:obj: `torch.device`): Which device to use (GPU or CPU).
@@ -1869,9 +1871,18 @@ class LazyTensor(ABC):
         Returns:
             :obj:`~gpytorch.lazy.LazyTensor`: New LazyTensor identical to self on specified device
         """
-        if type(device) is torch.dtype and dtype is None:
-            dtype = device
-            device = None
+        dtype = kwargs.pop("dtype", None)
+        device = kwargs.pop("device", None)
+
+        if dtype is None:
+            dtype_list = [x for x in args if type(x) is torch.dtype]
+            if len(dtype_list) > 0:
+                dtype = dtype_list[0]
+
+        if device is None:
+            device_list = [x for x in args if type(x) is torch.device]
+            if len(device_list) > 0:
+                device = device_list[0]
 
         new_args = []
         new_kwargs = {}

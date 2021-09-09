@@ -364,18 +364,26 @@ class CatLazyTensor(LazyTensor):
     def device_count(self):
         return len(set(self.devices))
 
-    def to(self, device=None, dtype=None):
+    def to(self, *args, **kwargs):
         """
-        returns a new CatLazyTensor with device as the output_device
+        Returns a new CatLazyTensor with device as the output_device
         Warning: this does not move the LazyTensors in this CatLazyTensor to
         device
         """
-        if type(device) is torch.dtype and dtype is None:
-            dtype = device
-            device = self.output_device
+        dtype = kwargs.pop("dtype", None)
+        device = kwargs.pop("device", None)
 
-        new_kwargs = dict(self._kwargs)
-        new_kwargs["output_device"] = device
+        if dtype is None:
+            dtype_list = [x for x in args if type(x) is torch.dtype]
+            if len(dtype_list) > 0:
+                dtype = dtype_list[0]
+
+        if device is None:
+            device_list = [x for x in args if type(x) is torch.device]
+            if len(device_list) > 0:
+                device = device_list[0]
+
+        new_kwargs = {**self._kwargs, "output_device": device}
         res = self.__class__(*self._args, **new_kwargs)
 
         if dtype is not None:
