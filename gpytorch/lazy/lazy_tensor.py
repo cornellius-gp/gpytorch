@@ -19,7 +19,7 @@ from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..functions._sqrt_inv_matmul import SqrtInvMatmul
-from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
+from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape, _to_helper
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
@@ -1863,7 +1863,7 @@ class LazyTensor(ABC):
         """
         A device-agnostic method of moving the lazy_tensor to the specified device or dtype.
         Note that we do NOT support non_blocking or other `torch.to` options other than
-        device and dtype.
+        device and dtype and these options will be silently ignored.
 
         Args:
             device (:obj: `torch.device`): Which device to use (GPU or CPU).
@@ -1871,18 +1871,8 @@ class LazyTensor(ABC):
         Returns:
             :obj:`~gpytorch.lazy.LazyTensor`: New LazyTensor identical to self on specified device
         """
-        dtype = kwargs.pop("dtype", None)
-        device = kwargs.pop("device", None)
 
-        if dtype is None:
-            dtype_list = [x for x in args if type(x) is torch.dtype]
-            if len(dtype_list) > 0:
-                dtype = dtype_list[0]
-
-        if device is None:
-            device_list = [x for x in args if type(x) is torch.device]
-            if len(device_list) > 0:
-                device = device_list[0]
+        device, dtype = _to_helper(*args, **kwargs)
 
         new_args = []
         new_kwargs = {}

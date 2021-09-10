@@ -3,7 +3,7 @@
 import torch
 
 from .. import settings
-from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
+from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape, _to_helper
 from ..utils.deprecation import bool_compat
 from ..utils.getitem import _noop_index
 from .lazy_tensor import LazyTensor, delazify
@@ -366,22 +366,12 @@ class CatLazyTensor(LazyTensor):
 
     def to(self, *args, **kwargs):
         """
-        Returns a new CatLazyTensor with device as the output_device
+        Returns a new CatLazyTensor with device as the output_device and dtype
+        as the dtype.
         Warning: this does not move the LazyTensors in this CatLazyTensor to
-        device
+        device.
         """
-        dtype = kwargs.pop("dtype", None)
-        device = kwargs.pop("device", None)
-
-        if dtype is None:
-            dtype_list = [x for x in args if type(x) is torch.dtype]
-            if len(dtype_list) > 0:
-                dtype = dtype_list[0]
-
-        if device is None:
-            device_list = [x for x in args if type(x) is torch.device]
-            if len(device_list) > 0:
-                device = device_list[0]
+        device, dtype = _to_helper(*args, **kwargs)
 
         new_kwargs = {**self._kwargs, "output_device": device}
         res = self.__class__(*self._args, **new_kwargs)
