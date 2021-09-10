@@ -69,3 +69,27 @@ def _pad_with_singletons(obj, num_singletons_before=0, num_singletons_after=0):
     """
     new_shape = [1] * num_singletons_before + list(obj.shape) + [1] * num_singletons_after
     return obj.view(*new_shape)
+
+
+def _to_helper(*args, **kwargs):
+    """
+    Silently plucks out dtype and devices from a list.
+
+    Example:
+        >>> dtype, device = _to_helper(dtype=torch.float, device=torch.device("cpu"))
+        >>> dtype, device = _to_helper(torch.float, torch.device("cpu"))
+    """
+    dtype = kwargs.pop("dtype", None)
+    device = kwargs.pop("device", None)
+
+    if dtype is None:
+        dtype_list = [x for x in args if type(x) is torch.dtype]
+        if len(dtype_list) > 0:
+            dtype = dtype_list[0]
+
+    if device is None:
+        device_list = [x for x in args if type(x) is torch.device]
+        if len(device_list) > 0:
+            device = device_list[0]
+
+    return device, dtype
