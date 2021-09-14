@@ -774,7 +774,12 @@ class LazyTensor(ABC):
         from .cat_lazy_tensor import CatLazyTensor
         from .root_lazy_tensor import RootLazyTensor
         from .triangular_lazy_tensor import TriangularLazyTensor
-
+        if not generate_roots and generate_inv_roots:
+            warnings.warn(
+                "root_inv_decomposition is only generated when "
+                "root_decomposition is generated.",
+                UserWarning,
+            )
         B_, B = cross_mat, lazify(cross_mat)
         D = lazify(new_mat)
         batch_shape = B.shape[:-2]
@@ -791,13 +796,13 @@ class LazyTensor(ABC):
 
         # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
         # don't create one
-        does_not_have_roots = any(
-            _is_in_cache_ignore_args(self, key) for key in ("root_inv_decomposition", "root_inv_decomposition")
+        has_roots = any(
+            _is_in_cache_ignore_args(self, key) for key in ("root_decomposition", "root_inv_decomposition")
         )
-        if not generate_roots and not does_not_have_roots:
+        if not generate_roots and not has_roots:
             return new_lazy_tensor
 
-        # Get compomnents for new root Z = [E 0; F G]
+        # Get components for new root Z = [E 0; F G]
         E = self.root_decomposition(**root_decomp_kwargs).root  # E = L, LL^T = A
         m, n = E.shape[-2:]
         R = self.root_inv_decomposition().root.evaluate()  # RR^T = A^{-1} (this is fast if L is triangular)
@@ -875,10 +880,10 @@ class LazyTensor(ABC):
 
         # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
         # don't create one
-        does_not_have_roots = any(
+        has_roots = any(
             _is_in_cache_ignore_args(self, key) for key in ("root_decomposition", "root_inv_decomposition")
         )
-        if not generate_roots and not does_not_have_roots:
+        if not generate_roots and not has_roots:
             return new_lazy_tensor
 
         # we are going to compute the following
