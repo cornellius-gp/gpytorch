@@ -118,16 +118,17 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
         rhs_dtype = rhs.dtype
 
+        # we perform the solve in double for numerical stability issues
+        symeig_dtype = settings._linalg_dtype_symeig.value()
+
         # if the diagonal is constant, we can solve this using the Kronecker-structured eigendecomposition
         # and performing a spectral shift of its eigenvalues
         if self._diag_is_constant:
-            # we perform the solve in double for numerical stability issues
-            # TODO: Use fp64 registry once #1213 is addressed
-            evals, q_matrix = self.lazy_tensor.to(torch.double).diagonalization()
-            evals_plus_diagonal = evals + self.diag_tensor.diag().double()
+            evals, q_matrix = self.lazy_tensor.to(symeig_dtype).diagonalization()
+            evals_plus_diagonal = evals + self.diag_tensor.diag().to(symeig_dtype)
             evals_root = evals_plus_diagonal.pow(0.5)
             inv_mat_sqrt = DiagLazyTensor(evals_root.reciprocal())
-            res = q_matrix.transpose(-2, -1).matmul(rhs.double())
+            res = q_matrix.transpose(-2, -1).matmul(rhs.to(symeig_dtype))
             res2 = inv_mat_sqrt.matmul(res)
             lazy_lhs = q_matrix.matmul(inv_mat_sqrt)
             return lazy_lhs.matmul(res2).type(rhs_dtype)
@@ -154,9 +155,9 @@ class KroneckerProductAddedDiagLazyTensor(AddedDiagLazyTensor):
 
             # again we perform the solve in double precision for numerical stability issues
             # TODO: Use fp64 registry once #1213 is addressed
-            rhs = rhs.double()
-            lt = self.lazy_tensor.to(torch.double)
-            dlt = self.diag_tensor.to(torch.double)
+            rhs = rhs.to(symeig_dtype)
+            lt = self.lazy_tensor.to(symeig_dtype)
+            dlt = self.diag_tensor.to(symeig_dtype)
 
             # If each of the diagonal factors is constant, life gets a little easier
             # as we can reuse the eigendecomposition

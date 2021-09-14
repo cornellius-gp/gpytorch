@@ -92,10 +92,8 @@ class LKJPrior(Prior):
 
         if not return_covariance:
             # we seem to need to back-convert the resulting matrix into a correlation matrix
-            inverse_diagonal = torch.diag_embed(
-                torch.diagonal(sample_as_covariance, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
-            )
-            return inverse_diagonal.matmul(sample_as_covariance).matmul(inverse_diagonal)
+            inverse_sqrt_diagonal = torch.diagonal(sample_as_covariance, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
+            return inverse_diagonal.unsqueeze(-1) * sample_as_covariance * inverse_diagonal.unsqueeze(-2)
         else:
             return sample_as_covariance
 
