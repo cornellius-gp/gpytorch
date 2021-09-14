@@ -61,7 +61,7 @@ class LKJPrior(Prior):
         log_diag_sum = psd_safe_cholesky(X, upper=True).diagonal(dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
-    def _rsample(self, sample_shape=None, return_covariance=False):
+    def _rsample(self, sample_shape=None, return_covariance=False, return_cholesky=False):
         # this sampling method comes from
         # https://github.com/rmcelreath/rethinking/blob/2acf2fd7b01718cf66a8352c52d001886c7d3c4c/R/distributions.r#L214
         if sample_shape is None:
@@ -88,14 +88,21 @@ class LKJPrior(Prior):
             R[..., :m, m] = y.pow(0.5).unsqueeze(-1) * z
             R[..., m, m] = (1.0 - y).pow(0.5)
 
-        sample_as_covariance = R.matmul(R.transpose(-1, -2))
+        if return_cholesky:
+            sample_as_covariance = R.matmul(R.transpose(-1, -2))
 
-        if not return_covariance:
-            # we seem to need to back-convert the resulting matrix into a correlation matrix
-            inverse_sqrt_diagonal = torch.diagonal(sample_as_covariance, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
-            return inverse_diagonal.unsqueeze(-1) * sample_as_covariance * inverse_diagonal.unsqueeze(-2)
+            if not return_covariance:
+                # we seem to need to back-convert the resulting matrix into a correlation matrix
+                inverse_sqrt_diagonal = torch.diagonal(sample_as_covariance, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
+                return inverse_sqrt_diagonal.unsqueeze(-1) * sample_as_covariance * inverse_sqrt_diagonal.unsqueeze(-2)
+            else:
+                return sample_as_covariance
         else:
-            return sample_as_covariance
+            if not return_covariance:
+                inverse_sqrt_diagonal = torch.diagonal(R, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
+                return inverse_sqrt_diagonal.unsqueeze(-1) * R
+            else:
+                return R
 
     def rsample(self, sample_shape):
         return self._rsample(sample_shape=sample_shape, return_covariance=False)
@@ -129,8 +136,7 @@ class LKJCholeskyFactorPrior(LKJPrior):
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
     def rsample(self, sample_shape):
-        res = super()._rsample(sample_shape=sample_shape, return_covariance=False)
-        return res.cholesky()
+        return super()._rsample(sample_shape=sample_shape, return_covariance=False, return_cholesky=True)
 
 
 class LKJCovariancePrior(LKJPrior):
@@ -179,16 +185,9 @@ class LKJCovariancePrior(LKJPrior):
     def rsample(self, sample_shape):
         base_correlation = self.correlation_prior.rsample(sample_shape)
         marginal_sds = self.sd_prior.rsample(sample_shape)
-        # create an empty diagonal matrix
-        empty_diag_mat = torch.zeros(
-            *sample_shape,
-            self.correlation_prior.n,
-            self.correlation_prior.n,
-            device=base_correlation.device,
-            dtype=base_correlation.dtype,
-        )
-        # and add to the batch dimension
-        marginal_sds = marginal_sds.unsqueeze(-1) + empty_diag_mat
+        # expand sds to have the same shape as the base correlation matrix
+        marginal_sds = marginal_sds.repeat(*[1] * len(sample_shape), self.correlation_prior.n)
+        marginal_sds = torch.diag_embed(marginal_sds)
         return marginal_sds.matmul(base_correlation).matmul(marginal_sds)
 
 
