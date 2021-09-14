@@ -11,8 +11,8 @@ import torch
 import gpytorch
 from gpytorch.settings import linalg_dtypes
 from gpytorch.utils.cholesky import CHOLESKY_METHOD
-from gpytorch.utils.memoize import get_from_cache
 from gpytorch.utils.errors import CachingError
+from gpytorch.utils.memoize import get_from_cache
 from .base_test_case import BaseTestCase
 
 
