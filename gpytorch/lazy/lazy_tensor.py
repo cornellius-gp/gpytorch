@@ -762,8 +762,10 @@ class LazyTensor(ABC):
                 If :math:`A` is n x n, then this matrix should be n x k.
             new_mat (:obj:`torch.tensor`): the matrix :math:`D` we are appending to the matrix :math:`A`.
                 If :math:`B` is n x k, then this matrix should be k x k.
-            generate_roots (:obj:`bool`): whether to generate the root decomposition of :math:`A` even if it has not been created yet.
-            generate_inv_roots (:obj:`bool`): whether to generate the root inv decomposition of :math:`A` even if it has not been created yet.
+            generate_roots (:obj:`bool`): whether to generate the root
+                decomposition of :math:`A` even if it has not been created yet.
+            generate_inv_roots (:obj:`bool`): whether to generate the root inv
+                decomposition of :math:`A` even if it has not been created yet.
 
         Returns:
             :obj:`LazyTensor`: concatenated lazy tensor with the new rows and columns.
