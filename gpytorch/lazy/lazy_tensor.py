@@ -19,7 +19,7 @@ from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..functions._sqrt_inv_matmul import SqrtInvMatmul
-from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
+from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape, _to_helper
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
@@ -1859,25 +1859,31 @@ class LazyTensor(ABC):
             pass
         return self._symeig(eigenvectors=eigenvectors)
 
-    def to(self, device_id):
+    def to(self, *args, **kwargs):
         """
-        A device-agnostic method of moving the lazy_tensor to the specified device.
+        A device-agnostic method of moving the lazy_tensor to the specified device or dtype.
+        Note that we do NOT support non_blocking or other `torch.to` options other than
+        device and dtype and these options will be silently ignored.
 
         Args:
-            device_id (:obj: `torch.device`): Which device to use (GPU or CPU).
+            device (:obj: `torch.device`): Which device to use (GPU or CPU).
+            dtype (:obj: `torch.dtype`): Which dtype to use (double, float, or half).
         Returns:
             :obj:`~gpytorch.lazy.LazyTensor`: New LazyTensor identical to self on specified device
         """
+
+        device, dtype = _to_helper(*args, **kwargs)
+
         new_args = []
         new_kwargs = {}
         for arg in self._args:
             if hasattr(arg, "to"):
-                new_args.append(arg.to(device_id))
+                new_args.append(arg.to(dtype=dtype, device=device))
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
             if hasattr(val, "to"):
-                new_kwargs[name] = val.to(device_id)
+                new_kwargs[name] = val.to(dtype=dtype, device=device)
             else:
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
