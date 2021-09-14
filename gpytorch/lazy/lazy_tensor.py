@@ -735,7 +735,7 @@ class LazyTensor(ABC):
         diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
 
-    def cat_rows(self, cross_mat, new_mat, generate_roots=True, **root_decomp_kwargs):
+    def cat_rows(self, cross_mat, new_mat, generate_roots=True, generate_inv_roots=True, **root_decomp_kwargs):
         """
         Concatenates new rows and columns to the matrix that this LazyTensor represents, e.g.
         C = [A B^T; B D]. where A is the existing lazy tensor, and B (cross_mat) and D (new_mat)
@@ -762,8 +762,8 @@ class LazyTensor(ABC):
                 If :math:`A` is n x n, then this matrix should be n x k.
             new_mat (:obj:`torch.tensor`): the matrix :math:`D` we are appending to the matrix :math:`A`.
                 If :math:`B` is n x k, then this matrix should be k x k.
-            generate_roots (:obj:`bool`): whether to generate the root decomposition of :math:`A` even if it
-                has not been created yet.
+            generate_roots (:obj:`bool`): whether to generate the root decomposition of :math:`A` even if it has not been created yet.
+            generate_inv_roots (:obj:`bool`): whether to generate the root inv decomposition of :math:`A` even if it has not been created yet.
 
         Returns:
             :obj:`LazyTensor`: concatenated lazy tensor with the new rows and columns.
@@ -809,20 +809,20 @@ class LazyTensor(ABC):
         new_root[..., :m, :n] = E.evaluate()
         new_root[..., m:, : lower_left.shape[-1]] = lower_left
         new_root[..., m:, n : (n + schur_root.shape[-1])] = schur_root
-
-        if isinstance(E, TriangularLazyTensor) and isinstance(schur_root, TriangularLazyTensor):
-            # make sure these are actually upper triangular
-            if getattr(E, "upper", False) or getattr(schur_root, "upper", False):
-                raise NotImplementedError
-            # in this case we know new_root is triangular as well
-            new_root = TriangularLazyTensor(new_root)
-            new_inv_root = new_root.inverse().transpose(-1, -2)
-        else:
-            # otherwise we use the pseudo-inverse of Z as new inv root
-            new_inv_root = stable_pinverse(new_root).transpose(-2, -1)
+        if generate_inv_roots:
+            if isinstance(E, TriangularLazyTensor) and isinstance(schur_root, TriangularLazyTensor):
+                # make sure these are actually upper triangular
+                if getattr(E, "upper", False) or getattr(schur_root, "upper", False):
+                    raise NotImplementedError
+                # in this case we know new_root is triangular as well
+                new_root = TriangularLazyTensor(new_root)
+                new_inv_root = new_root.inverse().transpose(-1, -2)
+            else:
+                # otherwise we use the pseudo-inverse of Z as new inv root
+                new_inv_root = stable_pinverse(new_root).transpose(-2, -1)
+            add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(lazify(new_inv_root)))
 
         add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(lazify(new_root)))
-        add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(lazify(new_inv_root)))
 
         return new_lazy_tensor
 
