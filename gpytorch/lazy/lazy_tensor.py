@@ -19,28 +19,13 @@ from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..functions._sqrt_inv_matmul import SqrtInvMatmul
-from ..utils.broadcasting import (
-    _matmul_broadcast_shape,
-    _mul_broadcast_shape,
-    _to_helper,
-)
+from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape, _to_helper
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
-from ..utils.getitem import (
-    _compute_getitem_size,
-    _convert_indices_to_tensors,
-    _is_noop_index,
-    _noop_index,
-)
+from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, _is_noop_index, _noop_index
 from ..utils.lanczos import _postprocess_lanczos_root_inv_decomp
-from ..utils.memoize import (
-    _is_in_cache_ignore_all_args,
-    _is_in_cache_ignore_args,
-    add_to_cache,
-    cached,
-    pop_from_cache,
-)
+from ..utils.memoize import _is_in_cache_ignore_all_args, _is_in_cache_ignore_args, add_to_cache, cached, pop_from_cache
 from ..utils.pinverse import stable_pinverse
 from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
@@ -261,11 +246,7 @@ class LazyTensor(ABC):
         from . import InterpolatedLazyTensor
 
         res = InterpolatedLazyTensor(
-            self,
-            row_interp_indices,
-            row_interp_values,
-            col_interp_indices,
-            col_interp_values,
+            self, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values,
         )
         return res._getitem(row_index, col_index, *batch_indices)
 
@@ -339,11 +320,7 @@ class LazyTensor(ABC):
 
         res = (
             InterpolatedLazyTensor(
-                base_lazy_tensor,
-                row_interp_indices,
-                row_interp_values,
-                col_interp_indices,
-                col_interp_values,
+                base_lazy_tensor, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values,
             )
             .evaluate()
             .squeeze(-2)
@@ -543,10 +520,7 @@ class LazyTensor(ABC):
         else:
             left_lazy_tensor = self if self._root_decomposition_size() < other._root_decomposition_size() else other
             right_lazy_tensor = other if left_lazy_tensor is self else self
-            return MulLazyTensor(
-                left_lazy_tensor.root_decomposition(),
-                right_lazy_tensor.root_decomposition(),
-            )
+            return MulLazyTensor(left_lazy_tensor.root_decomposition(), right_lazy_tensor.root_decomposition(),)
 
     def _preconditioner(self):
         """
@@ -587,10 +561,7 @@ class LazyTensor(ABC):
                 shape = list(roots.shape)
                 shape[dim] = 1
                 extra_root = torch.full(
-                    shape,
-                    dtype=self.dtype,
-                    device=self.device,
-                    fill_value=(1.0 / math.sqrt(self.size(-2))),
+                    shape, dtype=self.dtype, device=self.device, fill_value=(1.0 / math.sqrt(self.size(-2))),
                 )
                 roots = torch.cat([roots, extra_root], dim)
                 num_batch += 1
@@ -767,12 +738,7 @@ class LazyTensor(ABC):
         return self.add_diag(diag)
 
     def cat_rows(
-        self,
-        cross_mat,
-        new_mat,
-        generate_roots=True,
-        generate_inv_roots=True,
-        **root_decomp_kwargs,
+        self, cross_mat, new_mat, generate_roots=True, generate_inv_roots=True, **root_decomp_kwargs,
     ):
         """
         Concatenates new rows and columns to the matrix that this LazyTensor represents, e.g.
@@ -815,8 +781,7 @@ class LazyTensor(ABC):
 
         if not generate_roots and generate_inv_roots:
             warnings.warn(
-                "root_inv_decomposition is only generated when " "root_decomposition is generated.",
-                UserWarning,
+                "root_inv_decomposition is only generated when " "root_decomposition is generated.", UserWarning,
             )
         B_, B = cross_mat, lazify(cross_mat)
         D = lazify(new_mat)
@@ -835,11 +800,7 @@ class LazyTensor(ABC):
         # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
         # don't create one
         has_roots = any(
-            _is_in_cache_ignore_args(self, key)
-            for key in (
-                "root_decomposition",
-                "root_inv_decomposition",
-            )
+            _is_in_cache_ignore_args(self, key) for key in ("root_decomposition", "root_inv_decomposition",)
         )
         if not generate_roots and not has_roots:
             return new_lazy_tensor
@@ -870,9 +831,7 @@ class LazyTensor(ABC):
                 # otherwise we use the pseudo-inverse of Z as new inv root
                 new_inv_root = stable_pinverse(new_root).transpose(-2, -1)
             add_to_cache(
-                new_lazy_tensor,
-                "root_inv_decomposition",
-                RootLazyTensor(lazify(new_inv_root)),
+                new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(lazify(new_inv_root)),
             )
 
         add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(lazify(new_root)))
@@ -917,8 +876,7 @@ class LazyTensor(ABC):
             new_lazy_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
         else:
             new_lazy_tensor = SumLazyTensor(
-                *self.lazy_tensors,
-                lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2))),
+                *self.lazy_tensors, lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2))),
             )
 
             # return as a nonlazy tensor if small enough to reduce memory overhead
@@ -966,12 +924,7 @@ class LazyTensor(ABC):
             updated_root = torch.cat(
                 (
                     current_root.evaluate(),
-                    torch.zeros(
-                        *current_root.shape[:-1],
-                        1,
-                        device=current_root.device,
-                        dtype=current_root.dtype,
-                    ),
+                    torch.zeros(*current_root.shape[:-1], 1, device=current_root.device, dtype=current_root.dtype,),
                 ),
                 dim=-1,
             )
@@ -1231,13 +1184,7 @@ class LazyTensor(ABC):
         if left_tensor is None:
             return func.apply(self.representation_tree(), False, right_tensor, *self.representation())
         else:
-            return func.apply(
-                self.representation_tree(),
-                True,
-                left_tensor,
-                right_tensor,
-                *self.representation(),
-            )
+            return func.apply(self.representation_tree(), True, left_tensor, right_tensor, *self.representation(),)
 
     def inv_quad(self, tensor, reduce_inv_quad=True):
         """
@@ -1304,11 +1251,7 @@ class LazyTensor(ABC):
                     will_need_cholesky = False
             if will_need_cholesky:
                 cholesky = CholLazyTensor(TriangularLazyTensor(self.cholesky()))
-            return cholesky.inv_quad_logdet(
-                inv_quad_rhs=inv_quad_rhs,
-                logdet=logdet,
-                reduce_inv_quad=reduce_inv_quad,
-            )
+            return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad,)
 
         # Default: use modified batch conjugate gradients to compute these terms
         # See NeurIPS 2018 paper: https://arxiv.org/abs/1809.11165
@@ -1700,8 +1643,7 @@ class LazyTensor(ABC):
                 return CholLazyTensor(res)
             except RuntimeError as e:
                 warnings.warn(
-                    f"Runtime Error when computing Cholesky decomposition: {e}. Using symeig method.",
-                    NumericalWarning,
+                    f"Runtime Error when computing Cholesky decomposition: {e}. Using symeig method.", NumericalWarning,
                 )
                 method = "symeig"
 
@@ -2056,11 +1998,7 @@ class LazyTensor(ABC):
 
         if settings.ciq_samples.on():
             base_samples = torch.randn(
-                *self.batch_shape,
-                self.size(-1),
-                num_samples,
-                dtype=self.dtype,
-                device=self.device,
+                *self.batch_shape, self.size(-1), num_samples, dtype=self.dtype, device=self.device,
             )
             base_samples = base_samples.permute(-1, *range(self.dim() - 1)).contiguous()
             base_samples = base_samples.unsqueeze(-1)
@@ -2080,11 +2018,7 @@ class LazyTensor(ABC):
                 covar_root = self.root_decomposition().root
 
             base_samples = torch.randn(
-                *self.batch_shape,
-                covar_root.size(-1),
-                num_samples,
-                dtype=self.dtype,
-                device=self.device,
+                *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device,
             )
             samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
 
@@ -2205,11 +2139,9 @@ class LazyTensor(ABC):
         # Alternatively, if we're using tensor indices and losing dimensions, use self._get_indices
         if row_col_are_absorbed:
             # Convert all indices into tensor indices
-            (
-                *batch_indices,
-                row_index,
-                col_index,
-            ) = _convert_indices_to_tensors(self, (*batch_indices, row_index, col_index))
+            (*batch_indices, row_index, col_index,) = _convert_indices_to_tensors(
+                self, (*batch_indices, row_index, col_index)
+            )
             res = self._get_indices(row_index, col_index, *batch_indices)
         else:
             res = self._getitem(row_index, col_index, *batch_indices)
