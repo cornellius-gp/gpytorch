@@ -11,6 +11,8 @@ import torch
 import gpytorch
 from gpytorch.settings import linalg_dtypes
 from gpytorch.utils.cholesky import CHOLESKY_METHOD
+from gpytorch.utils.errors import CachingError
+from gpytorch.utils.memoize import get_from_cache
 
 from .base_test_case import BaseTestCase
 
@@ -457,13 +459,19 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
             root_rhs = new_lt.root_decomposition().matmul(rhs)
             self.assertAllClose(root_rhs, concat_rhs, **self.tolerances["root_decomposition"])
 
+            # check that root inv is cached
+            root_inv = get_from_cache(new_lt, "root_inv_decomposition")
             # check that the inverse root decomposition is close
             concat_solve = torch.linalg.solve(concatenated_lt, rhs.unsqueeze(-1)).squeeze(-1)
-            root_inv_solve = new_lt.root_inv_decomposition().matmul(rhs)
+            root_inv_solve = root_inv.matmul(rhs)
             self.assertLess(
                 (root_inv_solve - concat_solve).norm() / concat_solve.norm(),
                 self.tolerances["root_inv_decomposition"]["rtol"],
             )
+            # test generate_inv_roots=False
+            new_lt = lazy_tensor.cat_rows(new_rows, new_point, generate_inv_roots=False)
+            with self.assertRaises(CachingError):
+                get_from_cache(new_lt, "root_inv_decomposition")
 
     def test_cholesky(self):
         lazy_tensor = self.create_lazy_tensor()
