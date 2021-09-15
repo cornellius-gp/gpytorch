@@ -88,21 +88,27 @@ class LKJPrior(Prior):
             R[..., :m, m] = y.pow(0.5).unsqueeze(-1) * z
             R[..., m, m] = (1.0 - y).pow(0.5)
 
-        if return_cholesky:
+        # the sample R is drawn from as the cholesky of a covariance matrix, not a correlation
+        # matrix, so we may need to re-compute a cholesky decomposition
+        if return_covariance:
+            if return_cholesky:
+                return R
+            else:
+                return R.matmul(R.transpose(-1, -2))
+        else:
             sample_as_covariance = R.matmul(R.transpose(-1, -2))
 
-            if not return_covariance:
-                # we seem to need to back-convert the resulting matrix into a correlation matrix
-                inverse_sqrt_diagonal = torch.diagonal(sample_as_covariance, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
-                return inverse_sqrt_diagonal.unsqueeze(-1) * sample_as_covariance * inverse_sqrt_diagonal.unsqueeze(-2)
+            # we need to back-convert the resulting covariance matrix into a correlation matrix
+            inverse_sqrt_diagonal = torch.diagonal(sample_as_covariance, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
+            correlation_mat = (
+                inverse_sqrt_diagonal.unsqueeze(-1) * sample_as_covariance * inverse_sqrt_diagonal.unsqueeze(-2)
+            )
+
+            # and then return the cholesky of the correlation matrix
+            if return_cholesky:
+                return correlation_mat.cholesky()
             else:
-                return sample_as_covariance
-        else:
-            if not return_covariance:
-                inverse_sqrt_diagonal = torch.diagonal(R, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
-                return inverse_sqrt_diagonal.unsqueeze(-1) * R
-            else:
-                return R
+                return correlation_mat
 
     def rsample(self, sample_shape):
         return self._rsample(sample_shape=sample_shape, return_covariance=False)
