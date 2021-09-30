@@ -2,10 +2,32 @@
 
 import torch
 
-from ..distributions import MultitaskMultivariateNormal
-from ..lazy import KroneckerProductLazyTensor, MatmulLazyTensor
+from .. import settings
+from ..distributions import MultitaskMultivariateNormal, MultivariateNormal
+from ..lazy import KroneckerProductLazyTensor, RootLazyTensor
 from ..module import Module
+from ..utils.broadcasting import _mul_broadcast_shape
+from ..utils.interpolation import left_interp
 from ._variational_strategy import _VariationalStrategy
+
+
+def _select_lmc_coefficients(lmc_coefficients: torch.Tensor, indices: torch.LongTensor) -> torch.Tensor:
+    """
+    Given a list of indices for ... x N datapoints,
+      select the row from lmc_coefficient that corresponds to each datapoint
+
+    lmc_coefficients: torch.Tensor ... x num_latents x ... x num_tasks
+    indices: torch.Tesnor ... x N
+    """
+    batch_shape = _mul_broadcast_shape(lmc_coefficients.shape[:-1], indices.shape[:-1])
+
+    # We will use the left_t_interp helper to do the indexing
+    lmc_coefficients = lmc_coefficients.expand(*batch_shape, lmc_coefficients.shape[-1])[..., None]
+    indices = indices.expand(*batch_shape, indices.shape[-1])[..., None]
+    res = left_interp(
+        indices, torch.ones(indices.shape, dtype=torch.long, device=indices.device), lmc_coefficients,
+    ).squeeze(-1)
+    return res
 
 
 class LMCVariationalStrategy(_VariationalStrategy):
@@ -120,28 +142,50 @@ class LMCVariationalStrategy(_VariationalStrategy):
     def kl_divergence(self):
         return super().kl_divergence().sum(dim=self.latent_dim)
 
-    def __call__(self, x, prior=False, **kwargs):
-        function_dist = self.base_variational_strategy(x, prior=prior, **kwargs)
-        lmc_coefficients = self.lmc_coefficients.expand(*function_dist.batch_shape, self.lmc_coefficients.size(-1))
-        num_batch = len(function_dist.batch_shape)
-        num_dim = num_batch + len(function_dist.event_shape)
-        latent_dim = num_batch + self.latent_dim if self.latent_dim is not None else None
+    def __call__(self, x, task_indices=None, prior=False, **kwargs):
+        latent_dist = self.base_variational_strategy(x, prior=prior, **kwargs)
+        num_batch = len(latent_dist.batch_shape)
+        latent_dim = num_batch + self.latent_dim
 
-        # Mean
-        mean = function_dist.mean.permute(*range(0, latent_dim), *range(latent_dim + 1, num_dim), latent_dim)
-        mean = mean @ lmc_coefficients.permute(
-            *range(0, latent_dim), *range(latent_dim + 1, num_dim - 1), latent_dim, -1
-        )
+        if task_indices is None:
+            num_dim = num_batch + len(latent_dist.event_shape)
 
-        # Covar
-        covar = function_dist.lazy_covariance_matrix
-        lmc_factor = MatmulLazyTensor(lmc_coefficients.unsqueeze(-1), lmc_coefficients.unsqueeze(-2))
-        covar = KroneckerProductLazyTensor(covar, lmc_factor)
-        covar = covar.sum(latent_dim)
+            # Every data point will get an output for each task
+            # Therefore, we will set up the lmc_coefficients shape for a matmul
+            lmc_coefficients = self.lmc_coefficients.expand(*latent_dist.batch_shape, self.lmc_coefficients.size(-1))
 
-        # Add a bit of jitter to make the covar PD
-        covar = covar.add_jitter(1e-6)
+            # Mean: ... x N x num_tasks
+            latent_mean = latent_dist.mean.permute(*range(0, latent_dim), *range(latent_dim + 1, num_dim), latent_dim)
+            mean = latent_mean @ lmc_coefficients.permute(
+                *range(0, latent_dim), *range(latent_dim + 1, num_dim - 1), latent_dim, -1
+            )
 
-        # Done!
-        function_dist = MultitaskMultivariateNormal(mean, covar)
+            # Covar: ... x (N x num_tasks) x (N x num_tasks)
+            latent_covar = latent_dist.lazy_covariance_matrix
+            lmc_factor = RootLazyTensor(lmc_coefficients.unsqueeze(-1))
+            covar = KroneckerProductLazyTensor(latent_covar, lmc_factor).sum(latent_dim)
+            # Add a bit of jitter to make the covar PD
+            covar = covar.add_jitter(settings.cholesky_jitter.value(dtype=mean.dtype))
+
+            # Done!
+            function_dist = MultitaskMultivariateNormal(mean, covar)
+
+        else:
+            # Each data point will get a single output corresponding to a single task
+            # Therefore, we will select the appropriate lmc coefficients for each task
+            lmc_coefficients = _select_lmc_coefficients(self.lmc_coefficients, task_indices)
+
+            # Mean: ... x N
+            mean = (latent_dist.mean * lmc_coefficients).sum(latent_dim)
+
+            # Covar: ... x N x N
+            latent_covar = latent_dist.lazy_covariance_matrix
+            lmc_factor = RootLazyTensor(lmc_coefficients.unsqueeze(-1))
+            covar = (latent_covar * lmc_factor).sum(latent_dim)
+            # Add a bit of jitter to make the covar PD
+            covar = covar.add_jitter(settings.cholesky_jitter.value(dtype=mean.dtype))
+
+            # Done!
+            function_dist = MultivariateNormal(mean, covar)
+
         return function_dist
