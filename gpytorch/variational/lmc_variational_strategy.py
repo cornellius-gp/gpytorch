@@ -154,7 +154,7 @@ class LMCVariationalStrategy(_VariationalStrategy):
             If this is the case, the :attr:`task_indices` attribute should be None.
             The return type will be a (... x N x num_tasks)
             :class:`~gpytorch.distributions.MultitaskMultivariateNormal`.
-        2.  Compute **one tasks** per inputs.
+        2.  Compute **one task** per inputs.
             If this is the case, the (... x N) :attr:`task_indices` tensor should contain
             the indices of each input's assigned task.
             The return type will be a (... x N)
