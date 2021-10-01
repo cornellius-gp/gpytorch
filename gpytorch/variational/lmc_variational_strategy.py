@@ -21,7 +21,7 @@ def _select_lmc_coefficients(lmc_coefficients: torch.Tensor, indices: torch.Long
     """
     batch_shape = _mul_broadcast_shape(lmc_coefficients.shape[:-1], indices.shape[:-1])
 
-    # We will use the left_t_interp helper to do the indexing
+    # We will use the left_interp helper to do the indexing
     lmc_coefficients = lmc_coefficients.expand(*batch_shape, lmc_coefficients.shape[-1])[..., None]
     indices = indices.expand(*batch_shape, indices.shape[-1])[..., None]
     res = left_interp(
