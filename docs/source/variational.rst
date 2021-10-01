@@ -98,6 +98,14 @@ These are special :obj:`~gpytorch.variational._VariationalStrategy` objects that
 :obj:`~gpytorch.distributions.MultitaskMultivariateNormal` distributions. Each of these objects
 acts on a batch of approximate GPs.
 
+:hidden:`LMCVariationalStrategy`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: LMCVariationalStrategy
+   :members:
+
+   .. automethod:: __call__
+
 
 :hidden:`IndependentMultitaskVariationalStrategy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -105,11 +113,7 @@ acts on a batch of approximate GPs.
 .. autoclass:: IndependentMultitaskVariationalStrategy
    :members:
 
-:hidden:`LMCVariationalStrategy`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: LMCVariationalStrategy
-   :members:
+   .. automethod:: __call__
 
 
 Variational Distributions
