@@ -13,9 +13,12 @@ from ._variational_strategy import _VariationalStrategy
 class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
     """
     IndependentMultitaskVariationalStrategy wraps an existing
-    :obj:`~gpytorch.variational.VariationalStrategy`
-    to produce a :obj:`~gpytorch.variational.MultitaskMultivariateNormal` distribution.
-    All outputs will be independent of one another.
+    :obj:`~gpytorch.variational.VariationalStrategy` to produce vector-valued (multi-task)
+    output distributions. Each task will be independent of one another.
+
+    The output will either be a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal` distribution
+    (if we wish to evaluate all tasks for each input) or a :obj:`~gpytorch.distributions.MultivariateNormal`
+    (if we wish to evaluate a single task for each input).
 
     The base variational strategy is assumed to operate on a batch of GPs. One of the batch
     dimensions corresponds to the multiple tasks.
@@ -47,6 +50,9 @@ class IndependentMultitaskVariationalStrategy(_VariationalStrategy):
         return super().kl_divergence().sum(dim=-1)
 
     def __call__(self, x, task_indices=None, prior=False, **kwargs):
+        r"""
+        See :class:`LMCVariationalStrategy`.
+        """
         function_dist = self.base_variational_strategy(x, prior=prior, **kwargs)
 
         if task_indices is None:

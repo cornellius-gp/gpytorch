@@ -42,8 +42,11 @@ class LMCVariationalStrategy(_VariationalStrategy):
 
         f_{\text{task } i}( \mathbf x) = \sum_{q=1}^Q a_i^{(q)} g^{(q)} ( \mathbf x )
 
-    LMCVariationalStrategy wraps an existing :obj:`~gpytorch.variational.VariationalStrategy`
-    to produce a :obj:`~gpytorch.variational.MultitaskMultivariateNormal` distribution.
+    LMCVariationalStrategy wraps an existing :obj:`~gpytorch.variational.VariationalStrategy`.
+    The output will either be a :obj:`~gpytorch.distributions.MultitaskMultivariateNormal` distribution
+    (if we wish to evaluate all tasks for each input) or a :obj:`~gpytorch.distributions.MultivariateNormal`
+    (if we wish to evaluate a single task for each input).
+
     The base variational strategy is assumed to operate on a multi-batch of GPs, where one
     of the batch dimensions corresponds to the latent function dimension.
 
@@ -56,13 +59,6 @@ class LMCVariationalStrategy(_VariationalStrategy):
         to 3 latent functions), the GP kernel object could have a batch shape of `[3]` or no
         batch shape. This would correspond to each of the latent functions having different kernels
         or the same kernel, respectivly.
-
-    :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
-    :param int num_tasks: The total number of tasks (output functions)
-    :param int num_latents: The total number of latent functions in each group
-    :param latent_dim: (Default: -1) Which batch dimension corresponds to the latent function batch.
-        **Must be negative indexed**
-    :type latent_dim: `int` < 0
 
     Example:
         >>> class LMCMultitaskGP(gpytorch.models.ApproximateGP):
@@ -96,7 +92,13 @@ class LMCVariationalStrategy(_VariationalStrategy):
         >>>             batch_shape=torch.Size([3]),
         >>>         )
         >>>
-        >>> # Model output: n x 5
+
+    :param ~gpytorch.variational.VariationalStrategy base_variational_strategy: Base variational strategy
+    :param int num_tasks: The total number of tasks (output functions)
+    :param int num_latents: The total number of latent functions in each group
+    :param latent_dim: (Default: -1) Which batch dimension corresponds to the latent function batch.
+        **Must be negative indexed**
+    :type latent_dim: `int` < 0
     """
 
     def __init__(
@@ -143,6 +145,40 @@ class LMCVariationalStrategy(_VariationalStrategy):
         return super().kl_divergence().sum(dim=self.latent_dim)
 
     def __call__(self, x, task_indices=None, prior=False, **kwargs):
+        r"""
+        Computes the variational (or prior) distribution
+        :math:`q( \mathbf f \mid \mathbf X)` (or :math:`p( \mathbf f \mid \mathbf X)`).
+        There are two modes:
+
+        1.  Compute **all tasks** for all inputs.
+            If this is the case, the :attr:`task_indices` attribute should be None.
+            The return type will be a (... x N x num_tasks)
+            :class:`~gpytorch.distributions.MultitaskMultivariateNormal`.
+        2.  Compute **one tasks** per inputs.
+            If this is the case, the (... x N) :attr:`task_indices` tensor should contain
+            the indices of each input's assigned task.
+            The return type will be a (... x N)
+            :class:`~gpytorch.distributions.MultivariateNormal`.
+
+        :param x: Input locations to evaluate variational strategy
+        :type x: torch.Tensor (... x N x D)
+        :param task_indices: (Default: None) Task index associated with each input.
+            If this **is not** provided, then the returned distribution evaluates every input on every task
+            (returns :class:`~gpytorch.distributions.MultitaskMultivariateNormal`).
+            If this **is** provided, then the returned distribution evaluates each input only on its assigned task.
+            (returns :class:`~gpytorch.distributions.MultivariateNormal`).
+        :type task_indices: torch.Tensor (... x N), optional
+        :param prior: (Default: False) If False, returns the variational distribution
+            :math:`q( \mathbf f \mid \mathbf X)`.
+            If True, returns the prior distribution
+            :math:`p( \mathbf f \mid \mathbf X)`.
+        :type prior: bool
+        :return: :math:`q( \mathbf f \mid \mathbf X)` (or the prior),
+            either for all tasks (if `task_indices == None`)
+            or for a specific task (if `task_indices != None`).
+        :rtype: ~gpytorch.distributions.MultitaskMultivariateNormal (... x N x num_tasks)
+            or ~gpytorch.distributions.MultivariateNormal (... x N)
+        """
         latent_dist = self.base_variational_strategy(x, prior=prior, **kwargs)
         num_batch = len(latent_dist.batch_shape)
         latent_dim = num_batch + self.latent_dim
