@@ -193,18 +193,22 @@ class KroneckerProductLazyTensor(LazyTensor):
 
         return res
 
-    def _inv_matmul(self, right_tensor, left_tensor=None):
+    def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         # Computes inv_matmul by exploiting the identity (A \kron B)^-1 = A^-1 \kron B^-1
         tsr_shapes = [q.size(-1) for q in self.lazy_tensors]
-        n_rows = right_tensor.size(-2)
-        batch_shape = _mul_broadcast_shape(self.shape[:-2], right_tensor.shape[:-2])
+        n_rows = rhs.size(-2)
+        batch_shape = _mul_broadcast_shape(self.shape[:-2], rhs.shape[:-2])
         perm_batch = tuple(range(len(batch_shape)))
-        y = right_tensor.clone().expand(*batch_shape, *right_tensor.shape[-2:])
+        y = rhs.clone().expand(*batch_shape, *rhs.shape[-2:])
         for n, q in zip(tsr_shapes, self.lazy_tensors):
             # for KroneckerProductTriangularLazyTensor this inv_matmul is very cheap
             y = q.inv_matmul(y.reshape(*batch_shape, n, -1))
             y = y.reshape(*batch_shape, n, n_rows // n, -1).permute(*perm_batch, -2, -3, -1)
         res = y.reshape(*batch_shape, n_rows, -1)
+        return res
+
+    def _inv_matmul(self, right_tensor, left_tensor=None):
+        res = self._solve(rhs=right_tensor)
         if left_tensor is not None:
             res = left_tensor @ res
         return res
