@@ -155,6 +155,16 @@ class KroneckerProductLazyTensor(LazyTensor):
         # For now, retain existing behavior
         return super().inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
 
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
+        if inv_quad_rhs is not None:
+            inv_quad_term, _ = super().inv_quad_logdet(
+                inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
+            )
+        else:
+            inv_quad_term = None
+        logdet_term = self._logdet() if logdet else None
+        return inv_quad_term, logdet_term
+
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
         chol_factors = [lt.cholesky(upper=upper) for lt in self.lazy_tensors]
@@ -198,6 +208,10 @@ class KroneckerProductLazyTensor(LazyTensor):
         if left_tensor is not None:
             res = left_tensor @ res
         return res
+
+    def _logdet(self):
+        evals, _ = self.diagonalization(method="symeig")
+        return evals.clamp(min=1e-7).log().sum(-1)
 
     def _matmul(self, rhs):
         is_vec = rhs.ndimension() == 1
