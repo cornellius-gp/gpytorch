@@ -137,6 +137,7 @@ class TestLazyEvaluatedKernelTensorBatch(LazyTensorTestCase, unittest.TestCase):
 
 class TestLazyEvaluatedKernelTensorMultitaskBatch(TestLazyEvaluatedKernelTensorBatch):
     seed = 0
+    skip_slq_tests = True  # we skip these because of the kronecker structure
 
     def create_lazy_tensor(self):
         kern = gpytorch.kernels.MultitaskKernel(gpytorch.kernels.RBFKernel(), num_tasks=3, rank=2)

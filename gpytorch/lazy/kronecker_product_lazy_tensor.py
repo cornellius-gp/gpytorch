@@ -205,7 +205,16 @@ class KroneckerProductLazyTensor(LazyTensor):
             y = q.inv_matmul(y.reshape(*batch_shape, n, -1))
             y = y.reshape(*batch_shape, n, n_rows // n, -1).permute(*perm_batch, -2, -3, -1)
         res = y.reshape(*batch_shape, n_rows, -1)
-        return res
+        if num_tridiag == 0:
+            return res
+        else:
+            # we need to return the t mat, so we return the eigenvalues
+            # TODO: make this more efficient
+            evals, _ = self.diagonalization()
+            evals_repeated = evals.unsqueeze(0).repeat(num_tridiag, *[1] * evals.ndim)
+            lazy_evals = DiagLazyTensor(evals_repeated)
+            batch_repeated_evals = lazy_evals.evaluate()
+            return res, batch_repeated_evals
 
     def _inv_matmul(self, right_tensor, left_tensor=None):
         res = self._solve(rhs=right_tensor)
@@ -214,8 +223,11 @@ class KroneckerProductLazyTensor(LazyTensor):
         return res
 
     def _logdet(self):
-        evals, _ = self.diagonalization(method="symeig")
-        return evals.clamp(min=1e-7).log().sum(-1)
+        # return sum([lt.logdet() * lt.shape[-1] for lt in self.lazy_tensors])
+        evals, _ = self.diagonalization()
+        logdet = evals.clamp(min=1e-7).log().sum(-1)
+        print(logdet, self.evaluate().logdet())
+        return logdet
 
     def _matmul(self, rhs):
         is_vec = rhs.ndimension() == 1
