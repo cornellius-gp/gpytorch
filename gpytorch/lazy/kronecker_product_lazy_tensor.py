@@ -226,7 +226,6 @@ class KroneckerProductLazyTensor(LazyTensor):
         # return sum([lt.logdet() * lt.shape[-1] for lt in self.lazy_tensors])
         evals, _ = self.diagonalization()
         logdet = evals.clamp(min=1e-7).log().sum(-1)
-        print(logdet, self.evaluate().logdet())
         return logdet
 
     def _matmul(self, rhs):
