@@ -19,7 +19,7 @@ from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..functions._sqrt_inv_matmul import SqrtInvMatmul
-from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
+from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape, _to_helper
 from ..utils.cholesky import psd_safe_cholesky
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.errors import CachingError
@@ -245,7 +245,9 @@ class LazyTensor(ABC):
         # Construct interpolated LazyTensor
         from . import InterpolatedLazyTensor
 
-        res = InterpolatedLazyTensor(self, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values)
+        res = InterpolatedLazyTensor(
+            self, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values,
+        )
         return res._getitem(row_index, col_index, *batch_indices)
 
     def _unsqueeze_batch(self, dim):
@@ -318,7 +320,7 @@ class LazyTensor(ABC):
 
         res = (
             InterpolatedLazyTensor(
-                base_lazy_tensor, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values
+                base_lazy_tensor, row_interp_indices, row_interp_values, col_interp_indices, col_interp_values,
             )
             .evaluate()
             .squeeze(-2)
@@ -518,7 +520,7 @@ class LazyTensor(ABC):
         else:
             left_lazy_tensor = self if self._root_decomposition_size() < other._root_decomposition_size() else other
             right_lazy_tensor = other if left_lazy_tensor is self else self
-            return MulLazyTensor(left_lazy_tensor.root_decomposition(), right_lazy_tensor.root_decomposition())
+            return MulLazyTensor(left_lazy_tensor.root_decomposition(), right_lazy_tensor.root_decomposition(),)
 
     def _preconditioner(self):
         """
@@ -559,7 +561,7 @@ class LazyTensor(ABC):
                 shape = list(roots.shape)
                 shape[dim] = 1
                 extra_root = torch.full(
-                    shape, dtype=self.dtype, device=self.device, fill_value=(1.0 / math.sqrt(self.size(-2)))
+                    shape, dtype=self.dtype, device=self.device, fill_value=(1.0 / math.sqrt(self.size(-2))),
                 )
                 roots = torch.cat([roots, extra_root], dim)
                 num_batch += 1
@@ -735,7 +737,9 @@ class LazyTensor(ABC):
         diag = torch.tensor(jitter_val, dtype=self.dtype, device=self.device)
         return self.add_diag(diag)
 
-    def cat_rows(self, cross_mat, new_mat, generate_roots=True, **root_decomp_kwargs):
+    def cat_rows(
+        self, cross_mat, new_mat, generate_roots=True, generate_inv_roots=True, **root_decomp_kwargs,
+    ):
         """
         Concatenates new rows and columns to the matrix that this LazyTensor represents, e.g.
         C = [A B^T; B D]. where A is the existing lazy tensor, and B (cross_mat) and D (new_mat)
@@ -762,8 +766,10 @@ class LazyTensor(ABC):
                 If :math:`A` is n x n, then this matrix should be n x k.
             new_mat (:obj:`torch.tensor`): the matrix :math:`D` we are appending to the matrix :math:`A`.
                 If :math:`B` is n x k, then this matrix should be k x k.
-            generate_roots (:obj:`bool`): whether to generate the root decomposition of :math:`A` even if it
-                has not been created yet.
+            generate_roots (:obj:`bool`): whether to generate the root
+                decomposition of :math:`A` even if it has not been created yet.
+            generate_inv_roots (:obj:`bool`): whether to generate the root inv
+                decomposition of :math:`A` even if it has not been created yet.
 
         Returns:
             :obj:`LazyTensor`: concatenated lazy tensor with the new rows and columns.
@@ -773,6 +779,10 @@ class LazyTensor(ABC):
         from .root_lazy_tensor import RootLazyTensor
         from .triangular_lazy_tensor import TriangularLazyTensor
 
+        if not generate_roots and generate_inv_roots:
+            warnings.warn(
+                "root_inv_decomposition is only generated when " "root_decomposition is generated.", UserWarning,
+            )
         B_, B = cross_mat, lazify(cross_mat)
         D = lazify(new_mat)
         batch_shape = B.shape[:-2]
@@ -789,13 +799,13 @@ class LazyTensor(ABC):
 
         # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
         # don't create one
-        does_not_have_roots = any(
-            _is_in_cache_ignore_args(self, key) for key in ("root_inv_decomposition", "root_inv_decomposition")
+        has_roots = any(
+            _is_in_cache_ignore_args(self, key) for key in ("root_decomposition", "root_inv_decomposition",)
         )
-        if not generate_roots and not does_not_have_roots:
+        if not generate_roots and not has_roots:
             return new_lazy_tensor
 
-        # Get compomnents for new root Z = [E 0; F G]
+        # Get components for new root Z = [E 0; F G]
         E = self.root_decomposition(**root_decomp_kwargs).root  # E = L, LL^T = A
         m, n = E.shape[-2:]
         R = self.root_inv_decomposition().root.evaluate()  # RR^T = A^{-1} (this is fast if L is triangular)
@@ -809,20 +819,22 @@ class LazyTensor(ABC):
         new_root[..., :m, :n] = E.evaluate()
         new_root[..., m:, : lower_left.shape[-1]] = lower_left
         new_root[..., m:, n : (n + schur_root.shape[-1])] = schur_root
-
-        if isinstance(E, TriangularLazyTensor) and isinstance(schur_root, TriangularLazyTensor):
-            # make sure these are actually upper triangular
-            if getattr(E, "upper", False) or getattr(schur_root, "upper", False):
-                raise NotImplementedError
-            # in this case we know new_root is triangular as well
-            new_root = TriangularLazyTensor(new_root)
-            new_inv_root = new_root.inverse().transpose(-1, -2)
-        else:
-            # otherwise we use the pseudo-inverse of Z as new inv root
-            new_inv_root = stable_pinverse(new_root).transpose(-2, -1)
+        if generate_inv_roots:
+            if isinstance(E, TriangularLazyTensor) and isinstance(schur_root, TriangularLazyTensor):
+                # make sure these are actually upper triangular
+                if getattr(E, "upper", False) or getattr(schur_root, "upper", False):
+                    raise NotImplementedError
+                # in this case we know new_root is triangular as well
+                new_root = TriangularLazyTensor(new_root)
+                new_inv_root = new_root.inverse().transpose(-1, -2)
+            else:
+                # otherwise we use the pseudo-inverse of Z as new inv root
+                new_inv_root = stable_pinverse(new_root).transpose(-2, -1)
+            add_to_cache(
+                new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(lazify(new_inv_root)),
+            )
 
         add_to_cache(new_lazy_tensor, "root_decomposition", RootLazyTensor(lazify(new_root)))
-        add_to_cache(new_lazy_tensor, "root_inv_decomposition", RootLazyTensor(lazify(new_inv_root)))
 
         return new_lazy_tensor
 
@@ -864,7 +876,7 @@ class LazyTensor(ABC):
             new_lazy_tensor = self + lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
         else:
             new_lazy_tensor = SumLazyTensor(
-                *self.lazy_tensors, lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2)))
+                *self.lazy_tensors, lazify(low_rank_mat.matmul(low_rank_mat.transpose(-1, -2))),
             )
 
             # return as a nonlazy tensor if small enough to reduce memory overhead
@@ -873,10 +885,8 @@ class LazyTensor(ABC):
 
         # if the old lazy tensor does not have either a root decomposition or a root inverse decomposition
         # don't create one
-        does_not_have_roots = any(
-            _is_in_cache_ignore_args(self, key) for key in ("root_decomposition", "root_inv_decomposition")
-        )
-        if not generate_roots and not does_not_have_roots:
+        has_roots = any(_is_in_cache_ignore_args(self, key) for key in ("root_decomposition", "root_inv_decomposition"))
+        if not generate_roots and not has_roots:
             return new_lazy_tensor
 
         # we are going to compute the following
@@ -914,7 +924,7 @@ class LazyTensor(ABC):
             updated_root = torch.cat(
                 (
                     current_root.evaluate(),
-                    torch.zeros(*current_root.shape[:-1], 1, device=current_root.device, dtype=current_root.dtype),
+                    torch.zeros(*current_root.shape[:-1], 1, device=current_root.device, dtype=current_root.dtype,),
                 ),
                 dim=-1,
             )
@@ -1174,7 +1184,7 @@ class LazyTensor(ABC):
         if left_tensor is None:
             return func.apply(self.representation_tree(), False, right_tensor, *self.representation())
         else:
-            return func.apply(self.representation_tree(), True, left_tensor, right_tensor, *self.representation())
+            return func.apply(self.representation_tree(), True, left_tensor, right_tensor, *self.representation(),)
 
     def inv_quad(self, tensor, reduce_inv_quad=True):
         """
@@ -1241,7 +1251,7 @@ class LazyTensor(ABC):
                     will_need_cholesky = False
             if will_need_cholesky:
                 cholesky = CholLazyTensor(TriangularLazyTensor(self.cholesky()))
-            return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)
+            return cholesky.inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad,)
 
         # Default: use modified batch conjugate gradients to compute these terms
         # See NeurIPS 2018 paper: https://arxiv.org/abs/1809.11165
@@ -1859,25 +1869,31 @@ class LazyTensor(ABC):
             pass
         return self._symeig(eigenvectors=eigenvectors)
 
-    def to(self, device_id):
+    def to(self, *args, **kwargs):
         """
-        A device-agnostic method of moving the lazy_tensor to the specified device.
+        A device-agnostic method of moving the lazy_tensor to the specified device or dtype.
+        Note that we do NOT support non_blocking or other `torch.to` options other than
+        device and dtype and these options will be silently ignored.
 
         Args:
-            device_id (:obj: `torch.device`): Which device to use (GPU or CPU).
+            device (:obj: `torch.device`): Which device to use (GPU or CPU).
+            dtype (:obj: `torch.dtype`): Which dtype to use (double, float, or half).
         Returns:
             :obj:`~gpytorch.lazy.LazyTensor`: New LazyTensor identical to self on specified device
         """
+
+        device, dtype = _to_helper(*args, **kwargs)
+
         new_args = []
         new_kwargs = {}
         for arg in self._args:
             if hasattr(arg, "to"):
-                new_args.append(arg.to(device_id))
+                new_args.append(arg.to(dtype=dtype, device=device))
             else:
                 new_args.append(arg)
         for name, val in self._kwargs.items():
             if hasattr(val, "to"):
-                new_kwargs[name] = val.to(device_id)
+                new_kwargs[name] = val.to(dtype=dtype, device=device)
             else:
                 new_kwargs[name] = val
         return self.__class__(*new_args, **new_kwargs)
@@ -1982,7 +1998,7 @@ class LazyTensor(ABC):
 
         if settings.ciq_samples.on():
             base_samples = torch.randn(
-                *self.batch_shape, self.size(-1), num_samples, dtype=self.dtype, device=self.device
+                *self.batch_shape, self.size(-1), num_samples, dtype=self.dtype, device=self.device,
             )
             base_samples = base_samples.permute(-1, *range(self.dim() - 1)).contiguous()
             base_samples = base_samples.unsqueeze(-1)
@@ -2002,7 +2018,7 @@ class LazyTensor(ABC):
                 covar_root = self.root_decomposition().root
 
             base_samples = torch.randn(
-                *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device
+                *self.batch_shape, covar_root.size(-1), num_samples, dtype=self.dtype, device=self.device,
             )
             samples = covar_root.matmul(base_samples).permute(-1, *range(self.dim() - 1)).contiguous()
 
