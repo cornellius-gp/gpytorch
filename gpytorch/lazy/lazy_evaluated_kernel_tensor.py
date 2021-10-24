@@ -282,7 +282,9 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         with settings.lazily_evaluate_kernels(False):
             temp_active_dims = self.kernel.active_dims
             self.kernel.active_dims = None
-            res = self.kernel(x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, x1_eq_x2=self.x1_eq_x2, **self.params)
+            res = self.kernel(
+                x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, x1_eq_x2=self.x1_eq_x2, **self.params
+            )
             self.kernel.active_dims = temp_active_dims
 
         # Check the size of the output

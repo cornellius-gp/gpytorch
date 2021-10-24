@@ -398,7 +398,9 @@ class Kernel(Module):
                 )
 
         if diag:
-            res = super(Kernel, self).__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params)
+            res = super(Kernel, self).__call__(
+                x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params
+            )
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
@@ -408,9 +410,15 @@ class Kernel(Module):
 
         else:
             if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params)
+                res = LazyEvaluatedKernelTensor(
+                    x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params
+                )
             else:
-                res = lazify(super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params))
+                res = lazify(
+                    super(Kernel, self).__call__(
+                        x1_, x2_, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params
+                    )
+                )
             return res
 
     def __getstate__(self):
