@@ -139,7 +139,7 @@ class Kernel(Module):
         eps=1e-6,
         **kwargs,
     ):
-        super(Kernel, self).__init__()
+        super().__init__()
         self._batch_shape = batch_shape
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
@@ -318,9 +318,15 @@ class Kernel(Module):
                     res = dist_postprocess_func(res)
                 return res
             else:
-                res = torch.norm(x1 - x2, p=2, dim=-1)
-                if square_dist:
-                    res = res.pow(2)
+                if not square_dist:
+                    res = torch.norm(x1 - x2, p=2, dim=-1)
+                else:
+                    if x1.size(-2) == x2.size(-2):
+                        # If n1 = n2, we can compute the squared distance diagonal
+                        # in a way that preserves gradient flow.
+                        res = (x1 * x1 - 2 * x1 * x2 + x2 * x2).sum(-1)
+                    else:
+                        res = torch.norm(x1 - x2, p=2, dim=-1).pow(2)
             if postprocess:
                 res = dist_postprocess_func(res)
             return res
