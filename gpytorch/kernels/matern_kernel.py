@@ -98,7 +98,8 @@ class MaternKernel(Kernel):
 
             x1_ = (x1 - mean).div(self.lengthscale)
             x2_ = (x2 - mean).div(self.lengthscale)
-            distance = self.covar_dist(x1_, x2_, diag=diag, **params)
+            distance_squared = self.covar_dist(x1_, x2_, diag=diag, square_dist=True, **params)
+            distance = distance_squared.clamp_min(1e-30).sqrt()
             exp_component = torch.exp(-math.sqrt(self.nu * 2) * distance)
 
             if self.nu == 0.5:
@@ -106,7 +107,7 @@ class MaternKernel(Kernel):
             elif self.nu == 1.5:
                 constant_component = (math.sqrt(3) * distance).add(1)
             elif self.nu == 2.5:
-                constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance ** 2)
+                constant_component = (math.sqrt(5) * distance).add(1).add(5.0 / 3.0 * distance_squared)
             return constant_component * exp_component
         return MaternCovariance.apply(
             x1, x2, self.lengthscale, self.nu, lambda x1, x2: self.covar_dist(x1, x2, **params)
