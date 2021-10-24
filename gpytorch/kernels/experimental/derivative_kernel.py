@@ -16,8 +16,8 @@ try:
 
             .. note::
 
-                Currently, this kernel takes advantage of experimental torch functionality found in the `functorch` package.
-                You must have this package installed in order to use this kernel.
+                Currently, this kernel takes advantage of experimental torch functionality found in the `functorch`
+                package. You must have this package installed in order to use this kernel.
 
             Example:
                 >>> x = torch.randn(5, 2)
@@ -66,7 +66,6 @@ try:
                 K_dx1_dx2 = K_dx1_dx2.squeeze(-2).squeeze(-3).squeeze(-3).squeeze(-3)
                 K_dx1_dx2 = K_dx1_dx2.permute(-2, -4, -1, -3).reshape(n1 * d, n2 * d)
 
-
                 R1 = torch.cat((K_x1_x2, K_x1_dx2), dim=-1)
                 R2 = torch.cat((K_dx1_x2, K_dx1_dx2), dim=-1)
                 K = torch.cat((R1, R2), dim=-2)
@@ -85,6 +84,16 @@ try:
                 # Must use x1_eq_x2=False here, because covar_dist just returns 0 otherwise and we lose gradients.
                 k_diag_f = lambda x1_, x2_: self.base_kernel.forward(x1_, x2_, diag=True, x1_eq_x2=False)
                 k_diag = k_diag_f(x1, x2)
+
+                # TODO: Currently, this computes the full Hessian of each k(x_i, x_i) diagonal element,
+                # and then takes the diagonal of each Hessian. As a result, this takes O(d) more memory
+                # than it should.
+                #
+                # This is still better than computing the full nd x nd Hessian block
+                # and taking the diagonal by a factor of n, but not as good as it ought to be. I'm not
+                # 100% sure how to solve this, since thinking about vmapping nested jacrevs hurts my brain.
+                #
+                # Maybe we could vmap a vjp against columns of I or something?
                 k_grad_diag_f = vmap(jacrev(jacrev(k_diag_f, argnums=0), argnums=1))
                 k_grad_diag = k_grad_diag_f(x1, x2).diagonal(dim1=-2, dim2=-1).transpose(-3, -1).reshape(-1)
 
@@ -101,6 +110,7 @@ try:
 
 
 except (ImportError, ModuleNotFoundError):
+
     class DerivativeKernel(Kernel):
         def __init__(self, base_kernel, shuffle=False, **kwargs):
             raise RuntimeError("You must have functorch installed to use DerivativeKernel!")
