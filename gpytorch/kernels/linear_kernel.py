@@ -3,9 +3,11 @@
 import warnings
 
 import torch
+from typing import Optional
 
 from ..constraints import Positive
 from ..lazy import MatmulLazyTensor, RootLazyTensor
+from ..priors import Prior
 from .kernel import Kernel
 
 
@@ -44,7 +46,7 @@ class LinearKernel(Kernel):
             `len(active_dims)` should equal `num_dimensions`.
     """
 
-    def __init__(self, num_dimensions=None, offset_prior=None, variance_prior=None, variance_constraint=None, **kwargs):
+    def __init__(self, num_dimensions=None, offset_prior: Optional[Prior] = None, variance_prior: Optional[Prior] = None, variance_constraint=None, **kwargs):
         super(LinearKernel, self).__init__(**kwargs)
         if variance_constraint is None:
             variance_constraint = Positive()
@@ -58,6 +60,8 @@ class LinearKernel(Kernel):
             warnings.warn("The `offset_prior` argument is deprecated and no longer used.", DeprecationWarning)
         self.register_parameter(name="raw_variance", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, 1)))
         if variance_prior is not None:
+            if not isinstance(variance_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(variance_prior).__name__)
             self.register_prior("variance_prior", variance_prior, lambda m: m.variance, lambda m, v: m._set_variance(v))
 
         self.register_constraint("raw_variance", variance_constraint)

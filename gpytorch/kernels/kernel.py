@@ -6,12 +6,14 @@ from copy import deepcopy
 
 import torch
 from torch.nn import ModuleList
+from typing import Optional
 
 from .. import settings
 from ..constraints import Positive
 from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
 from ..models import exact_prediction_strategies
 from ..module import Module
+from ..priors import Prior
 from ..utils.broadcasting import _mul_broadcast_shape
 
 
@@ -134,7 +136,7 @@ class Kernel(Module):
         ard_num_dims=None,
         batch_shape=torch.Size([]),
         active_dims=None,
-        lengthscale_prior=None,
+        lengthscale_prior: Optional[Prior] = None,
         lengthscale_constraint=None,
         eps=1e-6,
         **kwargs,
@@ -167,6 +169,8 @@ class Kernel(Module):
                 parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, lengthscale_num_dims)),
             )
             if lengthscale_prior is not None:
+                if not isinstance(lengthscale_prior, Prior):
+                    raise TypeError("Expected gpytorch.priors.Prior but got " + type(lengthscale_prior).__name__)
                 self.register_prior(
                     "lengthscale_prior", lengthscale_prior, lambda m: m.lengthscale, lambda m, v: m._set_lengthscale(v)
                 )

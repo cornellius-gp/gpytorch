@@ -76,6 +76,8 @@ class CylindricalKernel(Kernel):
         self.register_constraint("raw_beta", beta_constraint)
 
         if angular_weights_prior is not None:
+            if not isinstance(angular_weights_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(angular_weights_prior).__name__)
             self.register_prior(
                 "angular_weights_prior",
                 angular_weights_prior,
@@ -83,8 +85,12 @@ class CylindricalKernel(Kernel):
                 lambda m, v: m._set_angular_weights(v),
             )
         if alpha_prior is not None:
+            if not isinstance(alpha_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(alpha_prior).__name__)
             self.register_prior("alpha_prior", alpha_prior, lambda m: m.alpha, lambda m, v: m._set_alpha(v))
         if beta_prior is not None:
+            if not isinstance(beta_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(beta_prior).__name__)
             self.register_prior("beta_prior", beta_prior, lambda m: m.beta, lambda m, v: m._set_beta(v))
 
     @property

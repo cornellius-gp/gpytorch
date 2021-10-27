@@ -3,8 +3,10 @@
 import math
 
 import torch
+from typing import Optional
 
 from ..constraints import Positive
+from ..priors import Prior
 from .kernel import Kernel
 
 
@@ -80,7 +82,7 @@ class PeriodicKernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, period_length_prior=None, period_length_constraint=None, **kwargs):
+    def __init__(self, period_length_prior: Optional[Prior] = None, period_length_constraint=None, **kwargs):
         super(PeriodicKernel, self).__init__(**kwargs)
         if period_length_constraint is None:
             period_length_constraint = Positive()
@@ -90,6 +92,8 @@ class PeriodicKernel(Kernel):
         )
 
         if period_length_prior is not None:
+            if not isinstance(period_length_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(period_length_prior).__name__)
             self.register_prior(
                 "period_length_prior",
                 period_length_prior,

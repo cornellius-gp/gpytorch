@@ -122,6 +122,8 @@ class ArcKernel(Kernel):
             name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
         )
         if angle_prior is not None:
+            if not isinstance(angle_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(angle_prior).__name__)
             self.register_prior(
                 "angle_prior", angle_prior, lambda m: m.angle, lambda m, v: m._set_angle(v),
             )
@@ -133,6 +135,8 @@ class ArcKernel(Kernel):
         )
 
         if radius_prior is not None:
+            if not isinstance(radius_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(radius_prior).__name__)
             self.register_prior(
                 "radius_prior", radius_prior, lambda m: m.radius, lambda m, v: m._set_radius(v),
             )

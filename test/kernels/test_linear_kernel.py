@@ -5,6 +5,7 @@ import unittest
 import torch
 
 from gpytorch.kernels import LinearKernel
+from gpytorch.priors import NormalPrior
 from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
@@ -78,6 +79,17 @@ class TestLinearKernel(unittest.TestCase, BaseKernelTestCase):
         res = kernel(a, a, last_dim_is_batch=True).diag()
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-4)
+
+    def create_kernel_with_prior(self, variance_prior):
+        return self.create_kernel_no_ard(variance_prior=variance_prior)
+
+    def test_prior_type(self):
+        """
+        Raising TypeError if prior type is other than gpytorch.priors.Prior
+        """
+        self.create_kernel_with_prior(None)
+        self.create_kernel_with_prior(NormalPrior(0, 1))
+        self.assertRaises(TypeError, self.create_kernel_with_prior, 1)
 
 
 if __name__ == "__main__":
