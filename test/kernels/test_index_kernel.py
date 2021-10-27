@@ -4,7 +4,6 @@ import unittest
 
 from gpytorch.kernels import IndexKernel
 from gpytorch.priors import NormalPrior
-from gpytorch.test.base_kernel_test_case import BaseKernelTestCase
 
 
 class TestIndexKernel(unittest.TestCase):
