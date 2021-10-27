@@ -6,10 +6,10 @@ from copy import deepcopy
 
 import torch
 from torch.nn import ModuleList
-from typing import Optional
+from typing import Optional, Tuple
 
 from .. import settings
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
 from ..models import exact_prediction_strategies
 from ..module import Module
@@ -133,12 +133,12 @@ class Kernel(Module):
 
     def __init__(
         self,
-        ard_num_dims=None,
-        batch_shape=torch.Size([]),
-        active_dims=None,
+        ard_num_dims: Optional[int] = None,
+        batch_shape: Optional[torch.Size] = torch.Size([]),
+        active_dims: Optional[Tuple[int, ...]] = None,
         lengthscale_prior: Optional[Prior] = None,
-        lengthscale_constraint=None,
-        eps=1e-6,
+        lengthscale_constraint: Optional[Interval] = None,
+        eps: Optional[float] = 1e-6,
         **kwargs,
     ):
         super(Kernel, self).__init__()

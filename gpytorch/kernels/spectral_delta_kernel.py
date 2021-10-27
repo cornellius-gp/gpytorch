@@ -1,8 +1,9 @@
 import math
 
 import torch
+from typing import Optional
 
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..lazy import MatmulLazyTensor, RootLazyTensor
 from .kernel import Kernel
 
@@ -24,7 +25,14 @@ class SpectralDeltaKernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, num_dims, num_deltas=128, Z_constraint=None, batch_shape=torch.Size([]), **kwargs):
+    def __init__(
+        self,
+        num_dims: int,
+        num_deltas: Optional[int] = 128,
+        Z_constraint: Optional[Interval] = None,
+        batch_shape: Optional[torch.Size] = torch.Size([]),
+        **kwargs,
+    ):
         Kernel.__init__(self, has_lengthscale=True, batch_shape=batch_shape, **kwargs)
 
         self.raw_Z = torch.nn.Parameter(torch.rand(*batch_shape, num_deltas, num_dims))

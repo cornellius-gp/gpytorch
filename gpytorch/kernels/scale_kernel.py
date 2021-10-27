@@ -3,7 +3,7 @@
 import torch
 from typing import Optional
 
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..lazy import delazify
 from ..priors import Prior
 from .kernel import Kernel
@@ -60,7 +60,13 @@ class ScaleKernel(Kernel):
         """
         return self.base_kernel.is_stationary
 
-    def __init__(self, base_kernel, outputscale_prior: Optional[Prior] = None, outputscale_constraint=None, **kwargs):
+    def __init__(
+        self,
+        base_kernel: Kernel,
+        outputscale_prior: Optional[Prior] = None,
+        outputscale_constraint: Optional[Interval] = None,
+        **kwargs
+    ):
         if base_kernel.active_dims is not None:
             kwargs["active_dims"] = base_kernel.active_dims
         super(ScaleKernel, self).__init__(**kwargs)

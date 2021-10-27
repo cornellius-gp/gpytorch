@@ -5,7 +5,7 @@ import warnings
 import torch
 from typing import Optional
 
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..lazy import MatmulLazyTensor, RootLazyTensor
 from ..priors import Prior
 from .kernel import Kernel
@@ -46,7 +46,14 @@ class LinearKernel(Kernel):
             `len(active_dims)` should equal `num_dimensions`.
     """
 
-    def __init__(self, num_dimensions=None, offset_prior: Optional[Prior] = None, variance_prior: Optional[Prior] = None, variance_constraint=None, **kwargs):
+    def __init__(
+        self,
+        num_dimensions: Optional[int] = None,
+        offset_prior: Optional[Prior] = None,
+        variance_prior: Optional[Prior] = None,
+        variance_constraint: Optional[Interval] = None,
+        **kwargs,
+    ):
         super(LinearKernel, self).__init__(**kwargs)
         if variance_constraint is None:
             variance_constraint = Positive()

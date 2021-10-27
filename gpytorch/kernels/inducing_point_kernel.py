@@ -4,10 +4,13 @@ import copy
 import math
 
 import torch
+from torch import Tensor
+from typing import Optional, Tuple
 
 from .. import settings
 from ..distributions import MultivariateNormal
 from ..lazy import DiagLazyTensor, LowRankRootAddedDiagLazyTensor, LowRankRootLazyTensor, MatmulLazyTensor, delazify
+from ..likelihoods import Likelihood
 from ..mlls import InducingPointKernelAddedLossTerm
 from ..models import exact_prediction_strategies
 from ..utils.cholesky import psd_safe_cholesky
@@ -15,7 +18,13 @@ from .kernel import Kernel
 
 
 class InducingPointKernel(Kernel):
-    def __init__(self, base_kernel, inducing_points, likelihood, active_dims=None):
+    def __init__(
+        self,
+        base_kernel: Kernel,
+        inducing_points: Tensor,
+        likelihood: Likelihood,
+        active_dims: Optional[Tuple[int, ...]] = None,
+    ):
         super(InducingPointKernel, self).__init__(active_dims=active_dims)
         self.base_kernel = base_kernel
         self.likelihood = likelihood

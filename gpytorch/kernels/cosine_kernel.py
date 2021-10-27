@@ -5,7 +5,7 @@ import math
 import torch
 from typing import Optional
 
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..priors import Prior
 from .kernel import Kernel
 
@@ -58,7 +58,12 @@ class CosineKernel(Kernel):
 
     is_stationary = True
 
-    def __init__(self, period_length_prior: Optional[Prior] = None, period_length_constraint=None, **kwargs):
+    def __init__(
+        self,
+        period_length_prior: Optional[Prior] = None,
+        period_length_constraint: Optional[Interval] = None,
+        **kwargs,
+    ):
         super(CosineKernel, self).__init__(**kwargs)
 
         self.register_parameter(

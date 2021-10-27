@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from math import pi
-from typing import Optional
+from typing import Callable, Optional
 
 import torch
 
@@ -98,8 +98,8 @@ class ArcKernel(Kernel):
 
     def __init__(
         self,
-        base_kernel,
-        delta_func: Optional = None,
+        base_kernel: Kernel,
+        delta_func: Optional[Callable] = None,
         angle_prior: Optional[Prior] = None,
         radius_prior: Optional[Prior] = None,
         **kwargs,

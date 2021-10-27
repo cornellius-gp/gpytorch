@@ -2,6 +2,7 @@
 
 import torch
 from torch.nn.parallel import DataParallel
+from typing import Optional, List
 
 from .. import settings
 from ..lazy import CatLazyTensor, lazify
@@ -18,7 +19,14 @@ class MultiDeviceKernel(DataParallel, Kernel):
         - :attr:`output_device`: Device where outputs will be placed
     """
 
-    def __init__(self, base_kernel, device_ids, output_device=None, create_cuda_context=True, **kwargs):
+    def __init__(
+        self,
+        base_kernel: Kernel,
+        device_ids: List[torch.device],
+        output_device: Optional[torch.device] = None,
+        create_cuda_context: Optional[bool] = True,
+        **kwargs,
+    ):
         # Need to warm up each GPU otherwise scattering in forward will be
         # EXTREMELY slow. This memory will be available as soon as we leave __init__
         if create_cuda_context:

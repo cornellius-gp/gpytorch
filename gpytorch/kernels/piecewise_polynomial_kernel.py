@@ -1,4 +1,5 @@
 import torch
+from typing import Optional
 
 from .kernel import Kernel
 
@@ -74,7 +75,7 @@ class PiecewisePolynomialKernel(Kernel):
     """
     has_lengthscale = True
 
-    def __init__(self, q=2, **kwargs):
+    def __init__(self, q: Optional[int] = 2, **kwargs):
         super(PiecewisePolynomialKernel, self).__init__(**kwargs)
         if q not in {0, 1, 2, 3}:
             raise ValueError("q expected to be 0, 1, 2 or 3")

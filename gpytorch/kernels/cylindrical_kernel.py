@@ -42,7 +42,7 @@ class CylindricalKernel(Kernel):
         self,
         num_angular_weights: int,
         radial_base_kernel: Kernel,
-        eps: Optional[int] = 1e-6,
+        eps: Optional[float] = 1e-6,
         angular_weights_prior: Optional[Prior] = None,
         angular_weights_constraint: Optional[Interval] = None,
         alpha_prior: Optional[Prior] = None,

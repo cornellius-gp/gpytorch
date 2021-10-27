@@ -3,6 +3,7 @@
 import math
 
 import torch
+from typing import Optional
 
 from ..functions import MaternCovariance
 from ..settings import trace_mode
@@ -79,7 +80,7 @@ class MaternKernel(Kernel):
 
     has_lengthscale = True
 
-    def __init__(self, nu=2.5, **kwargs):
+    def __init__(self, nu: Optional[float] = 2.5, **kwargs):
         if nu not in {0.5, 1.5, 2.5}:
             raise RuntimeError("nu expected to be 0.5, 1.5, or 2.5")
         super(MaternKernel, self).__init__(**kwargs)
