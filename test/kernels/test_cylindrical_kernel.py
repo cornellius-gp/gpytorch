@@ -24,8 +24,9 @@ class TestCylindricalKernel(unittest.TestCase, BaseKernelTestCase):
         return torch.rand(3, 2, 50, 2) / math.sqrt(2)
 
     def create_kernel_with_prior(self, angular_weights_prior, alpha_prior, beta_prior):
-        return self.create_kernel_no_ard(angular_weights_prior=angular_weights_prior,
-                                         alpha_prior=alpha_prior, beta_prior=beta_prior)
+        return self.create_kernel_no_ard(
+            angular_weights_prior=angular_weights_prior, alpha_prior=alpha_prior, beta_prior=beta_prior
+        )
 
     def test_prior_type(self):
         """

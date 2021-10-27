@@ -1,5 +1,6 @@
-import torch
 from typing import Optional, Tuple
+
+import torch
 
 from ..constraints import Positive
 from ..lazy import delazify

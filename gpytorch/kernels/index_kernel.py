@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import torch
 from typing import Optional
+
+import torch
 
 from ..constraints import Interval, Positive
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor

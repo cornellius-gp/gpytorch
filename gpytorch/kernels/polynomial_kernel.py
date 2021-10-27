@@ -35,11 +35,7 @@ class PolynomialKernel(Kernel):
     """
 
     def __init__(
-        self,
-        power: int,
-        offset_prior: Optional[Prior] = None,
-        offset_constraint: Optional[Interval] = None,
-        **kwargs,
+        self, power: int, offset_prior: Optional[Prior] = None, offset_constraint: Optional[Interval] = None, **kwargs,
     ):
         super().__init__(**kwargs)
         if offset_constraint is None:

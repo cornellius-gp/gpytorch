@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import math
+from typing import Optional
 
 import torch
-from typing import Optional
 
 from ..functions import MaternCovariance
 from ..settings import trace_mode

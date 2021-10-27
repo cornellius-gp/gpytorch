@@ -3,10 +3,10 @@
 import warnings
 from abc import abstractmethod
 from copy import deepcopy
+from typing import Optional, Tuple
 
 import torch
 from torch.nn import ModuleList
-from typing import Optional, Tuple
 
 from .. import settings
 from ..constraints import Interval, Positive

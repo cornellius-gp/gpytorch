@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import torch
 from typing import Callable
+
+import torch
 
 from .kernel import Kernel
 
@@ -24,9 +25,7 @@ class DistributionalInputKernel(Kernel):
     has_lengthscale = True
 
     def __init__(
-        self,
-        distance_function: Callable,
-        **kwargs,
+        self, distance_function: Callable, **kwargs,
     ):
         super(DistributionalInputKernel, self).__init__(**kwargs)
         if distance_function is None:

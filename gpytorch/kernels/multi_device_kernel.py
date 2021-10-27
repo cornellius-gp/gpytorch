@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
+from typing import List, Optional
+
 import torch
 from torch.nn.parallel import DataParallel
-from typing import Optional, List
 
 from .. import settings
 from ..lazy import CatLazyTensor, lazify

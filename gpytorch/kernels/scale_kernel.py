@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import torch
 from typing import Optional
+
+import torch
 
 from ..constraints import Interval, Positive
 from ..lazy import delazify
@@ -65,7 +66,7 @@ class ScaleKernel(Kernel):
         base_kernel: Kernel,
         outputscale_prior: Optional[Prior] = None,
         outputscale_constraint: Optional[Interval] = None,
-        **kwargs
+        **kwargs,
     ):
         if base_kernel.active_dims is not None:
             kwargs["active_dims"] = base_kernel.active_dims
