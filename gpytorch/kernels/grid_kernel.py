@@ -134,6 +134,8 @@ class GridKernel(Kernel):
                 # Use padded grid for batch mode
                 first_grid_point = torch.stack([proj[0].unsqueeze(0) for proj in grid], dim=-1)
                 full_grid = torch.stack(padded_grid, dim=-1)
+                # if params contains x1_eq_x2, we need to pop it from the dict
+                params.pop("x1_eq_x2")
                 covars = delazify(self.base_kernel(first_grid_point, full_grid, last_dim_is_batch=True, **params))
 
                 if last_dim_is_batch:
