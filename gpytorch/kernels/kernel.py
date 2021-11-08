@@ -433,7 +433,7 @@ class Kernel(Module):
             new_kernel.batch_shape = new_kernel._parameters[param_name].shape[:new_batch_shape_len]
 
         for sub_module_name, sub_module in self.named_sub_kernels():
-            self._modules[sub_module_name] = sub_module.__getitem__(index)
+            new_kernel._modules[sub_module_name] = sub_module.__getitem__(index)
 
         return new_kernel
 
