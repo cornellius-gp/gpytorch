@@ -35,7 +35,7 @@ class PolynomialKernel(Kernel):
     """
 
     def __init__(
-        self, power: int, offset_prior: Optional[Prior] = None, offset_constraint: Optional[Interval] = None, **kwargs
+        self, power: int, offset_prior: Optional[Prior] = None, offset_constraint: Optional[Interval] = None, **kwargs,
     ):
         super().__init__(**kwargs)
         if offset_constraint is None:
@@ -53,6 +53,8 @@ class PolynomialKernel(Kernel):
         self.power = power
 
         if offset_prior is not None:
+            if not isinstance(offset_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(offset_prior).__name__)
             self.register_prior("offset_prior", offset_prior, lambda m: m.offset, lambda m, v: m._set_offset(v))
 
         self.register_constraint("raw_offset", offset_constraint)

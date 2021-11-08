@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import List
+from typing import Optional
 
 import torch
 from torch import Tensor
@@ -46,7 +46,11 @@ class GridKernel(Kernel):
     is_stationary = True
 
     def __init__(
-        self, base_kernel: Kernel, grid: List[Tensor], interpolation_mode: bool = False, active_dims: bool = None
+        self,
+        base_kernel: Kernel,
+        grid: Tensor,
+        interpolation_mode: Optional[bool] = False,
+        active_dims: Optional[bool] = None,
     ):
         if not base_kernel.is_stationary:
             raise RuntimeError("The base_kernel for GridKernel must be stationary.")
