@@ -237,7 +237,7 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         return self.evaluate_kernel().add_jitter(jitter_val)
 
     def _unsqueeze_batch(self, dim):
-        return self.evaluate_kernel()._unsqueeze_batch(dim)
+        return self[(slice(None),) * dim + (None,)]
 
     @cached(name="kernel_diag")
     def diag(self):
