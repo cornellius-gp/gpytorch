@@ -7,6 +7,7 @@ from .memoize import cached
 from .minres import minres
 from .pinverse import stable_pinverse
 from .qr import stable_qr
+from .sparse_chol_inv import sparse_chol_inv
 from .stochastic_lq import StochasticLQ
 
 
@@ -38,6 +39,7 @@ __all__ = [
     "prod",
     "quadrature",
     "sparse",
+    "sparse_chol_inv",
     "stable_pinverse",
     "stable_qr",
     "warnings",
