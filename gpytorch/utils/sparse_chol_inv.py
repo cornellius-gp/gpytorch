@@ -85,3 +85,53 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
     chol_precision_mat = F_sqrt_inv @ I_minus_B
 
     return chol_precision_mat
+
+
+def lr_plus_sparse_precond_closure(added_diag_lt, lr_k, nn_k):
+    from ..lazy import AddedDiagLazyTensor
+    from .. import settings
+    from .cholesky import psd_safe_cholesky
+
+    if not isinstance(added_diag_lt, AddedDiagLazyTensor):
+        raise RuntimeError("Augmented precond only defined over Added Diag LTs")
+    if lr_k == 0 and nn_k == 0:
+
+        def precond_closure(rhs):
+            return torch.zeros_like(rhs)
+
+        return precond_closure
+    elif lr_k == 0:
+        L_res_inv = sparse_chol_inv(added_diag_lt, nn_k)
+
+        def precond_closure(rhs):
+            return L_res_inv.transpose(-2, -1) @ (L_res_inv @ rhs)
+
+        return precond_closure
+    elif nn_k == 0:
+        with settings.max_preconditioner_size(lr_k), settings.min_preconditioning_size(0):
+            precond_closure, precond_lt, _ = added_diag_lt._preconditioner()
+        return precond_closure
+    else:
+        with settings.max_preconditioner_size(lr_k), settings.min_preconditioning_size(0):
+            precond_closure, precond_lt, _ = added_diag_lt._preconditioner()
+            Lk = precond_lt.lazy_tensors[0].root.evaluate()
+
+            residual = added_diag_lt - Lk @ Lk.transpose(-2, -1)
+            L_res_inv = sparse_chol_inv(residual, nn_k)
+
+            # covariance matrix is now exactly equal to R + LkLk'
+            # Inverse is therefore: R^{-1} - R^{-1}Lk(I + Lk'R^{-1}Lk)^{-1}Lk'R^{-1}
+            residual_solve = lambda rhs: L_res_inv.transpose(-2, -1) @ (L_res_inv @ rhs)
+
+            R_inv_Lk = residual_solve(Lk)
+            eye_k = torch.eye(Lk.size(-1))
+            cap_mat = eye_k + Lk.transpose(-2, -1) @ R_inv_Lk
+            chol_cap_mat = psd_safe_cholesky(cap_mat)
+
+            def precond_closure(rhs):
+                Lk_Rinv_rhs = Lk.transpose(-2, -1) @ residual_solve(rhs)
+                cap_mat_solve = torch.cholesky_solve(Lk_Rinv_rhs, chol_cap_mat)
+                Rinv_Lk_res = residual_solve(Lk @ cap_mat_solve)
+                return residual_solve(rhs) - Rinv_Lk_res
+
+            return precond_closure

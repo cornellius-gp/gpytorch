@@ -7,7 +7,7 @@ from .memoize import cached
 from .minres import minres
 from .pinverse import stable_pinverse
 from .qr import stable_qr
-from .sparse_chol_inv import sparse_chol_inv
+from .sparse_chol_inv import lr_plus_sparse_precond_closure, sparse_chol_inv
 from .stochastic_lq import StochasticLQ
 
 
@@ -33,6 +33,7 @@ __all__ = [
     "grid",
     "interpolation",
     "lanczos",
+    "lr_plus_sparse_precond_closure",
     "minres",
     "pinverse",
     "pivoted_cholesky",
