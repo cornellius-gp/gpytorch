@@ -19,7 +19,8 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
     Args:
         pd_mat (torch.Tensor or gpytorch.lazy.LazyTensor): Positive definite input matrix
         nn_k (int): Number of nearest neighbors to use for approximation.
-        nn_ind (torch.LongTensor, optional): An n x 3
+        nn_ind (torch.LongTensor, optional): An n x 3 set of nearest neighbors for each point.
+            nn_ind[i] should contain the nearest neighbors of x[i] in x[0...i-1].
     """
     from ..lazy import lazify, delazify, DiagLazyTensor
 
