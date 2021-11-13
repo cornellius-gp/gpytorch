@@ -8,9 +8,6 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
     """
     Computes a sparse approximation of L^{-1}, where L = cholesky(pd_mat).
 
-    If we want a proper Cholesky factor of the precision matrix pd_mat^{-1}, one can do:
-
-        >>> L_prec = sparse_chol_inv(pd_mat, nn_k).flip(-2).flip(-1).transpose(-2, -1)  # approximates chol(inverse(K))
 
     .. note::
         We use the ordering 0,...,n so pd_mat should already be permuted to some desired ordering before using this
