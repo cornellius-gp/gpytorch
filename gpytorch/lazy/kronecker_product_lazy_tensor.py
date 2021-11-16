@@ -150,11 +150,6 @@ class KroneckerProductLazyTensor(LazyTensor):
         inverses = [lt.inverse() for lt in self.lazy_tensors]
         return self.__class__(*inverses)
 
-    def inv_matmul(self, right_tensor, left_tensor=None):
-        # TODO: Investigate under what conditions computing individual inverses makes sense
-        # For now, retain existing behavior
-        return super().inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
-
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         if inv_quad_rhs is not None:
             inv_quad_term, _ = super().inv_quad_logdet(
@@ -217,13 +212,13 @@ class KroneckerProductLazyTensor(LazyTensor):
             return res, batch_repeated_evals
 
     def _inv_matmul(self, right_tensor, left_tensor=None):
+        # if _inv_matmul is called, we ignore the eigenvalue handling
         res = self._solve(rhs=right_tensor)
         if left_tensor is not None:
             res = left_tensor @ res
         return res
 
     def _logdet(self):
-        # return sum([lt.logdet() * lt.shape[-1] for lt in self.lazy_tensors])
         evals, _ = self.diagonalization()
         logdet = evals.clamp(min=1e-7).log().sum(-1)
         return logdet
