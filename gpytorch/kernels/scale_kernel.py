@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+from typing import Optional
+
 import torch
 
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..lazy import delazify
+from ..priors import Prior
 from .kernel import Kernel
 
 
@@ -58,7 +61,13 @@ class ScaleKernel(Kernel):
         """
         return self.base_kernel.is_stationary
 
-    def __init__(self, base_kernel, outputscale_prior=None, outputscale_constraint=None, **kwargs):
+    def __init__(
+        self,
+        base_kernel: Kernel,
+        outputscale_prior: Optional[Prior] = None,
+        outputscale_constraint: Optional[Interval] = None,
+        **kwargs,
+    ):
         if base_kernel.active_dims is not None:
             kwargs["active_dims"] = base_kernel.active_dims
         super(ScaleKernel, self).__init__(**kwargs)
@@ -69,6 +78,8 @@ class ScaleKernel(Kernel):
         outputscale = torch.zeros(*self.batch_shape) if len(self.batch_shape) else torch.tensor(0.0)
         self.register_parameter(name="raw_outputscale", parameter=torch.nn.Parameter(outputscale))
         if outputscale_prior is not None:
+            if not isinstance(outputscale_prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(outputscale_prior).__name__)
             self.register_prior(
                 "outputscale_prior", outputscale_prior, lambda m: m.outputscale, lambda m, v: m._set_outputscale(v)
             )

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Tuple
+
 from .kernel import Kernel
 
 
@@ -39,7 +41,9 @@ class AdditiveStructureKernel(Kernel):
         """
         return self.base_kernel.is_stationary
 
-    def __init__(self, base_kernel, num_dims, active_dims=None):
+    def __init__(
+        self, base_kernel: Kernel, num_dims: int, active_dims: Optional[Tuple[int, ...]] = None,
+    ):
         super(AdditiveStructureKernel, self).__init__(active_dims=active_dims)
         self.base_kernel = base_kernel
         self.num_dims = num_dims

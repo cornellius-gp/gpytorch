@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
+from typing import Optional
+
 from ..lazy import KroneckerProductLazyTensor, lazify
+from ..priors import Prior
 from .index_kernel import IndexKernel
 from .kernel import Kernel
 
@@ -22,7 +25,14 @@ class MultitaskKernel(Kernel):
     :param dict kwargs: Additional arguments to pass to the kernel.
     """
 
-    def __init__(self, data_covar_module, num_tasks, rank=1, task_covar_prior=None, **kwargs):
+    def __init__(
+        self,
+        data_covar_module: Kernel,
+        num_tasks: int,
+        rank: Optional[int] = 1,
+        task_covar_prior: Optional[Prior] = None,
+        **kwargs,
+    ):
         """"""
         super(MultitaskKernel, self).__init__(**kwargs)
         self.task_covar_module = IndexKernel(

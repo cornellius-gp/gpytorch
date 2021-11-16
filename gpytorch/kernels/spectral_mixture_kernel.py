@@ -2,7 +2,7 @@
 
 import logging
 import math
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 
@@ -76,15 +76,15 @@ class SpectralMixtureKernel(Kernel):
 
     def __init__(
         self,
-        num_mixtures: int = None,
-        ard_num_dims: int = 1,
-        batch_shape: torch.Size = torch.Size([]),
-        mixture_scales_prior: Prior = None,
-        mixture_scales_constraint: Interval = None,
-        mixture_means_prior: Prior = None,
-        mixture_means_constraint: Interval = None,
-        mixture_weights_prior: Prior = None,
-        mixture_weights_constraint: Interval = None,
+        num_mixtures: Optional[int] = None,
+        ard_num_dims: Optional[int] = 1,
+        batch_shape: Optional[torch.Size] = torch.Size([]),
+        mixture_scales_prior: Optional[Prior] = None,
+        mixture_scales_constraint: Optional[Interval] = None,
+        mixture_means_prior: Optional[Prior] = None,
+        mixture_means_constraint: Optional[Interval] = None,
+        mixture_weights_prior: Optional[Prior] = None,
+        mixture_weights_constraint: Optional[Interval] = None,
         **kwargs,
     ):
         if num_mixtures is None:

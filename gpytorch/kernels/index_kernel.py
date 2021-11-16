@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+from typing import Optional
+
 import torch
 
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..lazy import DiagLazyTensor, InterpolatedLazyTensor, PsdSumLazyTensor, RootLazyTensor
+from ..priors import Prior
 from ..utils.broadcasting import _mul_broadcast_shape
 from .kernel import Kernel
 
@@ -43,7 +46,14 @@ class IndexKernel(Kernel):
             The element-wise log of the :math:`\mathbf v` vector.
     """
 
-    def __init__(self, num_tasks, rank=1, prior=None, var_constraint=None, **kwargs):
+    def __init__(
+        self,
+        num_tasks: int,
+        rank: Optional[int] = 1,
+        prior: Optional[Prior] = None,
+        var_constraint: Optional[Interval] = None,
+        **kwargs,
+    ):
         if rank > num_tasks:
             raise RuntimeError("Cannot create a task covariance matrix larger than the number of tasks")
         super().__init__(**kwargs)
@@ -56,6 +66,8 @@ class IndexKernel(Kernel):
         )
         self.register_parameter(name="raw_var", parameter=torch.nn.Parameter(torch.randn(*self.batch_shape, num_tasks)))
         if prior is not None:
+            if not isinstance(prior, Prior):
+                raise TypeError("Expected gpytorch.priors.Prior but got " + type(prior).__name__)
             self.register_prior("IndexKernelPrior", prior, lambda m: m._eval_covar_matrix())
 
         self.register_constraint("raw_var", var_constraint)
