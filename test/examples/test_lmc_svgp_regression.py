@@ -7,7 +7,7 @@ import unittest
 
 import gpytorch
 import torch
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.likelihoods import GaussianLikelihood, MultitaskGaussianLikelihood
 
 
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
@@ -75,7 +75,6 @@ class TestIndependentMultitaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_train_and_eval(self):
-        # We're manually going to set the hyperparameters to something they shouldn't be
         likelihood = MultitaskGaussianLikelihood(num_tasks=4)
         model = LMCModel()
 
@@ -131,6 +130,57 @@ class TestIndependentMultitaskGPRegression(unittest.TestCase):
             lower, upper = batch_predictions.confidence_region()
             self.assertEqual(lower.shape, train_y.shape)
             self.assertEqual(upper.shape, train_y.shape)
+
+    def test_indexed_train_and_eval(self):
+        likelihood = GaussianLikelihood()
+        model = LMCModel()
+
+        # Find optimal model hyperparameters
+        model.train()
+        likelihood.train()
+        optimizer = torch.optim.Adam([
+            {'params': model.parameters()},
+            {'params': likelihood.parameters()},
+        ], lr=0.01)
+
+        # Our loss object. We're using the VariationalELBO, which essentially just computes the ELBO
+        mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))
+
+        # Create some task indices
+        arange = torch.arange(train_x.size(0))
+        train_i = torch.rand(train_x.size(0)).mul(4).floor().long()
+
+        # We use more CG iterations here because the preconditioner introduced in the NeurIPS paper seems to be less
+        # effective for VI.
+        for i in range(400):
+            # Within each iteration, we will go over each minibatch of data
+            optimizer.zero_grad()
+            output = model(train_x, task_indices=train_i)
+            loss = -mll(output, train_y[arange, train_i])
+            loss.backward()
+            optimizer.step()
+
+            for param in model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+
+        # Test the model
+        model.eval()
+        likelihood.eval()
+
+        # Make predictions for both sets of test points, and check MAEs.
+        with torch.no_grad(), gpytorch.settings.max_eager_kernel_size(1):
+            predictions = likelihood(model(train_x, task_indices=train_i))
+            mean_abs_error = torch.mean(torch.abs(train_y[arange, train_i] - predictions.mean))
+            self.assertLess(mean_abs_error.squeeze().item(), 0.15)
+
+            # Smoke test for getting predictive uncertainties
+            lower, upper = predictions.confidence_region()
+            self.assertEqual(lower.shape, train_i.shape)
+            self.assertEqual(upper.shape, train_i.shape)
 
 
 if __name__ == "__main__":

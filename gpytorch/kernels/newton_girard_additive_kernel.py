@@ -1,3 +1,5 @@
+from typing import Optional, Tuple
+
 import torch
 
 from ..constraints import Positive
@@ -6,7 +8,14 @@ from .kernel import Kernel
 
 
 class NewtonGirardAdditiveKernel(Kernel):
-    def __init__(self, base_kernel, num_dims, max_degree=None, active_dims=None, **kwargs):
+    def __init__(
+        self,
+        base_kernel: Kernel,
+        num_dims: int,
+        max_degree: Optional[int] = None,
+        active_dims: Optional[Tuple[int, ...]] = None,
+        **kwargs,
+    ):
         """Create an Additive Kernel a la https://arxiv.org/abs/1112.4394 using Newton-Girard Formulae
 
         :param base_kernel: a base 1-dimensional kernel. NOTE: put ard_num_dims=d in the base kernel...

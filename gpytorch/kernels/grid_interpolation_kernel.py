@@ -73,9 +73,9 @@ class GridInterpolationKernel(GridKernel):
         self,
         base_kernel: Kernel,
         grid_size: Union[int, List[int]],
-        num_dims: int = None,
+        num_dims: Optional[int] = None,
         grid_bounds: Optional[Tuple[float, float]] = None,
-        active_dims: Tuple[int, ...] = None,
+        active_dims: Optional[Tuple[int, ...]] = None,
     ):
         has_initialized_grid = 0
         grid_is_dynamic = True

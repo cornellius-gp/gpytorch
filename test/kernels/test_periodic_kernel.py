@@ -6,6 +6,7 @@ import unittest
 import torch
 
 from gpytorch.kernels import PeriodicKernel
+from gpytorch.priors import NormalPrior
 
 
 class TestPeriodicKernel(unittest.TestCase):
@@ -76,6 +77,18 @@ class TestPeriodicKernel(unittest.TestCase):
 
         res = kernel(a, b).evaluate()
         self.assertLess(torch.norm(res - actual), 1e-5)
+
+    def create_kernel_with_prior(self, period_length_prior):
+        return PeriodicKernel(period_length_prior=period_length_prior)
+
+    def test_prior_type(self):
+        """
+        Raising TypeError if prior type is other than gpytorch.priors.Prior
+        """
+        kernel_fn = lambda prior: self.create_kernel_with_prior(prior)
+        kernel_fn(None)
+        kernel_fn(NormalPrior(0, 1))
+        self.assertRaises(TypeError, kernel_fn, 1)
 
 
 if __name__ == "__main__":

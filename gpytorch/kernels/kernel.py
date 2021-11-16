@@ -3,15 +3,17 @@
 import warnings
 from abc import abstractmethod
 from copy import deepcopy
+from typing import Optional, Tuple
 
 import torch
 from torch.nn import ModuleList
 
 from .. import settings
-from ..constraints import Positive
+from ..constraints import Interval, Positive
 from ..lazy import LazyEvaluatedKernelTensor, ZeroLazyTensor, delazify, lazify
 from ..models import exact_prediction_strategies
 from ..module import Module
+from ..priors import Prior
 from ..utils.broadcasting import _mul_broadcast_shape
 
 
@@ -131,12 +133,12 @@ class Kernel(Module):
 
     def __init__(
         self,
-        ard_num_dims=None,
-        batch_shape=torch.Size([]),
-        active_dims=None,
-        lengthscale_prior=None,
-        lengthscale_constraint=None,
-        eps=1e-6,
+        ard_num_dims: Optional[int] = None,
+        batch_shape: Optional[torch.Size] = torch.Size([]),
+        active_dims: Optional[Tuple[int, ...]] = None,
+        lengthscale_prior: Optional[Prior] = None,
+        lengthscale_constraint: Optional[Interval] = None,
+        eps: Optional[float] = 1e-6,
         **kwargs,
     ):
         super(Kernel, self).__init__()
@@ -167,6 +169,8 @@ class Kernel(Module):
                 parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, lengthscale_num_dims)),
             )
             if lengthscale_prior is not None:
+                if not isinstance(lengthscale_prior, Prior):
+                    raise TypeError("Expected gpytorch.priors.Prior but got " + type(lengthscale_prior).__name__)
                 self.register_prior(
                     "lengthscale_prior", lengthscale_prior, lambda m: m.lengthscale, lambda m, v: m._set_lengthscale(v)
                 )
@@ -433,7 +437,7 @@ class Kernel(Module):
             new_kernel.batch_shape = new_kernel._parameters[param_name].shape[:new_batch_shape_len]
 
         for sub_module_name, sub_module in self.named_sub_kernels():
-            self._modules[sub_module_name] = sub_module.__getitem__(index)
+            new_kernel._modules[sub_module_name] = sub_module.__getitem__(index)
 
         return new_kernel
 
