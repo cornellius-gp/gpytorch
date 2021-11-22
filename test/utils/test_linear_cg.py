@@ -33,7 +33,7 @@ class TestLinearCG(unittest.TestCase):
         solves = linear_cg(matrix.matmul, rhs=rhs, max_iter=size)
 
         # Check cg
-        matrix_chol = matrix.cholesky()
+        matrix_chol = torch.linalg.cholesky(matrix)
         actual = torch.cholesky_solve(rhs, matrix_chol)
         self.assertTrue(torch.allclose(solves, actual, atol=1e-3, rtol=1e-4))
 
@@ -50,14 +50,14 @@ class TestLinearCG(unittest.TestCase):
         )
 
         # Check cg
-        matrix_chol = matrix.cholesky()
+        matrix_chol = torch.linalg.cholesky(matrix)
         actual = torch.cholesky_solve(rhs, matrix_chol)
         self.assertTrue(torch.allclose(solves, actual, atol=1e-3, rtol=1e-4))
 
         # Check tridiag
-        eigs = matrix.symeig()[0]
+        eigs = torch.linalg.eigvalsh(matrix)
         for i in range(5):
-            approx_eigs = t_mats[i].symeig()[0]
+            approx_eigs = torch.linalg.eigvalsh(t_mats[i])
             self.assertTrue(torch.allclose(eigs, approx_eigs, atol=1e-3, rtol=1e-4))
 
     def test_batch_cg(self):
@@ -96,9 +96,9 @@ class TestLinearCG(unittest.TestCase):
 
         # Check tridiag
         for i in range(5):
-            eigs = matrix[i].symeig()[0]
+            eigs = torch.linalg.eigvalsh(matrix[i])
             for j in range(8):
-                approx_eigs = t_mats[j, i].symeig()[0]
+                approx_eigs = torch.linalg.eigvalsh(t_mats[j, i])
                 self.assertTrue(torch.allclose(eigs, approx_eigs, atol=1e-3, rtol=1e-4))
 
 

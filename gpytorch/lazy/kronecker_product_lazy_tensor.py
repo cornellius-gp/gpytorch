@@ -175,8 +175,8 @@ class KroneckerProductLazyTensor(LazyTensor):
             row_factor //= sub_row_size
             col_factor //= sub_col_size
             sub_res = lazy_tensor._get_indices(
-                (row_index // row_factor).fmod(sub_row_size),
-                (col_index // col_factor).fmod(sub_col_size),
+                torch.div(row_index, row_factor, rounding_mode="floor").fmod(sub_row_size),
+                torch.div(col_index, col_factor, rounding_mode="floor").fmod(sub_col_size),
                 *batch_indices,
             )
             res = sub_res if res is None else (sub_res * res)
