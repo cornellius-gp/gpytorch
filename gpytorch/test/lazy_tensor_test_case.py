@@ -706,7 +706,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         # Perform forward pass
         with gpytorch.settings.max_cg_iterations(200):
             sqrt_inv_matmul_res, inv_quad_res = lazy_tensor.sqrt_inv_matmul(rhs, lhs)
-        evals, evecs = evaluated.symeig(eigenvectors=True)
+        evals, evecs = torch.linalg.eigh(evaluated)
         matrix_inv_root = evecs @ (evals.sqrt().reciprocal().unsqueeze(-1) * evecs.transpose(-1, -2))
         sqrt_inv_matmul_actual = lhs_copy @ matrix_inv_root @ rhs_copy
         inv_quad_actual = (lhs_copy @ matrix_inv_root).pow(2).sum(dim=-1)
@@ -744,7 +744,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         # Perform forward pass
         with gpytorch.settings.max_cg_iterations(200):
             sqrt_inv_matmul_res = lazy_tensor.sqrt_inv_matmul(rhs)
-        evals, evecs = evaluated.symeig(eigenvectors=True)
+        evals, evecs = torch.linalg.eigh(evaluated)
         matrix_inv_root = evecs @ (evals.sqrt().reciprocal().unsqueeze(-1) * evecs.transpose(-1, -2))
         sqrt_inv_matmul_actual = matrix_inv_root @ rhs_copy
 

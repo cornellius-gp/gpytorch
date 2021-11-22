@@ -112,7 +112,7 @@ class TestTrilNatVariational(Float64Test):
         mu = torch.randn(D)
         cov = torch.randn(D, D)
         cov = cov @ cov.t()
-        dist = MultivariateNormal(mu, CholLazyTensor(TriangularLazyTensor(cov.cholesky())))
+        dist = MultivariateNormal(mu, CholLazyTensor(TriangularLazyTensor(torch.linalg.cholesky(cov))))
         sample = dist.sample()
 
         v_dist = TrilNaturalVariationalDistribution(D, mean_init_std=0.0)
@@ -132,7 +132,7 @@ class TestTrilNatVariational(Float64Test):
             "Transform natural_tril_mat to L"
             Sigma = torch.inverse(-2 * natural_tril_mat)
             mu = natural_vec
-            return mu, Sigma.cholesky().inverse().tril()
+            return mu, torch.linalg.cholesky(Sigma).inverse().tril()
 
         (mu_ref, natural_tril_mat_ref), (dout_dmu_ref, dout_dnat2_ref) = jvp(
             f,
