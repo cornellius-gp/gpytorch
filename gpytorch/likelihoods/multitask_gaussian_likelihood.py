@@ -14,9 +14,9 @@ from ..lazy import (
     KroneckerProductLazyTensor,
     LazyEvaluatedKernelTensor,
     RootLazyTensor,
+    lazify,
 )
 from ..likelihoods import Likelihood, _GaussianLikelihoodBase
-from ..utils.pivoted_cholesky import pivoted_cholesky
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
@@ -254,7 +254,8 @@ class MultitaskGaussianLikelihood(_MultitaskGaussianLikelihoodBase):
         # internally uses a pivoted cholesky decomposition to construct a low rank
         # approximation of the covariance
         if self.rank > 0:
-            self.task_noise_covar_factor.data = pivoted_cholesky(value, max_iter=self.rank)
+            with torch.no_grad():
+                self.task_noise_covar_factor.data = lazify(value).pivoted_cholesky(rank=self.rank)
         else:
             raise AttributeError("Cannot set non-diagonal task noises when covariance is diagonal.")
 

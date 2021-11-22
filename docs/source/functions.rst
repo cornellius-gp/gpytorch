@@ -30,6 +30,8 @@ Functions
 
 .. autofunction:: log_normal_cdf
 
+.. autofunction:: pivoted_cholesky
+
 .. autofunction:: root_decomposition
 
 .. autofunction:: root_inv_decomposition

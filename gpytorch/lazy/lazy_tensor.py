@@ -17,6 +17,7 @@ from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad import InvQuad
 from ..functions._inv_quad_log_det import InvQuadLogDet
 from ..functions._matmul import Matmul
+from ..functions._pivoted_cholesky import PivotedCholesky
 from ..functions._root_decomposition import RootDecomposition
 from ..functions._sqrt_inv_matmul import SqrtInvMatmul
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape, _to_helper
@@ -27,7 +28,6 @@ from ..utils.getitem import _compute_getitem_size, _convert_indices_to_tensors, 
 from ..utils.lanczos import _postprocess_lanczos_root_inv_decomp
 from ..utils.memoize import _is_in_cache_ignore_all_args, _is_in_cache_ignore_args, add_to_cache, cached, pop_from_cache
 from ..utils.pinverse import stable_pinverse
-from ..utils.pivoted_cholesky import pivoted_cholesky
 from ..utils.warnings import NumericalWarning
 from .lazy_tensor_representation_tree import LazyTensorRepresentationTree
 
@@ -1474,6 +1474,37 @@ class LazyTensor(ABC):
 
         return self._permute_batch(*dims[:-2])
 
+    def pivoted_cholesky(self, rank, error_tol=None, return_pivots=False):
+        r"""
+        Performs a partial pivoted Cholesky factorization of the (positive definite) LazyTensor.
+        :math:`\mathbf L \mathbf L^\top = \mathbf K`.
+        The partial pivoted Cholesky factor :math:`\mathbf L \in \mathbb R^{N \times \text{rank}}`
+        forms a low rank approximation to the LazyTensor.
+
+        The pivots are selected greedily, corresponding to the maximum diagonal element in the
+        residual after each Cholesky iteration. See `Harbrecht et al., 2012`_.
+
+        :param int rank: The size of the partial pivoted Cholesky factor.
+        :param error_tol: Defines an optional stopping criterion.
+            If the residual of the factorization is less than :attr:`error_tol`, then the
+            factorization will exit early. This will result in a :math:`\leq \text{ rank}` factor.
+        :type error_tol: float, optional
+        :param bool return_pivots: (default: False) Whether or not to return the pivots alongside
+            the partial pivoted Cholesky factor.
+        :return: the `... x N x rank` factor (and optionally the `... x N` pivots)
+        :rtype: torch.Tensor or tuple(torch.Tensor, torch.Tensor)
+
+        .. _Harbrecht et al., 2012:
+            https://www.sciencedirect.com/science/article/pii/S0168927411001814
+        """
+        func = PivotedCholesky.apply
+        res, pivots = func(self.representation_tree(), rank, error_tol, *self.representation())
+
+        if return_pivots:
+            return res, pivots
+        else:
+            return res
+
     def prod(self, dim=None):
         """
         For a `b x n x m` LazyTensor, compute the product over the batch dimension.
@@ -1663,6 +1694,7 @@ class LazyTensor(ABC):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
+        from . import lazify
         from .chol_lazy_tensor import CholLazyTensor
         from .root_lazy_tensor import RootLazyTensor
 
@@ -1691,8 +1723,8 @@ class LazyTensor(ABC):
                 method = "symeig"
 
         if method == "pivoted_cholesky":
-            root = pivoted_cholesky(self.evaluate(), max_iter=self._root_decomposition_size())
-        elif method == "symeig":
+            return RootLazyTensor(lazify(self.evaluate()).pivoted_cholesky(rank=self._root_decomposition_size()))
+        if method == "symeig":
             evals, evecs = self.symeig(eigenvectors=True)
             # TODO: only use non-zero evals (req. dealing w/ batches...)
             root = evecs * evals.clamp_min(0.0).sqrt().unsqueeze(-2)
