@@ -297,7 +297,7 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         "root_decomposition": {"rtol": 0.05},
         "root_inv_decomposition": {"rtol": 0.05, "atol": 0.02},
         "sample": {"rtol": 0.3, "atol": 0.3},
-        "sqrt_inv_matmul": {"rtol": 1e-4, "atol": 1e-3},
+        "sqrt_inv_matmul": {"rtol": 1e-2, "atol": 1e-3},
         "symeig": {"double": {"rtol": 1e-4, "atol": 1e-3}, "float": {"rtol": 1e-3, "atol": 1e-2}},
         "svd": {"rtol": 1e-4, "atol": 1e-3},
     }
