@@ -292,8 +292,8 @@ def linear_cg(
 
         # Update tridiagonal matrices, if applicable
         if n_tridiag and k < n_tridiag_iter and update_tridiag:
-            alpha_tridiag = alpha.squeeze_(-2).narrow(-1, 0, n_tridiag)
-            beta_tridiag = beta.squeeze_(-2).narrow(-1, 0, n_tridiag)
+            alpha_tridiag = alpha.squeeze(-2).narrow(-1, 0, n_tridiag)
+            beta_tridiag = beta.squeeze(-2).narrow(-1, 0, n_tridiag)
             torch.eq(alpha_tridiag, 0, out=alpha_tridiag_is_zero)
             alpha_tridiag.masked_fill_(alpha_tridiag_is_zero, 1)
             torch.reciprocal(alpha_tridiag, out=alpha_reciprocal)
