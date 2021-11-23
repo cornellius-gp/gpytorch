@@ -68,6 +68,29 @@ class AddedDiagLazyTensor(SumLazyTensor):
             return self.__class__(self._lazy_tensor + other, self._diag_tensor)
 
     def _preconditioner(self):
+        # return _lr_preconditioner()
+        return self._sp_preconditioner()
+
+    def _sp_preconditioner(self):
+        from ..utils import sparse_chol_inv
+        L_res_inv = sparse_chol_inv(
+            AddedDiagLazyTensor(self._lazy_tensor, self._diag_tensor),
+            10
+        )
+        """
+        CholLazyTensor is RootLazyTensor with the restriction that self.root is triangular?
+        Consider implementing a InverseLazyTensor?
+        """
+        self._precond_lt = RootLazyTensor(L_res_inv.inverse())
+
+        self._precond_logdet_cache = L_res_inv.log().sum().mul(-2)
+    
+        def precondition_closure(tensor):
+            return L_res_inv.transpose(-2, -1) @ (L_res_inv @ tensor)
+
+        return precondition_closure, self._precond_lt, self._precond_logdet_cache
+
+    def _lr_preconditioner(self):
         r"""
         Here we use a partial pivoted Cholesky preconditioner:
 

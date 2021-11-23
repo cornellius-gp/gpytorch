@@ -103,6 +103,8 @@ def lr_plus_sparse_precond_closure(added_diag_lt, lr_k, nn_k):
         def precond_closure(rhs):
             return L_res_inv.transpose(-2, -1) @ (L_res_inv @ rhs)
 
+        return L_res_inv
+
         return precond_closure
     elif nn_k == 0:
         with settings.max_preconditioner_size(lr_k), settings.min_preconditioning_size(0):
