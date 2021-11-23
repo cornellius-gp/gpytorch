@@ -12,9 +12,10 @@ class TestGrid(unittest.TestCase):
         """
         """
         x = torch.randn(100) * 50
-        res = gpytorch.utils.grid.scale_to_bounds(x, -1, 1)
-        self.assertGreater(res.min().item(), -1)
-        self.assertLess(res.max().item(), 1)
+        scale_module = gpytorch.utils.grid.ScaleToBounds(-1.0, 1.0)
+        res = scale_module(x)
+        self.assertGreater(res.min().item(), -1.0)
+        self.assertLess(res.max().item(), 1.0)
 
     def test_choose_grid_size(self):
         """

@@ -71,7 +71,7 @@ def contour_integral_quad(
             )
             lanczos_mat = lanczos_mat.squeeze(0)  # We have an extra singleton batch dimension from the Lanczos init
 
-        """
+        r"""
         K^{-1/2} b = 2/pi \int_0^\infty (K - t^2 I)^{-1} dt
         We'll approximate this integral as a sum using quadrature
         We'll determine the appropriate values of t, as well as their weights using elliptical integrals
@@ -81,9 +81,11 @@ def contour_integral_quad(
         # We'll do this with Lanczos
         try:
             if settings.verbose_linalg.on():
-                settings.verbose_linalg.logger.debug(f"Running symeig on a matrix of size {lanczos_mat.shape}.")
+                settings.verbose_linalg.logger.debug(
+                    f"Running torch.linalg.eigvalsh on a matrix of size {lanczos_mat.shape}."
+                )
 
-            approx_eigs = lanczos_mat.symeig()[0]
+            approx_eigs = torch.linalg.eigvalsh(lanczos_mat)
             if approx_eigs.min() <= 0:
                 raise RuntimeError
         except RuntimeError:
