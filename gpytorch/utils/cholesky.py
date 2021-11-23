@@ -19,7 +19,7 @@ try:
             settings.verbose_linalg.logger.debug(f"Running Cholesky on a matrix of size {A.shape}.")
 
         if out is not None:
-            out = (out, torch.empty(A.shape[:-2], dtype=torch.int32))
+            out = (out, torch.empty(A.shape[:-2], dtype=torch.int32, device=out.device))
 
         L, info = torch.linalg.cholesky_ex(A, out=out)
         if not torch.any(info):
