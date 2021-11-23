@@ -60,11 +60,30 @@ class TestLKJPrior(unittest.TestCase):
             with least_used_cuda_device():
                 self.test_lkj_prior_batch_log_prob(cuda=True)
 
-    def test_lkj_prior_rsample(self):
-        prior = LKJPrior(2, 0.5)
-        random_samples = prior.rsample(torch.Size((6,)))
+    def test_lkj_prior_rsample(self, seed=0):
+        torch.random.manual_seed(seed)
+
+        prior = LKJPrior(n=5, eta=0.5)
+        random_samples = prior.rsample(torch.Size((64,)))
         self.assertTrue(_is_valid_correlation_matrix(random_samples))
-        self.assertEqual(random_samples.shape, torch.Size((6, 2, 2)))
+        self.assertEqual(random_samples.shape, torch.Size((64, 5, 5)))
+
+        # mean of off diagonal entries should be zero according to
+        # https://distribution-explorer.github.io/multivariate_continuous/lkj.html
+        random_sample_mean = random_samples.mean(0)
+
+        # checks to ensure no sample mean entry is greater than 0.1
+        # we set the diagonal entries to zero to check
+        random_sample_mean[torch.arange(5), torch.arange(5)] = 0.0
+        self.assertLessEqual(random_sample_mean.abs().max(), 0.1)
+
+        # variance of off-diagonal entries is
+        # $4 (\eta + n / 2 - 1)^2 / (2 \eta + n - 2)^2 (2 \eta + n - 1)$
+        # see reference above
+        # in this case for n = 5, \eta = 0.5, this simplifies to V(A_{ij}) = 0.2
+        random_sample_var = random_samples.std(0).pow(2.0)
+        random_sample_var[torch.arange(5), torch.arange(5)] = 0.2
+        self.assertLessEqual((random_sample_var - 0.2).abs().max(), 0.13)
 
 
 class TestLKJCholeskyFactorPrior(unittest.TestCase):
