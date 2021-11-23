@@ -190,6 +190,8 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         # Computes inv_matmul by exploiting the identity (A \kron B)^-1 = A^-1 \kron B^-1
+        # we perform the solve first before worrying about any tridiagonal matrices
+
         tsr_shapes = [q.size(-1) for q in self.lazy_tensors]
         n_rows = rhs.size(-2)
         batch_shape = _mul_broadcast_shape(self.shape[:-2], rhs.shape[:-2])
@@ -200,10 +202,13 @@ class KroneckerProductLazyTensor(LazyTensor):
             y = q.inv_matmul(y.reshape(*batch_shape, n, -1))
             y = y.reshape(*batch_shape, n, n_rows // n, -1).permute(*perm_batch, -2, -3, -1)
         res = y.reshape(*batch_shape, n_rows, -1)
+
         if num_tridiag == 0:
             return res
         else:
             # we need to return the t mat, so we return the eigenvalues
+            # in general, this should not be called because log determinant estimation
+            # is closed form and is implemented in _logdet
             # TODO: make this more efficient
             evals, _ = self.diagonalization()
             evals_repeated = evals.unsqueeze(0).repeat(num_tridiag, *[1] * evals.ndim)
@@ -213,6 +218,7 @@ class KroneckerProductLazyTensor(LazyTensor):
 
     def _inv_matmul(self, right_tensor, left_tensor=None):
         # if _inv_matmul is called, we ignore the eigenvalue handling
+        # this is efficient because of the structure of the lazy tensor
         res = self._solve(rhs=right_tensor)
         if left_tensor is not None:
             res = left_tensor @ res
