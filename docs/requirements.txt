@@ -1,7 +1,8 @@
+docutils==0.17.1
 nbformat
 ipython
 ipykernel
-sphinx
+sphinx==1.8.5
 sphinx_rtd_theme
 nbsphinx
 m2r

@@ -6,6 +6,7 @@ import unittest
 import torch
 
 from gpytorch.kernels import CosineKernel
+from gpytorch.priors import NormalPrior
 
 
 class TestCosineKernel(unittest.TestCase):
@@ -94,6 +95,17 @@ class TestCosineKernel(unittest.TestCase):
         res = kernel(a, b, last_dim_is_batch=True).diag()
         actual = actual.diagonal(dim1=-2, dim2=-1)
         self.assertLess(torch.norm(res - actual), 1e-5)
+
+    def create_kernel_with_prior(self, period_length_prior):
+        return CosineKernel(period_length_prior=period_length_prior)
+
+    def test_prior_type(self):
+        """
+        Raising TypeError if prior type is other than gpytorch.priors.Prior
+        """
+        self.create_kernel_with_prior(None)
+        self.create_kernel_with_prior(NormalPrior(0, 1))
+        self.assertRaises(TypeError, self.create_kernel_with_prior, 1)
 
 
 if __name__ == "__main__":

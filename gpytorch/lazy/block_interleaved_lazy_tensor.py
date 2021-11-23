@@ -53,8 +53,8 @@ class BlockInterleavedLazyTensor(BlockLazyTensor):
         col_index_block = col_index.fmod(self.base_lazy_tensor.size(-3))
 
         # Find the row/col index within each block
-        row_index = row_index // self.base_lazy_tensor.size(-3)
-        col_index = col_index // self.base_lazy_tensor.size(-3)
+        row_index = torch.div(row_index, self.base_lazy_tensor.size(-3), rounding_mode="floor")
+        col_index = torch.div(col_index, self.base_lazy_tensor.size(-3), rounding_mode="floor")
 
         # If the row/column blocks do not agree, then we have off diagonal elements
         # These elements should be zeroed out

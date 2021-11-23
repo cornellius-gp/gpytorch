@@ -21,7 +21,11 @@ class LCMKernel(Kernel):
     """
 
     def __init__(
-        self, base_kernels: List, num_tasks: int, rank: Union[int, List] = 1, task_covar_prior: Optional[Prior] = None
+        self,
+        base_kernels: List[Kernel],
+        num_tasks: int,
+        rank: Optional[Union[int, List]] = 1,
+        task_covar_prior: Optional[Prior] = None,
     ):
         """
         Args:
