@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-import math
-from numbers import Number
-
 import torch
-from torch.distributions import Beta, constraints
+from torch.distributions import LKJCholesky, constraints
 from torch.nn import Module as TModule
 
 from .. import settings
@@ -12,7 +9,7 @@ from ..utils.cholesky import psd_safe_cholesky
 from .prior import Prior
 
 
-class LKJCholeskyFactorPrior(Prior):
+class LKJCholeskyFactorPrior(Prior, LKJCholesky):
     r"""LKJ prior over n x n (positive definite) Cholesky-decomposed
     correlation matrices
 
@@ -31,69 +28,17 @@ class LKJCholeskyFactorPrior(Prior):
     This distribution assumes that the cholesky factor is lower-triangular.
     """
 
-    support = constraints.lower_cholesky
-    arg_constraints = {"n": constraints.positive_integer, "eta": constraints.positive}
-    _validate_args = True
-
-    def __init__(self, n, eta, validate_args=False):
+    def __init__(self, n, eta, validate_args=False, transform=None):
         TModule.__init__(self)
-        if not isinstance(n, int) or n < 1:
-            raise ValueError("n must be a positive integer")
-        if isinstance(eta, Number):
-            eta = torch.tensor(float(eta))
-        self.n = torch.tensor(n, dtype=torch.long, device=eta.device)
-        batch_shape = eta.shape
-        event_shape = torch.Size([n, n])
-        # Normalization constant(s)
-        i = torch.arange(n, dtype=eta.dtype, device=eta.device)
-        C = (((2 * eta.view(-1, 1) - 2 + i) * i).sum(1) * math.log(2)).view_as(eta)
-        C += n * torch.sum(2 * torch.lgamma(i / 2 + 1) - torch.lgamma(i + 2))
-        # need to assign values before registering as buffers to make argument validation work
-        self.eta = eta
-        self.C = C
-        super(LKJCholeskyFactorPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
-        # now need to delete to be able to register buffer
-        del self.eta, self.C
-        self.register_buffer("eta", eta)
-        self.register_buffer("C", C)
-
-    def log_prob(self, X):
-        if any(s != self.n for s in X.shape[-2:]):
-            raise ValueError("Cholesky factor is not of size n={}".format(self.n.item()))
-        if not _is_valid_correlation_matrix_cholesky_factor(X):
-            raise ValueError("Input is not a Cholesky factor of a valid correlation matrix")
-        log_diag_sum = torch.diagonal(X, dim1=-2, dim2=-1).log().sum(-1)
-        return self.C + (self.eta - 1) * 2 * log_diag_sum
+        LKJCholesky.__init__(self, dim=n, concentration=eta, validate_args=validate_args)
+        self.n = self.dim
+        self.eta = self.concentration
+        self._transform = transform
 
     def rsample(self, sample_shape=torch.Size()):
-        # this sampling method comes from
-        # https://github.com/rmcelreath/rethinking/blob/2acf2fd7b01718cf66a8352c52d001886c7d3c4c/R/distributions.r#L214
-        if sample_shape is None:
-            sample_shape = torch.Size()
-
-        N = self.n.item()
-
-        alpha = self.eta + (N - 1) / 2
-        r12 = 2.0 * Beta(alpha, alpha).rsample(sample_shape) - 1
-        R = torch.zeros(*sample_shape, N, N, device=self.eta.device, dtype=self.eta.dtype)
-
-        R[..., 0, 0] = 1.0
-        R[..., 0, 1] = r12
-        R[..., 1, 1] = (1 - r12.pow(2)).pow(0.5)
-
-        for m in range(1, N):
-            alpha = alpha - 0.5
-            y = Beta(m / 2, alpha).rsample(sample_shape)
-
-            # uniform on a hypersphere
-            z = torch.randn(*sample_shape, m, device=self.eta.device, dtype=self.eta.dtype)
-            z = z / torch.linalg.norm(z, dim=-1, keepdim=True)
-
-            R[..., :m, m] = y.pow(0.5).unsqueeze(-1) * z
-            R[..., m, m] = (1.0 - y).pow(0.5)
-
-        # by construction R is upper triangular, so return the lower triangular portion
-        return R.transpose(-1, -2)
+        # mocking the sample call here
+        # TODO: determine why torch.distributions.LKJCholesky only implements sample
+        return super().sample(sample_shape=sample_shape)
 
 
 class LKJPrior(LKJCholeskyFactorPrior):
@@ -113,11 +58,11 @@ class LKJPrior(LKJCholeskyFactorPrior):
 
     def log_prob(self, X):
         if any(s != self.n for s in X.shape[-2:]):
-            raise ValueError("Correlation matrix is not of size n={}".format(self.n.item()))
+            raise ValueError("Correlation matrix is not of size n={}".format(self.n))
         if not _is_valid_correlation_matrix(X):
             raise ValueError("Input is not a valid correlation matrix")
-        log_diag_sum = psd_safe_cholesky(X, upper=True).diagonal(dim1=-2, dim2=-1).log().sum(-1)
-        return self.C + (self.eta - 1) * 2 * log_diag_sum
+        X_cholesky = psd_safe_cholesky(X, upper=False)
+        return super().log_prob(X_cholesky)
 
     def rsample(self, sample_shape=torch.Size()):
         R = super().rsample(sample_shape=sample_shape)
@@ -150,9 +95,9 @@ class LKJCovariancePrior(LKJPrior):
         if sd_prior.batch_shape != correlation_prior.batch_shape:
             raise ValueError("sd_prior must have same batch_shape as eta")
         TModule.__init__(self)
-        super(LKJCholeskyFactorPrior, self).__init__(
-            correlation_prior.batch_shape, correlation_prior.event_shape, validate_args=False
-        )
+        # super(LKJCholeskyFactorPrior, self).__init__(
+        #     correlation_prior.batch_shape, correlation_prior.event_shape, validate_args=False
+        # )
         self.correlation_prior = correlation_prior
         self.sd_prior = sd_prior
 
