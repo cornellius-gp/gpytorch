@@ -36,10 +36,6 @@ class TestLKJPrior(unittest.TestCase):
         with self.assertRaises(ValueError):
             prior.log_prob(torch.eye(3, device=device))
 
-        # # For eta=1.0 log_prob is flat over all covariance matrices
-        # prior = LKJPrior(2, torch.tensor(1.0, device=device))
-        # self.assertTrue(torch.all(prior.log_prob(S) == prior.C))
-
     def test_lkj_prior_log_prob_cuda(self):
         if torch.cuda.is_available():
             with least_used_cuda_device():

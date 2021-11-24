@@ -95,9 +95,6 @@ class LKJCovariancePrior(LKJPrior):
         if sd_prior.batch_shape != correlation_prior.batch_shape:
             raise ValueError("sd_prior must have same batch_shape as eta")
         TModule.__init__(self)
-        # super(LKJCholeskyFactorPrior, self).__init__(
-        #     correlation_prior.batch_shape, correlation_prior.event_shape, validate_args=False
-        # )
         self.correlation_prior = correlation_prior
         self.sd_prior = sd_prior
 
