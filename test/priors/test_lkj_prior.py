@@ -64,9 +64,9 @@ class TestLKJPrior(unittest.TestCase):
         torch.random.manual_seed(seed)
 
         prior = LKJPrior(n=5, eta=0.5)
-        random_samples = prior.rsample(torch.Size((64,)))
+        random_samples = prior.rsample(torch.Size((128,)))
         self.assertTrue(_is_valid_correlation_matrix(random_samples))
-        self.assertEqual(random_samples.shape, torch.Size((64, 5, 5)))
+        self.assertEqual(random_samples.shape, torch.Size((128, 5, 5)))
 
         # mean of off diagonal entries should be zero according to
         # https://distribution-explorer.github.io/multivariate_continuous/lkj.html

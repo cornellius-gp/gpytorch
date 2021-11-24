@@ -61,7 +61,7 @@ class LKJPrior(Prior):
         log_diag_sum = psd_safe_cholesky(X, upper=True).diagonal(dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
-    def _rsample(self, sample_shape=None, return_covariance=False, return_cholesky=False):
+    def _rsample(self, sample_shape=None, return_cholesky=False):
         # this sampling method comes from
         # https://github.com/rmcelreath/rethinking/blob/2acf2fd7b01718cf66a8352c52d001886c7d3c4c/R/distributions.r#L214
         if sample_shape is None:
@@ -88,30 +88,14 @@ class LKJPrior(Prior):
             R[..., :m, m] = y.pow(0.5).unsqueeze(-1) * z
             R[..., m, m] = (1.0 - y).pow(0.5)
 
-        # the sample R is drawn from the Cholesky decomposition of a covariance matrix, not a correlation
-        # matrix, so we may need to re-compute a cholesky decomposition
-        if return_covariance:
-            if return_cholesky:
-                return R
-            else:
-                return R.matmul(R.transpose(-1, -2))
+        # note that R is upper triangular by construction
+        if return_cholesky:
+            return R
         else:
-            sample_as_covariance = R.matmul(R.transpose(-1, -2))
-
-            # we need to back-convert the resulting covariance matrix into a correlation matrix
-            inverse_sqrt_diagonal = torch.diagonal(sample_as_covariance, dim1=-2, dim2=-1).clamp(min=1e-6).pow(-0.5)
-            correlation_mat = (
-                inverse_sqrt_diagonal.unsqueeze(-1) * sample_as_covariance * inverse_sqrt_diagonal.unsqueeze(-2)
-            )
-
-            # and then return the cholesky of the correlation matrix
-            if return_cholesky:
-                return correlation_mat.cholesky()
-            else:
-                return correlation_mat
+            return R.transpose(-1, -2).matmul(R)
 
     def rsample(self, sample_shape=torch.Size()):
-        return self._rsample(sample_shape=sample_shape, return_covariance=False)
+        return self._rsample(sample_shape=sample_shape)
 
 
 class LKJCholeskyFactorPrior(LKJPrior):
@@ -129,6 +113,8 @@ class LKJCholeskyFactorPrior(LKJPrior):
 
     LKJCholeskyFactorPrior is different from LKJPrior in that it accepts the
     Cholesky factor of the correlation matrix to compute probabilities.
+
+    This distribution assumes that the cholesky factor is lower-triangular.
     """
 
     support = constraints.lower_cholesky
@@ -142,7 +128,8 @@ class LKJCholeskyFactorPrior(LKJPrior):
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
     def rsample(self, sample_shape=torch.Size()):
-        return super()._rsample(sample_shape=sample_shape, return_covariance=False, return_cholesky=True)
+        R = super()._rsample(sample_shape=sample_shape, return_cholesky=True)
+        return R.transpose(-1, -2)
 
 
 class LKJCovariancePrior(LKJPrior):
