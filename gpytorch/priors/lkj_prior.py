@@ -12,8 +12,9 @@ from ..utils.cholesky import psd_safe_cholesky
 from .prior import Prior
 
 
-class LKJPrior(Prior):
-    r"""LKJ prior over n x n (positive definite) correlation matrices
+class LKJCholeskyFactorPrior(Prior):
+    r"""LKJ prior over n x n (positive definite) Cholesky-decomposed
+    correlation matrices
 
     .. math:
 
@@ -21,14 +22,17 @@ class LKJPrior(Prior):
             pdf(\Sigma) ~ |\Sigma| ^ (\eta  - 1)
         \end{equation*}
 
-    where :math:`\eta > 0` is a shape parameter.
+    where :math:`\eta > 0` is a shape parameter and n is the dimension of the
+    correlation matrix.
 
-    Reference: Bayesian Data Analysis, 3rd ed., Gelman et al., p. 576
+    LKJCholeskyFactorPrior is different from LKJPrior in that it accepts the
+    Cholesky factor of the correlation matrix to compute probabilities.
+
+    This distribution assumes that the cholesky factor is lower-triangular.
     """
 
+    support = constraints.lower_cholesky
     arg_constraints = {"n": constraints.positive_integer, "eta": constraints.positive}
-    # TODO: move correlation matrix validation upstream into pytorch
-    support = constraints.positive_definite
     _validate_args = True
 
     def __init__(self, n, eta, validate_args=False):
@@ -47,7 +51,7 @@ class LKJPrior(Prior):
         # need to assign values before registering as buffers to make argument validation work
         self.eta = eta
         self.C = C
-        super(LKJPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
+        super(LKJCholeskyFactorPrior, self).__init__(batch_shape, event_shape, validate_args=validate_args)
         # now need to delete to be able to register buffer
         del self.eta, self.C
         self.register_buffer("eta", eta)
@@ -55,13 +59,13 @@ class LKJPrior(Prior):
 
     def log_prob(self, X):
         if any(s != self.n for s in X.shape[-2:]):
-            raise ValueError("Correlation matrix is not of size n={}".format(self.n.item()))
-        if not _is_valid_correlation_matrix(X):
-            raise ValueError("Input is not a valid correlation matrix")
-        log_diag_sum = psd_safe_cholesky(X, upper=True).diagonal(dim1=-2, dim2=-1).log().sum(-1)
+            raise ValueError("Cholesky factor is not of size n={}".format(self.n.item()))
+        if not _is_valid_correlation_matrix_cholesky_factor(X):
+            raise ValueError("Input is not a Cholesky factor of a valid correlation matrix")
+        log_diag_sum = torch.diagonal(X, dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
-    def _rsample(self, sample_shape=None, return_cholesky=False):
+    def rsample(self, sample_shape=torch.Size()):
         # this sampling method comes from
         # https://github.com/rmcelreath/rethinking/blob/2acf2fd7b01718cf66a8352c52d001886c7d3c4c/R/distributions.r#L214
         if sample_shape is None:
@@ -88,19 +92,12 @@ class LKJPrior(Prior):
             R[..., :m, m] = y.pow(0.5).unsqueeze(-1) * z
             R[..., m, m] = (1.0 - y).pow(0.5)
 
-        # note that R is upper triangular by construction
-        if return_cholesky:
-            return R
-        else:
-            return R.transpose(-1, -2).matmul(R)
-
-    def rsample(self, sample_shape=torch.Size()):
-        return self._rsample(sample_shape=sample_shape)
+        # by construction R is upper triangular, so return the lower triangular portion
+        return R.transpose(-1, -2)
 
 
-class LKJCholeskyFactorPrior(LKJPrior):
-    r"""LKJ prior over n x n (positive definite) Cholesky-decomposed
-    correlation matrices
+class LKJPrior(LKJCholeskyFactorPrior):
+    r"""LKJ prior over n x n (positive definite) correlation matrices
 
     .. math:
 
@@ -108,28 +105,23 @@ class LKJCholeskyFactorPrior(LKJPrior):
             pdf(\Sigma) ~ |\Sigma| ^ (\eta  - 1)
         \end{equation*}
 
-    where :math:`\eta > 0` is a shape parameter and n is the dimension of the
-    correlation matrix.
+    where :math:`\eta > 0` is a shape parameter.
 
-    LKJCholeskyFactorPrior is different from LKJPrior in that it accepts the
-    Cholesky factor of the correlation matrix to compute probabilities.
-
-    This distribution assumes that the cholesky factor is lower-triangular.
+    Reference: Bayesian Data Analysis, 3rd ed., Gelman et al., p. 576
     """
-
-    support = constraints.lower_cholesky
+    support = constraints.positive_definite
 
     def log_prob(self, X):
         if any(s != self.n for s in X.shape[-2:]):
-            raise ValueError("Cholesky factor is not of size n={}".format(self.n.item()))
-        if not _is_valid_correlation_matrix_cholesky_factor(X):
-            raise ValueError("Input is not a Cholesky factor of a valid correlation matrix")
-        log_diag_sum = torch.diagonal(X, dim1=-2, dim2=-1).log().sum(-1)
+            raise ValueError("Correlation matrix is not of size n={}".format(self.n.item()))
+        if not _is_valid_correlation_matrix(X):
+            raise ValueError("Input is not a valid correlation matrix")
+        log_diag_sum = psd_safe_cholesky(X, upper=True).diagonal(dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
     def rsample(self, sample_shape=torch.Size()):
-        R = super()._rsample(sample_shape=sample_shape, return_cholesky=True)
-        return R.transpose(-1, -2)
+        R = super().rsample(sample_shape=sample_shape)
+        return R.matmul(R.transpose(-1, -2))
 
 
 class LKJCovariancePrior(LKJPrior):
@@ -158,7 +150,7 @@ class LKJCovariancePrior(LKJPrior):
         if sd_prior.batch_shape != correlation_prior.batch_shape:
             raise ValueError("sd_prior must have same batch_shape as eta")
         TModule.__init__(self)
-        super(LKJPrior, self).__init__(
+        super(LKJCholeskyFactorPrior, self).__init__(
             correlation_prior.batch_shape, correlation_prior.event_shape, validate_args=False
         )
         self.correlation_prior = correlation_prior
