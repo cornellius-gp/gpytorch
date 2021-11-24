@@ -83,12 +83,12 @@ class LKJPrior(Prior):
 
             # uniform on a hypersphere
             z = torch.randn(*sample_shape, m, device=self.eta.device, dtype=self.eta.dtype)
-            z = z / z.pow(2.0).sum(-1, keepdim=True).pow(0.5)
+            z = z / torch.linalg.norm(z, dim=-1, keepdim=True)
 
             R[..., :m, m] = y.pow(0.5).unsqueeze(-1) * z
             R[..., m, m] = (1.0 - y).pow(0.5)
 
-        # the sample R is drawn from as the cholesky of a covariance matrix, not a correlation
+        # the sample R is drawn from the Cholesky decomposition of a covariance matrix, not a correlation
         # matrix, so we may need to re-compute a cholesky decomposition
         if return_covariance:
             if return_cholesky:
@@ -110,7 +110,7 @@ class LKJPrior(Prior):
             else:
                 return correlation_mat
 
-    def rsample(self, sample_shape=torch.Size([])):
+    def rsample(self, sample_shape=torch.Size()):
         return self._rsample(sample_shape=sample_shape, return_covariance=False)
 
 
@@ -141,7 +141,7 @@ class LKJCholeskyFactorPrior(LKJPrior):
         log_diag_sum = torch.diagonal(X, dim1=-2, dim2=-1).log().sum(-1)
         return self.C + (self.eta - 1) * 2 * log_diag_sum
 
-    def rsample(self, sample_shape=torch.Size([])):
+    def rsample(self, sample_shape=torch.Size()):
         return super()._rsample(sample_shape=sample_shape, return_covariance=False, return_cholesky=True)
 
 
@@ -188,7 +188,7 @@ class LKJCovariancePrior(LKJPrior):
         log_prob_sd = self.sd_prior.log_prob(marginal_sd)
         return log_prob_corr + log_prob_sd
 
-    def rsample(self, sample_shape=torch.Size([])):
+    def rsample(self, sample_shape=torch.Size()):
         base_correlation = self.correlation_prior.rsample(sample_shape)
         marginal_sds = self.sd_prior.rsample(sample_shape)
         # expand sds to have the same shape as the base correlation matrix
