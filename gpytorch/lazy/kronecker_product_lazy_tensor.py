@@ -150,10 +150,15 @@ class KroneckerProductLazyTensor(LazyTensor):
         inverses = [lt.inverse() for lt in self.lazy_tensors]
         return self.__class__(*inverses)
 
-    def inv_matmul(self, right_tensor, left_tensor=None):
-        # TODO: Investigate under what conditions computing individual inverses makes sense
-        # For now, retain existing behavior
-        return super().inv_matmul(right_tensor=right_tensor, left_tensor=left_tensor)
+    def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
+        if inv_quad_rhs is not None:
+            inv_quad_term, _ = super().inv_quad_logdet(
+                inv_quad_rhs=inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
+            )
+        else:
+            inv_quad_term = None
+        logdet_term = self._logdet() if logdet else None
+        return inv_quad_term, logdet_term
 
     @cached(name="cholesky")
     def _cholesky(self, upper=False):
@@ -183,21 +188,46 @@ class KroneckerProductLazyTensor(LazyTensor):
 
         return res
 
-    def _inv_matmul(self, right_tensor, left_tensor=None):
+    def _solve(self, rhs, preconditioner=None, num_tridiag=0):
         # Computes inv_matmul by exploiting the identity (A \kron B)^-1 = A^-1 \kron B^-1
+        # we perform the solve first before worrying about any tridiagonal matrices
+
         tsr_shapes = [q.size(-1) for q in self.lazy_tensors]
-        n_rows = right_tensor.size(-2)
-        batch_shape = _mul_broadcast_shape(self.shape[:-2], right_tensor.shape[:-2])
+        n_rows = rhs.size(-2)
+        batch_shape = _mul_broadcast_shape(self.shape[:-2], rhs.shape[:-2])
         perm_batch = tuple(range(len(batch_shape)))
-        y = right_tensor.clone().expand(*batch_shape, *right_tensor.shape[-2:])
+        y = rhs.clone().expand(*batch_shape, *rhs.shape[-2:])
         for n, q in zip(tsr_shapes, self.lazy_tensors):
             # for KroneckerProductTriangularLazyTensor this inv_matmul is very cheap
             y = q.inv_matmul(y.reshape(*batch_shape, n, -1))
             y = y.reshape(*batch_shape, n, n_rows // n, -1).permute(*perm_batch, -2, -3, -1)
         res = y.reshape(*batch_shape, n_rows, -1)
+
+        if num_tridiag == 0:
+            return res
+        else:
+            # we need to return the t mat, so we return the eigenvalues
+            # in general, this should not be called because log determinant estimation
+            # is closed form and is implemented in _logdet
+            # TODO: make this more efficient
+            evals, _ = self.diagonalization()
+            evals_repeated = evals.unsqueeze(0).repeat(num_tridiag, *[1] * evals.ndim)
+            lazy_evals = DiagLazyTensor(evals_repeated)
+            batch_repeated_evals = lazy_evals.evaluate()
+            return res, batch_repeated_evals
+
+    def _inv_matmul(self, right_tensor, left_tensor=None):
+        # if _inv_matmul is called, we ignore the eigenvalue handling
+        # this is efficient because of the structure of the lazy tensor
+        res = self._solve(rhs=right_tensor)
         if left_tensor is not None:
             res = left_tensor @ res
         return res
+
+    def _logdet(self):
+        evals, _ = self.diagonalization()
+        logdet = evals.clamp(min=1e-7).log().sum(-1)
+        return logdet
 
     def _matmul(self, rhs):
         is_vec = rhs.ndimension() == 1
