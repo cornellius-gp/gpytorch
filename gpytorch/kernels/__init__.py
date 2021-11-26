@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from . import experimental
 from . import keops
 from .additive_structure_kernel import AdditiveStructureKernel
 from .arc_kernel import ArcKernel
@@ -31,6 +32,7 @@ from .spectral_delta_kernel import SpectralDeltaKernel
 from .spectral_mixture_kernel import SpectralMixtureKernel
 
 __all__ = [
+    "experimental",
     "keops",
     "Kernel",
     "ArcKernel",

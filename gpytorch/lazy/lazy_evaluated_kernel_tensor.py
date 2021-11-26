@@ -19,14 +19,15 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         if not torch.is_tensor(x2):
             return "x1 must be a tensor. Got {}".format(x1.__class__.__name__)
 
-    def __init__(self, x1, x2, kernel, last_dim_is_batch=False, **params):
+    def __init__(self, x1, x2, kernel, last_dim_is_batch=False, x1_eq_x2=None, **params):
         super(LazyEvaluatedKernelTensor, self).__init__(
-            x1, x2, kernel=kernel, last_dim_is_batch=last_dim_is_batch, **params
+            x1, x2, kernel=kernel, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params
         )
         self.kernel = kernel
         self.x1 = x1
         self.x2 = x2
         self.last_dim_is_batch = last_dim_is_batch
+        self.x1_eq_x2 = x1_eq_x2
         self.params = params
 
     @property
@@ -281,7 +282,9 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         with settings.lazily_evaluate_kernels(False):
             temp_active_dims = self.kernel.active_dims
             self.kernel.active_dims = None
-            res = self.kernel(x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params)
+            res = self.kernel(
+                x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, x1_eq_x2=self.x1_eq_x2, **self.params
+            )
             self.kernel.active_dims = temp_active_dims
 
         # Check the size of the output

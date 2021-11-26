@@ -141,7 +141,7 @@ class Kernel(Module):
         eps: Optional[float] = 1e-6,
         **kwargs,
     ):
-        super(Kernel, self).__init__()
+        super().__init__()
         self._batch_shape = batch_shape
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
@@ -269,6 +269,7 @@ class Kernel(Module):
         diag=False,
         last_dim_is_batch=False,
         square_dist=False,
+        x1_eq_x2=None,
         dist_postprocess_func=default_postprocess_script,
         postprocess=True,
         **params,
@@ -301,7 +302,8 @@ class Kernel(Module):
             x1 = x1.transpose(-1, -2).unsqueeze(-1)
             x2 = x2.transpose(-1, -2).unsqueeze(-1)
 
-        x1_eq_x2 = torch.equal(x1, x2)
+        if x1_eq_x2 is None:
+            x1_eq_x2 = torch.equal(x1, x2)
 
         # torch scripts expect tensors
         postprocess = torch.tensor(postprocess)
@@ -320,9 +322,15 @@ class Kernel(Module):
                     res = dist_postprocess_func(res)
                 return res
             else:
-                res = torch.norm(x1 - x2, p=2, dim=-1)
-                if square_dist:
-                    res = res.pow(2)
+                if not square_dist:
+                    res = torch.norm(x1 - x2, p=2, dim=-1)
+                else:
+                    if x1.size(-2) == x2.size(-2):
+                        # If n1 = n2, we can compute the squared distance diagonal
+                        # in a way that preserves gradient flow.
+                        res = (x1 * x1 - 2 * x1 * x2 + x2 * x2).sum(-1)
+                    else:
+                        res = torch.norm(x1 - x2, p=2, dim=-1).pow(2)
             if postprocess:
                 res = dist_postprocess_func(res)
             return res
@@ -357,7 +365,7 @@ class Kernel(Module):
         for _, kernel in self.named_sub_kernels():
             yield kernel
 
-    def __call__(self, x1, x2=None, diag=False, last_dim_is_batch=False, **params):
+    def __call__(self, x1, x2=None, diag=False, last_dim_is_batch=False, x1_eq_x2=None, **params):
         x1_, x2_ = x1, x2
 
         # Select the active dimensions
@@ -375,8 +383,15 @@ class Kernel(Module):
             if not x1_.size(-1) == x2_.size(-1):
                 raise RuntimeError("x1_ and x2_ must have the same number of dimensions!")
 
-        if x2_ is None:
-            x2_ = x1_
+        if x1_eq_x2 is None:
+            if x2_ is None:
+                x2_ = x1_
+                x1_eq_x2 = True
+            else:
+                x1_eq_x2 = None
+        else:
+            if x2_ is None:
+                x2_ = x1_
 
         # Check that ard_num_dims matches the supplied number of dimensions
         if settings.debug.on():
@@ -387,7 +402,9 @@ class Kernel(Module):
                 )
 
         if diag:
-            res = super(Kernel, self).__call__(x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, **params)
+            res = super(Kernel, self).__call__(
+                x1_, x2_, diag=True, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params
+            )
             # Did this Kernel eat the diag option?
             # If it does not return a LazyEvaluatedKernelTensor, we can call diag on the output
             if not isinstance(res, LazyEvaluatedKernelTensor):
@@ -397,9 +414,15 @@ class Kernel(Module):
 
         else:
             if settings.lazily_evaluate_kernels.on():
-                res = LazyEvaluatedKernelTensor(x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, **params)
+                res = LazyEvaluatedKernelTensor(
+                    x1_, x2_, kernel=self, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params
+                )
             else:
-                res = lazify(super(Kernel, self).__call__(x1_, x2_, last_dim_is_batch=last_dim_is_batch, **params))
+                res = lazify(
+                    super(Kernel, self).__call__(
+                        x1_, x2_, last_dim_is_batch=last_dim_is_batch, x1_eq_x2=x1_eq_x2, **params
+                    )
+                )
             return res
 
     def __getstate__(self):
