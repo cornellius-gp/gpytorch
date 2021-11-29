@@ -529,14 +529,22 @@ class max_root_decomposition_size(_value_context):
     _global_value = 100
 
 
-class max_preconditioner_size(_value_context):
-    """
-    The maximum size of preconditioner to use. 0 corresponds to turning
-    preconditioning off. When enabled, usually a value of around ~10 works fairly well.
+# class max_preconditioner_size(_value_context):
+#     """
+#     The maximum size of preconditioner to use. 0 corresponds to turning
+#     preconditioning off. When enabled, usually a value of around ~10 works fairly well.
 
-    (Default: 15)
-    """
+#     (Default: 15)
+#     """
 
+#     _global_value = 15
+
+
+class max_lr_preconditioner_size(_value_context):
+    _global_value = 15
+
+
+class max_sp_preconditioner_size(_value_context):
     _global_value = 15
 
 
