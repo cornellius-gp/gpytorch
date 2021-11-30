@@ -60,8 +60,8 @@ class Interpolation(object):
             raise RuntimeError(
                 (
                     "Received data that was out of bounds for the specified grid. "
-                    "Grid bounds were ({0:.3f}, {0:.3f}), but min = {0:.3f}, "
-                    "max = {0:.3f}"
+                    "Grid bounds were ({:.3f}, {:.3f}), but min = {:.3f}, "
+                    "max = {:.3f}"
                 ).format(
                     grid_mins[first_out_of_range].item(),
                     grid_maxs[first_out_of_range].item(),
@@ -74,8 +74,8 @@ class Interpolation(object):
             raise RuntimeError(
                 (
                     "Received data that was out of bounds for the specified grid. "
-                    "Grid bounds were ({0:.3f}, {0:.3f}), but min = {0:.3f}, "
-                    "max = {0:.3f}"
+                    "Grid bounds were ({:.3f}, {:.3f}), but min = {:.3f}, "
+                    "max = {:.3f}"
                 ).format(
                     grid_mins[first_out_of_range].item(),
                     grid_maxs[first_out_of_range].item(),
