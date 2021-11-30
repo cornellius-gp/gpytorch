@@ -91,6 +91,7 @@ class TestKISSGPVariationalRegression(unittest.TestCase):
                     optimizer.step()
 
                 scheduler.step()
+
         train()
 
         for _, param in model.named_parameters():

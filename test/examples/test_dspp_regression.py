@@ -17,15 +17,15 @@ test_n = 10
 test_x = torch.linspace(-0.2, 1.2, test_n).unsqueeze(-1)
 test_y = torch.sin(2 * test_x[..., 0])
 
-num_inducing_pts = 10            # Number of inducing points in each hidden layer
-num_epochs = 100                 # Number of epochs to train for
-initial_lr = 0.1                 # Initial learning rate
-hidden_dim = 3                   # Number of GPs (i.e., the width) in the hidden layer.
-num_quadrature_sites = 8         # Number of quadrature sites (see paper for a description of this.
+num_inducing_pts = 10  # Number of inducing points in each hidden layer
+num_epochs = 100  # Number of epochs to train for
+initial_lr = 0.1  # Initial learning rate
+hidden_dim = 3  # Number of GPs (i.e., the width) in the hidden layer.
+num_quadrature_sites = 8  # Number of quadrature sites (see paper for a description of this.
 
 
 class DSPPHiddenLayer(DSPPLayer):
-    def __init__(self, input_dims, output_dims, num_inducing=300, inducing_points=None, mean_type='constant', Q=8):
+    def __init__(self, input_dims, output_dims, num_inducing=300, inducing_points=None, mean_type="constant", Q=8):
         if output_dims is None:
             # An output_dims of None implies there is only one GP in this layer
             # (e.g., the last layer for univariate regression).
@@ -36,27 +36,25 @@ class DSPPHiddenLayer(DSPPLayer):
         # Let's use mean field / diagonal covariance structure.
         variational_distribution = MeanFieldVariationalDistribution(
             num_inducing_points=num_inducing,
-            batch_shape=torch.Size([output_dims]) if output_dims is not None else torch.Size([])
+            batch_shape=torch.Size([output_dims]) if output_dims is not None else torch.Size([]),
         )
 
         # Standard variational inference.
         variational_strategy = VariationalStrategy(
-            self,
-            inducing_points,
-            variational_distribution,
-            learn_inducing_locations=True
+            self, inducing_points, variational_distribution, learn_inducing_locations=True
         )
 
         batch_shape = torch.Size([]) if output_dims is None else torch.Size([output_dims])
         super().__init__(variational_strategy, input_dims, output_dims, Q)
 
-        if mean_type == 'constant':
+        if mean_type == "constant":
             self.mean_module = ConstantMean(batch_shape=batch_shape)
-        elif mean_type == 'linear':
+        elif mean_type == "linear":
             self.mean_module = LinearMean(input_dims, batch_shape=batch_shape)
 
-        self.covar_module = ScaleKernel(MaternKernel(batch_shape=batch_shape, ard_num_dims=input_dims),
-                                        batch_shape=batch_shape, ard_num_dims=None)
+        self.covar_module = ScaleKernel(
+            MaternKernel(batch_shape=batch_shape, ard_num_dims=input_dims), batch_shape=batch_shape, ard_num_dims=None
+        )
 
     def forward(self, x, mean_input=None, **kwargs):
         mean_x = self.mean_module(x)
@@ -70,20 +68,20 @@ class ThreeLayerDSPP(DSPP):
             input_dims=train_x_shape[-1],
             output_dims=hidden_dim,
             num_inducing=num_inducing,
-            mean_type='linear',
+            mean_type="linear",
             Q=Q,
         )
         hidden_layer2 = DSPPHiddenLayer(
             input_dims=hidden_layer1.output_dims,
             output_dims=hidden_dim,
-            mean_type='linear',
+            mean_type="linear",
             num_inducing=num_inducing,
             Q=Q,
         )
         last_layer = DSPPHiddenLayer(
             input_dims=hidden_layer2.output_dims,
             output_dims=None,
-            mean_type='constant',
+            mean_type="constant",
             num_inducing=num_inducing,
             Q=Q,
         )
@@ -108,15 +106,12 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
 
     def test_dspp(self):
         model = ThreeLayerDSPP(
-            train_x.shape,
-            num_inducing=num_inducing_pts,
-            hidden_dim=hidden_dim,
-            Q=num_quadrature_sites
+            train_x.shape, num_inducing=num_inducing_pts, hidden_dim=hidden_dim, Q=num_quadrature_sites
         )
 
         model.train()
 
-        adam = torch.optim.Adam([{'params': model.parameters()}], lr=initial_lr, betas=(0.9, 0.999))
+        adam = torch.optim.Adam([{"params": model.parameters()}], lr=initial_lr, betas=(0.9, 0.999))
         objective = gpytorch.mlls.DeepPredictiveLogLikelihood(model.likelihood, model, num_data=train_n, beta=0.05)
 
         epochs_iter = range(num_epochs)

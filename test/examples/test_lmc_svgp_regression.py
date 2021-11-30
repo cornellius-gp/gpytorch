@@ -13,12 +13,17 @@ from gpytorch.likelihoods import GaussianLikelihood, MultitaskGaussianLikelihood
 # Batch training test: Let's learn hyperparameters on a sine dataset, but test on a sine dataset and a cosine dataset
 # in parallel.
 train_x = torch.linspace(0, 1, 20)
-train_y = torch.stack([
-    torch.sin(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.01,
-    torch.cos(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.01,
-    torch.sin(train_x * (2 * math.pi)) + 2 * torch.cos(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.01,
-    -torch.cos(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.01,
-], -1)
+train_y = torch.stack(
+    [
+        torch.sin(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.01,
+        torch.cos(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.01,
+        torch.sin(train_x * (2 * math.pi))
+        + 2 * torch.cos(train_x * (2 * math.pi))
+        + torch.randn(train_x.size()) * 0.01,
+        -torch.cos(train_x * (2 * math.pi)) + torch.randn(train_x.size()) * 0.01,
+    ],
+    -1,
+)
 
 
 class LMCModel(gpytorch.models.ApproximateGP):
@@ -40,7 +45,7 @@ class LMCModel(gpytorch.models.ApproximateGP):
             ),
             num_tasks=4,
             num_latents=3,
-            latent_dim=-1
+            latent_dim=-1,
         )
 
         super().__init__(variational_strategy)
@@ -49,8 +54,7 @@ class LMCModel(gpytorch.models.ApproximateGP):
         # so we learn a different set of hyperparameters
         self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([3]))
         self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(batch_shape=torch.Size([3])),
-            batch_shape=torch.Size([3])
+            gpytorch.kernels.RBFKernel(batch_shape=torch.Size([3])), batch_shape=torch.Size([3])
         )
 
     def forward(self, x):
@@ -81,10 +85,13 @@ class TestIndependentMultitaskGPRegression(unittest.TestCase):
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
-        optimizer = torch.optim.Adam([
-            {'params': model.parameters()},
-            {'params': likelihood.parameters()},
-        ], lr=0.01)
+        optimizer = torch.optim.Adam(
+            [
+                {"params": model.parameters()},
+                {"params": likelihood.parameters()},
+            ],
+            lr=0.01,
+        )
 
         # Our loss object. We're using the VariationalELBO, which essentially just computes the ELBO
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))
@@ -138,10 +145,13 @@ class TestIndependentMultitaskGPRegression(unittest.TestCase):
         # Find optimal model hyperparameters
         model.train()
         likelihood.train()
-        optimizer = torch.optim.Adam([
-            {'params': model.parameters()},
-            {'params': likelihood.parameters()},
-        ], lr=0.01)
+        optimizer = torch.optim.Adam(
+            [
+                {"params": model.parameters()},
+                {"params": likelihood.parameters()},
+            ],
+            lr=0.01,
+        )
 
         # Our loss object. We're using the VariationalELBO, which essentially just computes the ELBO
         mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))

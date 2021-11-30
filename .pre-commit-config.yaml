@@ -15,7 +15,7 @@ repos:
     -   id: trailing-whitespace
     -   id: debug-statements
 -   repo: https://github.com/ambv/black
-    rev: 19.10b0
+    rev: 21.11b1
     hooks:
     -   id: black
         exclude: ^(build/*)|(docs/*)|(examples/*)

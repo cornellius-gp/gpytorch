@@ -24,8 +24,11 @@ class SVGPRegressionModel(ApproximateGP):
             base_inducing_points.size(-1)
         )
         variational_strategy = gpytorch.variational.BatchDecoupledVariationalStrategy(
-            self, base_inducing_points, base_variational_distribution, learn_inducing_locations=True,
-            mean_var_batch_dim=-1
+            self,
+            base_inducing_points,
+            base_variational_distribution,
+            learn_inducing_locations=True,
+            mean_var_batch_dim=-1,
         )
         super(SVGPRegressionModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([2]))

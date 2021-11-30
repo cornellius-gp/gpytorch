@@ -126,7 +126,7 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
         self.assertGreater(test_vars.min().item() + 0.1, likelihood.noise.item())
         self.assertLess(
             test_vars.max().item() - 0.05,
-            likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
+            likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item(),
         )
 
         # Test on training data
