@@ -30,9 +30,11 @@ class TestLKJPrior(unittest.TestCase):
         dist = LKJCholesky(2, torch.tensor(0.5, device=device))
 
         S = torch.eye(2, device=device)
-        self.assertAlmostEqual(prior.log_prob(S), dist.log_prob(S.cholesky()), places=4)
+        S_chol = torch.linalg.cholesky(S)
+        self.assertAlmostEqual(prior.log_prob(S), dist.log_prob(S_chol), places=4)
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
-        self.assertTrue(approx_equal(prior.log_prob(S), dist.log_prob(S.cholesky())))
+        S_chol = torch.linalg.cholesky(S)
+        self.assertTrue(approx_equal(prior.log_prob(S), dist.log_prob(S_chol)))
         with self.assertRaises(ValueError):
             prior.log_prob(torch.eye(3, device=device))
 
@@ -47,9 +49,11 @@ class TestLKJPrior(unittest.TestCase):
         dist = LKJCholesky(2, torch.tensor([0.5, 1.5], device=device))
 
         S = torch.eye(2, device=device)
-        self.assertTrue(approx_equal(prior.log_prob(S), dist.log_prob(S.cholesky())))
+        S_chol = torch.linalg.cholesky(S)
+        self.assertTrue(approx_equal(prior.log_prob(S), dist.log_prob(S_chol)))
         S = torch.stack([S, torch.tensor([[1.0, 0.5], [0.5, 1]], device=S.device)])
-        self.assertTrue(approx_equal(prior.log_prob(S), dist.log_prob(S.cholesky())))
+        S_chol = torch.linalg.cholesky(S)
+        self.assertTrue(approx_equal(prior.log_prob(S), dist.log_prob(S_chol)))
         with self.assertRaises(ValueError):
             prior.log_prob(torch.eye(3, device=device))
 
@@ -207,7 +211,8 @@ class TestLKJCovariancePrior(unittest.TestCase):
         prior = LKJCovariancePrior(2, 0.5, sd_prior=SmoothedBoxPrior(exp(-1), exp(1)))
         random_samples = prior.rsample(torch.Size((6,)))
         # only need to check that this is a PSD matrix
-        self.assertTrue(random_samples.symeig()[0].min() >= 0)
+        min_eval = torch.linalg.eigh(random_samples)[0].min()
+        self.assertTrue(min_eval >= 0)
 
         self.assertEqual(random_samples.shape, torch.Size((6, 2, 2)))
 
