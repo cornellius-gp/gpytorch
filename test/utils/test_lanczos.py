@@ -3,10 +3,10 @@
 import unittest
 
 import torch
+from scipy.stats import ortho_group
 
 from gpytorch.test.utils import approx_equal
 from gpytorch.utils.lanczos import lanczos_tridiag
-from scipy.stats import ortho_group
 
 
 class TestLanczos(unittest.TestCase):
