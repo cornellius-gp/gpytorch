@@ -73,7 +73,7 @@ def sparse_chol_inv(pd_mat, nn_k: int, nn_ind: Optional[Tensor] = None):
 
     f_diag = pd_mat_self_self - (pd_mat_nn_self.transpose(-2, -1) @ b_vecs).squeeze(-1).squeeze(-1)
 
-    B = torch.zeros(*batch_shape, pd_mat.size(-2), pd_mat.size(-1))
+    B = torch.zeros(*batch_shape, pd_mat.size(-2), pd_mat.size(-1), dtype=pd_mat.dtype, device=pd_mat.device)
     B.scatter_(-1, nn_ind, b_vecs.squeeze(-1)).tril_(-1)
 
     F_sqrt_inv = DiagLazyTensor(f_diag.sqrt().reciprocal())
