@@ -282,6 +282,11 @@ def linear_cg(
         residual_norm.masked_fill_(rhs_is_zero, 0)
         torch.lt(residual_norm, stop_updating_after, out=has_converged)
 
+        # Record the residual norm
+        if settings.verbose_linalg.on():
+            settings.verbose_linalg.lst_residual_norm.append(residual_norm.mean().item())
+            print(residual_norm.mean().item())
+
         if (
             k >= min(10, max_iter - 1)
             and bool(residual_norm.mean() < tolerance)
