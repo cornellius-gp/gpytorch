@@ -66,8 +66,8 @@ class SumLazyTensor(LazyTensor):
         return sum(lazy_tensor.evaluate() for lazy_tensor in self.lazy_tensors)
 
     def __add__(self, other):
-        from .diag_lazy_tensor import DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
+        from .diag_lazy_tensor import DiagLazyTensor
 
         if isinstance(other, ZeroLazyTensor):
             return self

@@ -417,8 +417,8 @@ class LazyTensor(ABC):
         Returns:
             (TriangularLazyTensor) Cholesky factor
         """
-        from .triangular_lazy_tensor import TriangularLazyTensor
         from .keops_lazy_tensor import KeOpsLazyTensor
+        from .triangular_lazy_tensor import TriangularLazyTensor
 
         evaluated_kern_mat = self.evaluate_kernel()
 
@@ -518,8 +518,8 @@ class LazyTensor(ABC):
         Returns:
             :obj:`gpytorch.lazy.LazyTensor`
         """
-        from .non_lazy_tensor import NonLazyTensor
         from .mul_lazy_tensor import MulLazyTensor
+        from .non_lazy_tensor import NonLazyTensor
 
         self = self.evaluate_kernel()
         other = other.evaluate_kernel()
@@ -715,8 +715,8 @@ class LazyTensor(ABC):
         Args:
             - diag (Scalar Tensor)
         """
-        from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
         from .added_diag_lazy_tensor import AddedDiagLazyTensor
+        from .diag_lazy_tensor import ConstantDiagLazyTensor, DiagLazyTensor
 
         if not self.is_square:
             raise RuntimeError("add_diag only defined for square matrices")
@@ -1409,8 +1409,8 @@ class LazyTensor(ABC):
             :obj:`gpytorch.lazy.ConstantMulLazyTensor`. If other was
             another matrix, this will likely be a :obj:`gpytorch.lazy.MulLazyTensor`.
         """
-        from .zero_lazy_tensor import ZeroLazyTensor
         from .non_lazy_tensor import lazify
+        from .zero_lazy_tensor import ZeroLazyTensor
 
         if isinstance(other, ZeroLazyTensor):
             return other
@@ -1717,8 +1717,8 @@ class LazyTensor(ABC):
         This can be used for sampling from a Gaussian distribution, or for obtaining a
         low-rank version of a matrix
         """
-        from .root_lazy_tensor import RootLazyTensor
         from .non_lazy_tensor import lazify
+        from .root_lazy_tensor import RootLazyTensor
 
         if not self.is_square:
             raise RuntimeError(
@@ -2088,13 +2088,14 @@ class LazyTensor(ABC):
             :obj:`gpytorch.lazy.SumLazyTensor`:
                 A sum lazy tensor representing the sum of this lazy tensor and other.
         """
+        from torch import Tensor
+
+        from .added_diag_lazy_tensor import AddedDiagLazyTensor
+        from .diag_lazy_tensor import DiagLazyTensor
+        from .non_lazy_tensor import lazify
+        from .root_lazy_tensor import RootLazyTensor
         from .sum_lazy_tensor import SumLazyTensor
         from .zero_lazy_tensor import ZeroLazyTensor
-        from .diag_lazy_tensor import DiagLazyTensor
-        from .added_diag_lazy_tensor import AddedDiagLazyTensor
-        from .root_lazy_tensor import RootLazyTensor
-        from .non_lazy_tensor import lazify
-        from torch import Tensor
 
         if isinstance(other, ZeroLazyTensor):
             return self
