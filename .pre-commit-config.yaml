@@ -21,7 +21,7 @@ repos:
         exclude: ^(build/*)|(docs/*)|(examples/*)
         args: [-l 120, --target-version=py36]
 -   repo: https://github.com/pre-commit/mirrors-isort
-    rev: v4.3.21
+    rev: v5.9.3
     hooks:
     -   id: isort
         language_version: python3
