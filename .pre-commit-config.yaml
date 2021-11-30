@@ -28,7 +28,7 @@ repos:
         exclude: ^(build/*)|(docs/*)|(examples/*)
         args: [-w 120, -m 3, -tc, --project=gpytorch]
 -   repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 1.11.0
+    rev: 2.1.5
     hooks:
     -   id: require-ascii
         exclude: ^(examples/LBFGS.py)|(examples/.*\.ipynb)
