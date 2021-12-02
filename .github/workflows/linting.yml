@@ -28,5 +28,6 @@ jobs:
       run: |
         flake8
     - name: Run pre-commit checks
+      # skipping flake8 here (run separatey above b/c pre-commit does not include flake8-print)
       run: |
-        pre-commit run --files test/**/*.py gpytorch/**/*.py
+        SKIP=flake8 pre-commit run --files test/**/*.py gpytorch/**/*.py
