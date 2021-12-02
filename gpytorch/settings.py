@@ -59,7 +59,9 @@ class _value_context:
         self._orig_value = self.__class__.value()
         self._instance_value = value
 
-    def __enter__(self,):
+    def __enter__(
+        self,
+    ):
         self.__class__._set_value(self._instance_value)
 
     def __exit__(self, *args):
@@ -102,9 +104,13 @@ class _dtype_value_context:
         self._orig_half_value = self.__class__.value()
         self._instance_half_value = half
 
-    def __enter__(self,):
+    def __enter__(
+        self,
+    ):
         self.__class__._set_value(
-            self._instance_float_value, self._instance_double_value, self._instance_half_value,
+            self._instance_float_value,
+            self._instance_double_value,
+            self._instance_half_value,
         )
 
     def __exit__(self, *args):

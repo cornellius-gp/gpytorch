@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 try:
-    from .pyro_gp import PyroGP
     from ._pyro_mixin import _PyroMixin
+    from .pyro_gp import PyroGP
 except ImportError:
 
     class PyroGP(object):

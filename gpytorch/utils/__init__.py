@@ -11,8 +11,7 @@ from .stochastic_lq import StochasticLQ
 
 
 def prod(items):
-    """
-    """
+    """ """
     if len(items):
         res = items[0]
         for item in items[1:]:

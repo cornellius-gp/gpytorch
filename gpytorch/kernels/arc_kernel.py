@@ -119,26 +119,34 @@ class ArcKernel(Kernel):
         # TODO: check the errors given by interval
         angle_constraint = Interval(0.1, 0.9)
         self.register_parameter(
-            name="raw_angle", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
+            name="raw_angle",
+            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
         )
         if angle_prior is not None:
             if not isinstance(angle_prior, Prior):
                 raise TypeError("Expected gpytorch.priors.Prior but got " + type(angle_prior).__name__)
             self.register_prior(
-                "angle_prior", angle_prior, lambda m: m.angle, lambda m, v: m._set_angle(v),
+                "angle_prior",
+                angle_prior,
+                lambda m: m.angle,
+                lambda m, v: m._set_angle(v),
             )
 
         self.register_constraint("raw_angle", angle_constraint)
 
         self.register_parameter(
-            name="raw_radius", parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
+            name="raw_radius",
+            parameter=torch.nn.Parameter(torch.zeros(*self.batch_shape, 1, self.last_dim)),
         )
 
         if radius_prior is not None:
             if not isinstance(radius_prior, Prior):
                 raise TypeError("Expected gpytorch.priors.Prior but got " + type(radius_prior).__name__)
             self.register_prior(
-                "radius_prior", radius_prior, lambda m: m.radius, lambda m, v: m._set_radius(v),
+                "radius_prior",
+                radius_prior,
+                lambda m: m.radius,
+                lambda m, v: m._set_radius(v),
             )
 
         radius_constraint = Positive()

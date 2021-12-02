@@ -1,10 +1,7 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.4.0
+    rev: v4.0.1
     hooks:
-    -   id: flake8
-        args: [--config=setup.cfg]
-        exclude: ^(examples/*)|(docs/*)
     -   id: check-byte-order-marker
     -   id: check-case-conflict
     -   id: check-merge-conflict
@@ -14,21 +11,27 @@ repos:
         args: [--fix=lf]
     -   id: trailing-whitespace
     -   id: debug-statements
+-   repo: https://github.com/pycqa/flake8
+    rev: 4.0.1
+    hooks:
+    -   id: flake8
+        args: [--config=setup.cfg]
+        exclude: ^(examples/*)|(docs/*)
 -   repo: https://github.com/ambv/black
-    rev: 19.10b0
+    rev: 21.11b1
     hooks:
     -   id: black
         exclude: ^(build/*)|(docs/*)|(examples/*)
         args: [-l 120, --target-version=py36]
 -   repo: https://github.com/pre-commit/mirrors-isort
-    rev: v4.3.21
+    rev: v5.9.3
     hooks:
     -   id: isort
         language_version: python3
         exclude: ^(build/*)|(docs/*)|(examples/*)
-        args: [-w 120, -m 3, -tc, --project=gpytorch]
+        args: [-w120, -m3, --tc, --project=gpytorch]
 -   repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 1.11.0
+    rev: 2.1.5
     hooks:
     -   id: require-ascii
         exclude: ^(examples/LBFGS.py)|(examples/.*\.ipynb)
@@ -36,7 +39,7 @@ repos:
     -   id: forbid-binary
         exclude: ^(examples/*)
 -   repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.1.7
+    rev: v1.1.10
     hooks:
     -   id: forbid-crlf
     -   id: forbid-tabs

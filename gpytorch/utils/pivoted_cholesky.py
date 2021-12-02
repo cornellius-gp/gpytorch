@@ -6,7 +6,7 @@ from .. import settings
 
 
 def pivoted_cholesky(matrix, max_iter, error_tol=None):
-    from ..lazy import lazify, LazyTensor
+    from ..lazy import LazyTensor, lazify
 
     batch_shape = matrix.shape[:-2]
     matrix_shape = matrix.shape[-2:]
