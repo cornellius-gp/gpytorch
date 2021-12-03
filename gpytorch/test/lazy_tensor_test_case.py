@@ -10,7 +10,6 @@ import torch
 
 import gpytorch
 from gpytorch.settings import linalg_dtypes
-from gpytorch.utils.cholesky import CHOLESKY_METHOD
 from gpytorch.utils.errors import CachingError
 from gpytorch.utils.memoize import get_from_cache
 
@@ -654,11 +653,9 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 )
 
                 _wrapped_cholesky = MagicMock(
-                    wraps=torch.linalg.cholesky
-                    if CHOLESKY_METHOD == "torch.linalg.cholesky"
-                    else torch.linalg.cholesky_ex
+                    wraps=torch.linalg.cholesky_ex
                 )
-                with patch(CHOLESKY_METHOD, new=_wrapped_cholesky) as cholesky_mock:
+                with patch("torch.linalg.cholesky_ex", new=_wrapped_cholesky) as cholesky_mock:
                     self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=True, lazy_tensor=lazy_tensor)
                 self.assertFalse(cholesky_mock.called)
 
