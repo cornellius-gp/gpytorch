@@ -25,7 +25,9 @@ def _select_lmc_coefficients(lmc_coefficients: torch.Tensor, indices: torch.Long
     lmc_coefficients = lmc_coefficients.expand(*batch_shape, lmc_coefficients.shape[-1])[..., None]
     indices = indices.expand(*batch_shape, indices.shape[-1])[..., None]
     res = left_interp(
-        indices, torch.ones(indices.shape, dtype=torch.long, device=indices.device), lmc_coefficients,
+        indices,
+        torch.ones(indices.shape, dtype=torch.long, device=indices.device),
+        lmc_coefficients,
     ).squeeze(-1)
     return res
 
@@ -102,7 +104,11 @@ class LMCVariationalStrategy(_VariationalStrategy):
     """
 
     def __init__(
-        self, base_variational_strategy, num_tasks, num_latents=1, latent_dim=-1,
+        self,
+        base_variational_strategy,
+        num_tasks,
+        num_latents=1,
+        latent_dim=-1,
     ):
         Module.__init__(self)
         self.base_variational_strategy = base_variational_strategy

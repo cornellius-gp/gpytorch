@@ -68,7 +68,8 @@ class TestLeaveOneOutPseudoLikelihood(unittest.TestCase):
         loocv_2 /= n
 
         self.assertAlmostEqual(
-            loocv_1.item(), loocv_2.item(),
+            loocv_1.item(),
+            loocv_2.item(),
         )
 
 

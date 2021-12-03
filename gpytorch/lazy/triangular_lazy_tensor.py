@@ -34,7 +34,8 @@ class TriangularLazyTensor(LazyTensor):
             # things get kind of messy when interleaving repeats and triangualrisms
             if not isinstance(tensor.base_lazy_tensor, TriangularLazyTensor):
                 tensor = tensor.__class__(
-                    TriangularLazyTensor(tensor.base_lazy_tensor, upper=upper), batch_repeat=tensor.batch_repeat,
+                    TriangularLazyTensor(tensor.base_lazy_tensor, upper=upper),
+                    batch_repeat=tensor.batch_repeat,
                 )
         if torch.is_tensor(tensor):
             tensor = NonLazyTensor(tensor)
@@ -89,7 +90,12 @@ class TriangularLazyTensor(LazyTensor):
     def _size(self) -> torch.Size:
         return self._tensor.shape
 
-    def _solve(self, rhs: Tensor, preconditioner: Callable[[Tensor], Tensor], num_tridiag: int = 0,) -> Tensor:
+    def _solve(
+        self,
+        rhs: Tensor,
+        preconditioner: Callable[[Tensor], Tensor],
+        num_tridiag: int = 0,
+    ) -> Tensor:
         # already triangular, can just call inv_matmul for the solve
         return self.inv_matmul(rhs)
 
@@ -134,7 +140,10 @@ class TriangularLazyTensor(LazyTensor):
         return res
 
     def inv_quad_logdet(
-        self, inv_quad_rhs: Optional[Tensor] = None, logdet: bool = False, reduce_inv_quad: bool = True,
+        self,
+        inv_quad_rhs: Optional[Tensor] = None,
+        logdet: bool = False,
+        reduce_inv_quad: bool = True,
     ) -> Tuple[Tensor, Tensor]:
         if inv_quad_rhs is None:
             inv_quad_term = torch.empty(0, dtype=self.dtype, device=self.device)

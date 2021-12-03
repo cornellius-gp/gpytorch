@@ -9,4 +9,3 @@ gpytorch.Module
 
 .. autoclass:: gpytorch.Module
    :members:
-

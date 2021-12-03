@@ -138,8 +138,7 @@ def sparse_eye(size):
 
 
 def sparse_getitem(sparse, idxs):
-    """
-    """
+    """ """
     if not isinstance(idxs, tuple):
         idxs = (idxs,)
 
@@ -199,8 +198,7 @@ def sparse_getitem(sparse, idxs):
 
 
 def sparse_repeat(sparse, *repeat_sizes):
-    """
-    """
+    """ """
     if len(repeat_sizes) == 1 and isinstance(repeat_sizes, tuple):
         repeat_sizes = repeat_sizes[0]
 
@@ -241,8 +239,7 @@ def sparse_repeat(sparse, *repeat_sizes):
 
 
 def to_sparse(dense):
-    """
-    """
+    """ """
     mask = dense.ne(0)
     indices = mask.nonzero(as_tuple=False)
     if indices.storage():
