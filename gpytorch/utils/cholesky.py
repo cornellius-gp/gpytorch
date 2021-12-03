@@ -23,9 +23,7 @@ def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=3):
 
     isnan = torch.isnan(A)
     if isnan.any():
-        raise NanError(
-            f"cholesky_cpu: {isnan.sum().item()} of {A.numel()} elements of the {A.shape} tensor are NaN."
-        )
+        raise NanError(f"cholesky_cpu: {isnan.sum().item()} of {A.numel()} elements of the {A.shape} tensor are NaN.")
 
     if jitter is None:
         jitter = settings.cholesky_jitter.value(A.dtype)
@@ -37,7 +35,10 @@ def _psd_safe_cholesky(A, out=None, jitter=None, max_tries=3):
         diag_add = ((info > 0) * (jitter_new - jitter_prev)).unsqueeze(-1).expand(*Aprime.shape[:-1])
         Aprime.diagonal(dim1=-1, dim2=-2).add_(diag_add)
         jitter_prev = jitter_new
-        warnings.warn(f"A not p.d., added jitter of {jitter_new:.1e} to the diagonal", NumericalWarning)
+        warnings.warn(
+            f"A not p.d., added jitter of {jitter_new:.1e} to the diagonal",
+            NumericalWarning,
+        )
         L, info = torch.linalg.cholesky_ex(Aprime, out=out)
         if not torch.any(info):
             return L

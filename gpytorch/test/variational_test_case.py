@@ -24,7 +24,10 @@ class VariationalTestCase(BaseTestCase):
             def __init__(self, inducing_points):
                 variational_distribution = distribution_cls(num_inducing, batch_shape=batch_shape)
                 variational_strategy = strategy_cls(
-                    self, inducing_points, variational_distribution, learn_inducing_locations=True
+                    self,
+                    inducing_points,
+                    variational_distribution,
+                    learn_inducing_locations=True,
                 )
                 super().__init__(variational_strategy)
                 if constant_mean:
@@ -44,7 +47,12 @@ class VariationalTestCase(BaseTestCase):
         return _SVGPRegressionModel(inducing_points), self.likelihood_cls()
 
     def _training_iter(
-        self, model, likelihood, batch_shape=torch.Size([]), mll_cls=gpytorch.mlls.VariationalELBO, cuda=False
+        self,
+        model,
+        likelihood,
+        batch_shape=torch.Size([]),
+        mll_cls=gpytorch.mlls.VariationalELBO,
+        cuda=False,
     ):
         train_x = torch.randn(*batch_shape, 32, 2).clamp(-2.5, 2.5)
         train_y = torch.linspace(-1, 1, self.event_shape[0])
@@ -131,9 +139,7 @@ class VariationalTestCase(BaseTestCase):
         eval_data_batch_shape = eval_data_batch_shape if eval_data_batch_shape is not None else self.batch_shape
 
         # Mocks
-        _wrapped_cholesky = MagicMock(
-            wraps=torch.linalg.cholesky_ex
-        )
+        _wrapped_cholesky = MagicMock(wraps=torch.linalg.cholesky_ex)
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
         _cholesky_mock = patch("torch.linalg.cholesky_ex", new=_wrapped_cholesky)
@@ -193,9 +199,7 @@ class VariationalTestCase(BaseTestCase):
         expected_batch_shape = expected_batch_shape if expected_batch_shape is not None else self.batch_shape
 
         # Mocks
-        _wrapped_cholesky = MagicMock(
-            wraps=torch.linalg.cholesky_ex
-        )
+        _wrapped_cholesky = MagicMock(wraps=torch.linalg.cholesky_ex)
         _wrapped_cg = MagicMock(wraps=gpytorch.utils.linear_cg)
         _wrapped_ciq = MagicMock(wraps=gpytorch.utils.contour_integral_quad)
         _cholesky_mock = patch("torch.linalg.cholesky_ex", new=_wrapped_cholesky)
@@ -215,11 +219,21 @@ class VariationalTestCase(BaseTestCase):
         with _cholesky_mock as cholesky_mock, _cg_mock as cg_mock, _ciq_mock as ciq_mock:
             # Iter 1
             self.assertEqual(model.variational_strategy.variational_params_initialized.item(), 0)
-            self._training_iter(model, likelihood, data_batch_shape, mll_cls=self.mll_cls, cuda=self.cuda)
+            self._training_iter(
+                model,
+                likelihood,
+                data_batch_shape,
+                mll_cls=self.mll_cls,
+                cuda=self.cuda,
+            )
             self.assertEqual(model.variational_strategy.variational_params_initialized.item(), 1)
             # Iter 2
             output, loss = self._training_iter(
-                model, likelihood, data_batch_shape, mll_cls=self.mll_cls, cuda=self.cuda
+                model,
+                likelihood,
+                data_batch_shape,
+                mll_cls=self.mll_cls,
+                cuda=self.cuda,
             )
             self.assertEqual(output.batch_shape, expected_batch_shape)
             self.assertEqual(output.event_shape, self.event_shape)
