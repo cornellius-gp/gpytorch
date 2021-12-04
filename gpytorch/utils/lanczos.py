@@ -16,8 +16,7 @@ def lanczos_tridiag(
     num_init_vecs=1,
     tol=1e-5,
 ):
-    """
-    """
+    """ """
     # Determine batch mode
     multiple_init_vecs = False
 

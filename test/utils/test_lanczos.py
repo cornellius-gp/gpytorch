@@ -3,10 +3,10 @@
 import unittest
 
 import torch
+from scipy.stats import ortho_group
 
 from gpytorch.test.utils import approx_equal
 from gpytorch.utils.lanczos import lanczos_tridiag
-from scipy.stats import ortho_group
 
 
 class TestLanczos(unittest.TestCase):
@@ -25,7 +25,11 @@ class TestLanczos(unittest.TestCase):
     def lanczos_tridiag_test(self, matrix):
         size = matrix.shape[0]
         q_mat, t_mat = lanczos_tridiag(
-            matrix.matmul, max_iter=size, dtype=matrix.dtype, device=matrix.device, matrix_shape=matrix.shape,
+            matrix.matmul,
+            max_iter=size,
+            dtype=matrix.dtype,
+            device=matrix.device,
+            matrix_shape=matrix.shape,
         )
 
         self.assert_valid_sizes(size, t_mat, q_mat)

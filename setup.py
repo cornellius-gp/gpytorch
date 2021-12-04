@@ -62,7 +62,7 @@ setup(
         "examples": ["ipython", "jupyter", "matplotlib", "scipy", "torchvision", "tqdm"],
         "pyro": ["pyro-ppl>=1.0.0"],
         "keops": ["pykeops>=1.1.1"],
-        "test": ["flake8", "flake8-print", "pytest", "nbval"],
+        "test": ["flake8==4.0.1", "flake8-print==4.0.0", "pytest", "nbval"],
     },
     test_suite="test",
 )

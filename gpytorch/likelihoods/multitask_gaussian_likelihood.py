@@ -20,7 +20,7 @@ from ..utils.pivoted_cholesky import pivoted_cholesky
 
 
 class _MultitaskGaussianLikelihoodBase(_GaussianLikelihoodBase):
-    """Base class for multi-task Gaussian Likelihoods, supporting general heteroskedastic noise models. """
+    """Base class for multi-task Gaussian Likelihoods, supporting general heteroskedastic noise models."""
 
     def __init__(self, num_tasks, noise_covar, rank=0, task_correlation_prior=None, batch_shape=torch.Size()):
         """

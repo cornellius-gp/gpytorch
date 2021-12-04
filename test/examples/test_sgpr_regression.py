@@ -15,7 +15,6 @@ from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.test.utils import least_used_cuda_device
-from gpytorch.utils.cholesky import CHOLESKY_METHOD
 from gpytorch.utils.warnings import NumericalWarning
 from torch import optim
 
@@ -82,9 +81,9 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
 
         # Mock cholesky
         _wrapped_cholesky = MagicMock(
-            wraps=torch.linalg.cholesky if CHOLESKY_METHOD == "torch.linalg.cholesky" else torch.linalg.cholesky_ex
+            wraps=torch.linalg.cholesky_ex
         )
-        with patch(CHOLESKY_METHOD, new=_wrapped_cholesky) as cholesky_mock:
+        with patch("torch.linalg.cholesky_ex", new=_wrapped_cholesky) as cholesky_mock:
 
             # Optimize the model
             gp_model.train()
@@ -126,7 +125,7 @@ class TestSGPRRegression(unittest.TestCase, BaseTestCase):
         self.assertGreater(test_vars.min().item() + 0.1, likelihood.noise.item())
         self.assertLess(
             test_vars.max().item() - 0.05,
-            likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item()
+            likelihood.noise.item() + gp_model.covar_module.base_kernel.outputscale.item(),
         )
 
         # Test on training data

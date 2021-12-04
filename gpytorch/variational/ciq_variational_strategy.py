@@ -216,7 +216,9 @@ class CiqVariationalStrategy(_VariationalStrategy):
         # We have separate computation rules for NGD versus standard GD
         if self._ngd():
             interp_mean, interp_var, kl_div = _NgdInterpTerms.apply(
-                interp_term, self._variational_distribution.natural_vec, self._variational_distribution.natural_mat,
+                interp_term,
+                self._variational_distribution.natural_vec,
+                self._variational_distribution.natural_mat,
             )
 
             # Compute the covariance of q(f)
@@ -302,7 +304,12 @@ class CiqVariationalStrategy(_VariationalStrategy):
         # Get q(f)
         if self._ngd():
             return Module.__call__(
-                self, x, inducing_points, inducing_values=None, variational_inducing_covar=None, **kwargs,
+                self,
+                x,
+                inducing_points,
+                inducing_values=None,
+                variational_inducing_covar=None,
+                **kwargs,
             )
         else:
             # Get p(u)/q(u)

@@ -110,7 +110,8 @@ class TestKroneckerProductAddedConstDiagLazyTensor(TestKroneckerProductAddedDiag
         c.requires_grad_(True)
         kp_lazy_tensor = KroneckerProductLazyTensor(NonLazyTensor(a), NonLazyTensor(b), NonLazyTensor(c))
         diag_lazy_tensor = ConstantDiagLazyTensor(
-            torch.tensor([0.25], dtype=torch.float, requires_grad=True), kp_lazy_tensor.shape[-1],
+            torch.tensor([0.25], dtype=torch.float, requires_grad=True),
+            kp_lazy_tensor.shape[-1],
         )
         return KroneckerProductAddedDiagLazyTensor(kp_lazy_tensor, diag_lazy_tensor)
 

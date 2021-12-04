@@ -21,12 +21,13 @@ jobs:
         python-version: "3.6"
     - name: Install dependencies
       run: |
-        pip install flake8==3.7.9 flake8-print==3.1.4 pre-commit
+        pip install flake8==4.0.1 flake8-print==4.0.0 pre-commit
         pre-commit install
         pre-commit run seed-isort-config || true
     - name: Run linting
       run: |
         flake8
     - name: Run pre-commit checks
+      # skipping flake8 here (run separatey above b/c pre-commit does not include flake8-print)
       run: |
         SKIP=flake8 pre-commit run --files test/**/*.py gpytorch/**/*.py

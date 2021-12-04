@@ -10,7 +10,6 @@ import torch
 
 import gpytorch
 from gpytorch.settings import linalg_dtypes
-from gpytorch.utils.cholesky import CHOLESKY_METHOD
 from gpytorch.utils.errors import CachingError
 from gpytorch.utils.memoize import get_from_cache
 
@@ -211,15 +210,28 @@ class RectangularLazyTensorTestCase(BaseTestCase):
         # Batch case
         else:
             for batch_index in product(
-                [torch.tensor([0, 1, 1, 0]), slice(None, None, None)], repeat=(lazy_tensor.dim() - 2)
+                [torch.tensor([0, 1, 1, 0]), slice(None, None, None)],
+                repeat=(lazy_tensor.dim() - 2),
             ):
-                index = (*batch_index, torch.tensor([0, 1, 0, 2]), torch.tensor([1, 2, 0, 1]))
+                index = (
+                    *batch_index,
+                    torch.tensor([0, 1, 0, 2]),
+                    torch.tensor([1, 2, 0, 1]),
+                )
                 res, actual = lazy_tensor[index], evaluated[index]
                 self.assertAllClose(res, actual)
-                index = (*batch_index, torch.tensor([0, 1, 0, 2]), slice(None, None, None))
+                index = (
+                    *batch_index,
+                    torch.tensor([0, 1, 0, 2]),
+                    slice(None, None, None),
+                )
                 res, actual = gpytorch.delazify(lazy_tensor[index]), evaluated[index]
                 self.assertAllClose(res, actual)
-                index = (*batch_index, slice(None, None, None), torch.tensor([0, 1, 2, 1]))
+                index = (
+                    *batch_index,
+                    slice(None, None, None),
+                    torch.tensor([0, 1, 2, 1]),
+                )
                 res, actual = gpytorch.delazify(lazy_tensor[index]), evaluated[index]
                 self.assertAllClose(res, actual)
                 index = (*batch_index, slice(None, None, None), slice(None, None, None))
@@ -298,7 +310,10 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
         "root_inv_decomposition": {"rtol": 0.05, "atol": 0.02},
         "sample": {"rtol": 0.3, "atol": 0.3},
         "sqrt_inv_matmul": {"rtol": 1e-2, "atol": 1e-3},
-        "symeig": {"double": {"rtol": 1e-4, "atol": 1e-3}, "float": {"rtol": 1e-3, "atol": 1e-2}},
+        "symeig": {
+            "double": {"rtol": 1e-4, "atol": 1e-3},
+            "float": {"rtol": 1e-3, "atol": 1e-2},
+        },
         "svd": {"rtol": 1e-4, "atol": 1e-3},
     }
 
@@ -650,15 +665,13 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 chol = lazy_tensor.root_decomposition().root.clone()
                 gpytorch.utils.memoize.clear_cache_hook(lazy_tensor)
                 gpytorch.utils.memoize.add_to_cache(
-                    lazy_tensor, "root_decomposition", gpytorch.lazy.RootLazyTensor(chol)
+                    lazy_tensor,
+                    "root_decomposition",
+                    gpytorch.lazy.RootLazyTensor(chol),
                 )
 
-                _wrapped_cholesky = MagicMock(
-                    wraps=torch.linalg.cholesky
-                    if CHOLESKY_METHOD == "torch.linalg.cholesky"
-                    else torch.linalg.cholesky_ex
-                )
-                with patch(CHOLESKY_METHOD, new=_wrapped_cholesky) as cholesky_mock:
+                _wrapped_cholesky = MagicMock(wraps=torch.linalg.cholesky_ex)
+                with patch("torch.linalg.cholesky_ex", new=_wrapped_cholesky) as cholesky_mock:
                     self._test_inv_quad_logdet(reduce_inv_quad=True, cholesky=True, lazy_tensor=lazy_tensor)
                 self.assertFalse(cholesky_mock.called)
 
@@ -778,7 +791,11 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
 
             # since LazyTensor.symeig does not sort evals, we do this here for the check
             evals, idxr = torch.sort(evals_unsorted, dim=-1, descending=False)
-            evecs = torch.gather(evecs_unsorted, dim=-1, index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape))
+            evecs = torch.gather(
+                evecs_unsorted,
+                dim=-1,
+                index=idxr.unsqueeze(-2).expand(evecs_unsorted.shape),
+            )
 
             evals_actual, evecs_actual = torch.linalg.eigh(evaluated.type(dtype))
             evals_actual = evals_actual.to(dtype=evaluated.dtype)

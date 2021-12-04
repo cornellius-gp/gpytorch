@@ -15,7 +15,9 @@ class TestModel(gpytorch.models.ExactGP):
         super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ZeroMean()
         self.covar_module = InducingPointKernel(
-            ScaleKernel(RBFKernel(ard_num_dims=3)), inducing_points=torch.randn(512, 3), likelihood=likelihood,
+            ScaleKernel(RBFKernel(ard_num_dims=3)),
+            inducing_points=torch.randn(512, 3),
+            likelihood=likelihood,
         )
 
     def forward(self, input):

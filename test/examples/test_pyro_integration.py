@@ -323,13 +323,13 @@ try:
             model.double()
 
             model.covar_module.base_kernel.register_prior(
-                "lengthscale_prior", gpytorch.priors.LogNormalPrior(0.1, 1.), "lengthscale"
+                "lengthscale_prior", gpytorch.priors.LogNormalPrior(0.1, 1.0), "lengthscale"
             )
             model.covar_module.register_prior(
-                "raw_outputscale_prior", gpytorch.priors.NormalPrior(0., 1.), "raw_outputscale"
+                "raw_outputscale_prior", gpytorch.priors.NormalPrior(0.0, 1.0), "raw_outputscale"
             )
-            model.likelihood.register_prior("raw_noise_prior", gpytorch.priors.NormalPrior(0., 1.), "raw_noise")
-            model.mean_module.register_prior("constant_prior", gpytorch.priors.NormalPrior(0., 1.), "constant")
+            model.likelihood.register_prior("raw_noise_prior", gpytorch.priors.NormalPrior(0.0, 1.0), "raw_noise")
+            model.mean_module.register_prior("constant_prior", gpytorch.priors.NormalPrior(0.0, 1.0), "constant")
 
             def pyro_model(x, y):
                 sampled_model = model.pyro_sample_from_prior()
@@ -343,10 +343,11 @@ try:
                 # Sampling some random values for each of the parameters
                 sampled_model = model.pyro_sample_from_prior()
                 initial_params = {
-                    'covar_module.base_kernel.lengthscale_prior': sampled_model.covar_module.base_kernel.lengthscale,
-                    'covar_module.raw_outputscale_prior': sampled_model.covar_module.raw_outputscale,
-                    'mean_module.constant_prior': sampled_model.mean_module.constant,
-                    'likelihood.raw_noise_prior': sampled_model.likelihood.raw_noise}
+                    "covar_module.base_kernel.lengthscale_prior": sampled_model.covar_module.base_kernel.lengthscale,
+                    "covar_module.raw_outputscale_prior": sampled_model.covar_module.raw_outputscale,
+                    "mean_module.constant_prior": sampled_model.mean_module.constant,
+                    "likelihood.raw_noise_prior": sampled_model.likelihood.raw_noise,
+                }
 
                 # check gradient of the potential fn w.r.t. the parameters at these specific values.
                 d = 1e-4
@@ -360,6 +361,7 @@ try:
                     abs_delta = (torch.abs(grads[param] - numerical) / torch.abs(numerical)).item()
                     # Pyro's gradient should differ by less than 5% from numerical est.
                     self.assertLess(abs_delta, 0.05)
+
 
 except ImportError:
     pass

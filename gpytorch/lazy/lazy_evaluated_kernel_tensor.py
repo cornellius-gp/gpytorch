@@ -54,13 +54,18 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         x1 = self.x1
         x2 = self.x2
         num_outs_per_in = self.kernel.num_outputs_per_input(x1, x2)
+        if isinstance(num_outs_per_in, tuple):
+            num_outs_per_in_rows, num_outs_per_in_cols = num_outs_per_in
+        else:
+            num_outs_per_in_rows = num_outs_per_in
+            num_outs_per_in_cols = num_outs_per_in
 
         # The row index and col index should exactly correspond to which entries of x1 and x2 we need
         # So we'll basically call x1[*batch_indices, row_index, :], x2[*batch_indices, col_index, :]
 
         # However - if we have multiple outputs per input, then the indices won't directly
         # correspond to the entries of row/col. We'll have to do a little pre-processing
-        if num_outs_per_in != 1:
+        if num_outs_per_in_rows != 1 or num_outs_per_in_cols != 1:
             if not isinstance(x1, slice) or not isinstance(x2, slice):
                 # It's too complicated to deal with tensor indices in this case - we'll use the super method
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
@@ -81,16 +86,16 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             if row_step is not None or col_step is not None:
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
             if (
-                (row_start % num_outs_per_in)
-                or (col_start % num_outs_per_in)
-                or (row_end % num_outs_per_in)
-                or (col_end % num_outs_per_in)
+                (row_start % num_outs_per_in_rows)
+                or (col_start % num_outs_per_in_cols)
+                or (row_end % num_outs_per_in_rows)
+                or (col_end % num_outs_per_in_cols)
             ):
                 return self.evaluate_kernel()._getitem(row_index, col_index, *batch_indices)
 
             # Otherwise - let's divide the slices by the number of outputs per input
-            row_index = slice(row_start // num_outs_per_in, row_end // num_outs_per_in, None)
-            col_index = slice(col_start // num_outs_per_in, col_end // num_outs_per_in, None)
+            row_index = slice(row_start // num_outs_per_in_rows, row_end // num_outs_per_in_rows, None)
+            col_index = slice(col_start // num_outs_per_in_cols, col_end // num_outs_per_in_cols, None)
 
         # Define the index we're using for the last index
         # If the last index corresponds to a batch, then we'll use the appropriate batch_index
@@ -135,7 +140,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             new_kernel = self.kernel.__getitem__(batch_indices)
 
         # Now construct a kernel with those indices
-        return self.__class__(x1, x2, kernel=new_kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params,)
+        return self.__class__(
+            x1,
+            x2,
+            kernel=new_kernel,
+            last_dim_is_batch=self.last_dim_is_batch,
+            **self.params,
+        )
 
     def _matmul(self, rhs):
         # This _matmul is defined computes the kernel in chunks
@@ -156,7 +167,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             res = []
             for sub_x1 in sub_x1s:
                 sub_kernel_matrix = lazify(
-                    self.kernel(sub_x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params,)
+                    self.kernel(
+                        sub_x1,
+                        x2,
+                        diag=False,
+                        last_dim_is_batch=self.last_dim_is_batch,
+                        **self.params,
+                    )
                 )
                 res.append(sub_kernel_matrix._matmul(rhs))
 
@@ -185,7 +202,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
             sub_x1.requires_grad_(True)
             with torch.enable_grad(), settings.lazily_evaluate_kernels(False):
                 sub_kernel_matrix = lazify(
-                    self.kernel(sub_x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params,)
+                    self.kernel(
+                        sub_x1,
+                        x2,
+                        diag=False,
+                        last_dim_is_batch=self.last_dim_is_batch,
+                        **self.params,
+                    )
                 )
             sub_grad_outputs = tuple(sub_kernel_matrix._quad_form_derivative(sub_left_vecs, right_vecs))
             sub_kernel_outputs = tuple(sub_kernel_matrix.representation())
@@ -202,9 +225,14 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         x1 = self.x1
         x2 = self.x2
-        num_outputs_per_input = self.kernel.num_outputs_per_input(x1, x2)
-        num_rows = x1.size(-2) * num_outputs_per_input
-        num_cols = x2.size(-2) * num_outputs_per_input
+        num_outs_per_in = self.kernel.num_outputs_per_input(x1, x2)
+        if isinstance(num_outs_per_in, tuple):
+            num_outs_per_in_rows, num_outs_per_in_cols = num_outs_per_in
+        else:
+            num_outs_per_in_rows = num_outs_per_in
+            num_outs_per_in_cols = num_outs_per_in
+        num_rows = x1.size(-2) * num_outs_per_in_rows
+        num_cols = x2.size(-2) * num_outs_per_in_cols
 
         # Default case - when we're not using broadcasting
         # We write this case special for efficiency
@@ -238,7 +266,11 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
     def _transpose_nonbatch(self):
         return self.__class__(
-            self.x2, self.x1, kernel=self.kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params,
+            self.x2,
+            self.x1,
+            kernel=self.kernel,
+            last_dim_is_batch=self.last_dim_is_batch,
+            **self.params,
         )
 
     def add_jitter(self, jitter_val=1e-3):
@@ -247,7 +279,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
     def _unsqueeze_batch(self, dim):
         x1 = self.x1.unsqueeze(dim)
         x2 = self.x2.unsqueeze(dim)
-        return self.__class__(x1, x2, kernel=self.kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params,)
+        return self.__class__(
+            x1,
+            x2,
+            kernel=self.kernel,
+            last_dim_is_batch=self.last_dim_is_batch,
+            **self.params,
+        )
 
     @cached(name="kernel_diag")
     def diag(self):
@@ -291,7 +329,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
         with settings.lazily_evaluate_kernels(False):
             temp_active_dims = self.kernel.active_dims
             self.kernel.active_dims = None
-            res = self.kernel(x1, x2, diag=False, last_dim_is_batch=self.last_dim_is_batch, **self.params,)
+            res = self.kernel(
+                x1,
+                x2,
+                diag=False,
+                last_dim_is_batch=self.last_dim_is_batch,
+                **self.params,
+            )
             self.kernel.active_dims = temp_active_dims
 
         # Check the size of the output
@@ -315,7 +359,13 @@ class LazyEvaluatedKernelTensor(LazyTensor):
 
         x1 = self.x1.repeat(*batch_repeat, row_repeat, 1)
         x2 = self.x2.repeat(*batch_repeat, col_repeat, 1)
-        return self.__class__(x1, x2, kernel=self.kernel, last_dim_is_batch=self.last_dim_is_batch, **self.params,)
+        return self.__class__(
+            x1,
+            x2,
+            kernel=self.kernel,
+            last_dim_is_batch=self.last_dim_is_batch,
+            **self.params,
+        )
 
     def representation(self):
         # If we're checkpointing the kernel, we'll use chunked _matmuls defined in LazyEvaluatedKernelTensor
