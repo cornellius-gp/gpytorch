@@ -15,7 +15,7 @@ from .. import settings, utils
 from ..functions._diagonalization import Diagonalization
 from ..functions._inv_matmul import InvMatmul
 from ..functions._inv_quad import InvQuad
-from ..functions._inv_quad_log_det import InvQuadLogDet
+from ..functions._inv_quad_logdet import InvQuadLogdet
 from ..functions._matmul import Matmul
 from ..functions._pivoted_cholesky import PivotedCholesky
 from ..functions._root_decomposition import RootDecomposition
@@ -1296,6 +1296,14 @@ class LazyTensor(ABC):
                 reduce_inv_quad=reduce_inv_quad,
             )
 
+        # Short circuit to inv_quad function if we're not computing logdet
+        if not logdet:
+            if inv_quad_rhs is None:
+                raise RuntimeError("Either `inv_quad_rhs` or `logdet` must be specifed.")
+            return self.inv_quad(inv_quad_rhs, reduce_inv_quad=reduce_inv_quad), torch.zeros(
+                [], dtype=self.dtype, device=self.device
+            )
+
         # Default: use modified batch conjugate gradients to compute these terms
         # See NeurIPS 2018 paper: https://arxiv.org/abs/1809.11165
         if not self.is_square:
@@ -1328,22 +1336,33 @@ class LazyTensor(ABC):
         if inv_quad_rhs is not None:
             args = [inv_quad_rhs] + list(args)
 
+        preconditioner, precond_lt = self._preconditioner()
+        if precond_lt is None:
+            from ..lazy.identity_lazy_tensor import IdentityLazyTensor
+
+            precond_lt = IdentityLazyTensor(
+                diag_shape=self.size(-1),
+                batch_shape=self.batch_shape,
+                dtype=self.dtype,
+                device=self.device,
+            )
+
+        precond_args = precond_lt.representation()
         probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
 
-        func = InvQuadLogDet.apply
-
-        inv_quad_term, logdet_term = func(
+        func = InvQuadLogdet.apply
+        inv_quad_term, pinvk_logdet = func(
             self.representation_tree(),
-            self.dtype,
-            self.device,
-            self.matrix_shape,
-            self.batch_shape,
+            precond_lt.representation_tree(),
+            preconditioner,
+            len(precond_args),
             (inv_quad_rhs is not None),
-            logdet,
             probe_vectors,
             probe_vector_norms,
-            *args,
+            *(list(args) + list(precond_args)),
         )
+        logdet_term = pinvk_logdet
+        logdet_term = logdet_term + precond_lt.logdet()
 
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)

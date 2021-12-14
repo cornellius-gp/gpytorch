@@ -6,37 +6,39 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import gpytorch
-from gpytorch.lazy import RootLazyTensor
+from gpytorch.kernels import RBFKernel
+from gpytorch.lazy import NonLazyTensor
 from gpytorch.test.base_test_case import BaseTestCase
 
 
 class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
     seed = 0
-    matrix_shape = torch.Size((4, 4))
+    matrix_shape = torch.Size((50, 50))
 
     def _test_inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, improper_logdet=False, add_diag=False):
         # Set up
-        mat = torch.randn(*self.__class__.matrix_shape).requires_grad_(True)
-        mat_clone = mat.detach().clone().requires_grad_(True)
+        x = torch.randn(*self.__class__.matrix_shape[:-1], 3)
+        kern = RBFKernel()
+        kern_copy = RBFKernel()
+        mat = kern(x).evaluate()
+        mat_clone = kern_copy(x).evaluate()
 
         if inv_quad_rhs is not None:
             inv_quad_rhs.requires_grad_(True)
             inv_quad_rhs_clone = inv_quad_rhs.detach().clone().requires_grad_(True)
 
-        # Compute actual values
-        actual_tensor = mat_clone @ mat_clone.transpose(-1, -2)
-
+        mat_clone_with_diag = mat_clone
         if add_diag:
-            actual_tensor.diagonal(dim1=-2, dim2=-1).add_(1.0)
+            mat_clone_with_diag = mat_clone_with_diag + torch.eye(mat_clone.size(-1))
 
         if inv_quad_rhs is not None:
-            actual_inv_quad = actual_tensor.inverse().matmul(inv_quad_rhs_clone).mul(inv_quad_rhs_clone)
+            actual_inv_quad = mat_clone_with_diag.inverse().matmul(inv_quad_rhs_clone).mul(inv_quad_rhs_clone)
             actual_inv_quad = actual_inv_quad.sum([-1, -2]) if inv_quad_rhs.dim() >= 2 else actual_inv_quad.sum()
         if logdet:
-            flattened_tensor = actual_tensor.view(-1, *actual_tensor.shape[-2:])
+            flattened_tensor = mat_clone_with_diag.view(-1, *mat_clone.shape[-2:])
             logdets = torch.cat([mat.logdet().unsqueeze(0) for mat in flattened_tensor])
-            if actual_tensor.dim() > 2:
-                actual_logdet = logdets.view(*actual_tensor.shape[:-2])
+            if mat_clone.dim() > 2:
+                actual_logdet = logdets.view(*mat_clone.shape[:-2])
             else:
                 actual_logdet = logdets.squeeze()
 
@@ -46,8 +48,12 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
             0
         ), gpytorch.settings.cg_tolerance(1e-5), gpytorch.settings.skip_logdet_forward(improper_logdet), patch(
             "gpytorch.utils.linear_cg", new=_wrapped_cg
-        ) as linear_cg_mock:
-            lazy_tensor = RootLazyTensor(mat)
+        ) as linear_cg_mock, gpytorch.settings.min_preconditioning_size(
+            0
+        ), gpytorch.settings.max_preconditioner_size(
+            30
+        ):
+            lazy_tensor = NonLazyTensor(mat)
 
             if add_diag:
                 lazy_tensor = lazy_tensor.add_jitter(1.0)
@@ -71,9 +77,9 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
             actual_logdet.sum().backward()
             res_logdet.sum().backward()
 
-        self.assertAllClose(mat_clone.grad, mat.grad, rtol=1e-1, atol=2e-1)
+        self.assertAllClose(kern.raw_lengthscale.grad, kern_copy.raw_lengthscale.grad, rtol=1e-2, atol=1e-2)
         if inv_quad_rhs is not None:
-            self.assertAllClose(inv_quad_rhs.grad, inv_quad_rhs_clone.grad, rtol=1e-2)
+            self.assertAllClose(inv_quad_rhs.grad, inv_quad_rhs_clone.grad, rtol=2e-2, atol=1e-2)
 
         # Make sure CG was called
         self.assertTrue(linear_cg_mock.called)
@@ -121,7 +127,7 @@ class TestInvQuadLogDetNonBatch(BaseTestCase, unittest.TestCase):
 
 class TestInvQuadLogDetBatch(TestInvQuadLogDetNonBatch):
     seed = 0
-    matrix_shape = torch.Size((3, 4, 4))
+    matrix_shape = torch.Size((3, 50, 50))
 
     def test_inv_quad_logdet_vector(self):
         pass
@@ -138,7 +144,7 @@ class TestInvQuadLogDetBatch(TestInvQuadLogDetNonBatch):
 
 class TestInvQuadLogDetMultiBatch(TestInvQuadLogDetBatch):
     seed = 0
-    matrix_shape = torch.Size((2, 3, 4, 4))
+    matrix_shape = torch.Size((2, 3, 50, 50))
 
 
 if __name__ == "__main__":

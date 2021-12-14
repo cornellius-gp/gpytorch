@@ -375,10 +375,10 @@ class LazyTensorTestCase(RectangularLazyTensorTestCase):
                 with gpytorch.settings.num_trace_samples(256), gpytorch.settings.max_cholesky_size(
                     math.inf if cholesky else 0
                 ), gpytorch.settings.cg_tolerance(1e-5):
-
-                    res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
-                        inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=reduce_inv_quad
-                    )
+                    with gpytorch.settings.min_preconditioning_size(4), gpytorch.settings.max_preconditioner_size(2):
+                        res_inv_quad, res_logdet = lazy_tensor.inv_quad_logdet(
+                            inv_quad_rhs=vecs, logdet=True, reduce_inv_quad=reduce_inv_quad
+                        )
 
             actual_inv_quad = evaluated.inverse().matmul(vecs_copy).mul(vecs_copy).sum(-2)
             if reduce_inv_quad:
